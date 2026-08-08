@@ -167,7 +167,15 @@ rationale: >
   looked equivalent and was not: it made three reads of three different files, and a retry
   loop, indistinguishable from one call, which blinded loop_guard. The fingerprint now
   carries the surface's own tool_use_id, and the cache is used only when there is one.
-  Caught by the adversarial suite, not by review.
+  Amended 2026-08-08: this shipped with the opposite outcome to the one recorded here. The
+  dispatcher's fingerprint was correct for the verdict cache and wrong for loop_guard's
+  repeat counter, which was reading the same value — so every repeat carried a distinct
+  tool_use_id, the count was always one, and the rule never fired on the only surface
+  marked proven. The counter now keys on the signature; the cache still keys on the
+  identifier. And the suite did not catch it: the loop payload was built without a
+  tool_use_id, which no real surface sends, so a green suite reported a dead control for as
+  long as the fixture stayed unrealistic. Test-first would not have helped. The fixture was
+  written before the guard and it was already wrong.
 ```
 
 ```yaml
@@ -284,6 +292,60 @@ justification: >
   doctor's coverage line reads it.
 follow_up: Wire the post-execute hook in the OpenCode plugin, or keep the note. Cover the
   could-not-evaluate branch the next time doctor is edited for another reason.
+```
+
+```yaml
+id: R-001-08
+finding: no-guard-that-a-plan-item-claimed-done-is-done
+severity: low
+accepted_by: the maintainer
+accepted: 2026-08-08
+expires: 2027-08-08
+renewals: 0
+justification: >
+  A plan's build order stays four-field prose bullets — file, check, rollback, done when —
+  and no gate reads a tick. A "- [x]" is one bit, written by the same agent that wrote the
+  work, in the same commit, and the cheapest way to satisfy any gate that reads it is one
+  keystroke in a markdown file. So a guard on it would deny work whose only remediation is
+  to lie, which is worse than no guard. Whether an item is genuinely done does not always
+  resolve the same way, so under rule 12 it stays a prompt and this is the sentence. What
+  was buildable was built instead, and it was a different control: the plan that opens
+  design_gate now has to belong to the branch it opens, because the glob it replaces was
+  satisfied by any plan.md ever written and had therefore been inert in this repository
+  since 001 landed. The bullet also carries a runnable command where a box carries a bit.
+follow_up: Revisit when a plan item is claimed done, the claim is false, and the falsehood
+  was visible in the plan text alone rather than in the diff.
+```
+
+```yaml
+id: R-001-09
+finding: no-tdd-order-guard-no-coverage-target-and-no-mutation-gate
+severity: medium
+accepted_by: the maintainer
+accepted: 2026-08-08
+expires: 2026-11-08
+renewals: 0
+justification: >
+  Three refusals, one acceptance, because they share a reason. Test-first across agents
+  cannot be checked here: this estate squash-merges, so the test and the implementation
+  land in one commit and the authoring order is not in the history at all, and a test
+  written for behaviour that already exists passes against the parent by construction — so
+  the check and the work are mutually exclusive. It stays a prompt, and the substitute is
+  named: a fixture that carries the fields the real surface sends. The loop_guard case was
+  written before its guard shipped and the guard was still dead, because the payload was
+  one no surface delivers; ordering was not the property that was missing. On the number:
+  the gate is 35% branch coverage measured with the subprocess patch, not 80% line
+  coverage. The 17% this started from was a measurement error — the fourteen-case suite
+  fires every guard through a subprocess and contributed nothing to the total — and fixing
+  the measurement moved it to 36% with no test written. Eighty per cent of these lines is
+  reachable only by characterising straight-line file writers, and the evidence against
+  buying that is in this commit: three live bypasses were found in code measured at 81 to
+  96 per cent. On mutation testing: we did not evaluate it. Saying that is the honest state,
+  and asserting a version-specific limitation nobody ran is the failure this product cures.
+follow_up: Raise the floor in a commit that states the arithmetic, the same discipline as
+  the line ceiling. Evaluate a mutation run when a module is over 90% branch coverage and a
+  guard's deny path changes twice without a test going red — scoped to that module, nightly,
+  zero survivors, never inside `just check`.
 ```
 
 ```yaml
