@@ -17,6 +17,9 @@ import sys
 from pathlib import Path
 
 RAN = re.compile(r"^RAN\s+([\w.-]+)=(\d+)\s*$", re.M)
+# Reading only the lines that are present cannot tell a gate that ran from a gate that
+# was deleted: both print nothing about the missing one. Naming them is what closes it.
+REQUIRED = ("lint", "tests", "suite")
 # This check only ever runs on this repository — it is not in the wheel and does not reach
 # a user's. So it covers the two manifests that can appear here, and no more.
 MANIFESTS = {
@@ -56,6 +59,9 @@ def main(log: Path, root: Path) -> int:
     for name, number in counts.items():
         if number < 1:
             die(f"RAN {name}={number}: it ran over zero items, which is not a pass.")
+    absent = [name for name in REQUIRED if name not in counts]
+    if absent:
+        die(f"nothing reported {', '.join(absent)}. A deleted gate prints no line at all.")
 
     shipped = (root / "src" / "ai_engineering" / "skeletons.py").read_text(errors="replace")
     for lie in ("RAN tests=0", "git ls-files | wc -l"):

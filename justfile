@@ -6,6 +6,7 @@
 ruff := "ruff==0.16.2"
 pytest := "pytest==9.1.1"
 semgrep := "semgrep==1.172.0"
+coverage := "coverage==7.15.4"
 
 build:
     uv build
@@ -16,17 +17,31 @@ lint:
 
 test:
     uv run --with {{pytest}} pytest -q
-    uv run python tests/adversarial/run.py
 
 security:
     gitleaks dir . --redact --no-banner --exit-code 1
     uv run --with {{semgrep}} semgrep scan --config policy/semgrep.yml --error --quiet
     trivy fs --scanners vuln,license,misconfig --exit-code 1 --severity CRITICAL,HIGH,MEDIUM .
 
+# Its own recipe, and not folded into `test`: instrumenting the interpreter adds startup
+# cost to every subprocess, and the dispatcher latency assertion is a security property
+# measured in milliseconds. Deselecting it here is the only relaxation allowed — moving
+# the floor down instead is the thing this recipe exists to make impossible.
+cover:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export COVERAGE_FILE="$PWD/.coverage"
+    rm -f "$COVERAGE_FILE"*
+    uv run --with {{coverage}} --with {{pytest}} coverage run --parallel -m pytest -q -k "not fast_enough"
+    uv run --with {{coverage}} coverage run --parallel tests/adversarial/run.py
+    uv run --with {{coverage}} coverage combine
+    uv run --with {{coverage}} coverage report --fail-under=35
+
 # The counts come from the tools themselves: a file list prints the same number whether
 # the linter ran or was replaced by `true`, which is the theatre this contract catches.
+# So each number is one a tool can only print by having read the files it counts.
 counts:
-    @echo "RAN lint=$(uv run --with {{ruff}} ruff check . --show-files | wc -l | tr -d ' ')"
+    @echo "RAN lint=$(uv run --with {{ruff}} ruff format --check . | grep -oE '^[0-9]+')"
     @echo "RAN tests=$(uv run --with {{pytest}} pytest -q --collect-only 2>/dev/null | grep -cE '::')"
 
-check: build lint test security counts
+check: build lint test cover security counts

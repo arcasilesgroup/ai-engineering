@@ -43,6 +43,15 @@ packages = ["src/ai_engineering"]
 [tool.hatch.build.targets.sdist]
 include = ["src", "hooks", "surfaces", "git-hooks", "policy", "migrations", ".agents", "tests"]
 
+[tool.coverage.run]
+# The guards run by path in a subprocess, so without patch the suite that fires every one
+# of them counts for nothing and the reported number is half the truth. Branch, not line:
+# a deny path is a branch, and a line count says only that the file was imported.
+branch = true
+parallel = true
+patch = ["subprocess", "_exit", "execv"]
+source = ["src", "hooks"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

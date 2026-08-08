@@ -65,5 +65,5 @@ jobs:
         run: |
           curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
-      - name: twelve attacks and a clean control
+      - name: every attack, and a clean control it must not fire on
         run: uv run python tests/adversarial/run.py
