@@ -274,6 +274,7 @@ def project_step(args) -> int:
     # set and gitleaks is absent, so this used to leave a repository that refused every
     # commit and said nothing about it. It observes one thing and claims nothing else:
     # guessing between brew, apt, winget and scoop is four branches no job here executes.
+    waiting = []
     if shutil.which("gitleaks") is None:
         out(
             "   ⚠ gitleaks is not on your PATH. While this repository is managed the "
@@ -281,24 +282,29 @@ def project_step(args) -> int:
             "`brew install gitleaks`,\n     or docs/tools.md for the other platforms. "
             "This installs no binaries."
         )
+        waiting.append("install gitleaks, or every commit here is refused")
 
     # Before the loop, and that ordering is the whole of it: asked afterwards, the disk
     # answers yes for every file this run had just created, and the same screen that
     # reported writing them offers to overwrite them.
     rows = existing(root)
+    files = len(pins) + 1
     for name in OFFERS:
         if not (root / name).exists():
             write_offer(root, name, args)
+            files += 1
             out(f"   {tick} {name} {verb} ({OFFERS[name][0]})")
     picked = choose(rows, args)
     for name in sorted(picked):
         write_offer(root, name, args)
+        files += 1
     left = [name for name, _, _ in rows if name not in picked]
     if left:
         out(
             f"   → left as is: {', '.join(left)}. Nothing was written to them and "
             f"nothing recorded that they were skipped."
         )
+        waiting.append(f"{len(left)} of your own files were left alone: {', '.join(left)}")
 
     found = stacks(root)
     if found:
@@ -312,7 +318,27 @@ def project_step(args) -> int:
             f"   {line}" for line in skeletons.CHECK_YML.format(version=__version__).splitlines()
         )
     )
+    report(files, waiting, args)
     return 0
+
+
+def report(files: int, waiting: list[str], args) -> None:
+    """The last screen, and the only thing the version people remember as nicer actually
+    had that this one did not. That one asked one question and this asks three, so what
+    was being missed was never the picker: it was a panel saying how many files were
+    written, how many guard entries were placed, what is still on a person, and what to
+    run next. This ended by pasting a block of YAML at the reader and stopping."""
+    _, verb = marks(args)
+    guards = sum(1 for row in wiring.receipt().get("wrote", []) if row["kind"] == "guard")
+    out(f"\n◇ Done   {files} files {verb} · {guards} guard entries on this machine")
+    for item in waiting:
+        out(f"   ⚠ still on you: {item}")
+    out("\n   Next:")
+    out("     1. The skeletons carry TODO: markers on purpose. `ai-eng doctor` fails while")
+    out("        CONSTITUTION.md still has them — that is the design, not a broken install.")
+    out("     2. `ai-eng doctor` — every assertion, and the coverage line under it.")
+    out("     3. Paste the block above into .github/workflows/check.yml and push it.")
+    out("     4. `ai-eng spec new <slug>` — the first spec, and the chain starts there.")
 
 
 def main(argv: list[str]) -> int:

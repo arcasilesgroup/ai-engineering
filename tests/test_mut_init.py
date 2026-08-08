@@ -727,6 +727,44 @@ def test_a_dry_run_over_an_empty_repository_prints_the_checklist_it_promises(
         assert f"   · {name} would be created ({becomes})\n" in text
 
 
+def test_the_last_screen_says_what_happened_and_what_to_run_next(repo, capsys, no_keyboard):
+    """The run used to end by pasting a block of YAML at the reader. A stranger who reads
+    only the last screen now knows how many files were written, how many guard entries
+    exist, and what to do — starting with the fact that the skeleton's TODO: markers are
+    deliberate, because the alternative is pasting the CI block and watching a first build
+    go red for a reason nobody named."""
+    init.main(["--no-global", "--project", str(repo), "-y"])
+    text = capsys.readouterr().out
+    assert "\n◇ Done   7 files written · 0 guard entries on this machine\n" in text
+    assert "     1. The skeletons carry TODO: markers on purpose." in text
+    assert "`ai-eng spec new <slug>`" in text
+    # The YAML stays, above the report rather than as the final word.
+    assert text.index("Paste these lines") < text.index("◇ Done")
+
+
+def test_the_last_screen_counts_the_guard_entries_that_are_actually_there(
+    repo, home, capsys, no_keyboard
+):
+    """Two numbers, and neither of them is a constant. The guard count comes from the
+    receipt, which is the only record of what the machine half placed."""
+    init.main(["--global", "--harness", "claude-code", "--project", str(repo), "-y"])
+    assert "guard entries on this machine\n" in capsys.readouterr().out.split("\n◇ Done   ")[1]
+    assert sum(1 for row in wiring.receipt()["wrote"] if row["kind"] == "guard") == 1, (
+        "one surface was named, so one entry"
+    )
+
+
+def test_what_is_still_on_a_person_reaches_the_last_screen(repo, capsys, no_keyboard, monkeypatch):
+    """The inline warnings scroll away. A closing panel that omits them is the same
+    silence one screen later."""
+    monkeypatch.setattr(init.shutil, "which", lambda name: None)
+    (repo / "justfile").write_text("mine\n", encoding="utf-8")
+    init.project_step(init.parse(["--project", str(repo), "-y"]))
+    text = capsys.readouterr().out.split("\n◇ Done   ")[1]
+    assert "   ⚠ still on you: install gitleaks, or every commit here is refused\n" in text
+    assert "   ⚠ still on you: 1 of your own files were left alone: justfile\n" in text
+
+
 # ── main ────────────────────────────────────────────────────────────────────────────
 
 
