@@ -9,7 +9,7 @@ description = "Governance framework for agents that write code."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
-authors = [{ name = "Arcasiles" }]
+authors = [{ name = "Arcasiles Group" }]
 keywords = ["agents", "governance", "hooks", "guardrails", "audit"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -19,7 +19,17 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Quality Assurance",
 ]
-dependencies = []
+# The first two this wheel has ever had, and the bounds are the ones the version before it
+# shipped. They buy a theme, a width calculation that is right on east-asian text, and a
+# checkbox — all three of which the alternative was writing again. They may be imported only
+# under src/: the guards in hooks/ are executed by path on the hot path, where importing this
+# package at all costs about 110 ms, and tests/test_contracts.py fails the build if one of
+# them ever appears there. Five more arrive behind these two, and trivy, pip-audit and snyk
+# are what stand between that and a governance tool with an advisory of its own.
+dependencies = [
+  "rich>=13.0,<16.0",
+  "questionary>=2.0,<3.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/arcasilesgroup/ai-engineering"

@@ -7,6 +7,7 @@ one appears once more here, where it has an exit code.
 
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 import sys
@@ -39,6 +40,48 @@ def test_every_hook_is_classified_and_blocking_events_are_guards():
                 )
             if name in chain.TELEMETRY:
                 assert kind == "telemetry", f"{name} is listed as telemetry and is a guard"
+
+
+def foreign_imports(folder: Path) -> list[str]:
+    """Every import in every file of a folder that is neither the standard library nor a
+    sibling in that same folder."""
+    siblings = {path.stem for path in folder.glob("*.py")}
+    stray = []
+    for path in sorted(folder.glob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and not node.level:
+                names = [node.module or ""]
+            else:
+                continue
+            for name in names:
+                root = name.split(".")[0]
+                if root and root not in sys.stdlib_module_names and root not in siblings:
+                    stray.append(f"{path.name} imports {name}")
+    return stray
+
+
+def test_no_hook_imports_anything_that_is_not_the_standard_library(tmp_path):
+    """The wheel has runtime dependencies now, and the guards may never see one.
+
+    Every hook is executed by path, on the hot path of every tool call, and importing this
+    package there costs about 110 ms — which is the whole reason `hooks/` does not import
+    `ai_engineering` and is stated as a contract in AGENTS.md. A third-party import is that
+    cost plus a way for one broken wheel to turn a blocking guard into a traceback, on the
+    machine that needs the guard most. This is that sentence, as an exit code.
+
+    The planted file comes first, because a scanner that finds nothing and a scanner that
+    looks at nothing print the same result."""
+    (tmp_path / "planted.py").write_text("import rich\nfrom questionary import checkbox\n")
+    assert foreign_imports(tmp_path) == [
+        "planted.py imports rich",
+        "planted.py imports questionary",
+    ]
+    assert not foreign_imports(paths.hooks()), (
+        "a guard reached outside the standard library. It runs before this package is "
+        "importable and on a machine where the wheel may be half-installed."
+    )
 
 
 def test_no_guard_exits_zero_without_deciding():
