@@ -79,7 +79,11 @@ def test_every_writer_points_at_a_live_dispatcher_and_never_writes_a_tilde(write
     wiring.WRITERS[writer](target)
     blob = target.read_text(encoding="utf-8")
 
-    assert wiring.MARK in blob, f"{writer} wrote an entry nothing can recognise as ours"
+    # By what ours() answers, not by the literal string it happens to look for. Asserting
+    # MARK is in the text asserts an implementation, and that implementation was wrong: the
+    # only place MARK appeared was the install path, so this assertion passed on a machine
+    # whose checkout is spelled ai-engineering and would have failed on every other one.
+    assert wiring.ours(blob), f"{writer} wrote an entry nothing recognises as ours"
     assert "~" not in blob, f"{writer} wrote a tilde, which saves fine and fires nothing"
     assert "__" not in blob, f"{writer} left a placeholder unreplaced"
     assert sys.executable in blob, f"{writer} did not name the interpreter it was installed by"
@@ -103,13 +107,6 @@ def test_installing_twice_leaves_one_entry(writer, home, tmp_path):
     )
 
 
-@pytest.mark.xfail(
-    reason="ours() looks for the literal 'ai-engineering' in the entry, but a wheel installs "
-    "the dispatcher under ai_engineering (underscore). Where the interpreter path does not "
-    "spell the hyphenated name either — pip into a plain venv — nothing recognises our own "
-    "entry, so every install appends another one and uninstall removes none.",
-    strict=True,
-)
 def test_installing_twice_leaves_one_entry_when_no_path_spells_the_mark(
     home, tmp_path, monkeypatch
 ):
@@ -203,7 +200,8 @@ def test_a_second_machine_install_leaves_one_receipt_row_per_thing_written(home,
         init.main(["--global", "-y", "--project", str(not_a_repo)])
     assert sorted(path.name for path in (paths.home() / "skills").glob("ai-*")) == names
     assert sorted(path.name for path in (home / ".claude" / "skills").glob("ai-*")) == names
-    assert wiring.MARK in (home / ".claude" / "settings.json").read_text(encoding="utf-8")
+    settings = (home / ".claude" / "settings.json").read_text(encoding="utf-8")
+    assert wiring.ours(settings), "the machine half wrote an entry nothing recognises as ours"
     rows = wiring.receipt()["wrote"]
     assert len(rows) == len({(row["path"], row["kind"]) for row in rows})
     assert {"path": "~/.claude/settings.json", "kind": "guard", "how": "json_claude"} in rows

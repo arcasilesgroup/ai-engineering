@@ -115,13 +115,16 @@ def loop(tmp: Path) -> bool:
     payload = {"tool_name": "Read", "tool_input": {"file_path": str(tmp / "same.txt")}}
     # Every call carries its own tool_use_id, which is what a real surface sends and what
     # this fixture omitted for as long as the guard was dead. Exact codes, not "2 is in
-    # there somewhere": otherwise the threshold moves and nothing says so.
+    # there somewhere": otherwise the threshold moves and nothing says so. And cwd is the
+    # throwaway directory, not this repository, or the guard reads our own config.toml and
+    # the shipped default never runs — which is the default every user without a config gets.
     codes = [
         subprocess.run(
             [sys.executable, str(HOOKS / "chain.py"), "PreToolUse"],
             input=json.dumps({**payload, "tool_use_id": f"toolu_{index}"}),
             text=True,
             capture_output=True,
+            cwd=str(tmp),
             env={**os.environ, "AI_ENG_SESSION": session},
         ).returncode
         for index in range(4)
@@ -188,7 +191,10 @@ def pushed_secret(tmp: Path) -> bool:
 def exhausted_retries(tmp: Path) -> bool:
     session = f"retry-{time.time_ns()}"
     env = {**os.environ, "AI_ENG_SESSION": session}
-    for index in range(6):
+    # Exactly the cap, not one past it. Six failures deny whether the wall is five or six,
+    # so a suite that sends six can never tell you the number moved. And cwd is the
+    # throwaway directory, so the shipped default is what answers rather than our config.
+    for index in range(5):
         subprocess.run(
             [sys.executable, str(HOOKS / "chain.py"), "PostToolUse"],
             input=json.dumps(
@@ -200,6 +206,7 @@ def exhausted_retries(tmp: Path) -> bool:
             ),
             text=True,
             capture_output=True,
+            cwd=str(tmp),
             env=env,
         )
     done = subprocess.run(
@@ -207,6 +214,7 @@ def exhausted_retries(tmp: Path) -> bool:
         input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "pytest -k case9"}}),
         text=True,
         capture_output=True,
+        cwd=str(tmp),
         env=env,
     )
     return done.returncode == 2

@@ -61,7 +61,14 @@ def write_json(path: Path, data: dict) -> None:
 
 
 def ours(entry) -> bool:
-    return MARK in json.dumps(entry)
+    """Ours by what it runs, not by where it happens to live. This matched MARK inside the
+    serialised entry, and the only place MARK appeared was the interpreter's own path — so
+    it answered yes on a machine whose install directory is spelled `ai-engineering` and no
+    everywhere else. Where it answers no, init stops recognising its own entry and writes a
+    second one, which is a blocking guard firing twice, and uninstall removes nothing at all.
+    The dispatcher's own filename is the thing we control."""
+    body = json.dumps(entry)
+    return MARK in body or "chain.py" in body
 
 
 def json_claude(path: Path) -> str:

@@ -67,3 +67,21 @@ jobs:
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
       - name: every attack, and a clean control it must not fire on
         run: uv run python tests/adversarial/run.py
+
+  # Its own job, not a step inside check: it costs about ten minutes, and a gate people
+  # stop running because it is slow is a gate that is not running. It still runs on every
+  # push, which is the point — a test that stopped being able to fail is invisible to
+  # every other job here.
+  mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+      - uses: extractions/setup-just@v3
+      - name: install gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
+      - name: break it on purpose and fail if nothing notices
+        run: just mutate

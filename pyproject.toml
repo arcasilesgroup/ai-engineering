@@ -43,6 +43,27 @@ packages = ["src/ai_engineering"]
 [tool.hatch.build.targets.sdist]
 include = ["src", "hooks", "surfaces", "git-hooks", "policy", "migrations", ".agents", "tests"]
 
+[tool.mutmut]
+# Only the package. mutmut runs the suite inside a `mutants/` copy and keys each mutant on
+# the module path it imports under, and the guards are imported bare because they are
+# executed by path and never as a package — that is the 110 ms this product refuses to
+# spend on its own hot path. mutmut says so itself: "tests import the source under a
+# different module path than mutmut sees". Making hooks/ a package to satisfy a test tool
+# would slow every tool call in every session, so the guards get tests/mutation.py instead.
+source_paths = ["src/ai_engineering"]
+# The sandbox holds only source and tests, and this suite reads files: the skills, the
+# wiring table, the git hooks, the doctrine. Without these the baseline run is red and
+# mutmut reports nothing rather than reporting a survivor.
+also_copy = [".agents", ".github", "docs", "git-hooks", "hooks", "migrations", "policy",
+             "specs", "surfaces", "AGENTS.md", "CLAUDE.md", "CONSTITUTION.md", "LICENSE",
+             "NOTICE", "README.md", "SECURITY.md", "justfile"]
+# test_contracts.py is left out on purpose and not because it is inconvenient: it asserts
+# the repository's own shape — the line ceiling, the doctrine's length, the skill contract
+# — which no mutant of the product can change, and it counts lines with `git ls-files`,
+# which the sandbox has no .git to answer.
+pytest_add_cli_args_test_selection = ["tests/test_record.py", "tests/test_install.py",
+                                      "tests/test_doctor.py", "tests/test_hooks.py"]
+
 [tool.coverage.run]
 # The guards run by path in a subprocess, so without patch the suite that fires every one
 # of them counts for nothing and the reported number is half the truth. Branch, not line:
