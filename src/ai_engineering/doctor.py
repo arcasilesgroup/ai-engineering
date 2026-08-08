@@ -43,6 +43,18 @@ FAMILIES = (
 )
 
 
+# What the last word of a coverage line means, as a colour. UNPROVEN is not a failure and
+# it is not a pass either, which is the entire point of the line, so it reads as the same
+# warning as INERT rather than as red.
+COLOURS = {
+    "BLOCKS": "ok",
+    "INERT": "warn",
+    "/hooks": "warn",
+    "UNPROVEN": "warn",
+    "ADVISES": "muted",
+}
+
+
 def families() -> list[str]:
     """Every family that has a check, in the declared order, with anything unlisted last
     rather than dropped. A printer that silently omits a section is worse than one that
@@ -529,31 +541,33 @@ def main(argv: list[str]) -> int:
 
     failed = skipped = 0
     for family in families():
-        ui.write(f"\n{family}", data=True)
+        ui.section(family, data=True)
         for number, group, title, in_ci, fn in sorted(CHECKS):
             if group != family:
                 continue
             if args.ci and not in_ci:
-                ui.write(f"  {number:>2}  SKIPPED  {title} — needs a real working copy", data=True)
+                ui.verdict(number, "skipped", f"{title} — needs a real working copy")
                 skipped += 1
                 continue
             try:
                 problem = fn(root)
             except Undecidable as why:
-                ui.write(
-                    f"  {number:>2}  ?        {title}\n      could not evaluate: {why}", data=True
-                )
+                ui.verdict(number, "unknown", title, f"could not evaluate: {why}")
                 skipped += 1
                 continue
             if problem:
-                ui.write(f"  {number:>2}  FAIL     {title}\n      {problem}", data=True)
+                ui.verdict(number, "fail", title, problem)
                 failed += 1
             else:
-                ui.write(f"  {number:>2}  ok       {title}", data=True)
+                ui.verdict(number, "ok", title)
 
     ui.write("\nCoverage — what actually blocks, by surface", data=True)
     for line in coverage(root):
-        ui.write(line, data=True)
+        # The verdict is the last word of the line and the words themselves are vocabulary
+        # — BLOCKS, INERT, UNPROVEN, ADVISES mean something and do not move. Only the
+        # colour is added, and it is chosen by the word rather than recomputed here, so
+        # this can never disagree with what the line says.
+        ui.write(line, style=COLOURS.get(line.rsplit(" ", 1)[-1], ""), data=True)
     ui.write(
         f"\n{len(CHECKS) - failed - skipped} passed · {failed} failed · {skipped} not evaluated",
         data=True,

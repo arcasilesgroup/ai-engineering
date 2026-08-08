@@ -118,6 +118,27 @@ def step(state: str, name: str, detail: str = "") -> None:
     console().print(line, soft_wrap=True)
 
 
+VERDICTS = {
+    "ok": ("ok      ", "ok"),
+    "fail": ("FAIL    ", "fail"),
+    "unknown": ("?       ", "unknown"),
+    "skipped": ("SKIPPED ", "muted"),
+}
+
+
+def verdict(number: int, state: str, title: str, detail: str = "") -> None:
+    """One of doctor's twenty-one lines. The state carries the colour, so the five failures
+    in a run of twenty-one stop being typographically identical to the thirteen passes —
+    which is the whole reason a person runs the command."""
+    word, style = VERDICTS[state]
+    line = Text(f"  {number:>2}  ")
+    line.append(word, style=style)
+    line.append(f" {title}")
+    console(data=True).print(line, soft_wrap=True)
+    if detail:
+        console(data=True).print(Text(f"      {detail}", style="muted"), soft_wrap=True)
+
+
 def note(text: str, style: str = "muted") -> None:
     """A continuation under the step it belongs to, indented past the mark."""
     for row in text.splitlines():
