@@ -319,7 +319,7 @@ follow_up: Revisit when a plan item is claimed done, the claim is false, and the
 
 ```yaml
 id: R-001-09
-finding: no-tdd-order-guard-and-no-mutation-gate
+finding: no-tdd-order-guard
 severity: medium
 accepted_by: the maintainer
 accepted: 2026-08-08
@@ -333,10 +333,18 @@ justification: >
   the check and the work are mutually exclusive. It stays a prompt, and the substitute is
   named: a fixture that carries the fields the real surface sends. The loop_guard case was
   written before its guard shipped and the guard was still dead, because the payload was
-  one no surface delivers; ordering was not the property that was missing. On mutation
-  testing: no tool was evaluated and none is installed. Saying that is the honest state, and
-  asserting a version-specific limitation nobody ran is the failure this product cures.
-  Amended the same day, because two thirds of this acceptance did not survive the afternoon.
+  one no surface delivers; ordering was not the property that was missing.
+  Amended the same day, and then again, because only one third of this acceptance survived
+  the afternoon. The mutation refusal is withdrawn outright: `just mutate` runs on every
+  push in its own CI job, mutmut 3.7.0 over the package at a floor of 59% and a fourteen-row
+  runner over the guards, which mutmut cannot import without making hooks/ a package and
+  paying 110 ms on the hot path. Building it found two more defects that nothing else had:
+  mutmut's sandbox lives inside the repository, so the tests escaped it and rewrote this
+  repository's own justfile three times; and relocating the tree showed that wiring.ours()
+  identified our own settings entry by finding the string "ai-engineering" inside a
+  filesystem path, which is true for one install shape and false for every other — where it
+  is false, init appends a second blocking guard on every run and uninstall removes nothing.
+  Three tests were green here only because this checkout is named ai-engineering.worktrees.
   The coverage refusal is withdrawn: the operator read the argument and asked for 80%
   anyway, which is his to decide, and the outcome says the argument was half wrong. The
   17% was a measurement error, and fixing the measurement alone moved it to 36% with no
@@ -348,11 +356,13 @@ justification: >
   the first pass and twelve more after the tests were strengthened. It is not a gate and it
   is not scheduled — it was a one-off pass whose finding is that boundaries and constants
   are where tests stop being able to fail.
-follow_up: Raise the floor in a commit that states the arithmetic, the same discipline as
-  the line ceiling. The ceiling is now 8,441 and the test plane is larger than the product:
-  the next commit that needs lines deletes a test that kills no mutant. Seven strict xfail
-  markers name seven live defects — each one is a commit, and the marker turns red the day
-  it is fixed without being removed.
+follow_up: Raise both floors in a commit that states the arithmetic, the same discipline as
+  the line ceiling. The test plane is larger than the product, and the next commit that needs
+  lines deletes a test that kills no mutant — `just mutate` now says which those are, which
+  is the only reason that sentence is actionable rather than a wish. Six strict xfail markers
+  name six live defects; each one is a commit, and the marker turns red the day it is fixed
+  without being removed. And 1,310 mutants are still alive in the package: that number, not
+  the 95%, is what is left to do.
 ```
 
 ```yaml
