@@ -69,12 +69,12 @@ note = "preToolUse of the command kind. Merged with five other sources, never re
 id = "vscode-copilot"
 name = "VS Code Copilot"
 tier = "T2"
-detect = "~/.claude/settings.json"
+detect = ""
 settings = "~/.claude/settings.json"
 writer = "none"
 skills = "~/.agents/skills"
 proven = false
-note = "Reads the same settings file as Claude Code, so it needs zero wiring. Preview: it parses matchers then ignores them, and sends camelCase payload keys. The dispatcher normalises both."
+note = "Reads the same settings file as Claude Code, so it needs zero wiring. Detected by nothing: its old detect path was that settings file, which our own Claude Code writer creates, so wiring Claude Code made this row report itself installed. VS Code's own user directory is not one path across platforms, so this row is wired by name — `--harness vscode-copilot` — or not at all. Preview: it parses matchers then ignores them, and sends camelCase payload keys. The dispatcher normalises both."
 
 [[surface]]
 id = "pi"
@@ -91,12 +91,12 @@ note = "Has a hook API. Not measured this round, so it claims nothing."
 id = "zed"
 name = "Zed"
 tier = "T3"
-detect = "~/.agents"
+detect = "~/.config/zed"
 settings = ""
 writer = "none"
 skills = "~/.agents/skills"
 proven = false
-note = "Free by convention, zero lines."
+note = "Free by convention, zero lines. Detected by its own settings directory and not by ~/.agents, which is the shared skills root four other rows are linked into: wiring Cursor created it, and this row then reported Zed installed on a machine that has never had Zed. On Windows Zed keeps that directory elsewhere, so there it is wired by name."
 
 # Anything else that reads AGENTS.md gets the doctrine and the skills through
 # ~/.agents/skills and enforces nothing above the git layer. That is T3, and it is

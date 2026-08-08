@@ -87,7 +87,12 @@ def global_step(args) -> None:
     found = wiring.detect(only)
     out("\n◇ Global")
     for surface in wiring.table()["surface"]:
-        mark = "found" if surface in found else "not installed — skipped"
+        if surface in found:
+            mark = "found"
+        else:
+            # A row with no detect path is not absent, it is unanswerable: the only
+            # candidate was a file we write ourselves, so it is wired on your word.
+            mark = "not installed — skipped" if surface["detect"] else "wired by name only"
         out(f"   {surface['name']:<18} {surface['detect'] or '—':<26} {mark}")
     out(
         f"\n   Writes 8 skills into {paths.home() / 'skills'}, symlinks from the roots above,\n"

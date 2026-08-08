@@ -67,6 +67,42 @@ def test_no_hook_exists_outside_the_dispatcher_table():
     )
 
 
+def test_no_surface_is_detected_by_a_path_another_surface_makes_us_write():
+    """ADR 0001 as an exit code. A row's detect path is what says "this tool is installed
+    here", so it must not be a directory this installer creates while wiring some *other*
+    row — or one run manufactures the evidence the next run's detector reads, and doctor
+    goes red for a surface nobody ever had.
+
+    Its own write sites are exempt, and only because install_skills and install_guards
+    write into a surface's tree only once that surface has been found. Delete that and
+    this exemption becomes a hole; the test beside it in tests/test_mut_init.py is what
+    holds it shut."""
+    from ai_engineering import wiring
+
+    rows = wiring.table()["surface"]
+    writes: dict[str, set[str]] = {}
+    for row in rows:
+        for site in (row.get("skills"), row["settings"] if row["writer"] != "none" else ""):
+            if site:
+                writes.setdefault(site, set()).add(row["id"])
+    bad = [
+        f"{row['id']} is detected by {row['detect']}, which wiring {sorted(owners - {row['id']})} "
+        f"creates ({site})"
+        for row in rows
+        if row["detect"]
+        for site, owners in writes.items()
+        if owners != {row["id"]}
+        and (
+            wiring.expand(site) == wiring.expand(row["detect"])
+            or wiring.expand(row["detect"]) in wiring.expand(site).parents
+        )
+    ]
+    assert not bad, (
+        "\n".join(bad) + "\nA surface has to be detected by a path we never create. "
+        "Where there is no such path the row is detected by nothing and wired by name."
+    )
+
+
 def test_every_skill_meets_the_contract():
     block = 'name: a\ndescription: >-\n  one\n  two\nlicense: "MIT"\n'
     assert text.flat_yaml(block) == {"name": "a", "description": "one two", "license": "MIT"}

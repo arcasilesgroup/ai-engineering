@@ -254,9 +254,12 @@ def test_the_dry_run_surveys_every_surface_marks_the_found_one_and_writes_nothin
     init.global_step(init.parse(["--global", "--dry-run"]))
     text = capsys.readouterr().out
     marks = survey(text)
-    assert len(marks) == len(wiring.table()["surface"])
+    assert len(marks) == len([s for s in wiring.table()["surface"] if s["detect"]])
     assert marks["~/.claude"] == "found"
     assert marks["~/.codex"] == "not installed — skipped"
+    # The one row with no detect path of its own. "not installed" would be a claim, and
+    # nothing here is in a position to make it.
+    assert "   VS Code Copilot    —                          wired by name only\n" in text
     assert "\n◇ Global\n" in text
     assert (
         f"   Writes 8 skills into {paths.home() / 'skills'}, symlinks from the roots above,"
