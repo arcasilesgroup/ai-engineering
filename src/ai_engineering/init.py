@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -219,10 +220,19 @@ def stacks(root: Path) -> list[str]:
 
 
 def project_step(args) -> int:
-    root = paths.repo_root(Path(args.project or "."))
+    where = Path(args.project or ".").resolve()
+    root = paths.repo_root(where)
     if root is None:
-        out("\n◇ Project   not a git repository — nothing to set up here.")
-        return 0
+        out(f"\n◇ Project   {where}   not a git repository")
+        # A literal False, and not sys.stdin.isatty(): `ask` returns the default under -y,
+        # so a terminal-shaped default would make `cd ~ && ai-eng init -y` create a
+        # repository in whatever directory the person happened to be standing in.
+        if args.dry or not where.is_dir() or not ask("Run `git init` here?", False, args):
+            out("   → skipped. There is nothing to set up outside a repository.")
+            return 0
+        subprocess.run(["git", "-C", str(where), "init", "-b", "main"], check=True, timeout=10)
+        out(f"   ✓ git init   → {where}")
+        root = paths.repo_root(where) or where
     pinned = root / ".ai" / "config.toml"
     if pinned.exists() and args.project is None:
         out(

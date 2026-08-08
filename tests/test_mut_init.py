@@ -432,15 +432,45 @@ def test_an_empty_list_asks_nothing_at_all(tty, no_keyboard, capsys):
 # ── project_step ────────────────────────────────────────────────────────────────────
 
 
-def test_outside_a_git_repository_it_says_so_and_succeeds(tmp_path, home, capsys):
+def test_outside_a_git_repository_dash_y_creates_nothing_and_succeeds(tmp_path, home, capsys):
     """Catches a plain directory being treated as a failure, which would break `ai-eng
-    init` for somebody who only wanted the machine set up."""
+    init` for somebody who only wanted the machine set up — and catches the git init offer
+    defaulting to yes under -y, which would create a repository in whatever directory the
+    person happened to be standing in."""
     plain = tmp_path / "plain"
     plain.mkdir()
-    args = init.parse(["--project", str(plain)])
-    assert init.project_step(args) == 0
+    assert init.project_step(init.parse(["--project", str(plain), "-y"])) == 0
     assert capsys.readouterr().out == (
-        "\n◇ Project   not a git repository — nothing to set up here.\n"
+        f"\n◇ Project   {plain}   not a git repository\n"
+        "   → skipped. There is nothing to set up outside a repository.\n"
+    )
+    assert not (plain / ".git").exists()
+
+
+def test_a_directory_that_is_not_a_repository_is_offered_one(tmp_path, home, tty, typed, capsys):
+    """Before this the installer printed one line and stopped, in the one place a person
+    is most likely to be starting from nothing. The default is still no, and the question
+    is only asked at a keyboard."""
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    typed.replies.append("y")
+    assert init.project_step(init.parse(["--project", str(plain)])) == 0
+    assert typed.prompts[0] == "◆ Run `git init` here? (y/N) › "
+    assert (plain / ".git").is_dir()
+    assert f"   ✓ git init   → {plain}\n" in capsys.readouterr().out
+    assert (plain / ".ai" / "config.toml").exists()
+
+
+def test_pressing_enter_at_the_git_init_offer_creates_nothing(tmp_path, home, tty, typed, capsys):
+    """Every default in this installer destroys nothing, and creating a repository in
+    somebody's home directory because they pressed Enter is the version of that which
+    cannot be undone by reading a backup."""
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    assert init.project_step(init.parse(["--project", str(plain)])) == 0
+    assert not (plain / ".git").exists()
+    assert "   → skipped. There is nothing to set up outside a repository.\n" in (
+        capsys.readouterr().out
     )
 
 
