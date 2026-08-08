@@ -99,7 +99,7 @@ def global_step(args) -> None:
         out("   → skipped.")
         return
 
-    written = wiring.install_skills()
+    written = wiring.install_skills(found)
     out(f"   ✓ 8 skills   → {paths.home() / 'skills'}/ai-*/")
     for row in written[1:]:
         out(f"   ✓ {row['how']:<8} → {row['path']}")

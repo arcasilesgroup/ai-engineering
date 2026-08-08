@@ -300,7 +300,9 @@ def test_the_machine_setup_reports_the_skills_every_link_and_each_guard_entry(
     init.global_step(init.parse(["--global", "-y"]))
     text = capsys.readouterr().out
     assert f"   ✓ 8 skills   → {paths.home() / 'skills'}/ai-*/\n" in text
-    for root in sorted({s["skills"] for s in wiring.table()["surface"] if s.get("skills")}):
+    found = {s["skills"] for s in wiring.detect() if s.get("skills")}
+    assert found == {"~/.claude/skills", "~/.agents/skills"}
+    for root in sorted(found):
         assert f"→ {wiring.expand(root)}\n" in text
     assert "   ✓ guards     → ~/.claude/settings.json (merged)\n" in text
     # The warning has to sit under the entry it is about. Under any other entry it reads
@@ -311,6 +313,21 @@ def test_the_machine_setup_reports_the_skills_every_link_and_each_guard_entry(
         "     `doctor` reports it as INERT until then.\n"
     ) in text
     assert f"   ✓ receipt    → {wiring.receipt_path()}\n" in text
+
+
+def test_only_the_surfaces_that_were_found_get_a_skills_root(home, capsys, no_keyboard):
+    """Linking creates the parent of a skills root, so linking into all eight put
+    ~/.config/opencode, ~/.pi and ~/.agents on a machine that had none of them — and those
+    are the paths the next run's detector reads. One init made the next init find OpenCode
+    on a machine that has never had OpenCode, and write a plugin there."""
+    init.global_step(init.parse(["--global", "--harness", "claude-code", "-y"]))
+    assert (home / ".claude" / "skills").is_dir()
+    assert not (home / ".agents").exists()
+    assert not (home / ".pi").exists()
+    assert not (home / ".config").exists()
+    assert [row["path"] for row in wiring.receipt()["wrote"] if row["kind"] == "link"] == [
+        str(home / ".claude" / "skills")
+    ]
 
 
 # ── choose ──────────────────────────────────────────────────────────────────────────

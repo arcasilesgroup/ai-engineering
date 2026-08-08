@@ -39,11 +39,15 @@ def command(event: str) -> str:
 
 
 def detect(only: list[str] | None = None) -> list[dict]:
+    """A surface is found when the path it created itself exists. Naming it with
+    `--harness` says it is here on your word instead — which is the only way to wire a
+    surface this table cannot detect, and some cannot be detected without our creating
+    the very evidence the detector reads."""
     found = []
     for surface in table()["surface"]:
         if only and surface["id"] not in only:
             continue
-        if surface["detect"] and expand(surface["detect"]).exists():
+        if only or (surface["detect"] and expand(surface["detect"]).exists()):
             found.append(surface)
     return found
 
@@ -204,13 +208,19 @@ def record(entries: list[dict]) -> None:
     write_json(receipt_path(), data)
 
 
-def install_skills() -> list[dict]:
+def install_skills(surfaces: list[dict] | None = None) -> list[dict]:
+    """Into the roots of the surfaces that were found, and no others. Linking creates the
+    parent of a skills root, so linking into every root in the table put a directory on
+    the machine for each of the eight — and four of those directories are what the next
+    run's detector looks for. The no-argument form still means every root, because
+    `uninstall` and the wiring tests ask about the table rather than about a machine."""
     real = paths.home() / "skills"
     real.mkdir(parents=True, exist_ok=True)
     for skill in sorted(paths.skills().glob("ai-*")):
         shutil.copytree(skill, real / skill.name, dirs_exist_ok=True)
     written = [{"path": str(real), "kind": "skills", "how": "wheel"}]
-    for root in sorted({s["skills"] for s in table()["surface"] if s.get("skills")}):
+    rows = table()["surface"] if surfaces is None else surfaces
+    for root in sorted({s["skills"] for s in rows if s.get("skills")}):
         how = "none"
         for skill in sorted(real.glob("ai-*")):
             how = link(skill, expand(root) / skill.name)
