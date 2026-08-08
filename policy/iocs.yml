@@ -1,0 +1,27 @@
+# The catalogue injection_guard reads. One regular expression per line, matched
+# case-insensitively against text the agent is about to consume - a file it is about to
+# read, a page it has just fetched. Never against text the agent itself wrote: an agent
+# quoting an attack in a commit message is not an attack.
+#
+# Precision is the design constraint. Every false positive here is a person told they
+# may not read their own file, and a guard people learn to bypass is worse than no
+# guard. Patterns are anchored on the shape of an instruction addressed to the model,
+# not on a topic. Security prose is not an attack; a sentence telling the reader to
+# set aside its instructions is.
+
+patterns:
+  - "ignore (all |any )?(previous|prior|above|earlier|preceding) (instructions|prompts|rules|directions)"
+  - "disregard (all |any )?(previous|prior|above|earlier|system) (instructions|prompts|rules)"
+  - "forget (everything|all)( you)?( were)? (told|instructed|asked)"
+  - "you are (now |actually )?(a|an) (different|new|unrestricted|uncensored) (ai|assistant|model)"
+  - "(new|updated|revised) (system )?(prompt|instructions?) *: *"
+  - "</?(system|assistant|human)[ _-]?(prompt|message|instructions?)>"
+  - "\\[\\s*(system|admin|developer)\\s*(override|instruction|note)\\s*\\]"
+  - "(do not|don't|never) (tell|mention|inform|reveal to) the (user|human|operator)"
+  - "without (telling|informing|asking) the (user|human|operator)"
+  - "(print|output|reveal|show|exfiltrate|send) (me )?(your|the) (system prompt|instructions|api[ _-]?key|secret|credentials|\\.env)"
+  - "(read|cat|open) (the )?(~/)?\\.(aws|ssh|config)/[a-z]+ and (send|post|upload|print)"
+  - "curl [^|\\n]*\\| *(bash|sh|zsh)"
+  - "(base64 -d|base64 --decode)[^|\\n]*\\| *(bash|sh|python)"
+  - "when (you|the agent) read(s)? this,? (you must|please) "
+  - "this (message|file|comment) is (for|addressed to) the (ai|agent|assistant|model)"

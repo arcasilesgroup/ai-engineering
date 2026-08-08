@@ -1,0 +1,27 @@
+# Plain language. Rule 9 says explain it so somebody who does not code can follow, and
+# `vale` plus the SKILL.md contract checker read this list.
+#
+# banned: words that carry no information in this repository's writing.
+# prefer: what to say instead of the phrase on the left.
+
+banned:
+  - leverage
+  - utilise
+  - utilize
+  - synergy
+  - robust
+  - seamless
+  - delve
+  - holistic
+  - best-in-class
+  - cutting-edge
+
+prefer:
+  - "make use of -> use"
+  - "in order to -> to"
+  - "at this point in time -> now"
+  - "is able to -> can"
+  - "performs a validation of -> validates"
+  - "it should be noted that -> (delete it)"
+  - "comprehensive -> say what it covers"
+  - "simply -> (delete it; if it were simple you would not be writing this)"

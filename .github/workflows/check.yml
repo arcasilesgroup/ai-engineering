@@ -1,0 +1,69 @@
+name: check
+
+on:
+  push:
+    branches: [main, v1]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITLEAKS_VERSION: "8.30.1"
+  TRIVY_VERSION: "0.58.1"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+      - uses: extractions/setup-just@v3
+
+      # Downloaded and extracted, never piped into a shell: our own semgrep rules would
+      # flag that, and a gate that breaks its own rules teaches people to ignore it.
+      - name: install the scanners
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
+          curl -sSfL -o trivy.tgz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          tar -xzf trivy.tgz trivy && sudo install trivy /usr/local/bin/
+          uv tool install semgrep
+          uv tool install zizmor
+
+      - name: the gate, exactly as a developer runs it
+        run: just check | tee check.log
+
+      - name: it has to prove it ran
+        run: uv run python tests/anti_theatre.py check.log .
+
+      - name: workflows are a language too, and the most attacked one
+        run: uv tool run zizmor .github/workflows/
+
+      - name: is the system healthy
+        run: |
+          uv tool install --editable .
+          ai-eng doctor --ci
+
+      - name: the record is intact
+        run: ai-eng audit verify
+
+  suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+      - name: install gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
+      - name: twelve attacks and a clean control
+        run: uv run python tests/adversarial/run.py

@@ -1,0 +1,97 @@
+"""The same call repeated, or the same tool failing over and over with the arguments
+tweaked each time — which is the retry pattern that actually happens.
+
+Matching identical arguments alone never catches the second one, so failures are
+recorded by signature (tool plus its first argument) and the cap applies to the
+signature, not to the exact call.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+
+from _emit import config, home, session_id
+from _wrap import guard
+
+WINDOW = 6  # how many recent calls are remembered
+REPEATS = 3  # the same call this many times inside the window
+FAILURES = 5  # the same signature failing this many times in a row
+
+
+def state_file():
+    return home() / "cache" / "loop" / f"{session_id()}.json"
+
+
+def load() -> dict:
+    try:
+        return json.loads(state_file().read_text())
+    except (OSError, ValueError):
+        return {"recent": [], "failures": {}}
+
+
+def save(state: dict) -> None:
+    path = state_file()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(state))
+    except OSError:
+        pass
+
+
+def signature(payload: dict) -> str:
+    args = payload.get("tool_input") or {}
+    first = ""
+    if isinstance(args, dict):
+        for key in ("command", "file_path", "path", "pattern", "url", "query"):
+            if args.get(key):
+                first = str(args[key]).split()[0][:60]
+                break
+    return f"{payload.get('tool_name', '')}:{first}"
+
+
+def failed(payload: dict) -> bool:
+    """Authoritative fields only. Scanning a tool's output for the word "error" makes a
+    guard fire on a passing test suite that prints one."""
+    response = payload.get("tool_response")
+    if isinstance(response, dict):
+        return bool(response.get("is_error") or response.get("isError"))
+    return False
+
+
+@guard("loop_guard")
+def run(payload: dict) -> str | None:
+    limits = config().get("guards", {})
+    window = int(limits.get("loop_window", WINDOW))
+    repeats = int(limits.get("loop_repeats", REPEATS))
+    failures = int(limits.get("loop_failures", FAILURES))
+
+    state = load()
+    sig = signature(payload)
+
+    if payload.get("_event") != "PreToolUse":
+        if failed(payload):
+            state["failures"][sig] = state["failures"].get(sig, 0) + 1
+        else:
+            state["failures"].pop(sig, None)
+        save(state)
+        return None
+
+    state["recent"] = (state["recent"] + [payload.get("_fp", sig)])[-window:]
+    save(state)
+
+    seen = state["recent"].count(payload.get("_fp", sig))
+    if seen >= repeats:
+        return (
+            f"this exact call has been made {seen} times in the last {window}. Repeating "
+            f"it will return what it returned before. Say what you expected and what you "
+            f"got, and change the approach — or ask."
+        )
+    if state["failures"].get(sig, 0) >= failures:
+        return (
+            f"{sig} has failed {state['failures'][sig]} times in a row with the arguments "
+            f"tweaked each time. Stop and say what is failing; retrying past this point "
+            f"is guessing, and it is being paid for by the person waiting."
+        )
+    state["last"] = time.time()
+    return None

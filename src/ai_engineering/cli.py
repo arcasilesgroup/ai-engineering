@@ -1,0 +1,74 @@
+"""Ten verbs, and the only way to run any of them.
+
+Not six, which cannot express a dated risk acceptance signed by a named person, and not
+seventy, which nobody can hold in their head. The table below is the whole surface, and
+it is also what emits: an entry point does not exist until it is in this table, and this
+table records that it ran.
+"""
+
+from __future__ import annotations
+
+import importlib
+import sys
+import time
+
+from ai_engineering import __version__, paths
+
+VERBS: dict[str, str] = {
+    "init": "Set up this machine, and this repository if you say yes.",
+    "doctor": "The 21 assertions and the coverage line. Is the system healthy now?",
+    "update": "Rewrite the pin and run the forward migrations.",
+    "spec": "spec new | spec list | spec show — the record of what was decided.",
+    "decide": "Add a decision to the spec, or promote it to an ADR with --adr.",
+    "accept": "Accept a finding until a date, with a named owner and a reason.",
+    "audit": "audit verify walks the whole chain; audit replay walks a session.",
+    "digest": "The weekly paragraph a person reads.",
+    "plan": 'plan --skip "<reason>" — record a design exception, at a keyboard.',
+    "uninstall": "Undo everything the receipt lists. The no-lock-in promise, as a command.",
+}
+
+BANNER = f"""
+  ┌─                    ─┐
+    {{ ai }} e n g i n e e r i n g
+  └─                    ─┘
+   v{__version__} · AI Governance Framework
+"""
+
+
+def usage() -> str:
+    rows = "\n".join(f"  {verb:<10} {text}" for verb, text in VERBS.items())
+    return f"ai-eng <verb> [options]\n\n{rows}\n\n  ai-eng <verb> --help for the flags.\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        sys.stdout.write(usage())
+        return 0
+    if argv[0] in ("-V", "--version", "version"):
+        sys.stdout.write(f"ai-engineering {__version__}\n")
+        return 0
+
+    verb, rest = argv[0], argv[1:]
+    if verb not in VERBS:
+        sys.stderr.write(f"ai-eng: there is no verb {verb!r}.\n\n{usage()}")
+        return 2
+
+    module = importlib.import_module(f"ai_engineering.{verb}")
+    started = time.perf_counter()
+    try:
+        code = int(module.main(rest) or 0)
+    except KeyboardInterrupt:
+        sys.stderr.write("\ninterrupted; nothing was written.\n")
+        code = 130
+    except Exception as exc:
+        paths.load("_emit").emit(verb, "error", error=repr(exc))
+        raise
+    paths.load("_emit").emit(
+        verb, "command", verb=verb, exit=code, ms=int((time.perf_counter() - started) * 1000)
+    )
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())

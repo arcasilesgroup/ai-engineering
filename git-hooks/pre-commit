@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# The floor, part one: a secret is caught before it enters history, so remediation is
+# undoing the add rather than rewriting history. Staged hunks only — under a second.
+set -euo pipefail
+[ -x "$(dirname "$0")/pre-commit.local" ] && "$(dirname "$0")/pre-commit.local" "$@"
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --staged --redact --no-banner --exit-code 1 || {
+    echo "pre-commit: a secret is staged. Unstage it and rotate it; it never reached history." >&2
+    exit 1
+  }
+else
+  echo "pre-commit: gitleaks is not installed, so nothing scanned this commit for secrets." >&2
+  echo "            install it, or accept that this repository's floor has a hole in it." >&2
+fi

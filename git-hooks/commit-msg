@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Subject format, and the audit anchor. It exits zero in any repository that has not
+# declared itself managed, so our convention is never imposed on somebody else's fork.
+set -euo pipefail
+[ "$(git config --get ai.managed || echo false)" = "true" ] || exit 0
+subject="$(head -n1 "$1")"
+grep -Eq '^(feat|fix|docs|refactor|test|chore|ci|perf|build|revert)(\([a-z0-9./-]+\))?!?: .{1,}' <<<"$subject" || {
+  echo "commit-msg: the subject must read <type>(<scope>): <what changed>, in the imperative." >&2
+  exit 1
+}
+# The anchor is a footer, not a gate: if it cannot be written the commit still stands.
+# A record that refuses commits is a record people delete.
+AI_ENG="${AI_ENG:-ai-eng}"
+if command -v "${AI_ENG%% *}" >/dev/null 2>&1; then $AI_ENG audit --anchor >>"$1" || true; fi
+exit 0

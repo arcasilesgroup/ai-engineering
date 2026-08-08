@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# The floor, part two. Five of the six blocks the previous framework's policy engine
+# ever made were this file, and this file is twenty lines.
+set -euo pipefail
+protected="$(git config --get ai.protected || echo 'main master')"
+while read -r _ _ remote_ref _; do
+  branch="${remote_ref##*/}"
+  for name in $protected; do
+    [ "$branch" = "$name" ] && {
+      echo "pre-push: $branch is protected. Open a pull request; that is where review happens." >&2
+      exit 1
+    }
+  done
+done
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks dir . --redact --no-banner --exit-code 1 || exit 1
+fi
+AI_ENG="${AI_ENG:-ai-eng}"
+if command -v "${AI_ENG%% *}" >/dev/null 2>&1; then
+  $AI_ENG accept --expired || exit 1
+fi

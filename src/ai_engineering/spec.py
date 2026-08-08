@@ -1,0 +1,172 @@
+"""specs/NNN-slug/spec.md — the record, in the user's repository, in their diff.
+
+Specs live at the root and not inside a hidden directory, deliberately: a governance
+record hidden in a dot-directory is a record nobody reviews, because reviewers read the
+file tree and do not expand hidden folders. There is no drafts/ either — a draft is a
+spec with status: draft from the first keystroke, on a branch. That is not tidiness, it
+is data loss: `git clean -ndx` eats a draft that sits inside a committed directory.
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+from datetime import date
+from pathlib import Path
+
+from ai_engineering import paths
+
+BOXES = [
+    "CI/CD — build, lint, test and security analysis on every push; deploy from the default branch",
+    "Logs — structured JSON, one line per event, with level and service, to stdout",
+    "Traces — only if this is our code and has more than one hop; no hop, no trace",
+    "Errors — every uncaught exception leaves as a log with severity 17 and marks its span",
+    "Health and data age — alive, age of the newest datum, and an independent recomputation",
+    "External check — something outside the service verifies it and says what it could not check",
+    "Second path — every published number recomputed by an independent route and compared",
+    "Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI",
+]
+
+TEMPLATE = """---
+id: "{number}"
+slug: {slug}
+status: draft
+date: {today}
+ref: {ref}
+supersedes: ""
+---
+
+# {title}
+
+## Context and problem
+
+TODO: what is true today, and what about it is a problem. Written so somebody who does
+not code can follow.
+
+## Options considered
+
+1. TODO: the first real option, and what it costs.
+2. TODO: the second. At least two, and the losers are killed in writing here.
+
+## Decision
+
+TODO: the one chosen, and why the others were not. If this decision constrains specs
+that do not exist yet, promote it: `ai-eng decide --adr "<title>"`.
+
+## Decisions
+
+<!-- ai-eng decide writes yaml blocks here -->
+
+## Accepted risks
+
+<!-- ai-eng accept writes yaml blocks here -->
+
+## Production-ready
+
+Nothing gets a URL until every box is ticked, and each one is ticked by a command.
+
+{boxes}
+"""
+
+
+def specs_dir(root: Path) -> Path:
+    return root / "specs"
+
+
+def next_number(root: Path) -> str:
+    used = [int(p.name.split("-")[0]) for p in specs_dir(root).glob("[0-9]*-*") if p.is_dir()]
+    return f"{max(used, default=0) + 1:03d}"
+
+
+def seed(ref: str) -> tuple[str, str]:
+    """The read side of the board: the agent picking up its next item. Twelve lines and
+    no config key, because gh and az already hand us an authenticated client."""
+    if "#" not in ref:
+        return "", ""
+    repo, number = ref.split("#", 1)
+    command = (
+        ["gh", "issue", "view", number, "--repo", repo, "--json", "title,body"]
+        if "/" in repo
+        else ["az", "boards", "work-item", "show", "--id", number]
+    )
+    try:
+        import json
+
+        body = json.loads(
+            subprocess.run(command, capture_output=True, text=True, timeout=20, check=True).stdout
+        )
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return "", ""
+    fields = body.get("fields", body)
+    return str(fields.get("title") or fields.get("System.Title") or ""), str(
+        fields.get("body") or ""
+    )
+
+
+def create(root: Path, slug: str, ref: str) -> Path:
+    specs_dir(root).mkdir(exist_ok=True)
+    number = next_number(root)
+    folder = specs_dir(root) / f"{number}-{slug}"
+    folder.mkdir()
+    title, body = seed(ref) if ref else ("", "")
+    text = TEMPLATE.format(
+        number=number,
+        slug=slug,
+        today=date.today().isoformat(),
+        ref=f'"{ref}"' if ref else '""',
+        title=title or slug.replace("-", " ").capitalize(),
+        boxes="\n".join(f"- [ ] {box}" for box in BOXES),
+    )
+    if body:
+        text = text.replace(
+            "TODO: what is true today, and what about it is a problem.", body.strip()[:1200]
+        )
+    spec = folder / "spec.md"
+    spec.write_text(text, encoding="utf-8")
+    return spec
+
+
+def listing(root: Path, everything: bool) -> list[str]:
+    """Derived, never hand-maintained: a hand-maintained index rots, and ours did — 198
+    rows whose own third line said the details were in the git history."""
+    rows = []
+    for spec in sorted(specs_dir(root).glob("*/spec.md")):
+        head = spec.read_text(errors="replace")[:600]
+        status = (re.search(r"^status:\s*(\S+)", head, re.M) or [None, "?"])[1]
+        if status == "superseded" and not everything:
+            continue
+        title = (re.search(r"^# (.+)$", head, re.M) or [None, spec.parent.name])[1]
+        rows.append(f"  {spec.parent.name:<28} {status:<12} {title}")
+    return rows
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser("ai-eng spec")
+    sub = parser.add_subparsers(dest="action", required=True)
+    made = sub.add_parser("new")
+    made.add_argument("slug")
+    made.add_argument("--ref", default="", help='a work item, e.g. "owner/repo#45"')
+    shown = sub.add_parser("show")
+    shown.add_argument("id")
+    listed = sub.add_parser("list")
+    listed.add_argument("--all", action="store_true", help="include superseded specs")
+    args = parser.parse_args(argv)
+
+    root = paths.repo_root()
+    if root is None:
+        print("not inside a repository")
+        return 1
+    if args.action == "new":
+        print(f"  ✓ {create(root, args.slug, args.ref).relative_to(root)}")
+        return 0
+    if args.action == "list":
+        rows = listing(root, args.all)
+        print("\n".join(rows) if rows else "  no specs yet — `ai-eng spec new <slug>`")
+        return 0
+    matches = sorted(specs_dir(root).glob(f"{args.id}*/spec.md"))
+    if not matches:
+        print(f"  no spec matches {args.id!r}")
+        return 1
+    print(matches[0].read_text())
+    return 0

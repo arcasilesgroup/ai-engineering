@@ -1,0 +1,46 @@
+# Our own rules, pinned in this repository. No lookup against a live registry: a gate that
+# fetches its policy at run time is a gate somebody else can change.
+
+rules:
+  - id: guard-exits-zero
+    languages: [python]
+    severity: ERROR
+    message: >-
+      A guard that exits zero without having decided reports "no objection, go ahead".
+      That is the root pattern this framework exists to cure. Raise, or exit 2.
+    patterns:
+      - pattern-inside: |
+          @guard(...)
+          def $F(...):
+            ...
+      - pattern: sys.exit(0)
+
+  - id: suppression-comment
+    languages: [python, typescript, javascript]
+    severity: ERROR
+    message: >-
+      Silencing the linter hides the finding rather than answering it. Refactor, or record
+      an accepted risk with ai-eng accept.
+    pattern-regex: '#\s*(noqa|nosec|type:\s*ignore)|//\s*(@ts-ignore|nolint|NOSONAR)'
+
+  - id: shell-with-user-string
+    languages: [python]
+    severity: ERROR
+    message: A shell string built from a variable. Pass a list of arguments instead.
+    patterns:
+      - pattern: subprocess.$M(..., shell=True, ...)
+
+  - id: request-without-timeout
+    languages: [python]
+    severity: WARNING
+    message: A request with no timeout hangs the hot path, and a slow guard is a disabled guard.
+    patterns:
+      - pattern: urllib.request.urlopen($U)
+
+  - id: tilde-in-config-value
+    languages: [python]
+    severity: ERROR
+    message: >-
+      No agent surface documents expanding ~ inside a setting value, and a tilde in
+      core.hooksPath saves fine and fires nothing. Write the expanded absolute path.
+    pattern-regex: '(hooksPath|command|settings)["\s:=]+["'']~/'

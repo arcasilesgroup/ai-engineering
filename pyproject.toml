@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-engineering"
+version = "1.0.0"
+description = "Governance framework for agents that write code."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Arcasiles" }]
+keywords = ["agents", "governance", "hooks", "guardrails", "audit"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/arcasilesgroup/ai-engineering"
+Source = "https://github.com/arcasilesgroup/ai-engineering"
+Security = "https://github.com/arcasilesgroup/ai-engineering/blob/main/SECURITY.md"
+
+[project.scripts]
+ai-eng = "ai_engineering.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_engineering"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"hooks" = "ai_engineering/hooks"
+"surfaces" = "ai_engineering/surfaces"
+"git-hooks" = "ai_engineering/git-hooks"
+"policy" = "ai_engineering/policy"
+"migrations" = "ai_engineering/migrations"
+".agents/skills" = "ai_engineering/skills"
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "hooks", "surfaces", "git-hooks", "policy", "migrations", ".agents", "tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

@@ -1,0 +1,119 @@
+# The wiring table. One row per surface. Everything that writes, reads, protects or
+# reports a surface derives from this file: the installer, self_protect's write-deny
+# list, doctor's coverage line and the uninstaller. It cannot fall behind the wiring
+# because there is nowhere else for the wiring to live.
+#
+# tier   T2 = can deny a tool call · T3 = instructions and skills only
+# writer json_claude · json_cursor · json_copilot · json_codex · ts_opencode · none
+# proven true only when a denial has actually executed on that surface
+
+[[surface]]
+id = "claude-code"
+name = "Claude Code"
+tier = "T2"
+detect = "~/.claude"
+settings = "~/.claude/settings.json"
+writer = "json_claude"
+skills = "~/.claude/skills"
+proven = true
+note = "Exit code 2 denies, even under bypassPermissions."
+
+[[surface]]
+id = "opencode"
+name = "OpenCode"
+tier = "T2"
+detect = "~/.config/opencode"
+settings = "~/.config/opencode/plugins/ai-engineering.ts"
+writer = "ts_opencode"
+skills = "~/.config/opencode/skills"
+proven = true
+heartbeat = true
+note = "A throw in tool.execute.before kills the call. A malformed plugin is dropped silently, so the guard writes a load heartbeat and doctor asserts it."
+
+[[surface]]
+id = "codex-cli"
+name = "Codex CLI"
+tier = "T2"
+detect = "~/.codex"
+settings = "~/.codex/hooks.json"
+writer = "json_codex"
+skills = "~/.agents/skills"
+proven = false
+append_only = true
+trust_required = true
+note = "Trust is a hash of the whole handler plus its position. Append only, never reorder. An untrusted hook is skipped silently; only a human can approve it with /hooks."
+
+[[surface]]
+id = "cursor"
+name = "Cursor"
+tier = "T2"
+detect = "~/.cursor"
+settings = "~/.cursor/hooks.json"
+writer = "json_cursor"
+skills = "~/.agents/skills"
+proven = false
+note = "Deny is real but fails OPEN unless failClosed is true. Reply fields are snake_case."
+
+[[surface]]
+id = "copilot-cli"
+name = "Copilot CLI"
+tier = "T2"
+detect = "~/.copilot"
+settings = "~/.copilot/hooks/ai-eng.json"
+writer = "json_copilot"
+skills = "~/.agents/skills"
+proven = false
+note = "preToolUse of the command kind. Merged with five other sources, never replacing them. Fail-closed on a crash, fail-open on a timeout."
+
+[[surface]]
+id = "vscode-copilot"
+name = "VS Code Copilot"
+tier = "T2"
+detect = "~/.claude/settings.json"
+settings = "~/.claude/settings.json"
+writer = "none"
+skills = "~/.agents/skills"
+proven = false
+note = "Reads the same settings file as Claude Code, so it needs zero wiring. Preview: it parses matchers then ignores them, and sends camelCase payload keys. The dispatcher normalises both."
+
+[[surface]]
+id = "pi"
+name = "pi"
+tier = "T3"
+detect = "~/.pi"
+settings = ""
+writer = "none"
+skills = "~/.pi/agent/skills"
+proven = false
+note = "Has a hook API. Not measured this round, so it claims nothing."
+
+[[surface]]
+id = "zed"
+name = "Zed"
+tier = "T3"
+detect = "~/.agents"
+settings = ""
+writer = "none"
+skills = "~/.agents/skills"
+proven = false
+note = "Free by convention, zero lines."
+
+# Anything else that reads AGENTS.md gets the doctrine and the skills through
+# ~/.agents/skills and enforces nothing above the git layer. That is T3, and it is
+# the honest label.
+
+[protect]
+# self_protect denies writes against these. Paths are expanded at read time; a glob
+# ending in / covers the whole tree.
+paths = [
+  "~/.ai-engineering/",
+  "~/.agents/skills/",
+  "~/.claude/settings.json",
+  "~/.claude/skills/",
+  "~/.cursor/hooks.json",
+  "~/.codex/hooks.json",
+  "~/.copilot/hooks/",
+  "~/.config/opencode/plugins/",
+  ".git/hooks/",
+  ".ai/config.toml",
+]

@@ -1,0 +1,69 @@
+name: release
+
+# Releases are signed by the workflow that built them, not by a long-lived token on
+# somebody's laptop. Attestations ship with the wheel so `ai-eng doctor` can verify that
+# the running wheel is the one this tag produced.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+
+      - name: the tag and the package must agree
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)"
+          test "$tag" = "$pkg" || { echo "tag $tag does not match version $pkg"; exit 1; }
+          echo "value=$tag" >> "$GITHUB_OUTPUT"
+
+      - run: uv build
+
+      - name: the wheel must carry the guards, or it is not the product
+        run: |
+          uv run python - <<'PY'
+          import zipfile, glob
+          names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
+          need = ["ai_engineering/hooks/chain.py", "ai_engineering/policy/iocs.yml",
+                  "ai_engineering/git-hooks/pre-push", "ai_engineering/skills/ai-spec/SKILL.md"]
+          missing = [n for n in need if n not in names]
+          if missing:
+              raise SystemExit(f"the wheel is missing {missing}")
+          print("the wheel carries the guards, the policy, the git hooks and the skills")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: pypi
+    permissions:
+      id-token: write      # trusted publishing
+      attestations: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+      - uses: pypa/gh-action-pypi-publish@release/v1
