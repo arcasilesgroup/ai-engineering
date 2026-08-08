@@ -199,11 +199,14 @@ def project_step(args) -> int:
     if not args.dry:
         out(f"   ✓ core.hooksPath → {wiring.wire_git(root)}")
 
+    # Before the loop, and that ordering is the whole of it: asked afterwards, the disk
+    # answers yes for every file this run had just created, and the same screen that
+    # reported writing them offers to overwrite them.
+    rows = existing(root)
     for name in OFFERS:
         if not (root / name).exists():
             write_offer(root, name, args)
             out(f"   ✓ {name} written ({OFFERS[name][0]})")
-    rows = existing(root)
     picked = choose(rows, args)
     for name in sorted(picked):
         write_offer(root, name, args)

@@ -484,18 +484,13 @@ def test_files_that_are_already_there_are_named_and_left_as_they_are(repo, capsy
     (repo / "justfile").write_text("mine too\n", encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo)]))
     assert (
-        "   → left as is: CLAUDE.md, AGENTS.md, CONSTITUTION.md, justfile. "
+        "   → left as is: CLAUDE.md, justfile. "
         "`doctor` lists them as unmanaged, which is a valid state.\n"
     ) in capsys.readouterr().out
     assert (repo / "CLAUDE.md").read_text() == "mine\n"
     assert (repo / "justfile").read_text() == "mine too\n"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DEFECT: project_step lists the files it just wrote itself as unmanaged, "
-    "because existing() is called after the loop that writes the missing offers.",
-)
 def test_the_files_the_installer_just_wrote_are_not_reported_as_unmanaged(
     repo, capsys, no_keyboard
 ):
