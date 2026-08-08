@@ -1,0 +1,650 @@
+"""The library the guards stand on.
+
+The guards themselves are attacked by the adversarial suite. What is not attacked there is
+everything underneath them: the two decorators that decide what a crash means, the record
+they write into, the payload normaliser every surface depends on, and the exporter that
+must never let free text off the machine. A silent failure in any of these takes all five
+guards with it at once, and no guard test would notice.
+
+Every test here writes inside tmp_path. Nothing reads the real home or the real chain.
+"""
+
+from __future__ import annotations
+
+import io
+import json
+import sys
+import time
+
+import _emit
+import _otlp
+import _wrap
+import autoformat
+import chain
+import pytest
+import session
+
+
+@pytest.fixture
+def repo(tmp_path, monkeypatch):
+    """A throwaway clone and a throwaway framework home, so no test can write into the
+    real record or the real repository."""
+    root = tmp_path / "clone"
+    (root / ".git").mkdir(parents=True)
+    (root / ".git" / "ai-eng-repo-id").write_text("r0\n")  # skips the git subprocess
+    house = tmp_path / "house"
+    house.mkdir()
+    (house / "machine.json").write_text(json.dumps({"machine_id": "m0"}))
+    monkeypatch.setenv("AI_ENGINEERING_HOME", str(house))
+    monkeypatch.setenv("AI_ENG_SESSION", "s0")
+    monkeypatch.chdir(root)
+    return root
+
+
+def grant(house, name, seconds=60):
+    path = house / "cache" / "bypass.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"guard": name, "expires": time.time() + seconds, "reason": "why"}))
+    return path
+
+
+def links(root=None):
+    return [json.loads(line) for line in _emit.chain_path(root).read_text().splitlines() if line]
+
+
+# --- the central contract: what a failure means -------------------------------------
+
+
+@pytest.mark.parametrize("blow_up", [ValueError, KeyboardInterrupt, MemoryError, SystemError])
+def test_a_guard_that_crashes_denies_rather_than_waving_the_call_through(repo, capsys, blow_up):
+    """The previous framework exited zero after catching an exception, so a guard that
+    crashed reported "no objection, go ahead". A crash must read as a denial, including
+    for the failures that are not ordinary Exceptions."""
+
+    @_wrap.guard("loop_guard")
+    def run(payload):
+        raise blow_up("boom")
+
+    with pytest.raises(SystemExit) as stop:
+        run({})
+    assert stop.value.code == 2
+    assert "BLOCKED" in capsys.readouterr().err
+    recorded = links()[-1]
+    assert recorded["cls"] == "error" and recorded["data"]["outcome"] == "blocked"
+
+
+@pytest.mark.parametrize("blow_up", [ValueError, TypeError, OSError, AttributeError])
+def test_a_telemetry_hook_that_crashes_lets_the_action_stand_and_says_nothing(
+    repo, capsys, blow_up
+):
+    """The mirror image: an observer that starts blocking work when it breaks is worse
+    than no observer. It must exit quietly and put its own failure in the record instead
+    of on the user's screen."""
+
+    @_wrap.telemetry("autoformat")
+    def run(payload):
+        raise blow_up("boom")
+
+    assert run({}) is None
+    assert capsys.readouterr().err == ""
+    assert links()[-1]["data"]["outcome"] == "ignored"
+
+
+def test_a_guard_that_allows_writes_nothing_at_all(repo, capsys):
+    """A clean pass is the common case, thousands of times a day. If it recorded an event
+    the chain would be noise, and the blocks nobody can find are blocks nobody reads."""
+
+    @_wrap.guard("loop_guard")
+    def run(payload):
+        return None
+
+    assert run({}) is None
+    assert capsys.readouterr().err == ""
+    assert not _emit.chain_path().exists()
+
+
+def test_a_guard_that_returns_a_reason_denies_with_that_reason(repo, capsys):
+    """The model is shown this text verbatim and acts on it, so the reason the guard gave
+    has to survive to the screen instead of being replaced by a generic refusal."""
+
+    @_wrap.guard("loop_guard")
+    def run(payload):
+        return "the same edit, four times"
+
+    with pytest.raises(SystemExit) as stop:
+        run({"_dedup": True, "_fp": "ff"})
+    assert stop.value.code == 2
+    err = capsys.readouterr().err
+    assert "BLOCKED: the same edit, four times" in err
+    recorded = links()[-1]
+    assert recorded["cls"] == "blocked"
+    assert recorded["data"] == {"reason": "the same edit, four times", "fp": "ff"}
+
+
+@pytest.mark.parametrize(
+    ("name", "recipe"),
+    [
+        ("injection_guard", False),
+        ("no_verify_guard", False),
+        ("self_protect", False),
+        ("design_gate", True),
+        ("loop_guard", True),
+    ],
+)
+def test_only_flow_guards_hand_back_the_recipe_that_unblocks_them(capsys, name, recipe):
+    """A model that is already obeying text injected into a file it read must not be
+    handed the command that turns the security guard off. Flow guards may say it, because
+    a person at a keyboard is the one who has to type it."""
+    with pytest.raises(SystemExit):
+        _wrap.deny(name, "denied")
+    err = capsys.readouterr().err
+    assert (f"--guard {name}" in err) is recipe
+    assert f"[{name}] denied" in err
+
+
+def test_a_denial_is_spelled_both_ways_so_the_surfaces_that_read_json_see_it(capsys):
+    """Cursor reads a JSON reply instead of the exit code, and spells its fields
+    snake_case where VS Code spells them camelCase. Drop either and one whole surface
+    silently stops blocking."""
+    with pytest.raises(SystemExit):
+        _wrap.deny("loop_guard", "denied")
+    reply = json.loads(capsys.readouterr().out)
+    assert reply["permission"] == "deny" and reply["continue"] is False
+    assert reply["user_message"] == reply["userMessage"] == "[loop_guard] denied"
+    assert reply["stop_reason"] == reply["stopReason"] == "[loop_guard] denied"
+
+
+def test_a_bypass_is_single_use_and_only_for_the_guard_it_names(repo):
+    """One grant from a person is one pass. If the file survived being read, one moment of
+    consent would silently become a standing exemption."""
+    house = _emit.home()
+    grant(house, "loop_guard")
+    assert _wrap.take_bypass("design_gate") is None  # not this guard's grant
+    assert _wrap.take_bypass("loop_guard") == "why"
+    assert _wrap.take_bypass("loop_guard") is None  # consumed
+    grant(house, "loop_guard", seconds=-1)
+    assert _wrap.take_bypass("loop_guard") is None  # expired
+    (house / "cache" / "bypass.json").write_text('{"guard": "loop_guard", "reason": "forever"}')
+    assert _wrap.take_bypass("loop_guard") is None  # no expiry is not a standing exemption
+    (house / "cache" / "bypass.json").write_text("not json")
+    assert _wrap.take_bypass("loop_guard") is None
+
+
+@pytest.mark.parametrize(
+    ("name", "denies"), [("loop_guard", False), ("design_gate", False), ("injection_guard", True)]
+)
+def test_a_bypass_cannot_be_forged_for_a_security_guard(repo, name, denies):
+    """A grant file naming a security guard must do nothing. If it worked, writing one file
+    would be enough to switch off the guards that exist to stop exactly that."""
+    grant(_emit.home(), name)
+
+    @_wrap.guard(name)
+    def run(payload):
+        return "no"
+
+    # the dispatcher fingerprints every call but marks only the ones that carry an id as
+    # deduplicable, and only those are recorded with their fingerprint
+    payload = {"_fp": "ff"}
+    if denies:
+        with pytest.raises(SystemExit):
+            run(payload)
+    else:
+        assert run(payload) is None
+        assert links()[-1]["cls"] == "bypassed"
+        assert links()[-1]["data"]["fp"] == ""
+
+
+# --- the record ---------------------------------------------------------------------
+
+
+def test_the_digest_covers_the_body_and_only_the_body():
+    """The hash has to change when anything in the event changes, and must not depend on
+    the hash field itself or on key order — otherwise an edit is either undetectable or
+    every honest link looks tampered with."""
+    body = {"cls": "blocked", "name": "loop_guard", "data": {"reason": "a"}}
+    assert _emit.digest(body) == _emit.digest({"name": "loop_guard", "cls": "blocked", **body})
+    assert _emit.digest(body) == _emit.digest({**body, "hash": "anything"})
+    assert _emit.digest(body) != _emit.digest({**body, "data": {"reason": "b"}})
+
+
+def test_each_link_extends_the_one_before_it_across_separate_appends(repo):
+    """Appends happen in different processes minutes apart. If a later one restarted the
+    numbering or forgot the previous hash, the chain would break at every session boundary
+    and the tamper evidence would mean nothing."""
+    path = _emit.chain_path()
+    assert _emit.head(path) == (0, "")
+    _emit.append(path, [{"cls": "session", "n": 1}, {"cls": "session", "n": 2}])
+    assert _emit.append(path, [{"cls": "session", "n": 3}]) == 3
+    events = links()
+    assert [e["seq"] for e in events] == [1, 2, 3]
+    assert [e["prev"] for e in events] == ["", events[0]["hash"], events[1]["hash"]]
+    assert all(_emit.digest(e) == e["hash"] for e in events)
+    assert _emit.head(path) == (3, events[2]["hash"])
+
+
+@pytest.mark.parametrize("tail", ["", "\n\n", '{"seq": 1}\n', "not json\n"])
+def test_a_chain_whose_last_line_cannot_be_read_reports_an_empty_head(repo, tail):
+    """head() must never raise. It runs inside the guard that is about to write, and a
+    crash there is a denial of a call that had nothing wrong with it."""
+    path = _emit.chain_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(tail)
+    assert _emit.head(path) == (0, "")
+
+
+def test_the_chain_lives_outside_every_clone_and_is_per_repository_and_machine(repo, monkeypatch):
+    """The record has to survive `git clean`, a fresh clone and a deleted branch. Inside
+    the working tree it would be deletable by the agent it is a record of."""
+    path = _emit.chain_path()
+    assert repo not in path.parents, "the record is inside the clone it records"
+    assert path.parents[1] == _emit.home() / "state"
+    assert (path.parent.name, path.name) == ("r0", "m0.jsonl")
+    (repo / ".git" / "ai-eng-repo-id").write_text("r1\n")
+    assert _emit.chain_path().parent.name == "r1"  # a different repository, a different chain
+    (_emit.home() / "machine.json").write_text(json.dumps({"machine_id": "m1"}))
+    assert _emit.chain_path().name == "m1.jsonl"  # a different machine, a different chain
+
+
+def test_an_unpinned_repository_writes_straight_to_the_chain(repo):
+    """Without a pin there is no `.ai/` to buffer into, so the event must go to the durable
+    file immediately rather than being dropped on the floor."""
+    _emit.emit("loop_guard", "blocked", reason="x")
+    assert _emit.buffer_path() is None
+    assert links()[-1]["data"] == {"reason": "x"}
+
+
+def test_a_pinned_repository_buffers_and_the_flush_moves_the_buffer_into_the_chain(repo):
+    """Flush is a move, not a discard. If it emptied the buffer without appending, every
+    event of the session would be gone at the moment the session ended."""
+    (repo / ".ai").mkdir()
+    (repo / ".ai" / "config.toml").write_text("[pin]\nversion='1'\n")
+    _emit.emit("loop_guard", "blocked", reason="x")
+    buf = _emit.buffer_path()
+    assert buf == repo / ".ai" / "events.jsonl" and not _emit.chain_path().exists()
+    assert _emit.flush(repo) == 1
+    assert buf.read_text() == ""
+    assert links()[-1]["data"] == {"reason": "x"} and links()[-1]["seq"] == 1
+    assert _emit.flush(repo) == 0  # an empty buffer moves nothing
+
+
+def test_an_event_class_outside_the_closed_set_is_refused_rather_than_recorded(repo):
+    """The six classes are the vocabulary the whole record is read by. A typo must fail
+    loudly at the call — silently dropping the event would lose exactly the decision the
+    caller thought it had written down."""
+    with pytest.raises(ValueError):
+        _emit.emit("loop_guard", "recorded", reason="x")
+    assert not _emit.chain_path().exists()
+
+
+def test_a_record_that_cannot_be_written_does_not_change_what_the_caller_does(repo, capsys):
+    """A full disk must not turn into a denied tool call. The failure is announced and the
+    caller carries on."""
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(_emit, "append", lambda *a, **k: (_ for _ in ()).throw(OSError("full")))
+    try:
+        assert _emit.emit("loop_guard", "blocked", reason="x") is None
+    finally:
+        monkey.undo()
+    assert "could not record loop_guard/blocked" in capsys.readouterr().err
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="DEFECT: flush() seals whatever the buffer says. The buffer is a plain file "
+    "inside the clone, unhashed until the session ends, so an edit made to it before the "
+    "flush is hashed as genuine and `ai-eng verify` then reports the chain intact.",
+)
+def test_an_edited_buffer_cannot_be_sealed_into_the_chain_as_genuine(repo):
+    """Between the guard writing an event and the session ending, the event sits in a file
+    anything can edit. Someone who blocks a push, edits `.ai/events.jsonl` to say the push
+    was allowed, and ends the session gets a chain that verifies clean."""
+    from ai_engineering import audit
+
+    (repo / ".ai").mkdir()
+    (repo / ".ai" / "config.toml").write_text("[pin]\nversion='1'\n")
+    _emit.emit("no_verify_guard", "blocked", reason="the truth")
+    buf = _emit.buffer_path()
+    buf.write_text(buf.read_text().replace("the truth", "a lie!!!"))
+    _emit.flush(repo)
+    assert links()[-1]["data"]["reason"] == "a lie!!!"
+    assert audit.verify(repo, anchors=False), "an edited event was sealed and reports intact"
+
+
+# --- the payload every surface is read through ---------------------------------------
+
+
+@pytest.mark.parametrize(("camel", "snake"), sorted(chain.ALIASES.items()))
+def test_both_spellings_of_every_alias_arrive_in_one_shape(camel, snake):
+    """VS Code and Cursor send camelCase where Claude Code sends snake_case. A guard that
+    reads only one spelling sees an empty payload on the other surface and allows
+    everything, which is how a surface is silently unguarded."""
+    assert chain.normalise({camel: "v"})[snake] == "v"
+    assert chain.normalise({snake: "v"})[snake] == "v"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ({}, {"tool_name": "", "tool_input": {"file_path": ""}}),
+        ({"tool": "Bash"}, {"tool_name": "Bash", "tool_input": {"file_path": ""}}),
+        ({"input": {"filePath": "a.py"}}, {"tool_input": {"file_path": "a.py"}}),
+        ({"tool_input": "a string"}, {"tool_input": "a string"}),
+        ({"tool_input": ["a", "list"]}, {"tool_input": ["a", "list"]}),
+        (
+            {"toolInput": {"notebook_path": "n.ipynb"}},
+            {"tool_input": {"notebook_path": "n.ipynb", "file_path": "n.ipynb"}},
+        ),
+        (
+            {"tool_input": {"file_path": "a.py", "notebook_path": "n.ipynb"}},
+            {"tool_input": {"file_path": "a.py", "notebook_path": "n.ipynb"}},
+        ),
+    ],
+)
+def test_normalise_survives_every_shape_a_surface_sends(raw, expected):
+    """A payload shape it did not expect makes a guard crash, and a crashing guard denies:
+    that is how installing on a new surface denies the whole surface. The notebook tools
+    send notebook_path and nothing else, so the two guards on those rows read an empty
+    file_path and passed everything."""
+    out = chain.normalise(raw)
+    for key, value in expected.items():
+        assert out[key] == value
+
+
+@pytest.mark.parametrize(
+    ("event", "tool", "expected"),
+    [
+        ("PreToolUse", "Read", ["injection_guard", "loop_guard"]),
+        ("PreToolUse", "Bash", ["self_protect", "no_verify_guard", "loop_guard"]),
+        ("PreToolUse", "BashOutput", ["loop_guard"]),
+        ("PreToolUse", "", ["loop_guard"]),
+        ("PreToolUse", "NotebookEdit", ["self_protect", "loop_guard", "design_gate"]),
+        ("PostToolUse", "mcp__linear__issue", ["injection_guard", "loop_guard"]),
+        ("PostToolUse", "WebFetchExtra", ["loop_guard"]),
+        ("SessionStart", "", ["session"]),
+        ("Nonsense", "Read", []),
+    ],
+)
+def test_the_matcher_picks_the_rows_it_claims_and_no_others(event, tool, expected):
+    """The dispatcher does its own matching because VS Code parses Claude's matchers and
+    then ignores them. Match too widely and a guard runs on tools it was never written
+    for; too narrowly and a row in the table is coverage nobody has."""
+    assert chain.selected(event, tool) == expected
+
+
+def test_two_deliveries_of_one_call_share_a_fingerprint_and_a_retry_does_not(repo):
+    """VS Code Copilot legitimately reads Claude's settings file, so the same call arrives
+    twice and must be answered once. A genuine repeat has no shared call id, and treating
+    it as a duplicate would blind the guard that watches for loops."""
+    call = {"tool_name": "Bash", "tool_input": {"command": "ls"}, "tool_use_id": "t1"}
+    assert chain.fingerprint(call) == chain.fingerprint(dict(call))
+    assert chain.fingerprint(call) != chain.fingerprint({**call, "tool_use_id": "t2"})
+    assert chain.fingerprint(call) != chain.fingerprint({**call, "tool_input": {"command": "rm"}})
+    assert chain.deduplicable(call) is True
+    assert chain.deduplicable({**call, "tool_use_id": ""}) is False
+    assert chain.deduplicable({"tool_name": "Bash"}) is False
+
+
+def dispatch(monkeypatch, event, raw):
+    monkeypatch.setattr(sys, "stdin", io.StringIO(raw))
+    monkeypatch.setattr(sys, "argv", ["chain.py", event])
+    return chain.main()
+
+
+@pytest.mark.parametrize("raw", ["", "   ", "\n"])
+def test_an_empty_delivery_is_not_a_decision(repo, monkeypatch, raw):
+    """Surfaces poll the hook with nothing in it. Denying on empty would block work that
+    nobody asked about."""
+    assert dispatch(monkeypatch, "PreToolUse", raw) == 0
+
+
+@pytest.mark.parametrize("raw", ["not json", '{"tool_name": ', "}{"])
+def test_a_payload_that_cannot_be_read_blocks(repo, monkeypatch, capsys, raw):
+    """If the dispatcher cannot understand the call, no guard downstream can judge it, so
+    the only honest answer is no."""
+    with pytest.raises(SystemExit) as stop:
+        dispatch(monkeypatch, "PreToolUse", raw)
+    assert stop.value.code == 2
+    assert "could not be read" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("raw", ["[1, 2]", '"a string"', "17", "null"])
+def test_a_payload_that_is_not_an_object_blocks_too(repo, monkeypatch, raw):
+    """Valid JSON that is not an object still cannot be judged, so it has to be refused the
+    same way an unreadable one is, rather than crashing the dispatcher out of the way."""
+    with pytest.raises(SystemExit) as stop:
+        dispatch(monkeypatch, "PreToolUse", raw)
+    assert stop.value.code == 2
+
+
+def test_a_guard_that_cannot_even_be_imported_blocks_but_a_broken_observer_does_not(
+    repo, monkeypatch, capsys
+):
+    """A typo in a guard file, or a half-finished edit, must not quietly remove that guard
+    from the line. The same breakage in a telemetry hook is skipped, because an observer
+    that cannot load has no opinion to lose."""
+    monkeypatch.setitem(chain.TABLE, "PreToolUse", [("no_such_hook", r".*")])
+    with pytest.raises(SystemExit) as stop:
+        dispatch(monkeypatch, "PreToolUse", '{"tool_name": "Bash"}')
+    assert stop.value.code == 2
+    assert "could not even be loaded" in capsys.readouterr().err
+    monkeypatch.setattr(chain, "TELEMETRY", {"no_such_hook"})
+    assert dispatch(monkeypatch, "PreToolUse", '{"tool_name": "Bash"}') == 0
+
+
+def test_a_call_denied_once_stays_denied_and_only_a_call_with_an_id_is_remembered(
+    repo, monkeypatch, capsys
+):
+    """The same tool call is delivered twice when two surfaces read the same settings file.
+    The second delivery must get the first answer without asking again — and a repeat that
+    carries no call id must not, or a genuine retry loop reads as a duplicate and the guard
+    watching for loops goes blind."""
+    monkeypatch.setitem(chain.TABLE, "PreToolUse", [])
+    verdict = {"deny": True, "by": "loop_guard", "message": "no"}
+    twice = {"tool_name": "Bash", "tool_input": {"command": "ls"}, "tool_use_id": "t1"}
+    chain.remember(chain.fingerprint(chain.normalise(twice)), verdict)
+    with pytest.raises(SystemExit):
+        dispatch(monkeypatch, "PreToolUse", json.dumps(twice))
+    assert "[loop_guard] no" in capsys.readouterr().err
+
+    anonymous = {"tool_name": "Bash", "tool_input": {"command": "ls"}}
+    chain.remember(chain.fingerprint(chain.normalise(anonymous)), verdict)
+    assert dispatch(monkeypatch, "PreToolUse", json.dumps(anonymous)) == 0
+
+    # the allow is written down too, or the second delivery re-asks every guard and the
+    # dedup this module exists for only ever works for denials
+    fresh = {"tool_name": "Bash", "tool_input": {"command": "pwd"}, "tool_use_id": "t9"}
+    assert dispatch(monkeypatch, "PreToolUse", json.dumps(fresh)) == 0
+    assert chain.cached(chain.fingerprint(chain.normalise(fresh))) == {"deny": False}
+
+
+def test_a_verdict_book_that_cannot_be_read_is_no_verdict_at_all(repo):
+    """A corrupt cache must mean "ask the guards again", never "allowed". Failing the other
+    way would make one bad file a permanent pass for every call in the session."""
+    assert chain.cached("ff") is None  # no book at all
+    chain.cache_file().parent.mkdir(parents=True, exist_ok=True)
+    chain.cache_file().write_text("{ truncated")
+    assert chain.cached("ff") is None
+    chain.remember("ff", {"deny": False})  # writing over a corrupt book must not raise either
+    chain.cache_file().unlink()
+    chain.remember("ff", {"deny": False})
+    assert chain.cached("ff") == {"deny": False}
+
+
+# --- what leaves the machine ---------------------------------------------------------
+
+
+@pytest.mark.parametrize("field", ["reason", "prompt", "path", "user", "note", "diff", "message"])
+def test_a_field_nobody_thought_of_still_leaves_as_a_hash(repo, field):
+    """The canary test only proves the fields it knew about. Any data key added to an event
+    later — by us or by a guard — must leave as a hash and a length, or the first person to
+    add one ships their user's file contents to a collector."""
+    canary = "correct-horse-battery-staple"
+    body = _otlp.as_logs([{"cls": "blocked", "data": {field: canary}}], "strict")
+    text = json.dumps(body)
+    assert canary not in text
+    assert _otlp.opaque(canary)["sha256"] in text
+
+
+IN_THE_CLEAR = ("outcome", "phase", "verb", "exit", "guard", "fp", "archived", "ms", "id")
+
+
+@pytest.mark.parametrize("field", IN_THE_CLEAR)
+def test_the_allow_list_is_exactly_what_passes_through_in_the_clear(field):
+    """These fields are the ones the record is read by. The list is written out here
+    rather than read from the module: parametrising over KEEP_DATA itself would let a
+    deleted field quietly delete its own test, and `fp` and `id` are the two the record
+    is correlated by — lose either and the digest still renders and says nothing."""
+    assert _otlp.KEEP_DATA == IN_THE_CLEAR
+    out = _otlp.redact({"cls": "blocked", "data": {field: "plain"}}, "strict")
+    assert out["data"][field] == "plain"
+
+
+def test_only_the_first_two_words_of_a_command_leave():
+    """A command line is where the secrets are: a token in an argument, a private path, a
+    branch name that names a customer. The verb and its subcommand are enough to read the
+    record by."""
+    out = _otlp.redact({"data": {"command": "git push origin secret-customer-branch"}}, "strict")
+    assert out["data"]["command"] == "git push"
+
+
+def test_turning_redaction_off_is_the_only_way_free_text_leaves():
+    """The escape hatch exists and is configured, so it is pinned here: if `strict` ever
+    started behaving like `none`, this test and the one above would have to disagree."""
+    event = {"cls": "blocked", "data": {"reason": "plain"}}
+    assert _otlp.redact(event, "none")["data"]["reason"] == "plain"
+    assert _otlp.redact(event, "strict")["data"]["reason"] != "plain"
+
+
+def test_an_event_carries_its_severity_and_its_five_attributes(repo):
+    """A collector routes on severity and filters on attributes. Send everything as INFO
+    and the errors are in the pile nobody alerts on."""
+    records = _otlp.as_logs(
+        [{"cls": "error", "name": "chain", "session": "s", "repo": "r", "machine": "m"}], "strict"
+    )["resourceLogs"][0]["scopeLogs"][0]["logRecords"]
+    assert (records[0]["severityText"], records[0]["severityNumber"]) == ("ERROR", 17)
+    assert [a["key"] for a in records[0]["attributes"]] == [
+        "aieng.cls",
+        "aieng.name",
+        "aieng.session",
+        "aieng.repo",
+        "aieng.machine",
+    ]
+    info = _otlp.as_logs([{"cls": "allowed"}], "strict")["resourceLogs"][0]["scopeLogs"][0]
+    assert info["logRecords"][0]["severityText"] == "INFO"
+
+
+class Reply:
+    """The smallest thing urlopen's context manager can be."""
+
+    def __init__(self, status, payload):
+        self.status, self.payload = status, payload
+
+    def read(self):
+        return json.dumps(self.payload).encode()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+@pytest.mark.parametrize(
+    ("payload", "delivered"),
+    [
+        ({}, True),
+        ({"partialSuccess": {}}, True),
+        ({"partialSuccess": {"rejectedLogRecords": 3, "errorMessage": "schema"}}, False),
+        ({"partialSuccess": {"rejectedLogRecords": "1"}}, False),
+    ],
+)
+def test_a_two_hundred_is_not_a_delivery(repo, monkeypatch, payload, delivered):
+    """The protocol returns the number of records it threw away inside a successful
+    response. Read only the status code and the doctor reports a working destination while
+    everything sent is being dropped — observability nobody has."""
+    (_emit.home() / "config.toml").write_text(
+        '[observability]\nendpoint = "http://collector.invalid:4318/"\n'
+    )
+    monkeypatch.setattr(_otlp.urllib.request, "urlopen", lambda r, timeout=0: Reply(200, payload))
+    assert _otlp.probe()[0] is delivered
+
+
+def test_nothing_is_sent_anywhere_until_a_destination_is_configured(repo, monkeypatch):
+    """Out of the box there is no endpoint. If a request went out regardless, every install
+    would be phoning somewhere on every session end, and the probe must say plainly that
+    there is nothing there rather than pass by default."""
+
+    def refuse(*a, **k):
+        raise AssertionError("a request left the machine with no endpoint configured")
+
+    monkeypatch.setattr(_otlp.urllib.request, "urlopen", refuse)
+    assert _otlp.post("logs", {}) == (0, 0, "no endpoint configured")
+    assert _otlp.send_tail(5) == (0, 0, "logs not in the configured signals")
+    assert _otlp.probe() == (False, "no response, 0 rejected no endpoint configured")
+
+
+# --- the two that must never deny ----------------------------------------------------
+
+
+@pytest.mark.parametrize("hook", [session, autoformat])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"_event": "SessionStart"},
+        {"_event": "SessionEnd"},
+        {"hook_event_name": "Stop"},
+        {"tool_input": "not a dict"},
+        {"tool_input": {"file_path": 12345}},
+        {"tool_input": {"file_path": "/does/not/exist.py"}},
+        {"tool_input": None, "_event": None},
+    ],
+)
+def test_neither_telemetry_hook_can_deny_whatever_it_is_fed(repo, hook, payload):
+    """These two run on the same blocking events as the guards. Whatever arrives, they must
+    return rather than exit: an observer that can stop work is a guard nobody classified,
+    and it would fail open the moment it mattered."""
+    assert hook.run(payload) is None
+
+
+def buffered(root):
+    return [json.loads(line) for line in (root / ".ai" / "events.jsonl").read_text().splitlines()]
+
+
+def test_the_session_hook_opens_the_trace_and_the_end_seals_the_buffer_into_the_chain(repo):
+    """Returning None is not the same as working: this hook is what turns a session's
+    events from a file inside the clone into links outside it, and because it is telemetry
+    a crash on the way there is swallowed. So the record itself is asserted, and the two
+    phases are asserted apart — the end that does not flush loses the whole session."""
+    (repo / ".ai").mkdir()
+    (repo / ".ai" / "config.toml").write_text("[pin]\nversion='1'\n")
+
+    session.run({"_event": "SessionStart"})
+    assert buffered(repo)[-1]["data"] == {"phase": "start", "id": "s0"}
+    assert not _emit.chain_path().exists()  # nothing is durable until the session ends
+
+    session.run({"_event": "SessionEnd"})
+    assert [(e["cls"], e["data"]["phase"]) for e in links()] == [
+        ("session", "start"),
+        ("session", "end"),
+    ]
+    assert (repo / ".ai" / "events.jsonl").read_text() == ""
+
+
+def test_the_formatter_runs_on_the_file_it_was_handed_and_on_nothing_else(repo, monkeypatch):
+    """Also not something `is None` can see. A formatter that never fires is a hook that
+    is only pretending, and one that fires on a path that does not exist spawns a process
+    per edit to be told so."""
+    ran = []
+    monkeypatch.setattr(autoformat.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(autoformat.subprocess, "run", lambda cmd, **kw: ran.append(cmd))
+    edited = repo / "a.py"
+    edited.write_text("x=1\n")
+    (repo / "notes.txt").write_text("hello\n")
+
+    autoformat.run({"tool_input": {"file_path": str(edited)}})
+    assert ran == [["ruff", "format", "--quiet", str(edited)]]
+
+    autoformat.run({"tool_input": {"file_path": str(repo / "notes.txt")}})  # no formatter
+    autoformat.run({"tool_input": {"file_path": str(repo / "gone.py")}})  # never written
+    assert len(ran) == 1

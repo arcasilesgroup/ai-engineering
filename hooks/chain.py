@@ -141,7 +141,14 @@ def main() -> int:
     if not raw:
         return 0  # nothing was decided, so there is nothing to judge
     try:
-        payload = normalise(json.loads(raw))
+        # Not just "is it JSON": `null`, `17` and `[1, 2]` all parse, and a payload that
+        # is not an object reached the guards as something they could not read. That
+        # exits 1, which every surface treats as a non-blocking error — the call went
+        # through. Unreadable has one answer here and it is deny.
+        body = json.loads(raw)
+        if not isinstance(body, dict):
+            raise ValueError(f"payload is {type(body).__name__}, not an object")
+        payload = normalise(body)
     except ValueError:
         emit("chain", "error", error="payload is not JSON")
         deny(

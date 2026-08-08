@@ -27,6 +27,10 @@ security:
 # cost to every subprocess, and the dispatcher latency assertion is a security property
 # measured in milliseconds. Deselecting it here is the only relaxation allowed — moving
 # the floor down instead is the thing this recipe exists to make impossible.
+# The floor is 80, which is the number the operator asked for. Measured today is 95, so
+# there are fifteen points of slack and that is deliberate: this gate answers "did we keep
+# the promise", and a floor pinned to today's measurement answers "did anything move",
+# which is the ceiling's job and not this one.
 cover:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -35,7 +39,7 @@ cover:
     uv run --with {{coverage}} --with {{pytest}} coverage run --parallel -m pytest -q -k "not fast_enough"
     uv run --with {{coverage}} coverage run --parallel tests/adversarial/run.py
     uv run --with {{coverage}} coverage combine
-    uv run --with {{coverage}} coverage report --fail-under=35
+    uv run --with {{coverage}} coverage report --fail-under=80
 
 # The counts come from the tools themselves: a file list prints the same number whether
 # the linter ran or was replaced by `true`, which is the theatre this contract catches.

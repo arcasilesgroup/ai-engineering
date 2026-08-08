@@ -37,9 +37,15 @@ DESCRIPTION_MAX = 1000
 # a plan gate any plan ever written satisfied, a repeat rule counting an identifier that is
 # unique per call, two dispatcher rows naming a payload key no guard read, and a git hook that
 # refused every push when an older CLI answered on the PATH — plus the measurement plane that
-# stops the next one hiding. It closes at the count that landed. The test fails the build on
-# the line after.
-REPO_CEILING = 5764
+# stops the next one hiding; and 5,764 to 8,441 for the test plane the operator asked for, at
+# his own decision and after being shown the counter-argument. That last move is 2,660 lines,
+# nearly half this repository, and the honest accounting is that it bought 95% branch coverage
+# rather than the 80% asked for, and nine defects nothing else had found — one of which put a
+# broken CI workflow in front of every user this tool has ever initialised. The test plane is
+# now larger than the product. That is a fact about this ceiling, not a defence of it: the next
+# commit that needs lines deletes a test that kills no mutant. The test fails the build on the
+# line after.
+REPO_CEILING = 8441
 
 
 def audit(root: Path) -> list[str]:
