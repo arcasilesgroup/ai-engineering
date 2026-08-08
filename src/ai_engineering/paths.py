@@ -55,7 +55,12 @@ def load(name: str) -> ModuleType:
         sys.path.insert(0, str(hooks()))
     if name in sys.modules:
         return sys.modules[name]
-    spec = importlib.util.spec_from_file_location(name, hooks() / f"{name}.py")
+    source = hooks() / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, source)
+    if spec is None or spec.loader is None:
+        # Said out loud rather than raised three lines later as an AttributeError on None.
+        # A hook that cannot be loaded is the one case where the reason has to survive.
+        raise ImportError(f"no hook module at {source}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)

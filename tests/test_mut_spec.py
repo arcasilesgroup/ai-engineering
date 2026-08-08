@@ -1,0 +1,488 @@
+"""The three verbs that write the record, pinned where mutation testing found them blind.
+
+`ai-eng spec`, `ai-eng decide` and `ai-eng plan` are read by a person and by an agent, so
+their exit codes and the exact words they print are behaviour, not decoration: a denial
+that changes its wording is a denial the agent no longer recognises. Every test below
+names one way one of these three could change what it does — a different code, a different
+line, a different command run against the forge — while every other test in the suite
+stayed green. Nothing here touches the real home or the real repository.
+"""
+
+from __future__ import annotations
+
+import builtins
+import json
+from datetime import date
+from types import SimpleNamespace
+
+import pytest
+
+from ai_engineering import decide, paths, plan, spec
+
+TODAY = date.today().isoformat()
+
+
+@pytest.fixture
+def home(tmp_path, monkeypatch):
+    """The chain, the machine id and the caches, all inside tmp_path."""
+    monkeypatch.setenv("AI_ENGINEERING_HOME", str(tmp_path / "home"))
+    emit = paths.load("_emit")
+    monkeypatch.setattr(emit, "repo_root", lambda start=None: None)
+    return emit
+
+
+@pytest.fixture
+def repo(tmp_path, monkeypatch):
+    """A throwaway repository root, so no verb can find the one we are working in."""
+    root = tmp_path / "repo"
+    (root / "specs").mkdir(parents=True)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    return root
+
+
+@pytest.fixture
+def wide(monkeypatch):
+    """argparse wraps help to the width of the terminal. Pin the width, or the help text
+    a test asserts on depends on the window the developer happened to have open."""
+    monkeypatch.setenv("COLUMNS", "200")
+
+
+def _forge(monkeypatch, payload):
+    """Stand in for gh and az, and keep every call so the command itself can be asserted."""
+    calls = []
+
+    def run(*args, **kwargs):
+        calls.append((args, kwargs))
+        return SimpleNamespace(stdout=json.dumps(payload))
+
+    monkeypatch.setattr(spec.subprocess, "run", run)
+    return calls
+
+
+def _keyboard(monkeypatch, typed):
+    """A terminal that exists and a person typing one word at it. Returns the prompts."""
+    prompts = []
+
+    def asked(prompt=""):
+        prompts.append(prompt)
+        return typed
+
+    monkeypatch.setattr(plan.sys, "stdin", SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(builtins, "input", asked)
+    return prompts
+
+
+# ------------------------------------------------------------------ spec: seeding
+
+
+@pytest.mark.parametrize(
+    ("ref", "command"),
+    [
+        (
+            "owner/repo#45",
+            ["gh", "issue", "view", "45", "--repo", "owner/repo", "--json", "title,body"],
+        ),
+        ("proj#7", ["az", "boards", "work-item", "show", "--id", "7"]),
+    ],
+)
+def test_a_work_item_is_read_with_the_exact_command_its_forge_understands(
+    monkeypatch, ref, command
+):
+    """One wrong word in either command line and seeding fails on every machine — quietly,
+    because the failure is swallowed on purpose so a missing `gh` never blocks the spec.
+    The timeout and the captured output are part of it: without them a hung `gh` hangs the
+    command a person is waiting on, and a crash comes back as an empty title."""
+    calls = _forge(monkeypatch, {"title": "From the board"})
+    assert spec.seed(ref)[0] == "From the board"
+    ((args, kwargs),) = calls
+    assert args == (command,)
+    assert kwargs == {"capture_output": True, "text": True, "timeout": 20, "check": True}
+
+
+def test_a_ref_is_split_on_its_first_hash_and_the_rest_is_the_item_id(monkeypatch):
+    """`owner/repo#12#34` has to reach the forge as repository `owner/repo` and item
+    `12#34`. Splitting on the last hash asks for the wrong item; not splitting at all
+    raises before anything is written and the spec is never created."""
+    calls = _forge(monkeypatch, {"title": "t"})
+    spec.seed("owner/repo#12#34")
+    command = calls[0][0][0]
+    assert command[3] == "12#34" and command[5] == "owner/repo"
+
+
+def test_a_work_item_with_no_title_seeds_an_empty_title_not_a_placeholder(monkeypatch):
+    """The empty title is what makes `create` fall back to the slug. Any other value ends
+    up as the heading of the spec, and the record then carries a word nobody wrote."""
+    _forge(monkeypatch, {"body": "the problem, as filed"})
+    assert spec.seed("owner/repo#45") == ("", "the problem, as filed")
+
+
+# ------------------------------------------------------------------ spec: writing
+
+
+def test_a_spec_written_without_a_work_item_keeps_its_todo_and_an_empty_ref(tmp_path):
+    """With no --ref there is nothing to seed from, so the TODO must survive: it is the
+    line that tells the next reader the problem has not been described yet."""
+    body = spec.create(tmp_path, "a-thing", "").read_text()
+    assert "TODO: what is true today, and what about it is a problem." in body
+    assert 'ref: ""' in body
+
+
+def test_a_very_long_work_item_body_is_cut_at_twelve_hundred_characters(tmp_path, monkeypatch):
+    """A work item can hold a novel. The spec takes the first 1200 characters of it and no
+    more, so one pasted stack trace cannot bury the sections a reviewer reads."""
+    _forge(monkeypatch, {"title": "t", "body": "y" * 2000})
+    body = spec.create(tmp_path, "a-thing", "owner/repo#1").read_text()
+    assert "y" * 1200 in body and "y" * 1201 not in body
+
+
+def test_a_spec_whose_bytes_are_not_utf8_still_appears_in_the_listing(tmp_path):
+    """The listing is the index of the record. One file written by another tool in another
+    encoding must not take the whole index down — it is read leniently for that reason."""
+    folder = tmp_path / "specs" / "001-a"
+    folder.mkdir(parents=True)
+    (folder / "spec.md").write_bytes(b"---\nstatus: draft\n---\n\n# Caf\xe9 plan\n")
+    (row,) = spec.listing(tmp_path, False)
+    assert row.split()[0] == "001-a" and " draft " in row and row.endswith("plan")
+
+
+def test_a_spec_with_no_status_and_no_title_lists_under_its_own_folder_name(tmp_path):
+    """A hand-written spec with no header still has to show up, marked unknown rather than
+    guessed at. A row that invented a status would report a draft as decided."""
+    folder = tmp_path / "specs" / "001-a"
+    folder.mkdir(parents=True)
+    (folder / "spec.md").write_text("nothing here\n", encoding="utf-8")
+    (row,) = spec.listing(tmp_path, False)
+    assert row.split() == ["001-a", "?", "001-a"]
+
+
+# ------------------------------------------------------------------ spec: the command
+
+
+def test_spec_new_writes_the_spec_and_prints_the_path_a_reader_can_open(repo, capsys):
+    """The printed path is how the person finds what was just written. It is relative to
+    the repository, and the command has to say it landed by exiting zero."""
+    assert spec.main(["new", "a-thing"]) == 0
+    assert capsys.readouterr().out == "  ✓ specs/001-a-thing/spec.md\n"
+    body = (repo / "specs" / "001-a-thing" / "spec.md").read_text()
+    assert 'ref: ""' in body and "# A thing" in body
+
+
+def test_spec_new_seeds_from_the_work_item_named_on_the_flag(repo, monkeypatch, capsys):
+    """--ref is the whole point of seeding: what the person who filed the item wrote has
+    to reach the spec, and the item has to be recorded in the frontmatter."""
+    _forge(monkeypatch, {"title": "From GitHub", "body": "the problem, as filed"})
+    assert spec.main(["new", "a-thing", "--ref", "owner/repo#45"]) == 0
+    assert capsys.readouterr().out == "  ✓ specs/001-a-thing/spec.md\n"
+    body = (repo / "specs" / "001-a-thing" / "spec.md").read_text()
+    assert "# From GitHub" in body and 'ref: "owner/repo#45"' in body
+    assert "the problem, as filed" in body
+
+
+def test_spec_list_prints_one_row_per_spec_and_says_so_when_there_are_none(repo, capsys):
+    """An empty listing that printed nothing reads exactly like a broken command. It says
+    there are none and names the command that makes one."""
+    assert spec.main(["list"]) == 0
+    assert capsys.readouterr().out == "  no specs yet — `ai-eng spec new <slug>`\n"
+    spec.create(repo, "one", "")
+    spec.create(repo, "two", "")
+    assert spec.main(["list"]) == 0
+    rows = capsys.readouterr().out.splitlines()
+    assert [row.split()[0] for row in rows] == ["001-one", "002-two"]
+
+
+def test_spec_list_all_is_the_only_way_a_superseded_spec_shows_up(repo, capsys):
+    """A superseded spec records a decision that has been overturned. It stays out of the
+    default listing, and --all is the flag that says the reader asked for it anyway."""
+    old = spec.create(repo, "old", "")
+    old.write_text(old.read_text().replace("status: draft", "status: superseded"))
+    assert spec.main(["list"]) == 0
+    assert "no specs yet" in capsys.readouterr().out
+    assert spec.main(["list", "--all"]) == 0
+    assert "001-old" in capsys.readouterr().out
+
+
+def test_spec_outside_a_repository_says_so_and_exits_one(tmp_path, monkeypatch, capsys):
+    """There is nowhere to put a spec outside a repository. Exiting zero there would tell
+    a script the record was written when nothing was."""
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
+    assert spec.main(["list"]) == 1
+    assert capsys.readouterr().out == "not inside a repository\n"
+
+
+def test_spec_without_an_action_refuses_instead_of_guessing_one(repo):
+    """`ai-eng spec` on its own must stop. Falling through to a default action writes or
+    prints something the person did not ask for."""
+    with pytest.raises(SystemExit):
+        spec.main([])
+
+
+def test_spec_help_names_the_command_and_documents_every_flag(wide, capsys):
+    """Help is the only place anybody looks for a flag. A flag missing its line, or a
+    usage line naming the wrong command, is a feature that does not exist."""
+    for argv, tokens, described in (
+        (["--help"], ["usage: ai-eng spec", "new", "show", "list"], []),
+        (
+            ["new", "--help"],
+            ["usage: ai-eng spec new", "slug", "--ref REF"],
+            ['a work item, e.g. "owner/repo#45"'],
+        ),
+        (["list", "--help"], ["usage: ai-eng spec list", "--all"], ["include superseded specs"]),
+    ):
+        with pytest.raises(SystemExit) as stopped:
+            spec.main(argv)
+        assert stopped.value.code == 0
+        out = capsys.readouterr().out
+        for token in tokens:
+            assert token in out
+        for line in described:
+            assert f" {line}\n" in out, "the help line is padded and ends there, not elsewhere"
+
+
+# ------------------------------------------------------------------ decide: on disk
+
+
+def test_the_record_has_exactly_one_home_and_the_newest_spec_is_the_last_number(tmp_path):
+    """docs/adr and specs/ are the two homes this project promises. A verb that wrote one
+    character of either path differently would scatter the record across two trees, and
+    recording a decision against the wrong spec files it under a problem it did not solve."""
+    assert decide.adr_dir(tmp_path) == tmp_path / "docs" / "adr"
+    assert decide.newest_spec(tmp_path) is None
+    spec.create(tmp_path, "old", "")
+    newest = spec.create(tmp_path, "new", "")
+    assert decide.newest_spec(tmp_path) == newest
+
+
+@pytest.mark.parametrize(
+    ("title", "stem"),
+    [("Use one queue!", "0001-use-one-queue"), ("A" * 70, "0001-" + "a" * 60)],
+)
+def test_an_adr_filename_is_a_clean_slug_capped_at_sixty_characters(tmp_path, title, stem):
+    """The filename is what everybody greps. Punctuation left as a trailing dash, or a
+    title allowed to run on, gives a name nobody can type or predict."""
+    assert decide.promote(tmp_path, title, "").stem == stem
+
+
+def test_a_decision_lands_between_the_headings_and_leaves_the_spec_intact(tmp_path):
+    """The block goes under `## Decisions`, above the risks, and everything already in the
+    file survives. A decision written to the end of the file, or one that ate the
+    frontmatter, is a record that no longer parses."""
+    path = spec.create(tmp_path, "a-thing", "")
+    decide.append(path, {"decision": "One queue", "date": TODAY})
+    body = path.read_text()
+    assert body.startswith("---\nid: ")
+    assert body.endswith("\n")
+    assert "## Decisions" in body.splitlines()
+    assert body.index("## Decisions") < body.index("decision: One queue")
+    assert body.index("decision: One queue") < body.index("## Accepted risks")
+    assert body.count("## Accepted risks") == 1
+
+
+def test_a_spec_with_no_decisions_heading_keeps_everything_it_already_held(tmp_path):
+    """Specs written before this heading existed get one added. Adding it must not cost
+    the spec its contents: overwriting the file here would delete the problem statement
+    somebody wrote, in the same command that claims to be recording a decision."""
+    path = tmp_path / "spec.md"
+    path.write_text("# a\n\n## Context\n\nthe problem, as filed.\n", encoding="utf-8")
+    decide.append(path, {"decision": "One queue"})
+    body = path.read_text()
+    assert body.startswith("# a\n")
+    assert "the problem, as filed." in body
+    assert "## Decisions" in body.splitlines() and "decision: One queue" in body
+
+
+def test_a_spec_that_names_the_decisions_heading_twice_takes_it_under_the_first(tmp_path):
+    """Somebody quoting the heading further down the file must not cost a decision. It
+    goes under the first one, deterministically, and nothing raises."""
+    path = tmp_path / "spec.md"
+    path.write_text("# a\n\n## Decisions\n\nfirst\n\n## Decisions\n\nsecond\n", encoding="utf-8")
+    decide.append(path, {"decision": "One queue"})
+    body = path.read_text()
+    assert body.count("## Decisions") == 2
+    assert body.index("decision: One queue") < body.index("first")
+
+
+def test_an_adr_listing_shows_the_status_of_every_file_including_the_broken_ones(tmp_path):
+    """The listing is where somebody checks whether a decision is still live. A file with
+    no status is marked unknown, and one written in another encoding does not take the
+    listing down with it."""
+    folder = tmp_path / "docs" / "adr"
+    folder.mkdir(parents=True)
+    (folder / "0001-a.md").write_text("---\nstatus: accepted\ndate: x\n---\n\n# 0001. A\n")
+    (folder / "0002-b.md").write_text("# 0002. B, with no header at all\n")
+    (folder / "0003-c.md").write_bytes(b"---\nstatus: proposed\n---\n\n# 0003. Caf\xe9\n")
+    assert decide.listing(tmp_path) == [
+        f"  {'0001-a':<44} accepted",
+        f"  {'0002-b':<44} ?",
+        f"  {'0003-c':<44} proposed",
+    ]
+
+
+# ------------------------------------------------------------------ decide: the command
+
+
+def test_decide_adr_writes_the_file_and_says_it_is_only_proposed(repo, capsys):
+    """A promoted decision is proposed, not accepted: the second line is what stops a
+    reader treating a freshly written ADR as something the team agreed to."""
+    assert decide.main(["Use one queue", "--adr"]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "  ✓ docs/adr/0001-use-one-queue.md",
+        "    status: proposed. Accept or reject it by changing one line in a pull request.",
+    ]
+    body = (repo / "docs" / "adr" / "0001-use-one-queue.md").read_text()
+    assert "# 0001. Use one queue" in body
+    assert "status: proposed" in body and 'spec: ""' in body and 'supersedes: ""' in body
+
+
+def test_superseding_flips_only_the_first_status_line_of_the_old_adr(repo):
+    """Superseding rewrites the header of the old ADR and nothing else. A rewrite that ran
+    over the whole file would edit prose that happens to start with the same word."""
+    assert decide.main(["Use one queue", "--adr"]) == 0
+    old = repo / "docs" / "adr" / "0001-use-one-queue.md"
+    old.write_text(old.read_text() + "\nstatus: this line is prose, not the header\n")
+    assert decide.main(["Use two queues", "--adr", "--supersede", "0001"]) == 0
+    body = old.read_text()
+    assert body.count("status: superseded by 0002") == 1
+    assert "status: this line is prose, not the header" in body
+    assert "supersedes: 0001" in (repo / "docs" / "adr" / "0002-use-two-queues.md").read_text()
+
+
+def test_a_promoted_decision_leaves_a_pointer_in_the_spec_it_came_from(repo):
+    """The spec keeps a line saying which ADR the decision moved to. Without both the
+    number and the title, the reader of the spec has to guess which file to open."""
+    spec.create(repo, "a-thing", "")
+    assert decide.main(["Use one queue", "--adr"]) == 0
+    body = (repo / "specs" / "001-a-thing" / "spec.md").read_text()
+    assert "adr: 0001" in body and "title: Use one queue" in body
+
+
+def test_decide_list_prints_one_row_per_adr_and_says_so_when_there_are_none(repo, capsys):
+    """No ADRs is the normal state, not an error, and the line says so — otherwise the
+    silence reads as a broken command and somebody promotes a decision that needs no ADR."""
+    assert decide.main(["--list"]) == 0
+    assert capsys.readouterr().out == "  no ADRs yet — most decisions never need one\n"
+    assert decide.main(["One", "--adr"]) == 0
+    assert decide.main(["Two", "--adr"]) == 0
+    capsys.readouterr()
+    assert decide.main(["--list"]) == 0
+    rows = capsys.readouterr().out.splitlines()
+    assert [row.split()[0] for row in rows] == ["0001-one", "0002-two"]
+
+
+def test_a_decision_that_stays_in_its_spec_is_dated_and_carries_a_rationale(repo, capsys):
+    """A decision with no date cannot be put in order against the others, and one with no
+    rationale is a note. When nobody typed --why the placeholder says so in the diff."""
+    spec.create(repo, "a-thing", "")
+    assert decide.main(["Use one queue"]) == 0
+    assert capsys.readouterr().out == (
+        "  ✓ recorded in specs/001-a-thing/spec.md. If it constrains specs that do not exist "
+        "yet, promote it with --adr.\n"
+    )
+    body = (repo / "specs" / "001-a-thing" / "spec.md").read_text()
+    assert (
+        "```yaml\n"
+        "decision: Use one queue\n"
+        f"date: {TODAY}\n"
+        "rationale: TODO: why, in one sentence\n"
+        "```\n"
+    ) in body
+    assert decide.main(["Use two queues", "--why", "it is cheaper"]) == 0
+    assert "rationale: it is cheaper" in (repo / "specs" / "001-a-thing" / "spec.md").read_text()
+
+
+def test_decide_refuses_with_the_line_that_names_the_fix(repo, tmp_path, monkeypatch, capsys):
+    """Each refusal has to say what to do next, and each one has its own exit code: 2 for
+    a command used wrongly, 1 for a repository that is not ready yet."""
+    assert decide.main(["Use one queue"]) == 1
+    assert capsys.readouterr().out == (
+        "  no spec to record this against. `ai-eng spec new <slug>` first.\n"
+    )
+    assert decide.main([]) == 2
+    assert capsys.readouterr().out == "  a decision needs a title.\n"
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
+    assert decide.main(["Use one queue"]) == 1
+    assert capsys.readouterr().out == "not inside a repository\n"
+
+
+def test_decide_help_names_the_command_and_documents_every_flag(wide, capsys):
+    """The flags are the whole surface of this verb. One missing help line and the person
+    reaches for the source, which is the moment the tool stopped being usable."""
+    with pytest.raises(SystemExit) as stopped:
+        decide.main(["--help"])
+    assert stopped.value.code == 0
+    out = capsys.readouterr().out
+    for token in ("usage: ai-eng decide", "--adr", "--supersede NNNN", "--list", "--why WHY"):
+        assert token in out
+    for line in ("promote it to docs/adr/", "the rationale, when it stays inside the spec"):
+        assert f" {line}\n" in out, "the help line is padded and ends there, not elsewhere"
+
+
+# ------------------------------------------------------------------ plan: the bypass
+
+
+def test_with_no_keyboard_nothing_is_granted_and_the_line_says_why(home, monkeypatch, capsys):
+    """The one that stops an agent approving its own exception: no terminal, no grant, and
+    the reason is printed rather than left for somebody to work out from an exit code."""
+    monkeypatch.setattr(plan.sys, "stdin", SimpleNamespace(isatty=lambda: False))
+    assert plan.main(["--skip", "in a hurry"]) == 1
+    assert capsys.readouterr().out == (
+        "  a bypass is a person's decision, and there is no keyboard here. Nothing granted.\n"
+    )
+    assert not (paths.home() / "cache" / "bypass.json").exists()
+
+
+def test_the_prompt_says_what_is_granted_for_how_long_and_against_whose_name(
+    home, monkeypatch, capsys
+):
+    """Consent is only consent if the person was told what they were consenting to: which
+    guard, for how long, for what reason. Anything short of the word yes grants nothing,
+    and the refusal is printed so it is not mistaken for a hang."""
+    prompts = _keyboard(monkeypatch, "no")
+    assert plan.main(["--skip", "in a hurry"]) == 1
+    assert prompts == ["  Type yes to grant it › "]
+    assert capsys.readouterr().out.splitlines() == [
+        "  This grants ONE bypass of design_gate, for 15 minutes, recorded against your name.",
+        "  Reason: in a hurry",
+        "  nothing granted.",
+    ]
+    assert not (paths.home() / "cache" / "bypass.json").exists()
+
+
+def test_a_granted_bypass_is_one_file_one_event_and_says_who_took_it(home, monkeypatch, capsys):
+    """The grant is a single file at the path the guard reads, and the event carries the
+    reason and the fact that a person took it — that is what makes a bypass visible to
+    somebody other than whoever took it. Taking a second one must not fail on the folder
+    the first one created."""
+    _keyboard(monkeypatch, "yes")
+    assert plan.main(["--skip", "in a hurry", "--guard", "design_gate"]) == 0
+    assert capsys.readouterr().out.splitlines()[-1] == (
+        "  ✓ granted. The next design_gate block passes, once, and the record says why."
+    )
+    names = sorted(path.name for path in paths.home().iterdir())
+    assert "cache" in names and "CACHE" not in names
+    assert [path.name for path in (paths.home() / "cache").iterdir()] == ["bypass.json"]
+    grant = json.loads((paths.home() / "cache" / "bypass.json").read_text())
+    assert grant["guard"] == "design_gate" and grant["reason"] == "in a hurry"
+    event = json.loads(home.chain_path(None).read_text().splitlines()[-1])
+    assert event["name"] == "design_gate" and event["cls"] == "bypassed"
+    assert event["data"] == {"reason": "in a hurry", "granted": "by a person"}
+    assert plan.main(["--skip", "once more", "--guard", "loop_guard"]) == 0
+
+
+def test_a_bypass_without_a_reason_is_not_a_bypass(home, monkeypatch):
+    """--skip is required because the reason is the record. A grant with no reason is a
+    control waived and nothing written down about why."""
+    monkeypatch.setattr(plan.sys, "stdin", SimpleNamespace(isatty=lambda: False))
+    with pytest.raises(SystemExit):
+        plan.main([])
+
+
+def test_plan_help_names_the_command_and_documents_the_bypass_flags(wide, capsys):
+    """This is the verb a person reaches for while blocked. If its help does not say what
+    --skip takes, or which guards can be named, the next move is to disable the guard."""
+    with pytest.raises(SystemExit) as stopped:
+        plan.main(["--help"])
+    assert stopped.value.code == 0
+    out = capsys.readouterr().out
+    for token in ("usage: ai-eng plan", "--skip REASON", "--guard {design_gate,loop_guard}"):
+        assert token in out
+    assert " why this change does not need a plan\n" in out

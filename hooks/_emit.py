@@ -36,7 +36,10 @@ def config(root: Path | None = None) -> dict:
 
     merged: dict = {}
     root = root or repo_root()
-    for path in (home() / "config.toml", (root / ".ai" / "config.toml") if root else None):
+    files = [home() / "config.toml"]
+    if root is not None:
+        files.append(root / ".ai" / "config.toml")
+    for path in files:
         try:
             for section, values in tomllib.loads(path.read_text()).items():
                 if isinstance(values, dict):

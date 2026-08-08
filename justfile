@@ -51,38 +51,134 @@ cover:
 # zero — so the run is not the gate; the stats file is. Two halves because one tool cannot
 # reach both: mutmut mutates the package, tests/mutation.py mutates the guards, which
 # mutmut cannot import without making hooks/ a package.
-mutate:
+#
+# `just mutate` is everything and is what the pull request runs. `just mutate <file>...`
+# is the same two halves over the files you name, and that is the whole of the local
+# saving: one module is 12 seconds against ten minutes for the tree, measured today.
+mutate *paths:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Outside the working copy, and this is not tidiness. mutmut puts its sandbox in
-    # ./mutants, which is inside the repository, so `repo_root()` walks up out of the
-    # sandbox and finds the real .git — and `init` then rewrites the developer's own
-    # justfile and leaves timestamped backups beside it. Measured: it happened three times
-    # in one run before this line existed. A test tool that can edit the tree it is
-    # judging is the failure this product exists to cure, wearing a lab coat.
     here="$PWD"
-    away="$(mktemp -d)"
-    trap 'rm -rf "$away"' EXIT
-    rsync -a --exclude=.git --exclude=.venv --exclude=dist --exclude=mutants \
-          --exclude=.pytest_cache --exclude=.ruff_cache ./ "$away/"
-    cd "$away"
-    uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut run
-    uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut export-cicd-stats
-    uv run --no-project python - <<'PY'
+    # A file is not a filter. mutmut names every mutant after the module path it imports
+    # under, so src/ai_engineering/accept.py is `ai_engineering.accept.*` — and the `.*`
+    # is not decoration, a bare prefix raises "nothing matches" and mutates nothing.
+    scoped=""; globs=""; guards=""
+    for p in {{paths}}; do
+        scoped=1
+        case "$p" in src/*.py) g="${p#src/}"; g="${g%.py}"; globs="$globs ${g//\//.}.*" ;; esac
+        # The guards half is hand-written rows, not an engine, so a file has mutants
+        # there only if a row names it — and handed a file no row names it prints
+        # "14 of 14 killed" over a run that mutated nothing. So ask the file itself.
+        grep -qF "\"$p\"" tests/mutation.py && guards="$guards $p" || true
+    done
+    if [ -z "$scoped" ] || [ -n "$globs" ]; then
+        # Outside the working copy, and this is not tidiness. mutmut puts its sandbox in
+        # ./mutants, which is inside the repository, so `repo_root()` walks up out of the
+        # sandbox and finds the real .git — and `init` then rewrites the developer's own
+        # justfile and leaves timestamped backups beside it. Measured: it happened three
+        # times in one run before this line existed. A test tool that can edit the tree it
+        # is judging is the failure this product exists to cure, wearing a lab coat.
+        away="$(mktemp -d)"
+        trap 'rm -rf "$away"' EXIT
+        rsync -a --exclude=.git --exclude=.venv --exclude=dist --exclude=mutants \
+              --exclude=.pytest_cache --exclude=.ruff_cache ./ "$away/"
+        cd "$away"
+        set -f  # $globs holds `module.*`; unset, the shell tries to expand it as a path
+        uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut run $globs
+        set +f
+        uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut export-cicd-stats
+        # The heredoc body sits at the recipe's indentation and not this block's: `just`
+        # strips one level, and anything deeper reaches python as an IndentationError.
+        uv run --no-project python - "$scoped" <<'PY'
     import json, sys
-    FLOOR = 59  # what landed. Raise it in a commit that says why, as with the line ceiling.
+    # 89 is what landed, closed at the measurement with no margin, as with the line ceiling.
+    # The target is 95 and the payer is named: `update` and `uninstall` have no suite of
+    # their own, and their 197 survivors are almost exactly the six points missing. Every
+    # other module is between 93% and 98%. Raise this in the commit that writes that file.
+    FLOOR = 89
+    scoped = bool(sys.argv[1])
     s = json.load(open("mutants/mutmut-cicd-stats.json"))
-    score = round(100 * s["killed"] / s["total"])
-    print(f"RAN mutants={s['total']}  killed={s['killed']}  survived={s['survived']}  {score}%")
+    # `total` counts every mutant in the tree even when you asked for one module —
+    # measured, 3,199 against the 276 that ran — so a scoped run divided by it scores
+    # 5% and fails for arithmetic reasons. The denominator is the mutants that ran.
+    ran = s["killed"] + s["survived"] if scoped else s["total"]
+    score = round(100 * s["killed"] / ran) if ran else 0
+    # RAN is the word tests/anti_theatre.py reads as proof a gate ran over everything.
+    # A partial run must not be able to write it, or one mutated file stands in for all.
+    # It gets its own line with nothing after the number: that reader anchors the pattern
+    # to the end of the line, so a count with detail trailing it matched nothing at all
+    # and the proof this recipe thought it was writing was never readable.
+    head = "PARTIAL" if scoped else "RAN"
+    print(f"  killed={s['killed']}  survived={s['survived']}  {score}%")
+    print(f"{head} mutants={ran}")
     if score < FLOOR:
         sys.exit(f"mutation: {score}% of deliberate defects caught, under {FLOOR}%.")
     PY
+    fi
     # The guards, back in the real tree, because their suite builds git repositories and
     # the line-ceiling test counts with `git ls-files`, neither of which a copy can answer.
     # This half edits the tree on purpose and restores each file in a finally, then checks
     # the sha256 matches before moving on — that is the difference between the two halves.
     cd "$here"
-    uv run --with {{pytest}} python tests/mutation.py
+    if [ -z "$scoped" ]; then
+        uv run --with {{pytest}} python tests/mutation.py
+    else
+        for p in $guards; do uv run --with {{pytest}} python tests/mutation.py -k "$p"; done
+    fi
+    [ -n "$scoped" ] && [ -z "$globs$guards" ] &&
+        echo "mutate: nothing in '{{paths}}' has mutants, so nothing was measured." >&2 || true
+
+# Locally, only what this session changed. On the pull request, everything: the workflow
+# runs `just check` and `just mutate` whole, and neither of them learned a flag here.
+#
+# Mutation is the only thing this makes cheaper, because it is the only expensive thing.
+# The suite stays whole: 540 tests in 6.3 seconds, measured. A changed-file-to-test map
+# would save four of those seconds and would be wrong the first time somebody renamed a
+# module — and a wrong map does not fail, it skips, quietly, which is the whole disease.
+changed:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # The same three questions hooks/design_gate.py asks, in the same order and with the
+    # same fallbacks: the branch against its merge base, the dirty tree, the untracked
+    # files. Two controls that disagree about what a change is are one control and a bug.
+    ref="$(git symbolic-ref --quiet refs/remotes/origin/HEAD || true)"
+    head="${ref##*/}"; head="${head:-main}"
+    base="$(git merge-base HEAD "$head" 2>/dev/null || git merge-base HEAD "origin/$head" 2>/dev/null || true)"
+    files="$({ [ -n "$base" ] && git diff --name-only "$base" HEAD || true
+               git diff --name-only HEAD
+               git ls-files --others --exclude-standard; } | sort -u)"
+    [ -n "$files" ] || {
+        echo "changed: nothing differs from $head. That ran over zero files, which is not a pass." >&2
+        exit 1
+    }
+    # A changed test earns its mutants too: editing tests/test_mut_accept.py and mutating
+    # nothing proves the new test is green, never that it would notice anything. The
+    # module is derived from the file's name, so a suite added today is picked up today
+    # and a list kept in here cannot go stale against the tests it is supposed to name.
+    mutable="$(printf '%s\n' "$files" | while read -r f; do
+        case "$f" in
+            src/*.py) echo "$f"; continue ;;
+            tests/test_*.py) m="${f#tests/test_}"; m="src/ai_engineering/${m#mut_}"
+                             { [ -f "$m" ] && echo "$m"; } || true; continue ;;
+        esac
+        grep -qF "\"$f\"" tests/mutation.py && echo "$f" || true
+    done | sort -u)"
+    printf 'changed: %s files against %s\n' "$(printf '%s\n' "$files" | wc -l | tr -d ' ')" "$head"
+    printf '%s\n' "$files" | sed 's/^/      /'
+    echo "  will run: ruff over the whole tree, the whole suite, and the mutants of —"
+    printf '%s\n' "${mutable:-(nothing you touched has mutants)}" | sed 's/^/      /'
+    cat <<'LEDGER'
+      will NOT run, and is therefore not known to be true:
+          the mutants of every file this branch did not touch
+          coverage --fail-under=80, gitleaks, semgrep, trivy, the wheel build
+          what the pull request adds: sonar, snyk, pip-audit, mypy, actionlint, zizmor
+      `just check` is the gate, and this is not it.
+    LEDGER
+    uv run --with {{ruff}} ruff check .
+    uv run --with {{ruff}} ruff format --check .
+    uv run --with {{pytest}} pytest -q
+    [ -z "$mutable" ] || {{just_executable()}} mutate $mutable
+    echo "changed: green over the files named above, and silent about every file that is not."
 
 # The counts come from the tools themselves: a file list prints the same number whether
 # the linter ran or was replaced by `true`, which is the theatre this contract catches.

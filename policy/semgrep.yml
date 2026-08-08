@@ -9,7 +9,11 @@ rules:
     message: >-
       Silencing the linter hides the finding rather than answering it. Refactor, or record
       an accepted risk with ai-eng accept. Rule 3 is not about one language.
-    pattern-regex: '#\s*(noqa|nosec|type:\s*ignore)|//\s*(@ts-ignore|nolint|NOSONAR|eslint-disable|swiftlint:disable)|@SuppressWarnings|#pragma\s+warning\s+disable|#\s*rubocop:disable|//\s*phpcs:ignore'
+    # `pragma: no cover` and `fmt: off` were missing and they are the two that matter most
+    # here: the first is invisible to `just cover`'s floor, so a guard's deny path can stop
+    # being measured without the number moving, and the second silences the formatter whose
+    # file count is the proof-of-work `just counts` prints.
+    pattern-regex: '#\s*(noqa|nosec|type:\s*ignore|fmt:\s*off|pragma:\s*no\s*cover)|//\s*(@ts-ignore|nolint|NOSONAR|eslint-disable|swiftlint:disable)|@SuppressWarnings|#pragma\s+warning\s+disable|#\s*rubocop:disable|//\s*phpcs:ignore'
     paths:
       exclude: ["policy/semgrep.yml"]  # a rule cannot be scanned by itself
 

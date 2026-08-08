@@ -17,11 +17,13 @@ import re
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from ai_engineering import __version__, paths, wiring
 
-CHECKS: list[tuple[int, str, str, bool, object]] = []
+Assertion = Callable[[Path | None], str | None]
+CHECKS: list[tuple[int, str, str, bool, Assertion]] = []
 
 
 class Undecidable(Exception):
@@ -167,8 +169,8 @@ def links_resolve(root: Path | None) -> str | None:
     ]
     if broken:
         return f"{len(broken)} skill roots no longer resolve: {broken[0]}"
-    imported = root is not None and (root / "CLAUDE.md").exists()
-    if imported and "@./AGENTS.md" not in (root / "CLAUDE.md").read_text(errors="replace"):
+    claude = (root / "CLAUDE.md") if root is not None else None
+    if claude and claude.exists() and "@./AGENTS.md" not in claude.read_text(errors="replace"):
         return "CLAUDE.md does not import AGENTS.md, so the doctrine never reaches the model"
     return None
 

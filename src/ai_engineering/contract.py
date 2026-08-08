@@ -46,9 +46,14 @@ DESCRIPTION_MAX = 1000
 # commit that needs lines deletes a test that kills no mutant — and there is now a command that
 # says which those are. 8,441 to 8,661 for it: mutmut over the package, a hand-written runner
 # over the guards mutmut cannot import, and a floor that fails the build. It bought the number
-# the coverage percentage was hiding — 95% of lines run, 59% of deliberate defects caught. The
-# test fails the build on the line after.
-REPO_CEILING = 8661
+# the coverage percentage was hiding — 95% of lines run, 59% of deliberate defects caught.
+# 8,661 to 11,587 to answer that number: five suites, 2,549 lines, which took the mutation
+# score from 59% to 89% and found four more defects on the way, including a mutation gate
+# configured by a list of four filenames that silently excluded every test file written
+# after it. Two of the fifteen modules have no suite yet, and their 197 survivors are the
+# six points between 89 and the 95 that was asked for. The test plane is now three times the
+# product. The test fails the build on the line after.
+REPO_CEILING = 11587
 
 
 def audit(root: Path) -> list[str]:

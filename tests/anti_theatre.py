@@ -19,6 +19,10 @@ from pathlib import Path
 RAN = re.compile(r"^RAN\s+([\w.-]+)=(\d+)\s*$", re.M)
 # Reading only the lines that are present cannot tell a gate that ran from a gate that
 # was deleted: both print nothing about the missing one. Naming them is what closes it.
+# The default is what `just check` owes. A job that runs a different gate passes its own
+# names as the third argument — the mutation job runs in its own CI job, so its RAN line
+# never reaches this log, and without a second call that whole gate could stop running
+# with nothing to notice. One reader, one contract, called once per gate.
 REQUIRED = ("lint", "tests", "suite")
 # This check only ever runs on this repository — it is not in the wheel and does not reach
 # a user's. So it covers the two manifests that can appear here, and no more.
@@ -52,14 +56,14 @@ def die(message: str) -> None:
     raise SystemExit(1)
 
 
-def main(log: Path, root: Path) -> int:
+def main(log: Path, root: Path, required: tuple[str, ...] = REQUIRED) -> int:
     counts = {name: int(number) for name, number in RAN.findall(log.read_text(errors="replace"))}
     if not counts:
         die("check printed no RAN lines. It did not prove it ran. The green is a lie.")
     for name, number in counts.items():
         if number < 1:
             die(f"RAN {name}={number}: it ran over zero items, which is not a pass.")
-    absent = [name for name in REQUIRED if name not in counts]
+    absent = [name for name in required if name not in counts]
     if absent:
         die(f"nothing reported {', '.join(absent)}. A deleted gate prints no line at all.")
 
@@ -89,4 +93,5 @@ def main(log: Path, root: Path) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(Path(sys.argv[1]), Path(sys.argv[2] if len(sys.argv) > 2 else ".")))
+    names = tuple(sys.argv[3].split(",")) if len(sys.argv) > 3 else REQUIRED
+    sys.exit(main(Path(sys.argv[1]), Path(sys.argv[2] if len(sys.argv) > 2 else "."), names))
