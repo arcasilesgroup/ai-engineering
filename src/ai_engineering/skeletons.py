@@ -19,7 +19,7 @@ Project identity, vocabulary and prohibitions live in CONSTITUTION.md. Read it f
 
 1. No code before an approved plan (more than 3 files).
 2. One commit, one change.
-3. Never `--no-verify`. Never silence a linter (`noqa`, `@ts-ignore`, `nosec`).
+3. Never `--no-verify`. Never silence a linter, in any language.
 4. No compatibility shims. Hard rename, hard delete; say it in the changelog.
 5. Delete before you abstract.
 6. Green gate before "done" — show the output.
@@ -90,11 +90,11 @@ TODO: who to ask, and how.
 TODO: prototype, production or maintenance. It changes what is acceptable here.
 """
 
-JUSTFILE = """# What `check` means in this repository. CI never learns a language: it runs `just check`.
+JUSTFILE = """# What `check` means here. CI never learns a language: it runs `just check`.
 
 linked:
-    @command -v ai-eng >/dev/null || echo "ai-eng is not installed here: this repository has no floor. https://github.com/arcasilesgroup/ai-engineering"
-    @git config --get core.hooksPath >/dev/null || echo "git hooks are not wired here. Run: ai-eng init"
+    @command -v ai-eng >/dev/null || echo "ai-eng is not installed here. Run: ai-eng init"
+    @git config --get core.hooksPath >/dev/null || echo "hooks are not wired. Run: ai-eng init"
 
 build:
     @echo "TODO: compile, package, sign"
@@ -105,14 +105,18 @@ lint:
 test:
     @echo "TODO: your test runner"
 
+# Identical in every repository, because scanners read files rather than languages.
+# These two are the ones that genuinely are: static analysis needs a rule set per
+# language and we do not ship a credible cross-language one, so add your own here.
 security:
     gitleaks dir . --redact --no-banner --exit-code 1
-    semgrep scan --config .ai/semgrep.yml --error --quiet
-    trivy fs --scanners vuln,license --exit-code 1 --severity CRITICAL,HIGH,MEDIUM .
+    trivy fs --scanners vuln,license,misconfig --exit-code 1 --severity CRITICAL,HIGH,MEDIUM .
 
+# The count comes from the tool that did the work, never from the file list — that
+# prints the same number whether your linter ran or was replaced by `true`.
 counts:
-    @echo "RAN lint=$(git ls-files | wc -l | tr -d ' ')"
-    @echo "RAN tests=0  # TODO: your runner's count. Zero fails the gate on purpose."
+    @echo "RAN lint=$(git ls-files | wc -l | tr -d ' ')  # TODO: your linter's own count"
+    @echo "RAN tests=0  # TODO: your runner's own count"
 
 check: linked build lint test security counts
 """

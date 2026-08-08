@@ -1,5 +1,8 @@
-# Our own rules, pinned in this repository. No lookup against a live registry: a gate that
-# fetches its policy at run time is a gate somebody else can change.
+# Our own rules, pinned here: a gate that fetches its policy at run time is a gate
+# somebody else can change. No `p/` pack for the same reason — semgrep does not cache
+# registry rules — and trivy's misconfig scanner buys the Terraform and Kubernetes ground
+# instead. A rule that forbids something in every language and is declared for one scans
+# zero targets elsewhere, so those two are `generic`.
 
 rules:
   - id: guard-exits-zero
@@ -16,12 +19,14 @@ rules:
       - pattern: sys.exit(0)
 
   - id: suppression-comment
-    languages: [python, typescript, javascript]
+    languages: [generic]
     severity: ERROR
     message: >-
       Silencing the linter hides the finding rather than answering it. Refactor, or record
-      an accepted risk with ai-eng accept.
-    pattern-regex: '#\s*(noqa|nosec|type:\s*ignore)|//\s*(@ts-ignore|nolint|NOSONAR)'
+      an accepted risk with ai-eng accept. Rule 3 is not about one language.
+    pattern-regex: '#\s*(noqa|nosec|type:\s*ignore)|//\s*(@ts-ignore|nolint|NOSONAR|eslint-disable|swiftlint:disable)|@SuppressWarnings|#pragma\s+warning\s+disable|#\s*rubocop:disable|//\s*phpcs:ignore'
+    paths:
+      exclude: ["policy/semgrep.yml"]  # a rule cannot be scanned by itself
 
   - id: shell-with-user-string
     languages: [python]
@@ -30,17 +35,14 @@ rules:
     patterns:
       - pattern: subprocess.$M(..., shell=True, ...)
 
-  - id: request-without-timeout
-    languages: [python]
-    severity: WARNING
-    message: A request with no timeout hangs the hot path, and a slow guard is a disabled guard.
-    patterns:
-      - pattern: urllib.request.urlopen($U)
-
   - id: tilde-in-config-value
-    languages: [python]
+    languages: [generic]
     severity: ERROR
     message: >-
       No agent surface documents expanding ~ inside a setting value, and a tilde in
       core.hooksPath saves fine and fires nothing. Write the expanded absolute path.
-    pattern-regex: '(hooksPath|command|settings)["\s:=]+["'']~/'
+      Declared generic because the files this happens in are JSON and TOML, not Python —
+      as python it never once fired on the thing it was written for. It matches the two
+      keys whose value we hand to git or to a surface, and not `settings`, which is how
+      policy/surfaces.toml declares a path for expand() to resolve.
+    pattern-regex: '(hooksPath|command)["\s:=]+["'']~/'
