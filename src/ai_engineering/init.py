@@ -177,18 +177,24 @@ def marks(args) -> tuple[str, str]:
     return ("·", "would be created") if args.dry else ("✓", "written")
 
 
+def backup(path: Path, args) -> str:
+    """A dated copy beside the original, before anything replaces it. Sub-second, because
+    whole seconds are not resolution enough for a name whose only job is to be unique:
+    two overwrites of one file inside the same second gave the same name, and the second
+    copy destroyed the first backup — the recovery path, overwritten by what it recovers
+    from."""
+    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    copy = path.with_name(f"{path.name}.bak-{stamp}")
+    if not args.dry:
+        shutil.copy2(path, copy)
+    return copy.name
+
+
 def write_offer(root: Path, name: str, args) -> None:
     path = root / name
     tick, verb = marks(args)
     if path.exists():
-        # Sub-second, because whole seconds are not resolution enough for a name whose
-        # only job is to be unique: two overwrites of one file inside the same second
-        # gave the same name, and the second copy destroyed the first backup.
-        stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-        backup = path.with_name(f"{name}.bak-{stamp}")
-        if not args.dry:
-            shutil.copy2(path, backup)
-        out(f"   {tick} {name} backup → {backup.name} {verb}")
+        out(f"   {tick} {name} backup → {backup(path, args)} {verb}")
     if not args.dry:
         path.write_text(OFFERS[name][1](), encoding="utf-8")
 
@@ -226,10 +232,23 @@ def project_step(args) -> int:
         return 0
 
     tick, verb = marks(args)
+    # The pin, and it is backed up before it is replaced for the same reason the four
+    # instruction files are. A re-run rewrote both of these unconditionally, with no copy
+    # and no line of its own, so a hand-edited pin went back to defaults in silence — and
+    # this is the file that names which version of the framework governs the repository.
+    # The constitution's rule is that a change of governance is never silent.
+    pins = {
+        ".ai/config.toml": skeletons.CONFIG_TOML.format(version=__version__),
+        ".ai/.gitignore": skeletons.AI_GITIGNORE,
+    }
+    for name, body in pins.items():
+        path = root / name
+        if path.exists() and path.read_text(errors="replace") != body:
+            out(f"   {tick} {name} backup → {backup(path, args)} {verb}")
     if not args.dry:
         pinned.parent.mkdir(parents=True, exist_ok=True)
-        pinned.write_text(skeletons.CONFIG_TOML.format(version=__version__), encoding="utf-8")
-        (root / ".ai" / ".gitignore").write_text(skeletons.AI_GITIGNORE, encoding="utf-8")
+        for name, body in pins.items():
+            (root / name).write_text(body, encoding="utf-8")
         (root / "specs").mkdir(exist_ok=True)
         (root / "specs" / ".gitkeep").touch()
     out(f"   {tick} .ai/config.toml · .ai/.gitignore · specs/")

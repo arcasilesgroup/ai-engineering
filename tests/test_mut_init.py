@@ -460,6 +460,32 @@ def test_naming_the_project_explicitly_runs_the_setup_over_an_existing_pin(repo,
     assert __version__ in (repo / ".ai" / "config.toml").read_text()
 
 
+def test_the_pin_is_never_replaced_without_a_dated_copy_and_a_line_of_its_own(repo, capsys):
+    """The four instruction files each got a dated backup and the one file this project's
+    own vocabulary calls *the pin* got none: `--project` with a value asks nothing and
+    rewrote .ai/config.toml and .ai/.gitignore unconditionally, so a hand-edited pin went
+    back to defaults with no copy and no line. This is the file that names which version
+    governs the repository, and a change of governance is never silent."""
+    (repo / ".ai").mkdir()
+    (repo / ".ai" / "config.toml").write_text('[framework]\nversion = "0.0.1"\n', encoding="utf-8")
+    init.project_step(init.parse(["--project", str(repo)]))
+    saved = [p for p in (repo / ".ai").iterdir() if p.name.startswith("config.toml.bak-")]
+    assert len(saved) == 1
+    assert saved[0].read_text() == '[framework]\nversion = "0.0.1"\n'
+    assert f"   ✓ .ai/config.toml backup → {saved[0].name} written\n" in capsys.readouterr().out
+    assert f'version = "{__version__}"' in (repo / ".ai" / "config.toml").read_text()
+
+
+def test_a_pin_that_already_says_what_we_would_write_is_not_copied(repo, capsys):
+    """Catches a backup on every re-run, which turns `--project` into a directory that
+    fills with identical copies of a file nobody changed."""
+    init.project_step(init.parse(["--project", str(repo)]))
+    capsys.readouterr()
+    init.project_step(init.parse(["--project", str(repo)]))
+    assert "backup" not in capsys.readouterr().out
+    assert {p.name for p in (repo / ".ai").iterdir()} == {"config.toml", ".gitignore"}
+
+
 def test_saying_no_to_the_project_writes_nothing_and_says_so(repo, monkeypatch, tty, typed, capsys):
     """Catches the project setup running before the person answered, and catches the
     reassurance that nothing was written going missing."""
