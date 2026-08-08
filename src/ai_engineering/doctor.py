@@ -20,7 +20,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from ai_engineering import __version__, paths, wiring
+from ai_engineering import __version__, paths, ui, wiring
 
 Assertion = Callable[[Path | None], str | None]
 CHECKS: list[tuple[int, str, str, bool, Assertion]] = []
@@ -516,39 +516,48 @@ def main(argv: list[str]) -> int:
 
     root = paths.repo_root()
     if args.paths:
-        print(f"  guards        {paths.hooks()}")
-        print(f"  git hooks     {paths.git_hooks()}")
-        print(f"  skills        {paths.home() / 'skills'}")
-        print(f"  record        {paths.load('_emit').chain_path(root)}")
-        print(f"  receipt       {wiring.receipt_path()}")
+        # Five paths and nothing else, so this is the half a person pipes into a script.
+        for label, where in (
+            ("guards", paths.hooks()),
+            ("git hooks", paths.git_hooks()),
+            ("skills", paths.home() / "skills"),
+            ("record", paths.load("_emit").chain_path(root)),
+            ("receipt", wiring.receipt_path()),
+        ):
+            ui.write(f"  {label:<14}{where}", data=True)
         return 0
 
     failed = skipped = 0
     for family in families():
-        print(f"\n{family}")
+        ui.write(f"\n{family}", data=True)
         for number, group, title, in_ci, fn in sorted(CHECKS):
             if group != family:
                 continue
             if args.ci and not in_ci:
-                print(f"  {number:>2}  SKIPPED  {title} — needs a real working copy")
+                ui.write(f"  {number:>2}  SKIPPED  {title} — needs a real working copy", data=True)
                 skipped += 1
                 continue
             try:
                 problem = fn(root)
             except Undecidable as why:
-                print(f"  {number:>2}  ?        {title}\n      could not evaluate: {why}")
+                ui.write(
+                    f"  {number:>2}  ?        {title}\n      could not evaluate: {why}", data=True
+                )
                 skipped += 1
                 continue
             if problem:
-                print(f"  {number:>2}  FAIL     {title}\n      {problem}")
+                ui.write(f"  {number:>2}  FAIL     {title}\n      {problem}", data=True)
                 failed += 1
             else:
-                print(f"  {number:>2}  ok       {title}")
+                ui.write(f"  {number:>2}  ok       {title}", data=True)
 
-    print("\nCoverage — what actually blocks, by surface")
+    ui.write("\nCoverage — what actually blocks, by surface", data=True)
     for line in coverage(root):
-        print(line)
-    print(f"\n{len(CHECKS) - failed - skipped} passed · {failed} failed · {skipped} not evaluated")
+        ui.write(line, data=True)
+    ui.write(
+        f"\n{len(CHECKS) - failed - skipped} passed · {failed} failed · {skipped} not evaluated",
+        data=True,
+    )
     if skipped:
-        print("Not evaluated is never green. Each one names why above.")
+        ui.write("Not evaluated is never green. Each one names why above.", data=True)
     return 1 if failed else 0

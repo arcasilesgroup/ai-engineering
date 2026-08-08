@@ -97,7 +97,7 @@ def test_out_ends_every_line_and_an_empty_call_prints_only_the_newline(capsys):
     of which would put literal junk in front of a user."""
     init.out("hello")
     init.out()
-    assert capsys.readouterr().out == "hello\n\n"
+    assert capsys.readouterr().err == "hello\n\n"
 
 
 def test_the_banner_stays_out_of_logs_and_ci_transcripts(capsys):
@@ -176,6 +176,8 @@ def test_the_help_names_the_command_and_explains_every_flag(monkeypatch, capsys)
     with pytest.raises(SystemExit) as stopped:
         init.parse(["--help"])
     assert stopped.value.code == 0
+    # argparse writes --help to stdout and that is right: it is what a person pipes into
+    # a pager. This one line is not ours to move to stderr with the rest of the messaging.
     text = capsys.readouterr().out
     assert text.startswith("usage: ai-eng init ")
     assert "The only install verb: this machine, and then this repository if you say yes." in text
@@ -236,7 +238,7 @@ def test_an_already_wired_machine_gets_one_summary_line_and_no_survey(home, caps
     entry = [{"path": "/a", "kind": "guard"}, {"path": "/b", "kind": "link"}]
     wiring.write_json(wiring.receipt_path(), {"wrote": entry, "version": __version__})
     init.global_step(init.parse([]))
-    assert capsys.readouterr().out == (
+    assert capsys.readouterr().err == (
         f"  Global ready — 8 skills, 2 entries, v{__version__} ({wiring.receipt_path()})\n"
     )
 
@@ -244,7 +246,7 @@ def test_an_already_wired_machine_gets_one_summary_line_and_no_survey(home, caps
 def test_no_global_says_nothing_at_all_when_there_is_no_receipt(home, capsys, no_keyboard):
     """Catches --no-global falling through into the machine setup it exists to prevent."""
     init.global_step(init.parse(["--no-global"]))
-    assert capsys.readouterr().out == ""
+    assert capsys.readouterr().err == ""
 
 
 def test_the_dry_run_surveys_every_surface_marks_the_found_one_and_writes_nothing(home, capsys):
@@ -252,7 +254,7 @@ def test_the_dry_run_surveys_every_surface_marks_the_found_one_and_writes_nothin
     writes anyway — the two things a person reads this screen to check."""
     (home / ".claude").mkdir()
     init.global_step(init.parse(["--global", "--dry-run"]))
-    text = capsys.readouterr().out
+    text = capsys.readouterr().err
     marks = survey(text)
     assert len(marks) == len([s for s in wiring.table()["surface"] if s["detect"]])
     assert marks["~/.claude"] == "found"
@@ -275,7 +277,7 @@ def test_harness_narrows_the_survey_to_the_surface_ids_you_name(home, capsys):
     for folder in (".claude", ".codex", ".cursor"):
         (home / folder).mkdir()
     init.global_step(init.parse(["--global", "--dry-run", "--harness", "claude-code,cursor"]))
-    marks = survey(capsys.readouterr().out)
+    marks = survey(capsys.readouterr().err)
     assert marks["~/.claude"] == "found"
     assert marks["~/.cursor"] == "found"
     assert marks["~/.codex"] == "not installed — skipped"
@@ -289,7 +291,7 @@ def test_the_machine_setup_asks_first_and_a_no_leaves_the_machine_untouched(
     typed.replies.append("n")
     init.global_step(init.parse(["--global"]))
     assert typed.prompts == ["◆ Set up this machine? (Y/n) › "]
-    assert "   → skipped.\n" in capsys.readouterr().out
+    assert "   → skipped.\n" in capsys.readouterr().err
     assert not wiring.receipt_path().exists()
 
 
@@ -301,7 +303,7 @@ def test_the_machine_setup_reports_the_skills_every_link_and_each_guard_entry(
     (home / ".claude").mkdir()
     (home / ".codex").mkdir()
     init.global_step(init.parse(["--global", "-y"]))
-    text = capsys.readouterr().out
+    text = capsys.readouterr().err
     assert f"   ✓ 8 skills   → {paths.home() / 'skills'}/ai-*/\n" in text
     found = {s["skills"] for s in wiring.detect() if s.get("skills")}
     assert found == {"~/.claude/skills", "~/.agents/skills"}
@@ -368,7 +370,7 @@ def test_the_checklist_shows_every_file_numbered_from_one_with_what_it_would_bec
     """Catches the numbering starting anywhere but 1, which makes the number a user types
     overwrite a different file than the one they read."""
     init.choose(ROWS, init.parse([]))
-    text = capsys.readouterr().out
+    text = capsys.readouterr().err
     assert "\n◇ 2 files already exist and are not ours\n" in text
     assert "   Type the numbers to overwrite, separated by spaces. Enter selects none.\n\n" in text
     assert "   1. CLAUDE.md" in text
@@ -419,14 +421,14 @@ def test_anything_it_could_not_use_is_named_rather_than_dropped(tty, typed, caps
     the failure mode of a parser that filters instead of refusing."""
     typed.replies.append("1 9 nope.md")
     assert init.choose(ROWS, init.parse([])) == {"CLAUDE.md"}
-    assert "   → ignored, nothing on the list matches: 9, nope.md\n" in capsys.readouterr().out
+    assert "   → ignored, nothing on the list matches: 9, nope.md\n" in capsys.readouterr().err
 
 
 def test_an_empty_list_asks_nothing_at_all(tty, no_keyboard, capsys):
     """Catches the checklist appearing on a repository where nothing pre-existed, which
     is what asking the disk before the writes leaves behind if nobody guards the zero."""
     assert init.choose([], init.parse([])) == set()
-    assert capsys.readouterr().out == ""
+    assert capsys.readouterr().err == ""
 
 
 # ── project_step ────────────────────────────────────────────────────────────────────
@@ -440,7 +442,7 @@ def test_outside_a_git_repository_dash_y_creates_nothing_and_succeeds(tmp_path, 
     plain = tmp_path / "plain"
     plain.mkdir()
     assert init.project_step(init.parse(["--project", str(plain), "-y"])) == 0
-    assert capsys.readouterr().out == (
+    assert capsys.readouterr().err == (
         f"\n◇ Project   {plain}   not a git repository\n"
         "   → skipped. There is nothing to set up outside a repository.\n"
     )
@@ -457,7 +459,7 @@ def test_a_directory_that_is_not_a_repository_is_offered_one(tmp_path, home, tty
     assert init.project_step(init.parse(["--project", str(plain)])) == 0
     assert typed.prompts[0] == "◆ Run `git init` here? (y/N) › "
     assert (plain / ".git").is_dir()
-    assert f"   ✓ git init   → {plain}\n" in capsys.readouterr().out
+    assert f"   ✓ git init   → {plain}\n" in capsys.readouterr().err
     assert (plain / ".ai" / "config.toml").exists()
     # main, not whatever this machine's git.defaultBranch happens to say: the CI block
     # this same run prints triggers on push, and a repository whose branch is named
@@ -498,7 +500,7 @@ def test_with_no_project_flag_outside_a_repository_it_names_the_directory_you_ar
     plain.mkdir()
     monkeypatch.chdir(plain)
     assert init.project_step(init.parse(["-y"])) == 0
-    assert f"\n◇ Project   {plain}   not a git repository\n" in capsys.readouterr().out
+    assert f"\n◇ Project   {plain}   not a git repository\n" in capsys.readouterr().err
 
 
 def test_a_git_init_that_fails_stops_here_and_the_call_cannot_hang(
@@ -534,7 +536,7 @@ def test_a_project_path_that_is_not_a_directory_is_not_offered_a_repository(
     a_file.write_text("I am a file\n", encoding="utf-8")
     assert init.project_step(init.parse(["--project", str(a_file)])) == 0
     assert "   → skipped. There is nothing to set up outside a repository.\n" in (
-        capsys.readouterr().out
+        capsys.readouterr().err
     )
 
 
@@ -547,7 +549,7 @@ def test_pressing_enter_at_the_git_init_offer_creates_nothing(tmp_path, home, tt
     assert init.project_step(init.parse(["--project", str(plain)])) == 0
     assert not (plain / ".git").exists()
     assert "   → skipped. There is nothing to set up outside a repository.\n" in (
-        capsys.readouterr().out
+        capsys.readouterr().err
     )
 
 
@@ -559,7 +561,7 @@ def test_with_no_project_flag_it_looks_at_the_directory_you_are_standing_in(
     monkeypatch.chdir(repo)
     typed.replies.append("n")
     assert init.project_step(init.parse([])) == 0
-    assert f"\n◇ Project   {repo}   git repository, not set up\n" in capsys.readouterr().out
+    assert f"\n◇ Project   {repo}   git repository, not set up\n" in capsys.readouterr().err
 
 
 def test_a_repository_that_is_already_pinned_is_left_alone(repo, monkeypatch, capsys, no_keyboard):
@@ -569,7 +571,7 @@ def test_a_repository_that_is_already_pinned_is_left_alone(repo, monkeypatch, ca
     (repo / ".ai" / "config.toml").write_text("already mine\n", encoding="utf-8")
     monkeypatch.chdir(repo)
     assert init.project_step(init.parse([])) == 0
-    assert capsys.readouterr().out == (
+    assert capsys.readouterr().err == (
         "  Project ready — .ai/config.toml, spec chain wired\n\n"
         "  Nothing to do. `ai-eng doctor` for the full check.\n"
     )
@@ -582,7 +584,7 @@ def test_naming_the_project_explicitly_runs_the_setup_over_an_existing_pin(repo,
     (repo / ".ai").mkdir()
     (repo / ".ai" / "config.toml").write_text("stale\n", encoding="utf-8")
     assert init.project_step(init.parse(["--project", str(repo)])) == 0
-    text = capsys.readouterr().out
+    text = capsys.readouterr().err
     assert "   git repository, not set up\n" in text
     assert __version__ in (repo / ".ai" / "config.toml").read_text()
 
@@ -599,7 +601,7 @@ def test_the_pin_is_never_replaced_without_a_dated_copy_and_a_line_of_its_own(re
     saved = [p for p in (repo / ".ai").iterdir() if p.name.startswith("config.toml.bak-")]
     assert len(saved) == 1
     assert saved[0].read_text() == '[framework]\nversion = "0.0.1"\n'
-    assert f"   ✓ .ai/config.toml backup → {saved[0].name} written\n" in capsys.readouterr().out
+    assert f"   ✓ .ai/config.toml backup → {saved[0].name} written\n" in capsys.readouterr().err
     assert f'version = "{__version__}"' in (repo / ".ai" / "config.toml").read_text()
 
 
@@ -609,7 +611,7 @@ def test_a_pin_that_already_says_what_we_would_write_is_not_copied(repo, capsys)
     init.project_step(init.parse(["--project", str(repo)]))
     capsys.readouterr()
     init.project_step(init.parse(["--project", str(repo)]))
-    assert "backup" not in capsys.readouterr().out
+    assert "backup" not in capsys.readouterr().err
     assert {p.name for p in (repo / ".ai").iterdir()} == {"config.toml", ".gitignore"}
 
 
@@ -620,7 +622,7 @@ def test_saying_no_to_the_project_writes_nothing_and_says_so(repo, monkeypatch, 
     typed.replies.append("n")
     assert init.project_step(init.parse([])) == 0
     assert typed.prompts == ["◆ Set up this project too? (Y/n) › "]
-    assert "   → skipped. Nothing was written.\n" in capsys.readouterr().out
+    assert "   → skipped. Nothing was written.\n" in capsys.readouterr().err
     assert not (repo / ".ai").exists()
     assert not (repo / "specs").exists()
 
@@ -637,7 +639,7 @@ def test_the_project_setup_writes_the_pin_the_ignore_file_and_specs_under_those_
     assert {p.name for p in (repo / "specs").iterdir()} == {".gitkeep"}
     assert (repo / ".ai" / ".gitignore").read_text() == skeletons.AI_GITIGNORE
     assert f'version = "{__version__}"' in (repo / ".ai" / "config.toml").read_text()
-    assert "   ✓ .ai/config.toml · .ai/.gitignore · specs/\n" in capsys.readouterr().out
+    assert "   ✓ .ai/config.toml · .ai/.gitignore · specs/\n" in capsys.readouterr().err
 
 
 def test_each_offered_file_is_written_with_the_description_the_user_was_shown(
@@ -646,7 +648,7 @@ def test_each_offered_file_is_written_with_the_description_the_user_was_shown(
     """Catches the report printing the function that makes a file instead of the sentence
     describing it, which is what somebody reads to decide whether to keep it."""
     init.project_step(init.parse(["--project", str(repo)]))
-    text = capsys.readouterr().out
+    text = capsys.readouterr().err
     assert "   ✓ CLAUDE.md written (one line: @./AGENTS.md)\n" in text
     assert "   ✓ AGENTS.md written (skeleton, ~48 lines, TODO marker per section)\n" in text
     assert "   ✓ CONSTITUTION.md written (skeleton, ~40 lines, MANDATORY)\n" in text
@@ -672,7 +674,7 @@ def test_files_that_are_already_there_are_named_and_left_as_they_are(repo, capsy
     assert (
         "   → left as is: CLAUDE.md, justfile. "
         "Nothing was written to them and nothing recorded that they were skipped.\n"
-    ) in capsys.readouterr().out
+    ) in capsys.readouterr().err
     assert (repo / "CLAUDE.md").read_text() == "mine\n"
     assert (repo / "justfile").read_text() == "mine too\n"
 
@@ -685,7 +687,7 @@ def test_the_sentence_that_declines_the_overwrite_promises_no_check_nobody_wrote
     twenty-one assertions looks at them."""
     (repo / "CLAUDE.md").write_text("mine\n", encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo)]))
-    assert "unmanaged" not in capsys.readouterr().out
+    assert "unmanaged" not in capsys.readouterr().err
 
 
 def test_the_files_the_installer_just_wrote_are_not_reported_as_left_as_is(
@@ -695,7 +697,7 @@ def test_the_files_the_installer_just_wrote_are_not_reported_as_left_as_is(
     Both cannot be true, and the second one is the wrong half."""
     (repo / "CLAUDE.md").write_text("mine\n", encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo)]))
-    left = capsys.readouterr().out.split("   → left as is: ")[1].split(". Nothing")[0]
+    left = capsys.readouterr().err.split("   → left as is: ")[1].split(". Nothing")[0]
     assert left == "CLAUDE.md"
 
 
@@ -709,7 +711,7 @@ def test_an_overwritten_file_is_copied_to_a_timestamped_backup_first(repo, capsy
     assert re.fullmatch(r"CLAUDE\.md\.bak-\d{8}-\d{6}-\d{6}", backups[0])
     assert (repo / backups[0]).read_text() == "mine\n"
     assert (repo / "CLAUDE.md").read_text() == skeletons.CLAUDE_MD
-    assert f"   ✓ CLAUDE.md backup → {backups[0]} written\n" in capsys.readouterr().out
+    assert f"   ✓ CLAUDE.md backup → {backups[0]} written\n" in capsys.readouterr().err
 
 
 def test_two_overwrites_inside_one_second_leave_two_backups(repo, no_keyboard):
@@ -747,7 +749,7 @@ def test_the_wall_the_repository_is_about_to_hit_is_named_now_not_at_the_next_co
         init.shutil, "which", lambda name: f"/opt/bin/{name}" if name in on_path else None
     )
     init.project_step(init.parse(["--project", str(repo)]))
-    assert (WARNING in capsys.readouterr().out) is warns
+    assert (WARNING in capsys.readouterr().err) is warns
 
 
 def test_the_stacks_it_found_are_named_and_it_installs_none_of_them(repo, capsys, no_keyboard):
@@ -759,23 +761,30 @@ def test_the_stacks_it_found_are_named_and_it_installs_none_of_them(repo, capsys
     assert (
         "\n   Stacks detected: node, python. The binaries each one needs are listed "
         "in docs/tools.md; this installs none of them.\n"
-    ) in capsys.readouterr().out
+    ) in capsys.readouterr().err
 
 
 def test_a_repository_with_no_marker_file_gets_no_stack_line(repo, capsys, no_keyboard):
     """Catches a stack being claimed for a repository that has nothing to claim it with."""
     init.project_step(init.parse(["--project", str(repo)]))
-    assert "Stacks detected" not in capsys.readouterr().out
+    assert "Stacks detected" not in capsys.readouterr().err
 
 
-def test_the_ci_block_is_printed_indented_and_pinned_to_this_version(repo, capsys, no_keyboard):
-    """Catches the workflow block arriving as one run-together line or without the
-    version pin, either of which fails the moment it is pasted."""
+def test_the_ci_block_is_the_only_thing_on_stdout_and_lands_as_a_usable_file(
+    repo, capsys, no_keyboard
+):
+    """The workflow block is the one thing this verb produces that another program reads,
+    so it is the data half: `ai-eng init -y 2>/dev/null > check.yml` has to leave a file
+    that parses. It used to be indented three spaces to sit inside the screen, which was
+    invisible while everything shared one stream and is a broken workflow the moment it is
+    the file. The instruction above it stays on stderr, where the rest of the prose is."""
     assert init.project_step(init.parse(["--project", str(repo)])) == 0
-    text = capsys.readouterr().out
-    assert "\n   Paste these lines into .github/workflows/check.yml:\n\n" in text
-    assert "   name: check\n   on: [push, pull_request]\n" in text
-    assert f"\n             PIN: {__version__}\n" in text
+    caught = capsys.readouterr()
+    assert caught.out == skeletons.CHECK_YML.format(version=__version__).rstrip("\n") + "\n"
+    assert caught.out.startswith("name: check\non: [push, pull_request]\n")
+    assert f"\n          PIN: {__version__}\n" in caught.out
+    assert "\n   Paste these lines into .github/workflows/check.yml:\n\n" in caught.err
+    assert "name: check" not in caught.err
 
 
 def test_a_project_dry_run_prints_the_plan_and_writes_no_file(repo, capsys, no_keyboard):
@@ -784,7 +793,7 @@ def test_a_project_dry_run_prints_the_plan_and_writes_no_file(repo, capsys, no_k
     assert not (repo / ".ai").exists()
     assert not (repo / "specs").exists()
     assert not (repo / "CLAUDE.md").exists()
-    assert "   · .ai/config.toml · .ai/.gitignore · specs/\n" in capsys.readouterr().out
+    assert "   · .ai/config.toml · .ai/.gitignore · specs/\n" in capsys.readouterr().err
 
 
 def test_a_dry_run_never_says_anything_was_written(repo, capsys, no_keyboard):
@@ -794,7 +803,7 @@ def test_a_dry_run_never_says_anything_was_written(repo, capsys, no_keyboard):
     stopped claiming otherwise, which is how it survived."""
     (repo / "CLAUDE.md").write_text("mine\n", encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo), "--dry-run", "--overwrite", "all"]))
-    text = capsys.readouterr().out
+    text = capsys.readouterr().err
     assert "written" not in text
     assert {p.name for p in repo.iterdir()} == {"CLAUDE.md", ".git"}
     assert (repo / "CLAUDE.md").read_text() == "mine\n"
@@ -807,7 +816,7 @@ def test_a_dry_run_over_an_empty_repository_prints_the_checklist_it_promises(
     nothing in it, every line of that checklist is a file this run would create, and
     those are exactly the lines the flag used to suppress on the write side only."""
     init.project_step(init.parse(["--project", str(repo), "--dry-run"]))
-    text = capsys.readouterr().out
+    text = capsys.readouterr().err
     assert "   · .ai/config.toml · .ai/.gitignore · specs/\n" in text
     assert f"   · core.hooksPath → {paths.git_hooks()}\n" in text
     for name, (becomes, _) in init.OFFERS.items():
@@ -836,7 +845,7 @@ def test_the_last_screen_says_what_happened_and_what_to_run_next(
     nothing is holding."""
     monkeypatch.setattr(init.shutil, "which", lambda name: f"/opt/bin/{name}")
     init.main(["--no-global", "--project", str(repo), "-y"])
-    text = capsys.readouterr().out
+    text = capsys.readouterr().err
     assert text.endswith(f"\n◇ Done   7 files written · 0 guard entries on this machine\n{NEXT}")
     # The YAML stays, above the report rather than as the final word.
     assert text.index("Paste these lines") < text.index("◇ Done")
@@ -850,7 +859,7 @@ def test_the_last_screen_counts_the_guard_entries_that_are_actually_there(
     "1 guard entry", because a closing panel that says "1 entries" was written by nobody."""
     monkeypatch.setattr(init.shutil, "which", lambda name: f"/opt/bin/{name}")
     init.main(["--global", "--harness", "claude-code", "--project", str(repo), "-y"])
-    assert "\n◇ Done   7 files written · 1 guard entry on this machine\n" in capsys.readouterr().out
+    assert "\n◇ Done   7 files written · 1 guard entry on this machine\n" in capsys.readouterr().err
 
 
 def test_a_run_that_overwrites_counts_the_files_it_overwrote(
@@ -862,7 +871,7 @@ def test_a_run_that_overwrites_counts_the_files_it_overwrote(
     for name in ("CLAUDE.md", "justfile"):
         (repo / name).write_text("mine\n", encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo), "--overwrite", "all"]))
-    assert "\n◇ Done   7 files written · " in capsys.readouterr().out
+    assert "\n◇ Done   7 files written · " in capsys.readouterr().err
 
 
 def test_what_is_still_on_a_person_reaches_the_last_screen(repo, capsys, no_keyboard, monkeypatch):
@@ -872,7 +881,7 @@ def test_what_is_still_on_a_person_reaches_the_last_screen(repo, capsys, no_keyb
     for name in ("justfile", "CLAUDE.md"):
         (repo / name).write_text("mine\n", encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo), "-y"]))
-    text = capsys.readouterr().out.split("\n◇ Done   ")[1]
+    text = capsys.readouterr().err.split("\n◇ Done   ")[1]
     assert "   ⚠ still on you: install gitleaks, or every commit here is refused\n" in text
     assert "   ⚠ still on you: 2 of your own files were left alone: CLAUDE.md, justfile\n" in text
 
@@ -885,6 +894,6 @@ def test_main_runs_the_machine_step_then_the_project_step_and_returns_its_code(
 ):
     """Catches main losing the project step's exit code, which is what CI reads."""
     assert init.main(["--no-global", "--project", str(repo)]) == 0
-    text = capsys.readouterr().out
+    text = capsys.readouterr().err
     assert "\n◇ Project" in text
     assert "\n◇ Global" not in text

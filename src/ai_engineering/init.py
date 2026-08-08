@@ -19,7 +19,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from ai_engineering import __version__, paths, skeletons, wiring
+from ai_engineering import __version__, paths, skeletons, ui, wiring
 
 OFFERS = {
     "CLAUDE.md": ("one line: @./AGENTS.md", lambda: skeletons.CLAUDE_MD),
@@ -29,8 +29,12 @@ OFFERS = {
 }
 
 
-def out(text: str = "") -> None:
-    sys.stdout.write(text + "\n")
+def out(text: str = "", data: bool = False) -> None:
+    """Messaging, which is nearly all of this verb, and it goes to stderr. Everything here
+    went to stdout before, so `ai-eng init > log` captured the block of YAML you are meant
+    to paste together with every question, tick and survey row wrapped around it. The one
+    caller that passes data=True is that block."""
+    ui.write(text, data=data)
 
 
 def banner() -> None:
@@ -313,11 +317,11 @@ def project_step(args) -> int:
             f"in docs/tools.md; this installs none of them."
         )
     out("\n   Paste these lines into .github/workflows/check.yml:\n")
-    out(
-        "\n".join(
-            f"   {line}" for line in skeletons.CHECK_YML.format(version=__version__).splitlines()
-        )
-    )
+    # Flush left, and on stdout. It was indented three spaces to sit inside the screen,
+    # which was fine while everything was one stream; now that this is the data half,
+    # `ai-eng init -y 2>/dev/null > check.yml` has to leave a file that parses, and a
+    # workflow whose every line carries three spaces of leading indentation does not.
+    out(skeletons.CHECK_YML.format(version=__version__).rstrip("\n"), data=True)
     report(files, waiting, args)
     return 0
 
