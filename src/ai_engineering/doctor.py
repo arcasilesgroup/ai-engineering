@@ -124,15 +124,19 @@ def no_double_decision(root: Path | None) -> str | None:
 @check(2, "The wiring", "Every guard is registered, and points at a file that exists")
 def wiring_present(root: Path | None) -> str | None:
     dispatcher = paths.hooks() / "chain.py"
-    broken = [] if dispatcher.exists() else [f"the dispatcher is missing at {dispatcher}"]
+    if not dispatcher.exists():
+        # No cure named, because there is no `ai-eng` command that puts it back: the
+        # dispatcher lives inside the wheel, so its absence is a broken install.
+        return f"the dispatcher is missing at {dispatcher}"
     wired = [s for s in wiring.detect() if s["writer"] != "none" and s["settings"]]
-    if not wired and not broken:
+    if not wired:
         raise Undecidable(
             "no surface that takes a guard entry is installed here, so this looked at "
             "nothing. Declining the machine half of `ai-eng init` still wires the "
             "repository, which is how a governed repository ends up on a machine with "
             "no guards at all."
         )
+    broken = []
     for surface in wired:
         path = wiring.expand(surface["settings"])
         if not path.exists() or wiring.MARK not in path.read_text(errors="replace"):

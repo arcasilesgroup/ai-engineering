@@ -593,6 +593,18 @@ def test_every_failure_a_command_can_repair_names_that_command(
     assert re.search(r"`ai-eng [^`]+`", detail), detail
 
 
+def test_a_missing_dispatcher_names_no_cure_because_no_command_puts_it_back(
+    home, repo, monkeypatch, tmp_path
+):
+    """The dispatcher lives inside the wheel and is never copied out, so no `ai-eng` verb
+    can restore it. Printing one anyway would be the same defect as the `doctor` check
+    nobody wrote, committed by the commit that went round deleting those."""
+    monkeypatch.setattr(paths, "hooks", lambda: tmp_path / "nowhere")
+    got, detail = verdict(doctor.wiring_present, repo)
+    assert (got, "dispatcher is missing" in detail) == ("fail", True)
+    assert "`ai-eng" not in detail
+
+
 def test_the_summary_counts_an_unanswerable_wiring_section_as_not_evaluated(
     home, repo, monkeypatch, capsys
 ):
