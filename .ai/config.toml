@@ -1,0 +1,24 @@
+# The pin. It says which version of the framework governs this repository, and its
+# diff in a pull request is the audit trail of what changed in governance.
+[framework]
+version = "1.0.0"
+
+[record]
+# The durable chain lives outside every clone, under ~/.ai-engineering/state/.
+anchor_commits = true
+
+[guards]
+loop_window = 6
+loop_repeats = 3
+loop_failures = 5
+design_budget = 3
+
+[observability]
+# Where a person looks. Leave endpoint empty and only the local record is written.
+provider = ""
+endpoint = ""
+signals = []
+encoding = "json"
+auth_header = ""
+auth_env = ""
+redact = "strict"

@@ -130,7 +130,7 @@ follow_up: Publish the harness so a buyer can run it against their own key.
 
 - [x] CI/CD — check.yml runs the gate, the suite and the install matrix on every push
 - [x] Logs — one JSON line per decision, six closed classes, hash-chained
-- [ ] Traces — no second hop in this product; no hop, no trace
+- [x] Traces — not applicable, and that is the rule: no second hop, no trace
 - [x] Errors — recorded as their own event class and surfaced by `ai-eng digest`
 - [x] Health and data age — `ai-eng doctor`, and `ai-eng audit verify` walks every link
 - [x] External check — the install matrix runs a stranger's first five minutes on three OSes

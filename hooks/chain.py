@@ -148,6 +148,7 @@ def main() -> int:
     tool = payload.get("tool_name", "")
     fp = fingerprint(payload)
     payload["_fp"], payload["_event"] = fp, event
+    payload["_dedup"] = deduplicable(payload)
 
     dedup = deduplicable(payload) and event == "PreToolUse"
     verdict = cached(fp) if dedup else None

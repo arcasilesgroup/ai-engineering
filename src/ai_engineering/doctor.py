@@ -92,6 +92,10 @@ def pin_matches(root: Path | None) -> str | None:
 
 @check(15, "The pin", "No guard decides the same call twice")
 def no_double_decision(root: Path | None) -> str | None:
+    """Only calls the surface gave an identifier can be judged this way. Without one,
+    two decisions on identical arguments are two different calls — a retry loop looks
+    exactly like a double delivery, and treating them as the same is what blinds
+    loop_guard. Guards record the fingerprint only when there was an identifier."""
     seen: dict[str, set[str]] = {}
     for event in events(root):
         fp = (event.get("data") or {}).get("fp")
@@ -261,8 +265,12 @@ def data_is_yours(root: Path | None) -> str | None:
         for name in git(root, "ls-files").splitlines()
         if name.startswith(".ai-engineering/") or name.endswith(".ai-eng.json")
     ]
-    print(f"      files: {'  '.join(str(root / h) for h in homes)}")
-    return None if not strays else f"{len(strays)} framework files outside their homes: {strays[0]}"
+    if strays:
+        return (
+            f"{len(strays)} framework files are committed outside {', '.join(homes)} — "
+            f"the first is {strays[0]}. That is the first step back toward 528 of them."
+        )
+    return None
 
 
 # ---------------------------------------------------------------- the controls
@@ -427,13 +435,20 @@ def coverage(root: Path | None) -> list[str]:
         f"{'  OK' if pinned == __version__ else '  MISMATCH'}"
     ]
     installed = {s["id"] for s in wiring.detect()}
+    inert = surfaces_alive(root) or ""
     for surface in wiring.table()["surface"]:
         if surface["id"] not in installed:
             state = "not installed        UNPROVEN"
         elif surface["tier"] == "T3":
             state = "instructions only    ADVISES"
-        elif surface.get("trust_required") and surfaces_alive(root):
-            state = "hook present         INERT — run /hooks"
+        elif surface["name"] in inert:
+            # Installed, and not running. Both surfaces that can reach this state fail
+            # silently by design, so it is the one that must never be reported as covered.
+            state = (
+                "hook present         INERT — run /hooks"
+                if surface.get("trust_required")
+                else "plugin not loaded    INERT"
+            )
         elif surface["proven"]:
             state = "denial executed here BLOCKS"
         else:

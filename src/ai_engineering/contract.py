@@ -95,14 +95,23 @@ def audit_one(path: Path) -> list[str]:
     return found
 
 
+# The record is not the product. specs/ and docs/adr/ grow by one entry every time a
+# decision is written down, which is the behaviour this framework asks for — a ceiling
+# that tightened each time you recorded a decision would be a ceiling that discourages
+# recording them. Everything else counts.
+NOT_THE_PRODUCT = ("specs/", "docs/adr/")
+
+
 def repo_lines(root: Path) -> int:
-    """Every committed line. The ceiling is the mechanism that prevents a second
-    436,091: not discipline, an exit code."""
+    """Every committed line of the product. The ceiling is the mechanism that prevents a
+    second 436,091: not discipline, an exit code."""
     names = subprocess.run(
         ["git", "-C", str(root), "ls-files"], capture_output=True, text=True, timeout=30
     ).stdout.split()
     total = 0
     for name in names:
+        if name.startswith(NOT_THE_PRODUCT):
+            continue
         try:
             total += len((root / name).read_bytes().decode("utf-8", "replace").splitlines())
         except OSError:

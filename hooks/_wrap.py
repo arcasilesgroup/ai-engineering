@@ -92,7 +92,7 @@ def guard(name: str):
                 raise
             if reason is None:
                 return  # a clean pass writes nothing
-            fp = payload.get("_fp", "")
+            fp = payload.get("_fp", "") if payload.get("_dedup") else ""
             if name in FLOW:
                 granted = take_bypass(name)
                 if granted is not None:

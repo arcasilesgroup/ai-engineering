@@ -6,3 +6,7 @@ build/
 *.egg-info/
 .ruff_cache/
 .pytest_cache/
+.ai-engineering/
+.ai/events.jsonl
+.ai/cache/
+check.log
