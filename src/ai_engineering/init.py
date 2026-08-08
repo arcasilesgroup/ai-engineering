@@ -169,8 +169,17 @@ def choose(rows: list[tuple[str, int, str]], args) -> set[str]:
     return picked
 
 
+def marks(args) -> tuple[str, str]:
+    """The tick and the verb, in the tense the run is actually in. The writes were guarded
+    by --dry-run and the printing was not, so a preview reported a backup written and a
+    file written having written neither, and the test that covered it asserted the files
+    were absent rather than that the output had stopped saying otherwise."""
+    return ("·", "would be created") if args.dry else ("✓", "written")
+
+
 def write_offer(root: Path, name: str, args) -> None:
     path = root / name
+    tick, verb = marks(args)
     if path.exists():
         # Sub-second, because whole seconds are not resolution enough for a name whose
         # only job is to be unique: two overwrites of one file inside the same second
@@ -179,7 +188,7 @@ def write_offer(root: Path, name: str, args) -> None:
         backup = path.with_name(f"{name}.bak-{stamp}")
         if not args.dry:
             shutil.copy2(path, backup)
-        out(f"   ✓ {name} backup → {backup.name} written")
+        out(f"   {tick} {name} backup → {backup.name} {verb}")
     if not args.dry:
         path.write_text(OFFERS[name][1](), encoding="utf-8")
 
@@ -216,15 +225,16 @@ def project_step(args) -> int:
         out("   → skipped. Nothing was written.")
         return 0
 
+    tick, verb = marks(args)
     if not args.dry:
         pinned.parent.mkdir(parents=True, exist_ok=True)
         pinned.write_text(skeletons.CONFIG_TOML.format(version=__version__), encoding="utf-8")
         (root / ".ai" / ".gitignore").write_text(skeletons.AI_GITIGNORE, encoding="utf-8")
         (root / "specs").mkdir(exist_ok=True)
         (root / "specs" / ".gitkeep").touch()
-    out("   ✓ .ai/config.toml · .ai/.gitignore · specs/")
-    if not args.dry:
-        out(f"   ✓ core.hooksPath → {wiring.wire_git(root)}")
+    out(f"   {tick} .ai/config.toml · .ai/.gitignore · specs/")
+    hooks = wiring.hooks_path_for(root) if args.dry else wiring.wire_git(root)
+    out(f"   {tick} core.hooksPath → {hooks}")
 
     # Before the loop, and that ordering is the whole of it: asked afterwards, the disk
     # answers yes for every file this run had just created, and the same screen that
@@ -233,7 +243,7 @@ def project_step(args) -> int:
     for name in OFFERS:
         if not (root / name).exists():
             write_offer(root, name, args)
-            out(f"   ✓ {name} written ({OFFERS[name][0]})")
+            out(f"   {tick} {name} {verb} ({OFFERS[name][0]})")
     picked = choose(rows, args)
     for name in sorted(picked):
         write_offer(root, name, args)

@@ -605,7 +605,34 @@ def test_a_project_dry_run_prints_the_plan_and_writes_no_file(repo, capsys, no_k
     assert not (repo / ".ai").exists()
     assert not (repo / "specs").exists()
     assert not (repo / "CLAUDE.md").exists()
-    assert "   ✓ .ai/config.toml · .ai/.gitignore · specs/\n" in capsys.readouterr().out
+    assert "   · .ai/config.toml · .ai/.gitignore · specs/\n" in capsys.readouterr().out
+
+
+def test_a_dry_run_never_says_anything_was_written(repo, capsys, no_keyboard):
+    """The writes were guarded by the flag and the printing was not, so a dry run emitted
+    "✓ CLAUDE.md backup → … written" and "✓ CLAUDE.md written" having written neither.
+    The test beside this one asserted the files were absent and never that the output had
+    stopped claiming otherwise, which is how it survived."""
+    (repo / "CLAUDE.md").write_text("mine\n", encoding="utf-8")
+    init.project_step(init.parse(["--project", str(repo), "--dry-run", "--overwrite", "all"]))
+    text = capsys.readouterr().out
+    assert "written" not in text
+    assert {p.name for p in repo.iterdir()} == {"CLAUDE.md", ".git"}
+    assert (repo / "CLAUDE.md").read_text() == "mine\n"
+
+
+def test_a_dry_run_over_an_empty_repository_prints_the_checklist_it_promises(
+    repo, capsys, no_keyboard
+):
+    """--dry-run's help says "print the checklist, write nothing". On a repository with
+    nothing in it, every line of that checklist is a file this run would create, and
+    those are exactly the lines the flag used to suppress on the write side only."""
+    init.project_step(init.parse(["--project", str(repo), "--dry-run"]))
+    text = capsys.readouterr().out
+    assert "   · .ai/config.toml · .ai/.gitignore · specs/\n" in text
+    assert "   · core.hooksPath → " in text
+    for name, (becomes, _) in init.OFFERS.items():
+        assert f"   · {name} would be created ({becomes})\n" in text
 
 
 # ── main ────────────────────────────────────────────────────────────────────────────
