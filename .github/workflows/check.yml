@@ -14,7 +14,7 @@ concurrency:
 
 env:
   GITLEAKS_VERSION: "8.30.1"
-  TRIVY_VERSION: "0.58.1"
+  TRIVY_VERSION: "0.73.0"
 
 jobs:
   check:
@@ -35,8 +35,8 @@ jobs:
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
           curl -sSfL -o trivy.tgz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
           tar -xzf trivy.tgz trivy && sudo install trivy /usr/local/bin/
-          uv tool install semgrep
-          uv tool install zizmor
+          uv tool install semgrep==1.172.0
+          uv tool install zizmor==1.17.0
 
       - name: the gate, exactly as a developer runs it
         run: just check | tee check.log

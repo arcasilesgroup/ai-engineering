@@ -10,6 +10,7 @@ classes below are the closed set; there is deliberately no "a hook ran".
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -97,10 +98,8 @@ def repo_id(root: Path | None = None) -> str:
         rid = out[-1][:12] if out else "unborn"
     except Exception:
         rid = "unknown"
-    try:
+    with contextlib.suppress(OSError):
         cache.write_text(rid + "\n")
-    except OSError:
-        pass
     return rid
 
 

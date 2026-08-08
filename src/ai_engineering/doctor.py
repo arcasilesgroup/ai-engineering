@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -166,9 +167,9 @@ def links_resolve(root: Path | None) -> str | None:
     ]
     if broken:
         return f"{len(broken)} skill roots no longer resolve: {broken[0]}"
-    if root is not None and (root / "CLAUDE.md").exists():
-        if "@./AGENTS.md" not in (root / "CLAUDE.md").read_text(errors="replace"):
-            return "CLAUDE.md does not import AGENTS.md, so the doctrine never reaches the model"
+    imported = root is not None and (root / "CLAUDE.md").exists()
+    if imported and "@./AGENTS.md" not in (root / "CLAUDE.md").read_text(errors="replace"):
+        return "CLAUDE.md does not import AGENTS.md, so the doctrine never reaches the model"
     return None
 
 
@@ -224,7 +225,8 @@ def continuity(root: Path | None) -> str | None:
         None
         if seq >= last
         else (
-            f"the chain is at {seq} and the archive already recorded {last}: it was reset or truncated"
+            f"the chain is at {seq} and the archive already recorded {last}: "
+            f"it was reset or truncated"
         )
     )
 
@@ -297,7 +299,8 @@ def signal_ratio(root: Path | None) -> str | None:
         None
         if ratio >= 0.10
         else (
-            f"{ratio:.2%} of the record says something was decided. Below 10% you are recording noise."
+            f"{ratio:.2%} of the record says something was decided. Below 10% you are "
+            f"recording noise."
         )
     )
 
@@ -366,31 +369,23 @@ def line_budget(root: Path | None) -> str | None:
 def branch_protection(root: Path | None) -> str | None:
     if root is None:
         raise Undecidable("not inside a repository")
-    out = (
-        subprocess.run(
-            [
-                "gh",
-                "api",
-                "repos/{owner}/{repo}/branches/{branch}/protection".replace(
-                    "{branch}",
-                    git(root, "rev-parse", "--abbrev-ref", "origin/HEAD").rsplit("/", 1)[-1]
-                    or "main",
-                ),
-            ],
-            cwd=root,
-            capture_output=True,
-            text=True,
-        )
-        if _has("gh")
-        else None
-    )
-    if out is None:
+    if shutil.which("gh") is None:
         raise Undecidable("gh is not installed, so the server could not be asked")
+    branch = git(root, "rev-parse", "--abbrev-ref", "origin/HEAD").rsplit("/", 1)[-1] or "main"
+    out = subprocess.run(
+        ["gh", "api", f"repos/{{owner}}/{{repo}}/branches/{branch}/protection"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
     if out.returncode != 0:
         raise Undecidable("the API call did not succeed — a fork, or a token without permissions")
     body = json.loads(out.stdout or "{}")
     if not body.get("required_status_checks", {}).get("contexts"):
-        return "the default branch has no required check. --no-verify does not skip T0; nothing else does either."
+        return (
+            "the default branch has no required check. Nothing a person types locally "
+            "skips T0, and nothing else offers that."
+        )
     return None
 
 
@@ -413,12 +408,6 @@ def destination_real(root: Path | None) -> str | None:
         raise Undecidable("no destination is configured, so there is nothing to prove")
     ok, detail = paths.load("_otlp").probe()
     return None if ok else f"the destination answered {detail}. A 200 is not a delivery."
-
-
-def _has(binary: str) -> bool:
-    import shutil
-
-    return shutil.which(binary) is not None
 
 
 # ---------------------------------------------------------------- coverage

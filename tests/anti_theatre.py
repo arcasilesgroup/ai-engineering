@@ -26,6 +26,25 @@ MANIFESTS = {
 }
 
 
+def dependency_free(manifest: Path) -> bool:
+    """A project that declares no dependencies has nothing to lock, and demanding a
+    lockfile from it would teach people to commit an empty one."""
+    text = manifest.read_text(errors="replace")
+    if manifest.name == "pyproject.toml":
+        import tomllib
+
+        parsed = tomllib.loads(text)
+        project = parsed.get("project", {})
+        # dependency-groups is top level, not under project, and it is where uv puts dev
+        # tools by default — missing it waives the modern layout while checking the old one.
+        return not (
+            project.get("dependencies")
+            or project.get("optional-dependencies")
+            or parsed.get("dependency-groups")
+        )
+    return False
+
+
 def die(message: str) -> None:
     sys.stderr.write(f"anti-theatre: {message}\n")
     raise SystemExit(1)
@@ -43,11 +62,14 @@ def main(log: Path, root: Path) -> int:
         for found in root.rglob(manifest):
             if any(part in {".git", "node_modules", ".venv"} for part in found.parts):
                 continue
-            if not any((found.parent / lock).exists() for lock in lockfiles):
-                die(
-                    f"{found}: there are dependencies and no lockfile, so the vulnerability "
-                    f"scan over it is silently empty."
-                )
+            if any((found.parent / lock).exists() for lock in lockfiles):
+                continue
+            if dependency_free(found):
+                continue  # nothing to pin is not the same as nothing pinned
+            die(
+                f"{found}: there are dependencies and no lockfile, so the vulnerability "
+                f"scan over it is silently empty."
+            )
 
     print(
         f"anti-theatre: {len(counts)} RAN lines, all over at least one item — "

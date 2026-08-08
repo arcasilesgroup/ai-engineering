@@ -35,9 +35,8 @@ def read(root: Path | None) -> list[dict]:
 def verify(root: Path | None, anchors: bool) -> list[str]:
     emit = paths.load("_emit")
     problems = []
-    prev, seq = "", 0
-    for event in read(root):
-        seq += 1
+    prev = ""
+    for seq, event in enumerate(read(root), 1):
         if event.get("seq") != seq:
             problems.append(f"link {seq}: the sequence jumps to {event.get('seq')}")
         if event.get("prev") != prev:
