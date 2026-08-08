@@ -46,6 +46,96 @@ this repository was built from. What follows is only what a reader of the code n
 ## Decisions
 
 ```yaml
+decision: One place prints the bypass recipe, and a test reads what it prints
+date: 2026-08-08
+rationale: >
+  The wrapper printed the same bypass command for every non-security guard, while the CLI
+  verb defaults its guard flag to design_gate and the grant is rejected when its guard is not
+  the denying one. So a loop_guard denial handed the model a command that unblocked a
+  different guard, and design_gate stated the same recipe one line before the wrapper printed
+  it again. The reason it shipped is that no test anywhere asserted the content of any denial
+  message: every adversarial case ends at the exit code and the harness discards stderr. That
+  message is documented as written for a model to act on, which makes its text a behaviour,
+  and a behaviour with no assertion is prose. One printer, one assertion, duplicate deleted.
+```
+
+```yaml
+decision: A gate that ran over zero items is not a pass, applied to our own gates
+date: 2026-08-08
+rationale: >
+  The line counter returned zero when the index listed no files, and the ceiling test then
+  asserted zero was under the ceiling and passed — in the source distribution, which ships
+  tests. The skill audit globbed twice, so its own no-skills tripwire did not guard the loop
+  it names. This rule already existed twice here, in the IOC reader and in the anti-theatre
+  harness, and was absent from both checks that needed it. It now raises, doctor converts the
+  raise so its check reports could-not-evaluate rather than a false green, and the
+  anti-theatre harness reads the justfile we hand a stranger: it printed a zero test count
+  and a file-list lint count two lines under a comment forbidding exactly those.
+```
+
+```yaml
+decision: Capability rungs replace the vendor ladder, and the risk clause is the point
+date: 2026-08-08
+rationale: >
+  The vendor-free rule stands untouched: the tool protocol delivers each tool's name and
+  schema at run time, and naming one of two equivalent vendors is endorsement. What was
+  missing was not a ladder — primary-source-beats-blog and prefer-running-it were already
+  steps two and three, and name-what-you-could-not-reach was already the closing paragraph —
+  but two behaviours and one doctrine. The behaviours fold into step three at zero lines:
+  stop on the rung that answers, and start a deep research tool before you climb so it is
+  harvested last. The doctrine cost three lines because it was stated nowhere: the only
+  occurrence of data-is-not-instruction in the whole product was inside the injection guard's
+  denial message, so the rule existed only once the guard had already caught it. Discovery
+  stays a prompt: a registry listing named seven connected servers with no tools in the
+  namespace and omitted two whose tools worked, so a config parse answers "configured" when
+  the question is "reachable" and cannot fail closed — rule 12's own escape clause. And the
+  guard now scans tool results from the protocol, which a full match against the three web
+  tool names never did.
+```
+
+```yaml
+decision: No orchestrator, and no borrowed measurement to defend not having one
+date: 2026-08-08
+rationale: >
+  Two ICLR 2026 papers were read in full. One trains a 7B policy with reinforcement learning
+  to design communication topologies over a pool of worker models; the other evolves a 0.6B
+  coordinator plus a ten-thousand-parameter head that reads the small model's hidden states
+  and assigns a thinker, worker or verifier role per turn. Both optimise which model call
+  happens next under a terminal reward on a question with a checkable answer. This product
+  brokers no inference, so there is no rollout to score and no oracle to score it against;
+  the second paper states on its own page ten that it cannot act on the plans it devises, and
+  this product is nothing but acting on tools. The coordinator is also unobtainable — closed
+  weight, interface only, routing deliberately hidden — a paid runtime dependency that
+  conceals its own decisions inside a product whose deliverable is an auditable record. What
+  the operator loses is fan-out: a diff too large for one context window gets serial passes,
+  because a forked context is a fresh window and not more of them. The revisit trigger is
+  written down rather than felt — the first time a review exhausts one window on a real diff,
+  the answer is two passes, and only if that stops working does a second dispatch earn its
+  lines. The papers are not cited as evidence for the deletion either: a role-split ablation
+  measured in an automated loop against a checkable answer does not transfer to human-invoked
+  skills with no loop and no oracle, and pasting a borrowed number in to ratify a decision
+  already made is a green nobody earned.
+```
+
+```yaml
+decision: Reviews are not persisted in v1, and the buy trigger is written down
+date: 2026-08-08
+rationale: >
+  The store the operator pointed at was audited: 53,505 lines across 227 files upstream, of
+  which the store itself is one file per target under an organisation and repository
+  directory, behind a comment-wrapped metadata header. It is write-only on the review path —
+  the operator's own store holds one review and one accounting line, and its learnings
+  directory documents an index file that has never been created. Porting it costs about
+  thirty-two lines and a further ceiling raise, and the read side would be enforced by a
+  sentence rather than an exit code, which is the same tier as the upstream feature that
+  never fired. What the operator loses is concrete and small: a second review on one branch
+  re-derives findings the first made, and there is no artifact to attach to a pull request.
+  Redirecting the output into a file costs zero lines today. The buy trigger: run a review
+  twice on one branch, have the second repeat a finding the first made, and then it is worth
+  thirty-two lines with a read the skill cannot proceed without and an exit code enforcing it.
+```
+
+```yaml
 decision: One artifact, and it is the wheel
 date: 2026-08-08
 rationale: >
@@ -174,6 +264,27 @@ rationale: >
 ```
 
 ## Accepted risks
+
+```yaml
+id: R-001-07
+finding: two-untested-branches-shipped-with-this-commit
+severity: low
+accepted_by: the maintainer
+accepted: 2026-08-08
+expires: 2026-11-06
+renewals: 0
+justification: >
+  Two branches added here are exercised by no suite. Doctor's new could-not-evaluate
+  conversion needs a tree that holds the package and no index, which costs more lines to
+  construct than the branch it covers, and CI always runs inside a checkout. And OpenCode,
+  one of only two proven surfaces, has no post-execute containment at all because its plugin
+  wires only the before-execute hook, so the new matcher closes the hole on one of the two
+  and the wiring table now says so rather than implying protection it cannot deliver. Neither
+  is a false green: the first reports could-not-evaluate, the second is written down where
+  doctor's coverage line reads it.
+follow_up: Wire the post-execute hook in the OpenCode plugin, or keep the note. Cover the
+  could-not-evaluate branch the next time doctor is edited for another reason.
+```
 
 ```yaml
 id: R-001-01
