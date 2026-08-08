@@ -67,12 +67,14 @@ from 528 files, which is where the previous version ended up.
 - `just check` is what CI runs. Run it before saying anything is done, and show the output.
 - The line ceiling lives in `contract.REPO_CEILING` and CI fails the build on the line
   after it. When it is genuinely too low, raise it in a commit whose message says why —
-  that commit is the conversation you would otherwise never have had. It has moved once,
-  from 5,000 to 5,600, and specs/001-v1-from-scratch records the arithmetic.
-- `AGENTS.md` is capped at 150 lines by a test. Everything that is not true in every
-  session belongs in a skill.
-- Every `SKILL.md` is capped at 80 lines. Longer means it is a procedure that should be a
-  script, which is rule 12 applied to our own files.
+  that commit is the conversation you would otherwise never have had. Its comment records
+  every move it has made, and specs/ records the arithmetic behind each one. Three numbers
+  are named here and stored elsewhere; this file names the home and never the value,
+  because a doctrine that quotes a number is a doctrine that goes stale without a test.
+- `AGENTS.md` is capped by a test at the length in `tests/test_contracts.DOCTRINE_CEILING`.
+  Everything that is not true in every session belongs in a skill.
+- Every `SKILL.md` is capped at `contract.CEILING` lines. Longer means it is a procedure
+  that should be a script, which is rule 12 applied to our own files.
 - Three surfaces read UNPROVEN in the coverage line and they stay that way until a denial
   actually executes there. A green nobody has earned is the failure this product cures.
 
@@ -81,5 +83,5 @@ from 528 files, which is where the previous version ended up.
 ```
 uv sync                       # or: pip install -e .
 just check                    # the gate, exactly as CI runs it
-python tests/adversarial/run.py   # twelve attacks and a clean control
+python tests/adversarial/run.py   # every attack, and a clean control it must not fire on
 ```

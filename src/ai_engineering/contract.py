@@ -33,8 +33,13 @@ DESCRIPTION_MAX = 1000
 
 # The line ceiling, in one place so raising it is a single reviewable edit. 5,000 to 5,600 in
 # specs/001; 5,600 to 5,610 for the test plane named in that commit, while the product itself
-# lost nine lines. The test fails the build on the line after.
-REPO_CEILING = 5610
+# lost nine lines; 5,610 to 5,764 for four controls that reported green while doing nothing —
+# a plan gate any plan ever written satisfied, a repeat rule counting an identifier that is
+# unique per call, two dispatcher rows naming a payload key no guard read, and a git hook that
+# refused every push when an older CLI answered on the PATH — plus the measurement plane that
+# stops the next one hiding. It closes at the count that landed. The test fails the build on
+# the line after.
+REPO_CEILING = 5764
 
 
 def audit(root: Path) -> list[str]:
