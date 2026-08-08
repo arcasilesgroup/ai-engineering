@@ -26,6 +26,31 @@ Assertion = Callable[[Path | None], str | None]
 CHECKS: list[tuple[int, str, str, bool, Assertion]] = []
 
 
+# The order the six families are read in, which is a sentence: what this repository is,
+# how it is wired, whether the controls have fired, what got written down, whether what
+# runs is what was pinned, and what the world outside this machine says. The registry is
+# sorted by assertion number — those are cited in prose all over this repository and do not
+# move — so without this the families interleave and the printer opens a new section every
+# time the number's family differs from the last one. Six families, nine headings, `The
+# wiring` four times. A report that looks like it lost its place is a report nobody trusts.
+FAMILIES = (
+    "The context",
+    "The wiring",
+    "The controls",
+    "The record",
+    "The pin",
+    "The outside",
+)
+
+
+def families() -> list[str]:
+    """Every family that has a check, in the declared order, with anything unlisted last
+    rather than dropped. A printer that silently omits a section is worse than one that
+    prints it in the wrong place."""
+    rank = {name: index for index, name in enumerate(FAMILIES)}
+    return sorted({row[1] for row in CHECKS}, key=lambda name: rank.get(name, len(rank)))
+
+
 class Undecidable(Exception):
     """Raised when a check could not be evaluated. Never counted as a pass."""
 
@@ -499,26 +524,26 @@ def main(argv: list[str]) -> int:
         return 0
 
     failed = skipped = 0
-    family = ""
-    for number, group, title, in_ci, fn in sorted(CHECKS):
-        if args.ci and not in_ci:
-            print(f"  {number:>2}  SKIPPED  {title} — needs a real working copy")
-            skipped += 1
-            continue
-        if group != family:
-            print(f"\n{group}")
-            family = group
-        try:
-            problem = fn(root)
-        except Undecidable as why:
-            print(f"  {number:>2}  ?        {title}\n      could not evaluate: {why}")
-            skipped += 1
-            continue
-        if problem:
-            print(f"  {number:>2}  FAIL     {title}\n      {problem}")
-            failed += 1
-        else:
-            print(f"  {number:>2}  ok       {title}")
+    for family in families():
+        print(f"\n{family}")
+        for number, group, title, in_ci, fn in sorted(CHECKS):
+            if group != family:
+                continue
+            if args.ci and not in_ci:
+                print(f"  {number:>2}  SKIPPED  {title} — needs a real working copy")
+                skipped += 1
+                continue
+            try:
+                problem = fn(root)
+            except Undecidable as why:
+                print(f"  {number:>2}  ?        {title}\n      could not evaluate: {why}")
+                skipped += 1
+                continue
+            if problem:
+                print(f"  {number:>2}  FAIL     {title}\n      {problem}")
+                failed += 1
+            else:
+                print(f"  {number:>2}  ok       {title}")
 
     print("\nCoverage — what actually blocks, by surface")
     for line in coverage(root):

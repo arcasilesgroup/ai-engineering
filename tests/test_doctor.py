@@ -84,6 +84,33 @@ def test_every_assertion_has_a_unique_number_a_family_and_a_sentence():
         assert family and title and callable(fn) and isinstance(in_ci, bool), number
 
 
+def test_each_family_is_printed_once_and_in_the_declared_order(home, repo, monkeypatch, capsys):
+    """The registry is sorted by assertion number and the numbers are cited in prose all
+    over this repository, so the families interleave. Printing a heading whenever the
+    family changes gave six families nine headings — `The wiring` four times, `The record`
+    three — and a report that reads as though it lost its place."""
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: repo)
+    doctor.main([])
+    printed = [line for line in capsys.readouterr().out.splitlines() if line in doctor.FAMILIES]
+    assert printed == list(doctor.FAMILIES)
+    assert len(printed) == len(set(printed))
+
+
+def test_a_family_nobody_ordered_is_printed_last_rather_than_dropped(monkeypatch):
+    """Catches the ordering being applied by filtering the declared list, which loses every
+    check whose family somebody added without touching FAMILIES."""
+    monkeypatch.setattr(
+        doctor, "CHECKS", [(1, "The pin", "t", True, lambda root: None), (2, "New", "t", True, str)]
+    )
+    assert doctor.families() == ["The pin", "New"]
+
+
+def test_every_family_in_the_registry_is_one_the_order_names():
+    """The list above is the order; this is what stops a family being added to a check and
+    landing at the bottom of the screen because nobody updated it."""
+    assert {row[1] for row in doctor.CHECKS} == set(doctor.FAMILIES)
+
+
 PASSES = (1, "The pin", "a check that passes", True, lambda root: None)
 FAILS = (2, "The pin", "a check that fails", True, lambda root: "here is what is wrong")
 UNKNOWN = (3, "The pin", "a check nothing could answer", True, raises(doctor.Undecidable("why")))
