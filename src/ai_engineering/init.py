@@ -131,18 +131,42 @@ def existing(root: Path) -> list[tuple[str, int, str]]:
     return rows
 
 
+def select(reply: str, rows: list[tuple[str, int, str]]) -> tuple[set[str], list[str]]:
+    """One parser for the typed reply and for `--overwrite`, because they are one intent.
+    Two of them five lines apart is how a comma came to select one file in silence in the
+    prompt and two on the command line. Numbers and names both, separated by commas or
+    spaces or both, and `all` in either spelling. Whatever it could not use comes back to
+    be named, because a selection prompt that drops half of what you typed and says
+    nothing is worse than one that refuses."""
+    names = [name for name, _, _ in rows]
+    picked: set[str] = set()
+    ignored: list[str] = []
+    for token in reply.replace(",", " ").split():
+        if token.lower() == "all":
+            picked.update(names)
+        elif token.isdigit() and 0 < int(token) <= len(names):
+            picked.add(names[int(token) - 1])
+        elif token in names:
+            picked.add(token)
+        else:
+            ignored.append(token)
+    return picked, ignored
+
+
 def choose(rows: list[tuple[str, int, str]], args) -> set[str]:
-    if args.overwrite.strip().lower() == "all":
-        return {name for name, _, _ in rows}
-    picked = {n.strip() for n in args.overwrite.split(",") if n.strip()}
-    if picked or args.yes or not sys.stdin.isatty():
-        return picked & {name for name, _, _ in rows}
-    out(f"\n◇ {len(rows)} files already exist and are not ours")
-    out("   Type the numbers to overwrite, separated by spaces. Enter selects none.\n")
-    for index, (name, lines, becomes) in enumerate(rows, 1):
-        out(f"   {index}. {name:<18} {lines:>4} lines  →  {becomes}")
-    reply = input("\n◆ Overwrite which? (Enter = none) › ").split()
-    return {rows[int(n) - 1][0] for n in reply if n.isdigit() and 0 < int(n) <= len(rows)}
+    if not rows:
+        return set()
+    if args.overwrite.strip() or args.yes or not sys.stdin.isatty():
+        picked, ignored = select(args.overwrite, rows)
+    else:
+        out(f"\n◇ {len(rows)} files already exist and are not ours")
+        out("   Type the numbers to overwrite, separated by spaces. Enter selects none.\n")
+        for index, (name, lines, becomes) in enumerate(rows, 1):
+            out(f"   {index}. {name:<18} {lines:>4} lines  →  {becomes}")
+        picked, ignored = select(input("\n◆ Overwrite which? (Enter = none) › "), rows)
+    if ignored:
+        out(f"   → ignored, nothing on the list matches: {', '.join(ignored)}")
+    return picked
 
 
 def write_offer(root: Path, name: str, args) -> None:

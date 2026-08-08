@@ -376,6 +376,39 @@ def test_only_a_number_on_the_list_selects_a_file_and_enter_selects_none(reply, 
     assert init.choose(ROWS, init.parse([])) == picked
 
 
+@pytest.mark.parametrize(
+    ("reply", "picked"),
+    [
+        ("1, 2", {"CLAUDE.md", "justfile"}),
+        ("1,2", {"CLAUDE.md", "justfile"}),
+        ("all", {"CLAUDE.md", "justfile"}),
+        ("CLAUDE.md", {"CLAUDE.md"}),
+    ],
+)
+def test_the_prompt_accepts_every_spelling_the_same_command_teaches(reply, picked, tty, typed):
+    """Catches the typed reply and --overwrite drifting back into two parsers. Each of
+    these four selected one file, nothing, nothing and nothing while they were: the comma
+    is what `--overwrite CLAUDE.md,justfile` teaches in the same command's own help, and
+    `all` is a valid spelling of the same intent five lines away."""
+    typed.replies.append(reply)
+    assert init.choose(ROWS, init.parse([])) == picked
+
+
+def test_anything_it_could_not_use_is_named_rather_than_dropped(tty, typed, capsys):
+    """Catches a selection prompt that takes half of what you typed and says nothing —
+    the failure mode of a parser that filters instead of refusing."""
+    typed.replies.append("1 9 nope.md")
+    assert init.choose(ROWS, init.parse([])) == {"CLAUDE.md"}
+    assert "   → ignored, nothing on the list matches: 9, nope.md\n" in capsys.readouterr().out
+
+
+def test_an_empty_list_asks_nothing_at_all(tty, no_keyboard, capsys):
+    """Catches the checklist appearing on a repository where nothing pre-existed, which
+    is what asking the disk before the writes leaves behind if nobody guards the zero."""
+    assert init.choose([], init.parse([])) == set()
+    assert capsys.readouterr().out == ""
+
+
 # ── project_step ────────────────────────────────────────────────────────────────────
 
 
