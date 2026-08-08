@@ -259,6 +259,18 @@ def project_step(args) -> int:
     out(f"   {tick} .ai/config.toml · .ai/.gitignore · specs/")
     hooks = wiring.hooks_path_for(root) if args.dry else wiring.wire_git(root)
     out(f"   {tick} core.hooksPath → {hooks}")
+    # One `which`, at the moment the wall is built rather than at the person's next
+    # commit. Wiring sets ai.managed, and the shipped pre-commit exits 1 when that flag is
+    # set and gitleaks is absent, so this used to leave a repository that refused every
+    # commit and said nothing about it. It observes one thing and claims nothing else:
+    # guessing between brew, apt, winget and scoop is four branches no job here executes.
+    if shutil.which("gitleaks") is None:
+        out(
+            "   ⚠ gitleaks is not on your PATH. While this repository is managed the "
+            "shipped\n     pre-commit hook exits 1 on every commit until it is there: "
+            "`brew install gitleaks`,\n     or docs/tools.md for the other platforms. "
+            "This installs no binaries."
+        )
 
     # Before the loop, and that ordering is the whole of it: asked afterwards, the disk
     # answers yes for every file this run had just created, and the same screen that

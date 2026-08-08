@@ -617,6 +617,22 @@ def test_two_overwrites_inside_one_second_leave_two_backups(repo, no_keyboard):
     assert backups[0].read_text() == "mine\n"
 
 
+@pytest.mark.parametrize("found, warns", [(None, True), ("/opt/bin/gitleaks", False)])
+def test_the_wall_the_repository_is_about_to_hit_is_named_now_not_at_the_next_commit(
+    repo, capsys, no_keyboard, monkeypatch, found, warns
+):
+    """Wiring a project sets ai.managed, and the shipped pre-commit exits 1 when that flag
+    is set and gitleaks is absent. So `ai-eng init` on a machine without it left a
+    repository that refuses every commit from then on, and the first the person heard of
+    it was their next commit. Nothing in init looked for the binary."""
+    monkeypatch.setattr(init.shutil, "which", lambda name: found)
+    init.project_step(init.parse(["--project", str(repo)]))
+    text = capsys.readouterr().out
+    assert ("gitleaks is not on your PATH" in text) is warns
+    assert ("exits 1 on every commit until it is there" in text) is warns
+    assert ("`brew install gitleaks`" in text) is warns
+
+
 def test_the_stacks_it_found_are_named_and_it_installs_none_of_them(repo, capsys, no_keyboard):
     """Catches the stack line going blank or crashing, which is the one place the
     installer tells you it did not install your toolchain."""
