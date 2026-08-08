@@ -2,12 +2,11 @@
 name: ai-explore
 description: >-
   Answers questions about this repository by reading it, anchored to file:line, and tours
-  an unfamiliar area for somebody who has just arrived. Runs in a forked context so the
-  searching does not spend the main window. Trigger for "where does X live", "how does this
-  work", "why does it do that", "what depends on Y", "walk me through", "map this module",
-  "trace this import chain", "onboard me". Not for evidence from outside this repository —
-  use /ai-research. Not for diagnosing a failure — use /ai-debug. Not for judging a diff —
-  use /ai-review.
+  an unfamiliar area for somebody who has just arrived. Trigger for "where does X live",
+  "how does this work", "why does it do that", "what depends on Y", "walk me through", "map
+  this module", "trace this import chain", "onboard me". Not for evidence from outside this
+  repository — use /ai-research. Not for diagnosing a failure — use /ai-debug. Not for
+  judging a diff — use /ai-review.
 license: Apache-2.0
 compatibility: needs git
 context: fork
