@@ -15,17 +15,28 @@ concurrency:
 env:
   GITLEAKS_VERSION: "8.30.1"
   TRIVY_VERSION: "0.73.0"
+  ACTIONLINT_VERSION: "1.7.12"
+  # The linux_amd64 line from the official actionlint_1.7.12_checksums.txt. The version
+  # says which release we asked for; the checksum says the bytes we got are that release.
+  ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+  PIP_AUDIT_VERSION: "2.10.1"
+  MYPY_VERSION: "2.3.0"
+  SNYK_VERSION: "1.1306.3"
 
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v5
-      - uses: extractions/setup-just@v3
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
 
       # Downloaded and extracted, never piped into a shell: our own semgrep rules would
       # flag that, and a gate that breaks its own rules teaches people to ignore it.
@@ -35,6 +46,9 @@ jobs:
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
           curl -sSfL -o trivy.tgz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
           tar -xzf trivy.tgz trivy && sudo install trivy /usr/local/bin/
+          curl -sSfL -o actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint.tgz" | sha256sum -c -
+          tar -xzf actionlint.tgz actionlint && sudo install actionlint /usr/local/bin/
           uv tool install semgrep==1.172.0
           uv tool install zizmor==1.17.0
 
@@ -44,8 +58,31 @@ jobs:
       - name: it has to prove it ran
         run: uv run python tests/anti_theatre.py "$RUNNER_TEMP/check.log" .
 
+      # `just cover` leaves a combined .coverage behind. Sonar reads Cobertura, so the
+      # conversion lives here rather than in the justfile: a developer running the gate
+      # locally has no SonarCloud to feed and should not pay for the XML.
+      - name: coverage in the shape Sonar reads
+        run: uv run --with coverage==7.15.4 coverage xml -o coverage.xml
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: error
+
+      # Two readers, because they disagree on purpose. actionlint knows what GitHub will
+      # accept; zizmor knows what an attacker will do with what GitHub accepts.
       - name: workflows are a language too, and the most attacked one
-        run: uv tool run zizmor .github/workflows/
+        run: |
+          actionlint
+          uv tool run zizmor .github/workflows/
+
+      # Zero declared dependencies today, so this finds nothing today. It is here for the
+      # day that stops being true, which is the only day it would otherwise be missed.
+      - name: dependencies, audited against the advisory databases
+        run: |
+          uv export --no-hashes --no-emit-project --format requirements-txt -o requirements.txt
+          uv run --no-project --with "pip-audit==${PIP_AUDIT_VERSION}" pip-audit --strict -r requirements.txt
 
       - name: is the system healthy
         run: |
@@ -59,8 +96,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
       - name: install gitleaks
         run: |
           curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
@@ -76,12 +118,147 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
-      - uses: extractions/setup-just@v3
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
       - name: install gitleaks
         run: |
           curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
       - name: break it on purpose and fail if nothing notices
-        run: just mutate
+        run: just mutate | tee "$RUNNER_TEMP/mutate.log"
+
+      # The same reader the check job uses, asked a different question. Its RAN line lives
+      # in this job's log and never reaches the other one, so without this call the whole
+      # mutation gate could stop running and no other job would be able to tell.
+      # `PARTIAL` is what a scoped run prints, so a partial run cannot satisfy this.
+      - name: it has to prove it ran
+        run: uv run python tests/anti_theatre.py "$RUNNER_TEMP/mutate.log" . mutants
+
+  # Blocking on both halves, and no baseline file. A type error in `hooks/` is a guard
+  # that raises instead of deciding, and @guard turns a raise into a denial — so the
+  # cheerful reading, "it fails closed", is a guard that denies everything a developer
+  # tries to do until somebody disables it. That is how a control dies.
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      - name: types, on the product and on the guards
+        run: uv run --no-project --python 3.11 --with "mypy==${MYPY_VERSION}" mypy src hooks
+
+  sonar:
+    name: SonarCloud
+    needs: [check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      # Full history: Sonar decides what "new code" is from the merge base, and a shallow
+      # clone quietly makes every line new, which makes the new-code gate meaningless.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-xml
+      - name: the coverage file must exist, or Sonar reports zero and calls it a pass
+        run: test -s coverage.xml
+      - uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # Two things are true at once: a real vulnerability must fail the build, and a throttled
+  # or unauthenticated Snyk must not wedge every merge behind somebody else's billing.
+  # So quota, rate-limit and auth failures downgrade to a warning and everything else
+  # fails. Only the SAST half runs: this package declares no dependencies, so `snyk test`
+  # would scan an empty requirements file and report a green it never earned. Dependencies
+  # are covered by pip-audit in the `check` job.
+  snyk:
+    name: Snyk Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: is there a token
+        id: token
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          if [ -n "$SNYK_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Snyk skipped::no SNYK_TOKEN on this run (a fork pull request, most likely). semgrep still covers SAST."
+          fi
+      - name: install the Snyk CLI
+        if: steps.token.outputs.present == 'true'
+        run: npm install -g "snyk@${SNYK_VERSION}" --ignore-scripts
+      - name: Snyk code test
+        if: steps.token.outputs.present == 'true'
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          set +e
+          out=$(snyk code test --severity-threshold=high 2>&1)
+          rc=$?
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qiE 'test limit|increase your tests|rate.?limit|429|too many requests|authentication (error|failed)|not authori|quota'; then
+            echo "::warning title=Snyk non-blocking::Snyk was unavailable (quota or auth), not silent. semgrep and the adversarial suite still ran."
+            exit 0
+          fi
+          exit "$rc"
+
+  # The context branch protection requires. Without it, a job that stops running — renamed,
+  # skipped by a dependency that failed, deleted in a refactor — is invisible: the pull
+  # request is still green because nothing was watching for its absence. Skipped is a
+  # failure here for exactly that reason.
+  ci-result:
+    name: CI Result
+    if: always()
+    needs: [check, suite, mutation, typecheck, sonar, snyk]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      - name: every job ran, and every job passed
+        env:
+          RESULTS: >-
+            check=${{ needs.check.result }}
+            suite=${{ needs.suite.result }}
+            mutation=${{ needs.mutation.result }}
+            typecheck=${{ needs.typecheck.result }}
+            sonar=${{ needs.sonar.result }}
+            snyk=${{ needs.snyk.result }}
+        run: |
+          failed=0
+          for pair in $RESULTS; do
+            printf '  %-12s %s\n' "${pair%%=*}" "${pair##*=}"
+            [ "${pair##*=}" = "success" ] || failed=1
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "::error title=CI Result::a job did not report success. A skipped job counts as a failure: a gate nobody notices stopping is a gate that is already gone."
+            exit 1
+          fi
+          echo "six jobs, six successes"
