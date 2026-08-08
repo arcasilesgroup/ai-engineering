@@ -351,7 +351,10 @@ def line_budget(root: Path | None) -> str | None:
         raise Undecidable("this check only means anything inside the product repository")
     from ai_engineering import contract
 
-    total = contract.repo_lines(root)
+    try:
+        total = contract.repo_lines(root)
+    except ValueError as why:
+        raise Undecidable(str(why)) from why
     return (
         None
         if total <= contract.REPO_CEILING

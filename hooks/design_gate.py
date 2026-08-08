@@ -47,7 +47,8 @@ def has_plan(root: Path) -> bool:
 
 @guard("design_gate")
 def run(payload: dict) -> str | None:
-    if int(config().get("guards", {}).get("design_budget", BUDGET)) <= 0:
+    budget = int(config().get("guards", {}).get("design_budget", BUDGET))
+    if budget <= 0:
         return None
     root = repo_root()
     if root is None:
@@ -64,12 +65,6 @@ def run(payload: dict) -> str | None:
     except (ValueError, OSError):
         target = ""
     files = touched(root) | ({target} if target and not target.startswith(SKIP) else set())
-    budget = int(config().get("guards", {}).get("design_budget", BUDGET))
     if len(files) <= budget:
         return None
-    return (
-        f"this branch has changed {len(files)} files and has no plan. Write one — "
-        f"/ai-plan turns the spec into numbered tasks with a check each — or, if this "
-        f"genuinely does not need a plan, a person can record why with "
-        f'ai-eng plan --skip "<reason>".'
-    )
+    return f"this branch has changed {len(files)} files and has no plan. Write one with /ai-plan."

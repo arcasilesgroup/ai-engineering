@@ -7,10 +7,6 @@ ruff := "ruff==0.16.2"
 pytest := "pytest==9.1.1"
 semgrep := "semgrep==1.172.0"
 
-linked:
-    @command -v ai-eng >/dev/null || echo "ai-eng is not installed here. Run: ai-eng init"
-    @git config --get core.hooksPath >/dev/null || echo "git hooks are not wired. Run: ai-eng init"
-
 build:
     uv build
 
@@ -33,4 +29,4 @@ counts:
     @echo "RAN lint=$(uv run --with {{ruff}} ruff check . --show-files | wc -l | tr -d ' ')"
     @echo "RAN tests=$(uv run --with {{pytest}} pytest -q --collect-only 2>/dev/null | grep -cE '::')"
 
-check: linked build lint test security counts
+check: build lint test security counts

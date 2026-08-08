@@ -57,9 +57,8 @@ def deny(name: str, message: str) -> None:
     text = f"[{name}] {message}"
     sys.stderr.write(text + "\n")
     if name not in SECURITY:
-        sys.stderr.write(
-            f'[{name}] A person — not you — can grant one bypass: ai-eng plan --skip "<reason>"\n'
-        )
+        recipe = f'ai-eng plan --skip "<reason>" --guard {name}'
+        sys.stderr.write(f"[{name}] A person — not you — can grant one bypass: {recipe}\n")
     print(
         json.dumps(
             {

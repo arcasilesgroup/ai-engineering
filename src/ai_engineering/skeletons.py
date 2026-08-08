@@ -92,9 +92,8 @@ TODO: prototype, production or maintenance. It changes what is acceptable here.
 
 JUSTFILE = """# What `check` means here. CI never learns a language: it runs `just check`.
 
-linked:
-    @command -v ai-eng >/dev/null || echo "ai-eng is not installed here. Run: ai-eng init"
-    @git config --get core.hooksPath >/dev/null || echo "hooks are not wired. Run: ai-eng init"
+wired:
+    ai-eng doctor
 
 build:
     @echo "TODO: compile, package, sign"
@@ -115,10 +114,10 @@ security:
 # The count comes from the tool that did the work, never from the file list — that
 # prints the same number whether your linter ran or was replaced by `true`.
 counts:
-    @echo "RAN lint=$(git ls-files | wc -l | tr -d ' ')  # TODO: your linter's own count"
-    @echo "RAN tests=0  # TODO: your runner's own count"
+    @echo "RAN lint=TODO  # your linter's own count of files checked, never the file list"
+    @echo "RAN tests=TODO  # your runner's own count of tests collected"
 
-check: linked build lint test security counts
+check: wired build lint test security counts
 """
 
 CONFIG_TOML = """# The pin. It says which version of the framework governs this repository, and its

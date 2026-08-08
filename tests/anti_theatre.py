@@ -57,6 +57,11 @@ def main(log: Path, root: Path) -> int:
         if number < 1:
             die(f"RAN {name}={number}: it ran over zero items, which is not a pass.")
 
+    shipped = (root / "src" / "ai_engineering" / "skeletons.py").read_text(errors="replace")
+    for lie in ("RAN tests=0", "git ls-files | wc -l"):
+        if lie in shipped:
+            die(f"the justfile we hand a stranger prints {lie!r}: the theatre, as a template.")
+
     for manifest, lockfiles in MANIFESTS.items():
         for found in root.rglob(manifest):
             if any(part in {".git", "node_modules", ".venv"} for part in found.parts):

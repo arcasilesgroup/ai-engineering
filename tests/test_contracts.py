@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering import contract, paths
+from ai_engineering import contract, paths, text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -68,6 +68,8 @@ def test_no_hook_exists_outside_the_dispatcher_table():
 
 
 def test_every_skill_meets_the_contract():
+    block = 'name: a\ndescription: >-\n  one\n  two\nlicense: "MIT"\n'
+    assert text.flat_yaml(block) == {"name": "a", "description": "one two", "license": "MIT"}
     problems = contract.audit(ROOT / ".agents" / "skills")
     assert not problems, "\n".join(problems)
 
@@ -83,7 +85,9 @@ def test_the_doctrine_is_short_and_filled_in():
     assert (ROOT / "CLAUDE.md").read_text().strip() == "@./AGENTS.md"
 
 
-def test_the_line_ceiling_holds():
+def test_the_line_ceiling_holds(tmp_path):
+    with pytest.raises(ValueError):
+        contract.repo_lines(tmp_path)  # a count over zero files is not a pass
     total = contract.repo_lines(ROOT)
     assert total <= CEILING, (
         f"{total} lines against a ceiling of {CEILING}. Raise it in a commit whose message "
@@ -92,10 +96,9 @@ def test_the_line_ceiling_holds():
 
 
 def test_the_ioc_catalogue_leaves_ordinary_technical_prose_alone():
-    """This defect shipped once and denied 61 of 73 files here: a double-quoted scalar
-    read as if it were single-quoted turned one pattern into a top-level alternation, and
-    the guard blocked every file containing the word "bash". Fragments below, so this file
-    does not hold the words it tests with."""
+    """This shipped once and denied 61 of 73 files here: a double-quoted scalar read as if it
+    were single-quoted became a top-level alternation, so the guard blocked every file holding
+    the word "bash". Fragments below, so this file does not hold the words it tests with."""
     import injection_guard
 
     corpus = [
@@ -165,3 +168,13 @@ def test_the_guards_start_fast_enough_to_be_guards():
         )
         timings.append(time.perf_counter() - started)
     assert sorted(timings)[len(timings) // 2] < 0.2, f"the dispatcher took {timings}"
+
+
+def test_a_denial_hands_back_the_bypass_that_unblocks_the_guard_that_denied(capsys):
+    """Nothing asserted any denial message's content before this, which is how a wrong flag
+    shipped: a loop_guard denial handed back the command that unblocks design_gate."""
+    import _wrap
+
+    with pytest.raises(SystemExit):
+        _wrap.deny("loop_guard", "denied")
+    assert "--guard loop_guard" in capsys.readouterr().err
