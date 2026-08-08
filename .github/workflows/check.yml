@@ -39,10 +39,10 @@ jobs:
           uv tool install zizmor==1.17.0
 
       - name: the gate, exactly as a developer runs it
-        run: just check | tee check.log
+        run: just check | tee "$RUNNER_TEMP/check.log"
 
       - name: it has to prove it ran
-        run: uv run python tests/anti_theatre.py check.log .
+        run: uv run python tests/anti_theatre.py "$RUNNER_TEMP/check.log" .
 
       - name: workflows are a language too, and the most attacked one
         run: uv tool run zizmor .github/workflows/
