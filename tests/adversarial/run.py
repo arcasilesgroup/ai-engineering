@@ -146,10 +146,11 @@ def staged_secret(tmp: Path) -> bool:
     if shutil.which("gitleaks") is None:
         raise RuntimeError("gitleaks is not installed, so this guard cannot be fired here")
     work = repo(tmp)
-    # Assembled from parts so the fixture cannot be mistaken for a real key by a scanner
-    # reading this file, and so that grepping this repository for a secret finds nothing.
-    key = "AK" + "IA" + "3T7K2QW9XZ4RJ8LM"
-    token = "gh" + "p_" + "9fK2mQ7xB4nR8tY6wZ1aC3eD5gH0jL2pN4sV"
+    # Joined at run time, not concatenated: the compiler folds adjacent literals into one
+    # constant and writes it into __pycache__, where `gitleaks dir` finds it and fails the
+    # security recipe on this repository's own test fixture. Fix the fixture, not the scanner.
+    key = "".join(("AK", "IA", "3T7K2QW9XZ4RJ8LM"))
+    token = "".join(("gh", "p_", "9fK2mQ7xB4nR8tY6wZ1aC3eD5gH0jL2pN4sV"))
     (work / "conf.py").write_text(f'ACCESS_KEY_ID = "{key}"\nTOKEN = "{token}"\n')
     git(work, "add", "-A")
     return git(work, "commit", "-m", "chore: add config").returncode != 0
@@ -251,7 +252,12 @@ def negative_control(tmp: Path) -> bool:
     git(work, "checkout", "-b", "quiet")
     quiet = f"control-{time.time_ns()}"
     for name in ("one.md", "two.md", "three.md"):
-        (work / name).write_text(f"# {name}\n\nOrdinary prose about auth headers and gates.\n")
+        # The control must be able to fail. It passed for a week on word choice alone:
+        # every word the catalogue could over-match on was absent by accident.
+        (work / name).write_text(
+            f"# {name}\n\nOrdinary prose about auth headers, shell gates "
+            f"and published dashboards.\n"
+        )
         if pre("Read", {"file_path": str(work / name)}, cwd=work, session=quiet) != 0:
             return False
     for name in ("one.md", "two.md"):
@@ -279,10 +285,8 @@ def main() -> int:
         print(f"  {'caught ' if caught else 'MISSED '} {name}{note}")
 
     passed = sum(results.values())
-    print(
-        f"\n  {passed} of {len(results)} — "
-        f"{'the bar is 12 of 12 with no false positive on the control' if passed < len(results) else 'green'}"
-    )
+    bar = "the bar is 12 of 12, and no false positive on the control"
+    print(f"\n  {passed} of {len(results)} — {bar if passed < len(results) else 'green'}")
 
     home = Path(os.environ.get("AI_ENGINEERING_HOME") or Path.home() / ".ai-engineering")
     stamp = home / "cache" / "suite.json"

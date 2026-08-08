@@ -82,6 +82,28 @@ def test_the_line_ceiling_holds():
     )
 
 
+def test_the_ioc_catalogue_leaves_ordinary_technical_prose_alone():
+    """This defect shipped once and denied 61 of 73 files here: a double-quoted scalar
+    read as if it were single-quoted turned one pattern into a top-level alternation, and
+    the guard blocked every file containing the word "bash". Fragments below, so this file
+    does not hold the words it tests with."""
+    import injection_guard
+
+    corpus = [
+        "run ba" + "sh to build the image",
+        "use s" + "h here, not zsh",
+        "cu" + "rl the api and inspect the json",
+        "base" + "64 encode the payload before storing it",
+        "a gate CSS class controls the banner",
+        "rotate credentials quarterly, per the runbook",
+    ]
+    firing = {text: injection_guard.hit(text) for text in corpus if injection_guard.hit(text)}
+    assert not firing, (
+        f"the catalogue fired on ordinary prose: {firing}. Every false positive here is a "
+        f"person told they may not read their own file."
+    )
+
+
 def test_the_event_classes_are_a_closed_set():
     import _emit
 

@@ -6,7 +6,8 @@ sees it — that is prevention. On a fetched page the read has already happened 
 time we are called, so the block stops the payload from being acted on rather than
 from being seen: that is containment, and it says so.
 
-The highest-volume control in the estate by a wide margin: 162 real denials.
+Precision is measured, not claimed: a test fires the catalogue at ordinary prose and one
+false positive fails the build. A guard people learn to bypass is worse than none.
 """
 
 from __future__ import annotations
@@ -23,12 +24,19 @@ MAX_BYTES = 400_000
 def patterns() -> list[re.Pattern]:
     """Read the catalogue. If it is missing or unreadable this raises, the guard fails
     closed and nothing passes — which is the correct answer for a control that cannot
-    tell you whether the text in front of it is an attack."""
+    tell you whether the text in front of it is an attack. Entries must be single-quoted,
+    for the reason the catalogue's own header gives."""
     out = []
-    for line in POLICY.read_text(encoding="utf-8").splitlines():
+    for number, line in enumerate(POLICY.read_text(encoding="utf-8").splitlines(), 1):
         line = line.strip()
-        if line.startswith("- "):
-            out.append(re.compile(line[2:].strip().strip("\"'"), re.IGNORECASE))
+        if not line.startswith("- "):
+            continue
+        entry = line[2:].strip()
+        if not (entry.startswith("'") and entry.endswith("'")):
+            raise ValueError(
+                f"{POLICY}:{number} is not single-quoted, so its escapes are ambiguous"
+            )
+        out.append(re.compile(entry[1:-1].replace("''", "'"), re.IGNORECASE))
     if not out:
         raise ValueError(f"{POLICY} lists no patterns")
     return out
