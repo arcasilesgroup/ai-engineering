@@ -459,6 +459,83 @@ def test_a_directory_that_is_not_a_repository_is_offered_one(tmp_path, home, tty
     assert (plain / ".git").is_dir()
     assert f"   ✓ git init   → {plain}\n" in capsys.readouterr().out
     assert (plain / ".ai" / "config.toml").exists()
+    # main, not whatever this machine's git.defaultBranch happens to say: the CI block
+    # this same run prints triggers on push, and a repository whose branch is named
+    # something else is a workflow that never fires.
+    head = subprocess.run(
+        ["git", "-C", str(plain), "symbolic-ref", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert head.stdout.strip() == "main"
+
+
+@pytest.mark.parametrize(
+    "argv, why",
+    [
+        (["--dry-run"], "a preview creates nothing, including a repository"),
+        (["-y"], "the default is no, and -y takes the default"),
+    ],
+    ids=["a dry run", "unattended"],
+)
+def test_the_git_init_offer_is_declined_without_a_person(tmp_path, home, no_keyboard, argv, why):
+    """Both of these reach the offer with nobody at the keyboard, and both have to come out
+    the same way: nothing created."""
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    assert init.project_step(init.parse(["--project", str(plain), *argv])) == 0, why
+    assert not (plain / ".git").exists()
+
+
+def test_with_no_project_flag_outside_a_repository_it_names_the_directory_you_are_in(
+    tmp_path, home, monkeypatch, capsys, no_keyboard
+):
+    """Catches the current directory being replaced by a path that exists nowhere. The
+    repository case has a test for this; outside one the path is printed straight from the
+    argument, so nothing else was holding it."""
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    monkeypatch.chdir(plain)
+    assert init.project_step(init.parse(["-y"])) == 0
+    assert f"\n◇ Project   {plain}   not a git repository\n" in capsys.readouterr().out
+
+
+def test_a_git_init_that_fails_stops_here_and_the_call_cannot_hang(
+    tmp_path, home, tty, typed, monkeypatch
+):
+    """Two properties of one call. check=True is the difference between a failed `git
+    init` stopping and the installer walking on into a directory with no repository in it,
+    writing a pin and a hooks path nothing will ever read. The timeout is the difference
+    between a git that hangs and an installer that hangs with it."""
+    calls: list[dict] = []
+
+    def fake(cmd, **kwargs):
+        calls.append(kwargs)
+        if kwargs.get("check"):
+            raise subprocess.CalledProcessError(1, cmd)
+        return subprocess.CompletedProcess(cmd, 1)
+
+    monkeypatch.setattr(init.subprocess, "run", fake)
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    typed.replies.append("y")
+    with pytest.raises(subprocess.CalledProcessError):
+        init.project_step(init.parse(["--project", str(plain)]))
+    assert calls[0]["timeout"] == 10
+
+
+def test_a_project_path_that_is_not_a_directory_is_not_offered_a_repository(
+    tmp_path, home, tty, no_keyboard, capsys
+):
+    """`git init` in something that is not a directory fails, and check=True turns that
+    into a traceback in front of somebody who mistyped a path."""
+    a_file = tmp_path / "notadir"
+    a_file.write_text("I am a file\n", encoding="utf-8")
+    assert init.project_step(init.parse(["--project", str(a_file)])) == 0
+    assert "   → skipped. There is nothing to set up outside a repository.\n" in (
+        capsys.readouterr().out
+    )
 
 
 def test_pressing_enter_at_the_git_init_offer_creates_nothing(tmp_path, home, tty, typed, capsys):
@@ -647,20 +724,30 @@ def test_two_overwrites_inside_one_second_leave_two_backups(repo, no_keyboard):
     assert backups[0].read_text() == "mine\n"
 
 
-@pytest.mark.parametrize("found, warns", [(None, True), ("/opt/bin/gitleaks", False)])
+WARNING = (
+    "   ⚠ gitleaks is not on your PATH. While this repository is managed the shipped\n"
+    "     pre-commit hook exits 1 on every commit until it is there: "
+    "`brew install gitleaks`,\n"
+    "     or docs/tools.md for the other platforms. This installs no binaries.\n"
+)
+
+
+@pytest.mark.parametrize("on_path, warns", [([], True), (["gitleaks"], False)])
 def test_the_wall_the_repository_is_about_to_hit_is_named_now_not_at_the_next_commit(
-    repo, capsys, no_keyboard, monkeypatch, found, warns
+    repo, capsys, no_keyboard, monkeypatch, on_path, warns
 ):
     """Wiring a project sets ai.managed, and the shipped pre-commit exits 1 when that flag
     is set and gitleaks is absent. So `ai-eng init` on a machine without it left a
     repository that refuses every commit from then on, and the first the person heard of
-    it was their next commit. Nothing in init looked for the binary."""
-    monkeypatch.setattr(init.shutil, "which", lambda name: found)
+    it was their next commit. Nothing in init looked for the binary.
+
+    The stand-in for `which` answers by name, so a lookup for anything other than gitleaks
+    is a failure here rather than a warning nobody notices."""
+    monkeypatch.setattr(
+        init.shutil, "which", lambda name: f"/opt/bin/{name}" if name in on_path else None
+    )
     init.project_step(init.parse(["--project", str(repo)]))
-    text = capsys.readouterr().out
-    assert ("gitleaks is not on your PATH" in text) is warns
-    assert ("exits 1 on every commit until it is there" in text) is warns
-    assert ("`brew install gitleaks`" in text) is warns
+    assert (WARNING in capsys.readouterr().out) is warns
 
 
 def test_the_stacks_it_found_are_named_and_it_installs_none_of_them(repo, capsys, no_keyboard):
@@ -722,47 +809,72 @@ def test_a_dry_run_over_an_empty_repository_prints_the_checklist_it_promises(
     init.project_step(init.parse(["--project", str(repo), "--dry-run"]))
     text = capsys.readouterr().out
     assert "   · .ai/config.toml · .ai/.gitignore · specs/\n" in text
-    assert "   · core.hooksPath → " in text
+    assert f"   · core.hooksPath → {paths.git_hooks()}\n" in text
     for name, (becomes, _) in init.OFFERS.items():
         assert f"   · {name} would be created ({becomes})\n" in text
 
 
-def test_the_last_screen_says_what_happened_and_what_to_run_next(repo, capsys, no_keyboard):
+NEXT = (
+    "\n   Next:\n"
+    "     1. The skeletons carry TODO: markers on purpose. `ai-eng doctor` fails while\n"
+    "        CONSTITUTION.md still has them — that is the design, not a broken install.\n"
+    "     2. `ai-eng doctor` — every assertion, and the coverage line under it.\n"
+    "     3. Paste the block above into .github/workflows/check.yml and push it.\n"
+    "     4. `ai-eng spec new <slug>` — the first spec, and the chain starts there.\n"
+)
+
+
+def test_the_last_screen_says_what_happened_and_what_to_run_next(
+    repo, capsys, no_keyboard, monkeypatch
+):
     """The run used to end by pasting a block of YAML at the reader. A stranger who reads
     only the last screen now knows how many files were written, how many guard entries
     exist, and what to do — starting with the fact that the skeleton's TODO: markers are
     deliberate, because the alternative is pasting the CI block and watching a first build
-    go red for a reason nobody named."""
+    go red for a reason nobody named. Asserted whole and to the end of the output, because
+    a closing panel matched by fragments is a closing panel three of whose five lines
+    nothing is holding."""
+    monkeypatch.setattr(init.shutil, "which", lambda name: f"/opt/bin/{name}")
     init.main(["--no-global", "--project", str(repo), "-y"])
     text = capsys.readouterr().out
-    assert "\n◇ Done   7 files written · 0 guard entries on this machine\n" in text
-    assert "     1. The skeletons carry TODO: markers on purpose." in text
-    assert "`ai-eng spec new <slug>`" in text
+    assert text.endswith(f"\n◇ Done   7 files written · 0 guard entries on this machine\n{NEXT}")
     # The YAML stays, above the report rather than as the final word.
     assert text.index("Paste these lines") < text.index("◇ Done")
 
 
 def test_the_last_screen_counts_the_guard_entries_that_are_actually_there(
-    repo, home, capsys, no_keyboard
+    repo, home, capsys, no_keyboard, monkeypatch
 ):
     """Two numbers, and neither of them is a constant. The guard count comes from the
-    receipt, which is the only record of what the machine half placed."""
+    receipt, which is the only record of what the machine half placed — and it reads
+    "1 guard entry", because a closing panel that says "1 entries" was written by nobody."""
+    monkeypatch.setattr(init.shutil, "which", lambda name: f"/opt/bin/{name}")
     init.main(["--global", "--harness", "claude-code", "--project", str(repo), "-y"])
-    assert "guard entries on this machine\n" in capsys.readouterr().out.split("\n◇ Done   ")[1]
-    assert sum(1 for row in wiring.receipt()["wrote"] if row["kind"] == "guard") == 1, (
-        "one surface was named, so one entry"
-    )
+    assert "\n◇ Done   7 files written · 1 guard entry on this machine\n" in capsys.readouterr().out
+
+
+def test_a_run_that_overwrites_counts_the_files_it_overwrote(
+    repo, capsys, no_keyboard, monkeypatch
+):
+    """Catches the count losing the overwrite branch, which is the half of the number a
+    fresh repository can never exercise."""
+    monkeypatch.setattr(init.shutil, "which", lambda name: f"/opt/bin/{name}")
+    for name in ("CLAUDE.md", "justfile"):
+        (repo / name).write_text("mine\n", encoding="utf-8")
+    init.project_step(init.parse(["--project", str(repo), "--overwrite", "all"]))
+    assert "\n◇ Done   7 files written · " in capsys.readouterr().out
 
 
 def test_what_is_still_on_a_person_reaches_the_last_screen(repo, capsys, no_keyboard, monkeypatch):
     """The inline warnings scroll away. A closing panel that omits them is the same
-    silence one screen later."""
+    silence one screen later. Two files, so the separator between them is held too."""
     monkeypatch.setattr(init.shutil, "which", lambda name: None)
-    (repo / "justfile").write_text("mine\n", encoding="utf-8")
+    for name in ("justfile", "CLAUDE.md"):
+        (repo / name).write_text("mine\n", encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo), "-y"]))
     text = capsys.readouterr().out.split("\n◇ Done   ")[1]
     assert "   ⚠ still on you: install gitleaks, or every commit here is refused\n" in text
-    assert "   ⚠ still on you: 1 of your own files were left alone: justfile\n" in text
+    assert "   ⚠ still on you: 2 of your own files were left alone: CLAUDE.md, justfile\n" in text
 
 
 # ── main ────────────────────────────────────────────────────────────────────────────

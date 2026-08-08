@@ -232,7 +232,7 @@ def project_step(args) -> int:
             return 0
         subprocess.run(["git", "-C", str(where), "init", "-b", "main"], check=True, timeout=10)
         out(f"   ✓ git init   → {where}")
-        root = paths.repo_root(where) or where
+        root = where  # git init put .git directly here, so there is nothing to walk up to
     pinned = root / ".ai" / "config.toml"
     if pinned.exists() and args.project is None:
         out(
@@ -330,7 +330,8 @@ def report(files: int, waiting: list[str], args) -> None:
     run next. This ended by pasting a block of YAML at the reader and stopping."""
     _, verb = marks(args)
     guards = sum(1 for row in wiring.receipt().get("wrote", []) if row["kind"] == "guard")
-    out(f"\n◇ Done   {files} files {verb} · {guards} guard entries on this machine")
+    entries = "entry" if guards == 1 else "entries"
+    out(f"\n◇ Done   {files} files {verb} · {guards} guard {entries} on this machine")
     for item in waiting:
         out(f"   ⚠ still on you: {item}")
     out("\n   Next:")

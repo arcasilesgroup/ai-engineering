@@ -569,17 +569,17 @@ def break_the_pin(home, repo, monkeypatch) -> None:
 
 
 @pytest.mark.parametrize(
-    "assertion, arrange",
+    "assertion, arrange, cure",
     [
-        (doctor.wiring_present, break_the_guard_entry),
-        (doctor.git_hook_fires, break_the_hooks_path),
-        (doctor.links_resolve, break_the_skills_link),
-        (doctor.pin_matches, break_the_pin),
+        (doctor.wiring_present, break_the_guard_entry, "`ai-eng init --global`"),
+        (doctor.git_hook_fires, break_the_hooks_path, "`ai-eng init --project`"),
+        (doctor.links_resolve, break_the_skills_link, "`ai-eng init --global`"),
+        (doctor.pin_matches, break_the_pin, "`ai-eng update`"),
     ],
     ids=["2 the guard entry", "11 the hooks path", "13 the skills link", "12 the pin"],
 )
 def test_every_failure_a_command_can_repair_names_that_command(
-    home, repo, monkeypatch, assertion, arrange
+    home, repo, monkeypatch, assertion, arrange, cure
 ):
     """ADR 0002 as an exit code. `doctor --fix` was refused because a diagnostic that
     mutates is `init` and `update` behind a third door with the consent taken out — but
@@ -590,7 +590,10 @@ def test_every_failure_a_command_can_repair_names_that_command(
     arrange(home, repo, monkeypatch)
     got, detail = verdict(assertion, repo)
     assert got == "fail", detail
-    assert re.search(r"`ai-eng [^`]+`", detail), detail
+    # The exact verb, not the shape of one: a message reading `ai-eng frobnicate` matches
+    # any pattern for "names a command" and repairs nothing.
+    assert cure in detail, detail
+    assert re.fullmatch(rf".*{re.escape(cure)}[^`]*", detail, re.S), detail
 
 
 def test_a_missing_dispatcher_names_no_cure_because_no_command_puts_it_back(
