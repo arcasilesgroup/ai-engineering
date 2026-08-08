@@ -1,0 +1,25 @@
+// The whole TypeScript surface of this repository: one file, checked so that a typo in it
+// fails here rather than on a user's machine, where OpenCode drops a broken plugin with no
+// error and no log.
+//
+// At the root and not in surfaces/, and that is not tidiness: `surfaces` is force-included
+// into the wheel, so a node_modules under it would be published to PyPI.
+{
+  "compilerOptions": {
+    // OpenCode runs plugins under bun, which resolves ESM and node: builtins natively.
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    // Strict, and the file is written to pass it. The alternative is a check that agrees
+    // with whatever it is shown, which is the shape of green this repository refuses.
+    "strict": true,
+    // Nothing is emitted: the file is shipped as source, character for character.
+    "noEmit": true,
+    // Ours, not our dependencies'. This checks two packages we never ship.
+    "skipLibCheck": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": ["surfaces/**/*.ts"]
+}

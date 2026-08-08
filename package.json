@@ -1,0 +1,10 @@
+{
+  "name": "ai-engineering-surfaces",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Type-checks surfaces/opencode.ts. Never published, never shipped in the wheel.",
+  "devDependencies": {
+    "@types/node": "26.2.0",
+    "typescript": "7.0.2"
+  }
+}
