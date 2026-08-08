@@ -518,20 +518,31 @@ def test_files_that_are_already_there_are_named_and_left_as_they_are(repo, capsy
     init.project_step(init.parse(["--project", str(repo)]))
     assert (
         "   → left as is: CLAUDE.md, justfile. "
-        "`doctor` lists them as unmanaged, which is a valid state.\n"
+        "Nothing was written to them and nothing recorded that they were skipped.\n"
     ) in capsys.readouterr().out
     assert (repo / "CLAUDE.md").read_text() == "mine\n"
     assert (repo / "justfile").read_text() == "mine too\n"
 
 
-def test_the_files_the_installer_just_wrote_are_not_reported_as_unmanaged(
+def test_the_sentence_that_declines_the_overwrite_promises_no_check_nobody_wrote(
     repo, capsys, no_keyboard
 ):
-    """One screen says "✓ AGENTS.md written" and the next says AGENTS.md was left as is
-    and is unmanaged. Both cannot be true, and the second one is the wrong half."""
+    """This line is what a person reads in order to decline. It promised `doctor` lists
+    these files as unmanaged; the word appears nowhere in doctor.py and none of its
+    twenty-one assertions looks at them."""
     (repo / "CLAUDE.md").write_text("mine\n", encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo)]))
-    left = capsys.readouterr().out.split("   → left as is: ")[1].split(". `doctor`")[0]
+    assert "unmanaged" not in capsys.readouterr().out
+
+
+def test_the_files_the_installer_just_wrote_are_not_reported_as_left_as_is(
+    repo, capsys, no_keyboard
+):
+    """One screen says "✓ AGENTS.md written" and the next says AGENTS.md was left as is.
+    Both cannot be true, and the second one is the wrong half."""
+    (repo / "CLAUDE.md").write_text("mine\n", encoding="utf-8")
+    init.project_step(init.parse(["--project", str(repo)]))
+    left = capsys.readouterr().out.split("   → left as is: ")[1].split(". Nothing")[0]
     assert left == "CLAUDE.md"
 
 

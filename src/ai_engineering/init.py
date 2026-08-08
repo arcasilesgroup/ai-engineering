@@ -237,8 +237,8 @@ def project_step(args) -> int:
     left = [name for name, _, _ in rows if name not in picked]
     if left:
         out(
-            f"   → left as is: {', '.join(left)}. `doctor` lists them as unmanaged, "
-            f"which is a valid state."
+            f"   → left as is: {', '.join(left)}. Nothing was written to them and "
+            f"nothing recorded that they were skipped."
         )
 
     found = stacks(root)
