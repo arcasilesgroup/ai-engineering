@@ -10,3 +10,5 @@ build/
 .ai/events.jsonl
 .ai/cache/
 check.log
+uv.lock
+.DS_Store

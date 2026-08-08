@@ -43,8 +43,7 @@ the user's repository, and verifies them with a command that exits non-zero.
   library only, executed by path, never importing the package: on the hot path that import
   costs about 110 ms, and a slow guard is a disabled guard.
 - `src/ai_engineering/` — the ten verbs. This half may import freely.
-- `policy/` — data, not code: the IOC catalogue, the surface wiring table, the semgrep
-  rules, the plain-language glossary.
+- `policy/` — data, not code: the IOC catalogue, the surface wiring table and the semgrep rules.
 - `surfaces/` — the OpenCode plugin. Everything else is wired by writing JSON.
 - `.agents/skills/` — the only skill tree. No mirrors, no sync, no second copy.
 - `specs/`, `docs/adr/` — the record. Committed, reviewed in a pull request.
