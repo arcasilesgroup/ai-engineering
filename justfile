@@ -95,6 +95,13 @@ mutate *paths:
     # The target is 95 and the payer is named: `update` and `uninstall` have no suite of
     # their own, and their 197 survivors are almost exactly the six points missing. Every
     # other module is between 93% and 98%. Raise this in the commit that writes that file.
+    #
+    # The published guidance is 70-80% in general and 80%+ on the core, so 89 across the
+    # package is already past both. The core here is not a layer of this package at all —
+    # it is hooks/, the five guards that decide whether an action is allowed — and mutmut
+    # cannot reach it, so its number comes from tests/mutation.py below. That number is a
+    # checklist of fourteen hand-written rows and not a score over every possible mutant,
+    # and calling it 100% would be the kind of green this product exists to refuse.
     FLOOR = 89
     scoped = bool(sys.argv[1])
     s = json.load(open("mutants/mutmut-cicd-stats.json"))

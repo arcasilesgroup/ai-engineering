@@ -95,6 +95,21 @@ def test_the_line_ceiling_holds(tmp_path):
     )
 
 
+def test_the_tests_do_not_outgrow_what_they_test(tmp_path):
+    """A suite twice the size of the product is a suite being written to move a number.
+    This exists because a sentence in contract.py claimed the ratio was three to one; it
+    was written from no measurement and the real answer was 1.68, so the sentence became
+    this."""
+    with pytest.raises(ValueError):
+        contract.test_ratio(tmp_path)  # a ratio over zero product lines is not a pass
+    tests, product = contract.test_ratio(ROOT)
+    assert tests / product <= contract.TEST_RATIO_MAX, (
+        f"{tests} lines of test against {product} of product — {tests / product:.2f}x, over "
+        f"{contract.TEST_RATIO_MAX}x. Either the product lost lines or the suite is being "
+        f"padded; `just mutate` names the tests that kill nothing."
+    )
+
+
 def test_the_ioc_catalogue_leaves_ordinary_technical_prose_alone():
     """This shipped once and denied 61 of 73 files here: a double-quoted scalar read as if it
     were single-quoted became a top-level alternation, so the guard blocked every file holding

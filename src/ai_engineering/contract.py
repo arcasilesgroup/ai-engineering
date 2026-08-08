@@ -51,9 +51,22 @@ DESCRIPTION_MAX = 1000
 # score from 59% to 89% and found four more defects on the way, including a mutation gate
 # configured by a list of four filenames that silently excluded every test file written
 # after it. Two of the fifteen modules have no suite yet, and their 197 survivors are the
-# six points between 89 and the 95 that was asked for. The test plane is now three times the
-# product. The test fails the build on the line after.
-REPO_CEILING = 11587
+# six points between 89 and the 95 that was asked for. The test fails the build on the
+# line after.
+REPO_CEILING = 11762
+
+# The shape of that total, not just its size. This began as a sentence in the comment above
+# saying the test plane was three times the product; it was written from no measurement and
+# it was wrong — the ratio is 1.68. An unmeasured number in a governance file is the defect
+# this product is about, so the sentence is deleted and the measurement is a gate instead.
+#
+# 2.0 and not 1.7: there is no industry law here, the working heuristic is one to two lines
+# of test per line of product, and the ceiling above already caps the total. This one catches
+# the shape the ceiling cannot see — tests padded to chase a mutation number, or a product
+# that shrank while its tests did not.
+TEST_RATIO_MAX = 2.0
+PRODUCT = ("src/", "hooks/")
+TESTS = ("tests/",)
 
 
 def audit(root: Path) -> list[str]:
@@ -118,20 +131,38 @@ def audit_one(path: Path) -> list[str]:
 NOT_THE_PRODUCT = ("specs/", "docs/adr/", "LICENSE", "NOTICE")
 
 
-def repo_lines(root: Path) -> int:
-    """Every committed line of the product. The ceiling is the mechanism that prevents a
-    second 436,091: not discipline, an exit code."""
+def tracked(root: Path) -> list[str]:
     names = subprocess.run(
         ["git", "-C", str(root), "ls-files"], capture_output=True, text=True, timeout=30
     ).stdout.split()
     if not names:
         raise ValueError(f"git listed no files under {root}, so this counted zero lines")
+    return names
+
+
+def count(root: Path, names: list[str]) -> int:
     total = 0
     for name in names:
-        if name.startswith(NOT_THE_PRODUCT):
-            continue
         try:
             total += len((root / name).read_bytes().decode("utf-8", "replace").splitlines())
         except OSError:
             continue
     return total
+
+
+def repo_lines(root: Path) -> int:
+    """Every committed line of the product. The ceiling is the mechanism that prevents a
+    second 436,091: not discipline, an exit code."""
+    names = [n for n in tracked(root) if not n.startswith(NOT_THE_PRODUCT)]
+    return count(root, names)
+
+
+def test_ratio(root: Path) -> tuple[int, int]:
+    """Test lines against product lines. Both halves are counted the same way and from the
+    same index, so the answer cannot drift the way a hand-written number does."""
+    names = tracked(root)
+    tests = count(root, [n for n in names if n.startswith(TESTS)])
+    product = count(root, [n for n in names if n.startswith(PRODUCT)])
+    if not product:
+        raise ValueError(f"no product files under {root}, so this ratio measured nothing")
+    return tests, product

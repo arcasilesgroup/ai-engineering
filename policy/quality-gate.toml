@@ -1,0 +1,20 @@
+# What we require of the SonarCloud Quality Gate, written where it can be read in a diff.
+#
+# `sonar.qualitygate.wait=true` makes the build wait for the gate and fail when it is red.
+# It does not say what the gate contains: the conditions live in a web console, and anyone
+# with project admin can weaken them without a line changing here. A rule you cannot read
+# is the failure this product exists to cure, so the conditions are declared here and
+# tests/quality_gate.py asks the API whether the live gate is at least this strict.
+#
+# The numbers are the industry defaults, kept rather than invented. Coverage is the one
+# place we are stricter than the gate needs to be, because `just cover` already enforces
+# 80 locally and a remote gate below a local one is a remote gate nobody would notice.
+
+[conditions]
+# metric = [operator, threshold] — operator as SonarCloud spells it.
+new_coverage = ["LT", 80]
+new_duplicated_lines_density = ["GT", 3]
+new_reliability_rating = ["GT", 1]        # 1 is A: no new bugs
+new_security_rating = ["GT", 1]           # 1 is A: no new vulnerabilities
+new_maintainability_rating = ["GT", 1]    # 1 is A: debt ratio under 5%
+new_security_hotspots_reviewed = ["LT", 100]
