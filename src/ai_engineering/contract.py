@@ -125,7 +125,17 @@ DESCRIPTION_MAX = 1000
 # CI and the three numbers this repository states as prose. This raise is measured against
 # the same overrun rather than against the same optimism: 250 predicted, and the rest is
 # slack the closing commit takes back.
-REPO_CEILING = 15700
+#
+# Closed at the count that landed: 15,615 against the 14,590 those two specs started from,
+# so 1,025 for work priced at 273 across two raises. No slack survives the branch, which is
+# the only thing that keeps a ceiling meaning anything, and this repository has the
+# 436,091-line receipt for the alternative. Where the other 750 went is one sentence, and it
+# is the same sentence both times: the five guards had almost no tests of their own — they
+# were attacked by the adversarial suite and asserted nowhere else — so eighteen measured
+# shell commands against self-protection, ten hooks-path spellings, three loop arms and two
+# denial protocols are most of the overrun. The honest reading is that the estimate priced
+# the fixes and not the evidence for them.
+REPO_CEILING = 15615
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -1,7 +1,7 @@
 ---
 id: "002"
 slug: quality-ecosystem-3-0
-status: draft
+status: shipped
 date: 2026-08-08
 ref: ""
 supersedes: ""
@@ -300,11 +300,11 @@ follow_up: Revisit when a spec ships a ticked box whose backticked span is a bar
 
 Nothing gets a URL until every box is ticked, and each one is ticked by a command.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check`, run by `.github/workflows/check.yml` on every push
+- [x] Logs — not applicable, and that is the rule: this changes two assertions and one verb inside a package that already writes one JSON line per decision
+- [x] Traces — not applicable, and that is the rule: no second hop, no trace
+- [x] Errors — `ai-eng digest` reads the error class this package already records
+- [x] Health and data age — `ai-eng doctor`, whose assertion 6 is what this spec repaired
+- [x] External check — `.github/workflows/install-matrix.yml`, three OSes, a wheel we built
+- [x] Second path — assertion 19 reads the record `/ai-ship` writes, and `ai-eng audit verify` recomputes every hash of it
+- [x] Security — `just security`: gitleaks, semgrep and trivy on every push

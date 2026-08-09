@@ -1,7 +1,7 @@
 ---
 id: "003"
 slug: guards-that-never-fired
-status: draft
+status: shipped
 date: 2026-08-08
 ref: ""
 supersedes: ""
@@ -359,11 +359,11 @@ follow_up: Run one live denial on the minimum supported Claude Code and on the v
 
 Nothing gets a URL until every box is ticked, and each one is ticked by a command.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check`, run by `.github/workflows/check.yml` on every push
+- [x] Logs — not applicable, and that is the rule: this repairs guards inside a package that already writes one JSON line per decision, six closed classes, hash-chained
+- [x] Traces — not applicable, and that is the rule: no second hop, no trace
+- [x] Errors — every guard crash leaves as an event of the error class: `ai-eng digest`
+- [x] Health and data age — `ai-eng doctor`, and `ai-eng audit verify` walks every link
+- [x] External check — `.github/workflows/install-matrix.yml` now feeds a blocking payload to the packaged dispatcher and asserts it exits 2 naming the guard
+- [x] Second path — `python tests/adversarial/run.py` attacks the same guards the unit suite asserts, by running them
+- [x] Security — `just security`: gitleaks, semgrep and trivy on every push
