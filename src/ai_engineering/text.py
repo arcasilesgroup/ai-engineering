@@ -72,11 +72,13 @@ def render(fields: dict) -> str:
     nobody can read in a diff is a record nobody reviews."""
     lines = []
     for key, value in fields.items():
+        # Neither break: a word cut in half comes back with a space inside it, and the
+        # round trip through `flat_yaml` is what makes this format survive being edited.
         lines += textwrap.wrap(
             f"{key}: {value}",
             WIDTH,
             subsequent_indent="  ",
             break_long_words=False,
             break_on_hyphens=False,
-        ) or [f"{key}:"]
+        )
     return "```yaml\n{}\n```\n".format("\n".join(lines))

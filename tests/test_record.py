@@ -92,6 +92,31 @@ def test_a_file_with_no_frontmatter_is_a_refusal_not_an_empty_dict(tmp_path):
     assert text.frontmatter(good) == {"name": "a"}
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "short",
+        "w" * 200,  # one token longer than the width: cut in half it comes back altered
+        "-".join(["hyphenated"] * 20),  # a hyphen is not a place to break a word either
+        ("word " * 60).strip(),
+        "x" * (text.WIDTH - len("k: ")),  # exactly the width, which must not wrap
+        "x" * (text.WIDTH - len("k: ") + 1),  # one over it, which must
+    ],
+    ids=["short", "one long token", "hyphenated", "many words", "exactly the width", "one over"],
+)
+def test_a_value_of_any_shape_survives_being_rendered_and_read_back(value):
+    """The fold has to be reversible or the record quietly changes what somebody wrote.
+    Continuation lines are indented by exactly two spaces, which is what `flat_yaml` above
+    reads as a continuation rather than as a key it cannot parse."""
+    block = text.render({"k": value})
+    body = block.split("\n", 1)[1].rsplit("```", 2)[0]
+    assert text.flat_yaml(body) == {"k": value}
+    lines = body.splitlines()
+    assert max(len(line) for line in lines) <= text.WIDTH or " " not in value
+    assert all(line.startswith("  ") and not line.startswith("   ") for line in lines[1:])
+    assert (len(lines) == 1) is (len(f"k: {value}") <= text.WIDTH)
+
+
 def test_a_block_that_cannot_be_read_is_undecidable_and_never_invisible():
     """A malformed block used to be caught and skipped, so an acceptance whose YAML was a
     little wrong disappeared from the expiry check that both `pre-push` and `doctor` read
@@ -99,8 +124,10 @@ def test_a_block_that_cannot_be_read_is_undecidable_and_never_invisible():
     the exact shape of a false green. The message names the file, or whoever reads the
     refusal is told a record somewhere cannot be read and not which one."""
     body = "```yaml\n  broken\n```\n\ntext\n\n```yaml\nfinding: F-1\nexpires: 2030-01-01\n```\n"
-    with pytest.raises(ValueError, match="specs/001-a/spec.md cannot be read"):
+    with pytest.raises(ValueError, match="specs/001-a/spec.md cannot be read: indented line"):
         text.yaml_blocks(body, "specs/001-a/spec.md")
+    with pytest.raises(ValueError, match="^a record block cannot be read: "):
+        text.yaml_blocks(body)  # called without a name, it still says what happened
     good = "```yaml\nfinding: F-1\nexpires: 2030-01-01\n```\n"
     assert text.yaml_blocks(good) == [{"finding": "F-1", "expires": "2030-01-01"}]
     assert text.flat_yaml(text.render({"a": "1"}).split("\n", 1)[1].rsplit("```", 2)[0]) == {
