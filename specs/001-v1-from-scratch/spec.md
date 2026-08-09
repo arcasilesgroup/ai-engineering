@@ -472,4 +472,4 @@ follow_up: The next commit that needs lines deletes first. The remaining candida
 - [x] Health and data age — `ai-eng doctor`, and `ai-eng audit verify` walks every link
 - [x] External check — `.github/workflows/install-matrix.yml`, three OSes, a wheel we built
 - [x] Second path — `doctor` reads the chain's head, `audit verify` recomputes every hash
-- [x] Security — gitleaks, semgrep, trivy and zizmor in `just check`; SECURITY.md ships
+- [x] Security — gitleaks, semgrep and trivy in `just security`; zizmor over the workflows in `.github/workflows/check.yml`; SECURITY.md ships
