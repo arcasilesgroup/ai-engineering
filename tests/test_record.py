@@ -365,44 +365,13 @@ def test_a_new_spec_carries_all_eight_production_ready_boxes_unticked(tmp_path):
     assert spec.create(tmp_path, "next", "").parent.name == "002-next"
 
 
-@pytest.mark.parametrize(
-    ("ref", "payload", "title"),
-    [
-        (
-            "owner/repo#45",
-            {"title": "From GitHub", "body": "The problem, as filed."},
-            "From GitHub",
-        ),
-        ("proj#7", {"fields": {"System.Title": "From Azure"}}, "From Azure"),
-        ("no-hash-here", {}, "A thing"),
-    ],
-)
-def test_a_spec_seeded_from_a_work_item_carries_its_words_not_a_placeholder(
-    tmp_path, monkeypatch, ref, payload, title
-):
-    """The point of --ref is that the spec starts with what the person who filed the item
-    actually wrote. Seeding that silently failed would leave a TODO nobody notices, and
-    the record would say the problem was never described."""
-    monkeypatch.setattr(
-        spec.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout=json.dumps(payload))
-    )
-    body = spec.create(tmp_path, "a-thing", ref).read_text()
-    assert f"# {title}" in body
-    assert ("The problem, as filed." in body) is ("body" in payload)
-    assert ("TODO: what is true today" in body) is ("body" not in payload)
-    assert f'ref: "{ref}"' in body
-
-
-def test_a_work_item_that_cannot_be_read_does_not_stop_the_spec(tmp_path, monkeypatch):
-    """`gh` not installed, or no network, must not block writing the spec by hand — the
-    record is the point and the seeding is a convenience."""
-
-    def missing(*a, **k):
-        raise OSError("gh: not found")
-
-    monkeypatch.setattr(spec.subprocess, "run", missing)
-    assert spec.seed("owner/repo#1") == ("", "")
-    assert "# A thing" in spec.create(tmp_path, "a-thing", "owner/repo#1").read_text()
+def test_a_work_item_is_recorded_in_the_frontmatter_and_nothing_else(tmp_path):
+    """--ref records where the work came from and prefills nothing. The heading stays the
+    slug and the problem stays a TODO, because the section is the author's to write."""
+    body = spec.create(tmp_path, "a-thing", "owner/repo#45").read_text()
+    assert 'ref: "owner/repo#45"' in body
+    assert "# A thing" in body
+    assert "TODO: what is true today" in body
 
 
 def test_a_superseded_spec_is_hidden_from_the_listing_unless_asked_for(tmp_path):

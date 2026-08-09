@@ -47,18 +47,6 @@ def wide(monkeypatch):
     monkeypatch.setenv("COLUMNS", "200")
 
 
-def _forge(monkeypatch, payload):
-    """Stand in for gh and az, and keep every call so the command itself can be asserted."""
-    calls = []
-
-    def run(*args, **kwargs):
-        calls.append((args, kwargs))
-        return SimpleNamespace(stdout=json.dumps(payload))
-
-    monkeypatch.setattr(spec.subprocess, "run", run)
-    return calls
-
-
 def _keyboard(monkeypatch, typed):
     """A terminal that exists and a person typing one word at it. Returns the prompts."""
     prompts = []
@@ -72,67 +60,15 @@ def _keyboard(monkeypatch, typed):
     return prompts
 
 
-# ------------------------------------------------------------------ spec: seeding
-
-
-@pytest.mark.parametrize(
-    ("ref", "command"),
-    [
-        (
-            "owner/repo#45",
-            ["gh", "issue", "view", "45", "--repo", "owner/repo", "--json", "title,body"],
-        ),
-        ("proj#7", ["az", "boards", "work-item", "show", "--id", "7"]),
-    ],
-)
-def test_a_work_item_is_read_with_the_exact_command_its_forge_understands(
-    monkeypatch, ref, command
-):
-    """One wrong word in either command line and seeding fails on every machine — quietly,
-    because the failure is swallowed on purpose so a missing `gh` never blocks the spec.
-    The timeout and the captured output are part of it: without them a hung `gh` hangs the
-    command a person is waiting on, and a crash comes back as an empty title."""
-    calls = _forge(monkeypatch, {"title": "From the board"})
-    assert spec.seed(ref)[0] == "From the board"
-    ((args, kwargs),) = calls
-    assert args == (command,)
-    assert kwargs == {"capture_output": True, "text": True, "timeout": 20, "check": True}
-
-
-def test_a_ref_is_split_on_its_first_hash_and_the_rest_is_the_item_id(monkeypatch):
-    """`owner/repo#12#34` has to reach the forge as repository `owner/repo` and item
-    `12#34`. Splitting on the last hash asks for the wrong item; not splitting at all
-    raises before anything is written and the spec is never created."""
-    calls = _forge(monkeypatch, {"title": "t"})
-    spec.seed("owner/repo#12#34")
-    command = calls[0][0][0]
-    assert command[3] == "12#34" and command[5] == "owner/repo"
-
-
-def test_a_work_item_with_no_title_seeds_an_empty_title_not_a_placeholder(monkeypatch):
-    """The empty title is what makes `create` fall back to the slug. Any other value ends
-    up as the heading of the spec, and the record then carries a word nobody wrote."""
-    _forge(monkeypatch, {"body": "the problem, as filed"})
-    assert spec.seed("owner/repo#45") == ("", "the problem, as filed")
-
-
 # ------------------------------------------------------------------ spec: writing
 
 
 def test_a_spec_written_without_a_work_item_keeps_its_todo_and_an_empty_ref(tmp_path):
-    """With no --ref there is nothing to seed from, so the TODO must survive: it is the
-    line that tells the next reader the problem has not been described yet."""
+    """Nothing prefills the problem, with or without a --ref, so the TODO must survive: it
+    is the line that tells the next reader the problem has not been described yet."""
     body = spec.create(tmp_path, "a-thing", "").read_text()
     assert "TODO: what is true today, and what about it is a problem." in body
     assert 'ref: ""' in body
-
-
-def test_a_very_long_work_item_body_is_cut_at_twelve_hundred_characters(tmp_path, monkeypatch):
-    """A work item can hold a novel. The spec takes the first 1200 characters of it and no
-    more, so one pasted stack trace cannot bury the sections a reviewer reads."""
-    _forge(monkeypatch, {"title": "t", "body": "y" * 2000})
-    body = spec.create(tmp_path, "a-thing", "owner/repo#1").read_text()
-    assert "y" * 1200 in body and "y" * 1201 not in body
 
 
 def test_a_spec_whose_bytes_are_not_utf8_still_appears_in_the_listing(tmp_path):
@@ -167,15 +103,14 @@ def test_spec_new_writes_the_spec_and_prints_the_path_a_reader_can_open(repo, ca
     assert 'ref: ""' in body and "# A thing" in body
 
 
-def test_spec_new_seeds_from_the_work_item_named_on_the_flag(repo, monkeypatch, capsys):
-    """--ref is the whole point of seeding: what the person who filed the item wrote has
-    to reach the spec, and the item has to be recorded in the frontmatter."""
-    _forge(monkeypatch, {"title": "From GitHub", "body": "the problem, as filed"})
+def test_spec_new_records_the_work_item_named_on_the_flag_and_prefills_nothing(repo, capsys):
+    """--ref is where the work came from, and that is all it is. The item reaches the
+    frontmatter; the heading stays the slug and the problem stays the author's to write."""
     assert spec.main(["new", "a-thing", "--ref", "owner/repo#45"]) == 0
     assert capsys.readouterr().out == "  ✓ specs/001-a-thing/spec.md\n"
     body = (repo / "specs" / "001-a-thing" / "spec.md").read_text()
-    assert "# From GitHub" in body and 'ref: "owner/repo#45"' in body
-    assert "the problem, as filed" in body
+    assert "# A thing" in body and 'ref: "owner/repo#45"' in body
+    assert "TODO: what is true today" in body
 
 
 def test_spec_list_prints_one_row_per_spec_and_says_so_when_there_are_none(repo, capsys):

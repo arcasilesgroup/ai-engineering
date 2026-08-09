@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import subprocess
 from datetime import date
 from pathlib import Path
 
@@ -79,49 +78,19 @@ def next_number(root: Path) -> str:
     return f"{max(used, default=0) + 1:03d}"
 
 
-def seed(ref: str) -> tuple[str, str]:
-    """The read side of the board: the agent picking up its next item. Twelve lines and
-    no config key, because gh and az already hand us an authenticated client."""
-    if "#" not in ref:
-        return "", ""
-    repo, number = ref.split("#", 1)
-    command = (
-        ["gh", "issue", "view", number, "--repo", repo, "--json", "title,body"]
-        if "/" in repo
-        else ["az", "boards", "work-item", "show", "--id", number]
-    )
-    try:
-        import json
-
-        body = json.loads(
-            subprocess.run(command, capture_output=True, text=True, timeout=20, check=True).stdout
-        )
-    except (OSError, ValueError, subprocess.SubprocessError):
-        return "", ""
-    fields = body.get("fields", body)
-    return str(fields.get("title") or fields.get("System.Title") or ""), str(
-        fields.get("body") or ""
-    )
-
-
 def create(root: Path, slug: str, ref: str) -> Path:
     specs_dir(root).mkdir(exist_ok=True)
     number = next_number(root)
     folder = specs_dir(root) / f"{number}-{slug}"
     folder.mkdir()
-    title, body = seed(ref) if ref else ("", "")
     text = TEMPLATE.format(
         number=number,
         slug=slug,
         today=date.today().isoformat(),
         ref=f'"{ref}"' if ref else '""',
-        title=title or slug.replace("-", " ").capitalize(),
+        title=slug.replace("-", " ").capitalize(),
         boxes="\n".join(f"- [ ] {box}" for box in BOXES),
     )
-    if body:
-        text = text.replace(
-            "TODO: what is true today, and what about it is a problem.", body.strip()[:1200]
-        )
     spec = folder / "spec.md"
     spec.write_text(text, encoding="utf-8")
     return spec

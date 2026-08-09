@@ -4,7 +4,7 @@ description: >-
   Writes the record of a decision before any code exists: the problem, at least two real
   options, the one chosen and why the others were not, the decisions and accepted risks as
   blocks inside it, and the eight production-ready boxes unticked. Writes CONSTITUTION.md if
-  this project has never had one, and seeds itself from a work item when you pass one.
+  this project has never had one.
   Trigger for "let's add", "how should we handle", "what's the best approach", "I'm thinking
   about", "what should we build for", "write the spec". Not for turning a spec into tasks —
   use /ai-plan. Not for writing code — use /ai-plan then say go. Not for judging what was
@@ -26,8 +26,9 @@ here writes code.
 1. Read `CONSTITUTION.md`. If it does not exist, or still has `TODO:` markers, interview
    the person for it now — mission, who it is for, vocabulary, never, compliance gates,
    escalation, phase — and write it. A spec against an identity nobody wrote is a guess.
-2. `ai-eng spec new <slug>` (add `--ref owner/repo#45` to seed the problem from a work
-   item). This reserves the number and writes the scaffold.
+2. `ai-eng spec new <slug>` (add `--ref owner/repo#45` to record the work item in the
+   frontmatter). This reserves the number and writes the scaffold. Nothing is prefilled:
+   the problem is yours to state.
 3. Fill in **Context and problem** so that somebody who does not code can follow it. Say
    what is true today and what about it hurts. No solution yet.
 4. Write **at least two real options**. A second option you invented to lose is not an
