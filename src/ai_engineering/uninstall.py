@@ -54,6 +54,15 @@ def strip_entries(path: Path) -> bool:
     return True
 
 
+def inside(path: str, root: Path) -> bool:
+    """Whether a recorded path is in this repository, by path parts and never by string
+    prefix. `"/repos/tests-backup/justfile".startswith("/repos/tests")` is True, and the
+    line that asked it went straight on to `unlink`, so standing in one repository deleted
+    recorded files out of every sibling whose name began with the same letters. Nothing on
+    the operator's machine happened to pair that way, which is luck and not a control."""
+    return Path(path) == root or root in Path(path).parents
+
+
 def unwire(root: Path, rows: list[dict]) -> None:
     """The repository half, from the receipt and never from a hardcoded list. Two things
     it fixes: the hooks path is restored to whatever was configured before us rather than
@@ -61,7 +70,7 @@ def unwire(root: Path, rows: list[dict]) -> None:
     lock-in; and only files this install actually wrote are removed, so a CLAUDE.md or a
     justfile somebody wrote by hand survives. Anything the constitution protects was never
     in the receipt, because init writes those two once and never touches them again."""
-    mine = [row for row in rows if row["kind"] == "project" and row["path"].startswith(str(root))]
+    mine = [row for row in rows if row["kind"] == "project" and inside(row["path"], root)]
     for row in mine:
         Path(row["path"]).unlink(missing_ok=True)
     before = next(
@@ -89,7 +98,7 @@ def fate(row: dict, root: Path | None) -> str:
         return "kept — repository files; re-run with --project inside that repository"
     if row["kind"] == "repo":
         return "" if row["path"] == str(root) else f"kept — not this repository ({root})"
-    return "" if row["path"].startswith(str(root)) else "kept — belongs to another repository"
+    return "" if inside(row["path"], root) else "kept — belongs to another repository"
 
 
 def strip_skills(path: Path) -> bool:

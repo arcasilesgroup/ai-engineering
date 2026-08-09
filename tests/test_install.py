@@ -490,6 +490,40 @@ def test_doctor_does_not_call_a_stripped_machine_healthy(wired):
     assert problem is not None, "assertion 13 passed with every one of our symlinks deleted"
 
 
+def test_uninstall_cannot_reach_a_repository_you_are_not_standing_in(repo, home, monkeypatch):
+    """`"…/repo-backup/justfile".startswith("…/repo")` is True, and the line that asked it
+    went straight on to unlink. Standing in one repository deleted recorded files out of
+    every sibling whose name began with the same letters. Nothing on the operator's machine
+    happened to pair that way; that is luck, and luck is not a control."""
+    sibling = repo.parent / f"{repo.name}-backup"
+    sibling.mkdir()
+    theirs = sibling / "justfile"
+    theirs.write_text("mine, in a repository nobody asked about\n", encoding="utf-8")
+    init.main(["--no-global", "--project", str(repo), "-y"])
+    wiring.record([{"path": str(theirs), "kind": "project", "how": "written"}])
+
+    monkeypatch.chdir(repo)
+    uninstall.main(["--project", "-y"])
+    assert theirs.exists(), "uninstall deleted a file in a repository it was never pointed at"
+    assert not (repo / "justfile").exists(), "and it failed to remove the one it was pointed at"
+
+
+@pytest.mark.parametrize(
+    "path,expected",
+    [
+        ("/repos/app", True),
+        ("/repos/app/justfile", True),
+        ("/repos/app/.github/workflows/check.yml", True),
+        ("/repos/app-backup/justfile", False),
+        ("/repos/application/justfile", False),
+        ("/repos/other/justfile", False),
+    ],
+)
+def test_inside_answers_by_path_parts_and_never_by_string_prefix(path, expected):
+    """The unit of the above, because the sibling that matters is the one nobody has yet."""
+    assert uninstall.inside(path, Path("/repos/app")) is expected
+
+
 def test_every_row_it_lists_gets_a_line_saying_what_happened_to_it(home, tmp_path, capsys):
     """It printed thirty-two rows under "every one is listed here", asked "Remove them?",
     and ran a loop with branches for two kinds. Nineteen project rows, four repo rows and one
