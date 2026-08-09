@@ -444,11 +444,6 @@ def stripped(home) -> dict:
     }
 
 
-@pytest.mark.xfail(
-    reason="uninstall never writes machine.json, so the receipt still lists every guard and "
-    "link it has just removed. Fixed by task 4 of spec 008.",
-    strict=True,
-)
 def test_the_receipt_stops_claiming_what_uninstall_removed(wired):
     """The record of what is installed, after the verb whose whole job is to uninstall it."""
     uninstall.main(["-y"])
@@ -457,25 +452,22 @@ def test_the_receipt_stops_claiming_what_uninstall_removed(wired):
     assert not kinds & {"guard", "link"}, f"the receipt still claims {sorted(kinds)}"
 
 
-@pytest.mark.xfail(
-    reason="global_ready() reads the receipt rather than the machine, so a stripped machine "
-    "reports ready. Fixed by task 8 of spec 008.",
-    strict=True,
-)
 def test_a_machine_uninstall_stripped_is_not_reported_as_ready(wired):
-    """`ai-eng init` printed `Global ready · 4 links, 4 guards` over zero of both."""
+    """`ai-eng init` printed `Global ready · 4 links, 4 guards` over zero of both.
+
+    Green from task 4, and for the smaller of the two reasons: the receipt shrinks now, so
+    the log and the disk agree again. They agree because one of them was corrected, not
+    because the answer is read from the machine — a receipt that goes stale for any reason
+    this tool did not cause still reports ready. Task 8 owes that half, and its own test
+    hands `global_ready` a full receipt over an empty disk."""
     uninstall.main(["-y"])
     assert stripped(wired) == {"guards": 0, "links": 0}
     assert init.global_ready() is False, "a machine with no guards on it reported ready"
 
 
-@pytest.mark.xfail(
-    reason="only --global forces past global_ready(), so a plain init cannot repair a machine "
-    "uninstall stripped. Fixed by task 8 of spec 008.",
-    strict=True,
-)
 def test_a_plain_init_after_uninstall_rewires_rather_than_reporting_ready(wired):
-    """The install verb, told by a log that there is nothing to install."""
+    """The install verb, told by a log that there is nothing to install. Green from task 4
+    for the same reason as the test above it, and owed the same second half by task 8."""
     uninstall.main(["-y"])
     init.main(["--no-project", "-y"])
     assert stripped(wired)["guards"], "a plain `ai-eng init` wired nothing back"
@@ -496,6 +488,58 @@ def test_doctor_does_not_call_a_stripped_machine_healthy(wired):
     with contextlib.suppress(doctor.Undecidable):
         problem = doctor.links_resolve(None)
     assert problem is not None, "assertion 13 passed with every one of our symlinks deleted"
+
+
+def test_every_row_it_lists_gets_a_line_saying_what_happened_to_it(home, tmp_path, capsys):
+    """It printed thirty-two rows under "every one is listed here", asked "Remove them?",
+    and ran a loop with branches for two kinds. Nineteen project rows, four repo rows and one
+    skills row fell through with no tick, no "kept", and no line at all — consent taken for
+    work that was never going to happen."""
+    settings = tmp_path / "settings.json"
+    wiring.write_json(settings, {"hooks": [{"command": wiring.command("PreToolUse")}]})
+    rows = [
+        {"path": str(settings), "kind": "guard", "how": "json_claude"},
+        {"path": str(tmp_path / "roots"), "kind": "link", "how": "symlink"},
+        {"path": str(paths.home() / "skills"), "kind": "skills", "how": "wheel"},
+        {"path": "/elsewhere/repo/justfile", "kind": "project", "how": "written"},
+        {"path": "/elsewhere/repo", "kind": "repo", "how": ""},
+    ]
+    wiring.record(rows)
+    uninstall.main(["-y"])
+    text = capsys.readouterr().out
+    assert "5 things are recorded here, and 3 of them will be removed" in text
+    for row in rows:
+        assert row["path"] in text, f"{row['kind']} row was never printed"
+    assert "/elsewhere/repo/justfile  ·  kept — repository files" in text
+    assert (
+        "Not entered: /elsewhere/repo — `cd /elsewhere/repo && ai-eng uninstall --project`" in text
+    )
+    kept = {row["kind"] for row in wiring.receipt()["wrote"]}
+    assert kept == {"project", "repo"}, f"the receipt kept {sorted(kept)}"
+
+
+def test_the_skills_store_is_removed_rather_than_listed_and_left(home, capsys):
+    """Eight skills survived every uninstall, and `init` counted them off the disk on the
+    next run and reported a ready machine. They are ours, under our own folder, and nothing
+    else reads them."""
+    store = paths.home() / "skills"
+    (store / "ai-spec").mkdir(parents=True)
+    (store / "yours").mkdir()
+    wiring.record([{"path": str(store), "kind": "skills", "how": "wheel"}])
+    uninstall.main(["-y"])
+    assert not (store / "ai-spec").exists(), "the skills store survived"
+    assert (store / "yours").exists(), "uninstall removed something that is not ours"
+    assert "✓ skills removed from" in capsys.readouterr().out
+
+
+def test_a_receipt_with_nothing_this_run_can_remove_asks_no_question(home, capsys, keyboard):
+    """The consent question counted rows it had no branch for, so a machine whose global half
+    was already gone still asked whether to remove twenty-four things and then removed none.
+    The typed answer here is `n`: reaching the question at all fails this test."""
+    keyboard("n")
+    wiring.record([{"path": "/elsewhere/repo/justfile", "kind": "project", "how": "written"}])
+    assert uninstall.main([]) == 0, "it asked about rows it was never going to touch"
+    assert "Nothing to remove." in capsys.readouterr().out
 
 
 def test_uninstall_removes_nothing_until_somebody_types_yes(home, tmp_path, keyboard):

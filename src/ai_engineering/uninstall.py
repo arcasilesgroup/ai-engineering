@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -73,18 +74,56 @@ def unwire(root: Path, rows: list[dict]) -> None:
         subprocess.run(["git", "-C", str(root), *key], timeout=10, capture_output=True)
 
 
+def fate(row: dict, root: Path | None) -> str:
+    """What this run will do with this row, decided before anything is printed and used
+    again to decide what is done. Two answers derived separately are two answers that can
+    disagree, and this verb's whole defect was a list that promised more than the loop
+    underneath it had branches for: it printed thirty-two rows under "every one is listed
+    here", asked "Remove them?", and had no branch at all for twenty-four of them.
+
+    An empty string means remove it. Anything else is the reason it is kept, printed on the
+    row's own line so that nothing is silently spared."""
+    if row["kind"] in ("guard", "link", "skills"):
+        return ""
+    if root is None:
+        return "kept — repository files; re-run with --project inside that repository"
+    if row["kind"] == "repo":
+        return "" if row["path"] == str(root) else f"kept — not this repository ({root})"
+    return "" if row["path"].startswith(str(root)) else "kept — belongs to another repository"
+
+
+def strip_skills(path: Path) -> bool:
+    """The store this install copied the skills into. It is ours, nothing else reads it, and
+    it was listed under "Remove them?" with no branch to remove it — so eight skills survived
+    every uninstall and `init` counted them off the disk and called the machine ready."""
+    if not path.is_dir():
+        return False
+    for skill in path.glob("ai-*"):
+        shutil.rmtree(skill, ignore_errors=True)
+    return True
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser("ai-eng uninstall")
     parser.add_argument("--project", action="store_true", help="also unwire this repository")
     parser.add_argument("-y", "--yes", action="store_true")
     args = parser.parse_args(argv)
 
-    receipt = wiring.receipt()
-    rows = receipt.get("wrote", [])
-    print(f"  {len(rows)} things were written by this install, and every one is listed here:")
-    for row in rows:
-        print(f"    {row['kind']:<8} {row['path']}")
+    rows = wiring.receipt().get("wrote", [])
+    root = paths.repo_root() if args.project else None
+    plan = [(row, fate(row, root)) for row in rows]
+    going = [row for row, kept in plan if not kept]
+
+    print(f"  {len(rows)} things are recorded here, and {len(going)} of them will be removed:")
+    for row, kept in plan:
+        print(f"    {row['kind']:<8} {row['path']}{'  ·  ' + kept if kept else ''}")
     print(f"  Kept, always: {', '.join(KEEPS)}")
+    elsewhere = sorted({row["path"] for row, kept in plan if kept and row["kind"] == "repo"})
+    for other in elsewhere:
+        print(f"  Not entered: {other} — `cd {other} && ai-eng uninstall --project`")
+    if not going:
+        print("  Nothing to remove.")
+        return 0
     if not (
         args.yes
         or (sys.stdin.isatty() and input("\n◆ Remove them? (y/N) › ").lower().startswith("y"))
@@ -92,30 +131,36 @@ def main(argv: list[str]) -> int:
         print("  nothing removed.")
         return 1
 
-    for row in rows:
+    gone = []
+    for row in going:
         path = Path(row["path"])
         if row["kind"] == "guard" and row.get("how") == "ts_opencode":
-            print(
-                f"  ✓ plugin removed: {path}"
-                if remove_plugin(wiring.expand(row["path"]))
-                else f"  → {path} was already gone"
-            )
+            done = remove_plugin(wiring.expand(row["path"]))
+            print(f"  ✓ plugin removed: {path}" if done else f"  → {path} was already gone")
         elif row["kind"] == "guard":
+            done = strip_entries(wiring.expand(row["path"]))
             print(
-                f"  ✓ entries removed from {path}"
-                if strip_entries(wiring.expand(row["path"]))
-                else f"  → {path} had no entry of ours"
+                f"  ✓ entries removed from {path}" if done else f"  → {path} had no entry of ours"
             )
         elif row["kind"] == "link":
             for link in path.glob("ai-*"):
                 link.unlink() if link.is_symlink() else None
             print(f"  ✓ symlinks removed from {path}")
+        elif row["kind"] == "skills":
+            done = strip_skills(path)
+            print(f"  ✓ skills removed from {path}" if done else f"  → {path} was already gone")
+        else:
+            continue  # project and repo rows are the repository half, undone below
+        gone.append(row)
 
-    if args.project:
-        root = paths.repo_root()
-        if root is not None:
-            unwire(root, rows)
-            print(f"  ✓ {root} unwired. specs/, CONSTITUTION.md and AGENTS.md are untouched.")
+    if root is not None:
+        unwire(root, rows)
+        print(f"  ✓ {root} unwired. specs/, CONSTITUTION.md and AGENTS.md are untouched.")
+        gone += [row for row in going if row["kind"] in ("project", "repo")]
+    # The record stops claiming what is no longer here. Without this the next `init` reads
+    # the log, counts four guards and four links that were removed a second ago, prints
+    # "Global ready", and refuses to rewire the machine it has just been asked to install.
+    wiring.forget(gone)
     print(
         f"\n  The record is still at {paths.home() / 'state'}. Delete that folder yourself "
         f"if you want it gone: it is proof of what happened, and not ours to throw away."
