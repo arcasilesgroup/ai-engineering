@@ -294,6 +294,41 @@ def test_the_receipt_is_machine_json_and_names_this_interpreter_and_these_guards
     assert data["hooks"] == str(paths.hooks())
 
 
+def test_forgetting_a_row_leaves_every_other_row_and_the_head_fields(machine):
+    """The way out this record never had. Spec 005 refused per-surface uninstall because of
+    its absence, and then `uninstall` removed eight things and the next `init` read the log
+    and called the machine ready."""
+    rows = [
+        {"path": "/roots/a/skills", "kind": "link", "how": "symlink"},
+        {"path": "/roots/b/settings.json", "kind": "guard", "how": "json_claude"},
+        {"path": "/repo/justfile", "kind": "project", "how": "written"},
+    ]
+    wiring.record(rows)
+    wiring.forget(rows[:2])
+    data = json.loads(wiring.receipt_path().read_text())
+    assert data["wrote"] == rows[2:], "forget took the wrong rows"
+    assert data["machine_id"] and data["version"] == __version__, "forget ate the head fields"
+
+
+def test_forgetting_matches_on_the_same_key_record_deduplicates_by(machine):
+    """One path can hold two kinds — a skills root is both the store and a link target — so
+    a retraction keyed on the path alone would take a row nobody asked it to."""
+    store = {"path": "/home/skills", "kind": "skills", "how": "wheel"}
+    linked = {"path": "/home/skills", "kind": "link", "how": "symlink"}
+    wiring.record([store, linked])
+    wiring.forget([{**linked, "how": "whatever the caller happened to have"}])
+    assert json.loads(wiring.receipt_path().read_text())["wrote"] == [store]
+
+
+def test_forgetting_a_row_that_was_never_there_is_not_an_error(machine):
+    """`uninstall` calls this for what it removed, and a surface that was gone before it
+    started is a row it removed nothing for. The caller is saying "this is gone"."""
+    kept = {"path": "/roots/a/skills", "kind": "link", "how": "symlink"}
+    wiring.record([kept])
+    wiring.forget([{"path": "/roots/never", "kind": "guard", "how": "json_claude"}])
+    assert json.loads(wiring.receipt_path().read_text())["wrote"] == [kept]
+
+
 def test_a_receipt_nobody_can_parse_is_never_written_over(machine):
     """The one that loses data rather than lying about it. `record` reads, appends and
     writes; while `read_json` answered {} to a file it could not parse, one interrupted

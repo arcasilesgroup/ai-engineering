@@ -245,6 +245,26 @@ def record(entries: list[dict]) -> None:
     write_json(receipt_path(), data)
 
 
+def forget(entries: list[dict]) -> None:
+    """The way out this record never had, and the reason spec 005 refused per-surface
+    uninstall in writing: without it, removing something left it recorded forever and the
+    receipt became a file that misstates the present. It did — `uninstall` removed four
+    guards and four link sets and the next `init` read the log, called the machine ready,
+    and declined to rewire it.
+
+    Keyed on `(path, kind)`, which is what `record` already deduplicates by. A retraction
+    that matched on anything else would be a second identity for one row. The head fields —
+    machine_id, version, python, hooks — describe the install and not what it wrote, so they
+    survive an uninstall the same way the chain under state/ does. Forgetting a row that was
+    never there is not an error: the caller is saying "this is gone", and it is."""
+    data = receipt()
+    known = {(row["path"], row["kind"]) for row in entries}
+    data["wrote"] = [
+        row for row in data.get("wrote", []) if (row["path"], row["kind"]) not in known
+    ]
+    write_json(receipt_path(), data)
+
+
 def install_skills(surfaces: list[dict] | None = None) -> list[dict]:
     """Into the roots of the surfaces that were found, and no others. Linking creates the
     parent of a skills root, so linking into every root in the table put a directory on
