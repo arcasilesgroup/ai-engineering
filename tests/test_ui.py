@@ -11,10 +11,12 @@ decision in spec 006, and a decision nothing asserts is a decision that drifts b
 
 from __future__ import annotations
 
+import re
 import sys
 from types import SimpleNamespace
 
 import pytest
+from rich.style import Style
 
 from ai_engineering import __version__, ui
 
@@ -107,18 +109,88 @@ def test_a_block_survives_square_brackets(capsys):
     assert capsys.readouterr().out == "name: check\non: [push, pull_request]\n"
 
 
+def framed(text: str) -> list[str]:
+    """Inside the panel's border, one entry per line. The box characters and the width are
+    rich's and move with the terminal; the words are the product's."""
+    return [row.strip("│").strip() for row in text.splitlines() if row.startswith("│")]
+
+
 def test_the_report_names_what_happened_what_waits_and_what_to_run(capsys):
+    """Every line of the panel, in order. Two `in` checks left most of it unheld, which is
+    the same mistake this suite exists because of."""
     ui.report(
         "7 files written · 4 guard entries on this machine",
         ["install gitleaks, or every commit here is refused"],
-        [("ai-eng doctor", "every assertion, and the coverage line under it")],
+        [
+            ("ai-eng doctor", "every assertion, and the coverage line under it"),
+            ("ai-eng spec new <slug>", "the first spec"),
+        ],
     )
     text = capsys.readouterr().err
-    assert "Done" in text
-    assert "7 files written · 4 guard entries on this machine" in text
-    assert "⚠ still on you: install gitleaks, or every commit here is refused" in text
-    assert "1. ai-eng doctor" in text
-    assert "every assertion, and the coverage line under it" in text
+    assert "─ Done ─" in text.splitlines()[0]
+    assert framed(text) == [
+        "7 files written · 4 guard entries on this machine",
+        "⚠ still on you: install gitleaks, or every commit here is refused",
+        "",
+        "Next:",
+        "1. ai-eng doctor",
+        "every assertion, and the coverage line under it",
+        "2. ai-eng spec new <slug>",
+        "the first spec",
+    ]
+
+
+def test_a_report_with_nothing_waiting_has_no_warning_row(capsys):
+    """Catches the warning block printing an empty row when the list is empty, which is a
+    panel with a hole in it on the happy path — the path most people see."""
+    ui.report("3 files written · 0 guard entries", [], [("ai-eng doctor", "the full check")])
+    assert framed(capsys.readouterr().err) == [
+        "3 files written · 0 guard entries",
+        "",
+        "Next:",
+        "1. ai-eng doctor",
+        "the full check",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("state", "word"),
+    [("ok", "ok      "), ("fail", "FAIL    "), ("unknown", "?       "), ("skipped", "SKIPPED ")],
+)
+def test_every_verdict_state_has_its_own_word_in_its_own_column(state, word, capsys):
+    """The number is right-aligned in two so 1 and 21 start the title at the same column,
+    and the state word is padded so the titles line up under each other. Both drifted when
+    they were four separate f-strings in doctor."""
+    ui.verdict(7, state, "Liveness: the suite exercised every guard")
+    assert capsys.readouterr().out == f"   7  {word} Liveness: the suite exercised every guard\n"
+
+
+def test_a_verdict_with_a_reason_puts_it_under_the_title_and_not_beside_it(capsys):
+    """The reason is the half a person acts on, and it is usually a sentence. Beside the
+    title it wraps; under it, indented past the number, it reads."""
+    ui.verdict(21, "fail", "Per-surface liveness", "Codex CLI: installed but INERT")
+    assert capsys.readouterr().out == (
+        "  21  FAIL     Per-surface liveness\n      Codex CLI: installed but INERT\n"
+    )
+
+
+def test_a_verdict_number_wider_than_two_still_lines_up(capsys):
+    """Twenty-one assertions today. The alignment must not be a coincidence of the count."""
+    ui.verdict(100, "ok", "t")
+    assert capsys.readouterr().out == "  100  ok       t\n"
+
+
+def test_a_pair_is_the_name_and_what_it_does_on_one_line(capsys):
+    """The ten verbs, and anything shaped like them. This had no test at all: fifteen
+    mutants of it lived, which is every character of the only help screen there is."""
+    ui.pair("  init      ", "Set up this machine.")
+    assert capsys.readouterr().out == "  init      Set up this machine.\n"
+
+
+def bare(text: str) -> str:
+    """The words, with the escape sequences taken off. Asserting the codes themselves pins
+    which colour rich picked; asserting the words pins what the product says."""
+    return re.sub(r"\x1b\[[0-9;:]*m", "", text)
 
 
 def test_the_banner_stays_off_a_pipe(capsys):
@@ -127,14 +199,108 @@ def test_the_banner_stays_off_a_pipe(capsys):
     assert capsys.readouterr().err == ""
 
 
-def test_the_banner_names_the_product_and_this_version_on_a_terminal(coloured, capsys):
+def test_the_banner_is_these_four_lines_and_no_others(coloured, capsys):
+    """Whole, because it is a drawing: a box whose corners stop matching, or a line that
+    loses a space, is only ever caught by looking — and nobody looks at a banner twice."""
     ui.banner()
-    text = capsys.readouterr().err
-    assert "{ ai } e n g i n e e r i n g" in text
-    assert f"v{__version__} · AI Governance Framework" in text
+    assert bare(capsys.readouterr().err) == (
+        "\n  ┌─                    ─┐\n"
+        "    { ai } e n g i n e e r i n g\n"
+        "  └─                    ─┘\n"
+        f"   v{__version__} · AI Governance Framework\n\n"
+    )
 
 
 # ── decorated ───────────────────────────────────────────────────────────────────────
+
+
+def dressed(name: str, word: str) -> str:
+    """`word` as this theme renders it under the style called `name`. Derived from the
+    theme rather than written out, so these tests say "the failure wears the failure
+    style" instead of pinning whichever escape sequence rich picked for bold red."""
+    return ui.THEME.styles[name].render(word)
+
+
+@pytest.mark.parametrize(
+    ("state", "glyph"), [("ok", "✓"), ("would", "·"), ("warn", "⚠"), ("fail", "✗")]
+)
+def test_each_step_mark_wears_the_style_that_belongs_to_its_state(state, glyph, coloured, capsys):
+    """Undecorated, every state prints the same run of characters in the same places, so
+    nothing in the plain suite can tell `ok` styled as a failure from `ok` styled at all.
+    The colour is the whole point of the mark and it needs its own assertion."""
+    ui.step(state, "CLAUDE.md")
+    assert dressed(ui.MARKS[state][1], glyph) in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("state", ["ok", "fail", "unknown", "skipped"])
+def test_each_verdict_word_wears_the_style_that_belongs_to_its_state(state, coloured, capsys):
+    """Five failures among twenty-one passes is the reason a person runs doctor. If the
+    state word is styled wrong — or not styled — that is the whole feature, silently gone."""
+    word, style = ui.VERDICTS[state]
+    ui.verdict(7, state, "a title")
+    assert dressed(style, word) in capsys.readouterr().out
+
+
+def test_the_banner_and_the_verb_names_wear_the_brand(coloured, capsys):
+    """The brand colour is a product decision — it is taken from this project's own banner
+    — and it is the one style that appears in two places, so it is the one most able to
+    drift in one of them."""
+    ui.banner()
+    ui.pair("  init      ", "Set up this machine.")
+    caught = capsys.readouterr()
+    # Without the leading newline of the first line: rich emits that outside the style,
+    # which is right — a blank line has no colour.
+    for line in (
+        "  ┌─                    ─┐",
+        "    { ai } e n g i n e e r i n g",
+        "  └─                    ─┘",
+    ):
+        assert dressed("brand", line) in caught.err, line
+    assert dressed("muted", f"   v{__version__} · AI Governance Framework") in caught.err
+    assert dressed("brand", "  init      ") in caught.out
+
+
+def test_the_report_dresses_its_four_kinds_of_line(coloured, capsys):
+    """A headline, a warning, a command and the sentence under it. Undecorated they are
+    four runs of ordinary text and nothing can tell them apart, which is how the one that
+    matters — the warning — could quietly stop looking like one."""
+    ui.report("7 files written", ["install gitleaks"], [("ai-eng doctor", "the full check")])
+    text = capsys.readouterr().err
+    assert dressed("head", "7 files written") in text
+    assert dressed("warn", "⚠ still on you: ") in text
+    assert dressed("head", "Next:") in text
+    assert dressed("cmd", "ai-eng doctor") in text
+    assert dressed("muted", "     the full check") in text
+    assert Style.parse(ui.BRAND).render("─ Done ─").split("─")[0] in text
+
+
+def test_the_survey_dresses_the_path_and_the_verdict_separately(coloured, capsys):
+    """Two columns, two meanings: the path is evidence and the mark is the conclusion. One
+    style over both is a row where the eye cannot tell them apart."""
+    ui.survey([("Claude Code", "~/.claude", "found", "ok")])
+    text = capsys.readouterr().err
+    assert dressed("path", "~/.claude                  ") in text
+    assert dressed("ok", "found") in text
+
+
+@pytest.mark.parametrize(
+    "draw",
+    [
+        lambda long: ui.step("ok", long),
+        lambda long: ui.verdict(1, "ok", long),
+        lambda long: ui.pair("  init  ", long),
+        lambda long: ui.note(long),
+        lambda long: ui.survey([("Claude Code", "~/.claude", long, "ok")]),
+    ],
+    ids=["step", "verdict", "pair", "note", "survey"],
+)
+def test_no_element_folds_a_long_line_at_column_eighty(draw, capsys):
+    """rich wraps at 80 off a pipe and every one of these can carry an absolute path. A
+    folded path is a path nobody can copy, and it is invisible until the day it is long."""
+    long = "/" + "very-long-directory/" * 8 + "settings.json"
+    draw(long)
+    caught = capsys.readouterr()
+    assert long in (caught.err + caught.out)
 
 
 def test_a_terminal_gets_colour_and_the_words_do_not_change(coloured, capsys):
