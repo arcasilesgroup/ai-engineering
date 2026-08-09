@@ -77,11 +77,22 @@ jobs:
           actionlint
           uv tool run zizmor .github/workflows/
 
-      # Zero declared dependencies today, so this finds nothing today. It is here for the
-      # day that stops being true, which is the only day it would otherwise be missed.
+      # The day that stopped being true was 2026-08-09: spec 006 declared rich and
+      # questionary, and five more arrived behind them. So this step now has something to
+      # find, and the export is checked before the audit reads it — `pip-audit --strict`
+      # over an empty requirements file exits 0 and reports a green nobody earned, which
+      # is the one way this lane can be running and covering nothing.
       - name: dependencies, audited against the advisory databases
         run: |
           uv export --no-hashes --no-emit-project --format requirements-txt -o requirements.txt
+          uv run --no-project python - <<'PY'
+          import re, sys, tomllib
+          declared = [re.split(r"[<>=!~ \[]", d)[0].lower()
+                      for d in tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"]]
+          exported = open("requirements.txt").read().lower()
+          missing = [d for d in declared if not re.search(rf"^{re.escape(d)}==", exported, re.M)]
+          sys.exit(f"the audit would have read nothing about: {', '.join(missing)}" if missing else 0)
+          PY
           uv run --no-project --with "pip-audit==${PIP_AUDIT_VERSION}" pip-audit --strict -r requirements.txt
 
       - name: is the system healthy
@@ -203,9 +214,13 @@ jobs:
   # Two things are true at once: a real vulnerability must fail the build, and a throttled
   # or unauthenticated Snyk must not wedge every merge behind somebody else's billing.
   # So quota, rate-limit and auth failures downgrade to a warning and everything else
-  # fails. Only the SAST half runs: this package declares no dependencies, so `snyk test`
-  # would scan an empty requirements file and report a green it never earned. Dependencies
-  # are covered by pip-audit in the `check` job.
+  # fails. Only the SAST half runs, and the reason changed on 2026-08-09 rather than going
+  # away: it used to be that `snyk test` would scan an empty requirements file, and now
+  # there are seven packages to scan. They already have two readers — pip-audit against the
+  # advisory databases in the `check` job, and trivy over `uv.lock` in `just security` — so
+  # `snyk test` would be a third opinion on the same seven, paid for out of a quota this
+  # job already has to degrade gracefully around. The SAST half has no second reader but
+  # semgrep, and that is where the quota goes.
   snyk:
     name: Snyk Security
     runs-on: ubuntu-latest

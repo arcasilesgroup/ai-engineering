@@ -144,7 +144,18 @@ DESCRIPTION_MAX = 1000
 # only rule, truncating a path from its tail, with nothing behind it. A rule with no test
 # is the shape this whole spec was about, so the test is the payer's opposite: 48 lines,
 # nine of them this paragraph, and the ceiling says so rather than absorbing them.
-REPO_CEILING = 15663
+#
+# 15,663 to 15,689, and the payer is spec 006's one unmet check finally being met. That
+# spec added the first runtime dependencies this wheel has ever had, and its plan said the
+# lane that scans them had to be seen to fail on a planted advisory or the mitigation in
+# its accepted risk was itself an unproven claim. It never was: the workflow still carried
+# "zero declared dependencies today, so this finds nothing today" over seven packages, and
+# the Snyk job still explained its SAST-only shape by an empty requirements file. Both
+# comments are now what is true, and the audit step gained the assertion the observation
+# argued for — `pip-audit --strict` over an empty export exits 0, so the export is checked
+# against the declared dependencies before the audit is allowed to report anything. Fifteen
+# lines of workflow, eleven of this paragraph, and no slack.
+REPO_CEILING = 15689
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

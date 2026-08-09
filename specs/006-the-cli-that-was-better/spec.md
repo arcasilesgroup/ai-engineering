@@ -1,7 +1,7 @@
 ---
 id: "006"
 slug: the-cli-that-was-better
-status: draft
+status: shipped
 date: 2026-08-09
 ref: ""
 supersedes: ""
@@ -162,8 +162,8 @@ accepted_by: soydachi
 accepted: 2026-08-09
 expires: 2026-11-07
 renewals: 0
-justification: this wheel has had no runtime dependency at all, and rich and questionary bring markdown-it-py, pygments, prompt_toolkit and wcwidth behind them, so a governance tool that audits other people's dependencies acquires five of its own; the mitigation already exists rather than being promised, because trivy and pip-audit and snyk all run over this repository on every push and a CVE in any of the five turns the build red the same day
-follow_up: if any of the five is ever the reason a release cannot ship, the plain-stdlib renderer refused as option 1 is the exit and it is 120 lines
+justification: this wheel has had no runtime dependency at all, and rich and questionary bring markdown-it-py, mdurl, pygments, prompt_toolkit and wcwidth behind them, so a governance tool that audits other people's dependencies acquires seven of its own; the mitigation is measured rather than promised, and it is two readers and not three — pip-audit reads the exported requirements against the advisory databases on every push, trivy reads uv.lock and finds the same seven, and snyk runs the SAST half only, which is written down in the workflow beside the job rather than left to be inferred
+follow_up: if any of the seven is ever the reason a release cannot ship, the plain-stdlib renderer refused as option 1 is the exit and it is 120 lines
 ```
 ```yaml
 id: R-006-02
@@ -182,11 +182,11 @@ follow_up: either the install matrix grows a pty-driven case per platform, or th
 
 Nothing gets a URL until every box is ticked, and each one is ticked by a command.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check`, run by `.github/workflows/check.yml` on every push; nothing here is deployed, and `.github/workflows/release.yml` is what publishes the wheel
+- [x] Logs — `ai-eng digest`: this spec changed how lines are drawn and added no event class, and `ui` writes to a stream rather than to the record
+- [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
+- [x] Errors — `cli.main` emits an event of the error class before it re-raises; the one this spec introduced is a `KeyboardInterrupt` at the picker, which is exit 130 and one honest line
+- [x] Health and data age — `ai-eng doctor`, whose own screen is half of what this spec redrew, and `ai-eng audit verify` for the age of the chain
+- [x] External check — `.github/workflows/install-matrix.yml` runs the built wheel on three platforms; what it cannot check is R-006-02, because `questionary` needs a real terminal and that matrix drives `init` with `-y`
+- [x] Second path — the seven packages this spec added are read twice by different tools against different databases: `pip-audit` over the exported requirements in CI, and `trivy fs` over `uv.lock` in `just security`
+- [x] Security — `just security`, plus the dependency audit this spec's own plan demanded be seen to fail: `pip-audit==2.10.1` exits 0 over the seven and 1 with one planted advisory, measured 2026-08-09

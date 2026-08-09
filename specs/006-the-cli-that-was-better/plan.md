@@ -170,6 +170,26 @@ to fail on a planted advisory before the dependencies are trusted, or the mitiga
 the accepted risk is itself an unproven claim. That belongs in task 1's commit and its check
 is a deliberate red build.
 
+**It did not happen in task 1's commit. It happened on 2026-08-09, and this is what it
+found.** The dependencies shipped and the lane was never watched, so for three days the
+accepted risk was the unproven claim this paragraph warned it would be — and the workflow
+said so out loud in two places nobody read: the audit step carried "Zero declared
+dependencies today, so this finds nothing today" over seven packages, and the Snyk job
+explained its SAST-only shape by an empty requirements file that had not been empty since
+task 1 landed.
+
+The observation, run over the exact export CI builds and the exact `pip-audit==2.10.1` it
+pins: exit 0 over the seven, exit 1 with one planted advisory (`jinja2==2.11.3`, four
+PYSEC ids). `trivy fs` reads `uv.lock` and finds the same seven, so the two readers are
+independent of each other and of this spec. `snyk test` is not a third one and never was;
+the job's comment now says which half it runs and why the quota goes there.
+
+One thing the observation argued for is now code rather than a memory of a green terminal:
+`pip-audit --strict` over an empty requirements file exits 0, which is the one way this
+lane can be running and covering nothing, so the step asserts the export names every
+declared dependency before the audit is allowed to report anything. The check is that it
+exits 1 naming `rich, questionary` against an empty export, measured the same day.
+
 ## What this plan is not doing
 
 **No progress bars, spinners or live regions.** None of the ten verbs streams anything slow
