@@ -155,7 +155,15 @@ DESCRIPTION_MAX = 1000
 # argued for — `pip-audit --strict` over an empty export exits 0, so the export is checked
 # against the declared dependencies before the audit is allowed to report anything. Fifteen
 # lines of workflow, eleven of this paragraph, and no slack.
-REPO_CEILING = 15689
+#
+# 15,689 to 15,712, and this one is rule 4 being paid rather than a feature. Spec 007 removed
+# two behaviours a person could have been relying on — `init --project` rewriting the pin on
+# every run, and the CI workflow being printed at the reader to paste — and neither was ever
+# written down in CHANGELOG.md, whose own first paragraph says every hard delete goes in it in
+# the words somebody upgrading would search for. Fifteen lines of changelog, eight of this
+# paragraph. The dependencies spec 006 added are not in there, and that is deliberate: adding
+# one is neither a rename nor a delete, and that file says what it covers.
+REPO_CEILING = 15712
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

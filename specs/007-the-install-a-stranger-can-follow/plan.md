@@ -79,13 +79,13 @@ exactly what it was written to do.
 
 ## Tasks
 
-- [ ] **T-1 The banner encloses its own wordmark.** `ui.banner` computes the frame width
+- [x] **T-1 The banner encloses its own wordmark.** `ui.banner` computes the frame width
   from the longest of the two lines inside it instead of carrying it as literal spaces.
   Check: `test_the_banner_frame_encloses_what_it_frames` — the frame's right edge equals
   the widest content line's, and it is derived, so a version number that grows a digit
   moves the frame with it. Rollback: restore the four literals.
 
-- [ ] **T-2 A cure is a field.** `doctor.FIXES` maps an assertion number to the command
+- [x] **T-2 A cure is a field.** `doctor.FIXES` maps an assertion number to the command
   that repairs it; a check that can fail two ways returns its own `(problem, cure)` pair
   and beats the number's default. The cure prose comes out of the four messages that
   carried it, because two homes for one fact is how the message and the flag come to
@@ -94,7 +94,7 @@ exactly what it was written to do.
   asserts the field and asserts the prose no longer names a command. Rollback: delete
   `FIXES` and `resolve`; the messages keep working, they just stop being actionable.
 
-- [ ] **T-3 `--fix`, and the verdict that sends you to it.** `doctor --fix` runs the
+- [x] **T-3 `--fix`, and the verdict that sends you to it.** `doctor --fix` runs the
   distinct cures in this process through `cli.main`, then re-runs itself without the flag
   and prints the new verdict. `ui.summary` frames the count, how many are one command
   away and which assertions are on a person. The `?` rows are gathered under the coverage
@@ -102,14 +102,14 @@ exactly what it was written to do.
   `test_the_report_prints_one_line_per_state_and_hands_every_check_the_repository`.
   Rollback: drop the flag; `repair` is the only function that writes.
 
-- [ ] **T-4 The coverage block explains its own vocabulary.** Two legend lines above it,
+- [x] **T-4 The coverage block explains its own vocabulary.** Two legend lines above it,
   the verdict word in a column of its own, and the reason in the column after — including
   the two UNPROVEN rows that were one word for opposite situations. The closing sentence
   becomes `doctor.OPEN`, three lines that say what none of the rows covers. Check:
   `test_the_coverage_line_says_exactly_what_each_surface_does_on_this_machine`, still one
   hand-written row per surface. Rollback: restore the single state string per row.
 
-- [ ] **T-5 The install writes what the install needs.** `.github/workflows/check.yml`
+- [x] **T-5 The install writes what the install needs.** `.github/workflows/check.yml`
   joins `OFFERS`, so it is written when absent and goes through the same picker and the
   same dated backup when it is not. `skeletons.justfile(stacks)` fills `lint`, `test` and
   `build` from `RECIPES` for every stack detected, and leaves the TODO for any it cannot
@@ -121,7 +121,7 @@ exactly what it was written to do.
   `test_the_shipped_check_recipe_runs_every_recipe_that_ships_with_it`, driven over no
   stack, one and all of them. Rollback: remove the two `OFFERS` rows.
 
-- [ ] **T-6 Where to go, and what was left behind.** The last screen's third step names
+- [x] **T-6 Where to go, and what was left behind.** The last screen's third step names
   the surfaces this machine actually has, read from the wiring table and capped at two so
   it cannot wrap. The `Global ready` sentence becomes four counted rows through
   `ui.facts`. Check: `test_the_step_that_says_where_to_go_names_the_surfaces_this_machine_has`
@@ -129,8 +129,26 @@ exactly what it was written to do.
   fixture is a machine with two links, one guard and no skills directory — a summary that
   is only right on a healthy machine hides the unhealthy one.
 
-- [ ] **T-7 The gate.** `just check` and `python tests/adversarial/run.py`, output shown.
-  `just mutate` measured and reported whether or not it moved.
+- [x] **T-7 The gate.** Run on 2026-08-09, after the record was closed rather than before,
+  which is its own finding: six tasks shipped and this one did not, so for three days the
+  branch was finished by everything except the thing that says so.
+
+  `just check` — exit 0. The suite is 746 passed and 4 xfailed; `just cover` reports 97%
+  against a floor of 80; `gitleaks`, `semgrep` and `trivy` are clean, and `trivy` reads
+  `uv.lock` and finds the seven packages spec 006 added with nothing against them. The
+  anti-theatre line is `RAN lint=84` and `RAN tests=750`, both printed by the tool that
+  read the files rather than by a list of them.
+
+  `python tests/adversarial/run.py` — 14 of 14, including the negative control it must not
+  fire on.
+
+  `just mutate` — 4,319 mutants, 3,835 killed, 464 survived: **89%** against a floor of 89,
+  which is at the floor with no margin and is the same place spec 006 closed. The guards
+  half, which mutmut cannot reach, is 14 of 14. The floor did not move and nothing here
+  moved it; the honest reading is that this branch added no survivors, not that it added
+  headroom. The next spec that adds a screen pays the same bill 006 and 007 both paid, and
+  the rule that names it is written down now: a renderer without a decorated test has no
+  test.
 
 ## What this does not do
 
