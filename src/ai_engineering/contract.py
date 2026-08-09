@@ -100,7 +100,23 @@ DESCRIPTION_MAX = 1000
 # unconditional rewrite of `.ai/config.toml`, which is `update` with its three consent
 # gates removed and is the exact objection ADR 0002 raised. The pin is written once now
 # and never rewritten, which reverses a decision spec 005 made in the other direction.
-REPO_CEILING = 14590
+#
+# 14,590 to 15,100 for specs 002 and 003 together, and this is the fourth move. 68 of it
+# has already landed: the work-item paste deleted with its four tests, a changelog this
+# repository has owed rule 4 since rule 4 was written, the renewal that retires what it
+# renews, three lines in the hooks that never ran, the session the dispatcher now adopts
+# and the loop guard's two arms. 205 more is predicted for what is left — the false green
+# on a malformed record block, the install signature that is an accident of how the tool
+# was installed, uninstall's crash on any machine with OpenCode, self-protection derived
+# from the wiring table, a denial that does not end the agent's turn, a mutation run that
+# cannot reach the operator's home, a packaged guard exercised in CI, and the three numbers
+# this repository states as prose. 237 is slack, and it is deliberate rather than sloppy:
+# the one prior estimate on file in this project overran by ninety per cent, and a ceiling
+# that goes red two thirds of the way through a branch blocks every commit after it with
+# this project's own gate. The closing commit of that branch sets this constant to the
+# count that actually landed, so none of the slack survives it. 15 of the 68 are this
+# paragraph.
+REPO_CEILING = 15100
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
