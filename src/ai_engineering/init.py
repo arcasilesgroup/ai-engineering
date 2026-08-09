@@ -354,7 +354,7 @@ def project_step(args) -> int:
             f"{', '.join(name for name in pins if name not in fresh)} was already here and "
             f"is untouched. `ai-eng update` is the only verb that changes the pin."
         )
-    hooks = wiring.hooks_path_for(root) if args.dry else wiring.wire_git(root)
+    hooks = str(paths.git_hooks()) if args.dry else wiring.wire_git(root)
     ui.step(state, "core.hooksPath", f"→ {hooks}")
     # One `which`, at the moment the wall is built rather than at the person's next
     # commit. Wiring sets ai.managed, and the shipped pre-commit exits 1 when that flag is

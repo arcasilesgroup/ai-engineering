@@ -240,10 +240,6 @@ def install_guards(surfaces: list[dict]) -> list[tuple[str, str, str]]:
     return results
 
 
-def hooks_path_for(root: Path) -> str:
-    return str(paths.git_hooks())
-
-
 def wire_git(root: Path) -> str:
     """Repository-scoped, absolute, expanded. A global core.hooksPath would impose our
     commit convention on every foreign clone on the machine, forks included.
@@ -252,10 +248,10 @@ def wire_git(root: Path) -> str:
     and never that it is this one: an older install on the PATH has no `accept` verb, so
     pre-push refused every push in the repository it had just been installed into."""
     rows = (
-        ("core.hooksPath", hooks_path_for(root)),
+        ("core.hooksPath", str(paths.git_hooks())),
         ("ai.managed", "true"),
         ("ai.eng", f"{sys.executable} -m ai_engineering.cli"),
     )
     for key, value in rows:
         subprocess.run(["git", "-C", str(root), "config", key, value], check=True, timeout=10)
-    return hooks_path_for(root)
+    return str(paths.git_hooks())
