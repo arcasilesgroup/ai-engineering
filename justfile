@@ -90,8 +90,26 @@ mutate *paths:
         # justfile and leaves timestamped backups beside it. Measured: it happened three
         # times in one run before this line existed. A test tool that can edit the tree it
         # is judging is the failure this product exists to cure, wearing a lab coat.
+        # A disposable checkout is not isolation. A scoped run over init and wiring reached
+        # the global installer from inside a mutant and wrote Claude Code and Copilot hook
+        # entries naming this run's temporary interpreter and its temporary dispatcher. The
+        # sandbox was then deleted, and every Read, Edit and Bash call in the next session
+        # tried hooks at paths that no longer existed, printed a non-blocking error and ran
+        # no guard at all. So the worker gets a home of its own as well as a tree of its
+        # own, before Python imports anything, and the four watched files are hashed either
+        # side of the run: "the sandbox was temporary" is exactly what was believed the last
+        # time one escaped. uv's cache is read from the real home first and kept, or every
+        # run re-downloads an interpreter into a directory it is about to delete.
+        real="$HOME"
         away="$(mktemp -d)"
-        trap 'rm -rf "$away"' EXIT
+        house="$(mktemp -d)"
+        trap 'rm -rf "$away" "$house"' EXIT
+        watched="$real/.claude/settings.json $real/.copilot/hooks/ai-eng.json"
+        watched="$watched $real/.cursor/hooks.json $real/.codex/hooks.json"
+        before="$(cksum $watched 2>/dev/null || true)"
+        export UV_CACHE_DIR="${UV_CACHE_DIR:-$(uv cache dir)}"
+        export HOME="$house" USERPROFILE="$house" AI_ENGINEERING_HOME="$house/.ai-engineering"
+        export XDG_CONFIG_HOME="$house/.config" XDG_DATA_HOME="$house/.local/share"
         rsync -a --exclude=.git --exclude=.venv --exclude=dist --exclude=mutants \
               --exclude=.pytest_cache --exclude=.ruff_cache ./ "$away/"
         cd "$away"
@@ -99,6 +117,13 @@ mutate *paths:
         uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut run $globs
         set +f
         uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut export-cicd-stats
+        # Before the score, never after it: an escape has to be reported even on the
+        # run that was going to fail for its own reasons.
+        if [ "$before" != "$(cksum $watched 2>/dev/null || true)" ]; then
+            echo "mutation: a mutant changed a real surface settings file. The run is not" >&2
+            echo "isolated, and every mutant it killed is beside the point." >&2
+            exit 1
+        fi
         # The heredoc body sits at the recipe's indentation and not this block's: `just`
         # strips one level, and anything deeper reaches python as an IndentationError.
         uv run --no-project python - "$scoped" <<'PY'

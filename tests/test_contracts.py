@@ -164,6 +164,24 @@ def test_the_doctrine_is_short_and_filled_in():
     assert (ROOT / "CLAUDE.md").read_text().strip() == "@./AGENTS.md"
 
 
+def test_the_mutation_worker_gets_a_disposable_home_and_not_only_a_disposable_tree():
+    """A real run wrote Claude Code and Copilot hook entries whose interpreter and
+    dispatcher both lived under temporary directories, from inside a mutant that reached
+    the global installer. The directories were deleted when the run ended, and every tool
+    call in the next session tried both hooks at paths that no longer existed, printed a
+    non-blocking error, and ran no guard. The recipe isolated the git tree and inherited
+    the process's home; a test tool that can install itself globally is not isolated,
+    however temporary its checkout is. The receipt is the second half: four surface files
+    hashed either side of the run, because "the sandbox was temporary" is what was believed
+    the last time one escaped."""
+    recipe = (ROOT / "justfile").read_text().partition("\nmutate ")[2].partition("\n\n#")[0]
+    assert recipe, "the mutate recipe moved; this test is reading nothing"
+    for name in ("HOME=", "USERPROFILE=", "AI_ENGINEERING_HOME=", "XDG_CONFIG_HOME="):
+        assert f"export {name}" in recipe or f" {name}" in recipe, name
+    assert "UV_CACHE_DIR" in recipe, "the cache must stay outside the home being deleted"
+    assert recipe.count("cksum") == 2, "hashed before and after, or it is not a receipt"
+
+
 def test_an_entry_is_ours_by_the_dispatcher_it_runs_and_not_by_this_project_s_name(tmp_path):
     """The mark used to be the hyphenated project name, and that string can only reach an
     entry through the interpreter's own path — which spells this package with an underscore
