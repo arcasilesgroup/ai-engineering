@@ -711,6 +711,42 @@ def test_three_different_commands_in_one_session_are_not_a_loop(repo):
         loop_guard.run(_loop(command, f"t{index}"))
 
 
+def test_a_path_is_discriminated_by_its_tail_and_never_by_its_head(repo):
+    """`signature` truncates to the last sixty characters, and that end is the rule: two
+    files under one long temporary directory share every leading character, so truncating
+    from the left makes them the same signature and five failures spread across two files
+    become one wall. The repeat arm no longer uses this function, which is what left the
+    rule with nothing behind it — `[-60:]` could be flipped to `[:60]` with the suite
+    green."""
+    prefix = "/" + "p" * 70 + "/"
+    for name in ("aaa.py", "bbb.py"):
+        for _ in range(3 if name == "aaa.py" else 2):
+            loop_guard.run(
+                {
+                    "tool_name": "Edit",
+                    "tool_input": {"file_path": prefix + name},
+                    "_event": "PostToolUse",
+                    "tool_response": {"is_error": True},
+                }
+            )
+    failures = loop_guard.load()["failures"]
+    assert len(failures) == 2, "two files under one long directory read as one signature"
+    assert sorted(failures.values()) == [2, 3]
+    # Five failures, and none of them a wall: the wall is five of ONE signature. Read from
+    # the head they are one, and this call is denied.
+    assert (
+        loop_guard.run(
+            {
+                "tool_name": "Edit",
+                "tool_input": {"file_path": prefix + "aaa.py"},
+                "tool_use_id": "t1",
+                "_event": "PreToolUse",
+            }
+        )
+        is None
+    )
+
+
 def test_the_failure_map_is_bounded_by_signatures_not_by_the_window(repo):
     """Five failures of one signature has to survive anything else failing in between: a
     bound expressed in calls is a threshold the failure arm can never reach once a session

@@ -135,7 +135,16 @@ DESCRIPTION_MAX = 1000
 # shell commands against self-protection, ten hooks-path spellings, three loop arms and two
 # denial protocols are most of the overrun. The honest reading is that the estimate priced
 # the fixes and not the evidence for them.
-REPO_CEILING = 15615
+#
+# 15,615 to 15,663, and this one is a correction rather than a spec: closing 003 at the
+# measured count did not mean 003 was finished. An audit of every spec in the tree found
+# two things it had left — the adversarial harness's docstring still said twelve attacks
+# over a registry of fourteen, which was a named task in its own plan; and `just mutate`
+# was red at 13 of 14 because moving the repeat arm off `signature()` left that function's
+# only rule, truncating a path from its tail, with nothing behind it. A rule with no test
+# is the shape this whole spec was about, so the test is the payer's opposite: 48 lines,
+# nine of them this paragraph, and the ceiling says so rather than absorbing them.
+REPO_CEILING = 15663
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Twelve attacks and a clean control.
+"""Every attack this framework claims to catch, and a clean control it must not fire on.
+
+The count is not written here. It was, and it said twelve while thirteen cases were
+registered; the bar the run prints is derived from the registry for the same reason.
 
 "Smaller" is not a criterion. The criterion is that this framework still catches
 everything the previous one caught, plus the failure class the previous one was blind to:
