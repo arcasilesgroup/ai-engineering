@@ -292,7 +292,7 @@ rationale: The loop cache on this machine holds 358 state files, each 48 bytes a
 ## Accepted risks
 
 ```yaml
-id: R-003-12
+id: R-003-04
 finding: install-path-coverage-is-one-of-two
 severity: medium
 accepted_by: the maintainer
@@ -303,7 +303,7 @@ justification: The matrix installs one way, and that is the way under which the 
 follow_up: Add the second install leg the first time a user reports anything that differs between the two, and until then keep the unit test that pins the signature.
 ```
 ```yaml
-id: R-003-11
+id: R-003-03
 finding: dispatcher-payload-dialects-untested
 severity: medium
 accepted_by: the maintainer
@@ -314,7 +314,7 @@ justification: The dispatcher normalises three spellings of the same payload and
 follow_up: Fold the three spellings into the dispatcher test that already spawns the dispatcher five times, and flip a surface to proven only when a denial has actually executed there.
 ```
 ```yaml
-id: R-003-10
+id: R-003-02
 finding: zero-lines-of-margin-under-the-ceiling
 severity: low
 accepted_by: the maintainer
@@ -325,7 +325,7 @@ justification: The ceiling moves a second time in this spec, which makes the pre
 follow_up: The next commit that needs lines deletes first. The named candidate remains the OTLP exporter, which is dormant until somebody configures a destination.
 ```
 ```yaml
-id: R-003-09
+id: R-003-01
 finding: read-carve-out-is-a-list
 severity: low
 accepted_by: the maintainer

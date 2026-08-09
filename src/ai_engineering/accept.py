@@ -138,7 +138,9 @@ def main(argv: list[str]) -> int:
             f"That is the ceiling: fix it, or change the answer."
         )
         return 1
-    number = len(recorded) + 1
+    # The nth risk of this spec, which is what the number is supposed to read as. Counting
+    # every block in the repository made the first risk recorded against a spec number eight.
+    number = sum(1 for where, _ in recorded if where == spec) + 1
     add(
         spec,
         {

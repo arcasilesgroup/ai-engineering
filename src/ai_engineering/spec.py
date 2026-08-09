@@ -137,5 +137,10 @@ def main(argv: list[str]) -> int:
     if not matches:
         print(f"  no spec matches {args.id!r}")
         return 1
-    print(matches[0].read_text())
+    # All of them, named. Printing the first and saying nothing about the rest is how
+    # somebody reads one spec and acts as though it were the only one that matched.
+    for match in matches:
+        if len(matches) > 1:
+            print(f"── {match.parent.name} ── {matches.index(match) + 1} of {len(matches)}")
+        print(match.read_text())
     return 0

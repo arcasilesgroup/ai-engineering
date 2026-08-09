@@ -113,6 +113,21 @@ def test_spec_new_records_the_work_item_named_on_the_flag_and_prefills_nothing(r
     assert "TODO: what is true today" in body
 
 
+def test_spec_show_prints_every_directory_that_matches_and_names_each_one(repo, capsys):
+    """It printed the first match and said nothing about the rest, which is how somebody
+    reads one spec and acts as though it were the only one that matched — the same
+    first-match defect that made a peer product reject branches that did reference a live
+    card. A single match is printed on its own, with no heading in front of it."""
+    spec.create(repo, "thing", "")
+    spec.create(repo, "other-thing", "")
+    assert spec.main(["show", "00"]) == 0
+    out = capsys.readouterr().out
+    assert "001-thing" in out and "002-other-thing" in out
+    assert out.count("## Production-ready") == 2
+    assert spec.main(["show", "001"]) == 0
+    assert "1 of" not in capsys.readouterr().out
+
+
 def test_spec_list_prints_one_row_per_spec_and_says_so_when_there_are_none(repo, capsys):
     """An empty listing that printed nothing reads exactly like a broken command. It says
     there are none and names the command that makes one."""

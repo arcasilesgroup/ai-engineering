@@ -12,6 +12,7 @@ block passes a gate and then fails a human six weeks later.
 from __future__ import annotations
 
 import re
+import textwrap
 from pathlib import Path
 
 KEY = re.compile(r"^([a-zA-Z][\w.-]*):\s*(.*)$")
@@ -61,6 +62,21 @@ def yaml_blocks(text: str, where: str = "") -> list[dict]:
     return out
 
 
+WIDTH = 96
+
+
 def render(fields: dict) -> str:
-    body = "\n".join(f"{key}: {value}" for key, value in fields.items())
-    return f"```yaml\n{body}\n```\n"
+    """Long values are folded onto indented continuation lines, which `flat_yaml` above
+    already reads back by joining them with a single space. Written on one physical line, a
+    four-hundred-character rationale is invisible in a diff — and a governance record
+    nobody can read in a diff is a record nobody reviews."""
+    lines = []
+    for key, value in fields.items():
+        lines += textwrap.wrap(
+            f"{key}: {value}",
+            WIDTH,
+            subsequent_indent="  ",
+            break_long_words=False,
+            break_on_hyphens=False,
+        ) or [f"{key}:"]
+    return "```yaml\n{}\n```\n".format("\n".join(lines))

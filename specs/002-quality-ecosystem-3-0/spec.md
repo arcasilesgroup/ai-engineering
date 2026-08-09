@@ -284,7 +284,7 @@ rationale: Assertion 19 searches a shipped spec for an unticked box and never re
 ## Accepted risks
 
 ```yaml
-id: R-002-08
+id: R-002-01
 finding: ticked-box-gate-proves-naming-not-passing
 severity: low
 accepted_by: the maintainer

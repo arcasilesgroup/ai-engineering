@@ -164,6 +164,41 @@ def test_a_block_whose_renewal_counter_is_not_a_number_counts_as_none(repo):
     assert accept.expired(repo) == []
 
 
+def test_the_first_risk_of_a_spec_is_numbered_one_whatever_the_repository_holds(repo, capsys):
+    """The identifier is supposed to read as the nth risk of its spec. It was minted by
+    counting every block in the repository, so the first risk recorded against a new spec
+    came out numbered eight — which reads as the eighth risk of that spec and is not a fact
+    about anything."""
+    (repo / "specs" / "001-old").mkdir()
+    (repo / "specs" / "001-old" / "spec.md").write_text(
+        _acceptance("F-a", TOMORROW) + _acceptance("F-b", TOMORROW), encoding="utf-8"
+    )
+    (repo / "specs" / "002-new").mkdir()
+    (repo / "specs" / "002-new" / "spec.md").write_text("# new\n", encoding="utf-8")
+    assert accept.main(["--finding", "F-c", "--expires", TOMORROW, *SIGNED]) == 0
+    capsys.readouterr()
+    written = [b for _, b in accept.blocks(repo) if b["finding"] == "F-c"]
+    assert written[0]["id"] == "R-002-01"
+
+
+def test_a_rationale_of_any_length_survives_being_written_and_read_back(repo, capsys):
+    """The renderer wrote a value of any length onto one physical line, which is why a
+    four-hundred-character rationale was invisible in a diff — and a governance record
+    nobody can read in a diff is a record nobody reviews. It is folded onto indented
+    continuation lines, which the reader already joins back with a single space, so the
+    check is a round trip rather than a look."""
+    reason = " ".join(f"clause number {n} of the argument" for n in range(14))
+    assert len(reason) > 400
+    (repo / "specs" / "001-a").mkdir()
+    (repo / "specs" / "001-a" / "spec.md").write_text("# a\n", encoding="utf-8")
+    args = ["--finding", "F-1", "--expires", TOMORROW, "--by", "Ada", "--justification", reason]
+    assert accept.main(args) == 0
+    capsys.readouterr()
+    body = (repo / "specs" / "001-a" / "spec.md").read_text()
+    assert max(len(line) for line in body.splitlines()) <= text.WIDTH
+    assert accept.blocks(repo)[0][1]["justification"] == reason
+
+
 def test_a_malformed_block_stops_the_gate_rather_than_disappearing_from_it(repo, capsys):
     """All four callers, in one place: the expiry reader raises, `--expired` refuses and
     exits non-zero — which is what `pre-push` reads — and the write path says nothing was
