@@ -362,7 +362,11 @@ def test_a_receipt_that_was_never_written_is_empty_rather_than_undecidable(machi
 
 def test_a_broken_receipt_stops_one_assertion_and_not_the_diagnosis(machine, capsys):
     """A doctor that dies on one unreadable file tells you nothing about the other
-    nineteen. Undecidable is the answer it already has for this."""
+    nineteen. Undecidable is the answer it already has for this.
+
+    A surface has to be installed for assertion 13 to get as far as the receipt: with none,
+    it stops at its own Undecidable one line earlier and the record is never opened."""
+    (machine / ".claude" / "skills").mkdir(parents=True)
     wiring.record([{"path": "/roots/ai-fake", "kind": "link", "how": "symlink"}])
     wiring.receipt_path().write_text("{ not json")
     doctor.main([])

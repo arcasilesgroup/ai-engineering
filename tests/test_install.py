@@ -529,13 +529,10 @@ def test_a_plain_init_after_uninstall_rewires_rather_than_reporting_ready(wired)
     assert stripped(wired)["guards"], "a plain `ai-eng init` wired nothing back"
 
 
-@pytest.mark.xfail(
-    reason="assertion 13 tests that the skills root directory exists, not that any link of "
-    "ours is inside it. Fixed by task 11 of spec 008.",
-    strict=True,
-)
 def test_doctor_does_not_call_a_stripped_machine_healthy(wired):
-    """The one assertion whose title is `Every symlink resolves` reported ok with none left."""
+    """The one assertion whose title is `Every symlink resolves` reported ok with none left,
+    because it tested that the recorded root exists — and a skills root exists because the
+    surface made it, and keeps existing because it holds skills that belong to the user."""
     from ai_engineering import doctor
 
     uninstall.main(["-y"])

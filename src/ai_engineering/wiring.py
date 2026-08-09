@@ -89,13 +89,21 @@ def linked() -> list[Path]:
     that walks the table row by row reports five links over one directory — which is the
     same class of wrong number this whole task is removing, arriving from the other side."""
     store = paths.home() / "skills"
+    copied = {row["path"] for row in receipt().get("wrote", []) if row.get("how") == "copy"}
     roots = {expand(s["skills"]) for s in table()["surface"] if s.get("skills")}
-    return sorted(
-        root
-        for root in roots
-        if root.is_dir()
-        and any(item.is_symlink() and str(store) in str(item.readlink()) for item in root.iterdir())
-    )
+    return sorted(root for root in roots if root.is_dir() and holds_ours(root, store, copied))
+
+
+def holds_ours(root: Path, store: Path, copied: set[str]) -> bool:
+    """A symlink into our store is ours by what it points at. A directory is ours only when
+    the receipt says we copied it there, which is what a receipt is for and the one question
+    the disk genuinely cannot answer — and it is the Windows case, where `link` copies."""
+    for item in root.iterdir():
+        if item.is_symlink() and str(store) in str(item.readlink()):
+            return True
+        if str(root) in copied and item.is_dir() and item.name.startswith("ai-"):
+            return True
+    return False
 
 
 class Unreadable(Exception):

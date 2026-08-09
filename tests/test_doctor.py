@@ -601,7 +601,7 @@ def test_assertion_12_also_catches_an_entry_left_pointing_at_an_install_that_mov
     "assertion, fragment",
     [
         (doctor.wiring_present, "no surface that takes a guard entry"),
-        (doctor.links_resolve, "records no skill root"),
+        (doctor.links_resolve, "no surface with a skills root is installed here"),
         (doctor.surfaces_alive, "no surface is installed here"),
     ],
     ids=["2 the guard entries", "13 the skill roots", "21 the liveness"],
@@ -632,8 +632,10 @@ def break_the_hooks_path(home, repo, monkeypatch) -> None:
 
 
 def break_the_skills_link(home, repo, monkeypatch) -> None:
-    receipt = paths.home() / "machine.json"
-    receipt.write_text(json.dumps({"wrote": [{"path": str(home / "gone"), "kind": "link"}]}))
+    """A surface that is here with a skills root holding none of ours. It used to be a
+    receipt row pointing at a directory that did not exist, which stopped being the question
+    the moment the check started looking inside the root instead of at it."""
+    (home / ".claude" / "skills").mkdir(parents=True)
 
 
 def break_the_pin(home, repo, monkeypatch) -> None:
@@ -988,18 +990,30 @@ def test_the_coverage_line_survives_a_machine_with_nothing_installed(home, repo)
     assert all("INERT" not in line for line in lines)
 
 
-def test_assertion_13_a_skill_root_that_stopped_resolving_and_a_doctrine_nobody_imports(home, repo):
+def test_assertion_13_a_skills_root_holding_none_of_ours_and_a_doctrine_nobody_imports(home, repo):
     """Skills are linked, or copied where links do not work, and the surface's own updater
     can delete either. And a CLAUDE.md that does not import AGENTS.md means the doctrine
-    reaches the model in no session at all."""
-    receipt = paths.home() / "machine.json"
-    receipt.write_text(json.dumps({"wrote": [{"path": str(home / "gone"), "kind": "link"}]}))
-    assert "no longer resolve" in verdict(doctor.links_resolve, repo)[1]
-    (home / "gone").mkdir()
+    reaches the model in no session at all.
+
+    The root is the room and the links are what is in it. This asked whether the room
+    exists, which it does — the surface made it, and it goes on existing because it holds
+    skills that belong to the user — so every link of ours could be deleted under a check
+    titled `Every symlink resolves` reporting ok."""
+    store = paths.home() / "skills"
+    (store / "ai-spec").mkdir(parents=True)
+    root = home / ".claude" / "skills"
+    root.mkdir(parents=True)
+    (root / "theirs").mkdir()
+    assert "hold none of ours" in verdict(doctor.links_resolve, repo)[1]
+
+    (root / "ai-spec").symlink_to(store / "ai-spec")
     (repo / "CLAUDE.md").write_text("do whatever you like\n")
     assert "does not import" in verdict(doctor.links_resolve, repo)[1]
     (repo / "CLAUDE.md").write_text("@./AGENTS.md\n")
     assert verdict(doctor.links_resolve, repo) == ("ok", "")
+
+    (root / "ai-spec").unlink()
+    assert "hold none of ours" in verdict(doctor.links_resolve, repo)[1]
 
 
 @pytest.mark.parametrize(

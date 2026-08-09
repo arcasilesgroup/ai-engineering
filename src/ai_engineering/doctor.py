@@ -276,16 +276,23 @@ def links_resolve(root: Path | None) -> str | None:
             "CLAUDE.md does not import AGENTS.md, so the doctrine never reaches the model",
             "",
         )
-    links = [row for row in wiring.receipt().get("wrote", []) if row["kind"] == "link"]
-    if not links:
+    roots = {wiring.expand(s["skills"]) for s in wiring.detect() if s.get("skills")}
+    if not roots:
         raise Undecidable(
-            f"the receipt at {wiring.receipt_path()} records no skill root, so there is "
-            f"nothing here to resolve. An empty loop is not a passing check."
+            "no surface with a skills root is installed here, so there is nothing to "
+            "resolve. An empty loop is not a passing check."
         )
-    broken = [row["path"] for row in links if not Path(row["path"]).exists()]
-    if not broken:
+    # Inside the directory, and not the directory. This asked whether the recorded root
+    # exists — and a skills root exists because the surface made it, and keeps existing
+    # because it holds skills that belong to the user. So on a machine where every link of
+    # ours had just been deleted, the check titled "Every symlink resolves" reported ok.
+    # Its own Undecidable branch above says an empty loop is not a passing check, and it was
+    # keyed on the receipt having no link rows, which a receipt that never shrank could not
+    # reach. This is the same sentence, applied one level down where the emptiness is.
+    empty = sorted(str(root) for root in roots if root not in set(wiring.linked()))
+    if not empty:
         return None
-    return f"{len(broken)} skill roots no longer resolve: {broken[0]}"
+    return f"{len(empty)} skills roots hold none of ours: {empty[0]}"
 
 
 @check(21, "The wiring", "Per-surface liveness: installed is not the same as running")
