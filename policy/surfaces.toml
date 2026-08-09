@@ -103,17 +103,12 @@ note = "Free by convention, zero lines. Detected by its own settings directory a
 # the honest label.
 
 [protect]
-# self_protect denies writes against these. Paths are expanded at read time; a glob
-# ending in / covers the whole tree.
+# self_protect denies writes against these, and against every settings file and skills
+# root in the table above, which it derives rather than repeats. Seven literals lived
+# here and duplicated that derivation; two skills roots the installer writes into were
+# in neither list, so they were protected by nobody. Paths are expanded at read time.
 paths = [
   "~/.ai-engineering/",
-  "~/.agents/skills/",
-  "~/.claude/settings.json",
-  "~/.claude/skills/",
-  "~/.cursor/hooks.json",
-  "~/.codex/hooks.json",
-  "~/.copilot/hooks/",
-  "~/.config/opencode/plugins/",
   ".git/hooks/",
   ".ai/config.toml",
 ]

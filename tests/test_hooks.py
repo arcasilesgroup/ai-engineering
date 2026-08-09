@@ -15,6 +15,7 @@ import io
 import json
 import sys
 import time
+import tomllib
 
 import _emit
 import _otlp
@@ -23,6 +24,7 @@ import autoformat
 import chain
 import loop_guard
 import pytest
+import self_protect
 import session
 
 
@@ -496,6 +498,77 @@ def test_a_denial_the_dispatcher_caches_carries_the_words_the_guard_used(repo, m
         "by": "loop_guard",
         "message": "BLOCKED: go away",
     }
+
+
+# --- self_protect: what is a write, and whose write it is ----------------------------
+
+
+DENIED = [
+    "cp /tmp/x ~/.claude/settings.json",
+    "install -m 644 /tmp/x ~/.claude/settings.json",
+    "truncate -s0 ~/.claude/settings.json",
+    "dd if=/dev/null of=~/.claude/settings.json",
+    "python -c \"open('~/.claude/settings.json', 'w').write('')\"",
+    "python3 - <<'EOF'\nopen('~/.claude/settings.json', 'w')\nEOF",
+    "echo x > ~/.claude/settings.json",
+    "echo x >> .ai/config.toml",
+    "rm ~/.agents/skills/ai-spec/SKILL.md",
+    "sed -i '' .git/hooks/pre-commit",
+    "echo x > ~/.config/opencode/skills/a",
+    "echo x > ~/.pi/agent/skills/a",
+]
+
+ALLOWED = [
+    "cat ~/.claude/skills/ai-spec/SKILL.md 2>/dev/null; ls ~/.claude/skills/ai-spec",
+    "ls .git/hooks/\ngitleaks version 2>&1 | head -1",
+    "git add .ai/config.toml",
+    "git diff .ai/config.toml",
+    "git show HEAD:.ai/config.toml",
+    "git restore .ai/config.toml",
+    "git stash push .ai/config.toml",
+    "sed -n 1p .git/hooks/pre-commit",
+    "echo hi > /tmp/ok.txt",
+]
+
+
+@pytest.mark.parametrize("command", DENIED)
+def test_every_measured_way_of_writing_to_a_governed_path_is_denied(repo, command):
+    """Six of these exited zero against the real dispatcher: a copy, an install, a
+    truncate, a dd, a one-line Python program, and a redirection written with the home
+    directory left as a tilde, which the protected list stores only in its expanded form.
+    A guard that enumerates write verbs is a list nobody can finish; what it can do is fail
+    towards denying too much, which is the direction a guard is allowed to fail in."""
+    with pytest.raises(SystemExit) as stop:
+        self_protect.run({"tool_input": {"command": command}})
+    assert stop.value.code == 2
+
+
+@pytest.mark.parametrize("command", ALLOWED)
+def test_a_read_in_one_command_is_not_a_write_because_another_one_redirects(repo, command):
+    """Both of these were denied in real sessions. The guard found a protected path
+    anywhere in the command and a `>` anywhere else, joined two unrelated facts and
+    reported a write that never happened — the first time from a `2>/dev/null` on the same
+    line, the second from a redirect on a later, independent line. Staging, diffing,
+    showing, restoring and stashing the pin are the same verb as the ones that write, so a
+    rule that denied by mention would have to carve all of them out one at a time."""
+    assert self_protect.run({"tool_input": {"command": command}}) is None
+
+
+def test_the_protected_list_is_derived_from_the_table_the_installer_wires_from(repo):
+    """The docstring claimed this could not fall behind the wiring, and it had: two skills
+    roots the installer writes into were in no entry at all. Nothing derived may be empty
+    either — the test is a substring test, and an empty string is a substring of every
+    command on this machine, so one blank cell in the table would deny everything."""
+    found = self_protect.protected()
+    assert all(found)
+    table = tomllib.loads(self_protect.POLICY.read_text())
+    for surface in table["surface"]:
+        if surface.get("skills"):
+            assert any(surface["skills"].removeprefix("~/") in path for path in found), surface[
+                "id"
+            ]
+        if surface.get("settings"):
+            assert any(surface["settings"].rsplit("/", 1)[0].removeprefix("~/") in p for p in found)
 
 
 # --- loop_guard: what counts as the same call, and what counts as the same failure ---
