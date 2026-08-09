@@ -29,9 +29,8 @@ Commits, a changelog entry, a pull request, and a branch that gets deleted after
    that needs fixing.
 3. Update the changelog. A breaking change is written as a breaking change, in the words
    somebody upgrading would search for.
-4. Tick the production-ready boxes in the spec, and beside each one write the command that
-   proves it. A box ticked without a command is the failure this whole framework exists to
-   catch, committed by us.
+4. Tick the production-ready boxes in the spec. Assertion 19 reads what is beside each
+   tick, so a box with no command in backticks and no `not applicable` fails the gate.
 5. Open the pull request. The first paragraph is what changed, in plain words, for somebody
    who does not code. Then the spec link, then what to look at first, then what you are not
    confident about — that last section is the one reviewers use most.

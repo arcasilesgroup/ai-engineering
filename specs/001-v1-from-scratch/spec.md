@@ -465,11 +465,11 @@ follow_up: The next commit that needs lines deletes first. The remaining candida
 
 ## Production-ready
 
-- [x] CI/CD — check.yml runs the gate, the suite and the install matrix on every push
-- [x] Logs — one JSON line per decision, six closed classes, hash-chained
+- [x] CI/CD — `just check`, run by `.github/workflows/check.yml` on every push
+- [x] Logs — one JSON line per decision, six closed classes, hash-chained: `ai-eng digest`
 - [x] Traces — not applicable, and that is the rule: no second hop, no trace
 - [x] Errors — recorded as their own event class and surfaced by `ai-eng digest`
 - [x] Health and data age — `ai-eng doctor`, and `ai-eng audit verify` walks every link
-- [x] External check — the install matrix runs a stranger's first five minutes on three OSes
+- [x] External check — `.github/workflows/install-matrix.yml`, three OSes, a wheel we built
 - [x] Second path — `doctor` reads the chain's head, `audit verify` recomputes every hash
 - [x] Security — gitleaks, semgrep, trivy and zizmor in `just check`; SECURITY.md ships

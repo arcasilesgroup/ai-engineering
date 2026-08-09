@@ -1102,21 +1102,39 @@ def test_assertion_5_says_so_rather_than_passing_outside_the_product_repository(
     assert verdict(doctor.line_budget, repo)[0] == "undecidable"
 
 
+BOXES = "## Production-ready\n\n"
+
+
 @pytest.mark.parametrize(
     "body, want",
     [
-        ("status: shipped\n\n- [ ] write the runbook\n", "fail"),
-        ("status: shipped\n\n- [x] write the runbook\n", "ok"),
-        ("status: draft\n\n- [ ] write the runbook\n", "ok"),
+        (f"status: shipped\n\n{BOXES}- [ ] write the runbook\n", "fail"),
+        (f"status: shipped\n\n{BOXES}- [x] write the runbook\n", "fail"),
+        (f"status: shipped\n\n{BOXES}- [x] the runbook: `just runbook`\n", "ok"),
+        (f"status: shipped\n\n{BOXES}- [x] Traces — not applicable, no second hop\n", "ok"),
+        (f"status: draft\n\n{BOXES}- [x] write the runbook\n", "ok"),
         ("status: shipped\n\nNothing here has a box.\n", "ok"),
+        (f"status: shipped\n\n- [x] a box above the heading\n{BOXES}- [x] `ok`\n", "ok"),
     ],
-    ids=["shipped with an open box", "shipped ticked", "still a draft", "no boxes at all"],
+    ids=[
+        "shipped with an open box",
+        "shipped ticked, and nothing beside the tick",
+        "shipped ticked, with a command",
+        "shipped ticked, and honestly not applicable",
+        "still a draft",
+        "no boxes at all",
+        "a tick outside the section is not this check's business",
+    ],
 )
-def test_assertion_19_and_the_hole_in_it_a_spec_with_no_boxes_is_always_a_pass(repo, body, want):
-    """Assertion 19 looks for an unticked box in a spec marked shipped. A spec that never
-    had a box passes it, so deleting the production-ready list is a way to ship — the check
-    can catch a forgotten item and cannot catch a missing list. status: never sits on the
-    first line of a real spec, so the fixture puts frontmatter above it."""
+def test_assertion_19_reads_the_tick_and_what_was_written_beside_it(repo, body, want):
+    """It searched a shipped spec for an unticked box and never read a ticked one, so it
+    enforced that the question was answered and never that the answer said anything. Three
+    of the eight boxes in this repository's own shipped spec claimed a control and named no
+    command, and /ai-ship carried a sentence asking for one with no assertion behind it.
+
+    A spec that never had a box still passes, which is the hole this check has always had:
+    deleting the list is a way to ship. status: never sits on the first line of a real
+    spec, so the fixture puts frontmatter above it."""
     spec = repo / "specs" / "042-thing" / "spec.md"
     spec.parent.mkdir(parents=True)
     spec.write_text(f"---\ntitle: a thing\n{body}---\n")

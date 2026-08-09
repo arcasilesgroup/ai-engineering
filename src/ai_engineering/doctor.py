@@ -501,16 +501,31 @@ def branch_protection(root: Path | None) -> str | None:
     return None
 
 
-@check(19, "The outside", "Nothing shipped with an empty production-ready box")
+@check(19, "The outside", "Nothing shipped with a box ticked and no command beside it")
 def production_ready(root: Path | None) -> str | None:
+    """The old title said the work was finished, which this cannot see. What it can see is
+    the tick and what is written beside it, and it used to read neither: it searched a
+    shipped spec for an unticked box and never once looked at a ticked one, so the gate
+    enforced that the question was answered and never that the answer said anything. Three
+    of the eight boxes in this repository's own shipped spec claimed a control and named no
+    command. The ceiling is recorded as an accepted risk: a backtick proves something was
+    named, never that it passed."""
     if root is None:
         raise Undecidable("not inside a repository")
     bad = []
     for spec in sorted((root / "specs").glob("*/spec.md")) if (root / "specs").exists() else []:
         text = spec.read_text(errors="replace")
-        if re.search(r"^status:\s*shipped", text, re.M) and "- [ ]" in text:
+        if not re.search(r"^status:\s*shipped", text, re.M):
+            continue
+        boxes = [line.strip() for line in text.partition("## Production-ready")[2].splitlines()]
+        unproven = [
+            box
+            for box in boxes
+            if box.startswith("- [x]") and "`" not in box and "not applicable" not in box.lower()
+        ]
+        if unproven or any(box.startswith("- [ ]") for box in boxes):
             bad.append(spec.parent.name)
-    return None if not bad else f"shipped with unticked boxes: {', '.join(bad[:3])}"
+    return None if not bad else f"shipped with a box nothing proves: {', '.join(bad[:3])}"
 
 
 @check(20, "The outside", "The observability destination is real")
