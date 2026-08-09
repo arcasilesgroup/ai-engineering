@@ -487,7 +487,10 @@ def report(files: int, waiting: list[str], args) -> None:
     written, how many guard entries were placed, what is still on a person, and what to
     run next. This ended by pasting a block of YAML at the reader and stopping."""
     _, verb = marks(args)
-    guards = sum(1 for row in wiring.receipt().get("wrote", []) if row["kind"] == "guard")
+    # Counted off the settings files, like every other number this verb prints. Read from
+    # the receipt, this row said `4 guard entries on this machine` on a machine with none,
+    # and the step below it then promised the guards were already loaded there.
+    guards = len(wiring.wired()[0])
     entries = "entry" if guards == 1 else "entries"
     ui.report(
         f"{files} files {verb} · {guards} guard {entries} on this machine",

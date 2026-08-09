@@ -64,6 +64,12 @@ exactly what it was written to do.
   this machine and its third step said "the guards are already loaded there". Under
   `--no-global` those are `0 guard entries` and a promise, two lines apart. The step now
   takes the count and says `run \`ai-eng init --global\`` when there is nothing there yet.
+
+  *Corrected by spec 008.* That count was read from the receipt, which is a log of writes
+  and not the state of the machine, so on a machine `ai-eng uninstall` had emptied it said
+  `4 guard entries on this machine` and the step under it promised the guards were loaded —
+  the same contradiction this task closed, arriving from the source rather than from the
+  wording. Both now count what is in the settings files.
 - **`--fix` reached `init`'s rewrite of the pin.** `ai-eng init --project` rewrote
   `.ai/config.toml` on every run — taking a dated backup and printing a line, which spec
   005 decided was enough — and that resets the pinned version, the guard windows and the
@@ -128,6 +134,12 @@ exactly what it was written to do.
   and `test_an_already_wired_machine_gets_the_block_it_left_behind_and_no_survey`, whose
   fixture is a machine with two links, one guard and no skills directory — a summary that
   is only right on a healthy machine hides the unhealthy one.
+
+  *Corrected by spec 008.* That fixture was three receipt rows naming `/a`, `/b` and `/c`,
+  three paths that never existed, so what it proved was that the block can count rows in a
+  file. Two of the three numbers on that screen were read from the log and the docstring
+  said all three came from the disk. The fixture builds a real machine now and the intent
+  above survives intact: the unhealthy machine is still the one it describes.
 
 - [x] **T-7 The gate.** Run on 2026-08-09, after the record was closed rather than before,
   which is its own finding: six tasks shipped and this one did not, so for three days the

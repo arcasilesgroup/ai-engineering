@@ -26,7 +26,7 @@ just --list                # muestra las tareas de desarrollo
 | `uv run ai-eng audit [verify\|replay] [--anchors] [--session ID] [--anchor]` | Verifica o reproduce la cadena de auditoría. `--anchors` coteja Git; `--anchor` es para el hook `commit-msg`. |
 | `uv run ai-eng digest [--weeks N]` | Resume sesiones, bloqueos, bypasses, errores y cobertura del periodo; marca el resumen como leído. |
 | `uv run ai-eng plan --skip "MOTIVO" [--guard design_gate\|loop_guard]` | Con confirmación humana, concede **un** bypass durante 15 minutos y lo registra. No funciona sin terminal interactiva. |
-| `uv run ai-eng uninstall [--project] [-y]` | Quita lo instalado según el recibo. Conserva siempre `specs/`, `CONSTITUTION.md`, `AGENTS.md`, `docs/adr/` y el registro externo. |
+| `uv run ai-eng uninstall [--project] [-y]` | Quita lo instalado según el recibo, e imprime una línea por fila: lo que quita y, para lo que conserva, por qué. Sin `--project` no entra en ningún repositorio y los nombra. Conserva siempre `specs/`, `CONSTITUTION.md`, `AGENTS.md`, `docs/adr/` y el registro externo. |
 | `uv run ai-eng --version` · `uv run ai-eng <comando> --help` | Muestra la versión o todas las opciones reales de un comando. |
 
 ## 4. Todas las recetas `just`
