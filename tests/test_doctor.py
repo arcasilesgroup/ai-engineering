@@ -504,20 +504,40 @@ def test_assertion_3_a_hook_on_a_blocking_event_that_is_not_a_guard(
         ("unset", "undecidable", "no floor"),
         ("tilde", "fail", "tilde"),
         ("empty", "fail", "no pre-commit"),
-        ("wired", "ok", ""),
+        ("empty, relatively", "fail", "no pre-commit"),
+        ("somebody else's", "fail", "not the directory this install wires"),
+        ("ours", "ok", ""),
+        ("ours, relatively", "ok", ""),
     ],
 )
-def test_assertion_11_a_tilde_in_the_hooks_path_saves_fine_and_fires_nothing(
-    repo, setting, want, fragment
+def test_assertion_11_the_floor_has_to_be_the_one_this_install_wired(
+    repo, monkeypatch, setting, want, fragment
 ):
     """git never expands ~ in core.hooksPath. It saves without complaint, the hooks never
     run, and every commit goes through: a floor that is not there is worse than none,
-    because the repository looks configured."""
-    folder = repo.parent / "git-hooks"
-    folder.mkdir(exist_ok=True)
-    if setting == "wired":
+    because the repository looks configured.
+
+    A pre-commit at that path proves something lives there and never that it is ours.
+    Several other tools manage git hooks, and any of them left this green over a repository
+    where none of our floor runs. The relative case is not decoration: it is the form this
+    repository's own bootstrap writes, and a string comparison would fail it."""
+    ours = repo.parent / "wheel" / "git-hooks"
+    theirs = repo.parent / "husky"
+    for folder in (ours, theirs):
+        folder.mkdir(parents=True, exist_ok=True)
         (folder / "pre-commit").write_text("#!/bin/sh\n")
-    value = {"unset": "", "tilde": "~/git-hooks", "empty": str(folder), "wired": str(folder)}
+    monkeypatch.setattr(paths, "git_hooks", lambda: ours)
+    empty = repo.parent / "nothing"
+    empty.mkdir(exist_ok=True)
+    value = {
+        "unset": "",
+        "tilde": "~/git-hooks",
+        "empty": str(empty),
+        "empty, relatively": os.path.relpath(empty, repo),
+        "somebody else's": str(theirs),
+        "ours": str(ours),
+        "ours, relatively": os.path.relpath(ours, repo),
+    }
     if value[setting]:
         git(repo, "config", "core.hooksPath", value[setting])
     got, detail = verdict(doctor.git_hook_fires, repo)

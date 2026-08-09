@@ -246,8 +246,23 @@ def git_hook_fires(root: Path | None) -> str | None:
         raise Undecidable("core.hooksPath is not set here: this repository has no floor")
     if configured.startswith("~"):
         return "core.hooksPath holds a tilde. Git never expands it: the hooks never fire."
-    if not (Path(configured) / "pre-commit").exists():
+    # Resolved against the repository and never against the directory the command was run
+    # from. git reads a relative core.hooksPath from the root, this read it from wherever
+    # you were standing, and the relative form is what this repository's own bootstrap
+    # writes — so the answer depended on your shell's working directory.
+    where = (root / Path(configured)).resolve()
+    if not (where / "pre-commit").exists():
         return f"core.hooksPath points at {configured}, which has no pre-commit in it"
+    # A pre-commit at that path proves something lives there, never that it is ours. Any
+    # other tool that manages git hooks — and several do — left this check green over a
+    # repository where none of our floor runs, which is the shape of green this product
+    # exists to refuse.
+    if where != paths.git_hooks().resolve():
+        return (
+            f"core.hooksPath points at {configured}, which is not the directory this "
+            f"install wires. Something lives there; none of it is ours.",
+            "ai-eng init --project",
+        )
     return None
 
 
