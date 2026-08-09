@@ -72,6 +72,11 @@ def console(data: bool = False) -> Console:
             highlight=False,
             markup=False,
             emoji=False,
+            # Never wrapped, and set once here rather than argued at every print: nothing
+            # this CLI writes has ever folded, and rich folds at column 80 off a pipe, so
+            # a path would break in the middle on exactly the runs that get pasted into a
+            # bug report. A Panel still sizes itself; this only governs plain text.
+            soft_wrap=True,
         )
     return _consoles[data]
 
@@ -85,7 +90,7 @@ def reset() -> None:
 def write(text: str = "", style: str = "", data: bool = False) -> None:
     """One line, never wrapped. Nothing here has ever wrapped and a path that suddenly
     folds at column 80 is a path nobody can copy."""
-    console(data).print(Text(text, style=style) if style else Text(text), soft_wrap=True)
+    console(data).print(Text(text, style=style) if style else Text(text))
 
 
 def banner() -> None:
@@ -95,15 +100,15 @@ def banner() -> None:
     out = console()
     if not out.is_terminal:
         return
-    out.print(Text("\n  ┌─                    ─┐", style="brand"), soft_wrap=True)
-    out.print(Text("    { ai } e n g i n e e r i n g", style="brand"), soft_wrap=True)
-    out.print(Text("  └─                    ─┘", style="brand"), soft_wrap=True)
-    out.print(Text(f"   v{__version__} · AI Governance Framework\n", style="muted"), soft_wrap=True)
+    out.print(Text("\n  ┌─                    ─┐", style="brand"))
+    out.print(Text("    { ai } e n g i n e e r i n g", style="brand"))
+    out.print(Text("  └─                    ─┘", style="brand"))
+    out.print(Text(f"   v{__version__} · AI Governance Framework\n", style="muted"))
 
 
 def section(title: str, data: bool = False) -> None:
     """A blank line and a heading. Every family gets exactly one."""
-    console(data).print(Text(f"\n{title}", style="head"), soft_wrap=True)
+    console(data).print(Text(f"\n{title}", style="head"))
 
 
 def step(state: str, name: str, detail: str = "") -> None:
@@ -115,7 +120,7 @@ def step(state: str, name: str, detail: str = "") -> None:
     line.append(f" {name}")
     if detail:
         line.append(f" {detail}", style="muted" if state == "would" else "")
-    console().print(line, soft_wrap=True)
+    console().print(line)
 
 
 VERDICTS = {
@@ -134,9 +139,9 @@ def verdict(number: int, state: str, title: str, detail: str = "") -> None:
     line = Text(f"  {number:>2}  ")
     line.append(word, style=style)
     line.append(f" {title}")
-    console(data=True).print(line, soft_wrap=True)
+    console(data=True).print(line)
     if detail:
-        console(data=True).print(Text(f"      {detail}", style="muted"), soft_wrap=True)
+        console(data=True).print(Text(f"      {detail}", style="muted"))
 
 
 def pair(key: str, text: str, data: bool = True) -> None:
@@ -145,13 +150,13 @@ def pair(key: str, text: str, data: bool = True) -> None:
     line = Text()
     line.append(key, style="brand")
     line.append(text)
-    console(data).print(line, soft_wrap=True)
+    console(data).print(line)
 
 
 def note(text: str, style: str = "muted") -> None:
     """A continuation under the step it belongs to, indented past the mark."""
     for row in text.splitlines():
-        console().print(Text(f"     {row}", style=style), soft_wrap=True)
+        console().print(Text(f"     {row}", style=style))
 
 
 def survey(rows: list[tuple[str, str, str, str]]) -> None:
@@ -165,7 +170,7 @@ def survey(rows: list[tuple[str, str, str, str]]) -> None:
         line = Text(f"   {name:<18} ")
         line.append(f"{path:<26} ", style="path")
         line.append(mark, style=style)
-        console().print(line, soft_wrap=True)
+        console().print(line)
 
 
 def block(text: str, data: bool = True) -> None:
@@ -173,7 +178,7 @@ def block(text: str, data: bool = True) -> None:
     off across this module for exactly this line: rich would read `[push, pull_request]` as
     a style tag and print neither the brackets nor the words."""
     for row in text.splitlines():
-        console(data).print(Text(row), soft_wrap=True)
+        console(data).print(Text(row))
 
 
 def report(headline: str, waiting: list[str], nexts: list[tuple[str, str]]) -> None:

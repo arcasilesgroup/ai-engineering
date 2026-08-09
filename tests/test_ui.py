@@ -127,7 +127,9 @@ def test_the_report_names_what_happened_what_waits_and_what_to_run(capsys):
         ],
     )
     text = capsys.readouterr().err
-    assert "─ Done ─" in text.splitlines()[0]
+    # The title sits at the left corner and not centred, so the eye finds it where every
+    # other heading on this screen is rather than in the middle of a rule.
+    assert text.splitlines()[0].startswith("╭─ Done ─")
     assert framed(text) == [
         "7 files written · 4 guard entries on this machine",
         "⚠ still on you: install gitleaks, or every commit here is refused",
