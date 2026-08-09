@@ -490,6 +490,46 @@ def test_doctor_does_not_call_a_stripped_machine_healthy(wired):
     assert problem is not None, "assertion 13 passed with every one of our symlinks deleted"
 
 
+def test_one_file_it_cannot_change_stops_that_file_and_not_the_loop(home, tmp_path, capsys):
+    """The write was outside every `try` in a function whose read and parse were both
+    guarded, so one settings file with the wrong permissions raised mid-loop and left every
+    surface after it in the receipt's order still wired — the shape spec 003 closed for the
+    OpenCode parse crash, in the one line that fix did not reach."""
+    locked = tmp_path / "locked" / "settings.json"
+    locked.parent.mkdir()
+    wiring.write_json(locked, {"hooks": [{"command": wiring.command("PreToolUse")}]})
+    locked.chmod(0o400)
+    after = tmp_path / "after.json"
+    wiring.write_json(after, {"hooks": [{"command": wiring.command("PreToolUse")}]})
+    rows = [
+        {"path": str(locked), "kind": "guard", "how": "json_claude"},
+        {"path": str(after), "kind": "guard", "how": "json_claude"},
+    ]
+    wiring.record(rows)
+    try:
+        assert uninstall.main(["-y"]) == 1, "a run that left a guard wired reported success"
+        assert not wiring.ours(after.read_text(encoding="utf-8")), "the loop stopped at the first"
+        text = capsys.readouterr().out
+        assert f"✗ {locked} could not be written" in text
+        assert "1 of them are still wired and are still in the record" in text
+        left = [row["path"] for row in wiring.receipt()["wrote"]]
+        assert left == [str(locked)], "the record forgot an entry that is still in the file"
+    finally:
+        locked.chmod(0o600)
+
+
+def test_a_settings_file_holding_our_entry_that_is_not_json_is_named_not_dismissed(
+    home, tmp_path, capsys
+):
+    """It answered "had no entry of ours" about a file that had just proved it has one —
+    the same false green this spec is about, one function down."""
+    target = tmp_path / "settings.json"
+    target.write_text(f'{{ // theirs\n "c": "{wiring.SIGNATURE}",\n}}\n', encoding="utf-8")
+    wiring.record([{"path": str(target), "kind": "guard", "how": "json_claude"}])
+    assert uninstall.main(["-y"]) == 1
+    assert "holds our entry and is not readable as JSON" in capsys.readouterr().out
+
+
 def test_uninstall_cannot_reach_a_repository_you_are_not_standing_in(repo, home, monkeypatch):
     """`"…/repo-backup/justfile".startswith("…/repo")` is True, and the line that asked it
     went straight on to unlink. Standing in one repository deleted recorded files out of
@@ -619,14 +659,22 @@ def test_uninstall_removes_the_opencode_plugin_and_keeps_going(home, tmp_path, c
     assert "plugin removed" in capsys.readouterr().out
 
 
-def test_a_settings_file_that_is_not_json_is_left_alone_rather_than_crashing(tmp_path):
-    """Anything the stripper cannot parse is not something it knows how to edit. Raising
-    there ends the whole uninstall part-way through, which is worse than any one file it
-    fails to clean."""
+def test_a_settings_file_that_is_not_json_is_left_alone_and_reported(tmp_path):
+    """Anything the stripper cannot parse is not something it knows how to edit, and the
+    file stays exactly as it is. What changed is the answer it gives about it.
+
+    This used to return False, and the reason written here was that raising ends the whole
+    uninstall part-way through — which was true while `main` had no per-row catch, and is
+    the better half of that trade no longer being on offer. False reaches the screen as
+    "had no entry of ours", about a file that contains our entry; the loop now names it,
+    keeps its row in the receipt because the entry really is still there, and carries on to
+    every surface after it."""
     odd = tmp_path / "hooks.yaml"
-    odd.write_text("command: /x/hooks/chain.py PreToolUse\n", encoding="utf-8")
-    assert uninstall.strip_entries(odd) is False
-    assert odd.read_text(encoding="utf-8") == "command: /x/hooks/chain.py PreToolUse\n"
+    body = "command: /x/hooks/chain.py PreToolUse\n"
+    odd.write_text(body, encoding="utf-8")
+    with pytest.raises(wiring.Unreadable, match="holds our entry"):
+        uninstall.strip_entries(odd)
+    assert odd.read_text(encoding="utf-8") == body
 
 
 @pytest.fixture

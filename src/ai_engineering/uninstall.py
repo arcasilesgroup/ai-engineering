@@ -32,16 +32,32 @@ def remove_plugin(path: Path) -> bool:
 
 
 def strip_entries(path: Path) -> bool:
+    """True when our entries were taken out, False when there were none to take. Anything
+    else — a file we cannot read, cannot parse, or cannot write — raises, because those are
+    three ways of leaving a guard wired and all three used to answer "had no entry of ours".
+
+    The write is inside the guard now. It was outside every `try` in a function whose read
+    and parse were both guarded, so one settings file with the wrong permissions raised
+    mid-loop and left every surface after it in the receipt's order still wired — which is
+    the shape spec 003 closed for the OpenCode parse crash, in the one line that fix did not
+    reach."""
     try:
         blob = path.read_text(encoding="utf-8")
-    except OSError:
+    except FileNotFoundError:
         return False
+    except OSError as why:
+        raise wiring.Unreadable(f"{path} could not be read: {why.strerror}") from why
     if wiring.SIGNATURE not in blob:
         return False
     try:
         data = json.loads(blob)
-    except ValueError:
-        return False  # not ours to edit: this routine only knows how to edit JSON
+    except ValueError as why:
+        # It holds our entry and this routine only knows how to edit JSON. Reporting "no
+        # entry of ours" about a file that has just proved it has one is the false green
+        # this whole spec is about, one function down.
+        raise wiring.Unreadable(
+            f"{path} holds our entry and is not readable as JSON: {why}"
+        ) from why
 
     def clean(node):
         if isinstance(node, list):
@@ -50,7 +66,10 @@ def strip_entries(path: Path) -> bool:
             return {key: clean(value) for key, value in node.items()}
         return node
 
-    wiring.write_json(path, clean(data))
+    try:
+        wiring.write_json(path, clean(data))
+    except OSError as why:
+        raise wiring.Unreadable(f"{path} could not be written: {why.strerror}") from why
     return True
 
 
@@ -140,26 +159,37 @@ def main(argv: list[str]) -> int:
         print("  nothing removed.")
         return 1
 
-    gone = []
+    gone, stuck = [], []
     for row in going:
         path = Path(row["path"])
-        if row["kind"] == "guard" and row.get("how") == "ts_opencode":
-            done = remove_plugin(wiring.expand(row["path"]))
-            print(f"  ✓ plugin removed: {path}" if done else f"  → {path} was already gone")
-        elif row["kind"] == "guard":
-            done = strip_entries(wiring.expand(row["path"]))
-            print(
-                f"  ✓ entries removed from {path}" if done else f"  → {path} had no entry of ours"
-            )
-        elif row["kind"] == "link":
-            for link in path.glob("ai-*"):
-                link.unlink() if link.is_symlink() else None
-            print(f"  ✓ symlinks removed from {path}")
-        elif row["kind"] == "skills":
-            done = strip_skills(path)
-            print(f"  ✓ skills removed from {path}" if done else f"  → {path} was already gone")
-        else:
-            continue  # project and repo rows are the repository half, undone below
+        try:
+            if row["kind"] == "guard" and row.get("how") == "ts_opencode":
+                done = remove_plugin(wiring.expand(row["path"]))
+                print(f"  ✓ plugin removed: {path}" if done else f"  → {path} was already gone")
+            elif row["kind"] == "guard":
+                done = strip_entries(wiring.expand(row["path"]))
+                print(
+                    f"  ✓ entries removed from {path}"
+                    if done
+                    else f"  → {path} had no entry of ours"
+                )
+            elif row["kind"] == "link":
+                for link in path.glob("ai-*"):
+                    link.unlink() if link.is_symlink() else None
+                print(f"  ✓ symlinks removed from {path}")
+            elif row["kind"] == "skills":
+                done = strip_skills(path)
+                print(f"  ✓ skills removed from {path}" if done else f"  → {path} was already gone")
+            else:
+                continue  # project and repo rows are the repository half, undone below
+        except (wiring.Unreadable, OSError) as why:
+            # This file, and not the loop. One settings file with the wrong permissions used
+            # to raise here and leave every surface after it wired, silently, from the verb
+            # whose whole pitch is that governance comes out cleanly. The row stays in the
+            # receipt because the entry is still in the file, which is the truth.
+            print(f"  ✗ {why}")
+            stuck.append(row)
+            continue
         gone.append(row)
 
     if root is not None:
@@ -174,4 +204,10 @@ def main(argv: list[str]) -> int:
         f"\n  The record is still at {paths.home() / 'state'}. Delete that folder yourself "
         f"if you want it gone: it is proof of what happened, and not ours to throw away."
     )
+    if stuck:
+        print(
+            f"  {len(stuck)} of them are still wired and are still in the record. "
+            f"Fix the files named above and run this again."
+        )
+        return 1
     return 0
