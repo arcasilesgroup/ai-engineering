@@ -6,7 +6,96 @@ title: Plan — the test that was missing first, so every later task has somethi
 
 # Plan — the round trip before the repair
 
-## The base this is measured from
+## What landed — measured, 2026-08-09
+
+Read from `git diff --numstat` per commit over the files `contract.repo_lines` counts, in
+the order the commits landed.
+
+| | predicted | landed |
+|---|---|---|
+| 0. the ceiling raise, and what it was buying | — | +13 |
+| 1. the round trip nothing asserts | +45 | +90 |
+| 2. a record nobody can read is undecidable | +129 | +146 |
+| 3. the receipt gains a way out | +37 | +55 |
+| 4. one line per row, and the record retracted | +102 | +89 |
+| 5. a repository you are not standing in | +39 | +43 |
+| 6. one file it cannot change stops that file | +38 | +84 |
+| 7. the links it removes are the ones it installed | +50 | +47 |
+| 8. `init` asks the machine | +72 | +86 |
+| 9. the row uninstall restores from | +36 | +25 |
+| 10. the coverage block opens the settings file | +120 | +70 |
+| 11. assertion 13 looks inside the room | +52 | +30 |
+| 12. assertion 21 stops offering a cure that cannot work | +38 | +30 |
+| 13. `update` records what it wires | +69 | +62 |
+| 14. the prose this spec made false | 0 | +3 |
+| 15a. the tests the mutation floor asked for | — | +175 |
+| 15b. this table and the ceiling comment | — | +35 |
+| **total** | **+840** | **+1,092** |
+
+`REPO_CEILING` closes at **16,803**, with no slack.
+
+## What T-7 measured
+
+`just check` — exit 0. 801 passed, 3 xfailed; `just cover` at 97% against a floor of 80;
+gitleaks, semgrep and trivy clean; `RAN lint=86`, `RAN tests=783`.
+
+`python tests/adversarial/run.py` — 14 of 14, negative control included.
+
+`just mutate` — **red the first time, at 88% against a floor of 89.** 543 survivors of 4,652,
+and 96 of them were in `uninstall`: 74% against a tree at 89, so the code this spec wrote was
+a third of the survivors on a twelfth of the lines. The plan named this task as the binding
+gate with nothing to give, and it was.
+
+What killed them is the same lesson specs 005 and 006 both closed on, arriving a third time:
+the screen asserted whole rather than by fragment, a count asserted as a number rather than
+as a line that happens to contain one, a fate table with a row for every kind there is, and
+the consent question driven with five answers instead of one. Three real defects were behind
+those survivors — a copied skill removed on a row that says symlink, a count that could have
+reported anything, and `unlink(missing_ok=False)` on a file a person had already deleted.
+
+What could not be killed left instead. `timeout=10` and `capture_output=True` written at
+three call sites are six mutants no honest test can reach, because a repository that answers
+in eleven seconds is not a behaviour anybody can assert; they became one function and stopped
+existing, which is the exit spec 006 took for `soft_wrap=True`. Ten more are equivalent by
+construction: git config keys are case-insensitive, so `core.hookspath` and `AI.MANAGED` do
+exactly what the originals do, and no test can tell them apart because there is nothing to
+tell apart.
+
+Second run: **4,129 killed, 508 survived, 89%** — at the floor, which is where 006 and 007
+both left it. Guards half 14 of 14.
+
+One thing worth writing down that is not a number. The guards half of `just mutate` edits the
+real tree and restores each file in a `finally`; a run that is interrupted leaves a deliberate
+defect behind. This one was, twice — `FAILURES = 5` became `6` in `loop_guard.py` and a `<=`
+became `<` in `design_gate.py` — and both were caught by `git status` rather than by anything
+that fails. The recipe's own comment says the four watched surface files are hashed either
+side of the run for exactly this reason; the guards it mutates are not.
+
+**Five per cent over, against 005's eight hundred and seventy and 007's seven hundred and
+thirty.** The reason is not discipline. Those two counted the product line and never the
+test that holds it; this estimate was written after that bill had been paid twice, so it
+carried the test line from the start. 612 of the 881 are test against 269 of product.
+
+**Nine of the fifteen tasks changed a test that was pinning the defect rather than adding
+one.** That is the finding worth keeping out of this table, because it is the same shape
+every time: `/a`, `/b`, `/c` and `/somewhere/settings.json` as fixtures for counting rows in
+a file; a vendor's directory created and asserted on as though it were a wired surface, in
+four separate tests across three files; and one passing assertion that an install destroys a
+settings file, whose own docstring read *"This pins the loss; it does not bless it."* A
+suite can be green, thorough and describing a machine that does not exist.
+
+Two things happened that are not in the table.
+
+Task 2 grew a second half nobody had looked for. The lenses were pointed at the receipt, and
+the same `read_json` line sits under the three settings writers — so `ai-eng init` replaced a
+`~/.claude/settings.json` carrying a JSONC comment with our hooks block alone. That is the
+operator's own live file, and it is worse than the bug this spec was opened for.
+
+Task 5's fix had to be applied twice in one commit's worth of code. `fate`, written two
+hours earlier in task 4, had copied the same `startswith` comparison the bug lives in. A
+copied idiom keeps a defect alive across the rewrite that was supposed to remove it.
+
+## The base this was measured from
 
 Committed `HEAD` measures **15,712** against a `REPO_CEILING` of **15,712**: specs 005, 006 and
 007 closed at the count that landed, so the headroom is exactly zero and the first task that

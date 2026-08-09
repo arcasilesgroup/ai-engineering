@@ -1,7 +1,7 @@
 ---
 id: "008"
 slug: the-receipt-that-only-grows
-status: draft
+status: shipped
 date: 2026-08-09
 ref: ""
 supersedes: ""
@@ -274,21 +274,90 @@ of the tree that may import freely.
 
 ## Decisions
 
+```yaml
+decision: A verb reports the machine by looking at the machine
+date: 2026-08-09
+rationale: the rule the fifteen tasks are drawn from: where a screen states a count, that count
+  is read from the thing being counted, and there is only ever one answer so there is nothing
+  for two to disagree about. global_ready and doctor assertion 2 now make the same call, the
+  coverage block opens the settings file it reports on rather than reading a static flag,
+  assertion 13 looks inside the skills root rather than at it, and init's last screen counts its
+  guard entries the same way; uninstall is only the loudest way a machine stops matching a log,
+  and a settings file edited by hand, a surface removed by its own installer and a home restored
+  from a backup all get the same wrong answer out of one.
+```
+```yaml
+decision: A file that is there and cannot be read is undecidable, never empty
+date: 2026-08-09
+rationale: read_json answered {} to a missing file and to an unparseable one alike and every
+  caller inherited it, so an interrupted write made the install record empty to every reader and
+  the next record() stored that emptiness, and the same line under the three settings writers
+  replaced a settings file carrying a JSONC comment with our hooks block alone under a line of
+  output reading merged; this repository already made that ruling for text.yaml_blocks in the
+  words its docstring still carries — silence on a parse failure is the exact shape of a false
+  green, undecidable is an answer and invisible is not — and the record verbs got the rule while
+  the files the installer reads did not.
+```
+```yaml
+decision: The receipt answers ownership, and is never asked a second question
+date: 2026-08-09
+rationale: it is a log of writes, and both install verbs read it as the state of the machine:
+  uninstall never wrote it so it could not shrink, and update wrote entries it never recorded so
+  it under-reported too, which is why teaching it to shrink was refused as the fix. Its one real
+  job is the one its own docstring names — probing the disk can prove a file exists and can
+  never prove that we wrote it — so it keeps that and nothing else, and it gains a retraction
+  path because a row describing a file we wrote and then removed misstates ownership just as
+  badly as one that was never there.
+```
 <!-- ai-eng decide writes yaml blocks here -->
 
 ## Accepted risks
 
+```yaml
+id: R-008-02
+finding: update-goes-quiet-on-a-lost-receipt
+severity: low
+accepted_by: soydachi
+accepted: 2026-08-09
+expires: 2026-11-08
+renewals: 0
+justification: ai-eng update now rewires the surfaces the receipt records as chosen rather than
+  everything detect finds, which is what stops it wiring a surface somebody declined; the cost
+  is that a machine whose receipt was lost or emptied — by the read_json defect this same spec
+  closes, or by hand — updates nothing and prints one line naming ai-eng init --global, where it
+  used to silently rewire whatever was there; that is a visible instruction rather than an
+  unrecorded write, and it is the safer half of the trade
+follow_up: if a real machine hits it, init --global is the cure and the line already says so;
+  watch for it before adding any fallback to detect()
+```
+```yaml
+id: R-008-01
+finding: windows-uninstall-path-unproven
+severity: medium
+accepted_by: soydachi
+accepted: 2026-08-09
+expires: 2026-11-08
+renewals: 0
+justification: strip_links now honours the copy the receipt records, which is what wiring.link
+  writes where symlinks are unavailable, and the strict xfail that had marked that defect since
+  it was found comes off in the same commit; what has not happened is a run of uninstall on
+  Windows, because the install matrix builds and installs the wheel on three platforms and never
+  uninstalls on any of them, so the branch ships exercised by a unit test that fakes the copy
+  and by nothing else
+follow_up: the install matrix grows an uninstall step after its doctor step on all three
+  platforms, or this is renewed once with the reason and then fixed
+```
 <!-- ai-eng accept writes yaml blocks here -->
 
 ## Production-ready
 
 Nothing gets a URL until every box is ticked, and each one is ticked by a command.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check`, run by `.github/workflows/check.yml` on every push; nothing here is deployed, and `.github/workflows/release.yml` is what publishes the wheel
+- [x] Logs — `ai-eng digest`: every verb emits one JSON line per run, and `cli.main` now emits an error event for the refusal this spec added before it exits 2
+- [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
+- [x] Errors — `cli.main` catches `wiring.Unreadable`, names the file, writes nothing and exits 2, and emits the event `ai-eng digest` reads; every other uncaught exception still re-raises after the same emit
+- [x] Health and data age — `ai-eng doctor`, whose coverage block and assertions 13 and 21 are three of the fifteen tasks, and `ai-eng audit verify` for the age of the chain
+- [x] External check — `.github/workflows/install-matrix.yml` installs the built wheel on three platforms and runs `init` and `doctor`; what it cannot check is R-008-01, because it never uninstalls on any of them
+- [x] Second path — the round trip is the second path, and it is what nothing had: `tests/test_install.py` installs the machine half, runs `uninstall`, and asks `init` and `doctor` what they see, with every count read off the disk by `stripped()` rather than out of the record under test
+- [x] Security — `just security`: gitleaks, semgrep and trivy on every push, and `python tests/adversarial/run.py` at 14 of 14 including the negative control

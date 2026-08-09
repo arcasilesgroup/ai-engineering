@@ -8,6 +8,33 @@ search for.
 
 ### Breaking changes
 
+- A JSON file this tool has to read and cannot parse now stops the verb with the file
+  named and exit 2, where it used to be read as an empty document. Two things were losing
+  data behind that: `wiring.record` read the install receipt, appended and wrote, so one
+  interrupted write emptied the record of every file this tool had installed; and the
+  settings writers read, merged and wrote back, so a `~/.claude/settings.json` carrying a
+  `//` comment — which VS Code and Cursor write as a matter of course — was replaced by our
+  hooks block alone. A file that is simply absent still reads as empty. If a verb now
+  refuses, the named file is unparseable and nothing was written.
+
+- `ai-eng uninstall` removes the skills store at `~/.ai-engineering/skills`, prints one
+  line per row in the receipt including the reason for anything it keeps, and retracts what
+  it removed from the receipt. It used to list every row, ask "Remove them?", and run a loop
+  with branches for two of the five kinds — so the store and every repository row survived
+  with no line printed, and the record still claimed all of them afterwards. It exits 1 when
+  it could not change a file, instead of 0.
+
+- `ai-eng uninstall --project` no longer touches repositories other than the one you are
+  standing in. It compared recorded paths by string prefix, so `~/repos/app` reached
+  `~/repos/app-backup`. Repositories in the receipt that are not this one are named with the
+  command to run inside each.
+
+- `ai-eng update` rewrites the guard entries the receipt records as chosen, not every
+  surface it can detect, and records what it writes. Declining a surface at `ai-eng init`
+  and running `update` later used to wire it — Cursor with `failClosed: true` — with no
+  receipt row, so `uninstall` could not find it afterwards. On a machine with no recorded
+  guard entry, `update` now writes none and names `ai-eng init --global`.
+
 - `ai-eng init --project` no longer rewrites `.ai/config.toml` or `.ai/.gitignore`. It
   writes them when they are absent, says on its own line which one it left alone, and
   names `ai-eng update` as the only verb that changes the pin. It used to rewrite both on

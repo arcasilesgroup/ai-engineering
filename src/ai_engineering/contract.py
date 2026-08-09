@@ -164,19 +164,33 @@ DESCRIPTION_MAX = 1000
 # paragraph. The dependencies spec 006 added are not in there, and that is deliberate: adding
 # one is neither a rename nor a delete, and that file says what it covers.
 #
-# 15,712 to 16,565 for spec 008, and this is a prediction rather than a measurement — the
-# first raise in this file since 005 that is not closed at the count that landed, because the
-# branch has not been written yet. 840 is the plan's figure, 13 is this paragraph, and the
-# closing task takes back whatever is left. The payer is what `ai-eng uninstall` followed by
-# `ai-eng init` prints: "Global ready · 8 skills, 4 links, 4 guards" over a machine measured
-# at zero guards and zero of our symlinks. The receipt is an append-only log of writes that
-# both verbs read as the state of the machine — it cannot shrink because uninstall never
-# writes it, and it under-reports too, because `update` rewires surfaces and records nothing.
-# Underneath sits the one that loses data rather than lying about it: read_json returns {} on
-# a parse error, so an interrupted write makes the receipt empty to every reader and the next
-# record() stores that emptiness. Fourteen more tasks, and the ratio is three test lines to
-# one of product because the last two estimates here were wrong in exactly that direction.
-REPO_CEILING = 16565
+# 15,712 to 16,803 for spec 008. The payer is what `ai-eng uninstall` followed by `ai-eng
+# init` prints: "Global ready · 8 skills, 4 links, 4 guards" over a machine measured at zero
+# guards and zero of our symlinks. The receipt is an append-only log of writes that both
+# verbs read as the state of the machine — it cannot shrink because uninstall never wrote
+# it, and it under-reported too, because `update` rewired surfaces and recorded nothing.
+# Underneath sat the one that loses data rather than lying about it: read_json returned {}
+# on a parse error, so an interrupted write made the receipt empty to every reader and the
+# next record() stored that emptiness — measured, three rows in and one row out — and the
+# same line under the three settings writers replaced a ~/.claude/settings.json carrying a
+# JSONC comment with our hooks block alone, under a line of output reading `(merged)`.
+#
+# 1,092 landed against 840 predicted — thirty per cent over, against 005's eight hundred and
+# seventy and 007's seven hundred and thirty. 27 of it is four breaking-change entries rule 4
+# had been owed since the first of them landed, and 175 is the mutation floor, which the plan
+# named as the binding gate with nothing to give and which went red at 88%. Of the 543
+# survivors 96 were in `uninstall`, at 74% against a tree at 89: the new code was a third of
+# the survivors on a twelfth of the lines. What killed them is what killed spec 006's: the
+# screen asserted whole rather than by fragment, a count asserted as a number rather than as
+# a line that has one, and a fate table with a row for every kind there is. What could not be
+# killed left instead — `timeout=10` and `capture_output=True` written at three call sites
+# are six mutants no honest test can reach, so they became one function, which is the same
+# exit spec 006 took for `soft_wrap=True`. Nine of the fifteen tasks changed a test
+# that was pinning the defect rather than adding one — fixtures made of paths that never
+# existed (`/a`, `/b`, `/c`, `/somewhere/settings.json`), vendors' directories standing in
+# for wired surfaces, and one passing assertion that an install destroys a settings file
+# whose own docstring said "this pins the loss; it does not bless it".
+REPO_CEILING = 16803
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
