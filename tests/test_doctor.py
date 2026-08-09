@@ -1025,7 +1025,10 @@ def test_assertion_21_a_plugin_that_stopped_loading_reports_nothing_at_all(home,
     """OpenCode drops a malformed plugin with no error and no log, so the only evidence it
     is running is a heartbeat file — and a heartbeat that never expires would report a dead
     plugin as alive forever."""
+    # Wired, then asked whether it is running. Unwired, it is a different failure with a
+    # different cure, and the answer this test is about never comes up.
     (home / ".config" / "opencode").mkdir(parents=True)
+    wiring.ts_opencode(wiring.expand("~/.config/opencode/plugins/ai-engineering.ts"))
     if age_days is not None:
         beat = paths.home() / "cache" / "opencode-heartbeat"
         beat.write_text("")
@@ -1038,10 +1041,24 @@ def test_assertion_21_an_untrusted_codex_hook_is_installed_and_inert(home, trust
     """Codex skips a hook nobody approved with no prompt and no log, so installed-and-inert
     looks exactly like installed-and-working until somebody runs /hooks."""
     (home / ".codex").mkdir()
+    wiring.json_codex(home / ".codex" / "hooks.json")
     if trusted:
         (home / ".codex" / trusted).write_text("{}")
     got, detail = verdict(doctor.surfaces_alive, None)
     assert (got, "INERT" in detail) == (want, want == "fail")
+
+
+def test_assertion_21_stops_offering_to_approve_an_entry_nobody_has_written(home):
+    """It told you to type /hooks in Codex to approve a guard that was not there to approve.
+    Approving an entry nobody has written is not a thing a person can do, so the command
+    that writes it comes first — which is ADR 0003's rule, on a shape spec 007 wrote it
+    before seeing."""
+    (home / ".codex").mkdir()
+    got, detail = verdict(doctor.surfaces_alive, None)
+    assert got == "fail"
+    assert "no entry of ours, so nothing can run" in detail
+    assert "INERT" not in detail, "it offered /hooks for an entry that is not there"
+    assert doctor.resolve(21, doctor.surfaces_alive(None))[1] == doctor.FIXES[2]
 
 
 @pytest.mark.parametrize(

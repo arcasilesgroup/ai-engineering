@@ -300,8 +300,16 @@ def surfaces_alive(root: Path | None) -> str | None:
     found = wiring.detect()
     if not found:
         raise Undecidable("no surface is installed here, so none of them can be running")
-    problems = []
+    # A surface with no entry of ours is not inert, it is unwired, and the two have
+    # different cures. This told you to type /hooks in Codex to approve a guard that was not
+    # there to approve — ADR 0003's rule failing on a shape spec 007 wrote it before seeing.
+    _, off = wiring.wired()
+    missing = {s["id"] for s in off}
+    problems, unwired = [], []
     for surface in found:
+        if surface["id"] in missing:
+            unwired.append(f"{surface['name']}: no entry of ours, so nothing can run")
+            continue
         if surface.get("trust_required"):
             trusted = any(
                 (wiring.expand("~/.codex") / name).exists()
@@ -317,6 +325,11 @@ def surfaces_alive(root: Path | None) -> str | None:
                     f"{surface['name']}: the plugin has not reported loading. "
                     f"A malformed plugin is dropped with no error and no log."
                 )
+    if unwired:
+        # First, and with its own cure: approving an entry nobody has written is not a
+        # thing a person can do, so naming the command that writes it comes before naming
+        # the one that approves it.
+        return "; ".join(unwired + problems), FIXES[2]
     return None if not problems else "; ".join(problems)
 
 
