@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 from rich.style import Style
 
-from ai_engineering import __version__, audit, cli, contract, doctor, paths, wiring
+from ai_engineering import __version__, audit, cli, doctor, paths, wiring
 
 emit = paths.load("_emit")
 
@@ -81,7 +81,10 @@ def test_every_assertion_has_a_unique_number_a_family_and_a_sentence():
     """Two checks sharing a number print as one line item, and the second one is invisible
     to whoever reads the output — including the person who wrote it."""
     numbers = [row[0] for row in doctor.CHECKS]
-    assert sorted(numbers) == list(range(1, 22)), "doctor claims twenty-one numbered assertions"
+    # 5 is retired, not renumbered: the numbers are cited in prose all over this repository
+    # and moving them would silently repoint every one of those citations. It was the line
+    # ceiling, and the test plane owns that assertion now.
+    assert sorted(numbers) == [n for n in range(1, 22) if n != 5]
     for number, family, title, in_ci, fn in doctor.CHECKS:
         assert family and title and callable(fn) and isinstance(in_ci, bool), number
 
@@ -191,7 +194,6 @@ def test_paths_prints_one_home_per_file_class_and_all_of_them_are_this_machine(
         "polarity",
         "data_is_yours",
         "doctrine",
-        "line_budget",
         "branch_protection",
         "production_ready",
     ],
@@ -1062,44 +1064,6 @@ def test_assertion_4_the_always_loaded_budget_and_the_identity_behind_it(
         (repo / "CONSTITUTION.md").write_text(identity)
     got, detail = verdict(doctor.doctrine, repo)
     assert (got, fragment in detail) == (want, True)
-
-
-@pytest.mark.parametrize(
-    "name, count, tracked, want, fragment",
-    [
-        ("src/ai_engineering/big.py", contract.REPO_CEILING + 1, True, "fail", "ceiling"),
-        ("src/ai_engineering/exact.py", contract.REPO_CEILING, True, "ok", ""),
-        ("src/ai_engineering/small.py", 10, True, "ok", ""),
-        ("specs/001-thing/spec.md", contract.REPO_CEILING + 1, True, "ok", ""),
-        ("src/ai_engineering/small.py", 10, False, "undecidable", "counted zero"),
-    ],
-    ids=[
-        "over the ceiling",
-        "exactly at it",
-        "under it",
-        "the record is not the product",
-        "nothing tracked",
-    ],
-)
-def test_assertion_5_counts_the_product_and_refuses_to_count_nothing(
-    repo, name, count, tracked, want, fragment
-):
-    """The ceiling is the mechanism that stops a second 436,091-line codebase: not
-    discipline, an exit code. Counting zero files is not a pass, and specs and decisions
-    are excluded on purpose — the record grows every time a decision is written down."""
-    (repo / "src" / "ai_engineering").mkdir(parents=True, exist_ok=True)
-    (repo / name).parent.mkdir(parents=True, exist_ok=True)
-    (repo / name).write_text("x\n" * count)
-    if tracked:
-        git(repo, "add", "-A")
-    got, detail = verdict(doctor.line_budget, repo)
-    assert (got, fragment in detail) == (want, True)
-
-
-def test_assertion_5_says_so_rather_than_passing_outside_the_product_repository(repo):
-    """This check only means something where src/ai_engineering is, and every other
-    repository has to be told that instead of shown a green it did not earn."""
-    assert verdict(doctor.line_budget, repo)[0] == "undecidable"
 
 
 BOXES = "## Production-ready\n\n"

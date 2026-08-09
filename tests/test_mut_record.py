@@ -453,6 +453,19 @@ def test_a_horizontal_rule_in_the_body_does_not_end_the_frontmatter(tmp_path):
 # ------------------------------------------------------------------ contract
 
 
+def test_the_record_and_the_licence_are_not_counted_as_the_product(tmp_path):
+    """Two reasons and only two: the record grows by design every time a decision is
+    written down, and nobody here wrote the licence or can shorten it. Counting either
+    would make the ceiling fire on somebody documenting a decision, which is the one
+    behaviour it must never punish."""
+    subprocess.run(["git", "-C", str(tmp_path), "init"], check=True, capture_output=True)
+    for name in ("src/a.py", "specs/001-thing/spec.md", "docs/adr/0001-a.md", "LICENSE", "NOTICE"):
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text("x\n" * 10)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], check=True, capture_output=True)
+    assert contract.repo_lines(Path(tmp_path)) == 10
+
+
 def test_a_file_git_lists_but_the_disk_has_lost_is_skipped_not_a_full_stop(tmp_path):
     """The line ceiling is an exit code, so the count has to be the whole tree. A deleted
     file that git still lists would stop the count where it stands, and the repository

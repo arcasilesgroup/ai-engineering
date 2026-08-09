@@ -454,24 +454,12 @@ def doctrine(root: Path | None) -> str | None:
     return None if not problems else "; ".join(problems)
 
 
-@check(5, "The context", "The product repository is under its line ceiling")
-def line_budget(root: Path | None) -> str | None:
-    if root is None or not (root / "src" / "ai_engineering").exists():
-        raise Undecidable("this check only means anything inside the product repository")
-    from ai_engineering import contract
-
-    try:
-        total = contract.repo_lines(root)
-    except ValueError as why:
-        raise Undecidable(str(why)) from why
-    return (
-        None
-        if total <= contract.REPO_CEILING
-        else (
-            f"{total} lines against a ceiling of {contract.REPO_CEILING}. Raise it in a commit "
-            f"whose message says why, or delete something."
-        )
-    )
+# Assertion 5 was here: the product repository is under its line ceiling. It computed the
+# same number from the same function and compared it to the same constant as
+# `tests/test_contracts.test_the_line_ceiling_holds`, and CI ran both in the same job
+# eleven lines apart. It also refused to evaluate anywhere outside this repository, so it
+# has never told a user anything. The test is the right one to keep of the two: it fails
+# the build, where the check only printed a line.
 
 
 # ---------------------------------------------------------------- the outside
