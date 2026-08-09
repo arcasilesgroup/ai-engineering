@@ -20,9 +20,14 @@ SECTION = "## Accepted risks"
 
 
 def blocks(root: Path) -> list[tuple[Path, dict]]:
+    """Raises ValueError naming the file when a block cannot be read. Every caller either
+    handles that or lets it become could-not-evaluate — none of them may treat it as
+    nothing found, which is what made a malformed acceptance invisible to the expiry
+    check while the gate reported green over it."""
     out = []
     for spec in sorted((root / "specs").glob("*/spec.md")) if (root / "specs").exists() else []:
-        for block in text.yaml_blocks(spec.read_text(errors="replace")):
+        name = str(spec.relative_to(root)) if spec.is_relative_to(root) else str(spec)
+        for block in text.yaml_blocks(spec.read_text(errors="replace"), name):
             if "expires" in block and "finding" in block:
                 out.append((spec, block))
     return out
@@ -78,7 +83,12 @@ def main(argv: list[str]) -> int:
         return 1
 
     if args.expired:
-        stale = expired(root)
+        try:
+            stale = expired(root)
+        except ValueError as why:
+            print(f"  UNDECIDABLE  {why}")
+            print("  A record block nobody can read is not a record, and it is not a pass.")
+            return 1
         for block in stale:
             print(
                 f"  EXPIRED  {block.get('id', '?')}  {block['finding']}  "
@@ -109,7 +119,18 @@ def main(argv: list[str]) -> int:
         )
         return 1
     spec = specs[-1]
-    existing = [b for _, b in blocks(root) if b.get("finding") == args.finding]
+    try:
+        recorded = blocks(root)
+    except ValueError as why:
+        # Without this the verb tracebacks on a neighbour somebody typed wrong, and the
+        # answer to "the record is unreadable" is not "so is this command".
+        print(f"  {why}")
+        print(
+            "  Nothing was written: a new acceptance cannot be numbered against a "
+            "record that cannot be read. Fix that block first."
+        )
+        return 1
+    existing = [b for _, b in recorded if b.get("finding") == args.finding]
     renewals = max((renewals_of(b) for b in existing), default=-1) + 1
     if renewals > MAX_RENEWALS:
         print(
@@ -117,7 +138,7 @@ def main(argv: list[str]) -> int:
             f"That is the ceiling: fix it, or change the answer."
         )
         return 1
-    number = len([b for _, b in blocks(root)]) + 1
+    number = len(recorded) + 1
     add(
         spec,
         {

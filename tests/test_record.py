@@ -92,11 +92,17 @@ def test_a_file_with_no_frontmatter_is_a_refusal_not_an_empty_dict(tmp_path):
     assert text.frontmatter(good) == {"name": "a"}
 
 
-def test_one_broken_yaml_block_does_not_hide_the_good_ones_after_it():
-    """The risk acceptances are yaml blocks inside markdown. If a typo in the first block
-    stopped the scan, an expired acceptance further down the file would never be found."""
+def test_a_block_that_cannot_be_read_is_undecidable_and_never_invisible():
+    """A malformed block used to be caught and skipped, so an acceptance whose YAML was a
+    little wrong disappeared from the expiry check that both `pre-push` and `doctor` read
+    — and the gate went green over a risk that had run out. Silence on a parse failure is
+    the exact shape of a false green. The message names the file, or whoever reads the
+    refusal is told a record somewhere cannot be read and not which one."""
     body = "```yaml\n  broken\n```\n\ntext\n\n```yaml\nfinding: F-1\nexpires: 2030-01-01\n```\n"
-    assert text.yaml_blocks(body) == [{"finding": "F-1", "expires": "2030-01-01"}]
+    with pytest.raises(ValueError, match="specs/001-a/spec.md cannot be read"):
+        text.yaml_blocks(body, "specs/001-a/spec.md")
+    good = "```yaml\nfinding: F-1\nexpires: 2030-01-01\n```\n"
+    assert text.yaml_blocks(good) == [{"finding": "F-1", "expires": "2030-01-01"}]
     assert text.flat_yaml(text.render({"a": "1"}).split("\n", 1)[1].rsplit("```", 2)[0]) == {
         "a": "1"
     }
@@ -156,6 +162,21 @@ def test_a_block_whose_renewal_counter_is_not_a_number_counts_as_none(repo):
         encoding="utf-8",
     )
     assert accept.expired(repo) == []
+
+
+def test_a_malformed_block_stops_the_gate_rather_than_disappearing_from_it(repo, capsys):
+    """All four callers, in one place: the expiry reader raises, `--expired` refuses and
+    exits non-zero — which is what `pre-push` reads — and the write path says nothing was
+    written instead of tracebacking on a neighbour somebody typed wrong. Before this, the
+    block was skipped, the risk was invisible and every one of them reported green."""
+    (repo / "specs" / "001-a").mkdir()
+    (repo / "specs" / "001-a" / "spec.md").write_text(
+        "```yaml\n  broken\n```\n" + _acceptance("F-past", YESTERDAY), encoding="utf-8"
+    )
+    assert accept.main(["--expired"]) == 1
+    assert "UNDECIDABLE" in capsys.readouterr().out
+    assert accept.main(["--finding", "F-2", "--expires", TOMORROW, *SIGNED]) == 1
+    assert "Nothing was written" in capsys.readouterr().out
 
 
 def test_an_acceptance_with_no_end_date_is_refused(repo, capsys):

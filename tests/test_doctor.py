@@ -258,6 +258,18 @@ def test_a_chain_that_was_never_written_is_not_a_broken_chain_and_is_not_a_pass_
     assert emit.chain_path(repo).parent.exists()
 
 
+def test_assertion_16_reports_could_not_evaluate_over_a_block_nobody_can_read(home, repo):
+    """It read every acceptance through a parser that caught its own failure and moved on,
+    so a block with slightly wrong YAML was invisible here and the check reported ok over a
+    risk that had expired. Could-not-evaluate is an answer and prints a question mark;
+    invisible is a green nobody earned."""
+    (repo / "specs" / "001-a").mkdir(parents=True)
+    (repo / "specs" / "001-a" / "spec.md").write_text("```yaml\n  broken\n```\n")
+    got, detail = verdict(doctor.acceptances_current, repo)
+    assert got == "undecidable"
+    assert "001-a/spec.md cannot be read" in detail
+
+
 @pytest.mark.parametrize(
     "archived, want", [(None, "ok"), (2, "ok"), (9, "fail")], ids=["none", "level", "ahead"]
 )

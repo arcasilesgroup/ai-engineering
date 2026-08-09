@@ -346,7 +346,10 @@ def acceptances_current(root: Path | None) -> str | None:
 
     if root is None:
         raise Undecidable("not inside a repository")
-    stale = accept.expired(root)
+    try:
+        stale = accept.expired(root)
+    except ValueError as why:
+        raise Undecidable(str(why)) from why
     return (
         None
         if not stale
