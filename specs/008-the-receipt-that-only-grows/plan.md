@@ -30,6 +30,15 @@ asks what `init` sees. That is why a screen reporting four guards over zero coul
 the only commit in this plan allowed to be red, and it is red on purpose for exactly one
 commit.
 
+> **Changed while building, and recorded rather than tidied away.** It landed as four strict
+> `xfail`s instead of four red tests. Same pinning, and a green gate: a strict marker turns the
+> build red the moment the defect is fixed without the marker being deleted, so each one names
+> the task that removes it. This is the idiom this repository already uses — spec 005's whole
+> first task was deleting one — and a red commit would have made `just check` fail on the
+> branch for a reason a reviewer has to be told to ignore. Each test asserts against
+> `stripped()`, which reads the guards and links off the disk, so the four failures are about
+> what the report says and never about `uninstall` having failed to do its half.
+
 **Task 2 lands before anything else touches the receipt.** While a corrupt receipt reads as an
 empty one, every later task is building on a file that can silently become `{}` — and task 3's
 retraction path would then write that emptiness back as fact.

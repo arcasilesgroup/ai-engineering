@@ -392,6 +392,96 @@ def test_uninstall_removes_skills_that_were_copied_rather_than_linked(home):
     assert not (root / "ai-spec").exists(), "a copied skill survived the uninstall"
 
 
+# ── the round trip ──────────────────────────────────────────────────────────────────
+#
+# Nothing in this suite ran `uninstall` and then asked what the next command sees. Six tests
+# called `uninstall.main`; none of them read the receipt afterwards and none of them called
+# `init.main`. That is how a screen reporting four guards over a machine with none of them
+# shipped: every half was asserted and the seam between them was not.
+#
+# Each marker below names one defect and comes off in the commit that fixes it. They are
+# strict, so the fix without the deletion is a failing build — which is the whole point of
+# their being strict, and is how spec 005 carried the defect it was written to close.
+
+
+@pytest.fixture
+def wired(home):
+    """A machine with the global half actually installed: two surfaces on disk, so
+    `wiring.detect` finds something to write into and the receipt gets real rows."""
+    (home / ".claude").mkdir()
+    (home / ".codex").mkdir()
+    init.main(["--global", "--no-project", "-y"])
+    assert wiring.ours((home / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    return home
+
+
+def stripped(home) -> dict:
+    """What is actually on the machine, read from the machine and never from the receipt."""
+    roots = [wiring.expand(s["skills"]) for s in wiring.table()["surface"] if s.get("skills")]
+    return {
+        "guards": sum(
+            wiring.ours(path.read_text(errors="replace"))
+            for path in (wiring.expand(s["settings"]) for s in wiring.table()["surface"])
+            if path.is_file()
+        ),
+        "links": sum(len([x for x in root.glob("ai-*") if x.is_symlink()]) for root in roots),
+    }
+
+
+@pytest.mark.xfail(
+    reason="uninstall never writes machine.json, so the receipt still lists every guard and "
+    "link it has just removed. Fixed by task 4 of spec 008.",
+    strict=True,
+)
+def test_the_receipt_stops_claiming_what_uninstall_removed(wired):
+    """The record of what is installed, after the verb whose whole job is to uninstall it."""
+    uninstall.main(["-y"])
+    assert stripped(wired) == {"guards": 0, "links": 0}, "uninstall left the machine wired"
+    kinds = {row["kind"] for row in wiring.receipt().get("wrote", [])}
+    assert not kinds & {"guard", "link"}, f"the receipt still claims {sorted(kinds)}"
+
+
+@pytest.mark.xfail(
+    reason="global_ready() reads the receipt rather than the machine, so a stripped machine "
+    "reports ready. Fixed by task 8 of spec 008.",
+    strict=True,
+)
+def test_a_machine_uninstall_stripped_is_not_reported_as_ready(wired):
+    """`ai-eng init` printed `Global ready · 4 links, 4 guards` over zero of both."""
+    uninstall.main(["-y"])
+    assert stripped(wired) == {"guards": 0, "links": 0}
+    assert init.global_ready() is False, "a machine with no guards on it reported ready"
+
+
+@pytest.mark.xfail(
+    reason="only --global forces past global_ready(), so a plain init cannot repair a machine "
+    "uninstall stripped. Fixed by task 8 of spec 008.",
+    strict=True,
+)
+def test_a_plain_init_after_uninstall_rewires_rather_than_reporting_ready(wired):
+    """The install verb, told by a log that there is nothing to install."""
+    uninstall.main(["-y"])
+    init.main(["--no-project", "-y"])
+    assert stripped(wired)["guards"], "a plain `ai-eng init` wired nothing back"
+
+
+@pytest.mark.xfail(
+    reason="assertion 13 tests that the skills root directory exists, not that any link of "
+    "ours is inside it. Fixed by task 11 of spec 008.",
+    strict=True,
+)
+def test_doctor_does_not_call_a_stripped_machine_healthy(wired):
+    """The one assertion whose title is `Every symlink resolves` reported ok with none left."""
+    from ai_engineering import doctor
+
+    uninstall.main(["-y"])
+    assert stripped(wired)["links"] == 0
+    problem = None
+    with contextlib.suppress(doctor.Undecidable):
+        problem = doctor.links_resolve(None)
+    assert problem is not None, "assertion 13 passed with every one of our symlinks deleted"
+
+
 def test_uninstall_removes_nothing_until_somebody_types_yes(home, tmp_path, keyboard):
     """Without -y the question is the whole safety. A consent check satisfied by the mere
     presence of a terminal rather than by the answer typed into it strips a machine's guards
