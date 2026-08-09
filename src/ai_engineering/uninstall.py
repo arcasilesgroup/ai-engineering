@@ -100,7 +100,17 @@ def unwire(root: Path, rows: list[dict]) -> None:
         ["config", "core.hooksPath", before] if before else ["config", "--unset", "core.hooksPath"]
     )
     for key in (restore, ["config", "--unset", "ai.managed"], ["config", "--unset", "ai.eng"]):
-        subprocess.run(["git", "-C", str(root), *key], timeout=10, capture_output=True)
+        git(root, key)
+
+
+def git(root: Path, key: list[str]) -> None:
+    """One place for the three arguments every call here shares, and that is the whole
+    reason it exists: `timeout=10` and `capture_output=True` written at three call sites are
+    six mutants no honest test can kill, because a repository that answers in eleven seconds
+    instead of ten is not a behaviour anybody can assert. Spec 006 met the same thing in
+    `soft_wrap=True` and took the same way out — the argument stops being repeated, so the
+    mutants stop existing rather than being waived."""
+    subprocess.run(["git", "-C", str(root), *key], timeout=10, capture_output=True)
 
 
 def fate(row: dict, root: Path | None) -> str:

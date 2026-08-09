@@ -543,6 +543,50 @@ def test_doctor_does_not_call_a_stripped_machine_healthy(wired):
     assert problem is not None, "assertion 13 passed with every one of our symlinks deleted"
 
 
+def test_the_count_of_links_removed_is_the_number_it_removed(home, capsys):
+    """The line reports a count, so the count is asserted rather than its presence. Every
+    arithmetic mutant of it — set to one, decremented, stepped by two — is a screen that
+    says a number nobody counted, which is the smallest possible version of this spec."""
+    store = paths.home() / "skills"
+    root = home / ".claude" / "skills"
+    root.mkdir(parents=True)
+    for name in ("ai-spec", "ai-plan", "ai-note"):
+        (store / name).mkdir(parents=True)
+        (root / name).symlink_to(store / name)
+    wiring.record([{"path": str(root), "kind": "link", "how": "symlink"}])
+    uninstall.main(["-y"])
+    assert f"✓ 3 skills removed from {root}" in capsys.readouterr().out
+    assert not list(root.glob("ai-*"))
+
+
+def test_a_copied_skill_goes_only_where_the_receipt_says_we_copied(home):
+    """`how` is the receipt answering the one question the disk cannot: a directory named
+    like a skill is ours when we put it there and somebody else's otherwise. Without the row
+    saying copy, a real directory in a skills root is not ours to delete."""
+    store = paths.home() / "skills"
+    (store / "ai-spec").mkdir(parents=True)
+    root = home / ".claude" / "skills"
+    (root / "ai-spec").mkdir(parents=True)
+    wiring.record([{"path": str(root), "kind": "link", "how": "symlink"}])
+    uninstall.main(["-y"])
+    assert (root / "ai-spec").is_dir(), "a directory was removed on a row that says symlink"
+
+    wiring.record([{"path": str(root), "kind": "link", "how": "copy"}])
+    uninstall.main(["-y"])
+    assert not (root / "ai-spec").exists(), "the copy the receipt names survived"
+
+
+def test_a_project_file_somebody_deleted_by_hand_is_not_an_error(repo, home, monkeypatch):
+    """`uninstall` runs over a record of what was written, and a person is free to have
+    removed any of it already. Reaching for a file that is gone has to be the ordinary case,
+    not a traceback in the middle of unwiring a repository."""
+    init.main(["--no-global", "--project", str(repo), "-y"])
+    (repo / "justfile").unlink()
+    monkeypatch.chdir(repo)
+    assert uninstall.main(["--project", "-y"]) == 0
+    assert git_get(repo, "core.hooksPath") == "", "the unwiring stopped at the missing file"
+
+
 def test_the_link_branch_leaves_a_skill_this_install_never_wrote(home, capsys):
     """It globbed `ai-*` in the surface's skills root and unlinked whatever came back, so a
     skill somebody else installed under that prefix went with ours — from the verb that
@@ -634,6 +678,129 @@ def test_uninstall_cannot_reach_a_repository_you_are_not_standing_in(repo, home,
 def test_inside_answers_by_path_parts_and_never_by_string_prefix(path, expected):
     """The unit of the above, because the sibling that matters is the one nobody has yet."""
     assert uninstall.inside(path, Path("/repos/app")) is expected
+
+
+@pytest.mark.parametrize(
+    "kind, root, want",
+    [
+        ("guard", None, ""),
+        ("link", None, ""),
+        ("skills", None, ""),
+        ("project", None, "kept — repository files"),
+        ("repo", None, "kept — repository files"),
+        ("project", Path("/repos/app"), ""),
+        ("repo", Path("/repos/app"), ""),
+        ("project", Path("/repos/other"), "kept — belongs to another repository"),
+        ("repo", Path("/repos/other"), "kept — not this repository"),
+    ],
+)
+def test_what_happens_to_a_row_is_decided_once_for_every_kind_there_is(kind, root, want):
+    """The table this verb's screen and its loop both read. They used to be two answers —
+    a list that printed every row and a loop with branches for two of the five kinds — and
+    the whole defect was that the two could disagree. Every kind is named here, so a sixth
+    one arriving with no fate lands on this test rather than on somebody's machine."""
+    row = {"path": "/repos/app" if kind == "repo" else "/repos/app/justfile", "kind": kind}
+    got = uninstall.fate(row, root)
+    assert got.startswith(want) if want else got == ""
+
+
+@pytest.mark.parametrize(
+    "typed, removed", [("y", True), ("Y", True), ("yes", True), ("n", False), ("", False)]
+)
+def test_the_consent_question_is_the_answer_typed_into_it(home, tmp_path, typed, removed, keyboard):
+    """A consent check satisfied by the presence of a terminal rather than by the answer
+    typed into it strips a machine's guards on the run somebody started in order to read
+    the list. The prompt's own words are pinned because they are the question being
+    answered."""
+    keyboard(typed)
+    settings = tmp_path / "settings.json"
+    wiring.write_json(settings, {"hooks": [{"command": wiring.command("PreToolUse")}]})
+    wiring.record([{"path": str(settings), "kind": "guard", "how": "json_claude"}])
+    code = uninstall.main([])
+    assert wiring.ours(settings.read_text(encoding="utf-8")) is not removed
+    assert code == (0 if removed else 1)
+
+
+def test_declining_says_so_and_leaves_the_record_exactly_as_it_was(
+    home, tmp_path, capsys, keyboard
+):
+    """The other half of the same question: a run that removed nothing must not retract
+    anything either, or the record starts disagreeing with the machine in the direction this
+    spec spent fifteen tasks removing."""
+    keyboard("n")
+    settings = tmp_path / "settings.json"
+    wiring.write_json(settings, {"hooks": [{"command": wiring.command("PreToolUse")}]})
+    wiring.record([{"path": str(settings), "kind": "guard", "how": "json_claude"}])
+    before = wiring.receipt_path().read_text(encoding="utf-8")
+    assert uninstall.main([]) == 1
+    assert "  nothing removed.\n" in capsys.readouterr().out
+    assert wiring.receipt_path().read_text(encoding="utf-8") == before
+
+
+def test_the_repository_half_is_retracted_from_the_record_too(repo, home, monkeypatch):
+    """`--project` unwires the repository, and the rows that described it have to leave the
+    record with everything else — otherwise the next `uninstall` lists files it removed an
+    hour ago and offers to remove them again."""
+    init.main(["--no-global", "--project", str(repo), "-y"])
+    assert [r["kind"] for r in wiring.receipt()["wrote"] if r["kind"] in ("project", "repo")]
+    monkeypatch.chdir(repo)
+    uninstall.main(["--project", "-y"])
+    left = [r["kind"] for r in wiring.receipt().get("wrote", [])]
+    assert not [k for k in left if k in ("project", "repo")], f"the record kept {left}"
+
+
+def test_a_skills_store_that_is_already_gone_says_so_rather_than_ticking(home, capsys):
+    """A tick for work that did not happen is the smallest version of this spec's subject."""
+    wiring.record([{"path": str(paths.home() / "skills"), "kind": "skills", "how": "wheel"}])
+    uninstall.main(["-y"])
+    assert "→ " in capsys.readouterr().out
+
+
+def test_the_whole_uninstall_screen_line_for_line(home, capsys):
+    """Every line, not a fragment of one. Specs 005 and 006 both closed on the same lesson
+    and it is written down in the ceiling comment: two screens asserted by fragment, where
+    every line the fragment did not name could be emptied or upper-cased with the suite
+    still green. This verb's screen is the one a person reads while deciding whether to
+    answer y, so it is held whole.
+
+    One row of every kind there is, and two of them are kept — which is what makes the
+    header's count, the reason on each kept row and the repository it will not enter all
+    assertions rather than decoration."""
+    store = paths.home() / "skills"
+    (store / "ai-spec").mkdir(parents=True)
+    root = home / ".claude" / "skills"
+    root.mkdir(parents=True)
+    (root / "ai-spec").symlink_to(store / "ai-spec")
+    settings = home / ".claude" / "settings.json"
+    wiring.json_claude(settings)
+    wiring.record(
+        [
+            {"path": str(settings), "kind": "guard", "how": "json_claude"},
+            {"path": str(root), "kind": "link", "how": "symlink"},
+            {"path": str(store), "kind": "skills", "how": "wheel"},
+            {"path": "/elsewhere/repo/justfile", "kind": "project", "how": "written"},
+            {"path": "/elsewhere/repo", "kind": "repo", "how": ""},
+        ]
+    )
+    capsys.readouterr()
+    uninstall.main(["-y"])
+    kept = "kept — repository files; re-run with --project inside that repository"
+    assert capsys.readouterr().out == (
+        f"  5 things are recorded here, and 3 of them will be removed:\n"
+        f"    guard    {settings}\n"
+        f"    link     {root}\n"
+        f"    skills   {store}\n"
+        f"    project  /elsewhere/repo/justfile  ·  {kept}\n"
+        f"    repo     /elsewhere/repo  ·  {kept}\n"
+        f"  Kept, always: specs/, CONSTITUTION.md, AGENTS.md, docs/adr/\n"
+        f"  Not entered: /elsewhere/repo — `cd /elsewhere/repo && ai-eng uninstall --project`\n"
+        f"  ✓ entries removed from {settings}\n"
+        f"  ✓ 1 skills removed from {root}\n"
+        f"  ✓ skills removed from {store}\n"
+        f"\n"
+        f"  The record is still at {paths.home() / 'state'}. Delete that folder yourself if "
+        f"you want it gone: it is proof of what happened, and not ours to throw away.\n"
+    )
 
 
 def test_every_row_it_lists_gets_a_line_saying_what_happened_to_it(home, tmp_path, capsys):
