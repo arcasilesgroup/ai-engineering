@@ -391,13 +391,11 @@ def test_uninstall_keeps_a_justfile_the_installer_refused_to_overwrite(repo, hom
     assert (repo / "justfile").exists(), "uninstall deleted a file the user wrote"
 
 
-@pytest.mark.xfail(
-    reason="wiring.link copies where symlinks are unavailable and records how: 'copy', but "
-    "uninstall only unlinks symlinks, so on Windows every skill it installed stays behind.",
-    strict=True,
-)
 def test_uninstall_removes_skills_that_were_copied_rather_than_linked(home):
-    """Uninstall a machine where the skills were copied in, which is what Windows gets."""
+    """Uninstall a machine where the skills were copied in, which is what Windows gets.
+
+    This was a strict xfail for as long as the link branch only unlinked symlinks: every
+    skill this tool installed on Windows stayed behind, and the marker was the alarm on it."""
     root = home / "skills"
     (root / "ai-spec").mkdir(parents=True)
     (root / "ai-spec" / "SKILL.md").write_text("copied", encoding="utf-8")
@@ -488,6 +486,25 @@ def test_doctor_does_not_call_a_stripped_machine_healthy(wired):
     with contextlib.suppress(doctor.Undecidable):
         problem = doctor.links_resolve(None)
     assert problem is not None, "assertion 13 passed with every one of our symlinks deleted"
+
+
+def test_the_link_branch_leaves_a_skill_this_install_never_wrote(home, capsys):
+    """It globbed `ai-*` in the surface's skills root and unlinked whatever came back, so a
+    skill somebody else installed under that prefix went with ours — from the verb that
+    exists to prove this tool takes only what it brought."""
+    store = paths.home() / "skills"
+    (store / "ai-spec").mkdir(parents=True)
+    root = home / ".claude" / "skills"
+    root.mkdir(parents=True)
+    (root / "ai-spec").symlink_to(store / "ai-spec")
+    theirs = root / "ai-design"
+    theirs.symlink_to(home / "somewhere-else")
+    wiring.record([{"path": str(root), "kind": "link", "how": "symlink"}])
+
+    uninstall.main(["-y"])
+    assert not (root / "ai-spec").exists(), "ours survived"
+    assert theirs.is_symlink(), "uninstall took a skill it never installed"
+    assert "✓ 1 skills removed from" in capsys.readouterr().out
 
 
 def test_one_file_it_cannot_change_stops_that_file_and_not_the_loop(home, tmp_path, capsys):

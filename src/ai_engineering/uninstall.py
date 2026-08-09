@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -120,6 +121,32 @@ def fate(row: dict, root: Path | None) -> str:
     return "" if inside(row["path"], root) else "kept — belongs to another repository"
 
 
+def strip_links(root: Path, how: str) -> int:
+    """The skills this install put in that root, and nothing else that happens to be named
+    like them. It used to glob `ai-*` and unlink whatever came back, so a skill somebody
+    else installed under that prefix was collateral — and every skill on Windows survived,
+    because `wiring.link` copies where symlinks are unavailable and records `how: "copy"`
+    while this branch only ever unlinked symlinks. That second half was a strict xfail in
+    this repository, which is a defect with an alarm on it rather than an unknown one.
+
+    The names come from the wheel's own skills directory rather than from the store, because
+    the store row is removed earlier in the same run and a list read from it would be empty
+    by the time this is reached. A symlink counts as ours when it resolves into our store."""
+    mine = paths.home() / "skills"
+    removed = 0
+    for skill in sorted(paths.skills().glob("ai-*")):
+        target = root / skill.name
+        if target.is_symlink():
+            landing = Path(os.readlink(target))
+            if landing == mine / skill.name or landing.is_relative_to(mine):
+                target.unlink()
+                removed += 1
+        elif how == "copy" and target.is_dir():
+            shutil.rmtree(target, ignore_errors=True)
+            removed += 1
+    return removed
+
+
 def strip_skills(path: Path) -> bool:
     """The store this install copied the skills into. It is ours, nothing else reads it, and
     it was listed under "Remove them?" with no branch to remove it — so eight skills survived
@@ -174,9 +201,12 @@ def main(argv: list[str]) -> int:
                     else f"  → {path} had no entry of ours"
                 )
             elif row["kind"] == "link":
-                for link in path.glob("ai-*"):
-                    link.unlink() if link.is_symlink() else None
-                print(f"  ✓ symlinks removed from {path}")
+                count = strip_links(path, row.get("how", ""))
+                print(
+                    f"  ✓ {count} skills removed from {path}"
+                    if count
+                    else f"  → {path} had none of ours left"
+                )
             elif row["kind"] == "skills":
                 done = strip_skills(path)
                 print(f"  ✓ skills removed from {path}" if done else f"  → {path} was already gone")
