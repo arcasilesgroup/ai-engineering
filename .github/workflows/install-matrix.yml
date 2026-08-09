@@ -46,7 +46,10 @@ jobs:
           mkdir -p "$RUNNER_TEMP/stranger" && cd "$RUNNER_TEMP/stranger"
           git init -b main . && git config user.email ci@example.com && git config user.name ci
           echo seed > seed.txt && git add -A && git commit -m "chore: seed"
-          ai-eng --version
+          # Compared rather than printed and thrown away: `--force` over an older tool that
+          # failed to replace leaves the whole matrix testing yesterday's wheel.
+          built=$(ls "$GITHUB_WORKSPACE"/dist/*.whl | head -1 | sed -E 's/.*-([0-9][^-]*)-py3.*/\1/')
+          ai-eng --version | grep -q "$built" || { echo "installed tool is not $built"; exit 1; }
           ai-eng init --global --project . -y
           test -f .ai/config.toml || { echo "the pin was never written"; exit 1; }
           test -f CONSTITUTION.md || { echo "identity was never written"; exit 1; }
@@ -54,6 +57,37 @@ jobs:
           ai-eng doctor --paths
           ai-eng spec new first-thing
           ai-eng audit verify
+
+      # No guard has ever been executed from the built wheel. The matrix proved the CLI
+      # half and `release.yml` proves the dispatcher shipped inside the zip, which says the
+      # file is there and nothing about whether it still denies — and the layout under
+      # site-packages is not the layout in the checkout, so the packaged guard is the one
+      # configuration nobody has ever run. The payload is the cheapest guard we own: pure
+      # pattern matching, no fixture, no network, no scanner.
+      #
+      # Naming the guard is the whole value. The dispatcher fails closed, so a crashed
+      # guard, a failed import and a correct denial all exit 2, and without the name this
+      # step would pass most loudly in the case it exists to catch. The path is the one
+      # `doctor --paths` prints, which this job was already printing and discarding.
+      - name: a packaged guard actually denies, from the installed tree
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/stranger"
+          guards=$(ai-eng doctor --paths | awk '$1 == "guards" { print $2 }')
+          test -n "$guards" || { echo "doctor printed no guards path"; exit 1; }
+          payload='{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_use_id":"t1",
+                    "tool_input":{"command":"git commit --no-verify -m x"}}'
+          set +e
+          said=$(echo "$payload" | uv run --no-project --python 3.12 \
+                 python "$guards/chain.py" PreToolUse 2>&1 >/dev/null)
+          code=$?
+          set -e
+          echo "$said"
+          test "$code" = "2" || { echo "the packaged guard exited $code, not 2"; exit 1; }
+          case "$said" in
+            *no_verify_guard*) ;;
+            *) echo "exit 2 came from something other than the guard"; exit 1 ;;
+          esac
 
       - name: the pin holds — install one version, pin another, and it must say so
         shell: bash
