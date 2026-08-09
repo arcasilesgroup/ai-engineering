@@ -1,7 +1,7 @@
 ---
 id: "005"
 slug: init-says-what-it-did
-status: draft
+status: shipped
 date: 2026-08-08
 ref: ""
 supersedes: ""
@@ -161,6 +161,15 @@ branches produce one conflict. And it does not raise the ceiling: 003 already de
 ceiling rises once and closes at the count that landed, so this work is arithmetic inside
 that raise and its numbers go into that commit's table, not into a second one.
 
+That second sentence is the one thing here the branch did not keep, and it is left standing
+rather than edited out. 003 was not landing on the same day, its own plan's arithmetic was
+stale against a base 6,400 lines further on, and a spec that raises nothing while adding 667
+lines is a spec whose closing commit cannot go green. So 005 restated 003's raise as its
+precondition and closed the constant itself, at 12,686. The plan's first table row is that
+restatement and its last is the close; what the intention above was protecting — one raise,
+measured, with no slack surviving the branch — is what happened, under a different number's
+name.
+
 Rule 10, one line each. **KISS** — the reported bug is one line moved, and the fix is
 allowed to stay that size. **YAGNI** — the widget, the `--fix` flag, the tool registry and
 the per-surface uninstall are four features built for a problem nobody here has had, and
@@ -240,28 +249,26 @@ renewals: 0
 justification: every overwrite leaves a dated .bak file at the repository root, nothing ignores them, no verb removes them and git add -A commits them, and this spec only makes the name collision-proof rather than cleaning them up; the blast radius is clutter in somebody's first commit rather than lost work, because the backup is the recovery path and deleting it automatically would be worse
 follow_up: decide whether the managed .gitignore covers the pattern or uninstall removes them, and record it as a decision here
 ```
-```yaml
-id: R-005-15
-finding: init-overwrite-all-bypasses-constitution
-severity: high
-accepted_by: soydachi
-accepted: 2026-08-08
-expires: 2026-09-07
-renewals: 0
-justification: init --project --overwrite all -y still overwrites AGENTS.md and CONSTITUTION.md with no typed confirmation, which the constitution forbids after they have been written once, and this spec deliberately does not fix it because spec 003 already decides that init stops offering to overwrite the two files the constitution protects; the risk is that 003 slips and the violation ships with this work
-follow_up: spec 003 lands, or this spec absorbs the two-file refusal and this acceptance is withdrawn rather than renewed
-```
+**R-005-15 `init-overwrite-all-bypasses-constitution` was withdrawn on 2026-08-09, not
+renewed.** Its own follow-up named the two ways out and spec 003 took the first: `init`
+carries `PROTECTED`, `existing()` skips those two names, and `--overwrite all` therefore
+cannot reach them. The check is
+`tests/test_install.py::test_the_two_files_the_constitution_protects_are_written_once_and_never_offered`,
+which edits both files by hand and asserts the run leaves them. The block is gone rather
+than annotated: an acceptance says a finding is live, and this one was describing
+behaviour the tree no longer has.
+
 <!-- ai-eng accept writes yaml blocks here -->
 
 ## Production-ready
 
 Nothing gets a URL until every box is ticked, and each one is ticked by a command.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check`, run by `.github/workflows/check.yml` on every push; there is nothing to deploy, and `.github/workflows/release.yml` is what publishes the wheel
+- [x] Logs — `ai-eng digest` reads them: every verb in `cli.VERBS` emits one JSON line per run, and this spec added no class to that set
+- [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
+- [x] Errors — `cli.main` emits an event of the error class before it re-raises, and `ai-eng digest` is where it is read
+- [x] Health and data age — `ai-eng doctor`, which this spec is half about, and `ai-eng audit verify` for the age of the chain
+- [x] External check — `.github/workflows/install-matrix.yml` installs the built wheel on three platforms and runs `init` and `doctor` against a repository they have never seen; what it cannot check is written down as R-005-17, because `-y` returns before every prompt this spec added
+- [x] Second path — the only number this spec publishes is the ceiling, and `tests/test_contracts.py::test_the_line_ceiling_holds` recomputes it from `git ls-files` and compares it with the constant: `just test`
+- [x] Security — `just security`: gitleaks, semgrep and trivy on every push

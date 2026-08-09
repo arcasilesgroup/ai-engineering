@@ -51,6 +51,15 @@ spec adds, both asserted by fragment, so every line the fragment did not name co
 emptied or upper-cased with the suite still green. The plan predicted that the floor would
 be the second binding gate and that it had no margin. It was, and it did.
 
+**Row 6 no longer describes the tree.** It landed as a dated backup and a line of output on
+every run, and spec 007 reversed that half: `init` writes `.ai/config.toml` when it is
+absent and never rewrites it, because `ai-eng update` is the verb that changes governance
+and it keeps its three consent gates. What survives from this task is the decision above it,
+whose second branch — leave the pin and say which value was kept — is what the tree does
+now. The reason for the reversal is in 007's plan, and it is `doctor --fix`: reachable only
+by typing the command, an unconditional rewrite is a footgun, and reachable from a
+diagnostic it is `update` with the consent removed.
+
 Two orderings changed while this was built, and both are recorded rather than tidied away.
 Task 8 landed before task 7, because 7's assertion exempts a row from its own write sites
 and that exemption is only sound once nothing writes into a surface that was not already
