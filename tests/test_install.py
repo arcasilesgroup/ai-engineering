@@ -344,6 +344,23 @@ def test_uninstall_gives_back_the_hooks_path_the_repository_had_before_us(repo, 
     assert git_get(repo, "ai.managed") == ""
 
 
+def test_setting_a_repository_up_twice_still_gives_back_what_was_there_first(
+    repo, home, monkeypatch
+):
+    """The `repo` row holds what `core.hooksPath` was before us, and `uninstall` restores
+    from it. The second `init --project` read our own hooks directory as "before us" and
+    stored that, so the verb that promises no lock-in put the repository back to the exact
+    thing it was asked to remove. The first write is the one that knows."""
+    subprocess.run(["git", "-C", str(repo), "config", "core.hooksPath", "their/hooks"], check=True)
+    init.main(["--no-global", "--project", str(repo), "-y"])
+    init.main(["--no-global", "--project", str(repo), "-y"])
+    row = next(r for r in wiring.receipt()["wrote"] if r["kind"] == "repo")
+    assert row["how"] == "their/hooks", "the second run overwrote what was there before us"
+    monkeypatch.chdir(repo)
+    uninstall.main(["--project", "-y"])
+    assert git_get(repo, "core.hooksPath") == "their/hooks"
+
+
 def test_a_repository_that_had_no_hooks_path_gets_none_back(repo, home, monkeypatch):
     """The other half of the same rule: restoring a value nobody configured would leave a
     setting behind, which is the mirror of deleting one somebody did configure."""

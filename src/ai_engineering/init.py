@@ -387,7 +387,15 @@ def project_step(args) -> int:
         )
     # Read before it is overwritten, and recorded, because uninstall has to put back what
     # was here rather than unset a setting somebody else configured.
-    before = "" if args.dry else wiring.prior_hooks_path(root)
+    #
+    # Recorded once, and never again: the second run reads our own hooks directory as "what
+    # was here before us" and stores that, so `uninstall` restored the repository to the
+    # very thing it was asked to remove. Same rule spec 007 applied to the pin, one row over
+    # — the first write is the one that knows what was there.
+    kept = next(
+        (row["how"] for row in wiring.receipt().get("wrote", []) if row["path"] == str(root)), None
+    )
+    before = kept if kept is not None else ("" if args.dry else wiring.prior_hooks_path(root))
     hooks = str(paths.git_hooks()) if args.dry else wiring.wire_git(root)
     ui.step(state, "core.hooksPath", f"→ {hooks}")
     # One `which`, at the moment the wall is built rather than at the person's next
