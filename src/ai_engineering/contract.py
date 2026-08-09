@@ -116,7 +116,16 @@ DESCRIPTION_MAX = 1000
 # this project's own gate. The closing commit of that branch sets this constant to the
 # count that actually landed, so none of the slack survives it. 15 of the 68 are this
 # paragraph.
-REPO_CEILING = 15100
+#
+# 15,100 to 15,700, four commits later, and the honest note is that the estimate above was
+# short. 457 of the 205 predicted had landed by the time the record verbs were reached —
+# the guards' own tests are most of it, and they are the half of that work nothing else
+# would have caught. What is left is the denial protocol, the mutation worker's disposable
+# home, uninstall restoring what init overwrote, the record verbs, the packaged guard in
+# CI and the three numbers this repository states as prose. This raise is measured against
+# the same overrun rather than against the same optimism: 250 predicted, and the rest is
+# slack the closing commit takes back.
+REPO_CEILING = 15700
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
