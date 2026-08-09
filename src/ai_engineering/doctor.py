@@ -501,6 +501,16 @@ def branch_protection(root: Path | None) -> str | None:
     return None
 
 
+# A marker the template ships and nobody replaced. Anchored to the start of a line, with a
+# list marker allowed before it, and never assertion 4's unanchored `"TODO:" in text`: that
+# form has exactly one red across every spec in this tree, and it is the document that
+# proposed the rule, which quotes the literal strings three times as evidence. A gate whose
+# only red in the whole repository is the spec arguing for it is a trap. Anchored, it has
+# four reds on the template `ai-eng spec new` writes — which is the entire target — and
+# none on any spec anybody has written.
+MARKER = re.compile(r"^\s*(?:[-*]|\d+\.)?\s*TODO:", re.M)
+
+
 @check(19, "The outside", "Nothing shipped with a box ticked and no command beside it")
 def production_ready(root: Path | None) -> str | None:
     """The old title said the work was finished, which this cannot see. What it can see is
@@ -523,7 +533,7 @@ def production_ready(root: Path | None) -> str | None:
             for box in boxes
             if box.startswith("- [x]") and "`" not in box and "not applicable" not in box.lower()
         ]
-        if unproven or any(box.startswith("- [ ]") for box in boxes):
+        if unproven or any(box.startswith("- [ ]") for box in boxes) or MARKER.search(text):
             bad.append(spec.parent.name)
     return None if not bad else f"shipped with a box nothing proves: {', '.join(bad[:3])}"
 

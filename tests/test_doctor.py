@@ -1142,6 +1142,29 @@ def test_assertion_19_reads_the_tick_and_what_was_written_beside_it(repo, body, 
     assert (got, "042-thing" in detail) == (want, want == "fail")
 
 
+@pytest.mark.parametrize(
+    "line, want",
+    [
+        ("TODO: why this is acceptable, in one sentence", "fail"),
+        ("  - TODO: what has to happen before it expires", "fail"),
+        ("3. TODO: the third real option", "fail"),
+        ("`ai-eng accept` used to write `TODO: a person, by name` here", "ok"),
+    ],
+    ids=["at the start", "under a list marker", "under a numbered one", "quoted inline"],
+)
+def test_a_shipped_spec_may_not_carry_a_marker_nobody_replaced(repo, line, want):
+    """The template ships a marker in every section and `ai-eng accept` used to write three
+    more into the record whenever a person or a reason was omitted, while assertion 16
+    compares only the expiry date. The second case is the one that matters: the unanchored
+    form assertion 4 uses has exactly one red across every spec in this tree, and it is the
+    document that proposed this rule, which quotes the literal strings as evidence. A gate
+    whose only red is the spec arguing for it is a trap, not a gate."""
+    spec = repo / "specs" / "042-thing" / "spec.md"
+    spec.parent.mkdir(parents=True)
+    spec.write_text(f"---\ntitle: a thing\nstatus: shipped\n---\n\n{line}\n\n{BOXES}- [x] `ok`\n")
+    assert verdict(doctor.production_ready, repo)[0] == want
+
+
 # ------------------------------------------------------------------ the coverage line
 
 
