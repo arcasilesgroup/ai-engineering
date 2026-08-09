@@ -23,6 +23,7 @@ import _wrap
 import autoformat
 import chain
 import loop_guard
+import no_verify_guard
 import pytest
 import self_protect
 import session
@@ -569,6 +570,55 @@ def test_the_protected_list_is_derived_from_the_table_the_installer_wires_from(r
             ]
         if surface.get("settings"):
             assert any(surface["settings"].rsplit("/", 1)[0].removeprefix("~/") in p for p in found)
+
+
+# --- no_verify_guard: the configuration form, decided on its value -------------------
+
+
+@pytest.mark.parametrize(
+    "command, denies",
+    [
+        ("git config core.hooksPath /tmp/other", True),
+        ("git config --global core.hooksPath /tmp/other", True),
+        ("git config --local core.hooksPath ../elsewhere", True),
+        ("git config --unset core.hooksPath", True),
+        ("git config --unset-all core.hooksPath", True),
+        ("git config --add core.hooksPath /tmp/other", True),
+        ("git -c core.hooksPath=/tmp/other commit -m x", True),
+        ("git config core.hooksPath ./git-hooks", False),
+        ("git config --get core.hooksPath", False),
+        ("git config --list", False),
+    ],
+    ids=[
+        "pointed elsewhere",
+        "pointed elsewhere globally",
+        "pointed elsewhere with a relative path",
+        "unset",
+        "unset every one of them",
+        "added rather than replaced",
+        "overridden for one command",
+        "pointed at the directory this install wires, written relatively",
+        "read, not written",
+        "not about the hooks path at all",
+    ],
+)
+def test_the_hooks_path_is_judged_by_the_value_it_would_be_left_at(
+    repo, monkeypatch, command, denies
+):
+    """`--no-verify` is one spelling of skipping the hooks; `git config core.hooksPath`
+    is the durable one, and the guard did not read it at all — it denied the `-c` form on
+    the verb and let every configuration form through. It is decided on the value now, and
+    the value is resolved against the repository root first, because this repository's own
+    bootstrap writes the relative form and a string comparison would deny the command that
+    installs the hooks. Unset is a denial: it stops every hook and says nothing."""
+    monkeypatch.setattr(no_verify_guard, "OURS", repo / "git-hooks")
+    monkeypatch.setattr(no_verify_guard, "repo_root", lambda start=None: repo)
+    if denies:
+        with pytest.raises(SystemExit) as stop:
+            no_verify_guard.run({"tool_input": {"command": command}})
+        assert stop.value.code == 2
+    else:
+        assert no_verify_guard.run({"tool_input": {"command": command}}) is None
 
 
 # --- loop_guard: what counts as the same call, and what counts as the same failure ---
