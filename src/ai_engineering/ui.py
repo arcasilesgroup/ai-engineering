@@ -144,9 +144,9 @@ VERDICTS = {
 
 
 def verdict(number: int, state: str, title: str, detail: str = "") -> None:
-    """One of doctor's twenty-one lines. The state carries the colour, so the five failures
-    in a run of twenty-one stop being typographically identical to the thirteen passes —
-    which is the whole reason a person runs the command."""
+    """One of doctor's twenty lines. The state carries the colour, so the failures in a run
+    stop being typographically identical to the passes — which is the whole reason a person
+    runs the command."""
     word, style = VERDICTS[state]
     line = Text(f"  {number:>2}  ")
     line.append(word, style=style)
@@ -158,9 +158,9 @@ def verdict(number: int, state: str, title: str, detail: str = "") -> None:
 
 def cure(command: str) -> None:
     """Under a failure, the exact thing to type — or the sentence that says nothing can be
-    typed. Four of the twenty-one checks named their cure inside their prose and seventeen
-    named nothing, so a reader had to work out for themselves which failures were theirs to
-    fix by hand and which were one command away. That is now a column and not a guess."""
+    typed. Four of the twenty checks named their cure inside their prose and sixteen named
+    nothing, so a reader had to work out for themselves which failures were theirs to fix by
+    hand and which were one command away. That is now a column and not a guess."""
     line = Text("      ")
     if command:
         line.append("fix: ", style="head")
@@ -177,7 +177,7 @@ def cure(command: str) -> None:
 def summary(title: str, rows: list[tuple[str, str]], style: str) -> None:
     """The verdict, in the same frame as `init`'s last screen. It was a bare line under the
     coverage block before, in the same weight as the eight rows above it, and it was read
-    as more of the table — a person who had just run twenty-one checks could not say
+    as more of the table — a person who had just run twenty checks could not say
     whether they had passed. A frame is not decoration when it is the answer."""
     body = Text()
     for index, (label, detail) in enumerate(rows):

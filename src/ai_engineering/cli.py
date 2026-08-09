@@ -16,7 +16,7 @@ from ai_engineering import __version__, paths
 
 VERBS: dict[str, str] = {
     "init": "Set up this machine, and this repository if you say yes.",
-    "doctor": "The 21 assertions and the coverage line. Is the system healthy now?",
+    "doctor": "The 20 assertions and the coverage line. Is the system healthy now?",
     "update": "Rewrite the pin and run the forward migrations.",
     "spec": "spec new | spec list | spec show — the record of what was decided.",
     "decide": "Add a decision to the spec, or promote it to an ADR with --adr.",

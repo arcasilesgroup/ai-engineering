@@ -1,4 +1,4 @@
-"""Twenty-one assertions and one line.
+"""Twenty assertions and one line.
 
 These are not document sections: they are checks that fail. `--ci` runs the ones that
 make sense on a runner and says in its output which it skipped, because a doctor that
@@ -81,8 +81,8 @@ OPEN = (
     "        (T0) stops those, and nothing on this machine can give you one.",
 )
 
-# The cure for a failure, where a command is the cure. Seventeen of the twenty-one have
-# none and that is the honest answer for them: a TODO: marker in your own constitution, a
+# The cure for a failure, where a command is the cure. Sixteen of the twenty have none,
+# and that is the honest answer for them: a TODO: marker in your own constitution, a
 # hook Codex will only run once a person has approved it, and a branch protected on a
 # server this machine cannot reach are not things a wheel gets to do for you.
 FIXES = {

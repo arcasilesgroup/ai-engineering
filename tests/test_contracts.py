@@ -164,6 +164,50 @@ def test_the_doctrine_is_short_and_filled_in():
     assert (ROOT / "CLAUDE.md").read_text().strip() == "@./AGENTS.md"
 
 
+# The three numbers this repository states about itself in prose, and every sentence that
+# states one. Each is derived on the left and read out of the file on the right, never
+# derived on both sides: a test that computes both halves the same way cannot fail.
+WORDS = {8: "eight", 10: "ten", 16: "sixteen", 20: "twenty", 21: "twenty-one"}
+COUNTED = (
+    ("skills", "README.md", "{Word} written procedures"),
+    ("skills", "AGENTS.md", "carries {word} skills"),
+    ("skills", "src/ai_engineering/init.py", "Writes {n} skills into"),
+    ("verbs", "README.md", "with {word} verbs"),
+    ("verbs", "AGENTS.md", "a {word}-verb CLI"),
+    ("verbs", "AGENTS.md", "`src/ai_engineering/` — the {word} verbs"),
+    ("verbs", "src/ai_engineering/cli.py", "The {word} verbs"),
+    ("verbs", "src/ai_engineering/ui.py", "on one line: the {word} verbs"),
+    ("assertions", "src/ai_engineering/cli.py", "The {n} assertions"),
+    ("assertions", "src/ai_engineering/doctor.py", '"""{Word} assertions and one line.'),
+    ("assertions", "src/ai_engineering/ui.py", "One of doctor's {word} lines"),
+    ("assertions", "src/ai_engineering/ui.py", "had just run {word} checks"),
+)
+
+
+def test_the_counts_this_repository_states_about_itself_are_the_counts_it_has():
+    """Eight skills, ten verbs and twenty assertions are stated in the installer, the
+    README, the doctrine file and three docstrings, and nothing asserted any of them — so
+    any of the three could drift while the build stayed green, and one had: the assertion
+    count was written as twenty-one in five places.
+
+    The right-hand side is the sentence, in the words it uses, so adding a ninth skill or
+    an eleventh verb turns this red naming the file whose prose disagrees. The left-hand
+    side is derived from the only literal there is in each case: the verb table, the check
+    registry, and the skills directory itself."""
+    from ai_engineering import cli, doctor
+
+    counts = {
+        "skills": len([p for p in paths.skills().glob("ai-*") if p.is_dir()]),
+        "verbs": len(cli.VERBS),
+        "assertions": len(doctor.CHECKS),
+    }
+    for what, name, phrase in COUNTED:
+        number = counts[what]
+        said = phrase.format(n=number, word=WORDS[number], Word=WORDS[number].capitalize())
+        body = (ROOT / name).read_text(encoding="utf-8")
+        assert said in body, f"{name} does not say {said!r}: there are {number} {what}"
+
+
 def test_the_mutation_worker_gets_a_disposable_home_and_not_only_a_disposable_tree():
     """A real run wrote Claude Code and Copilot hook entries whose interpreter and
     dispatcher both lived under temporary directories, from inside a mutant that reached
