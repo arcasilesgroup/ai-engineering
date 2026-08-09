@@ -18,6 +18,18 @@ from ai_engineering import paths, wiring
 KEEPS = ("specs/", "CONSTITUTION.md", "AGENTS.md", "docs/adr/")
 
 
+def remove_plugin(path: Path) -> bool:
+    """The OpenCode plugin is a file this installer wrote whole, so it is removed rather
+    than edited. It used to be sent to the JSON stripper below, which found the signature
+    inside the TypeScript, handed the TypeScript to a JSON parser and raised — uncaught,
+    and mid-loop, so every surface after it stayed wired by the one verb whose whole pitch
+    is that governance comes out cleanly."""
+    if not path.exists():
+        return False
+    path.unlink()
+    return True
+
+
 def strip_entries(path: Path) -> bool:
     try:
         blob = path.read_text(encoding="utf-8")
@@ -25,7 +37,10 @@ def strip_entries(path: Path) -> bool:
         return False
     if wiring.SIGNATURE not in blob:
         return False
-    data = json.loads(blob)
+    try:
+        data = json.loads(blob)
+    except ValueError:
+        return False  # not ours to edit: this routine only knows how to edit JSON
 
     def clean(node):
         if isinstance(node, list):
@@ -59,7 +74,13 @@ def main(argv: list[str]) -> int:
 
     for row in rows:
         path = Path(row["path"])
-        if row["kind"] == "guard":
+        if row["kind"] == "guard" and row.get("how") == "ts_opencode":
+            print(
+                f"  ✓ plugin removed: {path}"
+                if remove_plugin(wiring.expand(row["path"]))
+                else f"  → {path} was already gone"
+            )
+        elif row["kind"] == "guard":
             print(
                 f"  ✓ entries removed from {path}"
                 if strip_entries(wiring.expand(row["path"]))

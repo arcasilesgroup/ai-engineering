@@ -362,22 +362,41 @@ def test_uninstall_removes_nothing_until_somebody_types_yes(home, tmp_path, keyb
     assert settings.read_text(encoding="utf-8") == before, "it removed the entry anyway"
 
 
-@pytest.mark.xfail(
-    reason="init records the OpenCode plugin as kind 'guard', and strip_entries json.loads "
-    "every guard file whose text holds the mark. That file is TypeScript, and it holds the "
-    "mark because 'denied by ai-engineering' is its denial message, so uninstall raises "
-    "JSONDecodeError on any machine with OpenCode — after it has already removed the skills.",
-    strict=True,
-)
-def test_uninstall_survives_the_opencode_plugin_it_installed(home, tmp_path):
-    """Uninstall a machine whose receipt lists the one entry that is not JSON."""
+def test_uninstall_removes_the_opencode_plugin_and_keeps_going(home, tmp_path, capsys):
+    """The installer records the OpenCode plugin as a guard row, so uninstall used to send
+    it to the routine that strips JSON entries. That routine found the signature inside the
+    TypeScript, handed the TypeScript to a JSON parser and raised — uncaught, and mid-loop,
+    so every surface listed after it was left wired by the verb whose whole pitch is that
+    governance can be removed cleanly. The plugin is a file we wrote whole, so it is
+    removed rather than edited, and the settings file after it in the receipt is still
+    unwired."""
     plugin = tmp_path / "ai-engineering.ts"
     wiring.ts_opencode(plugin)
+    settings = tmp_path / "settings.json"
+    wiring.write_json(settings, {"hooks": {"PreToolUse": [{"command": wiring.command("x")}]}})
     wiring.write_json(
         wiring.receipt_path(),
-        {"wrote": [{"path": str(plugin), "kind": "guard", "how": "ts_opencode"}]},
+        {
+            "wrote": [
+                {"path": str(plugin), "kind": "guard", "how": "ts_opencode"},
+                {"path": str(settings), "kind": "guard", "how": "json_claude"},
+            ]
+        },
     )
     assert uninstall.main(["-y"]) == 0
+    assert not plugin.exists()
+    assert json.loads(settings.read_text(encoding="utf-8")) == {"hooks": {"PreToolUse": []}}
+    assert "plugin removed" in capsys.readouterr().out
+
+
+def test_a_settings_file_that_is_not_json_is_left_alone_rather_than_crashing(tmp_path):
+    """Anything the stripper cannot parse is not something it knows how to edit. Raising
+    there ends the whole uninstall part-way through, which is worse than any one file it
+    fails to clean."""
+    odd = tmp_path / "hooks.yaml"
+    odd.write_text("command: /x/hooks/chain.py PreToolUse\n", encoding="utf-8")
+    assert uninstall.strip_entries(odd) is False
+    assert odd.read_text(encoding="utf-8") == "command: /x/hooks/chain.py PreToolUse\n"
 
 
 @pytest.fixture
