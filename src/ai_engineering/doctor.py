@@ -310,7 +310,10 @@ def chain_intact(root: Path | None) -> str | None:
     path = emit.chain_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
-        return None
+        # It used to return ok here, having proved that a directory can be created. There
+        # was nothing to be intact and nothing had been written, so the one assertion in
+        # the set that measured nothing was the one that called it clean.
+        raise Undecidable("nothing has been written to this chain yet")
     prev = ""
     for index, event in enumerate(events(root), 1):
         if event.get("prev") != prev:

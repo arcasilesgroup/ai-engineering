@@ -244,11 +244,15 @@ def test_a_half_written_last_line_is_dropped_by_the_check_that_looks_for_broken_
         audit.read(repo)
 
 
-def test_a_chain_that_was_never_written_is_not_a_broken_chain(home, repo):
-    """No events yet is the state of every fresh install. Reporting that as a broken record
-    would teach the first-run user that doctor's red means nothing."""
+def test_a_chain_that_was_never_written_is_not_a_broken_chain_and_is_not_a_pass_either(home, repo):
+    """No events yet is the state of every fresh install, so it is not a failure. It is not
+    a pass either: there is nothing to be intact and nothing has been written, and this
+    check returned ok for it — having proved only that a directory can be created. Of the
+    twenty-one assertions run against an empty repository it was the only one that measured
+    nothing and called it clean, which is this product's own definition of the failure."""
     assert doctor.events(repo) == []
-    assert doctor.chain_intact(repo) is None
+    with pytest.raises(doctor.Undecidable, match="nothing has been written"):
+        doctor.chain_intact(repo)
     assert emit.chain_path(repo).parent.exists()
 
 
