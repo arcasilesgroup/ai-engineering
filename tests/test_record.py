@@ -126,6 +126,38 @@ def test_an_acceptance_expires_the_day_after_its_date_not_on_it(repo, capsys):
     assert "EXPIRED" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize("order", [(0, 1), (1, 0)])
+def test_a_renewal_retires_the_block_it_renews_wherever_it_sits(repo, order):
+    """Renewing a finding in a later spec used to change nothing: the reader returned the
+    expired original and the renewal as two independent results, so the push gate and
+    assertion 16 both stayed red on the old block and no renewal anybody ever recorded had
+    retired anything. The highest renewal per finding is the live one, and it is the live
+    one whichever spec it lives in and whichever order the files are read in."""
+    written = [
+        _acceptance("F-rolled", YESTERDAY, renewals="0"),
+        _acceptance("F-rolled", TOMORROW, renewals="1"),
+    ]
+    (repo / "specs" / "001-a").mkdir()
+    (repo / "specs" / "001-a" / "spec.md").write_text(
+        written[order[0]] + written[order[1]] + _acceptance("F-untouched", YESTERDAY),
+        encoding="utf-8",
+    )
+    assert len(accept.blocks(repo)) == 3
+    assert [b["finding"] for b in accept.expired(repo)] == ["F-untouched"]
+
+
+def test_a_block_whose_renewal_counter_is_not_a_number_counts_as_none(repo):
+    """The blocks are hand-editable markdown, so the counter can arrive as a word. Reading
+    it with a bare int() crashes the push gate on a typo somebody made in a spec."""
+    (repo / "specs" / "001-a").mkdir()
+    (repo / "specs" / "001-a" / "spec.md").write_text(
+        _acceptance("F-rolled", YESTERDAY, renewals="once")
+        + _acceptance("F-rolled", TOMORROW, renewals="1"),
+        encoding="utf-8",
+    )
+    assert accept.expired(repo) == []
+
+
 def test_an_acceptance_with_no_end_date_is_refused(repo, capsys):
     """An acceptance with no expiry is not an acceptance, it is a permanent exception
     written in the language of a temporary one."""

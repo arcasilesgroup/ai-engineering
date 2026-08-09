@@ -28,9 +28,26 @@ def blocks(root: Path) -> list[tuple[Path, dict]]:
     return out
 
 
+def renewals_of(block: dict) -> int:
+    """Hand-written blocks are allowed, so the counter can be missing or not a number."""
+    try:
+        return int(block.get("renewals", 0))
+    except (TypeError, ValueError):
+        return 0
+
+
 def expired(root: Path) -> list[dict]:
+    """A renewal retires what it renews. Without this, renewing a finding in a later spec
+    left the expired original in the record as an independent result, so the push gate and
+    assertion 16 both stayed red on it and no renewal ever recorded had retired anything.
+    The highest renewal per finding is the live one; the blocks it replaced are history."""
     today = date.today().isoformat()
-    return [block for _, block in blocks(root) if str(block.get("expires", "")) < today]
+    live: dict[str, dict] = {}
+    for _, block in blocks(root):
+        seen = live.get(block["finding"])
+        if seen is None or renewals_of(block) >= renewals_of(seen):
+            live[block["finding"]] = block
+    return [block for block in live.values() if str(block.get("expires", "")) < today]
 
 
 def add(spec: Path, fields: dict) -> None:
@@ -93,7 +110,7 @@ def main(argv: list[str]) -> int:
         return 1
     spec = specs[-1]
     existing = [b for _, b in blocks(root) if b.get("finding") == args.finding]
-    renewals = max((int(b.get("renewals", 0)) for b in existing), default=-1) + 1
+    renewals = max((renewals_of(b) for b in existing), default=-1) + 1
     if renewals > MAX_RENEWALS:
         print(
             f"  {args.finding} has already been renewed {MAX_RENEWALS} times. "
