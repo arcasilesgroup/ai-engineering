@@ -457,6 +457,46 @@ def test_a_call_denied_once_stays_denied_and_only_a_call_with_an_id_is_remembere
     assert chain.cached(chain.fingerprint(chain.normalise(fresh))) == {"deny": False}
 
 
+@pytest.mark.parametrize("sent", ["abc123", ""])
+def test_the_session_the_surface_sent_is_the_session_everything_underneath_uses(
+    repo, monkeypatch, sent
+):
+    """`session_id()` mints an identifier per process, so before this the state one call
+    wrote lived in a file the next call never opened — 358 of them on one machine, each 48
+    bytes and one entry long, and the guard that counts repeats could never reach three.
+    Two dispatcher runs carrying the same session leave one cache file, not two. An empty
+    string is not a session: one surface sends the field that way rather than omitting it,
+    and adopting it would put every call on this machine into one bucket."""
+    monkeypatch.setitem(chain.TABLE, "PreToolUse", [])
+    for use_id in ("t1", "t2"):
+        monkeypatch.setenv("AI_ENG_SESSION", "s0")
+        call = {
+            "sessionId": sent,
+            "tool_name": "Bash",
+            "tool_input": {"command": "ls"},
+            "tool_use_id": use_id,
+        }
+        assert dispatch(monkeypatch, "PreToolUse", json.dumps(call)) == 0
+    books = sorted(p.name for p in (repo.parent / "house" / "cache" / "verdicts").iterdir())
+    assert books == [f"{sent or 's0'}.json"]
+
+
+def test_a_denial_the_dispatcher_caches_carries_the_words_the_guard_used(repo, monkeypatch):
+    """The cached verdict is what the second delivery of a call is shown. Writing a
+    placeholder there tells the model it was blocked and never why, which is the same
+    silence this product exists to cure."""
+    monkeypatch.setitem(chain.TABLE, "PreToolUse", [("loop_guard", r".*")])
+    monkeypatch.setattr("loop_guard.run", _wrap.guard("loop_guard")(lambda payload: "go away"))
+    call = {"tool_name": "Bash", "tool_input": {"command": "ls"}, "tool_use_id": "t1"}
+    with pytest.raises(SystemExit):
+        dispatch(monkeypatch, "PreToolUse", json.dumps(call))
+    assert chain.cached(chain.fingerprint(chain.normalise(call))) == {
+        "deny": True,
+        "by": "loop_guard",
+        "message": "BLOCKED: go away",
+    }
+
+
 def test_a_verdict_book_that_cannot_be_read_is_no_verdict_at_all(repo):
     """A corrupt cache must mean "ask the guards again", never "allowed". Failing the other
     way would make one bad file a permanent pass for every call in the session."""

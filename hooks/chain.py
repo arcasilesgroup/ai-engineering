@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import importlib
 import json
+import os
 import re
 import sys
 import time
@@ -156,6 +157,14 @@ def main() -> int:
             "BLOCKED: the hook payload could not be read, so nothing here "
             "can say whether this action is safe.",
         )
+    # The session the surface sent, adopted before anything computes a fingerprint or opens
+    # a cache file. session_id() mints one per process, so the state one call wrote was a
+    # file the next call never read: 358 of them on one machine, 48 bytes and one entry
+    # each, and the guard that counts repeats could not reach its threshold however long a
+    # session ran. Non-empty rather than present, because one surface sends the field as an
+    # empty string instead of omitting it.
+    if payload.get("session_id"):
+        os.environ["AI_ENG_SESSION"] = str(payload["session_id"])
     event = sys.argv[1] if len(sys.argv) > 1 else payload.get("hook_event_name", "")
     tool = payload.get("tool_name", "")
     fp = fingerprint(payload)
@@ -187,14 +196,8 @@ def main() -> int:
             module.run(payload)
         except SystemExit as stop:
             if stop.code == 2:
-                remember(
-                    fp,
-                    {
-                        "deny": True,
-                        "by": name,
-                        "message": "this call was already denied in this session",
-                    },
-                )
+                by, said = payload.get("_denied") or (name, "denied earlier in this session")
+                remember(fp, {"deny": True, "by": by, "message": said})
             raise
     if event == "PreToolUse":
         remember(fp, {"deny": False})

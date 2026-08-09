@@ -79,14 +79,19 @@ def guard(name: str):
 
     def decorate(fn):
         def run(payload: dict) -> None:
+            def refuse(message: str) -> None:
+                # What was said, where the dispatcher can cache it: a second delivery of
+                # the same call gets this guard's own words, not a placeholder about it.
+                payload["_denied"] = (name, message)
+                deny(name, message)
+
             try:
                 reason = fn(payload)
             except BaseException as exc:  # KeyboardInterrupt and MemoryError included
                 emit(name, "error", error=repr(exc), outcome="blocked")
-                deny(
-                    name,
+                refuse(
                     "BLOCKED: this guard crashed and cannot say whether the action is "
-                    "safe. Fix the guard.",
+                    "safe. Fix the guard."
                 )
             if reason is None:
                 return  # a clean pass writes nothing
@@ -97,7 +102,7 @@ def guard(name: str):
                     emit(name, "bypassed", reason=reason, granted_for=granted, fp=fp)
                     return
             emit(name, "blocked", reason=reason, fp=fp)
-            deny(name, f"BLOCKED: {reason}")
+            refuse(f"BLOCKED: {reason}")
 
         run.hook_class = "guard"
         run.hook_name = name
