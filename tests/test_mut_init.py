@@ -230,17 +230,28 @@ def test_project_without_a_value_means_the_directory_you_are_standing_in():
 # ── global_ready ────────────────────────────────────────────────────────────────────
 
 
-def test_the_machine_counts_as_ready_only_with_a_receipt_at_this_exact_version(home):
+def test_the_machine_counts_as_ready_only_when_the_surfaces_here_carry_the_entry(home):
     """Catches `init` calling an old install ready, which leaves guards pointing at an
-    interpreter path that has moved."""
-    assert init.global_ready() is False
-    entry = [{"path": "/somewhere/settings.json", "kind": "guard", "how": "json_claude"}]
-    wiring.write_json(wiring.receipt_path(), {"wrote": entry, "version": __version__})
-    assert init.global_ready() is True
-    wiring.write_json(wiring.receipt_path(), {"wrote": entry, "version": "0.0.0"})
-    assert init.global_ready() is False
+    interpreter path that has moved — and the larger one this replaced it for.
+
+    It used to ask the receipt: non-empty and at this version. A receipt is a log of writes,
+    so it answered True for a machine whose settings files had been emptied a second earlier
+    by `ai-eng uninstall`, by a hand edit, or by a home restored from a backup. The entry it
+    was believing here pointed at `/somewhere/settings.json`, which never existed."""
+    assert init.global_ready() is False, "ready with no surface installed at all"
+    (home / ".claude").mkdir()
     wiring.write_json(wiring.receipt_path(), {"wrote": [], "version": __version__})
-    assert init.global_ready() is False
+    assert init.global_ready() is False, "ready with a surface here and no entry in it"
+
+    wiring.json_claude(home / ".claude" / "settings.json")
+    assert init.global_ready() is True
+
+    wiring.write_json(wiring.receipt_path(), {"wrote": [], "version": "0.0.0"})
+    assert init.global_ready() is False, "an entry from an older install is wired, not ready"
+
+    wiring.write_json(wiring.receipt_path(), {"wrote": [], "version": __version__})
+    (home / ".codex").mkdir()
+    assert init.global_ready() is False, "a second surface arrived and nothing wired it"
 
 
 # ── global_step ─────────────────────────────────────────────────────────────────────
@@ -252,19 +263,26 @@ def test_an_already_wired_machine_gets_the_block_it_left_behind_and_no_survey(ho
 
     Every number is counted, none is written into the sentence. The line this replaced said
     `8 skills` as a literal, which is a fact about the wheel that shipped the line and not
-    about the machine reading it — and the count here is deliberately two links and one
-    guard against a skills directory that does not exist, because a summary that can only
-    be right on a healthy machine is a summary that hides the unhealthy one."""
-    entry = [
-        {"path": "/a", "kind": "guard"},
-        {"path": "/b", "kind": "link"},
-        {"path": "/c", "kind": "link"},
-    ]
-    wiring.write_json(wiring.receipt_path(), {"wrote": entry, "version": __version__})
+    about the machine reading it — and the count here is deliberately one guard and two
+    links against a machine that is not fully wired, because a summary that can only be
+    right on a healthy machine is a summary that hides the unhealthy one.
+
+    Every number is now read off the disk, which is what spec 007 claimed a version before
+    it was true: skills came from the store and links and guards came from the receipt, so
+    this block reported four of each over a machine `uninstall` had just emptied. The rows
+    it used to be given here — `/a`, `/b`, `/c` — were three paths that never existed."""
+    wiring.write_json(wiring.receipt_path(), {"wrote": [], "version": __version__})
     # Two skills and one directory that is not one. The count is of what is installed, so a
     # count of everything under that root is a count that goes up when a cache lands there.
+    store = paths.home() / "skills"
     for name in ("ai-spec", "ai-plan", "cache"):
-        (paths.home() / "skills" / name).mkdir(parents=True)
+        (store / name).mkdir(parents=True)
+    # One surface carrying the entry, and two of the four roots holding a link of ours.
+    (home / ".claude").mkdir()
+    wiring.json_claude(home / ".claude" / "settings.json")
+    for root in (home / ".claude" / "skills", home / ".agents" / "skills"):
+        root.mkdir(parents=True)
+        (root / "ai-spec").symlink_to(store / "ai-spec")
     init.global_step(init.parse([]))
     assert capsys.readouterr().err == (
         f"\n◇ Global   ready · v{__version__}\n"

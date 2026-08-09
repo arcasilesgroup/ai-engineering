@@ -463,6 +463,24 @@ def test_a_machine_uninstall_stripped_is_not_reported_as_ready(wired):
     assert init.global_ready() is False, "a machine with no guards on it reported ready"
 
 
+def test_a_full_receipt_over_an_empty_machine_is_not_ready(wired):
+    """The half task 4 could not deliver, and the reason option 1 was refused in writing.
+
+    `uninstall` is only the loudest way a machine stops matching its receipt. A settings
+    file edited by hand, a surface removed by its own installer, a home restored from a
+    backup — none of them goes through this tool, and a record that only this tool can
+    correct is wrong the moment any of them happens. So the receipt is left exactly as a
+    completed install wrote it, and the guards are taken off the disk underneath it."""
+    receipt = wiring.receipt()
+    assert [row for row in receipt["wrote"] if row["kind"] == "guard"], "the fixture wired nothing"
+    for surface in wiring.table()["surface"]:
+        if surface.get("settings"):
+            wiring.expand(surface["settings"]).unlink(missing_ok=True)
+
+    assert wiring.receipt() == receipt, "this test is supposed to leave the record alone"
+    assert init.global_ready() is False, "a full receipt outvoted an empty machine"
+
+
 def test_a_plain_init_after_uninstall_rewires_rather_than_reporting_ready(wired):
     """The install verb, told by a log that there is nothing to install. Green from task 4
     for the same reason as the test above it, and owed the same second half by task 8."""

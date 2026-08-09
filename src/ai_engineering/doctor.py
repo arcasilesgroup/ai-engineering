@@ -205,20 +205,17 @@ def wiring_present(root: Path | None) -> str | None:
         # command that puts it back: the dispatcher lives inside the wheel, so its absence
         # is a broken install and `--fix` must not offer to rewire around it.
         return f"the dispatcher is missing at {dispatcher}", ""
-    wired = [s for s in wiring.detect() if s["writer"] != "none" and s["settings"]]
-    if not wired:
+    # The same call `init.global_ready` makes, so the installer and the diagnosis cannot
+    # hold two opinions about whether this machine is wired.
+    on, off = wiring.wired()
+    if not on and not off:
         raise Undecidable(
             "no surface that takes a guard entry is installed here, so this looked at "
             "nothing. Declining the machine half of `ai-eng init` still wires the "
             "repository, which is how a governed repository ends up on a machine with "
             "no guards at all."
         )
-    broken = []
-    for surface in wired:
-        path = wiring.expand(surface["settings"])
-        if not path.exists() or wiring.SIGNATURE not in path.read_text(errors="replace"):
-            broken.append(f"{surface['name']} has no entry")
-    return None if not broken else "; ".join(broken)
+    return None if not off else "; ".join(f"{surface['name']} has no entry" for surface in off)
 
 
 @check(3, "The wiring", "Every hook that can block is a guard, and all are classified")

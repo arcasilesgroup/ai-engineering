@@ -62,6 +62,42 @@ def detect(only: list[str] | None = None) -> list[dict]:
     return found
 
 
+def wired(only: list[str] | None = None) -> tuple[list[dict], list[dict]]:
+    """The surfaces that take a guard and are here, split by whether our entry is actually
+    in the file. Read from the settings files themselves and never from the receipt.
+
+    It lived inside doctor's assertion 2, and `init` had a second opinion — a log of what
+    was once written — so the two disagreed the moment anything changed the machine without
+    going through this tool. `uninstall` was only the loudest way to do that; a settings file
+    edited by hand, a surface removed by its own installer and a home restored from a backup
+    all get the same wrong answer out of a receipt. One question, asked in one place."""
+    on, off = [], []
+    for surface in detect(only):
+        if surface["writer"] == "none" or not surface.get("settings"):
+            continue
+        path = expand(surface["settings"])
+        body = path.read_text(errors="replace") if path.exists() else ""
+        (on if SIGNATURE in body else off).append(surface)
+    return on, off
+
+
+def linked() -> list[Path]:
+    """The skills roots that hold at least one of ours, by the same rule and for the same
+    reason: `already()` printed `links 4` off a receipt while all four roots were empty.
+
+    Deduplicated, because five of the eight surfaces share `~/.agents/skills` and a count
+    that walks the table row by row reports five links over one directory — which is the
+    same class of wrong number this whole task is removing, arriving from the other side."""
+    store = paths.home() / "skills"
+    roots = {expand(s["skills"]) for s in table()["surface"] if s.get("skills")}
+    return sorted(
+        root
+        for root in roots
+        if root.is_dir()
+        and any(item.is_symlink() and str(store) in str(item.readlink()) for item in root.iterdir())
+    )
+
+
 class Unreadable(Exception):
     """A file that is there and cannot be read. Absent is an answer; unreadable is not."""
 

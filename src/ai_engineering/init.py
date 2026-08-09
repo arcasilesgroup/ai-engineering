@@ -17,7 +17,6 @@ import datetime as dt
 import shutil
 import subprocess
 import sys
-from collections import Counter
 from pathlib import Path
 
 from ai_engineering import __version__, paths, skeletons, ui, wiring
@@ -84,8 +83,19 @@ def parse(argv: list[str]) -> argparse.Namespace:
 
 
 def global_ready() -> bool:
-    data = wiring.receipt()
-    return bool(data.get("wrote")) and data.get("version") == __version__
+    """Ready when every surface here that takes a guard has one, and at least one does.
+
+    It used to be `the receipt is not empty and its version matches` — a log of writes read
+    as the state of the machine. So `ai-eng uninstall` followed by `ai-eng init` printed
+    `Global ready · 4 links, 4 guards` over a machine measured at zero of both, and then
+    declined to rewire it, because only `--global` forces past this. The receipt shrinking
+    fixes that one sequence; asking the machine fixes every other way it can go stale, and
+    a settings file edited by hand is not a rare one.
+
+    The version still has to match, because an entry pointing at an older install is wired
+    and is not ready — that is assertion 12, and this must not disagree with it either."""
+    on, off = wiring.wired()
+    return bool(on) and not off and wiring.receipt().get("version") == __version__
 
 
 def already(data: dict) -> None:
@@ -93,15 +103,20 @@ def already(data: dict) -> None:
     nothing left to do. It was one sentence at a hundred columns — `Global ready — 8
     skills, 9 entries, v1.0.0 (/…/machine.json)` — with the skill count written into it as
     the literal 8, a number that could not be wrong when it was typed and cannot be right
-    after a ninth skill ships. Every number here is now counted from what is on the disk."""
-    kinds = Counter(row["kind"] for row in data["wrote"])
+    after a ninth skill ships.
+
+    Every number here is counted from what is on the disk, and spec 007 said so a version
+    before it was true: skills was read from the store and links and guards were read off
+    the receipt, so this block reported `links 4 · guards 4` over a machine with none of
+    either. The receipt is named on its own row and no longer counted."""
     real = paths.home() / "skills"
+    on, _ = wiring.wired()
     ui.section(f"◇ Global   ready · v{data.get('version')}")
     ui.facts(
         [
             ("skills", str(len(list(real.glob("ai-*")))), str(real)),
-            ("links", str(kinds["link"]), "one skills root per surface found"),
-            ("guards", str(kinds["guard"]), "one entry in each surface's own settings file"),
+            ("links", str(len(wiring.linked())), "one skills root per surface found"),
+            ("guards", str(len(on)), "one entry in each surface's own settings file"),
             ("receipt", "", str(wiring.receipt_path())),
         ]
     )
@@ -109,9 +124,11 @@ def already(data: dict) -> None:
 
 def global_step(args) -> None:
     if args.skip_global or (global_ready() and not args.do_global):
-        data = wiring.receipt()
-        if data.get("wrote"):
-            already(data)
+        # Whether there is anything to report is the same question the block reports on, so
+        # it is asked of the disk too. It used to be "is the receipt non-empty", which is how
+        # a stripped machine got the block and a wired one with a lost receipt got silence.
+        if wiring.wired()[0] or wiring.linked():
+            already(wiring.receipt())
         return
 
     only = [s for s in args.harness.split(",") if s] or None
