@@ -195,12 +195,26 @@ def surfaces_picked(found: list[dict]) -> list[dict]:
     return [row for row in rows if row["id"] in chosen]
 
 
+# Written once and never offered again. The constitution says these two are not to be
+# touched after they exist, and a prompt that offers a forbidden action is a rule that only
+# holds while somebody reads carefully. They stay in OFFERS, which is also the create set:
+# dropping them from that would stop them ever being written at all.
+PROTECTED = ("AGENTS.md", "CONSTITUTION.md")
+
+
 def existing(root: Path) -> list[tuple[str, int, str]]:
+    """What is here, is not ours, and is ours to offer to replace. A file whose content is
+    already exactly what we would render is not offered either: a second `init` over an
+    unchanged repository has nothing to write, and offering to overwrite a file with itself
+    is a screen reporting work that would not happen."""
     rows = []
-    for name, (becomes, _) in OFFERS.items():
+    for name, (becomes, render) in OFFERS.items():
         path = root / name
-        if path.exists():
-            rows.append((name, len(path.read_text(errors="replace").splitlines()), becomes))
+        if not path.exists() or name in PROTECTED:
+            continue
+        body = path.read_text(errors="replace")
+        if body != render(root):
+            rows.append((name, len(body.splitlines()), becomes))
     return rows
 
 
@@ -354,6 +368,9 @@ def project_step(args) -> int:
             f"{', '.join(name for name in pins if name not in fresh)} was already here and "
             f"is untouched. `ai-eng update` is the only verb that changes the pin."
         )
+    # Read before it is overwritten, and recorded, because uninstall has to put back what
+    # was here rather than unset a setting somebody else configured.
+    before = "" if args.dry else wiring.prior_hooks_path(root)
     hooks = str(paths.git_hooks()) if args.dry else wiring.wire_git(root)
     ui.step(state, "core.hooksPath", f"→ {hooks}")
     # One `which`, at the moment the wall is built rather than at the person's next
@@ -376,15 +393,31 @@ def project_step(args) -> int:
     # reported writing them offers to overwrite them.
     rows = existing(root)
     files = len(fresh) + 1
+    wrote = [*fresh, "specs/.gitkeep"]
     for name in OFFERS:
         if not (root / name).exists():
             write_offer(root, name, args)
             files += 1
+            wrote.append(name)
             ui.step(state, name, f"{verb} ({OFFERS[name][0]})")
     picked = choose(rows, args)
     for name in sorted(picked):
         write_offer(root, name, args)
         files += 1
+        wrote.append(name)
+    # What we wrote here, in the one place that already answers "did we create this?".
+    # Uninstall used to delete four files by name from a hardcoded tuple with no record
+    # that we had ever written them, so a project instruction file somebody wrote by hand
+    # was removed by the verb whose whole pitch is that it is safe.
+    if not args.dry:
+        wiring.record(
+            [
+                {"path": str(root / name), "kind": "project", "how": "written"}
+                for name in wrote
+                if name not in PROTECTED  # yours from the second they were written
+            ]
+            + [{"path": str(root), "kind": "repo", "how": before}]
+        )
     left = [name for name, _, _ in rows if name not in picked]
     if left:
         out(

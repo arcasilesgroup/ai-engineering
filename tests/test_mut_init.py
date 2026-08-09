@@ -804,8 +804,11 @@ def test_two_overwrites_inside_one_second_leave_two_backups(repo, no_keyboard):
     """The docstring above says the timestamp is what stops the second overwrite
     destroying the first backup, and until the stamp had sub-second resolution that was
     the one thing it did not do. This is the test that makes it mean what it says."""
-    (repo / "CLAUDE.md").write_text("mine\n", encoding="utf-8")
-    for _ in range(2):
+    for body in ("mine\n", "mine, edited again\n"):
+        # Rewritten between the two runs on purpose: a file already holding exactly what we
+        # would render is no longer offered, so without this the second run has nothing to
+        # overwrite and this stops being a test about timestamps.
+        (repo / "CLAUDE.md").write_text(body, encoding="utf-8")
         init.project_step(init.parse(["--project", str(repo), "--overwrite", "CLAUDE.md"]))
     backups = sorted(p for p in repo.iterdir() if p.name.startswith("CLAUDE.md.bak-"))
     assert len(backups) == 2

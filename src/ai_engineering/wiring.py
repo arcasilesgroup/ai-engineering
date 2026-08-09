@@ -248,6 +248,19 @@ def install_guards(surfaces: list[dict]) -> list[tuple[str, str, str]]:
     return results
 
 
+def prior_hooks_path(root: Path) -> str:
+    """What core.hooksPath was before we wrote ours. The wiring overwrote it without ever
+    reading it and uninstall then unset it, so a repository that had its own hooks path
+    before us did not get it back: the no-lock-in promise was a command that left the
+    repository different from how it found it."""
+    return subprocess.run(
+        ["git", "-C", str(root), "config", "--get", "core.hooksPath"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    ).stdout.strip()
+
+
 def wire_git(root: Path) -> str:
     """Repository-scoped, absolute, expanded. A global core.hooksPath would impose our
     commit convention on every foreign clone on the machine, forks included.

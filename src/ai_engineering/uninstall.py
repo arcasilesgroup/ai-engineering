@@ -53,6 +53,26 @@ def strip_entries(path: Path) -> bool:
     return True
 
 
+def unwire(root: Path, rows: list[dict]) -> None:
+    """The repository half, from the receipt and never from a hardcoded list. Two things
+    it fixes: the hooks path is restored to whatever was configured before us rather than
+    unset, so a repository that had its own does not lose it to a verb that promises no
+    lock-in; and only files this install actually wrote are removed, so a CLAUDE.md or a
+    justfile somebody wrote by hand survives. Anything the constitution protects was never
+    in the receipt, because init writes those two once and never touches them again."""
+    mine = [row for row in rows if row["kind"] == "project" and row["path"].startswith(str(root))]
+    for row in mine:
+        Path(row["path"]).unlink(missing_ok=True)
+    before = next(
+        (row["how"] for row in rows if row["kind"] == "repo" and row["path"] == str(root)), ""
+    )
+    restore = (
+        ["config", "core.hooksPath", before] if before else ["config", "--unset", "core.hooksPath"]
+    )
+    for key in (restore, ["config", "--unset", "ai.managed"], ["config", "--unset", "ai.eng"]):
+        subprocess.run(["git", "-C", str(root), *key], timeout=10, capture_output=True)
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser("ai-eng uninstall")
     parser.add_argument("--project", action="store_true", help="also unwire this repository")
@@ -94,11 +114,7 @@ def main(argv: list[str]) -> int:
     if args.project:
         root = paths.repo_root()
         if root is not None:
-            subprocess.run(
-                ["git", "-C", str(root), "config", "--unset", "core.hooksPath"], timeout=10
-            )
-            for name in (".ai/config.toml", ".ai/.gitignore", "CLAUDE.md", "justfile"):
-                (root / name).unlink(missing_ok=True)
+            unwire(root, rows)
             print(f"  ✓ {root} unwired. specs/, CONSTITUTION.md and AGENTS.md are untouched.")
     print(
         f"\n  The record is still at {paths.home() / 'state'}. Delete that folder yourself "

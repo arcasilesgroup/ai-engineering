@@ -313,14 +313,60 @@ def test_a_dry_run_writes_nothing_at_all(repo, home, capsys):
     assert git_get(repo, "core.hooksPath") == "", "a dry run rewired git"
 
 
-@pytest.mark.xfail(
-    reason="uninstall unlinks justfile and CLAUDE.md unconditionally, from a list that is not "
-    "the receipt. init explicitly declined to overwrite this justfile and wrote no backup of "
-    "it, so uninstall deletes a file the installer never created and cannot restore.",
-    strict=True,
-)
+def test_uninstall_gives_back_the_hooks_path_the_repository_had_before_us(repo, home, monkeypatch):
+    """The wiring wrote core.hooksPath without ever reading what was there and uninstall
+    unset it, so a repository that had its own hooks path did not get it back: the
+    no-lock-in promise was a command that left the repository different from how it found
+    it. The check is not a byte-identical repository — the constitution requires three
+    things to survive — it is the configured value and the file list."""
+    subprocess.run(["git", "-C", str(repo), "config", "core.hooksPath", "their/hooks"], check=True)
+    init.main(["--no-global", "--project", str(repo), "-y"])
+    assert git_get(repo, "core.hooksPath") == str(paths.git_hooks())
+    monkeypatch.chdir(repo)
+    uninstall.main(["--project", "-y"])
+    assert git_get(repo, "core.hooksPath") == "their/hooks"
+    assert git_get(repo, "ai.managed") == ""
+
+
+def test_a_repository_that_had_no_hooks_path_gets_none_back(repo, home, monkeypatch):
+    """The other half of the same rule: restoring a value nobody configured would leave a
+    setting behind, which is the mirror of deleting one somebody did configure."""
+    init.main(["--no-global", "--project", str(repo), "-y"])
+    monkeypatch.chdir(repo)
+    uninstall.main(["--project", "-y"])
+    assert git_get(repo, "core.hooksPath") == ""
+
+
+def test_the_two_files_the_constitution_protects_are_written_once_and_never_offered(repo, home):
+    """A prompt that offers a forbidden action is a rule that only holds while somebody
+    reads carefully. They stay in the create set — dropping them from that would stop them
+    ever being written — and they leave the overwrite set. They are not in the receipt
+    either: they are yours from the second they were written, so uninstall cannot take
+    them."""
+    init.main(["--no-global", "--project", str(repo), "-y"])
+    for name in init.PROTECTED:
+        assert (repo / name).exists(), f"{name} was never created"
+        (repo / name).write_text("mine, and edited\n", encoding="utf-8")
+    assert [name for name, _, _ in init.existing(repo)] == []
+    init.main(["--no-global", "--project", str(repo), "--overwrite", "all", "-y"])
+    for name in init.PROTECTED:
+        assert (repo / name).read_text() == "mine, and edited\n"
+
+
+def test_a_second_init_over_an_unchanged_repository_offers_nothing(repo, home):
+    """Offering to overwrite a file with itself is a screen reporting work that would not
+    happen, and every one of those makes the next screen worth less."""
+    init.main(["--no-global", "--project", str(repo), "-y"])
+    assert init.existing(repo) == []
+    (repo / "justfile").write_text("mine:\n\t@echo hello\n", encoding="utf-8")
+    assert [name for name, _, _ in init.existing(repo)] == ["justfile"]
+
+
 def test_uninstall_keeps_a_justfile_the_installer_refused_to_overwrite(repo, home, monkeypatch):
-    """Install into a repository that already has a justfile, keep it, then uninstall."""
+    """Uninstall used to unlink four files by name from a hardcoded tuple with no record
+    that we had ever written them, so a justfile the installer explicitly declined to
+    overwrite — and took no backup of — was deleted by the verb whose whole pitch is that
+    it is safe. It reads the receipt now, and the receipt is what init actually wrote."""
     (repo / "justfile").write_text("mine:\n\t@echo hello\n", encoding="utf-8")
     init.main(["--no-global", "--project", str(repo), "-y"])
     assert (repo / "justfile").read_text(encoding="utf-8").startswith("mine:")
