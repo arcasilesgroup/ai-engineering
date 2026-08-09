@@ -514,10 +514,23 @@ def test_the_coverage_line_says_exactly_what_each_surface_does_on_this_machine(
     different sentences on purpose, and both of them are not BLOCKS.
 
     A surface added to the table has to be added here by hand. That is the point: a new
-    row silently inheriting somebody else's wording is the failure this line prevents."""
+    row silently inheriting somebody else's wording is the failure this line prevents.
+
+    The four surfaces below are wired, and until spec 008 they were not: this made the
+    directories and nothing else, and every word here came out of the vendor's folder
+    existing plus a static flag in the table. The verdicts are unchanged and now they cost
+    an entry in a settings file, which is what they were always claiming to mean."""
     monkeypatch.chdir(tmp_path)
     for folder in (".claude", ".codex", ".cursor", ".pi", ".config/opencode"):
         (machine / folder).mkdir(parents=True)
+    for surface in wiring.table()["surface"]:
+        if surface["writer"] != "none" and surface["id"] in {
+            "claude-code",
+            "opencode",
+            "codex-cli",
+            "cursor",
+        }:
+            wiring.WRITERS[surface["writer"]](wiring.expand(surface["settings"]))
     root = tmp_path / "repo"
     (root / ".ai").mkdir(parents=True)
     (root / ".ai" / "config.toml").write_text(

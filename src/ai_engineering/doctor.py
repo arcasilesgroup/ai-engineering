@@ -553,15 +553,26 @@ def destination_real(root: Path | None) -> str | None:
 # ---------------------------------------------------------------- coverage
 
 
-def standing(surface: dict, installed: set[str], inert: str) -> tuple[str, str]:
+def standing(surface: dict, installed: set[str], inert: str, guarded: set[str]) -> tuple[str, str]:
     """One surface's word, and the sentence that says what to do about it. The word carried
     the whole message before and the message did not fit in one word: `documented, unrun
     UNPROVEN` and `not installed UNPROVEN` are the same verdict for opposite reasons, and
-    only one of them is any of your business."""
+    only one of them is any of your business.
+
+    `guarded` is the fourth argument and the reason this whole task exists. The word came
+    from whether the vendor's own directory exists plus a static `proven` flag in
+    policy/surfaces.toml, and never from the settings file — so on a machine `ai-eng
+    uninstall` had just stripped, the block whose entire job is *where a call can actually
+    be stopped* printed `claude-code BLOCKS a denial has executed here` and
+    `copilot-cli UNPROVEN installed and wired`, over zero entries. `proven` says a denial has
+    executed on this kind of surface at some point in this product's life; it can never say
+    there is anything here to execute one now."""
     if surface["id"] not in installed:
         return "UNPROVEN", "not installed here, so nothing about it is proven"
     if surface["tier"] == "T3":
         return "ADVISES", "reads the skills; it cannot deny a call"
+    if surface["id"] not in guarded:
+        return "UNPROVEN", "installed, and carries no entry of ours: nothing here can deny"
     if surface["name"] in inert:
         # Installed, and not running. Both surfaces that can reach this state fail silently
         # by design, so it is the one that must never be reported as covered.
@@ -574,9 +585,15 @@ def standing(surface: dict, installed: set[str], inert: str) -> tuple[str, str]:
 
 
 def coverage(root: Path | None) -> list[str]:
-    """The honesty layer, and it is derived: from the receipt, the pin, the settings
-    files on disk and the recorded trust state. No probes, no billed sessions. A surface
-    that is not installed here reads UNPROVEN, not "covered".
+    """The honesty layer, and it is derived: from the pin, the settings files on disk and
+    the recorded trust state. No probes, no billed sessions. A surface that is not installed
+    here reads UNPROVEN, not "covered".
+
+    That sentence named the receipt and the settings files for a version in which it read
+    neither, and the two it did not read were the two that decide the word. It reads them
+    now, and the receipt is gone from the list rather than added to it: what a log says was
+    written is not evidence that anything is wired today, which is the whole subject of the
+    spec this paragraph was corrected by.
 
     Four columns and not three: the verdict is its own column now, so the eye can run down
     it, and the reason is the column after it rather than a prefix squeezed in front of the
@@ -588,12 +605,18 @@ def coverage(root: Path | None) -> list[str]:
         f"{'  OK' if pinned == __version__ else '  MISMATCH'}"
     ]
     installed = {s["id"] for s in wiring.detect()}
+    # The same call assertion 2 and `init.global_ready` make. A surface with no entry of
+    # ours in its settings file cannot deny anything, whatever the table says about it.
+    on, _ = wiring.wired()
+    guarded = {s["id"] for s in on} | {
+        s["id"] for s in wiring.table()["surface"] if s["writer"] == "none"
+    }
     try:
         inert = surfaces_alive(root) or ""
     except Undecidable:
         inert = ""  # nothing installed, so every row below already reads UNPROVEN
     for surface in wiring.table()["surface"]:
-        word, why = standing(surface, installed, inert)
+        word, why = standing(surface, installed, inert, guarded)
         lines.append(f"  {surface['tier']:<4} {surface['id']:<16} {word:<9} {why}")
     return [*lines, *OPEN]
 

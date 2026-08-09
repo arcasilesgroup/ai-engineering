@@ -1184,6 +1184,12 @@ def test_no_surface_reads_as_covered_where_no_denial_has_ever_executed(home, rep
             target.write_text("{}\n")
         else:
             target.mkdir(exist_ok=True)
+    # Wired, and not merely present. Making the vendor's directory used to be enough for a
+    # row to read BLOCKS, which is how the honesty layer certified four surfaces on a
+    # machine `ai-eng uninstall` had emptied a second earlier.
+    for surface in wiring.table()["surface"]:
+        if surface["writer"] != "none":
+            wiring.WRITERS[surface["writer"]](wiring.expand(surface["settings"]))
     lines = doctor.coverage(repo)
     ids = [s["id"] for s in wiring.table()["surface"]]
     rows = dict(zip(ids, lines[1 : 1 + len(ids)], strict=True))

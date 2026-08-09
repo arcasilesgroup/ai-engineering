@@ -226,6 +226,11 @@ def main(argv: list[str]) -> int:
         unwire(root, rows)
         print(f"  ✓ {root} unwired. specs/, CONSTITUTION.md and AGENTS.md are untouched.")
         gone += [row for row in going if row["kind"] in ("project", "repo")]
+    # Our own cache, and the OpenCode plugin's only proof that it ever loaded. It is fresh
+    # for a day, so left behind it kept the coverage block reading BLOCKS for twenty-four
+    # hours after the file it attests to was deleted. Cleared whenever the machine half runs
+    # at all: after this, no plugin of ours is loaded anywhere, whatever the rows said.
+    (paths.home() / "cache" / "opencode-heartbeat").unlink(missing_ok=True)
     # The record stops claiming what is no longer here. Without this the next `init` reads
     # the log, counts four guards and four links that were removed a second ago, prints
     # "Global ready", and refuses to rewire the machine it has just been asked to install.

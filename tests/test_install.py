@@ -480,6 +480,29 @@ def test_a_machine_uninstall_stripped_is_not_reported_as_ready(wired):
     assert init.global_ready() is False, "a machine with no guards on it reported ready"
 
 
+def test_no_surface_reads_as_blocking_on_a_machine_that_was_just_stripped(wired, capsys):
+    """The screen this whole spec was opened for, and the worst line on it. The coverage
+    block is the product's headline claim — where a call can actually be stopped — and it
+    decided each word from whether the vendor's own directory exists plus a static flag in
+    policy/surfaces.toml. It never opened a settings file. So on the operator's machine,
+    with zero entries anywhere, it printed `claude-code BLOCKS a denial has executed here`.
+
+    The OpenCode row is here for a second reason: its escape from INERT is a heartbeat cache
+    with a one-day window, which outlived the plugin file it attests to until uninstall
+    started clearing it."""
+    from ai_engineering import doctor
+
+    beat = paths.home() / "cache" / "opencode-heartbeat"
+    beat.parent.mkdir(parents=True, exist_ok=True)
+    beat.touch()
+    uninstall.main(["-y"])
+
+    rows = [line for line in doctor.coverage(None) if line.startswith("  T")]
+    assert rows, "the coverage block printed no surface at all"
+    assert not [line for line in rows if "BLOCKS" in line], "\n".join(rows)
+    assert not beat.exists(), "the heartbeat outlived the plugin it attests to"
+
+
 def test_a_full_receipt_over_an_empty_machine_is_not_ready(wired):
     """The half task 4 could not deliver, and the reason option 1 was refused in writing.
 
