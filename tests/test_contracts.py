@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering import contract, paths, text
+from ai_engineering import contract, paths, text, wiring
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -162,6 +162,23 @@ def test_the_doctrine_is_short_and_filled_in():
     identity = (ROOT / "CONSTITUTION.md").read_text()
     assert "TODO:" not in identity, "our own CONSTITUTION.md still has TODO: markers"
     assert (ROOT / "CLAUDE.md").read_text().strip() == "@./AGENTS.md"
+
+
+def test_an_entry_is_ours_by_the_dispatcher_it_runs_and_not_by_this_project_s_name(tmp_path):
+    """The mark used to be the hyphenated project name, and that string can only reach an
+    entry through the interpreter's own path — which spells this package with an underscore
+    under a wheel. It worked because `uv tool` and `pipx` happen to put the hyphenated name
+    in the path of the interpreter they create, and was false everywhere at once for anyone
+    installing with `pip` into a venv named anything else: init then wrote a duplicate row
+    on every run, uninstall reported nothing of ours and left every guard wired, and doctor
+    reported no entry against a live install. The basename and never the absolute path, or
+    assertion 12 — which asks whether the signature is present while the install path is
+    not — could never fire again."""
+    underscore = f"{tmp_path}/venvs/some_env/bin/python /x/site-packages/ai_engineering/hooks"
+    assert wiring.ours({"command": f'"{underscore}/chain.py" PreToolUse'})
+    assert not wiring.ours({"command": "/usr/bin/python /somebody/elses/hook.py"})
+    assert not wiring.ours({"command": "/opt/ai-engineering/venv/bin/python /x/other.py"})
+    assert "/" not in wiring.SIGNATURE
 
 
 def test_the_line_ceiling_holds(tmp_path):

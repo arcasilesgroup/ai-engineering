@@ -443,7 +443,7 @@ def test_assertion_2_a_surface_with_no_entry_in_its_own_settings_file_is_named(
     ]
     monkeypatch.setattr(wiring, "detect", lambda only=None: rows)
     assert (doctor.wiring_present(None) or "").startswith("Claude Code has no entry")
-    settings.write_text('{"hooks": {"PreToolUse": ["ai-engineering"]}}')
+    settings.write_text('{"hooks": {"PreToolUse": ["/some/where/chain.py"]}}')
     assert doctor.wiring_present(None) is None
     monkeypatch.setattr(paths, "hooks", lambda: tmp_path / "nowhere")
     # A pair, because this branch carries its own empty cure: rewiring cannot restore a

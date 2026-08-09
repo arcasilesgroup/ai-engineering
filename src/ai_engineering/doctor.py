@@ -170,7 +170,7 @@ def pin_matches(root: Path | None) -> str | None:
         if path is None or not path.exists():
             continue
         blob = path.read_text(errors="replace")
-        if wiring.MARK in blob and installed not in blob:
+        if wiring.SIGNATURE in blob and installed not in blob:
             return f"{surface['name']}'s guard entry points at another install, not {installed}"
     return None
 
@@ -216,7 +216,7 @@ def wiring_present(root: Path | None) -> str | None:
     broken = []
     for surface in wired:
         path = wiring.expand(surface["settings"])
-        if not path.exists() or wiring.MARK not in path.read_text(errors="replace"):
+        if not path.exists() or wiring.SIGNATURE not in path.read_text(errors="replace"):
             broken.append(f"{surface['name']} has no entry")
     return None if not broken else "; ".join(broken)
 

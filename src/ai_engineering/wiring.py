@@ -21,7 +21,17 @@ from pathlib import Path
 
 from ai_engineering import __version__, paths
 
-MARK = "ai-engineering"
+MARK = "ai-engineering"  # rendered into Codex's status message, and hashed there
+
+# What makes an entry ours, and the only string here we control. It used to be MARK, and
+# MARK can only reach an entry through the interpreter path, which spells this package
+# with an underscore under a wheel: it worked because uv tool and pipx happen to put the
+# hyphenated project name in the path of the interpreter they create, and was false
+# everywhere at once for anyone installing with pip into a venv named anything else.
+# The basename and never the absolute path: assertion 12 catches an entry pointing at
+# another install by asking whether the signature is present while the install path is
+# not, and a signature containing the install path makes that check unable to fire.
+SIGNATURE = "chain.py"
 EVENTS = ("PreToolUse", "PostToolUse", "SessionStart", "SessionEnd")
 
 
@@ -65,14 +75,12 @@ def write_json(path: Path, data: dict) -> None:
 
 
 def ours(entry) -> bool:
-    """Ours by what it runs, not by where it happens to live. This matched MARK inside the
-    serialised entry, and the only place MARK appeared was the interpreter's own path — so
-    it answered yes on a machine whose install directory is spelled `ai-engineering` and no
-    everywhere else. Where it answers no, init stops recognising its own entry and writes a
-    second one, which is a blocking guard firing twice, and uninstall removes nothing at all.
-    The dispatcher's own filename is the thing we control."""
+    """Ours by what it runs, not by where it happens to live. Where this answers no, init
+    stops recognising its own entry and writes a second one — a blocking guard firing twice
+    — uninstall reports there was nothing of ours and leaves every guard wired, and doctor
+    reports no entry against a live install."""
     body = json.dumps(entry)
-    return MARK in body or "chain.py" in body
+    return SIGNATURE in body
 
 
 def json_claude(path: Path) -> str:

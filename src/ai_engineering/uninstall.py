@@ -23,13 +23,13 @@ def strip_entries(path: Path) -> bool:
         blob = path.read_text(encoding="utf-8")
     except OSError:
         return False
-    if wiring.MARK not in blob:
+    if wiring.SIGNATURE not in blob:
         return False
     data = json.loads(blob)
 
     def clean(node):
         if isinstance(node, list):
-            return [clean(item) for item in node if wiring.MARK not in json.dumps(item)]
+            return [clean(item) for item in node if wiring.SIGNATURE not in json.dumps(item)]
         if isinstance(node, dict):
             return {key: clean(value) for key, value in node.items()}
         return node
