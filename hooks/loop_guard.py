@@ -9,7 +9,6 @@ signature, not to the exact call.
 from __future__ import annotations
 
 import json
-import time
 
 from _emit import config, home, session_id
 from _wrap import guard
@@ -99,5 +98,4 @@ def run(payload: dict) -> str | None:
             f"tweaked each time. Stop and say what is failing; retrying past this point "
             f"is guessing, and it is being paid for by the person waiting."
         )
-    state["last"] = time.time()
     return None

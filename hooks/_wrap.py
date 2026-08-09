@@ -88,7 +88,6 @@ def guard(name: str):
                     "BLOCKED: this guard crashed and cannot say whether the action is "
                     "safe. Fix the guard.",
                 )
-                raise
             if reason is None:
                 return  # a clean pass writes nothing
             fp = payload.get("_fp", "") if payload.get("_dedup") else ""
