@@ -24,6 +24,7 @@ from ai_engineering import accept, audit, cli, contract, decide, digest, paths, 
 TODAY = date.today().isoformat()
 YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
 TOMORROW = (date.today() + timedelta(days=1)).isoformat()
+SIGNED = ["--by", "Ada", "--justification", "it is fenced off"]
 A_WEEK_AGO = (date.today() - timedelta(days=7)).isoformat()
 
 
@@ -129,7 +130,7 @@ def test_an_acceptance_with_no_end_date_is_refused(repo, capsys):
     """An acceptance with no expiry is not an acceptance, it is a permanent exception
     written in the language of a temporary one."""
     assert accept.main(["--finding", "F-1"]) == 2
-    assert "not an acceptance" in capsys.readouterr().out
+    assert "is not one" in capsys.readouterr().out
     assert accept.blocks(repo) == []
 
 
@@ -139,9 +140,9 @@ def test_the_third_renewal_is_refused_and_writes_nothing(repo, capsys):
     (repo / "specs" / "1234-big").mkdir()
     (repo / "specs" / "1234-big" / "spec.md").write_text("# big\n", encoding="utf-8")
     for expected in range(accept.MAX_RENEWALS + 1):
-        assert accept.main(["--finding", "F-1", "--expires", TOMORROW]) == 0
+        assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 0
         assert int(accept.blocks(repo)[0][1]["renewals"]) == expected
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW]) == 1
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 1
     assert len(accept.blocks(repo)) == accept.MAX_RENEWALS + 1
     assert "That is the ceiling" in capsys.readouterr().out
     assert [b["id"] for _, b in accept.blocks(repo)] == ["R-123-03", "R-123-02", "R-123-01"]
@@ -156,19 +157,19 @@ def test_writing_an_acceptance_does_not_eat_the_text_under_its_heading(repo):
         "# title\n\n## Accepted risks\n\nprose a person wrote\n\n## Production-ready\n\n- [ ] CI\n"
     )
     (folder / "spec.md").write_text(body, encoding="utf-8")
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, "--by", "A Person"]) == 0
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 0
     after = (folder / "spec.md").read_text()
     assert "prose a person wrote" in after and "## Production-ready" in after
     assert after.index("finding: F-1") > after.index("## Accepted risks")
     assert after.index("finding: F-1") < after.index("prose a person wrote")
     block = accept.blocks(repo)[0][1]
-    assert block["accepted_by"] == "A Person" and block["accepted"] == TODAY
-    assert block["justification"].startswith("TODO")
+    assert block["accepted_by"] == "Ada" and block["accepted"] == TODAY
+    assert block["justification"] == "it is fenced off"
 
 
 def test_an_acceptance_with_no_spec_is_refused(repo, capsys):
     """A risk with no context is a note, not a decision, so there is nowhere to put it."""
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW]) == 1
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 1
     assert "no spec to attach this to" in capsys.readouterr().out
 
 

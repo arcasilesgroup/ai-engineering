@@ -47,7 +47,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--severity", default="medium")
     parser.add_argument("--expires", help="ISO date. After it, pre-push and doctor fail.")
     parser.add_argument("--by", default="", help="the person accepting it, by name or address")
-    parser.add_argument("--justification", default="")
+    parser.add_argument("--justification", default="", help="why this is acceptable, in one line")
     parser.add_argument("--follow-up", default="")
     parser.add_argument(
         "--spec", default="", help="which spec it belongs to; default is the newest"
@@ -74,10 +74,10 @@ def main(argv: list[str]) -> int:
             )
         return 1 if stale else 0
 
-    if not (args.finding and args.expires):
+    if not (args.finding and args.expires and args.by and args.justification):
         print(
-            "  --finding and --expires are both required: an acceptance with no end date "
-            "is not an acceptance."
+            "  --finding, --expires, --by and --justification are all required: an "
+            "acceptance with no end date, no name against it and no reason is not one."
         )
         return 2
     specs = (
@@ -107,12 +107,12 @@ def main(argv: list[str]) -> int:
             "id": f"R-{re.sub(r'[^0-9]', '', spec.parent.name)[:3]}-{number:02d}",
             "finding": args.finding,
             "severity": args.severity,
-            "accepted_by": args.by or "TODO: a person, by name",
+            "accepted_by": args.by,
             "accepted": date.today().isoformat(),
             "expires": args.expires,
             "renewals": renewals,
-            "justification": args.justification or "TODO: why this is acceptable, in one sentence",
-            "follow_up": args.follow_up or "TODO: what has to happen before it expires",
+            "justification": args.justification,
+            "follow_up": args.follow_up,
         },
     )
     print(

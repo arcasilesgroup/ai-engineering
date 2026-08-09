@@ -24,6 +24,7 @@ TOMORROW = (date.today() + timedelta(days=1)).isoformat()
 
 MACHINE = "machine01"
 REPO_ID = "therepo"
+SIGNED = ["--by", "Ada", "--justification", "it is fenced off"]
 
 
 @pytest.fixture
@@ -168,32 +169,44 @@ def test_the_expired_line_names_the_id_the_finding_the_date_and_the_person(repo,
     )
 
 
-def test_both_flags_are_required_and_the_refusal_says_which(repo, capsys):
+@pytest.mark.parametrize("missing", ["--finding", "--expires", "--by", "--justification"])
+def test_the_four_flags_are_required_and_the_refusal_says_which(repo, capsys, missing):
     """Exit 2 is misuse, not failure, and the sentence is the whole argument for why the
-    flags exist. Reworded into noise, the next person passes neither and reads nothing."""
-    assert accept.main(["--finding", "F-1"]) == 2
+    flags exist. Reworded into noise, the next person passes neither and reads nothing.
+    Leaving any one of the four out has to refuse: an unsigned acceptance used to be
+    written with `TODO: a person, by name` where the owner goes, and it passed every gate
+    this product has, which is the promise in the constitution the code did not keep."""
+    typed = {
+        "--finding": "F-1",
+        "--expires": TOMORROW,
+        "--by": "Ada",
+        "--justification": "it is fenced off",
+    }
+    del typed[missing]
+    assert accept.main([w for pair in typed.items() for w in pair]) == 2
     assert capsys.readouterr().out == (
-        "  --finding and --expires are both required: an acceptance with no end date "
-        "is not an acceptance.\n"
+        "  --finding, --expires, --by and --justification are all required: an "
+        "acceptance with no end date, no name against it and no reason is not one.\n"
     )
 
 
 def test_with_no_spec_the_refusal_names_the_command_that_makes_one(repo, capsys):
     """A risk with no spec has nowhere to live. The message has to hand over the exact
     next command, or the person writes the risk into a chat window instead."""
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW]) == 1
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 1
     assert capsys.readouterr().out == (
         "  no spec to attach this to. `ai-eng spec new <slug>` first: a risk with no "
         "context is a note, not a decision.\n"
     )
 
 
-def test_an_acceptance_written_with_no_flags_carries_every_field_it_owes(repo, capsys):
-    """The defaults are the paper trail: a severity, a named owner, a justification and a
-    follow-up. A field renamed or left empty is a risk register with holes in it, and the
-    confirmation line is what tells the person the expiry was taken as given."""
+def test_an_acceptance_carries_every_field_it_owes_and_invents_none(repo, capsys):
+    """The block is the paper trail: a severity, a named owner, a justification and a
+    follow-up. A field renamed is a risk register with holes in it, and the confirmation
+    line is what tells the person the expiry was taken as given. An omitted follow-up is
+    empty, never a marker: a marker would read as filled in and say nothing true."""
     _spec(repo, "001-a", "# a\n")
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW]) == 0
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 0
     assert capsys.readouterr().out == (
         f"  ✓ recorded in specs/001-a/spec.md — it expires {TOMORROW}, and both "
         f"pre-push and doctor read that date.\n"
@@ -202,12 +215,12 @@ def test_an_acceptance_written_with_no_flags_carries_every_field_it_owes(repo, c
         "id": "R-001-01",
         "finding": "F-1",
         "severity": "medium",
-        "accepted_by": "TODO: a person, by name",
+        "accepted_by": "Ada",
         "accepted": TODAY,
         "expires": TOMORROW,
         "renewals": "0",
-        "justification": "TODO: why this is acceptable, in one sentence",
-        "follow_up": "TODO: what has to happen before it expires",
+        "justification": "it is fenced off",
+        "follow_up": "",
     }
 
 
@@ -229,7 +242,7 @@ def test_the_acceptance_id_takes_the_digits_out_of_the_spec_folder(repo, capsys)
     """The id ties the risk to its spec. Built from the raw folder name it would read
     R-spe-01 for a folder somebody named by hand, and two specs could collide."""
     _spec(repo, "spec-042-note", "# a\n")
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW]) == 0
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 0
     capsys.readouterr()
     assert accept.blocks(repo)[0][1]["id"] == "R-042-01"
 
@@ -239,7 +252,7 @@ def test_the_named_spec_is_the_one_written_to_not_the_newest(repo, capsys):
     piles onto whichever spec was created last and the trail points at the wrong work."""
     _spec(repo, "001-a", "# a\n")
     untouched = _spec(repo, "002-b", "# b\n")
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, "--spec", "001"]) == 0
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, "--spec", "001", *SIGNED]) == 0
     assert "recorded in specs/001-a/spec.md" in capsys.readouterr().out
     assert untouched.read_text(encoding="utf-8") == "# b\n"
 
@@ -249,7 +262,7 @@ def test_an_acceptance_a_person_wrote_by_hand_counts_as_the_first_renewal(repo, 
     renewals counter. Crashing on it, or restarting the count, is how a risk gets rolled
     forward past the ceiling of two."""
     _spec(repo, "001-a", text.render({"finding": "F-1", "expires": TOMORROW}))
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW]) == 0
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 0
     capsys.readouterr()
     written = [b for _, b in accept.blocks(repo) if "renewals" in b]
     assert len(written) == 1
@@ -261,7 +274,7 @@ def test_a_spec_with_no_accepted_risks_heading_keeps_everything_it_had(repo, cap
     """The heading is added when it is missing. Replacing the file with the heading, or
     splitting the text on whitespace, throws away the spec somebody wrote."""
     _spec(repo, "001-a", "# title\n\nprose a person wrote\n")
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW]) == 0
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 0
     capsys.readouterr()
     after = (repo / "specs" / "001-a" / "spec.md").read_text(encoding="utf-8")
     assert after.startswith("# title\n\nprose a person wrote\n")
@@ -279,7 +292,7 @@ def test_the_block_goes_under_the_first_heading_even_if_the_spec_names_it_twice(
         "# title\n\n## Accepted risks\n\nolder prose\n\n"
         '## Notes\n\nthe "## Accepted risks" heading is named again here\n',
     )
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW]) == 0
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 0
     capsys.readouterr()
     after = (repo / "specs" / "001-a" / "spec.md").read_text(encoding="utf-8")
     assert after.index("finding: F-1") < after.index("older prose")
