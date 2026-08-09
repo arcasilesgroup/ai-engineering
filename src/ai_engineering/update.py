@@ -97,11 +97,27 @@ def main(argv: list[str]) -> int:
     )
     print(f"  ✓ the pin now reads {args.to} — that diff is the record of this update.")
 
-    found = wiring.detect()
-    for name, target, detail in wiring.install_guards(
-        [s for s in found if not s.get("append_only")]
-    ):
+    # What this machine chose, and never everything that happens to be installed on it.
+    # This walked `detect()`, so declining Cursor at `init` and updating a week later wired
+    # it — failClosed, which is what makes Cursor deny rather than advise — from a verb the
+    # person ran to move a version number. And nothing was recorded, so `uninstall`
+    # afterwards listed what init had written, took the consent, and left the rest running.
+    mine = {row["path"] for row in wiring.receipt().get("wrote", []) if row["kind"] == "guard"}
+    found = [s for s in wiring.detect() if s.get("settings") in mine]
+    if not found:
+        print("  → no guard entry of ours is recorded here. `ai-eng init --global` wires one.")
+        return 0
+    rewritten = wiring.install_guards([s for s in found if not s.get("append_only")])
+    for name, target, detail in rewritten:
         print(f"  ✓ rewrote {target or name} ({detail})")
+    # Written down, because an entry nothing recorded is an entry uninstall cannot find.
+    wiring.record(
+        [
+            {"path": s["settings"], "kind": "guard", "how": s["writer"]}
+            for s in found
+            if not s.get("append_only")
+        ]
+    )
     for surface in [s for s in found if s.get("append_only")]:
         print(
             f"  → {surface['name']} left untouched. Its trust is a hash of the whole handler "

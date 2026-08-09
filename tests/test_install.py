@@ -828,15 +828,61 @@ def test_update_runs_only_on_an_answer_that_is_exactly_yes(
     assert ('version = "9.9.9"' in pin.read_text(encoding="utf-8")) is runs
 
 
+def test_update_leaves_a_surface_this_machine_declined(pinned_repo, home, keyboard, monkeypatch):
+    """Decline Cursor at `init`, run `ai-eng update` a week later, and it was wired — with
+    `failClosed: true`, which is the key that makes Cursor deny rather than advise — by a
+    verb somebody ran to move a version number, with no receipt row behind it. `uninstall`
+    then listed what `init` had written, took the consent, and left Cursor running."""
+    keyboard("y")
+    monkeypatch.chdir(pinned_repo)
+    (home / ".cursor").mkdir()
+    (home / ".claude").mkdir(exist_ok=True)
+    wiring.json_claude(home / ".claude" / "settings.json")
+    wiring.record([{"path": "~/.claude/settings.json", "kind": "guard", "how": "json_claude"}])
+
+    assert update.main(["--to", "9.9.9"]) == 0
+    assert not (home / ".cursor" / "hooks.json").exists(), "update wired a declined surface"
+
+
+def test_update_records_the_entries_it_writes_so_uninstall_can_find_them(
+    pinned_repo, home, keyboard, monkeypatch
+):
+    """An entry nothing recorded is an entry `uninstall` cannot see. update rewrote them and
+    never called `record`, so the receipt under-reported for exactly as long as the log was
+    also the thing `init` read to decide whether this machine was wired."""
+    keyboard("y")
+    monkeypatch.chdir(pinned_repo)
+    wiring.json_claude(home / ".claude" / "settings.json")
+    wiring.record([{"path": "~/.claude/settings.json", "kind": "guard", "how": "json_claude"}])
+    wiring.forget([{"path": "~/.claude/settings.json", "kind": "guard"}])
+    wiring.record([{"path": "~/.claude/settings.json", "kind": "guard", "how": "json_claude"}])
+
+    assert update.main(["--to", "9.9.9"]) == 0
+    rows = [r for r in wiring.receipt()["wrote"] if r["kind"] == "guard"]
+    assert [r["path"] for r in rows] == ["~/.claude/settings.json"]
+    assert rows[0]["how"] == "json_claude", "the row update wrote does not say how"
+
+
 def test_update_rewrites_a_stale_entry_and_leaves_an_append_only_surface_alone(
     pinned_repo, home, keyboard, monkeypatch, capsys
 ):
     """When the interpreter moves, every entry still names the old one and every guard is off
     while the settings file still looks wired. update rewrites them — except Codex, whose
     trust is a hash of the whole handler and its position, where a rewrite would silently turn
-    the entry off instead of on."""
+    the entry off instead of on.
+
+    Both surfaces are recorded first, because `update` rewires what this machine chose rather
+    than everything installed on it. Walking `detect()` meant declining Cursor at `init` and
+    updating a week later wired it, failClosed, from a verb somebody ran to move a version
+    number."""
     keyboard("y")
     monkeypatch.chdir(pinned_repo)
+    wiring.record(
+        [
+            {"path": "~/.claude/settings.json", "kind": "guard", "how": "json_claude"},
+            {"path": "~/.codex/hooks.json", "kind": "guard", "how": "json_codex"},
+        ]
+    )
     stale = '"/gone/python" "/gone/ai-engineering/hooks/chain.py" PreToolUse'
     claude = home / ".claude" / "settings.json"
     wiring.write_json(
