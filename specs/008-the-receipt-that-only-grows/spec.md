@@ -128,6 +128,20 @@ are gone for good — and those rows are the only thing that tells `uninstall` w
 this tool wrote and which one the user did. After that the file is neither removed nor
 protected, forever, and nothing ever said a word.
 
+And the receipt is not the only file behind that line. `json_claude`, `json_cursor` and
+`json_codex` all open with `data = read_json(path)`, mutate, and write back — so a
+`~/.claude/settings.json` this tool cannot parse is read as `{}` and **replaced**. Measured:
+
+```
+before: {"permissions": {...}, "model": "opus", // a comment somebody added }
+after : {"hooks": { … ours, and nothing else … }}
+```
+
+The user's permissions and model are gone, from an `ai-eng init` that printed
+`✓ guards → ~/.claude/settings.json (merged)`. Three lines above that function the docstring
+says *"Foreign entries are preserved: this merges, it never replaces."* A JSONC comment is
+enough to trigger it, and comments in that file are ordinary.
+
 This repository has already ruled on exactly this shape, one file over. `text.yaml_blocks`
 was changed to raise rather than skip a malformed block, and the reason it gives is the
 argument against `read_json` verbatim: *"Silence on a parse failure is the exact shape of a

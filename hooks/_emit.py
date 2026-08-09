@@ -56,12 +56,20 @@ def now() -> str:
 
 
 def machine_id() -> str:
-    """Stable per machine. Written once; deleting it makes `init` treat this as new."""
+    """Stable per machine. Written once; deleting it makes `init` treat this as new.
+
+    It never writes over a receipt that is already there. It used to: any exception at all —
+    a missing key, a half-written file — and it saved `{"wrote": []}` over the record of every
+    file this tool has installed, from the telemetry half, whose whole contract is to fail open
+    and never opine. Absent is the one case that may create it; present-and-unreadable gets a
+    session-local id and leaves the file alone for `ai-eng doctor` to name."""
     receipt = home() / "machine.json"
     try:
         return json.loads(receipt.read_text())["machine_id"]
     except Exception:
         mid = uuid.uuid4().hex[:12]
+        if receipt.exists():
+            return mid
         data = {"machine_id": mid, "created": now(), "wrote": []}
         try:
             receipt.parent.mkdir(parents=True, exist_ok=True)

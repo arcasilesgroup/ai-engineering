@@ -137,15 +137,31 @@ def test_a_foreign_settings_file_keeps_the_keys_that_are_not_ours(writer, keeps,
     assert ("theirs" in json.dumps(data)) is keeps
 
 
-def test_a_settings_file_with_comments_reads_as_empty_and_is_then_replaced(home, tmp_path):
+def test_a_settings_file_with_comments_is_left_alone_and_the_reason_is_named(home, tmp_path):
     """VS Code and Cursor write JSON with // comments and trailing commas. json.loads refuses
-    it, read_json turns that refusal into {}, and the writer then saves a file that has lost
-    everything the user had. This pins the loss; it does not bless it."""
+    it, read_json used to turn that refusal into {}, and the writer then saved a file that had
+    lost everything the user had — under a line of output reading `(merged)`.
+
+    The test that stood here pinned that loss and said in its own docstring that it did not
+    bless it. It was a passing assertion that an install destroys a settings file, and nothing
+    tracked it. Absent is empty; present-and-unparseable is a refusal with the file named."""
     target = tmp_path / "settings.json"
-    target.write_text('{\n  // theirs\n  "env": {"EDITOR": "vim"},\n}\n', encoding="utf-8")
+    body = '{\n  // theirs\n  "env": {"EDITOR": "vim"},\n}\n'
+    target.write_text(body, encoding="utf-8")
+    with pytest.raises(wiring.Unreadable, match="not readable as JSON"):
+        wiring.read_json(target)
+    with pytest.raises(wiring.Unreadable):
+        wiring.json_claude(target)
+    assert target.read_text(encoding="utf-8") == body, "the writer touched a file it cannot read"
+
+
+def test_a_settings_file_that_is_not_there_is_written_from_nothing(home, tmp_path):
+    """The other half of the same rule, and the reason it is not `except OSError: raise`:
+    every writer's ordinary case is a surface that has no settings file yet."""
+    target = tmp_path / "settings.json"
     assert wiring.read_json(target) == {}
     wiring.json_claude(target)
-    assert "EDITOR" not in target.read_text(encoding="utf-8")
+    assert wiring.ours(target.read_text(encoding="utf-8"))
 
 
 def test_the_cursor_entry_is_written_fail_closed(home, tmp_path):

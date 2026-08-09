@@ -294,6 +294,88 @@ def test_the_receipt_is_machine_json_and_names_this_interpreter_and_these_guards
     assert data["hooks"] == str(paths.hooks())
 
 
+def test_a_receipt_nobody_can_parse_is_never_written_over(machine):
+    """The one that loses data rather than lying about it. `record` reads, appends and
+    writes; while `read_json` answered {} to a file it could not parse, one interrupted
+    write made every row vanish on the next `init` — including the project rows, which are
+    the only thing telling `uninstall` which justfile in somebody's repository is ours.
+
+    Measured before this fix: three rows in, one truncation, one row out."""
+    real = [
+        {"path": "/repo/justfile", "kind": "project", "how": "written"},
+        {"path": "/repo/CLAUDE.md", "kind": "project", "how": "written"},
+    ]
+    wiring.record(real)
+    body = wiring.receipt_path().read_text()
+    wiring.receipt_path().write_text(body[: len(body) // 2])
+
+    with pytest.raises(wiring.Unreadable, match="machine.json"):
+        wiring.receipt()
+    with pytest.raises(wiring.Unreadable):
+        wiring.record([{"path": "/x", "kind": "guard", "how": "json_claude"}])
+    assert wiring.receipt_path().read_text() == body[: len(body) // 2], (
+        "record wrote over a receipt it could not read"
+    )
+
+
+def test_a_receipt_that_was_never_written_is_empty_rather_than_undecidable(machine):
+    """Absent and unreadable are different answers, and only one of them is a refusal:
+    every first run on every machine reads a receipt that is not there."""
+    assert not wiring.receipt_path().exists()
+    assert wiring.receipt() == {}
+
+
+def test_a_broken_receipt_stops_one_assertion_and_not_the_diagnosis(machine, capsys):
+    """A doctor that dies on one unreadable file tells you nothing about the other
+    nineteen. Undecidable is the answer it already has for this."""
+    wiring.record([{"path": "/roots/ai-fake", "kind": "link", "how": "symlink"}])
+    wiring.receipt_path().write_text("{ not json")
+    doctor.main([])
+    text = capsys.readouterr().out
+    assert "could not evaluate" in text
+    assert "machine.json is not readable as JSON" in text
+    assert "Every symlink resolves" in text
+
+
+def test_the_telemetry_half_never_writes_over_a_receipt_it_could_not_read(machine):
+    """The second route to the same loss, and the one that could fire from a guard. It
+    caught bare Exception around a read and answered by saving `{"wrote": []}` over the
+    file — from the half of the tree whose decorator is named for failing open and never
+    opining. A session-local id costs nothing; the file is a person's to look at."""
+    emit = paths.load("_emit")
+    wiring.record([{"path": "/repo/justfile", "kind": "project", "how": "written"}])
+    wiring.receipt_path().write_text("{ torn")
+    assert re.fullmatch(r"[0-9a-f]{12}", emit.machine_id())
+    assert wiring.receipt_path().read_text() == "{ torn", "telemetry wrote over the record"
+
+
+def test_a_receipt_that_is_absent_is_the_one_case_telemetry_may_create(machine):
+    """The other half: a first run has no receipt and the machine still needs an id."""
+    emit = paths.load("_emit")
+    assert not wiring.receipt_path().exists()
+    mid = emit.machine_id()
+    assert json.loads(wiring.receipt_path().read_text()) == {
+        "machine_id": mid,
+        "created": json.loads(wiring.receipt_path().read_text())["created"],
+        "wrote": [],
+    }
+
+
+def test_every_verb_stops_on_a_file_it_cannot_parse_and_names_it(machine, capsys):
+    """One branch in `cli.main`, because every verb that writes reads first. Without it the
+    refusal reaches a person as a traceback, which reads as a crash rather than as a file
+    they have to look at."""
+    from ai_engineering import cli
+
+    wiring.record([{"path": "/repo/justfile", "kind": "project", "how": "written"}])
+    wiring.receipt_path().write_text("{ torn")
+    assert cli.main(["uninstall", "-y"]) == 2
+    text = capsys.readouterr().err
+    assert "machine.json is not readable as JSON" in text
+    assert "Nothing was written." in text
+    assert wiring.receipt_path().read_text() == "{ torn"
+
+
 def test_a_later_run_keeps_the_rows_it_did_not_touch_and_replaces_the_ones_it_did(machine):
     """The receipt answers "did we write this file". Losing a row makes uninstall walk
     past something of ours; duplicating one makes doctor report the same broken root

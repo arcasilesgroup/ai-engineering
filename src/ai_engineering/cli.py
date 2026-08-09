@@ -12,7 +12,7 @@ import importlib
 import sys
 import time
 
-from ai_engineering import __version__, paths
+from ai_engineering import __version__, paths, wiring
 
 VERBS: dict[str, str] = {
     "init": "Set up this machine, and this repository if you say yes.",
@@ -69,6 +69,14 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         sys.stderr.write("\ninterrupted; nothing was written.\n")
         code = 130
+    except wiring.Unreadable as why:
+        # One place, because every verb that writes reads first. A file we cannot parse is
+        # not an empty file, and the only safe thing to do with one is to stop and name it:
+        # the alternative, which this used to do, is to treat it as empty and save over it.
+        sys.stderr.write(f"\n{why}\n")
+        sys.stderr.write("Nothing was written. Fix that file, or move it aside and re-run.\n")
+        paths.load("_emit").emit(verb, "error", error=repr(why))
+        code = 2
     except Exception as exc:
         paths.load("_emit").emit(verb, "error", error=repr(exc))
         raise

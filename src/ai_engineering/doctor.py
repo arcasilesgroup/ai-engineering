@@ -635,7 +635,10 @@ def main(argv: list[str]) -> int:
                 continue
             try:
                 problem = fn(root)
-            except Undecidable as why:
+            except (Undecidable, wiring.Unreadable) as why:
+                # A file we cannot parse is the same answer as a question we cannot ask, and
+                # this is the only reader of it that must not stop: a diagnosis that dies on
+                # one broken file tells you nothing about the other nineteen assertions.
                 ui.verdict(number, "unknown", title, f"could not evaluate: {why}")
                 unanswered.append((number, title, str(why)))
                 continue

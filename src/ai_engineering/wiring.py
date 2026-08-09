@@ -62,11 +62,34 @@ def detect(only: list[str] | None = None) -> list[dict]:
     return found
 
 
+class Unreadable(Exception):
+    """A file that is there and cannot be read. Absent is an answer; unreadable is not."""
+
+
 def read_json(path: Path) -> dict:
+    """Missing is empty. Present-and-unparseable raises, and that is the whole of this fix.
+
+    It used to answer `{}` to both, and every caller inherited it. Two of them lose data on
+    that answer. `record` reads the receipt, appends and writes, so one interrupted write
+    made the machine's whole install record — including the project rows that are the only
+    thing telling `uninstall` which justfile is ours — vanish on the next `init`, silently.
+    And the three settings writers read, mutate and write back, so a `~/.claude/settings.json`
+    carrying a JSONC comment was replaced by our hooks block alone, under a line of output
+    reading `(merged)` and a docstring promising foreign entries are preserved.
+
+    This repository already made this ruling for `text.yaml_blocks`: silence on a parse
+    failure is the exact shape of a false green, and undecidable is an answer while invisible
+    is not. The record verbs got that rule; the files this one reads did not."""
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        body = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
         return {}
+    except OSError as why:
+        raise Unreadable(f"{path} could not be read: {why.strerror}") from why
+    try:
+        return json.loads(body)
+    except ValueError as why:
+        raise Unreadable(f"{path} is not readable as JSON: {why}") from why
 
 
 def write_json(path: Path, data: dict) -> None:
@@ -204,7 +227,13 @@ def receipt() -> dict:
 
 def record(entries: list[dict]) -> None:
     """Probing the disk can prove a file exists; it can never prove that we wrote it.
-    The receipt turns "do not step on a file you did not create" into a lookup."""
+    The receipt turns "do not step on a file you did not create" into a lookup.
+
+    It reads before it writes, which is why `read_json` raising matters here more than
+    anywhere: while an unreadable receipt answered `{}`, this appended to that nothing and
+    stored it, so a single interrupted write destroyed every row — including the project
+    rows that are the only record of which files here are ours. It now refuses, and the
+    file stays exactly as it is for a person to look at."""
     data = receipt()
     data.setdefault("machine_id", paths.load("_emit").machine_id())
     data["version"] = __version__

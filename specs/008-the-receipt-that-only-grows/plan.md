@@ -58,17 +58,23 @@ One task, one commit.
 
 ## 2. A record nobody can read is undecidable, never empty
 
-- **file** `src/ai_engineering/wiring.py`, `tests/test_mut_wiring.py` · **check** a truncated
-  `machine.json` makes `receipt()` raise rather than return `{}`; `record()` refuses to write
-  over it and says which file; `doctor` reports could-not-evaluate rather than ok; and a missing
-  file still reads as empty, because absent and unreadable are different answers · **rollback**
-  revert · **done when** `read_json` stops treating a parse failure as an empty document.
-  Measured today: a receipt of three rows, one interrupted write, and `record` stores one row —
-  the two `project` rows that tell `uninstall` which files are ours are gone for good. This
-  repository already made this exact ruling one file over, in `text.yaml_blocks`, and its
+- **file** `src/ai_engineering/wiring.py`, `src/ai_engineering/doctor.py`, `hooks/_emit.py`,
+  `tests/test_mut_wiring.py`, `tests/test_install.py` · **check** a truncated `machine.json`
+  makes `receipt()` raise rather than return `{}`; `record()` refuses to write over it and says
+  which file; a `~/.claude/settings.json` carrying a JSONC comment is left alone with the reason
+  printed rather than replaced; `doctor` reports could-not-evaluate rather than ok; and a file
+  that is simply absent still reads as empty, because absent and unreadable are different
+  answers · **rollback** revert · **done when** `read_json` stops treating a parse failure as an
+  empty document. Measured: a receipt of three rows, one interrupted write, and `record` stores
+  one — the `project` rows that tell `uninstall` which files are ours, gone for good. And the
+  same line under the three settings writers, which open with `read_json`, mutate and write
+  back, so a settings file this tool cannot parse is **replaced** with our hooks block alone
+  while the screen says `(merged)` and the docstring three lines above says foreign entries are
+  preserved. That half is the operator's own live file, and it is worse than the receipt half.
+  This repository already made this ruling one file over, in `text.yaml_blocks`, and its
   sentence is the check: *undecidable is an answer, invisible is not*. `hooks/_emit.machine_id`
   loses its bare `except Exception` write in the same commit, because it is a second route to
-  the same loss. **+18 product, +55 test.**
+  the same loss. **+34 product, +95 test.**
 
 ## 3. The receipt gains a way out
 
