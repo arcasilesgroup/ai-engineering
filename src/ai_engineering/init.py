@@ -17,24 +17,37 @@ import datetime as dt
 import shutil
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 from ai_engineering import __version__, paths, skeletons, ui, wiring
 
+# Each body is asked for with the repository root, because two of the five depend on what
+# is in it: the justfile on which stacks were detected, and the workflow on the version
+# this wheel pins. The workflow used to be printed at the reader with "paste these lines
+# into" above it — the one file this product asked a person to install by hand, and the
+# one step of the install nothing could verify afterwards.
 OFFERS = {
-    "CLAUDE.md": ("one line: @./AGENTS.md", lambda: skeletons.CLAUDE_MD),
-    "AGENTS.md": ("skeleton, ~48 lines, TODO marker per section", lambda: skeletons.AGENTS_MD),
-    "CONSTITUTION.md": ("skeleton, ~40 lines, MANDATORY", lambda: skeletons.CONSTITUTION_MD),
-    "justfile": ("5 recipes + the RAN lines", lambda: skeletons.JUSTFILE),
+    "CLAUDE.md": ("one line: @./AGENTS.md", lambda root: skeletons.CLAUDE_MD),
+    "AGENTS.md": ("skeleton, ~48 lines, TODO marker per section", lambda root: skeletons.AGENTS_MD),
+    "CONSTITUTION.md": ("skeleton, ~40 lines, MANDATORY", lambda root: skeletons.CONSTITUTION_MD),
+    "justfile": (
+        "5 recipes, filled in for the stacks found here",
+        lambda root: skeletons.justfile(stacks(root)),
+    ),
+    ".github/workflows/check.yml": (
+        "the check job, pinned to this version",
+        lambda root: skeletons.CHECK_YML.format(version=__version__),
+    ),
 }
 
 
-def out(text: str = "", data: bool = False) -> None:
-    """Messaging, which is nearly all of this verb, and it goes to stderr. Everything here
-    went to stdout before, so `ai-eng init > log` captured the block of YAML you are meant
-    to paste together with every question, tick and survey row wrapped around it. The one
-    caller that passes data=True is that block."""
-    ui.write(text, data=data)
+def out(text: str = "") -> None:
+    """Messaging, and this verb is nothing else: every line it prints is chrome around a
+    write, so all of it goes to stderr. It had a `data` parameter for the one caller that
+    printed the workflow at the reader; that caller writes a file now, and a parameter with
+    no caller left is a second way for this to behave that nothing exercises."""
+    ui.write(text)
 
 
 banner = ui.banner  # one drawing of the product's face, and it lives with the rest of it
@@ -54,6 +67,11 @@ def parse(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--global", dest="do_global", action="store_true", help="set up this machine")
     p.add_argument("--no-global", dest="skip_global", action="store_true")
     p.add_argument("--project", nargs="?", const=".", help="set up this repository")
+    # The half that was missing. --no-global existed and its opposite did not, so the only
+    # way to ask for the machine and nothing else was to answer a question, which is not
+    # something `doctor --fix` can do. A repair that rewires this machine must not also
+    # decide to set up whatever repository the person happened to be standing in.
+    p.add_argument("--no-project", dest="skip_project", action="store_true")
     p.add_argument(
         "--harness", default="", help="comma-separated surface ids; default is all found"
     )
@@ -70,14 +88,30 @@ def global_ready() -> bool:
     return bool(data.get("wrote")) and data.get("version") == __version__
 
 
+def already(data: dict) -> None:
+    """What the machine half left behind on the run that did it, for the runs that have
+    nothing left to do. It was one sentence at a hundred columns — `Global ready — 8
+    skills, 9 entries, v1.0.0 (/…/machine.json)` — with the skill count written into it as
+    the literal 8, a number that could not be wrong when it was typed and cannot be right
+    after a ninth skill ships. Every number here is now counted from what is on the disk."""
+    kinds = Counter(row["kind"] for row in data["wrote"])
+    real = paths.home() / "skills"
+    ui.section(f"◇ Global   ready · v{data.get('version')}")
+    ui.facts(
+        [
+            ("skills", str(len(list(real.glob("ai-*")))), str(real)),
+            ("links", str(kinds["link"]), "one skills root per surface found"),
+            ("guards", str(kinds["guard"]), "one entry in each surface's own settings file"),
+            ("receipt", "", str(wiring.receipt_path())),
+        ]
+    )
+
+
 def global_step(args) -> None:
     if args.skip_global or (global_ready() and not args.do_global):
         data = wiring.receipt()
         if data.get("wrote"):
-            out(
-                f"  Global ready — 8 skills, {len(data['wrote'])} entries, v{data.get('version')} "
-                f"({wiring.receipt_path()})"
-            )
+            already(data)
         return
 
     only = [s for s in args.harness.split(",") if s] or None
@@ -244,7 +278,8 @@ def write_offer(root: Path, name: str, args) -> None:
     if path.exists():
         ui.step(state, f"{name} backup", f"→ {backup(path, args)} {verb}")
     if not args.dry:
-        path.write_text(OFFERS[name][1](), encoding="utf-8")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(OFFERS[name][1](root), encoding="utf-8")
 
 
 def stacks(root: Path) -> list[str]:
@@ -257,11 +292,17 @@ def stacks(root: Path) -> list[str]:
         "Cargo.toml": "rust",
         "pom.xml": "java",
         "Gemfile": "ruby",
+        # Two markers, one stack, and neither of them is a fixed name — which is why this
+        # asks the directory rather than the path: `glob` answers for a literal too.
+        "*.csproj": "dotnet",
+        "*.sln": "dotnet",
     }
-    return sorted({name for marker, name in markers.items() if (root / marker).exists()})
+    return sorted({name for marker, name in markers.items() if any(root.glob(marker))})
 
 
 def project_step(args) -> int:
+    if args.skip_project:
+        return 0
     where = Path(args.project or ".").resolve()
     root = paths.repo_root(where)
     if root is None:
@@ -289,26 +330,30 @@ def project_step(args) -> int:
         return 0
 
     state, verb = marks(args)
-    # The pin, and it is backed up before it is replaced for the same reason the four
-    # instruction files are. A re-run rewrote both of these unconditionally, with no copy
-    # and no line of its own, so a hand-edited pin went back to defaults in silence — and
-    # this is the file that names which version of the framework governs the repository.
-    # The constitution's rule is that a change of governance is never silent.
+    # Written when they are absent, and never rewritten. `.ai/config.toml` is the pin: it
+    # names which version of the framework governs this repository, and `ai-eng update` is
+    # the verb that changes it — refusing on a dirty tree, refusing without a keyboard, and
+    # asking for a typed y. This used to rewrite it on every run, taking a dated backup and
+    # printing a line, which is that verb with all three gates removed and a receipt handed
+    # over afterwards. It also reset every tuned value in it: the guard windows, and the
+    # observability endpoint somebody's alerts point at.
     pins = {
         ".ai/config.toml": skeletons.CONFIG_TOML.format(version=__version__),
         ".ai/.gitignore": skeletons.AI_GITIGNORE,
     }
-    for name, body in pins.items():
-        path = root / name
-        if path.exists() and path.read_text(errors="replace") != body:
-            ui.step(state, f"{name} backup", f"→ {backup(path, args)} {verb}")
+    fresh = {name: body for name, body in pins.items() if not (root / name).exists()}
     if not args.dry:
         pinned.parent.mkdir(parents=True, exist_ok=True)
-        for name, body in pins.items():
+        for name, body in fresh.items():
             (root / name).write_text(body, encoding="utf-8")
         (root / "specs").mkdir(exist_ok=True)
         (root / "specs" / ".gitkeep").touch()
-    ui.step(state, ".ai/config.toml · .ai/.gitignore · specs/")
+    ui.step(state, " · ".join([*fresh, "specs/"]))
+    if len(fresh) != len(pins):
+        ui.note(
+            f"{', '.join(name for name in pins if name not in fresh)} was already here and "
+            f"is untouched. `ai-eng update` is the only verb that changes the pin."
+        )
     hooks = wiring.hooks_path_for(root) if args.dry else wiring.wire_git(root)
     ui.step(state, "core.hooksPath", f"→ {hooks}")
     # One `which`, at the moment the wall is built rather than at the person's next
@@ -330,7 +375,7 @@ def project_step(args) -> int:
     # answers yes for every file this run had just created, and the same screen that
     # reported writing them offers to overwrite them.
     rows = existing(root)
-    files = len(pins) + 1
+    files = len(fresh) + 1
     for name in OFFERS:
         if not (root / name).exists():
             write_offer(root, name, args)
@@ -351,17 +396,30 @@ def project_step(args) -> int:
     found = stacks(root)
     if found:
         out(
-            f"\n   Stacks detected: {', '.join(found)}. The binaries each one needs are listed "
-            f"in docs/tools.md; this installs none of them."
+            f"\n   Stacks detected: {', '.join(found)}. The justfile carries their lint, test "
+            f"and build commands; the binaries are listed in docs/tools.md and this "
+            f"installs none of them."
         )
-    out("\n   Paste these lines into .github/workflows/check.yml:\n")
-    # Flush left, and on stdout. It was indented three spaces to sit inside the screen,
-    # which was fine while everything was one stream; now that this is the data half,
-    # `ai-eng init -y 2>/dev/null > check.yml` has to leave a file that parses, and a
-    # workflow whose every line carries three spaces of leading indentation does not.
-    out(skeletons.CHECK_YML.format(version=__version__).rstrip("\n"), data=True)
     report(files, waiting, args)
     return 0
+
+
+def opened(guards: int) -> tuple[str, str]:
+    """Where to go, and whether the guards are actually waiting there. The surfaces are
+    named rather than described — "open your editor" is advice and "open Claude Code" is an
+    instruction — and they are read from the wiring, so a surface added to the table arrives
+    on this line without anybody remembering to.
+
+    The second half is why this takes the guard count. `--no-global` writes no entry
+    anywhere, and the panel above this line says so in its first row; a next step promising
+    the guards are already loaded is that same panel contradicting itself two lines later."""
+    names = [surface["name"] for surface in wiring.detect() if surface["writer"] != "none"]
+    # Two at most. This is one line inside a panel, and a machine with six surfaces on it
+    # would wrap the line, lose its indent and read as an item of its own.
+    where = "open " + (" or ".join(names[:2]) if names else "the agent you work in") + " here"
+    if guards:
+        return where, "the guards are already loaded there — nothing else to start"
+    return where, "run `ai-eng init --global`: no guard is registered here yet"
 
 
 def report(files: int, waiting: list[str], args) -> None:
@@ -377,17 +435,20 @@ def report(files: int, waiting: list[str], args) -> None:
         f"{files} files {verb} · {guards} guard {entries} on this machine",
         waiting,
         [
-            # First, because the alternative is a stranger pasting the CI block and
-            # watching a first build go red for a reason nobody named. Kept inside the
-            # panel's width on purpose: a line that wraps loses its indent and reads as
-            # a fifth item.
+            # First, because the alternative is a stranger pushing the workflow that was
+            # just written and watching a first build go red for a reason nobody named.
+            # Kept inside the panel's width on purpose: a line that wraps loses its indent
+            # and reads as an item of its own.
             (
                 "fill in the TODO: markers",
                 "on purpose; `ai-eng doctor` fails until CONSTITUTION.md has none",
             ),
             ("ai-eng doctor", "every assertion, and the coverage line under it"),
-            ("paste the block above", "into .github/workflows/check.yml, and push it"),
-            ("ai-eng spec new <slug>", "the first spec, and the chain starts there"),
+            # Nothing above this line is the product. The guards are loaded in that surface
+            # already and the install used to end without once saying where to go and use
+            # them, which is the difference between a thing installed and a thing adopted.
+            opened(guards),
+            ("ai-eng spec new <slug>", "or ask that agent for /ai-spec; the chain starts here"),
         ],
     )
 

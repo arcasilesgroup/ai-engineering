@@ -69,7 +69,7 @@ Split along the architectural seam so a reviewer can revert one half without the
   **rollback** revert · **done when** the line-budget check is deleted. The assertion
   survives in the test plane, which is where it can fail a build rather than print a line,
   and it never evaluated outside this repository anyway. The prose that counts assertions
-  is left alone here and corrected once, in section 10, because this branch changes that
+  is left alone here and corrected once, in section 12, because this branch changes that
   number twice. **−20.**
 - **file** `src/ai_engineering/wiring.py` · **check** `pytest -q` unchanged · **rollback**
   revert · **done when** the helper that ignores its only argument and returns a constant
@@ -87,9 +87,9 @@ deliberately raises nothing of its own and its arithmetic has to land somewhere.
 | | lines |
 |---|---|
 | committed base, `contract.repo_lines` at `HEAD` | 12,017 |
-| this plan, sections 1–2 and 4–11, net of the deletions | +133 |
+| this plan, sections 1–2 and 4–13, net of the deletions | +165 |
 | spec 005, its thirteen tasks and the comment this constant carries | +75 |
-| predicted total | 12,225 |
+| predicted total | 12,257 |
 
 - **file** `src/ai_engineering/contract.py` · **check** the ceiling test passes and the
   commit message carries the table, gross and net, per item · **rollback** revert ·
@@ -153,15 +153,17 @@ deliberately raises nothing of its own and its arithmetic has to land somewhere.
   of this project — which is exactly what it is in a checkout, and protecting it would deny
   every edit in this repository. **+4.**
 - **file** `hooks/self_protect.py`, `tests/adversarial/run.py` · **check** all six write
-  paths measured in the spec exit 2, including the tilde spelling, and the everyday commands
-  in section 7 of this plan's notes still exit 0 · **rollback** revert · **done when** the
-  operator test is complete rather than replaced: the copy, the install, the `dd`, the
-  truncate and the two Python one-liner spellings join it, and the command text has its home
-  directory expanded before it is compared, since the protected list stores only the
-  expanded form. Denying on mention alone was the council's shape and is refused in the
-  spec: the carve-out it needs is one verb with both readable and writable subcommands, and
-  the sweeping spellings name no path at all, so it would deny the honest command and allow
-  the broad one. **+4.**
+  paths measured in the spec exit 2, including the tilde spelling, while
+  `cat ~/.claude/skills/ai-spec/SKILL.md 2>/dev/null; ls ~/.claude/skills/ai-spec` and the
+  multiline `ls .git/hooks/; gitleaks version 2>&1 | head -1` both exit 0, together with the
+  ordinary staging, diff, show, restore and stash forms · **rollback** revert · **done
+  when** the operator test is complete rather than replaced: the copy, the install, the
+  `dd`, the truncate and the two Python one-liner spellings join it; the command text has
+  its home directory expanded before comparison; and an operator in one shell command
+  cannot turn a protected-path read in another into a write. Denying on mention alone was
+  the council's shape and is refused in the spec: the carve-out it needs is one verb with
+  both readable and writable subcommands, and the sweeping spellings name no path at all,
+  so it would deny the honest command and allow the broad one. **+4.**
 - **file** `hooks/no_verify_guard.py`, `tests/adversarial/run.py` · **check** pointing the
   hooks path at another directory exits 2, unsetting it exits 2, and pointing it at the
   directory we install exits 0 whether it is written as a relative or an absolute path ·
@@ -170,7 +172,42 @@ deliberately raises nothing of its own and its arithmetic has to land somewhere.
   against the repository root before comparing — this repository's own bootstrap writes the
   relative form. The scoped, unset and add spellings are covered too. **+18.**
 
-## 6. The false green
+## 6. A blocked call is not a silent stop
+
+- **file** `hooks/_wrap.py`, `hooks/chain.py`, `tests/test_hooks.py` · **check**
+  `pytest -q tests/test_hooks.py` includes a Claude-shaped `PreToolUse` denial that exits 0
+  with `hookSpecificOutput.permissionDecision: deny`, contains no universal
+  `continue: false`,
+  and gives Claude the reason; the same denial on OpenCode and the status-driven surfaces
+  still exits 2 and names the guard · **rollback** revert the response split · **done when**
+  each surface receives one denial protocol rather than the current JSON-plus-exit mixture,
+  and a surface cannot mistake an automated gate for a person's permission refusal. Do not
+  infer the surface from an install path: use payload fields the surface itself sends.
+  **+14.**
+- **file** `tests/adversarial/run.py`, `surfaces/opencode.ts` · **check**
+  `python tests/adversarial/run.py --live-claude` asks one live Claude Code session for a
+  harmless call that a fixture guard denies, then records either a subsequent assistant
+  action or an explicit visible handoff before `turn_duration`, with no second user prompt;
+  OpenCode's existing throw still kills only the call · **rollback**
+  revert the live case and response split · **done when** the comment claiming parity is
+  evidence rather than prose. Run this check on the minimum supported Claude Code and the
+  installed version that produced the report. If structured denial still stops either one,
+  add a one-shot `Stop` recovery tied to that session and prove it cannot loop; do not ship
+  another instruction in stderr and call it continuation. **+6 predicted; restate after the
+  live branch chooses structured denial alone or the fallback.**
+
+## 7. Mutation runs on no one's machine
+
+- **file** `justfile`, `tests/test_contracts.py` · **check** hash the live Claude Code and
+  Copilot settings, run `just mutate src/ai_engineering/init.py`, and assert both hashes
+  are unchanged while any settings a mutant writes exist only under the run's temporary
+  home · **rollback** revert the environment isolation · **done when** the mutmut process
+  receives disposable `HOME`, `USERPROFILE`, `AI_ENGINEERING_HOME` and XDG config roots
+  before Python imports the package, while uv keeps an explicit cache outside that home;
+  the cleanup removes only the disposable tree; and a before/after receipt makes any future
+  escape fail the gate rather than merely print hook errors in the next session. **+12.**
+
+## 8. The false green
 
 - **file** `src/ai_engineering/text.py`, `src/ai_engineering/accept.py`,
   `src/ai_engineering/doctor.py` · **check** a spec holding one malformed acceptance block
@@ -181,7 +218,7 @@ deliberately raises nothing of its own and its arithmetic has to land somewhere.
   either handle it or let it become undecidable. The write path matters: without it,
   recording a new acceptance would traceback on a malformed neighbour. **+10.**
 
-## 7. The install that was never ours
+## 9. The install that was never ours
 
 - **file** `src/ai_engineering/wiring.py`, `uninstall.py`, `doctor.py`,
   `tests/test_contracts.py` · **check** a unit test builds an entry from an interpreter path
@@ -216,7 +253,7 @@ deliberately raises nothing of its own and its arithmetic has to land somewhere.
   from the create set, which is the same table, and dropping them from it would stop them
   ever being written. **+8.**
 
-## 8. The record verbs
+## 10. The record verbs
 
 - **file** `src/ai_engineering/spec.py`, `accept.py`, `text.py`,
   `specs/003-guards-that-never-fired/spec.md` · **check** an identifier matching two
@@ -234,7 +271,7 @@ deliberately raises nothing of its own and its arithmetic has to land somewhere.
   theoretical: writing this spec, two decisions landed in another session's spec because a
   fourth directory appeared between two commands. **+6.**
 
-## 9. CI — the wheel, actually exercised
+## 11. CI — the wheel, actually exercised
 
 Neither mandatory task class applies: this spec deploys nothing and gives nothing a URL,
 so there is no new pipeline and no new signal to observe. What follows is CI work because
@@ -254,7 +291,7 @@ the artifact is the thing under test.
   captures the exit code rather than letting the shell's error flag abort on it, and pins an
   interpreter new enough for the record layer. **+7.**
 
-## 10. The numbers that were prose
+## 12. The numbers that were prose
 
 - **file** `tests/test_contracts.py`, `src/ai_engineering/doctor.py`,
   `src/ai_engineering/cli.py` · **check** adding a ninth skill directory or an eleventh verb
@@ -274,7 +311,7 @@ the artifact is the thing under test.
   remains. This check must run outside CI mode, where the surrounding check is skipped, or
   the CI leg proves nothing. **+11.**
 
-## 11. Closing
+## 13. Closing
 
 - **file** `src/ai_engineering/contract.py`, `specs/003-guards-that-never-fired/spec.md` ·
   **check** `contract.repo_lines(root) == contract.REPO_CEILING`, `just check` piped to a

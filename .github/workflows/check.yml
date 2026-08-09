@@ -158,6 +158,14 @@ jobs:
       - name: types, on the product and on the guards
         run: uv run --no-project --python 3.11 --with "mypy==${MYPY_VERSION}" mypy src hooks
 
+      # The OpenCode adapter, which mypy cannot see and which is shipped to users as text.
+      # No setup-node: the runner image has node and npm already, and every action added
+      # here has to clear an allowlist before the workflow will start at all.
+      - name: types, on the surface Python cannot read
+        run: |
+          npm install --silent --no-audit --no-fund
+          npm exec -- tsc --noEmit
+
   sonar:
     name: SonarCloud
     needs: [check]

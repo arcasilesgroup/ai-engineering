@@ -235,10 +235,7 @@ def guard_crashes(tmp: Path) -> bool:
 
 @case("no plan", "design_gate")
 def no_plan(tmp: Path) -> bool:
-    """A plan from a spec this branch never touched sits on main first. The gate used to
-    accept any plan.md anywhere under specs/, so the first spec a repository ever wrote
-    opened it permanently — including in this repository, where it has been inert since
-    001 landed. Then the budget itself: the third file passes and the fourth denies."""
+    """A stale plan stays shut: file three passes, four denies, and the new plan can open it."""
     work = repo(tmp)
     (work / "specs" / "001-old").mkdir(parents=True)
     (work / "specs" / "001-old" / "plan.md").write_text("# a plan for something else\n")
@@ -253,7 +250,11 @@ def no_plan(tmp: Path) -> bool:
         raise RuntimeError("the three files never landed, so the gate was never asked")
     if pre("Edit", {"file_path": str(work / "c.py")}, cwd=work) != 0:
         return False  # three is the budget, and a guard that denies at three is a bug
-    return pre("Edit", {"file_path": str(work / "e.py")}, cwd=work) == 2
+    (work / "d.py").write_text("x = 1\n")
+    blocked = pre("Edit", {"file_path": str(work / "d.py")}, cwd=work) == 2
+    plan = work / "specs/002-feature/plan.md"
+    plan_writable = pre("Write", {"file_path": str(plan)}, cwd=work) == 0
+    return blocked and plan_writable  # crossing the budget cannot make /ai-plan block itself
 
 
 @case("skipping the hooks", "no_verify_guard")

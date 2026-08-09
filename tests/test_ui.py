@@ -101,12 +101,13 @@ def test_the_survey_lines_its_three_columns_up(capsys):
     assert [line for line in lines if line != line.rstrip()] == []
 
 
-def test_a_block_survives_square_brackets(capsys):
-    """The CI block this installer prints contains `on: [push, pull_request]`. rich reads
-    square brackets as style tags, so with markup left on it prints neither the brackets
-    nor the two words inside them — and the line a person pastes is silently wrong."""
-    ui.block("name: check\non: [push, pull_request]\n")
-    assert capsys.readouterr().out == "name: check\non: [push, pull_request]\n"
+def test_a_line_survives_square_brackets(capsys):
+    """rich reads square brackets as style tags, so with markup left on, a line reading
+    `on: [push, pull_request]` prints neither the brackets nor the two words inside them.
+    The CI block that used to be printed is a file now, and this stayed: `doctor` prints
+    paths, commands and reasons, and any of them can carry a bracket."""
+    ui.write("core.hooksPath → [managed]", data=True)
+    assert capsys.readouterr().out == "core.hooksPath → [managed]\n"
 
 
 def framed(text: str) -> list[str]:
@@ -182,6 +183,42 @@ def test_a_verdict_number_wider_than_two_still_lines_up(capsys):
     assert capsys.readouterr().out == "  100  ok       t\n"
 
 
+@pytest.mark.parametrize(
+    ("command", "line"),
+    [
+        ("ai-eng init --project", "      fix: ai-eng init --project\n"),
+        ("", "      you: a person does this one; no ai-eng command repairs it\n"),
+    ],
+    ids=["a command exists", "no command exists"],
+)
+def test_a_cure_is_indented_under_its_reason_and_says_so_when_there_is_none(command, line, capsys):
+    """Six spaces, so it sits under the reason rather than under the title: it is the third
+    thing read, after what failed and why. The empty string is not the absence of this line
+    — a failure with nothing under it reads as a failure somebody forgot to finish."""
+    ui.cure(command)
+    assert capsys.readouterr().out == line
+
+
+def test_the_summary_frames_the_verdict_and_lines_its_labels_up(capsys):
+    """A row with no label is the count, and the labels under it are a column so the two
+    numbers can be compared by eye. Inside the frame, in order, because a panel matched by
+    one fragment is a panel most of which nothing holds."""
+    ui.summary("FAILED", [("", "16 passed"), ("needs a person", "3   assertions 5, 9, 21")], "red")
+    text = capsys.readouterr().out
+    assert text.startswith("\n╭─ FAILED ─")
+    assert framed(text) == ["16 passed", "needs a person  3   assertions 5, 9, 21"]
+
+
+def test_a_facts_row_is_a_name_a_count_and_where_it_landed(capsys):
+    """The count is right-aligned so three of them read as a column, and a row with no count
+    still lines its path up with the rest. This replaced a hundred-column sentence with four
+    facts folded into it, so the alignment is the entire point of the shape."""
+    ui.facts([("skills", "8", "/x/skills"), ("receipt", "", "/x/machine.json")])
+    assert capsys.readouterr().err == (
+        "   skills      8  /x/skills\n   receipt        /x/machine.json\n"
+    )
+
+
 def test_a_pair_is_the_name_and_what_it_does_on_one_line(capsys):
     """The ten verbs, and anything shaped like them. This had no test at all: fifteen
     mutants of it lived, which is every character of the only help screen there is."""
@@ -206,11 +243,24 @@ def test_the_banner_is_these_four_lines_and_no_others(coloured, capsys):
     loses a space, is only ever caught by looking — and nobody looks at a banner twice."""
     ui.banner()
     assert bare(capsys.readouterr().err) == (
-        "\n  ┌─                    ─┐\n"
+        "\n  ┌─                              ─┐\n"
         "    { ai } e n g i n e e r i n g\n"
-        "  └─                    ─┘\n"
-        f"   v{__version__} · AI Governance Framework\n\n"
+        "  └─                              ─┘\n"
+        f"    v{__version__} · AI Governance Framework\n\n"
     )
+
+
+def test_the_banner_frame_encloses_what_it_frames(coloured, capsys):
+    """The assertion the drawing never had. It shipped twenty-six columns of frame around a
+    thirty-two column wordmark — corners enclosing nothing — and the test above pinned that
+    byte for byte without noticing, because bytes are not a shape. A release whose version
+    grows a digit widens the last line, so the frame is asserted against what it contains
+    rather than against a number written here."""
+    ui.banner()
+    top, word, bottom, tag = bare(capsys.readouterr().err).strip("\n").splitlines()
+    assert top == bottom.replace("└", "┌").replace("┘", "┐")
+    assert len(top) == max(len(word), len(tag))
+    assert top.index("┌") < word.index("{")
 
 
 # ── decorated ───────────────────────────────────────────────────────────────────────
@@ -250,15 +300,15 @@ def test_the_banner_and_the_verb_names_wear_the_brand(coloured, capsys):
     ui.banner()
     ui.pair("  init      ", "Set up this machine.")
     caught = capsys.readouterr()
-    # Without the leading newline of the first line: rich emits that outside the style,
-    # which is right — a blank line has no colour.
-    for line in (
-        "  ┌─                    ─┐",
-        "    { ai } e n g i n e e r i n g",
-        "  └─                    ─┘",
-    ):
+    # Taken from what was printed rather than typed out again. Without the leading newline
+    # of the first line: rich emits that outside the style, which is right — a blank line
+    # has no colour. The frame widens itself, so a copy of it written here would be a
+    # second place for the drawing to live and the one that goes stale.
+    *frame, tag = bare(caught.err).strip("\n").splitlines()
+    for line in frame:
         assert dressed("brand", line) in caught.err, line
-    assert dressed("muted", f"   v{__version__} · AI Governance Framework") in caught.err
+    assert dressed("muted", tag) in caught.err
+    assert tag.endswith(f"v{__version__} · AI Governance Framework")
     assert dressed("brand", "  init      ") in caught.out
 
 
@@ -274,6 +324,44 @@ def test_the_report_dresses_its_four_kinds_of_line(coloured, capsys):
     assert dressed("cmd", "ai-eng doctor") in text
     assert dressed("muted", "     the full check") in text
     assert Style.parse(ui.BRAND).render("─ Done ─").split("─")[0] in text
+
+
+def test_the_cure_dresses_the_command_and_refuses_to_dress_the_absence_of_one(coloured, capsys):
+    """A failure one command repairs and a failure a person repairs are the same run of
+    characters undecorated, and the difference is the only thing a reader wants from the
+    line. The command wears what verb names wear, because it is the part you are about to
+    type; the sentence saying there is no command must not, because there is nothing there
+    to copy."""
+    ui.cure("ai-eng init --global")
+    ui.cure("")
+    caught = capsys.readouterr().out
+    assert dressed("head", "fix: ") in caught
+    assert dressed("cmd", "ai-eng init --global") in caught
+    assert dressed("head", "you: ") in caught
+    assert dressed("muted", "a person does this one; no ai-eng command repairs it") in caught
+
+
+@pytest.mark.parametrize(
+    ("title", "colour"), [("FAILED", "red"), ("OK", "#00D4AA")], ids=["failed", "passed"]
+)
+def test_the_verdict_frame_is_red_only_when_something_actually_failed(
+    title, colour, coloured, capsys
+):
+    """The frame is the answer to the question the command was run to ask, so its colour is
+    the answer too. Undecorated both verdicts are a box, and a box that is the wrong colour
+    for its contents is worse than no box: it is read before the words inside it."""
+    ui.summary(title, [("", "16 passed"), ("fixable now", "2   ai-eng doctor --fix")], colour)
+    text = capsys.readouterr().out
+    assert dressed("head", "fixable now     ") in text
+    assert Style.parse(colour).render(f"─ {title} ─").split("─")[0] in text
+
+
+def test_the_facts_block_dresses_the_path_and_leaves_the_count_alone(coloured, capsys):
+    """The path is the part somebody copies into a shell, and it is the only part of the
+    row that is not prose. It carries the same style as every other path this product
+    prints, which is the whole reason that style has a name."""
+    ui.facts([("skills", "8", "/tmp/skills")])
+    assert dressed("path", "/tmp/skills") in capsys.readouterr().err
 
 
 def test_the_survey_dresses_the_path_and_the_verdict_separately(coloured, capsys):

@@ -33,10 +33,19 @@ function heartbeat() {
   writeFileSync(BEAT, new Date().toISOString());
 }
 
-export const AiEngineering = async ({ client, $ }) => {
+// The two arguments this reads, declared here rather than imported from the vendor. The
+// plugin API is versioned and a v2 shape already ships beside v1, so a pinned type package
+// would go green against a contract that had moved underneath it. These four fields are
+// what the file actually touches, and tsc fails the day one of them is read differently.
+type Before = { tool: string; sessionID?: string };
+type Args = { args?: Record<string, unknown> };
+
+// No parameters: OpenCode passes a client and a shell here and this adapter uses neither,
+// because every decision it makes is made by the dispatcher it shells out to.
+export const AiEngineering = async () => {
   heartbeat();
   return {
-    "tool.execute.before": async (input, output) => {
+    "tool.execute.before": async (input: Before, output: Args) => {
       const payload = JSON.stringify({
         hook_event_name: "PreToolUse",
         tool_name: input.tool,

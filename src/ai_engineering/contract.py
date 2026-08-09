@@ -80,7 +80,27 @@ DESCRIPTION_MAX = 1000
 # taste and was most of what "ugly" meant. 176 of the total are the tests the mutation
 # floor asked for after going red at 86%: a renderer's mutants are style names, and the
 # suite drives the undecorated path where a style name is invisible.
-REPO_CEILING = 13671
+#
+# 13,671 to 14,590 for spec 007, and 31 of those are not spec 007's: the tree carried spec
+# 003's uncommitted work when this branch started, and a ceiling that quietly absorbs
+# somebody else's lines has stopped meaning anything. 879 is this spec, measured, and 9 is
+# this paragraph. 006 drew the screens and this one makes them answerable: the operator ran
+# the two verbs again and asked, of six screens in turn, what he was supposed to do about
+# what they said. A cure stops being a sentence at the end of a message and becomes a field,
+# which is what lets `--fix` invoke the verb that already carries the consent — ADR 0003,
+# superseding 0002 three days after it.
+#
+# 552 of the 879 are tests against 327 of product, and where they came from is the part
+# worth keeping. 106 were planned. The mutation floor found 358 more, nearly all of one
+# shape: a style name and a stream flag are invisible to a suite that reads undecorated
+# stdout, so every line of new screen could be emptied of its colour or written to stderr
+# with the whole thing green. An adversarial review of the finished branch found the last
+# 88, and two of those were defects rather than gaps — a last screen promising the guards
+# were loaded over its own row reading `0 guard entries`, and `--fix` reaching `init`'s
+# unconditional rewrite of `.ai/config.toml`, which is `update` with its three consent
+# gates removed and is the exact objection ADR 0002 raised. The pin is written once now
+# and never rewritten, which reverses a decision spec 005 made in the other direction.
+REPO_CEILING = 14590
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

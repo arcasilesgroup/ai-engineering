@@ -16,6 +16,18 @@ lint:
     uv run --with {{ruff}} ruff check .
     uv run --with {{ruff}} ruff format --check .
 
+# The one shipped file no Python tool can read. `ai-eng init` writes surfaces/opencode.ts
+# into the user's OpenCode plugin directory as text with three paths filled in, so until
+# this recipe existed nothing in this repository had ever compiled it — and OpenCode drops
+# a plugin it cannot load with no error, no warning and no log. A typo in it therefore
+# failed on a stranger's machine, silently, and enforcement stopped there.
+# The versions are pinned in package.json for the same reason every other tool here is
+# pinned at its call site. The modules land at the root and never under surfaces/, because
+# `surfaces` is force-included into the wheel and a node_modules there would ship to PyPI.
+typecheck:
+    npm install --silent --no-audit --no-fund
+    npm exec -- tsc --noEmit
+
 test:
     uv run --with {{pytest}} pytest -q
 
@@ -199,4 +211,4 @@ counts:
 stats:
     @uv run python tests/stats.py
 
-check: build lint test cover security counts
+check: build lint typecheck test cover security counts

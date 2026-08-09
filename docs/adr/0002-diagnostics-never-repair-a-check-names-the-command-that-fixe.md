@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: superseded by 0003
 date: 2026-08-08
 spec: 005-init-says-what-it-did
 supersedes: ""

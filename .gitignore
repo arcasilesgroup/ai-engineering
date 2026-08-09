@@ -12,6 +12,8 @@ mutants/
 .ai/events.jsonl
 .ai/cache/
 uv.lock
+node_modules/
+package-lock.json
 .DS_Store
 .git-msg.tmp
 coverage.xml

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 import time
@@ -19,8 +18,9 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
+from rich.style import Style
 
-from ai_engineering import __version__, audit, contract, doctor, paths, wiring
+from ai_engineering import __version__, audit, cli, contract, doctor, paths, wiring
 
 emit = paths.load("_emit")
 
@@ -56,6 +56,8 @@ def verdict(fn, root: Path | None) -> tuple[str, str]:
         problem = fn(root)
     except doctor.Undecidable as why:
         return "undecidable", str(why)
+    if isinstance(problem, tuple):
+        problem = problem[0]  # a check that carries its own cure; the message is the first
     return ("fail", problem) if problem else ("ok", "")
 
 
@@ -438,7 +440,12 @@ def test_assertion_2_a_surface_with_no_entry_in_its_own_settings_file_is_named(
     settings.write_text('{"hooks": {"PreToolUse": ["ai-engineering"]}}')
     assert doctor.wiring_present(None) is None
     monkeypatch.setattr(paths, "hooks", lambda: tmp_path / "nowhere")
-    assert "dispatcher is missing" in (doctor.wiring_present(None) or "")
+    # A pair, because this branch carries its own empty cure: rewiring cannot restore a
+    # dispatcher that ships inside the wheel, so this one must not inherit the number's.
+    assert doctor.resolve(2, doctor.wiring_present(None)) == (
+        f"the dispatcher is missing at {tmp_path / 'nowhere' / 'chain.py'}",
+        "",
+    )
 
 
 @pytest.mark.parametrize(
@@ -596,31 +603,313 @@ def break_the_pin(home, repo, monkeypatch) -> None:
 
 
 @pytest.mark.parametrize(
-    "assertion, arrange, cure",
+    "number, assertion, arrange, cure",
     [
-        (doctor.wiring_present, break_the_guard_entry, "`ai-eng init --global`"),
-        (doctor.git_hook_fires, break_the_hooks_path, "`ai-eng init --project`"),
-        (doctor.links_resolve, break_the_skills_link, "`ai-eng init --global`"),
-        (doctor.pin_matches, break_the_pin, "`ai-eng update`"),
+        (2, doctor.wiring_present, break_the_guard_entry, "ai-eng init --global --no-project"),
+        (11, doctor.git_hook_fires, break_the_hooks_path, "ai-eng init --project"),
+        (13, doctor.links_resolve, break_the_skills_link, "ai-eng init --global --no-project"),
+        (12, doctor.pin_matches, break_the_pin, "ai-eng update"),
     ],
     ids=["2 the guard entry", "11 the hooks path", "13 the skills link", "12 the pin"],
 )
 def test_every_failure_a_command_can_repair_names_that_command(
-    home, repo, monkeypatch, assertion, arrange, cure
+    home, repo, monkeypatch, number, assertion, arrange, cure
 ):
-    """ADR 0002 as an exit code. `doctor --fix` was refused because a diagnostic that
-    mutates is `init` and `update` behind a third door with the consent taken out — but
-    what that proposal was reaching for is real: not one check in this file named a command
-    to run. These four have a cure, so they say it, and adding a fifth check with a cure
-    and no command fails here. The set is named in this list rather than inferred, because
-    "does this check have a cure" is a judgement no script can make."""
+    """ADR 0003 as an exit code. Not one check in this file named a command to run; these
+    four have a cure, so they carry it, and adding a fifth check with a cure and no command
+    fails here. The set is named in this list rather than inferred, because "does this check
+    have a cure" is a judgement no script can make.
+
+    The cure is a field and no longer a sentence at the end of the message: prose could say
+    `ai-eng init --global` to a reader and nothing could run it, so `--fix` would have had
+    to parse English out of a failure message to know what to do."""
     arrange(home, repo, monkeypatch)
     got, detail = verdict(assertion, repo)
     assert got == "fail", detail
-    # The exact verb, not the shape of one: a message reading `ai-eng frobnicate` matches
-    # any pattern for "names a command" and repairs nothing.
-    assert cure in detail, detail
-    assert re.fullmatch(rf".*{re.escape(cure)}[^`]*", detail, re.S), detail
+    # The exact verb, not the shape of one: a cure reading `ai-eng frobnicate` matches any
+    # pattern for "names a command" and repairs nothing.
+    assert doctor.resolve(number, assertion(repo))[1] == cure
+    # And it is not left in the prose as well, because two homes for one fact is how the
+    # message and the flag come to disagree about what to run.
+    assert "ai-eng" not in detail, detail
+
+
+@pytest.mark.parametrize(
+    ("line", "style"),
+    [
+        ("  T2   claude-code      BLOCKS    a denial has executed here", "ok"),
+        ("  T2   codex-cli        INERT     installed and unapproved", "warn"),
+        ("  T2   cursor           UNPROVEN  not installed here", "warn"),
+        ("  T3   pi               ADVISES   reads the skills", "muted"),
+        ("  PIN  wheel 1.0.0 = pinned 0.9.0  MISMATCH", "fail"),
+        ("  OPEN  --no-verify from your own shell", "warn"),
+        ("  a row with none of the vocabulary in it", ""),
+    ],
+)
+def test_a_coverage_row_takes_its_colour_from_the_word_in_it_and_not_from_a_column(line, style):
+    """The colour used to be looked up by the row's last token, so it was one column-width
+    edit away from being wrong about what the row said. Driven directly, because the suite
+    reads the undecorated stream where a wrong style and a right one are the same bytes."""
+    assert doctor.tint(line) == style
+
+
+def test_the_help_explains_every_flag_including_the_one_that_writes(monkeypatch, capsys):
+    """`--help` is the only documentation reachable without a browser, and `--fix` is the
+    one flag on this verb that changes the machine — a flag that writes and does not say so
+    where a person looks for what a flag does is the failure this product is about."""
+    monkeypatch.setenv("COLUMNS", "200")
+    with pytest.raises(SystemExit) as stopped:
+        doctor.main(["--help"])
+    assert stopped.value.code == 0
+    text = capsys.readouterr().out
+    assert text.startswith("usage: ai-eng doctor ")
+    for phrase in (
+        "only the checks a runner can answer",
+        "print where every file class lives",
+        "run the cures the failures name",
+    ):
+        assert phrase in text, phrase
+
+
+def test_a_failure_whose_number_carries_no_cure_resolves_to_an_empty_one(monkeypatch):
+    """Seventeen of the twenty-one are this case. An absent cure has to arrive as the empty
+    string and not as None: it is printed, compared and put in a dict, and None survives
+    all three while changing what the `you:` line means."""
+    assert doctor.resolve(99, "something broke") == ("something broke", "")
+
+
+def stub(monkeypatch, rows):
+    """A doctor whose twenty-one checks are whatever this test needs, run outside any
+    repository so nothing on the machine can change the answer."""
+    monkeypatch.setattr(doctor, "CHECKS", rows)
+    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
+
+
+@pytest.mark.parametrize(
+    ("rows", "title", "count", "line"),
+    [
+        (
+            [
+                (7, "The controls", "a", True, lambda root: "broken"),
+                (4, "The context", "b", True, lambda root: "broken"),
+            ],
+            "FAILED",
+            "0 passed · 2 failed · 0 not evaluated",
+            "needs a person  2   assertions 4, 7",
+        ),
+        (
+            [(4, "The context", "b", True, lambda root: None)],
+            "OK",
+            "1 passed · 0 failed · 0 not evaluated",
+            "",
+        ),
+    ],
+    ids=["two on a person, in order", "nothing failed"],
+)
+def test_the_verdict_names_the_assertions_a_person_has_to_go_and_read(
+    monkeypatch, capsys, rows, title, count, line
+):
+    """The count is not enough: "2 need a person" over twenty-one rows that have scrolled
+    past sends somebody back up the screen to find which two. They are listed, sorted, and
+    the word agrees with the number — a panel reading "1 assertions" was written by nobody.
+
+    The title is asserted with its frame. `"FAILED" in out` passes on a title that reads
+    XXFAILEDXX, which is exactly the mutant it was supposed to catch."""
+    stub(monkeypatch, rows)
+    doctor.main([])
+    out = capsys.readouterr().out
+    assert f"╭─ {title} ─" in out
+    # The count row carries no label, so it starts immediately after the frame: a label
+    # there pushes it sixteen columns right and stops it lining up with the two under it.
+    assert f"│ {count} " in out
+    assert (line in out) if line else ("needs a person" not in out and "FAILED" not in out)
+
+
+def test_the_whole_report_is_data_and_none_of_it_is_chrome(monkeypatch, capsys):
+    """`ai-eng doctor > report.txt` has to yield the report. Every line of this verb is the
+    report — there is no progress and no question — so anything reaching stderr is a line
+    that will be missing from the file somebody opens, and this is the one assertion that
+    holds all thirty of them at once.
+
+    The unanswered block is written out whole because it is where a skipped check and a
+    check that refused to answer end up side by side, each with the reason it gave."""
+    stub(
+        monkeypatch,
+        [
+            (1, "The context", "ran", True, lambda root: None),
+            (2, "The context", "local only", False, lambda root: None),
+            (3, "The context", "refused", True, raises(doctor.Undecidable("no endpoint"))),
+        ],
+    )
+    assert doctor.main(["--ci"]) == 0
+    caught = capsys.readouterr()
+    assert caught.err == "", "a line of the report went to the wrong stream"
+    assert (
+        "\nNot evaluated — 2 of 3 could not be answered here\n"
+        "   2  local only\n"
+        "      needs a real working copy\n"
+        "   3  refused\n"
+        "      no endpoint\n"
+        "  None of these is a pass. Not evaluated is never green.\n"
+    ) in caught.out
+
+
+def test_the_three_muted_kinds_of_line_under_the_report_are_dressed_as_such(monkeypatch, capsys):
+    """The legend, the reasons under the unanswered rows and the sentence that says none of
+    them is a pass. Undecorated all three are ordinary text in a screen that is mostly
+    ordinary text, and the last one is a warning — the whole point of printing it."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    doctor.ui.reset()
+    stub(monkeypatch, [(3, "The context", "refused", True, raises(doctor.Undecidable("why")))])
+    monkeypatch.setattr(doctor, "coverage", lambda root: ["  T2  a  BLOCKS  a denial ran here"])
+    doctor.main([])
+    out = capsys.readouterr().out
+    styles = doctor.ui.THEME.styles
+    assert styles["muted"].render(doctor.LEGEND[0]) in out
+    assert styles["muted"].render("      why") in out
+    assert styles["warn"].render("  None of these is a pass. Not evaluated is never green.") in out
+    # And the coverage row wears what its own word chose. This is the only place the two
+    # halves meet: `tint` picks the style and this loop is what applies it.
+    assert styles["ok"].render("  T2  a  BLOCKS  a denial ran here") in out
+    doctor.ui.reset()
+
+
+@pytest.mark.parametrize(
+    ("problem", "colour"), [(lambda root: "broken", "red"), (lambda root: None, "#00D4AA")]
+)
+def test_the_verdict_frame_takes_its_colour_from_the_answer(monkeypatch, capsys, problem, colour):
+    """Undecorated the two verdicts are the same box, so the colour is the one part of this
+    that the rest of the suite cannot see — and it is the part read first."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    doctor.ui.reset()
+    stub(monkeypatch, [(4, "The context", "b", True, problem)])
+    doctor.main([])
+    assert Style.parse(colour).render("─").split("─")[0] in capsys.readouterr().out
+    doctor.ui.reset()
+
+
+@pytest.fixture
+def invoked(monkeypatch):
+    """Every argv `--fix` hands to the CLI, and nothing actually runs. The commands it
+    names write to a machine, and a test that lets them run is a test that installs this
+    product onto whoever is running the suite."""
+    calls = []
+    monkeypatch.setattr(cli, "main", lambda argv: calls.append(list(argv)) or 0)
+    return calls
+
+
+def test_fix_runs_the_verb_that_already_carries_the_consent_and_then_asks_again(
+    monkeypatch, capsys, invoked
+):
+    """ADR 0003's whole argument, as an assertion. `--fix` names a verb and does not
+    reimplement it, so the gates that verb carries are still in front of the write — and it
+    re-runs the diagnosis afterwards, because a repair nobody re-measured is a claim.
+
+    The stub check keeps failing, so the second pass fails too: `--fix` reports what is
+    true after the attempt and never what it hoped for."""
+    monkeypatch.setattr(doctor, "CHECKS", [(2, "The pin", "wiring", True, lambda root: "broken")])
+    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
+    assert doctor.main(["--fix"]) == 1
+    # -y is appended and --no-project is not: one is how a cure runs unattended, the other
+    # is in the cure itself, so repairing a machine cannot set up a stray repository.
+    assert invoked == [["init", "--global", "--no-project", "-y"]]
+    out = capsys.readouterr().out
+    assert out.count("   2  FAIL     wiring") == 2, "the second pass never ran"
+    # The blank line above it is part of the assertion: it is written to the same stream as
+    # the command, and a repair whose commands land on stderr is a repair missing from the
+    # transcript somebody pastes into a bug report.
+    assert "\n\n  running ai-eng init --global --no-project -y\n" in out
+
+
+def test_fix_runs_each_distinct_cure_once_however_many_checks_named_it(
+    monkeypatch, capsys, invoked
+):
+    """Three failures, two commands. Running `init --global` once per check that wants it
+    is three installs, and the third one is where a duplicated guard entry comes from."""
+    monkeypatch.setattr(
+        doctor,
+        "CHECKS",
+        [
+            (2, "The pin", "a", True, lambda root: "broken"),
+            (13, "The pin", "b", True, lambda root: "broken"),
+            (11, "The pin", "c", True, lambda root: "broken"),
+        ],
+    )
+    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
+    doctor.main(["--fix"])
+    assert invoked == [["init", "--global", "--no-project", "-y"], ["init", "--project", "-y"]]
+
+
+def test_a_cure_whose_verb_asks_nothing_is_run_with_nothing_appended(monkeypatch, invoked):
+    """`ai-eng update` has no -y and needs none: it refuses on a dirty tree, refuses without
+    a keyboard and asks for a typed y, and those three gates are the whole reason ADR 0003
+    is allowed to exist. Appending a flag it does not have would make argparse exit 2, and
+    the only check that names it is the one that reaches it through its own cure."""
+    monkeypatch.setattr(
+        doctor, "CHECKS", [(12, "The pin", "pin", True, lambda root: ("stale", "ai-eng update"))]
+    )
+    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
+    doctor.main(["--fix"])
+    assert invoked == [["update"]]
+
+
+def test_fix_with_nothing_it_can_repair_says_so_and_writes_nothing(monkeypatch, capsys, invoked):
+    """The failure that has no command is the common one — seventeen of the twenty-one —
+    and a flag that silently does nothing reads as a flag that ran."""
+    monkeypatch.setattr(doctor, "CHECKS", [(4, "The context", "yours", True, lambda root: "TODO")])
+    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
+    assert doctor.main(["--fix"]) == 1
+    assert invoked == []
+    assert (
+        "\n  Nothing that failed here has a command that fixes it.\n"
+    ) in capsys.readouterr().out
+
+
+def test_a_cure_that_exits_non_zero_stops_the_rest_instead_of_reporting_a_clean_run(
+    monkeypatch, capsys
+):
+    """A repair that failed and a repair that was never attempted are different things, and
+    running the second command over the wreckage of the first is how one broken install
+    becomes two. The exit code is the cure's, not doctor's."""
+    monkeypatch.setattr(cli, "main", lambda argv: 3)
+    monkeypatch.setattr(
+        doctor,
+        "CHECKS",
+        [
+            (2, "The pin", "a", True, lambda root: "broken"),
+            (11, "The pin", "b", True, lambda root: "broken"),
+        ],
+    )
+    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
+    assert doctor.main(["--fix"]) == 3
+    out = capsys.readouterr().out
+    assert "  it exited 3. The rest is not attempted." in out
+    assert out.count("   2  FAIL     a") == 1, "it asked again after a repair that failed"
+
+
+def test_the_command_a_repair_runs_and_the_one_that_failed_are_dressed_apart(monkeypatch, capsys):
+    """`--fix` prints two kinds of line: the command it is about to run, which is what a
+    person re-runs by hand when it goes wrong, and the sentence saying one exited non-zero.
+    Undecorated they are two runs of ordinary text, and the second is the one that matters."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    doctor.ui.reset()
+    monkeypatch.setattr(cli, "main", lambda argv: 3)
+    stub(monkeypatch, [(11, "The pin", "a", True, lambda root: "broken")])
+    assert doctor.main(["--fix"]) == 3
+    out = capsys.readouterr().out
+    styles = doctor.ui.THEME.styles
+    assert styles["cmd"].render("  running ai-eng init --project -y") in out
+    assert styles["fail"].render("  it exited 3. The rest is not attempted.") in out
+    doctor.ui.reset()
 
 
 def test_a_missing_dispatcher_names_no_cure_because_no_command_puts_it_back(
@@ -657,7 +946,7 @@ def test_the_coverage_line_survives_a_machine_with_nothing_installed(home, repo)
     on an empty machine, the coverage line has to keep printing rather than take the
     exception with it — every row there already reads UNPROVEN for the same reason."""
     lines = doctor.coverage(repo)
-    assert len(lines) == len(wiring.table()["surface"]) + 2
+    assert len(lines) == 1 + len(wiring.table()["surface"]) + len(doctor.OPEN)
     assert all("INERT" not in line for line in lines)
 
 
@@ -855,7 +1144,8 @@ def test_no_surface_reads_as_covered_where_no_denial_has_ever_executed(home, rep
         else:
             target.mkdir(exist_ok=True)
     lines = doctor.coverage(repo)
-    rows = dict(zip([s["id"] for s in wiring.table()["surface"]], lines[1:-1], strict=True))
+    ids = [s["id"] for s in wiring.table()["surface"]]
+    rows = dict(zip(ids, lines[1 : 1 + len(ids)], strict=True))
     unproven = [s["id"] for s in wiring.table()["surface"] if not s["proven"]]
     assert not [name for name in unproven if "BLOCKS" in rows[name]]
     assert "INERT" in rows["opencode"] and "INERT" in rows["codex-cli"]

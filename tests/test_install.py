@@ -261,7 +261,7 @@ def test_overwriting_a_file_writes_the_backup_before_it_writes_the_skeleton(repo
     disk under a dated name, or a mistyped answer costs work that no git history holds."""
     (repo / "justfile").write_text("mine:\n\t@echo hello\n", encoding="utf-8")
     init.main(["--no-global", "--project", str(repo), "-y", "--overwrite", "justfile"])
-    assert (repo / "justfile").read_text(encoding="utf-8") == skeletons.JUSTFILE
+    assert (repo / "justfile").read_text(encoding="utf-8") == skeletons.justfile([])
     backups = list(repo.glob("justfile.bak-*"))
     assert len(backups) == 1, f"overwrite left {len(backups)} backups"
     assert backups[0].read_text(encoding="utf-8") == "mine:\n\t@echo hello\n"
@@ -490,12 +490,55 @@ def test_update_rewrites_a_stale_entry_and_leaves_an_append_only_surface_alone(
     assert 'version = "9.9.9"' in (pinned_repo / ".ai" / "config.toml").read_text(encoding="utf-8")
 
 
-def test_the_shipped_check_recipe_runs_every_recipe_that_ships_with_it(home):
+@pytest.mark.parametrize("stacks", [[], ["python"], sorted(skeletons.RECIPES)])
+def test_the_shipped_check_recipe_runs_every_recipe_that_ships_with_it(home, stacks):
     """`just check` is the whole contract with CI. A recipe missing from that line never runs
-    and reports nothing; a name on it that is no recipe makes `just check` fail for everyone."""
-    defined = set(re.findall(r"^([a-z]+):", skeletons.JUSTFILE, re.M))
-    called = set(re.search(r"^check:(.*)$", skeletons.JUSTFILE, re.M).group(1).split())
+    and reports nothing; a name on it that is no recipe makes `just check` fail for everyone.
+
+    Driven over no stack, one, and every stack there is a row for, because the recipe bodies
+    are filled in now and a body that lands at the wrong indentation is a new recipe as far
+    as `just` is concerned — which is how a filled-in file could ship having quietly dropped
+    `security` off the check line."""
+    written = skeletons.justfile(stacks)
+    defined = set(re.findall(r"^([a-z]+):", written, re.M))
+    called = set(re.search(r"^check:(.*)$", written, re.M).group(1).split())
     assert called == defined - {"check"}, f"check runs {sorted(called)}, ships {sorted(defined)}"
+    assert "{" not in written, "an unrendered placeholder shipped in the justfile"
+    for stack in stacks:
+        for command in skeletons.RECIPES[stack]:
+            assert f"\n    {command}\n" in written, command
+
+
+def test_a_stack_with_no_row_here_keeps_its_todo_and_says_nothing_about_itself():
+    """The promise in the docstring, driven. A name we cannot fill in has to leave the file
+    exactly as an empty repository gets it — no header claiming it was filled in for a
+    language, and no recipe body invented for one."""
+    written = skeletons.justfile(["cobol"])
+    assert written == skeletons.justfile([])
+    assert written.startswith(
+        "# What `check` means here. CI never learns a language: it runs `just check`.\n\nwired:"
+    )
+    # And it is skipped rather than stopped on: a repository with a marker we cannot name
+    # beside one we can has to get the recipes for the one we can, whatever order they
+    # arrive in. `stacks()` sorts them, so alphabetical order is the order this happens in.
+    assert skeletons.justfile(["cobol", "python"]) == skeletons.justfile(["python"])
+    assert "ruff check ." in skeletons.justfile(["cobol", "python"])
+
+
+def test_the_python_recipes_are_the_commands_this_project_would_actually_run():
+    """One stack written out, because the test above reads its expectations from the same
+    table the code reads: swap two rows there and both sides move together. This one says
+    what `lint`, `test` and `build` mean in Python, in the order the recipes are filled, so
+    a table whose columns drift lands `pytest` under `lint` and is caught here.
+
+    Python and not all seven: the point is that the order is pinned somewhere, and seven
+    copies of that are seven things to update for one fact."""
+    assert skeletons.RECIPES["python"] == ("ruff check .", "pytest -q", "uv build")
+    assert list(skeletons.TODOS) == ["lint", "test", "build"]
+    written = skeletons.justfile(["python"])
+    assert "\nlint:\n    ruff check .\n" in written
+    assert "\ntest:\n    pytest -q\n" in written
+    assert "\nbuild:\n    uv build\n" in written
 
 
 def test_the_config_template_renders_to_toml_carrying_the_version(home):

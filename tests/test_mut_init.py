@@ -246,15 +246,43 @@ def test_the_machine_counts_as_ready_only_with_a_receipt_at_this_exact_version(h
 # ── global_step ─────────────────────────────────────────────────────────────────────
 
 
-def test_an_already_wired_machine_gets_one_summary_line_and_no_survey(home, capsys):
+def test_an_already_wired_machine_gets_the_block_it_left_behind_and_no_survey(home, capsys):
     """Catches the installer walking the whole surface table again on a machine that is
-    already set up, which is how a second guard entry gets written."""
-    entry = [{"path": "/a", "kind": "guard"}, {"path": "/b", "kind": "link"}]
+    already set up, which is how a second guard entry gets written.
+
+    Every number is counted, none is written into the sentence. The line this replaced said
+    `8 skills` as a literal, which is a fact about the wheel that shipped the line and not
+    about the machine reading it — and the count here is deliberately two links and one
+    guard against a skills directory that does not exist, because a summary that can only
+    be right on a healthy machine is a summary that hides the unhealthy one."""
+    entry = [
+        {"path": "/a", "kind": "guard"},
+        {"path": "/b", "kind": "link"},
+        {"path": "/c", "kind": "link"},
+    ]
     wiring.write_json(wiring.receipt_path(), {"wrote": entry, "version": __version__})
+    # Two skills and one directory that is not one. The count is of what is installed, so a
+    # count of everything under that root is a count that goes up when a cache lands there.
+    for name in ("ai-spec", "ai-plan", "cache"):
+        (paths.home() / "skills" / name).mkdir(parents=True)
     init.global_step(init.parse([]))
     assert capsys.readouterr().err == (
-        f"  Global ready — 8 skills, 2 entries, v{__version__} ({wiring.receipt_path()})\n"
+        f"\n◇ Global   ready · v{__version__}\n"
+        f"   skills      2  {paths.home() / 'skills'}\n"
+        f"   links       2  one skills root per surface found\n"
+        f"   guards      1  one entry in each surface's own settings file\n"
+        f"   receipt        {wiring.receipt_path()}\n"
     )
+
+
+def test_no_project_sets_up_the_machine_and_leaves_the_repository_alone(repo, capsys, no_keyboard):
+    """The safety inside every cure `doctor --fix` runs. Without it the only way to ask for
+    the machine and nothing else is to answer a question, so a repair with nobody in the
+    room would set up whatever repository the person happened to be standing in — writing
+    four instruction files and a workflow into a tree that never asked for any of them."""
+    assert init.main(["--global", "--harness", "claude-code", "--no-project", "-y"]) == 0
+    assert {p.name for p in repo.iterdir()} == {".git"}
+    assert "◇ Project" not in capsys.readouterr().err
 
 
 def test_no_global_says_nothing_at_all_when_there_is_no_receipt(home, capsys, no_keyboard):
@@ -633,32 +661,40 @@ def test_naming_the_project_explicitly_runs_the_setup_over_an_existing_pin(repo,
     assert init.project_step(init.parse(["--project", str(repo)])) == 0
     text = capsys.readouterr().err
     assert "   git repository, not set up\n" in text
-    assert __version__ in (repo / ".ai" / "config.toml").read_text()
+    assert (repo / "CLAUDE.md").exists(), "the rest of the setup did not run"
 
 
-def test_the_pin_is_never_replaced_without_a_dated_copy_and_a_line_of_its_own(repo, capsys):
-    """The four instruction files each got a dated backup and the one file this project's
-    own vocabulary calls *the pin* got none: `--project` with a value asks nothing and
-    rewrote .ai/config.toml and .ai/.gitignore unconditionally, so a hand-edited pin went
-    back to defaults with no copy and no line. This is the file that names which version
-    governs the repository, and a change of governance is never silent."""
+def test_the_pin_is_never_rewritten_because_update_is_the_verb_that_changes_it(repo, capsys):
+    """A pin that exists is left exactly as it is. This used to rewrite it on every run,
+    taking a dated backup and printing a line — which is `ai-eng update` with its dirty-tree
+    refusal, its keyboard and its typed y all removed, and a receipt handed over afterwards
+    instead. It reset everything else in the file too: the guard windows, and the
+    observability endpoint somebody's alerts point at.
+
+    `doctor --fix` is what made this reachable with nobody in the room, which is the objection
+    ADR 0002 raised, ADR 0003 promised was not true of this design, and this holds to."""
     (repo / ".ai").mkdir()
-    (repo / ".ai" / "config.toml").write_text('[framework]\nversion = "0.0.1"\n', encoding="utf-8")
+    mine = '[framework]\nversion = "0.0.1"\n\n[observability]\nendpoint = "https://mine"\n'
+    (repo / ".ai" / "config.toml").write_text(mine, encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo)]))
-    saved = [p for p in (repo / ".ai").iterdir() if p.name.startswith("config.toml.bak-")]
-    assert len(saved) == 1
-    assert saved[0].read_text() == '[framework]\nversion = "0.0.1"\n'
-    assert f"   ✓ .ai/config.toml backup → {saved[0].name} written\n" in capsys.readouterr().err
-    assert f'version = "{__version__}"' in (repo / ".ai" / "config.toml").read_text()
+    assert (repo / ".ai" / "config.toml").read_text() == mine
+    assert [p for p in (repo / ".ai").iterdir() if ".bak-" in p.name] == []
+    text = capsys.readouterr().err
+    assert "   ✓ .ai/.gitignore · specs/\n" in text
+    assert (
+        "     .ai/config.toml was already here and is untouched. `ai-eng update` is the "
+        "only verb that changes the pin.\n"
+    ) in text
 
 
-def test_a_pin_that_already_says_what_we_would_write_is_not_copied(repo, capsys):
+def test_a_second_run_writes_no_pin_and_no_copy_of_one(repo, capsys):
     """Catches a backup on every re-run, which turns `--project` into a directory that
     fills with identical copies of a file nobody changed."""
     init.project_step(init.parse(["--project", str(repo)]))
     capsys.readouterr()
     init.project_step(init.parse(["--project", str(repo)]))
     assert "backup" not in capsys.readouterr().err
+    assert [p for p in (repo / ".ai").iterdir() if ".bak-" in p.name] == []
     assert {p.name for p in (repo / ".ai").iterdir()} == {"config.toml", ".gitignore"}
 
 
@@ -699,7 +735,10 @@ def test_each_offered_file_is_written_with_the_description_the_user_was_shown(
     assert "   ✓ CLAUDE.md written (one line: @./AGENTS.md)\n" in text
     assert "   ✓ AGENTS.md written (skeleton, ~48 lines, TODO marker per section)\n" in text
     assert "   ✓ CONSTITUTION.md written (skeleton, ~40 lines, MANDATORY)\n" in text
-    assert "   ✓ justfile written (5 recipes + the RAN lines)\n" in text
+    assert "   ✓ justfile written (5 recipes, filled in for the stacks found here)\n" in text
+    assert (
+        "   ✓ .github/workflows/check.yml written (the check job, pinned to this version)\n"
+    ) in text
     assert (repo / "CLAUDE.md").read_text() == skeletons.CLAUDE_MD
 
 
@@ -806,32 +845,55 @@ def test_the_stacks_it_found_are_named_and_it_installs_none_of_them(repo, capsys
     (repo / "package.json").touch()
     init.project_step(init.parse(["--project", str(repo)]))
     assert (
-        "\n   Stacks detected: node, python. The binaries each one needs are listed "
-        "in docs/tools.md; this installs none of them.\n"
+        "\n   Stacks detected: node, python. The justfile carries their lint, test and "
+        "build commands; the binaries are listed in docs/tools.md and this installs "
+        "none of them.\n"
     ) in capsys.readouterr().err
+    # And it is not just a sentence: the file it describes carries those commands.
+    written = (repo / "justfile").read_text()
+    assert "# Filled in for: node, python.\n" in written
+    for command in ("npm run lint", "ruff check .", "npm test", "pytest -q"):
+        assert f"\n    {command}\n" in written, command
+    assert "TODO: your linter" not in written
 
 
 def test_a_repository_with_no_marker_file_gets_no_stack_line(repo, capsys, no_keyboard):
     """Catches a stack being claimed for a repository that has nothing to claim it with."""
     init.project_step(init.parse(["--project", str(repo)]))
     assert "Stacks detected" not in capsys.readouterr().err
+    written = (repo / "justfile").read_text()
+    assert "# Filled in for:" not in written
+    # Written out rather than read back from skeletons.TODOS: a loop over the same table
+    # the renderer reads asserts that the file agrees with itself and nothing more.
+    assert '\nlint:\n    @echo "TODO: your linter"\n' in written
+    assert '\ntest:\n    @echo "TODO: your test runner"\n' in written
+    assert '\nbuild:\n    @echo "TODO: compile, package, sign"\n' in written
 
 
-def test_the_ci_block_is_the_only_thing_on_stdout_and_lands_as_a_usable_file(
+@pytest.mark.parametrize("marker", ["thing.csproj", "Thing.sln"])
+def test_a_dotnet_repository_is_recognised_by_a_name_nobody_can_write_down(repo, marker):
+    """Every other stack is found by a fixed filename. .NET is found by a suffix, which is
+    why this detector asks the directory instead of testing a path: `glob` answers for a
+    literal too, so one call covers both kinds of marker and neither needs a branch."""
+    (repo / marker).touch()
+    assert init.stacks(repo) == ["dotnet"]
+
+
+def test_the_ci_workflow_is_written_rather_than_pasted_and_nothing_goes_to_stdout(
     repo, capsys, no_keyboard
 ):
-    """The workflow block is the one thing this verb produces that another program reads,
-    so it is the data half: `ai-eng init -y 2>/dev/null > check.yml` has to leave a file
-    that parses. It used to be indented three spaces to sit inside the screen, which was
-    invisible while everything shared one stream and is a broken workflow the moment it is
-    the file. The instruction above it stays on stderr, where the rest of the prose is."""
+    """The workflow was printed at the reader under "Paste these lines into" — the one file
+    this product asked a person to install by hand, and so the one step of an install that
+    nothing afterwards could verify. It is a file now, written into a directory this creates
+    if it has to, and stdout is empty because there is no longer anything to redirect."""
     assert init.project_step(init.parse(["--project", str(repo)])) == 0
     caught = capsys.readouterr()
-    assert caught.out == skeletons.CHECK_YML.format(version=__version__).rstrip("\n") + "\n"
-    assert caught.out.startswith("name: check\non: [push, pull_request]\n")
-    assert f"\n          PIN: {__version__}\n" in caught.out
-    assert "\n   Paste these lines into .github/workflows/check.yml:\n\n" in caught.err
-    assert "name: check" not in caught.err
+    assert caught.out == ""
+    assert "Paste these lines" not in caught.err
+    written = (repo / ".github" / "workflows" / "check.yml").read_text()
+    assert written == skeletons.CHECK_YML.format(version=__version__)
+    assert written.startswith("name: check\non: [push, pull_request]\n")
+    assert f"\n          PIN: {__version__}\n" in written
 
 
 def test_a_project_dry_run_prints_the_plan_and_writes_no_file(repo, capsys, no_keyboard):
@@ -885,30 +947,64 @@ def test_the_last_screen_says_what_happened_and_what_to_run_next(
     """The run used to end by pasting a block of YAML at the reader. A stranger who reads
     only the last screen now knows how many files were written, how many guard entries
     exist, and what to do — starting with the fact that the skeleton's TODO: markers are
-    deliberate, because the alternative is pasting the CI block and watching a first build
-    go red for a reason nobody named. Every line of it is asserted, in order: a closing
-    panel matched by two fragments is a closing panel most of which nothing is holding."""
+    deliberate, and ending somewhere other than a command: the third step is the only one
+    that says where the product actually gets used, and an install that never says it is an
+    install nobody adopts. Every line is asserted, in order: a closing panel matched by two
+    fragments is a closing panel most of which nothing is holding."""
     monkeypatch.setattr(init.shutil, "which", lambda name: f"/opt/bin/{name}")
     init.main(["--no-global", "--project", str(repo), "-y"])
     caught = capsys.readouterr()
     assert framed(caught.err) == [
-        "7 files written · 0 guard entries on this machine",
+        "8 files written · 0 guard entries on this machine",
         "",
         "Next:",
         "1. fill in the TODO: markers",
         "on purpose; `ai-eng doctor` fails until CONSTITUTION.md has none",
         "2. ai-eng doctor",
         "every assertion, and the coverage line under it",
-        "3. paste the block above",
-        "into .github/workflows/check.yml, and push it",
+        "3. open the agent you work in here",
+        # `--no-global` placed no entry anywhere, and the first row of this same panel says
+        # so. A step promising the guards are already loaded is that panel contradicting
+        # itself two lines later, which is the one thing a last screen cannot do.
+        "run `ai-eng init --global`: no guard is registered here yet",
         "4. ai-eng spec new <slug>",
-        "the first spec, and the chain starts there",
+        "or ask that agent for /ai-spec; the chain starts here",
     ]
-    # The panel is the last word on the terminal, and the block a person pastes is above
-    # it — on the other stream, which is why "above" is asserted against the run and not
-    # against one string.
     assert caught.err.rstrip().endswith("╯")
-    assert caught.err.index("Paste these lines") < caught.err.index("╭─ Done ")
+
+
+def test_the_step_that_says_where_to_go_names_the_surfaces_this_machine_has(
+    repo, capsys, no_keyboard, monkeypatch
+):
+    """ "Open your editor" is advice; "open Claude Code" is an instruction. The names are
+    read from the wiring table, so a surface added there arrives on this line without
+    anybody remembering to add it — and at most two of them, because this is one line inside
+    a panel and a third name wraps it into an item of its own."""
+    # Zed is first and takes no guard entry: a surface that cannot be wired must not be
+    # offered as the place the guards are already loaded, which is what this line claims.
+    rows = [{"name": "Zed", "writer": "none"}] + [
+        {"name": name, "writer": "json_claude"} for name in ("Claude Code", "Cursor", "Pi")
+    ]
+    monkeypatch.setattr(init.wiring, "detect", lambda only=None: rows)
+    monkeypatch.setattr(init.shutil, "which", lambda name: f"/opt/bin/{name}")
+    init.main(["--no-global", "--project", str(repo), "-y"])
+    assert "3. open Claude Code or Cursor here" in framed(capsys.readouterr().err)
+
+
+@pytest.mark.parametrize(
+    ("guards", "line"),
+    [
+        (1, "the guards are already loaded there — nothing else to start"),
+        (0, "run `ai-eng init --global`: no guard is registered here yet"),
+    ],
+    ids=["a machine that was wired", "a machine that was not"],
+)
+def test_the_step_that_says_where_to_go_agrees_with_the_row_above_it(guards, line):
+    """The panel's first row counts the guard entries on this machine, and this step is the
+    only other line on the screen that talks about them. Saying the guards are loaded over a
+    row reading `0 guard entries` is a screen arguing with itself, and it is the last screen
+    of the install — the one a stranger reads instead of everything above it."""
+    assert init.opened(guards)[1] == line
 
 
 def test_the_last_screen_counts_the_guard_entries_that_are_actually_there(
@@ -919,7 +1015,7 @@ def test_the_last_screen_counts_the_guard_entries_that_are_actually_there(
     "1 guard entry", because a closing panel that says "1 entries" was written by nobody."""
     monkeypatch.setattr(init.shutil, "which", lambda name: f"/opt/bin/{name}")
     init.main(["--global", "--harness", "claude-code", "--project", str(repo), "-y"])
-    assert framed(capsys.readouterr().err)[0] == ("7 files written · 1 guard entry on this machine")
+    assert framed(capsys.readouterr().err)[0] == ("8 files written · 1 guard entry on this machine")
 
 
 def test_a_run_that_overwrites_counts_the_files_it_overwrote(
@@ -931,7 +1027,7 @@ def test_a_run_that_overwrites_counts_the_files_it_overwrote(
     for name in ("CLAUDE.md", "justfile"):
         (repo / name).write_text("mine\n", encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo), "--overwrite", "all"]))
-    assert framed(capsys.readouterr().err)[0].startswith("7 files written · ")
+    assert framed(capsys.readouterr().err)[0].startswith("8 files written · ")
 
 
 def test_what_is_still_on_a_person_reaches_the_last_screen(repo, capsys, no_keyboard, monkeypatch):

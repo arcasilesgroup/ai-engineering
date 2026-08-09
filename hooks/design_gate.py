@@ -60,17 +60,16 @@ def run(payload: dict) -> str | None:
     branch = git(root, "rev-parse", "--abbrev-ref", "HEAD")
     if branch in (default_branch(root), "HEAD"):
         return None  # pre-push owns the default branch; this gate does not duplicate it
-    names = changed(root)
-    if has_plan(names):
-        return None
-
     target = (payload.get("tool_input") or {}).get("file_path", "")
     try:
         target = str(Path(target).resolve().relative_to(root))
     except (ValueError, OSError):
         target = ""
+    names = changed(root)
+    if has_plan(names) or target.startswith(SKIP):
+        return None
     files = {name for name in names if not name.startswith(SKIP)}
-    files |= {target} if target and not target.startswith(SKIP) else set()
+    files |= {target} if target else set()
     if len(files) <= budget:
         return None
     return f"this branch has changed {len(files)} files and has no plan. Write one with /ai-plan."

@@ -408,20 +408,44 @@ def test_the_coverage_line_says_exactly_what_each_surface_does_on_this_machine(
     )
 
     want = [
-        ("T2", "claude-code", "denial executed here BLOCKS"),
-        ("T2", "opencode", "plugin not loaded    INERT"),
-        ("T2", "codex-cli", "hook present         INERT — run /hooks"),
-        ("T2", "cursor", "documented, unrun    UNPROVEN"),
-        ("T2", "copilot-cli", "not installed        UNPROVEN"),
-        ("T2", "vscode-copilot", "not installed        UNPROVEN"),
-        ("T3", "pi", "instructions only    ADVISES"),
-        ("T3", "zed", "not installed        UNPROVEN"),
+        ("T2", "claude-code", "BLOCKS", "a denial has executed here"),
+        (
+            "T2",
+            "opencode",
+            "INERT",
+            "the plugin never reported loading; a malformed one is dropped in silence",
+        ),
+        (
+            "T2",
+            "codex-cli",
+            "INERT",
+            "installed and unapproved — type /hooks in Codex to approve it",
+        ),
+        ("T2", "cursor", "UNPROVEN", "installed and wired, but no denial has ever run here"),
+        ("T2", "copilot-cli", "UNPROVEN", "not installed here, so nothing about it is proven"),
+        ("T2", "vscode-copilot", "UNPROVEN", "not installed here, so nothing about it is proven"),
+        ("T3", "pi", "ADVISES", "reads the skills; it cannot deny a call"),
+        ("T3", "zed", "UNPROVEN", "not installed here, so nothing about it is proven"),
     ]
     assert doctor.coverage(root) == [
         f"  PIN  wheel {__version__} = pinned 0.0.0-not-this-wheel  MISMATCH",
-        *[f"  {tier:<4} {surface:<16} {state}" for tier, surface, state in want],
-        "  Bypasses that work today: --no-verify from your own shell. T1 is not T0.",
+        *[f"  {tier:<4} {name:<16} {word:<9} {why}" for tier, name, word, why in want],
+        # Written out and not `*doctor.OPEN`: spread from the module, both sides of this
+        # comparison move together and the sentence can be emptied with the suite green.
+        "  OPEN  --no-verify from your own shell walks past every row above, and so does",
+        "        anything that never asks a surface. Only a required check on the server",
+        "        (T0) stops those, and nothing on this machine can give you one.",
     ]
+
+
+@pytest.mark.parametrize("word", ["BLOCKS", "INERT", "UNPROVEN", "ADVISES", "T2", "T3"])
+def test_every_word_a_coverage_row_prints_is_defined_on_the_screen_that_prints_it(word):
+    """What "no entiendo nada" meant. Every one of these is exact and none of them was
+    defined anywhere the person running the command would see, so eight rows of it read as
+    noise. A word that can reach a row and not the legend is a word nobody can look up at
+    the moment they need to."""
+    assert word in doctor.COLOURS or word.startswith("T"), f"{word} has no colour"
+    assert any(f"  {word} " in line or f"· {word} " in line for line in doctor.LEGEND), word
 
 
 def test_the_pin_line_reads_ok_only_when_this_wheel_is_the_one_the_repository_pinned(
@@ -511,10 +535,21 @@ def test_the_report_prints_one_line_per_state_and_hands_every_check_the_reposito
     assert "   3  ?        third\n      could not evaluate: nothing was ever written" in out
     assert "   4  ?        fourth" in out
     assert "   5  FAIL     fifth\n      the server said no" in out
-    assert "\nCoverage — what actually blocks, by surface\n" in out
+    assert "\nCoverage — where a call can actually be stopped, and where it cannot\n" in out
     assert f"  surfaces for {here}" in out
+    # Every failure gets one line or the other, never neither: number 2 is in FIXES and
+    # number 5 is not, and the verdict counts the two of them into different columns.
+    assert f"      fix: {doctor.FIXES[2]}" in out
+    assert out.count("      you: a person does this one") == 1
+    assert "FAILED" in out
+    assert "fixable now     1   ai-eng doctor --fix" in out
+    assert "needs a person  1   assertion 5" in out
     assert "1 passed · 2 failed · 2 not evaluated" in out
-    assert out.endswith("\nNot evaluated is never green. Each one names why above.\n")
+    # The verdict is last, and it is last on purpose: the sentence that used to end this
+    # report was one unframed line under eight rows of coverage, and it was read as a ninth.
+    assert out.rstrip().endswith("╯")
+    assert "Not evaluated — 2 of 5 could not be answered here" in out
+    assert "  None of these is a pass. Not evaluated is never green." in out
 
 
 def test_ci_leaves_the_local_only_checks_unrun_and_still_runs_everything_else(monkeypatch, capsys):

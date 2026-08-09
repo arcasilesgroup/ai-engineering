@@ -13,7 +13,7 @@ supersedes: ""
 
 v1.0.0 ships eight guards, ten verbs and three git hooks, and its own adversarial suite is
 green. This spec exists because a reading of a peer product went looking for features to
-borrow and came back instead with seven failures of our own, each one an instance of the
+borrow and came back instead with nine failures of our own, each one an instance of the
 second word in the mission: doing nothing silently.
 
 The peer is karajan-code, a multi-agent orchestrator under AGPL-3.0. It was read the way
@@ -83,6 +83,22 @@ as a tilde, which the guard stores only in its expanded form. The wheel's own `p
 `git-hooks/` directories are unprotected as well: a single edit to the IOC catalogue
 disarms the injection guard.
 
+The opposite failure was then observed in a real Claude Code session. A read-only command
+used `cat` on `~/.claude/skills/ai-spec/SKILL.md`, redirected only stderr to `/dev/null`,
+and then listed the same directory. `self_protect` found the protected path anywhere in the
+command and the `>` from `2>/dev/null` anywhere else, joined the two unrelated facts and
+reported that the command wrote to the skills directory. It did not. A guard that misses
+six writes and refuses an ordinary read is wrong in both directions, and “use the read
+tool” is a workaround rather than a defence of the decision.
+
+It reproduced a second time with a wider command: one line only listed `.git/hooks/`, while
+a later, independent line ran `gitleaks version 2>&1 | head -1`. The guard paired the
+protected path from the first command with the redirect from the later command and again
+reported a write to the protected directory. This narrows the cause: the decision is made
+over the whole Bash string, across newlines and command separators, rather than over the
+operator and destination of one command. A fix that merely blesses `cat` leaves this `ls`
+case broken; the check has to preserve the boundary between shell commands.
+
 **Six. `ai-eng uninstall` crashes on any machine that has OpenCode.** The installer records
 the OpenCode plugin as a guard row, so uninstall sends it to the routine that strips JSON
 entries; that routine finds the mark inside the TypeScript, hands the TypeScript to a JSON
@@ -91,12 +107,40 @@ after it is left wired too. The verb whose entire pitch is that governance can b
 cleanly is the verb that dies halfway. This one was found while checking failure two and is
 not on anybody's candidate list.
 
-Two smaller things belong in the same sweep because leaving them is choosing a red gate
-later. An acceptance in spec 001 expires 2026-09-08, thirty-one days from today, and when
-it does every push and every CI `doctor` in this repository goes red from a markdown file
-— and renewing it in a later spec does not help, because a renewal has never once retired
-what it renews, which is failure seven and is discovered by this spec trying to use the
-mechanism. And the adversarial harness holds a literal saying the bar is twelve of twelve
+**Seven. A renewal has never once retired what it renews.** An acceptance in spec 001
+expires 2026-09-08, thirty-one days from today, and when it does every push and every CI
+`doctor` in this repository goes red from a markdown file. Renewing it in a later spec does
+not help because the expiry reader returns the expired original and the newer renewal as
+independent findings. This spec discovered the defect by trying to use the mechanism.
+
+**Eight. A correct denial can end the agent's turn without a handoff.** The false positive
+above produced an error tool result in Claude Code 2.1.226 and was followed immediately by
+the turn-duration record. There was no next assistant message, explanation or alternative
+call; work resumed only after the person asked why it had stopped almost two minutes later.
+The second false positive reproduced the whole sequence: denied tool result, immediate
+turn-duration record, no assistant event, then a user message ten minutes and thirty-five
+seconds later. This is now two observed denials with two silent stops, not one ambiguous UI
+pause.
+The dispatcher prints a cross-surface JSON denial and exits 2. Claude Code documents that
+JSON is ignored on exit 2, and `anthropics/claude-code#24327` records the intermittent
+behaviour we observed: the model can treat an automated hook denial like a person's
+permission refusal and wait. The contract in `surfaces/opencode.ts` says Claude continues
+after a denial; the observed transcript disproves it. A guard blocks one operation. It
+does not silently turn an autonomous task back into a person typing “continue”.
+
+**Nine. The mutation gate rewired the operator's real machine from a disposable mutant.**
+A scoped mutation run over `init` and `wiring` copied the repository away from its working
+tree but kept the process's real `HOME`. One mutant reached the global installer and wrote
+Claude Code and Copilot entries containing its own temporary uv interpreter and its
+temporary `mutants/hooks/chain.py`. The mutation sandbox was then deleted. Every later
+Read, Edit and Bash call tried both pre- and post-tool hooks at paths that no longer
+existed, printed a non-blocking error and continued without any guard running. The recipe's
+comment says the copy exists because mutation once edited the developer's repository; it
+moved the sandbox and left the developer's machine inside it. A test process that can
+install itself globally is not isolated, however temporary its checkout is.
+
+One smaller thing belongs in the same sweep because leaving it is choosing a misleading
+gate later. The adversarial harness holds a literal saying the bar is twelve of twelve
 while thirteen cases are registered; it only prints on failure, which is why nobody has
 seen it.
 
@@ -110,7 +154,7 @@ seen it.
    three ordinary file reads into a denial, and an environment variable that hands an agent
    the key to every gate.
 2. **Fix nothing until a user reports it.** The honest option, and the cheapest. Rejected
-   because five of the seven failures are silent by construction: a guard that never fires
+   because six of the nine failures are silent by construction: a guard that never fires
    produces no complaint, a duplicate wiring entry produces no complaint, and a swallowed
    record block produces a green. The only report they can generate is the one that arrives
    after the harm.
@@ -165,6 +209,18 @@ and the prompt goes away with it. Nothing in this spec adds a line to `AGENTS.md
 skill grows.
 
 ## Decisions
+
+```yaml
+decision: A mutation worker runs with a disposable home, not merely a disposable checkout
+date: 2026-08-09
+rationale: A real mutation run wrote Claude Code and Copilot hook entries whose interpreter and dispatcher both lived under temporary directories that were deleted when the run ended. The existing recipe isolates the git tree but inherits HOME, USERPROFILE and AI_ENGINEERING_HOME, so a mutant that reaches global init can rewrite the operator's machine while the test suite still believes its fixture owns the paths. The worker receives a fresh home and framework home before mutmut starts, and the gate compares the real surface files before and after the run. A test tool that changes governance outside its sandbox fails even if every mutant was killed.
+```
+
+```yaml
+decision: A guard denial blocks one operation, not the agent's turn
+date: 2026-08-08
+rationale: A real Claude Code 2.1.226 transcript records the whole failure: self_protect denied a harmless read, the client returned an error tool result, and the turn ended three milliseconds later with no assistant response until the person prompted again. The current dispatcher mixes a JSON denial with exit 2 even though Claude Code ignores JSON on that exit path, and an upstream issue records the same intermittent stop. The response becomes surface-specific: Claude receives its documented structured PreToolUse denial, the surfaces that enforce by process status keep their status, and the task is not complete until a live denial either produces the next assistant action or a visible handoff without another user prompt. If structured denial alone does not meet that check, a one-shot Stop recovery is the fallback; hoping the model interprets stderr differently is not.
+```
 
 ```yaml
 decision: A renewal that does not retire what it renews is not a renewal

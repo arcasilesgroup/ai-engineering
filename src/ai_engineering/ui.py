@@ -93,17 +93,29 @@ def write(text: str = "", style: str = "", data: bool = False) -> None:
     console(data).print(Text(text, style=style) if style else Text(text))
 
 
+WORDMARK = "{ ai } e n g i n e e r i n g"
+
+
 def banner() -> None:
     """Four lines, the only moment the product has a face. On a terminal only, so it never
     lands in a log or a CI transcript — and asked of the console rather than of the stream,
-    because two places deciding what a terminal is will eventually disagree."""
+    because two places deciding what a terminal is will eventually disagree.
+
+    The frame is measured from the two lines it frames rather than typed out. Typed out it
+    was twenty-six columns around a thirty-two column wordmark: corners that enclosed
+    nothing, printed at the top of every run for as long as the drawing has existed. A
+    drawing fails only by being looked at, nobody looks at a banner twice, and the test
+    that pinned it pinned the mistake — so the width is arithmetic now, and a version that
+    grows a digit moves the frame with it."""
     out = console()
     if not out.is_terminal:
         return
-    out.print(Text("\n  ┌─                    ─┐", style="brand"))
-    out.print(Text("    { ai } e n g i n e e r i n g", style="brand"))
-    out.print(Text("  └─                    ─┘", style="brand"))
-    out.print(Text(f"   v{__version__} · AI Governance Framework\n", style="muted"))
+    tag = f"v{__version__} · AI Governance Framework"
+    gap = " " * (max(len(WORDMARK), len(tag)) - 2)
+    out.print(Text(f"\n  ┌─{gap}─┐", style="brand"))
+    out.print(Text(f"    {WORDMARK}", style="brand"))
+    out.print(Text(f"  └─{gap}─┘", style="brand"))
+    out.print(Text(f"    {tag}\n", style="muted"))
 
 
 def section(title: str, data: bool = False) -> None:
@@ -144,6 +156,40 @@ def verdict(number: int, state: str, title: str, detail: str = "") -> None:
         console(data=True).print(Text(f"      {detail}", style="muted"))
 
 
+def cure(command: str) -> None:
+    """Under a failure, the exact thing to type — or the sentence that says nothing can be
+    typed. Four of the twenty-one checks named their cure inside their prose and seventeen
+    named nothing, so a reader had to work out for themselves which failures were theirs to
+    fix by hand and which were one command away. That is now a column and not a guess."""
+    line = Text("      ")
+    if command:
+        line.append("fix: ", style="head")
+        line.append(command, style="cmd")
+    else:
+        line.append("you: ", style="head")
+        # Not "the line above says what to do". Four of these failures name their remedy in
+        # prose and the rest only name the problem, so a line promising an instruction that
+        # is not there sends the reader back up the screen to look for it.
+        line.append("a person does this one; no ai-eng command repairs it", style="muted")
+    console(data=True).print(line)
+
+
+def summary(title: str, rows: list[tuple[str, str]], style: str) -> None:
+    """The verdict, in the same frame as `init`'s last screen. It was a bare line under the
+    coverage block before, in the same weight as the eight rows above it, and it was read
+    as more of the table — a person who had just run twenty-one checks could not say
+    whether they had passed. A frame is not decoration when it is the answer."""
+    body = Text()
+    for index, (label, detail) in enumerate(rows):
+        if index:
+            body.append("\n")
+        if label:
+            body.append(f"{label:<16}", style="head")
+        body.append(detail)
+    console(data=True).print()
+    console(data=True).print(Panel(body, title=title, border_style=style, title_align="left"))
+
+
 def pair(key: str, text: str, data: bool = True) -> None:
     """A name and what it does, on one line: the ten verbs, and anything else shaped the
     same. The key carries the brand style, because it is the part you are going to type."""
@@ -173,12 +219,15 @@ def survey(rows: list[tuple[str, str, str, str]]) -> None:
         console().print(line)
 
 
-def block(text: str, data: bool = True) -> None:
-    """Verbatim, unstyled, unwrapped — a block of YAML somebody is going to paste. Markup is
-    off across this module for exactly this line: rich would read `[push, pull_request]` as
-    a style tag and print neither the brackets nor the words."""
-    for row in text.splitlines():
-        console(data).print(Text(row))
+def facts(rows: list[tuple[str, str, str]]) -> None:
+    """A name, a count and where it landed. What this shape replaced was a hundred-column
+    sentence with four facts and a path folded into it, which is a line a person scans for
+    the one number they came for and does not find. Widths live here, as everywhere else in
+    this module, because four of them at a call site is how the last two screens drifted."""
+    for name, value, detail in rows:
+        line = Text(f"   {name:<10}{value:>3}  ")
+        line.append(detail, style="path")
+        console().print(line)
 
 
 def report(headline: str, waiting: list[str], nexts: list[tuple[str, str]]) -> None:
@@ -212,10 +261,14 @@ def pick(question: str, rows: list[tuple[str, str]], checked: set[str]) -> list[
     -y or no terminal must not pay for a widget it will never draw."""
     import questionary
 
+    # The key column is as wide as the widest key and no wider. It was a literal 18, which
+    # every surface id fits inside and `.github/workflows/check.yml` does not — one row
+    # overflowing a fixed column pushes its own detail out of line with every other row's.
+    width = max(len(key) for key, _ in rows)
     answer = questionary.checkbox(
         question,
         choices=[
-            questionary.Choice(title=f"{key:<18} {detail}", value=key, checked=key in checked)
+            questionary.Choice(title=f"{key:<{width}} {detail}", value=key, checked=key in checked)
             for key, detail in rows
         ],
         instruction="(space to toggle, enter to confirm)",

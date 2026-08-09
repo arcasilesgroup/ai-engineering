@@ -22,7 +22,9 @@ from pathlib import Path
 
 from ai_engineering import __version__, paths, ui, wiring
 
-Assertion = Callable[[Path | None], str | None]
+# A problem, or a problem and the cure that is not the one FIXES holds for this number.
+# One check needs the second form: a pin can be wrong two ways and they are two commands.
+Assertion = Callable[[Path | None], "str | tuple[str, str] | None"]
 CHECKS: list[tuple[int, str, str, bool, Assertion]] = []
 
 
@@ -43,16 +45,56 @@ FAMILIES = (
 )
 
 
-# What the last word of a coverage line means, as a colour. UNPROVEN is not a failure and
-# it is not a pass either, which is the entire point of the line, so it reads as the same
-# warning as INERT rather than as red.
+# The vocabulary of a coverage row, as a colour. UNPROVEN is not a failure and it is not a
+# pass either, which is the entire point of the line, so it reads as the same warning as
+# INERT rather than as red. Looked up by the word appearing anywhere in the row and no
+# longer by the row's last token: the word is what means something, and a column that moves
+# must not be able to take the colour with it.
 COLOURS = {
     "BLOCKS": "ok",
     "INERT": "warn",
-    "/hooks": "warn",
     "UNPROVEN": "warn",
     "ADVISES": "muted",
+    "MISMATCH": "fail",
+    "OPEN": "warn",
+    "OK": "ok",
 }
+
+# The two sentences the block never had. Every word in it was already vocabulary — BLOCKS,
+# INERT, UNPROVEN, ADVISES and the four tiers all mean something exact — and none of it was
+# defined anywhere a person running `doctor` would see, so eight rows of it read as noise.
+# Three lines and not two, because the block's own widest row is 95 columns and a legend
+# that wraps in an eighty-column terminal is a legend that arrives as four ragged ones.
+LEGEND = (
+    "  BLOCKS a denial has executed here · INERT installed but asleep",
+    "  UNPROVEN never denied here · ADVISES instructions only, it cannot deny",
+    "  T2 can deny a call · T3 can only advise · T1 your git hooks · T0 the server's own check",
+)
+
+# What none of the rows above covers, and it closes the block rather than opening it: read
+# first it is an excuse, read last it is the boundary of everything just claimed. It was
+# one line reading `Bypasses that work today: --no-verify from your own shell. T1 is not
+# T0`, which is true and is four pieces of vocabulary deep.
+OPEN = (
+    "  OPEN  --no-verify from your own shell walks past every row above, and so does",
+    "        anything that never asks a surface. Only a required check on the server",
+    "        (T0) stops those, and nothing on this machine can give you one.",
+)
+
+# The cure for a failure, where a command is the cure. Seventeen of the twenty-one have
+# none and that is the honest answer for them: a TODO: marker in your own constitution, a
+# hook Codex will only run once a person has approved it, and a branch protected on a
+# server this machine cannot reach are not things a wheel gets to do for you.
+FIXES = {
+    2: "ai-eng init --global --no-project",
+    11: "ai-eng init --project",
+    12: "ai-eng init --global --no-project",
+    13: "ai-eng init --global --no-project",
+}
+
+# What `--fix` appends so a cure runs with nobody in front of it. `update` has no such flag
+# and needs none, because it asks nothing.
+UNATTENDED = {"init": ["-y"]}
 
 
 def families() -> list[str]:
@@ -119,8 +161,8 @@ def pin_matches(root: Path | None) -> str | None:
         raise Undecidable("this repository has no .ai/config.toml, so nothing is pinned here")
     if pinned != __version__:
         return (
-            f"the wheel running is {__version__} and this repository pins {pinned}. "
-            f"`ai-eng update` migrates the pin."
+            f"the wheel running is {__version__} and this repository pins {pinned}",
+            "ai-eng update",
         )
     installed = str(paths.hooks())
     for surface in wiring.detect():
@@ -129,10 +171,7 @@ def pin_matches(root: Path | None) -> str | None:
             continue
         blob = path.read_text(errors="replace")
         if wiring.MARK in blob and installed not in blob:
-            return (
-                f"{surface['name']}'s guard entry points at another install, not "
-                f"{installed}. `ai-eng init --global` repoints it."
-            )
+            return f"{surface['name']}'s guard entry points at another install, not {installed}"
     return None
 
 
@@ -162,9 +201,10 @@ def no_double_decision(root: Path | None) -> str | None:
 def wiring_present(root: Path | None) -> str | None:
     dispatcher = paths.hooks() / "chain.py"
     if not dispatcher.exists():
-        # No cure named, because there is no `ai-eng` command that puts it back: the
-        # dispatcher lives inside the wheel, so its absence is a broken install.
-        return f"the dispatcher is missing at {dispatcher}"
+        # An empty cure and not the one this number carries, because there is no `ai-eng`
+        # command that puts it back: the dispatcher lives inside the wheel, so its absence
+        # is a broken install and `--fix` must not offer to rewire around it.
+        return f"the dispatcher is missing at {dispatcher}", ""
     wired = [s for s in wiring.detect() if s["writer"] != "none" and s["settings"]]
     if not wired:
         raise Undecidable(
@@ -178,9 +218,7 @@ def wiring_present(root: Path | None) -> str | None:
         path = wiring.expand(surface["settings"])
         if not path.exists() or wiring.MARK not in path.read_text(errors="replace"):
             broken.append(f"{surface['name']} has no entry")
-    if not broken:
-        return None
-    return "; ".join(broken) + ". `ai-eng init --global` writes the entries again."
+    return None if not broken else "; ".join(broken)
 
 
 @check(3, "The wiring", "Every hook that can block is a guard, and all are classified")
@@ -206,11 +244,10 @@ def git_hook_fires(root: Path | None) -> str | None:
     configured = git(root, "config", "--get", "core.hooksPath")
     if not configured:
         raise Undecidable("core.hooksPath is not set here: this repository has no floor")
-    cure = "`ai-eng init --project` sets it again."
     if configured.startswith("~"):
-        return f"core.hooksPath holds a tilde. Git never expands it: the hooks never fire. {cure}"
+        return "core.hooksPath holds a tilde. Git never expands it: the hooks never fire."
     if not (Path(configured) / "pre-commit").exists():
-        return f"core.hooksPath points at {configured}, which has no pre-commit in it. {cure}"
+        return f"core.hooksPath points at {configured}, which has no pre-commit in it"
     return None
 
 
@@ -221,7 +258,12 @@ def links_resolve(root: Path | None) -> str | None:
     the other direction."""
     claude = (root / "CLAUDE.md") if root is not None else None
     if claude and claude.exists() and "@./AGENTS.md" not in claude.read_text(errors="replace"):
-        return "CLAUDE.md does not import AGENTS.md, so the doctrine never reaches the model"
+        # No cure, and this is the half of the check that has none: CLAUDE.md is the user's
+        # file from the moment it is written and no verb here edits it again.
+        return (
+            "CLAUDE.md does not import AGENTS.md, so the doctrine never reaches the model",
+            "",
+        )
     links = [row for row in wiring.receipt().get("wrote", []) if row["kind"] == "link"]
     if not links:
         raise Undecidable(
@@ -231,10 +273,7 @@ def links_resolve(root: Path | None) -> str | None:
     broken = [row["path"] for row in links if not Path(row["path"]).exists()]
     if not broken:
         return None
-    return (
-        f"{len(broken)} skill roots no longer resolve: {broken[0]}. "
-        f"`ai-eng init --global` links them again."
-    )
+    return f"{len(broken)} skill roots no longer resolve: {broken[0]}"
 
 
 @check(21, "The wiring", "Per-surface liveness: installed is not the same as running")
@@ -483,10 +522,34 @@ def destination_real(root: Path | None) -> str | None:
 # ---------------------------------------------------------------- coverage
 
 
+def standing(surface: dict, installed: set[str], inert: str) -> tuple[str, str]:
+    """One surface's word, and the sentence that says what to do about it. The word carried
+    the whole message before and the message did not fit in one word: `documented, unrun
+    UNPROVEN` and `not installed UNPROVEN` are the same verdict for opposite reasons, and
+    only one of them is any of your business."""
+    if surface["id"] not in installed:
+        return "UNPROVEN", "not installed here, so nothing about it is proven"
+    if surface["tier"] == "T3":
+        return "ADVISES", "reads the skills; it cannot deny a call"
+    if surface["name"] in inert:
+        # Installed, and not running. Both surfaces that can reach this state fail silently
+        # by design, so it is the one that must never be reported as covered.
+        if surface.get("trust_required"):
+            return "INERT", "installed and unapproved — type /hooks in Codex to approve it"
+        return "INERT", "the plugin never reported loading; a malformed one is dropped in silence"
+    if surface["proven"]:
+        return "BLOCKS", "a denial has executed here"
+    return "UNPROVEN", "installed and wired, but no denial has ever run here"
+
+
 def coverage(root: Path | None) -> list[str]:
     """The honesty layer, and it is derived: from the receipt, the pin, the settings
     files on disk and the recorded trust state. No probes, no billed sessions. A surface
-    that is not installed here reads UNPROVEN, not "covered"."""
+    that is not installed here reads UNPROVEN, not "covered".
+
+    Four columns and not three: the verdict is its own column now, so the eye can run down
+    it, and the reason is the column after it rather than a prefix squeezed in front of the
+    word. The words did not change — they are the vocabulary and they are asserted."""
     emit = paths.load("_emit")
     pinned = emit.config(root).get("framework", {}).get("version", "—")
     lines = [
@@ -499,31 +562,16 @@ def coverage(root: Path | None) -> list[str]:
     except Undecidable:
         inert = ""  # nothing installed, so every row below already reads UNPROVEN
     for surface in wiring.table()["surface"]:
-        if surface["id"] not in installed:
-            state = "not installed        UNPROVEN"
-        elif surface["tier"] == "T3":
-            state = "instructions only    ADVISES"
-        elif surface["name"] in inert:
-            # Installed, and not running. Both surfaces that can reach this state fail
-            # silently by design, so it is the one that must never be reported as covered.
-            state = (
-                "hook present         INERT — run /hooks"
-                if surface.get("trust_required")
-                else "plugin not loaded    INERT"
-            )
-        elif surface["proven"]:
-            state = "denial executed here BLOCKS"
-        else:
-            state = "documented, unrun    UNPROVEN"
-        lines.append(f"  {surface['tier']:<4} {surface['id']:<16} {state}")
-    lines.append("  Bypasses that work today: --no-verify from your own shell. T1 is not T0.")
-    return lines
+        word, why = standing(surface, installed, inert)
+        lines.append(f"  {surface['tier']:<4} {surface['id']:<16} {word:<9} {why}")
+    return [*lines, *OPEN]
 
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser("ai-eng doctor")
     parser.add_argument("--ci", action="store_true", help="only the checks a runner can answer")
     parser.add_argument("--paths", action="store_true", help="print where every file class lives")
+    parser.add_argument("--fix", action="store_true", help="run the cures the failures name")
     args = parser.parse_args(argv)
 
     root = paths.repo_root()
@@ -539,7 +587,9 @@ def main(argv: list[str]) -> int:
             ui.write(f"  {label:<14}{where}", data=True)
         return 0
 
-    failed = skipped = 0
+    failed: list[int] = []
+    unanswered: list[tuple[int, str, str]] = []
+    cures: dict[int, str] = {}
     for family in families():
         ui.section(family, data=True)
         for number, group, title, in_ci, fn in sorted(CHECKS):
@@ -547,31 +597,128 @@ def main(argv: list[str]) -> int:
                 continue
             if args.ci and not in_ci:
                 ui.verdict(number, "skipped", f"{title} — needs a real working copy")
-                skipped += 1
+                unanswered.append((number, title, "needs a real working copy"))
                 continue
             try:
                 problem = fn(root)
             except Undecidable as why:
                 ui.verdict(number, "unknown", title, f"could not evaluate: {why}")
-                skipped += 1
+                unanswered.append((number, title, str(why)))
                 continue
-            if problem:
-                ui.verdict(number, "fail", title, problem)
-                failed += 1
-            else:
+            if not problem:
                 ui.verdict(number, "ok", title)
+                continue
+            problem, cure = resolve(number, problem)
+            ui.verdict(number, "fail", title, problem)
+            ui.cure(cure)
+            failed.append(number)
+            if cure:
+                cures[number] = cure
 
-    ui.write("\nCoverage — what actually blocks, by surface", data=True)
+    ui.write("\nCoverage — where a call can actually be stopped, and where it cannot", data=True)
+    for line in LEGEND:
+        ui.write(line, style="muted", data=True)
+    ui.write(data=True)
     for line in coverage(root):
-        # The verdict is the last word of the line and the words themselves are vocabulary
-        # — BLOCKS, INERT, UNPROVEN, ADVISES mean something and do not move. Only the
-        # colour is added, and it is chosen by the word rather than recomputed here, so
-        # this can never disagree with what the line says.
-        ui.write(line, style=COLOURS.get(line.rsplit(" ", 1)[-1], ""), data=True)
-    ui.write(
-        f"\n{len(CHECKS) - failed - skipped} passed · {failed} failed · {skipped} not evaluated",
-        data=True,
-    )
-    if skipped:
-        ui.write("Not evaluated is never green. Each one names why above.", data=True)
+        # The words themselves are vocabulary — BLOCKS, INERT, UNPROVEN, ADVISES mean
+        # something and do not move. Only the colour is added, and it is chosen by the word
+        # rather than recomputed here, so this can never disagree with what the line says.
+        ui.write(line, style=tint(line), data=True)
+
+    if unanswered:
+        ui.section(
+            f"Not evaluated — {len(unanswered)} of {len(CHECKS)} could not be answered here",
+            data=True,
+        )
+        for number, title, why in unanswered:
+            ui.write(f"  {number:>2}  {title}", data=True)
+            ui.write(f"      {why}", style="muted", data=True)
+        ui.write(
+            "  None of these is a pass. Not evaluated is never green.", style="warn", data=True
+        )
+
+    verdict_panel(failed, len(unanswered), cures)
+    if args.fix and cures:
+        return repair(cures, argv)
+    if args.fix:
+        ui.write("\n  Nothing that failed here has a command that fixes it.", data=True)
     return 1 if failed else 0
+
+
+def resolve(number: int, problem: str | tuple[str, str]) -> tuple[str, str]:
+    """A failure's message and its cure, however the check chose to say them. A cure the
+    check named for itself beats the one this number usually carries, because a pin can be
+    wrong two ways and they are two different commands."""
+    return problem if isinstance(problem, tuple) else (problem, FIXES.get(number, ""))
+
+
+def tint(line: str) -> str:
+    """The colour of a coverage row, taken from the vocabulary word in it. By position
+    before, which meant the colour was one column-width edit away from being wrong about
+    what the line said."""
+    return next((style for word, style in COLOURS.items() if word in line), "")
+
+
+def verdict_panel(failed: list[int], unanswered: int, cures: dict[int, str]) -> None:
+    """Whether it passed, and if not, how much of it a command can put right. This was one
+    unframed line under the coverage block, in the same weight as the rows above it, and it
+    was read as more of the table.
+
+    The failures arrive as their numbers and not as a count beside a list of them: two
+    arguments that have to agree are two arguments that can stop agreeing."""
+    rows = [
+        (
+            "",
+            f"{len(CHECKS) - len(failed) - unanswered} passed · "
+            f"{len(failed)} failed · {unanswered} not evaluated",
+        )
+    ]
+    if cures:
+        rows.append(("fixable now", f"{len(cures)}   ai-eng doctor --fix"))
+    people = sorted(number for number in failed if number not in cures)
+    if people:
+        listed = ", ".join(str(number) for number in people)
+        word = "assertion" if len(people) == 1 else "assertions"
+        rows.append(("needs a person", f"{len(people)}   {word} {listed}"))
+    ui.summary("FAILED" if failed else "OK", rows, "red" if failed else ui.BRAND)
+
+
+def repair(cures: dict[int, str], argv: list[str]) -> int:
+    """Runs what the failures themselves named, each command once, and then asks the whole
+    question again. In this process rather than through a shell: `ai-eng` is on the PATH of
+    the person who typed it and not necessarily of whatever would run it here, and a repair
+    that fails because it could not find itself is worse than no repair.
+
+    What it writes is what `init` writes: the guard entries, the skill links, and any of the
+    instruction files that are missing. It overwrites none of yours — `-y` leaves the picker
+    with nothing ticked — and it does not touch the pin, because `init` only writes that
+    when it is absent and `ai-eng update` is the verb that changes it.
+
+    The second pass has no --fix in it, so this recurses exactly once, and its exit code is
+    the answer: two of the cures cannot reach every shape of their failure — a Codex entry
+    is appended and never rewritten, and a skill root belonging to a surface that is gone is
+    linked by nothing — so a repair that changed nothing has to say so rather than invite a
+    second run of the same command."""
+    from ai_engineering import cli
+
+    for command in sorted(set(cures.values())):
+        verb, *rest = command.split()[1:]
+        run = [verb, *rest, *UNATTENDED.get(verb, [])]
+        # The blank line is its own write and not a \n inside the styled one: a newline
+        # carried inside a styled Text puts the escape sequence before the line break, so
+        # the colour of the command is asserted through a leading blank line or not at all.
+        ui.write(data=True)
+        ui.write(f"  running ai-eng {' '.join(run)}", style="cmd", data=True)
+        code = cli.main(run)
+        if code:
+            ui.write(f"  it exited {code}. The rest is not attempted.", style="fail", data=True)
+            return code
+    code = main([flag for flag in argv if flag != "--fix"])
+    if code:
+        ui.write(
+            "\n  Still failing. What is left above is not something these commands reach, "
+            "and running --fix again will run the same ones.",
+            style="warn",
+            data=True,
+        )
+    return code

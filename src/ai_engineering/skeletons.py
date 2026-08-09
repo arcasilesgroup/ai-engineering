@@ -90,19 +90,36 @@ TODO: who to ask, and how.
 TODO: prototype, production or maintenance. It changes what is acceptable here.
 """
 
-JUSTFILE = """# What `check` means here. CI never learns a language: it runs `just check`.
+# lint, test and build for each stack `init` can name from a marker file in the repository
+# root. A stack with no row here keeps its TODO: a command that is wrong is worse than a
+# blank somebody fills in, and both of them fail `just check` until a person has read it.
+# Failing loudly is the point — none of these is written with a flag that passes when the
+# script is missing, because that is the green nobody earned.
+RECIPES = {
+    "python": ("ruff check .", "pytest -q", "uv build"),
+    "node": ("npm run lint", "npm test", "npm run build"),
+    "go": ("go vet ./...", "go test ./...", "go build ./..."),
+    "rust": ("cargo clippy -- -D warnings", "cargo test", "cargo build --release"),
+    "java": ("mvn -q checkstyle:check", "mvn -q test", "mvn -q package"),
+    "ruby": ("bundle exec rubocop", "bundle exec rspec", "bundle exec rake build"),
+    "dotnet": ("dotnet format --verify-no-changes", "dotnet test", "dotnet build -c Release"),
+}
 
+TODOS = {"lint": "your linter", "test": "your test runner", "build": "compile, package, sign"}
+
+JUSTFILE = """# What `check` means here. CI never learns a language: it runs `just check`.
+{found}
 wired:
     ai-eng doctor
 
 build:
-    @echo "TODO: compile, package, sign"
+{build}
 
 lint:
-    @echo "TODO: your linter"
+{lint}
 
 test:
-    @echo "TODO: your test runner"
+{test}
 
 # Identical in every repository, because scanners read files rather than languages.
 # These two are the ones that genuinely are: static analysis needs a rule set per
@@ -119,6 +136,35 @@ counts:
 
 check: wired build lint test security counts
 """
+
+
+def justfile(stacks: list[str]) -> str:
+    """The recipes, with the commands for whatever was actually found in the repository.
+
+    It shipped `@echo "TODO: your linter"` to every project in every language, which is a
+    file nobody edits and a `just check` that passes while checking nothing. More than one
+    stack means more than one line inside a recipe, in the order they were detected; no
+    stack we can name means the TODO markers stay exactly as they were."""
+    # The names that actually contributed, and the header is written from them rather than
+    # from what was asked for: a file headed "Filled in for: cobol, python" carrying only
+    # python's commands is the kind of claim this whole product exists to refuse.
+    filled = [stack for stack in stacks if stack in RECIPES]
+    lines = {verb: [] for verb in TODOS}
+    for stack in filled:
+        # strict=True: a row here with two commands in it would silently lose one, and that
+        # is a shipped justfile with no `build` recipe in a language nobody notices until CI
+        # says so.
+        for verb, command in zip(TODOS, RECIPES[stack], strict=True):
+            lines[verb].append(f"    {command}")
+    found = f"# Filled in for: {', '.join(filled)}.\n" if filled else ""
+    return JUSTFILE.format(
+        found=found,
+        **{
+            verb: "\n".join(rows) or f'    @echo "TODO: {TODOS[verb]}"'
+            for verb, rows in lines.items()
+        },
+    )
+
 
 CONFIG_TOML = """# The pin. It says which version of the framework governs this repository, and its
 # diff in a pull request is the audit trail of what changed in governance.
