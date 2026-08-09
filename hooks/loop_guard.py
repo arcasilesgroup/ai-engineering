@@ -8,6 +8,7 @@ signature, not to the exact call.
 
 from __future__ import annotations
 
+import hashlib
 import json
 
 from _emit import config, home, session_id
@@ -16,6 +17,7 @@ from _wrap import guard
 WINDOW = 6  # how many recent calls are remembered
 REPEATS = 3  # the same call this many times inside the window
 FAILURES = 5  # the same signature failing this many times in a row
+SIGNATURES = 20  # how many distinct failing signatures the state file remembers
 
 
 def state_file():
@@ -52,6 +54,19 @@ def signature(payload: dict) -> str:
     return f"{payload.get('tool_name', '')}:{first}"
 
 
+def exact(payload: dict) -> str:
+    """The tool and the whole of its input. `signature` is coarse on purpose so the failure
+    arm can see one tool failing with the arguments tweaked each time; counting repeats by
+    it would make every git command in a session one key and deny the third one. The
+    dispatcher's fingerprint is no use either: it carries the surface's tool_use_id, which
+    is unique per call, so three identical calls were three distinct keys and this arm
+    never fired on a real surface."""
+    body = json.dumps(
+        [payload.get("tool_name", ""), payload.get("tool_input", {})], sort_keys=True, default=str
+    )
+    return hashlib.sha256(body.encode()).hexdigest()[:16]
+
+
 def failed(payload: dict) -> bool:
     """Authoritative fields only. Scanning a tool's output for the word "error" makes a
     guard fire on a passing test suite that prints one."""
@@ -73,19 +88,22 @@ def run(payload: dict) -> str | None:
 
     if payload.get("_event") != "PreToolUse":
         if failed(payload):
-            state["failures"][sig] = state["failures"].get(sig, 0) + 1
+            # Popped and reinserted, so a signature that is still failing moves to the end
+            # and the trim below drops the ones nothing has touched. Bounding this by the
+            # call window instead would put five failures inside six calls, which is a
+            # threshold the failure arm can never reach once anything else happens.
+            state["failures"][sig] = state["failures"].pop(sig, 0) + 1
         else:
             state["failures"].pop(sig, None)
+        state["failures"] = dict(list(state["failures"].items())[-SIGNATURES:])
         save(state)
         return None
 
-    # By signature, never by the dispatcher's fingerprint: that fingerprint carries the
-    # surface's own tool_use_id, which is unique per call, so counting it made every
-    # repeat look like a first call and this rule never fired on Claude Code.
-    state["recent"] = (state["recent"] + [sig])[-window:]
+    call = exact(payload)
+    state["recent"] = (state["recent"] + [call])[-window:]
     save(state)
 
-    seen = state["recent"].count(sig)
+    seen = state["recent"].count(call)
     if seen >= repeats:
         return (
             f"this exact call has been made {seen} times in the last {window}. Repeating "

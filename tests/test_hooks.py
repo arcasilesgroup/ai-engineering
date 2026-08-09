@@ -21,6 +21,7 @@ import _otlp
 import _wrap
 import autoformat
 import chain
+import loop_guard
 import pytest
 import session
 
@@ -495,6 +496,62 @@ def test_a_denial_the_dispatcher_caches_carries_the_words_the_guard_used(repo, m
         "by": "loop_guard",
         "message": "BLOCKED: go away",
     }
+
+
+# --- loop_guard: what counts as the same call, and what counts as the same failure ---
+
+
+def _loop(command: str, use_id: str = "", **extra) -> dict:
+    return {
+        "tool_name": "Bash",
+        "tool_input": {"command": command},
+        "tool_use_id": use_id,
+        "_event": "PreToolUse",
+        **extra,
+    }
+
+
+def test_three_identical_calls_in_one_session_deny_on_the_third(repo):
+    """A real surface sends a distinct call id every time, so the repeat arm cannot key on
+    anything carrying it. Three deliveries of the same command are one call repeated, and
+    the third is where the guard says so."""
+    loop_guard.run(_loop("git status", "t1"))
+    loop_guard.run(_loop("git status", "t2"))
+    with pytest.raises(SystemExit) as stop:
+        loop_guard.run(_loop("git status", "t3"))
+    assert stop.value.code == 2
+
+
+def test_three_different_commands_in_one_session_are_not_a_loop(repo):
+    """The failure arm keys on a deliberately coarse signature — the tool and the first
+    token — so it can watch one tool failing with its arguments tweaked. Counting repeats
+    by that same signature makes every git command in a session one key, and the third
+    ordinary command of a session is denied. Measured, before this was split in two."""
+    for index, command in enumerate(("git status", "git diff", "git log")):
+        loop_guard.run(_loop(command, f"t{index}"))
+
+
+def test_the_failure_map_is_bounded_by_signatures_not_by_the_window(repo):
+    """Five failures of one signature has to survive anything else failing in between: a
+    bound expressed in calls is a threshold the failure arm can never reach once a session
+    is doing more than one thing. What the map may not do is grow without limit, so it
+    keeps the most recently touched few and a signature still failing stays among them."""
+
+    def fails(command: str) -> None:
+        loop_guard.run(
+            _loop(command, _event="PostToolUse", tool_response={"is_error": True}),
+        )
+
+    for index in range(loop_guard.FAILURES):
+        fails("flaky-tool --run")
+        fails(f"unrelated-{index}")
+    with pytest.raises(SystemExit) as stop:
+        loop_guard.run(_loop("flaky-tool --run", "t9"))
+    assert stop.value.code == 2
+
+    for index in range(loop_guard.SIGNATURES + 5):
+        fails(f"spent-{index}")
+    assert len(loop_guard.load()["failures"]) == loop_guard.SIGNATURES
 
 
 def test_a_verdict_book_that_cannot_be_read_is_no_verdict_at_all(repo):
