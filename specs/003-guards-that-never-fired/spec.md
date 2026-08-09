@@ -335,6 +335,24 @@ renewals: 0
 justification: Denying by mention needs a short list of read-shaped forms so that reading and staging a governed file stay possible, and any list of forms can fall behind the shells people actually type. It fails towards denying a read that should have been allowed, which is a person told to use the read tool, rather than towards allowing a write that should have been denied.
 follow_up: Delete the carve-out entirely if the read tools cover every case in practice, and never widen it to a verb that can write.
 ```
+```yaml
+id: R-003-05
+finding: structured-denial-not-observed-live
+severity: medium
+accepted_by: the maintainer
+accepted: 2026-08-09
+expires: 2026-11-09
+renewals: 0
+justification: The denial protocol is now surface-specific and Claude Code receives the structured
+  PreToolUse decision on exit 0 rather than JSON it ignores under exit 2, which is the documented
+  answer for that surface and the one the observed silent stops point at. What has not been done is
+  the live check: driving one real Claude Code session into a denial and recording that the next
+  event is an assistant action rather than a turn ending. The test plane proves the shape of the
+  reply and cannot prove what the model does with it.
+follow_up: Run one live denial on the minimum supported Claude Code and on the version that produced
+  the report, and record the next event. If either still stops, add a one-shot Stop recovery tied to
+  that session and prove it cannot loop — never another instruction in stderr called continuation.
+```
 <!-- ai-eng accept writes yaml blocks here -->
 
 ## Production-ready

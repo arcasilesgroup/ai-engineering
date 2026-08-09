@@ -49,16 +49,40 @@ def take_bypass(name: str) -> str | None:
     return grant.get("reason", "no reason given")
 
 
-def deny(name: str, message: str) -> None:
-    """Exit 2 denies on Claude Code and Copilot CLI. Cursor reads a JSON reply instead,
-    and spells its fields snake_case where VS Code spells them camelCase, so the reply
-    carries both. The message is written for a model to act on, because the model is
-    shown it verbatim."""
+def deny(name: str, message: str, structured: bool = False) -> None:
+    """One denial protocol per surface, rather than a JSON reply and an exit status mixed
+    together and hoped over.
+
+    Claude Code documents its own PreToolUse answer: exit 0, with the decision in JSON. On
+    exit 2 it ignores the JSON entirely and reads stderr — and the model can then treat an
+    automated gate the way it treats a person refusing permission, and simply stop. That
+    was observed twice in one session: a denied tool result, the turn-duration record three
+    milliseconds later, no assistant message at all, and work resuming only when the person
+    asked why. A guard blocks one operation; it does not turn an autonomous task back into
+    somebody typing "continue".
+
+    Everything else enforces by process status. Exit 2 denies on Copilot CLI, Cursor reads
+    a JSON reply and spells its fields snake_case where VS Code spells them camelCase, so
+    that reply carries both, and OpenCode's adapter turns the status into a throw. The
+    message is written for a model to act on, because the model is shown it verbatim."""
     text = f"[{name}] {message}"
     sys.stderr.write(text + "\n")
     if name not in SECURITY:
         recipe = f'ai-eng plan --skip "<reason>" --guard {name}'
         sys.stderr.write(f"[{name}] A person — not you — can grant one bypass: {recipe}\n")
+    if structured:
+        print(
+            json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "permissionDecision": "deny",
+                        "permissionDecisionReason": text,
+                    }
+                }
+            )
+        )
+        sys.exit(0)  # the call is denied by the decision above, not by the status
     print(
         json.dumps(
             {
@@ -83,7 +107,7 @@ def guard(name: str):
                 # What was said, where the dispatcher can cache it: a second delivery of
                 # the same call gets this guard's own words, not a placeholder about it.
                 payload["_denied"] = (name, message)
-                deny(name, message)
+                deny(name, message, structured=bool(payload.get("_structured")))
 
             try:
                 reason = fn(payload)

@@ -3,9 +3,17 @@
 //
 // A throw inside tool.execute.before kills the tool call. It does not kill the turn: the
 // model sees a per-tool error, keeps going, and will try to route around it — in the live
-// test it asked the user to switch off "whatever is intercepting file access". Claude
-// Code's deny behaves the same way, so parity holds, but it is not a turn-level stop.
-// The message is therefore written as an instruction, because the model is shown it.
+// test it asked the user to switch off "whatever is intercepting file access".
+//
+// The claim that Claude Code's deny behaved the same way was written here as prose and is
+// now disproved: two denials in one Claude Code 2.1.226 session each produced an error tool
+// result, the turn-duration record milliseconds later, and no assistant message until the
+// person asked why. The dispatcher was printing JSON and exiting 2, and Claude ignores the
+// JSON on that exit path. It now answers Claude with the structured PreToolUse decision on
+// exit 0, which is that surface's documented way to deny one call, and keeps the exit
+// status for the surfaces — this one included — that enforce by process status.
+//
+// The message is written as an instruction, because the model is shown it.
 //
 // The loader wraps each plugin so a shape mismatch produces no error, no warning and no
 // log, and a v2 plugin API with an incompatible module shape already ships beside v1. So

@@ -165,6 +165,11 @@ def main() -> int:
     # empty string instead of omitting it.
     if payload.get("session_id"):
         os.environ["AI_ENG_SESSION"] = str(payload["session_id"])
+    # Which denial protocol this surface understands, decided by a field the surface itself
+    # sends rather than by an install path. `transcript_path` is Claude Code's, in its own
+    # snake_case spelling: VS Code Copilot reads the same settings file and would otherwise
+    # be mistaken for it, and it sends camelCase, which is not aliased to this key.
+    payload["_structured"] = "transcript_path" in body
     event = sys.argv[1] if len(sys.argv) > 1 else payload.get("hook_event_name", "")
     tool = payload.get("tool_name", "")
     fp = fingerprint(payload)
@@ -175,7 +180,7 @@ def main() -> int:
     verdict = cached(fp) if dedup else None
     if verdict is not None:
         if verdict["deny"]:
-            deny(verdict["by"], verdict["message"])
+            deny(verdict["by"], verdict["message"], structured=payload["_structured"])
         return 0  # same call, same answer: no guard decides the same call twice
 
     started = time.perf_counter()
@@ -187,16 +192,20 @@ def main() -> int:
                 emit(name, "error", error=repr(broken), outcome="ignored")
                 continue
             emit(name, "error", error=repr(broken), outcome="blocked")
+            payload["_denied"] = (name, "BLOCKED: this guard could not even be loaded")
             deny(
                 name,
                 "BLOCKED: this guard could not even be loaded, so nothing here can "
                 "say whether the action is safe. Fix the guard.",
+                structured=payload["_structured"],
             )
         try:
             module.run(payload)
-        except SystemExit as stop:
-            if stop.code == 2:
-                by, said = payload.get("_denied") or (name, "denied earlier in this session")
+        except SystemExit:
+            # Zero as well as two: Claude Code's denial is a decision in JSON on exit 0,
+            # and a denial that is not remembered is one the next delivery asks again.
+            if payload.get("_denied"):
+                by, said = payload["_denied"]
                 remember(fp, {"deny": True, "by": by, "message": said})
             raise
     if event == "PreToolUse":

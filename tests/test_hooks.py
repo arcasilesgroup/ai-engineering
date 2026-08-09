@@ -158,6 +158,63 @@ def test_a_denial_is_spelled_both_ways_so_the_surfaces_that_read_json_see_it(cap
     assert reply["stop_reason"] == reply["stopReason"] == "[loop_guard] denied"
 
 
+def test_claude_gets_its_own_denial_protocol_and_everything_else_keeps_the_status(
+    repo, monkeypatch, capsys
+):
+    """A denial used to be a JSON reply and exit 2 mixed together. Claude Code ignores the
+    JSON on that exit path and reads stderr, and the model can then treat an automated gate
+    the way it treats a person refusing permission and simply stop — observed twice in one
+    session, each time with the turn-duration record three milliseconds after the denied
+    tool result and no assistant message at all.
+
+    So Claude gets the answer its own PreToolUse protocol documents: exit 0, the decision in
+    JSON, the reason it is shown. No universal `continue: false` goes with it, because that
+    is the field that ends the turn. Every other surface enforces by process status and
+    still exits 2 naming the guard. The surface is decided by a field it sends — Claude's
+    `transcript_path` — and never by where the tool was installed."""
+    monkeypatch.setitem(chain.TABLE, "PreToolUse", [("loop_guard", r".*")])
+    monkeypatch.setattr("loop_guard.run", _wrap.guard("loop_guard")(lambda payload: "go away"))
+    call = {"tool_name": "Bash", "tool_input": {"command": "ls"}, "tool_use_id": "t1"}
+
+    with pytest.raises(SystemExit) as stop:
+        dispatch(monkeypatch, "PreToolUse", json.dumps({**call, "transcript_path": "/t.jsonl"}))
+    assert stop.value.code == 0
+    said = json.loads(capsys.readouterr().out)
+    assert said["hookSpecificOutput"] == {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "deny",
+        "permissionDecisionReason": "[loop_guard] BLOCKED: go away",
+    }
+    assert "continue" not in said
+
+    with pytest.raises(SystemExit) as stop:
+        dispatch(monkeypatch, "PreToolUse", json.dumps({**call, "tool_use_id": "t2"}))
+    assert stop.value.code == 2
+    out = capsys.readouterr()
+    assert json.loads(out.out)["continue"] is False
+    assert "[loop_guard] BLOCKED: go away" in out.err
+
+
+def test_a_denial_on_either_protocol_is_remembered_for_the_second_delivery(repo, monkeypatch):
+    """The verdict cache keyed off exit 2, and Claude's denial exits 0. Without this the
+    second delivery of a call two surfaces both report asks every guard again."""
+    monkeypatch.setitem(chain.TABLE, "PreToolUse", [("loop_guard", r".*")])
+    monkeypatch.setattr("loop_guard.run", _wrap.guard("loop_guard")(lambda payload: "go away"))
+    call = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "ls"},
+        "tool_use_id": "t1",
+        "transcript_path": "/t.jsonl",
+    }
+    with pytest.raises(SystemExit):
+        dispatch(monkeypatch, "PreToolUse", json.dumps(call))
+    assert chain.cached(chain.fingerprint(chain.normalise(call))) == {
+        "deny": True,
+        "by": "loop_guard",
+        "message": "BLOCKED: go away",
+    }
+
+
 def test_a_bypass_is_single_use_and_only_for_the_guard_it_names(repo):
     """One grant from a person is one pass. If the file survived being read, one moment of
     consent would silently become a standing exemption."""
