@@ -68,7 +68,7 @@ DESCRIPTION_MAX = 1000
 # commit swept up out of an index that already held them — named here rather than absorbed,
 # because a ceiling quietly carrying somebody else's lines has already stopped meaning anything.
 #
-# 12,686 to 13,664 for spec 006, which is the screen rather than the truth on it: the
+# 12,686 to 13,671 for spec 006, which is the screen rather than the truth on it: the
 # operator installed 005, ran the two verbs in a terminal and said it was still just as
 # ugly, and he was right — 005 changed what the software claimed and nothing about how any
 # of it is drawn. Measured against the version he prefers, the gap was 1,368 lines of
@@ -80,7 +80,7 @@ DESCRIPTION_MAX = 1000
 # taste and was most of what "ugly" meant. 176 of the total are the tests the mutation
 # floor asked for after going red at 86%: a renderer's mutants are style names, and the
 # suite drives the undecorated path where a style name is invisible.
-REPO_CEILING = 13664
+REPO_CEILING = 13671
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

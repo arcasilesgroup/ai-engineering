@@ -18,16 +18,20 @@ slug: the-cli-that-was-better
 | 6. the picker | +50 | +94 |
 | 7. the banner, the help and the version | +25 | +12 |
 | 7b. the tests the mutation floor asked for | — | +176 |
+| 7c. soft_wrap stops being argued at twelve prints | — | +7 |
 | 8. this table and the ceiling comment | — | +13 |
-| **total** | **+375** | **+978** |
+| **total** | **+375** | **+985** |
 
-`REPO_CEILING` closes at **13,664**, which is 12,686 plus that total, with no slack.
+`REPO_CEILING` closes at **13,671**, which is 12,686 plus that total, with no slack.
 
 Task 7b was not in the plan and the mutation floor is what put it there. `just mutate`
 came out at 86% against 89% — the renderer added 517 mutants and 162 of the survivors
 were in `ui.py`. Almost all of them were style names, invisible on the undecorated path
 this whole suite drives on purpose, so every element could have lost its colour entirely
-with the build green. That is the one thing this spec exists to deliver. 162 down to 66.
+with the build green. That is the one thing this spec exists to deliver. 162 down to 66, and then to 44 — the
+last twenty-two were `soft_wrap=True` on lines thirty-five characters long, which no
+honest test can kill, so the repeated argument became one property of the console and
+those mutants stopped existing instead.
 
 The estimate was out by a factor of two rather than spec 005's factor of ten, and the two
 places it was wrong are worth naming. Task 1 predicted 22 and landed 139 because `uv.lock`
