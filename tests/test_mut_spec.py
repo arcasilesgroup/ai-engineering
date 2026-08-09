@@ -196,10 +196,16 @@ def test_the_record_has_exactly_one_home_and_the_newest_spec_is_the_last_number(
     character of either path differently would scatter the record across two trees, and
     recording a decision against the wrong spec files it under a problem it did not solve."""
     assert decide.adr_dir(tmp_path) == tmp_path / "docs" / "adr"
-    assert decide.newest_spec(tmp_path) is None
-    spec.create(tmp_path, "old", "")
-    newest = spec.create(tmp_path, "new", "")
-    assert decide.newest_spec(tmp_path) == newest
+    with pytest.raises(LookupError, match="no spec to record this against"):
+        spec.target(tmp_path)
+    only = spec.create(tmp_path, "old", "")
+    assert spec.target(tmp_path) == only
+    spec.create(tmp_path, "new", "")
+    # Two open specs and nothing named: it refuses instead of taking the last one, which is
+    # how two decisions written for spec 003 landed in another session's spec.
+    with pytest.raises(LookupError, match="2 specs are open"):
+        spec.target(tmp_path)
+    assert spec.target(tmp_path, "002").parent.name == "002-new"
 
 
 @pytest.mark.parametrize(
@@ -209,7 +215,7 @@ def test_the_record_has_exactly_one_home_and_the_newest_spec_is_the_last_number(
 def test_an_adr_filename_is_a_clean_slug_capped_at_sixty_characters(tmp_path, title, stem):
     """The filename is what everybody greps. Punctuation left as a trailing dash, or a
     title allowed to run on, gives a name nobody can type or predict."""
-    assert decide.promote(tmp_path, title, "").stem == stem
+    assert decide.promote(tmp_path, title, "", None).stem == stem
 
 
 def test_a_decision_lands_between_the_headings_and_leaves_the_spec_intact(tmp_path):
@@ -344,7 +350,7 @@ def test_decide_refuses_with_the_line_that_names_the_fix(repo, tmp_path, monkeyp
     a command used wrongly, 1 for a repository that is not ready yet."""
     assert decide.main(["Use one queue"]) == 1
     assert capsys.readouterr().out == (
-        "  no spec to record this against. `ai-eng spec new <slug>` first.\n"
+        "  no spec to record this against. `ai-eng spec new <slug>` first\n"
     )
     assert decide.main([]) == 2
     assert capsys.readouterr().out == "  a decision needs a title.\n"

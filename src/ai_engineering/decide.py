@@ -19,6 +19,7 @@ from datetime import date
 from pathlib import Path
 
 from ai_engineering import paths, text
+from ai_engineering import spec as specs
 
 MADR = """---
 status: proposed
@@ -57,16 +58,10 @@ def next_number(root: Path) -> str:
     return f"{max(used, default=0) + 1:04d}"
 
 
-def newest_spec(root: Path) -> Path | None:
-    specs = sorted((root / "specs").glob("*/spec.md")) if (root / "specs").exists() else []
-    return specs[-1] if specs else None
-
-
-def promote(root: Path, title: str, supersedes: str) -> Path:
+def promote(root: Path, title: str, supersedes: str, spec: Path | None) -> Path:
     adr_dir(root).mkdir(parents=True, exist_ok=True)
     number = next_number(root)
     slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60]
-    spec = newest_spec(root)
     path = adr_dir(root) / f"{number}-{slug}.md"
     path.write_text(
         MADR.format(
@@ -119,6 +114,9 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--supersede", default="", metavar="NNNN")
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--why", default="", help="the rationale, when it stays inside the spec")
+    parser.add_argument(
+        "--spec", default="", help="which spec it belongs to; needed when more than one is open"
+    )
     args = parser.parse_args(argv)
 
     root = paths.repo_root()
@@ -132,14 +130,20 @@ def main(argv: list[str]) -> int:
     if not args.title:
         print("  a decision needs a title.")
         return 2
+    # Named, or the only one open. It used to resolve to whichever directory sorted last,
+    # and that is how two decisions written for spec 003 landed in another session's spec,
+    # because a fourth directory appeared between two commands.
+    try:
+        spec = specs.target(root, args.spec)
+    except LookupError as why:
+        if not args.adr:
+            print(f"  {why}")
+            return 1
+        spec = None  # an ADR outlives every spec, so it may be written without one
     if args.adr:
-        print(f"  ✓ {promote(root, args.title, args.supersede).relative_to(root)}")
+        print(f"  ✓ {promote(root, args.title, args.supersede, spec).relative_to(root)}")
         print("    status: proposed. Accept or reject it by changing one line in a pull request.")
         return 0
-    spec = newest_spec(root)
-    if spec is None:
-        print("  no spec to record this against. `ai-eng spec new <slug>` first.")
-        return 1
     append(
         spec,
         {

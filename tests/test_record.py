@@ -175,7 +175,7 @@ def test_the_first_risk_of_a_spec_is_numbered_one_whatever_the_repository_holds(
     )
     (repo / "specs" / "002-new").mkdir()
     (repo / "specs" / "002-new" / "spec.md").write_text("# new\n", encoding="utf-8")
-    assert accept.main(["--finding", "F-c", "--expires", TOMORROW, *SIGNED]) == 0
+    assert accept.main(["--finding", "F-c", "--expires", TOMORROW, "--spec", "002", *SIGNED]) == 0
     capsys.readouterr()
     written = [b for _, b in accept.blocks(repo) if b["finding"] == "F-c"]
     assert written[0]["id"] == "R-002-01"
@@ -258,7 +258,7 @@ def test_writing_an_acceptance_does_not_eat_the_text_under_its_heading(repo):
 def test_an_acceptance_with_no_spec_is_refused(repo, capsys):
     """A risk with no context is a note, not a decision, so there is nowhere to put it."""
     assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 1
-    assert "no spec to attach this to" in capsys.readouterr().out
+    assert "no spec to record this against" in capsys.readouterr().out
 
 
 # ------------------------------------------------------------------ audit
@@ -502,9 +502,9 @@ def test_promoting_a_decision_supersedes_the_old_one_and_points_the_spec_at_it(t
     """A promoted decision has to leave a pointer in its spec and flip the ADR it replaced,
     or the repository holds two live ADRs that contradict each other."""
     spec.create(tmp_path, "a-thing", "")
-    first = decide.promote(tmp_path, "Use one queue", "")
+    first = decide.promote(tmp_path, "Use one queue", "", spec.target(tmp_path))
     assert first.name == "0001-use-one-queue.md"
-    second = decide.promote(tmp_path, "Use two queues", "0001")
+    second = decide.promote(tmp_path, "Use two queues", "0001", spec.target(tmp_path))
     assert second.name == "0002-use-two-queues.md"
     assert "status: superseded by 0002" in first.read_text()
     header = text.flat_yaml(second.read_text().split("---\n", 1)[1].split("---\n", 1)[0])

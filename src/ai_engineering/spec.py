@@ -96,6 +96,39 @@ def create(root: Path, slug: str, ref: str) -> Path:
     return spec
 
 
+def status_of(path: Path) -> str:
+    head = path.read_text(errors="replace")[:600]
+    return (re.search(r"^status:\s*(\S+)", head, re.M) or [None, "?"])[1]
+
+
+def target(root: Path, named: str = "") -> Path:
+    """The spec a record verb writes to. It used to be whichever directory sorted last,
+    and that is not a guess anybody can check: writing spec 003, two decisions landed in
+    another session's spec because a fourth directory appeared between two commands.
+    Named, it is the one you named. Unnamed, it is the only candidate there is — the
+    drafts if there are any, everything otherwise — and where there is more than one
+    there is no answer to guess at, so it refuses and says which ones it saw."""
+    if named:
+        matches = sorted(specs_dir(root).glob(f"{named}*/spec.md"))
+        if not matches:
+            raise LookupError(f"no spec matches {named!r}")
+        if len(matches) > 1:
+            raise LookupError(
+                f"{named!r} matches {', '.join(m.parent.name for m in matches)}. Name one of them."
+            )
+        return matches[0]
+    every = sorted(specs_dir(root).glob("*/spec.md"))
+    candidates = [path for path in every if status_of(path) == "draft"] or every
+    if not candidates:
+        raise LookupError("no spec to record this against. `ai-eng spec new <slug>` first")
+    if len(candidates) > 1:
+        raise LookupError(
+            f"{len(candidates)} specs are open — {', '.join(p.parent.name for p in candidates)}. "
+            f"Name the one this belongs to with --spec."
+        )
+    return candidates[0]
+
+
 def listing(root: Path, everything: bool) -> list[str]:
     """Derived, never hand-maintained: a hand-maintained index rots, and ours did — 198
     rows whose own third line said the details were in the git history."""

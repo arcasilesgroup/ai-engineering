@@ -120,7 +120,7 @@ def test_the_accept_help_names_every_flag_and_what_it_is_for(wide, capsys):
         "the finding id being accepted",
         "ISO date. After it, pre-push and doctor fail.",
         "the person accepting it, by name or address",
-        "which spec it belongs to; default is the newest",
+        "which spec it belongs to; needed when more than one is open",
         "list acceptances past their date",
     ):
         # The space before and the newline after: a sentence with something stuck to
@@ -195,8 +195,8 @@ def test_with_no_spec_the_refusal_names_the_command_that_makes_one(repo, capsys)
     next command, or the person writes the risk into a chat window instead."""
     assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 1
     assert capsys.readouterr().out == (
-        "  no spec to attach this to. `ai-eng spec new <slug>` first: a risk with no "
-        "context is a note, not a decision.\n"
+        "  no spec to record this against. `ai-eng spec new <slug>` first\n"
+        "  A risk with no context is a note, not a decision.\n"
     )
 
 

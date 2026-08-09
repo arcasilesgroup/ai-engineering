@@ -13,7 +13,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from ai_engineering import paths, text
+from ai_engineering import paths, spec, text
 
 MAX_RENEWALS = 2
 SECTION = "## Accepted risks"
@@ -25,11 +25,11 @@ def blocks(root: Path) -> list[tuple[Path, dict]]:
     nothing found, which is what made a malformed acceptance invisible to the expiry
     check while the gate reported green over it."""
     out = []
-    for spec in sorted((root / "specs").glob("*/spec.md")) if (root / "specs").exists() else []:
-        name = str(spec.relative_to(root)) if spec.is_relative_to(root) else str(spec)
-        for block in text.yaml_blocks(spec.read_text(errors="replace"), name):
+    for where in sorted((root / "specs").glob("*/spec.md")) if (root / "specs").exists() else []:
+        name = str(where.relative_to(root)) if where.is_relative_to(root) else str(where)
+        for block in text.yaml_blocks(where.read_text(errors="replace"), name):
             if "expires" in block and "finding" in block:
-                out.append((spec, block))
+                out.append((where, block))
     return out
 
 
@@ -55,12 +55,12 @@ def expired(root: Path) -> list[dict]:
     return [block for block in live.values() if str(block.get("expires", "")) < today]
 
 
-def add(spec: Path, fields: dict) -> None:
-    body = spec.read_text(encoding="utf-8")
+def add(where: Path, fields: dict) -> None:
+    body = where.read_text(encoding="utf-8")
     if SECTION not in body:
         body += f"\n{SECTION}\n"
     head, tail = body.split(SECTION, 1)
-    spec.write_text(f"{head}{SECTION}\n\n{text.render(fields)}{tail.lstrip()}", encoding="utf-8")
+    where.write_text(f"{head}{SECTION}\n\n{text.render(fields)}{tail.lstrip()}", encoding="utf-8")
 
 
 def main(argv: list[str]) -> int:
@@ -72,7 +72,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--justification", default="", help="why this is acceptable, in one line")
     parser.add_argument("--follow-up", default="")
     parser.add_argument(
-        "--spec", default="", help="which spec it belongs to; default is the newest"
+        "--spec", default="", help="which spec it belongs to; needed when more than one is open"
     )
     parser.add_argument("--expired", action="store_true", help="list acceptances past their date")
     args = parser.parse_args(argv)
@@ -107,18 +107,12 @@ def main(argv: list[str]) -> int:
             "acceptance with no end date, no name against it and no reason is not one."
         )
         return 2
-    specs = (
-        sorted((root / "specs").glob(f"{args.spec}*/spec.md"))
-        if args.spec
-        else sorted((root / "specs").glob("*/spec.md"))
-    )
-    if not specs:
-        print(
-            "  no spec to attach this to. `ai-eng spec new <slug>` first: a risk with no "
-            "context is a note, not a decision."
-        )
+    try:
+        where = spec.target(root, args.spec)
+    except LookupError as why:
+        print(f"  {why}")
+        print("  A risk with no context is a note, not a decision.")
         return 1
-    spec = specs[-1]
     try:
         recorded = blocks(root)
     except ValueError as why:
@@ -140,11 +134,11 @@ def main(argv: list[str]) -> int:
         return 1
     # The nth risk of this spec, which is what the number is supposed to read as. Counting
     # every block in the repository made the first risk recorded against a spec number eight.
-    number = sum(1 for where, _ in recorded if where == spec) + 1
+    number = sum(1 for at, _ in recorded if at == where) + 1
     add(
-        spec,
+        where,
         {
-            "id": f"R-{re.sub(r'[^0-9]', '', spec.parent.name)[:3]}-{number:02d}",
+            "id": f"R-{re.sub(r'[^0-9]', '', where.parent.name)[:3]}-{number:02d}",
             "finding": args.finding,
             "severity": args.severity,
             "accepted_by": args.by,
@@ -156,7 +150,7 @@ def main(argv: list[str]) -> int:
         },
     )
     print(
-        f"  ✓ recorded in {spec.relative_to(root)} — it expires {args.expires}, and both "
+        f"  ✓ recorded in {where.relative_to(root)} — it expires {args.expires}, and both "
         f"pre-push and doctor read that date."
     )
     return 0
