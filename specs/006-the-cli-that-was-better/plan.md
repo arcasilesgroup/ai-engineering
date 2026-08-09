@@ -5,7 +5,49 @@ slug: the-cli-that-was-better
 
 # Plan — the renderer before the glyphs, so nothing is unheld for a commit
 
-## The base this is measured from
+## What landed — measured, 2026-08-09
+
+| | predicted | landed |
+|---|---|---|
+| 1. the two dependencies, and the wall that keeps them out of the guards | +22 | +139 |
+| 2. the renderer, with nothing rendering through it yet | +120 | +409 |
+| 3. doctor stops printing nine headings for six families | +18 | +52 |
+| 4. messaging leaves stdout | +40 | +22 |
+| 5a. the install screens are drawn | +55 | +36 |
+| 5b. the diagnosis screens are drawn | +45 | +35 |
+| 6. the picker | +50 | +94 |
+| 7. the banner, the help and the version | +25 | +12 |
+| 7b. the tests the mutation floor asked for | — | +176 |
+| 8. this table and the ceiling comment | — | +13 |
+| **total** | **+375** | **+978** |
+
+`REPO_CEILING` closes at **13,664**, which is 12,686 plus that total, with no slack.
+
+Task 7b was not in the plan and the mutation floor is what put it there. `just mutate`
+came out at 86% against 89% — the renderer added 517 mutants and 162 of the survivors
+were in `ui.py`. Almost all of them were style names, invisible on the undecorated path
+this whole suite drives on purpose, so every element could have lost its colour entirely
+with the build green. That is the one thing this spec exists to deliver. 162 down to 66.
+
+The estimate was out by a factor of two rather than spec 005's factor of ten, and the two
+places it was wrong are worth naming. Task 1 predicted 22 and landed 139 because `uv.lock`
+is a counted file and seven packages arrived in it — the two named and five behind them.
+Task 2 predicted 120 and landed 409 because the prediction counted the module and not its
+suite, which is exactly the mistake spec 005 closed on and evidently not one that is
+learned once. Tasks 4, 5a, 5b and 7 all came in under, for the same reason in each case:
+routing an existing string through a renderer deletes the f-string that built it.
+
+Two things happened that were not in the table above and are in the commits.
+
+`Table.grid` was the first survey and was reverted inside the same commit: rich pads the
+final column to its own width, so every row ended in invisible whitespace. The widths sit
+in one function instead, which was the only thing the table was buying.
+
+`usage()` stopped returning a string in task 7 and one call site was still interpolating
+it, which would have printed `None` at anybody who mistyped a verb. The test asserting
+stdout is empty on a typo is what caught it.
+
+## The base this was measured from
 
 Committed `HEAD` measures **12,686** against a `REPO_CEILING` of **12,686**: spec 005 closed
 it at the count that landed, so the headroom is exactly zero again. This worktree measures

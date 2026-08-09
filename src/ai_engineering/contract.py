@@ -67,7 +67,20 @@ DESCRIPTION_MAX = 1000
 # package.json and tsconfig.json, an in-flight lane of the operator's that this branch's first
 # commit swept up out of an index that already held them — named here rather than absorbed,
 # because a ceiling quietly carrying somebody else's lines has already stopped meaning anything.
-REPO_CEILING = 12686
+#
+# 12,686 to 13,664 for spec 006, which is the screen rather than the truth on it: the
+# operator installed 005, ran the two verbs in a terminal and said it was still just as
+# ugly, and he was right — 005 changed what the software claimed and nothing about how any
+# of it is drawn. Measured against the version he prefers, the gap was 1,368 lines of
+# presentation layer that version has and this one did not, so this buys the two
+# dependencies it used and one module that owns the ticks, the widths, the theme and the
+# two streams. 139 of the total is uv.lock, which the first runtime dependencies this wheel
+# has ever had brought with them, and 409 is that module and its suite. What it also bought
+# is a defect: doctor was printing nine section headings for six families, which is not
+# taste and was most of what "ugly" meant. 176 of the total are the tests the mutation
+# floor asked for after going red at 86%: a renderer's mutants are style names, and the
+# suite drives the undecorated path where a style name is invisible.
+REPO_CEILING = 13664
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
