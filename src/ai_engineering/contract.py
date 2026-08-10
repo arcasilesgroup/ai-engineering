@@ -217,7 +217,17 @@ DESCRIPTION_MAX = 1000
 # handed a one-word or a two-word cure. Twenty-three lines of test for five mutants is the
 # floor doing exactly what it is for — the survivors were both in code written this week, and
 # seven of the thirty are this paragraph saying so.
-REPO_CEILING = 17041
+#
+# 17,041 to 17,063, and this one was bought by being wrong in public. Spec 009 recorded, as
+# a decision, that the survey's claim about `extractions/setup-just` was false and that the
+# branch had simply never been pushed. The branch was then pushed and `check` came back
+# startup_failure with no jobs and no logs, while `install` — the same runner, three actions
+# fewer — ran green. This repository allows GitHub-owned actions and nine explicit patterns,
+# `verified_allowed` is false, and `extractions/*` is not among them; `dorny/*` works on main
+# because it is listed by name. `just` now arrives from PyPI through the uv that is already
+# set up, here and in the workflow `init` writes into other people's repositories, because
+# shipping an action our own gate cannot run is shipping a startup_failure to a stranger.
+REPO_CEILING = 17063
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

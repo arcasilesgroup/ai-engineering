@@ -126,4 +126,6 @@ commit and comes before every task that adds a line, which is all of them but th
 - Writing `run.py --live-claude`. The reason is in the spec's decisions and under R-003-05.
 - Flipping any surface from UNPROVEN to proven. A surface flips when a denial executes there
   and not when a test spawns a dispatcher.
-- Touching `extractions/setup-just`. The premise that it blocked CI was checked and is false.
+- Adding `extractions/*` to this repository's Actions allowlist. That is the other way to
+  make `check` start and it is the operator's to make, not a commit's. Getting `just` from
+  PyPI needs nobody's settings and works in every fork.

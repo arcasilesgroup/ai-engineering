@@ -48,14 +48,19 @@ Option 2, and then the push, in that order. The list is closed here, the ceiling
 with its arithmetic written down, and `v1` goes to `origin` as the branch that becomes
 `main`.
 
-One item on the list was wrong and is recorded as wrong rather than quietly dropped: the
-survey called `extractions/setup-just` a blocker on the ground that this repository's Actions
-policy refuses any action that is not GitHub-owned or from a verified creator. It does not.
-`main` runs `dorny/paths-filter` and `open-policy-agent/setup-opa`, neither of which is
-either, and its `CI Check` workflow concludes `failure` rather than `startup_failure`, which
-is a workflow that started. Nothing was blocking; the branch had simply never been pushed.
-Swapping a SHA-pinned action for an unpinned PyPI name would have been a supply-chain
-regression under the Scorecard lane this repository already runs.
+One item on the list was argued about twice and the runner settled it. The survey called
+`extractions/setup-just` a blocker. A review pass refuted that — `main` runs `dorny/*` and
+`open-policy-agent/*`, neither GitHub-owned nor verified, and its workflows start — so the
+change was cut and this paragraph originally said the premise was false. Then the branch was
+pushed, and `check` came back `startup_failure` with no jobs and no logs while `install`, on
+the same runner with three fewer actions, ran green. The policy is
+`github_owned_allowed: true`, `verified_allowed: false`, and nine patterns by name:
+`pypa/*`, `astral-sh/*`, `SonarSource/*`, `CycloneDX/*`, `EndBug/*`, `dorny/*`,
+`open-policy-agent/*`, `step-security/*`, `ossf/*`. `dorny/*` works on `main` because it is
+on that list, not because it is verified, and the refutation read one as the other. The
+survey was right. `just` now comes from PyPI through the uv already set up — here and in the
+workflow `init` writes into other people's repositories, because an action our own gate
+cannot start is not something to hand a stranger.
 
 ## Decisions
 

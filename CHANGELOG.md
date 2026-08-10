@@ -22,6 +22,13 @@ search for.
   seals as edited on the first flush after upgrading, and so does every unflushed line if
   that key file is deleted: end your sessions before you upgrade.
 
+- The `.github/workflows/check.yml` that `ai-eng init` writes gets `just` with
+  `uv tool install rust-just` instead of the `extractions/setup-just` action. A repository
+  that restricts which actions may run — GitHub's "allow select actions" — never starts a
+  workflow naming one outside its list, and the failure has no job and no log to read. The
+  uv this file already sets up is enough. Nothing changes for a repository that allows all
+  actions; re-run `ai-eng init --project` to take the new file, or delete the one line.
+
 - The dated backup `ai-eng init` writes before it overwrites one of your files now lands in
   `.ai/backups/` instead of beside the original. At the repository root nothing ignored
   those files, no verb removed them and `git add -A` committed them; the managed

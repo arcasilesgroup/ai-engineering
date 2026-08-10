@@ -205,7 +205,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v5
-      - uses: extractions/setup-just@v3
+      - run: uv tool install rust-just
       - run: uv tool install ai-engineering==${{{{ env.PIN }}}}
         env:
           PIN: {version}
