@@ -48,7 +48,7 @@ jobs:
           echo seed > seed.txt && git add -A && git commit -m "chore: seed"
           # Compared rather than printed and thrown away: `--force` over an older tool that
           # failed to replace leaves the whole matrix testing yesterday's wheel.
-          built=$(ls "$GITHUB_WORKSPACE"/dist/*.whl | head -1 | sed -E 's/.*-([0-9][^-]*)-py3.*/\1/')
+          built=$(printf '%s\n' "$GITHUB_WORKSPACE"/dist/*.whl | head -1 | sed -E 's/.*-([0-9][^-]*)-py3.*/\1/')
           ai-eng --version | grep -q "$built" || { echo "installed tool is not $built"; exit 1; }
           # A bare runner has no surface, so `init` used to write the store and nothing else:
           # no guard entry, no link row, and therefore no uninstall path to exercise. A skills
@@ -125,8 +125,9 @@ jobs:
           # "specs/ survived" is equally true of a run that removed nothing and said so. The
           # copies this job forced `link` to make are the branch R-008-01 named as unproven,
           # and the guard entry is what `wired()` reads back off the disk rather than a receipt.
-          ! ls "$HOME/.claude/skills"/ai-* >/dev/null 2>&1 \
-            || { echo "uninstall left the copied skills behind"; exit 1; }
+          if compgen -G "$HOME/.claude/skills/ai-*" >/dev/null; then
+            echo "uninstall left the copied skills behind"; exit 1
+          fi
           ! grep -q chain.py "$HOME/.claude/settings.json" \
             || { echo "uninstall left the guard entry wired"; exit 1; }
 

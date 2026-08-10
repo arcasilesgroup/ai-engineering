@@ -238,8 +238,8 @@ DESCRIPTION_MAX = 1000
 # traceback without it. Both of these were found by pressing push, which is the argument the
 # spec makes for pressing it before the list is perfect rather than after.
 #
-# 17,115 to 17,146, and the third thing the first CI found. The `typecheck` job — required by
-# CI Result and never once executed — reported nineteen errors, eighteen of them older than
+# 17,115 to 17,149, and the third and fourth things the first CI found. The `typecheck` job —
+# required by CI Result and never once executed — reported nineteen errors, eighteen older than
 # this branch. Five were ui.py failing to import `rich` and `questionary`, because the job ran
 # mypy with `--no-project` and never installed them: a type check that had never seen the
 # types. The rest were real and are fixed rather than silenced, which rule 3 does not leave as
@@ -247,8 +247,10 @@ DESCRIPTION_MAX = 1000
 # message, two containers with no element type, a `re.search` result indexed as a list, an
 # `except ... as why` whose name Python deletes and a loop below it that read it anyway, and a
 # spec that was `Path | None` on a path that cannot take None. Nineteen of the twenty-nine
-# lines are that work; twelve are this paragraph.
-REPO_CEILING = 17146
+# lines are that work; twelve are this paragraph. The fourth is one line: actionlint runs
+# shellcheck over every run: block and is a step only CI has, so an `ls` piped into `head`
+# in the install matrix — there since the first commit — had never been read by anything.
+REPO_CEILING = 17149
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
