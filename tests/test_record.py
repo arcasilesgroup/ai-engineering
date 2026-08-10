@@ -403,20 +403,15 @@ def test_a_commit_anchoring_a_link_this_chain_has_lost_is_reported(home, monkeyp
         assert "the record was truncated or replaced" in problems[0]
 
 
-@pytest.mark.xfail(
-    raises=json.JSONDecodeError,
-    strict=True,
-    reason="audit.read calls json.loads with no guard, so one truncated line makes "
-    "`ai-eng audit verify` die with a traceback instead of reporting BROKEN. "
-    "doctor.events guards the same read; audit.read does not.",
-)
-def test_a_truncated_line_is_reported_as_broken_not_as_a_crash(home):
-    """A chain is appended to by hooks that can be killed mid-write. A half-written last
-    line is exactly when you most want the verifier to speak, and it crashes instead."""
+def test_a_truncated_line_is_reported_as_broken_not_as_a_crash(home, capsys):
+    """A chain is appended to by hooks that can be killed mid-write. A half-written last line
+    is when the verifier has to speak, and skipping it would report a cut chain as intact."""
     path = _write(home, _links(home, 2))
     with path.open("a", encoding="utf-8") as fh:
         fh.write('{"ts": "t", "cls": "allo\n')
-    assert audit.verify(None, False), "a truncated line should be reported, not raise"
+    problems = audit.verify(None, False)
+    assert len(problems) == 1 and "link 3" in problems[0]
+    assert audit.main(["verify"]) == 1 and "intact" not in capsys.readouterr().out
 
 
 # ------------------------------------------------------------------ spec
@@ -442,15 +437,8 @@ def test_a_spec_number_is_never_handed_out_twice(tmp_path, existing, expected):
     assert spec.next_number(tmp_path) == expected
 
 
-@pytest.mark.xfail(
-    raises=ValueError,
-    strict=True,
-    reason="spec.next_number does int() on the first dash-separated chunk of anything the "
-    "glob [0-9]*-* matched, so a folder named specs/1st-attempt/ raises ValueError and "
-    "`ai-eng spec new` stops working in that repository until somebody renames it.",
-)
 def test_a_folder_that_is_not_a_spec_does_not_stop_numbering(tmp_path):
-    """One hand-made folder under specs/ should be ignored, not turn the next spec into a
+    """One hand-made folder under specs/ is ignored, and does not turn the next spec into a
     traceback for everybody who works in that repository afterwards."""
     (tmp_path / "specs" / "001-a").mkdir(parents=True)
     (tmp_path / "specs" / "1st-attempt").mkdir()

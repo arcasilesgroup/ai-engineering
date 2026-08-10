@@ -74,7 +74,8 @@ def specs_dir(root: Path) -> Path:
 
 
 def next_number(root: Path) -> str:
-    used = [int(p.name.split("-")[0]) for p in specs_dir(root).glob("[0-9]*-*") if p.is_dir()]
+    heads = [p.name.split("-")[0] for p in specs_dir(root).glob("[0-9]*-*") if p.is_dir()]
+    used = [int(head) for head in heads if head.isdecimal()]
     return f"{max(used, default=0) + 1:03d}"
 
 

@@ -349,16 +349,15 @@ def test_a_record_that_cannot_be_written_does_not_change_what_the_caller_does(re
     assert "could not record loop_guard/blocked" in capsys.readouterr().err
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="DEFECT: flush() seals whatever the buffer says. The buffer is a plain file "
-    "inside the clone, unhashed until the session ends, so an edit made to it before the "
-    "flush is hashed as genuine and `ai-eng verify` then reports the chain intact.",
-)
-def test_an_edited_buffer_cannot_be_sealed_into_the_chain_as_genuine(repo):
-    """Between the guard writing an event and the session ending, the event sits in a file
-    anything can edit. Someone who blocks a push, edits `.ai/events.jsonl` to say the push
-    was allowed, and ends the session gets a chain that verifies clean."""
+def test_an_edited_buffer_is_sealed_as_the_error_that_says_it_was_edited(repo):
+    """The event a guard has just written sits in a file inside the clone until the session
+    ends. Someone who is blocked, edits `.ai/events.jsonl` to say the action was allowed and
+    ends the session must not get that line back as a decision: it arrives without the stamp
+    only this machine's key can make, so it is sealed as an error saying so, with what it
+    claimed kept beside it rather than dropped, and `ai-eng audit verify` names the link.
+
+    This was a strict xfail for as long as the buffer was written unhashed: the edit was
+    hashed as genuine at the seal, and the marker was the alarm on it."""
     from ai_engineering import audit
 
     (repo / ".ai").mkdir()
@@ -366,9 +365,15 @@ def test_an_edited_buffer_cannot_be_sealed_into_the_chain_as_genuine(repo):
     _emit.emit("no_verify_guard", "blocked", reason="the truth")
     buf = _emit.buffer_path()
     buf.write_text(buf.read_text().replace("the truth", "a lie!!!"))
-    _emit.flush(repo)
-    assert links()[-1]["data"]["reason"] == "a lie!!!"
-    assert audit.verify(repo, anchors=False), "an edited event was sealed and reports intact"
+    assert _emit.flush(repo) == 1  # sealed, not dropped: dropping it destroys the evidence
+    sealed = links()[-1]
+    assert (sealed["cls"], sealed["data"]["outcome"]) == ("error", "edited")
+    assert sealed["data"]["claimed"]["reason"] == "a lie!!!"  # kept, and no longer a decision
+    assert "arrived edited" in " ".join(audit.verify(repo, anchors=False))
+
+    key = _emit.home() / "buffer.key"
+    assert repo not in key.parents and (key.stat().st_mode & 0o077) == 0
+    assert _emit.stamp(sealed) != _emit.digest(sealed)  # a mark anything can make is a checksum
 
 
 # --- the payload every surface is read through ---------------------------------------

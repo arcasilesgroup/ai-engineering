@@ -29,7 +29,15 @@ def read(root: Path | None) -> list[dict]:
         lines = emit.chain_path(root).read_text().splitlines()
     except OSError:
         return []
-    return [json.loads(line) for line in lines if line.strip()]
+    out = []
+    for line in filter(str.strip, lines):
+        try:
+            out.append(json.loads(line))
+        except ValueError:
+            # A hook killed mid-append leaves half a line behind. Doctor may skip it; here
+            # skipping is how a chain cut at the end walks clean and reports itself intact.
+            out.append({"ts": "?", "cls": "unreadable", "name": "?", "hash": ""})
+    return out
 
 
 def verify(root: Path | None, anchors: bool) -> list[str]:
@@ -37,6 +45,13 @@ def verify(root: Path | None, anchors: bool) -> list[str]:
     problems = []
     prev = ""
     for seq, event in enumerate(read(root), 1):
+        if event.get("cls") == "unreadable":
+            problems.append(f"link {seq}: the line is not JSON — a write was cut here")
+            continue
+        if (event.get("data") or {}).get("outcome") == "edited":
+            # Sealed truthfully, so every hash below matches. Without this line the one
+            # command README.md offers as the tamper detector exits 0 over a rewritten event.
+            problems.append(f"link {seq}: it arrived edited before it was sealed")
         if event.get("seq") != seq:
             problems.append(f"link {seq}: the sequence jumps to {event.get('seq')}")
         if event.get("prev") != prev:

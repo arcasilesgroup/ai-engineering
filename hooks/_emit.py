@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import hmac
 import json
 import os
 import subprocess
@@ -21,6 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 CLASSES = ("blocked", "allowed", "bypassed", "command", "error", "session")
+EDITED = "this line was edited between the guard that wrote it and the seal"
 
 
 def home() -> Path:
@@ -140,6 +142,19 @@ def digest(event: dict) -> str:
     ).hexdigest()
 
 
+def stamp(event: dict) -> str:
+    """The mark only this machine can make on a buffered event. A digest is not enough:
+    anything that can edit the buffer can recompute one over its own edit, which is a
+    checksum against corruption. The key is 0600 in the application folder, outside every
+    clone, so an agent that never reads it cannot rewrite the line that denied it."""
+    path = home() / "buffer.key"
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch(mode=0o600)  # private from the moment it exists, not narrowed afterwards
+        path.write_bytes(os.urandom(32))
+    return hmac.new(path.read_bytes(), digest(event).encode(), hashlib.sha256).hexdigest()
+
+
 def head(path: Path) -> tuple[int, str]:
     """(sequence, hash) of the last link, or (0, "") for an empty chain."""
     try:
@@ -192,11 +207,28 @@ def emit(name: str, cls: str, **data) -> None:
         if buf is None:
             append(chain_path(root), [event])
         else:
+            event["stamp"] = stamp(event)  # unstamped, it is a line the agent can rewrite
             buf.parent.mkdir(parents=True, exist_ok=True)
             with buf.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(event, separators=(",", ":")) + "\n")
     except Exception as exc:  # a failure to record never changes what the caller does
         print(f"[ai-eng] could not record {name}/{cls}: {exc}", file=sys.stderr)
+
+
+def sealable(line: str) -> dict:
+    """One buffered line, ready to be linked. A line that does not carry this machine's
+    stamp — edited, truncated, or not JSON at all — is sealed as the error that says so,
+    with what it claimed kept beside it. Dropping it instead would delete the only
+    evidence that anything touched the record, and that evidence is the whole product."""
+    try:
+        event = json.loads(line)
+        if hmac.compare_digest(event.pop("stamp", ""), stamp(event)):
+            return event
+    except (AttributeError, TypeError, ValueError):
+        event = {"data": {"line": line[:120]}}
+    event = {"ts": now(), "name": "buffer", **event, "cls": "error"}
+    event["data"] = {"outcome": "edited", "error": EDITED, "claimed": event.get("data")}
+    return event
 
 
 def flush(root: Path | None = None) -> int:
@@ -205,7 +237,7 @@ def flush(root: Path | None = None) -> int:
     buf = buffer_path(root)
     if buf is None or not buf.exists():
         return 0
-    events = [json.loads(line) for line in buf.read_text().splitlines() if line.strip()]
+    events = [sealable(line) for line in buf.read_text().splitlines() if line.strip()]
     if events:
         append(chain_path(root), events)
     buf.write_text("")
