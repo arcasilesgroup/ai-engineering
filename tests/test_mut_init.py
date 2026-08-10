@@ -807,15 +807,17 @@ def test_the_files_the_installer_just_wrote_are_not_reported_as_left_as_is(
 
 def test_an_overwritten_file_is_copied_to_a_timestamped_backup_first(repo, capsys, no_keyboard):
     """Catches a backup whose name has no timestamp in it, which means the second
-    overwrite silently destroys the first backup."""
+    overwrite silently destroys the first backup — and a backup written beside the original
+    at the repository root, where nothing ignores it and `git add -A` commits it."""
     (repo / "CLAUDE.md").write_text("mine\n", encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo), "--overwrite", "CLAUDE.md"]))
-    backups = [p.name for p in repo.iterdir() if p.name.startswith("CLAUDE.md.bak-")]
+    assert not [p for p in repo.iterdir() if p.name.startswith("CLAUDE.md.bak-")]
+    backups = [p.name for p in (repo / ".ai" / "backups").iterdir()]
     assert len(backups) == 1
     assert re.fullmatch(r"CLAUDE\.md\.bak-\d{8}-\d{6}-\d{6}", backups[0])
-    assert (repo / backups[0]).read_text() == "mine\n"
+    assert (repo / ".ai" / "backups" / backups[0]).read_text() == "mine\n"
     assert (repo / "CLAUDE.md").read_text() == skeletons.CLAUDE_MD
-    assert f"   ✓ CLAUDE.md backup → {backups[0]} written\n" in capsys.readouterr().err
+    assert f"   ✓ CLAUDE.md backup → .ai/backups/{backups[0]} written\n" in capsys.readouterr().err
 
 
 def test_two_overwrites_inside_one_second_leave_two_backups(repo, no_keyboard):
@@ -828,7 +830,7 @@ def test_two_overwrites_inside_one_second_leave_two_backups(repo, no_keyboard):
         # overwrite and this stops being a test about timestamps.
         (repo / "CLAUDE.md").write_text(body, encoding="utf-8")
         init.project_step(init.parse(["--project", str(repo), "--overwrite", "CLAUDE.md"]))
-    backups = sorted(p for p in repo.iterdir() if p.name.startswith("CLAUDE.md.bak-"))
+    backups = sorted((repo / ".ai" / "backups").iterdir())
     assert len(backups) == 2
     assert backups[0].read_text() == "mine\n"
 
@@ -837,7 +839,7 @@ WARNING = (
     "   ⚠ gitleaks is not on your PATH. While this repository is managed the shipped\n"
     "     pre-commit hook exits 1 on every commit until it is there: "
     "`brew install gitleaks`,\n"
-    "     or docs/tools.md for the other platforms. This installs no binaries.\n"
+    "     or your platform's package manager. This installs no binaries.\n"
 )
 
 
@@ -867,8 +869,7 @@ def test_the_stacks_it_found_are_named_and_it_installs_none_of_them(repo, capsys
     init.project_step(init.parse(["--project", str(repo)]))
     assert (
         "\n   Stacks detected: node, python. The justfile carries their lint, test and "
-        "build commands; the binaries are listed in docs/tools.md and this installs "
-        "none of them.\n"
+        "build commands; it installs none of the binaries they need.\n"
     ) in capsys.readouterr().err
     # And it is not just a sentence: the file it describes carries those commands.
     written = (repo / "justfile").read_text()

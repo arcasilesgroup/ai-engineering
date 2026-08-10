@@ -278,8 +278,9 @@ def test_overwriting_a_file_writes_the_backup_before_it_writes_the_skeleton(repo
     (repo / "justfile").write_text("mine:\n\t@echo hello\n", encoding="utf-8")
     init.main(["--no-global", "--project", str(repo), "-y", "--overwrite", "justfile"])
     assert (repo / "justfile").read_text(encoding="utf-8") == skeletons.justfile([])
-    backups = list(repo.glob("justfile.bak-*"))
+    backups = list(repo.glob(".ai/backups/justfile.bak-*"))
     assert len(backups) == 1, f"overwrite left {len(backups)} backups"
+    assert not list(repo.glob("justfile.bak-*")), "a backup at the root is committed by git add -A"
     assert backups[0].read_text(encoding="utf-8") == "mine:\n\t@echo hello\n"
 
 

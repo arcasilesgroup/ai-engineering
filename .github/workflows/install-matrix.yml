@@ -50,10 +50,30 @@ jobs:
           # failed to replace leaves the whole matrix testing yesterday's wheel.
           built=$(ls "$GITHUB_WORKSPACE"/dist/*.whl | head -1 | sed -E 's/.*-([0-9][^-]*)-py3.*/\1/')
           ai-eng --version | grep -q "$built" || { echo "installed tool is not $built"; exit 1; }
-          ai-eng init --global --project . -y
+          # A bare runner has no surface, so `init` used to write the store and nothing else:
+          # no guard entry, no link row, and therefore no uninstall path to exercise. A skills
+          # root that already holds real directories is also what makes `wiring.link` copy
+          # instead of symlink, which is the Windows shape, on every platform.
+          for skill in "$GITHUB_WORKSPACE"/.agents/skills/ai-*; do
+            mkdir -p "$HOME/.claude/skills/$(basename "$skill")"
+          done
+          ai-eng init --global --project . -y 2>&1 | tee init.log
           test -f .ai/config.toml || { echo "the pin was never written"; exit 1; }
           test -f CONSTITUTION.md || { echo "identity was never written"; exit 1; }
+          grep -q chain.py "$HOME/.claude/settings.json" || { echo "no guard entry"; exit 1; }
+          # `-y` answers every question, so what ships unread off Linux is this verb's own
+          # closing output. The gitleaks notice is asserted only where gitleaks is absent,
+          # which is the state that makes it print — a runner that has it must not fail here.
+          grep -q "files written" init.log || { echo "the closing report never printed"; exit 1; }
+          command -v gitleaks >/dev/null \
+            || grep -q "gitleaks is not on your PATH" init.log \
+            || { echo "the gitleaks notice never printed"; exit 1; }
           ai-eng doctor || true   # a fresh machine is red on purpose; it must not crash
+          # No platform had ever run the one verb that both diagnoses and writes. Take the
+          # entry away so assertion 2 fails with a cure, and read the file back, not the code.
+          rm "$HOME/.claude/settings.json"
+          ai-eng doctor --fix 2>&1 | tee fix.log || true
+          grep -q chain.py "$HOME/.claude/settings.json" || { echo "--fix did not rewire"; exit 1; }
           ai-eng doctor --paths
           ai-eng spec new first-thing
           ai-eng audit verify
@@ -102,6 +122,13 @@ jobs:
           cd "$RUNNER_TEMP/stranger"
           ai-eng uninstall --project -y
           test -d specs || { echo "uninstall deleted the user's specs"; exit 1; }
+          # "specs/ survived" is equally true of a run that removed nothing and said so. The
+          # copies this job forced `link` to make are the branch R-008-01 named as unproven,
+          # and the guard entry is what `wired()` reads back off the disk rather than a receipt.
+          ! ls "$HOME/.claude/skills"/ai-* >/dev/null 2>&1 \
+            || { echo "uninstall left the copied skills behind"; exit 1; }
+          ! grep -q chain.py "$HOME/.claude/settings.json" \
+            || { echo "uninstall left the guard entry wired"; exit 1; }
 
   # A matrix publishes one status per leg — "smoke (macos-latest)" and two siblings — so
   # there is no single context branch protection can require, and adding a fourth platform

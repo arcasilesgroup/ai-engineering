@@ -290,24 +290,30 @@ def marks(args) -> tuple[str, str]:
     return ("would", "would be created") if args.dry else ("ok", "written")
 
 
-def backup(path: Path, args) -> str:
-    """A dated copy beside the original, before anything replaces it. Sub-second, because
+def backup(root: Path, path: Path, args) -> str:
+    """A dated copy under `.ai/backups/`, before anything replaces it. Sub-second, because
     whole seconds are not resolution enough for a name whose only job is to be unique:
     two overwrites of one file inside the same second gave the same name, and the second
     copy destroyed the first backup — the recovery path, overwritten by what it recovers
-    from."""
+    from.
+
+    Under `.ai/` and no longer beside the original, because the managed `.ai/.gitignore`
+    ignores everything there and a `.gitignore` cannot reach out of its own directory: at
+    the repository root these accumulated, nothing ignored them and `git add -A` committed
+    them. `uninstall` does not touch `.ai/`, so the recovery path outlives the framework."""
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    copy = path.with_name(f"{path.name}.bak-{stamp}")
+    copy = root / ".ai" / "backups" / f"{path.name}.bak-{stamp}"
     if not args.dry:
+        copy.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, copy)
-    return copy.name
+    return str(copy.relative_to(root))
 
 
 def write_offer(root: Path, name: str, args) -> None:
     path = root / name
     state, verb = marks(args)
     if path.exists():
-        ui.step(state, f"{name} backup", f"→ {backup(path, args)} {verb}")
+        ui.step(state, f"{name} backup", f"→ {backup(root, path, args)} {verb}")
     if not args.dry:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(OFFERS[name][1](root), encoding="utf-8")
@@ -408,7 +414,7 @@ def project_step(args) -> int:
         out(
             "   ⚠ gitleaks is not on your PATH. While this repository is managed the "
             "shipped\n     pre-commit hook exits 1 on every commit until it is there: "
-            "`brew install gitleaks`,\n     or docs/tools.md for the other platforms. "
+            "`brew install gitleaks`,\n     or your platform's package manager. "
             "This installs no binaries."
         )
         waiting.append("install gitleaks, or every commit here is refused")
@@ -455,8 +461,7 @@ def project_step(args) -> int:
     if found:
         out(
             f"\n   Stacks detected: {', '.join(found)}. The justfile carries their lint, test "
-            f"and build commands; the binaries are listed in docs/tools.md and this "
-            f"installs none of them."
+            f"and build commands; it installs none of the binaries they need."
         )
     report(files, waiting, args)
     return 0
