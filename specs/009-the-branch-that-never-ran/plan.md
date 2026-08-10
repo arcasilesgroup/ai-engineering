@@ -141,6 +141,17 @@ commit and comes before every task that adds a line, which is all of them but th
 - **cost** eight counted lines: three product and the five-line ceiling record; 17,746 to
   17,754, with no slack.
 
+## 13c. Read the assigned Quality Gate through SonarCloud's current API
+
+- **files** `tests/quality_gate.py`, `tests/test_quality_gate.py`,
+  `src/ai_engineering/contract.py` · **check** `pytest tests/test_quality_gate.py` and the
+  next Sonar job · **rollback** `git revert` · **done when** the reader sends both project
+  and organization to `get_by_project`, takes the returned gate id to `show`, and compares
+  the conditions from that second response. HTTP 400 remains undecided and red; it is not
+  converted into a pass.
+- **cost** 56 counted lines: 24 script, 27 test and the five-line ceiling record; 17,754 to
+  17,810, with no slack.
+
 ## 14. Make it `main`
 
 - **check** `git merge-base main v1` exits 1, so this is a replacement and not a merge; the

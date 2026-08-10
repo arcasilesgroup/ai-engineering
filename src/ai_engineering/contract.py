@@ -276,7 +276,12 @@ DESCRIPTION_MAX = 1000
 # flows trace document content, not the destination, into Path.write_text and report the
 # content as a path argument. Writing through an already-open handle keeps the exact bytes
 # while making that boundary unambiguous. Three product lines and these five; no slack.
-REPO_CEILING = 17754
+#
+# 17,754 to 17,810 for the gate reader the first passing Sonar scan finally reached. The
+# assignment endpoint now requires an organization and returns the gate identity without
+# its conditions; the old one-call reader received HTTP 400 and could never prove the live
+# policy. 24 script lines, 27 test lines and these five record the repair. No slack.
+REPO_CEILING = 17810
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
