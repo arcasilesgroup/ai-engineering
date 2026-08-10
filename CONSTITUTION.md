@@ -53,5 +53,5 @@ fix or to delete.
 
 ## Phase
 
-Production. v1.0.0 is the first release a stranger installs, and the acceptance suite in
-§11 is the bar it had to clear.
+Production. v1.0.0 is the first release a stranger installs. The bar it clears is
+`tests/adversarial/run.py` green and doctor's assertion 9, which fails a result over a week old.

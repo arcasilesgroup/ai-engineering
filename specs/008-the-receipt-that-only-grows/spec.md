@@ -340,12 +340,19 @@ expires: 2026-11-08
 renewals: 0
 justification: strip_links now honours the copy the receipt records, which is what wiring.link
   writes where symlinks are unavailable, and the strict xfail that had marked that defect since
-  it was found comes off in the same commit; what has not happened is a run of uninstall on
-  Windows, because the install matrix builds and installs the wheel on three platforms and never
-  uninstalls on any of them, so the branch ships exercised by a unit test that fakes the copy
-  and by nothing else
-follow_up: the install matrix grows an uninstall step after its doctor step on all three
-  platforms, or this is renewed once with the reason and then fixed
+  it was found comes off in the same commit. This block was first accepted on the reason that
+  the install matrix never uninstalls on any platform, and that reason was false when it was
+  written — the uninstall step has run on all three since v1's first commit. The real gap was
+  narrower and nobody had stated it: a bare runner has no agent surface, so init wrote no link
+  row, so uninstall reached no skill and the only assertion, that specs/ survived, was equally
+  true of a run that removed nothing. That gap is now closed: the matrix pre-creates the skills
+  root, which is what makes wiring.link copy rather than symlink on every platform, and asserts
+  the copies and the guard entry are gone afterwards. What is still exercised by nothing is the
+  other way into that same branch — a real symlink failure, the OSError arm of wiring.link,
+  which needs a Windows runner without developer mode and cannot be provoked on a hosted one
+follow_up: renew or retire this at expiry on the narrower finding, and never on the original
+  reason; closing it needs a runner where symlink_to actually raises, not one where the branch
+  is reached by arranging for the target to exist first
 ```
 <!-- ai-eng accept writes yaml blocks here -->
 
@@ -358,6 +365,6 @@ Nothing gets a URL until every box is ticked, and each one is ticked by a comman
 - [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
 - [x] Errors — `cli.main` catches `wiring.Unreadable`, names the file, writes nothing and exits 2, and emits the event `ai-eng digest` reads; every other uncaught exception still re-raises after the same emit
 - [x] Health and data age — `ai-eng doctor`, whose coverage block and assertions 13 and 21 are three of the fifteen tasks, and `ai-eng audit verify` for the age of the chain
-- [x] External check — `.github/workflows/install-matrix.yml` installs the built wheel on three platforms and runs `init` and `doctor`; what it cannot check is R-008-01, because it never uninstalls on any of them
+- [x] External check — `.github/workflows/install-matrix.yml` installs the built wheel on three platforms, runs `init`, `doctor`, `doctor --fix` and `uninstall`, and asserts the copied skills and the guard entry are gone afterwards; what it cannot check is R-008-01's remainder, a symlink failure a hosted runner cannot be made to have
 - [x] Second path — the round trip is the second path, and it is what nothing had: `tests/test_install.py` installs the machine half, runs `uninstall`, and asks `init` and `doctor` what they see, with every count read off the disk by `stripped()` rather than out of the record under test
 - [x] Security — `just security`: gitleaks, semgrep and trivy on every push, and `python tests/adversarial/run.py` at 14 of 14 including the negative control

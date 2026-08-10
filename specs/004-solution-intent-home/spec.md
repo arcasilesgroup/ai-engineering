@@ -1,7 +1,7 @@
 ---
 id: "004"
 slug: solution-intent-home
-status: draft
+status: shipped
 date: 2026-08-08
 ref: ""
 supersedes: ""
@@ -188,9 +188,8 @@ argument against shipping a fourth one from further away.
 ## Decisions
 
 ```yaml
-decision: No skill, verb, assertion or template for Solution Intents enters this framework
-date: 2026-08-08
-rationale: Adopting that work means placing a document mould, a schema and six scripts inside the adopter's repository, which is the act this framework's constitution forbids and the failure this version was built to undo. The experiment is already run at the shortest distance it can be run at: three skills inside that same repository describe the third version of its mould while its corpus is on the fifth, and they rotted with the same author and the same reviewer between them and the original. A skill here would be that prose on a release train, in every project on every machine, wrong the moment the mould moves, in repositories whose owners never adopted it. What travels instead is the shape of a gate and not a line of code, and it travels outward.
+adr: 0004
+title: No document mould from another repository enters this framework
 ```
 ```yaml
 decision: The three ai-si skills are hard-deleted there, with no replacement shipped from here
@@ -207,6 +206,16 @@ decision: Offering this to anybody ships a fork, never an install
 date: 2026-08-08
 rationale: A fork transfers ownership completely on the first day: their bytes, their divergence, no upstream that can rot them. An install transfers the files and keeps the ownership, which is the five hundred and twenty eight file failure restated as a distribution model. So the shape is a repository a team forks once, and never a skill, a command, an installer or a hosted service. A hosted renderer for a format with one user is a company with availability promises and billing, staffed by the sole author of all sixteen documents.
 ```
+```yaml
+decision: The framework install that repository never runs is deleted there
+date: 2026-08-08
+rationale: Two hundred and eleven files of this framework sit in that repository and nothing invokes them: nine command-line tools, fifty-six hooks, fifty-four per-language override files, nineteen reference documents, fifteen runbooks, three policy files, fifty-seven mirrored skills, nineteen mirrored agents and a generated instruction file that points at two documents which do not exist, and its two workflows name none of those paths. Its own constitution already keeps a column marked Framework to explain them, and `ai-eng doctor` assertion 18 returns that verdict there today without being asked. The deletion comes before anything is offered to anybody, because a forker inherits whatever is in the tree and forms their first impression from it. It is that repository's commit, not this one's.
+```
+```yaml
+decision: No generic half of these two repositories is extracted into a shared library
+date: 2026-08-08
+rationale: The generic half of the site is about seven hundred lines whose parser is coupled to the fifth mould's tag names, so generic already means reusable if you adopt the mould, and the schema's first layer is generated from a file in a third repository. Extracting it now forks a surface that is live and mid-redesign in another session, to serve zero users, and creates the second copy this framework exists to delete. The trigger for revisiting it is written down rather than assumed: a corpus nobody here owns adopts that mould and survives one version bump of it. Not before.
+```
 <!-- ai-eng decide writes yaml blocks here -->
 
 ## Accepted risks
@@ -217,11 +226,11 @@ rationale: A fork transfers ownership completely on the first day: their bytes, 
 
 Nothing gets a URL until every box is ticked, and each one is ticked by a command.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check`, run by `.github/workflows/check.yml` on every push; this spec adds one file under `docs/adr/` and no product line, so there is nothing here to build and nothing to deploy
+- [x] Logs — not applicable: no code is added, and `ai-eng digest` still reads the one JSON line every verb already emitted
+- [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
+- [x] Errors — not applicable: nothing new executes, so there is no new uncaught exception, and `cli.main` is untouched by this spec
+- [x] Health and data age — `ai-eng doctor` assertion 19 reads this list the moment the spec is shipped, and `ai-eng decide --list` prints the ADR with its status, which is the only state this spec has and the only thing about it that can go stale
+- [x] External check — `ai-eng doctor` run in `solution-intents`: assertion 18 counts the framework files committed there without being told what to look for, which is the finding this refusal rests on. What it cannot check is the deletions in the plan — they are that repository's commits, in its reviews, and nothing here can see them
+- [x] Second path — the counts this spec publishes were read there by two routes that share no line of code, `git ls-files` and that assertion, and this repository republishes none of them: the decision is stated once, in the ADR, and this spec holds a pointer rather than a copy
+- [x] Security — `just security`: gitleaks, semgrep and trivy on every push, over a change that adds no dependency, no code and no network call

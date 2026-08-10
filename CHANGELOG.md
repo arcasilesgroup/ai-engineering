@@ -4,9 +4,40 @@ Rule 4 of `AGENTS.md`: there are no compatibility shims here, so every hard rena
 every hard delete is written down in this file, in the words somebody upgrading would
 search for.
 
-## Unreleased
+## 1.0.0 — 2026-08-10
 
 ### Breaking changes
+
+- Events buffered in `.ai/events.jsonl` carry a `stamp`: an HMAC over the event, made with
+  a key written 0600 to `~/.ai-engineering/buffer.key`, outside every clone. The flush at
+  the end of a session checks it, and a line that does not carry this machine's stamp —
+  edited, truncated, or no longer JSON — is sealed into the chain as an `error` reading
+  `outcome: edited`, with whatever the line claimed kept beside it under `claimed`, and
+  `ai-eng audit verify` names that link and exits 1. It used to be hashed in as genuine, so
+  an agent that had just been blocked could rewrite its own denial into an allow and the
+  chain still reported intact. The bound, stated plainly: the key is a file readable by
+  anything running as you, so this detects a buffer edited by something that did not read
+  it and raises the bar against nothing that did — the git anchors are what defend the
+  chain against a writer already inside your account. A buffer written before this change
+  seals as edited on the first flush after upgrading, and so does every unflushed line if
+  that key file is deleted: end your sessions before you upgrade.
+
+- The dated backup `ai-eng init` writes before it overwrites one of your files now lands in
+  `.ai/backups/` instead of beside the original. At the repository root nothing ignored
+  those files, no verb removed them and `git add -A` committed them; the managed
+  `.ai/.gitignore` ignores everything under `.ai/` and a `.gitignore` cannot reach out of
+  its own directory, so the file moved rather than the ignore widening. `uninstall` touches
+  nothing under `.ai/`, so the recovery path still outlives the framework. Backups written
+  before this change stay where they are and are still yours to delete.
+
+- `ai-eng doctor --fix` no longer runs `ai-eng update`. Assertion 12 still names that
+  command when the wheel and the pin disagree, and still prints it, but `--fix` runs its
+  cures with nobody in front of them and `update` asks for a typed `y` before it migrates:
+  at a terminal the repair stopped in the middle and waited for a keystroke, and with no
+  keyboard `update`'s own refusal exited 1, took the rest of the repair with it and skipped
+  the second diagnosis. Whether the pin moves is a person's decision, which is what that
+  question is for. Run `ai-eng update` yourself; `--fix` now counts assertion 12 under
+  "needs a person" instead of under "fixable now".
 
 - A JSON file this tool has to read and cannot parse now stops the verb with the file
   named and exit 2, where it used to be read as an empty document. Two things were losing
@@ -64,8 +95,8 @@ search for.
   venv named anything else. If you installed that way, `ai-eng init` has been writing a
   duplicate guard entry on every run and `ai-eng uninstall` has been leaving your guards
   wired; run `ai-eng init --global --no-project` once after upgrading and both stop. There
-  is no dual-marker fallback: entries written by 1.0.0 are recognised by the new signature
-  because the dispatcher's path was always in them.
+  is no dual-marker fallback: entries written before 1.0.0 are recognised by the new
+  signature because the dispatcher's path was always in them.
 
 - `ai-eng spec new --ref` no longer prefills the spec. The flag still records the work
   item in the frontmatter and `/ai-ship` still closes it, but the heading is the slug and

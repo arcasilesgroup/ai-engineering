@@ -313,6 +313,14 @@ renewals: 0
 justification: The dispatcher normalises three spellings of the same payload and the adversarial harness only ever emits one of them, so two thirds of that translation layer is unexercised. Driving the real surfaces is what would actually prove it, and three of them report unproven for the same honest reason already recorded against spec 001.
 follow_up: Fold the three spellings into the dispatcher test that already spawns the dispatcher five times, and flip a surface to proven only when a denial has actually executed there.
 ```
+**R-003-03 `dispatcher-payload-dialects-untested` was closed on 2026-08-10, not renewed.**
+The first half of its follow-up landed: `injection · file` in `tests/adversarial/run.py`
+sends one attack through the real spawned dispatcher three times, as snake_case, as
+camelCase and as the bare `tool`/`input` spelling, and demands exit 2 from all three, so the
+translation layer is now exercised end to end rather than only as a function. The second
+half is deliberately not done and is not this risk: a surface flips to proven when a denial
+executes there, and three still read UNPROVEN in the coverage line for the reason spec 001
+recorded. The check is `python tests/adversarial/run.py`, 14 of 14.
 ```yaml
 id: R-003-02
 finding: zero-lines-of-margin-under-the-ceiling
@@ -353,6 +361,17 @@ follow_up: Run one live denial on the minimum supported Claude Code and on the v
   the report, and record the next event. If either still stops, add a one-shot Stop recovery tied to
   that session and prove it cannot loop — never another instruction in stderr called continuation.
 ```
+**R-003-05 stays open, and the `--live-claude` flag its plan named was deliberately not
+written.** Rule 12 decides it: the check cannot run inside `just check`, cannot fail closed,
+spends a person's credentials, and would hard-code six flags of a third-party binary that
+are true this week. Worse, the flag as planned writes `real_model_at`, which is what doctor
+assertion 9 reads — so it would turn that assertion green on the word of whoever typed the
+command, with nothing in the repository recording that they did, which is the earned-green
+failure this project exists to cure. So it stays a prompt and this is the written reason.
+What closes this risk is unchanged and is a person's to run: drive one real Claude Code
+session into a denial on the minimum supported version and on the version that produced the
+report, and record what the next event was. Until then the follow-up above is the
+instruction, and 2026-11-09 is when pre-push and assertion 16 make it unavoidable.
 <!-- ai-eng accept writes yaml blocks here -->
 
 ## Production-ready

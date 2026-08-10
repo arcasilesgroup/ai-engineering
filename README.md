@@ -12,7 +12,7 @@ The second command asks before it touches anything, and every default destroys n
 
 ## What it is
 
-Eight written procedures, eight guards, and a command-line tool with ten verbs. `init`
+Eight written procedures, five guards, and a command-line tool with ten verbs. `init`
 places the procedures and registers the guards in the settings file each agent surface
 already reads, so they are present in every project on your machine without a single file
 landing in any of them. The package carries the record: it writes specs, plans, decisions
@@ -31,7 +31,7 @@ a pull request.
 ## What lands in your repository
 
 Seven files: `AGENTS.md`, `CONSTITUTION.md`, `CLAUDE.md`, `justfile`,
-`.github/workflows/check.yml` (printed for you to paste), `.ai/config.toml` and
+`.github/workflows/check.yml`, `.ai/config.toml` and
 `.ai/.gitignore` — plus your specs. No installer payload, no templates, no copied skills,
 no per-IDE mirror trees. The guards stay inside the installed wheel and are pointed at
 from the settings file each surface already reads.
@@ -57,6 +57,5 @@ any agent surface at all.
 - `AGENTS.md` — the twelve rules, and how work happens in this repository.
 - `CONSTITUTION.md` — what this project is, and what it never does.
 - `SECURITY.md` — how to report something, and what this cannot protect you from.
-- `docs/tools.md` — the binaries each stack needs. `init` installs none of them.
 
 Apache 2.0. See LICENSE.

@@ -17,8 +17,11 @@ and every one of them removes something that is actively wrong rather than merel
 
 ## 1. Here: the refusal becomes an ADR
 
-- **file** `docs/adr/` · **check** `ai-eng decide --list` names it and `ls docs/adr/*.md`
-  is non-empty; both are empty today · **rollback** `git rm` the file and restore the yaml
+- **file** `docs/adr/` · **check** `ai-eng decide --list` names
+  `0004-no-document-mould-from-another-repository-enters-this-framew`; before this task it
+  listed three ADRs and none of them was this decision, which is why the check it replaced —
+  "`ls docs/adr/*.md` is non-empty" — was already true and could never have gone
+  red · **rollback** `git rm` the file and restore the yaml
   block in the spec · **done when** the decision that no document mould from another
   repository enters this framework as a skill, verb, assertion or template has been promoted
   with `ai-eng decide --adr`, and a pointer is left in this spec. It is promoted because it

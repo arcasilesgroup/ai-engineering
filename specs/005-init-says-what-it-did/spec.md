@@ -249,6 +249,15 @@ renewals: 0
 justification: every overwrite leaves a dated .bak file at the repository root, nothing ignores them, no verb removes them and git add -A commits them, and this spec only makes the name collision-proof rather than cleaning them up; the blast radius is clutter in somebody's first commit rather than lost work, because the backup is the recovery path and deleting it automatically would be worse
 follow_up: decide whether the managed .gitignore covers the pattern or uninstall removes them, and record it as a decision here
 ```
+**R-005-16 `backup-files-accumulate-untracked` was closed on 2026-08-10, not renewed.** Its
+follow-up named two ways out and the first one was taken, by moving the file rather than by
+widening an ignore that structurally cannot reach the repository root: `init.backup` now
+writes to `.ai/backups/`, which the managed `.ai/.gitignore` already ignores in full, and
+`uninstall` touches nothing under `.ai/`, so the recovery path outlives the framework. The
+second way out was rejected in the same breath: a verb that deletes backups deletes the only
+copy of what it overwrote. The check is
+`tests/test_install.py::test_overwriting_a_file_writes_the_backup_before_it_writes_the_skeleton`,
+which now also asserts that nothing matching `justfile.bak-*` is left at the root.
 **R-005-15 `init-overwrite-all-bypasses-constitution` was withdrawn on 2026-08-09, not
 renewed.** Its own follow-up named the two ways out and spec 003 took the first: `init`
 carries `PROTECTED`, `existing()` skips those two names, and `--overwrite all` therefore
