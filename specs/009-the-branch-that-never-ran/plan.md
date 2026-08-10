@@ -112,7 +112,8 @@ commit and comes before every task that adds a line, which is all of them but th
   · **rollback** nothing to roll back; a red run is the output rule 6 asks for either way ·
   **done when** the branch is on `origin` and the result has been read rather than assumed.
   This is the step that turns the rest of this plan from a prediction into an observation,
-  and R-009-02 is open until it has run.
+  and R-009-02 is open until it has run. Completed at `bece5b4a`: install run 31415890269
+  and check run 31415890187 both read `success`, and R-009-02 is closed at those runs.
 
 ## 13a. Treat the receipt as evidence, never authority
 

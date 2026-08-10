@@ -119,13 +119,20 @@ renewals: 0
 justification: every change in this spec was gated with `just check` on one macOS laptop, and the install matrix that would run it on Linux, macOS and Windows has still never executed, because that is the last step of this spec rather than a step inside it. The install-matrix changes in particular are the ones no local run can exercise: a pre-created skills root, `doctor --fix` on a torn settings file, and an uninstall assertion, all written against code that was read rather than against a runner that ran.
 follow_up: read the first CI on this branch and close this at that run, or fix what it says and close it at the run after; this expires in a month because a month is longer than it should take to press push.
 ```
+**R-009-02 `the-fixes-are-green-on-one-machine-only` was closed on 2026-08-10, not
+renewed.** The first run found the lockfile missing from a clean checkout and eight Sonar
+flows; the next exposed a stale two-call assumption in the repository's own Quality Gate
+reader. At `bece5b4a`, [install run 31415890269](https://github.com/arcasilesgroup/ai-engineering/actions/runs/31415890269)
+passed on Ubuntu, macOS and Windows, and [check run 31415890187](https://github.com/arcasilesgroup/ai-engineering/actions/runs/31415890187)
+passed `check`, suite, mutation, mypy, SonarCloud, Snyk and the aggregate CI Result. The
+checks are `gh run view 31415890269` and `gh run view 31415890187`; both read `success`.
 <!-- ai-eng accept writes yaml blocks here -->
 
 ## Production-ready
 
 Nothing gets a URL until every box is ticked, and each one is ticked by a command.
 
-- [x] CI/CD — `just check` green locally at 804 tests and `python tests/adversarial/run.py` at 14 of 14; `.github/workflows/check.yml` and `.github/workflows/install-matrix.yml` are what run them on a push, and R-009-02 records that they have not yet
+- [x] CI/CD — `just check` green locally at 817 tests and `python tests/adversarial/run.py` at 14 of 14; `gh run view 31415890187` reads success for all seven check jobs and `gh run view 31415890269` reads success for the Ubuntu, macOS and Windows install matrix. R-009-02 is closed at those runs
 - [x] Logs — `ai-eng digest`: every verb still emits one JSON line per run, and this spec adds an event nobody could write before — the seal of a buffered line that arrived edited, as class `error`
 - [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
 - [x] Errors — `ai-eng audit verify` no longer dies on a truncated line, it names the link and exits 1; `cli.main` is unchanged and still emits the event `ai-eng digest` reads before it re-raises
