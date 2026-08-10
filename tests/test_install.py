@@ -55,6 +55,19 @@ def git_get(root: Path, key: str) -> str:
     return got.stdout.strip()
 
 
+def surface_row(surface_id: str, kind: str = "guard", how: str | None = None) -> tuple[Path, dict]:
+    """A receipt row in the exact shape the real installer records, plus its disk path."""
+    surface = next(row for row in wiring.table()["surface"] if row["id"] == surface_id)
+    field = "settings" if kind == "guard" else "skills"
+    raw = surface[field]
+    recorded = raw if kind == "guard" else str(wiring.expand(raw))
+    return wiring.expand(raw), {
+        "path": recorded,
+        "kind": kind,
+        "how": surface["writer"] if how is None else how,
+    }
+
+
 def leaves(node) -> list[str]:
     if isinstance(node, dict):
         return [item for value in node.values() for item in leaves(value)]
@@ -336,12 +349,14 @@ def test_uninstall_gives_back_the_hooks_path_the_repository_had_before_us(repo, 
     no-lock-in promise was a command that left the repository different from how it found
     it. The check is not a byte-identical repository — the constitution requires three
     things to survive — it is the configured value and the file list."""
-    subprocess.run(["git", "-C", str(repo), "config", "core.hooksPath", "their/hooks"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "--", "core.hooksPath", "--their/hooks"], check=True
+    )
     init.main(["--no-global", "--project", str(repo), "-y"])
     assert git_get(repo, "core.hooksPath") == str(paths.git_hooks())
     monkeypatch.chdir(repo)
     uninstall.main(["--project", "-y"])
-    assert git_get(repo, "core.hooksPath") == "their/hooks"
+    assert git_get(repo, "core.hooksPath") == "--their/hooks"
     assert git_get(repo, "ai.managed") == ""
 
 
@@ -414,12 +429,10 @@ def test_uninstall_removes_skills_that_were_copied_rather_than_linked(home):
 
     This was a strict xfail for as long as the link branch only unlinked symlinks: every
     skill this tool installed on Windows stayed behind, and the marker was the alarm on it."""
-    root = home / "skills"
+    root, row = surface_row("claude-code", "link", "copy")
     (root / "ai-spec").mkdir(parents=True)
     (root / "ai-spec" / "SKILL.md").write_text("copied", encoding="utf-8")
-    wiring.write_json(
-        wiring.receipt_path(), {"wrote": [{"path": str(root), "kind": "link", "how": "copy"}]}
-    )
+    wiring.write_json(wiring.receipt_path(), {"wrote": [row]})
     uninstall.main(["-y"])
     assert not (root / "ai-spec").exists(), "a copied skill survived the uninstall"
 
@@ -612,16 +625,13 @@ def test_one_file_it_cannot_change_stops_that_file_and_not_the_loop(home, tmp_pa
     guarded, so one settings file with the wrong permissions raised mid-loop and left every
     surface after it in the receipt's order still wired — the shape spec 003 closed for the
     OpenCode parse crash, in the one line that fix did not reach."""
-    locked = tmp_path / "locked" / "settings.json"
+    locked, locked_row = surface_row("claude-code")
     locked.parent.mkdir()
     wiring.write_json(locked, {"hooks": [{"command": wiring.command("PreToolUse")}]})
     locked.chmod(0o400)
-    after = tmp_path / "after.json"
+    after, after_row = surface_row("cursor")
     wiring.write_json(after, {"hooks": [{"command": wiring.command("PreToolUse")}]})
-    rows = [
-        {"path": str(locked), "kind": "guard", "how": "json_claude"},
-        {"path": str(after), "kind": "guard", "how": "json_claude"},
-    ]
+    rows = [locked_row, after_row]
     wiring.record(rows)
     try:
         assert uninstall.main(["-y"]) == 1, "a run that left a guard wired reported success"
@@ -630,7 +640,7 @@ def test_one_file_it_cannot_change_stops_that_file_and_not_the_loop(home, tmp_pa
         assert f"✗ {locked} could not be written" in text
         assert "1 of them are still wired and are still in the record" in text
         left = [row["path"] for row in wiring.receipt()["wrote"]]
-        assert left == [str(locked)], "the record forgot an entry that is still in the file"
+        assert left == [locked_row["path"]], "the record forgot an entry that is still in the file"
     finally:
         locked.chmod(0o600)
 
@@ -640,9 +650,10 @@ def test_a_settings_file_holding_our_entry_that_is_not_json_is_named_not_dismiss
 ):
     """It answered "had no entry of ours" about a file that had just proved it has one —
     the same false green this spec is about, one function down."""
-    target = tmp_path / "settings.json"
+    target, row = surface_row("claude-code")
+    target.parent.mkdir(parents=True)
     target.write_text(f'{{ // theirs\n "c": "{wiring.SIGNATURE}",\n}}\n', encoding="utf-8")
-    wiring.record([{"path": str(target), "kind": "guard", "how": "json_claude"}])
+    wiring.record([row])
     assert uninstall.main(["-y"]) == 1
     assert "holds our entry and is not readable as JSON" in capsys.readouterr().out
 
@@ -663,6 +674,76 @@ def test_uninstall_cannot_reach_a_repository_you_are_not_standing_in(repo, home,
     uninstall.main(["--project", "-y"])
     assert theirs.exists(), "uninstall deleted a file in a repository it was never pointed at"
     assert not (repo / "justfile").exists(), "and it failed to remove the one it was pointed at"
+
+
+def test_a_tampered_receipt_cannot_turn_an_unowned_project_file_into_ours(repo, home, monkeypatch):
+    """The receipt is evidence of an install, not authority to delete any path somebody
+    writes into it. Even inside the selected repository, only the finite files `init` can
+    create are candidates; otherwise a forged project row can delete AGENTS.md, source, or
+    any other file while the screen repeats the receipt's false claim that it is ours."""
+    theirs = repo / "notes.txt"
+    theirs.write_text("mine\n", encoding="utf-8")
+    ours = repo / "justfile"
+    ours.write_text("check:\n", encoding="utf-8")
+    forged = {"path": str(theirs), "kind": "project", "how": "written"}
+    wiring.record(
+        [
+            {"path": str(ours), "kind": "project", "how": "written"},
+            forged,
+            {"path": str(repo), "kind": "repo", "how": ""},
+        ]
+    )
+
+    monkeypatch.chdir(repo)
+    uninstall.main(["--project", "-y"])
+
+    assert theirs.read_text(encoding="utf-8") == "mine\n"
+    assert not ours.exists(), "the valid receipt row was not removed"
+    assert wiring.receipt()["wrote"] == [forged]
+
+
+@pytest.mark.parametrize(
+    "kind,how,file_target",
+    [
+        ("guard", "ts_opencode", True),
+        ("link", "copy", False),
+        ("skills", "wheel", False),
+    ],
+)
+def test_a_tampered_receipt_cannot_expand_the_machine_paths_this_install_owns(
+    home, tmp_path, kind, how, file_target
+):
+    """Each global row kind has one source of allowed destinations: the surface table or
+    the private skills store. A forged row outside that closed set must remain recorded and
+    untouched instead of turning a receipt edit into arbitrary unlink or rmtree."""
+    target = tmp_path / f"not-ours-{kind}"
+    owned_looking = target if file_target else target / "ai-spec"
+    if file_target:
+        owned_looking.write_text(wiring.SIGNATURE, encoding="utf-8")
+    else:
+        owned_looking.mkdir(parents=True)
+        (owned_looking / "SKILL.md").write_text("mine\n", encoding="utf-8")
+    row = {"path": str(target), "kind": kind, "how": how}
+    wiring.record([row])
+
+    uninstall.main(["-y"])
+
+    assert owned_looking.exists()
+    assert wiring.receipt()["wrote"] == [row]
+
+
+def test_a_malformed_project_path_in_the_receipt_fails_closed(home):
+    row = {"path": None, "kind": "project", "how": "written"}
+    assert uninstall.fate(row, Path("/repos/app")) == (
+        "kept — receipt target is not one this installer can own"
+    )
+
+
+@pytest.mark.parametrize("before", [None, "other\nhooks", "x" * 4097])
+def test_a_receipt_cannot_put_control_data_in_git_config(home, before):
+    root = Path("/repos/app")
+    row = {"path": str(root), "kind": "repo", "how": before}
+    assert uninstall.canonical(row, root) is None
 
 
 @pytest.mark.parametrize(
@@ -695,12 +776,19 @@ def test_inside_answers_by_path_parts_and_never_by_string_prefix(path, expected)
         ("repo", Path("/repos/other"), "kept — not this repository"),
     ],
 )
-def test_what_happens_to_a_row_is_decided_once_for_every_kind_there_is(kind, root, want):
+def test_what_happens_to_a_row_is_decided_once_for_every_kind_there_is(home, kind, root, want):
     """The table this verb's screen and its loop both read. They used to be two answers —
     a list that printed every row and a loop with branches for two of the five kinds — and
     the whole defect was that the two could disagree. Every kind is named here, so a sixth
     one arriving with no fate lands on this test rather than on somebody's machine."""
-    row = {"path": "/repos/app" if kind == "repo" else "/repos/app/justfile", "kind": kind}
+    rows = {
+        "guard": surface_row("claude-code")[1],
+        "link": surface_row("claude-code", "link", "symlink")[1],
+        "skills": {"path": str(paths.home() / "skills"), "kind": "skills", "how": "wheel"},
+        "project": {"path": "/repos/app/justfile", "kind": "project", "how": "written"},
+        "repo": {"path": "/repos/app", "kind": "repo", "how": ""},
+    }
+    row = rows[kind]
     got = uninstall.fate(row, root)
     assert got.startswith(want) if want else got == ""
 
@@ -708,30 +796,28 @@ def test_what_happens_to_a_row_is_decided_once_for_every_kind_there_is(kind, roo
 @pytest.mark.parametrize(
     "typed, removed", [("y", True), ("Y", True), ("yes", True), ("n", False), ("", False)]
 )
-def test_the_consent_question_is_the_answer_typed_into_it(home, tmp_path, typed, removed, keyboard):
+def test_the_consent_question_is_the_answer_typed_into_it(home, typed, removed, keyboard):
     """A consent check satisfied by the presence of a terminal rather than by the answer
     typed into it strips a machine's guards on the run somebody started in order to read
     the list. The prompt's own words are pinned because they are the question being
     answered."""
     keyboard(typed)
-    settings = tmp_path / "settings.json"
+    settings, row = surface_row("claude-code")
     wiring.write_json(settings, {"hooks": [{"command": wiring.command("PreToolUse")}]})
-    wiring.record([{"path": str(settings), "kind": "guard", "how": "json_claude"}])
+    wiring.record([row])
     code = uninstall.main([])
     assert wiring.ours(settings.read_text(encoding="utf-8")) is not removed
     assert code == (0 if removed else 1)
 
 
-def test_declining_says_so_and_leaves_the_record_exactly_as_it_was(
-    home, tmp_path, capsys, keyboard
-):
+def test_declining_says_so_and_leaves_the_record_exactly_as_it_was(home, capsys, keyboard):
     """The other half of the same question: a run that removed nothing must not retract
     anything either, or the record starts disagreeing with the machine in the direction this
     spec spent fifteen tasks removing."""
     keyboard("n")
-    settings = tmp_path / "settings.json"
+    settings, row = surface_row("claude-code")
     wiring.write_json(settings, {"hooks": [{"command": wiring.command("PreToolUse")}]})
-    wiring.record([{"path": str(settings), "kind": "guard", "how": "json_claude"}])
+    wiring.record([row])
     before = wiring.receipt_path().read_text(encoding="utf-8")
     assert uninstall.main([]) == 1
     assert "  nothing removed.\n" in capsys.readouterr().out
@@ -769,15 +855,15 @@ def test_the_whole_uninstall_screen_line_for_line(home, capsys):
     assertions rather than decoration."""
     store = paths.home() / "skills"
     (store / "ai-spec").mkdir(parents=True)
-    root = home / ".claude" / "skills"
+    root, link_row = surface_row("claude-code", "link", "symlink")
     root.mkdir(parents=True)
     (root / "ai-spec").symlink_to(store / "ai-spec")
-    settings = home / ".claude" / "settings.json"
+    settings, guard_row = surface_row("claude-code")
     wiring.json_claude(settings)
     wiring.record(
         [
-            {"path": str(settings), "kind": "guard", "how": "json_claude"},
-            {"path": str(root), "kind": "link", "how": "symlink"},
+            guard_row,
+            link_row,
             {"path": str(store), "kind": "skills", "how": "wheel"},
             {"path": "/elsewhere/repo/justfile", "kind": "project", "how": "written"},
             {"path": "/elsewhere/repo", "kind": "repo", "how": ""},
@@ -788,14 +874,14 @@ def test_the_whole_uninstall_screen_line_for_line(home, capsys):
     kept = "kept — repository files; re-run with --project inside that repository"
     assert capsys.readouterr().out == (
         f"  5 things are recorded here, and 3 of them will be removed:\n"
-        f"    guard    {settings}\n"
+        f"    guard    {guard_row['path']}\n"
         f"    link     {root}\n"
         f"    skills   {store}\n"
         f"    project  /elsewhere/repo/justfile  ·  {kept}\n"
         f"    repo     /elsewhere/repo  ·  {kept}\n"
         f"  Kept, always: specs/, CONSTITUTION.md, AGENTS.md, docs/adr/\n"
         f"  Not entered: /elsewhere/repo — `cd /elsewhere/repo && ai-eng uninstall --project`\n"
-        f"  ✓ entries removed from {settings}\n"
+        f"  ✓ entries removed from {guard_row['path']}\n"
         f"  ✓ 1 skills removed from {root}\n"
         f"  ✓ skills removed from {store}\n"
         f"\n"
@@ -804,16 +890,17 @@ def test_the_whole_uninstall_screen_line_for_line(home, capsys):
     )
 
 
-def test_every_row_it_lists_gets_a_line_saying_what_happened_to_it(home, tmp_path, capsys):
+def test_every_row_it_lists_gets_a_line_saying_what_happened_to_it(home, capsys):
     """It printed thirty-two rows under "every one is listed here", asked "Remove them?",
     and ran a loop with branches for two kinds. Nineteen project rows, four repo rows and one
     skills row fell through with no tick, no "kept", and no line at all — consent taken for
     work that was never going to happen."""
-    settings = tmp_path / "settings.json"
+    settings, guard_row = surface_row("claude-code")
+    _, link_row = surface_row("claude-code", "link", "symlink")
     wiring.write_json(settings, {"hooks": [{"command": wiring.command("PreToolUse")}]})
     rows = [
-        {"path": str(settings), "kind": "guard", "how": "json_claude"},
-        {"path": str(tmp_path / "roots"), "kind": "link", "how": "symlink"},
+        guard_row,
+        link_row,
         {"path": str(paths.home() / "skills"), "kind": "skills", "how": "wheel"},
         {"path": "/elsewhere/repo/justfile", "kind": "project", "how": "written"},
         {"path": "/elsewhere/repo", "kind": "repo", "how": ""},
@@ -856,23 +943,20 @@ def test_a_receipt_with_nothing_this_run_can_remove_asks_no_question(home, capsy
     assert "Nothing to remove." in capsys.readouterr().out
 
 
-def test_uninstall_removes_nothing_until_somebody_types_yes(home, tmp_path, keyboard):
+def test_uninstall_removes_nothing_until_somebody_types_yes(home, keyboard):
     """Without -y the question is the whole safety. A consent check satisfied by the mere
     presence of a terminal rather than by the answer typed into it strips a machine's guards
     on the run somebody started to read the list."""
     keyboard("n")
-    settings = tmp_path / "settings.json"
+    settings, row = surface_row("claude-code")
     wiring.write_json(settings, {"hooks": [{"command": wiring.command("PreToolUse")}]})
-    wiring.write_json(
-        wiring.receipt_path(),
-        {"wrote": [{"path": str(settings), "kind": "guard", "how": "json_claude"}]},
-    )
+    wiring.write_json(wiring.receipt_path(), {"wrote": [row]})
     before = settings.read_text(encoding="utf-8")
     assert uninstall.main([]) == 1
     assert settings.read_text(encoding="utf-8") == before, "it removed the entry anyway"
 
 
-def test_uninstall_removes_the_opencode_plugin_and_keeps_going(home, tmp_path, capsys):
+def test_uninstall_removes_the_opencode_plugin_and_keeps_going(home, capsys):
     """The installer records the OpenCode plugin as a guard row, so uninstall used to send
     it to the routine that strips JSON entries. That routine found the signature inside the
     TypeScript, handed the TypeScript to a JSON parser and raised — uncaught, and mid-loop,
@@ -880,16 +964,16 @@ def test_uninstall_removes_the_opencode_plugin_and_keeps_going(home, tmp_path, c
     governance can be removed cleanly. The plugin is a file we wrote whole, so it is
     removed rather than edited, and the settings file after it in the receipt is still
     unwired."""
-    plugin = tmp_path / "ai-engineering.ts"
+    plugin, plugin_row = surface_row("opencode")
     wiring.ts_opencode(plugin)
-    settings = tmp_path / "settings.json"
+    settings, settings_row = surface_row("claude-code")
     wiring.write_json(settings, {"hooks": {"PreToolUse": [{"command": wiring.command("x")}]}})
     wiring.write_json(
         wiring.receipt_path(),
         {
             "wrote": [
-                {"path": str(plugin), "kind": "guard", "how": "ts_opencode"},
-                {"path": str(settings), "kind": "guard", "how": "json_claude"},
+                plugin_row,
+                settings_row,
             ]
         },
     )

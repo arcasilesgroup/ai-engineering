@@ -265,7 +265,13 @@ DESCRIPTION_MAX = 1000
 # file CI never received and the proof stopped before it tested any mutant. 408 lines of
 # generated lockfile minus the deleted ignore is 407; these six lines record the move. It
 # buys reproducible installs and makes the audit see the same graph everywhere. No slack.
-REPO_CEILING = 17588
+#
+# 17,588 to 17,746 for the receipt boundary the first remote security scan found. A receipt
+# could name any file or directory and uninstall treated that claim as ownership, including
+# rows the screen said it would keep when another valid row let the loop run. 68 lines make
+# destinations a closed set and restore git config with an option boundary; 84 test them.
+# These six lines account for the move. No slack survives the fix.
+REPO_CEILING = 17746
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -114,6 +114,22 @@ commit and comes before every task that adds a line, which is all of them but th
   This is the step that turns the rest of this plan from a prediction into an observation,
   and R-009-02 is open until it has run.
 
+## 13a. Treat the receipt as evidence, never authority
+
+- **files** `src/ai_engineering/init.py`, `src/ai_engineering/uninstall.py`,
+  `tests/test_install.py`, `src/ai_engineering/contract.py` · **check**
+  `pytest tests/test_install.py -k 'tampered_receipt or control_data'` and
+  `just mutate src/ai_engineering/init.py src/ai_engineering/uninstall.py` · **rollback**
+  `git revert` · **done when** every destination used for deletion is reconstructed from
+  the surface table, the installer's finite project set or the selected repository; a
+  second valid row cannot smuggle a forged kept row into the unwire loop; and the prior
+  hooks path reaches `git config` only after a printable length bound and an explicit
+  option terminator. This is the real trust-boundary defect behind five findings from the
+  first Sonar run; the three content-written-to-a-trusted-path findings are call-shape
+  false positives and are removed in the next change rather than hidden.
+- **cost** 158 counted lines: 68 product, 84 tests and the six-line ceiling record;
+  17,588 to 17,746, with no slack.
+
 ## 14. Make it `main`
 
 - **check** `git merge-base main v1` exits 1, so this is a replacement and not a merge; the

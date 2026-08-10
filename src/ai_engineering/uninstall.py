@@ -15,6 +15,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from ai_engineering import init as installer
 from ai_engineering import paths, wiring
 
 KEEPS = ("specs/", "CONSTITUTION.md", "AGENTS.md", "docs/adr/")
@@ -83,6 +84,47 @@ def inside(path: str, root: Path) -> bool:
     return Path(path) == root or root in Path(path).parents
 
 
+def canonical(row: dict, root: Path | None) -> dict | None:
+    """Return the trusted form of a destination this installer is capable of owning.
+
+    `machine.json` records what happened; it is not an instruction language. Without this
+    closed set, changing `kind` and `path` in one row turns uninstall into arbitrary unlink
+    or rmtree. The table and init's managed set are the sources that wrote the rows, so they
+    also supply the path used on the way out; receipt text is only compared with it."""
+    kind, path, how = row.get("kind"), row.get("path"), row.get("how", "")
+    if not isinstance(path, str):
+        return None
+    if kind == "guard":
+        for surface in wiring.table()["surface"]:
+            if path == surface["settings"] and how == surface["writer"] != "none":
+                return {"path": surface["settings"], "kind": "guard", "how": surface["writer"]}
+    if kind == "link":
+        for surface in wiring.table()["surface"]:
+            target = wiring.expand(surface["skills"]) if surface.get("skills") else None
+            if target is not None and path == str(target) and how in ("copy", "symlink"):
+                safe_how = "copy" if how == "copy" else "symlink"
+                return {"path": str(target), "kind": "link", "how": safe_how}
+    if kind == "skills":
+        target = paths.home() / "skills"
+        if path == str(target) and how == "wheel":
+            return {"path": str(target), "kind": "skills", "how": "wheel"}
+    if root is None:
+        return None
+    if kind == "project":
+        for target in installer.managed_paths(root):
+            if path == str(target) and how == "written":
+                return {"path": str(target), "kind": "project", "how": "written"}
+    if kind == "repo":
+        safe = isinstance(how, str) and len(how) <= 4096 and (not how or how.isprintable())
+        if path == str(root) and safe:
+            return {"path": str(root), "kind": "repo", "how": how}
+    return None
+
+
+def owned(row: dict, root: Path | None) -> bool:
+    return canonical(row, root) is not None
+
+
 def unwire(root: Path, rows: list[dict]) -> None:
     """The repository half, from the receipt and never from a hardcoded list. Two things
     it fixes: the hooks path is restored to whatever was configured before us rather than
@@ -90,16 +132,22 @@ def unwire(root: Path, rows: list[dict]) -> None:
     lock-in; and only files this install actually wrote are removed, so a CLAUDE.md or a
     justfile somebody wrote by hand survives. Anything the constitution protects was never
     in the receipt, because init writes those two once and never touches them again."""
-    mine = [row for row in rows if row["kind"] == "project" and inside(row["path"], root)]
+    mine = [row for row in rows if row.get("kind") == "project" and owned(row, root)]
     for row in mine:
         Path(row["path"]).unlink(missing_ok=True)
     before = next(
         (row["how"] for row in rows if row["kind"] == "repo" and row["path"] == str(root)), ""
     )
     restore = (
-        ["config", "core.hooksPath", before] if before else ["config", "--unset", "core.hooksPath"]
+        ["config", "--local", "--", "core.hooksPath", before]
+        if before
+        else ["config", "--local", "--unset", "--", "core.hooksPath"]
     )
-    for key in (restore, ["config", "--unset", "ai.managed"], ["config", "--unset", "ai.eng"]):
+    for key in (
+        restore,
+        ["config", "--local", "--unset", "--", "ai.managed"],
+        ["config", "--local", "--unset", "--", "ai.eng"],
+    ):
         git(root, key)
 
 
@@ -122,13 +170,18 @@ def fate(row: dict, root: Path | None) -> str:
 
     An empty string means remove it. Anything else is the reason it is kept, printed on the
     row's own line so that nothing is silently spared."""
-    if row["kind"] in ("guard", "link", "skills"):
-        return ""
-    if root is None:
+    kind, path = row.get("kind"), row.get("path")
+    if kind in ("project", "repo") and root is None:
         return "kept — repository files; re-run with --project inside that repository"
-    if row["kind"] == "repo":
-        return "" if row["path"] == str(root) else f"kept — not this repository ({root})"
-    return "" if inside(row["path"], root) else "kept — belongs to another repository"
+    if not isinstance(path, str):
+        return "kept — receipt target is not one this installer can own"
+    if kind == "project" and root is not None and not inside(path, root):
+        return "kept — belongs to another repository"
+    if kind == "repo" and root is not None and path != str(root):
+        return f"kept — not this repository ({root})"
+    if not owned(row, root):
+        return "kept — receipt target is not one this installer can own"
+    return ""
 
 
 def strip_links(root: Path, how: str) -> int:
@@ -176,14 +229,14 @@ def main(argv: list[str]) -> int:
 
     rows = wiring.receipt().get("wrote", [])
     root = paths.repo_root() if args.project else None
-    plan = [(row, fate(row, root)) for row in rows]
-    going = [row for row, kept in plan if not kept]
+    plan = [(row, fate(row, root), canonical(row, root)) for row in rows]
+    going = [safe for _, kept, safe in plan if not kept and safe]
 
     print(f"  {len(rows)} things are recorded here, and {len(going)} of them will be removed:")
-    for row, kept in plan:
+    for row, kept, _ in plan:
         print(f"    {row['kind']:<8} {row['path']}{'  ·  ' + kept if kept else ''}")
     print(f"  Kept, always: {', '.join(KEEPS)}")
-    elsewhere = sorted({row["path"] for row, kept in plan if kept and row["kind"] == "repo"})
+    elsewhere = sorted({row["path"] for row, kept, _ in plan if kept and row["kind"] == "repo"})
     for other in elsewhere:
         print(f"  Not entered: {other} — `cd {other} && ai-eng uninstall --project`")
     if not going:
@@ -233,7 +286,7 @@ def main(argv: list[str]) -> int:
         gone.append(row)
 
     if root is not None:
-        unwire(root, rows)
+        unwire(root, going)
         print(f"  ✓ {root} unwired. specs/, CONSTITUTION.md and AGENTS.md are untouched.")
         gone += [row for row in going if row["kind"] in ("project", "repo")]
     # Our own cache, and the OpenCode plugin's only proof that it ever loaded. It is fresh

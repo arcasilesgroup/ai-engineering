@@ -219,6 +219,21 @@ def surfaces_picked(found: list[dict]) -> list[dict]:
 PROTECTED = ("AGENTS.md", "CONSTITUTION.md")
 
 
+def managed_paths(root: Path) -> frozenset[Path]:
+    """The finite set of repository files an install may later remove.
+
+    The receipt remembers which subset was actually written. This set is the other half of
+    that decision: editing the receipt cannot expand ownership to an arbitrary file merely
+    because it lives below the repository root."""
+    offered = {root / name for name in OFFERS if name not in PROTECTED}
+    framework = {
+        root / ".ai" / "config.toml",
+        root / ".ai" / ".gitignore",
+        root / "specs" / ".gitkeep",
+    }
+    return frozenset(offered | framework)
+
+
 def existing(root: Path) -> list[tuple[str, int, str]]:
     """What is here, is not ours, and is ours to offer to replace. A file whose content is
     already exactly what we would render is not offered either: a second `init` over an
@@ -445,7 +460,7 @@ def project_step(args) -> int:
             [
                 {"path": str(root / name), "kind": "project", "how": "written"}
                 for name in wrote
-                if name not in PROTECTED  # yours from the second they were written
+                if root / name in managed_paths(root)
             ]
             + [{"path": str(root), "kind": "repo", "how": before}]
         )
