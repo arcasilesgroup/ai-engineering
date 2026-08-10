@@ -154,7 +154,7 @@ def suite_result() -> dict:
 
 
 @check(12, "The pin", "What runs is what is pinned")
-def pin_matches(root: Path | None) -> str | None:
+def pin_matches(root: Path | None) -> str | tuple[str, str] | None:
     if root is None:
         raise Undecidable("not inside a repository")
     emit = paths.load("_emit")
@@ -200,7 +200,7 @@ def no_double_decision(root: Path | None) -> str | None:
 
 
 @check(2, "The wiring", "Every guard is registered, and points at a file that exists")
-def wiring_present(root: Path | None) -> str | None:
+def wiring_present(root: Path | None) -> str | tuple[str, str] | None:
     dispatcher = paths.hooks() / "chain.py"
     if not dispatcher.exists():
         # An empty cure and not the one this number carries, because there is no `ai-eng`
@@ -237,7 +237,7 @@ def classes_are_honest(root: Path | None) -> str | None:
 
 
 @check(11, "The wiring", "A git hook actually fires", in_ci=False)
-def git_hook_fires(root: Path | None) -> str | None:
+def git_hook_fires(root: Path | None) -> str | tuple[str, str] | None:
     if root is None:
         raise Undecidable("not inside a repository")
     configured = git(root, "config", "--get", "core.hooksPath")
@@ -266,7 +266,7 @@ def git_hook_fires(root: Path | None) -> str | None:
 
 
 @check(13, "The wiring", "Every symlink resolves and the doctrine is loaded")
-def links_resolve(root: Path | None) -> str | None:
+def links_resolve(root: Path | None) -> str | tuple[str, str] | None:
     """The doctrine half is answered first, because it can be answered without a receipt
     and dropping a real failure to report could-not-evaluate would be the same trade in
     the other direction."""
@@ -298,7 +298,7 @@ def links_resolve(root: Path | None) -> str | None:
 
 
 @check(21, "The wiring", "Per-surface liveness: installed is not the same as running")
-def surfaces_alive(root: Path | None) -> str | None:
+def surfaces_alive(root: Path | None) -> str | tuple[str, str] | None:
     found = wiring.detect()
     if not found:
         raise Undecidable("no surface is installed here, so none of them can be running")
@@ -714,9 +714,12 @@ def main(argv: list[str]) -> int:
             f"Not evaluated — {len(unanswered)} of {len(CHECKS)} could not be answered here",
             data=True,
         )
-        for number, title, why in unanswered:
+        # `reason` and not `why`: the same function binds `why` in an `except ... as why`
+        # above, and Python deletes that name when the block ends, so reusing it here is a
+        # read of a deleted variable that happens to work only because this loop rebinds it.
+        for number, title, reason in unanswered:
             ui.write(f"  {number:>2}  {title}", data=True)
-            ui.write(f"      {why}", style="muted", data=True)
+            ui.write(f"      {reason}", style="muted", data=True)
         ui.write(
             "  None of these is a pass. Not evaluated is never green.", style="warn", data=True
         )

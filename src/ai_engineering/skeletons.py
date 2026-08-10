@@ -149,7 +149,7 @@ def justfile(stacks: list[str]) -> str:
     # from what was asked for: a file headed "Filled in for: cobol, python" carrying only
     # python's commands is the kind of claim this whole product exists to refuse.
     filled = [stack for stack in stacks if stack in RECIPES]
-    lines = {verb: [] for verb in TODOS}
+    lines: dict[str, list[str]] = {verb: [] for verb in TODOS}
     for stack in filled:
         # strict=True: a row here with two commands in it would silently lose one, and that
         # is a shipped justfile with no `build` recipe in a language nobody notices until CI

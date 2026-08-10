@@ -52,8 +52,12 @@ def speakable() -> None:
     once, here, because the alternative is remembering it at each of the eleven print()
     calls that carry a glyph, and the twelfth is written by somebody who was not here."""
     for stream in (sys.stdout, sys.stderr):
-        with contextlib.suppress(AttributeError, OSError, ValueError):
-            stream.reconfigure(encoding="utf-8", errors="replace")
+        # getattr and not a suppressed AttributeError: a stream a test replaced with
+        # something simpler has no reconfigure, and that is not an error to swallow.
+        settable = getattr(stream, "reconfigure", None)
+        if settable is not None:
+            with contextlib.suppress(OSError, ValueError):
+                settable(encoding="utf-8", errors="replace")
 
 
 def main(argv: list[str] | None = None) -> int:

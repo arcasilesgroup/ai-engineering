@@ -14,6 +14,7 @@ a file is renamed in review like any other conflict.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import re
 from datetime import date
 from pathlib import Path
@@ -133,17 +134,21 @@ def main(argv: list[str]) -> int:
     # Named, or the only one open. It used to resolve to whichever directory sorted last,
     # and that is how two decisions written for spec 003 landed in another session's spec,
     # because a fourth directory appeared between two commands.
+    if args.adr:
+        # An ADR outlives every spec, so it may be written without one — which is why this
+        # branch reads the spec separately: the other one cannot proceed without a spec, and
+        # fusing the two made the difference between them a flag read three lines later.
+        promoted: Path | None = None
+        with contextlib.suppress(LookupError):
+            promoted = specs.target(root, args.spec)
+        print(f"  ✓ {promote(root, args.title, args.supersede, promoted).relative_to(root)}")
+        print("    status: proposed. Accept or reject it by changing one line in a pull request.")
+        return 0
     try:
         spec = specs.target(root, args.spec)
     except LookupError as why:
-        if not args.adr:
-            print(f"  {why}")
-            return 1
-        spec = None  # an ADR outlives every spec, so it may be written without one
-    if args.adr:
-        print(f"  ✓ {promote(root, args.title, args.supersede, spec).relative_to(root)}")
-        print("    status: proposed. Accept or reject it by changing one line in a pull request.")
-        return 0
+        print(f"  {why}")
+        return 1
     append(
         spec,
         {

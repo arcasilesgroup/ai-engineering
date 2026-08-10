@@ -99,7 +99,8 @@ def create(root: Path, slug: str, ref: str) -> Path:
 
 def status_of(path: Path) -> str:
     head = path.read_text(errors="replace")[:600]
-    return (re.search(r"^status:\s*(\S+)", head, re.M) or [None, "?"])[1]
+    found = re.search(r"^status:\s*(\S+)", head, re.M)
+    return found.group(1) if found else "?"
 
 
 def target(root: Path, named: str = "") -> Path:

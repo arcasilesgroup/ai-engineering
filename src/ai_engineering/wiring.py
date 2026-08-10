@@ -71,7 +71,8 @@ def wired(only: list[str] | None = None) -> tuple[list[dict], list[dict]]:
     going through this tool. `uninstall` was only the loudest way to do that; a settings file
     edited by hand, a surface removed by its own installer and a home restored from a backup
     all get the same wrong answer out of a receipt. One question, asked in one place."""
-    on, off = [], []
+    on: list[dict] = []
+    off: list[dict] = []
     for surface in detect(only):
         if surface["writer"] == "none" or not surface.get("settings"):
             continue

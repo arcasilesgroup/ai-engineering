@@ -171,8 +171,14 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      # The two runtime dependencies are named here because `--no-project` is deliberate —
+      # the guards are checked at 3.11, which is their floor, not at whatever the project
+      # resolves to. Without them mypy cannot import `rich` or `questionary` and reports
+      # five import-not-found errors in ui.py: a type check that never saw the types.
       - name: types, on the product and on the guards
-        run: uv run --no-project --python 3.11 --with "mypy==${MYPY_VERSION}" mypy src hooks
+        run: |
+          uv run --no-project --python 3.11 --with "mypy==${MYPY_VERSION}" \
+            --with "rich>=13.0,<16.0" --with "questionary>=2.0,<3.0" mypy src hooks
 
       # The OpenCode adapter, which mypy cannot see and which is shipped to users as text.
       # No setup-node: the runner image has node and npm already, and every action added
