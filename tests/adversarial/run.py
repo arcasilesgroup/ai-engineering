@@ -99,9 +99,17 @@ def case(name: str, guard: str):
 
 @case("injection · file", "injection_guard")
 def injection_file(tmp: Path) -> bool:
+    """One attack in the three spellings a surface can send it in. The normaliser was
+    covered as a function and nowhere else, so the surfaces that speak camelCase or the
+    bare keys had never carried a payload of their own shape as far as a denial."""
     target = tmp / "notes.md"
     target.write_text(f"# notes\n\n{PAYLOAD}\n")
-    return pre("Read", {"file_path": str(target)}) == 2
+    dialects = (
+        {"tool_name": "Read", "tool_input": {"file_path": str(target)}},
+        {"toolName": "Read", "toolInput": {"filePath": str(target)}},
+        {"tool": "Read", "input": {"file_path": str(target)}},
+    )
+    return all(call("PreToolUse", one) == 2 for one in dialects)
 
 
 @case("injection · tool result", "injection_guard")

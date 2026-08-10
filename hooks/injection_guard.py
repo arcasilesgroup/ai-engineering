@@ -13,6 +13,7 @@ false positive fails the build. A guard people learn to bypass is worse than non
 from __future__ import annotations
 
 import re
+import unicodedata
 from pathlib import Path
 
 from _wrap import guard
@@ -43,6 +44,13 @@ def patterns() -> list[re.Pattern]:
 
 
 def hit(text: str) -> str | None:
+    """Folded before it is matched: compatibility-decompose, then drop everything that is not
+    ASCII, so a fullwidth letterform becomes the letter it imitates and a zero-width joiner or
+    a combining accent pushed mid-word stops hiding the word. NFKD and not NFKC, because NFKC
+    puts the accent back onto the letter and the whole letter then leaves with it. A homoglyph
+    from another alphabet is a different letter and stays one: that is R-001-04's residual. The
+    excerpt is quoted from the folded text, because that is the text that matched."""
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     for rule in patterns():
         found = rule.search(text)
         if found:

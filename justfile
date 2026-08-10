@@ -196,14 +196,23 @@ changed:
         exit 1
     }
     # A changed test earns its mutants too: editing tests/test_mut_accept.py and mutating
-    # nothing proves the new test is green, never that it would notice anything. The
-    # module is derived from the file's name, so a suite added today is picked up today
-    # and a list kept in here cannot go stale against the tests it is supposed to name.
+    # nothing proves the new test is green, never that it would notice anything. The modules
+    # are the ones the file imports, not the one its name spells: by name, five of the eleven
+    # suites resolved to a module that does not exist and were dropped without a word, so
+    # `update` and `uninstall` — the debt the mutation floor names — had no suite pointed at
+    # them at all. A hook is listed only where a row in tests/mutation.py names it, as in
+    # `mutate`; a suite naming none of ours says so on stderr rather than vanishing.
     mutable="$(printf '%s\n' "$files" | while read -r f; do
         case "$f" in
             src/*.py) echo "$f"; continue ;;
-            tests/test_*.py) m="${f#tests/test_}"; m="src/ai_engineering/${m#mut_}"
-                             { [ -f "$m" ] && echo "$m"; } || true; continue ;;
+            tests/test_*.py) { sed -n 's/^ *from ai_engineering import //p' "$f" 2>/dev/null | tr ',' '\n'
+                               sed -n 's/^ *import //p' "$f" 2>/dev/null; } | tr -d ' ' | while read -r m; do
+                                 for c in "src/ai_engineering/$m.py" "hooks/$m.py"; do
+                                     case "$c" in hooks/*) grep -qF "\"$c\"" tests/mutation.py || continue ;; esac
+                                     [ -f "$c" ] && echo "$c" || true
+                                 done
+                             done | grep . || echo "  $f names no module of ours, so none was mutated" >&2
+                             continue ;;
         esac
         grep -qF "\"$f\"" tests/mutation.py && echo "$f" || true
     done | sort -u)"

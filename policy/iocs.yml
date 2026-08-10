@@ -2,7 +2,9 @@
 # form with no escape processing, so the regex written here is the regex compiled.
 # patterns() raises on anything else, and a test fires the whole catalogue at ordinary
 # technical prose - one false positive fails the build, because precision is the design
-# constraint. Matched only against text the agent is about to consume, never text it wrote.
+# constraint. Matched only against text the agent is about to consume, never text it wrote,
+# and folded to ASCII first by hit(): a fullwidth or accented spelling matches, a homoglyph
+# from another alphabet does not, and an entry that is not itself ASCII can never fire.
 
 patterns:
   - 'ignore (all |any )?(previous|prior|above|earlier|preceding) (instructions|prompts|rules|directions)'
