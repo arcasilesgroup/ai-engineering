@@ -250,7 +250,16 @@ DESCRIPTION_MAX = 1000
 # lines are that work; twelve are this paragraph. The fourth is one line: actionlint runs
 # shellcheck over every run: block and is a step only CI has, so an `ls` piped into `head`
 # in the install matrix — there since the first commit — had never been read by anything.
-REPO_CEILING = 17149
+#
+# 17,149 to 17,175, and the fifth. `ai-eng doctor --ci` cannot pass on a runner, and could
+# never have: assertion 9 demanded a dated result from the adversarial suite's real-model
+# half, which needs an API key and somebody's spend and is accepted as not shipping under
+# R-001-02, so the field it reads can never exist there. It said "no dated green result in
+# the last 7 days" for a half that had never run at all. Never run and gone stale are
+# different answers, and this file already has the state for the first one. Eight of the
+# twenty-six lines are the changelog entry, because softening a gate is a thing a person
+# upgrading has to be told, and eight more are the note under the risk that grew it.
+REPO_CEILING = 17175
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -462,8 +462,16 @@ def suite_fresh(root: Path | None) -> str | None:
     if not result.get("deterministic_green"):
         return "the deterministic half of the suite is not green"
     stamp = result.get("real_model_at")
-    if not stamp or (time.time() - float(stamp)) / 86400 > 7:
-        return "the real-model half has no dated green result in the last 7 days"
+    if not stamp:
+        # Never run and gone stale are different answers, and this returned the second for
+        # both. The real-model half needs a key and somebody's spend — that is R-001-02,
+        # accepted and dated — so nothing on a runner or on a fresh machine can ever write
+        # this field, and a failure here made `ai-eng doctor --ci` impossible to pass
+        # anywhere. Undecidable is what this file already has for a question it cannot ask,
+        # and it is never counted as a pass.
+        raise Undecidable("the real-model half has never run here; it needs a key and spend")
+    if (time.time() - float(stamp)) / 86400 > 7:
+        return "the real-model half's last green result is more than 7 days old"
     return None
 
 

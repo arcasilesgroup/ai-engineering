@@ -22,6 +22,15 @@ search for.
   seals as edited on the first flush after upgrading, and so does every unflushed line if
   that key file is deleted: end your sessions before you upgrade.
 
+- `ai-eng doctor` assertion 9 reports "could not evaluate" instead of a failure when the
+  adversarial suite's real-model half has never run on this machine, and still fails when
+  it ran and the result is more than seven days old. Never run and gone stale are different
+  answers and it gave the second for both — and nothing on a runner or a fresh machine can
+  write that field, because that half needs an API key and somebody's spend, which is a
+  risk this repository accepted and dated. So `ai-eng doctor --ci` could not pass anywhere,
+  which is what the first CI run on this branch reported. Not evaluated is still never
+  green: it is printed, counted separately, and says what it could not ask.
+
 - Every verb now writes UTF-8 with replacement rather than whatever encoding the shell
   handed it. On Windows a bare `print()` gets a cp1252 stream, and the tick in `ai-eng spec
   new`'s success line is not in cp1252, so that verb ended in a `UnicodeEncodeError`

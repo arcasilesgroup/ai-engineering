@@ -395,6 +395,13 @@ justification: >
   author's subscription on somebody else's behalf.
 follow_up: Publish the harness so a buyer can run it against their own key.
 ```
+**R-001-02 grew a consequence on 2026-08-10 that nobody had noticed.** Assertion 9 demanded
+a dated `real_model_at` and failed without one, so the half this risk accepts as not
+shipping made `ai-eng doctor --ci` impossible to pass on any runner or any fresh machine —
+found by the first CI run this branch ever had. The assertion now raises `Undecidable` when
+that half has never run and fails only when its result is stale, which is this repository's
+own rule that *cannot tell* is never a pass and never a failure either. The risk itself is
+unchanged and so is its follow-up.
 
 ```yaml
 id: R-001-03

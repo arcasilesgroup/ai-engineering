@@ -396,9 +396,9 @@ def test_assertions_17_and_18_the_record_is_committed_and_the_state_is_not(repo)
         ("guards_alive", {"at": "8 days", "guards": {}}, "fail", "8 days ago"),
         ("guards_alive", {"at": "6 days", "guards": {}}, "ok", ""),
         ("suite_fresh", {"deterministic_green": False}, "fail", "deterministic half"),
-        ("suite_fresh", {"deterministic_green": True}, "fail", "real-model half"),
+        ("suite_fresh", {"deterministic_green": True}, "undecidable", "never run here"),
         ("suite_fresh", {"deterministic_green": True, "real_model_at": "now"}, "ok", ""),
-        ("suite_fresh", {"deterministic_green": True, "real_model_at": "8 days"}, "fail", "dated"),
+        ("suite_fresh", {"deterministic_green": True, "real_model_at": "8 days"}, "fail", "7 days"),
         ("suite_fresh", {"deterministic_green": True, "real_model_at": "6 days"}, "ok", ""),
     ],
 )
