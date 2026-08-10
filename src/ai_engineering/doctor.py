@@ -20,7 +20,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from ai_engineering import __version__, paths, ui, wiring
+from ai_engineering import __version__, audit, paths, ui, wiring
 
 # A problem, or a problem and the cure that is not the one FIXES holds for this number.
 # One check needs the second form: a pin can be wrong two ways and they are two commands.
@@ -92,8 +92,10 @@ FIXES = {
     13: "ai-eng init --global --no-project",
 }
 
-# What `--fix` appends so a cure runs with nobody in front of it. `update` has no such flag
-# and needs none, because it asks nothing.
+# The verbs `--fix` may run itself, and what it appends so each runs with nobody in front of
+# it. An allow-list and not a lookup with a default: `ai-eng update` asks for a typed `y`
+# before it migrates and ADR 0003 keeps that gate, so running it here waited for a keystroke
+# in the middle of a repair. Assertion 12 still prints it as the cure a person types.
 UNATTENDED = {"init": ["-y"]}
 
 
@@ -347,7 +349,12 @@ def chain_intact(root: Path | None) -> str | None:
         # the set that measured nothing was the one that called it clean.
         raise Undecidable("nothing has been written to this chain yet")
     prev = ""
-    for index, event in enumerate(events(root), 1):
+    # audit.read and not events(): events() drops a line it cannot parse, which is how this
+    # assertion used to walk a chain cut mid-write and call it intact. The two readers of
+    # this file now agree about what a cut looks like.
+    for index, event in enumerate(audit.read(root), 1):
+        if event.get("cls") == "unreadable":
+            return f"link {index} is not JSON — a write was cut here"
         if event.get("prev") != prev:
             return f"link {index} does not extend the one before it"
         prev = event.get("hash", "")
@@ -689,7 +696,7 @@ def main(argv: list[str]) -> int:
             ui.verdict(number, "fail", title, problem)
             ui.cure(cure)
             failed.append(number)
-            if cure:
+            if unattended(cure):
                 cures[number] = cure
 
     ui.write("\nCoverage — where a call can actually be stopped, and where it cannot", data=True)
@@ -718,7 +725,7 @@ def main(argv: list[str]) -> int:
     if args.fix and cures:
         return repair(cures, argv)
     if args.fix:
-        ui.write("\n  Nothing that failed here has a command that fixes it.", data=True)
+        ui.write("\n  Nothing that failed here has a command --fix runs for you.", data=True)
     return 1 if failed else 0
 
 
@@ -727,6 +734,14 @@ def resolve(number: int, problem: str | tuple[str, str]) -> tuple[str, str]:
     check named for itself beats the one this number usually carries, because a pin can be
     wrong two ways and they are two different commands."""
     return problem if isinstance(problem, tuple) else (problem, FIXES.get(number, ""))
+
+
+def unattended(cure: str) -> bool:
+    """Whether `--fix` may run this cure itself. It invokes the verb through `cli.main` with
+    nobody in front of it, and `ai-eng update` asks for a typed `y` before it migrates — ADR
+    0003 keeps that gate — so that cure is printed for a person and never run from here."""
+    words = cure.split()
+    return len(words) > 1 and words[1] in UNATTENDED
 
 
 def tint(line: str) -> str:

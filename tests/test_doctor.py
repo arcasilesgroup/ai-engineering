@@ -233,17 +233,17 @@ def test_assertion_6_compares_the_linkage_and_never_recomputes_a_hash(
     assert (audit_says in problems) and bool(problems) == bool(audit_says)
 
 
-def test_a_half_written_last_line_is_dropped_by_the_check_that_looks_for_broken_links(home, repo):
-    """A crash part-way through a write leaves half a line behind. doctor drops it without
-    a word and still reports the chain intact; audit, reading the same file, cannot parse
-    it at all. Whoever reads doctor is told the record is fine."""
+def test_a_half_written_last_line_is_reported_by_both_readers_of_the_chain(home, repo):
+    """A crash part-way through a write leaves half a line behind. doctor used to drop it
+    without a word and report the chain intact, and audit, reading the same file, could not
+    parse it at all — so the one reader that spoke crashed and the one that ran every session
+    called a cut record clean. Both now name the link, and neither passes."""
     path = chain(repo, {}, {})
     with path.open("a", encoding="utf-8") as fh:
         fh.write('{"cls": "blo')
     assert len(doctor.events(repo)) == 2
-    assert doctor.chain_intact(repo) is None
-    with pytest.raises(ValueError):
-        audit.read(repo)
+    assert "link 3" in (doctor.chain_intact(repo) or "")
+    assert len(audit.verify(repo, anchors=False)) == 1
 
 
 def test_a_chain_that_was_never_written_is_not_a_broken_chain_and_is_not_a_pass_either(home, repo):
@@ -885,18 +885,19 @@ def test_fix_runs_each_distinct_cure_once_however_many_checks_named_it(
     assert invoked == [["init", "--global", "--no-project", "-y"], ["init", "--project", "-y"]]
 
 
-def test_a_cure_whose_verb_asks_nothing_is_run_with_nothing_appended(monkeypatch, invoked):
-    """`ai-eng update` has no -y and needs none: it refuses on a dirty tree, refuses without
-    a keyboard and asks for a typed y, and those three gates are the whole reason ADR 0003
-    is allowed to exist. Appending a flag it does not have would make argparse exit 2, and
-    the only check that names it is the one that reaches it through its own cure."""
+def test_a_cure_whose_verb_asks_a_person_something_is_printed_and_never_run(monkeypatch, invoked):
+    """`ai-eng update` refuses on a dirty tree, refuses without a keyboard and asks for a
+    typed y, and those three gates are the whole reason ADR 0003 is allowed to exist. `--fix`
+    runs its cures through cli.main with nobody in front of them, so running this one stopped
+    the repair mid-way for a keystroke, or read update's own refusal as a failed repair and
+    abandoned the rest. Assertion 12 still names the command; a person types it."""
     monkeypatch.setattr(
         doctor, "CHECKS", [(12, "The pin", "pin", True, lambda root: ("stale", "ai-eng update"))]
     )
     monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
     doctor.main(["--fix"])
-    assert invoked == [["update"]]
+    assert invoked == []
 
 
 def test_fix_with_nothing_it_can_repair_says_so_and_writes_nothing(monkeypatch, capsys, invoked):
@@ -908,7 +909,7 @@ def test_fix_with_nothing_it_can_repair_says_so_and_writes_nothing(monkeypatch, 
     assert doctor.main(["--fix"]) == 1
     assert invoked == []
     assert (
-        "\n  Nothing that failed here has a command that fixes it.\n"
+        "\n  Nothing that failed here has a command --fix runs for you.\n"
     ) in capsys.readouterr().out
 
 
