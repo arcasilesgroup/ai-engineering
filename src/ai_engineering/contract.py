@@ -190,7 +190,27 @@ DESCRIPTION_MAX = 1000
 # existed (`/a`, `/b`, `/c`, `/somewhere/settings.json`), vendors' directories standing in
 # for wired surfaces, and one passing assertion that an install destroys a settings file
 # whose own docstring said "this pins the loss; it does not bless it".
-REPO_CEILING = 16803
+# 16,803 to 17,011 for spec 009, and this is the first raise bought entirely by things that
+# were already wrong. The total sat at exactly the ceiling, so the first line of the first fix
+# failed the build — which is the ceiling working, and the reason this paragraph exists rather
+# than a quiet edit. 44 is the buffer stamp: an event written by a guard sat unhashed in the
+# clone until the session ended, so an agent that had just been blocked could rewrite its own
+# denial into an allow and `ai-eng audit verify` reported the chain intact. 43 is the Unicode
+# fold and the twelve-variant recall measurement R-001-04's follow-up asked for by name, at 9
+# of 12 caught where the raw catalogue caught 0. 34 is the install matrix finally running
+# `doctor --fix`, the closing report, the copy branch of `wiring.link` and an uninstall
+# assertion that is not also true of a run that removed nothing — four accepted risks whose
+# cures had been written down and never wired. 30 is changelog, which is rule 4 being paid for
+# three breaking changes in the same batch. 21 is the guard count pinned against the dispatcher
+# table, after "eight guards" and "five guards" had lived eight lines apart in the same
+# doctrine file with nothing asserting either, and one attack sent through the real dispatcher
+# in all three payload dialects. 16 is `doctor --fix` no longer typing a person's answer and
+# `just changed` no longer dropping five of eleven suites in silence. Twenty is this paragraph.
+#
+# Two fixes cost nothing and are worth naming for it: `audit.read` and `spec.next_number` came
+# to net zero, because the strict-xfail markers they retire are longer than the guards that
+# replace them. That is what a defect with an alarm on it is supposed to cost when it is paid.
+REPO_CEILING = 17011
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
