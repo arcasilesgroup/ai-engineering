@@ -900,6 +900,16 @@ def test_a_cure_whose_verb_asks_a_person_something_is_printed_and_never_run(monk
     assert invoked == []
 
 
+def test_which_cures_fix_may_run_is_decided_by_the_verb_and_survives_a_short_one():
+    """The allow-list is read out of the cure, so the shape of the string decides whether a
+    verb is ever looked up. A cure of one word must answer no rather than index past the end
+    of it, and a cure of exactly two words — the shortest real one — must still answer yes,
+    or `--fix` silently stops repairing the thing it says it repairs."""
+    assert doctor.unattended("ai-eng init") and doctor.unattended(doctor.FIXES[2])
+    assert not doctor.unattended("ai-eng update")
+    assert not doctor.unattended("init") and not doctor.unattended("")
+
+
 def test_fix_with_nothing_it_can_repair_says_so_and_writes_nothing(monkeypatch, capsys, invoked):
     """The failure that has no command is the common one — seventeen of the twenty-one —
     and a flag that silently does nothing reads as a flag that ran."""

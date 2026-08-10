@@ -210,7 +210,14 @@ DESCRIPTION_MAX = 1000
 # Two fixes cost nothing and are worth naming for it: `audit.read` and `spec.next_number` came
 # to net zero, because the strict-xfail markers they retire are longer than the guards that
 # replace them. That is what a defect with an alarm on it is supposed to cost when it is paid.
-REPO_CEILING = 17011
+#
+# 17,011 to 17,041, and the payer is the mutation floor, which went to 88% against 89 and
+# named the five survivors: `parents=True` in the new backup path, which every test reached
+# with `.ai/` already there, and the `len(words) > 1` guard in `unattended`, which nothing
+# handed a one-word or a two-word cure. Twenty-three lines of test for five mutants is the
+# floor doing exactly what it is for — the survivors were both in code written this week, and
+# seven of the thirty are this paragraph saying so.
+REPO_CEILING = 17041
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

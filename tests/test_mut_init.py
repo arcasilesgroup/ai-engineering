@@ -820,6 +820,19 @@ def test_an_overwritten_file_is_copied_to_a_timestamped_backup_first(repo, capsy
     assert f"   ✓ CLAUDE.md backup → .ai/backups/{backups[0]} written\n" in capsys.readouterr().err
 
 
+def test_a_backup_makes_the_directory_it_needs_instead_of_assuming_it(tmp_path):
+    """`.ai/backups/` is two levels under the root, and the file being replaced is offered
+    before anything guarantees `.ai/` exists. A mkdir that does not create parents raises
+    FileNotFoundError here — and the line after it is the one that overwrites the original,
+    so the recovery path would be gone at exactly the moment it is needed."""
+    from pathlib import Path
+
+    (tmp_path / "CLAUDE.md").write_text("mine\n", encoding="utf-8")
+    where = init.backup(tmp_path, tmp_path / "CLAUDE.md", SimpleNamespace(dry=False))
+    assert Path(where).parts[:2] == (".ai", "backups")
+    assert (tmp_path / where).read_text(encoding="utf-8") == "mine\n"
+
+
 def test_two_overwrites_inside_one_second_leave_two_backups(repo, no_keyboard):
     """The docstring above says the timestamp is what stops the second overwrite
     destroying the first backup, and until the stamp had sub-second resolution that was
