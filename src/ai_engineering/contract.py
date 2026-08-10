@@ -259,7 +259,13 @@ DESCRIPTION_MAX = 1000
 # different answers, and this file already has the state for the first one. Eight of the
 # twenty-six lines are the changelog entry, because softening a gate is a thing a person
 # upgrading has to be told, and eight more are the note under the risk that grew it.
-REPO_CEILING = 17175
+#
+# 17,175 to 17,588 for the npm lockfile the clean-checkout mutation proof requires. The
+# package manifest was tracked while its dependency graph was ignored, so local npm used a
+# file CI never received and the proof stopped before it tested any mutant. 408 lines of
+# generated lockfile minus the deleted ignore is 407; these six lines record the move. It
+# buys reproducible installs and makes the audit see the same graph everywhere. No slack.
+REPO_CEILING = 17588
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
