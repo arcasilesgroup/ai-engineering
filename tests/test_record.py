@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import builtins
 import json
+import os
 import re
 import subprocess
+import sys
 import time
 from datetime import date, timedelta
 from pathlib import Path
@@ -794,6 +796,26 @@ def test_asking_for_help_lists_every_verb_and_exits_zero(argv, capsys):
     assert cli.main(argv) == 0
     out = capsys.readouterr().out
     assert all(verb in out for verb in cli.VERBS)
+
+
+def test_a_stream_that_cannot_spell_a_tick_gets_a_line_rather_than_a_traceback(tmp_path):
+    """Windows hands a bare print() a cp1252 stream, and `ai-eng spec new` writes a tick in
+    its success line. The first time the install matrix ever ran, that ended the Windows leg
+    in a UnicodeEncodeError with the spec already on disk — so the verb had done its work
+    and reported a crash. Rich's path was never affected, which is why nothing local saw it."""
+    import io
+
+    (tmp_path / "specs").mkdir()
+    subprocess.run(["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True)
+    narrow = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict")
+    stdout, cwd = sys.stdout, Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        sys.stdout = narrow
+        assert cli.main(["spec", "new", "a-thing"]) == 0
+    finally:
+        sys.stdout, _ = stdout, os.chdir(cwd)
+    assert (tmp_path / "specs" / "001-a-thing" / "spec.md").exists()
 
 
 def test_an_unknown_verb_exits_non_zero_and_says_so_on_stderr(capsys):

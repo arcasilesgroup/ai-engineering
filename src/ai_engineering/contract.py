@@ -227,7 +227,17 @@ DESCRIPTION_MAX = 1000
 # because it is listed by name. `just` now arrives from PyPI through the uv that is already
 # set up, here and in the workflow `init` writes into other people's repositories, because
 # shipping an action our own gate cannot run is shipping a startup_failure to a stranger.
-REPO_CEILING = 17063
+#
+# 17,063 to 17,115, and the same runner found the next one. The Windows leg of the install
+# matrix — also running for the first time — ended `ai-eng spec new` in a UnicodeEncodeError
+# with the spec already on disk: Windows hands a bare `print()` a cp1252 stream and the tick
+# in that verb's success line is not in cp1252. Eleven print() calls across six verbs carry a
+# glyph, and the styled screens never had the problem, which is why every local run and every
+# Linux job was green. The streams are reconfigured once at the CLI's entry rather than at
+# eleven call sites, and the regression test builds a cp1252 stream and reproduces the exact
+# traceback without it. Both of these were found by pressing push, which is the argument the
+# spec makes for pressing it before the list is perfect rather than after.
+REPO_CEILING = 17115
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

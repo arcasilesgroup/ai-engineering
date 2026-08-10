@@ -22,6 +22,12 @@ search for.
   seals as edited on the first flush after upgrading, and so does every unflushed line if
   that key file is deleted: end your sessions before you upgrade.
 
+- Every verb now writes UTF-8 with replacement rather than whatever encoding the shell
+  handed it. On Windows a bare `print()` gets a cp1252 stream, and the tick in `ai-eng spec
+  new`'s success line is not in cp1252, so that verb ended in a `UnicodeEncodeError`
+  traceback with the spec already written — work done, crash reported. The styled screens
+  were never affected, which is why this survived every local run.
+
 - The `.github/workflows/check.yml` that `ai-eng init` writes gets `just` with
   `uv tool install rust-just` instead of the `extractions/setup-just` action. A repository
   that restricts which actions may run — GitHub's "allow select actions" — never starts a

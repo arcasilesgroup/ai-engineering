@@ -8,6 +8,7 @@ table records that it ran.
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import sys
 import time
@@ -43,7 +44,20 @@ def usage() -> None:
     ui.write("\n  ai-eng <verb> --help for the flags.", data=True)
 
 
+def speakable() -> None:
+    """Windows hands a bare `print()` a cp1252 stream, and a tick in a success line is not
+    in cp1252 — so `ai-eng spec new` ended in a UnicodeEncodeError traceback on the Windows
+    leg of the install matrix, the first time that matrix ever ran. Rich's own path was
+    never affected, which is why this survived every local run and every Linux job. Fixed
+    once, here, because the alternative is remembering it at each of the eleven print()
+    calls that carry a glyph, and the twelfth is written by somebody who was not here."""
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(AttributeError, OSError, ValueError):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    speakable()
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] in ("-h", "--help", "help"):
         usage()
