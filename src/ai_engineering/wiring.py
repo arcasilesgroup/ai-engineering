@@ -139,7 +139,8 @@ def read_json(path: Path) -> dict:
 
 def write_json(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    with path.open("w", encoding="utf-8") as stream:
+        stream.write(json.dumps(data, indent=2) + "\n")
 
 
 def ours(entry) -> bool:

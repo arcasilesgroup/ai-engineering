@@ -130,6 +130,17 @@ commit and comes before every task that adds a line, which is all of them but th
 - **cost** 158 counted lines: 68 product, 84 tests and the six-line ceiling record;
   17,588 to 17,746, with no slack.
 
+## 13b. Separate document content from its trusted destination
+
+- **files** `src/ai_engineering/wiring.py`, `src/ai_engineering/accept.py`,
+  `src/ai_engineering/decide.py`, `src/ai_engineering/contract.py` · **check**
+  `pytest tests/test_mut_wiring.py tests/test_mut_spec.py` and the next Sonar job ·
+  **rollback** `git revert` · **done when** the three flows no longer hand document content
+  to a path method: each trusted path is opened first and the existing bytes are written to
+  its handle, with no suppression and no behaviour change.
+- **cost** eight counted lines: three product and the five-line ceiling record; 17,746 to
+  17,754, with no slack.
+
 ## 14. Make it `main`
 
 - **check** `git merge-base main v1` exits 1, so this is a replacement and not a merge; the

@@ -271,7 +271,12 @@ DESCRIPTION_MAX = 1000
 # rows the screen said it would keep when another valid row let the loop run. 68 lines make
 # destinations a closed set and restore git config with an option boundary; 84 test them.
 # These six lines account for the move. No slack survives the fix.
-REPO_CEILING = 17746
+#
+# 17,746 to 17,754 for three data writes the remote analyzer read as path construction. Its
+# flows trace document content, not the destination, into Path.write_text and report the
+# content as a path argument. Writing through an already-open handle keeps the exact bytes
+# while making that boundary unambiguous. Three product lines and these five; no slack.
+REPO_CEILING = 17754
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

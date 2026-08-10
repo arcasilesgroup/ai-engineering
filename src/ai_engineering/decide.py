@@ -94,7 +94,8 @@ def append(spec: Path, fields: dict) -> None:
     if marker not in body:
         body += f"\n{marker}\n"
     head, tail = body.split(marker, 1)
-    spec.write_text(f"{head}{marker}\n\n{text.render(fields)}{tail.lstrip()}", encoding="utf-8")
+    with spec.open("w", encoding="utf-8") as stream:
+        stream.write(f"{head}{marker}\n\n{text.render(fields)}{tail.lstrip()}")
 
 
 def listing(root: Path) -> list[str]:

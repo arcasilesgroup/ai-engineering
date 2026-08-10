@@ -60,7 +60,8 @@ def add(where: Path, fields: dict) -> None:
     if SECTION not in body:
         body += f"\n{SECTION}\n"
     head, tail = body.split(SECTION, 1)
-    where.write_text(f"{head}{SECTION}\n\n{text.render(fields)}{tail.lstrip()}", encoding="utf-8")
+    with where.open("w", encoding="utf-8") as stream:
+        stream.write(f"{head}{SECTION}\n\n{text.render(fields)}{tail.lstrip()}")
 
 
 def main(argv: list[str]) -> int:
