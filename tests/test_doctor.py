@@ -795,13 +795,12 @@ def test_the_whole_report_is_data_and_none_of_it_is_chrome(monkeypatch, capsys):
     ) in caught.out
 
 
-def test_the_three_muted_kinds_of_line_under_the_report_are_dressed_as_such(monkeypatch, capsys):
+def test_the_three_muted_kinds_of_line_under_the_report_are_dressed_as_such(
+    monkeypatch, capsys, coloured
+):
     """The legend, the reasons under the unanswered rows and the sentence that says none of
     them is a pass. Undecorated all three are ordinary text in a screen that is mostly
     ordinary text, and the last one is a warning — the whole point of printing it."""
-    monkeypatch.delenv("NO_COLOR", raising=False)
-    monkeypatch.setenv("FORCE_COLOR", "1")
-    doctor.ui.reset()
     stub(monkeypatch, [(3, "The context", "refused", True, raises(doctor.Undecidable("why")))])
     monkeypatch.setattr(doctor, "coverage", lambda root: ["  T2  a  BLOCKS  a denial ran here"])
     doctor.main([])
@@ -819,12 +818,11 @@ def test_the_three_muted_kinds_of_line_under_the_report_are_dressed_as_such(monk
 @pytest.mark.parametrize(
     ("problem", "colour"), [(lambda root: "broken", "red"), (lambda root: None, "#00D4AA")]
 )
-def test_the_verdict_frame_takes_its_colour_from_the_answer(monkeypatch, capsys, problem, colour):
+def test_the_verdict_frame_takes_its_colour_from_the_answer(
+    monkeypatch, capsys, problem, colour, coloured
+):
     """Undecorated the two verdicts are the same box, so the colour is the one part of this
     that the rest of the suite cannot see — and it is the part read first."""
-    monkeypatch.delenv("NO_COLOR", raising=False)
-    monkeypatch.setenv("FORCE_COLOR", "1")
-    doctor.ui.reset()
     stub(monkeypatch, [(4, "The context", "b", True, problem)])
     doctor.main([])
     assert Style.parse(colour).render("─").split("─")[0] in capsys.readouterr().out
@@ -946,13 +944,12 @@ def test_a_cure_that_exits_non_zero_stops_the_rest_instead_of_reporting_a_clean_
     assert out.count("   2  FAIL     a") == 1, "it asked again after a repair that failed"
 
 
-def test_the_command_a_repair_runs_and_the_one_that_failed_are_dressed_apart(monkeypatch, capsys):
+def test_the_command_a_repair_runs_and_the_one_that_failed_are_dressed_apart(
+    monkeypatch, capsys, coloured
+):
     """`--fix` prints two kinds of line: the command it is about to run, which is what a
     person re-runs by hand when it goes wrong, and the sentence saying one exited non-zero.
     Undecorated they are two runs of ordinary text, and the second is the one that matters."""
-    monkeypatch.delenv("NO_COLOR", raising=False)
-    monkeypatch.setenv("FORCE_COLOR", "1")
-    doctor.ui.reset()
     monkeypatch.setattr(cli, "main", lambda argv: 3)
     stub(monkeypatch, [(11, "The pin", "a", True, lambda root: "broken")])
     assert doctor.main(["--fix"]) == 3
