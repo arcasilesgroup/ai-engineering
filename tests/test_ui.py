@@ -21,19 +21,6 @@ from rich.style import Style
 from ai_engineering import __version__, ui
 
 
-@pytest.fixture
-def coloured(monkeypatch):
-    """A terminal that wants decoration. FORCE_COLOR is the convention for saying so past a
-    pipe, and it is what a person debugging their own colours reaches for, so exercising
-    the decorated path through it exercises a path users actually take."""
-    monkeypatch.delenv("NO_COLOR", raising=False)
-    monkeypatch.setenv("TERM", "xterm-256color")
-    monkeypatch.setenv("FORCE_COLOR", "1")
-    ui.reset()
-    yield
-    ui.reset()
-
-
 def test_messaging_goes_to_stderr_and_data_goes_to_stdout(capsys):
     """`ai-eng doctor > report.txt` has to yield the report and not the report with every
     line of chrome still attached. This is that split, at the only place that decides it."""

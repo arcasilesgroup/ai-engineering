@@ -30,3 +30,16 @@ def undecorated(monkeypatch):
     ui.reset()
     yield
     ui.reset()
+
+
+@pytest.fixture
+def coloured(monkeypatch):
+    """A terminal that asks for decoration even when the test runner is behind a pipe."""
+    from ai_engineering import ui
+
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    ui.reset()
+    yield
+    ui.reset()
