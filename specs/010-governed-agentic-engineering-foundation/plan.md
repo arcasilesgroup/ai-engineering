@@ -2,7 +2,7 @@
 
 ## Approval and atomicity gate
 
-No implementation starts until a human explicitly approves **this exact `spec.md` and this exact `plan.md`**, explicitly including the SHA-256 digest of each file; any edit to either digest invalidates approval and requires re-approval. The reply is the gate; no `approval.md` is created. There is exactly one repository writer before P3. Every implementation and every review is delegated; writers run sequentially, and a fresh read-only reviewer reviews each diff. No global initialization, installation, network mutation, publishing, tagging, or deployment runs without separate explicit consent. Each task is one atomic commit. A task may change exactly **one primary production, policy, documentation, or workflow file**, plus only its focused supporting test/fixture file(s); it may not change a second product home. Revisiting a primary file is allowed only for a named, distinct semantic change and a distinct commit. The sole exception is the final supersession: one semantic transaction updates primary spec010 and its predecessor spec004 together to avoid an invalid intermediate state; spec010 remains the named primary. Rollback for every task is `git revert <commit>`.
+No implementation starts until a human explicitly approves **this exact `spec.md` and this exact `plan.md`**, explicitly including the SHA-256 digest of each file; any edit to either digest invalidates approval and requires re-approval. The previous plan digest `255c3bb27dbce8f62f8351d61c3a70ce385a49676a78e4583ff5c412a8e99198` is invalidated by the observed git-anchor liveness failure; re-approval must name the new digest of this committed plan. The reply is the gate; no `approval.md` is created. There is exactly one repository writer before P3. Every implementation and every review is delegated; writers run sequentially, and a fresh read-only reviewer reviews each diff. No global initialization, installation, network mutation, publishing, tagging, or deployment runs without separate explicit consent. Each task is one atomic commit. A task may change exactly **one primary production, policy, documentation, or workflow file**, plus only its focused supporting test/fixture file(s); it may not change a second product home. Revisiting a primary file is allowed only for a named, distinct semantic change and a distinct commit. The sole exception is the final supersession: one semantic transaction updates primary spec010 and its predecessor spec004 together to avoid an invalid intermediate state; spec010 remains the named primary. Rollback for every task is `git revert <commit>`.
 
 Every check below is an exact future red check: run it with `uv`, using the named `path::node`; it is red now because the node/file is absent or its assertion fails, and becomes green only after that task. No broad `-k`, placeholder node, or invented green result is acceptable. P0 may verify release workflow/provenance contracts but cannot claim a release; spec 010 remains draft and boxes unticked until observed receipts exist. Remote checks select the current `HEAD` SHA and return `INCOMPLETE` when authentication or a run is unavailable. Publishing/tag authority is always a separate human decision.
 
@@ -215,52 +215,64 @@ Task 1 records a provisional maximum of **17,807 + 4,500 = 22,307 lines** in `co
     **rollback**: `git revert <commit>`.
    **done when**: distinct wrapper semantic change removes plan naming and preserves guard/telemetry failure contracts.
 
-42. **Quality gate workflow** — **file** `.github/workflows/check.yml`.
-    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_check_workflow_marks_missing_or_skipped_evidence_incomplete`.
+42. **Observable git-anchor liveness before persistence** — **file** `src/ai_engineering/wiring.py`.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_install.py::test_wire_git_executes_the_configured_module_before_persisting_it`.
+    **rollback**: `git revert <commit>`.
+   **done when**: `wire_git` safely executes the exact command `[sys.executable, -m, ai_engineering.cli, --version]` before persisting `ai.eng`, and failure or timeout writes none of the three git-anchor keys.
+
+43. **Doctor assertion 11 live git-anchor proof** — **file** `src/ai_engineering/doctor.py`.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_doctor.py::test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module`.
+    **rollback**: `git revert <commit>`.
+   **done when**: assertion 11 executes no shell or arbitrary configured command: it requires `ai.eng` to decompose exactly to the current `sys.executable` plus `-m ai_engineering.cli`, safely executes the argument list for `audit --anchor` with a timeout and isolated `HOME`, and requires exit 0 plus exactly one valid footer; mismatch, dead module, timeout, or invalid footer is `INCOMPLETE` with the consented cure `ai-eng init --project`.
+
+The `commit-msg` telemetry hook intentionally remains fail-open so it cannot block Git. These tasks make anchor liveness observable at installation and diagnosis; they do not convert telemetry into a guard.
+
+44. **Quality gate workflow** — **file** `.github/workflows/check.yml`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_check_workflow_marks_missing_or_skipped_evidence_incomplete`.
     **rollback**: `git revert <commit>`.
    **done when**: existing test/lint/type/coverage/mutation/SAST/dependency/action lanes remain, and missing/skipped results are `INCOMPLETE`, never silently green.
 
-43. **Installed matrix workflow** — **file** `.github/workflows/install-matrix.yml`.
-    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_install_matrix_uses_head_sha_and_proves_installed_wheel_renames_and_json`.
+45. **Installed matrix workflow** — **file** `.github/workflows/install-matrix.yml`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_install_matrix_uses_head_sha_and_proves_installed_wheel_renames_and_json`.
     **rollback**: `git revert <commit>`.
    **done when**: installed-wheel matrix proves inventory, hard renames, JSON and negative controls; unavailable auth/run is `INCOMPLETE`.
 
-44. **Release provenance workflow** — **file** `.github/workflows/release.yml`.
-    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_release_workflow_retains_wheel_contents_provenance_and_head_sha_receipts`.
+46. **Release provenance workflow** — **file** `.github/workflows/release.yml`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_release_workflow_retains_wheel_contents_provenance_and_head_sha_receipts`.
     **rollback**: `git revert <commit>`.
    **done when**: preserves wheel contents/provenance lanes and verifies static/local contracts; the release tag commit must be contained in `origin/main`, with no claimed observed release receipt.
 
-45. **Readiness receipt verifier** — **file** `src/ai_engineering/readiness.py`.
-    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_readiness.py::test_readiness_requires_eight_executable_fresh_receipts_and_negative_controls`.
+47. **Readiness receipt verifier** — **file** `src/ai_engineering/readiness.py`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_readiness.py::test_readiness_requires_eight_executable_fresh_receipts_and_negative_controls`.
     **rollback**: `git revert <commit>`.
    **done when**: verifies executable receipts for CI/CD, logs, traces, uncaught errors, health/data age, independent external check, second path/digest recomputation, and security scans; stale/missing receipts are `INCOMPLETE`.
 
-46. **Adversarial receipt runner** — **file** `tests/adversarial/run.py`.
-    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_readiness.py::test_adversarial_runner_records_denials_and_clean_control`.
+48. **Adversarial receipt runner** — **file** `tests/adversarial/run.py`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_readiness.py::test_adversarial_runner_records_denials_and_clean_control`.
     **rollback**: `git revert <commit>`.
    **done when**: actually executes attacks and clean controls and records separate receipts for required local commands.
 
-47. **Doctor readiness integration** — **file** `src/ai_engineering/doctor.py`.
-    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_readiness.py::test_doctor_json_includes_readiness_receipt_status_and_age`.
+49. **Doctor readiness integration** — **file** `src/ai_engineering/doctor.py`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_readiness.py::test_doctor_json_includes_readiness_receipt_status_and_age`.
     **rollback**: `git revert <commit>`.
    **done when**: distinct semantic commit exposes readiness receipt status/age in doctor JSON, with no claim beyond observed evidence.
 
-48. **Breaking-change changelog** — **file** `CHANGELOG.md`.
-    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_contracts.py::test_changelog_names_all_p0_hard_renames_deletes_and_fail_closed_changes`.
+50. **Breaking-change changelog** — **file** `CHANGELOG.md`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_contracts.py::test_changelog_names_all_p0_hard_renames_deletes_and_fail_closed_changes`.
     **rollback**: `git revert <commit>`.
    **done when**: documents hard renames/deletes, canonical homes, and fail-closed behavior in plain language.
 
-49. **P0 completeness mapping** — **file** `tests/test_p0_completeness.py`.
-    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_p0_completeness.py`.
+51. **P0 completeness mapping** — **file** `tests/test_p0_completeness.py`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_p0_completeness.py`.
     **rollback**: `git revert <commit>`.
    **done when**: one primary test maps every P0 requirement, rejects P1–P5 requirements and aliases, and runs inside `just check`.
 
-50. **Exact ceiling close** — **file** `src/ai_engineering/contract.py`.
+52. **Exact ceiling close** — **file** `src/ai_engineering/contract.py`.
     **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_contracts.py::test_final_repo_ceiling_equals_committed_repo_lines_with_zero_slack`.
     **rollback**: `git revert <commit>`.
    **done when**: distinct final semantic commit measures the committed tree, sets exact ceiling with zero slack, and records the arithmetic; spec files are excluded from the repository line count.
 
-51. **Spec 010 final boxes/status and atomic Spec 004 supersession** — **file** `specs/010-governed-agentic-engineering-foundation/spec.md`; **same atomic transaction also changes** `specs/004-solution-intent-home/spec.md`.
+53. **Spec 010 final boxes/status and atomic Spec 004 supersession** — **file** `specs/010-governed-agentic-engineering-foundation/spec.md`; **same atomic transaction also changes** `specs/004-solution-intent-home/spec.md`.
     **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_readiness.py::test_spec_010_and_004_transition_atomically_after_exact_head_receipts`.
     **rollback**: `git revert <commit>`.
    **done when**: after exact-head remote success, sets spec010 shipped and ticks all eight boxes, and changes spec004 to superseded in the same atomic transaction; it does not require an observed release receipt or publishing authority. Tagging/publishing occur only afterward with separate consent. This final task is last.
@@ -272,6 +284,7 @@ Task 1 records a provisional maximum of **17,807 + 4,500 = 22,307 lines** in `co
 - **P3 coordination:** no councils, leases, takeover, parallel writers, or merge groups until a separately approved compare-and-swap/race-proof plan. One writer remains mandatory.
 - **P4 scanners/release:** native detectors, SARIF, SBOM/attestation, and tamper fixtures require a separate approved plan; P0 retains current lanes and verifies provenance contracts only.
 - **P5 pilots:** external upgrades, human/no-human comparisons, measured pilots, model scores, URLs, deployment, and compliance claims require P0–P4 proof and consent.
+- **Observed dogfooding liveness failure:** the current editable installation's `.pth` points to a deleted worktree, leaving a live interpreter with a dead `ai_engineering.cli` module while the persisted git anchor still looks configured. Tasks 42–43 add safe pre-persist and diagnostic execution proof. Do not repair or replace the global installation without separate explicit consent.
 
 Each deferred wave requires its own exact spec/plan approval, atomic tasks, red checks, receipts, rollback, and observed evidence. Compatibility aliases, copied skill trees, silent network, automatic risk acceptance, and JSONL without a demonstrated consumer remain prohibited. The OpenCode `status===2`/`null` risk remains explicitly open until P1.
 
