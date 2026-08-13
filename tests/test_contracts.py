@@ -187,27 +187,23 @@ CONSTITUTION_ASSERTIONS = {
         "Pragmatism — Prefer the smallest control that proves the required outcome.",
         "Candour — Say what is unknown, incomplete or unproven without softening it.",
         "Collaboration — Make ownership, authority and hand-offs visible.",
-        "Learning — Turn repeated judgement and costly discoveries into checked "
-        "knowledge.",
+        "Learning — Turn repeated judgement and costly discoveries into checked knowledge.",
     ),
     "Vocabulary": (
         "**Guard** — A guard fails closed: if it cannot decide, nothing passes.",
-        "**Telemetry** — Telemetry observes and never decides; it fails open and says "
-        "so.",
+        "**Telemetry** — Telemetry observes and never decides; it fails open and says so.",
         "**Solution Intent** — The user's short record of constraints, facts and intended "
         "outcomes.",
         "**The pin** — `.ai/config.toml`, which names the version governing a repository.",
         "**The chain** — The hash-linked record, one per repository and machine, outside "
         "the clone.",
         "**The receipt** — `machine.json`: what was written, where and at which version.",
-        "**T0 / T1 / T2 / T3** — Server protection, git hooks, process guards, "
-        "instructions only.",
+        "**T0 / T1 / T2 / T3** — Server protection, git hooks, process guards, instructions only.",
         "**Proven** — Proven means a denial has actually executed on that surface.",
     ),
     "Authority": (
         "Commands decide deterministic facts.",
-        "Models may investigate, propose and review; they never grant authority or accept "
-        "risk.",
+        "Models may investigate, propose and review; they never grant authority or accept risk.",
         "A human or an already approved versioned policy supplies authority.",
         "`FAIL`, `INCOMPLETE` and missing authority block; prose, metadata or a "
         "reviewer's opinion cannot override them.",
@@ -215,15 +211,12 @@ CONSTITUTION_ASSERTIONS = {
     "Never": (
         "Never let a guard pass without reaching a decision.",
         "Never create mirrors of guards, skills, templates or policy homes.",
-        "Never write a tilde into a config value; git and the agent surfaces do not "
-        "expand it.",
+        "Never write a tilde into a config value; git and the agent surfaces do not expand it.",
         "Never auto-update; a change of governance is never silent.",
         "Never record, publish or transmit secrets, personal data or private material.",
-        "Never claim compliance, security, accessibility or certification without direct "
-        "evidence.",
+        "Never claim compliance, security, accessibility or certification without direct evidence.",
         "Never claim a gate result this code did not observe.",
-        "Never touch a user's `AGENTS.md`, `CONSTITUTION.md` or `specs/` after writing "
-        "them once.",
+        "Never touch a user's `AGENTS.md`, `CONSTITUTION.md` or `specs/` after writing them once.",
         "Never ship a suppression comment, in our code or in advice we give.",
     ),
     "Escalation": (
@@ -254,15 +247,11 @@ def constitution_problems(identity: str) -> list[str]:
             sections[current].append(line)
 
     problems = []
-    duplicates = sorted(
-        {heading for heading in headings if headings.count(heading) > 1}
-    )
+    duplicates = sorted({heading for heading in headings if headings.count(heading) > 1})
     if duplicates:
         problems.append(f"duplicate headings: {', '.join(duplicates)}")
     if tuple(headings) != CONSTITUTION_HEADINGS:
-        problems.append(
-            f"headings are {tuple(headings)!r}, expected {CONSTITUTION_HEADINGS!r}"
-        )
+        problems.append(f"headings are {tuple(headings)!r}, expected {CONSTITUTION_HEADINGS!r}")
 
     for heading, assertions in CONSTITUTION_ASSERTIONS.items():
         entries: list[str] = []
@@ -300,9 +289,7 @@ def test_constitution_mission_identity_and_never_rules():
         capture_output=True,
         text=True,
     ).stdout.split("\0")
-    souls = sorted(
-        name for name in tracked_or_trackable if Path(name).name == "SOUL.md"
-    )
+    souls = sorted(name for name in tracked_or_trackable if Path(name).name == "SOUL.md")
     assert not souls, f"values have one home; remove these SOUL.md files: {souls}"
 
 
