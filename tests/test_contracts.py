@@ -153,12 +153,53 @@ def test_every_skill_meets_the_contract():
     assert not problems, "\n".join(problems)
 
 
-def test_the_doctrine_is_short_and_filled_in():
-    agents = (ROOT / "AGENTS.md").read_text().splitlines()
+AI_HOME_ENTRIES = (
+    "`.ai/intent.md` — the user-owned, non-disposable canonical Intent.",
+    "`.ai/` — otherwise disposable, except `config.toml` and `.gitignore`, which are the pin.",
+)
+
+
+def agents_ai_home_problems(doctrine: str) -> list[str]:
+    """Parse the tree section and require its complete `.ai/` home contract."""
+    lines = doctrine.splitlines()
+    try:
+        start = lines.index("## The shape of the tree") + 1
+        end = next(index for index in range(start, len(lines)) if lines[index].startswith("## "))
+    except (ValueError, StopIteration):
+        return ["AGENTS.md has no closed tree section"]
+
+    entries: list[str] = []
+    for line in lines[start:end]:
+        if line.startswith("- "):
+            entries.append(line.removeprefix("- "))
+        elif entries and line.startswith("  "):
+            entries[-1] += " " + line.strip()
+    ai_entries = tuple(entry for entry in entries if ".ai/" in entry)
+    if ai_entries != AI_HOME_ENTRIES:
+        return [f".ai homes are {ai_entries!r}; expected {AI_HOME_ENTRIES!r}"]
+    return []
+
+
+def test_agents_is_nondisposable_home_and_doctrine_ceiling():
+    doctrine = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    agents = doctrine.splitlines()
     assert len(agents) <= DOCTRINE_CEILING, (
         f"AGENTS.md is {len(agents)} lines. It is loaded in every session, in every "
         f"repository, forever. Everything that is not true in every session is a skill."
     )
+    assert not agents_ai_home_problems(doctrine)
+
+    without_intent = doctrine.replace(f"- {AI_HOME_ENTRIES[0]}\n", "", 1)
+    all_ai_durable = doctrine.replace(
+        AI_HOME_ENTRIES[1], "`.ai/` — non-disposable framework state.", 1
+    )
+    assert without_intent != doctrine
+    assert all_ai_durable != doctrine
+    assert agents_ai_home_problems(without_intent)
+    assert agents_ai_home_problems(all_ai_durable)
+
+
+def test_the_doctrine_is_filled_in():
     identity = (ROOT / "CONSTITUTION.md").read_text()
     assert "TODO:" not in identity, "our own CONSTITUTION.md still has TODO: markers"
     assert (ROOT / "CLAUDE.md").read_text().strip() == "@./AGENTS.md"

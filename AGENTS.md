@@ -47,7 +47,8 @@ the user's repository, and verifies them with a command that exits non-zero.
 - `surfaces/` — the OpenCode plugin. Everything else is wired by writing JSON.
 - `.agents/skills/` — the only skill tree. No mirrors, no sync, no second copy.
 - `specs/`, `docs/adr/` — the record. Committed, reviewed in a pull request.
-- `.ai/` — disposable, except `config.toml` and `.gitignore`, which are the pin.
+- `.ai/intent.md` — the user-owned, non-disposable canonical Intent.
+- `.ai/` — otherwise disposable, except `config.toml` and `.gitignore`, which are the pin.
 
 ## The two contracts that must not bend
 
