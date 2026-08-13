@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from copy import deepcopy
 from hashlib import sha256
 from pathlib import Path
@@ -12,6 +13,72 @@ from typing import Any
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "intent-v1.schema.json"
 FIXTURE_PATH = ROOT / "tests" / "fixtures" / "intent-v1.json"
+
+
+def test_ai_gitignore_unignores_only_intent_md(tmp_path: Path) -> None:
+    rules = (ROOT / ".ai" / ".gitignore").read_text(encoding="utf-8")
+    assert rules.splitlines() == ["*", "!.gitignore", "!config.toml", "!intent.md"]
+
+    repository = tmp_path / "repository"
+    ignore_home = repository / ".ai"
+    ignore_home.mkdir(parents=True)
+    (ignore_home / ".gitignore").write_text(rules, encoding="utf-8")
+    subprocess.run(
+        ["git", "init", "--quiet"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "config", "core.ignorecase", "false"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    materialized_ignored = (
+        ".ai/other.md",
+        ".ai/events.jsonl",
+        ".ai/cache/state.json",
+        ".ai/nested/intent.md",
+        ".ai/intent.md~",
+        ".ai/.intent.md.swp",
+    )
+    for path in (".ai/config.toml", ".ai/intent.md", *materialized_ignored):
+        candidate = repository / path
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        candidate.write_text("candidate\n", encoding="utf-8")
+
+    def is_ignored(path: str) -> bool:
+        result = subprocess.run(
+            ["git", "check-ignore", "--verbose", "--no-index", "--", path],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode in {0, 1}, result.stderr
+        if result.returncode == 1:
+            return False
+        rule, checked = result.stdout.rstrip("\n").split("\t", maxsplit=1)
+        assert checked == path
+        return not rule.split(":", maxsplit=2)[-1].startswith("!")
+
+    assert not is_ignored(".ai/.gitignore")
+    assert not is_ignored(".ai/config.toml")
+    assert not is_ignored(".ai/intent.md")
+    assert all(is_ignored(path) for path in materialized_ignored)
+    assert all(
+        is_ignored(path)
+        for path in (
+            ".ai/Intent.md",
+            ".ai/INTENT.MD",
+            ".ai/intent.md/child.txt",
+            ".ai/nested/intent.md/child.txt",
+        )
+    )
 
 
 def _resolve(schema: dict[str, Any], root: dict[str, Any]) -> dict[str, Any]:
