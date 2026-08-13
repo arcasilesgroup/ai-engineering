@@ -5,6 +5,10 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+import pytest
+
+from ai_engineering import outcome
+
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "outcome-v1.schema.json"
 ROOT_KEYS = {
@@ -150,3 +154,51 @@ def test_outcome_v1_schema_is_closed_and_exact() -> None:
     invented_reason["reason"] = "looks bad"
     invalid.append(invented_reason)
     assert all(not _valid(candidate, schema) for candidate in invalid)
+
+
+def test_outcome_core_maps_status_to_exact_exit_and_next_action(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    for name, (exit_code, reason, next_action) in OUTCOMES.items():
+        result = outcome.result(name)
+        assert result.as_dict() == _outcome(name)
+        assert result.exit_code == exit_code
+        assert result.reason == reason
+        assert result.next_action == next_action
+
+    assert outcome.result("RUNNING").outcome == "INCOMPLETE"
+    assert outcome.result("UNKNOWN").outcome == "INCOMPLETE"
+    assert outcome.result("").outcome == "INCOMPLETE"
+    assert outcome.result(None).outcome == "INCOMPLETE"
+    assert outcome.dry_run(exact_changes=True).outcome == "WOULD_CHANGE"
+    assert outcome.dry_run(exact_changes=False).outcome == "INCOMPLETE"
+    assert outcome.dry_run(exact_changes=1).outcome == "INCOMPLETE"
+    assert outcome.invalid_cli_exit() == 2
+
+    with pytest.raises(ValueError, match="do not match"):
+        outcome.Result(
+            "urn:ai-engineering:outcome:1",
+            "1",
+            "PASS",
+            1,
+            OUTCOMES["PASS"][1],
+            OUTCOMES["PASS"][2],
+        )
+    with pytest.raises(ValueError, match="version"):
+        outcome.Result("invented", "1", "PASS", *OUTCOMES["PASS"])
+
+    changed = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    changed["x-outcome-policy"]["invalid_cli_exit"] = 0
+    changed_path = tmp_path / "outcome.json"
+    changed_path.write_text(json.dumps(changed), encoding="utf-8")
+    with monkeypatch.context() as scoped:
+        scoped.setattr(outcome, "SCHEMA_PATH", changed_path)
+        with pytest.raises(outcome.OutcomePolicyError):
+            outcome.result("PASS")
+
+    linked = tmp_path / "linked.json"
+    linked.symlink_to(SCHEMA_PATH)
+    with monkeypatch.context() as scoped:
+        scoped.setattr(outcome, "SCHEMA_PATH", linked)
+        with pytest.raises(outcome.OutcomePolicyError):
+            outcome.result("PASS")
