@@ -164,6 +164,228 @@ def test_the_doctrine_is_short_and_filled_in():
     assert (ROOT / "CLAUDE.md").read_text().strip() == "@./AGENTS.md"
 
 
+CONSTITUTION_HEADINGS = (
+    "Mission",
+    "Who it is for",
+    "Values",
+    "Vocabulary",
+    "Authority",
+    "Never",
+    "Escalation",
+    "Phase",
+)
+CONSTITUTION_ASSERTIONS = {
+    "Mission": (
+        "`ai-engineering` is an open framework for governed agentic engineering. "
+        "Its mission is to support companies, including regulated ones, startups and "
+        "individual developers.",
+        "It is intended to support human-led work and bounded autonomous orchestrators "
+        "from Solution Intent through discovery, decisions, change, review, evidence and "
+        "production.",
+    ),
+    "Values": (
+        "Pragmatism — Prefer the smallest control that proves the required outcome.",
+        "Candour — Say what is unknown, incomplete or unproven without softening it.",
+        "Collaboration — Make ownership, authority and hand-offs visible.",
+        "Learning — Turn repeated judgement and costly discoveries into checked "
+        "knowledge.",
+    ),
+    "Vocabulary": (
+        "**Guard** — A guard fails closed: if it cannot decide, nothing passes.",
+        "**Telemetry** — Telemetry observes and never decides; it fails open and says "
+        "so.",
+        "**Solution Intent** — The user's short record of constraints, facts and intended "
+        "outcomes.",
+        "**The pin** — `.ai/config.toml`, which names the version governing a repository.",
+        "**The chain** — The hash-linked record, one per repository and machine, outside "
+        "the clone.",
+        "**The receipt** — `machine.json`: what was written, where and at which version.",
+        "**T0 / T1 / T2 / T3** — Server protection, git hooks, process guards, "
+        "instructions only.",
+        "**Proven** — Proven means a denial has actually executed on that surface.",
+    ),
+    "Authority": (
+        "Commands decide deterministic facts.",
+        "Models may investigate, propose and review; they never grant authority or accept "
+        "risk.",
+        "A human or an already approved versioned policy supplies authority.",
+        "`FAIL`, `INCOMPLETE` and missing authority block; prose, metadata or a "
+        "reviewer's opinion cannot override them.",
+    ),
+    "Never": (
+        "Never let a guard pass without reaching a decision.",
+        "Never create mirrors of guards, skills, templates or policy homes.",
+        "Never write a tilde into a config value; git and the agent surfaces do not "
+        "expand it.",
+        "Never auto-update; a change of governance is never silent.",
+        "Never record, publish or transmit secrets, personal data or private material.",
+        "Never claim compliance, security, accessibility or certification without direct "
+        "evidence.",
+        "Never claim a gate result this code did not observe.",
+        "Never touch a user's `AGENTS.md`, `CONSTITUTION.md` or `specs/` after writing "
+        "them once.",
+        "Never ship a suppression comment, in our code or in advice we give.",
+    ),
+    "Escalation": (
+        "When a gate blocks, read the reason, fix it or ask. Do not skip it. Only an "
+        "authorized person may accept a dated, evidenced risk. A repeated bypass is a "
+        "reason to repair or delete the control, never evidence that the control works.",
+    ),
+    "Phase": (
+        "The governing specification is the sole home of phase status.",
+        "No phase is considered complete until its required evidence exists.",
+        "A roadmap, passing prose review or intended release is not production evidence.",
+    ),
+}
+CONSTITUTION_CLOSED_SECTIONS = {"Vocabulary", "Authority", "Escalation", "Phase"}
+
+
+def constitution_problems(identity: str) -> list[str]:
+    """Return missing section-scoped assertions; prose elsewhere cannot satisfy them."""
+    headings: list[str] = []
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in identity.splitlines():
+        if line.startswith("## "):
+            current = line.removeprefix("## ").strip()
+            headings.append(current)
+            sections.setdefault(current, [])
+        elif current is not None:
+            sections[current].append(line)
+
+    problems = []
+    duplicates = sorted(
+        {heading for heading in headings if headings.count(heading) > 1}
+    )
+    if duplicates:
+        problems.append(f"duplicate headings: {', '.join(duplicates)}")
+    if tuple(headings) != CONSTITUTION_HEADINGS:
+        problems.append(
+            f"headings are {tuple(headings)!r}, expected {CONSTITUTION_HEADINGS!r}"
+        )
+
+    for heading, assertions in CONSTITUTION_ASSERTIONS.items():
+        entries: list[str] = []
+        entry: list[str] = []
+        for line in sections.get(heading, []):
+            stripped = line.strip()
+            if not stripped or line.startswith("- "):
+                if entry:
+                    entries.append(" ".join(entry))
+                    entry = []
+                if line.startswith("- "):
+                    entry.append(line.removeprefix("- ").strip())
+            else:
+                entry.append(stripped)
+        if entry:
+            entries.append(" ".join(entry))
+        for assertion in assertions:
+            if assertion not in entries:
+                problems.append(f"{heading}: missing canonical assertion: {assertion}")
+        if heading in CONSTITUTION_CLOSED_SECTIONS and tuple(entries) != assertions:
+            problems.append(f"{heading}: entries do not match its closed contract")
+    return problems
+
+
+def test_constitution_mission_identity_and_never_rules():
+    """The broadened mission must not weaken the controls that make it governed."""
+    identity = (ROOT / "CONSTITUTION.md").read_text(encoding="utf-8")
+    problems = constitution_problems(identity)
+    assert not problems, "\n".join(problems)
+
+    tracked_or_trackable = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split("\0")
+    souls = sorted(
+        name for name in tracked_or_trackable if Path(name).name == "SOUL.md"
+    )
+    assert not souls, f"values have one home; remove these SOUL.md files: {souls}"
+
+
+@pytest.mark.parametrize(
+    "case",
+    (
+        "negated aspirational mission",
+        "excluded regulated companies",
+        "moved never rule",
+        "negated suppression rule",
+        "unevidenced phase completion",
+        "missing deterministic command",
+        "missing solution intent definition",
+        "empty escalation",
+        "authority contradiction",
+    ),
+)
+def test_constitution_contract_rejects_negated_or_moved_assertions(case):
+    identity = (ROOT / "CONSTITUTION.md").read_text(encoding="utf-8")
+    assert not constitution_problems(identity)
+    if case == "negated aspirational mission":
+        mutated = identity.replace(
+            "It is intended to support human-led work",
+            "It is not intended to support human-led work",
+            1,
+        )
+        expected = "Mission: missing canonical assertion"
+    elif case == "excluded regulated companies":
+        mutated = identity.replace(
+            "companies, including regulated ones, startups",
+            "companies, startups",
+            1,
+        )
+        expected = "Mission: missing canonical assertion"
+    elif case == "moved never rule":
+        assertion = CONSTITUTION_ASSERTIONS["Never"][3]
+        mutated = identity.replace(f"- {assertion}\n", "", 1).replace(
+            "## Mission\n",
+            f"## Mission\n\n- {assertion}\n",
+            1,
+        )
+        expected = "Never: missing canonical assertion"
+    elif case == "negated suppression rule":
+        mutated = identity.replace(
+            "Never ship a suppression comment",
+            "Sometimes ship a suppression comment",
+            1,
+        )
+        expected = "Never: missing canonical assertion"
+    elif case == "unevidenced phase completion":
+        mutated = identity.replace(
+            "No phase is considered complete until its required evidence exists.",
+            "A phase is complete before its required evidence exists.",
+            1,
+        )
+        expected = "Phase: missing canonical assertion"
+    elif case == "missing deterministic command":
+        mutated = identity.replace("Commands decide deterministic facts.\n\n", "", 1)
+        expected = "Authority: missing canonical assertion"
+    elif case == "missing solution intent definition":
+        mutated = identity.replace(
+            "- **Solution Intent** — The user's short record of constraints, facts and "
+            "intended\n  outcomes.\n",
+            "",
+            1,
+        )
+        expected = "Vocabulary: missing canonical assertion"
+    elif case == "empty escalation":
+        start = identity.index("## Escalation\n") + len("## Escalation\n")
+        end = identity.index("\n## Phase", start)
+        mutated = identity[:start] + "\n" + identity[end:]
+        expected = "Escalation: missing canonical assertion"
+    else:
+        mutated = identity.replace(
+            "\n## Never",
+            "\n\nModels may decide.\n\n## Never",
+            1,
+        )
+        expected = "Authority: entries do not match its closed contract"
+    assert mutated != identity, f"{case} did not alter its fixture"
+    assert expected in "\n".join(constitution_problems(mutated))
+
+
 # The four numbers this repository states about itself in prose, and every sentence that
 # states one. Each is derived on the left and read out of the file on the right, never
 # derived on both sides: a test that computes both halves the same way cannot fail.
