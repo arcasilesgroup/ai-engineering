@@ -366,11 +366,18 @@ def test_assertion_16_an_acceptance_that_ran_out_is_not_an_acceptance(repo, days
 
 
 def test_assertions_17_and_18_the_record_is_committed_and_the_state_is_not(repo):
-    """.ai/ holds one committed file and one ignore rule; anything else of ours inside git
-    is state leaking into review, and any framework file committed outside its declared
-    home is the first step back toward the 528 files this rebuild deleted."""
+    """.ai/ holds the pin, Intent and ignore rule; anything else of ours inside git is
+    state leaking into review, and any framework file committed outside its declared home
+    is the first step back toward the 528 files this rebuild deleted."""
+    corpus = json.loads((Path(__file__).parent / "fixtures" / "intent-v1.json").read_text())
+    canonical = corpus["base"]
     (repo / ".ai" / "config.toml").write_text("")
     (repo / ".ai" / ".gitignore").write_text("events.jsonl\n")
+    (repo / ".ai" / "intent.md").write_text(json.dumps(canonical["intent"]))
+    for file in canonical["repository"]["files"]:
+        target = repo / file["path"]
+        target.parent.mkdir(parents=True)
+        target.write_text(file["content"])
     git(repo, "add", "-A")
     assert verdict(doctor.polarity, repo) == ("ok", "")
     assert verdict(doctor.data_is_yours, repo) == ("ok", "")

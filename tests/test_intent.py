@@ -12,6 +12,8 @@ from pathlib import Path, PurePosixPath
 from threading import Barrier
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "intent-v1.schema.json"
 FIXTURE_PATH = ROOT / "tests" / "fixtures" / "intent-v1.json"
@@ -315,6 +317,18 @@ def _fixture_case(corpus: dict[str, Any], case: dict[str, Any]) -> dict[str, Any
             assert mutation["op"] == "append"
             node[leaf].append(deepcopy(mutation["value"]))
     return materialized
+
+
+def _write_intent_repository(repository: Path, materialized: dict[str, Any]) -> Path:
+    source = repository / ".ai" / "intent.md"
+    source.parent.mkdir(parents=True)
+    source.write_text(json.dumps(materialized["intent"]), encoding="utf-8")
+    for file in materialized["repository"]["files"]:
+        target = repository / file["path"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(file["content"], encoding="utf-8")
+    subprocess.run(["git", "init", "-b", "main", str(repository)], check=True, capture_output=True)
+    return repository
 
 
 def _fixture_content_relations(content: str) -> list[str]:
@@ -964,6 +978,131 @@ def test_intent_validator_rejects_unknown_missing_stale_and_broken_relations(
         "code": "INTENT_SCHEMA_INVALID",
         "reason": "schema validation failed",
     }
+
+
+def test_doctor_reports_intent_home_and_incomplete_reasons(tmp_path: Path) -> None:
+    from ai_engineering import doctor
+
+    corpus = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    cases = {case["id"]: _fixture_case(corpus, case) for case in corpus["cases"]}
+
+    def materialize(case_id: str) -> Path:
+        return _write_intent_repository(tmp_path / case_id, cases[case_id])
+
+    missing = tmp_path / "missing-home"
+    missing.mkdir()
+    subprocess.run(["git", "init", "-b", "main", str(missing)], check=True, capture_output=True)
+    (missing / "intent.md").write_text(
+        json.dumps(cases["canonical-draft"]["intent"]), encoding="utf-8"
+    )
+    assert doctor.data_is_yours(missing) == "Solution Intent is missing at .ai/intent.md"
+
+    expected = {
+        "missing-required": (
+            "Solution Intent at .ai/intent.md is INCOMPLETE: "
+            "INTENT_SCHEMA_INVALID — schema validation failed"
+        ),
+        "unknown-root-field": (
+            "Solution Intent at .ai/intent.md is INCOMPLETE: "
+            "INTENT_SCHEMA_INVALID — schema validation failed"
+        ),
+        "stale-digest": (
+            "Solution Intent at .ai/intent.md is INCOMPLETE: "
+            "INTENT_RELATION_STALE — relation digest does not match target"
+        ),
+        "broken-relation": (
+            "Solution Intent at .ai/intent.md is INCOMPLETE: "
+            "INTENT_RELATION_BROKEN — relation target does not exist"
+        ),
+    }
+    for case_id, reason in expected.items():
+        assert doctor.data_is_yours(materialize(case_id)) == reason, case_id
+
+    canonical = materialize("canonical-draft")
+    subprocess.run(
+        ["git", "-C", str(canonical), "add", ".ai/intent.md"],
+        check=True,
+        capture_output=True,
+    )
+    assert doctor.data_is_yours(canonical) is None
+    assert doctor.polarity(canonical) is None
+
+    duplicate = canonical / ".ai" / "nested" / "intent.md"
+    duplicate.parent.mkdir()
+    duplicate.write_text((canonical / ".ai" / "intent.md").read_text(encoding="utf-8"))
+    subprocess.run(
+        ["git", "-C", str(canonical), "add", ".ai/nested/intent.md"],
+        check=True,
+        capture_output=True,
+    )
+    assert ".ai/nested/intent.md" in (doctor.polarity(canonical) or "")
+
+
+def test_doctor_refuses_when_git_cannot_inventory_tracked_files(tmp_path: Path) -> None:
+    from ai_engineering import doctor
+
+    corpus = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    canonical = _fixture_case(corpus, corpus["cases"][0])
+    repository = _write_intent_repository(tmp_path / "corrupt-git", canonical)
+    subprocess.run(
+        ["git", "-C", str(repository), "add", ".ai/intent.md"],
+        check=True,
+        capture_output=True,
+    )
+    (repository / ".git" / "index").write_bytes(b"not a git index")
+
+    for assertion in (doctor.polarity, doctor.data_is_yours):
+        with pytest.raises(doctor.Undecidable, match="tracked files"):
+            assertion(repository)
+
+
+def test_doctor_requires_canonical_intent_to_be_tracked(tmp_path: Path) -> None:
+    from ai_engineering import doctor
+
+    corpus = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    canonical = _fixture_case(corpus, corpus["cases"][0])
+    repository = _write_intent_repository(tmp_path / "untracked-intent", canonical)
+
+    assert doctor.polarity(repository) == "Solution Intent is not tracked at .ai/intent.md"
+
+
+def test_doctor_rejects_tracked_intent_mirrors_only(tmp_path: Path) -> None:
+    from ai_engineering import doctor
+
+    corpus = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    canonical = _fixture_case(corpus, corpus["cases"][0])
+
+    for index, mirror in enumerate(
+        ("Intent.md", "docs/solution-intent.md", "docs/SOLUTION-INTENT.MD")
+    ):
+        repository = _write_intent_repository(tmp_path / f"mirror-{index}", canonical)
+        target = repository / mirror
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("mirror", encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(repository), "add", ".ai/intent.md", mirror],
+            check=True,
+            capture_output=True,
+        )
+        assert doctor.data_is_yours(repository) == (
+            f"Solution Intent is also tracked outside .ai/intent.md: {mirror}"
+        )
+
+    allowed = _write_intent_repository(tmp_path / "non-mirrors", canonical)
+    for candidate in (
+        "tests/fixtures/Intent.md",
+        "docs/intent.md~",
+        "policy/intent-v1.schema.json",
+    ):
+        path = allowed / candidate
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("not an Intent mirror", encoding="utf-8")
+    subprocess.run(
+        ["git", "-C", str(allowed), "add", ".ai/intent.md", "tests", "docs", "policy"],
+        check=True,
+        capture_output=True,
+    )
+    assert doctor.data_is_yours(allowed) is None
 
 
 def test_intent_validator_resolves_typed_targets_and_deep_graphs_without_recursion() -> None:

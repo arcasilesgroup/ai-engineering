@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import time
 from collections.abc import Callable
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from ai_engineering import __version__, audit, paths, ui, wiring
 
@@ -126,6 +126,44 @@ def git(root: Path, *args: str) -> str:
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return ""
+
+
+def tracked_files(root: Path) -> list[str]:
+    """The tracked repository inventory, or no answer rather than an empty inventory."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--cached", "-z"],
+            capture_output=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise Undecidable("git could not inventory tracked files") from error
+    if result.returncode:
+        raise Undecidable("git could not inventory tracked files")
+    try:
+        rendered = result.stdout.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise Undecidable("git could not inventory tracked files") from error
+    if not rendered:
+        return []
+    if not rendered.endswith("\0"):
+        raise Undecidable("git could not inventory tracked files")
+    files = rendered.removesuffix("\0").split("\0")
+    if any(not name for name in files):
+        raise Undecidable("git could not inventory tracked files")
+    return files
+
+
+def intent_homes(files: list[str]) -> list[str]:
+    """Tracked paths classified as Intent homes by the canonical repository contract."""
+    homes = []
+    for raw in files:
+        path = PurePosixPath(raw)
+        if not path.parts or path.parts[0].casefold() == "tests":
+            continue
+        if path.name.casefold().endswith("intent.md"):
+            homes.append(raw)
+    return homes
 
 
 def events(root: Path | None) -> list[dict]:
@@ -400,30 +438,52 @@ def acceptances_current(root: Path | None) -> str | None:
 def polarity(root: Path | None) -> str | None:
     if root is None:
         raise Undecidable("not inside a repository")
-    tracked = set(git(root, "ls-files", ".ai").splitlines())
-    allowed = {".ai/.gitignore", ".ai/config.toml"}
+    intent_home = ".ai/intent.md"
+    tracked = {name for name in tracked_files(root) if name.startswith(".ai/")}
+    allowed = {".ai/.gitignore", ".ai/config.toml", intent_home}
+    problems = []
+    if intent_home not in tracked:
+        problems.append(f"Solution Intent is not tracked at {intent_home}")
     extra = tracked - allowed
     if extra:
-        return f"state slipped into git: {sorted(extra)[:3]}"
-    return None
+        problems.append(f"state slipped into git: {sorted(extra)[:3]}")
+    return None if not problems else "; ".join(problems)
 
 
 @check(18, "The record", "Your data is yours: every framework file has a declared home")
 def data_is_yours(root: Path | None) -> str | None:
+    from ai_engineering import intent
+
     if root is None:
         raise Undecidable("not inside a repository")
     homes = (".ai/", "specs/", "docs/adr/")
+    problems = []
+    tracked = tracked_files(root)
     strays = [
         name
-        for name in git(root, "ls-files").splitlines()
+        for name in tracked
         if name.startswith(".ai-engineering/") or name.endswith(".ai-eng.json")
     ]
     if strays:
-        return (
+        problems.append(
             f"{len(strays)} framework files are committed outside {', '.join(homes)} — "
             f"the first is {strays[0]}. That is the first step back toward 528 of them."
         )
-    return None
+    intent_home = ".ai/intent.md"
+    mirrors = [candidate for candidate in intent_homes(tracked) if candidate != intent_home]
+    if mirrors:
+        problems.append(f"Solution Intent is also tracked outside {intent_home}: {mirrors[0]}")
+    source = root / intent_home
+    if not source.is_file():
+        problems.append(f"Solution Intent is missing at {intent_home}")
+    else:
+        result = intent.validate(source, root)
+        if result.outcome != "PASS":
+            problems.append(
+                f"Solution Intent at {intent_home} is {result.outcome}: "
+                f"{result.code} — {result.reason}"
+            )
+    return None if not problems else "; ".join(problems)
 
 
 # ---------------------------------------------------------------- the controls
