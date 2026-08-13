@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -213,3 +214,61 @@ def test_capability_schema_is_closed_and_permission_distinct() -> None:
         }
     )
     assert not _manifest_accepts(duplicate_permissions, schema)
+
+
+def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    manifest = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))
+    assert _manifest_accepts(manifest, schema)
+
+    capabilities = manifest["capabilities"]
+    expected = schema["x-capability-policy"]["allowed_ids"]
+    assert [capability["id"] for capability in capabilities] == expected
+    assert len(capabilities) == 15
+    declared_modes = {
+        capability["id"]: [mode["id"] for mode in capability["modes"]]
+        for capability in capabilities
+    }
+    assert declared_modes == {
+        "ai-explore": ["default"],
+        "ai-research": ["local", "cited-web"],
+        "ai-spec": ["default"],
+        "ai-plan": ["default"],
+        "ai-build": ["default"],
+        "ai-debug": ["default"],
+        "ai-test": ["default"],
+        "ai-design": ["default"],
+        "ai-animation": ["default"],
+        "ai-security": ["default"],
+        "ai-review": ["default"],
+        "ai-verify": ["default"],
+        "ai-note": ["default"],
+        "ai-report": ["digest", "issue"],
+        "ai-ship": ["commit", "pull-request"],
+    }
+
+    dimensions = {
+        "read_roots": "preflight.read",
+        "write_roots": "preflight.write",
+        "exec_allowlist": "preflight.exec",
+        "network": "preflight.network",
+        "secrets": "preflight.secrets",
+    }
+    for capability in capabilities:
+        for mode in capability["modes"]:
+            required = {control for field, control in dimensions.items() if mode[field]}
+            if mode["human_gate"] != "never":
+                required.add("preflight.human-gate")
+            assert set(mode["enforcement"]) == required
+            proof = mode["proof_requirements"]
+            assert proof["installed_artifact"] is True
+            assert proof["allow"] and proof["deny"]
+
+    by_id = {capability["id"]: capability["modes"] for capability in capabilities}
+    assert by_id["ai-explore"][0]["write_roots"] == []
+    assert by_id["ai-review"][0]["write_roots"] == []
+    assert by_id["ai-research"][0]["network"] == []
+    assert by_id["ai-research"][1]["human_gate"] == "before_network"
+    assert by_id["ai-report"][0]["network"] == []
+    assert by_id["ai-report"][1]["human_gate"] == "before_publish"
+    assert by_id["ai-ship"][1]["human_gate"] == "before_publish"
