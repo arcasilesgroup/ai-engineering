@@ -283,12 +283,21 @@ def test_capability_preflight_denies_undeclared_and_unenforced_actions(
 ) -> None:
     manifest = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))
     assert capability_contract.validate().outcome == "PASS"
-    assert (
-        capability_contract.preflight(
-            "ai-explore", "default", capability_contract.Action.read("src")
-        ).outcome
-        == "READY"
+
+    execution = capability_contract.preflight(
+        "ai-verify",
+        "default",
+        capability_contract.Action.execute("uv", "run", "pytest", "-q"),
     )
+    assert execution.outcome == "READY"
+    assert execution.authorization is not None
+    assert execution.authorization.action.argv == ("uv", "run", "pytest", "-q")
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}", execution.authorization.action_digest)
+
+    filesystem = capability_contract.preflight(
+        "ai-explore", "default", capability_contract.Action.read("src")
+    )
+    assert filesystem.code == "CAPABILITY_ENFORCEMENT_UNAVAILABLE"
 
     undeclared = capability_contract.preflight(
         "ai-unknown", "default", capability_contract.Action.read("src")
@@ -336,7 +345,21 @@ def test_capability_preflight_denies_undeclared_and_unenforced_actions(
         capability_contract.preflight(
             "ai-verify",
             "default",
-            capability_contract.Action.execute("uv", "undeclared.pattern"),
+            capability_contract.Action.execute("uv", "run", "rm", "-rf", "."),
+        ).code
+        == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-review",
+            "default",
+            capability_contract.Action.execute("git", "reset", "--hard"),
+        ).code
+        == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-review", "default", capability_contract.Action.read(".env")
         ).code
         == "CAPABILITY_ACTION_UNDECLARED"
     )
@@ -362,21 +385,46 @@ def test_capability_preflight_denies_undeclared_and_unenforced_actions(
         ).code
         == "CAPABILITY_HUMAN_GATE_REQUIRED"
     )
+    assert (
+        capability_contract.preflight(
+            "ai-security", "default", capability_contract.Action.read("src")
+        ).code
+        == "CAPABILITY_ENFORCEMENT_UNAVAILABLE"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-report", "issue", capability_contract.Action.read(".ai/reports/digest.html")
+        ).code
+        == "CAPABILITY_ENFORCEMENT_UNAVAILABLE"
+    )
 
     invalid = deepcopy(manifest)
     invalid["capabilities"][0]["modes"][0]["enforcement"] = []
     assert capability_contract.validate(invalid).code == "CAPABILITY_MANIFEST_INVALID"
-    assert (
-        capability_contract.preflight(
-            "ai-explore", "default", capability_contract.Action.read("src"), invalid
-        ).code
-        == "CAPABILITY_MANIFEST_INVALID"
-    )
     repeated_proof = deepcopy(manifest)
     repeated_proof["capabilities"][1]["modes"][0]["proof_requirements"]["allow"] = [
         "ai-explore.default.allow"
     ]
     assert capability_contract.validate(repeated_proof).code == "CAPABILITY_MANIFEST_INVALID"
+
+    widened = deepcopy(manifest)
+    review = next(item for item in widened["capabilities"] if item["id"] == "ai-review")
+    review["modes"][0]["write_roots"] = ["."]
+    review["modes"][0]["enforcement"].append("preflight.write")
+    assert capability_contract.validate(widened).outcome == "PASS"
+    assert (
+        capability_contract.preflight(
+            "ai-review", "default", capability_contract.Action.write("src/pwn.py")
+        ).code
+        == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    with pytest.raises(TypeError):
+        capability_contract.preflight(
+            "ai-review",
+            "default",
+            capability_contract.Action.write("src/pwn.py"),
+            widened,
+        )
 
     changed_schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     changed_schema["description"] = "mutated policy"
@@ -386,11 +434,22 @@ def test_capability_preflight_denies_undeclared_and_unenforced_actions(
         scoped.setattr(capability_contract, "SCHEMA_PATH", changed_schema_path)
         assert capability_contract.validate(manifest).code == "CAPABILITY_SCHEMA_UNSUPPORTED"
 
-    monkeypatch.setattr(capability_contract, "_ENFORCERS", {})
-    unavailable = capability_contract.preflight(
-        "ai-explore", "default", capability_contract.Action.read("src"), manifest
-    )
-    assert unavailable.code == "CAPABILITY_ENFORCEMENT_UNAVAILABLE"
+    with monkeypatch.context() as scoped:
+        scoped.setattr(capability_contract, "_ENFORCERS", {})
+        unavailable = capability_contract.preflight(
+            "ai-verify",
+            "default",
+            capability_contract.Action.execute("uv", "run", "pytest", "-q"),
+        )
+        assert unavailable.code == "CAPABILITY_ENFORCEMENT_UNAVAILABLE"
+    with monkeypatch.context() as scoped:
+        scoped.setattr(capability_contract, "_ARGUMENT_MATCHERS", {})
+        unavailable = capability_contract.preflight(
+            "ai-verify",
+            "default",
+            capability_contract.Action.execute("uv", "run", "pytest", "-q"),
+        )
+        assert unavailable.code == "CAPABILITY_ENFORCEMENT_UNAVAILABLE"
 
     malformed = tmp_path / "capabilities.toml"
     malformed.write_text('schema = "broken"\nschema = "duplicate"\n', encoding="utf-8")

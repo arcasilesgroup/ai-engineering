@@ -36,7 +36,6 @@ ENFORCEMENT_UNAVAILABLE = (
 HUMAN_GATE_REQUIRED = ("CAPABILITY_HUMAN_GATE_REQUIRED", "declared human gate is not proven")
 
 PASS = intent.Validation("PASS")
-READY = intent.Validation("READY")
 SCHEMA_PATH = paths.policy("capability-manifest.schema.json")
 MANIFEST_PATH = paths.policy("capabilities.toml")
 _EXPECTED_SCHEMA_DIGEST = "2af5f4e200bcd1c19ed8577249c2fe2b0dbb41a22cc1924226f76b9b39c16620"
@@ -92,8 +91,7 @@ class _Schema(intent._Schema):
 class Action:
     kind: str
     path: str = ""
-    executable: str = ""
-    argument_pattern: str = ""
+    argv: tuple[str, ...] = ()
     protocol: str = ""
     host: str = ""
     purpose: str = ""
@@ -108,8 +106,8 @@ class Action:
         return cls("write", path=path)
 
     @classmethod
-    def execute(cls, executable: str, argument_pattern: str) -> Action:
-        return cls("exec", executable=executable, argument_pattern=argument_pattern)
+    def execute(cls, *argv: str) -> Action:
+        return cls("exec", argv=tuple(argv))
 
     @classmethod
     def connect(cls, protocol: str, host: str, purpose: str) -> Action:
@@ -118,6 +116,30 @@ class Action:
     @classmethod
     def use_secret(cls, secret: str) -> Action:
         return cls("secret", secret=secret)
+
+
+@dataclass(frozen=True, slots=True)
+class Authorization:
+    """An installed preflight decision bound to one immutable action payload."""
+
+    capability_id: str
+    mode_id: str
+    action: Action
+    action_digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class Preflight:
+    outcome: str
+    code: str = ""
+    reason: str = ""
+    authorization: Authorization | None = None
+
+    def as_dict(self) -> dict[str, str]:
+        result = {"outcome": self.outcome}
+        if self.outcome != "READY":
+            result.update(code=self.code, reason=self.reason)
+        return result
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -285,18 +307,123 @@ def _within(requested: str, roots: list[str]) -> bool:
     return False
 
 
+def _secret_path(path: str) -> str:
+    name = PurePosixPath(path).name.lower()
+    if name == ".env" or name.startswith(".env."):
+        return "repository.env"
+    if name in {".git-credentials", ".npmrc", ".pypirc", "credentials"}:
+        return "repository.credentials"
+    if name in {"id_dsa", "id_ecdsa", "id_ed25519", "id_rsa"} or name.endswith(
+        (".key", ".pem", ".p12", ".pfx")
+    ):
+        return "repository.private-key"
+    return ""
+
+
 def _read_allowed(mode: dict[str, Any], action: Action) -> bool:
-    return action == Action.read(action.path) and _within(action.path, mode["read_roots"])
+    secret = _secret_path(action.path)
+    return (
+        action == Action.read(action.path)
+        and _within(action.path, mode["read_roots"])
+        and (not secret or secret in mode["secrets"])
+    )
 
 
 def _write_allowed(mode: dict[str, Any], action: Action) -> bool:
-    return action == Action.write(action.path) and _within(action.path, mode["write_roots"])
+    secret = _secret_path(action.path)
+    return (
+        action == Action.write(action.path)
+        and _within(action.path, mode["write_roots"])
+        and (not secret or secret in mode["secrets"])
+    )
+
+
+def _prefix(argv: tuple[str, ...], prefix: tuple[str, ...]) -> bool:
+    return len(argv) >= len(prefix) and argv[: len(prefix)] == prefix
+
+
+def _git_read(argv: tuple[str, ...]) -> bool:
+    return len(argv) >= 2 and argv[1] in {
+        "diff",
+        "log",
+        "ls-files",
+        "rev-parse",
+        "show",
+        "status",
+    }
+
+
+def _git_change(argv: tuple[str, ...]) -> bool:
+    return len(argv) >= 2 and argv[1] in {"add", "mv", "restore", "rm"}
+
+
+def _git_commit(argv: tuple[str, ...]) -> bool:
+    forbidden = {"--no-verify"}
+    return _prefix(argv, ("git", "commit")) and forbidden.isdisjoint(argv[2:])
+
+
+def _git_push(argv: tuple[str, ...]) -> bool:
+    forbidden = {"-f", "--force", "--force-with-lease"}
+    return _prefix(argv, ("git", "push")) and forbidden.isdisjoint(argv[2:])
+
+
+def _uv_check(argv: tuple[str, ...]) -> bool:
+    if not _prefix(argv, ("uv", "run")):
+        return False
+    allowed = {"coverage", "pytest", "ruff"}
+    index = 2
+    value_options = {"--directory", "--project", "--python", "--with"}
+    while index < len(argv):
+        item = argv[index]
+        if item in value_options:
+            index += 2
+            continue
+        if item.startswith("--with=") or item in {"--no-project", "--offline"}:
+            index += 1
+            continue
+        return item in allowed
+    return False
+
+
+_ARGUMENT_MATCHERS: Mapping[tuple[str, str], Callable[[tuple[str, ...]], bool]] = MappingProxyType(
+    {
+        ("ai-eng", "spec.new"): lambda argv: _prefix(argv, ("ai-eng", "spec", "new")),
+        ("gh", "issue.create"): lambda argv: _prefix(argv, ("gh", "issue", "create")),
+        ("gh", "pr.create"): lambda argv: _prefix(argv, ("gh", "pr", "create")),
+        ("git", "commit"): _git_commit,
+        ("git", "push"): _git_push,
+        ("git", "read-only"): _git_read,
+        ("git", "scoped.change"): _git_change,
+        ("gitleaks", "repository.scan"): lambda argv: _prefix(argv, ("gitleaks", "dir")),
+        ("just", "check"): lambda argv: argv == ("just", "check"),
+        ("just", "declared.recipe"): lambda argv: (
+            len(argv) == 2 and re.fullmatch(r"[A-Za-z0-9_.-]+", argv[1]) is not None
+        ),
+        ("npm", "declared.check"): lambda argv: _prefix(argv, ("npm", "exec", "--")),
+        ("npm", "run.dev"): lambda argv: argv == ("npm", "run", "dev"),
+        ("semgrep", "repository.scan"): lambda argv: _prefix(argv, ("semgrep", "scan")),
+        ("trivy", "repository.scan"): lambda argv: _prefix(argv, ("trivy", "fs")),
+        ("uv", "declared.check"): _uv_check,
+    }
+)
 
 
 def _exec_allowed(mode: dict[str, Any], action: Action) -> bool:
-    expected = {"executable": action.executable, "argument_pattern": action.argument_pattern}
-    exact_action = action == Action.execute(action.executable, action.argument_pattern)
-    return exact_action and expected in mode["exec_allowlist"]
+    if (
+        action != Action.execute(*action.argv)
+        or not action.argv
+        or not all(isinstance(item, str) and item and "\x00" not in item for item in action.argv)
+    ):
+        return False
+    executable = action.argv[0]
+    declared = [entry for entry in mode["exec_allowlist"] if entry["executable"] == executable]
+    for entry in declared:
+        matcher = _ARGUMENT_MATCHERS.get((executable, entry["argument_pattern"]))
+        if matcher is None:
+            raise LookupError("declared argument matcher is not installed")
+        if matcher(action.argv):
+            return True
+    return False
 
 
 def _network_allowed(mode: dict[str, Any], action: Action) -> bool:
@@ -317,56 +444,88 @@ _ACTION_CONTROLS = {
     "network": "preflight.network",
     "secret": "preflight.secrets",
 }
-_ENFORCERS: Mapping[str, tuple[str, _Enforcer]] = MappingProxyType(
+_ENFORCERS: Mapping[str, tuple[str, _Enforcer, bool]] = MappingProxyType(
     {
-        "read": ("preflight.read", _read_allowed),
-        "write": ("preflight.write", _write_allowed),
-        "exec": ("preflight.exec", _exec_allowed),
-        "network": ("preflight.network", _network_allowed),
-        "secret": ("preflight.secrets", _secret_allowed),
+        "read": ("preflight.read", _read_allowed, False),
+        "write": ("preflight.write", _write_allowed, False),
+        "exec": ("preflight.exec", _exec_allowed, True),
+        "network": ("preflight.network", _network_allowed, True),
+        "secret": ("preflight.secrets", _secret_allowed, True),
     }
 )
 
 
 def _gate_applies(gate: str, action: Action) -> bool:
-    del action
-    return gate != "never"
+    return (
+        action.kind
+        in {
+            "never": set(),
+            "before_write": {"write"},
+            "before_exec": {"exec"},
+            "before_network": {"network"},
+            "before_publish": {"exec", "network", "secret"},
+        }[gate]
+    )
+
+
+def _incomplete(problem: tuple[str, str]) -> Preflight:
+    return Preflight("INCOMPLETE", *problem)
 
 
 def preflight(
     capability_id: str,
     mode_id: str,
     action: Action,
-    source: Mapping[str, Any] | Path | None = None,
-) -> intent.Validation:
+) -> Preflight:
     """Execute installed enforcement for one exact requested action without performing it."""
 
     try:
-        manifest = _validated(source)
+        manifest = _validated(None)
     except _Problem as problem:
-        return intent.Validation("INCOMPLETE", *problem.result)
+        return _incomplete(problem.result)
     capability = next(
         (entry for entry in manifest["capabilities"] if entry["id"] == capability_id), None
     )
     if capability is None:
-        return intent.Validation("INCOMPLETE", *CAPABILITY_UNDECLARED)
+        return _incomplete(CAPABILITY_UNDECLARED)
     mode = next((entry for entry in capability["modes"] if entry["id"] == mode_id), None)
     if mode is None:
-        return intent.Validation("INCOMPLETE", *MODE_UNDECLARED)
+        return _incomplete(MODE_UNDECLARED)
     if not isinstance(action, Action) or action.kind not in _ACTION_CONTROLS:
-        return intent.Validation("INCOMPLETE", *ACTION_INVALID)
+        return _incomplete(ACTION_INVALID)
     installed = _ENFORCERS.get(action.kind)
     if installed is None or installed[0] != _ACTION_CONTROLS[action.kind]:
-        return intent.Validation("INCOMPLETE", *ENFORCEMENT_UNAVAILABLE)
-    control, enforce = installed
+        return _incomplete(ENFORCEMENT_UNAVAILABLE)
+    control, enforce, binds_operation = installed
     if control not in mode["enforcement"]:
-        return intent.Validation("INCOMPLETE", *ACTION_UNDECLARED)
+        return _incomplete(ACTION_UNDECLARED)
     try:
         allowed = enforce(mode, action)
-    except (KeyError, TypeError, ValueError):
-        return intent.Validation("INCOMPLETE", *ENFORCEMENT_UNAVAILABLE)
+    except (KeyError, LookupError, TypeError, ValueError):
+        return _incomplete(ENFORCEMENT_UNAVAILABLE)
     if not allowed:
-        return intent.Validation("INCOMPLETE", *ACTION_UNDECLARED)
+        return _incomplete(ACTION_UNDECLARED)
     if _gate_applies(mode["human_gate"], action):
-        return intent.Validation("INCOMPLETE", *HUMAN_GATE_REQUIRED)
-    return READY
+        return _incomplete(HUMAN_GATE_REQUIRED)
+    if not binds_operation:
+        return _incomplete(ENFORCEMENT_UNAVAILABLE)
+    payload = {
+        "capability_id": capability_id,
+        "mode_id": mode_id,
+        "action": {
+            "kind": action.kind,
+            "path": action.path,
+            "argv": list(action.argv),
+            "protocol": action.protocol,
+            "host": action.host,
+            "purpose": action.purpose,
+            "secret": action.secret,
+        },
+    }
+    authorization = Authorization(
+        capability_id,
+        mode_id,
+        action,
+        "sha256:" + sha256(_canonical_json(payload)).hexdigest(),
+    )
+    return Preflight("READY", authorization=authorization)
