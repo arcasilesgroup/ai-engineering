@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from ai_engineering import madr
+from ai_engineering import decide, madr, paths
 
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "madr-v1.schema.json"
@@ -344,6 +344,23 @@ def _commit_existing(root: Path, message: str) -> None:
     subprocess.run(
         ["git", "commit", "--quiet", "-m", message], cwd=root, check=True, env=environment
     )
+
+
+def _git_status(root: Path) -> list[str]:
+    result = subprocess.run(
+        ["git", "status", "--short"], cwd=root, check=True, capture_output=True, text=True
+    )
+    return result.stdout.splitlines()
+
+
+def _repository_with_spec(root: Path) -> None:
+    specification = root / "specs" / "010-governed-foundation" / "spec.md"
+    specification.parent.mkdir(parents=True)
+    specification.write_text(
+        '---\nid: "010"\nstatus: draft\n---\n\n# Governed foundation\n',
+        encoding="utf-8",
+    )
+    _commit(root, "record specification")
 
 
 def _run_semantic_fixture_case(
@@ -984,3 +1001,264 @@ def test_madr_final_repro_legacy_identity_comes_from_h1(tmp_path: Path) -> None:
     duplicate = root / "docs" / "adr" / "0009-copy.md"
     duplicate.write_bytes(legacy.read_bytes())
     assert madr.validate(root).code == "MADR_AMBIGUOUS"
+
+
+def test_decide_madr_accepts_madr_and_rejects_adr_alias(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "repository"
+    _repository_with_spec(root)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+
+    assert decide.main(["Keep authority outside the agent", "--madr"]) == 0
+    output = capsys.readouterr()
+    assert output.err == ""
+    assert output.out.splitlines() == [
+        "  ✓ docs/adr/0001-keep-authority-outside-the-agent.md",
+        "    outcome: PASS. status: proposed; this record grants no authority.",
+    ]
+    decision = root / "docs" / "adr" / "0001-keep-authority-outside-the-agent.md"
+    assert madr.validate(root).outcome == "PASS"
+    assert "authority_role:" not in decision.read_text(encoding="utf-8")
+    assert not any("specs/" in line for line in _git_status(root))
+
+    assert decide.main(["Reject an orphan", "--madr", "--supersede", "9999"]) == 1
+    assert capsys.readouterr().out == (
+        "  INCOMPLETE [MADR_GRAPH_INVALID]: MADR graph has a broken local edge. "
+        "No change remains.\n"
+    )
+    assert not (root / "docs" / "adr" / "0002-reject-an-orphan.md").exists()
+    assert madr.validate(root).outcome == "PASS"
+
+    before_aliases = _git_status(root)
+    for alias in ("--adr", "--mad", "--ma", "--m"):
+        with pytest.raises(SystemExit) as stopped:
+            decide.main(["Compatibility must stay deleted", alias])
+        assert stopped.value.code == 2
+        assert f"unrecognized arguments: {alias}" in capsys.readouterr().err
+        assert _git_status(root) == before_aliases
+
+    duplicate = root / "docs" / "adr" / "0009-duplicate.md"
+    duplicate.write_bytes(decision.read_bytes())
+    before = _git_status(root)
+    assert decide.main(["Do not write through ambiguity", "--madr"]) == 1
+    assert capsys.readouterr().out == (
+        "  INCOMPLETE [MADR_AMBIGUOUS]: MADR identity or target is ambiguous. "
+        "Nothing was written.\n"
+    )
+    assert _git_status(root) == before
+
+
+def test_decide_madr_creation_is_exclusive_and_cleans_partial_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    collision = tmp_path / "collision"
+    _repository_with_spec(collision)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: collision)
+    original_open = os.open
+    colliding_bytes = b"created by a concurrent writer\n"
+
+    def collide(path: Any, flags: int, mode: int = 0o777, *, dir_fd: int | None = None):
+        if isinstance(path, str) and path.endswith(".md") and flags & os.O_CREAT:
+            competitor = original_open(
+                path,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o666,
+                dir_fd=dir_fd,
+            )
+            try:
+                os.write(competitor, colliding_bytes)
+            finally:
+                os.close(competitor)
+        return original_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", collide)
+    assert decide.main(["Concurrent decision", "--madr"]) == 1
+    output = capsys.readouterr().out
+    collided = collision / "docs" / "adr" / "0001-concurrent-decision.md"
+    assert "INCOMPLETE" in output and "MADR_WRITE_FAILED" in output
+    assert "Nothing was written" not in output and "remains" in output
+    assert collided.read_bytes() == colliding_bytes
+
+    monkeypatch.setattr(os, "open", original_open)
+    partial = tmp_path / "partial"
+    _repository_with_spec(partial)
+    preexisting_home = partial / "docs" / "adr"
+    preexisting_home.mkdir(parents=True)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: partial)
+
+    class PartialWriter:
+        def __init__(self, stream: Any) -> None:
+            self.stream = stream
+
+        def __enter__(self) -> PartialWriter:
+            return self
+
+        def __exit__(self, *exc: Any) -> None:
+            self.stream.close()
+
+        def write(self, value: str) -> int:
+            self.stream.write(value[:12])
+            self.stream.flush()
+            raise OSError("simulated partial write")
+
+    original_fdopen = os.fdopen
+
+    def fail_partly(fd: int, *args: Any, **kwargs: Any):
+        return PartialWriter(original_fdopen(fd, *args, **kwargs))
+
+    monkeypatch.setattr(os, "fdopen", fail_partly)
+    assert decide.main(["Partial decision", "--madr"]) == 1
+    output = capsys.readouterr().out
+    assert "INCOMPLETE" in output and "MADR_WRITE_FAILED" in output
+    assert "No change remains" in output
+    assert preexisting_home.is_dir() and list(preexisting_home.iterdir()) == []
+
+
+def test_decide_madr_never_follows_a_canonical_home_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "linked-home"
+    _repository_with_spec(root)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (root / "docs").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+
+    assert decide.main(["Stay inside the repository", "--madr"]) == 1
+    assert "MADR_WRITE_FAILED" in capsys.readouterr().out
+    assert list(outside.iterdir()) == []
+
+
+@pytest.mark.parametrize("swapped", ["docs", "adr"])
+def test_decide_madr_creation_stays_anchored_when_home_is_swapped(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    swapped: str,
+) -> None:
+    root = tmp_path / f"swap-{swapped}"
+    _repository_with_spec(root)
+    home = root / "docs" / "adr"
+    home.mkdir(parents=True)
+    outside = tmp_path / f"outside-{swapped}"
+    outside.mkdir()
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    original_open = os.open
+    exchanged = False
+
+    def exchange(path: Any, flags: int, mode: int = 0o777, *, dir_fd: int | None = None):
+        nonlocal exchanged
+        if not exchanged and isinstance(path, str) and path.endswith(".md"):
+            exchanged = True
+            victim = root / "docs" if swapped == "docs" else home
+            held = victim.with_name(f"{victim.name}-held")
+            victim.rename(held)
+            victim.symlink_to(outside, target_is_directory=True)
+        return original_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", exchange)
+    assert decide.main(["Stay descriptor relative", "--madr"]) == 1
+    output = capsys.readouterr().out
+    assert exchanged and "INCOMPLETE" in output
+    assert "MADR_HOME_INVALID" in output and "remains" in output
+    assert list(outside.iterdir()) == []
+    held = root / ("docs-held/adr" if swapped == "docs" else "docs/adr-held")
+    assert list(held.iterdir()) == []
+
+
+def test_decide_madr_fails_closed_without_descriptor_relative_support(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "unsupported"
+    _repository_with_spec(root)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    monkeypatch.setattr(os, "supports_dir_fd", os.supports_dir_fd - {os.open})
+
+    assert decide.main(["Require anchored writes", "--madr"]) == 1
+    assert "MADR_WRITE_FAILED" in capsys.readouterr().out
+    assert not (root / "docs").exists()
+
+
+def test_decide_madr_closes_every_descriptor_after_success_and_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened: set[int] = set()
+    closed: set[int] = set()
+    original_open = os.open
+    original_close = os.close
+
+    def tracked_open(*args: Any, **kwargs: Any) -> int:
+        descriptor = original_open(*args, **kwargs)
+        opened.add(descriptor)
+        return descriptor
+
+    def tracked_close(descriptor: int) -> None:
+        closed.add(descriptor)
+        original_close(descriptor)
+
+    monkeypatch.setattr(os, "open", tracked_open)
+    monkeypatch.setattr(os, "close", tracked_close)
+
+    success = tmp_path / "success-descriptors"
+    _repository_with_spec(success)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: success)
+    assert decide.main(["Close on success", "--madr"]) == 0
+    assert opened <= closed
+
+    opened.clear()
+    closed.clear()
+    failure = tmp_path / "failure-descriptors"
+    _repository_with_spec(failure)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: failure)
+    assert decide.main(["Close on failure", "--madr", "--supersede", "9999"]) == 1
+    assert opened <= closed
+
+
+def test_decide_madr_validates_title_and_cleans_new_home_after_rejection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "titles"
+    _repository_with_spec(root)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+
+    assert decide.main(["   ", "--madr"]) == 2
+    assert "needs a title" in capsys.readouterr().out
+    assert not (root / "docs").exists()
+
+    assert decide.main(["Ñ決定", "--madr"]) == 0
+    capsys.readouterr()
+    fallback = root / "docs" / "adr" / "0001-decision-0001.md"
+    assert fallback.exists() and madr.validate(root).outcome == "PASS"
+
+    trailing_separator = "a" * 59 + " separator"
+    assert decide.main([trailing_separator, "--madr"]) == 0
+    capsys.readouterr()
+    names = sorted(path.name for path in (root / "docs" / "adr").iterdir())
+    assert names[1] == f"0002-{'a' * 59}.md"
+    assert all(re.fullmatch(r"[0-9]{4}-[a-z0-9]+(?:-[a-z0-9]+)*\.md", name) for name in names)
+
+    rejected = tmp_path / "rejected"
+    _repository_with_spec(rejected)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: rejected)
+    assert decide.main(["Orphan", "--madr", "--supersede", "9999"]) == 1
+    assert "MADR_GRAPH_INVALID" in capsys.readouterr().out
+    assert not (rejected / "docs").exists()
+
+
+def test_decide_madr_listing_decodes_status_and_marks_malformed_values_unknown(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "docs" / "adr"
+    home.mkdir(parents=True)
+    (home / "0001-structured.md").write_text('---\nstatus: "proposed"\n---\n')
+    (home / "0002-legacy.md").write_text("---\nstatus: accepted\n---\n")
+    (home / "0003-broken.md").write_text('---\nstatus: "proposed\n---\n')
+    (home / "0004-unknown.md").write_text('---\nstatus: "unknown"\n---\n')
+
+    assert decide.listing(tmp_path) == [
+        f"  {'0001-structured':<44} proposed",
+        f"  {'0002-legacy':<44} accepted",
+        f"  {'0003-broken':<44} ?",
+        f"  {'0004-unknown':<44} ?",
+    ]

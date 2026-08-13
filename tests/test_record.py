@@ -520,21 +520,21 @@ def test_an_adr_number_follows_the_highest_on_disk(tmp_path):
     assert decide.next_number(tmp_path) == "0008"
 
 
-def test_promoting_a_decision_supersedes_the_old_one_and_points_the_spec_at_it(tmp_path):
-    """A promoted decision has to leave a pointer in its spec and flip the ADR it replaced,
-    or the repository holds two live ADRs that contradict each other."""
+def test_proposing_a_supersession_preserves_the_old_madr_and_the_spec(tmp_path):
+    """A proposal records its predecessor but cannot grant its own transition authority."""
     spec.create(tmp_path, "a-thing", "")
-    first = decide.promote(tmp_path, "Use one queue", "", spec.target(tmp_path))
+    target = spec.target(tmp_path)
+    spec_before = target.read_bytes()
+    first = decide.promote(tmp_path, "Use one queue", "", target)
     assert first.name == "0001-use-one-queue.md"
-    second = decide.promote(tmp_path, "Use two queues", "0001", spec.target(tmp_path))
+    first_before = first.read_bytes()
+    second = decide.promote(tmp_path, "Use two queues", "0001", target)
     assert second.name == "0002-use-two-queues.md"
-    assert "status: superseded by 0002" in first.read_text()
+    assert first.read_bytes() == first_before
     header = text.flat_yaml(second.read_text().split("---\n", 1)[1].split("---\n", 1)[0])
-    assert header["spec"] == "001-a-thing" and header["supersedes"] == "0001"
+    assert header["spec"] == "001" and header["supersedes"] == "0001"
     assert header["status"] == "proposed" and header["date"] == TODAY
-    body = (tmp_path / "specs" / "001-a-thing" / "spec.md").read_text()
-    assert "adr: 0002" in body and body.index("## Decisions") < body.index("adr: 0002")
-    assert "## Accepted risks" in body, "the sections below Decisions were eaten"
+    assert target.read_bytes() == spec_before
     assert [row.split()[0] for row in decide.listing(tmp_path)] == [
         "0001-use-one-queue",
         "0002-use-two-queues",
@@ -560,7 +560,7 @@ def test_a_decision_with_no_spec_is_refused(repo, capsys):
     assert decide.main(["A choice"]) == 1
     assert "no spec to record this against" in capsys.readouterr().out
     assert decide.main(["--list"]) == 0
-    assert "no ADRs yet" in capsys.readouterr().out
+    assert "no MADRs yet" in capsys.readouterr().out
 
 
 # ------------------------------------------------------------------ digest

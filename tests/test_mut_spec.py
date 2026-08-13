@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import builtins
 import json
+import os
+import subprocess
 from datetime import date
 from types import SimpleNamespace
 
@@ -36,6 +38,20 @@ def repo(tmp_path, monkeypatch):
     """A throwaway repository root, so no verb can find the one we are working in."""
     root = tmp_path / "repo"
     (root / "specs").mkdir(parents=True)
+    subprocess.run(["git", "init", "--quiet", "-b", "main"], cwd=root, check=True)
+    environment = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "role",
+        "GIT_AUTHOR_EMAIL": "role@example.invalid",
+        "GIT_COMMITTER_NAME": "role",
+        "GIT_COMMITTER_EMAIL": "role@example.invalid",
+    }
+    subprocess.run(
+        ["git", "commit", "--quiet", "--allow-empty", "-m", "baseline"],
+        cwd=root,
+        check=True,
+        env=environment,
+    )
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     return root
 
@@ -215,7 +231,8 @@ def test_the_record_has_exactly_one_home_and_the_newest_spec_is_the_last_number(
 def test_an_adr_filename_is_a_clean_slug_capped_at_sixty_characters(tmp_path, title, stem):
     """The filename is what everybody greps. Punctuation left as a trailing dash, or a
     title allowed to run on, gives a name nobody can type or predict."""
-    assert decide.promote(tmp_path, title, "", None).stem == stem
+    specification = spec.create(tmp_path, "decision-home", "")
+    assert decide.promote(tmp_path, title, "", specification).stem == stem
 
 
 def test_a_decision_lands_between_the_headings_and_leaves_the_spec_intact(tmp_path):
@@ -276,48 +293,49 @@ def test_an_adr_listing_shows_the_status_of_every_file_including_the_broken_ones
 # ------------------------------------------------------------------ decide: the command
 
 
-def test_decide_adr_writes_the_file_and_says_it_is_only_proposed(repo, capsys):
+def test_decide_madr_writes_the_file_and_says_it_grants_no_authority(repo, capsys):
     """A promoted decision is proposed, not accepted: the second line is what stops a
-    reader treating a freshly written ADR as something the team agreed to."""
-    assert decide.main(["Use one queue", "--adr"]) == 0
+    reader treating a freshly written MADR as something the team agreed to."""
+    spec.create(repo, "queue", "")
+    assert decide.main(["Use one queue", "--madr"]) == 0
     assert capsys.readouterr().out.splitlines() == [
         "  ✓ docs/adr/0001-use-one-queue.md",
-        "    status: proposed. Accept or reject it by changing one line in a pull request.",
+        "    outcome: PASS. status: proposed; this record grants no authority.",
     ]
     body = (repo / "docs" / "adr" / "0001-use-one-queue.md").read_text()
     assert "# 0001. Use one queue" in body
-    assert "status: proposed" in body and 'spec: ""' in body and 'supersedes: ""' in body
+    assert 'status: "proposed"' in body and 'spec: "001"' in body
+    assert 'supersedes: ""' in body and "authority_role:" not in body
 
 
-def test_superseding_flips_only_the_first_status_line_of_the_old_adr(repo):
-    """Superseding rewrites the header of the old ADR and nothing else. A rewrite that ran
-    over the whole file would edit prose that happens to start with the same word."""
-    assert decide.main(["Use one queue", "--adr"]) == 0
+def test_proposing_a_supersession_does_not_rewrite_or_authorize_the_old_madr(repo):
+    """A proposal may point at the old MADR, but only human authority can transition it."""
+    spec.create(repo, "queue", "")
+    assert decide.main(["Use one queue", "--madr"]) == 0
     old = repo / "docs" / "adr" / "0001-use-one-queue.md"
-    old.write_text(old.read_text() + "\nstatus: this line is prose, not the header\n")
-    assert decide.main(["Use two queues", "--adr", "--supersede", "0001"]) == 0
-    body = old.read_text()
-    assert body.count("status: superseded by 0002") == 1
-    assert "status: this line is prose, not the header" in body
-    assert "supersedes: 0001" in (repo / "docs" / "adr" / "0002-use-two-queues.md").read_text()
+    before = old.read_bytes()
+    assert decide.main(["Use two queues", "--madr", "--supersede", "0001"]) == 0
+    assert old.read_bytes() == before
+    replacement = (repo / "docs" / "adr" / "0002-use-two-queues.md").read_text()
+    assert 'status: "proposed"' in replacement and 'supersedes: "0001"' in replacement
 
 
-def test_a_promoted_decision_leaves_a_pointer_in_the_spec_it_came_from(repo):
-    """The spec keeps a line saying which ADR the decision moved to. Without both the
-    number and the title, the reader of the spec has to guess which file to open."""
-    spec.create(repo, "a-thing", "")
-    assert decide.main(["Use one queue", "--adr"]) == 0
-    body = (repo / "specs" / "001-a-thing" / "spec.md").read_text()
-    assert "adr: 0001" in body and "title: Use one queue" in body
+def test_a_madr_proposal_writes_nothing_outside_its_canonical_home(repo):
+    """Proposal must not turn a spec edit into authority or create a second record."""
+    path = spec.create(repo, "a-thing", "")
+    before = path.read_bytes()
+    assert decide.main(["Use one queue", "--madr"]) == 0
+    assert path.read_bytes() == before
 
 
 def test_decide_list_prints_one_row_per_adr_and_says_so_when_there_are_none(repo, capsys):
     """No ADRs is the normal state, not an error, and the line says so — otherwise the
     silence reads as a broken command and somebody promotes a decision that needs no ADR."""
     assert decide.main(["--list"]) == 0
-    assert capsys.readouterr().out == "  no ADRs yet — most decisions never need one\n"
-    assert decide.main(["One", "--adr"]) == 0
-    assert decide.main(["Two", "--adr"]) == 0
+    assert capsys.readouterr().out == "  no MADRs yet — most decisions never need one\n"
+    spec.create(repo, "decisions", "")
+    assert decide.main(["One", "--madr"]) == 0
+    assert decide.main(["Two", "--madr"]) == 0
     capsys.readouterr()
     assert decide.main(["--list"]) == 0
     rows = capsys.readouterr().out.splitlines()
@@ -331,7 +349,7 @@ def test_a_decision_that_stays_in_its_spec_is_dated_and_carries_a_rationale(repo
     assert decide.main(["Use one queue"]) == 0
     assert capsys.readouterr().out == (
         "  ✓ recorded in specs/001-a-thing/spec.md. If it constrains specs that do not exist "
-        "yet, promote it with --adr.\n"
+        "yet, promote it with --madr.\n"
     )
     body = (repo / "specs" / "001-a-thing" / "spec.md").read_text()
     assert (
@@ -366,9 +384,10 @@ def test_decide_help_names_the_command_and_documents_every_flag(wide, capsys):
         decide.main(["--help"])
     assert stopped.value.code == 0
     out = capsys.readouterr().out
-    for token in ("usage: ai-eng decide", "--adr", "--supersede NNNN", "--list", "--why WHY"):
+    for token in ("usage: ai-eng decide", "--madr", "--supersede NNNN", "--list", "--why WHY"):
         assert token in out
-    for line in ("promote it to docs/adr/", "the rationale, when it stays inside the spec"):
+    assert "--adr" not in out
+    for line in ("propose it in docs/adr/", "the rationale, when it stays inside the spec"):
         assert f" {line}\n" in out, "the help line is padded and ends there, not elsewhere"
 
 
