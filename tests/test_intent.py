@@ -8,13 +8,132 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from hashlib import sha256
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from threading import Barrier
 from typing import Any
 
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "intent-v1.schema.json"
 FIXTURE_PATH = ROOT / "tests" / "fixtures" / "intent-v1.json"
+
+
+def _repository_intent_homes(paths: list[str]) -> list[str]:
+    homes = []
+    for raw in paths:
+        path = PurePosixPath(raw)
+        if not path.parts or path.parts[0].casefold() == "tests":
+            continue
+        if path.name.casefold().endswith("intent.md"):
+            homes.append(raw)
+    return homes
+
+
+def test_repository_dogfood_intent_is_canonical() -> None:
+    from ai_engineering import intent
+
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    home = ROOT / schema["x-canonical-home"]
+    assert home.is_file()
+
+    rendered = home.read_text(encoding="utf-8")
+    record = json.loads(rendered)
+    assert (
+        rendered
+        == json.dumps(record, allow_nan=False, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    )
+    assert intent.validate(home, ROOT).as_dict() == {"outcome": "PASS"}
+
+    def is_unapproved_draft(candidate: dict[str, Any]) -> bool:
+        return candidate.get("lifecycle") == {"status": "draft", "transitions": []}
+
+    assert record["lifecycle"] == {"status": "draft", "transitions": []}
+    assert is_unapproved_draft(record)
+
+    sections = record["solution_intent"]
+    assert all(1 <= len(entries) <= 4 for entries in sections.values())
+    assert sum(map(len, sections.values())) <= 12
+    assert all(len(entry) <= 240 for entries in sections.values() for entry in entries)
+
+    (relation,) = record["relations"]
+    assert (relation["kind"], relation["id"], relation["path"]) == (
+        "spec",
+        "010",
+        "specs/010-governed-agentic-engineering-foundation/spec.md",
+    )
+    target = ROOT / relation["path"]
+    target_bytes = target.read_bytes()
+    assert relation["target_digest"] == "sha256:" + sha256(target_bytes).hexdigest()
+
+    fabricated_active = deepcopy(record)
+    fabricated_active["lifecycle"] = {
+        "status": "active",
+        "transitions": [
+            {
+                "from": "draft",
+                "to": "active",
+                "changed_at": "2026-08-13T00:00:00Z",
+                "authority_role": "repository maintainer",
+                "approval_ref": "fabricated-test-only",
+            }
+        ],
+        "approval": {
+            "authority_role": "repository maintainer",
+            "approval_ref": "fabricated-test-only",
+            "approved_at": "2026-08-13T00:00:00Z",
+        },
+    }
+    assert intent.validate(fabricated_active, [(relation["path"], target_bytes)]).as_dict() == {
+        "outcome": "PASS"
+    }
+    assert not is_unapproved_draft(fabricated_active)
+
+    changed = intent.validate(record, [(relation["path"], target_bytes + b"\n")])
+    assert changed.as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_STALE",
+        "reason": "relation digest does not match target",
+    }
+
+    repository_homes = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split("\0")
+    repository_paths = [path for path in repository_homes if path]
+    canonical_home = schema["x-canonical-home"]
+    assert _repository_intent_homes(repository_paths) == [canonical_home]
+    for duplicate in (
+        "Intent.md",
+        ".AI/INTENT.MD",
+        ".AI/nested/InTeNt.Md",
+        "docs/solution-intent.md",
+        "docs/SOLUTION-INTENT.MD",
+    ):
+        assert set(_repository_intent_homes([*repository_paths, duplicate])) == {
+            canonical_home,
+            duplicate,
+        }
+    assert not _repository_intent_homes(
+        [
+            "tests/fixtures/Intent.md",
+            "tests/fixtures/intent-v1.json",
+            "policy/intent-v1.schema.json",
+            "migrations/intent-v1.schema.json",
+            ".ai/intent.md~",
+            ".ai/.intent.md.swp",
+        ]
+    )
+    assert not re.search(r"/(?:Users|home)/|[A-Za-z]:\\\\", rendered)
+    assert not re.search(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b", rendered)
 
 
 def test_ai_gitignore_unignores_only_intent_md(tmp_path: Path) -> None:
