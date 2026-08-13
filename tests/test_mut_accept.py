@@ -392,10 +392,16 @@ def test_a_commit_anchoring_a_head_this_chain_never_had_is_reported(anchored, ca
     )
 
     problems = audit.verify(anchored, True)
-    assert len(problems) == 1, problems
+    assert len(problems) == 2, problems
     assert "aaaaaaaaaaaa" in problems[0]
     assert "the record was truncated or replaced" in problems[0]
-    assert audit.verify(anchored, False) == [], "without --anchors git is not consulted"
+    assert problems[1] == (
+        "Solution Intent at .ai/intent.md is INCOMPLETE: INTENT_HOME_MISSING — "
+        "Solution Intent is missing at .ai/intent.md"
+    )
+    assert audit.verify(anchored, False) == [problems[1]], (
+        "without --anchors git is not consulted, while Intent is still recomputed"
+    )
     assert audit.main(["verify", "--anchors"]) == 1
     assert "BROKEN" in capsys.readouterr().out
 
@@ -411,8 +417,9 @@ def test_a_link_whose_hash_was_deleted_is_reported_once_as_an_edit(anchored):
     events[1]["hash"] = emit.digest(events[1])
     _write_chain(emit, events, anchored)
     problems = audit.verify(anchored, False)
-    assert len(problems) == 1, problems
+    assert len(problems) == 2, problems
     assert "link 1: the hash does not match its own body" in problems[0]
+    assert "INTENT_HOME_MISSING" in problems[1]
 
 
 def test_two_broken_links_are_printed_one_per_line(anchored, capsys):
@@ -428,6 +435,8 @@ def test_two_broken_links_are_printed_one_per_line(anchored, capsys):
     assert capsys.readouterr().out == (
         "  BROKEN  link 2: the sequence jumps to 5\n"
         "  BROKEN  link 2: it does not extend the link before it\n"
+        "  INCOMPLETE  Solution Intent at .ai/intent.md is INCOMPLETE: "
+        "INTENT_HOME_MISSING — Solution Intent is missing at .ai/intent.md\n"
     )
 
 

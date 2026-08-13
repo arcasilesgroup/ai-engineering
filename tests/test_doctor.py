@@ -229,8 +229,10 @@ def test_assertion_6_compares_the_linkage_and_never_recomputes_a_hash(
     path.write_text("".join(json.dumps(row) + "\n" for row in edit(rows)))
     got, detail = verdict(doctor.chain_intact, repo)
     assert (got, doctor_says in detail) == (("fail", True) if doctor_says else ("ok", True))
-    problems = " ".join(audit.verify(repo, anchors=False))
-    assert (audit_says in problems) and bool(problems) == bool(audit_says)
+    problems = audit.verify(repo, anchors=False)
+    assert "INTENT_HOME_MISSING" in problems[-1]
+    chain_problems = " ".join(problems[:-1])
+    assert (audit_says in chain_problems) and bool(chain_problems) == bool(audit_says)
 
 
 def test_a_half_written_last_line_is_reported_by_both_readers_of_the_chain(home, repo):
@@ -243,7 +245,10 @@ def test_a_half_written_last_line_is_reported_by_both_readers_of_the_chain(home,
         fh.write('{"cls": "blo')
     assert len(doctor.events(repo)) == 2
     assert "link 3" in (doctor.chain_intact(repo) or "")
-    assert len(audit.verify(repo, anchors=False)) == 1
+    problems = audit.verify(repo, anchors=False)
+    assert len(problems) == 2
+    assert "link 3" in problems[0]
+    assert "INTENT_HOME_MISSING" in problems[1]
 
 
 def test_a_chain_that_was_never_written_is_not_a_broken_chain_and_is_not_a_pass_either(home, repo):

@@ -400,9 +400,14 @@ def test_a_commit_anchoring_a_link_this_chain_has_lost_is_reported(home, monkeyp
     log = f"Ai-Eng-Anchor: testrepo/{home.machine_id()} seq=2 head={anchored}\n\x00"
     monkeypatch.setattr(audit.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout=log))
     problems = audit.verify(Path("/nowhere"), True)
-    assert bool(problems) is (head != "known"), problems
-    if problems:
-        assert "the record was truncated or replaced" in problems[0]
+    assert problems[-1] == (
+        "Solution Intent at .ai/intent.md is INCOMPLETE: INTENT_HOME_MISSING — "
+        "Solution Intent is missing at .ai/intent.md"
+    )
+    chain_problems = problems[:-1]
+    assert bool(chain_problems) is (head != "known"), problems
+    if chain_problems:
+        assert "the record was truncated or replaced" in chain_problems[0]
 
 
 def test_a_truncated_line_is_reported_as_broken_not_as_a_crash(home, capsys):

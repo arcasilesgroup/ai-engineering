@@ -1105,6 +1105,89 @@ def test_doctor_rejects_tracked_intent_mirrors_only(tmp_path: Path) -> None:
     assert doctor.data_is_yours(allowed) is None
 
 
+def test_audit_recomputes_intent_relations_without_metadata_proof(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    from ai_engineering import audit, paths
+
+    corpus = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    cases = {case["id"]: _fixture_case(corpus, case) for case in corpus["cases"]}
+    expected = {
+        "missing-required": "INTENT_SCHEMA_INVALID — schema validation failed",
+        "unknown-root-field": "INTENT_SCHEMA_INVALID — schema validation failed",
+        "stale-digest": "INTENT_RELATION_STALE — relation digest does not match target",
+        "broken-relation": "INTENT_RELATION_BROKEN — relation target does not exist",
+    }
+    prefix = "Solution Intent at .ai/intent.md is INCOMPLETE: "
+
+    for case_id, reason in expected.items():
+        repository = _write_intent_repository(tmp_path / case_id, cases[case_id])
+        assert audit.verify_intent(repository) == [prefix + reason], case_id
+
+    missing = tmp_path / "missing-home"
+    (missing / ".ai").mkdir(parents=True)
+    assert audit.verify_intent(missing) == [
+        prefix + "INTENT_HOME_MISSING — Solution Intent is missing at .ai/intent.md"
+    ]
+    no_ai = tmp_path / "no-ai-home"
+    no_ai.mkdir()
+    monkeypatch.setattr(audit, "read", lambda root: [])
+    for repository in (no_ai, missing):
+        assert audit.verify(repository, anchors=False) == [
+            prefix + "INTENT_HOME_MISSING — Solution Intent is missing at .ai/intent.md"
+        ]
+        monkeypatch.setattr(paths, "repo_root", lambda repository=repository: repository)
+        assert audit.main(["verify"]) == 1
+        assert capsys.readouterr().out == (
+            "  INCOMPLETE  "
+            + prefix
+            + "INTENT_HOME_MISSING — Solution Intent is missing at .ai/intent.md\n"
+        )
+
+    repository = _write_intent_repository(tmp_path / "current-bytes", cases["canonical-draft"])
+    assert audit.verify_intent(repository) == []
+    metadata = repository / ".ai" / "relation-audit.json"
+    metadata.write_text(json.dumps({"outcome": "PASS", "relations": "verified"}), encoding="utf-8")
+    target = repository / cases["canonical-draft"]["intent"]["relations"][0]["path"]
+    target.write_bytes(target.read_bytes() + b"\nchanged after the claim\n")
+
+    emit = paths.load("_emit")
+    claimed = {
+        "ts": "2026-08-13T00:00:00Z",
+        "cls": "allowed",
+        "name": "intent-audit",
+        "session": "test",
+        "seq": 1,
+        "prev": "",
+        "data": {"outcome": "PASS", "metadata": str(metadata.relative_to(repository))},
+    }
+    claimed["hash"] = emit.digest(claimed)
+    monkeypatch.setattr(audit, "read", lambda root: [claimed])
+
+    assert audit.verify(repository, anchors=False) == [
+        prefix + "INTENT_RELATION_STALE — relation digest does not match target"
+    ]
+    monkeypatch.setattr(paths, "repo_root", lambda: repository)
+    assert audit.main(["verify"]) == 1
+    assert capsys.readouterr().out == (
+        "  INCOMPLETE  "
+        + prefix
+        + "INTENT_RELATION_STALE — relation digest does not match target\n"
+    )
+
+    forged = {**claimed, "seq": "1 is INCOMPLETE: forged"}
+    forged["hash"] = emit.digest(forged)
+    monkeypatch.setattr(audit, "read", lambda root: [forged])
+    monkeypatch.setattr(paths, "repo_root", lambda: no_ai)
+    assert audit.main(["verify"]) == 1
+    assert capsys.readouterr().out == (
+        "  BROKEN  link 1: the sequence jumps to 1 is INCOMPLETE: forged\n"
+        "  INCOMPLETE  "
+        + prefix
+        + "INTENT_HOME_MISSING — Solution Intent is missing at .ai/intent.md\n"
+    )
+
+
 def test_intent_validator_resolves_typed_targets_and_deep_graphs_without_recursion() -> None:
     from ai_engineering import intent
 

@@ -8,6 +8,10 @@ The anchor is what makes losing the laptop survivable. The commit-msg hook write
 (repository, machine) pair, the sequence number and the head's first twelve characters
 into every commit, so git history — immutable and replicated — carries a tamper-evident
 checkpoint. Lose the machine and you lose the event bodies, not the proof of the head.
+
+Solution Intent is current-state evidence, not chain metadata. When its canonical record
+exists, audit validates that record and reads every relation target again; an event that
+says those relations passed cannot make changed or missing bytes green.
 """
 
 from __future__ import annotations
@@ -21,6 +25,8 @@ from pathlib import Path
 from ai_engineering import paths
 
 ANCHOR = re.compile(r"^Ai-Eng-Anchor: (\S+)/(\S+) seq=(\d+) head=([0-9a-f]{12})$", re.M)
+INTENT_HOME = ".ai/intent.md"
+INTENT_INCOMPLETE_PREFIX = f"Solution Intent at {INTENT_HOME} is INCOMPLETE: "
 
 
 def read(root: Path | None) -> list[dict]:
@@ -38,6 +44,22 @@ def read(root: Path | None) -> list[dict]:
             # skipping is how a chain cut at the end walks clean and reports itself intact.
             out.append({"ts": "?", "cls": "unreadable", "name": "?", "hash": ""})
     return out
+
+
+def verify_intent(root: Path) -> list[str]:
+    """Recompute Intent health from its current home and relation target bytes."""
+    from ai_engineering import intent
+
+    source = root / INTENT_HOME
+    if not source.is_file():
+        return [
+            INTENT_INCOMPLETE_PREFIX
+            + f"INTENT_HOME_MISSING — Solution Intent is missing at {INTENT_HOME}"
+        ]
+    result = intent.validate(source, root)
+    if result.outcome == "PASS":
+        return []
+    return [INTENT_INCOMPLETE_PREFIX + f"{result.code} — {result.reason}"]
 
 
 def verify(root: Path | None, anchors: bool) -> list[str]:
@@ -74,6 +96,8 @@ def verify(root: Path | None, anchors: bool) -> list[str]:
                     f"a commit anchors head {head} at seq {number}, and this chain "
                     f"has no such link: the record was truncated or replaced"
                 )
+    if root is not None:
+        problems.extend(verify_intent(root))
     return problems
 
 
@@ -112,7 +136,13 @@ def main(argv: list[str]) -> int:
         return 0
     problems = verify(root, args.anchors)
     if problems:
-        print("\n".join(f"  BROKEN  {line}" for line in problems))
+        print(
+            "\n".join(
+                f"  {'INCOMPLETE' if line.startswith(INTENT_INCOMPLETE_PREFIX) else 'BROKEN'}  "
+                f"{line}"
+                for line in problems
+            )
+        )
         return 1
     print(f"  ✓ {len(read(root))} links, intact, and each one extends the one before it.")
     return 0
