@@ -9,6 +9,7 @@ import subprocess
 from collections import Counter
 from copy import deepcopy
 from datetime import date, datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -304,6 +305,60 @@ def test_madr_v1_schema_graph_and_transitions_are_closed() -> None:
 
     assert invalid
     assert all(not _valid(candidate, schema, schema) for candidate in invalid)
+
+
+def test_intent_supersession_madr_is_complete() -> None:
+    predecessor = (
+        ROOT
+        / "docs"
+        / "adr"
+        / ("0004-no-document-mould-from-another-repository-enters-this-framew.md")
+    )
+    decision = ROOT / "docs" / "adr" / "0005-intent-supersedes-0004.md"
+    expected = {
+        "schema": "urn:ai-engineering:madr:1",
+        "schema_version": "1",
+        "type": "adr",
+        "id": "0005",
+        "title": "Intent supersedes the boundary of ADR 0004",
+        "date": "2026-08-13",
+        "spec": "010",
+        "status": "proposed",
+        "supersedes": "0004",
+    }
+    expected_frontmatter = "\n".join(
+        ["---", *(f"{key}: {json.dumps(value)}" for key, value in expected.items()), "---", ""]
+    ).encode()
+
+    raw = decision.read_bytes()
+    parsed = madr._parse(raw)
+    assert raw.startswith(expected_frontmatter)
+    assert madr._v1_fields(parsed) == expected
+    assert "authority_role" not in parsed.raw_fields
+    assert "approval_ref" not in parsed.raw_fields
+    assert "approved_at" not in parsed.raw_fields
+
+    body = parsed.body
+    assert "ADR 0004 remains correct about document moulds owned by another repository" in body
+    assert "The canonical `.ai/intent.md` introduced by Spec 010 is not such a mould" in body
+    assert all(
+        option in body
+        for option in (
+            "1. **Keep ADR 0004 as the only decision",
+            "2. **Rewrite or delete ADR 0004",
+            "3. **Preserve ADR 0004 and supersede only its decision boundary",
+        )
+    )
+    assert "Recommend option 3." in body
+    assert "does not approve the recommendation, authorize work or accept risk" in body
+    assert "ADR 0004 remains unchanged as historical evidence" in body
+    assert "Open risk:" in body
+    assert "must not be treated as authority" in body
+
+    assert sha256(predecessor.read_bytes()).hexdigest() == (
+        "6c5e77f6f648ecae994435f27c7121866e04e3c9674ac5d0b9b16106d0b2447d"
+    )
+    assert madr.validate(ROOT).outcome == "PASS"
 
 
 def _render_madr(record: dict[str, Any], body: str) -> str:
