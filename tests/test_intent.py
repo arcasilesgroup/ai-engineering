@@ -587,3 +587,418 @@ def test_intent_fixture_corpus_covers_valid_and_all_invalid_cases() -> None:
         materialized["invalid-lifecycle-history"]["intent"]["lifecycle"]["transitions"][-1]["to"]
         != materialized["invalid-lifecycle-history"]["intent"]["lifecycle"]["status"]
     )
+
+
+def test_intent_validator_rejects_unknown_missing_stale_and_broken_relations(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    from ai_engineering import intent
+
+    corpus = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    for case in corpus["cases"]:
+        repository = tmp_path / case["id"]
+        materialized = _fixture_case(corpus, case)
+        source = repository / ".ai" / "intent.md"
+        source.parent.mkdir(parents=True)
+        source.write_text(json.dumps(materialized["intent"]), encoding="utf-8")
+        for file in materialized["repository"]["files"]:
+            target = repository / file["path"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(file["content"], encoding="utf-8")
+
+        before = {
+            path.relative_to(repository): path.read_bytes()
+            for path in repository.rglob("*")
+            if path.is_file()
+        }
+        result = intent.validate(source, repository)
+        expected = (
+            {"outcome": "PASS"}
+            if case["classification"] == "valid"
+            else case["expected_incomplete"]
+        )
+        assert result.as_dict() == expected, case["id"]
+        assert before == {
+            path.relative_to(repository): path.read_bytes()
+            for path in repository.rglob("*")
+            if path.is_file()
+        }
+
+    canonical = _fixture_case(corpus, corpus["cases"][0])
+    files = [(file["path"], file["content"]) for file in canonical["repository"]["files"]]
+    assert intent.validate(canonical["intent"], files).as_dict() == {"outcome": "PASS"}
+
+    active = deepcopy(canonical["intent"])
+    transition = {
+        "from": "draft",
+        "to": "active",
+        "changed_at": "2026-08-13T10:00:00Z",
+        "authority_role": "repository maintainer",
+        "approval_ref": "change-request-17",
+    }
+    active["lifecycle"] = {
+        "status": "active",
+        "transitions": [transition],
+        "approval": {
+            "authority_role": "repository maintainer",
+            "approval_ref": "change-request-17",
+            "approved_at": "2026-08-13T10:00:00Z",
+        },
+    }
+    assert intent.validate(active, files).as_dict() == {"outcome": "PASS"}
+
+    duplicate = intent.validate(canonical["intent"], [*files, files[0]])
+    assert duplicate.as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_BROKEN",
+        "reason": "relation target is ambiguous",
+    }
+
+    duplicate_identity = deepcopy(canonical["intent"])
+    other_path = "specs/010-other/spec.md"
+    other_content = '---\nid: "010"\nstatus: draft\n---\n'
+    duplicate_identity["relations"].append(
+        {
+            "kind": "spec",
+            "id": "010",
+            "path": other_path,
+            "target_digest": "sha256:" + sha256(other_content.encode()).hexdigest(),
+        }
+    )
+    assert intent.validate(duplicate_identity, [*files, (other_path, other_content)]).as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_BROKEN",
+        "reason": "relation target is ambiguous",
+    }
+
+    broken_graph = deepcopy(canonical)
+    broken_content = '---\nid: "010"\nstatus: draft\nrelations: specs/999-missing/spec.md\n---\n\n'
+    broken_graph["repository"]["files"][0]["content"] = broken_content
+    broken_graph["intent"]["relations"][0]["target_digest"] = (
+        "sha256:" + sha256(broken_content.encode()).hexdigest()
+    )
+    broken = intent.validate(
+        broken_graph["intent"],
+        [(file["path"], file["content"]) for file in broken_graph["repository"]["files"]],
+    )
+    assert broken.as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_BROKEN",
+        "reason": "relation target does not exist",
+    }
+
+    traversal = deepcopy(canonical)
+    traversal_content = '---\nid: "010"\nstatus: draft\nrelations: ../../outside\n---\n\n'
+    traversal["repository"]["files"][0]["content"] = traversal_content
+    traversal["intent"]["relations"][0]["target_digest"] = (
+        "sha256:" + sha256(traversal_content.encode()).hexdigest()
+    )
+    escaped = intent.validate(
+        traversal["intent"],
+        [(file["path"], file["content"]) for file in traversal["repository"]["files"]],
+    )
+    assert escaped.as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_BROKEN",
+        "reason": "relation target is outside repository",
+    }
+
+    discontinuous = deepcopy(canonical)
+    discontinuous["intent"]["lifecycle"] = {
+        "status": "active",
+        "transitions": [transition, transition],
+        "approval": {
+            "authority_role": "repository maintainer",
+            "approval_ref": "change-request-17",
+            "approved_at": "2026-08-13T10:00:00Z",
+        },
+    }
+    invalid_history = intent.validate(discontinuous["intent"], files)
+    assert invalid_history.as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_LIFECYCLE_INVALID",
+        "reason": "lifecycle history does not reach declared status",
+    }
+
+    repository = tmp_path / "symlink-repository"
+    outside = tmp_path / "outside.md"
+    outside.write_text(files[0][1], encoding="utf-8")
+    linked = repository / files[0][0]
+    linked.parent.mkdir(parents=True)
+    linked.symlink_to(outside)
+    symlink_escape = intent.validate(canonical["intent"], repository)
+    assert symlink_escape.as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_BROKEN",
+        "reason": "relation target is outside repository",
+    }
+
+    unreadable_repository = tmp_path / "unreadable-repository"
+    unreadable_target = unreadable_repository / files[0][0]
+    unreadable_target.mkdir(parents=True)
+    assert intent.validate(canonical["intent"], unreadable_repository).as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_BROKEN",
+        "reason": "relation target cannot be read",
+    }
+
+    malformed_target = deepcopy(canonical)
+    malformed_content = '---\nid: "010"\nrelations: .ai/intent.md\n'
+    malformed_target["repository"]["files"][0]["content"] = malformed_content
+    malformed_target["intent"]["relations"][0]["target_digest"] = (
+        "sha256:" + sha256(malformed_content.encode()).hexdigest()
+    )
+    assert intent.validate(
+        malformed_target["intent"],
+        [(file["path"], file["content"]) for file in malformed_target["repository"]["files"]],
+    ).as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_BROKEN",
+        "reason": "relation target cannot be read",
+    }
+
+    malformed = repository / ".ai" / "intent.md"
+    malformed.parent.mkdir(parents=True)
+    malformed.write_text("{not-json", encoding="utf-8")
+    assert intent.validate(malformed, repository).as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_SCHEMA_INVALID",
+        "reason": "schema validation failed",
+    }
+
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    schema["unevaluatedProperties"] = False
+    undecidable_schema = tmp_path / "unsupported-schema.json"
+    undecidable_schema.write_text(json.dumps(schema), encoding="utf-8")
+    monkeypatch.setattr(intent.paths, "policy", lambda _: undecidable_schema)
+    assert intent.validate(canonical["intent"], files).as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_SCHEMA_INVALID",
+        "reason": "schema validation failed",
+    }
+
+
+def test_intent_validator_resolves_typed_targets_and_deep_graphs_without_recursion() -> None:
+    from ai_engineering import intent
+
+    corpus = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    canonical = _fixture_case(corpus, corpus["cases"][0])
+    target_path = canonical["repository"]["files"][0]["path"]
+
+    def validates(content: str, relation: dict[str, str] | None = None) -> dict[str, str]:
+        candidate = deepcopy(canonical["intent"])
+        if relation is not None:
+            candidate["relations"][0].update(relation)
+        candidate["relations"][0]["target_digest"] = (
+            "sha256:" + sha256(content.encode()).hexdigest()
+        )
+        return intent.validate(candidate, [(target_path, content)]).as_dict()
+
+    broken = {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_BROKEN",
+        "reason": "relation target identity does not match relation",
+    }
+    assert validates("# no frontmatter\n") == broken
+    assert validates("---\nstatus: draft\n---\n\n# Missing id\n") == broken
+    assert validates('---\nid: "011"\nstatus: draft\n---\n') == broken
+    assert validates('---\nid: "010"\nstatus: draft\ntype: adr\n---\n') == broken
+    assert validates('---\nid: "010"\nstatus: unknown\n---\n') == broken
+    assert (
+        validates(
+            '---\nid: "010"\nstatus: draft\n---\n',
+            {"id": "011"},
+        )
+        == broken
+    )
+    assert validates(
+        '---\nid: "010"\nstatus: draft\n---\n',
+        {"kind": "decision", "id": "0010"},
+    ) == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_SCHEMA_INVALID",
+        "reason": "schema validation failed",
+    }
+
+    decision_path = "docs/adr/0010-governed-choice.md"
+    decision = '---\ntype: adr\nid: "0010"\nstatus: proposed\n---\n\n# Governed choice\n'
+    candidate = deepcopy(canonical["intent"])
+    candidate["relations"][0] = {
+        "kind": "decision",
+        "id": "0010",
+        "path": decision_path,
+        "target_digest": "sha256:" + sha256(decision.encode()).hexdigest(),
+    }
+    assert intent.validate(candidate, [(decision_path, decision)]).as_dict() == {"outcome": "PASS"}
+    for malformed in (
+        '---\nid: "0010"\nstatus: proposed\n---\n',
+        '---\ntype: spec\nid: "0010"\nstatus: proposed\n---\n',
+        '---\ntype: adr\nid: "0011"\nstatus: proposed\n---\n',
+    ):
+        candidate["relations"][0]["target_digest"] = (
+            "sha256:" + sha256(malformed.encode()).hexdigest()
+        )
+        assert intent.validate(candidate, [(decision_path, malformed)]).as_dict() == broken
+
+    crlf = '---\r\nid: "010"\r\nstatus: draft\r\n---\r\n\r\n# Governed\r\n'
+    assert validates(crlf) == {"outcome": "PASS"}
+    malformed_utf8 = b'---\nid: "010"\nstatus: draft\n---\n\xff'
+    candidate = deepcopy(canonical["intent"])
+    candidate["relations"][0]["target_digest"] = "sha256:" + sha256(malformed_utf8).hexdigest()
+    assert intent.validate(candidate, [(target_path, malformed_utf8)]).as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_BROKEN",
+        "reason": "relation target cannot be read",
+    }
+
+    count = 1_205
+    files: list[tuple[str, str]] = []
+    for number in range(count):
+        path = f"docs/adr/{number:04d}-node.md"
+        next_path = f"docs/adr/{number + 1:04d}-node.md" if number + 1 < count else ""
+        relation_line = f"relations: {next_path}\n" if next_path else ""
+        files.append(
+            (
+                path,
+                f'---\ntype: adr\nid: "{number:04d}"\nstatus: proposed\n'
+                f"{relation_line}---\n\n# Node\n",
+            )
+        )
+    deep = deepcopy(canonical["intent"])
+    deep["relations"][0] = {
+        "kind": "decision",
+        "id": "0000",
+        "path": files[0][0],
+        "target_digest": "sha256:" + sha256(files[0][1].encode()).hexdigest(),
+    }
+    assert intent.validate(deep, files).as_dict() == {"outcome": "PASS"}
+
+    last_path, _ = files[-1]
+    files[-1] = (
+        last_path,
+        f'---\ntype: adr\nid: "{count - 1:04d}"\nstatus: proposed\nrelations: {files[0][0]}\n---\n',
+    )
+    assert intent.validate(deep, files).as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_CYCLE",
+        "reason": "relation graph contains a cycle",
+    }
+
+
+def test_intent_path_is_lexically_canonical_and_never_a_symlink(tmp_path: Path) -> None:
+    from ai_engineering import intent
+
+    corpus = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    canonical = _fixture_case(corpus, corpus["cases"][0])
+
+    def repository(name: str) -> tuple[Path, bytes]:
+        root = tmp_path / name
+        root.mkdir()
+        for file in canonical["repository"]["files"]:
+            target = root / file["path"]
+            target.parent.mkdir(parents=True)
+            target.write_text(file["content"], encoding="utf-8")
+        return root, json.dumps(canonical["intent"]).encode()
+
+    direct, payload = repository("direct")
+    canonical_path = direct / ".ai" / "intent.md"
+    canonical_path.parent.mkdir()
+    canonical_path.write_bytes(payload)
+    assert intent.validate(canonical_path, direct).as_dict() == {"outcome": "PASS"}
+    elsewhere = direct / "intent.md"
+    elsewhere.write_bytes(payload)
+    assert intent.validate(elsewhere, direct).outcome == "INCOMPLETE"
+    alias_parent = direct / "alias"
+    alias_parent.mkdir()
+    traversal_alias = alias_parent / ".." / ".ai" / "intent.md"
+    assert intent.validate(traversal_alias, direct).outcome == "INCOMPLETE"
+
+    parent_link, payload = repository("parent-link")
+    real_ai = parent_link / "real-ai"
+    real_ai.mkdir()
+    (real_ai / "intent.md").write_bytes(payload)
+    (parent_link / ".ai").symlink_to(real_ai, target_is_directory=True)
+    assert intent.validate(parent_link / ".ai" / "intent.md", parent_link).outcome == "INCOMPLETE"
+
+    file_link, payload = repository("file-link")
+    real_intent = file_link / "real-intent.md"
+    real_intent.write_bytes(payload)
+    (file_link / ".ai").mkdir()
+    (file_link / ".ai" / "intent.md").symlink_to(real_intent)
+    assert intent.validate(file_link / ".ai" / "intent.md", file_link).outcome == "INCOMPLETE"
+
+
+def test_intent_target_frontmatter_rejects_repaired_scalars_and_unicode_lines() -> None:
+    from ai_engineering import intent
+
+    corpus = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+    canonical = _fixture_case(corpus, corpus["cases"][0])
+    target_path = canonical["repository"]["files"][0]["path"]
+
+    def validates(content: str) -> dict[str, str]:
+        encoded = content.encode()
+        candidate = deepcopy(canonical["intent"])
+        candidate["relations"][0]["target_digest"] = "sha256:" + sha256(encoded).hexdigest()
+        return intent.validate(candidate, [(target_path, encoded)]).as_dict()
+
+    assert validates("---\nid: '010'\nstatus: \"draft\"\n---\n") == {"outcome": "PASS"}
+    assert validates("---\r\nid: '010'\r\nstatus: \"draft\"\r\n---\r\n") == {"outcome": "PASS"}
+
+    decision_path = "docs/adr/0010-dont-repeat-work.md"
+
+    def validates_decision(content: str) -> dict[str, str]:
+        encoded = content.encode()
+        candidate = deepcopy(canonical["intent"])
+        candidate["relations"][0] = {
+            "kind": "decision",
+            "id": "0010",
+            "path": decision_path,
+            "target_digest": "sha256:" + sha256(encoded).hexdigest(),
+        }
+        return intent.validate(candidate, [(decision_path, encoded)]).as_dict()
+
+    madr = (
+        "---\n"
+        "schema: urn:ai-engineering:madr:1\n"
+        'schema_version: "1"\n'
+        "type: adr\n"
+        'id: "0010"\n'
+        'title: "Don\'t repeat work"\n'
+        "date: 2026-08-13\n"
+        'spec: "010"\n'
+        "status: proposed\n"
+        'supersedes: ""\n'
+        "---\n"
+    )
+    assert validates_decision(madr) == {"outcome": "PASS"}
+    mixed_quotes = madr.replace(
+        'title: "Don\'t repeat work"',
+        'title: "Why "don\'t" repeat work"',
+    )
+    assert validates_decision(mixed_quotes) == {"outcome": "PASS"}
+    for control in ("\x00", "\t", "\x7f", "\u009f", "\u202e", "\u00a0"):
+        poisoned = madr.replace("Don't", f"Don{control}t")
+        assert validates_decision(poisoned)["outcome"] == "INCOMPLETE"
+
+    malformed = (
+        '---\nid: "010\nstatus: draft\n---\n',
+        '---\nid: ""010""\nstatus: draft\n---\n',
+        "---\nid: \"'010'\"\nstatus: draft\n---\n",
+        '---\nid: "010"\nstatus: ""draft""\n---\n',
+        '---\nid: "010"\nstatus: "\'draft\'"\n---\n',
+        '---\nid: "010"\nstatus: "draft\'\n---\n',
+        '---\nid: "010"\nstatus: dra"ft\n---\n',
+        '---\nid: "010"\u0085status: draft\n---\n',
+        '---\nid: "010"\u2028status: draft\n---\n',
+        '---\nid: "010"\u2029status: draft\n---\n',
+        '---\rid: "010"\rstatus: draft\r---\r',
+        '---\n# comment\nid: "010"\nstatus: draft\n---\n',
+        '---\n id: "010"\nstatus: draft\n---\n',
+        '---\nid: "010"\nstatus: draft\nunexpected: value\n---\n',
+        '---\nid: "010"\nid: "010"\nstatus: draft\n---\n',
+        '---\nid: "010"\nstatus: dra\x00ft\n---\n',
+        '---\nid: "010"\nstatus: dra\x7fft\n---\n',
+    )
+    for content in malformed:
+        result = validates(content)
+        assert result["outcome"] == "INCOMPLETE", content.encode("unicode_escape")
