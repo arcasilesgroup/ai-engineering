@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-engineering:intent:1",
+  "title": "Solution Intent v1",
+  "description": "Closed contract for the user-owned Solution Intent record.",
+  "x-canonical-home": ".ai/intent.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "type",
+    "identity",
+    "solution_intent",
+    "ownership",
+    "relations",
+    "lifecycle"
+  ],
+  "properties": {
+    "schema": {
+      "const": "urn:ai-engineering:intent:1"
+    },
+    "schema_version": {
+      "const": "1"
+    },
+    "type": {
+      "const": "intent"
+    },
+    "identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "solution_intent": {
+      "$ref": "#/$defs/solution_intent"
+    },
+    "ownership": {
+      "$ref": "#/$defs/ownership"
+    },
+    "relations": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/relation"
+      }
+    },
+    "lifecycle": {
+      "$ref": "#/$defs/lifecycle"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "lifecycle": {
+            "properties": {
+              "status": {
+                "enum": ["active", "retired"]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "solution_intent": {
+            "properties": {
+              "intended_outcomes": {
+                "minItems": 1
+              }
+            }
+          },
+          "relations": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "intent_entry": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "\\S"
+    },
+    "intent_entries": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/intent_entry"
+      }
+    },
+    "solution_intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixed_constraints", "variables", "current_facts", "intended_outcomes"],
+      "properties": {
+        "fixed_constraints": {
+          "$ref": "#/$defs/intent_entries"
+        },
+        "variables": {
+          "$ref": "#/$defs/intent_entries"
+        },
+        "current_facts": {
+          "$ref": "#/$defs/intent_entries"
+        },
+        "intended_outcomes": {
+          "$ref": "#/$defs/intent_entries"
+        }
+      }
+    },
+    "accountable_role": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z][A-Za-z0-9 _-]*$",
+      "description": "Accountable role only; never a person's name or contact data."
+    },
+    "ownership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountable_role"],
+      "properties": {
+        "accountable_role": {
+          "$ref": "#/$defs/accountable_role"
+        }
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "path", "target_digest"],
+      "properties": {
+        "kind": {
+          "enum": ["spec", "decision"]
+        },
+        "id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "target_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "spec"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "id": {
+                "pattern": "^[0-9]{3}$"
+              },
+              "path": {
+                "pattern": "^specs/[0-9]{3}-[a-z0-9]+(?:-[a-z0-9]+)*/spec\\.md$"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "id": {
+                "pattern": "^[0-9]{4}$"
+              },
+              "path": {
+                "pattern": "^docs/adr/[0-9]{4}-[a-z0-9]+(?:-[a-z0-9]+)*\\.md$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]+)?Z$"
+    },
+    "approval_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/#-]*$"
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_role", "approval_ref", "approved_at"],
+      "properties": {
+        "authority_role": {
+          "$ref": "#/$defs/accountable_role"
+        },
+        "approval_ref": {
+          "$ref": "#/$defs/approval_ref"
+        },
+        "approved_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "changed_at", "authority_role", "approval_ref"],
+      "properties": {
+        "from": {
+          "enum": ["draft", "active"]
+        },
+        "to": {
+          "enum": ["draft", "active", "retired"]
+        },
+        "changed_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "authority_role": {
+          "$ref": "#/$defs/accountable_role"
+        },
+        "approval_ref": {
+          "$ref": "#/$defs/approval_ref"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "from": {
+              "const": "draft"
+            },
+            "to": {
+              "const": "active"
+            }
+          }
+        },
+        {
+          "properties": {
+            "from": {
+              "const": "active"
+            },
+            "to": {
+              "const": "draft"
+            }
+          }
+        },
+        {
+          "properties": {
+            "from": {
+              "const": "active"
+            },
+            "to": {
+              "const": "retired"
+            }
+          }
+        }
+      ]
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "transitions"],
+      "properties": {
+        "status": {
+          "enum": ["draft", "active", "retired"]
+        },
+        "transitions": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/transition"
+          }
+        },
+        "approval": {
+          "$ref": "#/$defs/approval"
+        },
+        "retired_reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "\\S"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "draft"
+              }
+            }
+          },
+          "then": {
+            "allOf": [
+              {
+                "not": {
+                  "required": ["approval"]
+                }
+              },
+              {
+                "not": {
+                  "required": ["retired_reason"]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "active"
+              }
+            }
+          },
+          "then": {
+            "required": ["approval"],
+            "not": {
+              "required": ["retired_reason"]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "retired"
+              }
+            }
+          },
+          "then": {
+            "required": ["approval", "retired_reason"]
+          }
+        }
+      ]
+    }
+  }
+}
