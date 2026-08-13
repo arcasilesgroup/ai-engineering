@@ -5,11 +5,13 @@ from __future__ import annotations
 import json
 import re
 from copy import deepcopy
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "intent-v1.schema.json"
+FIXTURE_PATH = ROOT / "tests" / "fixtures" / "intent-v1.json"
 
 
 def _resolve(schema: dict[str, Any], root: dict[str, Any]) -> dict[str, Any]:
@@ -108,6 +110,82 @@ def _intent() -> dict[str, Any]:
         ],
         "lifecycle": {"status": "draft", "transitions": []},
     }
+
+
+def _fixture_case(corpus: dict[str, Any], case: dict[str, Any]) -> dict[str, Any]:
+    materialized = deepcopy(corpus["base"])
+    for mutation in case["mutations"]:
+        node = materialized[mutation["target"]]
+        for part in mutation["path"][:-1]:
+            node = node[part]
+        leaf = mutation["path"][-1]
+        if mutation["op"] == "remove":
+            del node[leaf]
+        elif mutation["op"] == "set":
+            node[leaf] = deepcopy(mutation["value"])
+        else:
+            assert mutation["op"] == "append"
+            node[leaf].append(deepcopy(mutation["value"]))
+    return materialized
+
+
+def _fixture_content_relations(content: str) -> list[str]:
+    lines = content.splitlines()
+    assert lines and lines[0] == "---"
+    closing = lines.index("---", 1)
+    entries = [
+        line.removeprefix("relations: ")
+        for line in lines[1:closing]
+        if line.startswith("relations: ")
+    ]
+    assert len(entries) <= 1
+    return entries[0].split(",") if entries else []
+
+
+def _fixture_graph(materialized: dict[str, Any]) -> dict[str, list[str]]:
+    return {
+        ".ai/intent.md": [relation["path"] for relation in materialized["intent"]["relations"]],
+        **{
+            file["path"]: _fixture_content_relations(file["content"])
+            for file in materialized["repository"]["files"]
+        },
+    }
+
+
+def _fixture_has_cycle(graph: dict[str, list[str]]) -> bool:
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(node: str) -> bool:
+        if node in visiting:
+            return True
+        if node in visited:
+            return False
+        visiting.add(node)
+        if any(visit(target) for target in graph.get(node, [])):
+            return True
+        visiting.remove(node)
+        visited.add(node)
+        return False
+
+    return any(visit(node) for node in graph)
+
+
+def _fixture_contract_problems(
+    corpus: dict[str, Any],
+    expected_taxonomy: dict[str, str],
+    expected_mutations: dict[str, list[dict[str, Any]]],
+) -> list[str]:
+    problems = []
+    cases = {case["id"]: case for case in corpus["cases"]}
+    paths = [file["path"] for file in corpus["base"]["repository"]["files"]]
+    if len(paths) != len(set(paths)):
+        problems.append("repository paths must be unique")
+    if {case_id: case["classification"] for case_id, case in cases.items()} != expected_taxonomy:
+        problems.append("case taxonomy differs")
+    if {case_id: case["mutations"] for case_id, case in cases.items()} != expected_mutations:
+        problems.append("case mutations differ")
+    return problems
 
 
 def test_intent_v1_schema_is_closed_and_versioned() -> None:
@@ -219,3 +297,293 @@ def test_intent_v1_schema_is_closed_and_versioned() -> None:
 
     assert invalid
     assert all(not _valid(candidate, schema, schema) for candidate in invalid)
+
+
+def test_intent_fixture_corpus_covers_valid_and_all_invalid_cases() -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    corpus = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+
+    assert corpus["schema"] == "urn:ai-engineering:intent-fixtures:1"
+    assert set(corpus) == {"schema", "base", "cases"}
+    assert set(corpus["base"]) == {"intent", "repository"}
+    assert set(corpus["base"]["repository"]) == {"files"}
+
+    cases = corpus["cases"]
+    assert len({case["id"] for case in cases}) == len(cases)
+    assert all(
+        set(case)
+        == (
+            {"id", "classification", "mutations"}
+            if case["classification"] == "valid"
+            else {"id", "classification", "mutations", "expected_incomplete"}
+        )
+        for case in cases
+    )
+    for case in cases:
+        for mutation in case["mutations"]:
+            assert mutation["target"] in {"intent", "repository"}
+            assert mutation["op"] in {"append", "remove", "set"}
+            assert mutation["path"]
+            assert set(mutation) == (
+                {"target", "op", "path"}
+                if mutation["op"] == "remove"
+                else {"target", "op", "path", "value"}
+            )
+
+    transition = {
+        "from": "draft",
+        "to": "active",
+        "changed_at": "2026-08-13T10:00:00Z",
+        "authority_role": "repository maintainer",
+        "approval_ref": "change-request-17",
+    }
+    invalid_transition = {**transition, "to": "retired"}
+    cycle_content = (
+        '---\nid: "010"\nstatus: draft\nrelations: .ai/intent.md\n---\n\n# Governed foundation\n'
+    )
+    expected_taxonomy = {
+        "canonical-draft": "valid",
+        "missing-required": "schema_invalid",
+        "unknown-root-field": "schema_invalid",
+        "unknown-nested-field": "schema_invalid",
+        "malformed-version": "schema_invalid",
+        "malformed-identity-pattern": "schema_invalid",
+        "duplicate-cardinality": "schema_invalid",
+        "conditional-active-without-approval": "schema_invalid",
+        "invalid-transition-shape": "schema_invalid",
+        "stale-digest": "semantic_invalid",
+        "broken-relation": "semantic_invalid",
+        "relation-cycle": "semantic_invalid",
+        "invalid-lifecycle-history": "semantic_invalid",
+    }
+    expected_mutations = {
+        "canonical-draft": [],
+        "missing-required": [{"target": "intent", "op": "remove", "path": ["solution_intent"]}],
+        "unknown-root-field": [
+            {
+                "target": "intent",
+                "op": "set",
+                "path": ["unexpected"],
+                "value": "not allowed",
+            }
+        ],
+        "unknown-nested-field": [
+            {
+                "target": "intent",
+                "op": "set",
+                "path": ["identity", "unexpected"],
+                "value": "not allowed",
+            }
+        ],
+        "malformed-version": [
+            {
+                "target": "intent",
+                "op": "set",
+                "path": ["schema_version"],
+                "value": "2",
+            }
+        ],
+        "malformed-identity-pattern": [
+            {
+                "target": "intent",
+                "op": "set",
+                "path": ["identity", "id"],
+                "value": "Not Valid",
+            }
+        ],
+        "duplicate-cardinality": [
+            {
+                "target": "intent",
+                "op": "append",
+                "path": ["solution_intent", "fixed_constraints"],
+                "value": "Blocking evidence must fail closed.",
+            }
+        ],
+        "conditional-active-without-approval": [
+            {
+                "target": "intent",
+                "op": "set",
+                "path": ["lifecycle", "status"],
+                "value": "active",
+            }
+        ],
+        "invalid-transition-shape": [
+            {
+                "target": "intent",
+                "op": "append",
+                "path": ["lifecycle", "transitions"],
+                "value": invalid_transition,
+            }
+        ],
+        "stale-digest": [
+            {
+                "target": "intent",
+                "op": "set",
+                "path": ["relations", 0, "target_digest"],
+                "value": "sha256:" + "0" * 64,
+            }
+        ],
+        "broken-relation": [{"target": "repository", "op": "set", "path": ["files"], "value": []}],
+        "relation-cycle": [
+            {
+                "target": "repository",
+                "op": "set",
+                "path": ["files", 0, "content"],
+                "value": cycle_content,
+            },
+            {
+                "target": "intent",
+                "op": "set",
+                "path": ["relations", 0, "target_digest"],
+                "value": "sha256:" + sha256(cycle_content.encode()).hexdigest(),
+            },
+        ],
+        "invalid-lifecycle-history": [
+            {
+                "target": "intent",
+                "op": "append",
+                "path": ["lifecycle", "transitions"],
+                "value": transition,
+            }
+        ],
+    }
+    assert not _fixture_contract_problems(corpus, expected_taxonomy, expected_mutations)
+
+    duplicate_path = deepcopy(corpus)
+    duplicate_path["base"]["repository"]["files"].append(
+        deepcopy(duplicate_path["base"]["repository"]["files"][0])
+    )
+    assert _fixture_contract_problems(duplicate_path, expected_taxonomy, expected_mutations) == [
+        "repository paths must be unique"
+    ]
+
+    taxonomy_substitution = deepcopy(corpus)
+    next(case for case in taxonomy_substitution["cases"] if case["id"] == "unknown-root-field")[
+        "classification"
+    ] = "semantic_invalid"
+    assert "case taxonomy differs" in _fixture_contract_problems(
+        taxonomy_substitution, expected_taxonomy, expected_mutations
+    )
+
+    mutation_substitution = deepcopy(corpus)
+    missing_mutations = next(
+        case for case in mutation_substitution["cases"] if case["id"] == "missing-required"
+    )["mutations"]
+    next(case for case in mutation_substitution["cases"] if case["id"] == "unknown-root-field")[
+        "mutations"
+    ] = deepcopy(missing_mutations)
+    assert "case mutations differ" in _fixture_contract_problems(
+        mutation_substitution, expected_taxonomy, expected_mutations
+    )
+
+    by_class = {
+        classification: {case["id"] for case in cases if case["classification"] == classification}
+        for classification in ("valid", "schema_invalid", "semantic_invalid")
+    }
+    assert {case["classification"] for case in cases} == set(by_class)
+    valid_ids = by_class["valid"]
+    schema_invalid_ids = by_class["schema_invalid"]
+    semantic_invalid_ids = by_class["semantic_invalid"]
+    assert valid_ids == {"canonical-draft"}
+    assert schema_invalid_ids == {
+        "missing-required",
+        "unknown-root-field",
+        "unknown-nested-field",
+        "malformed-version",
+        "malformed-identity-pattern",
+        "duplicate-cardinality",
+        "conditional-active-without-approval",
+        "invalid-transition-shape",
+    }
+    assert semantic_invalid_ids == {
+        "stale-digest",
+        "broken-relation",
+        "relation-cycle",
+        "invalid-lifecycle-history",
+    }
+
+    materialized = {case["id"]: _fixture_case(corpus, case) for case in cases}
+    assert all(_valid(materialized[case_id]["intent"], schema, schema) for case_id in valid_ids)
+    assert all(
+        not _valid(materialized[case_id]["intent"], schema, schema)
+        for case_id in schema_invalid_ids
+    )
+    assert all(
+        _valid(materialized[case_id]["intent"], schema, schema) for case_id in semantic_invalid_ids
+    )
+
+    expected = {
+        "missing-required": ("INTENT_SCHEMA_INVALID", "schema validation failed"),
+        "unknown-root-field": ("INTENT_SCHEMA_INVALID", "schema validation failed"),
+        "unknown-nested-field": ("INTENT_SCHEMA_INVALID", "schema validation failed"),
+        "malformed-version": ("INTENT_SCHEMA_INVALID", "schema validation failed"),
+        "malformed-identity-pattern": (
+            "INTENT_SCHEMA_INVALID",
+            "schema validation failed",
+        ),
+        "duplicate-cardinality": ("INTENT_SCHEMA_INVALID", "schema validation failed"),
+        "conditional-active-without-approval": (
+            "INTENT_SCHEMA_INVALID",
+            "schema validation failed",
+        ),
+        "invalid-transition-shape": (
+            "INTENT_SCHEMA_INVALID",
+            "schema validation failed",
+        ),
+        "stale-digest": ("INTENT_RELATION_STALE", "relation digest does not match target"),
+        "broken-relation": ("INTENT_RELATION_BROKEN", "relation target does not exist"),
+        "relation-cycle": ("INTENT_RELATION_CYCLE", "relation graph contains a cycle"),
+        "invalid-lifecycle-history": (
+            "INTENT_LIFECYCLE_INVALID",
+            "lifecycle history does not reach declared status",
+        ),
+    }
+    for case in cases:
+        if case["classification"] == "valid":
+            continue
+        assert case["expected_incomplete"] == {
+            "outcome": "INCOMPLETE",
+            "code": expected[case["id"]][0],
+            "reason": expected[case["id"]][1],
+        }
+
+    canonical = materialized["canonical-draft"]
+    target = canonical["repository"]["files"][0]
+    relation = canonical["intent"]["relations"][0]
+    assert relation["path"] == target["path"]
+    assert relation["target_digest"] == "sha256:" + sha256(target["content"].encode()).hexdigest()
+
+    for resolved in materialized.values():
+        assert set(resolved["repository"]) == {"files"}
+        paths = [file["path"] for file in resolved["repository"]["files"]]
+        assert len(paths) == len(set(paths))
+        for file in resolved["repository"]["files"]:
+            assert set(file) == {"path", "content"}
+            assert not file["path"].startswith("/") and ".." not in Path(file["path"]).parts
+            assert all(
+                not path.startswith("/") and ".." not in Path(path).parts
+                for path in _fixture_content_relations(file["content"])
+            )
+
+    serialized = json.dumps(corpus)
+    assert not re.search(r"/(?:Users|home)/|[A-Za-z]:\\\\", serialized)
+    assert not re.search(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b", serialized)
+
+    assert (
+        materialized["stale-digest"]["intent"]["relations"][0]["target_digest"]
+        != relation["target_digest"]
+    )
+    assert materialized["broken-relation"]["repository"]["files"] == []
+    assert not _fixture_has_cycle(_fixture_graph(canonical))
+    cycle = materialized["relation-cycle"]
+    assert _fixture_has_cycle(_fixture_graph(cycle))
+    cycle_target = cycle["repository"]["files"][0]
+    assert _fixture_content_relations(cycle_target["content"]) == [".ai/intent.md"]
+    assert (
+        cycle["intent"]["relations"][0]["target_digest"]
+        == "sha256:" + sha256(cycle_target["content"].encode()).hexdigest()
+    )
+    assert (
+        materialized["invalid-lifecycle-history"]["intent"]["lifecycle"]["transitions"][-1]["to"]
+        != materialized["invalid-lifecycle-history"]["intent"]["lifecycle"]["status"]
+    )

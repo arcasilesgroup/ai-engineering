@@ -1,0 +1,317 @@
+{
+  "schema": "urn:ai-engineering:intent-fixtures:1",
+  "base": {
+    "intent": {
+      "schema": "urn:ai-engineering:intent:1",
+      "schema_version": "1",
+      "type": "intent",
+      "identity": {
+        "id": "governed-delivery",
+        "title": "Governed delivery"
+      },
+      "solution_intent": {
+        "fixed_constraints": [
+          "Blocking evidence must fail closed."
+        ],
+        "variables": [
+          "The delivery surface may change."
+        ],
+        "current_facts": [
+          "One writer owns repository changes."
+        ],
+        "intended_outcomes": [
+          "Every green result has executed evidence."
+        ]
+      },
+      "ownership": {
+        "accountable_role": "repository maintainer"
+      },
+      "relations": [
+        {
+          "kind": "spec",
+          "id": "010",
+          "path": "specs/010-governed-foundation/spec.md",
+          "target_digest": "sha256:def473cd7789dc689cd317d9b4daa41b0fe278254436455552c9df6bdb19fbe2"
+        }
+      ],
+      "lifecycle": {
+        "status": "draft",
+        "transitions": []
+      }
+    },
+    "repository": {
+      "files": [
+        {
+          "path": "specs/010-governed-foundation/spec.md",
+          "content": "---\nid: \"010\"\nstatus: draft\n---\n\n# Governed foundation\n"
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "canonical-draft",
+      "classification": "valid",
+      "mutations": []
+    },
+    {
+      "id": "missing-required",
+      "classification": "schema_invalid",
+      "mutations": [
+        {
+          "target": "intent",
+          "op": "remove",
+          "path": [
+            "solution_intent"
+          ]
+        }
+      ],
+      "expected_incomplete": {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_SCHEMA_INVALID",
+        "reason": "schema validation failed"
+      }
+    },
+    {
+      "id": "unknown-root-field",
+      "classification": "schema_invalid",
+      "mutations": [
+        {
+          "target": "intent",
+          "op": "set",
+          "path": [
+            "unexpected"
+          ],
+          "value": "not allowed"
+        }
+      ],
+      "expected_incomplete": {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_SCHEMA_INVALID",
+        "reason": "schema validation failed"
+      }
+    },
+    {
+      "id": "unknown-nested-field",
+      "classification": "schema_invalid",
+      "mutations": [
+        {
+          "target": "intent",
+          "op": "set",
+          "path": [
+            "identity",
+            "unexpected"
+          ],
+          "value": "not allowed"
+        }
+      ],
+      "expected_incomplete": {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_SCHEMA_INVALID",
+        "reason": "schema validation failed"
+      }
+    },
+    {
+      "id": "malformed-version",
+      "classification": "schema_invalid",
+      "mutations": [
+        {
+          "target": "intent",
+          "op": "set",
+          "path": [
+            "schema_version"
+          ],
+          "value": "2"
+        }
+      ],
+      "expected_incomplete": {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_SCHEMA_INVALID",
+        "reason": "schema validation failed"
+      }
+    },
+    {
+      "id": "malformed-identity-pattern",
+      "classification": "schema_invalid",
+      "mutations": [
+        {
+          "target": "intent",
+          "op": "set",
+          "path": [
+            "identity",
+            "id"
+          ],
+          "value": "Not Valid"
+        }
+      ],
+      "expected_incomplete": {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_SCHEMA_INVALID",
+        "reason": "schema validation failed"
+      }
+    },
+    {
+      "id": "duplicate-cardinality",
+      "classification": "schema_invalid",
+      "mutations": [
+        {
+          "target": "intent",
+          "op": "append",
+          "path": [
+            "solution_intent",
+            "fixed_constraints"
+          ],
+          "value": "Blocking evidence must fail closed."
+        }
+      ],
+      "expected_incomplete": {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_SCHEMA_INVALID",
+        "reason": "schema validation failed"
+      }
+    },
+    {
+      "id": "conditional-active-without-approval",
+      "classification": "schema_invalid",
+      "mutations": [
+        {
+          "target": "intent",
+          "op": "set",
+          "path": [
+            "lifecycle",
+            "status"
+          ],
+          "value": "active"
+        }
+      ],
+      "expected_incomplete": {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_SCHEMA_INVALID",
+        "reason": "schema validation failed"
+      }
+    },
+    {
+      "id": "invalid-transition-shape",
+      "classification": "schema_invalid",
+      "mutations": [
+        {
+          "target": "intent",
+          "op": "append",
+          "path": [
+            "lifecycle",
+            "transitions"
+          ],
+          "value": {
+            "from": "draft",
+            "to": "retired",
+            "changed_at": "2026-08-13T10:00:00Z",
+            "authority_role": "repository maintainer",
+            "approval_ref": "change-request-17"
+          }
+        }
+      ],
+      "expected_incomplete": {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_SCHEMA_INVALID",
+        "reason": "schema validation failed"
+      }
+    },
+    {
+      "id": "stale-digest",
+      "classification": "semantic_invalid",
+      "mutations": [
+        {
+          "target": "intent",
+          "op": "set",
+          "path": [
+            "relations",
+            0,
+            "target_digest"
+          ],
+          "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "expected_incomplete": {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_STALE",
+        "reason": "relation digest does not match target"
+      }
+    },
+    {
+      "id": "broken-relation",
+      "classification": "semantic_invalid",
+      "mutations": [
+        {
+          "target": "repository",
+          "op": "set",
+          "path": [
+            "files"
+          ],
+          "value": []
+        }
+      ],
+      "expected_incomplete": {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_BROKEN",
+        "reason": "relation target does not exist"
+      }
+    },
+    {
+      "id": "relation-cycle",
+      "classification": "semantic_invalid",
+      "mutations": [
+        {
+          "target": "repository",
+          "op": "set",
+          "path": [
+            "files",
+            0,
+            "content"
+          ],
+          "value": "---\nid: \"010\"\nstatus: draft\nrelations: .ai/intent.md\n---\n\n# Governed foundation\n"
+        },
+        {
+          "target": "intent",
+          "op": "set",
+          "path": [
+            "relations",
+            0,
+            "target_digest"
+          ],
+          "value": "sha256:f2c422082d34b0be96cfce7f5d9297b36dd40e83f87ade4ad3636810182f61ab"
+        }
+      ],
+      "expected_incomplete": {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_RELATION_CYCLE",
+        "reason": "relation graph contains a cycle"
+      }
+    },
+    {
+      "id": "invalid-lifecycle-history",
+      "classification": "semantic_invalid",
+      "mutations": [
+        {
+          "target": "intent",
+          "op": "append",
+          "path": [
+            "lifecycle",
+            "transitions"
+          ],
+          "value": {
+            "from": "draft",
+            "to": "active",
+            "changed_at": "2026-08-13T10:00:00Z",
+            "authority_role": "repository maintainer",
+            "approval_ref": "change-request-17"
+          }
+        }
+      ],
+      "expected_incomplete": {
+        "outcome": "INCOMPLETE",
+        "code": "INTENT_LIFECYCLE_INVALID",
+        "reason": "lifecycle history does not reach declared status"
+      }
+    }
+  ]
+}
