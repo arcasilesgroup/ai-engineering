@@ -399,6 +399,48 @@ def test_mission_madr_has_options_risks_and_owner() -> None:
     assert madr.validate(ROOT).outcome == "PASS"
 
 
+def test_cli_madr_has_hard_rename_and_transition_evidence() -> None:
+    decision = ROOT / "docs" / "adr" / "0007-cli-contract.md"
+    expected = {
+        "schema": "urn:ai-engineering:madr:1",
+        "schema_version": "1",
+        "type": "adr",
+        "id": "0007",
+        "title": "Make the CLI outcome-first and exact",
+        "date": "2026-08-13",
+        "spec": "010",
+        "status": "proposed",
+        "supersedes": "",
+    }
+
+    parsed = madr._parse(decision.read_bytes())
+    assert madr._v1_fields(parsed) == expected
+    assert "authority_role" not in parsed.raw_fields
+    assert "approval_ref" not in parsed.raw_fields
+    assert "approved_at" not in parsed.raw_fields
+
+    body = " ".join(parsed.body.split())
+    assert (
+        "`init`, `doctor`, `update`, `spec`, `decide`, `accept`, `audit`, `report`, "
+        "`exception` and `uninstall`"
+    ) in body
+    assert all(
+        rename in body
+        for rename in (
+            "`--adr` to `--madr`",
+            "`plan` to `exception`",
+            "`digest` to `report digest`",
+        )
+    )
+    assert "No old spelling remains as an alias" in body
+    assert "Invalid CLI use exits 2 without writing state" in body
+    assert "source checkout and installed wheel" in body
+    assert "exactly one JSON object" in body
+    assert "Open risk:" in body
+    assert "No risk is accepted by this proposed record" in body
+    assert madr.validate(ROOT).outcome == "PASS"
+
+
 def _render_madr(record: dict[str, Any], body: str) -> str:
     lines = ["---"]
     for key, value in record.items():
