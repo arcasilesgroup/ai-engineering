@@ -7,6 +7,10 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+import pytest
+
+from ai_engineering import capability as capability_contract
+
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "capability-manifest.schema.json"
 ROOT_KEYWORDS = {
@@ -272,3 +276,125 @@ def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
     assert by_id["ai-report"][0]["network"] == []
     assert by_id["ai-report"][1]["human_gate"] == "before_publish"
     assert by_id["ai-ship"][1]["human_gate"] == "before_publish"
+
+
+def test_capability_preflight_denies_undeclared_and_unenforced_actions(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    manifest = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))
+    assert capability_contract.validate().outcome == "PASS"
+    assert (
+        capability_contract.preflight(
+            "ai-explore", "default", capability_contract.Action.read("src")
+        ).outcome
+        == "READY"
+    )
+
+    undeclared = capability_contract.preflight(
+        "ai-unknown", "default", capability_contract.Action.read("src")
+    )
+    assert undeclared.as_dict() == {
+        "outcome": "INCOMPLETE",
+        "code": "CAPABILITY_UNDECLARED",
+        "reason": "capability is not declared",
+    }
+    unknown_mode = capability_contract.preflight(
+        "ai-explore", "write", capability_contract.Action.read("src")
+    )
+    assert unknown_mode.code == "CAPABILITY_MODE_UNDECLARED"
+    assert (
+        capability_contract.preflight(
+            "ai-explore", "default", capability_contract.Action.write("src/new.py")
+        ).code
+        == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-explore", "default", capability_contract.Action.read("../outside")
+        ).code
+        == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    for target in ("", "/outside", "src/./hidden", "src\\hidden", "src/*"):
+        assert (
+            capability_contract.preflight(
+                "ai-explore", "default", capability_contract.Action.read(target)
+            ).code
+            == "CAPABILITY_ACTION_UNDECLARED"
+        )
+    smuggled = capability_contract.Action("read", path="src", secret="github.token")
+    assert (
+        capability_contract.preflight("ai-explore", "default", smuggled).code
+        == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-explore", "default", capability_contract.Action("unknown")
+        ).code
+        == "CAPABILITY_ACTION_INVALID"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-verify",
+            "default",
+            capability_contract.Action.execute("uv", "undeclared.pattern"),
+        ).code
+        == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-research",
+            "cited-web",
+            capability_contract.Action.connect("https", "example.com", "cited.research"),
+        ).code
+        == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-research",
+            "cited-web",
+            capability_contract.Action.connect("https", "api.exa.ai", "cited.research"),
+        ).code
+        == "CAPABILITY_HUMAN_GATE_REQUIRED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-build", "default", capability_contract.Action.write("src/new.py")
+        ).code
+        == "CAPABILITY_HUMAN_GATE_REQUIRED"
+    )
+
+    invalid = deepcopy(manifest)
+    invalid["capabilities"][0]["modes"][0]["enforcement"] = []
+    assert capability_contract.validate(invalid).code == "CAPABILITY_MANIFEST_INVALID"
+    assert (
+        capability_contract.preflight(
+            "ai-explore", "default", capability_contract.Action.read("src"), invalid
+        ).code
+        == "CAPABILITY_MANIFEST_INVALID"
+    )
+    repeated_proof = deepcopy(manifest)
+    repeated_proof["capabilities"][1]["modes"][0]["proof_requirements"]["allow"] = [
+        "ai-explore.default.allow"
+    ]
+    assert capability_contract.validate(repeated_proof).code == "CAPABILITY_MANIFEST_INVALID"
+
+    changed_schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    changed_schema["description"] = "mutated policy"
+    changed_schema_path = tmp_path / "schema.json"
+    changed_schema_path.write_text(json.dumps(changed_schema), encoding="utf-8")
+    with monkeypatch.context() as scoped:
+        scoped.setattr(capability_contract, "SCHEMA_PATH", changed_schema_path)
+        assert capability_contract.validate(manifest).code == "CAPABILITY_SCHEMA_UNSUPPORTED"
+
+    monkeypatch.setattr(capability_contract, "_ENFORCERS", {})
+    unavailable = capability_contract.preflight(
+        "ai-explore", "default", capability_contract.Action.read("src"), manifest
+    )
+    assert unavailable.code == "CAPABILITY_ENFORCEMENT_UNAVAILABLE"
+
+    malformed = tmp_path / "capabilities.toml"
+    malformed.write_text('schema = "broken"\nschema = "duplicate"\n', encoding="utf-8")
+    assert capability_contract.validate(malformed).code == "CAPABILITY_MANIFEST_UNREADABLE"
+    linked = tmp_path / "linked.toml"
+    linked.symlink_to(ROOT / "policy" / "capabilities.toml")
+    assert capability_contract.validate(linked).code == "CAPABILITY_MANIFEST_UNREADABLE"
