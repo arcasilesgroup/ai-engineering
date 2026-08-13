@@ -2,13 +2,52 @@
 
 ## Approval and atomicity gate
 
-No further implementation starts until a human explicitly approves **this exact `spec.md` and this exact `plan.md`**, explicitly including the SHA-256 digest of each file; any edit to either digest invalidates approval and requires re-approval. Tasks 1–9 are committed history implemented under the previous exact approval. That approved plan digest, `0bb0c7f2424a74a7bef22f128f2b29fac4f6752a487aa99196316cc26c0f5579`, is invalidated by the observed Task 9 dependency and budget facts: the committed repository tree now measures 21,188 lines, leaving only 1,119 of the provisional ceiling for 44 remaining implementation tasks, and finalizing spec010 would stale the dogfood `.ai/intent.md`. No Task 10 or later implementation may start until a human approves the new exact plan digest. The reply is the gate; no `approval.md` is created. There is exactly one repository writer before P3. Every implementation and every review is delegated; writers run sequentially, and a fresh read-only reviewer reviews each diff. No global initialization, installation, network mutation, publishing, tagging, or deployment runs without separate explicit consent. Each task is one atomic commit. A task may change exactly **one primary production, policy, documentation, or workflow file**, plus only its focused supporting test/fixture file(s); it may not change a second product home. Revisiting a primary file is allowed only for a named, distinct semantic change and a distinct commit. The sole exception is the final transition: one semantic transaction updates primary spec010, its predecessor spec004, the dogfood `.ai/intent.md`, and `src/ai_engineering/contract.py`, plus their focused readiness and contract tests, to avoid either a stale record or an intermediate line ceiling; spec010 remains the named primary. Rollback for every task is `git revert <commit>`.
+No further implementation starts until a human explicitly approves **this exact `spec.md` and this exact `plan.md`**, explicitly including the SHA-256 digest of each file; any edit to either digest invalidates approval and requires re-approval. Tasks 1–16 are committed history implemented under earlier exact approvals. The plan digest `27089d780a82e070b3cfc3a62ebc9a6158bdde626214cbe9dd1c5a5d97794bbd` is invalidated only because the human requested a different execution cadence: atomic Task checkpoints remain, but review and the full gate move from every Task to capability-block closure. No Task 17 or later implementation may start until the human approves the new exact plan digest. The reply is the gate; no `approval.md` is created.
 
-The checks for committed Tasks 1–9 are historical evidence. Every check for unstarted Tasks 10–53 is an exact future red check: run it with `uv`, using the named `path::node`; it is red now because the node/file is absent or its assertion fails, and becomes green only after that task. No broad `-k`, placeholder node, or invented green result is acceptable. P0 may verify release workflow/provenance contracts but cannot claim a release; spec 010 remains draft and boxes unticked until the final candidate proves its own exact-HEAD receipts. Remote checks select the current `HEAD` SHA and return `INCOMPLETE` when authentication or a run is unavailable. Publishing/tag authority is always a separate human decision.
+There is exactly one repository writer before P3. One delegated writer executes the Tasks in a block sequentially; a fresh independent read-only reviewer reviews the closed block before any later block may consume it. No global initialization, installation, network mutation, publishing, tagging, or deployment runs without separate explicit consent. Each Task remains one atomic commit. A Task may change exactly **one primary production, policy, documentation, or workflow file**, plus only its focused supporting test/fixture file(s); it may not change a second product home. Revisiting a primary file is allowed only for a named, distinct semantic change and a distinct commit. A block-review repair may revisit the affected Task's primary file only to resolve a named ledger finding; it remains an atomic commit inside that Task's original scope, and a finding never authorizes a second product home or broader behavior. The sole exception is the final transition: one semantic transaction updates primary spec010, its predecessor spec004, the dogfood `.ai/intent.md`, and `src/ai_engineering/contract.py`, plus their focused readiness and contract tests, to avoid either a stale record or an intermediate line ceiling; spec010 remains the named primary. Rollback for every Task and repair commit is `git revert <commit>`.
+
+The checks for committed Tasks 1–16 are historical evidence. Every check for unstarted Tasks 17–53 is an exact future red check: run it with `uv`, using the named `path::node`; it is red now because the node/file is absent or its assertion fails, and becomes green only after that Task. No broad `-k`, placeholder node, or invented green result is acceptable. P0 may verify release workflow/provenance contracts but cannot claim a release; spec 010 remains draft and boxes unticked until the final candidate proves its own exact-HEAD receipts. Remote checks select the current `HEAD` SHA and return `INCOMPLETE` when authentication or a run is unavailable. Publishing/tag authority is always a separate human decision.
+
+Any Task 17 bytes written before this cadence amendment remain inert, preserved outside the
+worktree, and are not a checkpoint. After exact approval, Task 17 starts from the clean
+Task 16 HEAD: observe its named red check there, restore only its authorized two-file diff,
+verify the green checkpoint controls below, and then create its UNREVIEWED commit.
 
 Task 1 records a provisional maximum of **17,807 + 4,500 = 22,307 lines** in `contract.py`. Exceeding 22,307 stops work and requires an approved re-plan; it is not permission to raise the ceiling. The final candidate transaction measures the committed tree and removes slack.
 
 The observed first nine tasks added 3,381 lines, or about 376 lines per task. Applying that observed rate to the 44 remaining implementation tasks forecasts 16,544 more lines. Task 10 therefore re-plans the P0 maximum to **17,807 + 20,000 = 37,807 lines**. Exceeding 37,807 is still a hard stop requiring another approved re-plan, never permission to raise the ceiling; the final candidate transaction still removes all slack.
+
+## Block checkpoint and review protocol
+
+The optimization removes repeated hand-offs, not evidence. Before the first Task in a block, record the exact base SHA. For every Task checkpoint the single writer must:
+
+1. confirm the authorized one-primary-file scope and run the named focal check red for the expected reason;
+2. implement only that Task, make the focal check green, and run the immediate module suite when one exists;
+3. run `git diff --check` and scan the changed content for secrets, personal data, machine paths, suppression comments, compatibility shims, and out-of-scope writes;
+4. create one verified, revertible commit without `--no-verify`; and
+5. label the hand-off **UNREVIEWED**. It is not approved, done, mergeable, publishable, a dependency for another block, or evidence of `PASS`.
+
+`UNREVIEWED` is derived from the absence of a clean block review and gate; a commit message,
+model statement, test label, or metadata field cannot turn it into approval. A Task's
+existing “done when” sentence means only that its checkpoint is eligible to enter the
+block review. The writer continues directly to the next Task in the same block. A full
+semantic review and `just check` do **not** run after each Task. The block closes before any
+later block depends on it. At closure:
+
+1. freeze writes and run the block's named related suite;
+2. give one fresh read-only reviewer the recorded base SHA, every checkpoint commit, and the accumulated range;
+3. review each commit against its parent for Task scope and rollback, then the full range for architecture, integration, authority, fail-closed behavior, untrusted input, filesystem/Git/concurrency boundaries, security, privacy, and test strength;
+4. return one consolidated finding ledger; the same writer resolves it in the smallest atomic repair commit or commits, and the reviewer performs one bounded re-review of those findings;
+5. run `git diff --check` and `just check` once after review is clean. Re-run `just check` only when that run fails and code changes to fix it; and
+6. report in the block hand-off the base, final HEAD, reviewed commits, related-suite output, reviewer disposition, repair commits, and gate output. This execution evidence does not create a new repository home or grant product authority. Only then is the block approved and available to the next block.
+
+If a Task exposes a new authority or terminal outcome, fail-closed guard or blocking dispatcher path, parser of untrusted input, Git-history/filesystem/symlink/concurrency transaction, global mutation, network/release action, or evidence/provenance gate that later Tasks would consume, close the current prefix as an early sub-block before continuing. This is an exceptional dependency boundary, not a return to review-after-every-Task.
+
+Absent an evidenced early boundary, the remaining cadence is exactly four block-review
+starts plus one final cross-block review, rather than one review start for each of the 37
+remaining Tasks.
+
+The committed tree after Task 16 measures 24,207 lines, leaving 13,600 under `REPO_CEILING`. Every block gate observes the executable ceiling. Reaching or exceeding 37,807 stops work and requires another exact approved re-plan; batching is never permission to raise or bypass it.
 
 ## Ordered P0 atomic tasks
 
@@ -92,6 +131,12 @@ The observed first nine tasks added 3,381 lines, or about 376 lines per task. Ap
     **rollback**: `git revert <commit>`.
    **done when**: uses `--madr` as the only spelling and hard-rejects `--adr`; no compatibility alias.
 
+### Block A — governed contract foundation (Tasks 17–26)
+
+The block result is the complete MADR, capability, outcome, and evidence foundation. Task
+checkpoints remain UNREVIEWED until the block closes. The required related suite is:
+`uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_madr.py tests/test_capabilities.py tests/test_outcomes.py tests/test_evidence.py`.
+
 17. **MADR Intent supersession record** — **file** `docs/adr/0005-intent-supersedes-0004.md`.
     **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_madr.py::test_intent_supersession_madr_is_complete`.
     **rollback**: `git revert <commit>`.
@@ -141,6 +186,12 @@ The observed first nine tasks added 3,381 lines, or about 376 lines per task. Ap
     **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_evidence.py::test_evidence_verifier_distinguishes_fail_missing_stale_malformed_and_digest_mismatch`.
     **rollback**: `git revert <commit>`.
    **done when**: distinguishes executed FAIL from missing/stale/malformed/digest-mismatched evidence and never treats labels as proof.
+
+### Block B — emission, UI, and ten-verb integration (Tasks 27–39)
+
+Block B cannot start until Block A is approved. Its result is one integrated CLI contract
+over the governed foundations. The required related suite is:
+`uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_hooks.py tests/test_ui.py tests/test_cli_migration.py`.
 
 27. **Hot-path IDs and emission** — **file** `hooks/_emit.py`.
     **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_hooks.py::test_emit_is_stdlib_only_and_assigns_opaque_operation_and_trace_ids`.
@@ -207,6 +258,13 @@ The observed first nine tasks added 3,381 lines, or about 376 lines per task. Ap
     **rollback**: `git revert <commit>`.
    **done when**: uninstall is explicit, receipt-aware, and refuses ambiguous/global mutation.
 
+### Block C — enforcement and observable wiring (Tasks 40–44)
+
+Block C cannot start until Block B is approved. Its result is observed guard, dispatcher,
+wiring, and git-anchor liveness without converting telemetry into authority. The required
+related suite is:
+`uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_hooks.py tests/test_install.py tests/test_doctor.py`.
+
 40. **Guard hard rename** — **file** `hooks/change_scope_guard.py`.
     **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_hooks.py::test_change_scope_guard_is_hard_rename_of_design_gate`.
     **rollback**: `git revert <commit>`.
@@ -233,6 +291,13 @@ The observed first nine tasks added 3,381 lines, or about 376 lines per task. Ap
    **done when**: assertion 11 executes no shell or arbitrary configured command: it requires `ai.eng` to decompose exactly to the current `sys.executable` plus `-m ai_engineering.cli`, safely executes the argument list for `audit --anchor` with a timeout and isolated `HOME`, and requires exit 0 plus exactly one valid footer; mismatch, dead module, timeout, or invalid footer is `INCOMPLETE` with the consented cure `ai-eng init --project`.
 
 The `commit-msg` telemetry hook intentionally remains fail-open so it cannot block Git. Tasks 43–44 make anchor liveness observable at installation and diagnosis; they do not convert telemetry into a guard.
+
+### Block D — candidate evidence and readiness (Tasks 45–52)
+
+Block D cannot start until Block C is approved. Its result is the local/static candidate
+evidence pack; it grants no release, push, tag, or publication authority. The required
+related suite is:
+`uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py tests/test_readiness.py tests/test_p0_completeness.py`.
 
 45. **Quality gate workflow** — **file** `.github/workflows/check.yml`.
    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_check_workflow_marks_missing_or_skipped_evidence_incomplete`.
@@ -274,6 +339,14 @@ The `commit-msg` telemetry hook intentionally remains fail-open so it cannot blo
     **rollback**: `git revert <commit>`.
    **done when**: one primary test maps every P0 requirement, rejects P1–P5 requirements and aliases, and runs inside `just check`.
 
+### Final cross-block integration and candidate (Task 53)
+
+Task 53 cannot start until Blocks A–D are approved. Its reviewer is fresh to the final
+candidate and treats the block reviews as evidence, not as a substitute for checking the
+integrated system. The final review covers Spec 010 traceability, cross-block contracts,
+authority and evidence flows, hard-renamed surfaces and removed aliases/homes, installed
+wheel behavior, CI/readiness/provenance, exact budget closure, and exact-HEAD receipts.
+
 53. **Final candidate: exact ceiling, record transition, and dogfood refresh** — **file** `specs/010-governed-agentic-engineering-foundation/spec.md`; **same atomic transaction also changes** `specs/004-solution-intent-home/spec.md`, `.ai/intent.md`, `src/ai_engineering/contract.py`, `tests/test_readiness.py`, and `tests/test_contracts.py`.
     **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_readiness.py::test_spec_010_004_intent_and_ceiling_transition_atomically`.
     **rollback**: `git revert <commit>`.
@@ -292,7 +365,9 @@ Each deferred wave requires its own exact spec/plan approval, atomic tasks, red 
 
 ## Final candidate and receipt sequence
 
-After Tasks 10–52 and their reviews pass, Task 53 creates and reviews the last local candidate commit. Nothing says Task 53 runs after receipts: its own immutable candidate SHA is the subject the receipts must prove. Before any push, record that SHA and run Task 53's focused static check, `git diff --check`, `just check`, `uv run python tests/adversarial/run.py`, `just mutate`, and the exact static release-workflow check from Task 47. The focused test has no network or live-receipt dependency; its static invariants therefore run locally and inside the candidate's CI. Failure is `INCOMPLETE` and the candidate is reverted.
+After Blocks A–D and their gates pass, Task 53 creates the last local candidate commit. A fresh final reviewer inspects that commit and the complete Task 17–53 range against the final cross-block scope above. Any finding makes the candidate `INCOMPLETE`: revert Task 53, repair the responsible earlier Task or block atomically, repeat that bounded block review/gate, and create a new Task 53 candidate whose exact line count includes every repair. The final review must be clean before push consent is requested.
+
+Nothing says Task 53 runs after receipts: its own immutable candidate SHA is the subject the receipts must prove. Before any push, record that SHA and run Task 53's focused static check, `git diff --check`, `just check`, `uv run python tests/adversarial/run.py`, `just mutate`, and the exact static release-workflow check from Task 47. The focused test has no network or live-receipt dependency; its static invariants therefore run locally and inside the candidate's CI. Failure is `INCOMPLETE` and the candidate is reverted.
 
 Only with separate push consent, push that unchanged candidate and capture its exact-HEAD check and installed-matrix receipts with:
 ```
