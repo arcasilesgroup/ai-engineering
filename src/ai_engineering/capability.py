@@ -142,6 +142,16 @@ class Preflight:
         return result
 
 
+@dataclass(frozen=True, slots=True)
+class Effects:
+    write_paths: tuple[str, ...] = ()
+    network: tuple[tuple[str, str, str], ...] = ()
+    secrets: tuple[str, ...] = ()
+
+
+_CommandMatcher = Callable[[tuple[str, ...]], Effects | None]
+
+
 def _canonical_json(value: Any) -> bytes:
     return json.dumps(
         value, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True
@@ -342,34 +352,120 @@ def _prefix(argv: tuple[str, ...], prefix: tuple[str, ...]) -> bool:
     return len(argv) >= len(prefix) and argv[: len(prefix)] == prefix
 
 
-def _git_read(argv: tuple[str, ...]) -> bool:
-    return len(argv) >= 2 and argv[1] in {
+def _git_subcommand(argv: tuple[str, ...]) -> tuple[str, tuple[str, ...]] | None:
+    if len(argv) < 2 or argv[1].startswith("-"):
+        return None
+    return argv[1], argv[2:]
+
+
+def _git_read(argv: tuple[str, ...]) -> Effects | None:
+    parsed = _git_subcommand(argv)
+    if parsed is None:
+        return None
+    command, arguments = parsed
+    if command not in {
         "diff",
         "log",
         "ls-files",
         "rev-parse",
         "show",
         "status",
+    }:
+        return None
+    forbidden = {
+        "--exec-path",
+        "--ext-diff",
+        "--no-index",
+        "--no-pager",
+        "--paginate",
+        "--path-format=absolute",
+        "--textconv",
     }
+    if any(
+        item in forbidden
+        or item.startswith(("--exec-path=", "--output=", "--path-format="))
+        or item in {"-o", "--output"}
+        for item in arguments
+    ):
+        return None
+    return Effects()
 
 
-def _git_change(argv: tuple[str, ...]) -> bool:
-    return len(argv) >= 2 and argv[1] in {"add", "mv", "restore", "rm"}
+def _git_change(argv: tuple[str, ...]) -> Effects | None:
+    parsed = _git_subcommand(argv)
+    if parsed is None:
+        return None
+    command, arguments = parsed
+    if command not in {"add", "restore", "rm"} or "--" not in arguments:
+        return None
+    separator = arguments.index("--")
+    targets = arguments[separator + 1 :]
+    if not targets or any(_normal_path(target) is None for target in targets):
+        return None
+    allowed_options = {
+        "add": {"-A", "--all", "-u", "--update"},
+        "restore": {"--staged", "--worktree"},
+        "rm": {"-r", "--recursive"},
+    }[command]
+    if any(option not in allowed_options for option in arguments[:separator]):
+        return None
+    return Effects(write_paths=targets)
 
 
-def _git_commit(argv: tuple[str, ...]) -> bool:
-    forbidden = {"--no-verify"}
-    return _prefix(argv, ("git", "commit")) and forbidden.isdisjoint(argv[2:])
+def _git_commit(argv: tuple[str, ...]) -> Effects | None:
+    forbidden = {"--all", "--amend", "--include", "--no-verify", "-a", "-i"}
+    parsed = _git_subcommand(argv)
+    if parsed is None or parsed[0] != "commit":
+        return None
+    arguments = parsed[1]
+    if any(
+        item in forbidden
+        or (item.startswith("-") and "a" in item[1:] and not item.startswith("--"))
+        or item.startswith("--fixup=")
+        for item in arguments
+    ):
+        return None
+    return Effects(write_paths=(".",))
 
 
-def _git_push(argv: tuple[str, ...]) -> bool:
+def _git_push(argv: tuple[str, ...]) -> Effects | None:
     forbidden = {"-f", "--force", "--force-with-lease"}
-    return _prefix(argv, ("git", "push")) and forbidden.isdisjoint(argv[2:])
+    parsed = _git_subcommand(argv)
+    if parsed is None or parsed[0] != "push" or not forbidden.isdisjoint(parsed[1]):
+        return None
+    return Effects(
+        network=(("https", "api.github.com", "pull-request.publish"),),
+        secrets=("github.token",),
+    )
 
 
-def _uv_check(argv: tuple[str, ...]) -> bool:
+def _ai_eng_spec(argv: tuple[str, ...]) -> Effects | None:
+    if len(argv) != 4 or argv[:3] != ("ai-eng", "spec", "new"):
+        return None
+    return Effects(write_paths=("specs",))
+
+
+def _github_issue(argv: tuple[str, ...]) -> Effects | None:
+    if not _prefix(argv, ("gh", "issue", "create")):
+        return None
+    return Effects(
+        network=(("https", "api.github.com", "issue.publish"),),
+        secrets=("github.token",),
+    )
+
+
+def _github_pr(argv: tuple[str, ...]) -> Effects | None:
+    if not _prefix(argv, ("gh", "pr", "create")):
+        return None
+    return Effects(
+        network=(("https", "api.github.com", "pull-request.publish"),),
+        secrets=("github.token",),
+    )
+
+
+def _uv_unproven(argv: tuple[str, ...]) -> Effects | None:
     if not _prefix(argv, ("uv", "run")):
-        return False
+        return None
     allowed = {"coverage", "pytest", "ruff"}
     index = 2
     value_options = {"--directory", "--project", "--python", "--with"}
@@ -381,49 +477,66 @@ def _uv_check(argv: tuple[str, ...]) -> bool:
         if item.startswith("--with=") or item in {"--no-project", "--offline"}:
             index += 1
             continue
-        return item in allowed
-    return False
+        if item not in allowed:
+            return None
+        raise LookupError("uv command effects are not proven by an installed matcher")
+    return None
 
 
-_ARGUMENT_MATCHERS: Mapping[tuple[str, str], Callable[[tuple[str, ...]], bool]] = MappingProxyType(
+def _unproven_command(argv: tuple[str, ...]) -> Effects | None:
+    del argv
+    raise LookupError("command effects are not proven by an installed matcher")
+
+
+_ARGUMENT_MATCHERS: Mapping[tuple[str, str], _CommandMatcher] = MappingProxyType(
     {
-        ("ai-eng", "spec.new"): lambda argv: _prefix(argv, ("ai-eng", "spec", "new")),
-        ("gh", "issue.create"): lambda argv: _prefix(argv, ("gh", "issue", "create")),
-        ("gh", "pr.create"): lambda argv: _prefix(argv, ("gh", "pr", "create")),
+        ("ai-eng", "spec.new"): _ai_eng_spec,
+        ("gh", "issue.create"): _github_issue,
+        ("gh", "pr.create"): _github_pr,
         ("git", "commit"): _git_commit,
         ("git", "push"): _git_push,
         ("git", "read-only"): _git_read,
         ("git", "scoped.change"): _git_change,
-        ("gitleaks", "repository.scan"): lambda argv: _prefix(argv, ("gitleaks", "dir")),
-        ("just", "check"): lambda argv: argv == ("just", "check"),
-        ("just", "declared.recipe"): lambda argv: (
-            len(argv) == 2 and re.fullmatch(r"[A-Za-z0-9_.-]+", argv[1]) is not None
-        ),
-        ("npm", "declared.check"): lambda argv: _prefix(argv, ("npm", "exec", "--")),
-        ("npm", "run.dev"): lambda argv: argv == ("npm", "run", "dev"),
-        ("semgrep", "repository.scan"): lambda argv: _prefix(argv, ("semgrep", "scan")),
-        ("trivy", "repository.scan"): lambda argv: _prefix(argv, ("trivy", "fs")),
-        ("uv", "declared.check"): _uv_check,
+        ("gitleaks", "repository.scan"): _unproven_command,
+        ("just", "check"): _unproven_command,
+        ("just", "declared.recipe"): _unproven_command,
+        ("npm", "declared.check"): _unproven_command,
+        ("npm", "run.dev"): _unproven_command,
+        ("semgrep", "repository.scan"): _unproven_command,
+        ("trivy", "repository.scan"): _unproven_command,
+        ("uv", "declared.check"): _uv_unproven,
     }
 )
 
 
-def _exec_allowed(mode: dict[str, Any], action: Action) -> bool:
+def _effects_allowed(mode: dict[str, Any], effects: Effects) -> bool:
+    if any(not _within(path, mode["write_roots"]) for path in effects.write_paths):
+        return False
+    if any(
+        {"protocol": protocol, "host": host, "purpose": purpose} not in mode["network"]
+        for protocol, host, purpose in effects.network
+    ):
+        return False
+    return not (set(effects.secrets) - set(mode["secrets"]))
+
+
+def _exec_allowed(mode: dict[str, Any], action: Action) -> tuple[bool, Effects]:
     if (
         action != Action.execute(*action.argv)
         or not action.argv
         or not all(isinstance(item, str) and item and "\x00" not in item for item in action.argv)
     ):
-        return False
+        return False, Effects()
     executable = action.argv[0]
     declared = [entry for entry in mode["exec_allowlist"] if entry["executable"] == executable]
     for entry in declared:
         matcher = _ARGUMENT_MATCHERS.get((executable, entry["argument_pattern"]))
         if matcher is None:
             raise LookupError("declared argument matcher is not installed")
-        if matcher(action.argv):
-            return True
-    return False
+        effects = matcher(action.argv)
+        if effects is not None:
+            return _effects_allowed(mode, effects), effects
+    return False, Effects()
 
 
 def _network_allowed(mode: dict[str, Any], action: Action) -> bool:
@@ -436,7 +549,7 @@ def _secret_allowed(mode: dict[str, Any], action: Action) -> bool:
     return action == Action.use_secret(action.secret) and action.secret in mode["secrets"]
 
 
-_Enforcer = Callable[[dict[str, Any], Action], bool]
+_Enforcer = Callable[[dict[str, Any], Action], bool | tuple[bool, Effects]]
 _ACTION_CONTROLS = {
     "read": "preflight.read",
     "write": "preflight.write",
@@ -466,6 +579,16 @@ def _gate_applies(gate: str, action: Action) -> bool:
             "before_publish": {"exec", "network", "secret"},
         }[gate]
     )
+
+
+def _effects_need_gate(gate: str, effects: Effects) -> bool:
+    return {
+        "never": False,
+        "before_write": bool(effects.write_paths),
+        "before_exec": False,
+        "before_network": bool(effects.network),
+        "before_publish": bool(effects.network or effects.secrets),
+    }[gate]
 
 
 def _incomplete(problem: tuple[str, str]) -> Preflight:
@@ -500,12 +623,17 @@ def preflight(
     if control not in mode["enforcement"]:
         return _incomplete(ACTION_UNDECLARED)
     try:
-        allowed = enforce(mode, action)
+        decision = enforce(mode, action)
     except (KeyError, LookupError, TypeError, ValueError):
         return _incomplete(ENFORCEMENT_UNAVAILABLE)
+    effects = Effects()
+    if isinstance(decision, tuple):
+        allowed, effects = decision
+    else:
+        allowed = decision
     if not allowed:
         return _incomplete(ACTION_UNDECLARED)
-    if _gate_applies(mode["human_gate"], action):
+    if _gate_applies(mode["human_gate"], action) or _effects_need_gate(mode["human_gate"], effects):
         return _incomplete(HUMAN_GATE_REQUIRED)
     if not binds_operation:
         return _incomplete(ENFORCEMENT_UNAVAILABLE)
@@ -520,6 +648,11 @@ def preflight(
             "host": action.host,
             "purpose": action.purpose,
             "secret": action.secret,
+        },
+        "effects": {
+            "write_paths": list(effects.write_paths),
+            "network": [list(destination) for destination in effects.network],
+            "secrets": list(effects.secrets),
         },
     }
     authorization = Authorization(

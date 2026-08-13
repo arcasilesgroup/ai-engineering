@@ -285,13 +285,13 @@ def test_capability_preflight_denies_undeclared_and_unenforced_actions(
     assert capability_contract.validate().outcome == "PASS"
 
     execution = capability_contract.preflight(
-        "ai-verify",
+        "ai-review",
         "default",
-        capability_contract.Action.execute("uv", "run", "pytest", "-q"),
+        capability_contract.Action.execute("git", "status", "--short"),
     )
     assert execution.outcome == "READY"
     assert execution.authorization is not None
-    assert execution.authorization.action.argv == ("uv", "run", "pytest", "-q")
+    assert execution.authorization.action.argv == ("git", "status", "--short")
     assert re.fullmatch(r"sha256:[0-9a-f]{64}", execution.authorization.action_digest)
 
     filesystem = capability_contract.preflight(
@@ -351,11 +351,80 @@ def test_capability_preflight_denies_undeclared_and_unenforced_actions(
     )
     assert (
         capability_contract.preflight(
+            "ai-verify",
+            "default",
+            capability_contract.Action.execute("uv", "run", "pytest", "-q"),
+        ).code
+        == "CAPABILITY_ENFORCEMENT_UNAVAILABLE"
+    )
+    assert (
+        capability_contract.preflight(
             "ai-review",
             "default",
             capability_contract.Action.execute("git", "reset", "--hard"),
         ).code
         == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    for argv in (
+        ("git", "diff", "--output=/tmp/copied.diff"),
+        ("git", "diff", "--ext-diff"),
+        ("git", "diff", "--textconv"),
+        ("git", "diff", "--no-index", "/etc/hosts", "/etc/passwd"),
+        ("git", "-c", "diff.external=helper", "diff"),
+    ):
+        assert (
+            capability_contract.preflight(
+                "ai-review", "default", capability_contract.Action.execute(*argv)
+            ).code
+            == "CAPABILITY_ACTION_UNDECLARED"
+        )
+    assert (
+        capability_contract.preflight(
+            "ai-note",
+            "default",
+            capability_contract.Action.execute("git", "rm", "-r", "--", "src"),
+        ).code
+        == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-note",
+            "default",
+            capability_contract.Action.execute("git", "rm", "-r", "--", "docs/notes/old.md"),
+        ).code
+        == "CAPABILITY_HUMAN_GATE_REQUIRED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-build",
+            "default",
+            capability_contract.Action.execute("git", "rm", "-r", "--", "."),
+        ).code
+        == "CAPABILITY_HUMAN_GATE_REQUIRED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-ship",
+            "commit",
+            capability_contract.Action.execute("git", "commit", "-am", "message"),
+        ).code
+        == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-ship",
+            "commit",
+            capability_contract.Action.execute("git", "commit", "-m", "message"),
+        ).code
+        == "CAPABILITY_HUMAN_GATE_REQUIRED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-spec",
+            "default",
+            capability_contract.Action.execute("ai-eng", "spec", "new", "decision"),
+        ).code
+        == "CAPABILITY_HUMAN_GATE_REQUIRED"
     )
     assert (
         capability_contract.preflight(
@@ -437,17 +506,17 @@ def test_capability_preflight_denies_undeclared_and_unenforced_actions(
     with monkeypatch.context() as scoped:
         scoped.setattr(capability_contract, "_ENFORCERS", {})
         unavailable = capability_contract.preflight(
-            "ai-verify",
+            "ai-review",
             "default",
-            capability_contract.Action.execute("uv", "run", "pytest", "-q"),
+            capability_contract.Action.execute("git", "status", "--short"),
         )
         assert unavailable.code == "CAPABILITY_ENFORCEMENT_UNAVAILABLE"
     with monkeypatch.context() as scoped:
         scoped.setattr(capability_contract, "_ARGUMENT_MATCHERS", {})
         unavailable = capability_contract.preflight(
-            "ai-verify",
+            "ai-review",
             "default",
-            capability_contract.Action.execute("uv", "run", "pytest", "-q"),
+            capability_contract.Action.execute("git", "status", "--short"),
         )
         assert unavailable.code == "CAPABILITY_ENFORCEMENT_UNAVAILABLE"
 
