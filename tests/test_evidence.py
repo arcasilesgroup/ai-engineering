@@ -1,0 +1,193 @@
+from __future__ import annotations
+
+import json
+from copy import deepcopy
+from datetime import date, datetime
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).parents[1]
+SCHEMA_PATH = ROOT / "policy" / "check-evidence-v1.schema.json"
+COMMON = [
+    "schema",
+    "schema_version",
+    "kind",
+    "id",
+    "applicability",
+    "command",
+    "tool_version",
+    "input_digest",
+    "artifact_digest",
+    "started_at",
+    "finished_at",
+    "max_age_seconds",
+    "outcome",
+]
+HUMAN = [
+    "test_id",
+    "owner_role",
+    "protocol_id",
+    "protocol_version",
+    "environment_id",
+    "environment_version",
+    "observation_date",
+    "receipt_digest",
+]
+
+
+def _format(value: str, name: str) -> bool:
+    try:
+        if name == "date":
+            return date.fromisoformat(value).isoformat() == value
+        parsed = datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
+        return value.endswith("Z") and parsed.utcoffset().total_seconds() == 0
+    except (AttributeError, ValueError):
+        return False
+
+
+def _resolve(node: dict[str, Any], root: dict[str, Any]) -> dict[str, Any]:
+    reference = node.get("$ref")
+    return root["$defs"][reference.removeprefix("#/$defs/")] if reference else node
+
+
+def _valid(value: Any, node: dict[str, Any], root: dict[str, Any]) -> bool:
+    node = _resolve(node, root)
+    if "const" in node and value != node["const"]:
+        return False
+    if "enum" in node and value not in node["enum"]:
+        return False
+    expected = node.get("type")
+    if expected == "object" and not isinstance(value, dict):
+        return False
+    if expected == "string" and not isinstance(value, str):
+        return False
+    if expected == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
+        return False
+    if isinstance(value, str):
+        if len(value) < node.get("minLength", 0):
+            return False
+        if "pattern" in node and __import__("re").search(node["pattern"], value) is None:
+            return False
+        if "format" in node and not _format(value, node["format"]):
+            return False
+    if isinstance(value, int) and value < node.get("minimum", value):
+        return False
+    if isinstance(value, dict):
+        if set(node.get("required", ())) - set(value):
+            return False
+        properties = node.get("properties", {})
+        if node.get("additionalProperties") is False and set(value) - set(properties):
+            return False
+        if any(
+            key in value and not _valid(value[key], rule, root) for key, rule in properties.items()
+        ):
+            return False
+    if "allOf" in node and not all(_valid(value, rule, root) for rule in node["allOf"]):
+        return False
+    if "anyOf" in node and not any(_valid(value, rule, root) for rule in node["anyOf"]):
+        return False
+    if "not" in node and _valid(value, node["not"], root):
+        return False
+    if "if" in node:
+        branch = "then" if _valid(value, node["if"], root) else "else"
+        if branch in node and not _valid(value, node[branch], root):
+            return False
+    return True
+
+
+def _record(kind: str = "automated") -> dict[str, Any]:
+    record = {
+        "schema": "urn:ai-engineering:check-evidence:1",
+        "schema_version": "1",
+        "kind": kind,
+        "id": "quality.test",
+        "applicability": "applicable",
+        "command": "just test",
+        "tool_version": "pytest-9.1.1",
+        "input_digest": "sha256:" + "a" * 64,
+        "artifact_digest": "sha256:" + "b" * 64,
+        "started_at": "2026-08-13T20:00:00Z",
+        "finished_at": "2026-08-13T20:01:00Z",
+        "max_age_seconds": 86400,
+        "outcome": "PASS",
+    }
+    if kind in {"human", "external"}:
+        record.update(
+            test_id="journey.checkout",
+            owner_role="product maintainer",
+            protocol_id="checkout.protocol",
+            protocol_version="1",
+            environment_id="release.fixture",
+            environment_version="1",
+            observation_date="2026-08-13",
+            receipt_digest="sha256:" + "c" * 64,
+        )
+    if kind == "external":
+        record.update(independent_path="external.checkout", limits="One clean fixture")
+    return record
+
+
+def test_check_evidence_schema_requires_receipt_owner_protocol_and_independence() -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    assert set(schema) == {
+        "$defs",
+        "$id",
+        "$schema",
+        "additionalProperties",
+        "allOf",
+        "description",
+        "properties",
+        "required",
+        "title",
+        "type",
+        "x-evidence-policy",
+    }
+    assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    assert schema["$id"] == "urn:ai-engineering:check-evidence:1"
+    assert schema["additionalProperties"] is False
+    assert schema["required"] == COMMON
+    assert schema["properties"]["input_digest"] == {"$ref": "#/$defs/digest"}
+    assert schema["properties"]["artifact_digest"] == {"$ref": "#/$defs/digest"}
+    assert schema["properties"]["receipt_digest"] == {"$ref": "#/$defs/digest"}
+    assert schema["x-evidence-policy"] == {
+        "freshness_field": "max_age_seconds",
+        "missing": "INCOMPLETE",
+        "stale": "INCOMPLETE",
+        "malformed": "INCOMPLETE",
+        "digest_mismatch": "INCOMPLETE",
+        "executed_fail": "FAIL",
+        "metadata_is_proof": False,
+        "not_applicable_covers_applicable": False,
+        "independent_kind": "external",
+    }
+    assert all(_valid(_record(kind), schema, schema) for kind in ("automated", "human", "external"))
+
+    invalid = []
+    for field in HUMAN:
+        candidate = _record("human")
+        del candidate[field]
+        invalid.append(candidate)
+    for field in ("independent_path", "limits"):
+        candidate = _record("external")
+        del candidate[field]
+        invalid.append(candidate)
+    for field in [*HUMAN, "independent_path", "limits"]:
+        candidate = _record()
+        candidate[field] = _record("external")[field]
+        invalid.append(candidate)
+    not_applicable = _record()
+    not_applicable["applicability"] = "not_applicable"
+    invalid.append(not_applicable)
+    invented = {**_record(), "green": True}
+    invalid.append(invented)
+    bad_digest = {**_record(), "artifact_digest": "sha256:ABC"}
+    invalid.append(bad_digest)
+    bad_age = {**_record(), "max_age_seconds": 0}
+    invalid.append(bad_age)
+    assert all(not _valid(candidate, schema, schema) for candidate in invalid)
+
+    not_applicable["reason"] = "No deployable artifact exists"
+    assert _valid(not_applicable, schema, schema)
+    applicable_reason = deepcopy(_record())
+    applicable_reason["reason"] = "skip"
+    assert not _valid(applicable_reason, schema, schema)
