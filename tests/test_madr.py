@@ -361,6 +361,44 @@ def test_intent_supersession_madr_is_complete() -> None:
     assert madr.validate(ROOT).outcome == "PASS"
 
 
+def test_mission_madr_has_options_risks_and_owner() -> None:
+    decision = ROOT / "docs" / "adr" / "0006-governed-mission.md"
+    expected = {
+        "schema": "urn:ai-engineering:madr:1",
+        "schema_version": "1",
+        "type": "adr",
+        "id": "0006",
+        "title": "Govern engineering work from intent to evidence",
+        "date": "2026-08-13",
+        "spec": "010",
+        "status": "proposed",
+        "supersedes": "",
+    }
+
+    parsed = madr._parse(decision.read_bytes())
+    assert madr._v1_fields(parsed) == expected
+    assert "authority_role" not in parsed.raw_fields
+    assert "approval_ref" not in parsed.raw_fields
+    assert "approved_at" not in parsed.raw_fields
+
+    body = " ".join(parsed.body.split())
+    assert all(
+        option in body
+        for option in (
+            "1. **Keep the narrow one-person safety mission",
+            "2. **Restore the previous broad control plane",
+            "3. **Govern the whole engineering journey with bounded autonomy",
+        )
+    )
+    assert "Recommend option 3." in body
+    assert "Proposed decision owner: the project maintainer role." in body
+    assert "Open risk:" in body
+    assert "does not grant authority" in body
+    assert "does not claim regulatory compliance" in body
+    assert "cannot be treated as acceptance of those risks" in body
+    assert madr.validate(ROOT).outcome == "PASS"
+
+
 def _render_madr(record: dict[str, Any], body: str) -> str:
     lines = ["---"]
     for key, value in record.items():
