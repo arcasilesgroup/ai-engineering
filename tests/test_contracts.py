@@ -250,6 +250,10 @@ def test_an_entry_is_ours_by_the_dispatcher_it_runs_and_not_by_this_project_s_na
     assert "/" not in wiring.SIGNATURE
 
 
+def test_provisional_repo_ceiling_is_22307():
+    assert contract.REPO_CEILING == 22_307
+
+
 def test_the_line_ceiling_holds(tmp_path):
     with pytest.raises(ValueError):
         contract.repo_lines(tmp_path)  # a count over zero files is not a pass

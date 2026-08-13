@@ -281,7 +281,11 @@ DESCRIPTION_MAX = 1000
 # assignment endpoint now requires an organization and returns the gate identity without
 # its conditions; the old one-call reader received HTTP 400 and could never prove the live
 # policy. 24 script lines, 27 test lines and these five record the repair. No slack.
-REPO_CEILING = 17810
+#
+# 17,807 + 4,500 = 22,307 is the provisional P0 budget, not a relaxation of the gate.
+# Exceeding 22,307 stops work and requires an approved re-plan; it is not permission to
+# raise the ceiling. The contract-close task measures the committed tree and removes slack.
+REPO_CEILING = 22307
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
