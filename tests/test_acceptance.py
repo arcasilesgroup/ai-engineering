@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import subprocess
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -458,9 +459,12 @@ def test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases() -> None:
     assert situations == {"absent", "8.29.0", "exit_2", "8.30.1_exit_0", "8.30.1_exit_1"}
 
 
+def _corpus() -> dict[str, Any]:
+    return json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
+
+
 def _privacy_cases(check: str) -> list[dict[str, Any]]:
-    corpus = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
-    return [case for case in corpus["privacy"] if case["check"] in {check, "all"}]
+    return [case for case in _corpus()["privacy"] if case["check"] in {check, "all"}]
 
 
 def test_acceptance_pii_v1_is_deterministic_and_fails_closed() -> None:
@@ -563,3 +567,92 @@ def test_acceptance_machine_path_v1_rejects_posix_windows_and_unc_paths() -> Non
     privacy.acceptance_pii_v1(home)
     privacy.acceptance_machine_path_v1(person)
     assert (privacy.acceptance_machine_path_v1(home), privacy.acceptance_pii_v1(person)) == isolated
+
+
+def test_gitleaks_gate_requires_exact_version_and_three_clean_results(
+    monkeypatch, tmp_path
+) -> None:
+    from ai_engineering import acceptance_privacy as privacy
+
+    class _Result:
+        def __init__(self, code: int, out: str = "") -> None:
+            self.returncode, self.stdout, self.stderr = code, out, ""
+
+    def _scanner(version: str | None, scan_code: int, *, error: Exception | None = None):
+        calls: list[tuple[tuple[str, ...], Path]] = []
+
+        def run(argv: tuple[str, ...], cwd: Path):
+            calls.append((argv, cwd))
+            if error is not None:
+                raise error
+            if argv[1] == "version":
+                return _Result(0, f"{version}\n")
+            return _Result(scan_code, "a redacted finding line")
+
+        return run, calls
+
+    situations = {case["situation"]: case["expected"] for case in _corpus()["gitleaks"]}
+    assert situations == {
+        "absent": "INCOMPLETE",
+        "8.29.0": "INCOMPLETE",
+        "exit_2": "INCOMPLETE",
+        "8.30.1_exit_0": "CLEAN",
+        "8.30.1_exit_1": "FAIL",
+    }
+
+    run, calls = _scanner(privacy.GITLEAKS_VERSION, 0)
+    monkeypatch.setattr(privacy, "_run", run)
+    assert privacy.gitleaks_v1(tmp_path).outcome == "PASS"
+    # The exact command the specification names, run inside the unpublished record
+    # directory and nowhere else.
+    assert calls == [(("gitleaks", "version"), tmp_path), (privacy.GITLEAKS_ARGV, tmp_path)]
+    assert privacy.GITLEAKS_ARGV == (
+        "gitleaks",
+        "dir",
+        ".",
+        "--redact",
+        "--no-banner",
+        "--exit-code",
+        "1",
+    )
+    assert privacy.GITLEAKS_VERSION == "8.30.1"
+
+    run, _ = _scanner(privacy.GITLEAKS_VERSION, 1)
+    monkeypatch.setattr(privacy, "_run", run)
+    found = privacy.gitleaks_v1(tmp_path)
+    assert found.outcome == "FAIL" and found.code == "ACCEPTANCE_GITLEAKS_SECRET"
+    # Exit 1 is the only conclusive failure, and the scanner's own output is not kept.
+    assert "redacted finding line" not in repr(found)
+
+    for version, code in ((privacy.GITLEAKS_VERSION, 2), ("8.29.0", 0), ("8.30.2", 0), (None, 0)):
+        run, _ = _scanner(version, code)
+        monkeypatch.setattr(privacy, "_run", run)
+        verdict = privacy.gitleaks_v1(tmp_path)
+        assert verdict.outcome == "INCOMPLETE", (version, code)
+        assert verdict.code == "ACCEPTANCE_GITLEAKS_UNAVAILABLE", (version, code)
+
+    for failure in (FileNotFoundError(), OSError("denied"), subprocess.SubprocessError()):
+        run, _ = _scanner(privacy.GITLEAKS_VERSION, 0, error=failure)
+        monkeypatch.setattr(privacy, "_run", run)
+        assert privacy.gitleaks_v1(tmp_path).code == "ACCEPTANCE_GITLEAKS_UNAVAILABLE", failure
+
+    # Only three clean results reach publication, and a conclusive failure outranks an
+    # undecidable one: a candidate already known to carry a machine path is not rescued by
+    # a second check that could not decide.
+    run, _ = _scanner(privacy.GITLEAKS_VERSION, 0)
+    monkeypatch.setattr(privacy, "_run", run)
+    assert privacy.acceptance_privacy_gate(tmp_path, ["repository maintainer accepted it"]) is (
+        privacy.CLEAN
+    )
+    assert privacy.acceptance_privacy_gate(tmp_path, ["the log is at /home/x/y.txt"]).outcome == (
+        "FAIL"
+    )
+    assert privacy.acceptance_privacy_gate(tmp_path, ["reviewed by Robin Case"]).outcome == (
+        "INCOMPLETE"
+    )
+    mixed = ["reviewed by Robin Case", "the log is at /home/x/y.txt"]
+    assert privacy.acceptance_privacy_gate(tmp_path, mixed).outcome == "FAIL"
+
+    run, _ = _scanner("8.29.0", 0)
+    monkeypatch.setattr(privacy, "_run", run)
+    assert privacy.acceptance_privacy_gate(tmp_path, ["clean text"]).outcome == "INCOMPLETE"

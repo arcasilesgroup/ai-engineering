@@ -12,7 +12,10 @@ was built to keep out of the record, so every verdict names a class and never a 
 from __future__ import annotations
 
 import re
+import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 # The specification's evidence bound. Refusing at the bound is the point: a scanner that
 # gives up quietly and reports clean has turned a bound into a bypass.
@@ -176,4 +179,73 @@ def acceptance_machine_path_v1(candidate: object) -> Verdict:
             "ACCEPTANCE_MACHINE_PATH_ABSOLUTE",
             "the candidate holds an absolute path this check cannot attribute to a machine",
         )
+    return CLEAN
+
+
+# The one executable secret scanner this repository already has, pinned exactly. A scanner
+# whose version is not the one we tested is a scanner whose answer we cannot read.
+GITLEAKS_VERSION = "8.30.1"
+GITLEAKS_ARGV = ("gitleaks", "dir", ".", "--redact", "--no-banner", "--exit-code", "1")
+_TIMEOUT_SECONDS = 120
+
+
+def _run(argv: tuple[str, ...], cwd: Path) -> subprocess.CompletedProcess[str]:
+    """One bounded subprocess call. Separated so a test can stand in for the scanner
+    without the product growing an injection parameter it would never use in production."""
+
+    return subprocess.run(
+        list(argv), cwd=cwd, capture_output=True, text=True, timeout=_TIMEOUT_SECONDS, check=False
+    )
+
+
+def _unavailable(reason: str) -> Verdict:
+    return Verdict("INCOMPLETE", "ACCEPTANCE_GITLEAKS_UNAVAILABLE", reason)
+
+
+def gitleaks_v1(directory: Path) -> Verdict:
+    """Scan one unpublished record directory with the exact pinned scanner.
+
+    Exit 1 is a conclusive `FAIL`, exit 0 is clean, and absence, version drift, a timeout
+    or any other exit is `INCOMPLETE`. The scanner's output is read for none of this and
+    kept nowhere: the verdict names a class, and `record.json` is the only artifact.
+    """
+
+    try:
+        version = _run(("gitleaks", "version"), directory)
+    except FileNotFoundError:
+        return _unavailable("the pinned secret scanner is not installed")
+    except (OSError, subprocess.SubprocessError):
+        return _unavailable("the pinned secret scanner could not be executed")
+    if version.returncode != 0 or version.stdout.strip() != GITLEAKS_VERSION:
+        return _unavailable(f"the secret scanner is not exactly version {GITLEAKS_VERSION}")
+
+    try:
+        scan = _run(GITLEAKS_ARGV, directory)
+    except (OSError, subprocess.SubprocessError):
+        return _unavailable("the pinned secret scanner could not complete its scan")
+    if scan.returncode == 1:
+        return Verdict(
+            "FAIL", "ACCEPTANCE_GITLEAKS_SECRET", "the pinned secret scanner found a secret"
+        )
+    if scan.returncode != 0:
+        return _unavailable("the secret scanner returned an exit code with no defined meaning")
+    return CLEAN
+
+
+def acceptance_privacy_gate(directory: Path, candidates: Sequence[str]) -> Verdict:
+    """All three checks, and the rule that only three clean results reach publication.
+
+    A conclusive `FAIL` outranks an `INCOMPLETE`, because a candidate already known to
+    carry a secret, a personal datum or a machine path does not become publishable by a
+    second check being unable to decide. Neither outcome publishes anything.
+    """
+
+    verdicts = [gitleaks_v1(directory)]
+    for candidate in candidates:
+        verdicts.append(acceptance_pii_v1(candidate))
+        verdicts.append(acceptance_machine_path_v1(candidate))
+    for outcome in ("FAIL", "INCOMPLETE"):
+        blocking = next((verdict for verdict in verdicts if verdict.outcome == outcome), None)
+        if blocking is not None:
+            return blocking
     return CLEAN
