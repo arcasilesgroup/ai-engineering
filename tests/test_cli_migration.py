@@ -13,6 +13,7 @@ import pytest
 
 from ai_engineering import (
     accept,
+    audit,
     capability,
     cli,
     decide,
@@ -719,3 +720,71 @@ def test_accept_requires_named_owner_date_and_risk_evidence(
     assert proof.read_bytes() == proof_bytes
     assert foreign.read_bytes() == b"foreign spec bytes\n"
     assert sentinel.read_bytes() == b"foreign sentinel\n"
+
+
+def test_audit_migration_recomputes_digest_and_returns_incomplete_when_blind(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    emit = paths.load("_emit")
+    claim = root / ".ai" / "audit-claim.json"
+    claim.write_text(json.dumps({"outcome": "PASS", "digest": "stored metadata"}))
+    event = {
+        "ts": "2026-08-14T00:00:00Z",
+        "cls": "allowed",
+        "name": "governed-check",
+        "session": "audit-test",
+        "seq": 1,
+        "prev": "",
+        "data": {"outcome": "PASS", "claim": str(claim.relative_to(root))},
+    }
+    event["hash"] = emit.digest(event)
+    chain = emit.chain_path(root)
+    chain.parent.mkdir(parents=True, exist_ok=True)
+    original_chain = (json.dumps(event, sort_keys=True) + "\n").encode()
+    chain.write_bytes(original_chain)
+
+    passed = audit.main(["verify"])
+    assert type(passed) is outcome.Result
+    assert passed.outcome == "PASS"
+
+    tampered = deepcopy(event)
+    tampered["data"] = {"outcome": "PASS", "claim": "reviewer says intact"}
+    chain.write_text(json.dumps(tampered, sort_keys=True) + "\n", encoding="utf-8")
+    broken = audit.main(["verify"])
+    assert type(broken) is outcome.Result
+    assert broken.outcome == "FAIL"
+
+    chain.unlink()
+    blind_chain = audit.main(["verify"])
+    assert type(blind_chain) is outcome.Result
+    assert blind_chain.outcome == "INCOMPLETE"
+
+    chain.write_bytes(original_chain)
+    monkeypatch.setattr(
+        audit.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 1, "", "history unreadable"),
+    )
+    blind_history = audit.main(["verify", "--anchors"])
+    assert type(blind_history) is outcome.Result
+    assert blind_history.outcome == "INCOMPLETE"
+
+    intent_record = json.loads((root / ".ai" / "intent.md").read_text(encoding="utf-8"))
+    relation = root / intent_record["relations"][0]["path"]
+    relation.write_bytes(relation.read_bytes() + b"\nchanged after stored PASS metadata\n")
+    stale_evidence = audit.main(["verify"])
+    assert type(stale_evidence) is outcome.Result
+    assert stale_evidence.outcome == "INCOMPLETE"
+
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
+    blind_root = audit.main(["verify"])
+    assert type(blind_root) is outcome.Result
+    assert blind_root.outcome == "INCOMPLETE"
+
+    with pytest.raises(SystemExit) as invalid_cli:
+        audit.main(["replay", "--anchors"])
+    assert invalid_cli.value.code == outcome.invalid_cli_exit()

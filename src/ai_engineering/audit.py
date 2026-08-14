@@ -18,32 +18,177 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import stat
 import subprocess
+import sys
+from dataclasses import dataclass
 from pathlib import Path
 
-from ai_engineering import paths
+from ai_engineering import outcome, paths
 
 ANCHOR = re.compile(r"^Ai-Eng-Anchor: (\S+)/(\S+) seq=(\d+) head=([0-9a-f]{12})$", re.M)
 INTENT_HOME = ".ai/intent.md"
 INTENT_INCOMPLETE_PREFIX = f"Solution Intent at {INTENT_HOME} is INCOMPLETE: "
+ROOT_INCOMPLETE = "Repository context is INCOMPLETE: no repository root can be proven"
+CHAIN_INCOMPLETE_PREFIX = "Chain evidence is INCOMPLETE: "
+HISTORY_INCOMPLETE_PREFIX = "Anchor history is INCOMPLETE: "
+
+
+class _ChainRead(list[dict]):
+    """One stable read of the chain plus why no trustworthy read was possible."""
+
+    def __init__(self, events: list[dict], problem: str = "") -> None:
+        super().__init__(events)
+        self.problem = problem
+
+
+class _AmbiguousJson(ValueError):
+    pass
+
+
+def _unique_object(pairs: list[tuple[str, object]]) -> dict:
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise _AmbiguousJson("duplicate JSON key")
+        value[key] = item
+    return value
+
+
+def _invalid_constant(value: str) -> None:
+    raise ValueError(f"non-finite JSON number {value}")
+
+
+@dataclass(frozen=True, slots=True)
+class _Inspection:
+    events: tuple[dict, ...]
+    findings: tuple[tuple[str, str], ...]
+
+    @property
+    def result(self) -> outcome.Result:
+        if any(kind == "BROKEN" for kind, _ in self.findings):
+            return outcome.result("FAIL")
+        if self.findings:
+            return outcome.result("INCOMPLETE")
+        return outcome.result("PASS")
+
+
+def _chain_bytes(path: Path) -> tuple[bytes, str]:
+    descriptor = -1
+    close_failed = False
+    raw = b""
+    problem = ""
+    try:
+        before = path.lstat()
+        if not stat.S_ISREG(before.st_mode):
+            raise OSError("chain is not one regular file")
+        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_BINARY", 0)
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(path, flags)
+        opened = os.fstat(descriptor)
+        identity = (opened.st_dev, opened.st_ino)
+        if not stat.S_ISREG(opened.st_mode) or identity != (before.st_dev, before.st_ino):
+            raise OSError("chain changed while opening")
+        chunks: list[bytes] = []
+        while chunk := os.read(descriptor, 65_536):
+            chunks.append(chunk)
+        finished = os.fstat(descriptor)
+        after = path.lstat()
+        if (
+            identity != (finished.st_dev, finished.st_ino)
+            or identity != (after.st_dev, after.st_ino)
+            or opened.st_size != finished.st_size
+            or opened.st_mtime_ns != finished.st_mtime_ns
+        ):
+            raise OSError("chain changed while reading")
+        raw = b"".join(chunks)
+    except FileNotFoundError:
+        problem = "CHAIN_MISSING — no chain exists for this repository and machine"
+    except OSError:
+        problem = "CHAIN_UNREADABLE — the chain cannot be read as one stable regular file"
+    finally:
+        if descriptor >= 0:
+            try:
+                os.close(descriptor)
+            except OSError:
+                close_failed = True
+        if close_failed:
+            problem = "CHAIN_UNREADABLE — the chain file could not be closed safely"
+    return (b"", problem) if problem else (raw, "")
 
 
 def read(root: Path | None) -> list[dict]:
     emit = paths.load("_emit")
     try:
-        lines = emit.chain_path(root).read_text().splitlines()
-    except OSError:
-        return []
-    out = []
-    for line in filter(str.strip, lines):
+        raw, problem = _chain_bytes(emit.chain_path(root))
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError):
+        return _ChainRead([], "CHAIN_UNREADABLE — the chain location cannot be derived")
+    if problem:
+        return _ChainRead([], problem)
+    if not raw.strip():
+        return _ChainRead([], "CHAIN_EMPTY — the chain contains no evidence to audit")
+    try:
+        lines = raw.decode("utf-8").splitlines()
+    except UnicodeDecodeError:
+        return _ChainRead([], "CHAIN_UNREADABLE — the chain is not UTF-8 JSON Lines")
+    out: list[dict] = []
+    last_line_invalid = False
+    for number, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
         try:
-            out.append(json.loads(line))
-        except ValueError:
+            event = json.loads(
+                line,
+                object_pairs_hook=_unique_object,
+                parse_constant=_invalid_constant,
+            )
+            if not isinstance(event, dict):
+                raise ValueError("chain link is not an object")
+            out.append(event)
+        except _AmbiguousJson:
+            out.append(
+                {
+                    "ts": "?",
+                    "cls": "unreadable",
+                    "name": "?",
+                    "hash": "",
+                    "_audit_kind": "INCOMPLETE",
+                    "_audit_problem": (
+                        f"{CHAIN_INCOMPLETE_PREFIX}CHAIN_AMBIGUOUS — "
+                        f"line {number} repeats one JSON key"
+                    ),
+                }
+            )
+            last_line_invalid = number == len(lines)
+        except (RecursionError, ValueError):
             # A hook killed mid-append leaves half a line behind. Doctor may skip it; here
             # skipping is how a chain cut at the end walks clean and reports itself intact.
-            out.append({"ts": "?", "cls": "unreadable", "name": "?", "hash": ""})
-    return out
+            out.append(
+                {
+                    "ts": "?",
+                    "cls": "unreadable",
+                    "name": "?",
+                    "hash": "",
+                    "_audit_problem": f"link {number}: the line is not one JSON object",
+                }
+            )
+            last_line_invalid = number == len(lines)
+    if raw and not raw.endswith(b"\n") and not last_line_invalid:
+        out.append(
+            {
+                "ts": "?",
+                "cls": "unreadable",
+                "name": "?",
+                "hash": "",
+                "_audit_problem": (
+                    f"link {len(lines)}: the line is not terminated — a write was cut here"
+                ),
+            }
+        )
+    return _ChainRead(out)
 
 
 def verify_intent(root: Path) -> list[str]:
@@ -62,87 +207,267 @@ def verify_intent(root: Path) -> list[str]:
     return [INTENT_INCOMPLETE_PREFIX + f"{result.code} — {result.reason}"]
 
 
-def verify(root: Path | None, anchors: bool) -> list[str]:
+def _chain_findings(events: list[dict]) -> list[tuple[str, str]]:
     emit = paths.load("_emit")
-    problems = []
+    findings: list[tuple[str, str]] = []
+    problem = getattr(events, "problem", "")
+    if problem:
+        findings.append(("INCOMPLETE", CHAIN_INCOMPLETE_PREFIX + problem))
     prev = ""
-    for seq, event in enumerate(read(root), 1):
+    for seq, event in enumerate(events, 1):
         if event.get("cls") == "unreadable":
-            problems.append(f"link {seq}: the line is not JSON — a write was cut here")
+            findings.append(
+                (
+                    event.get("_audit_kind", "BROKEN"),
+                    event.get("_audit_problem")
+                    or f"link {seq}: the line is not JSON — a write was cut here",
+                )
+            )
             continue
-        if (event.get("data") or {}).get("outcome") == "edited":
+        data = event.get("data")
+        if not isinstance(data, dict):
+            findings.append(("BROKEN", f"link {seq}: data is not one JSON object"))
+            data = {}
+        if (data or {}).get("outcome") == "edited":
             # Sealed truthfully, so every hash below matches. Without this line the one
             # command README.md offers as the tamper detector exits 0 over a rewritten event.
-            problems.append(f"link {seq}: it arrived edited before it was sealed")
-        if event.get("seq") != seq:
-            problems.append(f"link {seq}: the sequence jumps to {event.get('seq')}")
+            findings.append(("BROKEN", f"link {seq}: it arrived edited before it was sealed"))
+        if type(event.get("seq")) is not int or event.get("seq") != seq:
+            findings.append(("BROKEN", f"link {seq}: the sequence jumps to {event.get('seq')}"))
         if event.get("prev") != prev:
-            problems.append(f"link {seq}: it does not extend the link before it")
-        body = {k: v for k, v in event.items() if k != "hash"}
-        if emit.digest(body) != event.get("hash"):
-            problems.append(f"link {seq}: the hash does not match its own body — it was edited")
-        prev = event.get("hash", "")
-    if anchors and root is not None:
-        known = {e["hash"][:12] for e in read(root)}
-        log = subprocess.run(
+            findings.append(("BROKEN", f"link {seq}: it does not extend the link before it"))
+        try:
+            recomputed = emit.digest(event)
+        except (RecursionError, TypeError, ValueError):
+            recomputed = ""
+        if recomputed != event.get("hash"):
+            findings.append(
+                ("BROKEN", f"link {seq}: the hash does not match its own body — it was edited")
+            )
+        stored = event.get("hash")
+        prev = stored if isinstance(stored, str) else ""
+    return findings
+
+
+def _history_findings(root: Path, events: list[dict]) -> list[tuple[str, str]]:
+    emit = paths.load("_emit")
+    try:
+        completed = subprocess.run(
             ["git", "-C", str(root), "log", "--format=%B%x00", "-n", "200"],
             capture_output=True,
             text=True,
             timeout=30,
-        ).stdout
-        for _, machine, number, head in ANCHOR.findall(log):
-            if machine == emit.machine_id() and head not in known:
-                problems.append(
-                    f"a commit anchors head {head} at seq {number}, and this chain "
-                    f"has no such link: the record was truncated or replaced"
+        )
+        if getattr(completed, "returncode", None) != 0 or not isinstance(completed.stdout, str):
+            raise OSError("git history did not complete")
+        machine = emit.machine_id()
+        repository = emit.repo_id(root)
+        if not machine or repository in {"", "unborn", "unknown"}:
+            raise OSError("repository or machine identity is unavailable")
+    except (ImportError, OSError, RuntimeError, subprocess.SubprocessError, TypeError, ValueError):
+        return [
+            (
+                "INCOMPLETE",
+                HISTORY_INCOMPLETE_PREFIX + "HISTORY_UNREADABLE — git history cannot be read",
+            )
+        ]
+
+    known: dict[str, tuple[int, str] | None] = {}
+    for event in events:
+        digest = event.get("hash")
+        sequence = event.get("seq")
+        if not isinstance(digest, str) or type(sequence) is not int:
+            continue
+        prefix = digest[:12]
+        link = (sequence, digest)
+        known[prefix] = link if prefix not in known else None
+
+    findings: list[tuple[str, str]] = []
+    seen = False
+    anchors = ANCHOR.findall(completed.stdout)
+    anchor_lines = re.findall(r"^Ai-Eng-Anchor:.*$", completed.stdout, re.M)
+    if len(anchor_lines) != len(anchors):
+        findings.append(
+            (
+                "INCOMPLETE",
+                HISTORY_INCOMPLETE_PREFIX
+                + "HISTORY_AMBIGUOUS — a commit contains a malformed anchor line",
+            )
+        )
+    for repo_id, anchor_machine, number, head in anchors:
+        if anchor_machine != machine:
+            continue
+        seen = True
+        if repo_id != repository:
+            findings.append(
+                (
+                    "BROKEN",
+                    f"a commit anchors this machine under repository {repo_id}, not {repository}",
                 )
-    if root is not None:
-        problems.extend(verify_intent(root))
-    return problems
+            )
+        elif head not in known:
+            findings.append(
+                (
+                    "BROKEN",
+                    f"a commit anchors head {head} at seq {number}, and this chain "
+                    f"has no such link: the record was truncated or replaced",
+                )
+            )
+        elif known[head] is None:
+            findings.append(
+                (
+                    "INCOMPLETE",
+                    HISTORY_INCOMPLETE_PREFIX
+                    + f"HISTORY_AMBIGUOUS — head prefix {head} names multiple links",
+                )
+            )
+        elif known[head][0] != int(number):
+            findings.append(
+                (
+                    "BROKEN",
+                    f"a commit anchors head {head} at seq {number}, but the recomputed "
+                    f"chain places it at seq {known[head][0]}",
+                )
+            )
+    if not seen:
+        findings.append(
+            (
+                "INCOMPLETE",
+                HISTORY_INCOMPLETE_PREFIX
+                + "HISTORY_BLIND — no commit anchors this machine's chain",
+            )
+        )
+    return findings
 
 
-def replay(root: Path | None, session: str) -> list[str]:
+def _inspect(
+    root: Path | None,
+    anchors: bool,
+    *,
+    require_root: bool,
+    include_intent: bool,
+) -> _Inspection:
+    events = read(root)
+    findings: list[tuple[str, str]] = []
+    if require_root and root is None:
+        findings.append(("INCOMPLETE", ROOT_INCOMPLETE))
+    findings.extend(_chain_findings(events))
+    if anchors and root is not None:
+        findings.extend(_history_findings(root, events))
+    if include_intent and root is not None:
+        findings.extend(("INCOMPLETE", problem) for problem in verify_intent(root))
+    return _Inspection(tuple(events), tuple(findings))
+
+
+def verify(root: Path | None, anchors: bool) -> list[str]:
+    inspection = _inspect(
+        root,
+        anchors,
+        require_root=False,
+        include_intent=root is not None,
+    )
+    return [line for _, line in inspection.findings]
+
+
+def _replay(events: list[dict] | tuple[dict, ...], session: str) -> list[str]:
     rows = []
-    for event in read(root):
+    for event in events:
         if session and event.get("session") != session:
             continue
-        data = event.get("data") or {}
+        data = event.get("data")
+        data = data if isinstance(data, dict) else {}
         detail = data.get("reason") or data.get("error") or data.get("verb") or ""
-        rows.append(f"  {event['ts']}  {event['cls']:<9} {event['name']:<16} {detail}")
+        rows.append(
+            f"  {event.get('ts', '?')}  {event.get('cls', '?'):<9} "
+            f"{event.get('name', '?'):<16} {detail}"
+        )
     return rows
 
 
-def anchor_line(root: Path | None) -> str:
+def replay(root: Path | None, session: str) -> list[str]:
+    return _replay(read(root), session)
+
+
+def _anchor_line(root: Path | None, events: list[dict] | tuple[dict, ...]) -> str:
     emit = paths.load("_emit")
-    seq, head = emit.head(emit.chain_path(root))
-    return f"\nAi-Eng-Anchor: {emit.repo_id(root)}/{emit.machine_id()} seq={seq} head={head[:12]}\n"
+    last = events[-1]
+    return (
+        f"\nAi-Eng-Anchor: {emit.repo_id(root)}/{emit.machine_id()} "
+        f"seq={last['seq']} head={last['hash'][:12]}\n"
+    )
 
 
-def main(argv: list[str]) -> int:
+def anchor_line(root: Path | None) -> str:
+    inspection = _inspect(
+        root,
+        anchors=False,
+        require_root=False,
+        include_intent=False,
+    )
+    if inspection.result.outcome != "PASS":
+        raise ValueError("an anchor requires one freshly recomputed intact chain")
+    return _anchor_line(root, inspection.events)
+
+
+def _render(inspection: _Inspection, *, stream=None) -> None:
+    destination = sys.stdout if stream is None else stream
+    print("\n".join(f"  {kind}  {line}" for kind, line in inspection.findings), file=destination)
+
+
+def main(argv: list[str]) -> outcome.Result:
     parser = argparse.ArgumentParser("ai-eng audit")
     parser.add_argument("action", nargs="?", default="verify", choices=["verify", "replay"])
     parser.add_argument("--anchors", action="store_true", help="also check the anchors in git")
-    parser.add_argument("--session", default="")
+    parser.add_argument("--session")
     parser.add_argument("--anchor", action="store_true", help="print the footer for commit-msg")
     args = parser.parse_args(argv)
 
-    root = paths.repo_root()
+    if args.action == "replay" and args.anchors:
+        parser.error("--anchors applies only to verify")
+    if args.action != "replay" and args.session is not None:
+        parser.error("--session applies only to replay")
+    if args.anchor and (args.action != "verify" or args.anchors or args.session):
+        parser.error("--anchor cannot be combined with replay, --anchors or --session")
+
+    try:
+        root = paths.repo_root()
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError):
+        root_failure = _Inspection((), (("INCOMPLETE", ROOT_INCOMPLETE),))
+        _render(root_failure, stream=sys.stderr if args.anchor else None)
+        return root_failure.result
     if args.anchor:
-        print(anchor_line(root), end="")
-        return 0
-    if args.action == "replay":
-        rows = replay(root, args.session)
-        print("\n".join(rows) if rows else "  nothing recorded for that session")
-        return 0
-    problems = verify(root, args.anchors)
-    if problems:
-        print(
-            "\n".join(
-                f"  {'INCOMPLETE' if line.startswith(INTENT_INCOMPLETE_PREFIX) else 'BROKEN'}  "
-                f"{line}"
-                for line in problems
-            )
+        inspection = _inspect(
+            root,
+            anchors=False,
+            require_root=True,
+            include_intent=False,
         )
-        return 1
-    print(f"  ✓ {len(read(root))} links, intact, and each one extends the one before it.")
-    return 0
+        if inspection.result.outcome != "PASS":
+            _render(inspection, stream=sys.stderr)
+            return inspection.result
+        print(_anchor_line(root, inspection.events), end="")
+        return outcome.result("PASS")
+    if args.action == "replay":
+        inspection = _inspect(
+            root,
+            anchors=False,
+            require_root=True,
+            include_intent=False,
+        )
+        if inspection.result.outcome != "PASS":
+            _render(inspection)
+            return inspection.result
+        rows = _replay(inspection.events, args.session or "")
+        print("\n".join(rows) if rows else "  nothing recorded for that session")
+        return outcome.result("PASS")
+    inspection = _inspect(
+        root,
+        args.anchors,
+        require_root=True,
+        include_intent=True,
+    )
+    if inspection.findings:
+        _render(inspection)
+        return inspection.result
+    print(f"  ✓ {len(inspection.events)} links, intact, and each one extends the one before it.")
+    return outcome.result("PASS")

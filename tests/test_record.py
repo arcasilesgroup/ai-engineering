@@ -401,29 +401,41 @@ def test_each_way_of_breaking_the_chain_is_reported_as_itself(home, mutate, reha
         assert expected in problems[0]
 
 
-def test_a_whole_chain_verifies_and_the_command_says_how_many(home, capsys):
+def test_a_whole_chain_verifies_and_the_command_says_how_many(home, tmp_path, monkeypatch, capsys):
     """`audit verify` reporting success on an empty or unreadable chain is a green nobody
     earned; it must count the links it actually walked."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    monkeypatch.setattr(home, "repo_id", lambda root=None: "no-repo")
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    monkeypatch.setattr(audit, "verify_intent", lambda repository: [])
     _write(home, _links(home, 4))
-    assert audit.main(["verify"]) == 0
+    assert audit.main(["verify"]) == outcome.result("PASS")
     assert "4 links, intact" in capsys.readouterr().out
     _write(home, _links(home, 2)[:1] + [dict(_links(home, 2)[1], prev="x")])
-    assert audit.main(["verify"]) == 1
+    assert audit.main(["verify"]) == outcome.result("FAIL")
     assert "BROKEN" in capsys.readouterr().out
 
 
-def test_replay_filters_to_one_session(home, capsys):
+def test_replay_filters_to_one_session(home, tmp_path, monkeypatch, capsys):
     """Replay is what somebody reads when asked what happened in a session. If the filter
     were ignored, they would be handed every session on the machine instead."""
     events = _links(home, 2)
     events[0]["session"] = "aaa"
+    events[0]["hash"] = home.digest(events[0])
     events[1]["session"] = "bbb"
     events[1]["data"] = {"reason": "the reason"}
+    events[1]["prev"] = events[0]["hash"]
+    events[1]["hash"] = home.digest(events[1])
+    root = tmp_path / "repo"
+    root.mkdir()
+    monkeypatch.setattr(home, "repo_id", lambda root=None: "no-repo")
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     _write(home, events)
     assert len(audit.replay(None, "")) == 2
     rows = audit.replay(None, "bbb")
     assert len(rows) == 1 and "the reason" in rows[0]
-    assert audit.main(["replay", "--session", "nobody"]) == 0
+    assert audit.main(["replay", "--session", "nobody"]) == outcome.result("PASS")
     assert "nothing recorded" in capsys.readouterr().out
 
 
@@ -450,7 +462,11 @@ def test_a_commit_anchoring_a_link_this_chain_has_lost_is_reported(home, monkeyp
     _write(home, events)
     anchored = events[-1]["hash"][:12] if head == "known" else head
     log = f"Ai-Eng-Anchor: testrepo/{home.machine_id()} seq=2 head={anchored}\n\x00"
-    monkeypatch.setattr(audit.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout=log))
+    monkeypatch.setattr(
+        audit.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(returncode=0, stdout=log),
+    )
     problems = audit.verify(Path("/nowhere"), True)
     assert problems[-1] == (
         "Solution Intent at .ai/intent.md is INCOMPLETE: INTENT_HOME_MISSING — "
@@ -470,7 +486,8 @@ def test_a_truncated_line_is_reported_as_broken_not_as_a_crash(home, capsys):
         fh.write('{"ts": "t", "cls": "allo\n')
     problems = audit.verify(None, False)
     assert len(problems) == 1 and "link 3" in problems[0]
-    assert audit.main(["verify"]) == 1 and "intact" not in capsys.readouterr().out
+    assert audit.main(["verify"]) == outcome.result("FAIL")
+    assert "intact" not in capsys.readouterr().out
 
 
 # ------------------------------------------------------------------ spec

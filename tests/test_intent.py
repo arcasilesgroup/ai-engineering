@@ -1108,7 +1108,7 @@ def test_doctor_rejects_tracked_intent_mirrors_only(tmp_path: Path) -> None:
 def test_audit_recomputes_intent_relations_without_metadata_proof(
     tmp_path: Path, monkeypatch: Any, capsys: Any
 ) -> None:
-    from ai_engineering import audit, paths
+    from ai_engineering import audit, outcome, paths
 
     corpus = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     cases = {case["id"]: _fixture_case(corpus, case) for case in corpus["cases"]}
@@ -1137,7 +1137,7 @@ def test_audit_recomputes_intent_relations_without_metadata_proof(
             prefix + "INTENT_HOME_MISSING — Solution Intent is missing at .ai/intent.md"
         ]
         monkeypatch.setattr(paths, "repo_root", lambda repository=repository: repository)
-        assert audit.main(["verify"]) == 1
+        assert audit.main(["verify"]) == outcome.result("INCOMPLETE")
         assert capsys.readouterr().out == (
             "  INCOMPLETE  "
             + prefix
@@ -1168,7 +1168,7 @@ def test_audit_recomputes_intent_relations_without_metadata_proof(
         prefix + "INTENT_RELATION_STALE — relation digest does not match target"
     ]
     monkeypatch.setattr(paths, "repo_root", lambda: repository)
-    assert audit.main(["verify"]) == 1
+    assert audit.main(["verify"]) == outcome.result("INCOMPLETE")
     assert capsys.readouterr().out == (
         "  INCOMPLETE  "
         + prefix
@@ -1179,7 +1179,7 @@ def test_audit_recomputes_intent_relations_without_metadata_proof(
     forged["hash"] = emit.digest(forged)
     monkeypatch.setattr(audit, "read", lambda root: [forged])
     monkeypatch.setattr(paths, "repo_root", lambda: no_ai)
-    assert audit.main(["verify"]) == 1
+    assert audit.main(["verify"]) == outcome.result("FAIL")
     assert capsys.readouterr().out == (
         "  BROKEN  link 1: the sequence jumps to 1 is INCOMPLETE: forged\n"
         "  INCOMPLETE  "

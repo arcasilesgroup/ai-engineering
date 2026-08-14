@@ -367,18 +367,18 @@ def test_the_audit_help_names_both_switches(wide, capsys):
 def test_bare_audit_verifies_and_an_unknown_action_is_refused(home, capsys):
     """`ai-eng audit` with no words after it is the documented way to check the chain. If
     the action became required, or any word were accepted, a typo would report success."""
-    assert audit.main([]) == 0
-    assert "links, intact" in capsys.readouterr().out
+    assert audit.main([]) == outcome.result("INCOMPLETE")
+    assert "no repository root can be proven" in capsys.readouterr().out
     with pytest.raises(SystemExit) as exit_code:
         audit.main(["nonsense"])
-    assert exit_code.value.code == 2
+    assert exit_code.value.code == outcome.invalid_cli_exit()
 
 
 def test_anchors_is_a_switch_and_not_a_flag_that_swallows_a_word(home, capsys):
     """CI runs `ai-eng audit verify --anchors`. If it took a value, the command would die
     on its arguments and the anchor check would never run anywhere."""
-    assert audit.main(["verify", "--anchors"]) == 0
-    assert "links, intact" in capsys.readouterr().out
+    assert audit.main(["verify", "--anchors"]) == outcome.result("INCOMPLETE")
+    assert "no repository root can be proven" in capsys.readouterr().out
 
 
 def test_the_anchor_footer_is_the_repository_this_machine_is_in(anchored, capsys):
@@ -388,7 +388,7 @@ def test_the_anchor_footer_is_the_repository_this_machine_is_in(anchored, capsys
     emit = paths.load("_emit")
     events = _links(emit, 2)
     _write_chain(emit, events, anchored)
-    assert audit.main(["--anchor"]) == 0
+    assert audit.main(["--anchor"]) == outcome.result("PASS")
     assert capsys.readouterr().out == (
         f"\nAi-Eng-Anchor: {REPO_ID}/{MACHINE} seq=2 head={events[-1]['hash'][:12]}\n"
     )
@@ -439,7 +439,7 @@ def test_a_commit_anchoring_a_head_this_chain_never_had_is_reported(anchored, ca
     assert audit.verify(anchored, False) == [problems[1]], (
         "without --anchors git is not consulted, while Intent is still recomputed"
     )
-    assert audit.main(["verify", "--anchors"]) == 1
+    assert audit.main(["verify", "--anchors"]) == outcome.result("FAIL")
     assert "BROKEN" in capsys.readouterr().out
 
 
@@ -468,7 +468,7 @@ def test_two_broken_links_are_printed_one_per_line(anchored, capsys):
     events[1]["prev"] = "not the link before it"
     events[1]["hash"] = emit.digest(events[1])
     _write_chain(emit, events, anchored)
-    assert audit.main(["verify"]) == 1
+    assert audit.main(["verify"]) == outcome.result("FAIL")
     assert capsys.readouterr().out == (
         "  BROKEN  link 2: the sequence jumps to 5\n"
         "  BROKEN  link 2: it does not extend the link before it\n"
@@ -505,9 +505,9 @@ def test_replay_prints_what_it_found_and_says_so_when_it_found_nothing(anchored,
     emit = paths.load("_emit")
     events = _links(emit, 2)
     _write_chain(emit, events, anchored)
-    assert audit.main(["replay"]) == 0
+    assert audit.main(["replay"]) == outcome.result("PASS")
     assert capsys.readouterr().out == (
         "  t1  allowed   a-hook           \n  t2  allowed   a-hook           \n"
     )
-    assert audit.main(["replay", "--session", "nobody"]) == 0
+    assert audit.main(["replay", "--session", "nobody"]) == outcome.result("PASS")
     assert capsys.readouterr().out == "  nothing recorded for that session\n"
