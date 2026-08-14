@@ -20,7 +20,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
-from ai_engineering import __version__, audit, paths, ui, wiring
+from ai_engineering import __version__, audit, outcome, paths, ui, wiring
 
 # A problem, or a problem and the cure that is not the one FIXES holds for this number.
 # One check needs the second form: a pin can be wrong two ways and they are two commands.
@@ -716,7 +716,23 @@ def coverage(root: Path | None) -> list[str]:
     return [*lines, *OPEN]
 
 
-def main(argv: list[str]) -> int:
+def _terminal_result(
+    failed: list[int],
+    unanswered: list[tuple[int, str, str]],
+    coverage_lines: list[str],
+    coverage_unknown: bool,
+) -> outcome.Result:
+    words = {word for line in coverage_lines for word in re.findall(r"[A-Z]+", line)}
+    if failed or "MISMATCH" in words:
+        return outcome.result("FAIL")
+    if unanswered or coverage_unknown:
+        return outcome.result("INCOMPLETE")
+    if words & {"INERT", "UNPROVEN", "OPEN"}:
+        return outcome.result("WARN")
+    return outcome.result("PASS")
+
+
+def main(argv: list[str]) -> outcome.Result:
     parser = argparse.ArgumentParser("ai-eng doctor")
     parser.add_argument("--ci", action="store_true", help="only the checks a runner can answer")
     parser.add_argument("--paths", action="store_true", help="print where every file class lives")
@@ -734,7 +750,7 @@ def main(argv: list[str]) -> int:
             ("receipt", wiring.receipt_path()),
         ):
             ui.write(f"  {label:<14}{where}", data=True)
-        return 0
+        return outcome.result("PASS")
 
     failed: list[int] = []
     unanswered: list[tuple[int, str, str]] = []
@@ -771,7 +787,14 @@ def main(argv: list[str]) -> int:
     for line in LEGEND:
         ui.write(line, style="muted", data=True)
     ui.write(data=True)
-    for line in coverage(root):
+    coverage_unknown = False
+    try:
+        coverage_lines = coverage(root)
+    except (Undecidable, wiring.Unreadable) as why:
+        coverage_unknown = True
+        coverage_lines = []
+        ui.write(f"  INCOMPLETE  could not evaluate coverage: {why}", style="warn", data=True)
+    for line in coverage_lines:
         # The words themselves are vocabulary — BLOCKS, INERT, UNPROVEN, ADVISES mean
         # something and do not move. Only the colour is added, and it is chosen by the word
         # rather than recomputed here, so this can never disagree with what the line says.
@@ -792,12 +815,13 @@ def main(argv: list[str]) -> int:
             "  None of these is a pass. Not evaluated is never green.", style="warn", data=True
         )
 
-    verdict_panel(failed, len(unanswered), cures)
+    result = _terminal_result(failed, unanswered, coverage_lines, coverage_unknown)
+    verdict_panel(result, failed, len(unanswered), cures)
     if args.fix and cures:
         return repair(cures, argv)
     if args.fix:
         ui.write("\n  Nothing that failed here has a command --fix runs for you.", data=True)
-    return 1 if failed else 0
+    return result
 
 
 def resolve(number: int, problem: str | tuple[str, str]) -> tuple[str, str]:
@@ -822,13 +846,20 @@ def tint(line: str) -> str:
     return next((style for word, style in COLOURS.items() if word in line), "")
 
 
-def verdict_panel(failed: list[int], unanswered: int, cures: dict[int, str]) -> None:
+def verdict_panel(
+    result: outcome.Result,
+    failed: list[int],
+    unanswered: int,
+    cures: dict[int, str],
+) -> None:
     """Whether it passed, and if not, how much of it a command can put right. This was one
     unframed line under the coverage block, in the same weight as the rows above it, and it
     was read as more of the table.
 
     The failures arrive as their numbers and not as a count beside a list of them: two
-    arguments that have to agree are two arguments that can stop agreeing."""
+    arguments that have to agree are two arguments that can stop agreeing. The title comes
+    from the same terminal result the caller returns, so a warning or an unknown answer can
+    never acquire a green label from an empty failures list."""
     rows = [
         (
             "",
@@ -843,10 +874,16 @@ def verdict_panel(failed: list[int], unanswered: int, cures: dict[int, str]) -> 
         listed = ", ".join(str(number) for number in people)
         word = "assertion" if len(people) == 1 else "assertions"
         rows.append(("needs a person", f"{len(people)}   {word} {listed}"))
-    ui.summary("FAILED" if failed else "OK", rows, "red" if failed else ui.BRAND)
+    title, style = {
+        "PASS": ("OK", ui.BRAND),
+        "WARN": ("WARN", "yellow"),
+        "FAIL": ("FAILED", "red"),
+        "INCOMPLETE": ("INCOMPLETE", "yellow"),
+    }[result.outcome]
+    ui.summary(title, rows, style)
 
 
-def repair(cures: dict[int, str], argv: list[str]) -> int:
+def repair(cures: dict[int, str], argv: list[str]) -> outcome.Result:
     """Runs what the failures themselves named, each command once, and then asks the whole
     question again. In this process rather than through a shell: `ai-eng` is on the PATH of
     the person who typed it and not necessarily of whatever would run it here, and a repair
@@ -857,8 +894,8 @@ def repair(cures: dict[int, str], argv: list[str]) -> int:
     with nothing ticked — and it does not touch the pin, because `init` only writes that
     when it is absent and `ai-eng update` is the verb that changes it.
 
-    The second pass has no --fix in it, so this recurses exactly once, and its exit code is
-    the answer: two of the cures cannot reach every shape of their failure — a Codex entry
+    The second pass has no --fix in it, so this recurses exactly once, and its terminal
+    result is the answer: two of the cures cannot reach every shape of their failure — a Codex entry
     is appended and never rewritten, and a skill root belonging to a surface that is gone is
     linked by nothing — so a repair that changed nothing has to say so rather than invite a
     second run of the same command."""
@@ -875,13 +912,13 @@ def repair(cures: dict[int, str], argv: list[str]) -> int:
         code = cli.main(run)
         if code:
             ui.write(f"  it exited {code}. The rest is not attempted.", style="fail", data=True)
-            return code
-    code = main([flag for flag in argv if flag != "--fix"])
-    if code:
+            return outcome.result("INCOMPLETE")
+    result = main([flag for flag in argv if flag != "--fix"])
+    if result.exit_code:
         ui.write(
             "\n  Still failing. What is left above is not something these commands reach, "
             "and running --fix again will run the same ones.",
             style="warn",
             data=True,
         )
-    return code
+    return result

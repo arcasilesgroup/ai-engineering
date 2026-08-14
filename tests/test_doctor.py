@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 from rich.style import Style
 
-from ai_engineering import __version__, audit, cli, doctor, paths, wiring
+from ai_engineering import __version__, audit, cli, doctor, outcome, paths, wiring
 
 emit = paths.load("_emit")
 
@@ -123,34 +123,42 @@ LOCAL = (4, "The pin", "a check a runner cannot answer", False, lambda root: "it
 
 
 @pytest.mark.parametrize(
-    "rows, argv, code, says, never",
+    "rows, argv, status, says, never",
     [
-        ((PASSES,), [], 0, "1 passed · 0 failed · 0 not evaluated", "FAIL"),
-        ((FAILS,), [], 1, "0 passed · 1 failed · 0 not evaluated", " ok "),
-        ((UNKNOWN,), [], 0, "Not evaluated is never green", " ok "),
-        ((PASSES, FAILS, UNKNOWN), [], 1, "1 passed · 1 failed · 1 not evaluated", ""),
-        ((LOCAL,), ["--ci"], 0, "SKIPPED", "FAIL"),
-        ((LOCAL,), [], 1, "FAIL", "SKIPPED"),
+        ((PASSES,), [], "PASS", "1 passed · 0 failed · 0 not evaluated", "FAIL"),
+        ((FAILS,), [], "FAIL", "0 passed · 1 failed · 0 not evaluated", " ok "),
+        ((UNKNOWN,), [], "INCOMPLETE", "Not evaluated is never green", " ok "),
+        (
+            (PASSES, FAILS, UNKNOWN),
+            [],
+            "FAIL",
+            "1 passed · 1 failed · 1 not evaluated",
+            "",
+        ),
+        ((LOCAL,), ["--ci"], "INCOMPLETE", "SKIPPED", "FAIL"),
+        ((LOCAL,), [], "FAIL", "FAIL", "SKIPPED"),
     ],
     ids=[
-        "a clean tree exits zero",
-        "one failure exits non-zero",
+        "a clean tree is PASS",
+        "one failure is FAIL",
         "could not evaluate is not a pass",
         "one of each",
         "--ci leaves a local-only check unrun",
         "outside CI that same check runs",
     ],
 )
-def test_the_three_states_and_what_each_does_to_the_exit_code(
-    monkeypatch, capsys, rows, argv, code, says, never
+def test_the_contract_states_and_their_exact_outcomes(
+    monkeypatch, capsys, rows, argv, status, says, never
 ):
     """Counting a check that could not run as one that passed is how somebody reads
     "everything is fine" off a doctor that measured nothing. The --ci rows prove the skip
-    is a skip: the local-only check returns a failure, so if it ran the exit code is 1."""
+    is a skip: the local-only check returns a failure, so if it ran the outcome is FAIL."""
     monkeypatch.setattr(doctor, "CHECKS", list(rows))
     monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
-    assert doctor.main(argv) == code
+    result = doctor.main(argv)
+    assert type(result) is outcome.Result
+    assert result.outcome == status
     out = capsys.readouterr().out
     assert says in out
     assert not never or never not in out
@@ -172,7 +180,9 @@ def test_paths_prints_one_home_per_file_class_and_all_of_them_are_this_machine(
     """Every file class has one home and doctor prints it. If any of these resolved
     outside the configured framework home, a test here would be writing into a real one."""
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
-    assert doctor.main(["--paths"]) == 0
+    result = doctor.main(["--paths"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     out = capsys.readouterr().out
     for label, where in (
         ("guards", paths.hooks()),
@@ -794,7 +804,9 @@ def test_the_whole_report_is_data_and_none_of_it_is_chrome(monkeypatch, capsys):
             (3, "The context", "refused", True, raises(doctor.Undecidable("no endpoint"))),
         ],
     )
-    assert doctor.main(["--ci"]) == 0
+    result = doctor.main(["--ci"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     caught = capsys.readouterr()
     assert caught.err == "", "a line of the report went to the wrong stream"
     assert (
@@ -863,7 +875,9 @@ def test_fix_runs_the_verb_that_already_carries_the_consent_and_then_asks_again(
     monkeypatch.setattr(doctor, "CHECKS", [(2, "The pin", "wiring", True, lambda root: "broken")])
     monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
-    assert doctor.main(["--fix"]) == 1
+    result = doctor.main(["--fix"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "FAIL"
     # -y is appended and --no-project is not: one is how a cure runs unattended, the other
     # is in the cure itself, so repairing a machine cannot set up a stray repository.
     assert invoked == [["init", "--global", "--no-project", "-y"]]
@@ -926,7 +940,9 @@ def test_fix_with_nothing_it_can_repair_says_so_and_writes_nothing(monkeypatch, 
     monkeypatch.setattr(doctor, "CHECKS", [(4, "The context", "yours", True, lambda root: "TODO")])
     monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
-    assert doctor.main(["--fix"]) == 1
+    result = doctor.main(["--fix"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "FAIL"
     assert invoked == []
     assert (
         "\n  Nothing that failed here has a command --fix runs for you.\n"
@@ -938,7 +954,7 @@ def test_a_cure_that_exits_non_zero_stops_the_rest_instead_of_reporting_a_clean_
 ):
     """A repair that failed and a repair that was never attempted are different things, and
     running the second command over the wreckage of the first is how one broken install
-    becomes two. The exit code is the cure's, not doctor's."""
+    becomes two. A child's integer exit is not canonical proof, so doctor is INCOMPLETE."""
     monkeypatch.setattr(cli, "main", lambda argv: 3)
     monkeypatch.setattr(
         doctor,
@@ -950,7 +966,9 @@ def test_a_cure_that_exits_non_zero_stops_the_rest_instead_of_reporting_a_clean_
     )
     monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
-    assert doctor.main(["--fix"]) == 3
+    result = doctor.main(["--fix"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     out = capsys.readouterr().out
     assert "  it exited 3. The rest is not attempted." in out
     assert out.count("   2  FAIL     a") == 1, "it asked again after a repair that failed"
@@ -964,7 +982,9 @@ def test_the_command_a_repair_runs_and_the_one_that_failed_are_dressed_apart(
     Undecorated they are two runs of ordinary text, and the second is the one that matters."""
     monkeypatch.setattr(cli, "main", lambda argv: 3)
     stub(monkeypatch, [(11, "The pin", "a", True, lambda root: "broken")])
-    assert doctor.main(["--fix"]) == 3
+    result = doctor.main(["--fix"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     out = capsys.readouterr().out
     styles = doctor.ui.THEME.styles
     assert styles["cmd"].render("  running ai-eng init --project -y") in out

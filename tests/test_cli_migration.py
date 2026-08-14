@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering import capability, init, intent, outcome, skeletons, wiring
+from ai_engineering import capability, cli, doctor, init, intent, outcome, skeletons, wiring
 
 ROOT = Path(__file__).parents[1]
 INTENT_FIXTURE = ROOT / "tests" / "fixtures" / "intent-v1.json"
@@ -224,3 +224,108 @@ def test_init_malformed_receipt_and_path_collision_fail_before_project_writes(
     assert refused.outcome == "INCOMPLETE"
     assert _snapshot(root) == before
     assert collision.is_dir()
+
+
+def test_doctor_migration_reports_all_contract_states(
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def unknown(root):
+        raise doctor.Undecidable("the check could not decide")
+
+    def unreadable(root):
+        raise wiring.Unreadable("foreign state could not be read")
+
+    cases = (
+        (
+            "PASS",
+            [(1, "The context", "passing assertion", True, lambda root: None)],
+            [
+                "  PIN  wheel = pinned  OK",
+                "  T3   stub             ADVISES   instructions cannot deny",
+            ],
+        ),
+        (
+            "WARN",
+            [(1, "The context", "bounded warning assertion", True, lambda root: None)],
+            ["  T2   stub             UNPROVEN  no denial has executed here"],
+        ),
+        (
+            "FAIL",
+            [(2, "The wiring", "conclusive assertion", True, lambda root: "violation ran")],
+            ["  PIN  wheel = pinned  OK"],
+        ),
+        (
+            "INCOMPLETE",
+            [
+                (3, "The controls", "unknown assertion", True, unknown),
+                (4, "The controls", "unreadable assertion", True, unreadable),
+            ],
+            ["  PIN  wheel = pinned  OK"],
+        ),
+    )
+    monkeypatch.setattr(doctor.paths, "repo_root", lambda start=None: None)
+    panel_titles = {
+        "PASS": "OK",
+        "WARN": "WARN",
+        "FAIL": "FAILED",
+        "INCOMPLETE": "INCOMPLETE",
+    }
+    for expected, checks, coverage in cases:
+        monkeypatch.setattr(doctor, "CHECKS", checks)
+        monkeypatch.setattr(doctor, "coverage", lambda root, lines=coverage: lines)
+
+        result = doctor.main([])
+
+        assert type(result) is outcome.Result
+        assert result.outcome == expected
+        rendered = capsys.readouterr().out
+        assert f"╭─ {panel_titles[expected]} ─" in rendered
+        if expected != "PASS":
+            assert "╭─ OK ─" not in rendered
+        assert all(line in rendered for line in coverage)
+        for _, _, title, _, _ in checks:
+            assert title in rendered
+        if expected == "FAIL":
+            assert "violation ran" in rendered
+            assert doctor.FIXES[2] in rendered
+        if expected == "INCOMPLETE":
+            assert "the check could not decide" in rendered
+            assert "foreign state could not be read" in rendered
+
+    monkeypatch.setattr(
+        doctor,
+        "CHECKS",
+        [(1, "The context", "coverage boundary assertion", True, lambda root: None)],
+    )
+
+    def unreadable_coverage(root):
+        raise wiring.Unreadable("coverage state could not be read")
+
+    monkeypatch.setattr(doctor, "coverage", unreadable_coverage)
+    unavailable = doctor.main([])
+    assert type(unavailable) is outcome.Result
+    assert unavailable.outcome == "INCOMPLETE"
+    unavailable_output = capsys.readouterr().out
+    assert "coverage state could not be read" in unavailable_output
+    assert "╭─ INCOMPLETE ─" in unavailable_output
+    assert "╭─ OK ─" not in unavailable_output
+
+    monkeypatch.setattr(
+        doctor,
+        "CHECKS",
+        [(1, "The context", "captured child assertion", True, lambda root: None)],
+    )
+    monkeypatch.setattr(
+        doctor,
+        "coverage",
+        lambda root: ["  T2   stub             UNPROVEN  no denial has executed here"],
+    )
+    assert cli.main(["--json", "doctor"]) == 0
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["outcome"] == "WARN"
+    assert captured.out.count("\n") == 1
+    assert "captured child assertion" not in captured.out
+    assert captured.err == ""
