@@ -115,10 +115,10 @@ def suppressions() -> list[str]:
 
 
 def committed_specs(names: list[str]) -> list[Path]:
-    """From the index, never the filesystem. `accept.blocks` globs the working tree, which
-    is right for the verb — a risk you are about to accept is still a risk — and wrong here:
-    every other number on this page comes from `git ls-files`, and one row counting a draft
-    that no reviewer has seen is two questions printed as one table."""
+    """From the index, never the filesystem. The acceptance register reads the working
+    tree, which is right for the verb — a risk you are about to accept is still a risk — and
+    wrong here: every other number on this page comes from `git ls-files`, and one row
+    counting a draft that no reviewer has seen is two questions printed as one table."""
     return [ROOT / n for n in names if n.startswith("specs/") and n.endswith("spec.md")]
 
 

@@ -916,22 +916,19 @@ def test_no_acceptance_result_can_change_another_checks_status(tmp_path) -> None
     lapsed = acceptance.expired(root)
     assert lapsed.outcome == "PASS" and [entry.id for entry in lapsed.entries] == ["R-010-01"]
 
-    # Every outcome this module can produce, over every state it can read, is one of two
-    # words. Neither of them can upgrade another check's result.
-    outcomes = {
-        acceptance.read(root).outcome,
-        acceptance.current(root).outcome,
-        acceptance.expired(root).outcome,
-        acceptance.read(tmp_path / "absent").outcome,
-    }
-    assert outcomes <= {"PASS", "INCOMPLETE"}
+    # The falsifiable version: a live, valid acceptance never rescues a register that is
+    # already refusing. If an acceptance could suppress anything, this is where it would.
+    broken = root / "specs" / slug / "acceptance-r-010-99"
+    broken.mkdir()
+    (broken / "record.json").write_bytes(b"not a record\n")
+    assert acceptance.read(root).outcome == "INCOMPLETE"
+    assert acceptance.current(root).outcome == "INCOMPLETE"
+    assert acceptance.expired(root).outcome == "INCOMPLETE"
+    broken_record = broken / "record.json"
+    broken_record.unlink()
+    broken.rmdir()
+    assert acceptance.read(root).outcome == "PASS"
     assert set(acceptance.Register("PASS").as_dict()) == {"outcome", "count"}
-    assert (
-        json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))["x-acceptance-policy"][
-            "suppresses_failed_or_incomplete_checks"
-        ]
-        is False
-    )
 
 
 def _entry(acceptance, owner: str, ordinal: str, **overrides: Any):

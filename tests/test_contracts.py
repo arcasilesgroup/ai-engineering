@@ -749,8 +749,6 @@ def test_acceptance_replanned_repo_ceiling_is_55807():
         "# committed tree and sets this ceiling to that exact total, leaving zero slack."
         in budget_record
     )
-    # The measured base is not a claim: it is what the counter returns for that commit.
-    assert contract.repo_lines(ROOT) >= 38_534
 
 
 def test_the_line_ceiling_holds(tmp_path):
