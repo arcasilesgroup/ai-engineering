@@ -299,8 +299,9 @@ def test_doctor_migration_reports_all_contract_states(
 
         result = doctor.main([])
 
-        assert type(result) is outcome.Result
+        assert type(result) is outcome.Execution
         assert result.outcome == expected
+        assert result.checks
         rendered = capsys.readouterr().out
         assert f"╭─ {panel_titles[expected]} ─" in rendered
         if expected != "PASS":
@@ -326,8 +327,9 @@ def test_doctor_migration_reports_all_contract_states(
 
     monkeypatch.setattr(doctor, "coverage", unreadable_coverage)
     unavailable = doctor.main([])
-    assert type(unavailable) is outcome.Result
+    assert type(unavailable) is outcome.Execution
     assert unavailable.outcome == "INCOMPLETE"
+    assert any(fact.id == "coverage" for fact in unavailable.checks)
     unavailable_output = capsys.readouterr().out
     assert "coverage state could not be read" in unavailable_output
     assert "╭─ INCOMPLETE ─" in unavailable_output
@@ -348,7 +350,11 @@ def test_doctor_migration_reports_all_contract_states(
     payload = json.loads(captured.out)
     assert payload["outcome"] == "WARN"
     assert captured.out.count("\n") == 1
-    assert "captured child assertion" not in captured.out
+    assert any(
+        fact["summary"] == "captured child assertion" and fact["status"] == "PASS"
+        for fact in payload["checks"]
+    )
+    assert "\x1b[" not in captured.out
     assert captured.err == ""
 
 
@@ -713,8 +719,9 @@ def test_accept_requires_named_owner_date_and_risk_evidence(
     assert target.read_bytes() == target_bytes
 
     accepted = accept.main([*base, "--evidence", "proof/risk-f-1.txt"])
-    assert type(accepted) is outcome.Result
+    assert type(accepted) is outcome.Execution
     assert accepted.outcome == "PASS"
+    assert accepted.changes[0].status == "APPLIED"
     record = [block for _, block in accept.blocks(root) if block.get("finding") == "F-1"][-1]
     assert record["accepted_by"] == "repository maintainer"
     assert record["accepted"] == date.today().isoformat()
@@ -830,8 +837,9 @@ def test_report_is_hard_rename_and_bare_report_refuses(
     monkeypatch.setattr(report_command.doctor, "events", lambda repository: [])
     monkeypatch.setattr(report_command.doctor, "coverage", lambda repository: [])
     rendered = report_command.main(["digest"])
-    assert type(rendered) is outcome.Result
+    assert type(rendered) is outcome.Execution
     assert rendered.outcome == "PASS"
+    assert rendered.checks and rendered.changes
     assert (product_home / "cache" / "digest.json").is_file()
 
     capsys.readouterr()
@@ -1067,3 +1075,124 @@ def test_uninstall_is_explicit_and_returns_receipted_outcome(
     with pytest.raises(SystemExit) as invalid_cli:
         uninstall.main(["--force"])
     assert invalid_cli.value.code == outcome.invalid_cli_exit()
+
+
+def test_cli_json_transports_real_facts_and_keeps_invalid_usage_one_object(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    report_command = importlib.import_module("ai_engineering.report")
+
+    def unknown(root):
+        raise doctor.Undecidable("the executed check could not decide")
+
+    monkeypatch.setattr(
+        doctor,
+        "CHECKS",
+        [
+            (1, "The test", "executed pass", True, lambda root: None),
+            (2, "The test", "executed unknown", True, unknown),
+        ],
+    )
+    monkeypatch.setattr(doctor, "coverage", lambda root: ["  T2   focal  BLOCKS  executed"])
+    assert cli.main(["doctor", "--json"]) == 1
+    doctor_output = capsys.readouterr()
+    assert doctor_output.err == "" and doctor_output.out.count("\n") == 1
+    doctor_payload = json.loads(doctor_output.out)
+    assert [(row["id"], row["status"]) for row in doctor_payload["checks"]] == [
+        ("assertion-1", "PASS"),
+        ("assertion-2", "INCOMPLETE"),
+        ("coverage-1", "PASS"),
+    ]
+
+    today = date.today().isoformat()
+    monkeypatch.setattr(
+        report_command.doctor,
+        "events",
+        lambda root: [
+            {
+                "ts": today,
+                "session": "opaque-session",
+                "name": "loop_guard",
+                "cls": "blocked",
+                "data": {"reason": "bounded loop"},
+            },
+            {
+                "ts": today,
+                "session": "opaque-session",
+                "name": "doctor",
+                "cls": "command",
+                "data": {},
+            },
+        ],
+    )
+    monkeypatch.setattr(
+        report_command.doctor,
+        "coverage",
+        lambda root: ["  T2   focal  BLOCKS  executed"],
+    )
+    assert cli.main(["report", "digest", "--json"]) == 0
+    report_output = capsys.readouterr()
+    assert report_output.err == "" and report_output.out.count("\n") == 1
+    report_payload = json.loads(report_output.out)
+    report_ids = {row["id"] for row in report_payload["checks"]}
+    assert {"sessions", "blocked", "bypassed", "commands", "errors", "coverage-1"} <= report_ids
+    assert report_payload["changes"] == [
+        {
+            "id": "digest-read-receipt",
+            "status": "APPLIED",
+            "summary": "Updated the local digest read receipt",
+            "detail": None,
+        }
+    ]
+
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    proof = root / "proof" / "executed.txt"
+    proof.parent.mkdir()
+    proof.write_bytes(b"executed acceptance evidence\n")
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    accept_args = [
+        "accept",
+        "--finding",
+        "F-JSON",
+        "--expires",
+        tomorrow,
+        "--by",
+        "repository maintainer",
+        "--justification",
+        "bounded risk",
+        "--evidence",
+        "proof/executed.txt",
+        "--spec",
+        "010",
+        "--json",
+    ]
+    assert cli.main(accept_args) == 0
+    accepted_output = capsys.readouterr()
+    assert accepted_output.err == "" and accepted_output.out.count("\n") == 1
+    accepted_payload = json.loads(accepted_output.out)
+    assert accepted_payload["changes"]
+    assert accepted_payload["changes"][0]["status"] == "APPLIED"
+    assert any(block.get("finding") == "F-JSON" for _, block in accept.blocks(root))
+
+    for argv, command, code in (
+        (["--json"], "ai-eng", 2),
+        (["--json", "unknown"], "invalid", 2),
+        (["update", "--bogus", "--json"], "update", 2),
+        (["--json", "--help"], "help", 0),
+        (["--json", "--version"], "version", 0),
+        (["update", "--help", "--json"], "update", 0),
+        (["--json", "--json"], "ai-eng", 2),
+    ):
+        assert cli.main(argv) == code
+        rendered = capsys.readouterr()
+        assert rendered.err == "" and rendered.out.count("\n") == 1
+        payload = json.loads(rendered.out)
+        assert payload["command"] == command
+        if code == 2:
+            assert payload["error"]["code"] == "INVALID_CLI"
+        else:
+            assert payload["error"] is None

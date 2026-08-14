@@ -732,7 +732,7 @@ def _terminal_result(
     return outcome.result("PASS")
 
 
-def main(argv: list[str]) -> outcome.Result:
+def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     parser = argparse.ArgumentParser("ai-eng doctor")
     parser.add_argument("--ci", action="store_true", help="only the checks a runner can answer")
     parser.add_argument("--paths", action="store_true", help="print where every file class lives")
@@ -755,6 +755,7 @@ def main(argv: list[str]) -> outcome.Result:
     failed: list[int] = []
     unanswered: list[tuple[int, str, str]] = []
     cures: dict[int, str] = {}
+    check_facts: list[outcome.Fact] = []
     for family in families():
         ui.section(family, data=True)
         for number, group, title, in_ci, fn in sorted(CHECKS):
@@ -763,6 +764,14 @@ def main(argv: list[str]) -> outcome.Result:
             if args.ci and not in_ci:
                 ui.verdict(number, "skipped", f"{title} — needs a real working copy")
                 unanswered.append((number, title, "needs a real working copy"))
+                check_facts.append(
+                    outcome.fact(
+                        f"assertion-{number}",
+                        "SKIPPED",
+                        title,
+                        "needs a real working copy",
+                    )
+                )
                 continue
             try:
                 problem = fn(root)
@@ -772,14 +781,19 @@ def main(argv: list[str]) -> outcome.Result:
                 # one broken file tells you nothing about the other nineteen assertions.
                 ui.verdict(number, "unknown", title, f"could not evaluate: {why}")
                 unanswered.append((number, title, str(why)))
+                check_facts.append(
+                    outcome.fact(f"assertion-{number}", "INCOMPLETE", title, str(why))
+                )
                 continue
             if not problem:
                 ui.verdict(number, "ok", title)
+                check_facts.append(outcome.fact(f"assertion-{number}", "PASS", title))
                 continue
             problem, cure = resolve(number, problem)
             ui.verdict(number, "fail", title, problem)
             ui.cure(cure)
             failed.append(number)
+            check_facts.append(outcome.fact(f"assertion-{number}", "FAIL", title, problem))
             if unattended(cure):
                 cures[number] = cure
 
@@ -794,11 +808,24 @@ def main(argv: list[str]) -> outcome.Result:
         coverage_unknown = True
         coverage_lines = []
         ui.write(f"  INCOMPLETE  could not evaluate coverage: {why}", style="warn", data=True)
-    for line in coverage_lines:
+        check_facts.append(outcome.fact("coverage", "INCOMPLETE", "Surface coverage", str(why)))
+    for index, line in enumerate(coverage_lines, 1):
         # The words themselves are vocabulary — BLOCKS, INERT, UNPROVEN, ADVISES mean
         # something and do not move. Only the colour is added, and it is chosen by the word
         # rather than recomputed here, so this can never disagree with what the line says.
         ui.write(line, style=tint(line), data=True)
+        coverage_status = (
+            "FAIL"
+            if "MISMATCH" in line
+            else "WARN"
+            if any(word in line for word in ("INERT", "UNPROVEN", "OPEN"))
+            else "PASS"
+            if any(word in line for word in ("BLOCKS", "OK"))
+            else "OBSERVED"
+        )
+        check_facts.append(
+            outcome.fact(f"coverage-{index}", coverage_status, "Surface coverage", line)
+        )
 
     if unanswered:
         ui.section(
@@ -821,7 +848,18 @@ def main(argv: list[str]) -> outcome.Result:
         return repair(cures, argv)
     if args.fix:
         ui.write("\n  Nothing that failed here has a command --fix runs for you.", data=True)
-    return result
+    remaining = [
+        *(f"assertion {number} failed" for number in failed),
+        *(f"assertion {number} could not be evaluated" for number, _, _ in unanswered),
+        *(["surface coverage could not be evaluated"] if coverage_unknown else []),
+    ]
+    actions = sorted(set(cures.values())) or [result.next_action]
+    return outcome.execution(
+        result,
+        checks=check_facts,
+        remaining=remaining,
+        next_actions=actions,
+    )
 
 
 def resolve(number: int, problem: str | tuple[str, str]) -> tuple[str, str]:

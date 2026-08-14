@@ -157,8 +157,9 @@ def test_the_contract_states_and_their_exact_outcomes(
     monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
     result = doctor.main(argv)
-    assert type(result) is outcome.Result
+    assert type(result) is outcome.Execution
     assert result.outcome == status
+    assert result.checks
     out = capsys.readouterr().out
     assert says in out
     assert not never or never not in out
@@ -805,8 +806,9 @@ def test_the_whole_report_is_data_and_none_of_it_is_chrome(monkeypatch, capsys):
         ],
     )
     result = doctor.main(["--ci"])
-    assert type(result) is outcome.Result
+    assert type(result) is outcome.Execution
     assert result.outcome == "INCOMPLETE"
+    assert [fact.status for fact in result.checks[:3]] == ["PASS", "SKIPPED", "INCOMPLETE"]
     caught = capsys.readouterr()
     assert caught.err == "", "a line of the report went to the wrong stream"
     assert (
@@ -876,8 +878,9 @@ def test_fix_runs_the_verb_that_already_carries_the_consent_and_then_asks_again(
     monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
     result = doctor.main(["--fix"])
-    assert type(result) is outcome.Result
+    assert type(result) is outcome.Execution
     assert result.outcome == "FAIL"
+    assert result.checks
     # -y is appended and --no-project is not: one is how a cure runs unattended, the other
     # is in the cure itself, so repairing a machine cannot set up a stray repository.
     assert invoked == [["init", "--global", "--no-project", "-y"]]
@@ -941,8 +944,9 @@ def test_fix_with_nothing_it_can_repair_says_so_and_writes_nothing(monkeypatch, 
     monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
     result = doctor.main(["--fix"])
-    assert type(result) is outcome.Result
+    assert type(result) is outcome.Execution
     assert result.outcome == "FAIL"
+    assert result.checks
     assert invoked == []
     assert (
         "\n  Nothing that failed here has a command --fix runs for you.\n"

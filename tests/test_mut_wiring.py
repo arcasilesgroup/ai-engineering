@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering import __version__, doctor, paths, wiring
+from ai_engineering import __version__, doctor, outcome, paths, wiring
 
 emit = paths.load("_emit")
 
@@ -632,7 +632,8 @@ def test_paths_prints_the_record_of_the_repository_doctor_actually_found(
     subprocess.run(["git", "init", "-b", "main", str(root)], check=True, capture_output=True)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
 
-    assert doctor.main(["--paths"]) == 0
+    result = doctor.main(["--paths"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     out = capsys.readouterr().out
     assert f"  record        {emit.chain_path(root)}" in out
     assert str(emit.chain_path(None)) not in out
@@ -660,7 +661,15 @@ def test_the_report_prints_one_line_per_state_and_hands_every_check_the_reposito
     monkeypatch.setattr(doctor, "coverage", lambda root: [f"  surfaces for {root}"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: here)
 
-    assert doctor.main([]) == 1
+    result = doctor.main([])
+    assert type(result) is outcome.Execution and result.outcome == "FAIL"
+    assert [fact.status for fact in result.checks[:5]] == [
+        "INCOMPLETE",
+        "INCOMPLETE",
+        "PASS",
+        "FAIL",
+        "FAIL",
+    ]
     out = capsys.readouterr().out
     assert out.count("\nThe pin\n") == 1
     assert out.count("\nThe record\n") == 1
@@ -702,7 +711,9 @@ def test_ci_leaves_the_local_only_checks_unrun_and_still_runs_everything_else(mo
     monkeypatch.setattr(doctor, "coverage", lambda root: ["  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
 
-    assert doctor.main(["--ci"]) == 0
+    result = doctor.main(["--ci"])
+    assert type(result) is outcome.Execution and result.outcome == "INCOMPLETE"
+    assert [fact.status for fact in result.checks[:3]] == ["SKIPPED", "SKIPPED", "PASS"]
     out = capsys.readouterr().out
     assert "   1  SKIPPED  needs a working copy — needs a real working copy" in out
     assert "   3  ok       a runner can answer this" in out

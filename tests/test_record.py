@@ -50,6 +50,13 @@ SIGNED = [
 A_WEEK_AGO = (date.today() - timedelta(days=7)).isoformat()
 
 
+def completed(execution):
+    assert type(execution) is outcome.Execution
+    assert execution.result == outcome.result("PASS")
+    assert execution.changes and execution.changes[0].status == "APPLIED"
+    return execution
+
+
 @pytest.fixture
 def home(tmp_path, monkeypatch):
     """Every path the record writes to, moved inside tmp_path: the chain, the machine id
@@ -227,9 +234,7 @@ def test_the_first_risk_of_a_spec_is_numbered_one_whatever_the_repository_holds(
     )
     (repo / "specs" / "002-new").mkdir()
     (repo / "specs" / "002-new" / "spec.md").write_text("# new\n", encoding="utf-8")
-    assert accept.main(
-        ["--finding", "F-c", "--expires", TOMORROW, "--spec", "002", *SIGNED]
-    ) == outcome.result("PASS")
+    completed(accept.main(["--finding", "F-c", "--expires", TOMORROW, "--spec", "002", *SIGNED]))
     capsys.readouterr()
     written = [b for _, b in accept.blocks(repo) if b["finding"] == "F-c"]
     assert written[0]["id"] == "R-002-01"
@@ -257,7 +262,7 @@ def test_a_rationale_of_any_length_survives_being_written_and_read_back(repo, ca
         "--evidence",
         "proof.txt",
     ]
-    assert accept.main(args) == outcome.result("PASS")
+    completed(accept.main(args))
     capsys.readouterr()
     body = (repo / "specs" / "001-a" / "spec.md").read_text()
     assert max(len(line) for line in body.splitlines()) <= text.WIDTH
@@ -301,9 +306,7 @@ def test_the_third_renewal_is_refused_and_writes_nothing(repo, capsys):
     (repo / "specs" / "1234-big").mkdir()
     (repo / "specs" / "1234-big" / "spec.md").write_text("# big\n", encoding="utf-8")
     for expected in range(accept.MAX_RENEWALS + 1):
-        assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
-            "PASS"
-        )
+        completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
         assert int(accept.blocks(repo)[0][1]["renewals"]) == expected
     assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
         "FAIL"
@@ -322,9 +325,7 @@ def test_writing_an_acceptance_does_not_eat_the_text_under_its_heading(repo):
         "# title\n\n## Accepted risks\n\nprose a person wrote\n\n## Production-ready\n\n- [ ] CI\n"
     )
     (folder / "spec.md").write_text(body, encoding="utf-8")
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
-        "PASS"
-    )
+    completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     after = (folder / "spec.md").read_text()
     assert "prose a person wrote" in after and "## Production-ready" in after
     assert after.index("finding: F-1") > after.index("## Accepted risks")
@@ -692,7 +693,7 @@ def test_a_bypassed_guard_is_named_in_the_report_a_person_reads(home, monkeypatc
             dict(_event("cli", "error", ""), seq=5),
         ],
     )
-    assert report.main(["digest"]) == outcome.result("PASS")
+    completed(report.main(["digest"]))
     out = capsys.readouterr().out
     assert "Bypassed 3 times." in out
     assert "3× design_gate — shipping late" in out
@@ -708,7 +709,7 @@ def test_a_quiet_week_says_so_instead_of_reporting_a_clean_bill(home, monkeypatc
     report must not let a reader assume the first one. A week means seven days: a default
     window quietly widened to a month reports a month under a heading that says week."""
     monkeypatch.setattr(report.doctor, "coverage", lambda root: [])
-    assert report.main(["digest"]) == outcome.result("PASS")
+    completed(report.main(["digest"]))
     out = capsys.readouterr().out
     assert f"Week of {A_WEEK_AGO}" in out
     assert "a control that is no longer firing" in out

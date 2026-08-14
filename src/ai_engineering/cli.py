@@ -12,6 +12,7 @@ import contextlib
 import importlib
 import io
 import json
+import os
 import sys
 import time
 import uuid
@@ -68,23 +69,23 @@ def _timestamp() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
-def _error(result: outcome.Result, code: str) -> dict | None:
-    if result.exit_code == 0:
-        return None
-    return {
-        "code": code,
-        "message": result.reason,
-        "retryable": result.outcome in {"FAIL", "INCOMPLETE"},
-        "cure": result.next_action or None,
-    }
+@contextlib.contextmanager
+def _silence():
+    """Discard child prose without retaining an unbounded or privacy-bearing buffer."""
+
+    with (
+        open(os.devnull, "w", encoding="utf-8") as sink,
+        contextlib.redirect_stdout(sink),
+        contextlib.redirect_stderr(sink),
+    ):
+        yield
 
 
 def _envelope(
     command: str,
-    result: outcome.Result,
+    execution: outcome.Execution,
     started_at: str,
     finished_at: str,
-    error_code: str,
 ) -> dict:
     return {
         "schema_version": "1",
@@ -92,25 +93,92 @@ def _envelope(
         "operation_id": str(uuid.uuid4()),
         "started_at": started_at,
         "finished_at": finished_at,
-        "outcome": result.outcome,
-        "summary": result.reason,
-        "changes": [],
-        "checks": [],
-        "remaining": [] if result.exit_code == 0 else [result.reason],
-        "next_actions": [result.next_action] if result.next_action else [],
-        "error": _error(result, error_code),
+        "outcome": execution.outcome,
+        "summary": execution.summary,
+        "changes": [fact.as_dict() for fact in execution.changes],
+        "checks": [fact.as_dict() for fact in execution.checks],
+        "remaining": list(execution.remaining),
+        "next_actions": list(execution.next_actions),
+        "error": None if execution.error is None else execution.error.as_dict(),
     }
 
 
+def _machine_result(
+    command: str,
+    execution: outcome.Execution,
+    started_at: str,
+    *,
+    emit: bool,
+    process_exit: int | None = None,
+) -> None:
+    """Write the sole JSON object after every child and telemetry stream is closed."""
+
+    if emit:
+        with _silence(), contextlib.suppress(BaseException):
+            paths.load("_emit").emit(
+                command,
+                "command",
+                verb=command,
+                exit=execution.exit_code if process_exit is None else process_exit,
+                outcome=execution.outcome,
+            )
+    finished_at = _timestamp()
+    payload = _envelope(command, execution, started_at, finished_at)
+    sys.stdout.write(
+        json.dumps(payload, allow_nan=False, ensure_ascii=False, separators=(",", ":")) + "\n"
+    )
+
+
+def _invalid_json(command: str, message: str, cure: str | None = None) -> int:
+    terminal = outcome.result("INCOMPLETE")
+    execution = outcome.execution(
+        terminal,
+        summary=message,
+        remaining=[message],
+        next_actions=[] if cure is None else [cure],
+        execution_error=outcome.error("INVALID_CLI", message, False, cure),
+    )
+    _machine_result(command, execution, _timestamp(), emit=False)
+    return outcome.invalid_cli_exit()
+
+
+def _global_json(command: str) -> int:
+    if command == "help":
+        execution = outcome.execution(
+            outcome.result("PASS"),
+            summary="Ten canonical commands are available",
+            checks=[
+                outcome.fact(f"command-{verb}", "OBSERVED", verb, description)
+                for verb, description in VERBS.items()
+            ],
+            next_actions=["run one canonical command with its required arguments"],
+        )
+    else:
+        execution = outcome.execution(
+            outcome.result("PASS"),
+            summary=f"ai-engineering {__version__}",
+            checks=[outcome.fact("version", "OBSERVED", "Installed version", __version__)],
+            next_actions=["run ai-eng --help to list canonical commands"],
+        )
+    _machine_result(command, execution, _timestamp(), emit=False)
+    return 0
+
+
 def _json_dispatch(verb: str, rest: list[str]) -> int:
-    """Run one verb without a terminal and expose only a canonical Result as success."""
+    """Run one verb without a terminal and retain only its bounded structured facts."""
     started_at = _timestamp()
-    captured_out, captured_err = io.StringIO(), io.StringIO()
     previous_stdin = sys.stdin
-    result = outcome.result("INCOMPLETE")
-    error_code = "UNEXPECTED_ERROR"
+    terminal = outcome.result("INCOMPLETE")
+    execution = outcome.execution(
+        terminal,
+        execution_error=outcome.error(
+            "UNEXPECTED_ERROR", "The command did not produce a terminal result", False
+        ),
+    )
+    process_exit = terminal.exit_code
+    ui = None
     try:
-        with contextlib.redirect_stdout(captured_out), contextlib.redirect_stderr(captured_err):
+        with _silence():
             from ai_engineering import ui
 
             ui.reset()
@@ -118,51 +186,115 @@ def _json_dispatch(verb: str, rest: list[str]) -> int:
             try:
                 module = importlib.import_module(f"ai_engineering.{verb}")
                 returned = module.main(rest)
-                if type(returned) is outcome.Result:
-                    result = returned
-                    error_code = result.outcome
+                if type(returned) is outcome.Execution:
+                    execution = returned
+                elif type(returned) is outcome.Result:
+                    execution = outcome.execution(returned)
                 else:
-                    error_code = "NONCANONICAL_RESULT"
+                    execution = outcome.execution(
+                        outcome.result("INCOMPLETE"),
+                        summary="The command returned a noncanonical result",
+                        execution_error=outcome.error(
+                            "NONCANONICAL_RESULT",
+                            "The command returned a noncanonical result",
+                            False,
+                        ),
+                    )
+                process_exit = execution.exit_code
+            except SystemExit as stopped:
+                if stopped.code in (None, 0):
+                    execution = outcome.execution(
+                        outcome.result("PASS"),
+                        summary=f"Help requested for {verb}",
+                        checks=[outcome.fact("help", "OBSERVED", f"Help requested for {verb}")],
+                        next_actions=[f"run ai-eng {verb} with valid arguments"],
+                    )
+                    process_exit = 0
+                elif stopped.code == outcome.invalid_cli_exit():
+                    message = f"Invalid arguments for {verb}"
+                    cure = f"run ai-eng {verb} --help"
+                    execution = outcome.execution(
+                        outcome.result("INCOMPLETE"),
+                        summary=message,
+                        remaining=[message],
+                        next_actions=[cure],
+                        execution_error=outcome.error("INVALID_CLI", message, False, cure),
+                    )
+                    process_exit = outcome.invalid_cli_exit()
+                else:
+                    execution = outcome.execution(
+                        outcome.result("INCOMPLETE"),
+                        summary="The command stopped without a canonical terminal result",
+                        execution_error=outcome.error(
+                            "UNEXPECTED_ERROR",
+                            "The command stopped without a canonical terminal result",
+                            False,
+                        ),
+                    )
+                    process_exit = execution.exit_code
             except KeyboardInterrupt:
-                result = outcome.result("CANCELLED")
-                error_code = "CANCELLED"
+                execution = outcome.execution(outcome.result("CANCELLED"))
+                process_exit = execution.exit_code
             except BaseException:
-                result = outcome.result("INCOMPLETE")
-                error_code = "UNEXPECTED_ERROR"
+                execution = outcome.execution(
+                    outcome.result("INCOMPLETE"),
+                    summary="The command failed before producing bounded execution facts",
+                    execution_error=outcome.error(
+                        "UNEXPECTED_ERROR",
+                        "The command failed before producing bounded execution facts",
+                        False,
+                    ),
+                )
+                process_exit = execution.exit_code
             finally:
-                ui.reset()
+                with contextlib.suppress(BaseException):
+                    ui.reset()
+    except KeyboardInterrupt:
+        execution = outcome.execution(outcome.result("CANCELLED"))
+        process_exit = execution.exit_code
+    except BaseException:
+        execution = outcome.execution(
+            outcome.result("INCOMPLETE"),
+            summary="The command failed before its execution boundary was available",
+            execution_error=outcome.error(
+                "UNEXPECTED_ERROR",
+                "The command failed before its execution boundary was available",
+                False,
+            ),
+        )
+        process_exit = execution.exit_code
     finally:
         sys.stdin = previous_stdin
 
-    finished_at = _timestamp()
-    payload = _envelope(verb, result, started_at, finished_at, error_code)
-    with contextlib.redirect_stdout(captured_out), contextlib.redirect_stderr(captured_err):
-        paths.load("_emit").emit(
-            verb,
-            "command",
-            verb=verb,
-            exit=result.exit_code,
-            outcome=result.outcome,
-        )
-    sys.stdout.write(
-        json.dumps(payload, allow_nan=False, ensure_ascii=False, separators=(",", ":")) + "\n"
-    )
-    return result.exit_code
+    _machine_result(verb, execution, started_at, emit=True, process_exit=process_exit)
+    return process_exit
 
 
 def main(argv: list[str] | None = None) -> int:
     speakable()
     argv = list(sys.argv[1:] if argv is None else argv)
     json_flags = argv.count("--json")
-    if json_flags > 1:
-        sys.stderr.write("ai-eng: --json may be specified once.\n")
-        return 2
-    json_mode = json_flags == 1
+    json_mode = json_flags > 0
     if json_mode:
-        argv.remove("--json")
+        argv = [argument for argument in argv if argument != "--json"]
+        if json_flags > 1:
+            return _invalid_json("ai-eng", "--json may be specified once")
         if not argv:
-            sys.stderr.write("ai-eng: --json requires one canonical verb.\n")
-            return 2
+            return _invalid_json(
+                "ai-eng", "JSON mode requires one canonical command", "run ai-eng --json --help"
+            )
+        if "--adr" in argv:
+            return _invalid_json(
+                "invalid", "The option --adr does not exist", "run ai-eng --json --help"
+            )
+        if argv[0] in ("-h", "--help", "help"):
+            return _global_json("help")
+        if argv[0] in ("-V", "--version", "version"):
+            return _global_json("version")
+        verb, rest = argv[0], argv[1:]
+        if verb not in VERBS:
+            return _invalid_json("invalid", "Unknown command", "run ai-eng --json --help")
+        return _json_dispatch(verb, rest)
     if "--adr" in argv:
         sys.stderr.write("ai-eng: there is no option '--adr'.\n")
         return 2
@@ -183,17 +315,15 @@ def main(argv: list[str] | None = None) -> int:
         usage()
         return 2
 
-    if json_mode:
-        return _json_dispatch(verb, rest)
-
     module = importlib.import_module(f"ai_engineering.{verb}")
     started = time.perf_counter()
     try:
         returned = module.main(rest)
-        if type(returned) is outcome.Result:
+        if type(returned) in (outcome.Result, outcome.Execution):
             from ai_engineering import ui
 
-            ui.render_result(returned)
+            terminal = returned.result if type(returned) is outcome.Execution else returned
+            ui.render_result(terminal)
             code = returned.exit_code
         else:
             code = int(returned or 0)

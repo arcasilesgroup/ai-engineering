@@ -128,7 +128,10 @@ def report(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(report_command.doctor, "coverage", coverage)
 
     def run(*argv):
-        assert report_command.main(["digest", *argv]) == outcome.result("PASS")
+        execution = report_command.main(["digest", *argv])
+        assert type(execution) is outcome.Execution
+        assert execution.result == outcome.result("PASS")
+        assert execution.checks and execution.changes[0].status == "APPLIED"
         return capsys.readouterr().out.splitlines()
 
     state.run = run

@@ -87,8 +87,8 @@ def test_ui_plain_rich_json_noninteractive_and_a11y_parity(monkeypatch, capsys):
 
 def test_cli_noninteractive_json_is_one_object_and_never_null(monkeypatch, capsys):
     """Global JSON is one dispatch mode, not prose with braces around it. Child output and
-    prompts cannot leak, canonical Result is the only success boundary, and an integer or
-    exception stays non-green without exposing its private text."""
+    prompts cannot leak, canonical Result/Execution are the only success boundaries, and an
+    integer or exception stays non-green without exposing its private text."""
     verbs = (
         "init",
         "doctor",
@@ -119,13 +119,18 @@ def test_cli_noninteractive_json_is_one_object_and_never_null(monkeypatch, capsy
         lambda name: SimpleNamespace(emit=lambda *args, **kwargs: events.append((args, kwargs))),
     )
 
-    assert cli.main(["--json"]) == 2
-    assert cli.main(["plan", "--json"]) == 2
-    assert cli.main(["digest", "--json"]) == 2
-    assert cli.main(["decide", "--adr", "--json"]) == 2
-    invalid = capsys.readouterr()
-    assert "there is no verb 'plan'" in invalid.err and "there is no verb 'digest'" in invalid.err
-    assert "there is no option '--adr'" in invalid.err
+    for argv, command in (
+        (["--json"], "ai-eng"),
+        (["plan", "--json"], "invalid"),
+        (["digest", "--json"], "invalid"),
+        (["decide", "--adr", "--json"], "invalid"),
+    ):
+        assert cli.main(argv) == 2
+        invalid = capsys.readouterr()
+        assert invalid.err == "" and invalid.out.count("\n") == 1
+        invalid_payload = json.loads(invalid.out)
+        assert invalid_payload["command"] == command
+        assert invalid_payload["error"]["code"] == "INVALID_CLI"
     assert invoked == []
 
     def successful(argv):
@@ -167,7 +172,7 @@ def test_cli_noninteractive_json_is_one_object_and_never_null(monkeypatch, capsy
     behavior["main"] = lambda argv: outcome.result("FAIL")
     assert cli.main(["--json", "audit"]) == 1
     failed = json.loads(capsys.readouterr().out)
-    assert failed["outcome"] == "FAIL" and failed["remaining"] == [failed["summary"]]
+    assert failed["outcome"] == "FAIL" and failed["remaining"] == []
     assert failed["error"] == {
         "code": "FAIL",
         "message": outcome.result("FAIL").reason,

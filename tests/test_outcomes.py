@@ -202,3 +202,24 @@ def test_outcome_core_maps_status_to_exact_exit_and_next_action(
         scoped.setattr(outcome, "SCHEMA_PATH", linked)
         with pytest.raises(outcome.OutcomePolicyError):
             outcome.result("PASS")
+
+
+def test_execution_facts_are_bounded_without_widening_the_result_schema() -> None:
+    terminal = outcome.result("PASS")
+    bounded = outcome.fact("executed-check", "PASS", "x" * 1_000, "\x1b[31mprivate\nvalue")
+    execution = outcome.execution(terminal, checks=[bounded])
+
+    assert execution.result.as_dict() == terminal.as_dict()
+    assert set(execution.result.as_dict()) == set(json.loads(SCHEMA_PATH.read_text())["required"])
+    assert len(bounded.summary) == 512
+    assert "\x1b" not in bounded.detail and "\n" not in bounded.detail
+    assert execution.error is None
+
+    failed = outcome.execution(outcome.result("FAIL"))
+    assert failed.error is not None and failed.error.code == "FAIL"
+    with pytest.raises(ValueError, match="execution facts"):
+        outcome.execution(terminal, checks=[bounded] * 129)
+    with pytest.raises(ValueError, match="execution facts"):
+        outcome.Execution(terminal, "summary", (), (), (), (), object())
+    with pytest.raises(ValueError, match="execution fact"):
+        outcome.Fact("not allowed space", "PASS", "summary", None)

@@ -18,6 +18,12 @@ _SCHEMA = "urn:ai-engineering:outcome:1"
 _VERSION = "1"
 _FIELDS = ("schema", "schema_version", "outcome", "exit_code", "reason", "next_action")
 _MAX_POLICY_BYTES = 100_000
+_MAX_FACTS = 128
+_MAX_SUMMARY = 512
+_MAX_DETAIL = 1_024
+_FACT_STATUSES = frozenset(
+    {"APPLIED", "FAIL", "INCOMPLETE", "OBSERVED", "PASS", "SKIPPED", "WARN", "WOULD_CHANGE"}
+)
 
 
 class OutcomePolicyError(RuntimeError):
@@ -128,6 +134,175 @@ class Result:
             "reason": self.reason,
             "next_action": self.next_action,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class Fact:
+    """One bounded execution fact, separate from the closed terminal-outcome schema."""
+
+    id: str
+    status: str
+    summary: str
+    detail: str | None
+
+    def __post_init__(self) -> None:
+        if (
+            not self.id
+            or len(self.id) > 64
+            or any(
+                character not in "abcdefghijklmnopqrstuvwxyz0123456789-_." for character in self.id
+            )
+            or self.status not in _FACT_STATUSES
+            or not self.summary
+            or len(self.summary) > _MAX_SUMMARY
+            or (self.detail is not None and len(self.detail) > _MAX_DETAIL)
+        ):
+            raise ValueError("execution fact is not bounded and canonical")
+
+    def as_dict(self) -> dict[str, str | None]:
+        return {
+            "id": self.id,
+            "status": self.status,
+            "summary": self.summary,
+            "detail": self.detail,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class Error:
+    """The JSON error object known at the same boundary as its failure."""
+
+    code: str
+    message: str
+    retryable: bool
+    cure: str | None
+
+    def __post_init__(self) -> None:
+        if (
+            not self.code
+            or len(self.code) > 64
+            or any(
+                character not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" for character in self.code
+            )
+            or not self.message
+            or len(self.message) > _MAX_SUMMARY
+            or type(self.retryable) is not bool
+            or (self.cure is not None and len(self.cure) > _MAX_DETAIL)
+        ):
+            raise ValueError("execution error is not bounded and canonical")
+
+    def as_dict(self) -> dict[str, str | bool | None]:
+        return {
+            "code": self.code,
+            "message": self.message,
+            "retryable": self.retryable,
+            "cure": self.cure,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class Execution:
+    """A terminal Result plus bounded facts; Result itself stays policy-schema exact."""
+
+    result: Result
+    summary: str
+    changes: tuple[Fact, ...]
+    checks: tuple[Fact, ...]
+    remaining: tuple[str, ...]
+    next_actions: tuple[str, ...]
+    error: Error | None
+
+    def __post_init__(self) -> None:
+        if type(self.result) is not Result or not self.summary or len(self.summary) > _MAX_SUMMARY:
+            raise ValueError("execution does not carry one canonical terminal result")
+        if (
+            len(self.changes) > _MAX_FACTS
+            or len(self.checks) > _MAX_FACTS
+            or len(self.remaining) > _MAX_FACTS
+            or len(self.next_actions) > _MAX_FACTS
+            or any(type(item) is not Fact for item in (*self.changes, *self.checks))
+            or any(
+                not item or len(item) > _MAX_DETAIL
+                for item in (*self.remaining, *self.next_actions)
+            )
+            or (self.error is not None and type(self.error) is not Error)
+            or (self.result.exit_code == 0) != (self.error is None)
+        ):
+            raise ValueError("execution facts do not match their terminal result")
+
+    @property
+    def outcome(self) -> str:
+        return self.result.outcome
+
+    @property
+    def exit_code(self) -> int:
+        return self.result.exit_code
+
+
+def _text(value: object, limit: int) -> str:
+    if not isinstance(value, str):
+        raise TypeError("execution text must be a string")
+    bounded = value[: limit * 4]
+    safe = "".join(character if character.isprintable() else " " for character in bounded)
+    safe = " ".join(safe.split())
+    if not safe:
+        raise ValueError("execution text cannot be empty")
+    return safe if len(safe) <= limit else safe[: limit - 1].rstrip() + "…"
+
+
+def fact(id: str, status: str, summary: str, detail: str | None = None) -> Fact:
+    """Build one bounded fact without retaining terminal prose buffers."""
+
+    return Fact(
+        id=id,
+        status=status,
+        summary=_text(summary, _MAX_SUMMARY),
+        detail=None if detail is None else _text(detail, _MAX_DETAIL),
+    )
+
+
+def error(code: str, message: str, retryable: bool, cure: str | None = None) -> Error:
+    """Build one bounded machine error without exposing an exception representation."""
+
+    return Error(
+        code=code,
+        message=_text(message, _MAX_SUMMARY),
+        retryable=retryable,
+        cure=None if cure is None else _text(cure, _MAX_DETAIL),
+    )
+
+
+def execution(
+    terminal: Result,
+    *,
+    summary: str | None = None,
+    changes: tuple[Fact, ...] | list[Fact] = (),
+    checks: tuple[Fact, ...] | list[Fact] = (),
+    remaining: tuple[str, ...] | list[str] = (),
+    next_actions: tuple[str, ...] | list[str] | None = None,
+    execution_error: Error | None = None,
+) -> Execution:
+    """Attach facts without changing or widening the closed Result schema."""
+
+    if type(terminal) is not Result:
+        raise TypeError("execution requires one canonical Result")
+    if execution_error is None and terminal.exit_code:
+        execution_error = error(
+            terminal.outcome,
+            terminal.reason,
+            terminal.outcome in {"FAIL", "INCOMPLETE"},
+            terminal.next_action,
+        )
+    actions = [terminal.next_action] if next_actions is None else next_actions
+    return Execution(
+        result=terminal,
+        summary=_text(summary or terminal.reason, _MAX_SUMMARY),
+        changes=tuple(changes),
+        checks=tuple(checks),
+        remaining=tuple(_text(item, _MAX_DETAIL) for item in remaining),
+        next_actions=tuple(_text(item, _MAX_DETAIL) for item in actions),
+        error=execution_error,
+    )
 
 
 def result(status: object) -> Result:

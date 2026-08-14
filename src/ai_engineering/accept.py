@@ -157,7 +157,7 @@ def add(where: Path, fields: dict) -> None:
         stream.write(f"{head}{SECTION}\n\n{text.render(fields)}{tail.lstrip()}")
 
 
-def main(argv: list[str]) -> outcome.Result:
+def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     parser = argparse.ArgumentParser("ai-eng accept")
     parser.add_argument(
         "--finding", type=_required("finding"), help="the finding id being accepted"
@@ -291,4 +291,15 @@ def main(argv: list[str]) -> outcome.Result:
         f"  ✓ recorded in {where.relative_to(root)} — it expires {args.expires}, and both "
         f"pre-push and doctor read that date."
     )
-    return outcome.result("PASS")
+    return outcome.execution(
+        outcome.result("PASS"),
+        summary=f"Recorded risk acceptance {fields['id']}",
+        changes=[
+            outcome.fact(
+                "risk-acceptance",
+                "APPLIED",
+                f"Recorded risk acceptance {fields['id']}",
+                str(where.relative_to(root)),
+            )
+        ],
+    )

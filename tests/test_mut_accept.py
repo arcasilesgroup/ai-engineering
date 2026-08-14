@@ -37,6 +37,13 @@ SIGNED = [
 ]
 
 
+def completed(execution):
+    assert type(execution) is outcome.Execution
+    assert execution.result == outcome.result("PASS")
+    assert execution.changes and execution.changes[0].status == "APPLIED"
+    return execution
+
+
 @pytest.fixture
 def repo(tmp_path, monkeypatch):
     """A throwaway repository, so no verb can reach the one we are working in."""
@@ -229,9 +236,7 @@ def test_an_acceptance_carries_every_field_it_owes_and_invents_none(repo, capsys
     line is what tells the person the expiry was taken as given. An omitted follow-up is
     empty, never a marker: a marker would read as filled in and say nothing true."""
     _spec(repo, "001-a", "# a\n")
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
-        "PASS"
-    )
+    completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     assert capsys.readouterr().out == (
         f"  ✓ recorded in specs/001-a/spec.md — it expires {TOMORROW}, and both "
         f"pre-push and doctor read that date.\n"
@@ -256,7 +261,7 @@ def test_what_was_typed_on_the_command_line_is_what_gets_written(repo):
     _spec(repo, "001-a", "# a\n")
     args = ["--finding", "F-1", "--expires", TOMORROW, "--severity", "high"]
     args += [*SIGNED, "--follow-up", "delete it"]
-    assert accept.main(args) == outcome.result("PASS")
+    completed(accept.main(args))
     block = accept.blocks(repo)[0][1]
     assert block["severity"] == "high"
     assert block["accepted_by"] == "Ada"
@@ -269,9 +274,7 @@ def test_the_acceptance_id_takes_the_digits_out_of_the_spec_folder(repo, capsys)
     """The id ties the risk to its spec. Built from the raw folder name it would read
     R-spe-01 for a folder somebody named by hand, and two specs could collide."""
     _spec(repo, "spec-042-note", "# a\n")
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
-        "PASS"
-    )
+    completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     capsys.readouterr()
     assert accept.blocks(repo)[0][1]["id"] == "R-042-01"
 
@@ -281,9 +284,7 @@ def test_the_named_spec_is_the_one_written_to_not_the_newest(repo, capsys):
     piles onto whichever spec was created last and the trail points at the wrong work."""
     _spec(repo, "001-a", "# a\n")
     untouched = _spec(repo, "002-b", "# b\n")
-    assert accept.main(
-        ["--finding", "F-1", "--expires", TOMORROW, "--spec", "001", *SIGNED]
-    ) == outcome.result("PASS")
+    completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, "--spec", "001", *SIGNED]))
     assert "recorded in specs/001-a/spec.md" in capsys.readouterr().out
     assert untouched.read_text(encoding="utf-8") == "# b\n"
 
@@ -293,9 +294,7 @@ def test_an_acceptance_a_person_wrote_by_hand_counts_as_the_first_renewal(repo, 
     renewals counter. Crashing on it, or restarting the count, is how a risk gets rolled
     forward past the ceiling of two."""
     _spec(repo, "001-a", text.render({"finding": "F-1", "expires": TOMORROW}))
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
-        "PASS"
-    )
+    completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     capsys.readouterr()
     written = [b for _, b in accept.blocks(repo) if "renewals" in b]
     assert len(written) == 1
@@ -307,9 +306,7 @@ def test_a_spec_with_no_accepted_risks_heading_keeps_everything_it_had(repo, cap
     """The heading is added when it is missing. Replacing the file with the heading, or
     splitting the text on whitespace, throws away the spec somebody wrote."""
     _spec(repo, "001-a", "# title\n\nprose a person wrote\n")
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
-        "PASS"
-    )
+    completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     capsys.readouterr()
     after = (repo / "specs" / "001-a" / "spec.md").read_text(encoding="utf-8")
     assert after.startswith("# title\n\nprose a person wrote\n")
@@ -327,9 +324,7 @@ def test_the_block_goes_under_the_first_heading_even_if_the_spec_names_it_twice(
         "# title\n\n## Accepted risks\n\nolder prose\n\n"
         '## Notes\n\nthe "## Accepted risks" heading is named again here\n',
     )
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
-        "PASS"
-    )
+    completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     capsys.readouterr()
     after = (repo / "specs" / "001-a" / "spec.md").read_text(encoding="utf-8")
     assert after.index("finding: F-1") < after.index("older prose")
