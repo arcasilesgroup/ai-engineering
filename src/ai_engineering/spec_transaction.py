@@ -611,6 +611,36 @@ class _PosixWriter:
                 os.close(file_fd)
             os.close(pending_fd)
 
+    def discard(self, pending: Pending) -> None:
+        """Remove only the staging entry this writer created.
+
+        There is still no pathname cleanup API here, and there will not be: a caller able to
+        name any path for removal is a caller able to remove somebody else's. This proves
+        the entry is the one it staged — same directory identity, same file identity, same
+        bytes — and then removes it through the home descriptor it already holds. The
+        residual window is narrow and named: between that proof and the `rmdir`, only an
+        empty directory at the owned name can be removed at all.
+        """
+
+        self._require_canonical_authority()
+        self._require_canonical_home()
+        self._require_pending(pending)
+        pending_fd = _open_directory(self._home_fd, _component(pending.name, pending=True))
+        try:
+            value = os.fstat(pending_fd)
+            if (value.st_dev, value.st_ino) != pending.directory_identity:
+                raise Unsafe("pending directory identity changed")
+            try:
+                os.unlink(pending.filename, dir_fd=pending_fd)
+            except OSError as error:
+                raise _translate_open(error, "pending file could not be removed") from error
+        finally:
+            os.close(pending_fd)
+        try:
+            os.rmdir(pending.name, dir_fd=self._home_fd)
+        except OSError as error:
+            raise _translate_open(error, "pending directory could not be removed") from error
+
     def publish(self, pending: Pending, final: str) -> Published:
         final = _component(final)
         self._require_canonical_authority()
@@ -1378,7 +1408,7 @@ if os.name == "nt":
             file_handle = 0
             try:
                 file_handle = _win_nt_open(
-                    directory, filename, directory=False, create=True, write=True
+                    directory, filename, directory=False, create=True, write=True, delete=True
                 )
                 _win_write(file_handle, body)
                 file_generation = _win_generation(file_handle, filename)
@@ -1404,6 +1434,36 @@ if os.name == "nt":
             finally:
                 _win_close(file_handle)
                 _win_close(directory)
+
+        def discard(self, pending: Pending) -> None:
+            """The same promise as the POSIX side, kept with the handles already owned.
+
+            Windows deletes through a handle rather than a name, so nothing here constructs
+            a path at all: both handles were opened with `DELETE`, are marked for deletion,
+            and go away when they close.
+            """
+
+            self._require_canonical_authority()
+            state = self._pending_handles.get(pending.directory_identity)
+            if state is None or state.consumed:
+                raise Unsafe("pending directory handle is not owned by this writer")
+            if (
+                _win_generation(state.directory, pending.name).identity
+                != pending.directory_identity
+            ):
+                raise Unsafe("pending directory identity changed")
+            if _win_generation(state.child, pending.filename).identity != pending.file_identity:
+                raise Unsafe("pending file identity changed")
+            for handle in (state.child, state.directory):
+                disposition = ctypes.c_byte(1)
+                if not _kernel32.SetFileInformationByHandle(
+                    handle, 4, ctypes.byref(disposition), ctypes.sizeof(disposition)
+                ):
+                    raise _win_error("pending entry could not be marked for deletion")
+            state.consumed = True
+            _win_close(state.child)
+            _win_close(state.directory)
+            self._pending_handles.pop(pending.directory_identity, None)
 
         def publish(self, pending: Pending, final: str) -> Published:
             final = _win_component(final)

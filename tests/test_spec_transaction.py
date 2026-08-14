@@ -456,3 +456,33 @@ def test_posix_publish_selects_the_platform_exclusive_flag(monkeypatch, platform
     transaction._rename_noreplace_posix(10, "pending", 11, "final")
 
     assert calls == [(10, b"pending", 11, b"final", expected)]
+
+
+def test_discard_removes_only_the_owned_staging_entry(tmp_path):
+    """A refused candidate must leave nothing behind, and the removal must be unable to
+    reach anything the writer did not stage itself."""
+
+    root = _root(tmp_path)
+    (root / "specs" / "010-nested").mkdir()
+    neighbour = root / "specs" / "010-nested" / "pending-somebody-else"
+    neighbour.mkdir()
+    (neighbour / "record.json").write_bytes(b"{}\n")
+
+    with transaction.writer(root, ".ai/intent.md", "specs/010-nested") as writer:
+        inventory = writer.inventory()
+        pending = writer.stage(inventory, "pending-r-010-01", "record.json", b"{}\n")
+        staged = root / "specs" / "010-nested" / "pending-r-010-01"
+        assert (staged / "record.json").exists()
+
+        writer.discard(pending)
+
+        assert not staged.exists()
+        # The neighbour's staging entry is untouched: this removes what it staged and has
+        # no way to name anything else.
+        assert (neighbour / "record.json").read_bytes() == b"{}\n"
+
+        # A discarded pending is gone, so publishing or discarding it again fails closed.
+        with pytest.raises(transaction.TransactionError):
+            writer.publish(pending, "acceptance-r-010-01")
+        with pytest.raises(transaction.TransactionError):
+            writer.discard(pending)
