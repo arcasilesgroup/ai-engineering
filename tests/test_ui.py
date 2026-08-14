@@ -718,3 +718,19 @@ def test_ui_will_running_and_cure_contract_is_executable(capsys):
     ):
         with pytest.raises(ValueError):
             ui.cure("FAIL", bypass)
+
+
+def test_the_new_renderers_keep_their_parity_with_and_without_colour(coloured, capsys):
+    """39t's three renderers, driven through a terminal that asked for decoration.
+
+    Every other family in this file is checked both ways; these three were only ever seen
+    undecorated, so nothing said their words survive styling. The words are what a person
+    greps for and what this suite asserts, so they have to be the same words either way.
+    """
+
+    ui.will("do one thing", ["a"], ["b"], ["c"])
+    ui.running(1, 1, "the only stage")
+    decorated = capsys.readouterr().err
+    for fragment in ("will  do one thing", "reads   a", "writes  b", "network c"):
+        assert fragment in decorated, fragment
+    assert "RUNNING 1/1  the only stage" in decorated

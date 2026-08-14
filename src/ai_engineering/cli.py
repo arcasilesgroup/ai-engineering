@@ -407,18 +407,26 @@ def main(argv: list[str] | None = None) -> int:
     # has stopped before anything happened. It goes to stderr with everything else a person
     # reads on the way past; stdout stays reserved for the one JSON object in JSON mode.
     action, reads, writes, network = SCOPE[verb]
-    ui.will(action, reads, (*writes, ALWAYS_WRITES), network)
+    # Not for `--help`, which prints the flags and exits without doing any of this. A will
+    # is a promise about a run, and a promise about a run that never happens is noise a
+    # person learns to skip — which is how the real one stops being read.
+    helping = any(flag in rest for flag in ("-h", "--help"))
+    if not helping:
+        ui.will(action, reads, (*writes, ALWAYS_WRITES), network)
     reached = 1
-    ui.running(reached, len(STAGES), STAGES[0])
+    if not helping:
+        ui.running(reached, len(STAGES), STAGES[0])
     module = importlib.import_module(f"ai_engineering.{verb}")
     started = time.perf_counter()
     interrupted = False
     try:
         reached = 2
-        ui.running(reached, len(STAGES), f"{STAGES[1]}: {verb}")
+        if not helping:
+            ui.running(reached, len(STAGES), f"{STAGES[1]}: {verb}")
         returned = module.main(rest)
         reached = 3
-        ui.running(reached, len(STAGES), STAGES[2])
+        if not helping:
+            ui.running(reached, len(STAGES), STAGES[2])
         if type(returned) in (outcome.Result, outcome.Execution):
             terminal = returned.result if type(returned) is outcome.Execution else returned
             ui.render_result(terminal)
@@ -446,7 +454,8 @@ def main(argv: list[str] | None = None) -> int:
     # was interrupted before its outcome could be reported did not perform four stages, and
     # printing 4/4 over three would make the count a decoration again.
     reached += 1
-    ui.running(reached, len(STAGES), STAGES[3])
+    if not helping:
+        ui.running(reached, len(STAGES), STAGES[3])
     paths.load("_emit").emit(
         verb, "command", verb=verb, exit=code, ms=int((time.perf_counter() - started) * 1000)
     )
