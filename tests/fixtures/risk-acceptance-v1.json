@@ -1,0 +1,502 @@
+{
+  "schema": "urn:ai-engineering:risk-acceptance-fixtures:1",
+  "schema_version": "1",
+  "description": "Every acceptance case the specification names, in one versioned corpus. Privacy payloads are base64 so that no secret, personal datum or machine path is committed in plain text; the checks decode them before scanning.",
+  "base": {
+    "record": {
+      "schema": "urn:ai-engineering:risk-acceptance:1",
+      "schema_version": "1",
+      "id": "R-010-01",
+      "spec": "010",
+      "spec_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "finding": "the native rename cannot prove power-loss durability",
+      "severity": "medium",
+      "authority_role": "repository maintainer",
+      "accepted": "2026-08-14",
+      "expires": "2026-11-14",
+      "renewals": 0,
+      "renews": "",
+      "renews_digest": "",
+      "justification": "No supported runner executes a crash and recovery fixture at this base.",
+      "evidence": {
+        "path": "specs/010-governed-foundation/durability.md",
+        "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "follow_up": "Open a durability fixture task before the next release.",
+      "record_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "repository": {
+      "files": [
+        {
+          "path": "specs/010-governed-foundation/spec.md",
+          "content": "# Governed foundation\n"
+        },
+        {
+          "path": "specs/010-governed-foundation/durability.md",
+          "content": "No crash and recovery receipt exists at this base.\n"
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "canonical-original",
+      "classification": "valid",
+      "enforced_by": "schema",
+      "mutations": [],
+      "expected": "PASS"
+    },
+    {
+      "id": "canonical-renewal",
+      "classification": "valid",
+      "enforced_by": "schema",
+      "mutations": [
+        { "op": "set", "path": ["id"], "value": "R-010-02" },
+        { "op": "set", "path": ["renewals"], "value": 1 },
+        { "op": "set", "path": ["renews"], "value": "R-010-01" },
+        {
+          "op": "set",
+          "path": ["renews_digest"],
+          "value": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        }
+      ],
+      "expected": "PASS"
+    },
+    {
+      "id": "historical-gap-is-filled",
+      "classification": "valid",
+      "enforced_by": "register",
+      "note": "Ordinals 01 and 03 exist, so the next record is 02 rather than 04.",
+      "mutations": [{ "op": "set", "path": ["id"], "value": "R-010-02" }],
+      "existing_ordinals": ["01", "03"],
+      "expected": "PASS"
+    },
+    {
+      "id": "unknown-field",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [{ "op": "set", "path": ["reviewer"], "value": "not allowed" }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "missing-field",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [{ "op": "remove", "path": ["authority_role"] }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "wrong-container-type",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [{ "op": "set", "path": ["evidence"], "value": "durability.md" }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "oversized-finding",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [{ "op": "set_repeated", "path": ["finding"], "unit": "x", "count": 129 }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "oversized-justification",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [{ "op": "set_repeated", "path": ["justification"], "unit": "x", "count": 2001 }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "oversized-evidence-path",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [
+        { "op": "set_repeated", "path": ["evidence", "path"], "unit": "x", "count": 1025 }
+      ],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "severity-outside-enum",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [{ "op": "set", "path": ["severity"], "value": "informational" }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "renewals-out-of-range",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [{ "op": "set", "path": ["renewals"], "value": 3 }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "original-carries-a-renewal-count",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [{ "op": "set", "path": ["renewals"], "value": 1 }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "renewal-drops-its-predecessor-digest",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [
+        { "op": "set", "path": ["id"], "value": "R-010-02" },
+        { "op": "set", "path": ["renewals"], "value": 1 },
+        { "op": "set", "path": ["renews"], "value": "R-010-01" }
+      ],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "malformed-date",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [{ "op": "set", "path": ["expires"], "value": "2026-11-31" }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "invalid-utf8",
+      "classification": "malformed_bytes",
+      "enforced_by": "reader",
+      "record_bytes_base64": "//4gZmluZGluZyBieXRlcyB0aGF0IGFyZSBub3QgdXRmLTg=",
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "control-character",
+      "classification": "malformed_bytes",
+      "enforced_by": "reader",
+      "mutations": [
+        { "op": "set_base64", "path": ["finding"], "value": "ZmluZGluZwdiZWxs" }
+      ],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "non-canonical-json",
+      "classification": "malformed_bytes",
+      "enforced_by": "reader",
+      "note": "Same fields, four-space indent, unsorted keys and no trailing newline.",
+      "encoding": { "indent": 4, "sort_keys": false, "trailing_newline": false },
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "path-disagrees-with-id",
+      "classification": "register_invalid",
+      "enforced_by": "register",
+      "leaf": "acceptance-r-010-07",
+      "mutations": [],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "id-owner-disagrees-with-spec-directory",
+      "classification": "register_invalid",
+      "enforced_by": "register",
+      "mutations": [{ "op": "set", "path": ["id"], "value": "R-011-01" }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "spec-field-disagrees-with-directory",
+      "classification": "register_invalid",
+      "enforced_by": "register",
+      "mutations": [{ "op": "set", "path": ["spec"], "value": "011" }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "duplicate-id",
+      "classification": "register_invalid",
+      "enforced_by": "register",
+      "note": "Two homes in the same numeric namespace publish R-010-01.",
+      "mutations": [],
+      "existing_ordinals": ["01"],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "exhausted-ordinal",
+      "classification": "register_invalid",
+      "enforced_by": "register",
+      "note": "Ordinals 01 through 99 are taken, so no name remains.",
+      "mutations": [],
+      "existing_ordinals": ["01-99"],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "undecidable-noncanonical-leaf",
+      "classification": "register_invalid",
+      "enforced_by": "register",
+      "note": "A preserved leaf with fewer than three ASCII digits has no owner.",
+      "home": "specs/spec-note",
+      "mutations": [],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "wrong-record-digest",
+      "classification": "integrity_invalid",
+      "enforced_by": "register",
+      "mutations": [
+        {
+          "op": "set",
+          "path": ["record_digest"],
+          "value": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+        }
+      ],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "wrong-renews-digest",
+      "classification": "integrity_invalid",
+      "enforced_by": "register",
+      "mutations": [
+        { "op": "set", "path": ["id"], "value": "R-010-02" },
+        { "op": "set", "path": ["renewals"], "value": 1 },
+        { "op": "set", "path": ["renews"], "value": "R-010-01" },
+        {
+          "op": "set",
+          "path": ["renews_digest"],
+          "value": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+        }
+      ],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "renewal-cycle",
+      "classification": "integrity_invalid",
+      "enforced_by": "register",
+      "note": "R-010-01 renews R-010-02 while R-010-02 renews R-010-01.",
+      "mutations": [],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "renewal-fork",
+      "classification": "integrity_invalid",
+      "enforced_by": "register",
+      "note": "Two records at counter one name the same predecessor, so no unique head exists.",
+      "mutations": [],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "missing-predecessor",
+      "classification": "integrity_invalid",
+      "enforced_by": "register",
+      "mutations": [
+        { "op": "set", "path": ["id"], "value": "R-010-02" },
+        { "op": "set", "path": ["renewals"], "value": 1 },
+        { "op": "set", "path": ["renews"], "value": "R-010-09" },
+        {
+          "op": "set",
+          "path": ["renews_digest"],
+          "value": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+        }
+      ],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "stale-spec-binding",
+      "classification": "freshness_invalid",
+      "enforced_by": "register",
+      "note": "Integrity succeeds and the head stays renewable; only the binding is stale.",
+      "repository_edits": [
+        {
+          "path": "specs/010-governed-foundation/spec.md",
+          "content": "# Governed foundation, edited after the decision\n"
+        }
+      ],
+      "mutations": [],
+      "expected": "INCOMPLETE",
+      "still_renewable": true
+    },
+    {
+      "id": "stale-evidence-binding",
+      "classification": "freshness_invalid",
+      "enforced_by": "register",
+      "repository_edits": [
+        {
+          "path": "specs/010-governed-foundation/durability.md",
+          "content": "A crash and recovery receipt was added after the decision.\n"
+        }
+      ],
+      "mutations": [],
+      "expected": "INCOMPLETE",
+      "still_renewable": true
+    },
+    {
+      "id": "expiry-before-accepted",
+      "classification": "policy_invalid",
+      "enforced_by": "writer",
+      "mutations": [{ "op": "set", "path": ["expires"], "value": "2026-08-13" }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "evidence-over-one-hundred-thousand-bytes",
+      "classification": "policy_invalid",
+      "enforced_by": "reader",
+      "evidence_bytes": 100001,
+      "mutations": [],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "third-renewal",
+      "classification": "policy_refused",
+      "enforced_by": "writer",
+      "note": "Two renewals already exist. The refusal happens before any record is built, because the schema caps renewals at two and a third can never be expressed as a record at all.",
+      "request": {
+        "renews": "R-010-03",
+        "predecessor_renewals": 2,
+        "would_be_renewals": 3
+      },
+      "expected": "FAIL"
+    }
+  ],
+  "legacy_blocks": [
+    {
+      "id": "legacy-valid",
+      "classification": "valid",
+      "home": "specs/001-v1-from-scratch/spec.md",
+      "block": "```yaml\nid: R-001-01\nfinding: the guard has never fired on this surface\nseverity: high\naccepted_by: repository maintainer\naccepted: '2026-01-05'\nexpires: '2026-04-05'\nrenewals: 0\njustification: no runner reaches that surface yet\nevidence: docs/adr/0001-guards.md@sha256:9999999999999999999999999999999999999999999999999999999999999999\nfollow_up: prove one denial there\n```",
+      "expected": "PASS",
+      "provenance": "stored legacy"
+    },
+    {
+      "id": "legacy-id-less",
+      "classification": "valid",
+      "home": "specs/001-v1-from-scratch/spec.md",
+      "block": "```yaml\nfinding: the second surface has no executed denial\nexpires: '2026-04-05'\n```",
+      "expected": "PASS",
+      "provenance": "derived legacy",
+      "derived_id": "R-001-01",
+      "normalized": {
+        "severity": "medium",
+        "accepted": "",
+        "renewals": 0,
+        "accepted_by": "?",
+        "justification": "",
+        "follow_up": "",
+        "evidence": ""
+      }
+    },
+    {
+      "id": "legacy-renewals-once",
+      "classification": "valid",
+      "home": "specs/001-v1-from-scratch/spec.md",
+      "note": "The shipped behaviour: a non-decimal string with no ASCII digit reads as zero.",
+      "block": "```yaml\nid: R-001-02\nfinding: the third surface is instructions only\nexpires: '2026-04-05'\nrenewals: once\n```",
+      "expected": "PASS",
+      "normalized": { "renewals": 0 }
+    },
+    {
+      "id": "legacy-not-an-acceptance",
+      "classification": "ignored",
+      "home": "specs/001-v1-from-scratch/spec.md",
+      "note": "No finding and no expires, so the frozen recognizer never treats it as one.",
+      "block": "```yaml\nowner: repository maintainer\n```",
+      "expected": "IGNORED"
+    },
+    {
+      "id": "legacy-unknown-key",
+      "classification": "malformed",
+      "home": "specs/001-v1-from-scratch/spec.md",
+      "block": "```yaml\nid: R-001-03\nfinding: an unknown key is malformed rather than ignored\nexpires: '2026-04-05'\nreviewer: somebody\n```",
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "legacy-wrong-container-type",
+      "classification": "malformed",
+      "home": "specs/001-v1-from-scratch/spec.md",
+      "block": "```yaml\nid: R-001-04\nfinding:\n  - a list is not a scalar\nexpires: '2026-04-05'\n```",
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "legacy-renewals-out-of-range",
+      "classification": "malformed",
+      "home": "specs/001-v1-from-scratch/spec.md",
+      "block": "```yaml\nid: R-001-05\nfinding: three renewals were never permitted\nexpires: '2026-04-05'\nrenewals: 3\n```",
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "legacy-malformed-date",
+      "classification": "malformed",
+      "home": "specs/001-v1-from-scratch/spec.md",
+      "block": "```yaml\nid: R-001-06\nfinding: a non-canonical date is malformed\nexpires: 05-04-2026\n```",
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "legacy-missing-finding",
+      "classification": "ignored",
+      "home": "specs/001-v1-from-scratch/spec.md",
+      "block": "```yaml\nid: R-001-07\nexpires: '2026-04-05'\n```",
+      "expected": "IGNORED"
+    },
+    {
+      "id": "legacy-noncanonical-home",
+      "classification": "valid",
+      "home": "specs/spec-042-note/spec.md",
+      "note": "The leaf extracts owner 042, so a canonical --spec 042 renewal allocates R-042-02.",
+      "block": "```yaml\nid: R-042-01\nfinding: the noncanonical home still owns its ordinal\nexpires: '2026-04-05'\n```",
+      "expected": "PASS",
+      "provenance": "stored legacy",
+      "next_ordinal": "02"
+    }
+  ],
+  "privacy": [
+    {
+      "id": "pii-secret",
+      "check": "gitleaks",
+      "payload_base64": "QUtJQUlPU0ZPRE5ON0VYQU1QTEUgd2FzIHBhc3RlZCBpbnRvIHRoZSB0aWNrZXQ=",
+      "expected": "FAIL"
+    },
+    {
+      "id": "pii-email",
+      "check": "acceptance_pii_v1",
+      "payload_base64": "Y29udGFjdCBqYW5lLmRvZUBleGFtcGxlLmNvbSBmb3IgdGhlIG9yaWdpbmFsIHJlcG9ydA==",
+      "expected": "FAIL"
+    },
+    {
+      "id": "pii-ip-address",
+      "check": "acceptance_pii_v1",
+      "payload_base64": "dGhlIGhvc3QgYXQgMjAzLjAuMTEzLjQyIHJlZnVzZWQgdGhlIGNvbm5lY3Rpb24=",
+      "expected": "FAIL"
+    },
+    {
+      "id": "pii-phone-like",
+      "check": "acceptance_pii_v1",
+      "payload_base64": "dGhlIG9uLWNhbGwgbnVtYmVyICsxLTU1NS0wMTQyIGFuc3dlcmVkIGF0IG1pZG5pZ2h0",
+      "expected": "FAIL"
+    },
+    {
+      "id": "pii-personal-name-ambiguity",
+      "check": "acceptance_pii_v1",
+      "note": "A capitalized pair can be a person or a product. Undecidable is not clean.",
+      "payload_base64": "cmV2aWV3ZWQgYnkgUm9iaW4gQ2FzZSBiZWZvcmUgdGhlIGZyZWV6ZQ==",
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "machine-path-posix-home",
+      "check": "acceptance_machine_path_v1",
+      "payload_base64": "dGhlIGxvZyBpcyBhdCAvaG9tZS9qYW5lZG9lL2xvZ3MvZ2F0ZS50eHQ=",
+      "expected": "FAIL"
+    },
+    {
+      "id": "machine-path-windows-drive",
+      "check": "acceptance_machine_path_v1",
+      "payload_base64": "dGhlIGxvZyBpcyBhdCBDOlxVc2Vyc1xqYW5lZG9lXGxvZ3NcZ2F0ZS50eHQ=",
+      "expected": "FAIL"
+    },
+    {
+      "id": "machine-path-unc",
+      "check": "acceptance_machine_path_v1",
+      "payload_base64": "dGhlIGxvZyBpcyBhdCBcXGJ1aWxkc2VydmVyXHNoYXJlXGxvZ3NcZ2F0ZS50eHQ=",
+      "expected": "FAIL"
+    },
+    {
+      "id": "clean-role-and-reason",
+      "check": "all",
+      "payload_base64": "cmVwb3NpdG9yeSBtYWludGFpbmVyIGFjY2VwdGVkIHRoZSBkdXJhYmlsaXR5IGxpbWl0",
+      "expected": "CLEAN"
+    }
+  ],
+  "gitleaks": [
+    { "id": "gitleaks-missing", "situation": "absent", "expected": "INCOMPLETE" },
+    { "id": "gitleaks-wrong-version", "situation": "8.29.0", "expected": "INCOMPLETE" },
+    { "id": "gitleaks-unexpected-exit", "situation": "exit_2", "expected": "INCOMPLETE" },
+    { "id": "gitleaks-clean", "situation": "8.30.1_exit_0", "expected": "CLEAN" },
+    { "id": "gitleaks-hit", "situation": "8.30.1_exit_1", "expected": "FAIL" }
+  ]
+}

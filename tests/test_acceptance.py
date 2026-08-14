@@ -9,6 +9,7 @@ could happen and goes red the moment it can.
 
 from __future__ import annotations
 
+import base64
 import json
 import re
 from datetime import date
@@ -17,6 +18,7 @@ from typing import Any
 
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "risk-acceptance-v1.schema.json"
+CORPUS_PATH = ROOT / "tests" / "fixtures" / "risk-acceptance-v1.json"
 REQUIRED = [
     "schema",
     "schema_version",
@@ -259,3 +261,198 @@ def test_risk_acceptance_v1_schema_is_closed_and_exact() -> None:
     ]
     for candidate in rejected:
         assert not _valid(candidate, schema, schema), candidate
+
+
+# The exact cases the specification names. Adding or removing one is a deliberate edit to
+# this list, not something a corpus rewrite can do quietly.
+RECORD_CASES = [
+    "canonical-original",
+    "canonical-renewal",
+    "historical-gap-is-filled",
+    "unknown-field",
+    "missing-field",
+    "wrong-container-type",
+    "oversized-finding",
+    "oversized-justification",
+    "oversized-evidence-path",
+    "severity-outside-enum",
+    "renewals-out-of-range",
+    "original-carries-a-renewal-count",
+    "renewal-drops-its-predecessor-digest",
+    "malformed-date",
+    "invalid-utf8",
+    "control-character",
+    "non-canonical-json",
+    "path-disagrees-with-id",
+    "id-owner-disagrees-with-spec-directory",
+    "spec-field-disagrees-with-directory",
+    "duplicate-id",
+    "exhausted-ordinal",
+    "undecidable-noncanonical-leaf",
+    "wrong-record-digest",
+    "wrong-renews-digest",
+    "renewal-cycle",
+    "renewal-fork",
+    "missing-predecessor",
+    "stale-spec-binding",
+    "stale-evidence-binding",
+    "expiry-before-accepted",
+    "evidence-over-one-hundred-thousand-bytes",
+    "third-renewal",
+]
+LEGACY_CASES = [
+    "legacy-valid",
+    "legacy-id-less",
+    "legacy-renewals-once",
+    "legacy-not-an-acceptance",
+    "legacy-unknown-key",
+    "legacy-wrong-container-type",
+    "legacy-renewals-out-of-range",
+    "legacy-malformed-date",
+    "legacy-missing-finding",
+    "legacy-noncanonical-home",
+]
+PRIVACY_CASES = [
+    "pii-secret",
+    "pii-email",
+    "pii-ip-address",
+    "pii-phone-like",
+    "pii-personal-name-ambiguity",
+    "machine-path-posix-home",
+    "machine-path-windows-drive",
+    "machine-path-unc",
+    "clean-role-and-reason",
+]
+GITLEAKS_CASES = [
+    "gitleaks-missing",
+    "gitleaks-wrong-version",
+    "gitleaks-unexpected-exit",
+    "gitleaks-clean",
+    "gitleaks-hit",
+]
+CLASSIFICATIONS = {
+    "valid",
+    "schema_invalid",
+    "malformed_bytes",
+    "register_invalid",
+    "integrity_invalid",
+    "freshness_invalid",
+    "policy_invalid",
+    "policy_refused",
+    "ignored",
+    "malformed",
+}
+ENFORCERS = {"schema", "reader", "register", "writer"}
+
+
+def _apply(record: dict[str, Any], mutations: list[dict[str, Any]]) -> dict[str, Any]:
+    mutated = json.loads(json.dumps(record))
+    for mutation in mutations:
+        target, *rest = mutation["path"]
+        node, key = mutated, target
+        for step in rest:
+            node, key = node[key], step
+        if mutation["op"] == "remove":
+            del node[key]
+        elif mutation["op"] == "set":
+            node[key] = mutation["value"]
+        elif mutation["op"] == "set_repeated":
+            node[key] = mutation["unit"] * mutation["count"]
+        elif mutation["op"] == "set_base64":
+            node[key] = base64.b64decode(mutation["value"]).decode("utf-8")
+        else:
+            raise AssertionError(f"unsupported mutation op in corpus: {mutation['op']}")
+    return mutated
+
+
+def test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases() -> None:
+    raw = CORPUS_PATH.read_bytes()
+    corpus = json.loads(raw.decode("utf-8"))
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    assert corpus["schema"] == "urn:ai-engineering:risk-acceptance-fixtures:1"
+    assert corpus["schema_version"] == "1"
+
+    base = corpus["base"]["record"]
+    assert _valid(base, schema, schema)
+    evidence_path = base["evidence"]["path"]
+    assert evidence_path in {file["path"] for file in corpus["base"]["repository"]["files"]}
+
+    cases = corpus["cases"]
+    assert [case["id"] for case in cases] == RECORD_CASES
+    for case in cases:
+        assert case["classification"] in CLASSIFICATIONS, case["id"]
+        assert case["enforced_by"] in ENFORCERS, case["id"]
+        assert case["expected"] in {"PASS", "FAIL", "INCOMPLETE"}, case["id"]
+
+    # Only the schema-enforced cases may be decided by the schema. The rest must pass it and
+    # be caught later, which is exactly why the reader, register and writer tasks exist; a
+    # corpus that let the schema catch them would hide a missing gate behind a green test.
+    for case in cases:
+        if "mutations" not in case:
+            continue
+        candidate = _apply(base, case["mutations"])
+        decided = _valid(candidate, schema, schema)
+        if case["enforced_by"] == "schema":
+            assert decided is (case["expected"] == "PASS"), case["id"]
+        else:
+            assert decided, case["id"]
+
+    # A third renewal is refused before a record exists, because the schema caps the counter
+    # at two: there is no valid record shape to publish and then reject.
+    third = next(case for case in cases if case["id"] == "third-renewal")
+    assert "mutations" not in third
+    assert (
+        third["request"]["would_be_renewals"] == schema["x-acceptance-policy"]["max_renewals"] + 1
+    )
+    assert not _valid(
+        _apply(base, [{"op": "set", "path": ["renewals"], "value": 3}]), schema, schema
+    )
+
+    invalid_utf8 = next(case for case in cases if case["id"] == "invalid-utf8")
+    payload = base64.b64decode(invalid_utf8["record_bytes_base64"])
+    try:
+        payload.decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    else:
+        raise AssertionError("the invalid-utf8 case decodes as utf-8, so it proves nothing")
+
+    non_canonical = next(case for case in cases if case["id"] == "non-canonical-json")
+    canonical = schema["x-acceptance-policy"]["canonical_json"]
+    encoding = non_canonical["encoding"]
+    assert encoding["indent"] != canonical["indent"]
+    assert encoding["sort_keys"] != canonical["sort_keys"]
+    assert encoding["trailing_newline"] != canonical["trailing_newline"]
+
+    legacy = corpus["legacy_blocks"]
+    assert [block["id"] for block in legacy] == LEGACY_CASES
+    for block in legacy:
+        assert block["block"].startswith("```yaml\n") and block["block"].endswith("\n```")
+        assert block["expected"] in {"PASS", "INCOMPLETE", "IGNORED"}, block["id"]
+        assert block["home"].startswith("specs/") and block["home"].endswith("/spec.md")
+    id_less = next(block for block in legacy if block["id"] == "legacy-id-less")
+    assert id_less["provenance"] == "derived legacy"
+    assert re.fullmatch(r"R-[0-9]{3}-[0-9]{2}", id_less["derived_id"])
+    assert "id:" not in id_less["block"]
+
+    privacy = corpus["privacy"]
+    assert [case["id"] for case in privacy] == PRIVACY_CASES
+    for case in privacy:
+        assert case["check"] in {
+            "acceptance_pii_v1",
+            "acceptance_machine_path_v1",
+            "gitleaks",
+            "all",
+        }
+        assert case["expected"] in {"FAIL", "INCOMPLETE", "CLEAN"}, case["id"]
+        decoded = base64.b64decode(case["payload_base64"])
+        assert decoded, case["id"]
+        # Rule 8: the corpus may describe a secret, a personal datum or a machine path, and
+        # may never commit one. Encoded is the whole point; a plaintext copy defeats it.
+        assert decoded not in raw, case["id"]
+
+    assert [case["id"] for case in corpus["gitleaks"]] == GITLEAKS_CASES
+    for case in corpus["gitleaks"]:
+        assert case["expected"] in {"FAIL", "INCOMPLETE", "CLEAN"}, case["id"]
+    situations = {case["situation"] for case in corpus["gitleaks"]}
+    assert situations == {"absent", "8.29.0", "exit_2", "8.30.1_exit_0", "8.30.1_exit_1"}
