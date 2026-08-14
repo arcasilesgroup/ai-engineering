@@ -29,7 +29,8 @@ def test_native_spec_transaction_is_locked_staged_noreplace_and_alias_safe(tmp_p
             pass
         observed = writer.read(".ai/intent.md", maximum=100)
         assert observed.body == b'{"authority":"local"}\n'
-        pending = writer.stage("pending-first", "spec.md", body)
+        inventory = writer.inventory()
+        pending = writer.stage(inventory, "pending-first", "spec.md", body)
         published = writer.publish(pending, "001-first")
         assert published.name == "001-first"
 
@@ -41,6 +42,7 @@ def test_native_spec_transaction_is_locked_staged_noreplace_and_alias_safe(tmp_p
     external = tmp_path / "external-specs"
     external.mkdir()
     with transaction.writer(root, ".ai/intent.md", "specs") as writer:
+        inventory = writer.inventory()
         if os.name == "nt":
             with pytest.raises(OSError):
                 (root / "specs").rename(detached)
@@ -48,7 +50,7 @@ def test_native_spec_transaction_is_locked_staged_noreplace_and_alias_safe(tmp_p
             (root / "specs").rename(detached)
             (root / "specs").symlink_to(external, target_is_directory=True)
             with pytest.raises(transaction.Unsafe):
-                writer.stage("pending-alias", "spec.md", body)
+                writer.stage(inventory, "pending-alias", "spec.md", body)
     assert list(external.iterdir()) == []
 
 
@@ -59,12 +61,82 @@ def test_native_publish_collision_preserves_foreign_final_and_owned_pending(tmp_
     (foreign / "foreign.txt").write_bytes(b"foreign\n")
 
     with transaction.writer(root, ".ai/intent.md", "specs") as writer:
-        pending = writer.stage("pending-collision", "spec.md", b"owned pending\n")
+        inventory = writer.inventory()
+        pending = writer.stage(inventory, "pending-collision", "spec.md", b"owned pending\n")
         with pytest.raises(transaction.Collision):
             writer.publish(pending, "001-collision")
 
     assert (foreign / "foreign.txt").read_bytes() == b"foreign\n"
     assert (root / "specs" / "pending-collision" / "spec.md").read_bytes() == b"owned pending\n"
+
+
+def test_inventory_is_handle_relative_bounded_and_prevents_duplicate_numeric_ids(
+    tmp_path, monkeypatch
+):
+    root = _root(tmp_path)
+
+    with transaction.writer(root, ".ai/intent.md", "specs") as first_writer:
+        first_inventory = first_writer.inventory()
+        assert first_inventory.names == ()
+        first_pending = first_writer.stage(
+            first_inventory, "pending-001-first", "spec.md", b"first\n"
+        )
+        assert first_pending.expected_names == ("pending-001-first",)
+        assert first_pending.home_generation.path == "specs"
+        with pytest.raises(transaction.Unsafe):
+            first_writer.stage(first_inventory, "pending-002-reuse", "spec.md", b"reuse\n")
+
+    with transaction.writer(root, ".ai/intent.md", "specs") as second_writer:
+        second_inventory = second_writer.inventory()
+        assert second_inventory.names == ("pending-001-first",)
+        assert second_inventory.pending == ("pending-001-first",)
+        used = {int(name.split("-", 2)[1]) for name in second_inventory.names}
+        assert next(number for number in range(1, 1_000) if number not in used) == 2
+
+    bounded_root = _root(tmp_path / "bounded")
+    (bounded_root / "specs" / "001-one").mkdir()
+    (bounded_root / "specs" / "002-two").mkdir()
+    monkeypatch.setattr(transaction, "_INVENTORY_LIMIT", 1)
+    bounded_context = transaction.writer(bounded_root, ".ai/intent.md", "specs")
+    with bounded_context as bounded_writer, pytest.raises(transaction.Unsafe):
+        bounded_writer.inventory()
+
+
+def test_stage_rejects_changed_inventory_before_creating_pending(tmp_path):
+    root = _root(tmp_path)
+    with transaction.writer(root, ".ai/intent.md", "specs") as writer:
+        inventory = writer.inventory()
+        (root / "specs" / "001-foreign").mkdir()
+
+        with pytest.raises(transaction.Unsafe):
+            writer.stage(inventory, "pending-001-owned", "spec.md", b"owned\n")
+
+    assert not (root / "specs" / "pending-001-owned").exists()
+
+
+@pytest.mark.parametrize("change", ["add", "remove", "aba"])
+def test_publish_rejects_namespace_add_remove_and_aba_while_preserving_pending(tmp_path, change):
+    root = _root(tmp_path)
+    foreign = root / "specs" / "009-foreign"
+    if change == "remove":
+        foreign.mkdir()
+
+    with transaction.writer(root, ".ai/intent.md", "specs") as writer:
+        inventory = writer.inventory()
+        pending = writer.stage(inventory, "pending-001-owned", "spec.md", b"owned\n")
+        if change == "add":
+            foreign.mkdir()
+        elif change == "remove":
+            foreign.rmdir()
+        else:
+            foreign.mkdir()
+            foreign.rmdir()
+
+        with pytest.raises(transaction.Unsafe):
+            writer.publish(pending, "001-owned")
+
+    assert (root / "specs" / "pending-001-owned" / "spec.md").read_bytes() == b"owned\n"
+    assert not (root / "specs" / "001-owned").exists()
 
 
 @pytest.mark.skipif(os.name != "posix", reason="FIFO is a POSIX boundary")
@@ -95,7 +167,8 @@ def test_unsupported_native_publish_preserves_pending_without_final_mutation(tmp
 
     monkeypatch.setattr(transaction, "_publish_noreplace", unavailable)
     with transaction.writer(root, ".ai/intent.md", "specs") as writer:
-        pending = writer.stage("pending-unsupported", "spec.md", b"pending\n")
+        inventory = writer.inventory()
+        pending = writer.stage(inventory, "pending-unsupported", "spec.md", b"pending\n")
         with pytest.raises(transaction.Unsupported):
             writer.publish(pending, "001-unsupported")
 
@@ -118,7 +191,8 @@ def test_successful_native_rename_has_no_fallible_postcommit_operation(
     body = b"prebuilt result\n"
 
     with transaction.writer(root, ".ai/intent.md", "specs") as writer:
-        pending = writer.stage(f"pending-{injected}", "spec.md", body)
+        inventory = writer.inventory()
+        pending = writer.stage(inventory, f"pending-{injected}", "spec.md", body)
 
         def fail_after_rename(*args):
             raise transaction.Unsafe("injected postcommit failure")
@@ -280,7 +354,8 @@ def test_windows_publish_closes_child_consumes_pending_and_rejects_junction(tmp_
     root = _root(tmp_path)
     body = b"windows native\n"
     with transaction.writer(root, ".ai/intent.md", "specs") as writer:
-        pending = writer.stage("pending-windows", "spec.md", body)
+        inventory = writer.inventory()
+        pending = writer.stage(inventory, "pending-windows", "spec.md", body)
         published = writer.publish(pending, "001-windows")
         with pytest.raises(transaction.Unsafe):
             writer.publish(pending, "002-reused")
@@ -316,7 +391,8 @@ def test_posix_root_and_pending_aliases_are_never_write_targets(tmp_path):
     (root / "specs" / "pending-alias").symlink_to(external, target_is_directory=True)
     active_writer = transaction.writer(root, ".ai/intent.md", "specs")
     with active_writer as writer, pytest.raises(transaction.Collision):
-        writer.stage("pending-alias", "spec.md", b"must not escape\n")
+        inventory = writer.inventory()
+        writer.stage(inventory, "pending-alias", "spec.md", b"must not escape\n")
     assert list(external.iterdir()) == []
 
 

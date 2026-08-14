@@ -9,7 +9,7 @@ import os
 import stat
 import sys
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -56,6 +56,17 @@ class Observation:
     maximum: int
 
 
+@dataclass(slots=True)
+class Inventory:
+    """A single-use exact snapshot of the retained canonical namespace."""
+
+    names: tuple[str, ...]
+    pending: tuple[str, ...]
+    generation: Generation
+    _owner: object = field(repr=False)
+    consumed: bool = False
+
+
 @dataclass(frozen=True, slots=True)
 class Pending:
     """An owned, noncanonical staged directory."""
@@ -65,6 +76,8 @@ class Pending:
     body: bytes
     directory_identity: tuple[int, int]
     file_identity: tuple[int, int]
+    expected_names: tuple[str, ...]
+    home_generation: Generation
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +96,10 @@ class _PendingHandles:
     directory: int
     child: int
     consumed: bool = False
+
+
+_SPELLING_LIMIT = 4_096
+_INVENTORY_LIMIT = 4_096
 
 
 def _parts(value: str) -> tuple[str, ...]:
@@ -154,12 +171,12 @@ def _translate_open(error: OSError, message: str) -> TransactionError:
     return Unsafe(f"{message}: native error {error.errno}")
 
 
-def _bounded_directory_names(parent_fd: int) -> tuple[str, ...]:
+def _bounded_directory_names(parent_fd: int, *, maximum: int = _SPELLING_LIMIT) -> tuple[str, ...]:
     names: list[str] = []
     try:
         with os.scandir(parent_fd) as entries:
             for count, entry in enumerate(entries, start=1):
-                if count > 4_096:
+                if count > maximum:
                     raise Unsafe("directory exceeds the bounded spelling check")
                 names.append(entry.name)
     except TransactionError:
@@ -248,6 +265,7 @@ class _PosixWriter:
         self._home_generation: Generation | None = None
         self._authority_generation: Generation | None = None
         self._authority_parents: tuple[Generation, ...] = ()
+        self._inventory_owner = object()
 
     def __enter__(self) -> _PosixWriter:
         if os.name != "posix":
@@ -437,12 +455,50 @@ class _PosixWriter:
         except TransactionError:
             return False
 
-    def stage(self, name: str, filename: str, body: bytes) -> Pending:
+    def _inventory_snapshot(self) -> tuple[tuple[str, ...], Generation]:
+        try:
+            before = _generation_posix(self._home, os.fstat(self._home_fd))
+            names = tuple(sorted(_bounded_directory_names(self._home_fd, maximum=_INVENTORY_LIMIT)))
+            after = _generation_posix(self._home, os.fstat(self._home_fd))
+        except TransactionError:
+            raise
+        except OSError as error:
+            raise Unsafe(
+                f"transaction namespace could not be inventoried: native error {error.errno}"
+            ) from error
+        if before != after:
+            raise Unsafe("transaction namespace changed while it was inventoried")
+        return names, after
+
+    def inventory(self) -> Inventory:
+        self._require_canonical_authority()
+        self._require_canonical_home()
+        names, generation = self._inventory_snapshot()
+        pending = tuple(name for name in names if name.startswith("pending-"))
+        return Inventory(names, pending, generation, self._inventory_owner)
+
+    def _consume_inventory(self, inventory: Inventory) -> tuple[str, ...]:
+        if (
+            not isinstance(inventory, Inventory)
+            or inventory._owner is not self._inventory_owner
+            or inventory.consumed
+        ):
+            raise Unsafe("inventory is not an unused capability from this writer")
+        self._require_canonical_authority()
+        self._require_canonical_home()
+        names, generation = self._inventory_snapshot()
+        if names != inventory.names or generation != inventory.generation:
+            raise Unsafe("transaction namespace changed after inventory")
+        inventory.consumed = True
+        return names
+
+    def stage(self, inventory: Inventory, name: str, filename: str, body: bytes) -> Pending:
         name = _component(name, pending=True)
         filename = _component(filename)
         if not isinstance(body, bytes):
             raise Unsafe("staged content must be bytes")
-        self._require_canonical_authority()
+        names = self._consume_inventory(inventory)
+        expected_names = tuple(sorted((*names, name)))
         try:
             os.mkdir(name, mode=0o700, dir_fd=self._home_fd)
         except OSError as error:
@@ -473,12 +529,17 @@ class _PosixWriter:
             _fsync(pending_fd, "pending directory could not be flushed")
             _fsync(self._home_fd, "transaction home could not be flushed")
             directory_value = os.fstat(pending_fd)
+            actual_names, home_generation = self._inventory_snapshot()
+            if actual_names != expected_names:
+                raise Unsafe("transaction namespace changed while pending was staged")
             return Pending(
                 name,
                 filename,
                 body,
                 (directory_value.st_dev, directory_value.st_ino),
                 file_identity,
+                expected_names,
+                home_generation,
             )
         finally:
             if file_fd >= 0:
@@ -521,6 +582,9 @@ class _PosixWriter:
         self._require_canonical_authority()
         self._require_pending(pending)
         self._require_canonical_home()
+        names, generation = self._inventory_snapshot()
+        if names != pending.expected_names or generation != pending.home_generation:
+            raise Unsafe("transaction namespace changed after pending was staged")
         published = Published(
             final,
             pending.filename,
@@ -846,10 +910,10 @@ if os.name == "nt":
             return Unsupported(message)
         return Unsafe(f"{message}: native error {value}")
 
-    def _win_directory_names(handle: int) -> tuple[str, ...]:
+    def _win_directory_names(handle: int, *, maximum: int = _SPELLING_LIMIT) -> tuple[str, ...]:
         names: list[str] = []
         information_class = 11  # FileIdBothDirectoryRestartInfo
-        while len(names) <= 4_096:
+        while len(names) <= maximum:
             raw = ctypes.create_string_buffer(65_536)
             if not _kernel32.GetFileInformationByHandleEx(
                 handle, information_class, raw, ctypes.sizeof(raw)
@@ -876,7 +940,7 @@ if os.name == "nt":
                 )
                 if name not in {".", ".."}:
                     names.append(name)
-                if len(names) > 4_096:
+                if len(names) > maximum:
                     raise Unsafe("directory contains more entries than the bounded transaction")
                 if entry.next_entry_offset == 0:
                     break
@@ -1084,6 +1148,7 @@ if os.name == "nt":
             self._authority_generation: Generation | None = None
             self._authority_parents: tuple[Generation, ...] = ()
             self._pending_handles: dict[tuple[int, int], _PendingHandles] = {}
+            self._inventory_owner = object()
 
         def __enter__(self) -> _WindowsWriter:
             try:
@@ -1230,12 +1295,43 @@ if os.name == "nt":
             except TransactionError:
                 return False
 
-        def stage(self, name: str, filename: str, body: bytes) -> Pending:
+        def _inventory_snapshot(self) -> tuple[tuple[str, ...], Generation]:
+            before = _win_generation(self._home_handle, self._home)
+            names = tuple(sorted(_win_directory_names(self._home_handle, maximum=_INVENTORY_LIMIT)))
+            after = _win_generation(self._home_handle, self._home)
+            if before != after:
+                raise Unsafe("transaction namespace changed while it was inventoried")
+            return names, after
+
+        def inventory(self) -> Inventory:
+            self._require_canonical_authority()
+            self._require_canonical_home()
+            names, generation = self._inventory_snapshot()
+            pending = tuple(name for name in names if name.startswith("pending-"))
+            return Inventory(names, pending, generation, self._inventory_owner)
+
+        def _consume_inventory(self, inventory: Inventory) -> tuple[str, ...]:
+            if (
+                not isinstance(inventory, Inventory)
+                or inventory._owner is not self._inventory_owner
+                or inventory.consumed
+            ):
+                raise Unsafe("inventory is not an unused capability from this writer")
+            self._require_canonical_authority()
+            self._require_canonical_home()
+            names, generation = self._inventory_snapshot()
+            if names != inventory.names or generation != inventory.generation:
+                raise Unsafe("transaction namespace changed after inventory")
+            inventory.consumed = True
+            return names
+
+        def stage(self, inventory: Inventory, name: str, filename: str, body: bytes) -> Pending:
             name = _component(name, pending=True)
             filename = _component(filename)
             if not isinstance(body, bytes):
                 raise Unsafe("staged content must be bytes")
-            self._require_canonical_authority()
+            names = self._consume_inventory(inventory)
+            expected_names = tuple(sorted((*names, name)))
             directory = _win_nt_open(
                 self._home_handle, name, directory=True, create=True, delete=True
             )
@@ -1247,12 +1343,17 @@ if os.name == "nt":
                 _win_write(file_handle, body)
                 file_generation = _win_generation(file_handle, filename)
                 directory_generation = _win_generation(directory, name)
+                actual_names, home_generation = self._inventory_snapshot()
+                if actual_names != expected_names:
+                    raise Unsafe("transaction namespace changed while pending was staged")
                 pending = Pending(
                     name,
                     filename,
                     body,
                     directory_generation.identity,
                     file_generation.identity,
+                    expected_names,
+                    home_generation,
                 )
                 self._pending_handles[pending.directory_identity] = _PendingHandles(
                     directory, file_handle
@@ -1282,6 +1383,9 @@ if os.name == "nt":
             if _win_read(state.child, len(pending.body)) != pending.body:
                 raise Unsafe("pending file bytes changed")
             self._require_canonical_home()
+            names, generation = self._inventory_snapshot()
+            if names != pending.expected_names or generation != pending.home_generation:
+                raise Unsafe("transaction namespace changed after pending was staged")
             published = Published(
                 final,
                 pending.filename,
