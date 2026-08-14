@@ -12,10 +12,15 @@ It never touches AGENTS.md or CONSTITUTION.md. Those are yours.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import os
 import re
+import stat
 import subprocess
 import sys
 import tomllib
+import uuid
+from dataclasses import dataclass
 from pathlib import Path
 
 from ai_engineering import __version__, outcome, paths, wiring
@@ -25,10 +30,26 @@ _VERSION = re.compile(
     r'(?m)^[ \t]*version[ \t]*=[ \t]*(?P<quote>["\'])(?P<value>[^"\']*)'
     r"(?P=quote)[ \t]*(?:#.*)?$"
 )
+_STRICT_VERSION = re.compile(r"(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))*")
+_MAX_VERSION = 64
+_MAX_PIN_BYTES = 100_000
+_REQUIRED_DIR_FD = (os.open, os.stat, os.rename, os.unlink)
 
 
 class Undecidable(RuntimeError):
     """Update cannot safely derive or complete its exact change set."""
+
+
+@dataclass(frozen=True, slots=True)
+class _Pin:
+    root: Path
+    root_id: tuple[int, int]
+    home_id: tuple[int, int]
+    file_id: tuple[int, int]
+    mode: int
+    before: bytes
+    after: bytes
+    pinned: str
 
 
 def dirty(root: Path) -> list[str]:
@@ -46,36 +67,260 @@ def dirty(root: Path) -> list[str]:
     return [line[3:] for line in result.stdout.splitlines() if line.strip()]
 
 
+def _version(value: str) -> tuple[int, ...]:
+    if (
+        not isinstance(value, str)
+        or len(value) > _MAX_VERSION
+        or not _STRICT_VERSION.fullmatch(value)
+    ):
+        raise Undecidable("the version is not a strict dotted numeric version")
+    parts = [int(part) for part in value.split(".")]
+    while len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    return tuple(parts)
+
+
 def migrations(pinned: str, target: str) -> list[Path]:
+    """Select only an unambiguous forward chain of shipped migration ranges."""
+
+    start, finish = _version(pinned), _version(target)
+    if finish < start:
+        raise Undecidable("a downgrade cannot run forward migrations")
+    if finish == start:
+        return []
+
     folder = paths.shipped("migrations")
-    steps = []
+    ranges = []
     for path in sorted(folder.glob("*/")):
         low, _, high = path.name.partition("..")
-        if low <= target and high >= pinned:
-            steps += sorted(path.glob("*.py"))
+        if path.is_symlink() or not low or not high or ".." in high:
+            raise Undecidable("a shipped migration range is not canonical")
+        low_key, high_key = _version(low), _version(high)
+        scripts = sorted(path.glob("*.py"))
+        if (
+            low_key >= high_key
+            or not scripts
+            or any(script.is_symlink() or not script.is_file() for script in scripts)
+        ):
+            raise Undecidable("a shipped migration range is not canonical")
+        ranges.append((low_key, high_key, scripts))
+
+    cursor = start
+    steps = []
+    for low, high, scripts in sorted(ranges):
+        if high <= start or low >= finish:
+            continue
+        starts_in_declared_line = not steps and start[: len(low)] == low
+        if (low != cursor and not starts_in_declared_line) or high > finish:
+            raise Undecidable("the forward migration path is not contiguous")
+        steps.extend(scripts)
+        cursor = high
     return steps
 
 
-def _pin_change(pin: Path, target: str) -> tuple[str, str]:
-    """Read one regular canonical pin and replace only its framework version value."""
+def _identity(details: os.stat_result) -> tuple[int, int]:
+    return details.st_dev, details.st_ino
+
+
+def _dirfd_support() -> None:
+    if (
+        not all(hasattr(os, name) for name in ("O_DIRECTORY", "O_NOFOLLOW"))
+        or not all(function in os.supports_dir_fd for function in _REQUIRED_DIR_FD)
+        or os.stat not in os.supports_follow_symlinks
+    ):
+        raise Undecidable("this platform cannot safely publish a repository pin")
+
+
+@contextlib.contextmanager
+def _pin_home(root: Path):
+    """Open the resolved repository and its real .ai child without following aliases."""
+
+    _dirfd_support()
+    root_fd = home_fd = -1
     try:
-        if pin.is_symlink() or not pin.is_file():
-            raise OSError("the pin is not a regular file")
-        body = pin.read_text(encoding="utf-8")
-        parsed = tomllib.loads(body)
+        directory = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        root_fd = os.open(root, directory)
+        root_details = os.fstat(root_fd)
+        if _identity(root.lstat()) != _identity(root_details):
+            raise OSError("the repository root is aliased")
+        home_fd = os.open(".ai", directory, dir_fd=root_fd)
+        home_details = os.fstat(home_fd)
+        linked_home = os.stat(".ai", dir_fd=root_fd, follow_symlinks=False)
+        if not stat.S_ISDIR(linked_home.st_mode) or _identity(linked_home) != _identity(
+            home_details
+        ):
+            raise OSError("the pin home is aliased")
+    except OSError as error:
+        for descriptor in (home_fd, root_fd):
+            if descriptor >= 0:
+                with contextlib.suppress(OSError):
+                    os.close(descriptor)
+        raise Undecidable("the pin home is not one canonical directory") from error
+    try:
+        yield root_fd, home_fd, root_details, home_details
+    finally:
+        for descriptor in (home_fd, root_fd):
+            if descriptor >= 0:
+                with contextlib.suppress(OSError):
+                    os.close(descriptor)
+
+
+def _read_pin(home_fd: int) -> tuple[os.stat_result, bytes]:
+    descriptor = -1
+    try:
+        flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        descriptor = os.open("config.toml", flags, dir_fd=home_fd)
+        before = os.fstat(descriptor)
+        linked = os.stat("config.toml", dir_fd=home_fd, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+            or _identity(before) != _identity(linked)
+            or before.st_size > _MAX_PIN_BYTES
+        ):
+            raise OSError("the pin is aliased or not one bounded regular file")
+        chunks = []
+        remaining = _MAX_PIN_BYTES + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65_536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        body = b"".join(chunks)
+        after = os.fstat(descriptor)
+        if (
+            len(body) > _MAX_PIN_BYTES
+            or _identity(after) != _identity(before)
+            or after.st_size != before.st_size
+            or after.st_mtime_ns != before.st_mtime_ns
+            or after.st_ctime_ns != before.st_ctime_ns
+        ):
+            raise OSError("the pin changed while it was read")
+        return after, body
+    except OSError as error:
+        raise Undecidable("the pin cannot be read as one canonical framework version") from error
+    finally:
+        if descriptor >= 0:
+            with contextlib.suppress(OSError):
+                os.close(descriptor)
+
+
+def _render_pin(body: bytes, target: str) -> tuple[str, bytes]:
+    """Replace only the canonical version while preserving all other exact bytes."""
+
+    _version(target)
+    try:
+        text = body.decode("utf-8")
+        parsed = tomllib.loads(text)
         pinned = parsed["framework"]["version"]
-        section = re.search(r"(?ms)^\[framework\][^\r\n]*\r?\n(?P<body>.*?)(?=^\[|\Z)", body)
+        _version(pinned)
+        section = re.search(r"(?ms)^\[framework\][^\r\n]*\r?\n(?P<body>.*?)(?=^\[|\Z)", text)
         rows = list(_VERSION.finditer(section.group("body"))) if section else []
         if not isinstance(pinned, str) or not pinned or len(rows) != 1:
             raise ValueError("the framework version is not exact")
         row = rows[0]
-        if row.group("value") != pinned or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", target):
+        if row.group("value") != pinned:
             raise ValueError("the framework version is not exact")
         start = section.start("body") + row.start("value")
         end = section.start("body") + row.end("value")
-    except (KeyError, OSError, TypeError, ValueError) as error:
+    except (KeyError, TypeError, UnicodeError, ValueError) as error:
         raise Undecidable("the pin cannot be read as one canonical framework version") from error
-    return pinned, body[:start] + target + body[end:]
+    return pinned, (text[:start] + target + text[end:]).encode("utf-8")
+
+
+def _observe_pin(root: Path, target: str) -> _Pin:
+    with _pin_home(root) as (_, home_fd, root_details, home_details):
+        file_details, before = _read_pin(home_fd)
+    pinned, after = _render_pin(before, target)
+    return _Pin(
+        root,
+        _identity(root_details),
+        _identity(home_details),
+        _identity(file_details),
+        stat.S_IMODE(file_details.st_mode),
+        before,
+        after,
+        pinned,
+    )
+
+
+def _verify_pin(snapshot: _Pin) -> None:
+    with _pin_home(snapshot.root) as (_, home_fd, root_details, home_details):
+        file_details, body = _read_pin(home_fd)
+    if (
+        _identity(root_details) != snapshot.root_id
+        or _identity(home_details) != snapshot.home_id
+        or _identity(file_details) != snapshot.file_id
+        or body != snapshot.before
+    ):
+        raise Undecidable("the pin changed after the update was approved")
+
+
+def _write_all(descriptor: int, body: bytes) -> None:
+    written = 0
+    while written < len(body):
+        count = os.write(descriptor, body[written:])
+        if count <= 0:
+            raise OSError("the atomic pin write did not advance")
+        written += count
+
+
+def _publish_pin(snapshot: _Pin) -> None:
+    """Revalidate and atomically replace the pin within the already-verified .ai dirfd."""
+
+    temporary = f".config.toml.ai-eng-{uuid.uuid4().hex}"
+    descriptor = -1
+    renamed = False
+    try:
+        with _pin_home(snapshot.root) as (root_fd, home_fd, root_details, home_details):
+            current_details, body = _read_pin(home_fd)
+            if (
+                _identity(root_details) != snapshot.root_id
+                or _identity(home_details) != snapshot.home_id
+                or _identity(current_details) != snapshot.file_id
+                or body != snapshot.before
+            ):
+                raise Undecidable("the pin changed after the update was approved")
+            flags = (
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+            )
+            descriptor = os.open(temporary, flags, snapshot.mode, dir_fd=home_fd)
+            _write_all(descriptor, snapshot.after)
+            os.fchmod(descriptor, snapshot.mode)
+            os.fsync(descriptor)
+            os.close(descriptor)
+            descriptor = -1
+
+            # The path and bytes consent covered are checked again immediately before the
+            # atomic replacement. The opaque migration scripts run before this boundary.
+            linked_home = os.stat(".ai", dir_fd=root_fd, follow_symlinks=False)
+            final_details, final_body = _read_pin(home_fd)
+            if (
+                _identity(snapshot.root.lstat()) != snapshot.root_id
+                or _identity(linked_home) != snapshot.home_id
+                or _identity(final_details) != snapshot.file_id
+                or final_body != snapshot.before
+            ):
+                raise Undecidable("the pin changed after the update was approved")
+            os.rename(temporary, "config.toml", src_dir_fd=home_fd, dst_dir_fd=home_fd)
+            renamed = True
+            os.fsync(home_fd)
+            published, published_body = _read_pin(home_fd)
+            if _identity(published) == snapshot.file_id or published_body != snapshot.after:
+                raise Undecidable("the atomically published pin failed its postcondition")
+    except OSError as error:
+        raise Undecidable("the pin could not be published atomically") from error
+    finally:
+        if descriptor >= 0:
+            with contextlib.suppress(OSError):
+                os.close(descriptor)
+        if not renamed:
+            with (
+                contextlib.suppress(OSError, Undecidable),
+                _pin_home(snapshot.root) as (_, home_fd, _, _),
+            ):
+                os.unlink(temporary, dir_fd=home_fd)
 
 
 def _guard_plan() -> tuple[list[dict], list[dict]]:
@@ -129,13 +374,18 @@ def main(argv: list[str]) -> outcome.Result:
         print("  this repository is not set up. `ai-eng init` first.")
         return outcome.result("INCOMPLETE")
     try:
-        pinned, pin_after = _pin_change(pin, args.to)
+        snapshot = _observe_pin(root, args.to)
+    except Undecidable as why:
+        print(f"  INCOMPLETE — {why}. Nothing changed.")
+        return outcome.result("INCOMPLETE")
+    pinned = snapshot.pinned
+    print(f"  {pinned} → {args.to}")
+    print(f"  would rewrite pin: {pin}")
+    try:
         changes = dirty(root)
     except Undecidable as why:
         print(f"  INCOMPLETE — {why}. Nothing changed.")
         return outcome.result("INCOMPLETE")
-    print(f"  {pinned} → {args.to}")
-    print(f"  would rewrite pin: {pin}")
 
     if changes:
         print(f"  REFUSED — these are framework-owned and have uncommitted changes: {changes}")
@@ -147,6 +397,9 @@ def main(argv: list[str]) -> outcome.Result:
             return outcome.result("INCOMPLETE")
         print(f"  --force would discard: {changes}")
         return outcome.result("INCOMPLETE")
+    if _version(pinned) == _version(args.to):
+        print("  already pinned to that version. Nothing changed.")
+        return outcome.result("PASS")
 
     try:
         steps = migrations(pinned, args.to)
@@ -181,12 +434,21 @@ def main(argv: list[str]) -> outcome.Result:
         print("  nothing changed.")
         return outcome.result("CANCELLED")
 
+    started_steps = 0
     try:
+        _verify_pin(snapshot)
         for step in steps:
+            _verify_pin(snapshot)
+            started_steps += 1
             subprocess.run([sys.executable, str(step), str(root)], check=True, timeout=600)
-        pin.write_text(pin_after, encoding="utf-8")
-    except (OSError, subprocess.SubprocessError) as why:
+            _verify_pin(snapshot)
+        _publish_pin(snapshot)
+    except (OSError, subprocess.SubprocessError, Undecidable) as why:
         print(f"  INCOMPLETE — update stopped before it could finish: {why}.")
+        if started_steps:
+            print("  Migration scripts already ran and are not transactional. Inspect the diff.")
+        else:
+            print("  Update wrote nothing; any concurrent user edit was preserved.")
         return outcome.result("INCOMPLETE")
     print(f"  ✓ the pin now reads {args.to} — that diff is the record of this update.")
 

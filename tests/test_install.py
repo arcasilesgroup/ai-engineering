@@ -1083,6 +1083,169 @@ def pinned_repo(repo):
     return repo
 
 
+def test_update_migrations_are_strictly_forward_ordered_and_contiguous() -> None:
+    upgrade = update.migrations("0.13", "1.0")
+
+    assert [step.parent.name + "/" + step.name for step in upgrade] == ["0.13..1.0/unvendor.py"]
+    assert update.migrations("0.13.7", "1.0") == upgrade
+    assert update.migrations("1.0", "1.0.0") == []
+    with pytest.raises(update.Undecidable, match="downgrade"):
+        update.migrations("1.0", "0.13")
+
+
+def test_update_rejects_a_gap_in_the_shipped_migration_chain(tmp_path, monkeypatch) -> None:
+    folder = tmp_path / "migrations"
+    for name in ("0.13..0.14", "0.14..1.0"):
+        step = folder / name / "step.py"
+        step.parent.mkdir(parents=True)
+        step.write_text("pass\n", encoding="utf-8")
+    monkeypatch.setattr(update.paths, "shipped", lambda name: folder)
+
+    assert [step.parent.name for step in update.migrations("0.13", "1.0")] == [
+        "0.13..0.14",
+        "0.14..1.0",
+    ]
+    (folder / "0.14..1.0").rename(folder / "0.15..1.0")
+    with pytest.raises(update.Undecidable, match="not contiguous"):
+        update.migrations("0.13", "1.0")
+
+
+def test_update_blocks_a_downgrade_before_requesting_consent(
+    pinned_repo, keyboard, monkeypatch, capsys
+):
+    pin = pinned_repo / ".ai" / "config.toml"
+    before = pin.read_bytes()
+    keyboard("y")
+    monkeypatch.chdir(pinned_repo)
+    monkeypatch.setattr(
+        "builtins.input", lambda _: pytest.fail("a downgrade must stop before consent")
+    )
+
+    result = update.main(["--to", "0.13"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    assert pin.read_bytes() == before
+    assert "downgrade" in capsys.readouterr().out
+
+
+def test_update_rejects_an_aliased_pin_home_without_touching_its_target(
+    repo, tmp_path, keyboard, monkeypatch
+):
+    external = tmp_path / "foreign-ai-home"
+    external.mkdir()
+    external_pin = external / "config.toml"
+    external_pin.write_text(skeletons.CONFIG_TOML.format(version=__version__), encoding="utf-8")
+    before = external_pin.read_bytes()
+    (repo / ".ai").symlink_to(external, target_is_directory=True)
+    keyboard("y")
+    monkeypatch.chdir(repo)
+
+    result = update.main(["--to", "9.9.9"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    assert external_pin.read_bytes() == before
+
+
+def test_update_preserves_a_valid_pin_edit_made_while_consent_is_requested(
+    pinned_repo, keyboard, monkeypatch
+):
+    pin = pinned_repo / ".ai" / "config.toml"
+    monkeypatch.chdir(pinned_repo)
+
+    def edit_then_consent(_: str) -> str:
+        with pin.open("a", encoding="utf-8") as stream:
+            stream.write('\n[user]\nnote = "keep this concurrent edit"\n')
+        return "y"
+
+    keyboard("y")
+    monkeypatch.setattr("builtins.input", edit_then_consent)
+
+    result = update.main(["--to", "9.9.9"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    body = pin.read_text(encoding="utf-8")
+    assert 'version = "1.0.0"' in body
+    assert 'note = "keep this concurrent edit"' in body
+
+
+def test_update_rejects_a_same_bytes_pin_replacement_after_consent_snapshot(
+    pinned_repo, keyboard, monkeypatch
+):
+    pin = pinned_repo / ".ai" / "config.toml"
+    before = pin.read_bytes()
+    monkeypatch.chdir(pinned_repo)
+
+    def replace_then_consent(_: str) -> str:
+        replacement = pin.with_name("replacement.toml")
+        replacement.write_bytes(before)
+        replacement.replace(pin)
+        return "y"
+
+    keyboard("y")
+    monkeypatch.setattr("builtins.input", replace_then_consent)
+
+    result = update.main(["--to", "9.9.9"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    assert pin.read_bytes() == before
+
+
+def test_update_atomic_pin_publish_never_exposes_a_partial_temp_write(
+    pinned_repo, keyboard, monkeypatch
+):
+    pin = pinned_repo / ".ai" / "config.toml"
+    before = pin.read_bytes()
+    keyboard("y")
+    monkeypatch.chdir(pinned_repo)
+
+    def partial_write(descriptor: int, body: bytes) -> None:
+        update.os.write(descriptor, body[:12])
+        raise OSError("simulated short publish")
+
+    monkeypatch.setattr(update, "_write_all", partial_write)
+
+    result = update.main(["--to", "9.9.9"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    assert pin.read_bytes() == before
+    assert list(pin.parent.glob(".config.toml.ai-eng-*")) == []
+
+
+def test_update_names_the_nontransactional_risk_after_an_opaque_script_starts(
+    pinned_repo, keyboard, monkeypatch, capsys
+):
+    pin = pinned_repo / ".ai" / "config.toml"
+    before = pin.read_bytes()
+    touched = pinned_repo / "opaque-side-effect"
+    keyboard("y")
+    monkeypatch.chdir(pinned_repo)
+    monkeypatch.setattr(update, "migrations", lambda pinned, target: [Path("opaque.py")])
+    real_run = update.subprocess.run
+
+    def fail_after_effect(command, **kwargs):
+        if command[:2] == [sys.executable, "opaque.py"]:
+            touched.write_text("migration started\n", encoding="utf-8")
+            raise subprocess.CalledProcessError(1, command)
+        return real_run(command, **kwargs)
+
+    monkeypatch.setattr(update.subprocess, "run", fail_after_effect)
+
+    result = update.main(["--to", "9.9.9"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    assert pin.read_bytes() == before
+    assert touched.read_text(encoding="utf-8") == "migration started\n"
+    rendered = capsys.readouterr().out
+    assert "Migration scripts already ran and are not transactional" in rendered
+    assert "Update wrote nothing" not in rendered
+
+
 def test_update_never_runs_without_a_person_at_the_keyboard(pinned_repo, monkeypatch, capsys):
     """A change of governance is never silent. With no terminal — CI, a cron job, a wrapper
     script — update must refuse and leave the pin exactly as it found it."""
