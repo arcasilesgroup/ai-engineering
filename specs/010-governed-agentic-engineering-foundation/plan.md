@@ -2,20 +2,95 @@
 
 ## Approval and atomicity gate
 
-No further implementation starts until a human explicitly approves **this exact `spec.md` and this exact `plan.md`**, explicitly including the SHA-256 digest of each file; any edit to either digest invalidates approval and requires re-approval. Tasks 1–39, the first two Block B repair commits, and Task 39a are committed history implemented under earlier exact approvals. The previously approved plan digest `7f996fd370f1879b3ffb21ef494fbb1fae37e51f5813984960b00d319789b412` is invalidated because review proved that the native Windows backend cannot be accepted from mocked contracts alone: its exact focal must execute on the supported Windows runner before Block B closes. No Task 39b or later implementation may start until the human approves the new exact plan digest. The reply is the gate; no `approval.md` is created.
+No further implementation starts until a human explicitly approves **this exact `spec.md` and this exact `plan.md`**, explicitly including the SHA-256 digest of each file; any edit to either digest invalidates approval and requires re-approval. Tasks 1–39, the first two Block B repair commits, Task 39a, and Tasks 39b–39d with their `464bd161` repair are committed history implemented under earlier exact approvals. The human approved the amended specification at exact SHA-256 `6afc0721df6d3eb13589efeaefa94391ca62eaa71c0b1f2bc653fe3d34117759`, committed unedited as `e4c118bdc68b147df099cbc1c69c854b13685373`. That approval covers the specification only. The previously approved plan digest `742e8ffd0483f57c03fe4dca860ff01f222021c1ae655ef732f76d5d28590b09` is invalidated because the amended specification replaces the embedded-YAML acceptance writer with immutable published records, which that plan neither names nor budgets. No Task 39e or later implementation may start until the human approves the new exact plan digest. The reply is the gate; no `approval.md` is created.
+
+The amended specification also states that treating a controlling-terminal response as the P0 human-authority handoff requires renewed human approval of this exact amended specification **and** this exact plan. That grant is not bundled into the digest approval, because a person approving a budget amendment should not silently also be granting the P0 authority semantics. The approval reply must therefore contain two separate named statements: one approving the exact plan digest, and one granting the controlling-terminal handoff. A reply carrying only the digest approves the plan and withholds the grant, and every acceptance task stays blocked until the grant arrives.
 
 There is exactly one repository writer before P3. One delegated writer executes the Tasks in a block sequentially; a fresh independent read-only reviewer reviews the closed block before any later block may consume it. No global initialization, installation, network mutation, publishing, tagging, or deployment runs without separate explicit consent. Each Task remains one atomic commit. A Task may change exactly **one primary production, policy, documentation, or workflow file**, plus only its focused supporting test/fixture file(s); it may not change a second product home. Revisiting a primary file is allowed only for a named, distinct semantic change and a distinct commit. A block-review repair may revisit the affected Task's primary file only to resolve a named ledger finding; it remains an atomic commit inside that Task's original scope, and a finding never authorizes a second product home or broader behavior. The sole exception is the final transition: one semantic transaction updates primary spec010, its predecessor spec004, the dogfood `.ai/intent.md`, and `src/ai_engineering/contract.py`, plus their focused readiness and contract tests, to avoid either a stale record or an intermediate line ceiling; spec010 remains the named primary. Rollback for every Task and repair commit is `git revert <commit>`.
 
-The checks for committed Tasks 1–39a are historical evidence. Every check for unstarted Tasks 39b–39d and 40–53 is an exact future red check: run it with `uv`, using the named `path::node`; it is red now because the node/file is absent or its assertion fails, and becomes green only after that Task. No broad `-k`, placeholder node, or invented green result is acceptable. P0 may verify release workflow/provenance contracts but cannot claim a release; spec 010 remains draft and boxes unticked until the final candidate proves its own exact-HEAD receipts. Remote checks select the current `HEAD` SHA and return `INCOMPLETE` when authentication or a run is unavailable. Publishing/tag authority is always a separate human decision.
+The checks for committed Tasks 1–39d are historical evidence. Every check for unstarted Tasks 39e–39u, 40–52, 52a–52c and 53 is an exact future red check: run it with `uv`, using the named `path::node`; it is red now because the node/file is absent or its assertion fails, and becomes green only after that Task. No broad `-k`, placeholder node, or invented green result is acceptable. P0 may verify release workflow/provenance contracts but cannot claim a release; spec 010 remains draft and boxes unticked until the final candidate proves its own exact-HEAD receipts. Remote checks select the current `HEAD` SHA and return `INCOMPLETE` when authentication or a run is unavailable. Publishing/tag authority is always a separate human decision.
 
-The uncommitted Task 39b bytes remain inert and review-gated while this amendment awaits
-approval; they are not a checkpoint. After exact approval, the plan amendment lands as a
-record-only child of clean committed HEAD `c7642faba09135fd05537be33d49c9af116b56ae`.
-Task 39b then resumes from that amendment commit and must re-establish its exact checks.
+Tasks 39b–39d and the `464bd161` repair are committed. The specification amendment is
+committed at `e4c118bdc68b147df099cbc1c69c854b13685373`, which is the clean base this plan
+amendment lands on as a record-only child. Task 39e then starts from that amendment commit.
+
+One consequence is already observable and is not a defect to be fixed outside the plan: the
+amendment changed `spec.md`, so `.ai/intent.md` still names the superseded target digest and
+`tests/test_intent.py::test_repository_dogfood_intent_is_canonical` fails with
+`INTENT_RELATION_STALE`. That is the branch's current red, it is not a `PASS`, and Task 39e
+is the first governed task precisely so the branch does not stay red until Task 53.
 
 Task 1 records a provisional maximum of **17,807 + 4,500 = 22,307 lines** in `contract.py`. Exceeding 22,307 stops work and requires an approved re-plan; it is not permission to raise the ceiling. The final candidate transaction measures the committed tree and removes slack.
 
 The observed first nine tasks added 3,381 lines, or about 376 lines per task. Applying that observed rate to the 44 remaining implementation tasks forecast 16,544 more lines, so Task 10 re-planned the P0 maximum to **17,807 + 20,000 = 37,807 lines**. That forecast is now history. The committed tree after Task 39 measured 30,737 lines. Tasks 17–39 therefore added 6,530 lines across 23 tasks, about 284 per task; applying that rate to Tasks 40–53 forecasts 3,976 more. The two landed repair commits then added net 575 and 425 lines, so the measured pre-Task-39a base was 31,737 and the observed repair average is exactly 500. Five remaining product repair commits forecast another 2,500. The evidence-based total is therefore 31,737 + 3,976 + 2,500 = 38,213, already above the then-active ceiling. Task 39a raised the provisional maximum to **17,807 + 25,000 = 42,807 lines** and added one net line. That line and the bounded Task 39d workflow/test overhead consume the 4,594-line contingency; they do not change product scope, and the final candidate transaction still removes every line of slack.
+
+### Measured budget at the acceptance amendment
+
+`contract.repo_lines` counts every tracked file outside `specs/`, `docs/adr/`, `LICENSE` and
+`NOTICE`. The specification amendment therefore added zero counted lines. Each figure below
+was measured from the exact commit object, not estimated:
+
+| Commit | Counted tree | Added |
+|---|---|---|
+| `c7642fab` Task 39a base | 31,738 | — |
+| `0683cdec` Task 39b native backend | 33,387 | +1,649 |
+| `464bd161` inventory repair | 33,567 | +180 |
+| `e7cf9424` Task 39c integration | 34,520 | +953 |
+| `75939c75` Task 39d matrix | 34,892 | +372 |
+| `e4c118bd` specification amendment | 34,892 | +0 |
+
+Every forecast below uses one of four measured rates and states which. No figure is invented
+per task:
+
+- **Native-wave rate, 789.** The four commits above added 3,154 lines, 788.5 each. It is the
+  measured cost of creating or rewriting a product module together with its focal suite.
+- **General task rate, 284.** Tasks 17–39 added 6,530 lines across 23 tasks.
+- **Repair rate, 393.** The three landed ledger repairs added 575, 425 and 180 lines.
+- **Record-only rate, 1.** Task 39a rewrote a comment block and added one net line.
+
+The acceptance wave has seventeen implementation commits. Task 39e is record-only, so 1.
+Task 39p is record-only, so 1. Tasks 39r and 39s are ledger repairs on shipped modules, so
+393 each = 786. The remaining thirteen — the schema, the corpus, the two deterministic
+scanners, the Gitleaks gate, the shared-backend generalization, the unified reader, the
+chain allocator, the two writer integrations, the workflow, and the two CLI-contract
+commits — each create or rewrite a module and its focal suite, so 789 each = **10,257**.
+The wave forecast is 1 + 1 + 786 + 10,257 = **11,045**.
+
+Tasks 40–52 keep the general rate: 284 × 13 = **3,692**. Tasks 52a–52c each add a new
+`tests/test_madr.py` node, which `contract.repo_lines` counts even though `docs/adr/` is
+excluded, so 284 × 3 = **852**. Task 53 keeps the general rate, **284**. Five block reviews
+remain — the 39e–39p early sub-block, the Block B close, Block C, Block D and the final
+cross-block review — at two bounded repairs each and the measured repair rate:
+5 × 2 × 393 = **3,930**.
+
+The evidence-based total is therefore 34,892 + 11,045 + 3,692 + 852 + 284 + 3,930 =
+**54,695**, which exceeds the active 42,807 ceiling by 11,888. Work is not scoped down to
+fit that number and the number is not raised by inertia. Task 39p is an explicit re-plan to
+**17,807 + 38,000 = 55,807**, leaving 55,807 − 54,695 = 1,112 lines of contingency, and it
+lands only under this plan's exact approved digest.
+
+Task 39p is deliberately the last checkpoint of the early sub-block rather than an early
+one, so the raise is justified by a measurement taken after the wave's largest and least
+certain tasks have landed. At the forecast rate the tree reaches 34,893 after Task 39e and
+42,783 after Task 39o — 24 lines under the active ceiling — so nothing crosses 42,807 before
+Task 39p, and the sub-block's own repairs land after it. Task 39p records the tree it
+actually measures, not this forecast; if that measurement makes the recomputed total exceed
+55,807, work stops for another exact approved re-plan rather than proceeding. Reaching or
+exceeding 55,807 is likewise a hard stop.
+
+That 24-line margin is the residue of a mean, and 789 is the mean of observations that ran
+from 372 to 1,649. One checkpoint running 25 lines over its forecast trips the active
+ceiling before its own re-plan lands. The writer therefore measures the tree at every
+checkpoint of this wave, and if any checkpoint before Task 39p measures 42,807 or more,
+Task 39p is pulled forward to immediately before that task and measures there. Pulling it
+forward changes its position only; its exact 55,807 assertion, its measured base and its
+stop-work rule are unchanged, so the approved number is never raised by the reordering.
+
+`contract.TEST_RATIO_MAX` remains 2.0 and the measured ratio is 1.455 (17,882 test lines
+over 12,291 product lines). The comparable wave split its 3,154 lines as 1,312 test and
+1,728 product, so the same proportions over 11,045 forecast 4,594 test and 6,052 product
+lines and a ratio of 22,476 / 18,343 = 1.225. Every block gate observes both limits. The final
+candidate transaction still measures the committed tree and removes every line of slack.
 
 ## Block checkpoint and review protocol
 
@@ -45,10 +120,16 @@ If a Task exposes a new authority or terminal outcome, fail-closed guard or bloc
 
 At the post-Task-16 cadence amendment, absent an evidenced early boundary, the remaining
 cadence was four block-review starts plus one final cross-block review rather than one
-review start per Task. Block A is now approved; Block B remains at its review gate, and
+review start per Task. Block A is now approved. Block B is reopened by this amendment for
+the acceptance wave and its outstanding ledger repairs, and closes once at Tasks 39e–39u;
 Blocks C and D plus the final cross-block review remain unopened.
 
-The committed tree after Task 16 measured 24,207 lines. The committed tree after Task 39a measures 31,738 lines. Every block gate observes the executable ceiling. Reaching or exceeding 42,807 stops work and requires another exact approved re-plan; batching is never permission to raise or bypass it.
+Tasks 39k, 39l and 39n each expose a new fail-closed authority, filesystem or untrusted-input
+boundary that every later acceptance task consumes. Under the early sub-block rule above,
+the prefix 39e–39p closes as an early sub-block review before Task 39q starts. That is the
+one exceptional boundary in this wave; it is not a return to review-after-every-Task.
+
+The committed tree after Task 16 measured 24,207 lines. The committed tree at the specification amendment measures 34,892 lines. Every block gate observes the executable ceiling and the executable test ratio. Until Task 39p lands, reaching or exceeding 42,807 stops work; after it, 55,807 is the hard stop and requires another exact approved re-plan. Batching is never permission to raise or bypass either number.
 
 ## Ordered P0 atomic tasks
 
@@ -191,8 +272,14 @@ checkpoints remain UNREVIEWED until the block closes. The required related suite
 ### Block B — emission, UI, and ten-verb integration (Tasks 27–39)
 
 Block B cannot start until Block A is approved. Its result is one integrated CLI contract
-over the governed foundations. The required related suite is:
-`uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_hooks.py tests/test_ui.py tests/test_cli_migration.py`.
+over the governed foundations, including the immutable acceptance record writer added by the
+amended specification. The required related suite for the closing block review is:
+`uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_hooks.py tests/test_ui.py tests/test_cli_migration.py tests/test_spec_transaction.py tests/test_acceptance.py tests/test_record.py tests/test_mut_accept.py tests/test_intent.py tests/test_contracts.py tests/test_quality_gate.py tests/test_doctor.py`.
+The early sub-block review at Task 39p runs the same command restricted to
+`tests/test_spec_transaction.py tests/test_acceptance.py tests/test_cli_migration.py tests/test_record.py tests/test_mut_accept.py tests/test_intent.py tests/test_contracts.py tests/test_doctor.py`.
+Both lists include every file that holds a focal node of a task in their range, and
+`tests/test_mut_accept.py` and `tests/test_doctor.py` because Tasks 39n–39o rewrite the
+writer and the reader those suites and `doctor` assertion 16 depend on.
 
 27. **Hot-path IDs and emission** — **file** `hooks/_emit.py`.
     **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_hooks.py::test_emit_is_stdlib_only_and_assigns_opaque_operation_and_trace_ids`.
@@ -261,9 +348,11 @@ over the governed foundations. The required related suite is:
 
 Fresh Block B review is a gate, not an approval source. It reproduced nine P1 boundary
 defects. The CLI fact transport and update pin transaction are already distinct repair
-commits. Tasks 39a–39c are the newly planned part of that ledger; the remaining `accept`,
-`exception`, and `uninstall` findings stay atomic repairs inside their original one-file
-product scopes under the block-review protocol above.
+commits. Tasks 39a–39d were the newly planned part of that ledger and are now committed. The
+remaining `accept`, `exception` and `uninstall` findings stay atomic repairs inside their
+original one-file product scopes under the block-review protocol above; they are Tasks 39n–39o,
+39r and 39s below, where the `accept` finding is subsumed by the amended specification's
+immutable record writer.
 
 39a. **Replanned repository ceiling after measured Block B** — **file** `src/ai_engineering/contract.py`.
     **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_contracts.py::test_block_b_replanned_repo_ceiling_is_42807`.
@@ -284,6 +373,126 @@ product scopes under the block-review protocol above.
     **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_install_matrix_executes_native_spec_transaction_on_every_supported_os`.
     **rollback**: `git revert <commit>`.
    **done when**: the installed wheel's exact Task 39b focal and native happy-path/collision controls execute on Linux, macOS, and Windows; Linux and macOS execute their real symlink/casing negative controls, Windows executes its real junction/reparse negative control, and no control selected for a runner may skip. A missing runner, fixture-construction failure, nonzero test result, or wheel/source mismatch is `INCOMPLETE`; this evidence grants no push, release, tag, or publication authority.
+
+### Block B continued — immutable acceptance records (Tasks 39e–39u)
+
+The amended specification replaces the embedded-YAML acceptance writer with immutable
+published records. These tasks are the whole of that change plus the two outstanding Block B
+ledger repairs and the missing executable human CLI contract. Every check below is an exact
+future red check: the node or file is absent today, or its assertion fails for the stated
+reason. `tests/test_acceptance.py` is the new focused test file; it does not exist yet, so
+every node named in it is red for that reason until its Task creates it.
+
+39e. **Intent rebind to the approved specification digest** — **file** `.ai/intent.md`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_intent.py::test_repository_dogfood_intent_is_canonical`.
+    **rollback**: `git revert <commit>`.
+   **done when**: the single relation's `target_digest` equals the SHA-256 of the committed approved `spec.md`, the lifecycle facts still say the specification is draft with P0 in progress, no authority is invented, and `intent.validate` returns `PASS` instead of `INTENT_RELATION_STALE`. This check is red now for exactly that code.
+
+39f. **Closed risk-acceptance schema** — **file** `policy/risk-acceptance-v1.schema.json`.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_acceptance.py::test_risk_acceptance_v1_schema_is_closed_and_exact`.
+    **rollback**: `git revert <commit>`.
+   **done when**: one JSON Schema 2020-12 document with `additionalProperties: false` requires exactly the seventeen specified top-level fields with their exact constants, patterns, enumerations, byte bounds and integer range, and a closed `evidence` object with only `path` and `content_digest`; no field is optional and no undeclared escape hatch exists.
+
+39g. **Versioned valid and adversarial corpus** — **file** `tests/fixtures/risk-acceptance-v1.json`.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_acceptance.py::test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases`.
+    **rollback**: `git revert <commit>`.
+   **done when**: one versioned corpus carries the valid record; every record rejection the specification names, including unknown field, invalid UTF-8, control character, non-canonical JSON, path/ID/spec/digest disagreement, oversized value, duplicate ID, exhausted ordinal, cycle, fork, wrong `record_digest`, wrong `renews_digest`, third renewal and expiry before `accepted`; every legacy-block case, including valid, ID-less, wrong container type, unknown key, out-of-range and `once` `renewals`, and malformed date; and every privacy case, including secret, email address, IP address, phone-like identifier, personal-name ambiguity, POSIX home path, Windows drive path, UNC path, clean role and reason, missing Gitleaks and wrong-version Gitleaks.
+
+39h. **Deterministic `acceptance_pii_v1`** — **file** `src/ai_engineering/acceptance_privacy.py`.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_acceptance.py::test_acceptance_pii_v1_is_deterministic_and_fails_closed`.
+    **rollback**: `git revert <commit>`.
+   **done when**: the check is deterministic over candidate text, returns `FAIL` on a conclusive personal datum, `INCOMPLETE` on unsupported input or undecidable classification including personal-name ambiguity, and clean only when it actually decided; it records no candidate text outside its result and never reaches clean by exhausting a bound.
+
+39i. **Deterministic `acceptance_machine_path_v1`** — **file** `src/ai_engineering/acceptance_privacy.py`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_acceptance.py::test_acceptance_machine_path_v1_rejects_posix_windows_and_unc_paths`.
+    **rollback**: `git revert <commit>`.
+   **done when**: POSIX home, Windows drive and UNC machine paths are `FAIL`, a normalized repository-relative path is clean, and unsupported or undecidable input is `INCOMPLETE`; it shares no mutable state with the PII check.
+
+39j. **Exact Gitleaks 8.30.1 gate** — **file** `src/ai_engineering/acceptance_privacy.py`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_acceptance.py::test_gitleaks_gate_requires_exact_version_and_three_clean_results`.
+    **rollback**: `git revert <commit>`.
+   **done when**: the gate runs `gitleaks dir . --redact --no-banner --exit-code 1` inside the unpublished record directory, verifies exactly version 8.30.1, maps exit 1 to a conclusive `FAIL`, exit 0 to clean and absence, version drift or any other exit to `INCOMPLETE`, and lets publication proceed only when all three privacy results are clean; scanner output is never recorded outside `record.json`.
+
+39k. **Bounded multi-component transaction home** — **file** `src/ai_engineering/spec_transaction.py`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_spec_transaction.py::test_transaction_home_is_a_bounded_anchored_multi_component_walk`.
+    **rollback**: `git revert <commit>`.
+   **done when**: the single shared native backend accepts a bounded repository-relative home of more than one component and opens and revalidates every component one exact entry at a time under the anchored root, keeping the existing symlink, mount, reparse, alias, spelling, device, hard-link, generation and `INCOMPLETE`/unsupported behaviour unchanged for the single-component home.
+   **review-protocol obligations, not check conditions**: no second backend, copy, alias or compatibility path is created, and the module docstring states the module's real scope. The block reviewer verifies both; the focal node cannot see either.
+
+39l. **Unified acceptance register reader** — **file** `src/ai_engineering/acceptance.py`.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_acceptance.py::test_unified_reader_separates_integrity_from_binding_freshness`.
+    **rollback**: `git revert <commit>`.
+   **done when**: one reader validates canonical records and frozen legacy blocks, normalizes only in memory, enforces every stated bound of 1,000 spec directories, 99 records per spec, 1 MiB per `spec.md`, 64 KiB per `record.json`, 64 MiB in total and 100,000 bytes of evidence, evaluates record and chain integrity strictly before current-binding freshness, computes a legacy block digest over the exact stored byte span from the first backtick of its opening three-backtick `yaml` delimiter through the third backtick of its closing delimiter without rewriting or canonicalizing it, labels every displayed identity `stored legacy`, `derived legacy` or `canonical record`, returns `INCOMPLETE` rather than a partial or empty green for unreadable, malformed, duplicate, ambiguous, hard-linked, symlinked, reparse, mount-crossing, aliased or over-bound input, and returns no result that can change any other check's status — a matching live record leaves a `FAIL` or `INCOMPLETE` exactly as it was, and the focal node asserts that suppression prohibition directly.
+
+39m. **Namespace ordinals and renewal chains** — **file** `src/ai_engineering/acceptance.py`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_acceptance.py::test_ordinals_and_renewal_chains_span_legacy_noncanonical_and_derived_ids`.
+    **rollback**: `git revert <commit>`.
+   **done when**: ordinal allocation snapshots every direct child whose leaf name extracts the same three-digit owner, fills historical gaps, reserves one ordinal per ID-less legacy block in stable `(home byte spelling, block byte offset)` order with a derived in-memory `R-<owner>-<NN>` that is never written back, refuses an undecidable leaf, a duplicate ID, an ID/owner mismatch and the exhausted `99` ceiling as `INCOMPLETE`, resolves repository-wide chains by exact `finding` to one head, and returns the conclusive `FAIL` for a requested third renewal.
+
+39n. **Immutable acceptance publication** — **file** `src/ai_engineering/accept.py`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_cli_migration.py::test_accept_publishes_one_immutable_record_without_replacement`.
+    **rollback**: `git revert <commit>`.
+   **done when**: `ai-eng accept` never opens `spec.md` for write; it displays the exact finding, severity, authority role, expiry, justification, follow-up and digest-bound paths, requires the exact `ACCEPT <id> AS <authority_role>` response read from the OS controlling terminal, refuses the denied role tokens after NFKC case-folded tokenization, re-obtains the UTC date immediately after that response and returns `INCOMPLETE` when the expiry is then in the past, reopens every anchored source for the final bounded read, stages canonical JSON in an owned unpublished sibling, flushes that staged file and its directory before the rename, commits through the native exclusive no-replace rename as the sole commit point, treats reported rename success as a committed `PASS` with no fallible post-commit relabel, records no candidate text, scanner output or controlling-terminal device name anywhere outside `record.json`, and leaves neither a final nor a temporary entry on `INCOMPLETE`; no outcome claims respondent identity, source currentness, power-loss durability, tamper-proof storage or independent attestation.
+
+39o. **Renewal, unified expiry view and single reader** — **file** `src/ai_engineering/accept.py`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_cli_migration.py::test_accept_renews_a_stale_head_without_altering_it`.
+    **rollback**: `git revert <commit>`.
+   **done when**: renewal requires an exact `--spec NNN` canonical target, shows the predecessor's complete old canonical bytes or exact legacy block digest together with the newly observed spec and evidence, binds `renews` and `renews_digest` to the unique repository-wide chain head including a derived legacy identity, increments `renewals` by exactly one, and leaves the predecessor byte-identical; an integrity-invalid head is refused rather than repaired by the renewal, an integrity-valid stale head stays renewable, and the expiry view judges only the unique head. The same commit deletes `accept.blocks`, `accept.renewals_of` and `accept.expired`, leaving `acceptance.py` as the only reader of acceptance bytes in the repository; `doctor` assertion 16 and `git-hooks/pre-push` consume that single reader and still fail closed on an expired, malformed or unreadable register.
+
+39p. **Measured acceptance-wave repository ceiling** — **file** `src/ai_engineering/contract.py`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_contracts.py::test_acceptance_replanned_repo_ceiling_is_55807`.
+    **rollback**: `git revert <commit>`.
+   **done when**: hard-replaces `test_block_b_replanned_repo_ceiling_is_42807` and the active 42,807 assertion with 55,807; records the measured tree at this commit's parent as the new base, the four measured rates 789/284/393/1 with the commits they came from, the remaining forecast recomputed from that measured base, `17,807 + 38,000 = 55,807`, the resulting contingency, the hard stop, the re-plan requirement and the final zero-slack close; 42,807 remains history only. If the recomputed total from the measured base exceeds 55,807, this task does not land: work stops and another exact plan approval is required.
+
+Task 39p is the last checkpoint of the early sub-block. The prefix 39e–39p then closes under
+the sub-block review described above, and its bounded repairs land under the new ceiling,
+before Task 39q starts.
+
+39q. **Installed acceptance matrix** — **file** `.github/workflows/install-matrix.yml`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_install_matrix_executes_acceptance_publication_on_every_supported_os`.
+    **rollback**: `git revert <commit>`.
+   **done when**: every Task 39d native-transaction runner and control is preserved unchanged, and the installed wheel additionally executes the exact acceptance focal plus real happy-path, collision and privacy-refusal controls on Linux, macOS and Windows; Linux and macOS execute their real symlink and casing negative controls, Windows executes its real junction/reparse control, and no control selected for a runner may skip. A missing runner, fixture-construction failure, nonzero result or wheel/source mismatch is `INCOMPLETE`, and this evidence grants no push, release, tag or publication authority.
+
+39r. **Exception grant repair** — **file** `src/ai_engineering/exception.py`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_cli_migration.py::test_exception_refuses_aliased_bypass_and_leaves_no_grant_after_incomplete`.
+    **rollback**: `git revert <commit>`.
+   **done when**: the grant store is reached only through an anchored root with no symlink, alias, reparse point or junction at or above `bypass.json`; an `INCOMPLETE` outcome leaves no active grant behind; and a grant cannot remain live without its observable evidence.
+   **review-protocol obligation, not a check condition**: no suppression, alias or compatibility path is added. The repository has no executable suppression gate, so the block reviewer verifies it.
+
+39s. **Uninstall ancestor repair** — **file** `src/ai_engineering/uninstall.py`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_cli_migration.py::test_uninstall_refuses_an_ancestor_redirected_global_mutation`.
+    **rollback**: `git revert <commit>`.
+   **done when**: no ancestor symlink, reparse point or junction can redirect a global mutation, foreign bytes in shared configuration files are preserved exactly, and an ownership, path or identity property this code cannot observe is `INCOMPLETE` rather than a removal.
+
+39t. **Executable human CLI contract** — **file** `src/ai_engineering/ui.py`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_ui.py::test_ui_will_running_and_cure_contract_is_executable`.
+    **rollback**: `git revert <commit>`.
+   **done when**: the module renders a will-and-scope statement, a counted `RUNNING i/n` line whose `n` is the declared step count and whose `i` can never exceed it, and a cure line it refuses to render for any status other than `FAIL` or `INCOMPLETE`; every form keeps the existing plain, rich, JSON, `NO_COLOR`, `TERM=dumb`, non-TTY and reading-order parity, and no cure text may name a bypass.
+
+39u. **Ten-verb will and progress integration** — **file** `src/ai_engineering/cli.py`, as a distinct semantic change and a distinct commit.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_cli_migration.py::test_every_verb_states_its_will_before_mutating_and_counts_its_steps`.
+    **rollback**: `git revert <commit>`.
+   **done when**: each of the ten canonical verbs states its will and scope before its first mutation, emits counted `RUNNING i/n` matching the steps it actually runs, and offers a cure only with `FAIL` or `INCOMPLETE`; a verb that mutates before stating its will, miscounts its steps, or offers a cure on any other status fails the check, and non-interactive JSON remains exactly one non-null object.
+
+Block B then closes under the block-review protocol: freeze writes, run the consolidated
+related suite named above, hand one fresh read-only reviewer the base
+`e4c118bdc68b147df099cbc1c69c854b13685373`, every checkpoint commit and the accumulated
+range, resolve the consolidated ledger in bounded atomic repairs, re-review those findings
+once, then run `git diff --check` and `just check` once. Only then is Block B approved and
+available to Block C.
+
+The block hand-off additionally carries one consent-gated evidence step, which is not a Task
+because it writes nothing and has no commit to revert. After separate explicit push consent
+and only then, push the approved unchanged Block B HEAD and apply the exact `gh` queries in
+“Final candidate and receipt sequence” to `install-matrix.yml` at that SHA: `headSha` must
+equal the pushed SHA, `status` must be `completed`, `conclusion` must be `success`, and the
+Linux, macOS and Windows jobs must each have executed their acceptance and native-transaction
+controls with no skip. Missing consent, authentication, run or job is `INCOMPLETE`, and the
+result is never simulated, inferred from the static workflow file, or claimed from a local
+run. Withheld consent leaves Block B closed but unreceipted, which blocks nothing before
+Task 53: it is Task 53's own exact-HEAD receipts that must prove the integrated system, and
+Blocks C and D may proceed on the approved block review alone. This step grants no release,
+tag or publication authority.
 
 ### Block C — enforcement and observable wiring (Tasks 40–44)
 
@@ -334,7 +543,7 @@ related suite is:
 46. **Installed matrix workflow** — **file** `.github/workflows/install-matrix.yml`.
    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renames_and_json`.
     **rollback**: `git revert <commit>`.
-   **done when**: preserves every Task 39d native transaction runner/control unchanged, then extends the installed-wheel matrix to prove inventory, hard renames, JSON and negative controls; unavailable auth/run is `INCOMPLETE`.
+   **done when**: preserves every Task 39d native transaction runner/control and every Task 39q acceptance runner/control unchanged, then extends the installed-wheel matrix to prove inventory, hard renames, JSON and negative controls; unavailable auth/run is `INCOMPLETE`.
 
 47. **Release provenance workflow** — **file** `.github/workflows/release.yml`.
    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_release_workflow_retains_wheel_contents_provenance_and_head_sha_receipts`.
@@ -366,6 +575,26 @@ related suite is:
     **rollback**: `git revert <commit>`.
    **done when**: one primary test maps every P0 requirement, rejects P1–P5 requirements and aliases, and runs inside `just check`.
 
+MADRs 0005, 0006 and 0007 are still `proposed`, so P0 cannot close on them. Before Task 52a
+starts, ask the human for the exact `authority_role`, `approval_ref` and `approved_at` value
+of each record. A model never supplies one, a default is never substituted, and a missing
+value is `INCOMPLETE`, which stops the task rather than inventing an approval.
+
+52a. **MADR 0005 authority transition** — **file** `docs/adr/0005-intent-supersedes-0004.md`, as a distinct semantic change and a distinct commit.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_madr.py::test_intent_supersession_madr_is_accepted_with_named_authority`.
+    **rollback**: `git revert <commit>`.
+   **done when**: the status moves from `proposed` to `accepted` carrying exactly the three human-supplied values, the validator accepts the transition, and no other field of the record changes.
+
+52b. **MADR 0006 authority transition** — **file** `docs/adr/0006-governed-mission.md`, as a distinct semantic change and a distinct commit.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_madr.py::test_mission_madr_is_accepted_with_named_authority`.
+    **rollback**: `git revert <commit>`.
+   **done when**: the same transition lands with its own three human-supplied values and the recorded alternatives, risks, consequences and owner are unchanged.
+
+52c. **MADR 0007 authority transition** — **file** `docs/adr/0007-cli-contract.md`, as a distinct semantic change and a distinct commit.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_madr.py::test_cli_madr_is_accepted_with_named_authority_and_no_accepted_risk`.
+    **rollback**: `git revert <commit>`.
+   **done when**: the same transition lands with its own three human-supplied values, its open risks remain open, and no risk is accepted by this record.
+
 ### Final cross-block integration and candidate (Task 53)
 
 Task 53 cannot start until Blocks A–D are approved. Its reviewer is fresh to the final
@@ -377,7 +606,7 @@ wheel behavior, CI/readiness/provenance, exact budget closure, and exact-HEAD re
 53. **Final candidate: exact ceiling, record transition, and dogfood refresh** — **file** `specs/010-governed-agentic-engineering-foundation/spec.md`; **same atomic transaction also changes** `specs/004-solution-intent-home/spec.md`, `.ai/intent.md`, `src/ai_engineering/contract.py`, `tests/test_readiness.py`, and `tests/test_contracts.py`.
     **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_readiness.py::test_spec_010_004_intent_and_ceiling_transition_atomically`.
     **rollback**: `git revert <commit>`.
-   **done when**: the last local candidate commit counts the final tree including its own readiness test and record changes, sets `REPO_CEILING` and its comment/assertion to that exact count with zero slack, sets spec010's final status and eight evidence records, supersedes spec004, and refreshes `.ai/intent.md` with the current spec010 digest, current lifecycle facts, no invented authority, and product-validator `PASS`; the focused check proves only those static local finalization invariants and has no live-receipt dependency, so the candidate must pass local `just check` before push and the same suite in CI. The transition is accepted as done/shipped only when those static gates and, after separate push consent, the separate shell/readiness proof of exact own-HEAD check/install receipts both pass. Any missing authentication, live receipt, or gate is `INCOMPLETE` and the candidate is reverted before any shipped declaration, tag, or publication. No release receipt or publishing authority is implied. This final task is last.
+   **done when**: the last local candidate commit counts the final tree including its own readiness test and record changes, sets `REPO_CEILING` and its comment/assertion to that exact count with zero slack, sets spec010's final status and eight evidence records, supersedes spec004, requires MADRs 0005, 0006 and 0007 to be `accepted` with their named human authority rather than `proposed`, and refreshes `.ai/intent.md` with the current spec010 digest, current lifecycle facts, no invented authority, and product-validator `PASS`; the focused check proves only those static local finalization invariants and has no live-receipt dependency, so the candidate must pass local `just check` before push and the same suite in CI. The transition is accepted as done/shipped only when those static gates and, after separate push consent, the separate shell/readiness proof of exact own-HEAD check/install receipts both pass. Any missing authentication, live receipt, or gate is `INCOMPLETE` and the candidate is reverted before any shipped declaration, tag, or publication. No release receipt or publishing authority is implied. This final task is last.
 
 ## Deliberate omissions and deferred waves
 
@@ -386,6 +615,11 @@ wheel behavior, CI/readiness/provenance, exact budget closure, and exact-HEAD re
 - **P3 coordination:** no councils, leases, takeover, parallel writers, or merge groups until a separately approved compare-and-swap/race-proof plan. One writer remains mandatory.
 - **P4 scanners/release:** native detectors, SARIF, SBOM/attestation, and tamper fixtures require a separate approved plan; P0 retains current lanes and verifies provenance contracts only.
 - **P5 pilots:** external upgrades, human/no-human comparisons, measured pilots, model scores, URLs, deployment, and compliance claims require P0–P4 proof and consent.
+- **No rename of the shared native backend:** `spec_transaction.py` now publishes acceptance records as well as specs, so its name is narrower than its job. A hard rename is still refused here because it would force `spec.py` — a second product home — into the same commit, which this plan's atomicity rule forbids. Task 39k instead states the module's real scope in its docstring, and the rename remains available to a later single-purpose task.
+- **No acceptance preauthorization:** the specification defines no risk-acceptance preauthorization schema, so P0 has no policy path to authority. Every acceptance needs the controlling-terminal response; a flag, environment value, piped answer, model or reviewer never substitutes for it.
+- **No Git-ref or service-backed acceptance transaction:** the rejected option 2 stays rejected. It is revisited only by a superseding spec with a measured need, never by an implementation choice.
+- **No power-loss durability claim:** no supported runner executes a crash/recovery fixture in P0, so no record, outcome or document may claim durability across sudden power loss.
+- **The `.ai/reports/` research HTML is not policy:** the process-optimization and evolution-proposal reports are historical research. The block-review protocol in this plan is the authoritative home of the optimized process, and no requirement enters implementation except through an approved spec and this plan.
 - **Observed dogfooding liveness failure:** the current editable installation's `.pth` points to a deleted worktree, leaving a live interpreter with a dead `ai_engineering.cli` module while the persisted git anchor still looks configured. Tasks 43–44 add safe pre-persist and diagnostic execution proof. Do not repair or replace the global installation without separate explicit consent.
 
 Each deferred wave requires its own exact spec/plan approval, atomic tasks, red checks, receipts, rollback, and observed evidence. Compatibility aliases, copied skill trees, silent network, automatic risk acceptance, and JSONL without a demonstrated consumer remain prohibited. The OpenCode `status===2`/`null` risk remains explicitly open until P1.
