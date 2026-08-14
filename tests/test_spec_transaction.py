@@ -309,15 +309,55 @@ def test_windows_identity_contract_is_128_bit_file_id_and_64_bit_volume():
         transaction._stable_windows_identity(1, b"legacy64")
 
 
-def test_transaction_home_is_one_exact_canonical_component(tmp_path):
-    root = _root(tmp_path)
-    (root / "specs" / "nested").mkdir()
+def test_transaction_home_is_a_bounded_anchored_multi_component_walk(tmp_path):
+    """This hard-replaces the one-component rule the backend shipped with.
 
+    An acceptance record is published beside its own spec, so the home is
+    `specs/NNN-slug` and not `specs`. Everything that made one component safe still has to
+    hold for each of them: the walk opens one exact entry at a time under the anchored
+    root, it is bounded, and it revalidates every component and not only the leaf.
+    """
+
+    root = _root(tmp_path)
+    (root / "specs" / "010-nested").mkdir()
+
+    with transaction.writer(root, ".ai/intent.md", "specs/010-nested") as writer:
+        assert writer.inventory().names == ()
+
+    # Bounded. A home deeper than the limit is refused before anything is opened.
+    deep = "/".join(f"level{index}" for index in range(transaction._HOME_COMPONENT_LIMIT + 1))
+    (root / deep).mkdir(parents=True)
     with (
         pytest.raises(transaction.Unsafe),
-        transaction.writer(root, ".ai/intent.md", "specs/nested"),
+        transaction.writer(root, ".ai/intent.md", deep),
     ):
         pass
+
+    # Still one exact entry at a time: a missing or non-canonical component fails closed.
+    for absent in ("specs/absent", "specs/./010-nested", "specs/../specs", "/specs"):
+        with (
+            pytest.raises(transaction.Unsafe),
+            transaction.writer(root, ".ai/intent.md", absent),
+        ):
+            pass
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX ancestor swap")
+def test_nested_home_revalidation_sees_a_swapped_ancestor(tmp_path):
+    """The leaf can be untouched while its parent is replaced underneath it. Recording only
+    the leaf's identity would call that unchanged, which is the hole a nested home opens."""
+
+    root = _root(tmp_path)
+    (root / "specs" / "010-nested").mkdir()
+
+    with transaction.writer(root, ".ai/intent.md", "specs/010-nested") as writer:
+        writer.inventory()
+        (root / "specs").rename(root / "specs-old")
+        (root / "specs").mkdir()
+        (root / "specs-old" / "010-nested").rename(root / "specs" / "010-nested")
+
+        with pytest.raises(transaction.Unsafe):
+            writer.inventory()
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX descriptor accounting")

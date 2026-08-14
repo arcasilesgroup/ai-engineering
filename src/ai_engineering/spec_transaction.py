@@ -1,4 +1,8 @@
-"""Native, fail-closed filesystem primitives for publishing one spec directory."""
+"""Native, fail-closed filesystem primitives for publishing one directory without replacing
+anything. Two callers use it: `spec new`, whose home is `specs`, and the acceptance writer,
+whose home is `specs/NNN-slug` beside the spec the decision belongs to. The module keeps its
+original name; renaming it would drag a second product home into one commit, and the scope
+this sentence states is the honest version of that trade."""
 
 from __future__ import annotations
 
@@ -105,6 +109,11 @@ _INVENTORY_LIMIT = 4_096
 def _parts(value: str) -> tuple[str, ...]:
     if not isinstance(value, str) or not value or "\\" in value or "\x00" in value:
         raise Unsafe("path is not a canonical relative path")
+    # Read the spelling before PurePosixPath normalizes it. `a/./b` and `a//b` drop their
+    # empty and dot segments during parsing, so the check below would never see a spelling
+    # this module exists to refuse.
+    if any(segment in {"", ".", ".."} for segment in value.split("/")):
+        raise Unsafe("path is not a canonical relative path")
     path = PurePosixPath(value)
     parts = path.parts
     if path.is_absolute() or not parts or any(part in {"", ".", ".."} for part in parts):
@@ -117,6 +126,19 @@ def _component(value: str, *, pending: bool = False) -> str:
     if len(parts) != 1 or (pending and not value.startswith("pending-")):
         raise Unsafe("entry name is not canonical")
     return value
+
+
+# A transaction home may be nested — `specs` for a spec, `specs/NNN-slug` for an acceptance
+# record beside its spec — but it is never deep. The bound is here so that "walk it one
+# component at a time" cannot become an unbounded walk of somebody else's directory tree.
+_HOME_COMPONENT_LIMIT = 4
+
+
+def _home_relative(value: str) -> str:
+    parts = _parts(value)
+    if len(parts) > _HOME_COMPONENT_LIMIT:
+        raise Unsafe("transaction home is deeper than the bound")
+    return "/".join(parts)
 
 
 def _same_identity(left: Generation, right: Generation) -> bool:
@@ -257,12 +279,13 @@ class _PosixWriter:
     def __init__(self, root: Path, authority: str, home: str) -> None:
         self._root_path = Path(os.path.abspath(os.fspath(root)))
         self._authority = "/".join(_parts(authority))
-        self._home = _component(home)
+        self._home = _home_relative(home)
         self._root_fd = -1
         self._home_fd = -1
         self._authority_fd = -1
         self._root_generation: Generation | None = None
         self._home_generation: Generation | None = None
+        self._home_generations: tuple[Generation, ...] = ()
         self._authority_generation: Generation | None = None
         self._authority_parents: tuple[Generation, ...] = ()
         self._inventory_owner = object()
@@ -274,8 +297,8 @@ class _PosixWriter:
             self._root_fd = _open_absolute_directory(self._root_path)
             root_value = os.fstat(self._root_fd)
             self._root_generation = _generation_posix(".", root_value)
-            self._home_fd = self._open_relative_directory(self._home)
-            self._home_generation = _generation_posix(self._home, os.fstat(self._home_fd))
+            self._home_fd, self._home_generations = self._walk_home(self._home)
+            self._home_generation = self._home_generations[-1]
             self._authority_fd, self._authority_parents = self._open_regular(
                 self._authority, os.O_RDONLY
             )
@@ -327,14 +350,25 @@ class _PosixWriter:
             os.close(current)
             raise
 
-    def _open_relative_directory(self, relative: str) -> int:
-        current = os.dup(self._root_fd)
+    def _walk_home(
+        self, relative: str, *, anchor: int | None = None
+    ) -> tuple[int, tuple[Generation, ...]]:
+        """Open the transaction home one exact component at a time, recording what each
+        component was. A nested home has ancestors, and an ancestor that can be swapped
+        between the opening walk and the revalidating walk is a hole no leaf check closes.
+        """
+
+        current = os.dup(self._root_fd if anchor is None else anchor)
+        generations: list[Generation] = []
+        walked: list[str] = []
         try:
             for part in _parts(relative):
                 next_fd = _open_directory(current, part)
                 os.close(current)
                 current = next_fd
-            return current
+                walked.append(part)
+                generations.append(_generation_posix("/".join(walked), os.fstat(current)))
+            return current, tuple(generations)
         except BaseException:
             os.close(current)
             raise
@@ -373,7 +407,7 @@ class _PosixWriter:
         return descriptor, parents
 
     def _require_canonical_home(self) -> None:
-        if self._root_generation is None or self._home_generation is None:
+        if self._root_generation is None or not self._home_generations:
             raise Unsafe("writer is not open")
         try:
             root_fd = _open_absolute_directory(self._root_path)
@@ -383,13 +417,13 @@ class _PosixWriter:
             root_now = _generation_posix(".", os.fstat(root_fd))
             if not _same_identity(root_now, self._root_generation):
                 raise Unsafe("canonical root identity changed")
-            current = _open_directory(root_fd, self._home)
-            try:
-                home_now = _generation_posix(self._home, os.fstat(current))
-                if not _same_identity(home_now, self._home_generation):
-                    raise Unsafe("canonical transaction home identity changed")
-            finally:
-                os.close(current)
+            current, now = self._walk_home(self._home, anchor=root_fd)
+            os.close(current)
+            if len(now) != len(self._home_generations) or not all(
+                _same_identity(seen, before)
+                for seen, before in zip(now, self._home_generations, strict=True)
+            ):
+                raise Unsafe("canonical transaction home identity changed")
         finally:
             os.close(root_fd)
 
@@ -1139,12 +1173,13 @@ if os.name == "nt":
         def __init__(self, root: Path, authority: str, home: str) -> None:
             self._root_path = Path(os.path.abspath(os.fspath(root)))
             self._authority = "/".join(_parts(authority))
-            self._home = _component(home)
+            self._home = _home_relative(home)
             self._root = 0
             self._home_handle = 0
             self._authority_handle = 0
             self._root_generation: Generation | None = None
             self._home_generation: Generation | None = None
+            self._home_generations: tuple[Generation, ...] = ()
             self._authority_generation: Generation | None = None
             self._authority_parents: tuple[Generation, ...] = ()
             self._pending_handles: dict[tuple[int, int], _PendingHandles] = {}
@@ -1154,8 +1189,9 @@ if os.name == "nt":
             try:
                 self._root = _win_open_root(self._root_path)
                 self._root_generation = _win_generation(self._root, ".")
-                self._home_handle, _ = self._walk_directory(self._home)
-                self._home_generation = _win_generation(self._home_handle, self._home)
+                self._home_handle, home_parents = self._walk_directory(self._home)
+                self._home_generations = home_parents[1:]
+                self._home_generation = self._home_generations[-1]
                 parent, name, self._authority_parents = self._walk_parent(self._authority)
                 try:
                     self._authority_handle = _win_nt_open(parent, name, directory=False)
@@ -1225,7 +1261,7 @@ if os.name == "nt":
             return parents
 
         def _require_canonical_home(self) -> None:
-            if self._root_generation is None or self._home_generation is None:
+            if self._root_generation is None or not self._home_generations:
                 raise Unsafe("writer is not open")
             root = _win_open_root(self._root_path)
             try:
@@ -1233,9 +1269,13 @@ if os.name == "nt":
                     raise Unsafe("canonical root identity changed")
             finally:
                 _win_close(root)
-            home, _parents = self._walk_directory(self._home)
+            home, parents = self._walk_directory(self._home)
             try:
-                if not _same_identity(_win_generation(home, self._home), self._home_generation):
+                now = parents[1:]
+                if len(now) != len(self._home_generations) or not all(
+                    _same_identity(seen, before)
+                    for seen, before in zip(now, self._home_generations, strict=True)
+                ):
                     raise Unsafe("canonical transaction home identity changed")
             finally:
                 _win_close(home)
