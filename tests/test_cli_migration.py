@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import subprocess
 from copy import deepcopy
@@ -788,3 +789,53 @@ def test_audit_migration_recomputes_digest_and_returns_incomplete_when_blind(
     with pytest.raises(SystemExit) as invalid_cli:
         audit.main(["replay", "--anchors"])
     assert invalid_cli.value.code == outcome.invalid_cli_exit()
+
+
+def test_report_is_hard_rename_and_bare_report_refuses(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    legacy = ROOT / "src" / "ai_engineering" / "digest.py"
+    canonical = ROOT / "src" / "ai_engineering" / "report.py"
+    assert not legacy.exists()
+    assert canonical.is_file()
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("ai_engineering.digest")
+    report_command = importlib.import_module("ai_engineering.report")
+
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    sentinel = tmp_path / "outside-report-scope"
+    sentinel.write_bytes(b"foreign sentinel\n")
+    before = _snapshot(root)
+    product_home = isolated_home / ".ai-engineering"
+
+    for argv in ([], ["issue"]):
+        refused = report_command.main(argv)
+        assert type(refused) is outcome.Result
+        assert refused.outcome == "INCOMPLETE"
+    refusal = capsys.readouterr()
+    assert "P2" in refusal.err and "not implemented" in refusal.err
+    assert _snapshot(root) == before
+    assert sentinel.read_bytes() == b"foreign sentinel\n"
+    assert not product_home.exists()
+    with pytest.raises(SystemExit) as future_surface:
+        report_command.main(["issue", "draft"])
+    assert future_surface.value.code == outcome.invalid_cli_exit()
+
+    monkeypatch.setattr(report_command.doctor, "events", lambda repository: [])
+    monkeypatch.setattr(report_command.doctor, "coverage", lambda repository: [])
+    rendered = report_command.main(["digest"])
+    assert type(rendered) is outcome.Result
+    assert rendered.outcome == "PASS"
+    assert (product_home / "cache" / "digest.json").is_file()
+
+    capsys.readouterr()
+    assert cli.main(["report", "digest", "--json"]) == 0
+    machine = capsys.readouterr()
+    assert machine.err == "" and machine.out.count("\n") == 1
+    payload = json.loads(machine.out)
+    assert payload["command"] == "report"
+    assert payload["outcome"] == "PASS"

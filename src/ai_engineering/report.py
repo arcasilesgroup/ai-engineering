@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from collections import Counter
 from datetime import date, timedelta
 
-from ai_engineering import doctor, paths
+from ai_engineering import doctor, outcome, paths
 
 
 def within(events: list[dict], days: int) -> list[dict]:
@@ -45,10 +46,28 @@ def repeats(events: list[dict]) -> list[str]:
     ]
 
 
-def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser("ai-eng digest")
-    parser.add_argument("--weeks", type=int, default=1)
+def main(argv: list[str]) -> outcome.Result:
+    parser = argparse.ArgumentParser(prog="ai-eng report")
+    commands = parser.add_subparsers(dest="command")
+    digest = commands.add_parser("digest")
+    digest.add_argument("--weeks", type=int, default=1)
+    commands.add_parser("issue")
     args = parser.parse_args(argv)
+
+    if args.command is None:
+        print(
+            "INCOMPLETE: bare report is planned for P2 and is not implemented; "
+            "nothing was written or sent.",
+            file=sys.stderr,
+        )
+        return outcome.result("INCOMPLETE")
+    if args.command == "issue":
+        print(
+            "INCOMPLETE: report issue is planned for P2 and is not implemented; "
+            "nothing was written or sent.",
+            file=sys.stderr,
+        )
+        return outcome.result("INCOMPLETE")
 
     root = paths.repo_root()
     events = within(doctor.events(root), 7 * args.weeks)
@@ -118,4 +137,4 @@ def main(argv: list[str]) -> int:
     stamp = paths.home() / "cache" / "digest.json"
     stamp.parent.mkdir(parents=True, exist_ok=True)
     stamp.write_text(json.dumps({"read": time.time()}))
-    return 0
+    return outcome.result("PASS")

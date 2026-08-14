@@ -27,11 +27,11 @@ from ai_engineering import (
     cli,
     contract,
     decide,
-    digest,
     intent,
     outcome,
     paths,
     plan,
+    report,
     spec,
     text,
 )
@@ -663,8 +663,8 @@ def test_only_events_inside_the_window_are_counted(tmp_path):
         _event("edge", "blocked", ts=A_WEEK_AGO),
         _event("b", "blocked"),
     ]
-    assert [e["name"] for e in digest.within(events, 7)] == ["edge", "b"]
-    assert len(digest.within(events, 60)) == 3
+    assert [e["name"] for e in report.within(events, 7)] == ["edge", "b"]
+    assert len(report.within(events, 60)) == 3
 
 
 @pytest.mark.parametrize(("count", "rows"), [(1, 0), (2, 0), (3, 1), (7, 1)])
@@ -672,7 +672,7 @@ def test_the_same_verdict_three_times_is_flagged_as_owed_a_script(count, rows):
     """Rule 12's trigger, measured rather than felt. Two is a coincidence; three is a
     judgement that always comes out the same, which means it should be code."""
     events = [_event("loop_guard", "blocked", "same reason") for _ in range(count)]
-    found = digest.repeats(events)
+    found = report.repeats(events)
     assert len(found) == rows
     if rows:
         assert f"{count}× same verdict each time" in found[0]
@@ -681,7 +681,7 @@ def test_the_same_verdict_three_times_is_flagged_as_owed_a_script(count, rows):
 def test_a_bypassed_guard_is_named_in_the_report_a_person_reads(home, monkeypatch, capsys):
     """This report is where a bypass becomes visible to somebody other than the person who
     took it. If a bypass could be recorded and never surface here, the record is decorative."""
-    monkeypatch.setattr(digest.doctor, "coverage", lambda root: [])
+    monkeypatch.setattr(report.doctor, "coverage", lambda root: [])
     _write(
         home,
         [
@@ -692,7 +692,7 @@ def test_a_bypassed_guard_is_named_in_the_report_a_person_reads(home, monkeypatc
             dict(_event("cli", "error", ""), seq=5),
         ],
     )
-    assert digest.main([]) == 0
+    assert report.main(["digest"]) == outcome.result("PASS")
     out = capsys.readouterr().out
     assert "Bypassed 3 times." in out
     assert "3× design_gate — shipping late" in out
@@ -707,8 +707,8 @@ def test_a_quiet_week_says_so_instead_of_reporting_a_clean_bill(home, monkeypatc
     """Zero blocks is either a quiet week or a control that has stopped working, and the
     report must not let a reader assume the first one. A week means seven days: a default
     window quietly widened to a month reports a month under a heading that says week."""
-    monkeypatch.setattr(digest.doctor, "coverage", lambda root: [])
-    assert digest.main([]) == 0
+    monkeypatch.setattr(report.doctor, "coverage", lambda root: [])
+    assert report.main(["digest"]) == outcome.result("PASS")
     out = capsys.readouterr().out
     assert f"Week of {A_WEEK_AGO}" in out
     assert "a control that is no longer firing" in out
@@ -925,12 +925,12 @@ def test_an_unknown_verb_exits_non_zero_and_says_so_on_stderr(capsys):
 def test_a_verb_that_runs_is_recorded_with_its_exit_code(home, monkeypatch, capsys):
     """The table records that it ran. Without that event the digest cannot tell a week
     when nothing was blocked from a week when nothing was used."""
-    monkeypatch.setattr(digest.doctor, "coverage", lambda root: [])
-    assert cli.main(["digest"]) == 0
+    monkeypatch.setattr(report.doctor, "coverage", lambda root: [])
+    assert cli.main(["report", "digest"]) == 0
     capsys.readouterr()
     events = [json.loads(line) for line in home.chain_path(None).read_text().splitlines()]
     assert [e["cls"] for e in events] == ["command"]
-    assert events[0]["data"]["verb"] == "digest" and events[0]["data"]["exit"] == 0
+    assert events[0]["data"]["verb"] == "report" and events[0]["data"]["exit"] == 0
     assert events[0]["data"]["ms"] >= 0
 
 

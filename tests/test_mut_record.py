@@ -19,7 +19,16 @@ from types import SimpleNamespace
 
 import pytest
 
-from ai_engineering import __version__, cli, contract, digest, paths, plan, text
+from ai_engineering import (
+    __version__,
+    cli,
+    contract,
+    outcome,
+    paths,
+    plan,
+    text,
+)
+from ai_engineering import report as report_command
 
 TODAY = date.today().isoformat()
 
@@ -39,20 +48,22 @@ def test_an_event_with_no_timestamp_is_outside_every_window():
     """An event with no date is not evidence of anything happening this week. Read as the
     word "None" it sorts after every real date, so it would be counted forever."""
     undated = {"name": "a", "cls": "blocked", "session": "s", "data": {}}
-    assert digest.within([undated, _event("b", "blocked")], 7) == [_event("b", "blocked")]
+    assert report_command.within([undated, _event("b", "blocked")], 7) == [_event("b", "blocked")]
 
 
 def test_a_blocked_event_that_carries_no_reason_still_gets_a_line():
     """Older events, and guards that deny without a sentence, have no reason field. If
     reading them raises, one malformed event deletes the entire week's report."""
-    counted = digest.by_reason([_event("loop_guard", "blocked")], "blocked")
+    counted = report_command.by_reason([_event("loop_guard", "blocked")], "blocked")
     assert dict(counted) == {"loop_guard — ": 1}
 
 
 def test_a_very_long_reason_is_cut_at_seventy_characters():
     """The reason is a guard's whole denial message. Untrimmed it wraps the terminal and
     the counts stop lining up, so the cut is part of the report, not an accident."""
-    counted = digest.by_reason([_event("loop_guard", "blocked", reason="r" * 90)], "blocked")
+    counted = report_command.by_reason(
+        [_event("loop_guard", "blocked", reason="r" * 90)], "blocked"
+    )
     assert list(counted) == ["loop_guard — " + "r" * 70]
 
 
@@ -61,7 +72,7 @@ def test_the_same_name_with_two_different_reasons_is_not_the_same_judgement():
     verdicts from one guard are two judgements, and merging them invents a rule that is
     owed a script when nothing repeated at all."""
     events = [_event("loop_guard", "blocked", reason=reason) for reason in ("first", "second")] * 2
-    assert digest.repeats(events) == []
+    assert report_command.repeats(events) == []
 
 
 def test_three_denials_with_no_reason_are_still_three_of_the_same_thing():
@@ -69,7 +80,7 @@ def test_three_denials_with_no_reason_are_still_three_of_the_same_thing():
     anything other than nothing either crashes the report or prints a placeholder into
     the row somebody is asked to act on."""
     bare = {"name": "loop_guard", "cls": "blocked", "ts": TODAY, "session": "s"}
-    assert digest.repeats([bare] * 3) == [
+    assert report_command.repeats([bare] * 3) == [
         "    loop_guard ·  3× same verdict each time → owed a script"
     ]
 
@@ -78,7 +89,7 @@ def test_the_reason_in_a_repeat_row_is_cut_at_fifty_characters():
     """The row has to fit on one line beside its count, so the reason is trimmed shorter
     here than in the blocked list. A row that runs past the count is a row nobody reads."""
     events = [_event("loop_guard", "blocked", reason="r" * 80)] * 3
-    assert digest.repeats(events) == [
+    assert report_command.repeats(events) == [
         f"    loop_guard · {'r' * 50} 3× same verdict each time → owed a script"
     ]
 
@@ -113,11 +124,11 @@ def report(tmp_path, monkeypatch, capsys):
         state.asked.append(("coverage", passed))
         return state.coverage
 
-    monkeypatch.setattr(digest.doctor, "events", events)
-    monkeypatch.setattr(digest.doctor, "coverage", coverage)
+    monkeypatch.setattr(report_command.doctor, "events", events)
+    monkeypatch.setattr(report_command.doctor, "coverage", coverage)
 
     def run(*argv):
-        assert digest.main(list(argv)) == 0
+        assert report_command.main(["digest", *argv]) == outcome.result("PASS")
         return capsys.readouterr().out.splitlines()
 
     state.run = run
@@ -158,11 +169,11 @@ def test_two_weeks_means_fourteen_days_and_not_a_day_more(report):
 
 
 def test_the_help_names_the_command_it_is_help_for(capsys):
-    """`ai-eng digest --help` reached through the verb table has to say which verb it is
-    describing; argparse otherwise names whatever binary started the process."""
+    """`ai-eng report digest --help` reached through the verb table names the command it
+    is describing; argparse otherwise names whatever binary started the process."""
     with pytest.raises(SystemExit):
-        digest.main(["--help"])
-    assert capsys.readouterr().out.startswith("usage: ai-eng digest")
+        report_command.main(["digest", "--help"])
+    assert capsys.readouterr().out.startswith("usage: ai-eng report digest")
 
 
 def test_a_week_with_nothing_in_it_says_which_two_things_that_could_mean(report):
