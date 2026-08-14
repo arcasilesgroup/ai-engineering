@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import shutil
 import subprocess
 from copy import deepcopy
 from datetime import date, timedelta
@@ -26,6 +27,7 @@ from ai_engineering import (
     paths,
     skeletons,
     spec,
+    uninstall,
     update,
     wiring,
 )
@@ -924,3 +926,144 @@ def test_exception_is_hard_rename_without_plan_alias(
     with pytest.raises(SystemExit) as invalid_guard:
         exception_command.main(["--skip", "invalid", "--guard", "not_a_guard"])
     assert invalid_guard.value.code == outcome.invalid_cli_exit()
+
+
+def test_uninstall_is_explicit_and_returns_receipted_outcome(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt_path = wiring.receipt_path()
+    product_home = isolated_home / ".ai-engineering"
+    sentinel = tmp_path / "outside-uninstall-scope"
+    sentinel.write_bytes(b"foreign sentinel\n")
+
+    monkeypatch.setattr(
+        uninstall.sys,
+        "stdin",
+        type("Keyboard", (), {"isatty": staticmethod(lambda: True)})(),
+    )
+    missing = uninstall.main(["-y"])
+    assert type(missing) is outcome.Result
+    assert missing.outcome == "INCOMPLETE"
+    assert not receipt_path.exists()
+    assert sentinel.read_bytes() == b"foreign sentinel\n"
+
+    surface = next(row for row in wiring.table()["surface"] if row["id"] == "claude-code")
+    settings = wiring.expand(surface["settings"])
+    wiring.json_claude(settings)
+    installed = json.loads(settings.read_text(encoding="utf-8"))
+    installed["foreign"] = {"theme": "user-owned"}
+    wiring.write_json(settings, installed)
+    row = {"path": surface["settings"], "kind": "guard", "how": surface["writer"]}
+    wiring.record([row])
+    receipt = wiring.receipt()
+    receipt_bytes = receipt_path.read_bytes()
+    settings_bytes = settings.read_bytes()
+
+    monkeypatch.setattr(
+        uninstall.sys,
+        "stdin",
+        type("NoKeyboard", (), {"isatty": staticmethod(lambda: False)})(),
+    )
+    blind = uninstall.main(["-y"])
+    assert type(blind) is outcome.Result
+    assert blind.outcome == "INCOMPLETE"
+    assert receipt_path.read_bytes() == receipt_bytes
+    assert settings.read_bytes() == settings_bytes
+
+    monkeypatch.setattr(
+        uninstall.sys,
+        "stdin",
+        type("Keyboard", (), {"isatty": staticmethod(lambda: True)})(),
+    )
+    monkeypatch.setattr("builtins.input", lambda prompt="": "no")
+    declined = uninstall.main([])
+    assert type(declined) is outcome.Result
+    assert declined.outcome == "CANCELLED"
+    assert receipt_path.read_bytes() == receipt_bytes
+    assert settings.read_bytes() == settings_bytes
+
+    def corrupt_receipt_before_consent(prompt: str = "") -> str:
+        receipt_path.write_text("{ torn", encoding="utf-8")
+        return "yes"
+
+    monkeypatch.setattr("builtins.input", corrupt_receipt_before_consent)
+    raced = uninstall.main([])
+    assert type(raced) is outcome.Result
+    assert raced.outcome == "INCOMPLETE"
+    assert receipt_path.read_text(encoding="utf-8") == "{ torn"
+    assert settings.read_bytes() == settings_bytes
+    receipt_path.write_bytes(receipt_bytes)
+
+    preview = uninstall.main(["--dry-run", "-y"])
+    assert type(preview) is outcome.Result
+    assert preview.outcome == "WOULD_CHANGE"
+    assert receipt_path.read_bytes() == receipt_bytes
+    assert settings.read_bytes() == settings_bytes
+
+    for invalid_receipt in (
+        b'{"wrote":[{"path":"partial"}]}\n',
+        b'{"wrote": [not json]\n',
+        b"[]\n",
+    ):
+        receipt_path.write_bytes(invalid_receipt)
+        refused = uninstall.main(["-y"])
+        assert type(refused) is outcome.Result
+        assert refused.outcome == "INCOMPLETE"
+        assert receipt_path.read_bytes() == invalid_receipt
+        assert settings.read_bytes() == settings_bytes
+    receipt_path.write_bytes(receipt_bytes)
+
+    wiring.write_json(settings, {"foreign": {"theme": "user-owned"}})
+    mismatched = settings.read_bytes()
+    refused = uninstall.main(["-y"])
+    assert type(refused) is outcome.Result
+    assert refused.outcome == "INCOMPLETE"
+    assert settings.read_bytes() == mismatched
+    assert receipt_path.read_bytes() == receipt_bytes
+    settings.write_bytes(settings_bytes)
+
+    removed = uninstall.main(["-y"])
+    assert type(removed) is outcome.Result
+    assert removed.outcome == "PASS"
+    remaining_settings = json.loads(settings.read_text(encoding="utf-8"))
+    assert remaining_settings["foreign"] == {"theme": "user-owned"}
+    assert wiring.SIGNATURE not in json.dumps(remaining_settings)
+    remaining_receipt = wiring.receipt()
+    assert remaining_receipt["wrote"] == []
+    for field in ("machine_id", "version", "python", "hooks"):
+        assert remaining_receipt[field] == receipt[field]
+    assert sentinel.read_bytes() == b"foreign sentinel\n"
+    assert product_home.is_dir()
+
+    skill_root = wiring.expand(surface["skills"])
+    blind_skill = skill_root / "ai-spec" / "SKILL.md"
+    blind_skill.parent.mkdir(parents=True, exist_ok=True)
+    blind_skill.write_bytes(b"ownership cannot be recomputed\n")
+    wiring.record([{"path": str(skill_root), "kind": "link", "how": "copy"}])
+    blind_receipt = receipt_path.read_bytes()
+    with monkeypatch.context() as missing_source:
+        missing_source.setattr(uninstall.paths, "skills", lambda: tmp_path / "missing-skills")
+        unproven = uninstall.main(["-y"])
+    assert type(unproven) is outcome.Result
+    assert unproven.outcome == "INCOMPLETE"
+    assert blind_skill.read_bytes() == b"ownership cannot be recomputed\n"
+    assert receipt_path.read_bytes() == blind_receipt
+
+    shutil.rmtree(blind_skill.parent)
+    shutil.copytree(paths.skills() / "ai-spec", blind_skill.parent)
+    exact_skill = blind_skill.read_bytes()
+    aliased_home = tmp_path / "aliased-product-home"
+    product_home.rename(aliased_home)
+    product_home.symlink_to(aliased_home, target_is_directory=True)
+    aliased_receipt = receipt_path.read_bytes()
+    ambiguous = uninstall.main(["-y"])
+    assert type(ambiguous) is outcome.Result
+    assert ambiguous.outcome == "INCOMPLETE"
+    assert blind_skill.read_bytes() == exact_skill
+    assert receipt_path.read_bytes() == aliased_receipt
+
+    with pytest.raises(SystemExit) as invalid_cli:
+        uninstall.main(["--force"])
+    assert invalid_cli.value.code == outcome.invalid_cli_exit()

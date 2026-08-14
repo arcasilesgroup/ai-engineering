@@ -400,7 +400,7 @@ def test_a_receipt_that_is_absent_is_the_one_case_telemetry_may_create(machine):
     }
 
 
-def test_every_verb_stops_on_a_file_it_cannot_parse_and_names_it(machine, capsys):
+def test_every_verb_stops_on_a_file_it_cannot_parse_and_names_it(machine, capsys, monkeypatch):
     """One branch in `cli.main`, because every verb that writes reads first. Without it the
     refusal reaches a person as a traceback, which reads as a crash rather than as a file
     they have to look at."""
@@ -408,10 +408,11 @@ def test_every_verb_stops_on_a_file_it_cannot_parse_and_names_it(machine, capsys
 
     wiring.record([{"path": "/repo/justfile", "kind": "project", "how": "written"}])
     wiring.receipt_path().write_text("{ torn")
-    assert cli.main(["uninstall", "-y"]) == 2
-    text = capsys.readouterr().err
-    assert "machine.json is not readable as JSON" in text
-    assert "Nothing was written." in text
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    assert cli.main(["uninstall", "-y"]) == 1
+    text = capsys.readouterr().out
+    assert "install receipt is missing, partial, corrupt or ambiguous" in text
+    assert "Nothing removed." in text
     assert wiring.receipt_path().read_text() == "{ torn"
 
 
