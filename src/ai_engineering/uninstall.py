@@ -421,6 +421,38 @@ def git(root: Path, key: list[str]) -> None:
     subprocess.run(["git", "-C", str(root), *key], timeout=10, capture_output=True, check=True)
 
 
+def unredirected(path: Path, anchor: Path) -> bool:
+    """Whether every component below `anchor` is exactly what it says it is.
+
+    A global destination is reached by name, and a name is not a place: one symlink,
+    junction or reparse point on the way and this verb removes entries from, or writes over,
+    a file somewhere else entirely. Ownership is checked by content elsewhere in this module,
+    which answers "is this ours" — it cannot answer "is this here".
+
+    The anchor itself is trusted and nothing above it is inspected. On a real machine the
+    path to a home directory crosses links nobody controls (`/var` is a link on macOS), so
+    claiming to have proved that part would be the false green this file is full of comments
+    about. What is claimed is the part that is ours: from the home down.
+    """
+
+    try:
+        relative = path.relative_to(anchor)
+    except ValueError:
+        return False
+    walked = anchor
+    for part in relative.parts:
+        walked = walked / part
+        try:
+            value = walked.lstat()
+        except FileNotFoundError:
+            return True
+        except OSError:
+            return False
+        if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", 0):
+            return False
+    return True
+
+
 def fate(row: dict, root: Path | None) -> str:
     """What this run will do with this row, decided before anything is printed and used
     again to decide what is done. Two answers derived separately are two answers that can
@@ -441,6 +473,9 @@ def fate(row: dict, root: Path | None) -> str:
         return f"kept — not this repository ({root})"
     if not owned(row, root):
         return "kept — receipt target is not one this installer can own"
+    anchor = root if kind in ("project", "repo") else Path.home()
+    if anchor is not None and not unredirected(wiring.expand(path), anchor):
+        return "kept — a link on the way means this name is not that place"
     return ""
 
 

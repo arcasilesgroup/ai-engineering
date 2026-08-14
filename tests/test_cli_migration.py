@@ -2266,3 +2266,53 @@ def test_exception_refuses_aliased_bypass_and_leaves_no_grant_after_incomplete(
     granted = json.loads(store.read_text(encoding="utf-8"))
     assert granted["guard"] == "design_gate"
     assert granted["reason"] == "a bounded and recorded exception"
+
+
+def test_uninstall_refuses_an_ancestor_redirected_global_mutation(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ownership answers "is this ours". It cannot answer "is this here".
+
+    A receipt names a global destination, and a name is not a place: one link on the way and
+    this verb strips entries out of, or unlinks, a file belonging to somebody else. The row
+    is kept with its reason printed rather than removed, and the file the link pointed at is
+    byte-identical afterwards.
+    """
+
+    home = isolated_home
+    real = home / ".claude"
+    real.mkdir()
+    settings = real / "settings.json"
+    settings.write_text('{"hooks": {}}\n', encoding="utf-8")
+
+    # Nothing linked: the destination is one this verb may act on.
+    assert uninstall.unredirected(settings, home)
+
+    # A link at the directory above it, pointing outside the home entirely.
+    elsewhere = tmp_path / "somebody-elses-claude"
+    elsewhere.mkdir()
+    foreign = elsewhere / "settings.json"
+    foreign.write_bytes(b'{"hooks": {"PreToolUse": ["theirs"]}}\n')
+    before = foreign.read_bytes()
+    settings.unlink()
+    real.rmdir()
+    (home / ".claude").symlink_to(elsewhere, target_is_directory=True)
+
+    assert not uninstall.unredirected(home / ".claude" / "settings.json", home)
+    kept = uninstall.fate(
+        {"kind": "guard", "path": str(home / ".claude" / "settings.json"), "how": "json"}, None
+    )
+    assert kept.startswith("kept — ")
+    assert foreign.read_bytes() == before
+
+    # A link at the leaf itself is refused for the same reason.
+    (home / ".claude").unlink()
+    real.mkdir()
+    (real / "settings.json").symlink_to(foreign)
+    assert not uninstall.unredirected(real / "settings.json", home)
+    assert foreign.read_bytes() == before
+
+    # And a destination outside the anchor is never this verb's to touch.
+    assert not uninstall.unredirected(tmp_path / "outside" / "settings.json", home)
