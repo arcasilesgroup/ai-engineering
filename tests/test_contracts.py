@@ -719,16 +719,17 @@ def test_an_entry_is_ours_by_the_dispatcher_it_runs_and_not_by_this_project_s_na
     assert "/" not in wiring.SIGNATURE
 
 
-def test_replanned_repo_ceiling_is_37807():
-    assert contract.REPO_CEILING == 37_807
+def test_block_b_replanned_repo_ceiling_is_42807():
+    assert contract.REPO_CEILING == 42_807
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
-    assert "17,807 + 4,500 = 22,307 was the approved provisional P0 budget" in budget_record
-    assert "Tasks 1–9 added 3,381 lines, about 376 per task; 44 tasks remain" in budget_record
-    assert "17,807 + 20,000 = 37,807 is the approved re-planned maximum" in budget_record
+    assert "31,737 + 3,976 + 2,500 = 38,213" in budget_record
+    assert "17,807 + 25,000 = 42,807" in budget_record
+    assert "42,807 - 38,213 = 4,594" in budget_record
+    assert "37,807 is history only" in budget_record
     assert (
-        "Exceeding 37,807 stops work and requires another approved re-plan; it is not\n"
+        "Exceeding 42,807 is a hard stop and requires another approved re-plan; it is not\n"
         "# permission to raise the ceiling. The final candidate transaction measures the\n"
         "# committed tree and sets this ceiling to that exact total, leaving zero slack."
         in budget_record

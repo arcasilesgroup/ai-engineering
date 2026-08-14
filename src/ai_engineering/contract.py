@@ -282,16 +282,16 @@ DESCRIPTION_MAX = 1000
 # its conditions; the old one-call reader received HTTP 400 and could never prove the live
 # policy. 24 script lines, 27 test lines and these five record the repair. No slack.
 #
-# 17,807 + 4,500 = 22,307 was the approved provisional P0 budget. It is history,
-# not the active limit and not permission to return to it.
-# Tasks 1–9 added 3,381 lines, about 376 per task; 44 tasks remain. The calculation
-# is 3,381 / 9 ≈ 376; at that rate, 44 × 376 = 16,544 more lines.
-# 17,807 + 20,000 = 37,807 is the approved re-planned maximum. The 20,000-line
-# allowance covers the observed-rate forecast; it does not relax the gate.
-# Exceeding 37,807 stops work and requires another approved re-plan; it is not
+# 37,807 is history only: it was the prior approved re-plan, not the active limit.
+# At the Block B re-plan, 31,737 + 3,976 + 2,500 = 38,213: the measured current
+# tree, forecast remaining approved work, and bounded repair allowance respectively.
+# The approved budget remains anchored to the original baseline:
+# 17,807 + 25,000 = 42,807. Against the forecast, 42,807 - 38,213 = 4,594 lines
+# of margin; margin is contingency, not permission for unrelated scope.
+# Exceeding 42,807 is a hard stop and requires another approved re-plan; it is not
 # permission to raise the ceiling. The final candidate transaction measures the
 # committed tree and sets this ceiling to that exact total, leaving zero slack.
-REPO_CEILING = 37_807
+REPO_CEILING = 42_807
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
