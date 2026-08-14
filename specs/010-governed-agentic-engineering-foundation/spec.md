@@ -453,10 +453,309 @@ The counts sum to 54. No omitted legacy capability is implicitly retained.
 - CLI renderers can drift. One semantic result and exit mapping must feed parity tests for
   every canonical outcome.
 
-Future acceptance uses the existing `ai-eng accept` record with all fields: `finding`,
-`severity`, accountable person or role, `reason`, `evidence`, accepted date, `expiry` and
-`follow-up`. Renewal is append-only and preserves the expired record. Acceptance records
-cannot suppress, skip, relabel or turn a failed/incomplete check green.
+### Immutable risk acceptance records
+
+The previous `ai-eng accept` writer appended YAML by replacing an existing `spec.md`.
+That cannot preserve an unrelated writer's bytes under every supported system: Linux
+rename provides replace, exchange and no-replace operations but no replacement conditional
+on an expected destination identity; Apple's documented exclusive rename refuses an
+existing destination rather than comparing it; and Windows `ReplaceFileW` replaces the
+named destination without an expected-content predicate. These are primary platform
+contracts: [Linux `renameat2`](https://man7.org/linux/man-pages/man2/renameat2.2.html),
+[Apple exclusive rename](https://developer.apple.com/documentation/foundation/urlresourcekey/volumesupportsexclusiverenamingkey)
+and [Windows `ReplaceFileW`](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew).
+An advisory lock would coordinate this command with itself, not with an editor or another
+writer. A final verify-then-replace window would therefore remain a false-green and
+foreign-byte-loss path.
+
+Three real options were considered:
+
+1. **Keep embedded YAML and add a lock plus final revalidation.** This preserves the old
+   display and costs no new artifact, but an uncooperative writer can still change the
+   pathname after revalidation; it also keeps mutating a user's spec after its initial
+   write. Rejected.
+2. **Put acceptance in a Git-ref CAS or a coordination service.** This can provide an
+   expected-value transaction, but makes an offline local decision depend on repository
+   state or a new networked control plane, and does not protect the working-tree evidence
+   that the person inspected. Deferred unless measured need justifies a superseding spec.
+3. **Publish one uniquely named immutable record without replacement.** This adds one
+   small artifact per decision, but preserves the spec, the prior history and any
+   colliding writer's bytes on Linux, macOS and Windows. **Chosen.**
+
+The strongest challenge is that immutable naming does not make a user-controlled
+filesystem tamper-proof. It proves only what this command published and prevents it from
+overwriting a conflicting pathname; Git review remains the durable history, and current
+spec and evidence digests must still match on every read. That limitation does not restore
+option 1's unavoidable overwrite race or justify option 2's new control plane, so option 3
+stands.
+
+**Assumption:** the repository is on a filesystem whose native exclusive-publication
+contract the backend can positively identify; otherwise it refuses before final
+publication. **Unresolved risks:** before Git records the artifact, an authorized
+repository owner can still edit or delete it, and the supported native rename APIs do not
+prove survival across sudden power loss. The framework therefore claims an observed
+digest-bound snapshot and atomic no-replace visibility, not identity, uninterrupted source
+currentness, power-loss durability, tamper-proof storage or independent attestation.
+
+Every new acceptance or renewal lives only at
+`specs/NNN-slug/acceptance-r-NNN-NN/record.json`, where both `NNN` values equal the owning
+spec ID and the final `NN` is the next unused two-digit ordinal. The acceptance command
+never opens `spec.md` for write. It selects the ordinal from one validated snapshot of all
+legacy and new records in the target's numeric spec namespace, not only the canonical
+target directory. A canonical direct child `NNN-slug` owns `NNN`; for a preserved
+noncanonical direct child, concatenate the ASCII digits in its leaf name and take the first
+three, refusing it as undecidable when fewer than three exist. Valid IDs occupy their
+stated ordinals across every home with that extracted owner; each ID-less legacy block
+reserves the lowest remaining ordinal in stable `(home byte spelling, block byte offset)`
+order and receives the deterministic in-memory relation ID
+`R-<owner>-<two-digit reserved ordinal>`;
+the new record takes the lowest ordinal still unused. Historical gaps are permitted and
+may be filled. A duplicate ID, ID/owner mismatch, exhausted `99` ceiling or undecidable
+snapshot is `INCOMPLETE`, not permission to guess another name.
+
+`policy/risk-acceptance-v1.schema.json` is the sole canonical JSON Schema 2020-12 contract.
+Its top level has `additionalProperties: false` and requires exactly these fields:
+
+| Field | Type and constraint |
+|---|---|
+| `schema` | string, constant `urn:ai-engineering:risk-acceptance:1` |
+| `schema_version` | string, constant `1` |
+| `id` | string matching `^R-[0-9]{3}-[0-9]{2}$`; the leaf directory is `acceptance-` plus its ASCII lowercase value |
+| `spec` | string matching `^[0-9]{3}$` and the owning canonical spec directory |
+| `spec_digest` | string matching `^sha256:[0-9a-f]{64}$` for the exact `spec.md` bytes shown before confirmation |
+| `finding` | non-empty string of at most 128 UTF-8 bytes |
+| `severity` | string enum `low`, `medium`, `high`, `critical` |
+| `authority_role` | non-empty accountable human role of at most 128 UTF-8 bytes |
+| `accepted` | canonical `YYYY-MM-DD` UTC date derived after authority confirmation |
+| `expires` | canonical `YYYY-MM-DD` date, not earlier than `accepted` |
+| `renewals` | integer from `0` through `2` |
+| `renews` | empty string for an original; otherwise the exact prior record ID |
+| `renews_digest` | empty string for an original; otherwise `sha256:<64 lowercase hex>` over the prior canonical record or exact legacy block bytes |
+| `justification` | non-empty string of at most 2,000 UTF-8 bytes |
+| `evidence` | closed object with only required `path` and `content_digest` fields |
+| `follow_up` | string of at most 2,000 UTF-8 bytes; it may be empty |
+| `record_digest` | `sha256:<64 lowercase hex>` over the canonical JSON projection of every other top-level field |
+
+`evidence.path` is one normalized repository-relative regular-file path of at most 1,024
+UTF-8 bytes, with no empty, dot, parent, absolute, backslash or symlink component.
+`evidence.content_digest` matches `^sha256:[0-9a-f]{64}$` and binds the exact non-empty
+evidence bytes the human was shown. The evidence file is at most 100,000 bytes. Unknown
+fields, invalid UTF-8, control characters, non-canonical JSON or mismatches among the path,
+ID, spec and digests are `INCOMPLETE`. Canonical JSON is UTF-8 without BOM, sorted keys,
+two-space indentation, no non-finite numbers and one trailing newline. New textual values
+may not contain secrets, personal data or machine paths. `record_digest` is recomputed over
+that exact encoding after omitting only `record_digest`; it is an internal corruption
+check, not an external signature or proof against somebody who can rewrite both value and
+checksum. A successor's `renews_digest` hashes the predecessor's complete canonical file,
+including its `record_digest`.
+
+`authority_role` is a role, never a person's name. After Unicode NFKC plus case-folding and
+tokenization on non-alphanumeric characters, any token equal to `agent`, `assistant`, `ai`,
+`bot`, `model`, `reviewer`, `self`, `myself`, `unknown`, `unassigned`, `unspecified`,
+`someone`, `somebody`, `tbd` or `todo` is invalid. The exact response `ACCEPT <id> AS
+<authority_role>` must be read from the OS controlling terminal after the values and
+digests are displayed; `isatty` alone, a flag, environment value or piped standard input
+is insufficient. The OS observation proves only that matching bytes arrived through the
+controlling-terminal boundary. P0 has no cryptographic, identity-provider or other CLI
+proof that a particular human was present or entitled to the asserted role, and no record
+or outcome may claim otherwise. Treating this bounded interaction as the P0 human-authority
+handoff requires renewed human approval of this exact amended specification and plan; it
+cannot be inferred from a model, reviewer or earlier digest approval.
+
+At this base, the exact existing executable secret scanner is Gitleaks 8.30.1, run inside
+the unpublished record directory as `gitleaks dir . --redact --no-banner --exit-code 1`.
+The command verifies that exact version; exit 1 is a conclusive `FAIL`, exit 0 is clean,
+and absence, version drift or any other exit is `INCOMPLETE`. There is no existing
+executable personal-data or machine-path scanner. The P0 implementation must therefore add
+the deterministic checks `acceptance_pii_v1` and `acceptance_machine_path_v1` before
+enabling the new writer; a match is `FAIL`, unsupported input or undecidable
+classification is `INCOMPLETE`, and only all three clean results may reach publication.
+Versioned fixtures include a secret, email, IP address, phone-like identifier,
+personal-name ambiguity, POSIX home path, Windows drive path, UNC path, clean role/reason,
+missing Gitleaks and wrong-version Gitleaks. The command records no candidate text,
+scanner output or terminal name outside `record.json`.
+
+Every spec, evidence, predecessor, legacy block source, new record and staged record is
+opened from a repository-root descriptor or handle one exact component at a time. Every
+regular file must be on the repository root's device or volume, have exactly one hard link
+(`st_nlink == 1` or the native equivalent), and keep the same stable identity, length and
+generation through its bounded read. Below the anchored repository root, no component may
+be a symlink, POSIX mount crossing, Windows reparse point or junction, alternate/short-name
+alias, reserved alias or differently spelled directory entry. A platform that cannot
+observe one of those properties returns `INCOMPLETE`; lexical containment or `resolve()`
+alone is never evidence.
+
+Before asking, the command reads an anchored, bounded snapshot, computes the spec and
+evidence digests and shows the exact finding, severity, authority role, expiry, justification,
+follow-up and digest-bound paths. For a renewal it also shows the predecessor ID, its
+canonical bytes or exact fenced-block digest, and the observed repository-wide chain head.
+Those values form the challenge. A flag, model, reviewer, placeholder, piped answer or
+default cannot supply the required controlling-terminal response. This specification
+defines no risk-acceptance preauthorization schema, so P0 has no policy path. Missing or
+malformed interaction evidence is `INCOMPLETE` and nothing is published.
+
+Immediately after the exact response, the command obtains the UTC date again, rejects an
+expiry now in the past, and reopens the same anchored spec, evidence and predecessor. Any
+identity, length or digest change observed by that final bounded read is `INCOMPLETE`; the
+command never silently binds the response to different bytes. No supported filesystem can
+promise that an unrelated writer will not change a source after that last read and before
+the publication syscall. The record therefore accepts the exact displayed digest-bound
+snapshot, not a claim that its source paths stayed current through that unobservable
+window. Every later unified read recomputes all current bindings; a subsequent change is
+`INCOMPLETE` until a new human decision, never an invisible update of this record.
+
+Publication writes canonical JSON into an unpublished sibling directory and re-reads its
+anchored file before mutation. The staged file and directory are flushed before the final
+rename; a precommit read, flush or capability failure is `INCOMPLETE` and cleans only the
+owned staging entry. The platform-native exclusive no-replace rename is the sole commit
+point and proves atomic visibility plus refusal to replace the final name. Reported rename
+success is a committed `PASS`; there is no fallible postcommit check that can relabel it
+`INCOMPLETE`, and later rendering failure cannot make retry overwrite it. A collision or
+unsupported primitive is `INCOMPLETE`; the existing destination is never replaced,
+removed or reinterpreted as this attempt's success. Power-loss durability remains
+outside the claim unless a supported runner executes and retains a named crash/recovery
+receipt; ordinary rename success, precommit flushes and prose do not prove it.
+
+Historical accepted-risk YAML blocks remain read-only enforcement history in every direct,
+non-symlink `specs/*/spec.md`, including preserved pre-canonical directory names. They are
+never rewritten, copied into the new shape or used as a new-write target. The frozen
+legacy recognizer treats a fenced YAML block as an acceptance only when `finding` and
+`expires` are present. Its only permitted fields are `id`, `finding`, `severity`,
+`accepted_by`, `accepted`, `expires`, `renewals`, `justification`, `evidence` and
+`follow_up`; any other key is malformed rather than ignored. Except for `renewals`, every
+present value is a valid UTF-8 string without control characters. The exact constraints
+and frozen defaults are:
+
+- `id` is absent or matches `^R-[0-9]{3}-[0-9]{2}$`; when present, its first numeric group
+  equals the canonical or noncanonical owner extraction above. Absence normalizes only in
+  memory to the derived ID allocated above. The reader labels each displayed ID with
+  provenance `stored legacy`, `derived legacy` or `canonical record`; derived provenance
+  is never written back into the historical block.
+- `finding` is required, non-empty and at most 256 UTF-8 bytes. `severity` is absent or one
+  of `low`, `medium`, `high`, `critical`, with absence normalizing to `medium`.
+- `accepted` is absent, empty or one canonical `YYYY-MM-DD` date, with absence normalizing
+  to empty. `expires` is required and is one canonical `YYYY-MM-DD` date.
+- `renewals` is absent, a non-boolean integer, or a string. Absence and a non-decimal string
+  containing no ASCII digit normalize to zero, preserving the shipped `once` behavior. An
+  integer or an all-ASCII-digit string is parsed in base ten and must be from zero through
+  two; every other string or out-of-range value is malformed.
+- `accepted_by` is zero to 256 UTF-8 bytes, default `?`; `justification` is zero to 8,192,
+  default empty; and `follow_up` is zero to 4,096, default empty. All are strings.
+- `evidence` is a string of at most 2,048 UTF-8 bytes, default empty. A non-empty value is
+  one normalized repository-relative path followed by `@sha256:` and 64 lowercase hex
+  characters; it is historical evidence syntax, never copied into a new record.
+
+Wrong container, boolean or scalar types are malformed, including for an optional field.
+These defaults preserve expiry enforcement but never satisfy new authority, digest or
+renewal-write requirements. A legacy block digest is `sha256:` over the exact stored byte
+span from the first backtick of its opening three-backtick `yaml` delimiter through the
+third backtick of its closing delimiter, excluding following whitespace and prose; it is
+computed without rewriting or canonicalizing the block.
+
+One unified reader validates both that history and the new records, normalizes them only
+in memory, and scans at most 1,000 spec directories, 99 new records per spec, 1 MiB per
+`spec.md`, 64 KiB per `record.json` and 64 MiB total including referenced evidence.
+Unreadable paths, symlinks, malformed blocks or JSON, duplicate IDs, ambiguous finding
+heads and any exceeded bound are `INCOMPLETE`; none may be skipped to produce green.
+
+The reader evaluates two separate states. **Record and chain integrity** covers canonical
+bytes, schema and types, `record_digest` where applicable, path/ID/owner agreement, unique
+ordinals and finding heads, renewal counters and relations, and every `renews_digest`. A
+malformed record, detected byte/checksum modification, missing predecessor, cycle, gap,
+fork or predecessor-digest mismatch is integrity-invalid: the register is `INCOMPLETE`,
+the record is not a renewable head and no later record may cure it by copying or
+recomputing its contents. **Current-binding freshness** is evaluated only after integrity succeeds. It
+reopens the current canonical `spec.md` and referenced evidence and compares their bytes to
+`spec_digest` and `evidence.content_digest`. A mismatch makes the acceptance view
+`INCOMPLETE` and prevents green, but does not alter the immutable record or its valid place
+as the latest renewal-chain head.
+
+An integrity-valid but stale head remains renewable. The renewal prompt shows its complete
+old canonical bytes and digest, the stale binding result, and the newly observed canonical
+spec and evidence bytes. A new human decision creates a new record with fresh
+`spec_digest`, `evidence.content_digest` and `renews_digest`; it never edits the stale head
+or treats stale bytes as current. This is the only freshness cure. A schema, self-digest or
+chain-integrity failure is not staleness and cannot enter that cure path.
+
+Renewal chains are repository-wide by exact `finding`, preserving the existing behavior
+where a later spec can renew a predecessor in an earlier spec. A new renewal keeps that
+finding, names the single latest chain head in `renews`, binds its canonical JSON bytes or
+exact legacy block bytes in `renews_digest`, and sets `renewals` to exactly one more than
+the predecessor. New canonical records carry explicit relations; legacy relations are
+reconstructed only when each counter from zero to the unique head identifies one record.
+An ID-less legacy head may be named in `renews` by its deterministic derived ID, with
+`renews_digest` binding its exact block bytes; neither value is inserted into history.
+
+Every renewal requires an exact `--spec NNN` naming the canonical spec that owns the new
+decision and artifact; it may differ from the predecessor's spec. Thus a valid predecessor
+under a noncanonical historical directory can be renewed only into that explicitly named
+canonical target. Missing, ambiguous or noncanonical target selection is `INCOMPLETE` and
+never renames the historical owner. The previous record stays unchanged and the unified
+expiry view treats only the unique repository-wide chain head as the candidate whose
+freshness and expiry decide whether an acceptance is current. At most two
+renewals are permitted. A cycle, fork, missing head, changed finding, non-adjacent counter
+or predecessor-digest mismatch is integrity-invalid and `INCOMPLETE`; a requested third
+renewal is the conclusive policy outcome `FAIL`. Neither writes an artifact. Acceptance
+records expire only when the current UTC date is later than `expires`; they cannot
+suppress, skip, relabel or turn a failed or incomplete check green.
+
+Observable acceptance examples:
+
+- **Success.** **Given** singly linked anchored inputs, three clean privacy checks, an
+  unused final path and the exact controlling-terminal response for the displayed role and
+  challenge, **when** `ai-eng accept` publishes, **then** exactly one digest-bound
+  `record.json` appears, `spec.md` is byte-identical and the snapshot-publication outcome
+  is `PASS`, without claiming the respondent's identity.
+- **Missing authority.** **Given** no controlling terminal, a piped response, a denied role
+  token or a response that differs by one byte, **when** acceptance is requested, **then**
+  the outcome is `INCOMPLETE` and no final or temporary record remains.
+- **Concurrent change.** **Given** the displayed spec, evidence or predecessor changes
+  before the final bounded read, **when** the command revalidates, **then** it returns
+  `INCOMPLETE`; **given** a source changes only after that read, **when** the immutable
+  snapshot is published, **then** it remains bound to the bytes actually confirmed and the
+  next unified read is `INCOMPLETE`. In both cases no source byte is overwritten.
+- **Publication collision.** **Given** another writer publishes the chosen final path,
+  **when** exclusive publication runs, **then** exactly one writer commits and the loser is
+  `INCOMPLETE` without replacing, removing or renaming the winner.
+- **Legacy history.** **Given** one valid embedded acceptance in a preserved legacy spec
+  path, **when** the unified expiry view runs, **then** it includes that record exactly
+  once, applies its real expiry and never rewrites or copies it; **given** valid ordinals
+  `01` and `03`, **when** a new record is numbered, **then** it uses `02` rather than
+  treating the historical gap as corruption; **given** one ID-less legacy head in numeric
+  owner `001`, **when** it is renewed, **then** the reader displays derived provenance,
+  uses `R-001-01` in `renews`, binds its exact block in `renews_digest`, publishes
+  `R-001-02` and leaves the legacy bytes unchanged.
+- **Noncanonical namespace.** **Given** `R-042-01` is embedded in
+  `specs/spec-042-note/spec.md` and one unique canonical `--spec 042` target exists,
+  **when** its renewal is numbered, **then** every `042` home participates and the new ID
+  is `R-042-02`, never a duplicate `R-042-01`.
+- **Malformed history.** **Given** an unreadable, malformed, duplicate, ambiguous,
+  hard-linked, symlinked, reparse/junction, mount-crossing, aliased or over-bound legacy or
+  new record, **when** either listing or writing evaluates the register, **then** the
+  outcome is `INCOMPLETE`, not an empty or partial green result; **given** a wrong
+  `record_digest` or `renews_digest`, **when** renewal is requested, **then** it is refused
+  as an integrity failure rather than repaired by the renewal.
+- **Privacy uncertainty.** **Given** missing or wrong-version Gitleaks, personal-name
+  ambiguity or input unsupported by either deterministic privacy check, **when** the
+  candidate is evaluated, **then** the outcome is `INCOMPLETE`; **given** a conclusive
+  secret, personal datum or machine path, **then** it is `FAIL`. Neither publishes.
+- **Midnight.** **Given** a human prompt starts before a UTC date boundary and confirmation
+  arrives after it, **when** publication resumes, **then** `accepted` uses the later date
+  and an expiry earlier than that date yields `INCOMPLETE` with no live record.
+- **Renewal.** **Given** a unique earlier-spec or legacy chain head with fewer than two
+  renewals and an exact canonical `--spec` target, **when** its displayed ID and digest are
+  confirmed, **then** a new cross-spec-capable record points to that unchanged head and
+  increments the counter once; **given** two renewals already exist, **when** another is
+  requested, **then** the outcome is `FAIL` and nothing is written.
+- **Stale renewal cure.** **Given** a structurally and chain-valid head whose current spec
+  or evidence no longer matches its stored digest, **when** the current-acceptance view
+  runs, **then** it is `INCOMPLETE` but remains the renewable head; **when** the human
+  confirms the displayed old head plus newly observed spec and evidence, **then** the new
+  immutable renewal binds the current bytes without changing the stale predecessor.
+- **Durability claim.** **Given** exclusive rename succeeds but later rendering fails,
+  **when** the execution result is reported or retried, **then** the record remains the one
+  committed `PASS` and cannot be overwritten; **given** no crash/recovery receipt, **then**
+  no power-loss durability claim appears.
 
 ## Decisions
 
