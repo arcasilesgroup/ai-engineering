@@ -394,7 +394,7 @@ def test_a_cure_is_indented_under_its_reason_and_says_so_when_there_is_none(comm
     """Six spaces, so it sits under the reason rather than under the title: it is the third
     thing read, after what failed and why. The empty string is not the absence of this line
     — a failure with nothing under it reads as a failure somebody forgot to finish."""
-    ui.cure(command)
+    ui.cure("FAIL", command)
     assert capsys.readouterr().out == line
 
 
@@ -531,8 +531,8 @@ def test_the_cure_dresses_the_command_and_refuses_to_dress_the_absence_of_one(co
     line. The command wears what verb names wear, because it is the part you are about to
     type; the sentence saying there is no command must not, because there is nothing there
     to copy."""
-    ui.cure("ai-eng init --global")
-    ui.cure("")
+    ui.cure("FAIL", "ai-eng init --global")
+    ui.cure("INCOMPLETE", "")
     caught = capsys.readouterr().out
     assert dressed("head", "fix: ") in caught
     assert dressed("cmd", "ai-eng init --global") in caught
@@ -659,3 +659,62 @@ def test_an_interrupted_picker_returns_none_rather_than_an_empty_choice(monkeypa
         SimpleNamespace(checkbox=lambda *a, **k: SimpleNamespace(ask=lambda: None), Choice=dict),
     )
     assert ui.pick("Which?", [("claude-code", "~/.claude")], set()) is None
+
+
+def test_ui_will_running_and_cure_contract_is_executable(capsys):
+    """The three lines a person needs from a command that changes something.
+
+    A will they can read before anything happens, a count that means what it says, and a
+    cure only under a result that actually blocked. Each of the three is a sentence this
+    repository already had in prose, and prose cannot fail — so each is a function that
+    raises instead.
+    """
+
+    ui.will(
+        "publish one immutable acceptance record",
+        reads=["specs/010-x/spec.md", "proof/risk.txt"],
+        writes=["specs/010-x/acceptance-r-010-01/record.json"],
+        network=[],
+    )
+    # On stderr, with everything else a person reads on the way past. Stdout carries the
+    # one JSON object and nothing else, so a will printed there would break that contract.
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    printed = captured.err
+    assert "will  publish one immutable acceptance record" in printed
+    assert "reads   specs/010-x/spec.md, proof/risk.txt" in printed
+    assert "writes  specs/010-x/acceptance-r-010-01/record.json" in printed
+    # Absence is stated, never omitted: a missing line reads as "unknown", not as "none".
+    assert "network none" in printed
+
+    for index, name in ((1, "read the anchored sources"), (2, "publish")):
+        ui.running(index, 2, name)
+    counted = capsys.readouterr()
+    assert counted.out == ""
+    counted = counted.err
+    assert "RUNNING 1/2  read the anchored sources" in counted
+    assert "RUNNING 2/2  publish" in counted
+
+    # A count that cannot be true is refused rather than printed.
+    for index, total in ((3, 2), (0, 2), (1, 0), (1, -1), (True, 2), (1, True)):
+        with pytest.raises(ValueError):
+            ui.running(index, total, "a step")
+
+    # A cure belongs under a result that blocked, and nowhere else.
+    ui.cure("FAIL", "ai-eng init --project")
+    ui.cure("INCOMPLETE", "")
+    assert "fix: ai-eng init --project" in capsys.readouterr().out
+    for status in ("PASS", "WARN", "READY", "CANCELLED", "WOULD_CHANGE", ""):
+        with pytest.raises(ValueError):
+            ui.cure(status, "ai-eng doctor --fix")
+
+    # And a cure may never be a way around the thing that blocked.
+    for bypass in (
+        "git commit --no-verify",
+        "ai-eng exception --skip 'it is fine'",
+        "git push --force",
+        "set the bypass",
+        "skip the guard",
+    ):
+        with pytest.raises(ValueError):
+            ui.cure("FAIL", bypass)

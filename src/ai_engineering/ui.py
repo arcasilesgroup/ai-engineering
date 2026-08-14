@@ -199,11 +199,63 @@ def verdict(number: int, state: str, title: str, detail: str = "") -> None:
         console(data=True).print(Text(f"      {detail}", style="muted"))
 
 
-def cure(command: str) -> None:
+CURABLE = ("FAIL", "INCOMPLETE")
+# A cure is an instruction to a person under a result that blocked them. These are the ways
+# a "cure" stops being a repair and becomes a way around the thing that blocked, which is
+# the one sentence this product may never print.
+BYPASS_WORDS = ("--no-verify", "--force", "bypass", "exception --skip", "skip the", "ignore the")
+
+
+def will(action: str, reads: list[str], writes: list[str], network: list[str]) -> None:
+    """What this command is about to do, before it does any of it.
+
+    Printed ahead of the first mutation, not after it. A person who reads this and stops has
+    lost nothing; the same words printed afterwards are a description of something they
+    were never given the chance to refuse.
+    """
+
+    console().print(Text("\n  will  ", style="head").append(action, style=""))
+    for label, values in (("reads", reads), ("writes", writes), ("network", network)):
+        line = Text(f"        {label:<8}")
+        line.append(", ".join(values) if values else "none", style="muted" if not values else "")
+        console().print(line)
+
+
+def running(index: int, total: int, name: str) -> None:
+    """`RUNNING 2/5  the thing being done` — counted, and counted honestly.
+
+    `n` is the number of steps the caller declared it would run, so a progress line that
+    reaches 5/5 means five things happened. An index past the total, or a total below one,
+    is a caller whose count is a decoration; that raises here rather than printing a number
+    nobody should trust.
+    """
+
+    if not isinstance(total, int) or isinstance(total, bool) or total < 1:
+        raise ValueError("a counted step needs a real total")
+    if not isinstance(index, int) or isinstance(index, bool) or not 1 <= index <= total:
+        raise ValueError(f"step {index} is outside a run of {total}")
+    line = Text("  RUNNING ", style="head")
+    line.append(f"{index}/{total}", style="")
+    line.append(f"  {name}")
+    console().print(line)
+
+
+def cure(status: str, command: str) -> None:
     """Under a failure, the exact thing to type — or the sentence that says nothing can be
     typed. Four of the twenty checks named their cure inside their prose and sixteen named
     nothing, so a reader had to work out for themselves which failures were theirs to fix by
-    hand and which were one command away. That is now a column and not a guess."""
+    hand and which were one command away. That is now a column and not a guess.
+
+    It renders only under a result that actually blocked. A cure offered beside a `PASS`
+    tells a person to repair something that is not broken, and a cure that names a way past
+    the gate is not a cure at all — both raise rather than print.
+    """
+
+    if status not in CURABLE:
+        raise ValueError(f"a cure belongs under {' or '.join(CURABLE)}, not {status}")
+    lowered = command.lower()
+    if any(word in lowered for word in BYPASS_WORDS):
+        raise ValueError("a cure may not name a way around the thing that blocked")
     line = Text("      ")
     if command:
         line.append("fix: ", style="head")
