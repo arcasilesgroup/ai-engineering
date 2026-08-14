@@ -215,7 +215,16 @@ def _semantic_valid(manifest: dict[str, Any], schema: dict[str, Any]) -> bool:
         if len(mode_ids) != len(set(mode_ids)):
             return False
         permissions = [
-            _canonical_json({field: mode[field] for field in mode_policy["permission_fields"]})
+            _canonical_json(
+                {
+                    field: (
+                        sorted(mode[field], key=_canonical_json)
+                        if field in _DIMENSIONS
+                        else mode[field]
+                    )
+                    for field in mode_policy["permission_fields"]
+                }
+            )
             for mode in modes
         ]
         if len(permissions) != len(set(permissions)):
@@ -359,7 +368,11 @@ def preflight(
     mode = next((entry for entry in capability["modes"] if entry["id"] == mode_id), None)
     if mode is None:
         return intent.Validation("INCOMPLETE", *MODE_UNDECLARED)
-    if not isinstance(action, Action) or action.kind not in _ACTION_CONTROLS:
+    if (
+        not isinstance(action, Action)
+        or not isinstance(action.kind, str)
+        or action.kind not in _ACTION_CONTROLS
+    ):
         return intent.Validation("INCOMPLETE", *ACTION_INVALID)
     control = _ACTION_CONTROLS[action.kind]
     try:

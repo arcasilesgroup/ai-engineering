@@ -26,6 +26,13 @@ ROOT_KEYWORDS = {
     "x-capability-policy",
     "x-mode-policy",
 }
+SET_LIKE_PERMISSION_FIELDS = {
+    "read_roots",
+    "write_roots",
+    "exec_allowlist",
+    "network",
+    "secrets",
+}
 
 
 def _resolve(node: dict[str, Any], root: dict[str, Any]) -> dict[str, Any]:
@@ -102,7 +109,14 @@ def _manifest_accepts(value: dict[str, Any], schema: dict[str, Any]) -> bool:
             return False
         permission_sets = [
             json.dumps(
-                {field: mode[field] for field in mode_policy["permission_fields"]},
+                {
+                    field: (
+                        sorted(mode[field], key=lambda item: json.dumps(item, sort_keys=True))
+                        if field in SET_LIKE_PERMISSION_FIELDS
+                        else mode[field]
+                    )
+                    for field in mode_policy["permission_fields"]
+                },
                 sort_keys=True,
             )
             for mode in modes
@@ -278,6 +292,26 @@ def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
     assert by_id["ai-ship"][1]["human_gate"] == "before_publish"
 
 
+def test_capability_manifest_rejects_modes_that_only_reorder_set_like_permissions() -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    manifest = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))
+    research = next(item for item in manifest["capabilities"] if item["id"] == "ai-research")
+    cited = deepcopy(next(mode for mode in research["modes"] if mode["id"] == "cited-web"))
+    permuted = deepcopy(cited)
+    permuted["id"] = "permuted-web"
+    permuted["network"].reverse()
+    permuted["proof_requirements"] = {
+        "allow": ["ai-research.permuted-web.allow"],
+        "deny": ["ai-research.permuted-web.deny"],
+        "installed_artifact": True,
+    }
+    research["modes"] = [cited, permuted]
+
+    assert not _manifest_accepts(manifest, schema)
+    result = capability_contract.validate(manifest)
+    assert (result.outcome, result.code) == ("INCOMPLETE", "CAPABILITY_MANIFEST_INVALID")
+
+
 def test_capability_preflight_denies_undeclared_and_unenforced_actions(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -420,3 +454,15 @@ def test_capability_preflight_denies_undeclared_and_unenforced_actions(
     linked = tmp_path / "linked.toml"
     linked.symlink_to(ROOT / "policy" / "capabilities.toml")
     assert capability_contract.validate(linked).code == "CAPABILITY_MANIFEST_UNREADABLE"
+
+
+def test_capability_preflight_rejects_unhashable_action_kinds() -> None:
+    for kind in ([], {}, set()):
+        result = capability_contract.preflight(
+            "ai-explore", "default", capability_contract.Action(kind=kind)
+        )
+        assert result.as_dict() == {
+            "outcome": "INCOMPLETE",
+            "code": "CAPABILITY_ACTION_INVALID",
+            "reason": "requested action is malformed",
+        }
