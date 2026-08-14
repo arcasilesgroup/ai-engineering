@@ -1454,15 +1454,26 @@ if os.name == "nt":
                 raise Unsafe("pending directory identity changed")
             if _win_generation(state.child, pending.filename).identity != pending.file_identity:
                 raise Unsafe("pending file identity changed")
-            for handle in (state.child, state.directory):
+
+            def _mark(handle: int) -> None:
                 disposition = ctypes.c_byte(1)
                 if not _kernel32.SetFileInformationByHandle(
                     handle, 4, ctypes.byref(disposition), ctypes.sizeof(disposition)
                 ):
                     raise _win_error("pending entry could not be marked for deletion")
-            state.consumed = True
+
+            # Order matters and only in one direction. A file marked for deletion keeps its
+            # directory entry until its last handle closes, so marking the directory while
+            # the child is still open asks Windows to delete a non-empty directory and it
+            # refuses — turning the one path that guarantees nothing is left behind into
+            # the path that leaves something behind.
+            _mark(state.child)
             _win_close(state.child)
+            state.child = 0
+            _mark(state.directory)
+            state.consumed = True
             _win_close(state.directory)
+            state.directory = 0
             self._pending_handles.pop(pending.directory_identity, None)
 
         def publish(self, pending: Pending, final: str) -> Published:
