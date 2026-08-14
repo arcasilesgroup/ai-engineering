@@ -2,20 +2,20 @@
 
 ## Approval and atomicity gate
 
-No further implementation starts until a human explicitly approves **this exact `spec.md` and this exact `plan.md`**, explicitly including the SHA-256 digest of each file; any edit to either digest invalidates approval and requires re-approval. Tasks 1–39 and the first two Block B repair commits are committed history implemented under earlier exact approvals. The previously approved plan digest `54cf67f17c1e5c4884a766506e25bd1abfc209ff09525b44a763ae931667b82c` is invalidated because fresh Block B review proved that cross-platform `spec new` publication needs a separate native transaction backend and because the measured remaining work no longer fits the active ceiling. No Task 39a or later implementation may start until the human approves the new exact plan digest. The reply is the gate; no `approval.md` is created.
+No further implementation starts until a human explicitly approves **this exact `spec.md` and this exact `plan.md`**, explicitly including the SHA-256 digest of each file; any edit to either digest invalidates approval and requires re-approval. Tasks 1–39, the first two Block B repair commits, and Task 39a are committed history implemented under earlier exact approvals. The previously approved plan digest `7f996fd370f1879b3ffb21ef494fbb1fae37e51f5813984960b00d319789b412` is invalidated because review proved that the native Windows backend cannot be accepted from mocked contracts alone: its exact focal must execute on the supported Windows runner before Block B closes. No Task 39b or later implementation may start until the human approves the new exact plan digest. The reply is the gate; no `approval.md` is created.
 
 There is exactly one repository writer before P3. One delegated writer executes the Tasks in a block sequentially; a fresh independent read-only reviewer reviews the closed block before any later block may consume it. No global initialization, installation, network mutation, publishing, tagging, or deployment runs without separate explicit consent. Each Task remains one atomic commit. A Task may change exactly **one primary production, policy, documentation, or workflow file**, plus only its focused supporting test/fixture file(s); it may not change a second product home. Revisiting a primary file is allowed only for a named, distinct semantic change and a distinct commit. A block-review repair may revisit the affected Task's primary file only to resolve a named ledger finding; it remains an atomic commit inside that Task's original scope, and a finding never authorizes a second product home or broader behavior. The sole exception is the final transition: one semantic transaction updates primary spec010, its predecessor spec004, the dogfood `.ai/intent.md`, and `src/ai_engineering/contract.py`, plus their focused readiness and contract tests, to avoid either a stale record or an intermediate line ceiling; spec010 remains the named primary. Rollback for every Task and repair commit is `git revert <commit>`.
 
-The checks for committed Tasks 1–39 are historical evidence. Every check for unstarted Tasks 39a–39c and 40–53 is an exact future red check: run it with `uv`, using the named `path::node`; it is red now because the node/file is absent or its assertion fails, and becomes green only after that Task. No broad `-k`, placeholder node, or invented green result is acceptable. P0 may verify release workflow/provenance contracts but cannot claim a release; spec 010 remains draft and boxes unticked until the final candidate proves its own exact-HEAD receipts. Remote checks select the current `HEAD` SHA and return `INCOMPLETE` when authentication or a run is unavailable. Publishing/tag authority is always a separate human decision.
+The checks for committed Tasks 1–39a are historical evidence. Every check for unstarted Tasks 39b–39d and 40–53 is an exact future red check: run it with `uv`, using the named `path::node`; it is red now because the node/file is absent or its assertion fails, and becomes green only after that Task. No broad `-k`, placeholder node, or invented green result is acceptable. P0 may verify release workflow/provenance contracts but cannot claim a release; spec 010 remains draft and boxes unticked until the final candidate proves its own exact-HEAD receipts. Remote checks select the current `HEAD` SHA and return `INCOMPLETE` when authentication or a run is unavailable. Publishing/tag authority is always a separate human decision.
 
-The rejected `spec.py` repair bytes were restored before this amendment and are not a
-checkpoint. After exact approval, the plan amendment lands first as a record-only child
-of clean HEAD `5d1d11f79044e2915d4d26a16b50bcad6b0f5d90`. Task 39a starts from that amendment
-commit, then each named task observes its own red check before implementation.
+The uncommitted Task 39b bytes remain inert and review-gated while this amendment awaits
+approval; they are not a checkpoint. After exact approval, the plan amendment lands as a
+record-only child of clean committed HEAD `c7642faba09135fd05537be33d49c9af116b56ae`.
+Task 39b then resumes from that amendment commit and must re-establish its exact checks.
 
 Task 1 records a provisional maximum of **17,807 + 4,500 = 22,307 lines** in `contract.py`. Exceeding 22,307 stops work and requires an approved re-plan; it is not permission to raise the ceiling. The final candidate transaction measures the committed tree and removes slack.
 
-The observed first nine tasks added 3,381 lines, or about 376 lines per task. Applying that observed rate to the 44 remaining implementation tasks forecast 16,544 more lines, so Task 10 re-planned the P0 maximum to **17,807 + 20,000 = 37,807 lines**. That forecast is now history. The committed tree after Task 39 measured 30,737 lines. Tasks 17–39 therefore added 6,530 lines across 23 tasks, about 284 per task; applying that rate to Tasks 40–53 forecasts 3,976 more. The two landed repair commits then added net 575 and 425 lines, so the current committed tree measures 31,737 and the observed repair average is exactly 500. Five remaining product repair commits forecast another 2,500. The evidence-based total is therefore 31,737 + 3,976 + 2,500 = 38,213, already above the active ceiling. Task 39a raises the provisional maximum to **17,807 + 25,000 = 42,807 lines**. The 4,594-line margin covers the ceiling-task overhead and native-backend uncertainty; it is not product scope, and the final candidate transaction still removes every line of slack.
+The observed first nine tasks added 3,381 lines, or about 376 lines per task. Applying that observed rate to the 44 remaining implementation tasks forecast 16,544 more lines, so Task 10 re-planned the P0 maximum to **17,807 + 20,000 = 37,807 lines**. That forecast is now history. The committed tree after Task 39 measured 30,737 lines. Tasks 17–39 therefore added 6,530 lines across 23 tasks, about 284 per task; applying that rate to Tasks 40–53 forecasts 3,976 more. The two landed repair commits then added net 575 and 425 lines, so the measured pre-Task-39a base was 31,737 and the observed repair average is exactly 500. Five remaining product repair commits forecast another 2,500. The evidence-based total is therefore 31,737 + 3,976 + 2,500 = 38,213, already above the then-active ceiling. Task 39a raised the provisional maximum to **17,807 + 25,000 = 42,807 lines** and added one net line. That line and the bounded Task 39d workflow/test overhead consume the 4,594-line contingency; they do not change product scope, and the final candidate transaction still removes every line of slack.
 
 ## Block checkpoint and review protocol
 
@@ -48,7 +48,7 @@ cadence was four block-review starts plus one final cross-block review rather th
 review start per Task. Block A is now approved; Block B remains at its review gate, and
 Blocks C and D plus the final cross-block review remain unopened.
 
-The committed tree after Task 16 measured 24,207 lines. The committed tree at this amendment measures 31,737 lines. Every block gate observes the executable ceiling. Reaching or exceeding 42,807 after Task 39a stops work and requires another exact approved re-plan; batching is never permission to raise or bypass it.
+The committed tree after Task 16 measured 24,207 lines. The committed tree after Task 39a measures 31,738 lines. Every block gate observes the executable ceiling. Reaching or exceeding 42,807 stops work and requires another exact approved re-plan; batching is never permission to raise or bypass it.
 
 ## Ordered P0 atomic tasks
 
@@ -280,6 +280,11 @@ product scopes under the block-review protocol above.
     **rollback**: `git revert <commit>`.
    **done when**: `spec new` locks the canonical writer, materializes and validates the exact Intent relation graph, stages only a noncanonical `pending-*` draft, revalidates every file and parent generation immediately before no-replace publication, returns truthful human/JSON facts, leaves no marker or pending on `PASS`, and never leaves a new canonical spec on `INCOMPLETE`; FIFO, alias, ABA, collision, timeout, unsupported backend, and exhausted ID paths fail closed.
 
+39d. **Native spec transaction installed matrix** — **file** `.github/workflows/install-matrix.yml`.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_install_matrix_executes_native_spec_transaction_on_every_supported_os`.
+    **rollback**: `git revert <commit>`.
+   **done when**: the installed wheel's exact Task 39b focal and native happy-path/collision controls execute on Linux, macOS, and Windows; Linux and macOS execute their real symlink/casing negative controls, Windows executes its real junction/reparse negative control, and no control selected for a runner may skip. A missing runner, fixture-construction failure, nonzero test result, or wheel/source mismatch is `INCOMPLETE`; this evidence grants no push, release, tag, or publication authority.
+
 ### Block C — enforcement and observable wiring (Tasks 40–44)
 
 Block C cannot start until Block B is approved. Its result is observed guard, dispatcher,
@@ -327,9 +332,9 @@ related suite is:
    **done when**: existing test/lint/type/coverage/mutation/SAST/dependency/action lanes remain, and missing/skipped results are `INCOMPLETE`, never silently green.
 
 46. **Installed matrix workflow** — **file** `.github/workflows/install-matrix.yml`.
-   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_install_matrix_uses_head_sha_and_proves_installed_wheel_renames_and_json`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renames_and_json`.
     **rollback**: `git revert <commit>`.
-   **done when**: installed-wheel matrix proves inventory, hard renames, JSON and negative controls; unavailable auth/run is `INCOMPLETE`.
+   **done when**: preserves every Task 39d native transaction runner/control unchanged, then extends the installed-wheel matrix to prove inventory, hard renames, JSON and negative controls; unavailable auth/run is `INCOMPLETE`.
 
 47. **Release provenance workflow** — **file** `.github/workflows/release.yml`.
    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_quality_gate.py::test_release_workflow_retains_wheel_contents_provenance_and_head_sha_receipts`.
