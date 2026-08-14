@@ -10,7 +10,9 @@ could happen and goes red the moment it can.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
+import os
 import re
 import subprocess
 from datetime import date
@@ -656,3 +658,260 @@ def test_gitleaks_gate_requires_exact_version_and_three_clean_results(
     run, _ = _scanner("8.29.0", 0)
     monkeypatch.setattr(privacy, "_run", run)
     assert privacy.acceptance_privacy_gate(tmp_path, ["clean text"]).outcome == "INCOMPLETE"
+
+
+def _repository(tmp_path: Path, *, slug: str = "010-governed-foundation") -> Path:
+    root = tmp_path / "repo"
+    (root / "specs" / slug).mkdir(parents=True)
+    for item in _corpus()["base"]["repository"]["files"]:
+        target = root / item["path"].replace("010-governed-foundation", slug)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(item["content"], encoding="utf-8")
+    return root
+
+
+def _bound(root: Path, slug: str, **overrides: Any) -> dict[str, Any]:
+    """The corpus base record, with its digests bound to what is actually on disk."""
+
+    from ai_engineering import acceptance
+
+    record = json.loads(json.dumps(_corpus()["base"]["record"]))
+    record.update(overrides)
+    spec = root / "specs" / slug / "spec.md"
+    evidence_path = f"specs/{slug}/durability.md"
+    record["spec_digest"] = "sha256:" + hashlib.sha256(spec.read_bytes()).hexdigest()
+    record["evidence"] = {
+        "path": evidence_path,
+        "content_digest": "sha256:"
+        + hashlib.sha256((root / evidence_path).read_bytes()).hexdigest(),
+    }
+    record["record_digest"] = acceptance.record_digest(record)
+    return record
+
+
+def _publish(root: Path, slug: str, record: dict[str, Any], leaf: str | None = None) -> Path:
+    from ai_engineering import acceptance
+
+    where = root / "specs" / slug / (leaf or "acceptance-" + record["id"].lower())
+    where.mkdir(parents=True)
+    (where / "record.json").write_bytes(acceptance.canonical_bytes(record))
+    return where
+
+
+def _legacy(root: Path, slug: str, block: str) -> None:
+    spec = root / "specs" / slug / "spec.md"
+    spec.write_text(spec.read_text(encoding="utf-8") + "\n" + block + "\n", encoding="utf-8")
+
+
+def test_unified_reader_separates_integrity_from_binding_freshness(tmp_path) -> None:
+    from ai_engineering import acceptance
+
+    slug = "010-governed-foundation"
+    root = _repository(tmp_path)
+    record = _bound(root, slug)
+    _publish(root, slug, record)
+
+    decided = acceptance.read(root)
+    assert decided.outcome == "PASS", decided.as_dict()
+    assert [entry.id for entry in decided.entries] == ["R-010-01"]
+    assert decided.entries[0].provenance == acceptance.CANONICAL_RECORD
+    assert acceptance.current(root).outcome == "PASS"
+
+    # Freshness. The spec moves; the record does not. Integrity still passes, the binding
+    # does not, and the record keeps its place in the register so it stays renewable.
+    spec = root / "specs" / slug / "spec.md"
+    original = spec.read_bytes()
+    spec.write_text("# Governed foundation, edited after the decision\n", encoding="utf-8")
+    assert acceptance.read(root).outcome == "PASS"
+    stale = acceptance.current(root)
+    assert stale.outcome == "INCOMPLETE" and stale.code == "ACCEPTANCE_BINDING_STALE"
+    assert [entry.id for entry in stale.entries] == ["R-010-01"]
+
+    # Order. With the binding already stale, a corrupt self digest is what comes back:
+    # integrity is decided first, and a corrupt record is never reported as merely stale.
+    corrupt = dict(record, record_digest="sha256:" + "9" * 64)
+    (root / "specs" / slug / "acceptance-r-010-01" / "record.json").write_bytes(
+        acceptance.canonical_bytes(corrupt)
+    )
+    both = acceptance.current(root)
+    assert both.outcome == "INCOMPLETE" and both.code == "ACCEPTANCE_CHECKSUM"
+    assert both.entries == ()
+    spec.write_bytes(original)
+    assert acceptance.current(root).code == "ACCEPTANCE_CHECKSUM"
+
+
+def test_unified_reader_reads_frozen_legacy_history_without_rewriting_it(tmp_path) -> None:
+    from ai_engineering import acceptance
+
+    slug = "001-v1-from-scratch"
+    root = _repository(tmp_path, slug=slug)
+    blocks = {case["id"]: case for case in _corpus()["legacy_blocks"]}
+    spec = root / "specs" / slug / "spec.md"
+
+    _legacy(root, slug, blocks["legacy-valid"]["block"])
+    before = spec.read_bytes()
+    decided = acceptance.read(root)
+    assert decided.outcome == "PASS", decided.as_dict()
+    assert [entry.provenance for entry in decided.entries] == [acceptance.STORED_LEGACY]
+    assert spec.read_bytes() == before, "reading history may never rewrite it"
+
+    # The digest covers the exact stored span, opening backtick through closing backtick.
+    start = before.index(b"```yaml")
+    end = before.index(b"```", start + 8) + 3
+    assert decided.entries[0].digest == "sha256:" + hashlib.sha256(before[start:end]).hexdigest()
+
+    _legacy(root, slug, blocks["legacy-id-less"]["block"])
+    _legacy(root, slug, blocks["legacy-renewals-once"]["block"])
+    _legacy(root, slug, blocks["legacy-not-an-acceptance"]["block"])
+    decided = acceptance.read(root)
+    assert decided.outcome == "PASS", decided.as_dict()
+    # Three acceptances; the fourth block names no finding and no expiry, so the frozen
+    # recognizer leaves it alone rather than guessing at somebody else's YAML.
+    assert len(decided.entries) == 3
+    assert [entry.provenance for entry in decided.entries] == [
+        acceptance.STORED_LEGACY,
+        acceptance.DERIVED_LEGACY,
+        acceptance.STORED_LEGACY,
+    ]
+    # `once` is not a number and holds no digit, which is exactly the shipped behaviour.
+    assert decided.entries[2].renewals == 0
+
+    for malformed in (
+        "legacy-unknown-key",
+        "legacy-wrong-container-type",
+        "legacy-renewals-out-of-range",
+        "legacy-malformed-date",
+    ):
+        fresh = _repository(tmp_path / malformed, slug=slug)
+        _legacy(fresh, slug, blocks[malformed]["block"])
+        result = acceptance.read(fresh)
+        assert result.outcome == "INCOMPLETE", malformed
+        assert result.entries == (), malformed
+
+
+def test_unified_reader_refuses_rather_than_returning_a_partial_register(tmp_path) -> None:
+    from ai_engineering import acceptance
+
+    slug = "010-governed-foundation"
+
+    def fresh(name: str) -> Path:
+        return _repository(tmp_path / name)
+
+    # An unknown field, a non-canonical encoding and a wrong container are each refused.
+    root = fresh("unknown")
+    record = _bound(root, slug)
+    where = _publish(root, slug, record)
+    (where / "record.json").write_bytes(
+        acceptance.canonical_bytes(dict(record, reviewer="not allowed"))
+    )
+    assert acceptance.read(root).code == "ACCEPTANCE_MALFORMED"
+
+    root = fresh("noncanonical")
+    record = _bound(root, slug)
+    where = _publish(root, slug, record)
+    (where / "record.json").write_text(json.dumps(record, indent=4), encoding="utf-8")
+    assert acceptance.read(root).code == "ACCEPTANCE_MALFORMED"
+
+    root = fresh("path")
+    record = _bound(root, slug)
+    _publish(root, slug, record, leaf="acceptance-r-010-07")
+    assert acceptance.read(root).code == "ACCEPTANCE_PATH_MISMATCH"
+
+    root = fresh("owner")
+    record = _bound(root, slug, id="R-011-01")
+    _publish(root, slug, record)
+    assert acceptance.read(root).code == "ACCEPTANCE_OWNER_MISMATCH"
+
+    root = fresh("duplicate")
+    record = _bound(root, slug)
+    _publish(root, slug, record)
+    other = root / "specs" / "010-other"
+    other.mkdir()
+    (other / "spec.md").write_text("# Another home for the same number\n", encoding="utf-8")
+    (other / "durability.md").write_text("No receipt.\n", encoding="utf-8")
+    twin = _bound(root, "010-other")
+    twin["spec_digest"] = record["spec_digest"]
+    twin["evidence"] = record["evidence"]
+    twin["record_digest"] = acceptance.record_digest(twin)
+    _publish(root, "010-other", twin)
+    assert acceptance.read(root).code == "ACCEPTANCE_DUPLICATE_ID"
+
+    root = fresh("undecidable")
+    nameless = root / "specs" / "note"
+    nameless.mkdir()
+    (nameless / "spec.md").write_text("# A leaf with no three-digit owner\n", encoding="utf-8")
+    assert acceptance.read(root).code == "ACCEPTANCE_UNDECIDABLE_OWNER"
+
+    # Bounds refuse; they never report what happened to fit.
+    root = fresh("bound")
+    (root / "specs" / slug / "spec.md").write_bytes(b"x" * (acceptance.MAX_SPEC_BYTES + 1))
+    assert acceptance.read(root).code == "ACCEPTANCE_OVER_BOUND"
+
+    root = fresh("total")
+    monkey_budget = acceptance.MAX_TOTAL_BYTES
+    try:
+        acceptance.MAX_TOTAL_BYTES = 4
+        assert acceptance.read(root).code == "ACCEPTANCE_OVER_BOUND"
+    finally:
+        acceptance.MAX_TOTAL_BYTES = monkey_budget
+
+    # A path that is not exactly one singly linked regular file on this volume is refused.
+    root = fresh("symlink")
+    spec = root / "specs" / slug / "spec.md"
+    real = root / "specs" / slug / "elsewhere.md"
+    spec.rename(real)
+    spec.symlink_to(real)
+    assert acceptance.read(root).code == "ACCEPTANCE_UNSAFE_PATH"
+
+    root = fresh("hardlink")
+    spec = root / "specs" / slug / "spec.md"
+    os.link(spec, root / "specs" / slug / "second-name.md")
+    assert acceptance.read(root).code == "ACCEPTANCE_UNSAFE_PATH"
+
+
+def test_no_acceptance_result_can_change_another_checks_status(tmp_path) -> None:
+    """The one property that separates a record from a bypass.
+
+    An acceptance says a known problem may stay. It has never turned a `FAIL` or an
+    `INCOMPLETE` into a `PASS`, and this reader returns state a caller reads — never a
+    verdict about somebody else's check.
+    """
+
+    from ai_engineering import acceptance
+
+    slug = "010-governed-foundation"
+    root = _repository(tmp_path)
+    live = _bound(root, slug, expires="2099-01-01")
+    _publish(root, slug, live)
+
+    # A live acceptance is state, not permission: nothing here reports a check as passing.
+    assert acceptance.expired(root).outcome == "PASS"
+    assert acceptance.expired(root).entries == ()
+    assert acceptance.read(root).outcome == "PASS"
+
+    gone = json.loads(json.dumps(live))
+    gone["expires"] = "2020-01-01"
+    gone["accepted"] = "2019-01-01"
+    gone["record_digest"] = acceptance.record_digest(gone)
+    (root / "specs" / slug / "acceptance-r-010-01" / "record.json").write_bytes(
+        acceptance.canonical_bytes(gone)
+    )
+    lapsed = acceptance.expired(root)
+    assert lapsed.outcome == "PASS" and [entry.id for entry in lapsed.entries] == ["R-010-01"]
+
+    # Every outcome this module can produce, over every state it can read, is one of two
+    # words. Neither of them can upgrade another check's result.
+    outcomes = {
+        acceptance.read(root).outcome,
+        acceptance.current(root).outcome,
+        acceptance.expired(root).outcome,
+        acceptance.read(tmp_path / "absent").outcome,
+    }
+    assert outcomes <= {"PASS", "INCOMPLETE"}
+    assert set(acceptance.Register("PASS").as_dict()) == {"outcome", "count"}
+    assert (
+        json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))["x-acceptance-policy"][
+            "suppresses_failed_or_incomplete_checks"
+        ]
+        is False
+    )
