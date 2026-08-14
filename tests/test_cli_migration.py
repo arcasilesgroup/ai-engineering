@@ -2256,6 +2256,28 @@ def test_exception_refuses_aliased_bypass_and_leaves_no_grant_after_incomplete(
     assert silent == outcome.result("INCOMPLETE")
     assert not store.exists()
 
+    # 2b. A link swapped in while the person is typing is caught too: the check that counts
+    #     is the one immediately before the write, not the one before the prompt.
+    swapped = tmp_path / "swapped-in-cache"
+    swapped.mkdir()
+
+    def redirect(prompt: str = "") -> str:
+        cache = store.parent
+        if cache.is_dir() and not cache.is_symlink():
+            for item in cache.iterdir():
+                item.unlink()
+            cache.rmdir()
+            cache.symlink_to(swapped, target_is_directory=True)
+        return "yes"
+
+    monkeypatch.setattr("builtins.input", redirect)
+    assert exception_command.main(["--skip", "swapped while typing"]) == outcome.result(
+        "INCOMPLETE"
+    )
+    assert list(swapped.iterdir()) == []
+    store.parent.unlink()
+    monkeypatch.setattr("builtins.input", lambda prompt="": "yes")
+
     # 3. And with the record working again, the same command grants and the file is there.
     #    `monkeypatch.undo()` is never used here: this is the same MonkeyPatch the
     #    `isolated_home` fixture holds, so undoing it would send the grant to the real

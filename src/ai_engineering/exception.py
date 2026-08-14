@@ -83,7 +83,10 @@ def _record_sizes() -> dict[Path, int]:
         try:
             sizes[path] = path.stat().st_size if path.is_file() else 0
         except OSError:
-            sizes[path] = 0
+            # Not zero. A length this code could not read is not a length of nothing, and
+            # treating it as zero lets a `bypassed` line an earlier run left behind answer
+            # for this one. The file is dropped from the comparison instead.
+            continue
     return sizes
 
 
@@ -117,6 +120,35 @@ def _observable(sizes: dict[Path, int], guard: str, reason: str) -> bool:
             ):
                 return True
     return False
+
+
+def _write_grant(path: Path, body: bytes) -> None:
+    """Write the grant through a directory handle this process proved, where it can.
+
+    On POSIX the parent is opened `O_DIRECTORY|O_NOFOLLOW` once and the file is created
+    relative to that descriptor, so nothing swapped in afterwards is reachable by the write.
+    Windows has neither flag on `os.open` — `O_NOFOLLOW` is not defined there at all — so the
+    check immediately above is what stands, and the residual window is named rather than
+    papered over. Task 39q's matrix is where that half gets executed.
+    """
+
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    if hasattr(os, "O_DIRECTORY"):
+        parent_fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            descriptor = os.open(path.name, flags, 0o600, dir_fd=parent_fd)
+            try:
+                os.write(descriptor, body)
+            finally:
+                os.close(descriptor)
+        finally:
+            os.close(parent_fd)
+        return
+    descriptor = os.open(path, flags, 0o600)
+    try:
+        os.write(descriptor, body)
+    finally:
+        os.close(descriptor)
 
 
 def _withdraw(path: Path, message: str) -> outcome.Result:
@@ -157,13 +189,15 @@ def main(argv: list[str]) -> outcome.Result:
     grant = {"guard": args.guard, "reason": args.skip, "expires": time.time() + WINDOW_SECONDS}
     body = json.dumps(grant).encode("utf-8")
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
-        descriptor = os.open(path, flags, 0o600)
-        try:
-            os.write(descriptor, body)
-        finally:
-            os.close(descriptor)
+        if not path.parent.exists():
+            path.parent.mkdir(parents=True)
+        # Checked again here, after the person has answered. The first check happened before
+        # the prompt, and a prompt is as long as somebody takes to type: a check that far
+        # from its write proves what was true when nobody was waiting.
+        path = anchored_store()
+        _write_grant(path, body)
+    except _Unsafe as why:
+        return _withdraw(path, str(why))
     except OSError:
         return _withdraw(path, "the one-time exception could not be written")
     if not _matches(path, grant):
