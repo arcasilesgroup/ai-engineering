@@ -13,7 +13,7 @@ import sys
 import time
 from contextlib import contextmanager
 from copy import deepcopy
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
 
@@ -1325,7 +1325,9 @@ def test_accept_requires_named_owner_date_and_risk_evidence(
     assert accepted.changes[0].status == "APPLIED"
     record = _published(root, "010-governed-foundation")
     assert record["authority_role"] == "repository maintainer"
-    assert record["accepted"] == date.today().isoformat()
+    # The UTC date, which is what the record stores: a person east of Greenwich
+    # confirming just after midnight is not accepting on tomorrow's date.
+    assert record["accepted"] == datetime.now(UTC).date().isoformat()
     assert record["expires"] == tomorrow
     assert record["evidence"] == {
         "path": "proof/risk-f-1.txt",
@@ -1927,3 +1929,145 @@ def test_accept_publishes_one_immutable_record_without_replacement(
     assert (foreign / "record.json").read_bytes() == b"foreign bytes\n"
     assert published.read_bytes() == acceptance.canonical_bytes(record)
     assert not list(home.glob("pending-*"))
+
+
+def test_accept_renews_a_stale_head_without_altering_it(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Renewal, and the one cure a stale record has.
+
+    A record whose spec has moved on is not corrupt: it is exactly what somebody signed, and
+    what has changed is the world around it. So it keeps its bytes, keeps its place, blocks
+    green, and stays renewable — and the renewal binds the newly observed bytes rather than
+    editing the old record to match them. A record that fails its own integrity check gets
+    none of that: a renewal is a new decision, never a repair.
+    """
+
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    slug = "010-governed-foundation"
+    home = root / "specs" / slug
+    spec_md = home / "spec.md"
+    proof = root / "proof" / "risk.txt"
+    proof.parent.mkdir()
+    proof.write_bytes(b"executed local check receipt\n")
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    finding = "the native rename cannot prove power-loss durability"
+    base = [
+        "--finding",
+        finding,
+        "--expires",
+        tomorrow,
+        "--by",
+        "repository maintainer",
+        "--justification",
+        "no supported runner executes a crash and recovery fixture",
+        "--evidence",
+        "proof/risk.txt",
+        "--spec",
+        "010",
+    ]
+
+    _confirmed(monkeypatch)
+    assert accept.main(base).outcome == "PASS"
+    first = json.loads((home / "acceptance-r-010-01" / "record.json").read_bytes())
+    first_bytes = (home / "acceptance-r-010-01" / "record.json").read_bytes()
+
+    # The world moves: the spec it was bound to is edited by somebody else.
+    spec_md.write_text("# Governed foundation, edited after the decision\n", encoding="utf-8")
+    moved = spec_md.read_bytes()
+
+    # Integrity still passes; the binding does not; the record is still the head.
+    assert acceptance.read(root).outcome == "PASS"
+    stale = acceptance.current(root)
+    assert stale.outcome == "INCOMPLETE" and stale.code == "ACCEPTANCE_BINDING_STALE"
+    assert acceptance.head_of(acceptance.read(root).entries, finding).id == "R-010-01"
+
+    # And it is renewable. The new record binds what is there now.
+    assert accept.main(base).outcome == "PASS"
+    renewal = json.loads((home / "acceptance-r-010-02" / "record.json").read_bytes())
+    assert renewal["renews"] == "R-010-01"
+    assert renewal["renewals"] == first["renewals"] + 1
+    assert renewal["renews_digest"] == "sha256:" + sha256(first_bytes).hexdigest()
+    assert renewal["spec_digest"] == "sha256:" + sha256(moved).hexdigest()
+    # The predecessor is untouched, bytes for bytes.
+    assert (home / "acceptance-r-010-01" / "record.json").read_bytes() == first_bytes
+    # And the register is whole again, because the head is now bound to current bytes.
+    assert acceptance.current(root).outcome == "PASS"
+
+    # Only the head is judged for expiry: the record it renewed is history, not a live risk.
+    assert accept.expired(root) == []
+
+    # A head that fails its own integrity check is refused, and a renewal never repairs it.
+    corrupt = dict(renewal, record_digest="sha256:" + "9" * 64)
+    (home / "acceptance-r-010-02" / "record.json").write_bytes(acceptance.canonical_bytes(corrupt))
+    assert accept.main(base) == outcome.result("INCOMPLETE")
+    assert not list(home.glob("acceptance-r-010-03"))
+    assert not list(home.glob("pending-*"))
+    with pytest.raises(ValueError):
+        accept.expired(root)
+
+
+def test_accept_renews_a_derived_legacy_head_into_a_canonical_home(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """History is renewable without being rewritten.
+
+    A block an earlier version embedded in a spec has no identity of its own. It is given a
+    deterministic one in memory so a renewal can name it, and that name is never written
+    back: the historical bytes end the day exactly as they started it.
+    """
+
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    slug = "010-governed-foundation"
+    home = root / "specs" / slug
+    spec_md = home / "spec.md"
+    spec_md.write_text(
+        spec_md.read_text(encoding="utf-8")
+        + "\n```yaml\nfinding: the historical finding\nexpires: '2030-01-01'\n```\n",
+        encoding="utf-8",
+    )
+    before = spec_md.read_bytes()
+    proof = root / "proof" / "risk.txt"
+    proof.parent.mkdir()
+    proof.write_bytes(b"executed local check receipt\n")
+
+    register = acceptance.read(root)
+    assert register.outcome == "PASS"
+    head = acceptance.head_of(register.entries, "the historical finding")
+    assert head.provenance == acceptance.DERIVED_LEGACY
+    assert head.id == "R-010-01"
+
+    _confirmed(monkeypatch)
+    assert (
+        accept.main(
+            [
+                "--finding",
+                "the historical finding",
+                "--expires",
+                (date.today() + timedelta(days=1)).isoformat(),
+                "--by",
+                "repository maintainer",
+                "--justification",
+                "the mitigation is still in place",
+                "--evidence",
+                "proof/risk.txt",
+                "--spec",
+                "010",
+            ]
+        ).outcome
+        == "PASS"
+    )
+
+    renewal = json.loads((home / "acceptance-r-010-02" / "record.json").read_bytes())
+    assert renewal["renews"] == "R-010-01"
+    assert renewal["renewals"] == 1
+    assert renewal["renews_digest"] == head.digest
+    # The derived identity was never written into the historical block.
+    assert spec_md.read_bytes() == before
+    assert b"R-010-01" not in before

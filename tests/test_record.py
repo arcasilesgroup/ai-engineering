@@ -16,7 +16,7 @@ import re
 import subprocess
 import sys
 import time
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -24,6 +24,7 @@ import pytest
 
 from ai_engineering import (
     accept,
+    acceptance,
     acceptance_privacy,
     audit,
     cli,
@@ -39,6 +40,8 @@ from ai_engineering import (
 )
 
 TODAY = date.today().isoformat()
+# The record stores a UTC date; local midnight is not the same instant.
+UTC_TODAY = datetime.now(UTC).date().isoformat()
 YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
 TOMORROW = (date.today() + timedelta(days=1)).isoformat()
 SIGNED = [
@@ -222,7 +225,7 @@ def test_an_acceptance_expires_the_day_after_its_date_not_on_it(repo, capsys):
         encoding="utf-8",
     )
     assert [b["finding"] for b in accept.expired(repo)] == ["F-past"]
-    assert len(accept.blocks(repo)) == 3
+    assert len(acceptance.read(repo).entries) == 3
     assert accept.main(["--expired"]) == outcome.result("FAIL"), (
         "an expired acceptance has to fail the build"
     )
@@ -245,7 +248,7 @@ def test_a_renewal_retires_the_block_it_renews_wherever_it_sits(repo, order):
         written[order[0]] + written[order[1]] + _acceptance("F-untouched", YESTERDAY),
         encoding="utf-8",
     )
-    assert len(accept.blocks(repo)) == 3
+    assert len(acceptance.read(repo).entries) == 3
     assert [b["finding"] for b in accept.expired(repo)] == ["F-untouched"]
 
 
@@ -348,7 +351,7 @@ def test_an_acceptance_with_no_end_date_is_refused(repo, capsys):
     assert "--finding, --expires, --by, --justification and --evidence are all required" in (
         captured.err
     )
-    assert accept.blocks(repo) == []
+    assert acceptance.read(repo).entries == ()
 
 
 def test_the_third_renewal_is_refused_and_writes_nothing(repo, capsys, monkeypatch):
@@ -390,7 +393,7 @@ def test_publishing_an_acceptance_never_opens_the_spec_for_write(repo, monkeypat
     completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     assert (folder / "spec.md").read_bytes() == before
     record = _records(repo, "001-a")[0]
-    assert record["authority_role"] == "Ada" and record["accepted"] == TODAY
+    assert record["authority_role"] == "Ada" and record["accepted"] == UTC_TODAY
     assert record["justification"] == "it is fenced off"
     # And the record is bound to the exact bytes that were displayed, not to a re-reading.
     assert record["spec_digest"] == "sha256:" + hashlib.sha256(before).hexdigest()

@@ -452,7 +452,9 @@ def _legacy_entries(directory: Path, device: int, budget: _Budget) -> list[tuple
     home = f"specs/{directory.name}/spec.md"
     found: list[tuple[Entry, int]] = []
     for start, end, block in legacy_spans(body):
-        where = f"{home} at byte {start}"
+        # The shape `<file> cannot be read: …` is the message assertion 16 and the push gate
+        # already speak. Changing the reader is not a reason to change what they print.
+        where = f"{home} cannot be read: the block at byte {start}"
         fields = _parse_legacy(block, where)
         if fields is None:
             continue
@@ -643,24 +645,27 @@ def _require_chains(entries: tuple[Entry, ...]) -> None:
             if entry.renews in renewed:
                 raise Refusal("ACCEPTANCE_CHAIN_FORK", f"{entry.renews} is renewed more than once")
             renewed[entry.renews] = entry
-        heads = [entry for entry in group if entry.id not in renewed]
-        if len(heads) != 1:
-            raise Refusal(
-                "ACCEPTANCE_CHAIN_AMBIGUOUS", f"the finding {finding[:48]!r} has no unique head"
-            )
-        _require_reconstructable(group, heads[0], finding)
+        head = _reconstructed_head(group, finding)
+        if head.id in renewed:
+            raise Refusal("ACCEPTANCE_CHAIN_FORK", f"{head.id} is both the head and renewed")
 
 
-def _require_reconstructable(group: list[Entry], head: Entry, finding: str) -> None:
-    """The counters must describe one line from zero to the head, with nothing doubled and
-    nothing missing. This is the only relation legacy history ever recorded."""
+def _reconstructed_head(group: list[Entry], finding: str) -> Entry:
+    """The one record a renewal must point at.
+
+    Legacy blocks state no relation at all, so their counters are the only thing there is:
+    each counter from zero to the head has to name exactly one record. That rule settles the
+    canonical case too, and it is what makes a fork or a gap undecidable rather than resolved
+    by whichever record happened to be read last.
+    """
 
     counters = sorted(entry.renewals for entry in group)
-    if counters != list(range(len(group))) or head.renewals != len(group) - 1:
+    if counters != list(range(len(group))):
         raise Refusal(
             "ACCEPTANCE_CHAIN_AMBIGUOUS",
             f"the finding {finding[:48]!r} has counters that describe no single chain",
         )
+    return max(group, key=lambda entry: entry.renewals)
 
 
 def _by_finding(entries: tuple[Entry, ...]) -> dict[str, list[Entry]]:
@@ -688,8 +693,16 @@ def current(root: Path) -> Register:
     try:
         device = _device(root)
         budget = _Budget()
+        # Only the head of each chain is bound to the current world. A record that has been
+        # renewed is history: it is exactly what somebody signed, and holding the repository
+        # red forever because the spec moved on after it would make renewal pointless.
+        heads = {
+            head.id
+            for finding in _by_finding(integrity.entries)
+            if (head := head_of(integrity.entries, finding)) is not None
+        }
         for entry in integrity.entries:
-            if entry.provenance != CANONICAL_RECORD:
+            if entry.provenance != CANONICAL_RECORD or entry.id not in heads:
                 continue
             _require_binding(root, entry, device, budget)
     except Refusal as refusal:

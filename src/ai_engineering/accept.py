@@ -39,7 +39,6 @@ from ai_engineering import (
     paths,
     spec,
     spec_transaction,
-    text,
 )
 
 MAX_RENEWALS = 2
@@ -102,88 +101,32 @@ def _evidence_path(value: str) -> str:
     return value
 
 
-def _evidence_reference(root: Path, relative: str, target: Path) -> str:
-    """Bind one real local regular file to the acceptance without calling metadata proof."""
-    candidate = root.joinpath(*PurePosixPath(relative).parts)
-    if candidate == target:
-        raise _EvidenceProblem("an acceptance cannot cite the record it is about to change")
-    component = root
-    try:
-        for part in PurePosixPath(relative).parts:
-            component /= part
-            if component.is_symlink():
-                raise _EvidenceProblem("evidence path is not one local regular file")
-        before = candidate.lstat()
-        if not stat.S_ISREG(before.st_mode):
-            raise _EvidenceProblem("evidence path is not one local regular file")
-        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_BINARY", 0)
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        descriptor = os.open(candidate, flags)
-        try:
-            opened = os.fstat(descriptor)
-            identity = (opened.st_dev, opened.st_ino)
-            if not stat.S_ISREG(opened.st_mode) or identity != (before.st_dev, before.st_ino):
-                raise _EvidenceProblem("evidence changed while opening")
-            if opened.st_size < 1 or opened.st_size > _MAX_EVIDENCE_BYTES:
-                raise _EvidenceProblem("evidence is empty or exceeds its size bound")
-            chunks = []
-            remaining = opened.st_size
-            while remaining:
-                chunk = os.read(descriptor, min(remaining, 65_536))
-                if not chunk:
-                    raise _EvidenceProblem("evidence changed while reading")
-                chunks.append(chunk)
-                remaining -= len(chunk)
-            if os.read(descriptor, 1):
-                raise _EvidenceProblem("evidence changed while reading")
-            content = b"".join(chunks)
-        finally:
-            os.close(descriptor)
-        after = candidate.lstat()
-        if identity != (after.st_dev, after.st_ino):
-            raise _EvidenceProblem("evidence changed while reading")
-    except OSError as error:
-        raise _EvidenceProblem("evidence cannot be read") from error
-    if not content or len(content) > _MAX_EVIDENCE_BYTES:
-        raise _EvidenceProblem("evidence is empty or exceeds its size bound")
-    return f"{relative}@sha256:{sha256(content).hexdigest()}"
-
-
-def blocks(root: Path) -> list[tuple[Path, dict]]:
-    """Raises ValueError naming the file when a block cannot be read. Every caller either
-    handles that or lets it become could-not-evaluate — none of them may treat it as
-    nothing found, which is what made a malformed acceptance invisible to the expiry
-    check while the gate reported green over it."""
-    out = []
-    for where in sorted((root / "specs").glob("*/spec.md")) if (root / "specs").exists() else []:
-        name = str(where.relative_to(root)) if where.is_relative_to(root) else str(where)
-        for block in text.yaml_blocks(where.read_text(errors="replace"), name):
-            if "expires" in block and "finding" in block:
-                out.append((where, block))
-    return out
-
-
-def renewals_of(block: dict) -> int:
-    """Hand-written blocks are allowed, so the counter can be missing or not a number."""
-    try:
-        return int(block.get("renewals", 0))
-    except (TypeError, ValueError):
-        return 0
-
-
 def expired(root: Path) -> list[dict]:
-    """A renewal retires what it renews. Without this, renewing a finding in a later spec
-    left the expired original in the record as an independent result, so the push gate and
-    assertion 16 both stayed red on it and no renewal ever recorded had retired anything.
-    The highest renewal per finding is the live one; the blocks it replaced are history."""
-    today = date.today().isoformat()
-    live: dict[str, dict] = {}
-    for _, block in blocks(root):
-        seen = live.get(block["finding"])
-        if seen is None or renewals_of(block) >= renewals_of(seen):
-            live[block["finding"]] = block
-    return [block for block in live.values() if str(block.get("expires", "")) < today]
+    """The acceptances past their date, read through the one register there is.
+
+    This used to hold its own YAML parser. Two parsers of the same bytes drift, and the
+    thing they would eventually disagree about is which risks are live — which is what the
+    push gate and assertion 16 block on. `acceptance` is now the only reader; this is the
+    shape those two callers already speak, and the refusal they already handle.
+
+    A renewal retires what it renews, so only the unique head of each chain is judged. An
+    undecidable register raises rather than reporting nothing found, because nothing found
+    is indistinguishable from nothing wrong.
+    """
+
+    register = acceptance.expired(root)
+    if register.outcome != "PASS":
+        raise ValueError(register.reason)
+    return [
+        {
+            "id": entry.id or "?",
+            "finding": entry.finding,
+            "expires": entry.expires,
+            "home": entry.home,
+            "provenance": entry.provenance,
+        }
+        for entry in register.entries
+    ]
 
 
 def denied_role(role: str) -> bool:
@@ -332,8 +275,8 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
             return outcome.result("INCOMPLETE")
         for block in stale:
             print(
-                f"  EXPIRED  {block.get('id', '?')}  {block['finding']}  "
-                f"expired {block['expires']}  accepted by {block.get('accepted_by', '?')}"
+                f"  EXPIRED  {block['id']}  {block['finding']}  "
+                f"expired {block['expires']}  recorded in {block['home']} ({block['provenance']})"
             )
         if stale:
             print(
@@ -384,7 +327,11 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         print(f"  INCOMPLETE  {why}. Nothing was written.")
         return outcome.result("INCOMPLETE")
 
-    _display(proposed, args, bindings, slug)
+    register = acceptance.read(root)
+    head = (
+        acceptance.head_of(register.entries, args.finding) if register.outcome == "PASS" else None
+    )
+    _display(proposed, args, bindings, slug, head if proposed.renews else None)
     if not controlling_terminal_response(f"ACCEPT {proposed.id} AS {args.by}"):
         print("  INCOMPLETE  no exact confirmation arrived from the controlling terminal.")
         return outcome.result("INCOMPLETE")
@@ -451,6 +398,23 @@ def _utc_today() -> str:
     return datetime.now(UTC).date().isoformat()
 
 
+def _predecessor_bytes(head) -> str:
+    """What the person is being asked to renew.
+
+    A canonical record is shown whole, because its bytes are short and exact. A legacy block
+    is shown as its home and digest: it is displayed with derived provenance and never
+    rewritten, so quoting it back would suggest an edit that is not going to happen.
+    """
+
+    if head.provenance != acceptance.CANONICAL_RECORD:
+        return f"stored at {head.home}, digest {head.digest}"
+    body = (paths.repo_root() or Path()).joinpath(*head.home.split("/"))
+    try:
+        return body.read_text(encoding="utf-8")
+    except OSError:
+        return f"unreadable at {head.home}, digest {head.digest}"
+
+
 def _bindings(root: Path, slug: str, evidence: str) -> dict[str, str]:
     """One bounded anchored read of every source the record will bind."""
 
@@ -460,9 +424,14 @@ def _bindings(root: Path, slug: str, evidence: str) -> dict[str, str]:
     }
 
 
-def _display(proposed, args, bindings: dict[str, str], slug: str) -> None:
+def _display(proposed, args, bindings: dict[str, str], slug: str, head=None) -> None:
     """The challenge. Everything the record will hold, shown before it is bound, so the
-    exact response confirms bytes a person actually read."""
+    exact response confirms bytes a person actually read.
+
+    A renewal shows more, not less: the predecessor's complete stored bytes beside the newly
+    observed spec and evidence. Renewing a record whose old contents were never displayed is
+    signing for something nobody read.
+    """
 
     print(f"  id            {proposed.id}")
     print(f"  finding       {args.finding}")
@@ -476,5 +445,9 @@ def _display(proposed, args, bindings: dict[str, str], slug: str) -> None:
     if proposed.renews:
         print(f"  renews        {proposed.renews} {proposed.renews_digest}")
         print(f"  renewal       {proposed.renewals} of {MAX_RENEWALS}")
+        if head is not None:
+            print(f"  predecessor   {head.home} ({head.provenance})")
+            for line in _predecessor_bytes(head).splitlines():
+                print(f"    {line}")
     print(f"  Type exactly: ACCEPT {proposed.id} AS {args.by}")
     print("  The controlling terminal is the only channel this reads.")

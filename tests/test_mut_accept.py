@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
 
@@ -28,6 +28,8 @@ from ai_engineering import (
 )
 
 TODAY = date.today().isoformat()
+# The record stores a UTC date; local midnight is not the same instant.
+UTC_TODAY = datetime.now(UTC).date().isoformat()
 YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
 TOMORROW = (date.today() + timedelta(days=1)).isoformat()
 
@@ -215,8 +217,10 @@ def test_the_expired_line_names_the_id_the_finding_the_date_and_the_person(repo,
     )
     assert accept.main(["--expired"]) == outcome.result("FAIL")
     assert capsys.readouterr().out == (
-        f"  EXPIRED  R-001-01  F-signed  expired {YESTERDAY}  accepted by A Person\n"
-        f"  EXPIRED  ?  F-bare  expired {YESTERDAY}  accepted by ?\n"
+        f"  EXPIRED  R-001-01  F-signed  expired {YESTERDAY}  "
+        f"recorded in specs/001-a/spec.md (stored legacy)\n"
+        f"  EXPIRED  R-001-02  F-bare  expired {YESTERDAY}  "
+        f"recorded in specs/001-a/spec.md (derived legacy)\n"
         "  An acceptance that ran out is not an acceptance. Fix it or renew it "
         "with a reason, up to twice.\n"
     )
@@ -289,7 +293,7 @@ def test_an_acceptance_carries_every_field_it_owes_and_invents_none(repo, capsys
         "finding": "F-1",
         "severity": "medium",
         "authority_role": "Ada",
-        "accepted": TODAY,
+        "accepted": UTC_TODAY,
         "expires": TOMORROW,
         "renewals": 0,
         "renews": "",
@@ -412,9 +416,10 @@ def test_a_spec_with_bytes_that_are_not_utf8_is_read_not_crashed(repo):
     (folder / "spec.md").write_bytes(
         b"```yaml\nfinding: F-1\nexpires: 2030-01-01\n```\n\xff\xfe not text\n"
     )
-    found = accept.blocks(repo)
-    assert [b["finding"] for _, b in found] == ["F-1"]
-    assert found[0][0] == repo / "specs" / "001-a" / "spec.md"
+    register = acceptance.read(repo)
+    assert register.outcome == "PASS", register.as_dict()
+    assert [entry.finding for entry in register.entries] == ["F-1"]
+    assert register.entries[0].home == "specs/001-a/spec.md"
 
 
 # ------------------------------------------------------------------ audit
