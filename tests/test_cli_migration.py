@@ -7,6 +7,7 @@ import importlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -2338,14 +2339,30 @@ def test_every_verb_states_its_will_before_mutating_and_counts_its_steps(
     for verb, (action, reads, writes, network) in cli.SCOPE.items():
         assert action and action[0].islower(), verb
         assert isinstance(reads, tuple) and isinstance(writes, tuple), verb
-        # `network: none` is a claim about the product, so it is proved from the product.
-        assert network == (), verb
-    sources = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in sorted((ROOT / "src" / "ai_engineering").glob("*.py"))
-    )
-    for egress in ("urllib.request", "urlopen", "import socket", "import httpx", "import requests"):
-        assert egress not in sources, egress
+        assert isinstance(network, tuple), verb
+
+    # Which verbs touch the network is derived from the product, not restated here. The
+    # first version of this check grepped `src/` only and passed while `doctor` and `report`
+    # were opening a socket through a hook loaded by path — the exact false green this
+    # repository exists to prevent, produced by the test that was supposed to prevent it.
+    # So the walk follows `paths.load(...)` into `hooks/`, which is where the egress lives.
+    egress = ("urlopen", "urllib.request", "import socket", "httpx", "requests.")
+    hooks = ROOT / "hooks"
+
+    def reaches_egress(name: str) -> bool:
+        body = (ROOT / "src" / "ai_engineering" / f"{name}.py").read_text(encoding="utf-8")
+        bodies = [body]
+        # One level, which is all the product uses: hooks are standard-library only and
+        # load nothing themselves. A second level would need this to become a real graph.
+        for hook in re.findall(r'paths\.load\("([^"]+)"\)', body):
+            loaded = hooks / f"{hook}.py"
+            if loaded.is_file():
+                bodies.append(loaded.read_text(encoding="utf-8"))
+        return any(word in text for text in bodies for word in egress)
+
+    assert {verb for verb in cli.VERBS if reaches_egress(verb)} == {
+        verb for verb, entry in cli.SCOPE.items() if entry[3]
+    }
 
     # A verb that mutates says so before it does, and the reader is told the direction.
     for verb in ("init", "update", "accept", "exception", "uninstall"):
@@ -2374,6 +2391,9 @@ def test_every_verb_states_its_will_before_mutating_and_counts_its_steps(
         "RUNNING 4/4  record the command",
     ]
     assert len(cli.STAGES) == 4
+    # The line every verb writes whatever else it does, promised in the will because the
+    # run performs it: `writes none` on a command that appends to the record is false.
+    assert cli.ALWAYS_WRITES in said.err
     # A passing run offers no cure, because there is nothing to repair.
     assert "fix:" not in said.err and "fix:" not in said.out
 

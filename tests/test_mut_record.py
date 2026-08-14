@@ -404,7 +404,10 @@ def test_an_interrupted_command_says_nothing_was_written(recorded, monkeypatch, 
     assert said.endswith("\ninterrupted; nothing was written.\n")
     assert "will  record one design exception, at a keyboard" in said
     assert "RUNNING 2/4  run it: exception" in said
-    assert "RUNNING 3/4" not in said
+    # The count says where the run reached, not how long the list is. An interrupted run
+    # never reported an outcome, so it performed three of four stages and says so.
+    assert "RUNNING 3/4  record the command" in said
+    assert "RUNNING 4/4" not in said
 
 
 def test_the_verb_that_ran_is_the_name_on_the_event(recorded, monkeypatch):

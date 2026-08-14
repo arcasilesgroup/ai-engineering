@@ -37,8 +37,15 @@ VERBS: dict[str, str] = {
 # What each verb will touch, said before it touches it. The wording is deliberately about
 # classes of destination and never about one machine's paths: a will is read by a person
 # deciding whether to continue, and a home directory printed into it is a machine path in
-# the record. `network` is `none` everywhere because no verb opens a socket — the check
-# beside this table proves that rather than trusting the sentence.
+# the record.
+#
+# The first version of this table said `network: none` for all ten verbs, and a test
+# "proved" it by grepping `src/` for an egress import. Both were wrong. `doctor` and
+# `report` reach an observability endpoint through `paths.load("_otlp")`, a hook loaded by
+# path, which no grep of `src/` can see — so the product opened a socket while the command
+# printed that it would not. The lesson is in the test beside this table now: a claim about
+# what the product does is checked against every file the product can execute, not against
+# the ones the claim's author happened to think of.
 SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] = {
     "init": (
         "set this machine up, and this repository if you say yes",
@@ -50,7 +57,7 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
         "run the assertions and report what they observed",
         ("the receipt", "surface settings", "this repository's records"),
         ("nothing, unless --fix is given, which repairs what it names",),
-        (),
+        ("the configured observability endpoint, when one is configured",),
     ),
     "update": (
         "rewrite the pin and run the forward migrations",
@@ -86,11 +93,11 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
         "produce the local governed report",
         ("the events", "this repository's records"),
         ("the local digest read receipt",),
-        (),
+        ("the configured observability endpoint, when one is configured",),
     ),
     "exception": (
         "record one design exception, at a keyboard",
-        (),
+        ("the application home", "this repository's records"),
         ("one time-limited grant in the application home",),
         (),
     ),
@@ -106,6 +113,11 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
 # these runs on every invocation, which is what makes the count worth printing: a total the
 # run does not reach, or an index past it, is a decoration and `ui.running` refuses it.
 STAGES = ("load the verb", "run it", "report the outcome", "record the command")
+
+# Every verb writes this, on every run, whatever else it does or refuses to do. It was
+# missing from all ten entries above, which made `writes none` on `audit` a false statement
+# about a command that had just appended a line.
+ALWAYS_WRITES = "this run's line in the event record"
 
 
 def usage() -> None:
@@ -394,15 +406,19 @@ def main(argv: list[str] | None = None) -> int:
     # The will goes out before the verb is even loaded, so a person who reads it and stops
     # has stopped before anything happened. It goes to stderr with everything else a person
     # reads on the way past; stdout stays reserved for the one JSON object in JSON mode.
-    ui.will(*SCOPE[verb])
-    ui.running(1, len(STAGES), STAGES[0])
+    action, reads, writes, network = SCOPE[verb]
+    ui.will(action, reads, (*writes, ALWAYS_WRITES), network)
+    reached = 1
+    ui.running(reached, len(STAGES), STAGES[0])
     module = importlib.import_module(f"ai_engineering.{verb}")
     started = time.perf_counter()
     interrupted = False
     try:
-        ui.running(2, len(STAGES), f"{STAGES[1]}: {verb}")
+        reached = 2
+        ui.running(reached, len(STAGES), f"{STAGES[1]}: {verb}")
         returned = module.main(rest)
-        ui.running(3, len(STAGES), STAGES[2])
+        reached = 3
+        ui.running(reached, len(STAGES), STAGES[2])
         if type(returned) in (outcome.Result, outcome.Execution):
             terminal = returned.result if type(returned) is outcome.Execution else returned
             ui.render_result(terminal)
@@ -426,7 +442,11 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:
         paths.load("_emit").emit(verb, "error", error=repr(exc))
         raise
-    ui.running(4, len(STAGES), STAGES[3])
+    # The index is where the run actually reached, not the length of the list. A run that
+    # was interrupted before its outcome could be reported did not perform four stages, and
+    # printing 4/4 over three would make the count a decoration again.
+    reached += 1
+    ui.running(reached, len(STAGES), STAGES[3])
     paths.load("_emit").emit(
         verb, "command", verb=verb, exit=code, ms=int((time.perf_counter() - started) * 1000)
     )
