@@ -56,7 +56,7 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
     "doctor": (
         "run the assertions and report what they observed",
         ("the receipt", "surface settings", "this repository's records"),
-        ("nothing, unless --fix is given, which repairs what it names",),
+        ("the files each --fix repairs, when --fix is given",),
         ("the configured observability endpoint, when one is configured",),
     ),
     "update": (

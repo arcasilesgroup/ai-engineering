@@ -438,7 +438,13 @@ def anchors(kind: str, root: Path | None) -> tuple[Path, ...]:
 
     if kind in ("project", "repo"):
         return (root,) if root is not None else ()
-    return (paths.home(), Path.home())
+    # The widest first, and that ordering is the whole point. `redirection` walks under the
+    # first anchor that contains the path, and on a default install the application home
+    # sits *inside* the user's home — so putting it first made `.ai-engineering` itself an
+    # unchecked component, and a symlink there would have been trusted and then rmtree'd
+    # through. Falling back to it second still covers an AI_ENGINEERING_HOME set elsewhere,
+    # which is the case this pair was introduced for.
+    return (Path.home(), paths.home())
 
 
 def redirection(path: Path, allowed: tuple[Path, ...]) -> str:
@@ -497,10 +503,11 @@ def fate(row: dict, root: Path | None) -> str:
         return "kept — receipt target is not one this installer can own"
     where = redirection(wiring.expand(path), anchors(kind, root))
     if where == "redirected":
-        return "kept — a link on the way means this name is not that place"
+        # Not a keep either. A row this run did not undo is a row still in the receipt and a
+        # guard still wired; reporting that as success is the failure this verb exists to
+        # argue against, and "kept" with a zero exit is exactly how it would read.
+        return f"{UNDECIDED} a link on the way means this name is not that place"
     if where == "undecided":
-        # Not a keep. A destination this code cannot place is a run that cannot say what it
-        # did, and the verb's whole promise is that governance comes out cleanly.
         return f"{UNDECIDED} this destination could not be placed under a home we own"
     return ""
 
@@ -601,11 +608,11 @@ def main(argv: list[str]) -> outcome.Result:
         print("  Nothing removed. Run this from inside the intended repository.")
         return outcome.result("INCOMPLETE")
     plan = [(row, fate(row, root), canonical(row, root)) for row in rows]
-    undecided = [row for row, kept, _ in plan if kept.startswith(UNDECIDED)]
+    undecided = [(row, kept) for row, kept, _ in plan if kept.startswith(UNDECIDED)]
     if undecided:
-        print(f"  INCOMPLETE: {len(undecided)} recorded targets could not be placed:")
-        for row in undecided:
-            print(f"    {row['kind']:<8} {row['path']}")
+        print(f"  INCOMPLETE: {len(undecided)} recorded targets could not be undone:")
+        for row, why in undecided:
+            print(f"    {row['kind']:<8} {row['path']}  ·  {why.removeprefix(UNDECIDED).strip()}")
         print("  Nothing removed. A destination this run cannot place is not one it may touch.")
         return outcome.result("INCOMPLETE")
     going = [safe for _, kept, safe in plan if not kept and safe is not None]

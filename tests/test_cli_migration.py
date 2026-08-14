@@ -2323,6 +2323,22 @@ def test_uninstall_refuses_an_ancestor_redirected_global_mutation(
     inside_application.mkdir(parents=True, exist_ok=True)
     assert uninstall.redirection(inside_application, allowed) == ""
 
+    # And the anchors are ordered widest-first, which is not cosmetic: with the narrow one
+    # first, a default install matches it and the application home's own component is never
+    # walked — so a symlink there would be trusted and then removed through.
+    assert uninstall.anchors("skills", None) == (Path.home(), paths.home())
+    if application.parent == Path.home():
+        moved = tmp_path / "application-elsewhere"
+        moved.mkdir()
+        (moved / "skills").mkdir()
+        for item in sorted(application.iterdir()):
+            item.rmdir() if item.is_dir() else item.unlink()
+        application.rmdir()
+        application.symlink_to(moved, target_is_directory=True)
+        assert uninstall.redirection(application / "skills", allowed) == "redirected"
+        application.unlink()
+        application.mkdir()
+
     # A link at the directory above the destination, pointing outside the home entirely.
     elsewhere = tmp_path / "somebody-elses-claude"
     elsewhere.mkdir()
@@ -2334,6 +2350,13 @@ def test_uninstall_refuses_an_ancestor_redirected_global_mutation(
     (home / ".claude").symlink_to(elsewhere, target_is_directory=True)
     assert uninstall.redirection(home / ".claude" / "settings.json", allowed) == "redirected"
     assert foreign.read_bytes() == before
+    # And a row this run cannot undo is not reported as a success it kept on purpose.
+    surface = next(row for row in wiring.table()["surface"] if row["writer"] == "json_claude")
+    blocked = uninstall.fate(
+        {"kind": "guard", "path": surface["settings"], "how": surface["writer"]}, None
+    )
+    assert blocked.startswith(uninstall.UNDECIDED), blocked
+    assert "a link on the way" in blocked
 
     # A link at the leaf itself is the same answer.
     (home / ".claude").unlink()
@@ -2394,8 +2417,12 @@ def test_every_verb_states_its_will_before_mutating_and_counts_its_steps(
     def reaches_egress(name: str) -> bool:
         body = (ROOT / "src" / "ai_engineering" / f"{name}.py").read_text(encoding="utf-8")
         bodies = [body]
-        # One level, which is all the product uses: hooks are standard-library only and
-        # load nothing themselves. A second level would need this to become a real graph.
+        # The bound, said honestly: this follows a verb module into the hooks it names with
+        # a double-quoted literal, and no further. It does not follow `src`-to-`src` imports,
+        # so a verb reaching egress through a sibling module — or through `paths.load(name)`
+        # with a variable — would leave both sides of the equality unchanged and stay green.
+        # That is the same false green this check was written for, one indirection away.
+        # Neither shape exists today; both call sites are literal and inside their own verb.
         for hook in re.findall(r'paths\.load\("([^"]+)"\)', body):
             loaded = hooks / f"{hook}.py"
             if loaded.is_file():
