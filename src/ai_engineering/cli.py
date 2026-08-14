@@ -34,6 +34,80 @@ VERBS: dict[str, str] = {
 }
 
 
+# What each verb will touch, said before it touches it. The wording is deliberately about
+# classes of destination and never about one machine's paths: a will is read by a person
+# deciding whether to continue, and a home directory printed into it is a machine path in
+# the record. `network` is `none` everywhere because no verb opens a socket — the check
+# beside this table proves that rather than trusting the sentence.
+SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] = {
+    "init": (
+        "set this machine up, and this repository if you say yes",
+        ("the receipt", "each agent surface's settings"),
+        ("the application home", "surface settings", "git config", "this repository's records"),
+        (),
+    ),
+    "doctor": (
+        "run the assertions and report what they observed",
+        ("the receipt", "surface settings", "this repository's records"),
+        ("nothing, unless --fix is given, which repairs what it names",),
+        (),
+    ),
+    "update": (
+        "rewrite the pin and run the forward migrations",
+        ("the pin", "the receipt"),
+        ("the pin", "the files each migration names"),
+        (),
+    ),
+    "spec": (
+        "record what was decided, or list what already is",
+        ("the Intent", "every spec"),
+        ("one new spec directory, on `spec new` only",),
+        (),
+    ),
+    "decide": (
+        "add a decision to its spec, or promote it to an MADR",
+        ("the target spec",),
+        ("that spec's decision block, or one MADR",),
+        (),
+    ),
+    "accept": (
+        "publish one immutable acceptance record",
+        ("the target spec", "the evidence file", "every acceptance already recorded"),
+        ("one new acceptance record beside its spec",),
+        (),
+    ),
+    "audit": (
+        "walk the chain and say whether it holds",
+        ("the chain", "this repository's records"),
+        (),
+        (),
+    ),
+    "report": (
+        "produce the local governed report",
+        ("the events", "this repository's records"),
+        ("the local digest read receipt",),
+        (),
+    ),
+    "exception": (
+        "record one design exception, at a keyboard",
+        (),
+        ("one time-limited grant in the application home",),
+        (),
+    ),
+    "uninstall": (
+        "undo everything the receipt lists",
+        ("the receipt", "surface settings"),
+        ("only what the receipt records this install as having written",),
+        (),
+    ),
+}
+
+# What the dispatcher itself does, in order, once a verb has been resolved. Every one of
+# these runs on every invocation, which is what makes the count worth printing: a total the
+# run does not reach, or an index past it, is a decoration and `ui.running` refuses it.
+STAGES = ("load the verb", "run it", "report the outcome", "record the command")
+
+
 def usage() -> None:
     """The ten verbs, with the verb itself in the brand style so the eye lands on the word
     you are going to type. The banner sits above it, on a terminal only.
@@ -315,20 +389,31 @@ def main(argv: list[str] | None = None) -> int:
         usage()
         return 2
 
+    from ai_engineering import ui
+
+    # The will goes out before the verb is even loaded, so a person who reads it and stops
+    # has stopped before anything happened. It goes to stderr with everything else a person
+    # reads on the way past; stdout stays reserved for the one JSON object in JSON mode.
+    ui.will(*SCOPE[verb])
+    ui.running(1, len(STAGES), STAGES[0])
     module = importlib.import_module(f"ai_engineering.{verb}")
     started = time.perf_counter()
+    interrupted = False
     try:
+        ui.running(2, len(STAGES), f"{STAGES[1]}: {verb}")
         returned = module.main(rest)
+        ui.running(3, len(STAGES), STAGES[2])
         if type(returned) in (outcome.Result, outcome.Execution):
-            from ai_engineering import ui
-
             terminal = returned.result if type(returned) is outcome.Execution else returned
             ui.render_result(terminal)
             code = returned.exit_code
         else:
             code = int(returned or 0)
     except KeyboardInterrupt:
-        sys.stderr.write("\ninterrupted; nothing was written.\n")
+        # Said after the last stage rather than here, so it is the last thing on the screen.
+        # A person who pressed Ctrl-C is asking one question, and the answer to it should not
+        # be followed by two more lines of bookkeeping.
+        interrupted = True
         code = 130
     except wiring.Unreadable as why:
         # One place, because every verb that writes reads first. A file we cannot parse is
@@ -341,9 +426,12 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:
         paths.load("_emit").emit(verb, "error", error=repr(exc))
         raise
+    ui.running(4, len(STAGES), STAGES[3])
     paths.load("_emit").emit(
         verb, "command", verb=verb, exit=code, ms=int((time.perf_counter() - started) * 1000)
     )
+    if interrupted:
+        sys.stderr.write("\ninterrupted; nothing was written.\n")
     return code
 
 

@@ -397,7 +397,14 @@ def test_an_interrupted_command_says_nothing_was_written(recorded, monkeypatch, 
 
     monkeypatch.setattr(exception, "main", stop)
     assert cli.main(["exception"]) == 130
-    assert capsys.readouterr().err == "\ninterrupted; nothing was written.\n"
+    # The will and the counted stages precede it now; what matters is that the last thing a
+    # person is told is what happened to their data, and that the count stopped where the
+    # run stopped rather than reporting a stage that never ran.
+    said = capsys.readouterr().err
+    assert said.endswith("\ninterrupted; nothing was written.\n")
+    assert "will  record one design exception, at a keyboard" in said
+    assert "RUNNING 2/4  run it: exception" in said
+    assert "RUNNING 3/4" not in said
 
 
 def test_the_verb_that_ran_is_the_name_on_the_event(recorded, monkeypatch):

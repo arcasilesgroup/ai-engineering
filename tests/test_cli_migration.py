@@ -2316,3 +2316,73 @@ def test_uninstall_refuses_an_ancestor_redirected_global_mutation(
 
     # And a destination outside the anchor is never this verb's to touch.
     assert not uninstall.unredirected(tmp_path / "outside" / "settings.json", home)
+
+
+def test_every_verb_states_its_will_before_mutating_and_counts_its_steps(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Three sentences this repository had in prose, now with an exit code behind them.
+
+    A person is told what a command will touch before it touches anything, the progress
+    count is the number of stages that actually run, and a cure appears only under a result
+    that blocked. The will is checked against what the verbs can do rather than against what
+    this table says about them, because a scope statement nobody verifies is decoration with
+    a serious face on.
+    """
+
+    # Every canonical verb declares a scope, and only the canonical verbs do.
+    assert set(cli.SCOPE) == set(cli.VERBS)
+    for verb, (action, reads, writes, network) in cli.SCOPE.items():
+        assert action and action[0].islower(), verb
+        assert isinstance(reads, tuple) and isinstance(writes, tuple), verb
+        # `network: none` is a claim about the product, so it is proved from the product.
+        assert network == (), verb
+    sources = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted((ROOT / "src" / "ai_engineering").glob("*.py"))
+    )
+    for egress in ("urllib.request", "urlopen", "import socket", "import httpx", "import requests"):
+        assert egress not in sources, egress
+
+    # A verb that mutates says so before it does, and the reader is told the direction.
+    for verb in ("init", "update", "accept", "exception", "uninstall"):
+        assert cli.SCOPE[verb][2], verb
+
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
+    monkeypatch.setattr(
+        importlib.import_module("ai_engineering.exception"),
+        "main",
+        lambda argv: outcome.result("PASS"),
+    )
+    capsys.readouterr()
+    assert cli.main(["exception"]) == 0
+    said = capsys.readouterr()
+
+    # The will comes first, before the verb is even loaded.
+    lines = [line for line in said.err.splitlines() if line.strip()]
+    assert lines[0].strip().startswith("will  record one design exception")
+    assert lines.index("  RUNNING 1/4  load the verb") > 0
+    # Every stage the dispatcher declared, in order, and none of them invented.
+    counted = [line.strip() for line in lines if line.strip().startswith("RUNNING")]
+    assert counted == [
+        "RUNNING 1/4  load the verb",
+        "RUNNING 2/4  run it: exception",
+        "RUNNING 3/4  report the outcome",
+        "RUNNING 4/4  record the command",
+    ]
+    assert len(cli.STAGES) == 4
+    # A passing run offers no cure, because there is nothing to repair.
+    assert "fix:" not in said.err and "fix:" not in said.out
+
+    # And JSON mode keeps stdout to exactly one object with nothing else on either stream.
+    capsys.readouterr()
+    assert cli.main(["exception", "--json"]) == 0
+    machine = capsys.readouterr()
+    assert machine.err == ""
+    assert machine.out.count("\n") == 1
+    payload = json.loads(machine.out)
+    assert payload["command"] == "exception" and payload["outcome"] == "PASS"
+    assert "RUNNING" not in machine.out and "will" not in payload
