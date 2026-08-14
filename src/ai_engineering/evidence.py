@@ -26,6 +26,7 @@ _SCHEMA = "urn:ai-engineering:check-evidence:1"
 _VERSION = "1"
 _MAX_POLICY_BYTES = 100_000
 _MAX_EVIDENCE_BYTES = 100_000
+_RFC3339_UTC = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z$")
 
 POLICY_UNSUPPORTED = "EVIDENCE_POLICY_UNSUPPORTED"
 REQUIREMENT_INVALID = "EVIDENCE_REQUIREMENT_INVALID"
@@ -217,8 +218,10 @@ def _valid_format(value: Any, name: str) -> bool:
     try:
         if name == "date":
             return date.fromisoformat(value).isoformat() == value
+        if _RFC3339_UTC.fullmatch(value) is None:
+            return False
         parsed = datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
-        return value.endswith("Z") and parsed.utcoffset() == timedelta(0)
+        return parsed.utcoffset() == timedelta(0)
     except (OverflowError, ValueError):
         return False
 
@@ -361,10 +364,10 @@ def verify(
     if (now - finished).total_seconds() > requirement["max_age_seconds"]:
         return _verification(policy["stale"], STALE)
 
-    if requirement["applicability"] == "not_applicable":
-        return _verification("PASS", NOT_APPLICABLE)
     if record["outcome"] == "FAIL":
         return _verification(policy["executed_fail"], EXECUTED_FAIL)
     if record["outcome"] == "WARN":
         return _verification("WARN", VERIFIED_WITH_WARNING)
+    if requirement["applicability"] == "not_applicable":
+        return _verification("PASS", NOT_APPLICABLE)
     return _verification("PASS", VERIFIED)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
@@ -36,14 +37,17 @@ HUMAN = [
     "observation_date",
     "receipt_digest",
 ]
+RFC3339_UTC = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z$")
 
 
 def _format(value: str, name: str) -> bool:
     try:
         if name == "date":
             return date.fromisoformat(value).isoformat() == value
+        if RFC3339_UTC.fullmatch(value) is None:
+            return False
         parsed = datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
-        return value.endswith("Z") and parsed.utcoffset().total_seconds() == 0
+        return parsed.utcoffset().total_seconds() == 0
     except (AttributeError, ValueError):
         return False
 
@@ -261,7 +265,7 @@ def test_evidence_verifier_distinguishes_fail_missing_stale_malformed_and_digest
         **record,
         "applicability": "not_applicable",
         "reason": "No deployable artifact exists",
-        "outcome": "FAIL",
+        "outcome": "PASS",
     }
     mismatch = evidence.verify(record, expected=_expectation(not_applicable), now=now)
     assert (mismatch.outcome, mismatch.code) == (
@@ -275,6 +279,53 @@ def test_evidence_verifier_distinguishes_fail_missing_stale_malformed_and_digest
     )
     assert skipped.result == outcome.result("PASS")
     assert skipped.code == "EVIDENCE_NOT_APPLICABLE"
+
+
+def test_evidence_verifier_rejects_non_rfc3339_utc_timestamps() -> None:
+    now = datetime(2026, 8, 13, 20, 2, tzinfo=UTC)
+    record = _record()
+    expected = _expectation(record)
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    invalid = [
+        "20260813T200100Z",
+        "2026-W33-4T20:01:00Z",
+        "2026-08-13T20:01Z",
+        "2026-08-13 20:01:00Z",
+        "2026-08-13T20:01:00,5Z",
+        "2026-02-30T20:01:00Z",
+    ]
+
+    assert all(
+        not _valid({**record, "finished_at": timestamp}, schema, schema) for timestamp in invalid
+    )
+    assert all(
+        evidence.verify({**record, "finished_at": timestamp}, expected=expected, now=now).code
+        == "EVIDENCE_MALFORMED"
+        for timestamp in invalid
+    )
+
+    fractional = {**record, "finished_at": "2026-08-13T20:01:00.123456Z"}
+    assert _valid(fractional, schema, schema)
+    assert evidence.verify(fractional, expected=expected, now=now).outcome == "PASS"
+
+
+def test_not_applicable_evidence_preserves_executed_fail_and_warn_outcomes() -> None:
+    now = datetime(2026, 8, 13, 20, 2, tzinfo=UTC)
+    record = {
+        **_record(),
+        "applicability": "not_applicable",
+        "reason": "No deployable artifact exists",
+    }
+    expected = _expectation(record)
+    cases = {
+        "FAIL": ("FAIL", "EVIDENCE_EXECUTED_FAIL"),
+        "WARN": ("WARN", "EVIDENCE_VERIFIED_WITH_WARNING"),
+        "PASS": ("PASS", "EVIDENCE_NOT_APPLICABLE"),
+    }
+
+    for label, result in cases.items():
+        verified = evidence.verify({**record, "outcome": label}, expected=expected, now=now)
+        assert (verified.outcome, verified.code) == result
 
 
 def test_evidence_verifier_binds_requirement_types_receipts_and_time() -> None:
