@@ -1507,13 +1507,20 @@ def test_exception_is_hard_rename_without_plan_alias(
 
     events: list[tuple[str, str, dict[str, str]]] = []
 
+    emitter = paths.load("_emit")
+    real_emit = emitter.emit
+
     def record(name: str, cls: str, **data: str) -> None:
+        # The grant is already on disk and already correct when the concession is recorded,
+        # and the real emitter still runs — a stub that swallowed the event would leave the
+        # command unable to find its own record, which is now a reason to withdraw.
         written = json.loads(grant_path.read_text(encoding="utf-8"))
         assert written["guard"] == name
         assert written["reason"] == data["reason"]
         events.append((name, cls, data))
+        real_emit(name, cls, **data)
 
-    monkeypatch.setattr(paths.load("_emit"), "emit", record)
+    monkeypatch.setattr(emitter, "emit", record)
     monkeypatch.setattr("builtins.input", lambda prompt="": "yes")
     monkeypatch.setattr(exception_command.time, "time", lambda: 1_000.0)
     granted = exception_command.main(["--skip", "bounded human exception", "--guard", "loop_guard"])
@@ -1534,12 +1541,15 @@ def test_exception_is_hard_rename_without_plan_alias(
 
     grant_path.unlink()
     events.clear()
-    monkeypatch.setattr(Path, "write_text", lambda self, data, *args, **kwargs: len(data))
+    # A write that reports success and stores nothing. Nothing is granted, nothing is
+    # recorded as granted, and no file is left behind for a guard to honour.
+    monkeypatch.setattr(exception_command.os, "write", lambda descriptor, body: len(body))
     unproven = exception_command.main(["--skip", "write did not land"])
     assert type(unproven) is outcome.Result
     assert unproven.outcome == "INCOMPLETE"
     assert events == []
     assert not grant_path.exists()
+    monkeypatch.setattr(exception_command.os, "write", os.write)
 
     with pytest.raises(SystemExit) as invalid_guard:
         exception_command.main(["--skip", "invalid", "--guard", "not_a_guard"])
@@ -2195,3 +2205,64 @@ def test_a_conclusive_privacy_failure_outranks_an_undecidable_one(
     assert attempt(ambiguous, machine).outcome == "FAIL"
     assert attempt(machine, ambiguous).outcome == "FAIL"
     assert not list((root / "specs" / "010-governed-foundation").glob("acceptance-*"))
+
+
+def test_exception_refuses_aliased_bypass_and_leaves_no_grant_after_incomplete(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A bypass is the one grant worth attacking, so all three ways it could go quiet.
+
+    Redirect the file and the guard reads a grant somebody else wrote. Leave a half-verified
+    grant behind and the guard honours a concession the person was told was refused. Grant
+    it without a findable record and the whole point of `report digest` naming bypasses is
+    gone. None of the three ends with a live grant.
+    """
+
+    exception_command = importlib.import_module("ai_engineering.exception")
+    store = isolated_home / ".ai-engineering" / "cache" / "bypass.json"
+    monkeypatch.setattr(
+        exception_command.sys,
+        "stdin",
+        type("Keyboard", (), {"isatty": staticmethod(lambda: True)})(),
+    )
+    monkeypatch.setattr("builtins.input", lambda prompt="": "yes")
+
+    # 1. A link anywhere on the way, including at the leaf and at the home itself.
+    elsewhere = tmp_path / "somebody-elses-cache"
+    elsewhere.mkdir()
+    store.parent.mkdir(parents=True)
+    store.parent.rmdir()
+    store.parent.symlink_to(elsewhere, target_is_directory=True)
+    assert exception_command.main(["--skip", "redirected cache"]) == outcome.result("INCOMPLETE")
+    assert not list(elsewhere.iterdir())
+    store.parent.unlink()
+
+    store.parent.mkdir(parents=True)
+    target = tmp_path / "somebody-elses-grant.json"
+    target.write_text("{}\n", encoding="utf-8")
+    store.symlink_to(target)
+    assert exception_command.main(["--skip", "redirected grant"]) == outcome.result("INCOMPLETE")
+    assert target.read_text(encoding="utf-8") == "{}\n"
+    store.unlink()
+
+    # 2. A grant whose concession cannot be found in the record is withdrawn, not kept.
+    emitter = paths.load("_emit")
+    real_emit = emitter.emit
+    monkeypatch.setattr(emitter, "emit", lambda *arguments, **keywords: None)
+    silent = exception_command.main(["--skip", "no record of this"])
+    assert silent == outcome.result("INCOMPLETE")
+    assert not store.exists()
+
+    # 3. And with the record working again, the same command grants and the file is there.
+    #    `monkeypatch.undo()` is never used here: this is the same MonkeyPatch the
+    #    `isolated_home` fixture holds, so undoing it would send the grant to the real
+    #    application home — a live bypass on the machine running the tests.
+    monkeypatch.setattr(emitter, "emit", real_emit)
+    assert exception_command.main(["--skip", "a bounded and recorded exception"]) == (
+        outcome.result("PASS")
+    )
+    granted = json.loads(store.read_text(encoding="utf-8"))
+    assert granted["guard"] == "design_gate"
+    assert granted["reason"] == "a bounded and recorded exception"
