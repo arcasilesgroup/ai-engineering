@@ -160,7 +160,18 @@ def controlling_terminal_response(expected: str) -> bool:
 
 
 def _digest_of(root: Path, relative: str, maximum: int) -> str:
-    """One bounded, anchored read of a repository-relative regular file."""
+    """The digest of one bounded, anchored read."""
+
+    return "sha256:" + sha256(_anchored_bytes(root, relative, maximum)).hexdigest()
+
+
+def _anchored_bytes(root: Path, relative: str, maximum: int) -> bytes:
+    """One bounded, anchored read of a repository-relative regular file.
+
+    Every read this command performs goes through here. A read that skips it is a read of
+    whatever the path resolves to now, which is not the same thing as a read of a file this
+    repository holds.
+    """
 
     target = root.joinpath(*PurePosixPath(relative).parts)
     try:
@@ -183,7 +194,7 @@ def _digest_of(root: Path, relative: str, maximum: int) -> str:
         raise _EvidenceProblem("an anchored file could not be read") from error
     if len(body) != value.st_size:
         raise _EvidenceProblem("an anchored file changed while it was read")
-    return "sha256:" + sha256(body).hexdigest()
+    return body
 
 
 def publish(root: Path, slug: str, record: dict) -> str:
@@ -208,13 +219,29 @@ def publish(root: Path, slug: str, record: dict) -> str:
         if final in inventory.names:
             raise spec_transaction.Collision("that acceptance name is already published")
         pending = writer.stage(inventory, f"pending-{record['id'].lower()}", "record.json", body)
-        scanned = acceptance_privacy.gitleaks_v1(root / "specs" / slug / pending.name)
-        if scanned.outcome != "PASS":
-            # The refusal happens before the commit point, so the staged entry is removed
-            # and the tree is left exactly as it was found.
-            writer.discard(pending)
-            raise _Refused(scanned.outcome, scanned.reason)
-        writer.publish(pending, final)
+        try:
+            # The scanner is a subprocess, so it is handed a pathname and resolves it from
+            # scratch. That is the one read in this command not made through a proved
+            # descriptor: a writer that swaps the home for a link during the scan and swaps
+            # it back gets a clean scan of other bytes. `publish` still re-proves the staged
+            # entry through the home descriptor before committing, so the window ends in a
+            # refusal rather than a wrong record — but it is a window, and it is named here
+            # rather than papered over.
+            scanned = acceptance_privacy.gitleaks_v1(root / "specs" / slug / pending.name)
+            if scanned.outcome != "PASS":
+                raise _Refused(scanned.outcome, scanned.reason)
+            writer.publish(pending, final)
+        except BaseException as failure:
+            # Every way this can fail before the commit point leaves the staged entry
+            # behind, and a leftover `pending-` wedges that ordinal for good: the next
+            # attempt allocates the same name and cannot create it. One exit, one cleanup.
+            try:
+                writer.discard(pending)
+            except spec_transaction.TransactionError as leftover:
+                raise spec_transaction.Unsafe(
+                    f"{failure}; the staged entry {pending.name} could not be removed"
+                ) from leftover
+            raise
     return f"specs/{slug}/{final}/record.json"
 
 
@@ -311,15 +338,22 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         print(f"  INCOMPLETE  {proposed.reason}. Nothing was written.")
         return outcome.result("INCOMPLETE")
 
-    for candidate in (args.finding, args.by, args.justification, args.follow_up):
+    # Every candidate against both checks, and then the rule: a conclusive `FAIL` outranks
+    # an `INCOMPLETE`. Returning whichever refusal came first would report text known to
+    # carry a machine path as merely undecidable, depending on the order of the flags.
+    verdicts = [
+        check(candidate)
+        for candidate in (args.finding, args.by, args.justification, args.follow_up)
         for check in (
             acceptance_privacy.acceptance_pii_v1,
             acceptance_privacy.acceptance_machine_path_v1,
-        ):
-            verdict = check(candidate)
-            if verdict.outcome != "PASS":
-                print(f"  {verdict.outcome}  {verdict.reason}. Nothing was written.")
-                return outcome.result(verdict.outcome)
+        )
+    ]
+    for label in ("FAIL", "INCOMPLETE"):
+        blocking = next((verdict for verdict in verdicts if verdict.outcome == label), None)
+        if blocking is not None:
+            print(f"  {blocking.outcome}  {blocking.reason}. Nothing was written.")
+            return outcome.result(blocking.outcome)
 
     try:
         bindings = _bindings(root, slug, args.evidence)
@@ -331,7 +365,10 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     head = (
         acceptance.head_of(register.entries, args.finding) if register.outcome == "PASS" else None
     )
-    _display(proposed, args, bindings, slug, head if proposed.renews else None)
+    # The stale-binding result is part of the challenge. Renewing a record without being
+    # told what about it went stale is signing for a change nobody described.
+    binding = acceptance.current(root) if proposed.renews else None
+    _display(proposed, args, bindings, slug, head if proposed.renews else None, binding)
     if not controlling_terminal_response(f"ACCEPT {proposed.id} AS {args.by}"):
         print("  INCOMPLETE  no exact confirmation arrived from the controlling terminal.")
         return outcome.result("INCOMPLETE")
@@ -408,10 +445,14 @@ def _predecessor_bytes(head) -> str:
 
     if head.provenance != acceptance.CANONICAL_RECORD:
         return f"stored at {head.home}, digest {head.digest}"
-    body = (paths.repo_root() or Path()).joinpath(*head.home.split("/"))
+    root = paths.repo_root()
+    if root is None:
+        return f"stored at {head.home}, digest {head.digest}"
     try:
-        return body.read_text(encoding="utf-8")
-    except OSError:
+        # Through the same anchored, bounded read as every other source. Displaying bytes
+        # fetched by a second, looser path would show the human one file and bind another.
+        return _anchored_bytes(root, head.home, acceptance.MAX_RECORD_BYTES).decode("utf-8")
+    except (_EvidenceProblem, UnicodeDecodeError):
         return f"unreadable at {head.home}, digest {head.digest}"
 
 
@@ -424,7 +465,7 @@ def _bindings(root: Path, slug: str, evidence: str) -> dict[str, str]:
     }
 
 
-def _display(proposed, args, bindings: dict[str, str], slug: str, head=None) -> None:
+def _display(proposed, args, bindings: dict[str, str], slug: str, head=None, binding=None) -> None:
     """The challenge. Everything the record will hold, shown before it is bound, so the
     exact response confirms bytes a person actually read.
 
@@ -445,6 +486,15 @@ def _display(proposed, args, bindings: dict[str, str], slug: str, head=None) -> 
     if proposed.renews:
         print(f"  renews        {proposed.renews} {proposed.renews_digest}")
         print(f"  renewal       {proposed.renewals} of {MAX_RENEWALS}")
+        if binding is not None:
+            print(
+                "  binding       "
+                + (
+                    "current"
+                    if binding.outcome == "PASS"
+                    else f"{binding.outcome} — {binding.reason}"
+                )
+            )
         if head is not None:
             print(f"  predecessor   {head.home} ({head.provenance})")
             for line in _predecessor_bytes(head).splitlines():

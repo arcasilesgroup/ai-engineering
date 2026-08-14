@@ -35,6 +35,7 @@ from ai_engineering import (
     paths,
     skeletons,
     spec,
+    spec_transaction,
     uninstall,
     update,
     wiring,
@@ -1922,11 +1923,22 @@ def test_accept_publishes_one_immutable_record_without_replacement(
         assert never not in rendered.lower()
 
     # A second writer that finds the final name taken loses without touching the winner.
-    foreign = home / "acceptance-r-010-02"
-    foreign.mkdir()
-    (foreign / "record.json").write_bytes(b"foreign bytes\n")
+    # The name has to appear between the inventory and the rename, or the register refuses
+    # first and the exclusive rename is never reached — which is how this leg once passed
+    # without exercising the primitive it was written for.
+    original = spec_transaction._publish_noreplace
+    winner = {}
+
+    def raced(kind, source_fd, pending_name, home_fd, final_name):
+        os.mkdir(final_name, dir_fd=home_fd)
+        winner["name"] = final_name
+        return original(kind, source_fd, pending_name, home_fd, final_name)
+
+    monkeypatch.setattr(spec_transaction, "_publish_noreplace", raced)
     assert accept.main(base) == outcome.result("INCOMPLETE")
-    assert (foreign / "record.json").read_bytes() == b"foreign bytes\n"
+    assert winner["name"] == "acceptance-r-010-02"
+    # The name the other writer took is still exactly what that writer left there.
+    assert list((home / winner["name"]).iterdir()) == []
     assert published.read_bytes() == acceptance.canonical_bytes(record)
     assert not list(home.glob("pending-*"))
 
@@ -2071,3 +2083,67 @@ def test_accept_renews_a_derived_legacy_head_into_a_canonical_home(
     # The derived identity was never written into the historical block.
     assert spec_md.read_bytes() == before
     assert b"R-010-01" not in before
+
+
+def test_a_publication_that_fails_leaves_no_staged_entry(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The failure the first review of this wave could not see.
+
+    Every path between staging and the commit point leaves a `pending-` directory behind if
+    nothing removes it, and a leftover wedges that ordinal for good: the next attempt
+    allocates the same name and cannot create it. So the tree stays exactly as it was found,
+    and the retry succeeds — which is the part that proves the cleanup was real.
+    """
+
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    slug = "010-governed-foundation"
+    home = root / "specs" / slug
+    proof = root / "proof" / "risk.txt"
+    proof.parent.mkdir()
+    proof.write_bytes(b"executed local check receipt\n")
+    base = [
+        "--finding",
+        "a bounded finding",
+        "--expires",
+        (date.today() + timedelta(days=1)).isoformat(),
+        "--by",
+        "repository maintainer",
+        "--justification",
+        "the mitigation is in place",
+        "--evidence",
+        "proof/risk.txt",
+        "--spec",
+        "010",
+    ]
+    _confirmed(monkeypatch)
+
+    # 1. The real no-replace race: the final name appears between the inventory and the
+    #    rename, so the rename refuses and the loser publishes nothing.
+    original = spec_transaction._publish_noreplace
+
+    def raced(kind, source_fd, pending_name, home_fd, final_name):
+        os.mkdir(final_name, dir_fd=home_fd)
+        return original(kind, source_fd, pending_name, home_fd, final_name)
+
+    monkeypatch.setattr(spec_transaction, "_publish_noreplace", raced)
+    assert accept.main(base) == outcome.result("INCOMPLETE")
+    assert not list(home.glob("pending-*"))
+
+    # 2. A backend that cannot promise the primitive at all.
+    def unsupported(*arguments):
+        raise spec_transaction.Unsupported("exclusive rename unavailable")
+
+    monkeypatch.setattr(spec_transaction, "_publish_noreplace", unsupported)
+    (home / "acceptance-r-010-01").rmdir()
+    assert accept.main(base) == outcome.result("INCOMPLETE")
+    assert not list(home.glob("pending-*"))
+
+    # 3. And the ordinal is still free, which a leftover would have taken forever.
+    monkeypatch.setattr(spec_transaction, "_publish_noreplace", original)
+    assert accept.main(base).outcome == "PASS"
+    assert [path.name for path in sorted(home.glob("acceptance-*"))] == ["acceptance-r-010-01"]
+    assert not list(home.glob("pending-*"))
