@@ -282,16 +282,36 @@ DESCRIPTION_MAX = 1000
 # its conditions; the old one-call reader received HTTP 400 and could never prove the live
 # policy. 24 script lines, 27 test lines and these five record the repair. No slack.
 #
-# 37,807 is history only: it was the prior approved re-plan, not the active limit.
-# At the Block B re-plan, 31,737 + 3,976 + 2,500 = 38,213: the measured current
-# tree, forecast remaining approved work, and bounded repair allowance respectively.
-# The approved budget remains anchored to the original baseline:
-# 17,807 + 25,000 = 42,807. Against the forecast, 42,807 - 38,213 = 4,594 lines
-# of margin; margin is contingency, not permission for unrelated scope.
-# Exceeding 42,807 is a hard stop and requires another approved re-plan; it is not
+# 37,807 and 42,807 are history only: each was the approved limit before the one below.
+#
+# The acceptance wave replaces the embedded-YAML risk writer with immutable published
+# records. Its budget is measured, not guessed, and every rate below names the commits it
+# came from:
+#   789 per commit — the native transaction wave, 3,154 lines over 0683cdec..75939c75.
+#   304 per commit — this wave's own measured rate, 3,642 lines over e4c118bd..d916e0ae,
+#                    which is twelve observations of exactly this kind of work and is
+#                    therefore better evidence than the 789 the plan forecast from.
+#   284 per task   — Tasks 17-39, 6,530 lines over 23 tasks.
+#   393 per repair — the three landed ledger repairs, 575 + 425 + 180.
+#     1 per record  — Task 39a, which rewrote this comment and added one line.
+#
+# Measured base at this commit's parent: 38,534. Recomputed from it:
+#   5 remaining wave commits at 304        = 1,520
+#   Tasks 40-52, 13 at 284                 = 3,692
+#   Tasks 52a-52c, 3 at 284                =   852
+#   Task 53 at 284                         =   284
+#   5 block reviews, 2 repairs each at 393 = 3,930
+# 38,534 + 1,520 + 3,692 + 852 + 284 + 3,930 = 48,812, which is 6,005 above the 42,807
+# this replaces. The approved budget stays anchored to the original baseline:
+# 17,807 + 38,000 = 55,807, approved against a 54,695 forecast before the wave was
+# measured. Against the measurement, 55,807 - 48,812 = 6,995 lines of margin. That is
+# more contingency than the evidence now needs, and margin is contingency, never
+# permission for unrelated scope: the number is what a human approved, and lowering it
+# is their decision and not this file's.
+# Exceeding 55,807 is a hard stop and requires another approved re-plan; it is not
 # permission to raise the ceiling. The final candidate transaction measures the
 # committed tree and sets this ceiling to that exact total, leaving zero slack.
-REPO_CEILING = 42_807
+REPO_CEILING = 55_807
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

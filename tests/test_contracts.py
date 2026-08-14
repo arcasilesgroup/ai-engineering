@@ -719,21 +719,38 @@ def test_an_entry_is_ours_by_the_dispatcher_it_runs_and_not_by_this_project_s_na
     assert "/" not in wiring.SIGNATURE
 
 
-def test_block_b_replanned_repo_ceiling_is_42807():
-    assert contract.REPO_CEILING == 42_807
+def test_acceptance_replanned_repo_ceiling_is_55807():
+    """The re-plan the acceptance wave measured its way into.
+
+    This hard-replaces the 42,807 assertion. What it pins is not the number on its own but
+    the arithmetic beside it: every rate names the commits it was measured from, the base is
+    the tree at this commit's parent rather than a forecast, and the margin is stated even
+    though it is larger than the evidence needs — because a budget that quietly rounds in its
+    own favour is the thing this ceiling exists to prevent.
+    """
+
+    assert contract.REPO_CEILING == 55_807
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
-    assert "31,737 + 3,976 + 2,500 = 38,213" in budget_record
-    assert "17,807 + 25,000 = 42,807" in budget_record
-    assert "42,807 - 38,213 = 4,594" in budget_record
-    assert "37,807 is history only" in budget_record
+    # Each measured rate, with the range it came from. A rate with no commits behind it is
+    # a guess wearing a number's clothes.
+    assert "789 per commit" in budget_record and "0683cdec..75939c75" in budget_record
+    assert "304 per commit" in budget_record and "e4c118bd..d916e0ae" in budget_record
+    assert "284 per task" in budget_record and "393 per repair" in budget_record
+    assert "Measured base at this commit's parent: 38,534" in budget_record
+    assert "38,534 + 1,520 + 3,692 + 852 + 284 + 3,930 = 48,812" in budget_record
+    assert "17,807 + 38,000 = 55,807" in budget_record
+    assert "55,807 - 48,812 = 6,995" in budget_record
+    assert "42,807 are history only" in budget_record
     assert (
-        "Exceeding 42,807 is a hard stop and requires another approved re-plan; it is not\n"
+        "Exceeding 55,807 is a hard stop and requires another approved re-plan; it is not\n"
         "# permission to raise the ceiling. The final candidate transaction measures the\n"
         "# committed tree and sets this ceiling to that exact total, leaving zero slack."
         in budget_record
     )
+    # The measured base is not a claim: it is what the counter returns for that commit.
+    assert contract.repo_lines(ROOT) >= 38_534
 
 
 def test_the_line_ceiling_holds(tmp_path):
