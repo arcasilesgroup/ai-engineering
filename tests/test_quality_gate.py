@@ -50,7 +50,9 @@ def _matrix_controls(lines: list[str], key: str) -> dict[str, tuple[str, ...]]:
             operating_system = stripped.removeprefix("- os: ")
             controls = []
             reading_controls = False
-        elif stripped.endswith(": >-"):
+        elif stripped.endswith(":") or stripped.endswith(": >-") or ": " in stripped:
+            # Any key ends the block, not only another folded one. A scalar key added after
+            # a controls list would otherwise be read as one more control name.
             reading_controls = stripped == f"{key}: >-"
         elif reading_controls and stripped:
             controls.extend(stripped.split())

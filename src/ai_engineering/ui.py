@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Sequence
 
 from rich.console import Console
 from rich.panel import Panel
@@ -206,7 +207,12 @@ CURABLE = ("FAIL", "INCOMPLETE")
 BYPASS_WORDS = ("--no-verify", "--force", "bypass", "exception --skip", "skip the", "ignore the")
 
 
-def will(action: str, reads: list[str], writes: list[str], network: list[str]) -> None:
+def will(
+    action: str,
+    reads: Sequence[str],
+    writes: Sequence[str],
+    network: Sequence[str],
+) -> None:
     """What this command is about to do, before it does any of it.
 
     Printed ahead of the first mutation, not after it. A person who reads this and stops has
