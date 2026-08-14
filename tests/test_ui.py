@@ -11,6 +11,7 @@ decision in spec 006, and a decision nothing asserts is a decision that drifts b
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from types import SimpleNamespace
@@ -18,7 +19,96 @@ from types import SimpleNamespace
 import pytest
 from rich.style import Style
 
-from ai_engineering import __version__, ui
+from ai_engineering import __version__, outcome, ui
+
+
+def test_ui_plain_rich_json_noninteractive_and_a11y_parity(monkeypatch, capsys):
+    """One canonical Result has one reading order in every renderer. Colour may reinforce
+    the outcome, but a textual status and mark must survive without it; machine output is
+    exactly one object; and drawing a result can never ask an unattended caller anything."""
+    result = outcome.result("INCOMPLETE")
+    expected_lines = [
+        "? INCOMPLETE",
+        f"Reason: {result.reason}",
+        f"Next action: {result.next_action}",
+        "Exit code: 1",
+    ]
+
+    def prompt(*args, **kwargs):
+        raise AssertionError("the non-interactive renderer prompted")
+
+    monkeypatch.setattr("builtins.input", prompt)
+    monkeypatch.setitem(sys.modules, "questionary", SimpleNamespace(checkbox=prompt))
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    ui.reset()
+    assert not sys.stdout.isatty()
+    assert ui.render_result(result) == result.as_dict()
+    plain = capsys.readouterr()
+    assert plain.err == ""
+    assert "\x1b[" not in plain.out
+    assert plain.out.splitlines() == expected_lines
+
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    ui.reset()
+    assert ui.render_result(result) == result.as_dict()
+    rich = capsys.readouterr().out
+    assert "\x1b[" in rich
+    assert bare(rich) == plain.out
+
+    for switch in (("NO_COLOR", "1"), ("TERM", "dumb")):
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "xterm-256color")
+        monkeypatch.setenv(*switch)
+        ui.reset()
+        ui.render_result(result)
+        quiet = capsys.readouterr().out
+        assert quiet == plain.out
+        assert "\x1b[" not in quiet
+
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    ui.reset()
+    assert ui.render_result(result, json_mode=True) == result.as_dict()
+    machine = capsys.readouterr()
+    assert machine.err == "" and "\x1b[" not in machine.out
+    assert machine.out.count("\n") == 1
+    payload = json.loads(machine.out)
+    assert payload == result.as_dict()
+    assert [payload[key] for key in ("outcome", "reason", "next_action", "exit_code")] == [
+        result.outcome,
+        result.reason,
+        result.next_action,
+        result.exit_code,
+    ]
+
+
+@pytest.mark.parametrize(
+    ("status", "mark"),
+    [
+        ("READY", "◇"),
+        ("PASS", "✓"),
+        ("WARN", "⚠"),
+        ("FAIL", "✗"),
+        ("INCOMPLETE", "?"),
+        ("CANCELLED", "■"),
+        ("WOULD_CHANGE", "·"),
+    ],
+)
+def test_every_canonical_result_keeps_its_status_in_text_and_a_mark(status, mark, capsys):
+    """No terminal outcome may exist only as a colour. The closed vocabulary is written
+    here so deleting a mapping cannot also delete the only test that knew it existed."""
+    ui.render_result(outcome.result(status))
+    assert capsys.readouterr().out.splitlines()[0] == f"{mark} {status}"
+    assert set(ui.RESULT_MARKS) == {
+        "READY",
+        "PASS",
+        "WARN",
+        "FAIL",
+        "INCOMPLETE",
+        "CANCELLED",
+        "WOULD_CHANGE",
+    }
 
 
 def test_messaging_goes_to_stderr_and_data_goes_to_stdout(capsys):

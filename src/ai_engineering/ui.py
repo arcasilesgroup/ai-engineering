@@ -19,6 +19,7 @@ suite drives, so every assertion in it holds the bytes a person with no colour s
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 
@@ -28,6 +29,7 @@ from rich.text import Text
 from rich.theme import Theme
 
 from ai_engineering import __version__
+from ai_engineering.outcome import Result
 
 # Taken from the project's own banner rather than chosen here, so the terminal and the
 # README are the same product.
@@ -49,26 +51,41 @@ THEME = Theme(
 
 # ✓ happened · · would happen · ⚠ happened and wants a person · ✗ did not happen
 MARKS = {"ok": ("✓", "ok"), "would": ("·", "muted"), "warn": ("⚠", "warn"), "fail": ("✗", "fail")}
+RESULT_MARKS = {
+    "READY": ("◇", "brand"),
+    "PASS": ("✓", "ok"),
+    "WARN": ("⚠", "warn"),
+    "FAIL": ("✗", "fail"),
+    "INCOMPLETE": ("?", "unknown"),
+    "CANCELLED": ("■", "muted"),
+    "WOULD_CHANGE": ("·", "muted"),
+}
 
 _consoles: dict[bool, Console] = {}
 
 
-def plain() -> bool:
+def plain(stream=None) -> bool:
     """The three ways a terminal says it does not want to be decorated. Checked here rather
     than left to the library, because `questionary` is a second library with its own idea
     and the answer has to be one answer."""
-    return "NO_COLOR" in os.environ or os.environ.get("TERM") == "dumb"
+    if "NO_COLOR" in os.environ or os.environ.get("TERM") == "dumb":
+        return True
+    stream = stream or sys.stderr
+    forced = os.environ.get("FORCE_COLOR") not in (None, "", "0")
+    is_terminal = getattr(stream, "isatty", lambda: False)
+    return not forced and not is_terminal()
 
 
 def console(data: bool = False) -> Console:
     """stdout for data, stderr for everything a person reads on the way past."""
     if data not in _consoles:
+        stream = sys.stdout if data else sys.stderr
         _consoles[data] = Console(
-            file=sys.stdout if data else sys.stderr,
+            file=stream,
             theme=THEME,
             # None and not no_color=True: no_color drops the colours and keeps bold and
             # dim, so a terminal that asked for nothing still receives escape sequences.
-            color_system=None if plain() else "auto",
+            color_system=None if plain(stream) else "auto",
             highlight=False,
             markup=False,
             emoji=False,
@@ -91,6 +108,32 @@ def write(text: str = "", style: str = "", data: bool = False) -> None:
     """One line, never wrapped. Nothing here has ever wrapped and a path that suddenly
     folds at column 80 is a path nobody can copy."""
     console(data).print(Text(text, style=style) if style else Text(text))
+
+
+def render_result(result: Result, *, json_mode: bool = False) -> dict[str, str | int]:
+    """Render one canonical result without changing its semantics or asking a question."""
+    payload = result.as_dict()
+    if json_mode:
+        sys.stdout.write(
+            json.dumps(
+                payload, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+            )
+            + "\n"
+        )
+        return payload
+
+    mark, style = RESULT_MARKS[result.outcome]
+    body = Text(f"{mark} {result.outcome}", style=style)
+    for label, value in (
+        ("Reason", result.reason),
+        ("Next action", result.next_action),
+        ("Exit code", str(result.exit_code)),
+    ):
+        body.append("\n")
+        body.append(f"{label}: ", style="head")
+        body.append(value)
+    console(data=True).print(body)
+    return payload
 
 
 WORDMARK = "{ ai } e n g i n e e r i n g"
