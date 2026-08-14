@@ -15,7 +15,7 @@
       "id": "010",
       "kind": "spec",
       "path": "specs/010-governed-agentic-engineering-foundation/spec.md",
-      "target_digest": "sha256:d7d8ff72e6b19d014763ed01e17562b5fb4149b504ad6bbbcdd5965ca91c74cf"
+      "target_digest": "sha256:6afc0721df6d3eb13589efeaefa94391ca62eaa71c0b1f2bc653fe3d34117759"
     }
   ],
   "schema": "urn:ai-engineering:intent:1",
