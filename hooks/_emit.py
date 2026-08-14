@@ -17,12 +17,22 @@ import json
 import os
 import subprocess
 import sys
+import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
 CLASSES = ("blocked", "allowed", "bypassed", "command", "error", "session")
 EDITED = "this line was edited between the guard that wrote it and the seal"
+LOCK_WAIT_SECONDS = 0.05
+
+
+class ChainIntegrityError(ValueError):
+    """The durable chain cannot safely accept another link."""
+
+
+def stable_json(value) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
 def home() -> Path:
@@ -137,9 +147,7 @@ def session_id() -> str:
 
 def digest(event: dict) -> str:
     body = {k: v for k, v in event.items() if k != "hash"}
-    return hashlib.sha256(
-        json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
+    return hashlib.sha256(stable_json(body).encode()).hexdigest()
 
 
 def stamp(event: dict) -> str:
@@ -155,36 +163,117 @@ def stamp(event: dict) -> str:
     return hmac.new(path.read_bytes(), digest(event).encode(), hashlib.sha256).hexdigest()
 
 
-def head(path: Path) -> tuple[int, str]:
-    """(sequence, hash) of the last link, or (0, "") for an empty chain."""
+def _read_head(lines) -> tuple[int, str]:
+    """Read every supplied link; a corrupt chain has no safe head."""
+    seq, previous = 0, ""
+    for line_number, raw in enumerate(lines, 1):
+        if not raw.strip():
+            continue
+        try:
+            event = json.loads(raw)
+        except (UnicodeError, ValueError) as exc:
+            raise ChainIntegrityError(f"chain line {line_number} is invalid JSON") from exc
+        expected = seq + 1
+        if not isinstance(event, dict) or type(event.get("seq")) is not int:
+            raise ChainIntegrityError(f"chain sequence is invalid at line {line_number}")
+        if event["seq"] != expected:
+            raise ChainIntegrityError(f"chain sequence gap at line {line_number}")
+        if event.get("prev") != previous:
+            raise ChainIntegrityError(f"chain predecessor gap at line {line_number}")
+        current = event.get("hash")
+        if not isinstance(current, str) or not hmac.compare_digest(digest(event), current):
+            raise ChainIntegrityError(f"chain digest mismatch at line {line_number}")
+        seq, previous = expected, current
+    return seq, previous
+
+
+def _validated_head(path: Path) -> tuple[int, str]:
     try:
-        last = ""
         with path.open("rb") as fh:
-            for raw in fh:
-                if raw.strip():
-                    last = raw.decode()
-        if last:
-            ev = json.loads(last)
-            return int(ev["seq"]), ev["hash"]
-    except (OSError, ValueError, KeyError):
-        pass
-    return 0, ""
+            return _read_head(fh)
+    except FileNotFoundError:
+        return 0, ""
+
+
+@contextlib.contextmanager
+def _exclusive(fd: int):
+    """A short inter-process lock; contention loses telemetry rather than stalling work."""
+    deadline = time.monotonic() + LOCK_WAIT_SECONDS
+    if os.name == "nt":
+        import msvcrt
+
+        lock, unlock = msvcrt.LK_NBLCK, msvcrt.LK_UNLCK
+
+        def apply(mode):
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, mode, 1)
+
+    else:
+        import fcntl
+
+        lock, unlock = fcntl.LOCK_EX | fcntl.LOCK_NB, fcntl.LOCK_UN
+
+        def apply(mode):
+            fcntl.flock(fd, mode)
+
+    while True:
+        try:
+            apply(lock)
+            break
+        except OSError as exc:
+            if time.monotonic() >= deadline:
+                raise TimeoutError("chain append is busy") from exc
+            time.sleep(0.001)
+    try:
+        yield
+    finally:
+        apply(unlock)
+
+
+def head(path: Path) -> tuple[int, str]:
+    """(sequence, hash) of a valid last link, or (0, "") when none is readable."""
+    try:
+        return _validated_head(path)
+    except (OSError, ChainIntegrityError):
+        return 0, ""
 
 
 def append(path: Path, events: list[dict]) -> int:
-    """Link events onto the chain at `path`. Returns the new head sequence."""
+    """Link events onto an intact chain at `path`. Returns the new head sequence."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    seq, prev = head(path)
-    lines = []
-    for ev in events:
-        seq += 1
-        ev = {**ev, "seq": seq, "prev": prev}
-        ev["hash"] = digest(ev)
-        prev = ev["hash"]
-        lines.append(json.dumps(ev, separators=(",", ":")))
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write("\n".join(lines) + "\n")
-    return seq
+    flags = os.O_APPEND | os.O_CREAT | os.O_RDWR | getattr(os, "O_CLOEXEC", 0)
+    no_follow = getattr(os, "O_NOFOLLOW", 0)
+    if no_follow:
+        flags |= no_follow
+    elif path.is_symlink():
+        raise OSError("chain path is a symlink")
+    fd = os.open(path, flags, 0o600)
+    try:
+        with _exclusive(fd):
+            with os.fdopen(fd, "rb", closefd=False) as fh:
+                seq, prev = _read_head(fh)
+            lines = []
+            for ev in events:
+                seq += 1
+                ev = {**ev, "seq": seq, "prev": prev}
+                ev["hash"] = digest(ev)
+                prev = ev["hash"]
+                lines.append(stable_json(ev))
+            payload = ("\n".join(lines) + "\n").encode()
+            start = os.lseek(fd, 0, os.SEEK_END)
+            try:
+                while payload:
+                    wrote = os.write(fd, payload)
+                    if not wrote:
+                        raise OSError("chain append wrote no data")
+                    payload = payload[wrote:]
+            except BaseException:
+                with contextlib.suppress(OSError):
+                    os.ftruncate(fd, start)
+                raise
+        return seq
+    finally:
+        os.close(fd)
 
 
 def emit(name: str, cls: str, **data) -> None:
@@ -192,17 +281,19 @@ def emit(name: str, cls: str, **data) -> None:
     what the caller was going to do."""
     if cls not in CLASSES:
         raise ValueError(f"unknown event class {cls!r}; the set is {CLASSES}")
-    root = repo_root()
-    event = {
-        "ts": now(),
-        "cls": cls,
-        "name": name,
-        "session": session_id(),
-        "repo": repo_id(root),
-        "machine": machine_id(),
-        "data": data,
-    }
     try:
+        root = repo_root()
+        event = {
+            "ts": now(),
+            "cls": cls,
+            "name": name,
+            "session": session_id(),
+            "repo": repo_id(root),
+            "machine": machine_id(),
+            "operation_id": str(uuid.uuid4()),
+            "trace_id": str(uuid.uuid4()),
+            "data": data,
+        }
         buf = buffer_path(root)
         if buf is None:
             append(chain_path(root), [event])
@@ -210,7 +301,7 @@ def emit(name: str, cls: str, **data) -> None:
             event["stamp"] = stamp(event)  # unstamped, it is a line the agent can rewrite
             buf.parent.mkdir(parents=True, exist_ok=True)
             with buf.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(event, separators=(",", ":")) + "\n")
+                fh.write(stable_json(event) + "\n")
     except Exception as exc:  # a failure to record never changes what the caller does
         print(f"[ai-eng] could not record {name}/{cls}: {exc}", file=sys.stderr)
 

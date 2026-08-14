@@ -11,11 +11,14 @@ Every test here writes inside tmp_path. Nothing reads the real home or the real 
 
 from __future__ import annotations
 
+import ast
 import io
 import json
 import sys
+import threading
 import time
 import tomllib
+import uuid
 
 import _emit
 import _otlp
@@ -256,6 +259,128 @@ def test_a_bypass_cannot_be_forged_for_a_security_guard(repo, name, denies):
 
 
 # --- the record ---------------------------------------------------------------------
+
+
+def test_emit_is_stdlib_only_and_assigns_opaque_operation_and_trace_ids(repo):
+    """The hot path cannot pay for a package import, and correlation identifiers cannot
+    encode the person, machine or clone that produced them. Each emitted record therefore
+    carries two newly generated UUIDs, and its on-disk JSON has one canonical spelling."""
+    source = _emit.Path(_emit.__file__).read_text()
+    imports = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            imports.update(alias.name.partition(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and not node.level:
+            imports.add((node.module or "").partition(".")[0])
+    assert imports <= sys.stdlib_module_names
+
+    _emit.emit("loop_guard", "blocked", reason="first")
+    _emit.emit("loop_guard", "blocked", reason="second")
+    raw = [line for line in _emit.chain_path().read_text().splitlines() if line]
+    events = [json.loads(line) for line in raw]
+    identifiers = [event[field] for event in events for field in ("operation_id", "trace_id")]
+
+    assert len(set(identifiers)) == 4
+    assert all(uuid.UUID(identifier).version == 4 for identifier in identifiers)
+    assert raw == [json.dumps(event, sort_keys=True, separators=(",", ":")) for event in events]
+
+
+def test_id_generation_failure_never_becomes_authority(repo, monkeypatch, capsys):
+    """Randomness is telemetry infrastructure too. If the OS cannot mint an ID, a guard
+    must still reach its already-decided allow or deny result rather than acquire a new
+    blocking opinion from the observer that tried to describe it."""
+
+    def unavailable():
+        raise OSError("randomness unavailable")
+
+    monkeypatch.setattr(_emit.uuid, "uuid4", unavailable)
+    assert _emit.emit("loop_guard", "blocked", reason="record only") is None
+    assert not _emit.chain_path().exists()
+    assert "could not record loop_guard/blocked" in capsys.readouterr().err
+
+
+def test_append_rejects_chain_gaps_but_emit_remains_fail_open(repo, capsys):
+    """A corrupt predecessor is not an empty chain: accepting that fallback silently
+    restarts numbering and turns an observable gap into a genuine-looking branch. The
+    integrity boundary refuses the append, while emit still cannot decide the caller's
+    action and so reports its own failure without raising or changing the corrupt file."""
+    path = _emit.chain_path()
+    _emit.append(path, [{"cls": "session", "name": "first"}])
+    first = links()[0]
+    gap = {**first, "seq": 3, "prev": first["hash"]}
+    gap["hash"] = _emit.digest(gap)
+    path.write_text("\n".join(json.dumps(event) for event in (first, gap)) + "\n")
+    before = path.read_bytes()
+
+    with pytest.raises(ValueError, match="sequence"):
+        _emit.append(path, [{"cls": "session", "name": "third"}])
+    assert path.read_bytes() == before
+    assert _emit.emit("session", "error", error="record only") is None
+    assert path.read_bytes() == before
+    assert "could not record session/error" in capsys.readouterr().err
+
+
+def test_concurrent_appends_have_one_unbroken_sequence(repo):
+    """Separate hook processes can finish together. Reading the head before opening the
+    append handle lets all of them claim the same next sequence, so the writer must hold
+    one inter-process lock across both operations rather than repair duplicates later."""
+    writers = 16
+    start = threading.Barrier(writers)
+    failures = []
+
+    def write(index):
+        try:
+            start.wait()
+            _emit.append(_emit.chain_path(), [{"cls": "session", "index": index}])
+        except BaseException as exc:
+            failures.append(exc)
+
+    threads = [threading.Thread(target=write, args=(index,)) for index in range(writers)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert failures == []
+    assert [event["seq"] for event in links()] == list(range(1, writers + 1))
+    assert _emit.head(_emit.chain_path())[0] == writers
+
+
+def test_append_never_follows_a_chain_symlink(repo):
+    """The append boundary owns one exact file. Following a replacement symlink would
+    turn telemetry into an arbitrary file write and validate one target before appending
+    to another, so the target must remain byte-for-byte untouched."""
+    path = _emit.chain_path()
+    path.parent.mkdir(parents=True)
+    target = repo.parent / "not-the-chain.jsonl"
+    target.write_text("")
+    try:
+        path.symlink_to(target)
+    except OSError:
+        pytest.skip("this filesystem cannot create symlinks")
+
+    with pytest.raises(OSError):
+        _emit.append(path, [{"cls": "session"}])
+    assert target.read_text() == ""
+
+
+def test_a_failed_flush_keeps_a_partial_chain_and_its_sealed_buffer(repo):
+    """Invalid durable JSON is an integrity failure, not an empty predecessor. Refusing
+    it must also leave the already stamped in-clone buffer in place for diagnosis or a
+    later repair; truncating either side would destroy the only observable evidence."""
+    (repo / ".ai").mkdir()
+    (repo / ".ai" / "config.toml").write_text("[pin]\nversion='1'\n")
+    _emit.emit("loop_guard", "blocked", reason="keep me")
+    buffer = _emit.buffer_path(repo)
+    buffered_before = buffer.read_bytes()
+    path = _emit.chain_path(repo)
+    path.parent.mkdir(parents=True)
+    path.write_text('{"seq":1')
+
+    with pytest.raises(ValueError, match="invalid JSON"):
+        _emit.flush(repo)
+    assert path.read_text() == '{"seq":1'
+    assert buffer.read_bytes() == buffered_before
 
 
 def test_the_digest_covers_the_body_and_only_the_body():
