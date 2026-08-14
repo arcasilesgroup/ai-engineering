@@ -14,12 +14,14 @@ from __future__ import annotations
 import json
 import re
 import sys
+import uuid
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
 from rich.style import Style
 
-from ai_engineering import __version__, outcome, ui
+from ai_engineering import __version__, cli, outcome, ui
 
 
 def test_ui_plain_rich_json_noninteractive_and_a11y_parity(monkeypatch, capsys):
@@ -80,6 +82,121 @@ def test_ui_plain_rich_json_noninteractive_and_a11y_parity(monkeypatch, capsys):
         result.reason,
         result.next_action,
         result.exit_code,
+    ]
+
+
+def test_cli_noninteractive_json_is_one_object_and_never_null(monkeypatch, capsys):
+    """Global JSON is one dispatch mode, not prose with braces around it. Child output and
+    prompts cannot leak, canonical Result is the only success boundary, and an integer or
+    exception stays non-green without exposing its private text."""
+    verbs = (
+        "init",
+        "doctor",
+        "update",
+        "spec",
+        "decide",
+        "accept",
+        "audit",
+        "report",
+        "exception",
+        "uninstall",
+    )
+    assert tuple(cli.VERBS) == verbs
+    assert "--adr" not in "\n".join(cli.VERBS.values())
+
+    invoked = []
+    behavior = {"main": None}
+
+    def import_module(name):
+        invoked.append(name)
+        return SimpleNamespace(main=behavior["main"])
+
+    events = []
+    monkeypatch.setattr(cli.importlib, "import_module", import_module)
+    monkeypatch.setattr(
+        cli.paths,
+        "load",
+        lambda name: SimpleNamespace(emit=lambda *args, **kwargs: events.append((args, kwargs))),
+    )
+
+    assert cli.main(["--json"]) == 2
+    assert cli.main(["plan", "--json"]) == 2
+    assert cli.main(["digest", "--json"]) == 2
+    assert cli.main(["decide", "--adr", "--json"]) == 2
+    invalid = capsys.readouterr()
+    assert "there is no verb 'plan'" in invalid.err and "there is no verb 'digest'" in invalid.err
+    assert "there is no option '--adr'" in invalid.err
+    assert invoked == []
+
+    def successful(argv):
+        assert argv == [] and not sys.stdin.isatty()
+        print("child stdout must not leak")
+        sys.stderr.write("\x1b[31mchild stderr must not leak\x1b[0m\n")
+        return outcome.result("PASS")
+
+    behavior["main"] = successful
+    assert cli.main(["doctor", "--json"]) == 0
+    rendered = capsys.readouterr()
+    assert rendered.err == "" and rendered.out.count("\n") == 1
+    assert "child" not in rendered.out and "\x1b[" not in rendered.out
+    payload = json.loads(rendered.out)
+    assert list(payload) == [
+        "schema_version",
+        "command",
+        "operation_id",
+        "started_at",
+        "finished_at",
+        "outcome",
+        "summary",
+        "changes",
+        "checks",
+        "remaining",
+        "next_actions",
+        "error",
+    ]
+    assert payload["schema_version"] == "1" and payload["command"] == "doctor"
+    assert uuid.UUID(payload["operation_id"]).version == 4
+    assert payload["outcome"] == "PASS" and payload["summary"] == outcome.result("PASS").reason
+    assert payload["changes"] == payload["checks"] == payload["remaining"] == []
+    assert payload["next_actions"] == [outcome.result("PASS").next_action]
+    assert payload["error"] is None
+    for field in ("started_at", "finished_at"):
+        assert payload[field].endswith("Z")
+        datetime.fromisoformat(payload[field].removesuffix("Z") + "+00:00")
+
+    behavior["main"] = lambda argv: outcome.result("FAIL")
+    assert cli.main(["--json", "audit"]) == 1
+    failed = json.loads(capsys.readouterr().out)
+    assert failed["outcome"] == "FAIL" and failed["remaining"] == [failed["summary"]]
+    assert failed["error"] == {
+        "code": "FAIL",
+        "message": outcome.result("FAIL").reason,
+        "retryable": True,
+        "cure": outcome.result("FAIL").next_action,
+    }
+
+    behavior["main"] = lambda argv: 0
+    assert cli.main(["spec", "--json"]) == 1
+    undecidable = json.loads(capsys.readouterr().out)
+    assert undecidable["outcome"] == "INCOMPLETE"
+    assert undecidable["error"]["code"] == "NONCANONICAL_RESULT"
+
+    def prompts(argv):
+        input("private prompt must not leak")
+
+    behavior["main"] = prompts
+    assert cli.main(["--json", "init"]) == 1
+    crashed = capsys.readouterr()
+    assert crashed.err == "" and "private prompt" not in crashed.out
+    unexpected = json.loads(crashed.out)
+    assert unexpected["outcome"] == "INCOMPLETE"
+    assert unexpected["error"]["code"] == "UNEXPECTED_ERROR"
+    assert all(value is not None for key, value in unexpected.items() if key != "error")
+    assert invoked == [
+        "ai_engineering.doctor",
+        "ai_engineering.audit",
+        "ai_engineering.spec",
+        "ai_engineering.init",
     ]
 
 

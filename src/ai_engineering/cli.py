@@ -10,21 +10,25 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+import io
+import json
 import sys
 import time
+import uuid
+from datetime import UTC, datetime
 
-from ai_engineering import __version__, paths, wiring
+from ai_engineering import __version__, outcome, paths, wiring
 
 VERBS: dict[str, str] = {
     "init": "Set up this machine, and this repository if you say yes.",
     "doctor": "The 20 assertions and the coverage line. Is the system healthy now?",
     "update": "Rewrite the pin and run the forward migrations.",
     "spec": "spec new | spec list | spec show — the record of what was decided.",
-    "decide": "Add a decision to the spec, or promote it to an ADR with --adr.",
+    "decide": "Add a decision to the spec, or promote it to an MADR with --madr.",
     "accept": "Accept a finding until a date, with a named owner and a reason.",
     "audit": "audit verify walks the whole chain; audit replay walks a session.",
-    "digest": "The weekly paragraph a person reads.",
-    "plan": 'plan --skip "<reason>" — record a design exception, at a keyboard.',
+    "report": "Produce the local governed report.",
+    "exception": "Record a governed design exception, at a keyboard.",
     "uninstall": "Undo everything the receipt lists. The no-lock-in promise, as a command.",
 }
 
@@ -60,9 +64,108 @@ def speakable() -> None:
                 settable(encoding="utf-8", errors="replace")
 
 
+def _timestamp() -> str:
+    return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _error(result: outcome.Result, code: str) -> dict | None:
+    if result.exit_code == 0:
+        return None
+    return {
+        "code": code,
+        "message": result.reason,
+        "retryable": result.outcome in {"FAIL", "INCOMPLETE"},
+        "cure": result.next_action or None,
+    }
+
+
+def _envelope(
+    command: str,
+    result: outcome.Result,
+    started_at: str,
+    finished_at: str,
+    error_code: str,
+) -> dict:
+    return {
+        "schema_version": "1",
+        "command": command,
+        "operation_id": str(uuid.uuid4()),
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "outcome": result.outcome,
+        "summary": result.reason,
+        "changes": [],
+        "checks": [],
+        "remaining": [] if result.exit_code == 0 else [result.reason],
+        "next_actions": [result.next_action] if result.next_action else [],
+        "error": _error(result, error_code),
+    }
+
+
+def _json_dispatch(verb: str, rest: list[str]) -> int:
+    """Run one verb without a terminal and expose only a canonical Result as success."""
+    started_at = _timestamp()
+    captured_out, captured_err = io.StringIO(), io.StringIO()
+    previous_stdin = sys.stdin
+    result = outcome.result("INCOMPLETE")
+    error_code = "UNEXPECTED_ERROR"
+    try:
+        with contextlib.redirect_stdout(captured_out), contextlib.redirect_stderr(captured_err):
+            from ai_engineering import ui
+
+            ui.reset()
+            sys.stdin = io.StringIO("")
+            try:
+                module = importlib.import_module(f"ai_engineering.{verb}")
+                returned = module.main(rest)
+                if type(returned) is outcome.Result:
+                    result = returned
+                    error_code = result.outcome
+                else:
+                    error_code = "NONCANONICAL_RESULT"
+            except KeyboardInterrupt:
+                result = outcome.result("CANCELLED")
+                error_code = "CANCELLED"
+            except BaseException:
+                result = outcome.result("INCOMPLETE")
+                error_code = "UNEXPECTED_ERROR"
+            finally:
+                ui.reset()
+    finally:
+        sys.stdin = previous_stdin
+
+    finished_at = _timestamp()
+    payload = _envelope(verb, result, started_at, finished_at, error_code)
+    with contextlib.redirect_stdout(captured_out), contextlib.redirect_stderr(captured_err):
+        paths.load("_emit").emit(
+            verb,
+            "command",
+            verb=verb,
+            exit=result.exit_code,
+            outcome=result.outcome,
+        )
+    sys.stdout.write(
+        json.dumps(payload, allow_nan=False, ensure_ascii=False, separators=(",", ":")) + "\n"
+    )
+    return result.exit_code
+
+
 def main(argv: list[str] | None = None) -> int:
     speakable()
     argv = list(sys.argv[1:] if argv is None else argv)
+    json_flags = argv.count("--json")
+    if json_flags > 1:
+        sys.stderr.write("ai-eng: --json may be specified once.\n")
+        return 2
+    json_mode = json_flags == 1
+    if json_mode:
+        argv.remove("--json")
+        if not argv:
+            sys.stderr.write("ai-eng: --json requires one canonical verb.\n")
+            return 2
+    if "--adr" in argv:
+        sys.stderr.write("ai-eng: there is no option '--adr'.\n")
+        return 2
     if not argv or argv[0] in ("-h", "--help", "help"):
         usage()
         return 0
@@ -80,10 +183,20 @@ def main(argv: list[str] | None = None) -> int:
         usage()
         return 2
 
+    if json_mode:
+        return _json_dispatch(verb, rest)
+
     module = importlib.import_module(f"ai_engineering.{verb}")
     started = time.perf_counter()
     try:
-        code = int(module.main(rest) or 0)
+        returned = module.main(rest)
+        if type(returned) is outcome.Result:
+            from ai_engineering import ui
+
+            ui.render_result(returned)
+            code = returned.exit_code
+        else:
+            code = int(returned or 0)
     except KeyboardInterrupt:
         sys.stderr.write("\ninterrupted; nothing was written.\n")
         code = 130
