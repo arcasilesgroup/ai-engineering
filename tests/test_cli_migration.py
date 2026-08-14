@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering import capability, cli, doctor, init, intent, outcome, skeletons, wiring
+from ai_engineering import capability, cli, doctor, init, intent, outcome, skeletons, update, wiring
 
 ROOT = Path(__file__).parents[1]
 INTENT_FIXTURE = ROOT / "tests" / "fixtures" / "intent-v1.json"
@@ -329,3 +329,103 @@ def test_doctor_migration_reports_all_contract_states(
     assert captured.out.count("\n") == 1
     assert "captured child assertion" not in captured.out
     assert captured.err == ""
+
+
+def test_update_is_explicit_non_auto_and_returns_outcome(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = _repository(tmp_path)
+    pin = root / ".ai" / "config.toml"
+    pin.write_text(skeletons.CONFIG_TOML.format(version=update.__version__), encoding="utf-8")
+    foreign = root / "justfile"
+    foreign.write_bytes(b"foreign committed recipe:\n\t@true\n")
+    sentinel = tmp_path / "outside-update-scope"
+    sentinel.write_bytes(b"foreign sentinel\n")
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=Task32",
+            "-c",
+            "user.email=task32@example.invalid",
+            "commit",
+            "-m",
+            "governed fixture",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    monkeypatch.chdir(root)
+    monkeypatch.setattr(update, "migrations", lambda pinned, target: [])
+    before = pin.read_bytes()
+
+    class Input:
+        def __init__(self, terminal: bool):
+            self.terminal = terminal
+
+        def isatty(self) -> bool:
+            return self.terminal
+
+    monkeypatch.setattr(update.sys, "stdin", Input(False))
+    unattended = update.main(["--to", "9.9.9"])
+    assert type(unattended) is outcome.Result
+    assert unattended.outcome == "INCOMPLETE"
+    assert pin.read_bytes() == before
+
+    monkeypatch.setattr(update.sys, "stdin", Input(True))
+    monkeypatch.setattr("builtins.input", lambda _: "n")
+    declined = update.main(["--to", "9.9.9"])
+    assert type(declined) is outcome.Result
+    assert declined.outcome == "CANCELLED"
+    assert pin.read_bytes() == before
+    capsys.readouterr()
+
+    def no_prompt(_: str) -> str:
+        raise AssertionError("an explicit dry run must never prompt")
+
+    monkeypatch.setattr("builtins.input", no_prompt)
+    preview = update.main(["--to", "9.9.9", "--dry-run"])
+    assert type(preview) is outcome.Result
+    assert preview.outcome == "WOULD_CHANGE"
+    assert pin.read_bytes() == before
+    preview_output = capsys.readouterr().out
+    assert f"{update.__version__} → 9.9.9" in preview_output
+    assert ".ai/config.toml" in preview_output
+    assert "0 migration(s)" in preview_output
+    assert "no guard entry of ours is recorded" in preview_output
+
+    opaque_step = Path("migrations/legacy..current/opaque.py")
+    monkeypatch.setattr(update, "migrations", lambda pinned, target: [opaque_step])
+    unbounded_preview = update.main(["--to", "9.9.9", "--dry-run"])
+    assert type(unbounded_preview) is outcome.Result
+    assert unbounded_preview.outcome == "INCOMPLETE"
+    assert pin.read_bytes() == before
+    monkeypatch.setattr(update, "migrations", lambda pinned, target: [])
+
+    real_run = update.subprocess.run
+
+    def status_cannot_decide(command, **kwargs):
+        if command[:4] == ["git", "-C", str(root), "status"]:
+            return subprocess.CompletedProcess(command, 128, "", "git status failed")
+        return real_run(command, **kwargs)
+
+    monkeypatch.setattr(update.subprocess, "run", status_cannot_decide)
+    undecidable = update.main(["--to", "9.9.9", "--dry-run"])
+    assert type(undecidable) is outcome.Result
+    assert undecidable.outcome == "INCOMPLETE"
+    assert pin.read_bytes() == before
+    monkeypatch.setattr(update.subprocess, "run", real_run)
+
+    monkeypatch.setattr("builtins.input", lambda _: "Y ")
+    changed = update.main(["--to", "9.9.9"])
+    assert type(changed) is outcome.Result
+    assert changed.outcome == "PASS"
+    assert 'version = "9.9.9"' in pin.read_text(encoding="utf-8")
+    assert foreign.read_bytes() == b"foreign committed recipe:\n\t@true\n"
+    assert sentinel.read_bytes() == b"foreign sentinel\n"

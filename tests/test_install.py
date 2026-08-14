@@ -21,7 +21,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ai_engineering import __version__, init, paths, skeletons, uninstall, update, wiring
+from ai_engineering import __version__, init, outcome, paths, skeletons, uninstall, update, wiring
 
 
 @pytest.fixture
@@ -1037,7 +1037,9 @@ def test_update_never_runs_without_a_person_at_the_keyboard(pinned_repo, monkeyp
     monkeypatch.chdir(pinned_repo)
     pin = pinned_repo / ".ai" / "config.toml"
     before = pin.read_text(encoding="utf-8")
-    assert update.main(["--to", "9.9.9"]) == 1
+    result = update.main(["--to", "9.9.9"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert pin.read_text(encoding="utf-8") == before
     assert "decision" in capsys.readouterr().out
 
@@ -1053,7 +1055,9 @@ def test_update_refuses_while_a_framework_owned_file_has_uncommitted_changes(
     afternoon."""
     monkeypatch.chdir(pinned_repo)
     (pinned_repo / "justfile").write_text("mine:\n", encoding="utf-8")
-    assert update.main(flags) == 1
+    result = update.main(flags)
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert "REFUSED" in capsys.readouterr().out
     assert (pinned_repo / "justfile").read_text(encoding="utf-8") == "mine:\n"
 
@@ -1067,7 +1071,9 @@ def test_update_stops_where_there_is_nothing_pinned_to_update(
     """Run from a directory that is no repository, or one that was never set up, update has to
     say so and stop. Reading a pin that is not there is where a half-applied migration starts."""
     monkeypatch.chdir(repo if setup == "git" else tmp_path)
-    assert update.main([]) == 1
+    result = update.main([])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert message in capsys.readouterr().out
 
 
@@ -1095,7 +1101,9 @@ def test_update_runs_only_on_an_answer_that_is_exactly_yes(
     keyboard(typed)
     monkeypatch.chdir(pinned_repo)
     pin = pinned_repo / ".ai" / "config.toml"
-    assert update.main(["--to", "9.9.9"]) == (0 if runs else 1)
+    result = update.main(["--to", "9.9.9"])
+    assert type(result) is outcome.Result
+    assert result.outcome == ("PASS" if runs else "CANCELLED")
     assert ('version = "9.9.9"' in pin.read_text(encoding="utf-8")) is runs
 
 
@@ -1111,7 +1119,9 @@ def test_update_leaves_a_surface_this_machine_declined(pinned_repo, home, keyboa
     wiring.json_claude(home / ".claude" / "settings.json")
     wiring.record([{"path": "~/.claude/settings.json", "kind": "guard", "how": "json_claude"}])
 
-    assert update.main(["--to", "9.9.9"]) == 0
+    result = update.main(["--to", "9.9.9"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert not (home / ".cursor" / "hooks.json").exists(), "update wired a declined surface"
 
 
@@ -1128,7 +1138,9 @@ def test_update_records_the_entries_it_writes_so_uninstall_can_find_them(
     wiring.forget([{"path": "~/.claude/settings.json", "kind": "guard"}])
     wiring.record([{"path": "~/.claude/settings.json", "kind": "guard", "how": "json_claude"}])
 
-    assert update.main(["--to", "9.9.9"]) == 0
+    result = update.main(["--to", "9.9.9"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     rows = [r for r in wiring.receipt()["wrote"] if r["kind"] == "guard"]
     assert [r["path"] for r in rows] == ["~/.claude/settings.json"]
     assert rows[0]["how"] == "json_claude", "the row update wrote does not say how"
@@ -1167,7 +1179,9 @@ def test_update_rewrites_a_stale_entry_and_leaves_an_append_only_surface_alone(
     wiring.write_json(codex, {"hooks": {"PreToolUse": [{"handlers": [{"command": unknown}]}]}})
     frozen = codex.read_text(encoding="utf-8")
 
-    assert update.main(["--to", "9.9.9"]) == 0
+    result = update.main(["--to", "9.9.9"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     written = claude.read_text(encoding="utf-8")
     assert "/gone/" not in written, "the stale entry survived; the guard is still not running"
     assert sys.executable in written
