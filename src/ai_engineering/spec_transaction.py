@@ -99,7 +99,12 @@ class Published:
 class _PendingHandles:
     directory: int
     child: int
+    # `consumed` means the child handle is gone, so this pending can never be published
+    # again. `published` means the rename actually committed. They are two facts because a
+    # refused publication is the first without being the second, and the cleanup that has to
+    # run in exactly that case cannot tell them apart from one flag.
     consumed: bool = False
+    published: bool = False
 
 
 _SPELLING_LIMIT = 4_096
@@ -575,6 +580,17 @@ class _PosixWriter:
                 expected_names,
                 home_generation,
             )
+        except BaseException:
+            # The directory exists from the `mkdir` above, so every failure below this line
+            # leaves it behind — a flush that fails, a namespace that moves, an interrupt.
+            # A leftover `pending-` wedges its ordinal for good: the next attempt allocates
+            # the same name and cannot create it. The caller's cleanup only starts once
+            # `stage` has returned, so this window is `stage`'s own to close.
+            with contextlib.suppress(OSError):
+                os.unlink(filename, dir_fd=pending_fd)
+            with contextlib.suppress(OSError):
+                os.rmdir(name, dir_fd=self._home_fd)
+            raise
         finally:
             if file_fd >= 0:
                 os.close(file_fd)
@@ -757,6 +773,7 @@ def _publish_windows_pending(
     state.child = 0
     state.consumed = True
     _publish_noreplace("windows", state.directory, None, home_handle, final)
+    state.published = True
 
 
 # The Windows backend uses NT relative opens so staging cannot be redirected through a
@@ -1445,13 +1462,22 @@ if os.name == "nt":
 
             self._require_canonical_authority()
             state = self._pending_handles.get(pending.directory_identity)
-            if state is None or state.consumed:
+            if state is None or state.published:
                 raise Unsafe("pending directory handle is not owned by this writer")
             if (
                 _win_generation(state.directory, pending.name).identity
                 != pending.directory_identity
             ):
                 raise Unsafe("pending directory identity changed")
+            if not state.child:
+                # A refused publication closes the child before its rename. The file is
+                # still there, and a directory with a file in it cannot be marked for
+                # deletion, so the handle is reopened through the directory handle already
+                # owned — no pathname is constructed, and the identity check below still
+                # decides whether this is the entry that was staged.
+                state.child = _win_nt_open(
+                    state.directory, pending.filename, directory=False, delete=True
+                )
             if _win_generation(state.child, pending.filename).identity != pending.file_identity:
                 raise Unsafe("pending file identity changed")
 

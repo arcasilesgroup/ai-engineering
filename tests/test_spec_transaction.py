@@ -486,3 +486,43 @@ def test_discard_removes_only_the_owned_staging_entry(tmp_path):
             writer.publish(pending, "acceptance-r-010-01")
         with pytest.raises(transaction.TransactionError):
             writer.discard(pending)
+
+
+def test_a_stage_that_fails_after_mkdir_leaves_nothing_behind(tmp_path):
+    """The window the caller's cleanup cannot reach.
+
+    `stage` creates the directory before it can fail, and the caller only gets a `Pending`
+    to discard once `stage` has returned. Every failure in between — a flush that fails, a
+    namespace that moves under it — is `stage`'s own to clean, and a leftover `pending-`
+    wedges its ordinal for good: the next attempt allocates the same name and cannot create
+    it.
+    """
+
+    root = _root(tmp_path)
+    (root / "specs" / "010-nested").mkdir()
+    home = root / "specs" / "010-nested"
+
+    with transaction.writer(root, ".ai/intent.md", "specs/010-nested") as writer:
+        inventory = writer.inventory()
+        # Somebody else writes into the home while the entry is being staged, which is the
+        # one failure that used to orphan a directory and wedge the name.
+        original = transaction._fsync
+
+        def moved(descriptor, message):
+            if not (home / "written-by-somebody-else.md").exists():
+                (home / "written-by-somebody-else.md").write_bytes(b"not ours\n")
+            return original(descriptor, message)
+
+        try:
+            transaction._fsync = moved
+            with pytest.raises(transaction.Unsafe):
+                writer.stage(inventory, "pending-r-010-01", "record.json", b"{}\n")
+        finally:
+            transaction._fsync = original
+
+    assert not list(home.glob("pending-*"))
+    # And the name is free, which is the part a leftover would have taken.
+    with transaction.writer(root, ".ai/intent.md", "specs/010-nested") as writer:
+        pending = writer.stage(writer.inventory(), "pending-r-010-01", "record.json", b"{}\n")
+        writer.publish(pending, "acceptance-r-010-01")
+    assert (home / "acceptance-r-010-01" / "record.json").read_bytes() == b"{}\n"
