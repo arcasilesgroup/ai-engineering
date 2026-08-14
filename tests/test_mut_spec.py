@@ -11,17 +11,20 @@ stayed green. Nothing here touches the real home or the real repository.
 from __future__ import annotations
 
 import builtins
+import hashlib
 import json
 import os
 import subprocess
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from ai_engineering import decide, paths, plan, spec
+from ai_engineering import decide, intent, outcome, paths, plan, spec
 
 TODAY = date.today().isoformat()
+INTENT_FIXTURE = Path(__file__).parent / "fixtures" / "intent-v1.json"
 
 
 @pytest.fixture
@@ -54,6 +57,47 @@ def repo(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     return root
+
+
+@pytest.fixture
+def approved_repo(repo):
+    """The command may write only when canonical Intent records accountable approval."""
+    target = repo / "specs" / "000-authority" / "spec.md"
+    target.parent.mkdir()
+    target_bytes = b'---\nid: "000"\nstatus: superseded\n---\n\n# Authority record\n'
+    target.write_bytes(target_bytes)
+
+    record = json.loads(INTENT_FIXTURE.read_text(encoding="utf-8"))["base"]["intent"]
+    record["relations"] = [
+        {
+            "kind": "spec",
+            "id": "000",
+            "path": "specs/000-authority/spec.md",
+            "target_digest": f"sha256:{hashlib.sha256(target_bytes).hexdigest()}",
+        }
+    ]
+    record["lifecycle"] = {
+        "status": "active",
+        "transitions": [
+            {
+                "from": "draft",
+                "to": "active",
+                "changed_at": "2026-08-14T10:00:00Z",
+                "authority_role": "repository maintainer",
+                "approval_ref": "change-request-17",
+            }
+        ],
+        "approval": {
+            "authority_role": "repository maintainer",
+            "approval_ref": "change-request-17",
+            "approved_at": "2026-08-14T10:00:00Z",
+        },
+    }
+    home = repo / ".ai" / "intent.md"
+    home.parent.mkdir()
+    home.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    assert intent.validate(home, repo).outcome == "PASS"
+    return repo
 
 
 @pytest.fixture
@@ -110,21 +154,27 @@ def test_a_spec_with_no_status_and_no_title_lists_under_its_own_folder_name(tmp_
 # ------------------------------------------------------------------ spec: the command
 
 
-def test_spec_new_writes_the_spec_and_prints_the_path_a_reader_can_open(repo, capsys):
+def test_spec_new_writes_the_spec_and_prints_the_path_a_reader_can_open(approved_repo, capsys):
     """The printed path is how the person finds what was just written. It is relative to
-    the repository, and the command has to say it landed by exiting zero."""
-    assert spec.main(["new", "a-thing"]) == 0
+    the repository, and the command has to say it landed with an exact PASS."""
+    result = spec.main(["new", "a-thing"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert capsys.readouterr().out == "  ✓ specs/001-a-thing/spec.md\n"
-    body = (repo / "specs" / "001-a-thing" / "spec.md").read_text()
+    body = (approved_repo / "specs" / "001-a-thing" / "spec.md").read_text()
     assert 'ref: ""' in body and "# A thing" in body
 
 
-def test_spec_new_records_the_work_item_named_on_the_flag_and_prefills_nothing(repo, capsys):
+def test_spec_new_records_the_work_item_named_on_the_flag_and_prefills_nothing(
+    approved_repo, capsys
+):
     """--ref is where the work came from, and that is all it is. The item reaches the
     frontmatter; the heading stays the slug and the problem stays the author's to write."""
-    assert spec.main(["new", "a-thing", "--ref", "owner/repo#45"]) == 0
+    result = spec.main(["new", "a-thing", "--ref", "owner/repo#45"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert capsys.readouterr().out == "  ✓ specs/001-a-thing/spec.md\n"
-    body = (repo / "specs" / "001-a-thing" / "spec.md").read_text()
+    body = (approved_repo / "specs" / "001-a-thing" / "spec.md").read_text()
     assert "# A thing" in body and 'ref: "owner/repo#45"' in body
     assert "TODO: what is true today" in body
 
@@ -136,22 +186,30 @@ def test_spec_show_prints_every_directory_that_matches_and_names_each_one(repo, 
     card. A single match is printed on its own, with no heading in front of it."""
     spec.create(repo, "thing", "")
     spec.create(repo, "other-thing", "")
-    assert spec.main(["show", "00"]) == 0
+    result = spec.main(["show", "00"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     out = capsys.readouterr().out
     assert "001-thing" in out and "002-other-thing" in out
     assert out.count("## Production-ready") == 2
-    assert spec.main(["show", "001"]) == 0
+    result = spec.main(["show", "001"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert "1 of" not in capsys.readouterr().out
 
 
 def test_spec_list_prints_one_row_per_spec_and_says_so_when_there_are_none(repo, capsys):
     """An empty listing that printed nothing reads exactly like a broken command. It says
     there are none and names the command that makes one."""
-    assert spec.main(["list"]) == 0
+    result = spec.main(["list"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert capsys.readouterr().out == "  no specs yet — `ai-eng spec new <slug>`\n"
     spec.create(repo, "one", "")
     spec.create(repo, "two", "")
-    assert spec.main(["list"]) == 0
+    result = spec.main(["list"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     rows = capsys.readouterr().out.splitlines()
     assert [row.split()[0] for row in rows] == ["001-one", "002-two"]
 
@@ -161,17 +219,23 @@ def test_spec_list_all_is_the_only_way_a_superseded_spec_shows_up(repo, capsys):
     default listing, and --all is the flag that says the reader asked for it anyway."""
     old = spec.create(repo, "old", "")
     old.write_text(old.read_text().replace("status: draft", "status: superseded"))
-    assert spec.main(["list"]) == 0
+    result = spec.main(["list"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert "no specs yet" in capsys.readouterr().out
-    assert spec.main(["list", "--all"]) == 0
+    result = spec.main(["list", "--all"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert "001-old" in capsys.readouterr().out
 
 
-def test_spec_outside_a_repository_says_so_and_exits_one(tmp_path, monkeypatch, capsys):
-    """There is nowhere to put a spec outside a repository. Exiting zero there would tell
-    a script the record was written when nothing was."""
+def test_spec_outside_a_repository_says_so_and_is_incomplete(tmp_path, monkeypatch, capsys):
+    """There is nowhere to put a spec outside a repository. PASS there would claim a
+    record was found or written when nothing was."""
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
-    assert spec.main(["list"]) == 1
+    result = spec.main(["list"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert capsys.readouterr().out == "not inside a repository\n"
 
 

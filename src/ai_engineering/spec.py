@@ -14,7 +14,16 @@ import re
 from datetime import date
 from pathlib import Path
 
-from ai_engineering import paths
+from ai_engineering import intent, outcome, paths
+
+_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/#-]*$")
+_NON_AUTHORITY = re.compile(r"(^|[^A-Za-z0-9])(agent|model|reviewer)([^A-Za-z0-9]|$)", re.I)
+_MISSING_AUTHORITY = intent.Validation(
+    "INCOMPLETE",
+    "INTENT_AUTHORITY_MISSING",
+    "canonical Solution Intent is not actively approved by an accountable role",
+)
 
 BOXES = [
     "CI/CD — build, lint, test and security analysis on every push; deploy from the default branch",
@@ -51,7 +60,7 @@ not code can follow.
 ## Decision
 
 TODO: the one chosen, and why the others were not. If this decision constrains specs
-that do not exist yet, promote it: `ai-eng decide --adr "<title>"`.
+that do not exist yet, promote it: `ai-eng decide --madr "<title>"`.
 
 ## Decisions
 
@@ -145,14 +154,64 @@ def listing(root: Path, everything: bool) -> list[str]:
     return rows
 
 
-def main(argv: list[str]) -> int:
+def _argument(pattern: re.Pattern[str], label: str, *, allow_empty: bool = False):
+    def parse(value: str) -> str:
+        if not (allow_empty and value == "") and pattern.fullmatch(value) is None:
+            raise argparse.ArgumentTypeError(f"{label} is not canonical")
+        return value
+
+    return parse
+
+
+def _authority(root: Path) -> intent.Validation:
+    """The active canonical Intent is the existing local authority record; CLI metadata is not."""
+    home = root / ".ai" / "intent.md"
+    try:
+        before = home.read_bytes()
+    except OSError:
+        return intent.Validation("INCOMPLETE", "INTENT_SCHEMA_INVALID", "schema validation failed")
+    validation = intent.validate(home, root)
+    if validation.outcome != "PASS":
+        return validation
+    try:
+        after = home.read_bytes()
+        if after != before:
+            return _MISSING_AUTHORITY
+        record = intent._json(after)
+        validation = intent.validate(record, root)
+        if validation.outcome != "PASS":
+            return validation
+        lifecycle = record["lifecycle"]
+        approval = lifecycle["approval"]
+        transition = lifecycle["transitions"][-1]
+        role = approval["authority_role"]
+        owner = record["ownership"]["accountable_role"]
+    except (IndexError, KeyError, OSError, RecursionError, TypeError, ValueError):
+        return intent.Validation("INCOMPLETE", "INTENT_SCHEMA_INVALID", "schema validation failed")
+    if (
+        lifecycle["status"] != "active"
+        or role != owner
+        or transition["authority_role"] != role
+        or transition["approval_ref"] != approval["approval_ref"]
+        or _NON_AUTHORITY.search(role)
+    ):
+        return _MISSING_AUTHORITY
+    return intent.PASS
+
+
+def main(argv: list[str]) -> outcome.Result:
     parser = argparse.ArgumentParser("ai-eng spec")
     sub = parser.add_subparsers(dest="action", required=True)
     made = sub.add_parser("new")
-    made.add_argument("slug")
-    made.add_argument("--ref", default="", help='a work item, e.g. "owner/repo#45"')
+    made.add_argument("slug", type=_argument(_SLUG, "slug"))
+    made.add_argument(
+        "--ref",
+        default="",
+        type=_argument(_REF, "work item", allow_empty=True),
+        help='a work item, e.g. "owner/repo#45"',
+    )
     shown = sub.add_parser("show")
-    shown.add_argument("id")
+    shown.add_argument("id", type=_argument(re.compile(r"^[0-9]+$"), "spec id"))
     listed = sub.add_parser("list")
     listed.add_argument("--all", action="store_true", help="include superseded specs")
     args = parser.parse_args(argv)
@@ -160,22 +219,43 @@ def main(argv: list[str]) -> int:
     root = paths.repo_root()
     if root is None:
         print("not inside a repository")
-        return 1
+        return outcome.result("INCOMPLETE")
     if args.action == "new":
-        print(f"  ✓ {create(root, args.slug, args.ref).relative_to(root)}")
-        return 0
+        authority = _authority(root)
+        if authority.outcome != "PASS":
+            print(f"  INCOMPLETE  Solution Intent authority: {authority.code} — {authority.reason}")
+            return outcome.result("INCOMPLETE")
+        home = specs_dir(root)
+        if home.is_symlink() or (home.exists() and not home.is_dir()):
+            print("  INCOMPLETE  specs/ is not one regular repository directory")
+            return outcome.result("INCOMPLETE")
+        try:
+            created = create(root, args.slug, args.ref)
+        except OSError as why:
+            print(f"  INCOMPLETE  the draft could not be created: {why}")
+            return outcome.result("INCOMPLETE")
+        print(f"  ✓ {created.relative_to(root)}")
+        return outcome.result("PASS")
     if args.action == "list":
-        rows = listing(root, args.all)
+        try:
+            rows = listing(root, args.all)
+        except OSError as why:
+            print(f"  INCOMPLETE  specs could not be listed: {why}")
+            return outcome.result("INCOMPLETE")
         print("\n".join(rows) if rows else "  no specs yet — `ai-eng spec new <slug>`")
-        return 0
+        return outcome.result("PASS")
     matches = sorted(specs_dir(root).glob(f"{args.id}*/spec.md"))
     if not matches:
         print(f"  no spec matches {args.id!r}")
-        return 1
+        return outcome.result("INCOMPLETE")
     # All of them, named. Printing the first and saying nothing about the rest is how
     # somebody reads one spec and acts as though it were the only one that matched.
     for match in matches:
         if len(matches) > 1:
             print(f"── {match.parent.name} ── {matches.index(match) + 1} of {len(matches)}")
-        print(match.read_text())
-    return 0
+        try:
+            print(match.read_text())
+        except OSError as why:
+            print(f"  INCOMPLETE  {match.parent.name} could not be read: {why}")
+            return outcome.result("INCOMPLETE")
+    return outcome.result("PASS")

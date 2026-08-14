@@ -9,7 +9,18 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering import capability, cli, doctor, init, intent, outcome, skeletons, update, wiring
+from ai_engineering import (
+    capability,
+    cli,
+    doctor,
+    init,
+    intent,
+    outcome,
+    skeletons,
+    spec,
+    update,
+    wiring,
+)
 
 ROOT = Path(__file__).parents[1]
 INTENT_FIXTURE = ROOT / "tests" / "fixtures" / "intent-v1.json"
@@ -429,3 +440,122 @@ def test_update_is_explicit_non_auto_and_returns_outcome(
     assert 'version = "9.9.9"' in pin.read_text(encoding="utf-8")
     assert foreign.read_bytes() == b"foreign committed recipe:\n\t@true\n"
     assert sentinel.read_bytes() == b"foreign sentinel\n"
+
+
+def test_spec_command_enforces_intent_and_authority(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.chdir(root)
+    home = root / ".ai" / "intent.md"
+    original_intent = home.read_bytes()
+    existing_spec = root / "specs" / "010-governed-foundation" / "spec.md"
+    existing_bytes = existing_spec.read_bytes()
+    sentinel = tmp_path / "outside-spec-scope"
+    sentinel.write_bytes(b"foreign sentinel\n")
+
+    unapproved = spec.main(["new", "unapproved", "--ref", "reviewer-said-pass"])
+    assert type(unapproved) is outcome.Result
+    assert unapproved.outcome == "INCOMPLETE"
+    assert not (root / "specs" / "011-unapproved").exists()
+
+    home.write_bytes(b'{"metadata":"is not governed intent authority"}\n')
+    invalid = spec.main(["new", "invalid-intent"])
+    assert type(invalid) is outcome.Result
+    assert invalid.outcome == "INCOMPLETE"
+    assert not (root / "specs" / "011-invalid-intent").exists()
+
+    record = json.loads(original_intent)
+
+    def activate(role: str) -> None:
+        record["lifecycle"] = {
+            "status": "active",
+            "transitions": [
+                {
+                    "from": "draft",
+                    "to": "active",
+                    "changed_at": "2026-08-14T10:00:00Z",
+                    "authority_role": role,
+                    "approval_ref": "change-request-17",
+                }
+            ],
+            "approval": {
+                "authority_role": role,
+                "approval_ref": "change-request-17",
+                "approved_at": "2026-08-14T10:00:00Z",
+            },
+        }
+        home.write_text(
+            json.dumps(record, allow_nan=False, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+        assert intent.validate(home, root).outcome == "PASS"
+
+    activate("release manager")
+    misattributed = spec.main(["new", "approval-must-match-owner"])
+    assert type(misattributed) is outcome.Result
+    assert misattributed.outcome == "INCOMPLETE"
+    assert not (root / "specs" / "011-approval-must-match-owner").exists()
+
+    activate("repository maintainer")
+    record["lifecycle"]["transitions"][-1]["authority_role"] = "AI reviewer"
+    home.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    assert intent.validate(home, root).outcome == "PASS"
+    reviewer_transition = spec.main(["new", "reviewer-transition-is-not-authority"])
+    assert type(reviewer_transition) is outcome.Result
+    assert reviewer_transition.outcome == "INCOMPLETE"
+    assert not (root / "specs" / "011-reviewer-transition-is-not-authority").exists()
+
+    record["ownership"]["accountable_role"] = "AI reviewer"
+    activate("AI reviewer")
+    reviewer = spec.main(["new", "reviewer-is-not-authority"])
+    assert type(reviewer) is outcome.Result
+    assert reviewer.outcome == "INCOMPLETE"
+    assert not (root / "specs" / "011-reviewer-is-not-authority").exists()
+
+    record["ownership"]["accountable_role"] = "repository maintainer"
+    activate("repository maintainer")
+    stable_validate = intent.validate
+
+    def changed_after_validation(source: Path, repository: Path) -> intent.Validation:
+        validation = stable_validate(source, repository)
+        changed = json.loads(home.read_bytes())
+        changed["relations"][0]["target_digest"] = f"sha256:{'0' * 64}"
+        home.write_text(json.dumps(changed, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        return validation
+
+    monkeypatch.setattr(intent, "validate", changed_after_validation)
+    changed = spec.main(["new", "intent-changed-after-validation"])
+    assert type(changed) is outcome.Result
+    assert changed.outcome == "INCOMPLETE"
+    assert not (root / "specs" / "011-intent-changed-after-validation").exists()
+
+    monkeypatch.setattr(intent, "validate", stable_validate)
+    activate("repository maintainer")
+    approved = spec.main(["new", "approved-change", "--ref", "owner/repo#45"])
+    assert type(approved) is outcome.Result
+    assert approved.outcome == "PASS"
+    created = root / "specs" / "011-approved-change" / "spec.md"
+    assert created.is_file()
+    assert "--madr" in created.read_text(encoding="utf-8")
+    assert "--adr" not in created.read_text(encoding="utf-8")
+    assert existing_spec.read_bytes() == existing_bytes
+    assert sentinel.read_bytes() == b"foreign sentinel\n"
+
+    listed = spec.main(["list"])
+    assert type(listed) is outcome.Result
+    assert listed.outcome == "PASS"
+    shown = spec.main(["show", "011"])
+    assert type(shown) is outcome.Result
+    assert shown.outcome == "PASS"
+    absent = spec.main(["show", "999"])
+    assert type(absent) is outcome.Result
+    assert absent.outcome == "INCOMPLETE"
+    with pytest.raises(SystemExit) as invalid_cli:
+        spec.main(["new", "../outside-spec-scope"])
+    assert invalid_cli.value.code == outcome.invalid_cli_exit()
+    assert "reviewer-said-pass" not in capsys.readouterr().out

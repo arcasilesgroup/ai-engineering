@@ -21,7 +21,20 @@ from types import SimpleNamespace
 
 import pytest
 
-from ai_engineering import accept, audit, cli, contract, decide, digest, paths, plan, spec, text
+from ai_engineering import (
+    accept,
+    audit,
+    cli,
+    contract,
+    decide,
+    digest,
+    intent,
+    outcome,
+    paths,
+    plan,
+    spec,
+    text,
+)
 
 TODAY = date.today().isoformat()
 YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
@@ -501,11 +514,17 @@ def test_spec_show_matches_by_prefix_and_says_so_when_it_cannot(repo, capsys):
     """`spec show 002` has to find 002-whatever. Falling back to printing some other spec
     is worse than printing nothing."""
     spec.create(repo, "only", "")
-    assert spec.main(["show", "001"]) == 0
+    result = spec.main(["show", "001"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert "# Only" in capsys.readouterr().out
-    assert spec.main(["show", "404"]) == 1
+    result = spec.main(["show", "404"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert "no spec matches" in capsys.readouterr().out
-    assert spec.main(["list"]) == 0
+    result = spec.main(["list"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
 
 
 # ------------------------------------------------------------------ decide
@@ -803,7 +822,9 @@ def test_asking_for_help_lists_every_verb_and_exits_zero(argv, capsys):
     assert all(verb in out for verb in cli.VERBS)
 
 
-def test_a_stream_that_cannot_spell_a_tick_gets_a_line_rather_than_a_traceback(tmp_path):
+def test_a_stream_that_cannot_spell_a_tick_gets_a_line_rather_than_a_traceback(
+    tmp_path, monkeypatch
+):
     """Windows hands a bare print() a cp1252 stream, and `ai-eng spec new` writes a tick in
     its success line. The first time the install matrix ever ran, that ended the Windows leg
     in a UnicodeEncodeError with the spec already on disk — so the verb had done its work
@@ -812,6 +833,7 @@ def test_a_stream_that_cannot_spell_a_tick_gets_a_line_rather_than_a_traceback(t
 
     (tmp_path / "specs").mkdir()
     subprocess.run(["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True)
+    monkeypatch.setattr(spec, "_authority", lambda root: intent.PASS)
     narrow = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict")
     stdout, cwd = sys.stdout, Path.cwd()
     try:
