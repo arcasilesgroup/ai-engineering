@@ -1,6 +1,6 @@
 """The three verbs that write the record, pinned where mutation testing found them blind.
 
-`ai-eng spec`, `ai-eng decide` and `ai-eng plan` are read by a person and by an agent, so
+`ai-eng spec`, `ai-eng decide` and `ai-eng exception` are read by a person and by an agent, so
 their exit codes and the exact words they print are behaviour, not decoration: a denial
 that changes its wording is a denial the agent no longer recognises. Every test below
 names one way one of these three could change what it does — a different code, a different
@@ -21,7 +21,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ai_engineering import decide, intent, outcome, paths, plan, spec
+from ai_engineering import decide, exception, intent, outcome, paths, spec
 
 TODAY = date.today().isoformat()
 INTENT_FIXTURE = Path(__file__).parent / "fixtures" / "intent-v1.json"
@@ -115,7 +115,7 @@ def _keyboard(monkeypatch, typed):
         prompts.append(prompt)
         return typed
 
-    monkeypatch.setattr(plan.sys, "stdin", SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(exception.sys, "stdin", SimpleNamespace(isatty=lambda: True))
     monkeypatch.setattr(builtins, "input", asked)
     return prompts
 
@@ -481,14 +481,16 @@ def test_decide_help_names_the_command_and_documents_every_flag(wide, capsys):
         assert f" {line}\n" in out, "the help line is padded and ends there, not elsewhere"
 
 
-# ------------------------------------------------------------------ plan: the bypass
+# ------------------------------------------------------------------ exception: the bypass
 
 
 def test_with_no_keyboard_nothing_is_granted_and_the_line_says_why(home, monkeypatch, capsys):
     """The one that stops an agent approving its own exception: no terminal, no grant, and
     the reason is printed rather than left for somebody to work out from an exit code."""
-    monkeypatch.setattr(plan.sys, "stdin", SimpleNamespace(isatty=lambda: False))
-    assert plan.main(["--skip", "in a hurry"]) == 1
+    monkeypatch.setattr(exception.sys, "stdin", SimpleNamespace(isatty=lambda: False))
+    result = exception.main(["--skip", "in a hurry"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert capsys.readouterr().out == (
         "  a bypass is a person's decision, and there is no keyboard here. Nothing granted.\n"
     )
@@ -502,7 +504,9 @@ def test_the_prompt_says_what_is_granted_for_how_long_and_against_whose_name(
     guard, for how long, for what reason. Anything short of the word yes grants nothing,
     and the refusal is printed so it is not mistaken for a hang."""
     prompts = _keyboard(monkeypatch, "no")
-    assert plan.main(["--skip", "in a hurry"]) == 1
+    result = exception.main(["--skip", "in a hurry"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "CANCELLED"
     assert prompts == ["  Type yes to grant it › "]
     assert capsys.readouterr().out.splitlines() == [
         "  This grants ONE bypass of design_gate, for 15 minutes, recorded against your name.",
@@ -518,7 +522,9 @@ def test_a_granted_bypass_is_one_file_one_event_and_says_who_took_it(home, monke
     somebody other than whoever took it. Taking a second one must not fail on the folder
     the first one created."""
     _keyboard(monkeypatch, "yes")
-    assert plan.main(["--skip", "in a hurry", "--guard", "design_gate"]) == 0
+    result = exception.main(["--skip", "in a hurry", "--guard", "design_gate"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert capsys.readouterr().out.splitlines()[-1] == (
         "  ✓ granted. The next design_gate block passes, once, and the record says why."
     )
@@ -530,24 +536,31 @@ def test_a_granted_bypass_is_one_file_one_event_and_says_who_took_it(home, monke
     event = json.loads(home.chain_path(None).read_text().splitlines()[-1])
     assert event["name"] == "design_gate" and event["cls"] == "bypassed"
     assert event["data"] == {"reason": "in a hurry", "granted": "by a person"}
-    assert plan.main(["--skip", "once more", "--guard", "loop_guard"]) == 0
+    repeated = exception.main(["--skip", "once more", "--guard", "loop_guard"])
+    assert type(repeated) is outcome.Result
+    assert repeated.outcome == "PASS"
 
 
 def test_a_bypass_without_a_reason_is_not_a_bypass(home, monkeypatch):
     """--skip is required because the reason is the record. A grant with no reason is a
     control waived and nothing written down about why."""
-    monkeypatch.setattr(plan.sys, "stdin", SimpleNamespace(isatty=lambda: False))
-    with pytest.raises(SystemExit):
-        plan.main([])
+    monkeypatch.setattr(exception.sys, "stdin", SimpleNamespace(isatty=lambda: False))
+    with pytest.raises(SystemExit) as invalid:
+        exception.main([])
+    assert invalid.value.code == outcome.invalid_cli_exit()
 
 
-def test_plan_help_names_the_command_and_documents_the_bypass_flags(wide, capsys):
+def test_exception_help_names_the_command_and_documents_the_bypass_flags(wide, capsys):
     """This is the verb a person reaches for while blocked. If its help does not say what
     --skip takes, or which guards can be named, the next move is to disable the guard."""
     with pytest.raises(SystemExit) as stopped:
-        plan.main(["--help"])
+        exception.main(["--help"])
     assert stopped.value.code == 0
     out = capsys.readouterr().out
-    for token in ("usage: ai-eng plan", "--skip REASON", "--guard {design_gate,loop_guard}"):
+    for token in (
+        "usage: ai-eng exception",
+        "--skip REASON",
+        "--guard {design_gate,loop_guard}",
+    ):
         assert token in out
     assert " why this change does not need a plan\n" in out

@@ -23,9 +23,9 @@ from ai_engineering import (
     __version__,
     cli,
     contract,
+    exception,
     outcome,
     paths,
-    plan,
     text,
 )
 from ai_engineering import report as report_command
@@ -366,16 +366,22 @@ def test_with_no_arguments_the_table_reads_the_real_command_line(monkeypatch, ca
 def test_the_flags_after_the_verb_reach_the_verb(recorded, monkeypatch):
     """The table splits the verb from its flags. Split one word too far along, every
     flagged command loses its first flag and the verb fails on arguments the user gave."""
-    monkeypatch.setattr(plan, "main", lambda argv: 0 if argv == ["--skip", "late"] else 9)
-    assert cli.main(["plan", "--skip", "late"]) == 0
+    monkeypatch.setattr(
+        exception,
+        "main",
+        lambda argv: (
+            outcome.result("PASS") if argv == ["--skip", "late"] else outcome.result("FAIL")
+        ),
+    )
+    assert cli.main(["exception", "--skip", "late"]) == 0
 
 
 def test_a_verb_that_fails_fails_the_whole_command(recorded, monkeypatch):
     """A non-zero exit is how a script calling `ai-eng` learns a gate said no. Collapsed
     to zero, every caller believes the gate passed."""
-    monkeypatch.setattr(plan, "main", lambda argv: 3)
-    assert cli.main(["plan"]) == 3
-    assert recorded[0][2]["exit"] == 3
+    monkeypatch.setattr(exception, "main", lambda argv: outcome.result("FAIL"))
+    assert cli.main(["exception"]) == 1
+    assert recorded[0][2]["exit"] == 1
 
 
 def test_an_interrupted_command_says_nothing_was_written(recorded, monkeypatch, capsys):
@@ -386,18 +392,18 @@ def test_an_interrupted_command_says_nothing_was_written(recorded, monkeypatch, 
     def stop(argv):
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(plan, "main", stop)
-    assert cli.main(["plan"]) == 130
+    monkeypatch.setattr(exception, "main", stop)
+    assert cli.main(["exception"]) == 130
     assert capsys.readouterr().err == "\ninterrupted; nothing was written.\n"
 
 
 def test_the_verb_that_ran_is_the_name_on_the_event(recorded, monkeypatch):
     """The digest groups by name. An event recorded under no name at all cannot be
     grouped, so the week's command counts silently lose the verb."""
-    monkeypatch.setattr(plan, "main", lambda argv: 0)
-    assert cli.main(["plan"]) == 0
-    assert [(name, cls) for name, cls, _ in recorded] == [("plan", "command")]
-    assert recorded[0][2]["verb"] == "plan"
+    monkeypatch.setattr(exception, "main", lambda argv: outcome.result("PASS"))
+    assert cli.main(["exception"]) == 0
+    assert [(name, cls) for name, cls, _ in recorded] == [("exception", "command")]
+    assert recorded[0][2]["verb"] == "exception"
 
 
 def test_the_verb_that_blew_up_is_the_name_on_the_error(recorded, monkeypatch):
@@ -407,10 +413,10 @@ def test_the_verb_that_blew_up_is_the_name_on_the_error(recorded, monkeypatch):
     def boom(argv):
         raise RuntimeError("nothing was written")
 
-    monkeypatch.setattr(plan, "main", boom)
+    monkeypatch.setattr(exception, "main", boom)
     with pytest.raises(RuntimeError):
-        cli.main(["plan"])
-    assert [(name, cls) for name, cls, _ in recorded] == [("plan", "error")]
+        cli.main(["exception"])
+    assert [(name, cls) for name, cls, _ in recorded] == [("exception", "error")]
     assert "nothing was written" in recorded[0][2]["error"]
 
 
@@ -419,8 +425,8 @@ def test_how_long_the_verb_took_is_recorded_in_milliseconds(recorded, monkeypatc
     wrong unit every command reads as instant and nothing ever looks slow."""
     ticks = iter([2.0, 4.0])
     monkeypatch.setattr(cli, "time", SimpleNamespace(perf_counter=lambda: next(ticks)))
-    monkeypatch.setattr(plan, "main", lambda argv: 0)
-    assert cli.main(["plan"]) == 0
+    monkeypatch.setattr(exception, "main", lambda argv: outcome.result("PASS"))
+    assert cli.main(["exception"]) == 0
     assert recorded[0][2]["ms"] == 2000
 
 

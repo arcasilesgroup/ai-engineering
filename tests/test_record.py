@@ -27,10 +27,10 @@ from ai_engineering import (
     cli,
     contract,
     decide,
+    exception,
     intent,
     outcome,
     paths,
-    plan,
     report,
     spec,
     text,
@@ -824,32 +824,41 @@ def test_the_line_count_leaves_out_the_record_and_counts_everything_else(tmp_pat
     assert contract.repo_lines(tmp_path) == 7
 
 
-# ------------------------------------------------------------------ plan
+# ------------------------------------------------------------------ exception
 
 
 def test_an_agent_cannot_grant_itself_a_bypass(home, capsys):
     """The whole design gate is that a bypass needs a real keyboard. With no terminal
     attached, nothing may be granted — this is the one that stops a loop self-approving."""
-    assert plan.main(["--skip", "in a hurry"]) == 1
+    result = exception.main(["--skip", "in a hurry"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert "there is no keyboard here" in capsys.readouterr().out
     assert not (paths.home() / "cache" / "bypass.json").exists()
 
 
-@pytest.mark.parametrize(("typed", "code"), [("yes", 0), ("YES ", 0), ("y", 1), ("", 1)])
+@pytest.mark.parametrize(
+    ("typed", "status"),
+    [("yes", "PASS"), ("YES ", "PASS"), ("y", "CANCELLED"), ("", "CANCELLED")],
+)
 def test_a_bypass_is_granted_only_on_the_whole_word_and_is_recorded(
-    home, monkeypatch, capsys, typed, code
+    home, monkeypatch, capsys, typed, status
 ):
     """Anything short of typing the word is not consent. When it is granted, the grant is
     time boxed and an event says who took it — a silent bypass is the failure being cured.
     The box is the one the person was shown: a grant that outlives the minutes printed on
     the prompt is consent taken for longer than it was given."""
-    monkeypatch.setattr(plan.sys, "stdin", type("T", (), {"isatty": staticmethod(lambda: True)})())
+    monkeypatch.setattr(
+        exception.sys, "stdin", type("T", (), {"isatty": staticmethod(lambda: True)})()
+    )
     monkeypatch.setattr(builtins, "input", lambda prompt="": typed)
-    assert plan.main(["--skip", "in a hurry", "--guard", "loop_guard"]) == code
+    result = exception.main(["--skip", "in a hurry", "--guard", "loop_guard"])
+    assert type(result) is outcome.Result
+    assert result.outcome == status
     promised = int(re.search(r"for (\d+) minutes", capsys.readouterr().out).group(1)) * 60
     grant = paths.home() / "cache" / "bypass.json"
-    assert grant.exists() is (code == 0)
-    if code == 0:
+    assert grant.exists() is (status == "PASS")
+    if status == "PASS":
         data = json.loads(grant.read_text())
         assert data["guard"] == "loop_guard" and data["reason"] == "in a hurry"
         assert 0 < data["expires"] - time.time() <= promised
@@ -860,8 +869,9 @@ def test_a_bypass_is_granted_only_on_the_whole_word_and_is_recorded(
 def test_a_bypass_can_only_name_a_guard_that_exists(home):
     """Granting a bypass of a guard nobody has heard of writes a grant that unblocks
     nothing and reads, in the record, as if a control had been waived."""
-    with pytest.raises(SystemExit):
-        plan.main(["--skip", "x", "--guard", "not_a_guard"])
+    with pytest.raises(SystemExit) as invalid:
+        exception.main(["--skip", "x", "--guard", "not_a_guard"])
+    assert invalid.value.code == outcome.invalid_cli_exit()
 
 
 # ------------------------------------------------------------------ cli
@@ -941,9 +951,9 @@ def test_a_verb_that_blows_up_is_recorded_before_the_traceback_reaches_the_user(
     def boom(argv):
         raise RuntimeError("nothing was written")
 
-    monkeypatch.setattr(plan, "main", boom)
+    monkeypatch.setattr(exception, "main", boom)
     with pytest.raises(RuntimeError):
-        cli.main(["plan"])
+        cli.main(["exception"])
     events = [json.loads(line) for line in home.chain_path(None).read_text().splitlines()]
     assert events[-1]["cls"] == "error"
     assert "nothing was written" in events[-1]["data"]["error"]
@@ -956,8 +966,8 @@ def test_an_interrupt_is_a_clean_exit_and_not_an_error(home, monkeypatch, capsys
     def stop(argv):
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(plan, "main", stop)
-    assert cli.main(["plan"]) == 130
+    monkeypatch.setattr(exception, "main", stop)
+    assert cli.main(["exception"]) == 130
     assert "nothing was written" in capsys.readouterr().err
     events = [json.loads(line) for line in home.chain_path(None).read_text().splitlines()]
     assert [e["cls"] for e in events] == ["command"]

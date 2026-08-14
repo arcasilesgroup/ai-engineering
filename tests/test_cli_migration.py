@@ -839,3 +839,88 @@ def test_report_is_hard_rename_and_bare_report_refuses(
     payload = json.loads(machine.out)
     assert payload["command"] == "report"
     assert payload["outcome"] == "PASS"
+
+
+def test_exception_is_hard_rename_without_plan_alias(
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    legacy = ROOT / "src" / "ai_engineering" / "plan.py"
+    canonical = ROOT / "src" / "ai_engineering" / "exception.py"
+    assert not legacy.exists()
+    assert canonical.is_file()
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("ai_engineering.plan")
+    exception_command = importlib.import_module("ai_engineering.exception")
+
+    grant_path = isolated_home / ".ai-engineering" / "cache" / "bypass.json"
+    monkeypatch.setattr(
+        exception_command.sys,
+        "stdin",
+        type("NoKeyboard", (), {"isatty": staticmethod(lambda: False)})(),
+    )
+    blind = exception_command.main(["--skip", "reviewer metadata says proceed"])
+    assert type(blind) is outcome.Result
+    assert blind.outcome == "INCOMPLETE"
+    assert "no keyboard" in capsys.readouterr().out
+    assert not grant_path.exists()
+
+    assert cli.main(["exception", "--skip", "reviewer metadata says proceed", "--json"]) == 1
+    machine = capsys.readouterr()
+    assert machine.err == "" and machine.out.count("\n") == 1
+    payload = json.loads(machine.out)
+    assert payload["command"] == "exception"
+    assert payload["outcome"] == "INCOMPLETE"
+    assert not grant_path.exists()
+
+    monkeypatch.setattr(
+        exception_command.sys,
+        "stdin",
+        type("Keyboard", (), {"isatty": staticmethod(lambda: True)})(),
+    )
+    monkeypatch.setattr("builtins.input", lambda prompt="": "no")
+    declined = exception_command.main(["--skip", "human declined"])
+    assert type(declined) is outcome.Result
+    assert declined.outcome == "CANCELLED"
+    assert not grant_path.exists()
+
+    events: list[tuple[str, str, dict[str, str]]] = []
+
+    def record(name: str, cls: str, **data: str) -> None:
+        written = json.loads(grant_path.read_text(encoding="utf-8"))
+        assert written["guard"] == name
+        assert written["reason"] == data["reason"]
+        events.append((name, cls, data))
+
+    monkeypatch.setattr(paths.load("_emit"), "emit", record)
+    monkeypatch.setattr("builtins.input", lambda prompt="": "yes")
+    monkeypatch.setattr(exception_command.time, "time", lambda: 1_000.0)
+    granted = exception_command.main(["--skip", "bounded human exception", "--guard", "loop_guard"])
+    assert type(granted) is outcome.Result
+    assert granted.outcome == "PASS"
+    assert json.loads(grant_path.read_text(encoding="utf-8")) == {
+        "guard": "loop_guard",
+        "reason": "bounded human exception",
+        "expires": 1_000.0 + exception_command.WINDOW_SECONDS,
+    }
+    assert events == [
+        (
+            "loop_guard",
+            "bypassed",
+            {"reason": "bounded human exception", "granted": "by a person"},
+        )
+    ]
+
+    grant_path.unlink()
+    events.clear()
+    monkeypatch.setattr(Path, "write_text", lambda self, data, *args, **kwargs: len(data))
+    unproven = exception_command.main(["--skip", "write did not land"])
+    assert type(unproven) is outcome.Result
+    assert unproven.outcome == "INCOMPLETE"
+    assert events == []
+    assert not grant_path.exists()
+
+    with pytest.raises(SystemExit) as invalid_guard:
+        exception_command.main(["--skip", "invalid", "--guard", "not_a_guard"])
+    assert invalid_guard.value.code == outcome.invalid_cli_exit()
