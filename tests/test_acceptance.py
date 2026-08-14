@@ -456,3 +456,50 @@ def test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases() -> None:
         assert case["expected"] in {"FAIL", "INCOMPLETE", "CLEAN"}, case["id"]
     situations = {case["situation"] for case in corpus["gitleaks"]}
     assert situations == {"absent", "8.29.0", "exit_2", "8.30.1_exit_0", "8.30.1_exit_1"}
+
+
+def _privacy_cases(check: str) -> list[dict[str, Any]]:
+    corpus = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
+    return [case for case in corpus["privacy"] if case["check"] in {check, "all"}]
+
+
+def test_acceptance_pii_v1_is_deterministic_and_fails_closed() -> None:
+    from ai_engineering.acceptance_privacy import MAX_BYTES, Verdict, acceptance_pii_v1
+
+    expected_outcome = {"FAIL": "FAIL", "INCOMPLETE": "INCOMPLETE", "CLEAN": "PASS"}
+    for case in _privacy_cases("acceptance_pii_v1"):
+        payload = base64.b64decode(case["payload_base64"]).decode("utf-8")
+        verdict = acceptance_pii_v1(payload)
+        assert verdict.outcome == expected_outcome[case["expected"]], case["id"]
+        # Determinism is the property that makes this a check rather than an opinion.
+        assert verdict == acceptance_pii_v1(payload), case["id"]
+        # The verdict may name a class and may never carry the datum it found.
+        assert payload not in repr(verdict), case["id"]
+        assert payload not in json.dumps(verdict.as_dict()), case["id"]
+
+    # Input this check cannot read is never clean.
+    for unreadable in (None, 42, b"an email at jane.doe@example.com", ["text"]):
+        assert acceptance_pii_v1(unreadable).code == "ACCEPTANCE_PRIVACY_UNSUPPORTED_INPUT"
+    assert acceptance_pii_v1("\ud800").code == "ACCEPTANCE_PRIVACY_UNDECODABLE"
+    assert acceptance_pii_v1("finding\x07bell").code == "ACCEPTANCE_PRIVACY_CONTROL_CHARACTER"
+
+    # A bound must refuse, never report clean by giving up. The over-bound text below is
+    # otherwise spotless, so only the bound can decide it.
+    over = "a" * (MAX_BYTES + 1)
+    assert acceptance_pii_v1(over) == Verdict(
+        "INCOMPLETE",
+        "ACCEPTANCE_PRIVACY_OVER_BOUND",
+        f"the candidate exceeds the {MAX_BYTES}-byte scanning bound",
+    )
+    assert acceptance_pii_v1("a" * MAX_BYTES).outcome == "PASS"
+
+    # A conclusive match outranks an ambiguity; text carrying both is already disqualified.
+    both = "reviewed by Robin Case, reachable at jane.doe@example.com"
+    assert acceptance_pii_v1(both).code == "ACCEPTANCE_PII_EMAIL"
+
+    # Three shapes a looser scanner reads as personal data. Each one appears in real
+    # acceptance prose, and refusing them would push people to reword until it passed.
+    assert acceptance_pii_v1("accepted 2026-08-14 and expires 2026-11-14").outcome == "PASS"
+    assert acceptance_pii_v1("the gate ran at 12:30:45 and stayed green").outcome == "PASS"
+    assert acceptance_pii_v1("the scanner is gitleaks 8.30.1 exactly").outcome == "PASS"
+    assert acceptance_pii_v1("repository maintainer accepted it").outcome == "PASS"
