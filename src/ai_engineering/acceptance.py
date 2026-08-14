@@ -51,6 +51,11 @@ _DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _NOT_A_STRING = frozenset({"true", "false", "yes", "no", "on", "off", "null", "~"})
 _LEAF = re.compile(r"^acceptance-(r-[0-9]{3}-[0-9]{2})$")
+# The frozen legacy evidence syntax: one normalized repository-relative path, then the
+# digest of what it held. It is historical syntax and is never copied into a new record.
+_LEGACY_EVIDENCE = re.compile(
+    r"(?:(?!\.\.?(?:/|$))[^/\\\x00-\x1f]+/)*(?!\.\.?@)[^/\\\x00-\x1f]+@sha256:[0-9a-f]{64}"
+)
 
 # The frozen legacy recognizer. These fields and no others; anything else is malformed
 # rather than ignored, because ignoring an unknown key is how a typo hides an expiry.
@@ -294,6 +299,11 @@ def _legacy_renewals(value: str | None, where: str) -> int:
     """Absence and a non-decimal string holding no ASCII digit are zero, which preserves the
     shipped `once` behaviour exactly. Everything else must be a number in range."""
 
+    if value is not None and value.lower() in _NOT_A_STRING:
+        # `renewals: true` is a boolean, and the recognizer's own rule is that a boolean is
+        # malformed. Reading it as zero turns a block that claims a renewal into an original
+        # and lets the same finding be renewed twice more past the ceiling of two.
+        raise Refusal("ACCEPTANCE_MALFORMED", f"{where} has a renewal counter that is not a value")
     if not value:
         return 0
     if not any(character.isdigit() for character in value):
@@ -331,6 +341,8 @@ def _normalized_legacy(fields: dict[str, str], where: str) -> dict[str, Any]:
         raise Refusal("ACCEPTANCE_MALFORMED", f"{where} has an accepted date that is not one date")
     if record["id"] and _ID.fullmatch(record["id"]) is None:
         raise Refusal("ACCEPTANCE_MALFORMED", f"{where} has an identity that is not R-NNN-NN")
+    if record["evidence"] and _LEGACY_EVIDENCE.fullmatch(record["evidence"]) is None:
+        raise Refusal("ACCEPTANCE_MALFORMED", f"{where} has evidence in no readable syntax")
     return record
 
 
@@ -430,22 +442,58 @@ def _validate_relation(record: dict[str, Any], where: str) -> None:
         raise Refusal("ACCEPTANCE_MALFORMED", f"{where} renews a record without binding it")
 
 
+def _present(path: Path) -> bool:
+    """Whether an entry exists at this exact name, without following anything.
+
+    `Path.exists()` follows symlinks, so a link pointing nowhere reads as absent — and a
+    spec.md replaced by a dangling link would silently take its whole acceptance history
+    out of the register. Absent is absent; anything else is somebody else's problem to
+    prove, which is what `_safe_stat` is for.
+    """
+
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return False
+    except OSError as error:
+        raise Refusal("ACCEPTANCE_UNREADABLE", f"{path.name} could not be read") from error
+    return True
+
+
 def _spec_directories(root: Path, device: int) -> list[Path]:
     home = root / "specs"
-    if not home.is_dir():
+    if not _present(home):
         return []
     _safe_stat(home, device, directory=True)
-    found = sorted(entry for entry in home.iterdir() if not entry.name.startswith("."))
+    try:
+        found = sorted(entry for entry in home.iterdir() if not entry.name.startswith("."))
+    except OSError as error:
+        raise Refusal("ACCEPTANCE_UNREADABLE", "the specs home could not be listed") from error
     if len(found) > MAX_SPEC_DIRECTORIES:
         raise Refusal("ACCEPTANCE_OVER_BOUND", "the repository holds more spec directories")
-    return [entry for entry in found if entry.is_dir()]
+    directories: list[Path] = []
+    for entry in found:
+        try:
+            value = entry.lstat()
+        except OSError as error:
+            raise Refusal("ACCEPTANCE_UNREADABLE", f"{entry.name} could not be read") from error
+        # A link is refused rather than skipped: skipping one takes whatever it points at
+        # out of the register without saying so. A plain file cannot hold records at all,
+        # so it is not a spec directory and it hides nothing.
+        if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", 0):
+            raise Refusal("ACCEPTANCE_UNSAFE_PATH", f"the spec entry {entry.name} is a link")
+        if not stat.S_ISDIR(value.st_mode):
+            continue
+        _safe_stat(entry, device, directory=True)
+        directories.append(entry)
+    return directories
 
 
 def _legacy_entries(directory: Path, device: int, budget: _Budget) -> list[tuple[Entry, int]]:
     """Every embedded acceptance in one spec, with the byte offset that orders it."""
 
     spec = directory / "spec.md"
-    if not spec.exists():
+    if not _present(spec):
         return []
     body = _read(spec, MAX_SPEC_BYTES, device, budget)
     owner = owner_of(directory.name)
@@ -534,6 +582,14 @@ def read(root: Path) -> Register:
         return Register("PASS", entries=_entries(root))
     except Refusal as refusal:
         return Register("INCOMPLETE", refusal.code, refusal.reason)
+    except OSError as error:
+        # A reader that raises kills every other check in the same run. Whatever the
+        # filesystem refused, the answer this register owes its callers is one word.
+        return Register(
+            "INCOMPLETE",
+            "ACCEPTANCE_UNREADABLE",
+            f"the acceptance register could not be read: native error {error.errno}",
+        )
 
 
 def _entries(root: Path) -> tuple[Entry, ...]:
@@ -710,6 +766,29 @@ def current(root: Path) -> Register:
     return integrity
 
 
+def _anchored(root: Path, relative: str, device: int) -> Path:
+    """Resolve a repository-relative path one exact component at a time under the root.
+
+    The schema already refuses an absolute, dot, parent or backslash spelling, but a
+    spelling check is not a filesystem check: a legal-looking `proof/receipt.txt` can still
+    be a symlink out of the tree. Every component is proved here, so a record can only ever
+    bind a file this repository holds.
+    """
+
+    if not relative or relative.startswith("/") or "\\" in relative:
+        raise Refusal("ACCEPTANCE_UNSAFE_PATH", "an evidence path is not repository-relative")
+    parts = relative.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
+        raise Refusal("ACCEPTANCE_UNSAFE_PATH", "an evidence path is not normalized")
+    walked = root
+    for part in parts[:-1]:
+        walked = walked / part
+        _safe_stat(walked, device, directory=True)
+    # The leaf is proved by the bounded read that follows, which also requires it to be one
+    # singly linked regular file on this volume.
+    return walked / parts[-1]
+
+
 def _require_binding(root: Path, entry: Entry, device: int, budget: _Budget) -> None:
     spec = root / "specs" / entry.home.split("/")[1] / "spec.md"
     body = _read(spec, MAX_SPEC_BYTES, device, budget)
@@ -717,8 +796,7 @@ def _require_binding(root: Path, entry: Entry, device: int, budget: _Budget) -> 
         raise Refusal(
             "ACCEPTANCE_BINDING_STALE", f"{entry.id} no longer matches the spec it was bound to"
         )
-    evidence = root / entry.evidence_path
-    held = _read(evidence, MAX_EVIDENCE_BYTES, device, budget)
+    held = _read(_anchored(root, entry.evidence_path, device), MAX_EVIDENCE_BYTES, device, budget)
     if "sha256:" + sha256(held).hexdigest() != entry.evidence_digest:
         raise Refusal(
             "ACCEPTANCE_BINDING_STALE", f"{entry.id} no longer matches the evidence it was bound to"

@@ -1156,3 +1156,87 @@ def test_the_expiry_view_judges_only_the_unique_head(tmp_path) -> None:
     assert lapsed.outcome == "PASS"
     assert lapsed.entries == ()
     assert [entry.id for entry in acceptance.read(root).entries] == ["R-010-01", "R-010-02"]
+
+
+def test_the_register_refuses_every_way_it_was_shown_to_go_quiet(tmp_path) -> None:
+    """Five ways a reader can report nothing instead of refusing, each one found by review.
+
+    Four of them end with a live expired acceptance disappearing from the push gate, and the
+    fifth reads a file the repository does not own. Reporting nothing found is
+    indistinguishable from reporting nothing wrong, which is the whole failure this product
+    exists to cure.
+    """
+
+    from ai_engineering import acceptance
+
+    slug = "010-governed-foundation"
+
+    # 1. A dangling symlink where spec.md was. `exists()` follows links, so a broken one
+    #    read as "no history here" and took an expired acceptance out of the register.
+    root = _repository(tmp_path / "dangling")
+    spec = root / "specs" / slug / "spec.md"
+    _legacy(root, slug, "```yaml\nfinding: an expired risk\nexpires: '2000-01-01'\n```")
+    assert [entry.finding for entry in acceptance.expired(root).entries] == ["an expired risk"]
+    spec.unlink()
+    spec.symlink_to("nowhere-at-all")
+    # It is named as a link, not as an absence: the reader lstats the exact name and then
+    # refuses what it found, instead of asking a question that follows the link first.
+    assert acceptance.read(root).code == "ACCEPTANCE_UNSAFE_PATH"
+    assert acceptance.expired(root).outcome == "INCOMPLETE"
+
+    # 2. A symlinked spec directory is refused rather than skipped.
+    root = _repository(tmp_path / "linkdir")
+    outside = tmp_path / "linkdir-elsewhere"
+    outside.mkdir()
+    (root / "specs" / "011-linked").symlink_to(outside, target_is_directory=True)
+    assert acceptance.read(root).code == "ACCEPTANCE_UNSAFE_PATH"
+
+    # 3. Evidence that leaves the repository through a link. The schema refuses the spelling;
+    #    only walking the components refuses a legal-looking path that is a link out.
+    root = _repository(tmp_path / "escape")
+    secret = tmp_path / "escape-secret"
+    secret.mkdir()
+    (secret / "notes.txt").write_text("not this repository's\n", encoding="utf-8")
+    (root / "proof").symlink_to(secret, target_is_directory=True)
+    record = _bound(root, slug)
+    record["evidence"] = {
+        "path": "proof/notes.txt",
+        "content_digest": "sha256:"
+        + hashlib.sha256((secret / "notes.txt").read_bytes()).hexdigest(),
+    }
+    record["record_digest"] = acceptance.record_digest(record)
+    _publish(root, slug, record)
+    assert acceptance.read(root).outcome == "PASS"
+    assert acceptance.current(root).code == "ACCEPTANCE_UNSAFE_PATH"
+
+    # 4. A directory this process cannot read is one word, not a traceback that takes every
+    #    other check in the same run down with it.
+    if os.getuid() != 0:
+        root = _repository(tmp_path / "denied")
+        closed = root / "specs" / slug
+        closed.chmod(0o000)
+        try:
+            assert acceptance.read(root).outcome == "INCOMPLETE"
+            assert acceptance.expired(root).outcome == "INCOMPLETE"
+        finally:
+            closed.chmod(0o755)
+
+    # 5. A boolean renewal counter is malformed, not zero. Read as zero, a block that claims
+    #    a renewal becomes an original and the same finding can be renewed twice more.
+    for spelling in ("true", "yes", "null"):
+        root = _repository(tmp_path / f"boolean-{spelling}")
+        _legacy(
+            root,
+            slug,
+            f"```yaml\nfinding: a rolled risk\nexpires: '2030-01-01'\nrenewals: {spelling}\n```",
+        )
+        assert acceptance.read(root).code == "ACCEPTANCE_MALFORMED", spelling
+
+    # 6. Legacy evidence that is not the frozen syntax is malformed rather than accepted.
+    root = _repository(tmp_path / "evidence")
+    _legacy(
+        root,
+        slug,
+        "```yaml\nfinding: a risk\nexpires: '2030-01-01'\nevidence: total garbage\n```",
+    )
+    assert acceptance.read(root).code == "ACCEPTANCE_MALFORMED"
