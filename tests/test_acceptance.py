@@ -19,6 +19,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "risk-acceptance-v1.schema.json"
 CORPUS_PATH = ROOT / "tests" / "fixtures" / "risk-acceptance-v1.json"
@@ -915,3 +917,210 @@ def test_no_acceptance_result_can_change_another_checks_status(tmp_path) -> None
         ]
         is False
     )
+
+
+def _entry(acceptance, owner: str, ordinal: str, **overrides: Any):
+    base = {
+        "id": f"R-{owner}-{ordinal}",
+        "provenance": acceptance.CANONICAL_RECORD,
+        "home": f"specs/{owner}-x/acceptance-r-{owner}-{ordinal}/record.json",
+        "owner": owner,
+        "ordinal": ordinal,
+        "finding": "a finding",
+        "severity": "medium",
+        "accepted": "2026-01-01",
+        "expires": "2026-04-01",
+        "renewals": 0,
+        "renews": "",
+        "renews_digest": "",
+        "digest": "sha256:" + "0" * 64,
+    }
+    return acceptance.Entry(**(base | overrides))
+
+
+def test_ordinals_and_renewal_chains_span_legacy_noncanonical_and_derived_ids(tmp_path) -> None:
+    from ai_engineering import acceptance
+
+    # A historical gap is filled, not treated as corruption: 01 and 03 exist, so 02 is next.
+    held = (_entry(acceptance, "010", "01"), _entry(acceptance, "010", "03"))
+    assert acceptance.next_ordinal(held, "010") == "02"
+    assert acceptance.next_ordinal((), "010") == "01"
+
+    # Ninety-nine is the ceiling, and reaching it is refused rather than wrapped or guessed.
+    full = tuple(_entry(acceptance, "010", f"{number:02d}") for number in range(1, 100))
+    with pytest.raises(acceptance.Refusal) as refused:
+        acceptance.next_ordinal(full, "010")
+    assert refused.value.code == "ACCEPTANCE_ORDINAL_EXHAUSTED"
+
+    # One numeric namespace, every home. A preserved pre-canonical directory and the
+    # canonical one share the sequence, so a renewal cannot republish R-042-01.
+    slug, legacy_slug = "042-canonical", "spec-042-note"
+    root = _repository(tmp_path, slug=slug)
+    (root / "specs" / legacy_slug).mkdir()
+    (root / "specs" / legacy_slug / "spec.md").write_text(
+        "# A preserved home\n\n"
+        "```yaml\n"
+        "id: R-042-01\n"
+        "finding: the noncanonical home still owns its ordinal\n"
+        "expires: '2026-04-05'\n"
+        "```\n",
+        encoding="utf-8",
+    )
+    register = acceptance.read(root)
+    assert register.outcome == "PASS", register.as_dict()
+    assert acceptance.taken_ordinals(register.entries, "042") == {"01"}
+    proposed = acceptance.plan(root, "the noncanonical home still owns its ordinal", "042")
+    assert proposed.outcome == "PASS"
+    assert proposed.id == "R-042-02"
+    assert proposed.renews == "R-042-01"
+    assert proposed.renewals == 1
+    # The predecessor's exact stored block is what the renewal binds.
+    stored = (root / "specs" / legacy_slug / "spec.md").read_bytes()
+    start = stored.index(b"```yaml")
+    assert proposed.renews_digest == (
+        "sha256:" + hashlib.sha256(stored[start : stored.index(b"```", start + 8) + 3]).hexdigest()
+    )
+
+
+def test_id_less_legacy_blocks_receive_stable_derived_identities(tmp_path) -> None:
+    from ai_engineering import acceptance
+
+    slug = "001-v1-from-scratch"
+    root = _repository(tmp_path, slug=slug)
+    spec = root / "specs" / slug / "spec.md"
+    spec.write_text(
+        "# History\n\n"
+        "```yaml\nid: R-001-02\nfinding: a stored identity reserves its ordinal\n"
+        "expires: '2026-04-05'\n```\n\n"
+        "```yaml\nfinding: the first nameless block\nexpires: '2026-04-05'\n```\n\n"
+        "```yaml\nfinding: the second nameless block\nexpires: '2026-04-05'\n```\n",
+        encoding="utf-8",
+    )
+    before = spec.read_bytes()
+
+    register = acceptance.read(root)
+    assert register.outcome == "PASS", register.as_dict()
+    named = {entry.finding: entry for entry in register.entries}
+    # The stored identity keeps 02; the nameless blocks take the lowest ordinals left, in
+    # the order they appear in the file.
+    assert named["a stored identity reserves its ordinal"].id == "R-001-02"
+    assert named["the first nameless block"].id == "R-001-01"
+    assert named["the second nameless block"].id == "R-001-03"
+    assert named["the first nameless block"].provenance == acceptance.DERIVED_LEGACY
+    assert named["a stored identity reserves its ordinal"].provenance == acceptance.STORED_LEGACY
+
+    # Deterministic, and never written back: the file is byte-identical afterwards.
+    assert [entry.id for entry in acceptance.read(root).entries] == [
+        entry.id for entry in register.entries
+    ]
+    assert spec.read_bytes() == before
+    assert b"R-001-01" not in before
+
+    # A derived identity can be renewed by name, and the renewal lands in a canonical home.
+    proposed = acceptance.plan(root, "the first nameless block", "001")
+    assert proposed.outcome == "PASS"
+    assert (proposed.renews, proposed.renewals) == ("R-001-01", 1)
+
+
+def test_renewal_chains_refuse_forks_cycles_and_a_third_renewal(tmp_path) -> None:
+    from ai_engineering import acceptance
+
+    slug = "010-governed-foundation"
+
+    def published(name: str, count: int) -> Path:
+        root = _repository(tmp_path / name)
+        first = _bound(root, slug)
+        _publish(root, slug, first)
+        previous = first
+        previous_digest = "sha256:" + hashlib.sha256(acceptance.canonical_bytes(first)).hexdigest()
+        for step in range(1, count + 1):
+            record = _bound(
+                root,
+                slug,
+                id=f"R-010-{step + 1:02d}",
+                renewals=step,
+                renews=previous["id"],
+                renews_digest=previous_digest,
+            )
+            _publish(root, slug, record)
+            previous = record
+            previous_digest = (
+                "sha256:" + hashlib.sha256(acceptance.canonical_bytes(record)).hexdigest()
+            )
+        return root
+
+    finding = _corpus()["base"]["record"]["finding"]
+
+    root = published("one", 1)
+    assert acceptance.read(root).outcome == "PASS"
+    assert acceptance.head_of(acceptance.read(root).entries, finding).id == "R-010-02"
+
+    # Two renewals are the limit. The third is refused conclusively, and nothing is written.
+    root = published("two", 2)
+    assert acceptance.read(root).outcome == "PASS"
+    refused = acceptance.plan(root, finding, "010")
+    assert refused.outcome == "FAIL"
+    assert refused.code == "ACCEPTANCE_RENEWAL_EXHAUSTED"
+    assert set(refused.as_dict()) == {"outcome", "code", "reason"}
+    assert not list((root / "specs" / slug).glob("acceptance-r-010-04"))
+
+    # A fork has no unique head, so no renewal can be pointed anywhere.
+    root = published("fork", 1)
+    first = _bound(root, slug)
+    twin = _bound(
+        root,
+        slug,
+        id="R-010-03",
+        renewals=1,
+        renews="R-010-01",
+        renews_digest="sha256:" + hashlib.sha256(acceptance.canonical_bytes(first)).hexdigest(),
+    )
+    _publish(root, slug, twin)
+    forked = acceptance.read(root)
+    assert forked.outcome == "INCOMPLETE" and forked.code == "ACCEPTANCE_CHAIN_FORK"
+
+    # A renewal that does not bind its predecessor's exact bytes is an integrity failure,
+    # and a renewal is never the thing that repairs one.
+    root = published("digest", 1)
+    broken = _bound(
+        root, slug, id="R-010-02", renewals=1, renews="R-010-01", renews_digest="sha256:" + "7" * 64
+    )
+    (root / "specs" / slug / "acceptance-r-010-02" / "record.json").write_bytes(
+        acceptance.canonical_bytes(broken)
+    )
+    assert acceptance.read(root).code == "ACCEPTANCE_CHAIN_DIGEST"
+
+    # A predecessor that is not here at all, and a counter that skips.
+    root = _repository(tmp_path / "missing")
+    orphan = _bound(
+        root, slug, id="R-010-02", renewals=1, renews="R-010-09", renews_digest="sha256:" + "3" * 64
+    )
+    _publish(root, slug, orphan)
+    assert acceptance.read(root).code == "ACCEPTANCE_CHAIN_MISSING"
+
+
+def test_the_expiry_view_judges_only_the_unique_head(tmp_path) -> None:
+    from ai_engineering import acceptance
+
+    slug = "010-governed-foundation"
+    root = _repository(tmp_path)
+    first = _bound(root, slug, accepted="2020-01-01", expires="2020-04-01")
+    _publish(root, slug, first)
+    renewal = _bound(
+        root,
+        slug,
+        id="R-010-02",
+        renewals=1,
+        renews="R-010-01",
+        renews_digest="sha256:" + hashlib.sha256(acceptance.canonical_bytes(first)).hexdigest(),
+        accepted="2026-01-01",
+        expires="2099-01-01",
+    )
+    _publish(root, slug, renewal)
+
+    # The renewed original expired years ago. It is history, not a live expired risk, so the
+    # push gate is not held open by a record that has already been superseded.
+    lapsed = acceptance.expired(root)
+    assert lapsed.outcome == "PASS"
+    assert lapsed.entries == ()
+    assert [entry.id for entry in acceptance.read(root).entries] == ["R-010-01", "R-010-02"]

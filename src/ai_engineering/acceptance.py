@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import re
 import stat
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from hashlib import sha256
 from pathlib import Path
@@ -539,18 +539,142 @@ def _entries(root: Path) -> tuple[Entry, ...]:
     device = _device(root)
     budget = _Budget()
     collected: list[Entry] = []
+    nameless: list[tuple[int, int]] = []
     for directory in _spec_directories(root, device):
         _safe_stat(directory, device, directory=True)
-        collected.extend(entry for entry, _offset in _legacy_entries(directory, device, budget))
+        for entry, offset in _legacy_entries(directory, device, budget):
+            if not entry.id:
+                nameless.append((len(collected), offset))
+            collected.append(entry)
         collected.extend(_record_entries(directory, device, budget, contract))
+    _require_unique_ids(collected)
+    entries = _with_derived_ids(collected, nameless)
+    _require_chains(entries)
+    return entries
+
+
+def _require_unique_ids(entries: list[Entry]) -> None:
     seen: set[str] = set()
-    for entry in collected:
+    for entry in entries:
         if not entry.id:
             continue
         if entry.id in seen:
             raise Refusal("ACCEPTANCE_DUPLICATE_ID", f"{entry.id} is published more than once")
         seen.add(entry.id)
-    return tuple(collected)
+
+
+def taken_ordinals(entries: list[Entry] | tuple[Entry, ...], owner: str) -> set[str]:
+    """Every ordinal already spoken for in one numeric namespace.
+
+    Every home whose leaf extracts the same three digits participates, canonical or
+    preserved. Two directories that both mean spec 042 share one sequence, or the same name
+    is published twice under two spellings.
+    """
+
+    return {entry.ordinal for entry in entries if entry.owner == owner and entry.ordinal}
+
+
+def next_ordinal(entries: list[Entry] | tuple[Entry, ...], owner: str) -> str:
+    """The lowest ordinal nobody holds. Historical gaps are filled rather than treated as
+    corruption, because a gap is what a deleted draft or a renumbered spec leaves behind."""
+
+    taken = taken_ordinals(entries, owner)
+    for number in range(1, MAX_RECORDS_PER_SPEC + 1):
+        candidate = f"{number:02d}"
+        if candidate not in taken:
+            return candidate
+    raise Refusal(
+        "ACCEPTANCE_ORDINAL_EXHAUSTED", f"spec {owner} has no acceptance ordinal left to allocate"
+    )
+
+
+def _with_derived_ids(collected: list[Entry], nameless: list[tuple[int, int]]) -> tuple[Entry, ...]:
+    """Give every ID-less legacy block a deterministic in-memory identity.
+
+    Stored identities reserve their ordinals first. What is left is handed out in stable
+    `(home byte spelling, block byte offset)` order, so two runs on the same bytes always
+    agree. The derived name exists to be displayed and to be named by a renewal; it is never
+    written back into the historical block, which stays exactly as its author left it.
+    """
+
+    entries = list(collected)
+    for index, _offset in sorted(
+        nameless, key=lambda item: (entries[item[0]].home.encode(), item[1])
+    ):
+        entry = entries[index]
+        ordinal = next_ordinal(entries, entry.owner)
+        entries[index] = replace(
+            entry, id=f"R-{entry.owner}-{ordinal}", ordinal=ordinal, provenance=DERIVED_LEGACY
+        )
+    return tuple(entries)
+
+
+def _require_chains(entries: tuple[Entry, ...]) -> None:
+    """Every renewal chain, resolved to exactly one head or refused.
+
+    Chains are repository-wide and keyed by exact `finding`, which is what lets a later spec
+    renew a predecessor recorded in an earlier one. A canonical record states its relation
+    and binds its predecessor's exact bytes. Legacy blocks state nothing, so their order is
+    reconstructed from the counters — and only when each counter from zero to the head names
+    exactly one record. Anything else has no unique head, and inventing one is how the wrong
+    record ends up deciding whether a risk is live.
+    """
+
+    for finding, group in _by_finding(entries).items():
+        renewed: dict[str, Entry] = {}
+        for entry in group:
+            if not entry.renews:
+                continue
+            predecessor = next((other for other in group if other.id == entry.renews), None)
+            if predecessor is None:
+                raise Refusal(
+                    "ACCEPTANCE_CHAIN_MISSING", f"{entry.id} renews a record that is not here"
+                )
+            if predecessor.id == entry.id:
+                raise Refusal("ACCEPTANCE_CHAIN_CYCLE", f"{entry.id} renews itself")
+            if predecessor.renewals != entry.renewals - 1:
+                raise Refusal(
+                    "ACCEPTANCE_CHAIN_COUNTER", f"{entry.id} does not count one past what it renews"
+                )
+            if predecessor.digest != entry.renews_digest:
+                raise Refusal(
+                    "ACCEPTANCE_CHAIN_DIGEST", f"{entry.id} does not bind its predecessor's bytes"
+                )
+            if entry.renews in renewed:
+                raise Refusal("ACCEPTANCE_CHAIN_FORK", f"{entry.renews} is renewed more than once")
+            renewed[entry.renews] = entry
+        heads = [entry for entry in group if entry.id not in renewed]
+        if len(heads) != 1:
+            raise Refusal(
+                "ACCEPTANCE_CHAIN_AMBIGUOUS", f"the finding {finding[:48]!r} has no unique head"
+            )
+        _require_reconstructable(group, heads[0], finding)
+
+
+def _require_reconstructable(group: list[Entry], head: Entry, finding: str) -> None:
+    """The counters must describe one line from zero to the head, with nothing doubled and
+    nothing missing. This is the only relation legacy history ever recorded."""
+
+    counters = sorted(entry.renewals for entry in group)
+    if counters != list(range(len(group))) or head.renewals != len(group) - 1:
+        raise Refusal(
+            "ACCEPTANCE_CHAIN_AMBIGUOUS",
+            f"the finding {finding[:48]!r} has counters that describe no single chain",
+        )
+
+
+def _by_finding(entries: tuple[Entry, ...]) -> dict[str, list[Entry]]:
+    groups: dict[str, list[Entry]] = {}
+    for entry in entries:
+        groups.setdefault(entry.finding, []).append(entry)
+    return groups
+
+
+def head_of(entries: tuple[Entry, ...], finding: str) -> Entry | None:
+    """The one entry a renewal must point at, or nothing when the finding is new."""
+
+    group = _by_finding(entries).get(finding)
+    return max(group, key=lambda entry: entry.renewals) if group else None
 
 
 def current(root: Path) -> Register:
@@ -600,4 +724,75 @@ def expired(root: Path, today: str | None = None) -> Register:
     if decided.outcome != "PASS":
         return decided
     day = today or date.today().isoformat()
-    return Register("PASS", entries=tuple(e for e in decided.entries if e.expires < day))
+    # Only the head of each chain decides. A renewal retires what it renews, so counting a
+    # superseded record as independently expired reports a risk that was already renewed.
+    heads = (head_of(decided.entries, finding) for finding in _by_finding(decided.entries))
+    return Register("PASS", entries=tuple(e for e in heads if e is not None and e.expires < day))
+
+
+@dataclass(frozen=True, slots=True)
+class Plan:
+    """What a renewal or first acceptance would be named and bound to, or why it is refused.
+
+    `FAIL` here is a policy answer and not a defect: two renewals are the limit, and the
+    third request is conclusively refused rather than published and flagged later.
+    """
+
+    outcome: str
+    code: str = ""
+    reason: str = ""
+    id: str = ""
+    renews: str = ""
+    renews_digest: str = ""
+    renewals: int = 0
+
+    def as_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"outcome": self.outcome}
+        if self.outcome == "PASS":
+            result.update(
+                id=self.id,
+                renews=self.renews,
+                renews_digest=self.renews_digest,
+                renewals=self.renewals,
+            )
+        else:
+            result.update(code=self.code, reason=self.reason)
+        return result
+
+
+MAX_RENEWALS = 2
+
+
+def plan(root: Path, finding: str, owner: str) -> Plan:
+    """Name the next record for one finding in one canonical namespace.
+
+    The namespace is named explicitly and is not inferred from the predecessor, so a valid
+    record under a preserved pre-canonical directory can be renewed only into the canonical
+    target a person asked for. Nothing is written here.
+    """
+
+    if _ID.fullmatch(f"R-{owner}-01") is None:
+        return Plan(
+            "INCOMPLETE", "ACCEPTANCE_UNDECIDABLE_OWNER", "the target spec is not three digits"
+        )
+    register = read(root)
+    if register.outcome != "PASS":
+        return Plan("INCOMPLETE", register.code, register.reason)
+    head = head_of(register.entries, finding)
+    if head is not None and head.renewals >= MAX_RENEWALS:
+        return Plan(
+            "FAIL",
+            "ACCEPTANCE_RENEWAL_EXHAUSTED",
+            f"{head.id} has already been renewed {MAX_RENEWALS} times",
+        )
+    try:
+        ordinal = next_ordinal(register.entries, owner)
+    except Refusal as refusal:
+        return Plan("INCOMPLETE", refusal.code, refusal.reason)
+    return Plan(
+        "PASS",
+        id=f"R-{owner}-{ordinal}",
+        renews="" if head is None else head.id,
+        renews_digest="" if head is None else head.digest,
+        renewals=0 if head is None else head.renewals + 1,
+    )
