@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import shutil
 import subprocess
+import sys
+import time
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import date, timedelta
 from hashlib import sha256
@@ -65,6 +69,64 @@ def _repository(tmp_path: Path, *, governed: bool = True) -> Path:
 
 def _snapshot(root: Path) -> dict[Path, bytes]:
     return {path.relative_to(root): path.read_bytes() for path in root.rglob("*") if path.is_file()}
+
+
+def _activate_intent(root: Path) -> dict:
+    home = root / ".ai" / "intent.md"
+    record = json.loads(home.read_bytes())
+    record["lifecycle"] = {
+        "status": "active",
+        "transitions": [
+            {
+                "from": "draft",
+                "to": "active",
+                "changed_at": "2026-08-14T10:00:00Z",
+                "authority_role": "repository maintainer",
+                "approval_ref": "change-request-17",
+            }
+        ],
+        "approval": {
+            "authority_role": "repository maintainer",
+            "approval_ref": "change-request-17",
+            "approved_at": "2026-08-14T10:00:00Z",
+        },
+    }
+    home.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    assert intent.validate(home, root).outcome == "PASS"
+    return record
+
+
+def _transitive_intent_graph(
+    root: Path,
+    *,
+    depth: int = 1,
+    malformed: bool = False,
+) -> tuple[dict, list[Path]]:
+    record = _activate_intent(root)
+    relation = root / record["relations"][0]["path"]
+    adrs = [root / "docs" / "adr" / f"{number:04d}-linked.md" for number in range(1, depth + 1)]
+    first = adrs[0].relative_to(root).as_posix()
+    declared = f"{first},,{first}" if malformed else first
+    relation_bytes = (
+        f'---\nid: "010"\nstatus: draft\nrelations: {declared}\n---\n\n# Governed foundation\n'
+    ).encode()
+    relation.write_bytes(relation_bytes)
+    for index, target in enumerate(adrs):
+        target.parent.mkdir(parents=True, exist_ok=True)
+        linked = (
+            f"relations: {adrs[index + 1].relative_to(root).as_posix()}\n"
+            if index + 1 < len(adrs)
+            else "relations: []\n"
+        )
+        target.write_text(
+            f'---\nid: "{index + 1:04d}"\ntype: adr\nstatus: proposed\n{linked}---\n\n# Linked\n',
+            encoding="utf-8",
+        )
+    record["relations"][0]["target_digest"] = f"sha256:{sha256(relation_bytes).hexdigest()}"
+    (root / ".ai" / "intent.md").write_text(
+        json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return record, adrs
 
 
 def test_init_writes_only_canonical_homes_and_receipt(
@@ -474,13 +536,13 @@ def test_spec_command_enforces_intent_and_authority(
     sentinel.write_bytes(b"foreign sentinel\n")
 
     unapproved = spec.main(["new", "unapproved", "--ref", "reviewer-said-pass"])
-    assert type(unapproved) is outcome.Result
+    assert type(unapproved) is outcome.Execution
     assert unapproved.outcome == "INCOMPLETE"
     assert not (root / "specs" / "011-unapproved").exists()
 
     home.write_bytes(b'{"metadata":"is not governed intent authority"}\n')
     invalid = spec.main(["new", "invalid-intent"])
-    assert type(invalid) is outcome.Result
+    assert type(invalid) is outcome.Execution
     assert invalid.outcome == "INCOMPLETE"
     assert not (root / "specs" / "011-invalid-intent").exists()
 
@@ -513,7 +575,7 @@ def test_spec_command_enforces_intent_and_authority(
 
     activate("release manager")
     misattributed = spec.main(["new", "approval-must-match-owner"])
-    assert type(misattributed) is outcome.Result
+    assert type(misattributed) is outcome.Execution
     assert misattributed.outcome == "INCOMPLETE"
     assert not (root / "specs" / "011-approval-must-match-owner").exists()
 
@@ -522,14 +584,14 @@ def test_spec_command_enforces_intent_and_authority(
     home.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     assert intent.validate(home, root).outcome == "PASS"
     reviewer_transition = spec.main(["new", "reviewer-transition-is-not-authority"])
-    assert type(reviewer_transition) is outcome.Result
+    assert type(reviewer_transition) is outcome.Execution
     assert reviewer_transition.outcome == "INCOMPLETE"
     assert not (root / "specs" / "011-reviewer-transition-is-not-authority").exists()
 
     record["ownership"]["accountable_role"] = "AI reviewer"
     activate("AI reviewer")
     reviewer = spec.main(["new", "reviewer-is-not-authority"])
-    assert type(reviewer) is outcome.Result
+    assert type(reviewer) is outcome.Execution
     assert reviewer.outcome == "INCOMPLETE"
     assert not (root / "specs" / "011-reviewer-is-not-authority").exists()
 
@@ -546,14 +608,14 @@ def test_spec_command_enforces_intent_and_authority(
 
     monkeypatch.setattr(intent, "validate", changed_after_validation)
     changed = spec.main(["new", "intent-changed-after-validation"])
-    assert type(changed) is outcome.Result
+    assert type(changed) is outcome.Execution
     assert changed.outcome == "INCOMPLETE"
     assert not (root / "specs" / "011-intent-changed-after-validation").exists()
 
     monkeypatch.setattr(intent, "validate", stable_validate)
     activate("repository maintainer")
     approved = spec.main(["new", "approved-change", "--ref", "owner/repo#45"])
-    assert type(approved) is outcome.Result
+    assert type(approved) is outcome.Execution
     assert approved.outcome == "PASS"
     created = root / "specs" / "011-approved-change" / "spec.md"
     assert created.is_file()
@@ -575,6 +637,512 @@ def test_spec_command_enforces_intent_and_authority(
         spec.main(["new", "../outside-spec-scope"])
     assert invalid_cli.value.code == outcome.invalid_cli_exit()
     assert "reviewer-said-pass" not in capsys.readouterr().out
+
+
+def test_spec_command_publishes_only_from_unchanged_authority_snapshot(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    home = root / ".ai" / "intent.md"
+    record = json.loads(home.read_bytes())
+    record["lifecycle"] = {
+        "status": "active",
+        "transitions": [
+            {
+                "from": "draft",
+                "to": "active",
+                "changed_at": "2026-08-14T10:00:00Z",
+                "authority_role": "repository maintainer",
+                "approval_ref": "change-request-17",
+            }
+        ],
+        "approval": {
+            "authority_role": "repository maintainer",
+            "approval_ref": "change-request-17",
+            "approved_at": "2026-08-14T10:00:00Z",
+        },
+    }
+    home.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    relation = root / record["relations"][0]["path"]
+    relation_before = relation.read_bytes()
+    stable_validate = intent.validate
+    materialized_calls = 0
+
+    def change_relation_after_first_snapshot(source, repository):
+        nonlocal materialized_calls
+        validation = stable_validate(source, repository)
+        if isinstance(source, dict):
+            materialized_calls += 1
+            if materialized_calls == 1:
+                relation.write_bytes(relation_before + b"\nchanged after authority snapshot\n")
+        return validation
+
+    monkeypatch.setattr(intent, "validate", change_relation_after_first_snapshot)
+
+    result = spec.main(["new", "snapshot-bound"])
+
+    assert type(result) is outcome.Execution
+    assert result.outcome == "INCOMPLETE"
+    assert not (root / "specs" / "011-snapshot-bound").exists()
+    pending = root / "specs" / "pending-011-snapshot-bound"
+    assert (pending / "spec.md").is_file()
+    assert any("pending-011-snapshot-bound" in item for item in result.remaining)
+    assert relation.read_bytes() != relation_before
+
+
+def test_spec_late_result_construction_cannot_open_authority_window(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    record = _activate_intent(root)
+    relation = root / record["relations"][0]["path"]
+    before = relation.read_bytes()
+    real_fact = outcome.fact
+    changed = False
+
+    def late_fact(identifier, status, summary, detail=None):
+        nonlocal changed
+        if identifier == "spec-created" and not changed:
+            changed = True
+            relation.write_bytes(before + b"late authority change\n")
+        return real_fact(identifier, status, summary, detail)
+
+    monkeypatch.setattr(outcome, "fact", late_fact)
+
+    result = spec.main(["new", "late-result-window"])
+
+    assert type(result) is outcome.Execution
+    assert result.outcome == "INCOMPLETE"
+    assert not (root / "specs" / "011-late-result-window").exists()
+    assert (root / "specs" / "pending-011-late-result-window" / "spec.md").is_file()
+
+
+@pytest.mark.parametrize("after_create", [False, True])
+def test_spec_stage_failure_reports_only_a_possible_pending_path(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    after_create: bool,
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    _activate_intent(root)
+    real_writer = spec.spec_transaction.writer
+
+    @contextmanager
+    def failed_writer(*args, **kwargs):
+        with real_writer(*args, **kwargs) as active:
+
+            class Writer:
+                def __getattr__(self, name):
+                    return getattr(active, name)
+
+                def stage(self, *stage_args, **stage_kwargs):
+                    if after_create:
+                        active.stage(*stage_args, **stage_kwargs)
+                    raise spec.spec_transaction.Unsafe("injected stage failure")
+
+            yield Writer()
+
+    monkeypatch.setattr(spec.spec_transaction, "writer", failed_writer)
+
+    result = spec.main(["new", "uncertain-stage"])
+
+    assert type(result) is outcome.Execution
+    assert result.outcome == "INCOMPLETE"
+    assert result.changes == ()
+    possible = "specs/pending-011-uncertain-stage/spec.md"
+    assert any(f"If {possible} exists" in item for item in result.remaining)
+    assert any(fact.detail == possible for fact in result.checks)
+    assert (root / possible).is_file() is after_create
+    assert not (root / "specs" / "011-uncertain-stage").exists()
+
+
+def test_spec_materializes_valid_transitive_relation_graph(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    valid_home = tmp_path / "valid"
+    valid_home.mkdir()
+    valid_root = _repository(valid_home)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: valid_root)
+    _valid_record, valid_adrs = _transitive_intent_graph(valid_root)
+    assert intent.validate(valid_root / ".ai" / "intent.md", valid_root).outcome == "PASS"
+
+    valid = spec.main(["new", "transitive-valid"])
+
+    assert type(valid) is outcome.Execution and valid.outcome == "PASS"
+    assert valid_adrs[0].read_text(encoding="utf-8").endswith("# Linked\n")
+
+    disabled_home = tmp_path / "disabled"
+    disabled_home.mkdir()
+    disabled_root = _repository(disabled_home)
+    _transitive_intent_graph(disabled_root)
+    with monkeypatch.context() as disabled_patch:
+        disabled_patch.setattr(paths, "repo_root", lambda start=None: disabled_root)
+        disabled_patch.setattr(spec, "_document_relations", lambda body: [], raising=False)
+
+        disabled = spec.main(["new", "transitive-disabled"])
+
+    assert type(disabled) is outcome.Execution and disabled.outcome == "INCOMPLETE"
+    assert not (disabled_root / "specs" / "011-transitive-disabled").exists()
+
+    changed_home = tmp_path / "changed"
+    changed_home.mkdir()
+    changed_root = _repository(changed_home)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: changed_root)
+    _changed_record, changed_adrs = _transitive_intent_graph(changed_root)
+    real_writer = spec.spec_transaction.writer
+
+    @contextmanager
+    def changed_writer(*args, **kwargs):
+        with real_writer(*args, **kwargs) as active:
+
+            class Writer:
+                def __getattr__(self, name):
+                    return getattr(active, name)
+
+                def stage(self, *stage_args, **stage_kwargs):
+                    pending = active.stage(*stage_args, **stage_kwargs)
+                    changed_adrs[0].write_bytes(changed_adrs[0].read_bytes() + b"changed\n")
+                    return pending
+
+            yield Writer()
+
+    monkeypatch.setattr(spec.spec_transaction, "writer", changed_writer)
+
+    changed = spec.main(["new", "transitive-changed"])
+
+    assert type(changed) is outcome.Execution and changed.outcome == "INCOMPLETE"
+    assert not (changed_root / "specs" / "011-transitive-changed").exists()
+
+
+@pytest.mark.parametrize(("malformed", "depth"), [(True, 1), (False, 128)])
+def test_spec_transitive_relation_malformed_or_over_bound_is_incomplete(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    malformed: bool,
+    depth: int,
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    _transitive_intent_graph(root, depth=depth, malformed=malformed)
+
+    result = spec.main(["new", "transitive-refusal"])
+
+    assert type(result) is outcome.Execution and result.outcome == "INCOMPLETE"
+    assert not (root / "specs" / "011-transitive-refusal").exists()
+
+
+@pytest.mark.parametrize("changed", ["file", "directory", "intent", "namespace"])
+def test_spec_command_detects_post_stage_aba_and_preserves_named_pending(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    changed: str,
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    record = _activate_intent(root)
+    home = root / ".ai" / "intent.md"
+    relation = root / record["relations"][0]["path"]
+    relation_bytes = relation.read_bytes()
+    intent_bytes = home.read_bytes()
+    real_writer = spec.spec_transaction.writer
+
+    @contextmanager
+    def changed_writer(*args, **kwargs):
+        with real_writer(*args, **kwargs) as active:
+
+            class Writer:
+                def __getattr__(self, name):
+                    return getattr(active, name)
+
+                def stage(self, *stage_args, **stage_kwargs):
+                    pending = active.stage(*stage_args, **stage_kwargs)
+                    if changed == "file":
+                        relation.write_bytes(relation_bytes + b"changed\n")
+                        relation.write_bytes(relation_bytes)
+                    elif changed == "directory":
+                        shutil.rmtree(relation.parent)
+                        relation.parent.mkdir()
+                        relation.write_bytes(relation_bytes)
+                    elif changed == "intent":
+                        altered = json.loads(intent_bytes)
+                        altered["relations"] = []
+                        home.write_text(json.dumps(altered) + "\n", encoding="utf-8")
+                        home.write_bytes(intent_bytes)
+                    else:
+                        foreign = root / "specs" / "foreign-namespace-entry"
+                        foreign.mkdir()
+                        foreign.rmdir()
+                    return pending
+
+            yield Writer()
+
+    monkeypatch.setattr(spec.spec_transaction, "writer", changed_writer)
+
+    result = spec.main(["new", f"aba-{changed}"])
+
+    assert type(result) is outcome.Execution
+    assert result.outcome == "INCOMPLETE"
+    assert not (root / "specs" / f"011-aba-{changed}").exists()
+    pending = root / "specs" / f"pending-011-aba-{changed}" / "spec.md"
+    assert pending.is_file()
+    assert any(pending.parent.name in item for item in result.remaining)
+    assert relation.read_bytes() == relation_bytes
+    assert home.read_bytes() == intent_bytes
+    assert all("pending-" not in row for row in spec.listing(root, True))
+    assert spec.target(root) == relation
+
+
+def test_spec_success_has_exact_facts_and_json_and_pending_is_not_canonical(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    _activate_intent(root)
+    before = {path.relative_to(root) for path in root.rglob("*")}
+
+    result = spec.main(["new", "exact-tree", "--ref", "owner/repo#45"])
+
+    assert type(result) is outcome.Execution
+    assert result.outcome == "PASS"
+    assert [fact.id for fact in result.changes] == ["spec-created"]
+    assert result.changes[0].detail == "specs/011-exact-tree/spec.md"
+    assert {fact.id for fact in result.checks} == {
+        "intent-authority",
+        "authority-snapshot",
+        "spec-publication",
+    }
+    after = {path.relative_to(root) for path in root.rglob("*")}
+    assert after - before == {
+        Path("specs/011-exact-tree"),
+        Path("specs/011-exact-tree/spec.md"),
+    }
+    assert not any(path.name.startswith("pending-") for path in (root / "specs").iterdir())
+    capsys.readouterr()
+
+    assert cli.main(["--json", "spec", "new", "machine-tree"]) == 0
+    rendered = capsys.readouterr()
+    assert rendered.err == "" and rendered.out.count("\n") == 1
+    payload = json.loads(rendered.out)
+    assert payload["outcome"] == "PASS"
+    assert payload["changes"] == [
+        {
+            "id": "spec-created",
+            "status": "APPLIED",
+            "summary": "Created governed spec",
+            "detail": "specs/012-machine-tree/spec.md",
+        }
+    ]
+    assert payload["remaining"] == [] and payload["error"] is None
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="POSIX FIFO contract")
+def test_spec_relation_fifo_and_specs_alias_fail_closed_without_external_writes(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    record = _activate_intent(root)
+    relation = root / record["relations"][0]["path"]
+    relation.unlink()
+    os.mkfifo(relation)
+
+    started = time.monotonic()
+    fifo = spec.main(["new", "fifo-refusal"])
+
+    assert time.monotonic() - started < 2
+    assert type(fifo) is outcome.Execution and fifo.outcome == "INCOMPLETE"
+    assert not (root / "specs" / "011-fifo-refusal").exists()
+
+    alias_case = tmp_path / "alias-case"
+    alias_case.mkdir()
+    alias_root = _repository(alias_case)
+    _activate_intent(alias_root)
+    external = tmp_path / "external-specs"
+    external.mkdir()
+    sentinel = external / "sentinel"
+    sentinel.write_bytes(b"foreign bytes\n")
+    shutil.rmtree(alias_root / "specs")
+    (alias_root / "specs").symlink_to(external, target_is_directory=True)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: alias_root)
+
+    aliased = spec.main(["new", "alias-refusal"])
+
+    assert type(aliased) is outcome.Execution and aliased.outcome == "INCOMPLETE"
+    assert sentinel.read_bytes() == b"foreign bytes\n"
+    assert list(external.iterdir()) == [sentinel]
+
+
+def test_spec_prior_pending_consumes_id_and_exhaustion_is_incomplete(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    _activate_intent(root)
+    prior = root / "specs" / "pending-011-prior" / "spec.md"
+    prior.parent.mkdir()
+    prior.write_bytes(b"prior pending bytes\n")
+
+    created = spec.main(["new", "after-pending"])
+
+    assert type(created) is outcome.Execution and created.outcome == "PASS"
+    assert (root / "specs" / "012-after-pending" / "spec.md").is_file()
+    assert prior.read_bytes() == b"prior pending bytes\n"
+
+    (root / "specs" / "999-exhausted").mkdir()
+    exhausted = spec.main(["new", "cannot-wrap"])
+    assert type(exhausted) is outcome.Execution and exhausted.outcome == "INCOMPLETE"
+    assert not (root / "specs" / "1000-cannot-wrap").exists()
+
+
+@pytest.mark.parametrize(
+    ("failure", "code", "after_stage"),
+    [
+        (spec.spec_transaction.Busy("busy"), "SPEC_TRANSACTION_BUSY", False),
+        (
+            spec.spec_transaction.Collision("collision"),
+            "SPEC_PUBLICATION_COLLISION",
+            True,
+        ),
+        (
+            spec.spec_transaction.Unsupported("unsupported"),
+            "SPEC_TRANSACTION_UNSUPPORTED",
+            True,
+        ),
+    ],
+)
+def test_spec_transaction_failures_are_truthful_and_never_canonical(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    failure: spec.spec_transaction.TransactionError,
+    code: str,
+    after_stage: bool,
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    _activate_intent(root)
+    real_writer = spec.spec_transaction.writer
+
+    @contextmanager
+    def failed_writer(*args, **kwargs):
+        if not after_stage:
+            raise failure
+        with real_writer(*args, **kwargs) as active:
+
+            class Writer:
+                def __getattr__(self, name):
+                    return getattr(active, name)
+
+                def publish(self, pending, final):
+                    raise failure
+
+            yield Writer()
+
+    monkeypatch.setattr(spec.spec_transaction, "writer", failed_writer)
+
+    exit_code = cli.main(["--json", "spec", "new", "transaction-refusal"])
+
+    assert exit_code == 1
+    rendered = capsys.readouterr()
+    assert rendered.err == "" and rendered.out.count("\n") == 1
+    payload = json.loads(rendered.out)
+    assert payload["outcome"] == "INCOMPLETE"
+    assert payload["error"]["code"] == code
+    assert not (root / "specs" / "011-transaction-refusal").exists()
+    pending = root / "specs" / "pending-011-transaction-refusal" / "spec.md"
+    assert pending.is_file() is after_stage
+    if after_stage:
+        assert any("pending-011-transaction-refusal" in item for item in payload["remaining"])
+
+
+@pytest.mark.parametrize("ambiguous", ["1st-attempt", "010-duplicate-id"])
+def test_spec_ambiguous_namespace_fails_closed_without_touching_foreign_entry(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    ambiguous: str,
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    _activate_intent(root)
+    foreign = root / "specs" / ambiguous
+    foreign.mkdir()
+    sentinel = foreign / "foreign"
+    sentinel.write_bytes(b"foreign bytes\n")
+
+    result = spec.main(["new", "ambiguous-refusal"])
+
+    assert type(result) is outcome.Execution and result.outcome == "INCOMPLETE"
+    assert sentinel.read_bytes() == b"foreign bytes\n"
+    assert not (root / "specs" / "011-ambiguous-refusal").exists()
+
+
+def test_concurrent_spec_processes_never_share_a_numeric_id(
+    tmp_path: Path,
+    isolated_home: Path,
+) -> None:
+    root = _repository(tmp_path)
+    _activate_intent(root)
+    command = (
+        "import sys; from ai_engineering import spec; "
+        "raise SystemExit(spec.main(['new', sys.argv[1]]).exit_code)"
+    )
+    environment = {**os.environ, "PYTHONPATH": str(ROOT / "src")}
+    slugs = ["parallel-one", "parallel-two", "parallel-three"]
+    processes = [
+        subprocess.Popen(
+            [sys.executable, "-c", command, slug],
+            cwd=root,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        for slug in slugs
+    ]
+    for process in processes:
+        process.communicate(timeout=10)
+    for slug in slugs:
+        if not list((root / "specs").glob(f"[0-9][0-9][0-9]-{slug}")):
+            completed = subprocess.run(
+                [sys.executable, "-c", command, slug],
+                cwd=root,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            assert completed.returncode == 0
+
+    created = sorted(
+        path.name
+        for path in (root / "specs").iterdir()
+        if any(path.name.endswith(slug) for slug in slugs)
+    )
+    assert len(created) == 3
+    assert len({name[:3] for name in created}) == 3
+    assert {name[:3] for name in created} == {"011", "012", "013"}
 
 
 def test_decide_returns_canonical_outcome_after_madr_validation(

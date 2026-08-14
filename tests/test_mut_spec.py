@@ -27,6 +27,21 @@ TODAY = date.today().isoformat()
 INTENT_FIXTURE = Path(__file__).parent / "fixtures" / "intent-v1.json"
 
 
+def _fixture_spec(root: Path, slug: str, ref: str = "") -> Path:
+    home = root / "specs"
+    home.mkdir(exist_ok=True)
+    identifiers = [
+        int(folder.name[:3])
+        for folder in home.iterdir()
+        if spec._CANONICAL_SPEC.fullmatch(folder.name)
+    ]
+    number = f"{max(identifiers, default=0) + 1:03d}"
+    target = home / f"{number}-{slug}" / "spec.md"
+    target.parent.mkdir()
+    target.write_bytes(spec._render(number, slug, ref))
+    return target
+
+
 @pytest.fixture
 def home(tmp_path, monkeypatch):
     """The chain, the machine id and the caches, all inside tmp_path."""
@@ -126,7 +141,7 @@ def _keyboard(monkeypatch, typed):
 def test_a_spec_written_without_a_work_item_keeps_its_todo_and_an_empty_ref(tmp_path):
     """Nothing prefills the problem, with or without a --ref, so the TODO must survive: it
     is the line that tells the next reader the problem has not been described yet."""
-    body = spec.create(tmp_path, "a-thing", "").read_text()
+    body = _fixture_spec(tmp_path, "a-thing").read_text()
     assert "TODO: what is true today, and what about it is a problem." in body
     assert 'ref: ""' in body
 
@@ -158,7 +173,7 @@ def test_spec_new_writes_the_spec_and_prints_the_path_a_reader_can_open(approved
     """The printed path is how the person finds what was just written. It is relative to
     the repository, and the command has to say it landed with an exact PASS."""
     result = spec.main(["new", "a-thing"])
-    assert type(result) is outcome.Result
+    assert type(result) is outcome.Execution
     assert result.outcome == "PASS"
     assert capsys.readouterr().out == "  ✓ specs/001-a-thing/spec.md\n"
     body = (approved_repo / "specs" / "001-a-thing" / "spec.md").read_text()
@@ -171,7 +186,7 @@ def test_spec_new_records_the_work_item_named_on_the_flag_and_prefills_nothing(
     """--ref is where the work came from, and that is all it is. The item reaches the
     frontmatter; the heading stays the slug and the problem stays the author's to write."""
     result = spec.main(["new", "a-thing", "--ref", "owner/repo#45"])
-    assert type(result) is outcome.Result
+    assert type(result) is outcome.Execution
     assert result.outcome == "PASS"
     assert capsys.readouterr().out == "  ✓ specs/001-a-thing/spec.md\n"
     body = (approved_repo / "specs" / "001-a-thing" / "spec.md").read_text()
@@ -184,8 +199,8 @@ def test_spec_show_prints_every_directory_that_matches_and_names_each_one(repo, 
     reads one spec and acts as though it were the only one that matched — the same
     first-match defect that made a peer product reject branches that did reference a live
     card. A single match is printed on its own, with no heading in front of it."""
-    spec.create(repo, "thing", "")
-    spec.create(repo, "other-thing", "")
+    _fixture_spec(repo, "thing")
+    _fixture_spec(repo, "other-thing")
     result = spec.main(["show", "00"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
@@ -205,8 +220,8 @@ def test_spec_list_prints_one_row_per_spec_and_says_so_when_there_are_none(repo,
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     assert capsys.readouterr().out == "  no specs yet — `ai-eng spec new <slug>`\n"
-    spec.create(repo, "one", "")
-    spec.create(repo, "two", "")
+    _fixture_spec(repo, "one")
+    _fixture_spec(repo, "two")
     result = spec.main(["list"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
@@ -217,7 +232,7 @@ def test_spec_list_prints_one_row_per_spec_and_says_so_when_there_are_none(repo,
 def test_spec_list_all_is_the_only_way_a_superseded_spec_shows_up(repo, capsys):
     """A superseded spec records a decision that has been overturned. It stays out of the
     default listing, and --all is the flag that says the reader asked for it anyway."""
-    old = spec.create(repo, "old", "")
+    old = _fixture_spec(repo, "old")
     old.write_text(old.read_text().replace("status: draft", "status: superseded"))
     result = spec.main(["list"])
     assert type(result) is outcome.Result
@@ -278,9 +293,9 @@ def test_the_record_has_exactly_one_home_and_the_newest_spec_is_the_last_number(
     assert decide.adr_dir(tmp_path) == tmp_path / "docs" / "adr"
     with pytest.raises(LookupError, match="no spec to record this against"):
         spec.target(tmp_path)
-    only = spec.create(tmp_path, "old", "")
+    only = _fixture_spec(tmp_path, "old")
     assert spec.target(tmp_path) == only
-    spec.create(tmp_path, "new", "")
+    _fixture_spec(tmp_path, "new")
     # Two open specs and nothing named: it refuses instead of taking the last one, which is
     # how two decisions written for spec 003 landed in another session's spec.
     with pytest.raises(LookupError, match="2 specs are open"):
@@ -295,7 +310,7 @@ def test_the_record_has_exactly_one_home_and_the_newest_spec_is_the_last_number(
 def test_an_adr_filename_is_a_clean_slug_capped_at_sixty_characters(tmp_path, title, stem):
     """The filename is what everybody greps. Punctuation left as a trailing dash, or a
     title allowed to run on, gives a name nobody can type or predict."""
-    specification = spec.create(tmp_path, "decision-home", "")
+    specification = _fixture_spec(tmp_path, "decision-home")
     assert decide.promote(tmp_path, title, "", specification).stem == stem
 
 
@@ -303,7 +318,7 @@ def test_a_decision_lands_between_the_headings_and_leaves_the_spec_intact(tmp_pa
     """The block goes under `## Decisions`, above the risks, and everything already in the
     file survives. A decision written to the end of the file, or one that ate the
     frontmatter, is a record that no longer parses."""
-    path = spec.create(tmp_path, "a-thing", "")
+    path = _fixture_spec(tmp_path, "a-thing")
     decide.append(path, {"decision": "One queue", "date": TODAY})
     body = path.read_text()
     assert body.startswith("---\nid: ")
@@ -360,7 +375,7 @@ def test_an_adr_listing_shows_the_status_of_every_file_including_the_broken_ones
 def test_decide_madr_writes_the_file_and_says_it_grants_no_authority(repo, capsys):
     """A promoted decision is proposed, not accepted: the second line is what stops a
     reader treating a freshly written MADR as something the team agreed to."""
-    spec.create(repo, "queue", "")
+    _fixture_spec(repo, "queue")
     result = decide.main(["Use one queue", "--madr"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
@@ -376,7 +391,7 @@ def test_decide_madr_writes_the_file_and_says_it_grants_no_authority(repo, capsy
 
 def test_proposing_a_supersession_does_not_rewrite_or_authorize_the_old_madr(repo):
     """A proposal may point at the old MADR, but only human authority can transition it."""
-    spec.create(repo, "queue", "")
+    _fixture_spec(repo, "queue")
     result = decide.main(["Use one queue", "--madr"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
@@ -392,7 +407,7 @@ def test_proposing_a_supersession_does_not_rewrite_or_authorize_the_old_madr(rep
 
 def test_a_madr_proposal_writes_nothing_outside_its_canonical_home(repo):
     """Proposal must not turn a spec edit into authority or create a second record."""
-    path = spec.create(repo, "a-thing", "")
+    path = _fixture_spec(repo, "a-thing")
     before = path.read_bytes()
     result = decide.main(["Use one queue", "--madr"])
     assert type(result) is outcome.Result
@@ -407,7 +422,7 @@ def test_decide_list_prints_one_row_per_adr_and_says_so_when_there_are_none(repo
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     assert capsys.readouterr().out == "  no MADRs yet — most decisions never need one\n"
-    spec.create(repo, "decisions", "")
+    _fixture_spec(repo, "decisions")
     result = decide.main(["One", "--madr"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
@@ -425,7 +440,7 @@ def test_decide_list_prints_one_row_per_adr_and_says_so_when_there_are_none(repo
 def test_a_decision_that_stays_in_its_spec_is_dated_and_carries_a_rationale(repo, capsys):
     """A decision with no date cannot be put in order against the others, and one with no
     rationale is a note. When nobody typed --why the placeholder says so in the diff."""
-    spec.create(repo, "a-thing", "")
+    _fixture_spec(repo, "a-thing")
     result = decide.main(["Use one queue"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"

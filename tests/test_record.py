@@ -9,6 +9,7 @@ goes red the moment it does. Nothing here touches the real home or the real repo
 from __future__ import annotations
 
 import builtins
+import hashlib
 import json
 import os
 import re
@@ -28,11 +29,11 @@ from ai_engineering import (
     contract,
     decide,
     exception,
-    intent,
     outcome,
     paths,
     report,
     spec,
+    spec_transaction,
     text,
 )
 
@@ -48,6 +49,21 @@ SIGNED = [
     "proof.txt",
 ]
 A_WEEK_AGO = (date.today() - timedelta(days=7)).isoformat()
+
+
+def _fixture_spec(root: Path, slug: str, ref: str = "") -> Path:
+    home = root / "specs"
+    home.mkdir(exist_ok=True)
+    identifiers = [
+        int(folder.name[:3])
+        for folder in home.iterdir()
+        if spec._CANONICAL_SPEC.fullmatch(folder.name)
+    ]
+    number = f"{max(identifiers, default=0) + 1:03d}"
+    target = home / f"{number}-{slug}" / "spec.md"
+    target.parent.mkdir()
+    target.write_bytes(spec._render(number, slug, ref))
+    return target
 
 
 def completed(execution):
@@ -303,8 +319,8 @@ def test_an_acceptance_with_no_end_date_is_refused(repo, capsys):
 def test_the_third_renewal_is_refused_and_writes_nothing(repo, capsys):
     """Two renewals is the ceiling: after that the finding gets fixed or the answer
     changes. If the counter did not hold, a risk could be rolled forward forever."""
-    (repo / "specs" / "1234-big").mkdir()
-    (repo / "specs" / "1234-big" / "spec.md").write_text("# big\n", encoding="utf-8")
+    (repo / "specs" / "123-big").mkdir()
+    (repo / "specs" / "123-big" / "spec.md").write_text("# big\n", encoding="utf-8")
     for expected in range(accept.MAX_RENEWALS + 1):
         completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
         assert int(accept.blocks(repo)[0][1]["renewals"]) == expected
@@ -501,31 +517,35 @@ def test_a_truncated_line_is_reported_as_broken_not_as_a_crash(home, capsys):
         (("001-a",), "002"),
         (("001-a", "007-b"), "008"),
         (("001-a", "002-b", "003-c"), "004"),
-        (("999-z",), "1000"),
+        (("001-a", "pending-007-b"), "008"),
         (("notes", "README"), "001"),
     ],
 )
-def test_a_spec_number_is_never_handed_out_twice(tmp_path, existing, expected):
+def test_a_spec_number_is_never_handed_out_twice(existing, expected):
     """Numbering off the highest, not off the count: delete spec 002 and the next spec
     must still be 003, or two different specs end up sharing a number in the record."""
-    (tmp_path / "specs").mkdir()
-    for name in existing:
-        (tmp_path / "specs" / name).mkdir()
-    assert spec.next_number(tmp_path) == expected
+    generation = spec_transaction.Generation("specs", (1, 2), 0, 0, 0)
+    inventory = spec_transaction.Inventory(
+        tuple(existing),
+        tuple(name for name in existing if name.startswith("pending-")),
+        generation,
+        object(),
+    )
+    assert spec._number(inventory) == expected
 
 
-def test_a_folder_that_is_not_a_spec_does_not_stop_numbering(tmp_path):
-    """One hand-made folder under specs/ is ignored, and does not turn the next spec into a
-    traceback for everybody who works in that repository afterwards."""
-    (tmp_path / "specs" / "001-a").mkdir(parents=True)
-    (tmp_path / "specs" / "1st-attempt").mkdir()
-    assert spec.next_number(tmp_path) == "002"
+@pytest.mark.parametrize("names", [("999-z",), ("001-a", "001-b"), ("1st-attempt",)])
+def test_an_exhausted_or_ambiguous_spec_namespace_refuses(names):
+    generation = spec_transaction.Generation("specs", (1, 2), 0, 0, 0)
+    inventory = spec_transaction.Inventory(tuple(names), (), generation, object())
+    with pytest.raises(spec_transaction.Unsafe):
+        spec._number(inventory)
 
 
 def test_a_new_spec_carries_all_eight_production_ready_boxes_unticked(tmp_path):
     """Rule 11 is these eight boxes. A template that shipped seven, or shipped one already
     ticked, is a checklist that says a thing was verified when nobody verified it."""
-    first = spec.create(tmp_path, "a-thing", "")
+    first = _fixture_spec(tmp_path, "a-thing")
     body = first.read_text()
     assert first == tmp_path / "specs" / "001-a-thing" / "spec.md"
     assert [line for line in body.splitlines() if line.startswith("- [ ]")] == [
@@ -543,13 +563,13 @@ def test_a_new_spec_carries_all_eight_production_ready_boxes_unticked(tmp_path):
         "supersedes": "",
     }
     assert "# A thing" in body
-    assert spec.create(tmp_path, "next", "").parent.name == "002-next"
+    assert _fixture_spec(tmp_path, "next").parent.name == "002-next"
 
 
 def test_a_work_item_is_recorded_in_the_frontmatter_and_nothing_else(tmp_path):
     """--ref records where the work came from and prefills nothing. The heading stays the
     slug and the problem stays a TODO, because the section is the author's to write."""
-    body = spec.create(tmp_path, "a-thing", "owner/repo#45").read_text()
+    body = _fixture_spec(tmp_path, "a-thing", "owner/repo#45").read_text()
     assert 'ref: "owner/repo#45"' in body
     assert "# A thing" in body
     assert "TODO: what is true today" in body
@@ -558,8 +578,8 @@ def test_a_work_item_is_recorded_in_the_frontmatter_and_nothing_else(tmp_path):
 def test_a_superseded_spec_is_hidden_from_the_listing_unless_asked_for(tmp_path):
     """The listing is the index. If a superseded spec kept showing, somebody would read a
     decision that has already been overturned and act on it."""
-    spec.create(tmp_path, "old", "")
-    spec.create(tmp_path, "new", "")
+    _fixture_spec(tmp_path, "old")
+    _fixture_spec(tmp_path, "new")
     old = tmp_path / "specs" / "001-old" / "spec.md"
     old.write_text(old.read_text().replace("status: draft", "status: superseded"), encoding="utf-8")
     assert [row.split()[0] for row in spec.listing(tmp_path, False)] == ["002-new"]
@@ -570,7 +590,7 @@ def test_a_superseded_spec_is_hidden_from_the_listing_unless_asked_for(tmp_path)
 def test_spec_show_matches_by_prefix_and_says_so_when_it_cannot(repo, capsys):
     """`spec show 002` has to find 002-whatever. Falling back to printing some other spec
     is worse than printing nothing."""
-    spec.create(repo, "only", "")
+    _fixture_spec(repo, "only")
     result = spec.main(["show", "001"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
@@ -598,7 +618,7 @@ def test_an_adr_number_follows_the_highest_on_disk(tmp_path):
 
 def test_proposing_a_supersession_preserves_the_old_madr_and_the_spec(tmp_path):
     """A proposal records its predecessor but cannot grant its own transition authority."""
-    spec.create(tmp_path, "a-thing", "")
+    _fixture_spec(tmp_path, "a-thing")
     target = spec.target(tmp_path)
     spec_before = target.read_bytes()
     first = decide.promote(tmp_path, "Use one queue", "", target)
@@ -906,9 +926,42 @@ def test_a_stream_that_cannot_spell_a_tick_gets_a_line_rather_than_a_traceback(
     and reported a crash. Rich's path was never affected, which is why nothing local saw it."""
     import io
 
-    (tmp_path / "specs").mkdir()
+    authority = tmp_path / "specs" / "000-authority" / "spec.md"
+    authority.parent.mkdir(parents=True)
+    authority_bytes = b'---\nid: "000"\nstatus: superseded\n---\n\n# Authority\n'
+    authority.write_bytes(authority_bytes)
+    record = json.loads(
+        (Path(__file__).parent / "fixtures" / "intent-v1.json").read_text(encoding="utf-8")
+    )["base"]["intent"]
+    record["relations"] = [
+        {
+            "kind": "spec",
+            "id": "000",
+            "path": "specs/000-authority/spec.md",
+            "target_digest": f"sha256:{hashlib.sha256(authority_bytes).hexdigest()}",
+        }
+    ]
+    record["lifecycle"] = {
+        "status": "active",
+        "transitions": [
+            {
+                "from": "draft",
+                "to": "active",
+                "changed_at": "2026-08-14T10:00:00Z",
+                "authority_role": "repository maintainer",
+                "approval_ref": "change-request-17",
+            }
+        ],
+        "approval": {
+            "authority_role": "repository maintainer",
+            "approval_ref": "change-request-17",
+            "approved_at": "2026-08-14T10:00:00Z",
+        },
+    }
+    intent_home = tmp_path / ".ai" / "intent.md"
+    intent_home.parent.mkdir()
+    intent_home.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     subprocess.run(["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True)
-    monkeypatch.setattr(spec, "_authority", lambda root: intent.PASS)
     narrow = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict")
     stdout, cwd = sys.stdout, Path.cwd()
     try:
