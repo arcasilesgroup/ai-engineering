@@ -503,3 +503,63 @@ def test_acceptance_pii_v1_is_deterministic_and_fails_closed() -> None:
     assert acceptance_pii_v1("the gate ran at 12:30:45 and stayed green").outcome == "PASS"
     assert acceptance_pii_v1("the scanner is gitleaks 8.30.1 exactly").outcome == "PASS"
     assert acceptance_pii_v1("repository maintainer accepted it").outcome == "PASS"
+
+
+def test_acceptance_machine_path_v1_rejects_posix_windows_and_unc_paths() -> None:
+    from ai_engineering import acceptance_privacy as privacy
+
+    expected_outcome = {"FAIL": "FAIL", "INCOMPLETE": "INCOMPLETE", "CLEAN": "PASS"}
+    for case in _privacy_cases("acceptance_machine_path_v1"):
+        payload = base64.b64decode(case["payload_base64"]).decode("utf-8")
+        verdict = privacy.acceptance_machine_path_v1(payload)
+        assert verdict.outcome == expected_outcome[case["expected"]], case["id"]
+        assert verdict == privacy.acceptance_machine_path_v1(payload), case["id"]
+        assert payload not in repr(verdict), case["id"]
+    codes = {
+        case["id"]: privacy.acceptance_machine_path_v1(
+            base64.b64decode(case["payload_base64"]).decode("utf-8")
+        ).code
+        for case in _privacy_cases("acceptance_machine_path_v1")
+        if case["expected"] == "FAIL"
+    }
+    assert codes == {
+        "machine-path-posix-home": "ACCEPTANCE_MACHINE_PATH_HOME",
+        "machine-path-windows-drive": "ACCEPTANCE_MACHINE_PATH_WINDOWS_DRIVE",
+        "machine-path-unc": "ACCEPTANCE_MACHINE_PATH_UNC",
+    }
+
+    # Unreadable input is unreadable for both checks, and by exactly the same answer.
+    for unreadable in (None, 42, b"/home/somebody/x", ["text"]):
+        assert privacy.acceptance_machine_path_v1(unreadable) == privacy.acceptance_pii_v1(
+            unreadable
+        )
+    assert privacy.acceptance_machine_path_v1("x" * (privacy.MAX_BYTES + 1)).code.endswith(
+        "OVER_BOUND"
+    )
+
+    # A repository-relative path is the only shape a record may carry, so it is the only
+    # shape that reaches clean.
+    for relative in (
+        "specs/010-governed-foundation/spec.md",
+        "the evidence is at docs/adr/0005-intent-supersedes-0004.md",
+        "run just check and read the output",
+        "see https://example.com/docs/renameat2 for the primary contract",
+    ):
+        assert privacy.acceptance_machine_path_v1(relative).outcome == "PASS", relative
+
+    # An absolute path outside the three named families is undecidable, never clean.
+    for absolute in ("the unit wrote /var/log/gate.txt", "compare against /etc/hosts first"):
+        assert privacy.acceptance_machine_path_v1(absolute) == privacy.Verdict(
+            "INCOMPLETE",
+            "ACCEPTANCE_MACHINE_PATH_ABSOLUTE",
+            "the candidate holds an absolute path this check cannot attribute to a machine",
+        ), absolute
+
+    # The two checks share compiled patterns and no mutable state, so interleaving them
+    # cannot change either answer.
+    home = "the log is at /home/somebody/gate.txt"
+    person = "reviewed by Robin Case"
+    isolated = (privacy.acceptance_machine_path_v1(home), privacy.acceptance_pii_v1(person))
+    privacy.acceptance_pii_v1(home)
+    privacy.acceptance_machine_path_v1(person)
+    assert (privacy.acceptance_machine_path_v1(home), privacy.acceptance_pii_v1(person)) == isolated

@@ -1,9 +1,9 @@
 """The privacy checks an acceptance candidate must clear before it is published.
 
 The repository already has one executable secret scanner. It has never had an executable
-personal-data scanner, so the acceptance writer could not truthfully claim that a candidate
-was privacy-safe: a human checkpoint is not a check. This deterministic check closes half
-of that gap and says so plainly when it cannot decide.
+personal-data or machine-path scanner, so the acceptance writer could not truthfully claim
+that a candidate was privacy-safe: a human checkpoint is not a check. These two
+deterministic checks close that gap and say so plainly when they cannot decide.
 
 Nothing here echoes the candidate. A scanner that quotes what it found writes the datum it
 was built to keep out of the record, so every verdict names a class and never a value.
@@ -136,5 +136,44 @@ def acceptance_pii_v1(candidate: object) -> Verdict:
             "INCOMPLETE",
             "ACCEPTANCE_PII_NAME_AMBIGUOUS",
             "the candidate holds a capitalized pair that may name a person",
+        )
+    return CLEAN
+
+
+# A machine path names a place on one host's filesystem. A repository-relative path names a
+# place in this repository and is the only shape an acceptance record may carry.
+_HOME = re.compile(r"(?<![A-Za-z0-9._~-])(?:~/|/(?:home|Users|root)/)")
+_WINDOWS_DRIVE = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]")
+_UNC = re.compile(r"(?<!\\)\\\\[A-Za-z0-9._-]+\\")
+# Any other absolute POSIX path may or may not be one host's; this check will not guess.
+# A URL's authority is not an absolute path, so `:` and `/` also close the lookbehind.
+_ABSOLUTE = re.compile(r"(?<![A-Za-z0-9._~:/-])/[A-Za-z0-9._-]+/")
+
+
+def acceptance_machine_path_v1(candidate: object) -> Verdict:
+    """Decide whether one candidate text carries a path belonging to one machine.
+
+    The three families the specification names are conclusive `FAIL`. Any other absolute
+    path is `INCOMPLETE`, because this check cannot tell a shared system path from one
+    host's own; guessing clean there would be the failure the record exists to prevent.
+    Repository-relative text is the only thing that reaches `PASS`.
+    """
+
+    text = readable_text(candidate)
+    if isinstance(text, Verdict):
+        return text
+
+    for pattern, code, kind in (
+        (_HOME, "ACCEPTANCE_MACHINE_PATH_HOME", "a home directory path"),
+        (_WINDOWS_DRIVE, "ACCEPTANCE_MACHINE_PATH_WINDOWS_DRIVE", "a Windows drive path"),
+        (_UNC, "ACCEPTANCE_MACHINE_PATH_UNC", "a UNC network path"),
+    ):
+        if pattern.search(text) is not None:
+            return Verdict("FAIL", code, f"{kind} appears in the candidate")
+    if _ABSOLUTE.search(text) is not None:
+        return Verdict(
+            "INCOMPLETE",
+            "ACCEPTANCE_MACHINE_PATH_ABSOLUTE",
+            "the candidate holds an absolute path this check cannot attribute to a machine",
         )
     return CLEAN
