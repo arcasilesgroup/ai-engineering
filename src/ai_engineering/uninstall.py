@@ -421,36 +421,58 @@ def git(root: Path, key: list[str]) -> None:
     subprocess.run(["git", "-C", str(root), *key], timeout=10, capture_output=True, check=True)
 
 
-def unredirected(path: Path, anchor: Path) -> bool:
-    """Whether every component below `anchor` is exactly what it says it is.
+# A fate beginning with this word is not a decision to keep the row; it is the run saying
+# it could not decide, and `main` turns it into INCOMPLETE rather than exiting zero.
+UNDECIDED = "undecided —"
 
-    A global destination is reached by name, and a name is not a place: one symlink,
-    junction or reparse point on the way and this verb removes entries from, or writes over,
-    a file somewhere else entirely. Ownership is checked by content elsewhere in this module,
-    which answers "is this ours" — it cannot answer "is this here".
 
-    The anchor itself is trusted and nothing above it is inspected. On a real machine the
-    path to a home directory crosses links nobody controls (`/var` is a link on macOS), so
-    claiming to have proved that part would be the false green this file is full of comments
-    about. What is claimed is the part that is ours: from the home down.
+def anchors(kind: str, root: Path | None) -> tuple[Path, ...]:
+    """Where a row of this kind is allowed to live.
+
+    The application home is not necessarily under the user's home — `AI_ENGINEERING_HOME`
+    moves it, and the first version of this check assumed otherwise. Every row under a home
+    that check did not know about came back "a link on the way" with no link anywhere, the
+    row was kept, and the run still exited zero with the guards still wired: a refusal that
+    reads as success is worse than the redirection it was meant to catch.
     """
 
-    try:
-        relative = path.relative_to(anchor)
-    except ValueError:
-        return False
-    walked = anchor
-    for part in relative.parts:
-        walked = walked / part
+    if kind in ("project", "repo"):
+        return (root,) if root is not None else ()
+    return (paths.home(), Path.home())
+
+
+def redirection(path: Path, allowed: tuple[Path, ...]) -> str:
+    """`""` when every component below one of `allowed` is what it says it is, `redirected`
+    when a link was observed, and `undecided` when this code could not tell.
+
+    Those three are different answers and only one of them is safe to act on. Collapsing
+    them into a boolean is how "I could not look" became "I looked and it was fine" —
+    or, in the first version of this function, how it became "I saw a link", which was a
+    false statement printed to a person.
+
+    Nothing at or above an anchor is inspected. On a real machine the path to a home
+    crosses links nobody controls (`/var` is one on macOS), so claiming to have proved that
+    part would be exactly the false green this file is full of comments about.
+    """
+
+    for anchor in allowed:
         try:
-            value = walked.lstat()
-        except FileNotFoundError:
-            return True
-        except OSError:
-            return False
-        if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", 0):
-            return False
-    return True
+            relative = path.relative_to(anchor)
+        except ValueError:
+            continue
+        walked = anchor
+        for part in relative.parts:
+            walked = walked / part
+            try:
+                value = walked.lstat()
+            except FileNotFoundError:
+                return ""
+            except OSError:
+                return "undecided"
+            if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", 0):
+                return "redirected"
+        return ""
+    return "undecided"
 
 
 def fate(row: dict, root: Path | None) -> str:
@@ -473,9 +495,13 @@ def fate(row: dict, root: Path | None) -> str:
         return f"kept — not this repository ({root})"
     if not owned(row, root):
         return "kept — receipt target is not one this installer can own"
-    anchor = root if kind in ("project", "repo") else Path.home()
-    if anchor is not None and not unredirected(wiring.expand(path), anchor):
+    where = redirection(wiring.expand(path), anchors(kind, root))
+    if where == "redirected":
         return "kept — a link on the way means this name is not that place"
+    if where == "undecided":
+        # Not a keep. A destination this code cannot place is a run that cannot say what it
+        # did, and the verb's whole promise is that governance comes out cleanly.
+        return f"{UNDECIDED} this destination could not be placed under a home we own"
     return ""
 
 
@@ -575,6 +601,13 @@ def main(argv: list[str]) -> outcome.Result:
         print("  Nothing removed. Run this from inside the intended repository.")
         return outcome.result("INCOMPLETE")
     plan = [(row, fate(row, root), canonical(row, root)) for row in rows]
+    undecided = [row for row, kept, _ in plan if kept.startswith(UNDECIDED)]
+    if undecided:
+        print(f"  INCOMPLETE: {len(undecided)} recorded targets could not be placed:")
+        for row in undecided:
+            print(f"    {row['kind']:<8} {row['path']}")
+        print("  Nothing removed. A destination this run cannot place is not one it may touch.")
+        return outcome.result("INCOMPLETE")
     going = [safe for _, kept, safe in plan if not kept and safe is not None]
 
     if any(not _owned(row, root if row["kind"] in ("project", "repo") else None) for row in going):

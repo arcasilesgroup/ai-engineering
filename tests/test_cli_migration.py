@@ -2277,21 +2277,31 @@ def test_uninstall_refuses_an_ancestor_redirected_global_mutation(
     """Ownership answers "is this ours". It cannot answer "is this here".
 
     A receipt names a global destination, and a name is not a place: one link on the way and
-    this verb strips entries out of, or unlinks, a file belonging to somebody else. The row
-    is kept with its reason printed rather than removed, and the file the link pointed at is
-    byte-identical afterwards.
+    this verb strips entries out of, or unlinks, a file belonging to somebody else. Three
+    answers come out of that question and only one is safe to act on — the run may proceed,
+    the run must keep the row, or the run could not tell, which is `INCOMPLETE` and not a
+    quiet keep with a zero exit.
     """
 
     home = isolated_home
+    application = paths.home()
+    application.mkdir(parents=True, exist_ok=True)
+    allowed = uninstall.anchors("guard", None)
+    assert application in allowed and Path.home() in allowed
+
     real = home / ".claude"
     real.mkdir()
     settings = real / "settings.json"
     settings.write_text('{"hooks": {}}\n', encoding="utf-8")
+    assert uninstall.redirection(settings, allowed) == ""
 
-    # Nothing linked: the destination is one this verb may act on.
-    assert uninstall.unredirected(settings, home)
+    # The application home is not necessarily under the user's home, and a row under it is
+    # placeable — the first version of this check called every one of them redirected.
+    inside_application = application / "skills"
+    inside_application.mkdir(parents=True, exist_ok=True)
+    assert uninstall.redirection(inside_application, allowed) == ""
 
-    # A link at the directory above it, pointing outside the home entirely.
+    # A link at the directory above the destination, pointing outside the home entirely.
     elsewhere = tmp_path / "somebody-elses-claude"
     elsewhere.mkdir()
     foreign = elsewhere / "settings.json"
@@ -2300,23 +2310,33 @@ def test_uninstall_refuses_an_ancestor_redirected_global_mutation(
     settings.unlink()
     real.rmdir()
     (home / ".claude").symlink_to(elsewhere, target_is_directory=True)
-
-    assert not uninstall.unredirected(home / ".claude" / "settings.json", home)
-    kept = uninstall.fate(
-        {"kind": "guard", "path": str(home / ".claude" / "settings.json"), "how": "json"}, None
-    )
-    assert kept.startswith("kept — ")
+    assert uninstall.redirection(home / ".claude" / "settings.json", allowed) == "redirected"
     assert foreign.read_bytes() == before
 
-    # A link at the leaf itself is refused for the same reason.
+    # A link at the leaf itself is the same answer.
     (home / ".claude").unlink()
     real.mkdir()
     (real / "settings.json").symlink_to(foreign)
-    assert not uninstall.unredirected(real / "settings.json", home)
+    assert uninstall.redirection(real / "settings.json", allowed) == "redirected"
     assert foreign.read_bytes() == before
 
-    # And a destination outside the anchor is never this verb's to touch.
-    assert not uninstall.unredirected(tmp_path / "outside" / "settings.json", home)
+    # A destination under no home this verb owns is undecided at the unit level.
+    assert uninstall.redirection(tmp_path / "outside" / "settings.json", allowed) == "undecided"
+
+    # And on a row this installer does own, a component it cannot even read is undecided
+    # rather than a keep — which is the difference between "I looked" and "I could not".
+    (real / "settings.json").unlink()
+    surface = next(row for row in wiring.table()["surface"] if row["writer"] == "json_claude")
+    owned_row = {"kind": "guard", "path": surface["settings"], "how": surface["writer"]}
+    assert uninstall.fate(owned_row, None) == ""
+    if hasattr(os, "getuid") and os.getuid() != 0:
+        real.chmod(0o000)
+        try:
+            kept = uninstall.fate(owned_row, None)
+        finally:
+            real.chmod(0o755)
+        assert kept.startswith(uninstall.UNDECIDED), kept
+        assert "could not be placed" in kept
 
 
 def test_every_verb_states_its_will_before_mutating_and_counts_its_steps(
