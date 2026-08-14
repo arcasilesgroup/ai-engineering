@@ -240,13 +240,32 @@ def test_a_receipt_from_an_older_version_is_installed_over_rather_than_believed(
     """When the wheel moves, every entry still names the directory the old one lived in and
     every guard is off. If `init` reads the receipt and calls the machine ready on the row
     count alone, the run that was meant to repoint them is the run that skipped them."""
+    foreign = tmp_path / "foreign-settings"
+    foreign.write_bytes(b"not owned\n")
     wiring.write_json(
-        wiring.receipt_path(), {"wrote": [{"path": "x", "kind": "guard"}], "version": "0.0.1"}
+        wiring.receipt_path(),
+        {
+            "wrote": [
+                {"path": "x", "kind": "guard"},
+                {"path": str(paths.home() / "skills"), "kind": "skills"},
+                {"path": str(foreign), "kind": "guard"},
+            ],
+            "version": "0.0.1",
+        },
     )
     not_a_repo = tmp_path / "nowhere"
     not_a_repo.mkdir()
     init.main(["-y", "--project", str(not_a_repo)])
-    assert wiring.receipt()["version"] == __version__, "a stale install reported itself ready"
+    receipt = wiring.receipt()
+    assert receipt["version"] == __version__, "a stale install reported itself ready"
+    assert {"path": "x", "kind": "guard"} not in receipt["wrote"]
+    assert all(
+        all(isinstance(row.get(field), str) for field in ("path", "kind", "how"))
+        for row in receipt["wrote"]
+    )
+    assert foreign.read_bytes() == b"not owned\n"
+    second = init.main(["--global", "--no-project", "-y"])
+    assert second.outcome == "PASS"
 
 
 def test_the_overwrite_question_only_returns_what_was_actually_chosen(keyboard, monkeypatch):
