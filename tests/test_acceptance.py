@@ -279,6 +279,10 @@ RECORD_CASES = [
     "wrong-container-type",
     "oversized-finding",
     "oversized-justification",
+    "evidence-path-escapes-the-repository",
+    "evidence-path-is-absolute",
+    "evidence-path-holds-a-dot-segment",
+    "evidence-path-holds-a-backslash",
     "oversized-evidence-path",
     "severity-outside-enum",
     "renewals-out-of-range",
@@ -412,6 +416,34 @@ def test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases() -> None:
     assert not _valid(
         _apply(base, [{"op": "set", "path": ["renewals"], "value": 3}]), schema, schema
     )
+
+    # The same cases, decided by the product's own validator rather than by the one written
+    # in this file. A schema proved only against a sibling validator proves the file and not
+    # the code that enforces it, and the two can agree on every case while production reads
+    # a rule neither of them ever applies.
+    from ai_engineering import acceptance
+
+    # The positive control first: the base record has to survive the real validator, or
+    # every refusal below proves only that the validator refuses everything.
+    acceptance.validate_record(
+        acceptance.canonical_bytes(dict(base, record_digest=acceptance.record_digest(base))),
+        "canonical-original",
+        schema,
+    )
+    for case in cases:
+        # A case with no mutation differs from the base only in what a file on disk holds,
+        # which is the reader's job and not this validator's.
+        if not case.get("mutations") or case["enforced_by"] not in {"schema", "reader"}:
+            continue
+        candidate = _apply(base, case["mutations"])
+        if "record_digest" in candidate:
+            candidate["record_digest"] = acceptance.record_digest(candidate)
+        try:
+            acceptance.validate_record(acceptance.canonical_bytes(candidate), case["id"], schema)
+            refused = False
+        except acceptance.Refusal:
+            refused = True
+        assert refused is (case["expected"] != "PASS"), case["id"]
 
     invalid_utf8 = next(case for case in cases if case["id"] == "invalid-utf8")
     payload = base64.b64decode(invalid_utf8["record_bytes_base64"])

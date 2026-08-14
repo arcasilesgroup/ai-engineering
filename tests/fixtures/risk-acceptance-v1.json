@@ -107,6 +107,39 @@
       "expected": "INCOMPLETE"
     },
     {
+      "id": "evidence-path-escapes-the-repository",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "note": "A record may only bind a file the repository owns. An absolute, parent or backslash path binds somebody's machine, and reading it turns the record into an oracle for a file outside the tree.",
+      "mutations": [
+        { "op": "set", "path": ["evidence", "path"], "value": "../outside/secret.txt" }
+      ],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "evidence-path-is-absolute",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [{ "op": "set", "path": ["evidence", "path"], "value": "/etc/hosts" }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "evidence-path-holds-a-dot-segment",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [{ "op": "set", "path": ["evidence", "path"], "value": "proof/./risk.txt" }],
+      "expected": "INCOMPLETE"
+    },
+    {
+      "id": "evidence-path-holds-a-backslash",
+      "classification": "schema_invalid",
+      "enforced_by": "schema",
+      "mutations": [
+        { "op": "set", "path": ["evidence", "path"], "value": "C:\\Users\\victim\\notes.txt" }
+      ],
+      "expected": "INCOMPLETE"
+    },
+    {
       "id": "oversized-evidence-path",
       "classification": "schema_invalid",
       "enforced_by": "schema",

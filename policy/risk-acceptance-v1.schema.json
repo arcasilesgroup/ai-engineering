@@ -98,7 +98,9 @@
         "path": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 1024
+          "maxLength": 1024,
+          "$comment": "One normalized repository-relative path: every segment non-empty and neither dot nor dot-dot, no leading slash, no backslash, no control character. Without this an evidence path leaves the repository and the record binds a file the repository does not own.",
+          "pattern": "^(?:(?!\\.\\.?(?:/|$))[^/\\\\\\u0000-\\u001f]+/)*(?!\\.\\.?$)[^/\\\\\\u0000-\\u001f]+$"
         },
         "content_digest": {
           "$ref": "#/$defs/digest"
