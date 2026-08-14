@@ -24,17 +24,58 @@ jobs:
               test_native_spec_transaction_is_locked_staged_noreplace_and_alias_safe
               test_native_publish_collision_preserves_foreign_final_and_owned_pending
               test_posix_root_and_pending_aliases_are_never_write_targets
+            acceptance-controls: >-
+              test_risk_acceptance_v1_schema_is_closed_and_exact
+              test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases
+              test_acceptance_pii_v1_is_deterministic_and_fails_closed
+              test_acceptance_machine_path_v1_rejects_posix_windows_and_unc_paths
+              test_gitleaks_gate_requires_exact_version_and_three_clean_results
+              test_unified_reader_separates_integrity_from_binding_freshness
+              test_unified_reader_reads_frozen_legacy_history_without_rewriting_it
+              test_unified_reader_refuses_rather_than_returning_a_partial_register
+              test_the_register_refuses_every_way_it_was_shown_to_go_quiet
+              test_ordinals_and_renewal_chains_span_legacy_noncanonical_and_derived_ids
+              test_id_less_legacy_blocks_receive_stable_derived_identities
+              test_renewal_chains_refuse_forks_cycles_and_a_third_renewal
+              test_the_expiry_view_judges_only_the_unique_head
           - os: macos-latest
             native-controls: >-
               test_native_spec_transaction_is_locked_staged_noreplace_and_alias_safe
               test_native_publish_collision_preserves_foreign_final_and_owned_pending
               test_posix_root_and_pending_aliases_are_never_write_targets
               test_posix_walk_rejects_case_alias_spelling_when_filesystem_resolves_it
+            acceptance-controls: >-
+              test_risk_acceptance_v1_schema_is_closed_and_exact
+              test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases
+              test_acceptance_pii_v1_is_deterministic_and_fails_closed
+              test_acceptance_machine_path_v1_rejects_posix_windows_and_unc_paths
+              test_gitleaks_gate_requires_exact_version_and_three_clean_results
+              test_unified_reader_separates_integrity_from_binding_freshness
+              test_unified_reader_reads_frozen_legacy_history_without_rewriting_it
+              test_unified_reader_refuses_rather_than_returning_a_partial_register
+              test_the_register_refuses_every_way_it_was_shown_to_go_quiet
+              test_ordinals_and_renewal_chains_span_legacy_noncanonical_and_derived_ids
+              test_id_less_legacy_blocks_receive_stable_derived_identities
+              test_renewal_chains_refuse_forks_cycles_and_a_third_renewal
+              test_the_expiry_view_judges_only_the_unique_head
           - os: windows-latest
             native-controls: >-
               test_native_spec_transaction_is_locked_staged_noreplace_and_alias_safe
               test_native_publish_collision_preserves_foreign_final_and_owned_pending
               test_windows_publish_closes_child_consumes_pending_and_rejects_junction
+            acceptance-controls: >-
+              test_risk_acceptance_v1_schema_is_closed_and_exact
+              test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases
+              test_acceptance_pii_v1_is_deterministic_and_fails_closed
+              test_acceptance_machine_path_v1_rejects_posix_windows_and_unc_paths
+              test_gitleaks_gate_requires_exact_version_and_three_clean_results
+              test_unified_reader_separates_integrity_from_binding_freshness
+              test_unified_reader_reads_frozen_legacy_history_without_rewriting_it
+              test_ordinals_and_renewal_chains_span_legacy_noncanonical_and_derived_ids
+              test_id_less_legacy_blocks_receive_stable_derived_identities
+              test_renewal_chains_refuse_forks_cycles_and_a_third_renewal
+              test_the_expiry_view_judges_only_the_unique_head
+              test_a_junction_under_specs_is_refused_rather_than_followed
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
@@ -149,6 +190,119 @@ jobs:
           )
           if observer.rejected:
               print("selected native controls did not pass:", *observer.rejected, sep="\n")
+              raise SystemExit(1)
+          if result != pytest.ExitCode.OK:
+              raise SystemExit(int(result))
+          PY
+
+      # The same shape for the acceptance register, and for the same reason: an immutable
+      # risk record is only worth what the installed artifact does with it. The schema and
+      # the corpus travel with the checkout, so both are proved byte-identical to the wheel
+      # before anything runs; the layout under the run directory is what the fixture's own
+      # relative paths expect. A skip is a failure here — a control that did not execute is
+      # not a control that passed.
+      - name: acceptance publication comes only from the installed wheel
+        shell: bash
+        env:
+          ACCEPTANCE_CONTROLS: ${{ matrix.acceptance-controls }}
+        run: |
+          set -euo pipefail
+          wheels=("$GITHUB_WORKSPACE"/dist/*.whl)
+          test "${#wheels[@]}" = "1" || { echo "expected exactly one wheel"; exit 1; }
+          wheel="${wheels[0]}"
+          test -f "$wheel" || { echo "built wheel is missing"; exit 1; }
+
+          run="$RUNNER_TEMP/acceptance-register"
+          venv="$run/venv"
+          rm -rf "$run"
+          mkdir -p "$run/tests/fixtures" "$run/policy"
+          uv venv --python 3.12 "$venv"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            python="$venv/Scripts/python.exe"
+          else
+            python="$venv/bin/python"
+          fi
+          test -x "$python" || { echo "isolated Python is missing"; exit 1; }
+          uv pip install --python "$python" "$wheel" pytest==9.1.1
+
+          for relative in tests/test_acceptance.py tests/fixtures/risk-acceptance-v1.json \
+                          policy/risk-acceptance-v1.schema.json; do
+            test -f "$GITHUB_WORKSPACE/$relative" || {
+              echo "acceptance fixture is missing: $relative"; exit 1; }
+            cp "$GITHUB_WORKSPACE/$relative" "$run/$relative"
+          done
+          export WHEEL="$wheel"
+          export WORKSPACE="$GITHUB_WORKSPACE"
+          export ACCEPTANCE_TEST="$run/tests/test_acceptance.py"
+          cd "$run"
+          "$python" - $ACCEPTANCE_CONTROLS <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          import pytest
+          from ai_engineering import acceptance
+
+          module = Path(acceptance.__file__).resolve()
+          workspace = Path(os.environ["WORKSPACE"]).resolve()
+          environment = Path(sys.prefix).resolve()
+          try:
+              module.relative_to(workspace)
+          except ValueError:
+              pass
+          else:
+              raise SystemExit("acceptance register imported from the checkout")
+          try:
+              module.relative_to(environment)
+          except ValueError as error:
+              raise SystemExit("acceptance register is outside the isolated environment") from error
+          shipped = {
+              "ai_engineering/acceptance.py": "src/ai_engineering/acceptance.py",
+              "ai_engineering/acceptance_privacy.py": "src/ai_engineering/acceptance_privacy.py",
+              "ai_engineering/accept.py": "src/ai_engineering/accept.py",
+              "ai_engineering/policy/risk-acceptance-v1.schema.json": (
+                  "policy/risk-acceptance-v1.schema.json"
+              ),
+          }
+          with ZipFile(os.environ["WHEEL"]) as archive:
+              for member, relative in shipped.items():
+                  packaged = archive.read(member)
+                  source = workspace / relative
+                  if not source.is_file():
+                      raise SystemExit(f"checkout source is missing: {relative}")
+                  if source.read_bytes() != packaged:
+                      raise SystemExit(f"built wheel differs from checkout: {relative}")
+                  print(f"wheel matches checkout: {relative}")
+              if module.read_bytes() != archive.read("ai_engineering/acceptance.py"):
+                  raise SystemExit("installed acceptance register differs from the built wheel")
+          print(f"installed acceptance register: {module}")
+
+          test_file = Path(os.environ["ACCEPTANCE_TEST"]).resolve()
+          if not test_file.is_file():
+              raise SystemExit("acceptance fixture is missing")
+          names = sys.argv[1:]
+          if not names:
+              raise SystemExit("acceptance controls are missing")
+          selected = [f"{test_file}::{name}" for name in names]
+
+          class NoSelectedNonpass:
+              def __init__(self):
+                  self.rejected = []
+
+              def pytest_runtest_logreport(self, report):
+                  if report.skipped:
+                      self.rejected.append(report.nodeid)
+                  if hasattr(report, "wasxfail"):
+                      self.rejected.append(report.nodeid)
+
+          observer = NoSelectedNonpass()
+          result = pytest.main(
+              ["-q", "--rootdir", os.getcwd(), *selected],
+              plugins=[observer],
+          )
+          if observer.rejected:
+              print("selected acceptance controls did not pass:", *observer.rejected, sep="\n")
               raise SystemExit(1)
           if result != pytest.ExitCode.OK:
               raise SystemExit(int(result))

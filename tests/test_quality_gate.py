@@ -23,7 +23,14 @@ def _child_block(lines: list[str], header: str) -> list[str]:
     return block
 
 
-def _native_matrix(lines: list[str]) -> dict[str, tuple[str, ...]]:
+def _matrix_controls(lines: list[str], key: str) -> dict[str, tuple[str, ...]]:
+    """The exact control names one matrix key selects, per operating system.
+
+    The reader stops at the next key rather than running to the end of the row, because a
+    row now carries two lists and a reader that swallowed both would report the union as
+    each — which is the shape that lets a control be listed and never selected.
+    """
+
     matrix = _child_block(lines, "      matrix:")
     included = _child_block(matrix, "        include:")
     rows: dict[str, tuple[str, ...]] = {}
@@ -43,12 +50,16 @@ def _native_matrix(lines: list[str]) -> dict[str, tuple[str, ...]]:
             operating_system = stripped.removeprefix("- os: ")
             controls = []
             reading_controls = False
-        elif stripped == "native-controls: >-":
-            reading_controls = True
+        elif stripped.endswith(": >-"):
+            reading_controls = stripped == f"{key}: >-"
         elif reading_controls and stripped:
             controls.extend(stripped.split())
     finish()
     return rows
+
+
+def _native_matrix(lines: list[str]) -> dict[str, tuple[str, ...]]:
+    return _matrix_controls(lines, "native-controls")
 
 
 def _named_step(lines: list[str], name: str) -> list[str]:
@@ -99,13 +110,53 @@ def _assert_install_matrix_contract(workflow: str) -> None:
             "test_windows_publish_closes_child_consumes_pending_and_rejects_junction",
         ),
     }
+    # The acceptance register, on the same three runners and by the same rule: what the
+    # installed wheel does, not what the checkout can be made to do. Every runner takes the
+    # portable controls; the symlink and hard-link ones are POSIX, and Windows takes the
+    # junction control instead — so no runner is handed a control it can only skip.
+    portable = (
+        "test_risk_acceptance_v1_schema_is_closed_and_exact",
+        "test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases",
+        "test_acceptance_pii_v1_is_deterministic_and_fails_closed",
+        "test_acceptance_machine_path_v1_rejects_posix_windows_and_unc_paths",
+        "test_gitleaks_gate_requires_exact_version_and_three_clean_results",
+        "test_unified_reader_separates_integrity_from_binding_freshness",
+        "test_unified_reader_reads_frozen_legacy_history_without_rewriting_it",
+    )
+    posix_only = (
+        "test_unified_reader_refuses_rather_than_returning_a_partial_register",
+        "test_the_register_refuses_every_way_it_was_shown_to_go_quiet",
+    )
+    chains = (
+        "test_ordinals_and_renewal_chains_span_legacy_noncanonical_and_derived_ids",
+        "test_id_less_legacy_blocks_receive_stable_derived_identities",
+        "test_renewal_chains_refuse_forks_cycles_and_a_third_renewal",
+        "test_the_expiry_view_judges_only_the_unique_head",
+    )
+    assert _matrix_controls(lines, "acceptance-controls") == {
+        "ubuntu-latest": (*portable, *posix_only, *chains),
+        "macos-latest": (*portable, *posix_only, *chains),
+        "windows-latest": (
+            *portable,
+            *chains,
+            "test_a_junction_under_specs_is_refused_rather_than_followed",
+        ),
+    }
+
     assert "    runs-on: ${{ matrix.os }}" in lines
     matrix = ["      matrix:", *_child_block(lines, "      matrix:")]
-    assert _raw_digest(matrix) == "24b4fef0b01e5143ceee6d56a702014cebe3e00683ef458d452414a75bee73a5"
+    assert _raw_digest(matrix) == "6e808fa55acc4ae554951b5aafe731f66d914d1f0cedff252020f56fccd8e7ff"
 
+    # Task 39d's runner is pinned by digest so the acceptance work cannot quietly weaken it.
     native_step = _named_step(lines, "native transaction comes only from the installed wheel")
     assert _raw_digest(native_step) == (
         "ee7b8e1a10b1c9da9a6810b0711c4d653af5348e80c3e46bfb1d265dd5838b5d"
+    )
+    acceptance_step = _named_step(
+        lines, "acceptance publication comes only from the installed wheel"
+    )
+    assert _raw_digest(acceptance_step) == (
+        "7196bcf318d43219fc4dc8cbf5e1ecc55a57657dddd338198599249a6f87f0e3"
     )
 
     smoke = _child_block(lines, "  smoke:")
@@ -130,6 +181,52 @@ def _assert_install_matrix_contract(workflow: str) -> None:
 def test_install_matrix_executes_native_spec_transaction_on_every_supported_os():
     workflow = (ROOT / ".github" / "workflows" / "install-matrix.yml").read_text(encoding="utf-8")
     _assert_install_matrix_contract(workflow)
+
+
+def test_install_matrix_executes_acceptance_publication_on_every_supported_os():
+    """Every acceptance control the wheel owes, on all three runners, from the wheel.
+
+    The register decides whether a known risk may stay. Proving it against the checkout
+    proves the checkout; what a stranger installs is the wheel, so the controls run against
+    an isolated environment holding only that wheel, after its bytes are proved identical to
+    the source they were built from. A skip is a failure, so a control that cannot run on a
+    runner is not selected for it — it is replaced by one that can.
+    """
+
+    workflow = (ROOT / ".github" / "workflows" / "install-matrix.yml").read_text(encoding="utf-8")
+    _assert_install_matrix_contract(workflow)
+    lines = workflow.splitlines()
+    step = _named_step(lines, "acceptance publication comes only from the installed wheel")
+    body = "\n".join(step)
+
+    # The wheel is the subject, and the schema and corpus that travel with the checkout are
+    # proved identical to the ones it ships before a single control runs.
+    for shipped in (
+        "ai_engineering/acceptance.py",
+        "ai_engineering/acceptance_privacy.py",
+        "ai_engineering/accept.py",
+        "ai_engineering/policy/risk-acceptance-v1.schema.json",
+    ):
+        assert shipped in body, shipped
+    assert "built wheel differs from checkout" in body
+    assert "installed acceptance register differs from the built wheel" in body
+    assert "acceptance register imported from the checkout" in body
+    assert "acceptance register is outside the isolated environment" in body
+
+    # Missing input is INCOMPLETE, never an empty pass.
+    assert "acceptance fixture is missing" in body
+    assert "acceptance controls are missing" in body
+    assert "expected exactly one wheel" in body
+
+    # A skip is a failure: the runner counts them and every selected control must pass.
+    assert "if report.skipped:" in body
+    assert 'if hasattr(report, "wasxfail"):' in body
+    assert "selected acceptance controls did not pass:" in body
+    assert "set -euo pipefail" in body
+
+    # And it grants nothing: no push, tag, release or install outside its own environment.
+    for forbidden in ("gh ", "git push", "git tag", "twine", "uv publish"):
+        assert forbidden not in body, forbidden
 
 
 @pytest.mark.parametrize(

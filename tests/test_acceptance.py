@@ -1191,7 +1191,7 @@ def test_the_register_refuses_every_way_it_was_shown_to_go_quiet(tmp_path) -> No
 
     # 4. A directory this process cannot read is one word, not a traceback that takes every
     #    other check in the same run down with it.
-    if os.getuid() != 0:
+    if hasattr(os, "getuid") and os.getuid() != 0:
         root = _repository(tmp_path / "denied")
         closed = root / "specs" / slug
         closed.chmod(0o000)
@@ -1220,3 +1220,32 @@ def test_the_register_refuses_every_way_it_was_shown_to_go_quiet(tmp_path) -> No
         "```yaml\nfinding: a risk\nexpires: '2030-01-01'\nevidence: total garbage\n```",
     )
     assert acceptance.read(root).code == "ACCEPTANCE_MALFORMED"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="a junction is a Windows reparse point")
+def test_a_junction_under_specs_is_refused_rather_than_followed(tmp_path) -> None:
+    """Windows' own way of pointing one name at another directory.
+
+    A junction is not a symbolic link and does not answer to the same check, so a reader
+    that only refuses symlinks follows it happily — and the acceptance history it reports
+    belongs to a directory somebody else chose. This runs for real on the Windows runner,
+    where a skip is a failure.
+    """
+
+    from ai_engineering import acceptance
+
+    root = _repository(tmp_path)
+    outside = tmp_path / "junction-elsewhere"
+    outside.mkdir()
+    (outside / "spec.md").write_text("# somebody else's spec\n", encoding="utf-8")
+    link = root / "specs" / "011-junction"
+    created = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(outside)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert created.returncode == 0, created.stderr
+    assert link.exists()
+
+    assert acceptance.read(root).code == "ACCEPTANCE_UNSAFE_PATH"
