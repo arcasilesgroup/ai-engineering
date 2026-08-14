@@ -18,7 +18,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            native-controls: >-
+              test_native_spec_transaction_is_locked_staged_noreplace_and_alias_safe
+              test_native_publish_collision_preserves_foreign_final_and_owned_pending
+              test_posix_root_and_pending_aliases_are_never_write_targets
+          - os: macos-latest
+            native-controls: >-
+              test_native_spec_transaction_is_locked_staged_noreplace_and_alias_safe
+              test_native_publish_collision_preserves_foreign_final_and_owned_pending
+              test_posix_root_and_pending_aliases_are_never_write_targets
+              test_posix_walk_rejects_case_alias_spelling_when_filesystem_resolves_it
+          - os: windows-latest
+            native-controls: >-
+              test_native_spec_transaction_is_locked_staged_noreplace_and_alias_safe
+              test_native_publish_collision_preserves_foreign_final_and_owned_pending
+              test_windows_publish_closes_child_consumes_pending_and_rejects_junction
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
@@ -39,6 +55,104 @@ jobs:
       - name: install it the way a stranger would
         run: uv tool install --force dist/*.whl
         shell: bash
+
+      # The checkout supplies the tests, never the implementation. A separate environment
+      # installs the one wheel this job just built, and byte-for-byte provenance prevents a
+      # passing checkout import from impersonating that wheel. Platform-specific nodes keep
+      # an inapplicable skip out of each leg; the inline plugin makes every nonpass red.
+      - name: native transaction comes only from the installed wheel
+        shell: bash
+        env:
+          NATIVE_CONTROLS: ${{ matrix.native-controls }}
+        run: |
+          set -euo pipefail
+          wheels=("$GITHUB_WORKSPACE"/dist/*.whl)
+          test "${#wheels[@]}" = "1" || { echo "expected exactly one wheel"; exit 1; }
+          wheel="${wheels[0]}"
+          test -f "$wheel" || { echo "built wheel is missing"; exit 1; }
+
+          run="$RUNNER_TEMP/native-spec-transaction"
+          venv="$run/venv"
+          rm -rf "$run"
+          mkdir -p "$run"
+          uv venv --python 3.12 "$venv"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            python="$venv/Scripts/python.exe"
+          else
+            python="$venv/bin/python"
+          fi
+          test -x "$python" || { echo "isolated Python is missing"; exit 1; }
+          uv pip install --python "$python" "$wheel" pytest==9.1.1
+
+          test_source="$GITHUB_WORKSPACE/tests/test_spec_transaction.py"
+          test -f "$test_source" || { echo "native transaction fixture is missing"; exit 1; }
+          cp "$test_source" "$run/test_spec_transaction.py"
+          export WHEEL="$wheel"
+          export WORKSPACE="$GITHUB_WORKSPACE"
+          export NATIVE_TEST="$run/test_spec_transaction.py"
+          cd "$run"
+          "$python" - $NATIVE_CONTROLS <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          import pytest
+          from ai_engineering import spec_transaction as transaction
+
+          module = Path(transaction.__file__).resolve()
+          workspace = Path(os.environ["WORKSPACE"]).resolve()
+          environment = Path(sys.prefix).resolve()
+          try:
+              module.relative_to(workspace)
+          except ValueError:
+              pass
+          else:
+              raise SystemExit("native transaction imported from the checkout")
+          try:
+              module.relative_to(environment)
+          except ValueError as error:
+              raise SystemExit("native transaction is outside the isolated environment") from error
+          with ZipFile(os.environ["WHEEL"]) as archive:
+              packaged = archive.read("ai_engineering/spec_transaction.py")
+          source = workspace / "src" / "ai_engineering" / "spec_transaction.py"
+          if not source.is_file():
+              raise SystemExit("checkout native transaction source is missing")
+          if source.read_bytes() != packaged:
+              raise SystemExit("built wheel native transaction differs from checkout")
+          if module.read_bytes() != packaged:
+              raise SystemExit("installed native transaction differs from the built wheel")
+          print(f"installed native transaction: {module}")
+
+          test_file = Path(os.environ["NATIVE_TEST"]).resolve()
+          if not test_file.is_file():
+              raise SystemExit("native transaction fixture is missing")
+          names = sys.argv[1:]
+          if not names:
+              raise SystemExit("native transaction controls are missing")
+          selected = [f"{test_file}::{name}" for name in names]
+
+          class NoSelectedNonpass:
+              def __init__(self):
+                  self.rejected = []
+
+              def pytest_runtest_logreport(self, report):
+                  if report.skipped:
+                      self.rejected.append(report.nodeid)
+                  if hasattr(report, "wasxfail"):
+                      self.rejected.append(report.nodeid)
+
+          observer = NoSelectedNonpass()
+          result = pytest.main(
+              ["-q", "--rootdir", os.getcwd(), *selected],
+              plugins=[observer],
+          )
+          if observer.rejected:
+              print("selected native controls did not pass:", *observer.rejected, sep="\n")
+              raise SystemExit(1)
+          if result != pytest.ExitCode.OK:
+              raise SystemExit(int(result))
+          PY
 
       - name: zero to a green doctor, in a repository it has never seen
         shell: bash
