@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from ai_engineering import decide, madr, paths
+from ai_engineering import decide, madr, outcome, paths
 
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "madr-v1.schema.json"
@@ -1145,7 +1145,9 @@ def test_decide_madr_accepts_madr_and_rejects_adr_alias(
     _repository_with_spec(root)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
 
-    assert decide.main(["Keep authority outside the agent", "--madr"]) == 0
+    result = decide.main(["Keep authority outside the agent", "--madr"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     output = capsys.readouterr()
     assert output.err == ""
     assert output.out.splitlines() == [
@@ -1157,7 +1159,9 @@ def test_decide_madr_accepts_madr_and_rejects_adr_alias(
     assert "authority_role:" not in decision.read_text(encoding="utf-8")
     assert not any("specs/" in line for line in _git_status(root))
 
-    assert decide.main(["Reject an orphan", "--madr", "--supersede", "9999"]) == 1
+    result = decide.main(["Reject an orphan", "--madr", "--supersede", "9999"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert capsys.readouterr().out == (
         "  INCOMPLETE [MADR_GRAPH_INVALID]: MADR graph has a broken local edge. "
         "No change remains.\n"
@@ -1176,7 +1180,9 @@ def test_decide_madr_accepts_madr_and_rejects_adr_alias(
     duplicate = root / "docs" / "adr" / "0009-duplicate.md"
     duplicate.write_bytes(decision.read_bytes())
     before = _git_status(root)
-    assert decide.main(["Do not write through ambiguity", "--madr"]) == 1
+    result = decide.main(["Do not write through ambiguity", "--madr"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert capsys.readouterr().out == (
         "  INCOMPLETE [MADR_AMBIGUOUS]: MADR identity or target is ambiguous. "
         "Nothing was written.\n"
@@ -1208,7 +1214,9 @@ def test_decide_madr_creation_is_exclusive_and_cleans_partial_writes(
         return original_open(path, flags, mode, dir_fd=dir_fd)
 
     monkeypatch.setattr(os, "open", collide)
-    assert decide.main(["Concurrent decision", "--madr"]) == 1
+    result = decide.main(["Concurrent decision", "--madr"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     output = capsys.readouterr().out
     collided = collision / "docs" / "adr" / "0001-concurrent-decision.md"
     assert "INCOMPLETE" in output and "MADR_WRITE_FAILED" in output
@@ -1243,7 +1251,9 @@ def test_decide_madr_creation_is_exclusive_and_cleans_partial_writes(
         return PartialWriter(original_fdopen(fd, *args, **kwargs))
 
     monkeypatch.setattr(os, "fdopen", fail_partly)
-    assert decide.main(["Partial decision", "--madr"]) == 1
+    result = decide.main(["Partial decision", "--madr"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     output = capsys.readouterr().out
     assert "INCOMPLETE" in output and "MADR_WRITE_FAILED" in output
     assert "No change remains" in output
@@ -1260,7 +1270,9 @@ def test_decide_madr_never_follows_a_canonical_home_symlink(
     (root / "docs").symlink_to(outside, target_is_directory=True)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
 
-    assert decide.main(["Stay inside the repository", "--madr"]) == 1
+    result = decide.main(["Stay inside the repository", "--madr"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert "MADR_WRITE_FAILED" in capsys.readouterr().out
     assert list(outside.iterdir()) == []
 
@@ -1293,7 +1305,9 @@ def test_decide_madr_creation_stays_anchored_when_home_is_swapped(
         return original_open(path, flags, mode, dir_fd=dir_fd)
 
     monkeypatch.setattr(os, "open", exchange)
-    assert decide.main(["Stay descriptor relative", "--madr"]) == 1
+    result = decide.main(["Stay descriptor relative", "--madr"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     output = capsys.readouterr().out
     assert exchanged and "INCOMPLETE" in output
     assert "MADR_HOME_INVALID" in output and "remains" in output
@@ -1310,7 +1324,9 @@ def test_decide_madr_fails_closed_without_descriptor_relative_support(
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     monkeypatch.setattr(os, "supports_dir_fd", os.supports_dir_fd - {os.open})
 
-    assert decide.main(["Require anchored writes", "--madr"]) == 1
+    result = decide.main(["Require anchored writes", "--madr"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert "MADR_WRITE_FAILED" in capsys.readouterr().out
     assert not (root / "docs").exists()
 
@@ -1338,7 +1354,9 @@ def test_decide_madr_closes_every_descriptor_after_success_and_failure(
     success = tmp_path / "success-descriptors"
     _repository_with_spec(success)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: success)
-    assert decide.main(["Close on success", "--madr"]) == 0
+    result = decide.main(["Close on success", "--madr"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert opened <= closed
 
     opened.clear()
@@ -1346,7 +1364,9 @@ def test_decide_madr_closes_every_descriptor_after_success_and_failure(
     failure = tmp_path / "failure-descriptors"
     _repository_with_spec(failure)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: failure)
-    assert decide.main(["Close on failure", "--madr", "--supersede", "9999"]) == 1
+    result = decide.main(["Close on failure", "--madr", "--supersede", "9999"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert opened <= closed
 
 
@@ -1357,17 +1377,23 @@ def test_decide_madr_validates_title_and_cleans_new_home_after_rejection(
     _repository_with_spec(root)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
 
-    assert decide.main(["   ", "--madr"]) == 2
-    assert "needs a title" in capsys.readouterr().out
+    with pytest.raises(SystemExit) as stopped:
+        decide.main(["   ", "--madr"])
+    assert stopped.value.code == outcome.invalid_cli_exit()
+    assert "needs a title" in capsys.readouterr().err
     assert not (root / "docs").exists()
 
-    assert decide.main(["Ñ決定", "--madr"]) == 0
+    result = decide.main(["Ñ決定", "--madr"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     capsys.readouterr()
     fallback = root / "docs" / "adr" / "0001-decision-0001.md"
     assert fallback.exists() and madr.validate(root).outcome == "PASS"
 
     trailing_separator = "a" * 59 + " separator"
-    assert decide.main([trailing_separator, "--madr"]) == 0
+    result = decide.main([trailing_separator, "--madr"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     capsys.readouterr()
     names = sorted(path.name for path in (root / "docs" / "adr").iterdir())
     assert names[1] == f"0002-{'a' * 59}.md"
@@ -1376,7 +1402,9 @@ def test_decide_madr_validates_title_and_cleans_new_home_after_rejection(
     rejected = tmp_path / "rejected"
     _repository_with_spec(rejected)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: rejected)
-    assert decide.main(["Orphan", "--madr", "--supersede", "9999"]) == 1
+    result = decide.main(["Orphan", "--madr", "--supersede", "9999"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert "MADR_GRAPH_INVALID" in capsys.readouterr().out
     assert not (rejected / "docs").exists()
 

@@ -12,10 +12,13 @@ import pytest
 from ai_engineering import (
     capability,
     cli,
+    decide,
     doctor,
     init,
     intent,
+    madr,
     outcome,
+    paths,
     skeletons,
     spec,
     update,
@@ -559,3 +562,72 @@ def test_spec_command_enforces_intent_and_authority(
         spec.main(["new", "../outside-spec-scope"])
     assert invalid_cli.value.code == outcome.invalid_cli_exit()
     assert "reviewer-said-pass" not in capsys.readouterr().out
+
+
+def test_decide_returns_canonical_outcome_after_madr_validation(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = _repository(tmp_path)
+    subprocess.run(["git", "-C", str(root), "add", "."], check=True, capture_output=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=role",
+            "-c",
+            "user.email=role@example.invalid",
+            "commit",
+            "-m",
+            "baseline",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    specification = root / "specs" / "010-governed-foundation" / "spec.md"
+    spec_bytes = specification.read_bytes()
+    sentinel = tmp_path / "outside-decision-scope"
+    sentinel.write_bytes(b"foreign sentinel\n")
+
+    created = decide.main(["Keep authority outside the proposal", "--madr"])
+    assert type(created) is outcome.Result
+    assert created.outcome == "PASS"
+    proposal = root / "docs" / "adr" / "0001-keep-authority-outside-the-proposal.md"
+    proposal_bytes = proposal.read_bytes()
+    assert madr.validate(root).outcome == "PASS"
+    assert b'status: "proposed"' in proposal_bytes
+    assert b"authority_role:" not in proposal_bytes
+    assert "this record grants no authority" in capsys.readouterr().out
+    assert specification.read_bytes() == spec_bytes
+    assert sentinel.read_bytes() == b"foreign sentinel\n"
+
+    orphan = decide.main(["Reject an orphan", "--madr", "--supersede", "9999"])
+    assert type(orphan) is outcome.Result
+    assert orphan.outcome == "INCOMPLETE"
+    assert not (root / "docs" / "adr" / "0002-reject-an-orphan.md").exists()
+    assert proposal.read_bytes() == proposal_bytes
+    assert specification.read_bytes() == spec_bytes
+
+    duplicate = root / "docs" / "adr" / "0009-duplicate.md"
+    duplicate.write_bytes(proposal_bytes)
+    before_names = sorted(path.name for path in proposal.parent.iterdir())
+    invalid_graph = decide.main(["Do not write through ambiguity", "--madr"])
+    assert type(invalid_graph) is outcome.Result
+    assert invalid_graph.outcome == "INCOMPLETE"
+    assert sorted(path.name for path in proposal.parent.iterdir()) == before_names
+    assert proposal.read_bytes() == proposal_bytes
+    assert duplicate.read_bytes() == proposal_bytes
+    assert specification.read_bytes() == spec_bytes
+    assert sentinel.read_bytes() == b"foreign sentinel\n"
+
+    listed = decide.main(["--list"])
+    assert type(listed) is outcome.Result
+    assert listed.outcome == "PASS"
+    with pytest.raises(SystemExit) as invalid_cli:
+        decide.main(["Compatibility must stay deleted", "--mad"])
+    assert invalid_cli.value.code == outcome.invalid_cli_exit()

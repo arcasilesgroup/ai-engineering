@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from ai_engineering import madr, paths, text
+from ai_engineering import madr, outcome, paths, text
 from ai_engineering import spec as specs
 from ai_engineering.intent import Validation
 
@@ -269,18 +269,18 @@ def promote(root: Path, title: str, supersedes: str, spec: Path | None) -> Path:
     return promotion.path
 
 
-def _refuse_invalid(result: Validation, state: str = "Nothing was written.") -> int:
+def _refuse_invalid(result: Validation, state: str = "Nothing was written.") -> outcome.Result:
     print(f"  INCOMPLETE [{result.code}]: {result.reason}. {state}")
-    return 1
+    return outcome.result(result.outcome)
 
 
-def _refuse_write(failure: _WriteFailure) -> int:
+def _refuse_write(failure: _WriteFailure) -> outcome.Result:
     if failure.residue:
         state = "Repository state remains under docs/adr/; inspect it before retrying."
     else:
         state = "No change remains."
     print(f"  INCOMPLETE [MADR_WRITE_FAILED]: MADR could not be created. {state}")
-    return 1
+    return outcome.result("INCOMPLETE")
 
 
 def append(spec: Path, fields: dict) -> None:
@@ -314,7 +314,7 @@ def listing(root: Path) -> list[str]:
     return rows
 
 
-def main(argv: list[str]) -> int:
+def main(argv: list[str]) -> outcome.Result:
     parser = argparse.ArgumentParser("ai-eng decide", allow_abbrev=False)
     parser.add_argument("title", nargs="?", default="")
     parser.add_argument("--madr", action="store_true", help="propose it in docs/adr/")
@@ -326,19 +326,24 @@ def main(argv: list[str]) -> int:
     )
     args = parser.parse_args(argv)
 
+    if not args.list:
+        try:
+            title = _title(args.title)
+        except ValueError as why:
+            parser.error(str(why))
+
     root = paths.repo_root()
     if root is None:
         print("not inside a repository")
-        return 1
+        return outcome.result("INCOMPLETE")
     if args.list:
-        rows = listing(root)
+        try:
+            rows = listing(root)
+        except OSError as why:
+            print(f"  INCOMPLETE [MADR_UNREADABLE]: MADRs could not be listed: {why}")
+            return outcome.result("INCOMPLETE")
         print("\n".join(rows) if rows else "  no MADRs yet — most decisions never need one")
-        return 0
-    try:
-        title = _title(args.title)
-    except ValueError as why:
-        print(f"  {why}.")
-        return 2
+        return outcome.result("PASS")
     # Named, or the only one open. It used to resolve to whichever directory sorted last,
     # and that is how two decisions written for spec 003 landed in another session's spec,
     # because a fourth directory appeared between two commands.
@@ -350,7 +355,7 @@ def main(argv: list[str]) -> int:
             target = specs.target(root, args.spec)
         except LookupError as why:
             print(f"  INCOMPLETE [MADR_GRAPH_INVALID]: {why}. Nothing was written.")
-            return 1
+            return outcome.result("INCOMPLETE")
         try:
             promoted = _create(root, title, args.supersede, target)
         except _WriteFailure as failure:
@@ -369,22 +374,26 @@ def main(argv: list[str]) -> int:
             _close_home(promoted.home)
         print(f"  ✓ {promoted.path.relative_to(root)}")
         print("    outcome: PASS. status: proposed; this record grants no authority.")
-        return 0
+        return outcome.result("PASS")
     try:
         spec = specs.target(root, args.spec)
-    except LookupError as why:
+    except (LookupError, OSError) as why:
         print(f"  {why}")
-        return 1
-    append(
-        spec,
-        {
-            "decision": title,
-            "date": date.today().isoformat(),
-            "rationale": args.why or "TODO: why, in one sentence",
-        },
-    )
+        return outcome.result("INCOMPLETE")
+    try:
+        append(
+            spec,
+            {
+                "decision": title,
+                "date": date.today().isoformat(),
+                "rationale": args.why or "TODO: why, in one sentence",
+            },
+        )
+    except OSError as why:
+        print(f"  INCOMPLETE [DECISION_WRITE_FAILED]: decision could not be recorded: {why}")
+        return outcome.result("INCOMPLETE")
     print(
         f"  ✓ recorded in {spec.relative_to(root)}. If it constrains specs that do not exist "
         f"yet, promote it with --madr."
     )
-    return 0
+    return outcome.result("PASS")

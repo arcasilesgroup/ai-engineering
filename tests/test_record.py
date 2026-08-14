@@ -566,19 +566,27 @@ def test_a_decision_recorded_against_a_spec_with_no_decisions_heading_still_land
     folder = repo / "specs" / "001-a"
     folder.mkdir()
     (folder / "spec.md").write_text("# a\n", encoding="utf-8")
-    assert decide.main(["A choice", "--why", "because"]) == 0
+    result = decide.main(["A choice", "--why", "because"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     body = (folder / "spec.md").read_text()
     assert "## Decisions" in body and "decision: A choice" in body and "rationale: because" in body
-    assert decide.main([]) == 2
-    assert "a decision needs a title" in capsys.readouterr().out
+    with pytest.raises(SystemExit) as stopped:
+        decide.main([])
+    assert stopped.value.code == outcome.invalid_cli_exit()
+    assert "a decision needs a title" in capsys.readouterr().err
 
 
 def test_a_decision_with_no_spec_is_refused(repo, capsys):
     """Without a spec there is no context to review the decision in, so it is not written
     somewhere convenient — it is not written at all."""
-    assert decide.main(["A choice"]) == 1
+    result = decide.main(["A choice"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert "no spec to record this against" in capsys.readouterr().out
-    assert decide.main(["--list"]) == 0
+    result = decide.main(["--list"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert "no MADRs yet" in capsys.readouterr().out
 
 
