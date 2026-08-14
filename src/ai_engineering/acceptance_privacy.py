@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import re
 import subprocess
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -229,23 +228,4 @@ def gitleaks_v1(directory: Path) -> Verdict:
         )
     if scan.returncode != 0:
         return _unavailable("the secret scanner returned an exit code with no defined meaning")
-    return CLEAN
-
-
-def acceptance_privacy_gate(directory: Path, candidates: Sequence[str]) -> Verdict:
-    """All three checks, and the rule that only three clean results reach publication.
-
-    A conclusive `FAIL` outranks an `INCOMPLETE`, because a candidate already known to
-    carry a secret, a personal datum or a machine path does not become publishable by a
-    second check being unable to decide. Neither outcome publishes anything.
-    """
-
-    verdicts = [gitleaks_v1(directory)]
-    for candidate in candidates:
-        verdicts.append(acceptance_pii_v1(candidate))
-        verdicts.append(acceptance_machine_path_v1(candidate))
-    for outcome in ("FAIL", "INCOMPLETE"):
-        blocking = next((verdict for verdict in verdicts if verdict.outcome == outcome), None)
-        if blocking is not None:
-            return blocking
     return CLEAN

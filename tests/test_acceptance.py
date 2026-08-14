@@ -672,26 +672,9 @@ def test_gitleaks_gate_requires_exact_version_and_three_clean_results(
         monkeypatch.setattr(privacy, "_run", run)
         assert privacy.gitleaks_v1(tmp_path).code == "ACCEPTANCE_GITLEAKS_UNAVAILABLE", failure
 
-    # Only three clean results reach publication, and a conclusive failure outranks an
-    # undecidable one: a candidate already known to carry a machine path is not rescued by
-    # a second check that could not decide.
-    run, _ = _scanner(privacy.GITLEAKS_VERSION, 0)
-    monkeypatch.setattr(privacy, "_run", run)
-    assert privacy.acceptance_privacy_gate(tmp_path, ["repository maintainer accepted it"]) is (
-        privacy.CLEAN
-    )
-    assert privacy.acceptance_privacy_gate(tmp_path, ["the log is at /home/x/y.txt"]).outcome == (
-        "FAIL"
-    )
-    assert privacy.acceptance_privacy_gate(tmp_path, ["reviewed by Robin Case"]).outcome == (
-        "INCOMPLETE"
-    )
-    mixed = ["reviewed by Robin Case", "the log is at /home/x/y.txt"]
-    assert privacy.acceptance_privacy_gate(tmp_path, mixed).outcome == "FAIL"
-
-    run, _ = _scanner("8.29.0", 0)
-    monkeypatch.setattr(privacy, "_run", run)
-    assert privacy.acceptance_privacy_gate(tmp_path, ["clean text"]).outcome == "INCOMPLETE"
+    # The rule that only three clean results reach publication lives in `accept.main`,
+    # where the staged directory the scanner needs actually exists. It is proved end to end
+    # in tests/test_cli_migration.py; there is no second copy of it here to drift from.
 
 
 def _repository(tmp_path: Path, *, slug: str = "010-governed-foundation") -> Path:

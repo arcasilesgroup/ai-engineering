@@ -2147,3 +2147,51 @@ def test_a_publication_that_fails_leaves_no_staged_entry(
     assert accept.main(base).outcome == "PASS"
     assert [path.name for path in sorted(home.glob("acceptance-*"))] == ["acceptance-r-010-01"]
     assert not list(home.glob("pending-*"))
+
+
+def test_a_conclusive_privacy_failure_outranks_an_undecidable_one(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The rule that used to live in a function nothing called.
+
+    Text carrying both an unclear name and a machine path is already disqualified, and which
+    of the two gets reported must not depend on the order of the flags. Neither publishes, so
+    this is about telling the truth in the message rather than about safety.
+    """
+
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    proof = root / "proof" / "risk.txt"
+    proof.parent.mkdir()
+    proof.write_bytes(b"executed local check receipt\n")
+    _confirmed(monkeypatch)
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+
+    def attempt(finding: str, justification: str):
+        return accept.main(
+            [
+                "--finding",
+                finding,
+                "--expires",
+                tomorrow,
+                "--by",
+                "repository maintainer",
+                "--justification",
+                justification,
+                "--evidence",
+                "proof/risk.txt",
+                "--spec",
+                "010",
+            ]
+        )
+
+    ambiguous = "reviewed by Robin Case"
+    machine = "the log is at /home/somebody/gate.txt"
+    assert attempt(ambiguous, "a bounded reason").outcome == "INCOMPLETE"
+    assert attempt("a bounded finding", machine).outcome == "FAIL"
+    # Both orders, same answer: the conclusive one.
+    assert attempt(ambiguous, machine).outcome == "FAIL"
+    assert attempt(machine, ambiguous).outcome == "FAIL"
+    assert not list((root / "specs" / "010-governed-foundation").glob("acceptance-*"))
