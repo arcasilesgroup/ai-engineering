@@ -5,11 +5,14 @@ from __future__ import annotations
 import json
 import subprocess
 from copy import deepcopy
+from datetime import date, timedelta
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
 
 from ai_engineering import (
+    accept,
     capability,
     cli,
     decide,
@@ -631,3 +634,88 @@ def test_decide_returns_canonical_outcome_after_madr_validation(
     with pytest.raises(SystemExit) as invalid_cli:
         decide.main(["Compatibility must stay deleted", "--mad"])
     assert invalid_cli.value.code == outcome.invalid_cli_exit()
+
+
+def test_accept_requires_named_owner_date_and_risk_evidence(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    target = root / "specs" / "010-governed-foundation" / "spec.md"
+    target_bytes = target.read_bytes()
+    foreign = root / "specs" / "011-foreign" / "spec.md"
+    foreign.parent.mkdir()
+    foreign.write_bytes(b"foreign spec bytes\n")
+    sentinel = tmp_path / "outside-risk-scope"
+    sentinel.write_bytes(b"foreign sentinel\n")
+    proof = root / "proof" / "risk-f-1.txt"
+    proof.parent.mkdir()
+    proof_bytes = b"executed local check receipt\n"
+    proof.write_bytes(proof_bytes)
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    base = [
+        "--finding",
+        "F-1",
+        "--expires",
+        tomorrow,
+        "--by",
+        "repository maintainer",
+        "--justification",
+        "the bounded mitigation is verified",
+        "--spec",
+        "010",
+    ]
+
+    with pytest.raises(SystemExit) as missing_evidence:
+        accept.main(base)
+    assert missing_evidence.value.code == outcome.invalid_cli_exit()
+    assert target.read_bytes() == target_bytes
+
+    unaccountable = accept.main([*base, "--by", "AI reviewer", "--evidence", "proof/risk-f-1.txt"])
+    assert type(unaccountable) is outcome.Result
+    assert unaccountable.outcome == "INCOMPLETE"
+    assert target.read_bytes() == target_bytes
+
+    ambiguous_owner = accept.main([*base, "--by", "unassigned", "--evidence", "proof/risk-f-1.txt"])
+    assert type(ambiguous_owner) is outcome.Result
+    assert ambiguous_owner.outcome == "INCOMPLETE"
+    assert target.read_bytes() == target_bytes
+
+    missing = accept.main([*base, "--evidence", "proof/missing.txt"])
+    assert type(missing) is outcome.Result
+    assert missing.outcome == "INCOMPLETE"
+    assert target.read_bytes() == target_bytes
+
+    stale = accept.main(
+        [
+            *base,
+            "--expires",
+            yesterday,
+            "--evidence",
+            "proof/risk-f-1.txt",
+        ]
+    )
+    assert type(stale) is outcome.Result
+    assert stale.outcome == "INCOMPLETE"
+    assert target.read_bytes() == target_bytes
+
+    invalid_date = [*base, "--expires", "2026-02-30", "--evidence", "proof/risk-f-1.txt"]
+    with pytest.raises(SystemExit) as invalid_cli:
+        accept.main(invalid_date)
+    assert invalid_cli.value.code == outcome.invalid_cli_exit()
+    assert target.read_bytes() == target_bytes
+
+    accepted = accept.main([*base, "--evidence", "proof/risk-f-1.txt"])
+    assert type(accepted) is outcome.Result
+    assert accepted.outcome == "PASS"
+    record = [block for _, block in accept.blocks(root) if block.get("finding") == "F-1"][-1]
+    assert record["accepted_by"] == "repository maintainer"
+    assert record["accepted"] == date.today().isoformat()
+    assert record["expires"] == tomorrow
+    assert record["evidence"] == (f"proof/risk-f-1.txt@sha256:{sha256(proof_bytes).hexdigest()}")
+    assert proof.read_bytes() == proof_bytes
+    assert foreign.read_bytes() == b"foreign spec bytes\n"
+    assert sentinel.read_bytes() == b"foreign sentinel\n"

@@ -39,7 +39,14 @@ from ai_engineering import (
 TODAY = date.today().isoformat()
 YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
 TOMORROW = (date.today() + timedelta(days=1)).isoformat()
-SIGNED = ["--by", "Ada", "--justification", "it is fenced off"]
+SIGNED = [
+    "--by",
+    "Ada",
+    "--justification",
+    "it is fenced off",
+    "--evidence",
+    "proof.txt",
+]
 A_WEEK_AGO = (date.today() - timedelta(days=7)).isoformat()
 
 
@@ -58,6 +65,7 @@ def repo(tmp_path, monkeypatch):
     """A throwaway repository root, so no verb can find the one we are working in."""
     root = tmp_path / "repo"
     (root / "specs").mkdir(parents=True)
+    (root / "proof.txt").write_bytes(b"local evidence\n")
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     return root
 
@@ -170,7 +178,9 @@ def test_an_acceptance_expires_the_day_after_its_date_not_on_it(repo, capsys):
     )
     assert [b["finding"] for b in accept.expired(repo)] == ["F-past"]
     assert len(accept.blocks(repo)) == 3
-    assert accept.main(["--expired"]) == 1, "an expired acceptance has to fail the build"
+    assert accept.main(["--expired"]) == outcome.result("FAIL"), (
+        "an expired acceptance has to fail the build"
+    )
     assert "EXPIRED" in capsys.readouterr().out
 
 
@@ -217,7 +227,9 @@ def test_the_first_risk_of_a_spec_is_numbered_one_whatever_the_repository_holds(
     )
     (repo / "specs" / "002-new").mkdir()
     (repo / "specs" / "002-new" / "spec.md").write_text("# new\n", encoding="utf-8")
-    assert accept.main(["--finding", "F-c", "--expires", TOMORROW, "--spec", "002", *SIGNED]) == 0
+    assert accept.main(
+        ["--finding", "F-c", "--expires", TOMORROW, "--spec", "002", *SIGNED]
+    ) == outcome.result("PASS")
     capsys.readouterr()
     written = [b for _, b in accept.blocks(repo) if b["finding"] == "F-c"]
     assert written[0]["id"] == "R-002-01"
@@ -233,8 +245,19 @@ def test_a_rationale_of_any_length_survives_being_written_and_read_back(repo, ca
     assert len(reason) > 400
     (repo / "specs" / "001-a").mkdir()
     (repo / "specs" / "001-a" / "spec.md").write_text("# a\n", encoding="utf-8")
-    args = ["--finding", "F-1", "--expires", TOMORROW, "--by", "Ada", "--justification", reason]
-    assert accept.main(args) == 0
+    args = [
+        "--finding",
+        "F-1",
+        "--expires",
+        TOMORROW,
+        "--by",
+        "Ada",
+        "--justification",
+        reason,
+        "--evidence",
+        "proof.txt",
+    ]
+    assert accept.main(args) == outcome.result("PASS")
     capsys.readouterr()
     body = (repo / "specs" / "001-a" / "spec.md").read_text()
     assert max(len(line) for line in body.splitlines()) <= text.WIDTH
@@ -250,17 +273,25 @@ def test_a_malformed_block_stops_the_gate_rather_than_disappearing_from_it(repo,
     (repo / "specs" / "001-a" / "spec.md").write_text(
         "```yaml\n  broken\n```\n" + _acceptance("F-past", YESTERDAY), encoding="utf-8"
     )
-    assert accept.main(["--expired"]) == 1
+    assert accept.main(["--expired"]) == outcome.result("INCOMPLETE")
     assert "UNDECIDABLE" in capsys.readouterr().out
-    assert accept.main(["--finding", "F-2", "--expires", TOMORROW, *SIGNED]) == 1
+    assert accept.main(["--finding", "F-2", "--expires", TOMORROW, *SIGNED]) == outcome.result(
+        "INCOMPLETE"
+    )
     assert "Nothing was written" in capsys.readouterr().out
 
 
 def test_an_acceptance_with_no_end_date_is_refused(repo, capsys):
     """An acceptance with no expiry is not an acceptance, it is a permanent exception
     written in the language of a temporary one."""
-    assert accept.main(["--finding", "F-1"]) == 2
-    assert "is not one" in capsys.readouterr().out
+    with pytest.raises(SystemExit) as invalid_cli:
+        accept.main(["--finding", "F-1", *SIGNED])
+    assert invalid_cli.value.code == outcome.invalid_cli_exit()
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "--finding, --expires, --by, --justification and --evidence are all required" in (
+        captured.err
+    )
     assert accept.blocks(repo) == []
 
 
@@ -270,9 +301,13 @@ def test_the_third_renewal_is_refused_and_writes_nothing(repo, capsys):
     (repo / "specs" / "1234-big").mkdir()
     (repo / "specs" / "1234-big" / "spec.md").write_text("# big\n", encoding="utf-8")
     for expected in range(accept.MAX_RENEWALS + 1):
-        assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 0
+        assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
+            "PASS"
+        )
         assert int(accept.blocks(repo)[0][1]["renewals"]) == expected
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 1
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
+        "FAIL"
+    )
     assert len(accept.blocks(repo)) == accept.MAX_RENEWALS + 1
     assert "That is the ceiling" in capsys.readouterr().out
     assert [b["id"] for _, b in accept.blocks(repo)] == ["R-123-03", "R-123-02", "R-123-01"]
@@ -287,7 +322,9 @@ def test_writing_an_acceptance_does_not_eat_the_text_under_its_heading(repo):
         "# title\n\n## Accepted risks\n\nprose a person wrote\n\n## Production-ready\n\n- [ ] CI\n"
     )
     (folder / "spec.md").write_text(body, encoding="utf-8")
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 0
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
+        "PASS"
+    )
     after = (folder / "spec.md").read_text()
     assert "prose a person wrote" in after and "## Production-ready" in after
     assert after.index("finding: F-1") > after.index("## Accepted risks")
@@ -299,7 +336,9 @@ def test_writing_an_acceptance_does_not_eat_the_text_under_its_heading(repo):
 
 def test_an_acceptance_with_no_spec_is_refused(repo, capsys):
     """A risk with no context is a note, not a decision, so there is nowhere to put it."""
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 1
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
+        "INCOMPLETE"
+    )
     assert "no spec to record this against" in capsys.readouterr().out
 
 
