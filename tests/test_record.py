@@ -24,6 +24,7 @@ import pytest
 
 from ai_engineering import (
     accept,
+    acceptance_privacy,
     audit,
     cli,
     contract,
@@ -88,9 +89,30 @@ def repo(tmp_path, monkeypatch):
     """A throwaway repository root, so no verb can find the one we are working in."""
     root = tmp_path / "repo"
     (root / "specs").mkdir(parents=True)
+    (root / ".ai").mkdir()
+    # The authority file every record writer locks, exactly as `spec new` does.
+    (root / ".ai" / "intent.md").write_bytes(b'{"authority":"local"}\n')
     (root / "proof.txt").write_bytes(b"local evidence\n")
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     return root
+
+
+def _confirmed(monkeypatch) -> None:
+    """The controlling terminal and the pinned scanner, the two boundaries a test process
+    cannot own. Both are proved for real elsewhere: the terminal by the refusal tests, the
+    scanner by the installed matrix."""
+
+    monkeypatch.setattr(accept, "controlling_terminal_response", lambda expected: True)
+    monkeypatch.setattr(
+        accept.acceptance_privacy, "gitleaks_v1", lambda directory: acceptance_privacy.CLEAN
+    )
+
+
+def _records(repo: Path, slug: str) -> list[dict]:
+    return [
+        json.loads(path.read_text(encoding="utf-8"))
+        for path in sorted((repo / "specs" / slug).glob("acceptance-r-*/record.json"))
+    ]
 
 
 # ------------------------------------------------------------------ text
@@ -239,31 +261,38 @@ def test_a_block_whose_renewal_counter_is_not_a_number_counts_as_none(repo):
     assert accept.expired(repo) == []
 
 
-def test_the_first_risk_of_a_spec_is_numbered_one_whatever_the_repository_holds(repo, capsys):
+def test_the_first_risk_of_a_spec_is_numbered_one_whatever_the_repository_holds(
+    repo, capsys, monkeypatch
+):
     """The identifier is supposed to read as the nth risk of its spec. It was minted by
     counting every block in the repository, so the first risk recorded against a new spec
     came out numbered eight — which reads as the eighth risk of that spec and is not a fact
     about anything."""
+    _confirmed(monkeypatch)
     (repo / "specs" / "001-old").mkdir()
-    (repo / "specs" / "001-old" / "spec.md").write_text(
-        _acceptance("F-a", TOMORROW) + _acceptance("F-b", TOMORROW), encoding="utf-8"
-    )
+    (repo / "specs" / "001-old" / "spec.md").write_text("# old\n", encoding="utf-8")
     (repo / "specs" / "002-new").mkdir()
     (repo / "specs" / "002-new" / "spec.md").write_text("# new\n", encoding="utf-8")
+    for finding in ("F-a", "F-b"):
+        completed(
+            accept.main(["--finding", finding, "--expires", TOMORROW, "--spec", "001", *SIGNED])
+        )
     completed(accept.main(["--finding", "F-c", "--expires", TOMORROW, "--spec", "002", *SIGNED]))
     capsys.readouterr()
-    written = [b for _, b in accept.blocks(repo) if b["finding"] == "F-c"]
-    assert written[0]["id"] == "R-002-01"
+    assert [record["id"] for record in _records(repo, "001-old")] == ["R-001-01", "R-001-02"]
+    assert [record["id"] for record in _records(repo, "002-new")] == ["R-002-01"]
 
 
-def test_a_rationale_of_any_length_survives_being_written_and_read_back(repo, capsys):
-    """The renderer wrote a value of any length onto one physical line, which is why a
-    four-hundred-character rationale was invisible in a diff — and a governance record
-    nobody can read in a diff is a record nobody reviews. It is folded onto indented
-    continuation lines, which the reader already joins back with a single space, so the
-    check is a round trip rather than a look."""
+def test_a_rationale_of_any_length_survives_being_written_and_read_back(repo, capsys, monkeypatch):
+    """A four-hundred-character rationale has to come back exactly as it was typed.
+
+    It used to have to survive a YAML renderer that folded it onto continuation lines so a
+    diff could show it; canonical JSON keeps the string whole, so what is left to prove is
+    the round trip itself and the schema's byte bound.
+    """
+    _confirmed(monkeypatch)
     reason = " ".join(f"clause number {n} of the argument" for n in range(14))
-    assert len(reason) > 400
+    assert 400 < len(reason.encode("utf-8")) <= 2000
     (repo / "specs" / "001-a").mkdir()
     (repo / "specs" / "001-a" / "spec.md").write_text("# a\n", encoding="utf-8")
     args = [
@@ -280,9 +309,15 @@ def test_a_rationale_of_any_length_survives_being_written_and_read_back(repo, ca
     ]
     completed(accept.main(args))
     capsys.readouterr()
-    body = (repo / "specs" / "001-a" / "spec.md").read_text()
-    assert max(len(line) for line in body.splitlines()) <= text.WIDTH
-    assert accept.blocks(repo)[0][1]["justification"] == reason
+    assert _records(repo, "001-a")[0]["justification"] == reason
+
+    # Over the schema's byte bound it is refused before anything is staged, rather than
+    # published into a record the register would then refuse to read forever.
+    oversized = list(args)
+    oversized[1], oversized[7] = "F-2", "x" * 2001
+    assert accept.main(oversized) == outcome.result("INCOMPLETE")
+    assert len(_records(repo, "001-a")) == 1
+    assert not list((repo / "specs" / "001-a").glob("pending-*"))
 
 
 def test_a_malformed_block_stops_the_gate_rather_than_disappearing_from_it(repo, capsys):
@@ -316,39 +351,49 @@ def test_an_acceptance_with_no_end_date_is_refused(repo, capsys):
     assert accept.blocks(repo) == []
 
 
-def test_the_third_renewal_is_refused_and_writes_nothing(repo, capsys):
+def test_the_third_renewal_is_refused_and_writes_nothing(repo, capsys, monkeypatch):
     """Two renewals is the ceiling: after that the finding gets fixed or the answer
     changes. If the counter did not hold, a risk could be rolled forward forever."""
+    _confirmed(monkeypatch)
     (repo / "specs" / "123-big").mkdir()
     (repo / "specs" / "123-big" / "spec.md").write_text("# big\n", encoding="utf-8")
     for expected in range(accept.MAX_RENEWALS + 1):
         completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
-        assert int(accept.blocks(repo)[0][1]["renewals"]) == expected
+        assert _records(repo, "123-big")[-1]["renewals"] == expected
     assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
         "FAIL"
     )
-    assert len(accept.blocks(repo)) == accept.MAX_RENEWALS + 1
+    published = _records(repo, "123-big")
+    assert len(published) == accept.MAX_RENEWALS + 1
     assert "That is the ceiling" in capsys.readouterr().out
-    assert [b["id"] for _, b in accept.blocks(repo)] == ["R-123-03", "R-123-02", "R-123-01"]
+    assert [record["id"] for record in published] == ["R-123-01", "R-123-02", "R-123-03"]
+    # A refused renewal writes nothing at all, final or temporary.
+    assert not list((repo / "specs" / "123-big").glob("pending-*"))
+    assert (repo / "specs" / "123-big" / "spec.md").read_bytes() == b"# big\n"
 
 
-def test_writing_an_acceptance_does_not_eat_the_text_under_its_heading(repo):
-    """The block goes under '## Accepted risks'. An insert that split on the heading and
-    dropped the tail would silently delete whatever a person had written below it."""
+def test_publishing_an_acceptance_never_opens_the_spec_for_write(repo, monkeypatch):
+    """This replaces the test that checked where a block landed inside `spec.md`.
+
+    Nothing lands inside it any more. The whole point of publishing beside the spec is that
+    no supported system can rewrite a file conditionally on it still holding what you read,
+    so the safe move is to never make somebody else's prose a write target at all.
+    """
+    _confirmed(monkeypatch)
     folder = repo / "specs" / "001-a"
     folder.mkdir()
     body = (
         "# title\n\n## Accepted risks\n\nprose a person wrote\n\n## Production-ready\n\n- [ ] CI\n"
     )
     (folder / "spec.md").write_text(body, encoding="utf-8")
+    before = (folder / "spec.md").read_bytes()
     completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
-    after = (folder / "spec.md").read_text()
-    assert "prose a person wrote" in after and "## Production-ready" in after
-    assert after.index("finding: F-1") > after.index("## Accepted risks")
-    assert after.index("finding: F-1") < after.index("prose a person wrote")
-    block = accept.blocks(repo)[0][1]
-    assert block["accepted_by"] == "Ada" and block["accepted"] == TODAY
-    assert block["justification"] == "it is fenced off"
+    assert (folder / "spec.md").read_bytes() == before
+    record = _records(repo, "001-a")[0]
+    assert record["authority_role"] == "Ada" and record["accepted"] == TODAY
+    assert record["justification"] == "it is fenced off"
+    # And the record is bound to the exact bytes that were displayed, not to a re-reading.
+    assert record["spec_digest"] == "sha256:" + hashlib.sha256(before).hexdigest()
 
 
 def test_an_acceptance_with_no_spec_is_refused(repo, capsys):

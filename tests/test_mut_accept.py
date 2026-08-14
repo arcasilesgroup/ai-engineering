@@ -17,7 +17,15 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering import accept, audit, outcome, paths, text
+from ai_engineering import (
+    accept,
+    acceptance,
+    acceptance_privacy,
+    audit,
+    outcome,
+    paths,
+    text,
+)
 
 TODAY = date.today().isoformat()
 YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
@@ -49,6 +57,9 @@ def repo(tmp_path, monkeypatch):
     """A throwaway repository, so no verb can reach the one we are working in."""
     root = tmp_path / "repo"
     (root / "specs").mkdir(parents=True)
+    (root / ".ai").mkdir()
+    # The authority file every record writer locks, exactly as `spec new` does.
+    (root / ".ai" / "intent.md").write_bytes(b'{"authority":"local"}\n')
     (root / "proof.txt").write_bytes(EVIDENCE_BYTES)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     return root
@@ -89,6 +100,29 @@ def _spec(repo: Path, name: str, body: str) -> Path:
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "spec.md").write_text(body, encoding="utf-8")
     return folder / "spec.md"
+
+
+def _confirmed(monkeypatch, *, scanner=None) -> None:
+    """Stand in for the two boundaries a hermetic test cannot cross: the OS controlling
+    terminal and the pinned secret scanner.
+
+    Neither is faked away. The terminal boundary is proved for real by the refusal tests
+    below — with no controlling terminal, and with a piped answer, the command returns
+    INCOMPLETE — and the scanner is proved by the installed matrix on every supported
+    system. What is stubbed here is only the part a test process cannot own.
+    """
+
+    monkeypatch.setattr(accept, "controlling_terminal_response", lambda expected: True)
+    verdict = scanner or acceptance_privacy.CLEAN
+    monkeypatch.setattr(accept.acceptance_privacy, "gitleaks_v1", lambda directory: verdict)
+
+
+def _published(repo: Path, slug: str) -> dict:
+    """The one record the command published, read back from where it actually lives."""
+
+    found = sorted((repo / "specs" / slug).glob("acceptance-r-*/record.json"))
+    assert len(found) == 1, found
+    return json.loads(found[0].read_text(encoding="utf-8"))
 
 
 def _links(emit, count: int, session: str = "s1") -> list[dict]:
@@ -230,105 +264,144 @@ def test_with_no_spec_the_refusal_names_the_command_that_makes_one(repo, capsys)
     )
 
 
-def test_an_acceptance_carries_every_field_it_owes_and_invents_none(repo, capsys):
-    """The block is the paper trail: a severity, a named owner, a justification and a
-    follow-up. A field renamed is a risk register with holes in it, and the confirmation
-    line is what tells the person the expiry was taken as given. An omitted follow-up is
-    empty, never a marker: a marker would read as filled in and say nothing true."""
-    _spec(repo, "001-a", "# a\n")
+def test_an_acceptance_carries_every_field_it_owes_and_invents_none(repo, capsys, monkeypatch):
+    """The record is the paper trail: a severity, an accountable role, a justification and a
+    follow-up, each bound to the exact bytes they were confirmed against. A field renamed is
+    a risk register with holes in it, and the confirmation line is what tells the person the
+    expiry was taken as given. An omitted follow-up is empty, never a marker: a marker would
+    read as filled in and say nothing true."""
+    _confirmed(monkeypatch)
+    spec_md = _spec(repo, "001-a", "# a\n")
     completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
-    assert capsys.readouterr().out == (
-        f"  ✓ recorded in specs/001-a/spec.md — it expires {TOMORROW}, and both "
-        f"pre-push and doctor read that date.\n"
-    )
-    assert accept.blocks(repo)[0][1] == {
+    assert capsys.readouterr().out.splitlines()[-2:] == [
+        f"  ✓ published specs/001-a/acceptance-r-001-01/record.json — it expires {TOMORROW}, "
+        f"and the push gate reads it.",
+        "  This records the bytes you confirmed. It does not claim who confirmed them.",
+    ]
+    record = _published(repo, "001-a")
+    stated = record.pop("record_digest")
+    assert record == {
+        "schema": "urn:ai-engineering:risk-acceptance:1",
+        "schema_version": "1",
         "id": "R-001-01",
+        "spec": "001",
+        "spec_digest": "sha256:" + sha256(b"# a\n").hexdigest(),
         "finding": "F-1",
         "severity": "medium",
-        "accepted_by": "Ada",
+        "authority_role": "Ada",
         "accepted": TODAY,
         "expires": TOMORROW,
-        "renewals": "0",
+        "renewals": 0,
+        "renews": "",
+        "renews_digest": "",
         "justification": "it is fenced off",
-        "evidence": EVIDENCE,
+        "evidence": {
+            "path": "proof.txt",
+            "content_digest": "sha256:" + sha256(EVIDENCE_BYTES).hexdigest(),
+        },
         "follow_up": "",
     }
+    # The self digest is over the record's own canonical projection, so it is recomputed
+    # rather than copied out of the file being checked.
+    assert stated == acceptance.record_digest(record)
+    # The spec it belongs to is never opened for write, which is the whole point of
+    # publishing beside it instead of editing into it.
+    assert spec_md.read_bytes() == b"# a\n"
 
 
-def test_what_was_typed_on_the_command_line_is_what_gets_written(repo):
+def test_what_was_typed_on_the_command_line_is_what_gets_written(repo, monkeypatch):
     """A recorded acceptance that quietly replaces the follow-up somebody typed with a
     TODO is worse than no record: it reads as filled in and says nothing true."""
+    _confirmed(monkeypatch)
     _spec(repo, "001-a", "# a\n")
     args = ["--finding", "F-1", "--expires", TOMORROW, "--severity", "high"]
     args += [*SIGNED, "--follow-up", "delete it"]
     completed(accept.main(args))
-    block = accept.blocks(repo)[0][1]
-    assert block["severity"] == "high"
-    assert block["accepted_by"] == "Ada"
-    assert block["justification"] == "it is fenced off"
-    assert block["evidence"] == EVIDENCE
-    assert block["follow_up"] == "delete it"
+    record = _published(repo, "001-a")
+    assert record["severity"] == "high"
+    assert record["authority_role"] == "Ada"
+    assert record["justification"] == "it is fenced off"
+    assert record["evidence"]["path"] == "proof.txt"
+    assert record["follow_up"] == "delete it"
 
 
-def test_the_acceptance_id_takes_the_digits_out_of_the_spec_folder(repo, capsys):
-    """The id ties the risk to its spec. Built from the raw folder name it would read
-    R-spe-01 for a folder somebody named by hand, and two specs could collide."""
-    _spec(repo, "spec-042-note", "# a\n")
+def test_the_acceptance_id_takes_the_digits_out_of_the_spec_folder(repo, capsys, monkeypatch):
+    """The id ties the risk to its spec: the digits come from the folder, never from a
+    running count, so the forty-second spec's first risk is R-042-01 and not R-001-01.
+
+    A preserved pre-canonical directory is read for history and is not a place to publish
+    into. Its ordinals still participate in the namespace — that is proved in the acceptance
+    register tests — but the new record lands in the canonical home a person named.
+    """
+    _confirmed(monkeypatch)
+    _spec(repo, "042-note", "# a\n")
     completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     capsys.readouterr()
-    assert accept.blocks(repo)[0][1]["id"] == "R-042-01"
+    assert _published(repo, "042-note")["id"] == "R-042-01"
+    # The directory is the identity, in lower case, so the name and the record agree.
+    assert (repo / "specs" / "042-note" / "acceptance-r-042-01").is_dir()
+
+    _spec(repo, "spec-043-note", "# b\n")
+    assert accept.main(
+        ["--finding", "F-2", "--expires", TOMORROW, "--spec", "043", *SIGNED]
+    ) == outcome.result("INCOMPLETE")
+    assert not list((repo / "specs" / "spec-043-note").glob("acceptance-*"))
 
 
-def test_the_named_spec_is_the_one_written_to_not_the_newest(repo, capsys):
+def test_the_named_spec_is_the_one_written_to_not_the_newest(repo, capsys, monkeypatch):
     """--spec exists so a risk lands on the spec that owns it. Ignored, every acceptance
     piles onto whichever spec was created last and the trail points at the wrong work."""
+    _confirmed(monkeypatch)
     _spec(repo, "001-a", "# a\n")
     untouched = _spec(repo, "002-b", "# b\n")
     completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, "--spec", "001", *SIGNED]))
-    assert "recorded in specs/001-a/spec.md" in capsys.readouterr().out
+    assert "published specs/001-a/acceptance-r-001-01/record.json" in capsys.readouterr().out
     assert untouched.read_text(encoding="utf-8") == "# b\n"
+    assert not list((repo / "specs" / "002-b").glob("acceptance-*"))
 
 
-def test_an_acceptance_a_person_wrote_by_hand_counts_as_the_first_renewal(repo, capsys):
-    """The blocks in a spec are hand-editable markdown, so one can arrive without the
-    renewals counter. Crashing on it, or restarting the count, is how a risk gets rolled
-    forward past the ceiling of two."""
-    _spec(repo, "001-a", text.render({"finding": "F-1", "expires": TOMORROW}))
+def test_an_earlier_acceptance_of_the_same_finding_counts_as_the_first_renewal(
+    repo, capsys, monkeypatch
+):
+    """Two renewals is the ceiling, so the count has to survive across commands. Restarting
+    it is how a risk gets rolled forward past that ceiling one acceptance at a time."""
+    _confirmed(monkeypatch)
+    _spec(repo, "001-a", "# a\n")
+    completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     capsys.readouterr()
-    written = [b for _, b in accept.blocks(repo) if "renewals" in b]
-    assert len(written) == 1
-    assert written[0]["renewals"] == "1"
-    assert written[0]["id"] == "R-001-02"
+    published = [
+        json.loads(path.read_text(encoding="utf-8"))
+        for path in sorted((repo / "specs" / "001-a").glob("acceptance-r-*/record.json"))
+    ]
+    renewal = next(record for record in published if record["renewals"] == 1)
+    assert renewal["id"] == "R-001-02"
+    assert renewal["renews"] == "R-001-01"
+    assert renewal["renews_digest"].startswith("sha256:")
+    # The record it renews is left exactly as it was published.
+    original = next(record for record in published if record["renewals"] == 0)
+    assert original["id"] == "R-001-01" and original["renews"] == ""
 
 
-def test_a_spec_with_no_accepted_risks_heading_keeps_everything_it_had(repo, capsys):
-    """The heading is added when it is missing. Replacing the file with the heading, or
-    splitting the text on whitespace, throws away the spec somebody wrote."""
-    _spec(repo, "001-a", "# title\n\nprose a person wrote\n")
-    completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
-    capsys.readouterr()
-    after = (repo / "specs" / "001-a" / "spec.md").read_text(encoding="utf-8")
-    assert after.startswith("# title\n\nprose a person wrote\n")
-    assert "## Accepted risks" in after
-    assert after.endswith("\n")
-
-
-def test_the_block_goes_under_the_first_heading_even_if_the_spec_names_it_twice(repo, capsys):
-    """A spec is prose, so the words '## Accepted risks' can appear again further down.
-    Splitting on all of them crashes the command, and splitting on the last one files the
-    risk under a sentence instead of under the heading."""
-    _spec(
-        repo,
-        "001-a",
-        "# title\n\n## Accepted risks\n\nolder prose\n\n"
-        '## Notes\n\nthe "## Accepted risks" heading is named again here\n',
+def test_the_spec_is_never_opened_for_write_whatever_it_contains(repo, capsys, monkeypatch):
+    """This replaces three tests about where a block landed inside `spec.md` and what that
+    insertion preserved. None of that can happen now: no supported system can rewrite a file
+    conditionally on it still holding what you read, so the record is published beside the
+    spec and the spec is never a write target — whatever headings, prose or duplicate
+    headings it happens to contain."""
+    _confirmed(monkeypatch)
+    body = (
+        "# title\n\nprose a person wrote\n\n## Accepted risks\n\nolder prose\n\n"
+        '## Notes\n\nthe "## Accepted risks" heading is named again here\n'
     )
+    spec_md = _spec(repo, "001-a", body)
+    before = spec_md.read_bytes()
     completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     capsys.readouterr()
-    after = (repo / "specs" / "001-a" / "spec.md").read_text(encoding="utf-8")
-    assert after.index("finding: F-1") < after.index("older prose")
-    assert after.endswith("\n")
+    assert spec_md.read_bytes() == before
+    assert _published(repo, "001-a")["finding"] == "F-1"
+    # And nothing was left staged: a refused or completed publication owns its own entry.
+    assert not list((repo / "specs" / "001-a").glob("pending-*"))
 
 
 def test_a_spec_with_bytes_that_are_not_utf8_is_read_not_crashed(repo):

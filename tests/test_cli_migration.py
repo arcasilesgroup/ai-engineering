@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import builtins
 import importlib
+import io
 import json
 import os
 import shutil
@@ -19,6 +21,8 @@ import pytest
 
 from ai_engineering import (
     accept,
+    acceptance,
+    acceptance_privacy,
     audit,
     capability,
     cli,
@@ -65,6 +69,26 @@ def _repository(tmp_path: Path, *, governed: bool = True) -> Path:
         target.write_text(file["content"], encoding="utf-8")
     assert skeletons.seed_intent(root, materialized["intent"]).outcome == "PASS"
     return root
+
+
+def _confirmed(monkeypatch: pytest.MonkeyPatch, *, scanner: object = None) -> None:
+    """Stand in for the two boundaries a test process cannot own: the OS controlling
+    terminal and the pinned secret scanner.
+
+    Neither is assumed away. Every test that uses this first proves the real terminal
+    boundary refuses without it, and the scanner is executed for real by the installed
+    matrix on Linux, macOS and Windows.
+    """
+
+    monkeypatch.setattr(accept, "controlling_terminal_response", lambda expected: True)
+    verdict = scanner or acceptance_privacy.CLEAN
+    monkeypatch.setattr(accept.acceptance_privacy, "gitleaks_v1", lambda directory: verdict)
+
+
+def _published(root: Path, slug: str) -> dict:
+    found = sorted((root / "specs" / slug).glob("acceptance-r-*/record.json"))
+    assert len(found) == 1, found
+    return json.loads(found[0].read_text(encoding="utf-8"))
 
 
 def _snapshot(root: Path) -> dict[Path, bytes]:
@@ -1286,16 +1310,31 @@ def test_accept_requires_named_owner_date_and_risk_evidence(
     assert invalid_cli.value.code == outcome.invalid_cli_exit()
     assert target.read_bytes() == target_bytes
 
+    # No controlling terminal is available to a test process, so the real boundary refuses
+    # here — which is itself the check that a flag or a pipe cannot stand in for it.
+    unconfirmed = accept.main([*base, "--evidence", "proof/risk-f-1.txt"])
+    assert type(unconfirmed) is outcome.Result
+    assert unconfirmed.outcome == "INCOMPLETE"
+    assert target.read_bytes() == target_bytes
+    assert not list((root / "specs" / "010-governed-foundation").glob("acceptance-*"))
+
+    _confirmed(monkeypatch)
     accepted = accept.main([*base, "--evidence", "proof/risk-f-1.txt"])
     assert type(accepted) is outcome.Execution
     assert accepted.outcome == "PASS"
     assert accepted.changes[0].status == "APPLIED"
-    record = [block for _, block in accept.blocks(root) if block.get("finding") == "F-1"][-1]
-    assert record["accepted_by"] == "repository maintainer"
+    record = _published(root, "010-governed-foundation")
+    assert record["authority_role"] == "repository maintainer"
     assert record["accepted"] == date.today().isoformat()
     assert record["expires"] == tomorrow
-    assert record["evidence"] == (f"proof/risk-f-1.txt@sha256:{sha256(proof_bytes).hexdigest()}")
+    assert record["evidence"] == {
+        "path": "proof/risk-f-1.txt",
+        "content_digest": f"sha256:{sha256(proof_bytes).hexdigest()}",
+    }
     assert proof.read_bytes() == proof_bytes
+    # The spec it cites, a neighbouring spec and a file outside the repository are all
+    # byte-identical: an acceptance publishes, it never rewrites.
+    assert target.read_bytes() == target_bytes
     assert foreign.read_bytes() == b"foreign spec bytes\n"
     assert sentinel.read_bytes() == b"foreign sentinel\n"
 
@@ -1652,6 +1691,7 @@ def test_cli_json_transports_real_facts_and_keeps_invalid_usage_one_object(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     report_command = importlib.import_module("ai_engineering.report")
+    _confirmed(monkeypatch)
 
     def unknown(root):
         raise doctor.Undecidable("the executed check could not decide")
@@ -1744,7 +1784,7 @@ def test_cli_json_transports_real_facts_and_keeps_invalid_usage_one_object(
     accepted_payload = json.loads(accepted_output.out)
     assert accepted_payload["changes"]
     assert accepted_payload["changes"][0]["status"] == "APPLIED"
-    assert any(block.get("finding") == "F-JSON" for _, block in accept.blocks(root))
+    assert _published(root, "010-governed-foundation")["finding"] == "F-JSON"
 
     for argv, command, code in (
         (["--json"], "ai-eng", 2),
@@ -1764,3 +1804,126 @@ def test_cli_json_transports_real_facts_and_keeps_invalid_usage_one_object(
             assert payload["error"]["code"] == "INVALID_CLI"
         else:
             assert payload["error"] is None
+
+
+def test_accept_publishes_one_immutable_record_without_replacement(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The whole acceptance contract, at the boundary where it is either true or theatre.
+
+    One immutable record appears at a name nothing else held, the spec it cites is
+    byte-identical afterwards, the exact response has to arrive through the controlling
+    terminal, and every refusal leaves the tree exactly as it was found — no final entry and
+    no staged one. What it never claims is who answered.
+    """
+
+    root = _repository(tmp_path)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    slug = "010-governed-foundation"
+    home = root / "specs" / slug
+    target = home / "spec.md"
+    target_bytes = target.read_bytes()
+    proof = root / "proof" / "risk.txt"
+    proof.parent.mkdir()
+    proof_bytes = b"executed local check receipt\n"
+    proof.write_bytes(proof_bytes)
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    base = [
+        "--finding",
+        "the native rename cannot prove power-loss durability",
+        "--expires",
+        tomorrow,
+        "--by",
+        "repository maintainer",
+        "--justification",
+        "no supported runner executes a crash and recovery fixture",
+        "--evidence",
+        "proof/risk.txt",
+        "--spec",
+        "010",
+    ]
+
+    # The controlling terminal, for real. `isatty`, a flag and piped standard input are all
+    # things a script supplies, so none of them can satisfy this.
+    monkeypatch.setattr("sys.stdin", io.StringIO("ACCEPT R-010-01 AS repository maintainer\n"))
+    assert accept.main(base) == outcome.result("INCOMPLETE")
+    assert target.read_bytes() == target_bytes
+    assert not list(home.glob("acceptance-*")) and not list(home.glob("pending-*"))
+
+    # The exact bytes, compared against the exact challenge, read from the device itself.
+    answers: dict[str, str] = {}
+    real_open = builtins.open
+
+    def device(name, *args, **kwargs):
+        if name in ("/dev/tty", "CONIN$"):
+            return io.StringIO(answers["line"])
+        return real_open(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", device)
+    answers["line"] = "ACCEPT R-010-01 AS repository maintainer"
+    assert accept.controlling_terminal_response("ACCEPT R-010-01 AS repository maintainer")
+    for wrong in (
+        "ACCEPT R-010-01 AS repository maintainers",
+        "ACCEPT R-010-02 AS repository maintainer",
+        "accept R-010-01 AS repository maintainer",
+        " ACCEPT R-010-01 AS repository maintainer",
+        "",
+    ):
+        answers["line"] = wrong
+        assert not accept.controlling_terminal_response(
+            "ACCEPT R-010-01 AS repository maintainer"
+        ), wrong
+    monkeypatch.undo()
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+
+    # A role no one can be held to is refused before anything is displayed.
+    _confirmed(monkeypatch)
+    for denied in ("AI reviewer", "the agent", "TBD"):
+        assert accept.main([*base, "--by", denied]) == outcome.result("INCOMPLETE")
+    assert not list(home.glob("acceptance-*"))
+
+    # A privacy refusal happens before the commit point and leaves nothing staged.
+    _confirmed(monkeypatch, scanner=acceptance_privacy.Verdict("FAIL", "X", "a secret was found"))
+    assert accept.main(base) == outcome.result("FAIL")
+    assert not list(home.glob("acceptance-*")) and not list(home.glob("pending-*"))
+    assert target.read_bytes() == target_bytes
+
+    # The one committed publication.
+    _confirmed(monkeypatch)
+    accepted = accept.main(base)
+    assert type(accepted) is outcome.Execution
+    assert accepted.outcome == "PASS"
+    published = home / "acceptance-r-010-01" / "record.json"
+    assert [path.name for path in sorted(home.glob("acceptance-*"))] == ["acceptance-r-010-01"]
+    assert not list(home.glob("pending-*"))
+    assert target.read_bytes() == target_bytes
+
+    record = json.loads(published.read_text(encoding="utf-8"))
+    assert record["spec_digest"] == "sha256:" + sha256(target_bytes).hexdigest()
+    assert record["evidence"]["content_digest"] == "sha256:" + sha256(proof_bytes).hexdigest()
+    assert record["record_digest"] == acceptance.record_digest(
+        {name: value for name, value in record.items() if name != "record_digest"}
+    )
+    # Canonical bytes, exactly as the schema declares them.
+    assert published.read_bytes() == acceptance.canonical_bytes(record)
+    # The register reads it back, and reads it as one record with no history behind it.
+    register = acceptance.read(root)
+    assert register.outcome == "PASS"
+    assert [entry.id for entry in register.entries] == ["R-010-01"]
+    assert register.entries[0].provenance == acceptance.CANONICAL_RECORD
+
+    # Nothing anywhere claims who answered, or that the record survives power loss.
+    rendered = json.dumps(accepted.as_dict() if hasattr(accepted, "as_dict") else {})
+    for never in ("identity", "durab", "tamper", "attest"):
+        assert never not in rendered.lower()
+
+    # A second writer that finds the final name taken loses without touching the winner.
+    foreign = home / "acceptance-r-010-02"
+    foreign.mkdir()
+    (foreign / "record.json").write_bytes(b"foreign bytes\n")
+    assert accept.main(base) == outcome.result("INCOMPLETE")
+    assert (foreign / "record.json").read_bytes() == b"foreign bytes\n"
+    assert published.read_bytes() == acceptance.canonical_bytes(record)
+    assert not list(home.glob("pending-*"))
