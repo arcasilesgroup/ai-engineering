@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-engineering:risk-acceptance:1",
+  "title": "ai-engineering risk acceptance v1",
+  "description": "One immutable published acceptance or renewal. Never embedded in a spec, never replaced.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "id",
+    "spec",
+    "spec_digest",
+    "finding",
+    "severity",
+    "authority_role",
+    "accepted",
+    "expires",
+    "renewals",
+    "renews",
+    "renews_digest",
+    "justification",
+    "evidence",
+    "follow_up",
+    "record_digest"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "urn:ai-engineering:risk-acceptance:1"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^R-[0-9]{3}-[0-9]{2}$"
+    },
+    "spec": {
+      "type": "string",
+      "pattern": "^[0-9]{3}$"
+    },
+    "spec_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "finding": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "authority_role": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "accepted": {
+      "$ref": "#/$defs/date"
+    },
+    "expires": {
+      "$ref": "#/$defs/date"
+    },
+    "renewals": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+    },
+    "renews": {
+      "type": "string",
+      "pattern": "^(|R-[0-9]{3}-[0-9]{2})$"
+    },
+    "renews_digest": {
+      "type": "string",
+      "pattern": "^(|sha256:[0-9a-f]{64})$"
+    },
+    "justification": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "content_digest"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "follow_up": {
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 2000
+    },
+    "record_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "renews": {
+            "const": ""
+          }
+        },
+        "required": [
+          "renews"
+        ]
+      },
+      "then": {
+        "properties": {
+          "renewals": {
+            "const": 0
+          },
+          "renews_digest": {
+            "const": ""
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "renewals": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "renews_digest": {
+            "$ref": "#/$defs/digest"
+          }
+        }
+      }
+    }
+  ],
+  "x-utf8-byte-limits": {
+    "finding": 128,
+    "authority_role": 128,
+    "justification": 2000,
+    "follow_up": 2000,
+    "evidence.path": 1024
+  },
+  "x-acceptance-policy": {
+    "home": "specs/NNN-slug/acceptance-r-NNN-NN/record.json",
+    "spec_md_is_never_opened_for_write": true,
+    "publication": "native exclusive no-replace rename",
+    "canonical_json": {
+      "encoding": "utf-8",
+      "bom": false,
+      "sort_keys": true,
+      "indent": 2,
+      "allow_nan": false,
+      "trailing_newline": true
+    },
+    "record_digest_omits": [
+      "record_digest"
+    ],
+    "expires_not_before": "accepted",
+    "evidence_max_bytes": 100000,
+    "max_renewals": 2,
+    "third_renewal": "FAIL",
+    "unknown_field": "INCOMPLETE",
+    "malformed": "INCOMPLETE",
+    "digest_mismatch": "INCOMPLETE",
+    "integrity_before_freshness": true,
+    "stale_binding": "INCOMPLETE",
+    "stale_head_is_renewable": true,
+    "record_digest_is_an_external_signature": false,
+    "suppresses_failed_or_incomplete_checks": false,
+    "claims_respondent_identity": false,
+    "claims_power_loss_durability": false,
+    "claims_tamper_proof_storage": false
+  }
+}
