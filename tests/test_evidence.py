@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from datetime import date, datetime
+from dataclasses import replace
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+from ai_engineering import evidence, outcome
 
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "check-evidence-v1.schema.json"
@@ -127,6 +130,30 @@ def _record(kind: str = "automated") -> dict[str, Any]:
     return record
 
 
+def _expectation(record: dict[str, Any]) -> evidence.Expectation:
+    conditional = {
+        field: record[field]
+        for field in [
+            *(field for field in HUMAN if field != "observation_date"),
+            "independent_path",
+            "limits",
+            "reason",
+        ]
+        if field in record
+    }
+    return evidence.Expectation(
+        kind=record["kind"],
+        id=record["id"],
+        applicability=record["applicability"],
+        command=record["command"],
+        tool_version=record["tool_version"],
+        input_digest=record["input_digest"],
+        artifact_digest=record["artifact_digest"],
+        max_age_seconds=record["max_age_seconds"],
+        **conditional,
+    )
+
+
 def test_check_evidence_schema_requires_receipt_owner_protocol_and_independence() -> None:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     assert set(schema) == {
@@ -191,3 +218,147 @@ def test_check_evidence_schema_requires_receipt_owner_protocol_and_independence(
     applicable_reason = deepcopy(_record())
     applicable_reason["reason"] = "skip"
     assert not _valid(applicable_reason, schema, schema)
+
+
+def test_evidence_verifier_distinguishes_fail_missing_stale_malformed_and_digest_mismatch() -> None:
+    now = datetime(2026, 8, 13, 20, 2, tzinfo=UTC)
+    record = _record()
+    expected = _expectation(record)
+
+    passed = evidence.verify(record, expected=expected, now=now)
+    assert passed.result == outcome.result("PASS")
+    assert (passed.outcome, passed.code) == ("PASS", "EVIDENCE_VERIFIED")
+
+    failed_record = {**record, "outcome": "FAIL"}
+    failed = evidence.verify(failed_record, expected=expected, now=now)
+    assert failed.result == outcome.result("FAIL")
+    assert failed.code == "EVIDENCE_EXECUTED_FAIL"
+
+    cases = [
+        (None, now, "EVIDENCE_MISSING"),
+        (
+            {
+                **record,
+                "started_at": "2026-08-12T20:00:00Z",
+                "finished_at": "2026-08-12T20:01:59Z",
+            },
+            now,
+            "EVIDENCE_STALE",
+        ),
+        ({"outcome": "PASS", "green": True}, now, "EVIDENCE_MALFORMED"),
+        (
+            {**failed_record, "artifact_digest": "sha256:" + "c" * 64},
+            now,
+            "EVIDENCE_DIGEST_MISMATCH",
+        ),
+    ]
+    for candidate, observed_at, code in cases:
+        result = evidence.verify(candidate, expected=expected, now=observed_at)
+        assert result.result == outcome.result("INCOMPLETE")
+        assert (result.outcome, result.code) == ("INCOMPLETE", code)
+
+    not_applicable = {
+        **record,
+        "applicability": "not_applicable",
+        "reason": "No deployable artifact exists",
+        "outcome": "FAIL",
+    }
+    mismatch = evidence.verify(record, expected=_expectation(not_applicable), now=now)
+    assert (mismatch.outcome, mismatch.code) == (
+        "INCOMPLETE",
+        "EVIDENCE_APPLICABILITY_MISMATCH",
+    )
+    skipped = evidence.verify(
+        not_applicable,
+        expected=_expectation(not_applicable),
+        now=now,
+    )
+    assert skipped.result == outcome.result("PASS")
+    assert skipped.code == "EVIDENCE_NOT_APPLICABLE"
+
+
+def test_evidence_verifier_binds_requirement_types_receipts_and_time() -> None:
+    now = datetime(2026, 8, 13, 20, 2, tzinfo=UTC)
+    human = _record("human")
+    expected = _expectation(human)
+
+    warning = evidence.verify({**human, "outcome": "WARN"}, expected=expected, now=now)
+    assert warning.result == outcome.result("WARN")
+    assert warning.code == "EVIDENCE_VERIFIED_WITH_WARNING"
+
+    wrong_receipt = {**human, "receipt_digest": "sha256:" + "d" * 64}
+    assert evidence.verify(wrong_receipt, expected=expected, now=now).code == (
+        "EVIDENCE_DIGEST_MISMATCH"
+    )
+
+    mismatched = [
+        {**human, "id": "quality.other"},
+        {**human, "command": "true"},
+        {**human, "max_age_seconds": human["max_age_seconds"] + 1},
+        {**human, "protocol_version": "2"},
+        _record(),
+    ]
+    assert all(
+        evidence.verify(candidate, expected=expected, now=now).code
+        == "EVIDENCE_REQUIREMENT_MISMATCH"
+        for candidate in mismatched
+    )
+
+    malformed = [
+        {**human, "started_at": "2026-08-13T20:03:00Z"},
+        {**human, "finished_at": "2026-08-13T20:03:00Z"},
+        {**human, "observation_date": "2026-08-12"},
+        {**human, "max_age_seconds": True},
+        json.dumps(human)[:-1] + ',"outcome":"FAIL"}',
+    ]
+    assert all(
+        evidence.verify(candidate, expected=expected, now=now).code == "EVIDENCE_MALFORMED"
+        for candidate in malformed
+    )
+
+    invalid_now = now.replace(tzinfo=None)
+    invalid_expected = replace(expected, max_age_seconds=True)
+    unserializable_expected = replace(expected, kind=object())
+    assert evidence.verify(human, expected=expected, now=invalid_now).code == (
+        "EVIDENCE_REQUIREMENT_INVALID"
+    )
+    assert evidence.verify(human, expected=invalid_expected, now=now).code == (
+        "EVIDENCE_REQUIREMENT_INVALID"
+    )
+    assert evidence.verify(human, expected=unserializable_expected, now=now).code == (
+        "EVIDENCE_REQUIREMENT_INVALID"
+    )
+
+    boundary = {
+        **human,
+        "started_at": (now - timedelta(days=1, minutes=1)).isoformat().replace("+00:00", "Z"),
+        "finished_at": (now - timedelta(days=1)).isoformat().replace("+00:00", "Z"),
+    }
+    boundary["observation_date"] = "2026-08-12"
+    assert evidence.verify(boundary, expected=expected, now=now).outcome == "PASS"
+
+    external = _record("external")
+    external_expected = _expectation(external)
+    assert evidence.verify(external, expected=external_expected, now=now).outcome == "PASS"
+    wrong_path = {**external, "independent_path": "internal.checkout"}
+    assert evidence.verify(wrong_path, expected=external_expected, now=now).code == (
+        "EVIDENCE_REQUIREMENT_MISMATCH"
+    )
+
+
+def test_evidence_verifier_fails_closed_when_canonical_policy_changes(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    schema["description"] = "Unapproved replacement"
+    changed = tmp_path / "check-evidence-v1.schema.json"
+    changed.write_text(json.dumps(schema), encoding="utf-8")
+    monkeypatch.setattr(evidence, "SCHEMA_PATH", changed)
+
+    result = evidence.verify(
+        _record(),
+        expected=_expectation(_record()),
+        now=datetime(2026, 8, 13, 20, 2, tzinfo=UTC),
+    )
+    assert result.result == outcome.result("INCOMPLETE")
+    assert result.code == "EVIDENCE_POLICY_UNSUPPORTED"
