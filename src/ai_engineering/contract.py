@@ -855,7 +855,18 @@ DESCRIPTION_MAX = 1000
 #
 # Every case in its test mutates the register and asserts the reader says no. A reader
 # tested only on the register that already passes is a reader nobody has seen refuse.
-REPO_CEILING = 51_694
+# 51,694 to 51,742 for PO-24, the fifth of the process failures the audit measured and the
+# last of them that code can answer. Specification 010's plan named an approved digest and
+# an invalidated one, and nothing in `src/`, `tests/` or `hooks/` read either — so editing
+# the file it gated changed nothing anybody would notice.
+#
+# A check reads both now, and it made the record tell the truth on the way: `spec.md` no
+# longer hashes to what was approved, because `status` went back to `draft` under the audit.
+# The plan says so in a sentence, beside the approved digest rather than over it, and the
+# check fails when the two disagree. Proved by appending one comment to the specification
+# and watching it name the new hash. What a gate can honestly do here ends there: the
+# approval itself belongs to a person, and no test can grant one.
+REPO_CEILING = 51_742
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

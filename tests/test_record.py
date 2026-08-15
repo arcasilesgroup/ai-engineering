@@ -1379,3 +1379,40 @@ def test_an_interrupt_is_a_clean_exit_and_not_an_error(home, monkeypatch, capsys
     assert "nothing was written" in capsys.readouterr().err
     events = [json.loads(line) for line in home.chain_path(None).read_text().splitlines()]
     assert [e["cls"] for e in events] == ["command"]
+
+
+def test_the_approval_digests_in_the_plan_are_read_by_something():
+    """PO-24, which the audit measured as the fifth process failure: spec 010's plan names an
+    approved specification digest and an invalidated plan digest, and nothing in `src/`,
+    `tests/` or `hooks/` read either — so the activation gate was prose, and editing either
+    file changed nothing anybody would notice.
+
+    This reads them. The plan says the specification was approved at one digest and now
+    hashes to another, and both halves have to be true: the approved digest must be the one
+    the plan records, and the current digest must be the file's. An edit to `spec.md` that
+    does not move the second number turns this red, which is the whole of what an activation
+    gate can honestly do while the approval itself belongs to a person.
+    """
+
+    import hashlib
+
+    root = Path(__file__).resolve().parents[1]
+    folder = root / "specs" / "010-governed-agentic-engineering-foundation"
+    # Whitespace-normalised: a sentence in a markdown paragraph wraps wherever the line
+    # ended, and a containment check that did not know this would fail on the formatting.
+    plan = " ".join((folder / "plan.md").read_text(encoding="utf-8").split())
+    approved = "6afc0721df6d3eb13589efeaefa94391ca62eaa71c0b1f2bc653fe3d34117759"
+    invalidated = "742e8ffd0483f57c03fe4dca860ff01f222021c1ae655ef732f76d5d28590b09"
+
+    assert approved in plan, "the plan no longer records what was approved"
+    assert invalidated in plan, "the plan no longer records which plan digest was invalidated"
+
+    current = hashlib.sha256((folder / "spec.md").read_bytes()).hexdigest()
+    assert current in plan, (
+        f"spec.md hashes to {current} and the plan does not say so. "
+        "Record the new digest beside the approved one; do not overwrite the approved one."
+    )
+    if current != approved:
+        assert "covers these bytes no longer" in plan, (
+            "the specification has changed since approval and the plan implies it has not"
+        )
