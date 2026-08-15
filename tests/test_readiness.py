@@ -376,3 +376,29 @@ def test_nothing_linked_on_the_way_and_no_duplicate_key_decides_a_box(tmp_path):
     future = readiness.read(ahead, now=NOW)
     assert future.result.outcome == "INCOMPLETE"
     assert future.age_of("logs") is None
+
+
+def test_a_repository_cannot_declare_its_way_out_of_freshness(tmp_path):
+    """The receipt schema bounds the freshness window below and not above, so without this
+    a declaration could allow a year of slack and a receipt from any date would verify.
+    Freshness stops meaning anything the moment the thing being judged picks the window."""
+
+    box = next(entry for entry in readiness.BOXES if entry.id == "ci_cd")
+    loose = _declared(box) | {"max_age_seconds": readiness.MAX_AGE_CEILING + 1}
+    ancient = datetime(2000, 1, 1, tzinfo=UTC)
+    root = _repository(
+        tmp_path / "loose",
+        declarations={"ci_cd": loose},
+        written={"ci_cd": _receipt(box, loose, finished=ancient)},
+    )
+    slack = readiness.read(root, now=NOW)
+    assert slack.result.outcome == "INCOMPLETE"
+    assert _codes(slack)["ci_cd"] == readiness.FRESHNESS_TOO_LOOSE
+
+    at_the_ceiling = _declared(box) | {"max_age_seconds": readiness.MAX_AGE_CEILING}
+    allowed = _repository(
+        tmp_path / "ceiling",
+        declarations={"ci_cd": at_the_ceiling},
+        written={"ci_cd": _receipt(box, at_the_ceiling, finished=NOW - timedelta(hours=1))},
+    )
+    assert readiness.read(allowed, now=NOW).result.outcome == "PASS"

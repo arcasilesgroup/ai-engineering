@@ -39,9 +39,16 @@ DECLARATION_MALFORMED = "READINESS_DECLARATION_MALFORMED"
 DECLARATION_INVALID = "READINESS_DECLARATION_INVALID"
 BOXES_MISMATCH = "READINESS_BOXES_MISMATCH"
 RECEIPT_UNREADABLE = "READINESS_RECEIPT_UNREADABLE"
+FRESHNESS_TOO_LOOSE = "READINESS_FRESHNESS_TOO_LOOSE"
 TIME_INVALID = "READINESS_TIME_INVALID"
 
 _MAX_BYTES = 100_000
+# The longest a proof may be allowed to stand. The receipt schema bounds `max_age_seconds`
+# below and not above, so a repository could declare a year of slack — measured, a receipt
+# from the year 2000 read PASS with its age printed beside it — and freshness stops meaning
+# anything the moment the repository being judged picks the window. Thirty-one days is the
+# longest span over which a box can still be said to describe the service as it is now.
+MAX_AGE_CEILING = 2_678_400
 # A decided failure outranks an undecidable one: both block a URL, but only one of them
 # is already answered, and the report has to say which.
 _SEVERITY = {"PASS": 0, "WARN": 1, "INCOMPLETE": 2, "FAIL": 3}
@@ -197,6 +204,8 @@ def _status(box: Box, declared: object, root: Path, now: datetime) -> BoxStatus:
 
     if not isinstance(declared, dict) or not all(isinstance(key, str) for key in declared):
         return answer("INCOMPLETE", DECLARATION_INVALID)
+    if declared.get("max_age_seconds", 0) > MAX_AGE_CEILING:
+        return answer("INCOMPLETE", FRESHNESS_TOO_LOOSE)
     try:
         # Kind and identity are this module's to state. A declaration that tries to set
         # either collides with the argument already passed and is refused, rather than
