@@ -461,3 +461,66 @@ def test_check_workflow_contract_notices_a_removed_evidence_gate(removal):
         assert 'if [ "${SNYK_EVIDENCE:-unavailable}" != "ran" ]; then' in aggregate
         assert '[ "${pair##*=}" = "success" ] || failed=1' in aggregate
         assert 'echo "evidence=ran" >> "$GITHUB_OUTPUT"' in snyk
+
+
+def test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renames_and_json():
+    """The surface a stranger types, proved from the artifact they installed.
+
+    Everything before this task proved a mechanism — a rename, a transaction, a register.
+    This proves the thing a person actually meets: ten verbs, the old spellings gone, and
+    one JSON object with an empty stderr. From the wheel, because the checkout can be made
+    to say anything and is not what anybody installs.
+
+    It is also the first place the earlier runners could have been quietly weakened, so both
+    are pinned by digest and this test fails if either moves by a byte.
+    """
+
+    workflow = (ROOT / ".github" / "workflows" / "install-matrix.yml").read_text(encoding="utf-8")
+    _assert_install_matrix_contract(workflow)
+    lines = workflow.splitlines()
+
+    # Unchanged, byte for byte. A task that extends a matrix must not edit what it extends.
+    assert _raw_digest(
+        _named_step(lines, "native transaction comes only from the installed wheel")
+    ) == ("ee7b8e1a10b1c9da9a6810b0711c4d653af5348e80c3e46bfb1d265dd5838b5d")
+    assert (
+        _raw_digest(
+            _named_step(lines, "acceptance publication comes only from the installed wheel")
+        )
+        == "7196bcf318d43219fc4dc8cbf5e1ecc55a57657dddd338198599249a6f87f0e3"
+    )
+
+    surface = _named_step(lines, "the ten verbs, the hard renames and one JSON object")
+    assert _raw_digest(surface) == (
+        "8348f3d8e5f454f975856a85b87ab0a2aebcf59a2e91465176b45b67340e1087"
+    )
+    body = "\n".join(surface)
+
+    # The inventory, and its size, so a verb added or lost is visible rather than implied.
+    for verb in (
+        "init",
+        "doctor",
+        "update",
+        "spec",
+        "decide",
+        "accept",
+        "audit",
+        "report",
+        "exception",
+        "uninstall",
+    ):
+        assert verb in body, verb
+    assert 'test "$listed" = "10"' in body
+
+    # Every hard rename, proved from the side that matters: the old spelling must refuse.
+    for gone in ("ai-eng plan --skip x", "ai-eng digest", "ai-eng decide --adr x"):
+        assert f"! {gone}" in body, gone
+    assert "design_gate" in body and "the old guard name survives" in body
+
+    # One object, nothing on stderr, and it has to parse.
+    assert "json mode wrote to stderr" in body
+    assert "more than one line" in body
+    assert "schema_version" in body
+
+    # And the whole step fails closed: strict shell, no `|| true` on an assertion.
+    assert "set -euo pipefail" in body

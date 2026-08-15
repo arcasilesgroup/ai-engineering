@@ -308,6 +308,47 @@ jobs:
               raise SystemExit(int(result))
           PY
 
+      # The surface a stranger types, proved from the artifact they installed. Every
+      # rename in this wave was a hard one — no alias, no shim — and a hard rename is only
+      # hard if the old spelling is gone from the thing that ships. The checkout can say
+      # anything; this asks the wheel.
+      - name: the ten verbs, the hard renames and one JSON object
+        shell: bash
+        run: |
+          set -euo pipefail
+          run="$RUNNER_TEMP/installed-surface"
+          rm -rf "$run"
+          mkdir -p "$run"
+          cd "$run"
+          git init -b main . >/dev/null
+
+          # The inventory. Exactly ten, and the ones the specification names.
+          help=$(ai-eng --help)
+          for verb in init doctor update spec decide accept audit report exception uninstall; do
+            printf '%s' "$help" | grep -qE "^  $verb " || { echo "no verb: $verb"; exit 1; }
+          done
+          listed=$(printf '%s' "$help" | grep -cE '^  [a-z]+ +[A-Z]')
+          test "$listed" = "10" || { echo "the surface lists $listed verbs, not ten"; exit 1; }
+
+          # The hard renames, from the side that matters: the old spelling must refuse.
+          ! ai-eng plan --skip x >/dev/null 2>&1 || { echo "the plan verb still answers"; exit 1; }
+          ! ai-eng digest >/dev/null 2>&1 || { echo "the digest verb still answers"; exit 1; }
+          ! ai-eng decide --adr x >/dev/null 2>&1 || { echo "--adr still answers"; exit 1; }
+          ai-eng exception --help >/dev/null
+          ai-eng report --help >/dev/null
+          ai-eng decide --help | grep -q -- --madr
+
+          # One JSON object on stdout, nothing on stderr, for a verb that refuses.
+          out=$(ai-eng --json audit verify 2>err.txt || true)
+          test ! -s err.txt || { echo "json mode wrote to stderr"; cat err.txt; exit 1; }
+          test "$(printf '%s' "$out" | wc -l)" -le 1 || { echo "more than one line"; exit 1; }
+          printf '%s' "$out" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['command']=='audit'; assert d['outcome']; assert d['schema_version']=='1'"
+
+          # And the guard the wave renamed answers to its new name and not its old one.
+          ai-eng --json doctor >doctor.json 2>err2.txt || true
+          test ! -s err2.txt || { echo "json doctor wrote to stderr"; cat err2.txt; exit 1; }
+          ! grep -q design_gate doctor.json || { echo "the old guard name survives"; exit 1; }
+
       - name: zero to a green doctor, in a repository it has never seen
         shell: bash
         run: |
