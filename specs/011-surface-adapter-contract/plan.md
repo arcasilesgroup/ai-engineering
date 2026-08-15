@@ -112,25 +112,30 @@ say the command must be a verb, and a subcommand answers it exactly.
    state for anything unreceipted, and adds no verb — the two exact-ten assertions and the
    installed-wheel count stay untouched, which is the evidence that it added none.
 
-6. **`proven` stops being writable** — **file** `policy/surfaces.toml`.
-   **check**: `pytest -q tests/test_surface_adapter.py::test_no_surface_flag_can_assert_a_state_a_receipt_has_not_earned`.
-   **rollback**: `git revert <commit>`. **done when**: the static `proven` field is deleted,
-   not deprecated; every reader takes the answer from a receipt; the test fails if the field
-   returns under any spelling.
+### Amendment, made while executing Task 6
 
-*Block A closes with a fresh review, repairs, re-review — re-arming on REJECT — and one
-`just check`.*
+Task 6 is two tasks. Deleting the field and teaching its reader to live without it are
+different homes — `policy/surfaces.toml` and `src/ai_engineering/doctor.py` — and Task 4
+did not remove the dependency, it added a second block beside it. So the flag still has a
+reader, and one commit cannot both retire the reader and delete what it reads.
 
-### Block B — claude-code, the only surface with an executed denial (Tasks 7–9)
+Splitting it also exposes the consequence separately, which is worth its own commit
+message: once the coverage word comes from a receipt, **every surface reads UNPROVEN**,
+including the one that has read BLOCKS since the beginning. That is not a regression. It is
+spec 010's own sentence — three surfaces read UNPROVEN and stay that way until a denial
+actually executes there — applied to all eight, because none of them has ever receipted one.
 
-The surface that already denies from a wheel-installed artifact goes first, because it is
-the one where the three receipts can be earned today and the contract can be proved end to
-end before it is asked to carry a surface that cannot deny.
+6a. **The coverage word comes from a receipt** — **file** `src/ai_engineering/doctor.py`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_the_coverage_word_is_earned_and_never_declared`.
+   **rollback**: `git revert <commit>`. **done when**: `standing` takes the surfaces whose
+   enforcement receipt proved, never `surface["proven"]`; the one-word block and the
+   three-state block agree by construction because both read the same receipts; every row
+   that has no receipt reads UNPROVEN, and the tests that pinned the old word move with it.
 
-7. **claude-code adapter** — **file** `src/ai_engineering/adapters/claude_code.py`.
-8. **Its negative fixtures from the wheel** — **file** `.github/workflows/install-matrix.yml`
-   — omitted adapter, malformed payload, guard crash and denial, each executed.
-9. **Its three receipts** — written by the matrix, read by `surface proof`.
+6b. **`proven` stops being writable** — **file** `policy/surfaces.toml`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_no_surface_flag_can_assert_a_state_a_receipt_has_not_earned`.
+   **rollback**: `git revert <commit>`. **done when**: the field is deleted, not deprecated,
+   and the test fails if it returns under any spelling.
 
 ### Blocks C onward — one surface per block, in provability order
 

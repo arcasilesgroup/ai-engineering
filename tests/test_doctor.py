@@ -1278,10 +1278,13 @@ def test_no_surface_reads_as_covered_where_no_denial_has_ever_executed(home, rep
     lines = doctor.coverage(repo)
     ids = [s["id"] for s in wiring.table()["surface"]]
     rows = dict(zip(ids, lines[1 : 1 + len(ids)], strict=True))
-    unproven = [s["id"] for s in wiring.table()["surface"] if not s["proven"]]
-    assert not [name for name in unproven if "BLOCKS" in rows[name]]
+    # Not one row, now: the word comes from an enforcement receipt and this repository has
+    # never written one. claude-code reads UNPROVEN here not because it lost a capability
+    # but because nobody ever receipted the denial it is perfectly able to execute — which
+    # is the sentence spec 010 wrote about three surfaces, arriving for all eight.
+    assert not [name for name in ids if "BLOCKS" in rows[name]]
     assert "INERT" in rows["opencode"] and "INERT" in rows["codex-cli"]
-    assert "BLOCKS" in rows["claude-code"]
+    assert "no denial has ever run here" in rows["claude-code"]
     assert "MISMATCH" in lines[0]
     assert doctor.surfaces_alive(None) is not None
 

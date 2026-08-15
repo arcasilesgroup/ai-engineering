@@ -795,7 +795,14 @@ def destination_real(root: Path | None) -> str | None:
 # ---------------------------------------------------------------- coverage
 
 
-def standing(surface: dict, installed: set[str], inert: str, guarded: set[str]) -> tuple[str, str]:
+def standing(
+    surface: dict,
+    installed: set[str],
+    inert: str,
+    guarded: set[str],
+    *,
+    proved: frozenset[str] = frozenset(),
+) -> tuple[str, str]:
     """One surface's word, and the sentence that says what to do about it. The word carried
     the whole message before and the message did not fit in one word: `documented, unrun
     UNPROVEN` and `not installed UNPROVEN` are the same verdict for opposite reasons, and
@@ -821,9 +828,26 @@ def standing(surface: dict, installed: set[str], inert: str, guarded: set[str]) 
         if surface.get("trust_required"):
             return "INERT", "installed and unapproved — type /hooks in Codex to approve it"
         return "INERT", "the plugin never reported loading; a malformed one is dropped in silence"
-    if surface["proven"]:
+    if surface["id"] in proved:
         return "BLOCKS", "a denial has executed here"
     return "UNPROVEN", "installed and wired, but no denial has ever run here"
+
+
+def enforced(root: Path | None, *, now: datetime) -> frozenset[str]:
+    """The surfaces whose enforcement receipt proved, and no others.
+
+    This is the whole of the change: the coverage word used to come from a field in a
+    table, and OpenCode's row read BLOCKS on the strength of it with no denial ever
+    executed there. A flag we set cannot contradict us, so it could never turn the screen
+    red — and a report that cannot go red is a report nobody needs to read."""
+
+    if root is None:
+        return frozenset()
+    return frozenset(
+        row.surface
+        for row in surfaces.read(root, now=now).rows
+        if row.state == "enforcement" and row.outcome == "PASS" and row.code == surfaces.PROVEN
+    )
 
 
 def coverage(root: Path | None) -> list[str]:
@@ -857,8 +881,9 @@ def coverage(root: Path | None) -> list[str]:
         inert = surfaces_alive(root) or ""
     except Undecidable:
         inert = ""  # nothing installed, so every row below already reads UNPROVEN
+    proved = enforced(root, now=datetime.now(UTC))
     for surface in wiring.table()["surface"]:
-        word, why = standing(surface, installed, inert, guarded)
+        word, why = standing(surface, installed, inert, guarded, proved=proved)
         lines.append(f"  {surface['tier']:<4} {surface['id']:<16} {word:<9} {why}")
     return [*lines, *OPEN]
 

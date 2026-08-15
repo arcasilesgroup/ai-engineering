@@ -381,3 +381,62 @@ def test_surface_proof_reports_three_states_and_invents_none(tmp_path, monkeypat
     matrix = (ROOT / ".github" / "workflows" / "install-matrix.yml").read_text(encoding="utf-8")
     assert 'test "$listed" = "10"' in matrix
     assert "surface" not in matrix.split("for verb in ")[1].split("; do")[0]
+
+
+def test_the_coverage_word_is_earned_and_never_declared(tmp_path, monkeypatch):
+    """The measured defect this wave exists for, closed at its source.
+
+    OpenCode's row read BLOCKS because a field in a table said `proven = true`, and no
+    denial had ever executed there. A flag we set cannot contradict us. The word now comes
+    from the enforcement receipt, so the one-word block and the three-state block agree by
+    construction — they read the same file — and a surface with no receipt reads UNPROVEN
+    however confident the table is."""
+
+    from datetime import UTC, datetime, timedelta
+
+    from ai_engineering import doctor, surface, wiring
+
+    now = datetime.now(UTC)
+    fresh = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    root = tmp_path / "repository"
+    (root / surface.RECEIPTS).mkdir(parents=True)
+
+    rows = {row["id"]: row for row in wiring.table()["surface"]}
+    every = set(rows)
+    tier_two = [name for name, row in rows.items() if row["tier"] != "T3"]
+
+    # Nothing receipted: not one row may say a denial has executed, whatever the table says.
+    for name in tier_two:
+        word, why = doctor.standing(rows[name], every, "", every, proved=frozenset())
+        assert word == "UNPROVEN", name
+        assert "no denial has ever run here" in why, name
+
+    # One receipt, and only that surface's word changes.
+    (root / surface.RECEIPTS / "opencode.enforcement.json").write_text(
+        json.dumps(_receipt("opencode", "enforcement", finished=fresh)), encoding="utf-8"
+    )
+    proved = doctor.enforced(root, now=now)
+    assert proved == frozenset({"opencode"})
+    assert doctor.standing(rows["opencode"], every, "", every, proved=proved)[0] == "BLOCKS"
+    for name in tier_two:
+        if name != "opencode":
+            assert doctor.standing(rows[name], every, "", every, proved=proved)[0] == "UNPROVEN"
+
+    # The two blocks cannot disagree, because there is nothing left for them to disagree
+    # about: both are the same receipt read twice.
+    monkeypatch.setattr(doctor.paths, "repo_root", lambda start=None: root)
+    words = {
+        line.split()[1]: line.split()[2] for line in doctor.coverage(root) if line.startswith("  T")
+    }
+    states = {
+        row.surface: row.outcome
+        for row in surface.read(root, now=now).rows
+        if row.state == "enforcement"
+    }
+    # One direction, and it is the one that matters. The word can never over-claim: no row
+    # says a denial executed unless the receipt says so. The converse does not hold and
+    # should not — the one-word block also folds in whether the surface is installed and
+    # wired here, which the state block deliberately says nothing about.
+    for name in tier_two:
+        if words[name] == "BLOCKS":
+            assert states[name] == "PASS", name

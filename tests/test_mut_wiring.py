@@ -543,7 +543,9 @@ def test_the_coverage_line_says_exactly_what_each_surface_does_on_this_machine(
     )
 
     want = [
-        ("T2", "claude-code", "BLOCKS", "a denial has executed here"),
+        # UNPROVEN, and it is the point of the wave: the word is earned from an
+        # enforcement receipt now, and this repository has never written one.
+        ("T2", "claude-code", "UNPROVEN", "installed and wired, but no denial has ever run here"),
         (
             "T2",
             "opencode",
