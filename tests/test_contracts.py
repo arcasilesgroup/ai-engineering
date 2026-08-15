@@ -159,6 +159,37 @@ ABSORBED = {
 }
 
 
+def test_the_combined_result_gates_and_not_only_each_branch_alone():
+    """EP-033 and EP-185, and one of the twenty the audit measured: `grep -c merge_group`
+    returned zero.
+
+    Two branches that each pass on their own can fail together — one renames what the other
+    calls, one deletes the file the other imports — and a repository whose only gate is the
+    pull request merges both and finds out on main. The merge queue re-runs the gate on the
+    combination, so what is proved is the tree that is about to exist.
+
+    The trigger is only half of it. Every job here has to run under that event too: a lane
+    conditioned on `pull_request` would be skipped in the queue, and `ci-result` counts a
+    skipped job as a failure, so a wrongly-conditioned lane would block every merge."""
+    workflow = (ROOT / ".github" / "workflows" / "check.yml").read_text(encoding="utf-8")
+    lines = workflow.splitlines()
+    start = lines.index("on:")
+    triggers = []
+    for line in lines[start + 1 :]:
+        if line and not line.startswith(" "):
+            break
+        if line.startswith("  ") and line.strip().endswith(":") and not line.startswith("    "):
+            triggers.append(line.strip().rstrip(":"))
+    assert "merge_group" in triggers, f"the queue never runs this workflow: {triggers}"
+    assert "pull_request" in triggers, triggers
+
+    assert "just check" in workflow, "the queue would run something other than the gate"
+    assert "github.event_name" not in workflow, (
+        "a job conditioned on the event name is a job the merge queue skips, and a skipped "
+        "job is a failure in CI Result"
+    )
+
+
 def test_the_three_absorption_candidates_did_not_ship_and_their_work_has_a_home():
     """A capability that exists to occupy a name is what specification 012's non-goals
     forbid, and an absorbed one that quietly leaves its work nowhere is worse.
@@ -816,7 +847,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 48_744
+    assert contract.REPO_CEILING == 48_787
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]

@@ -686,7 +686,13 @@ DESCRIPTION_MAX = 1000
 # a skill "somebody else installed" and called it `ai-design`, so the day `ai-design`
 # shipped, the foreign skill in the test became one of ours and `uninstall` was right to
 # refuse it. The name is asserted not to be ours now, rather than assumed.
-REPO_CEILING = 48_744
+# 48,744 to 48,787 for the first row of P3 and the fifth of the audit's twenty:
+# `grep -c merge_group .github/workflows/check.yml` returned zero, so nothing here had ever
+# checked the tree that is about to exist. Two branches that each pass alone can fail
+# together, and the only gate was the pull request. The test reads the `on:` block rather
+# than the file, and asserts the other half too — no job may be conditioned on the event
+# name, because a lane the queue skips is a lane `CI Result` counts as a failure.
+REPO_CEILING = 48_787
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

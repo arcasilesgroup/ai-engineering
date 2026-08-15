@@ -4,6 +4,12 @@ on:
   push:
     branches: [main, v1]
   pull_request:
+  # The combination, not the branch. Two pull requests that each pass alone can fail
+  # together — one renames what the other calls — and a repository whose only gate is the
+  # pull request merges both and learns on main. Every job below runs under this event as
+  # well, because none of them is conditioned on the event name, and `CI Result` counts a
+  # skipped job as a failure precisely so that a lane cannot go quiet here.
+  merge_group:
 
 permissions:
   contents: read
