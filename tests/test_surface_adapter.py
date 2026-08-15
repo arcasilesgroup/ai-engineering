@@ -711,3 +711,28 @@ def test_an_inert_surface_still_reads_inert_when_another_one_is_unwired(monkeypa
     printed = "\n".join(doctor.coverage(None))
     codex = next(line for line in printed.splitlines() if "codex-cli" in line)
     assert "INERT" in codex, f"the coverage block called a silently dead surface: {codex}"
+
+
+def test_the_surface_list_has_one_home_and_the_rest_derive_from_it():
+    """The eight ids were written out four times: `policy/surfaces.toml`, the adapter
+    schema's enum, `surface.SURFACES`, and this file's own copy. Only the schema and the
+    test were bound to each other; nothing tied either to the wiring table that actually
+    decides what gets installed.
+
+    CONSTITUTION.md's Never list opens with "never create mirrors of guards, skills,
+    templates or policy homes", and this is the product breaking that rule about itself.
+    A ninth surface added to the table would have left three copies behind, and the one
+    that reports coverage would have carried on reporting eight.
+
+    The table is the datum. `surface.SURFACES` is derived from it, and the schema enum is
+    checked against it rather than maintained beside it."""
+
+    from ai_engineering import surface, wiring
+
+    declared = tuple(row["id"] for row in wiring.table()["surface"])
+    assert surface.SURFACES == declared, (
+        "surface.SURFACES has drifted from policy/surfaces.toml, which is the one that "
+        "decides what gets installed"
+    )
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    assert schema["properties"]["surface_id"]["enum"] == list(declared)

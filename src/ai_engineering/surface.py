@@ -31,18 +31,26 @@ from ai_engineering.readiness import _anchored, _object, _read, _Unreadable
 RECEIPTS = ".ai/receipts/surface"
 STATES = ("discovery", "invocation", "enforcement")
 
+def _declared() -> tuple[str, ...]:
+    """The surfaces, from the one file that decides which ones get installed.
+
+    This was a second copy of the list, and the ids were written out four times in all:
+    here, `policy/surfaces.toml`, the adapter schema's enum, and a test. Only the schema
+    and the test were tied to each other; nothing tied either to the wiring table. A ninth
+    surface added to the table would have left three copies behind, and the module that
+    reports coverage would have carried on reporting eight.
+
+    CONSTITUTION.md's Never list opens with "never create mirrors of guards, skills,
+    templates or policy homes". This was that rule broken about the product's own data."""
+
+    from ai_engineering import wiring
+
+    return tuple(row["id"] for row in wiring.table()["surface"])
+
+
 # Frozen by spec 010. `pi` and `zed` are instruction-only until a native hook exists, which
 # is a fact about those editors and not a shortfall in this product.
-SURFACES: tuple[str, ...] = (
-    "claude-code",
-    "opencode",
-    "codex-cli",
-    "cursor",
-    "copilot-cli",
-    "vscode-copilot",
-    "pi",
-    "zed",
-)
+SURFACES: tuple[str, ...] = _declared()
 INSTRUCTION_ONLY = frozenset({"pi", "zed"})
 
 RECEIPT_MISSING = "SURFACE_RECEIPT_MISSING"
