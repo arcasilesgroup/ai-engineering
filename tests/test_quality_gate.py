@@ -388,21 +388,13 @@ def _check_workflow() -> str:
     return (ROOT / ".github" / "workflows" / "check.yml").read_text(encoding="utf-8")
 
 
-def test_check_workflow_marks_missing_or_skipped_evidence_incomplete():
-    """Every lane still runs, and a lane that ran without observing anything says so.
+def _ci_result_contract(workflow: str) -> None:
+    """Every assertion the check workflow has to satisfy, in one place.
 
-    A job result is `success` when the job exited zero. It is `success` when the job's
-    credentials were withheld and it scanned nothing, too — and that shape of green is the
-    one this product exists to refuse. So the aggregate reads what a lane reports it
-    observed, not only how it exited, and missing evidence is `INCOMPLETE` out loud.
+    In one place because the mutation test below has to run these and not a copy of some
+    of them: it held four re-typed assertions of its own, so the other eight could be
+    deleted from the real contract and nothing noticed."""
 
-    A fork pull request is the one case where the absence is nobody's fault and no code on
-    the branch can cure it: GitHub withholds the secret. That is named and allowed. Anywhere
-    else it fails, because a run that should have had the evidence and did not is a run
-    whose green nobody earned.
-    """
-
-    workflow = _check_workflow()
     lines = workflow.splitlines()
 
     # The lanes the plan requires, still present and still needed by the aggregate.
@@ -416,13 +408,15 @@ def test_check_workflow_marks_missing_or_skipped_evidence_incomplete():
     # A skipped job is a failure, which is what makes a deleted or renamed lane visible.
     assert '[ "${pair##*=}" = "success" ] || failed=1' in text
 
-    # And a lane that reported no evidence is INCOMPLETE rather than a silent pass.
+    # And a lane that reported no evidence is INCOMPLETE rather than a silent pass —
+    # everywhere, including a fork, where the absence is nobody's fault and blocks anyway.
     assert "SNYK_EVIDENCE: ${{ needs.snyk.outputs.evidence }}" in text
     assert 'if [ "${SNYK_EVIDENCE:-unavailable}" != "ran" ]; then' in text
     assert 'if [ "$FORK" = "true" ]; then' in text
     assert "CI Result INCOMPLETE" in text
-    assert "Missing evidence is INCOMPLETE, and INCOMPLETE is not a pass." in text
-    assert "exit 1" in text
+    assert "re-home the branch to this repository to get the evidence." in text
+    assert "SAST evidence is missing on a run that should have had it." in text
+    assert text.count("exit 1") == 2
 
     # The job has to declare the output, or the aggregate reads an empty string forever and
     # the branch above can never fire.
@@ -438,29 +432,53 @@ def test_check_workflow_marks_missing_or_skipped_evidence_incomplete():
     assert "test -s coverage.xml" in workflow
 
 
+def test_check_workflow_marks_missing_or_skipped_evidence_incomplete():
+    """Every lane still runs, and a lane that ran without observing anything says so.
+
+    A job result is `success` when the job exited zero. It is `success` when the job's
+    credentials were withheld and it scanned nothing, too — and that shape of green is the
+    one this product exists to refuse. So the aggregate reads what a lane reports it
+    observed, not only how it exited, and missing evidence is `INCOMPLETE` out loud.
+
+    A fork pull request is the one case where the absence is nobody's fault and no code on
+    the branch can cure it: GitHub withholds the secret. It is named separately and it
+    still blocks, because the alternative is a pull request that merges on the strength of
+    a scan nobody ran. The cure is to re-home the branch, not to lower the bar.
+    """
+
+    _ci_result_contract(_check_workflow())
+
+
 @pytest.mark.parametrize(
-    "removal",
+    ("before", "after"),
     [
-        'if [ "${SNYK_EVIDENCE:-unavailable}" != "ran" ]; then',
-        "SNYK_EVIDENCE: ${{ needs.snyk.outputs.evidence }}",
-        'echo "evidence=ran" >> "$GITHUB_OUTPUT"',
-        '[ "${pair##*=}" = "success" ] || failed=1',
+        ('if [ "${SNYK_EVIDENCE:-unavailable}" != "ran" ]; then', ""),
+        ("SNYK_EVIDENCE: ${{ needs.snyk.outputs.evidence }}", ""),
+        ('echo "evidence=ran" >> "$GITHUB_OUTPUT"', ""),
+        ('echo "evidence=unavailable" >> "$GITHUB_OUTPUT"', ""),
+        ('[ "${pair##*=}" = "success" ] || failed=1', ""),
+        ("needs: [check, suite, mutation, typecheck, sonar, snyk]", ""),
+        ("evidence: ${{ steps.scan.outputs.evidence || 'unavailable' }}", ""),
+        ("check=${{ needs.check.result }}", ""),
+        ("test -s coverage.xml", ""),
+        ("re-home the branch to this repository to get the evidence.", ""),
+        # The one that cannot be tested by deletion: waiving a lane is something added.
+        ("    name: CI Result", "    name: CI Result\n    continue-on-error: true"),
+        # And the fork branch turning back into a warning that falls through to green.
+        (
+            '            exit 1\n          fi\n          echo "six jobs',
+            '            fi\n          echo "six jobs',
+        ),
     ],
 )
-def test_check_workflow_contract_notices_a_removed_evidence_gate(removal):
-    """Each assertion above must be load-bearing. A contract that still passes with its
-    subject deleted is a contract that was reading something else."""
+def test_check_workflow_contract_notices_a_removed_evidence_gate(before, after):
+    """Each assertion in the contract must be load-bearing. A contract that still passes
+    with its subject deleted is a contract that was reading something else."""
 
-    mutated = _check_workflow().replace(removal, "", 1)
-    assert mutated != _check_workflow()
+    mutated = _check_workflow().replace(before, after, 1)
+    assert mutated != _check_workflow(), before
     with pytest.raises(AssertionError):
-        lines = mutated.splitlines()
-        aggregate = "\n".join(_child_block(lines, "  ci-result:"))
-        snyk = "\n".join(_child_block(lines, "  snyk:"))
-        assert "SNYK_EVIDENCE: ${{ needs.snyk.outputs.evidence }}" in aggregate
-        assert 'if [ "${SNYK_EVIDENCE:-unavailable}" != "ran" ]; then' in aggregate
-        assert '[ "${pair##*=}" = "success" ] || failed=1' in aggregate
-        assert 'echo "evidence=ran" >> "$GITHUB_OUTPUT"' in snyk
+        _ci_result_contract(mutated)
 
 
 def test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renames_and_json():

@@ -222,10 +222,12 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: uv run python tests/quality_gate.py
 
-  # Two things are true at once: a real vulnerability must fail the build, and a throttled
-  # or unauthenticated Snyk must not wedge every merge behind somebody else's billing.
-  # So quota, rate-limit and auth failures downgrade to a warning and everything else
-  # fails. Only the SAST half runs, and the reason changed on 2026-08-09 rather than going
+  # A real vulnerability must fail the build, and a throttled or unauthenticated Snyk must
+  # not report a finding it never looked for. So quota, rate-limit and auth failures stop
+  # this job claiming evidence and everything else fails here. They do not buy a green:
+  # the aggregate below reads `evidence` and blocks, because a lane that observed nothing
+  # is INCOMPLETE and INCOMPLETE is not a pass — including on a fork, where the cure is to
+  # re-home the branch rather than to lower the bar. Only the SAST half runs, and the reason changed on 2026-08-09 rather than going
   # away: it used to be that `snyk test` would scan an empty requirements file, and now
   # there are seven packages to scan. They already have two readers — pip-audit against the
   # advisory databases in the `check` job, and trivy over `uv.lock` in `just security` — so
@@ -322,10 +324,10 @@ jobs:
           printf '  %-12s %s\n' "snyk evidence" "${SNYK_EVIDENCE:-unavailable}"
           if [ "${SNYK_EVIDENCE:-unavailable}" != "ran" ]; then
             if [ "$FORK" = "true" ]; then
-              echo "::warning title=CI Result INCOMPLETE::SAST evidence is missing on this run. GitHub withholds secrets from a fork pull request and no code on this branch can change that, so this is INCOMPLETE and named rather than green."
+              echo "::error title=CI Result INCOMPLETE::SAST evidence is missing. GitHub withholds secrets from a fork pull request and no code on this branch can change that, so this run cannot say whether the SAST lane found anything. INCOMPLETE blocks; re-home the branch to this repository to get the evidence."
             else
-              echo "::error title=CI Result::SAST evidence is missing on a run that should have had it. Missing evidence is INCOMPLETE, and INCOMPLETE is not a pass."
-              exit 1
+              echo "::error title=CI Result INCOMPLETE::SAST evidence is missing on a run that should have had it."
             fi
+            exit 1
           fi
-          echo "six jobs, six successes"
+          echo "six jobs, six successes, and every lane observed something"
