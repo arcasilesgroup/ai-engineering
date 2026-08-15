@@ -363,7 +363,19 @@ DESCRIPTION_MAX = 1000
 #
 # Most of the 88 is the test, and that ratio is the point: the product change is a branch,
 # and what it is worth is the executed proof that a foreign line no longer breaks a chain.
-REPO_CEILING = 45_535
+# 45,535 to 45,678 for Block R Task 13, which is what makes Task 12 survivable. Task 12
+# stops new poisoning; it cannot touch links already sealed, because rewriting them is the
+# act the chain exists to detect. So the chain still had no way back: one link sealed as
+# edited and `verify` fails for good, `anchor_line` raises, and no commit on that machine
+# can ever be anchored again. Measured here at 22 links, all written by this repository's
+# own test suite.
+#
+# `audit account` answers for a named range as a *new* link, behind the same controlling
+# terminal ceremony a risk acceptance asks for. Nothing is erased: the break is still
+# printed, with the account beside it, and a chain whose only findings are accounted breaks
+# reports WARN and anchors again. 45 of the lines are the test, 94 the verb and the
+# reasoning, 5 this paragraph.
+REPO_CEILING = 45_678
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
