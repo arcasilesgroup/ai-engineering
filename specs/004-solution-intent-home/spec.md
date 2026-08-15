@@ -1,7 +1,7 @@
 ---
 id: "004"
 slug: solution-intent-home
-status: shipped
+status: superseded
 date: 2026-08-08
 ref: ""
 supersedes: ""

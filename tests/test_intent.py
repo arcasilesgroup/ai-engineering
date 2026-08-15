@@ -48,8 +48,18 @@ def test_repository_dogfood_intent_is_canonical() -> None:
     def is_unapproved_draft(candidate: dict[str, Any]) -> bool:
         return candidate.get("lifecycle") == {"status": "draft", "transitions": []}
 
-    assert record["lifecycle"] == {"status": "draft", "transitions": []}
-    assert is_unapproved_draft(record)
+    # This repository's own Intent is active now: spec 010 shipped and the transition that
+    # made it so is in the record, with the human who approved it named in both halves.
+    assert not is_unapproved_draft(record)
+    assert record["lifecycle"]["status"] == "active"
+    assert set(record["lifecycle"]["approval"]) == {
+        "authority_role",
+        "approval_ref",
+        "approved_at",
+    }
+    (move,) = record["lifecycle"]["transitions"]
+    assert (move["from"], move["to"]) == ("draft", "active")
+    assert move["authority_role"] == record["lifecycle"]["approval"]["authority_role"]
 
     sections = record["solution_intent"]
     assert all(1 <= len(entries) <= 4 for entries in sections.values())
@@ -66,28 +76,14 @@ def test_repository_dogfood_intent_is_canonical() -> None:
     target_bytes = target.read_bytes()
     assert relation["target_digest"] == "sha256:" + sha256(target_bytes).hexdigest()
 
-    fabricated_active = deepcopy(record)
-    fabricated_active["lifecycle"] = {
-        "status": "active",
-        "transitions": [
-            {
-                "from": "draft",
-                "to": "active",
-                "changed_at": "2026-08-13T00:00:00Z",
-                "authority_role": "repository maintainer",
-                "approval_ref": "fabricated-test-only",
-            }
-        ],
-        "approval": {
-            "authority_role": "repository maintainer",
-            "approval_ref": "fabricated-test-only",
-            "approved_at": "2026-08-13T00:00:00Z",
-        },
-    }
-    assert intent.validate(fabricated_active, [(relation["path"], target_bytes)]).as_dict() == {
+    # And the shape a fresh repository gets still validates, because that is the one this
+    # product writes for other people and it must not rot while ours moves on.
+    fabricated_draft = deepcopy(record)
+    fabricated_draft["lifecycle"] = {"status": "draft", "transitions": []}
+    assert intent.validate(fabricated_draft, [(relation["path"], target_bytes)]).as_dict() == {
         "outcome": "PASS"
     }
-    assert not is_unapproved_draft(fabricated_active)
+    assert is_unapproved_draft(fabricated_draft)
 
     changed = intent.validate(record, [(relation["path"], target_bytes + b"\n")])
     assert changed.as_dict() == {

@@ -719,17 +719,17 @@ def test_an_entry_is_ours_by_the_dispatcher_it_runs_and_not_by_this_project_s_na
     assert "/" not in wiring.SIGNATURE
 
 
-def test_acceptance_replanned_repo_ceiling_is_55807():
+def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     """The re-plan the acceptance wave measured its way into.
 
-    This hard-replaces the 42,807 assertion. What it pins is not the number on its own but
-    the arithmetic beside it: every rate names the commits it was measured from, the base is
-    the tree at this commit's parent rather than a forecast, and the margin is stated even
-    though it is larger than the evidence needs — because a budget that quietly rounds in its
-    own favour is the thing this ceiling exists to prevent.
+    The final candidate closes the ceiling onto the tree it measured, so what this pins is
+    not the number on its own but the arithmetic beside it: every rate names the commits it
+    was measured from, the base is the tree at this commit's parent rather than a forecast,
+    and the forecast's own error is recorded rather than quietly dropped — because a budget
+    that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 55_807
+    assert contract.REPO_CEILING == 42_579
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -741,14 +741,15 @@ def test_acceptance_replanned_repo_ceiling_is_55807():
     assert "Measured base at this commit's parent: 38,534" in budget_record
     assert "38,534 + 1,520 + 3,692 + 852 + 284 + 3,930 = 48,812" in budget_record
     assert "17,807 + 38,000 = 55,807" in budget_record
-    assert "55,807 - 48,812 = 6,995" in budget_record
+    # The close, and its own honesty about the forecast that preceded it.
+    assert "Measured at the close: 42,579" in budget_record
+    assert "6,233 under that forecast and 228 under" in budget_record
+    assert "the next line added anywhere in this repository fails the build" in budget_record
     assert "42,807 are history only" in budget_record
-    assert (
-        "Exceeding 55,807 is a hard stop and requires another approved re-plan; it is not\n"
-        "# permission to raise the ceiling. The final candidate transaction measures the\n"
-        "# committed tree and sets this ceiling to that exact total, leaving zero slack."
-        in budget_record
-    )
+    # The promise the old ceiling made about its own end, now kept: the sentence that said
+    # the final transaction would close it is replaced by the sentence that says it did.
+    assert "Exceeding 55,807" not in budget_record
+    assert "closes the ceiling onto the tree it measured, with zero slack." in budget_record
 
 
 def test_the_line_ceiling_holds(tmp_path):

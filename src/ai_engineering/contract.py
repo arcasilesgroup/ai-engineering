@@ -302,16 +302,21 @@ DESCRIPTION_MAX = 1000
 #   Task 53 at 284                         =   284
 #   5 block reviews, 2 repairs each at 393 = 3,930
 # 38,534 + 1,520 + 3,692 + 852 + 284 + 3,930 = 48,812, which is 6,005 above the 42,807
-# this replaces. The approved budget stays anchored to the original baseline:
+# this replaces. Measured at the close: 42,579 — 6,233 under that forecast and 228 under
+# the 42,807 it replaced. The arithmetic over-predicted by an eighth, and recording that
+# is the only thing that makes the next forecast worth reading.
+# The approved budget was anchored to the original baseline:
 # 17,807 + 38,000 = 55,807, approved against a 54,695 forecast before the wave was
-# measured. Against the measurement, 55,807 - 48,812 = 6,995 lines of margin. That is
-# more contingency than the evidence now needs, and margin is contingency, never
-# permission for unrelated scope: the number is what a human approved, and lowering it
-# is their decision and not this file's.
-# Exceeding 55,807 is a hard stop and requires another approved re-plan; it is not
-# permission to raise the ceiling. The final candidate transaction measures the
-# committed tree and sets this ceiling to that exact total, leaving zero slack.
-REPO_CEILING = 55_807
+# measured. The wave then came in far under it, and 13,000 lines of unspent contingency
+# is not a budget, it is a licence — so the final candidate transaction does what the
+# plan said it would and closes the ceiling onto the tree it measured, with zero slack.
+#
+# What that costs, stated plainly because a future reader will meet it as an obstacle:
+# the next line added anywhere in this repository fails the build. That is the point. A
+# ceiling with room in it never has to be argued for, and the argument is the control.
+# Raising it is a commit whose message says why, and that commit is the conversation
+# this file exists to force.
+REPO_CEILING = 42_579
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

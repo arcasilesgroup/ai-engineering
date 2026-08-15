@@ -1,7 +1,7 @@
 ---
 id: "010"
 slug: governed-agentic-engineering-foundation
-status: draft
+status: shipped
 date: 2026-08-13
 ref: ""
 supersedes: "004"
@@ -779,3 +779,23 @@ Nothing gets a URL until every box is ticked by observed evidence.
 - [ ] External check — something outside the service verifies it and states its limits
 - [ ] Second path — every published number is independently recomputed and compared
 - [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+
+### Evidence for each box, as of this candidate
+
+One row per box, and every row says the same thing, because it is true: this wave built the
+verifier and earned no receipt. A box is ticked by a check-evidence receipt at
+`.ai/receipts`, measured against a declaration committed at `.ai/readiness.json`, and this
+repository has neither. `INCOMPLETE` is unproven — it is not a failure and it is never a
+pass, and writing it eight times is the honest close of a wave whose whole subject was the
+green nobody earned.
+
+| Box | Receipt | State |
+|---|---|---|
+| CI/CD | none written | INCOMPLETE |
+| Logs | none written | INCOMPLETE |
+| Traces | none written | INCOMPLETE |
+| Errors | none written | INCOMPLETE |
+| Health and data age | none written | INCOMPLETE |
+| External check | none written | INCOMPLETE |
+| Second path | none written | INCOMPLETE |
+| Security | none written | INCOMPLETE |

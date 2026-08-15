@@ -488,3 +488,67 @@ def test_the_verdict_row_for_a_failed_box_is_legible(capsys):
         # Two spaces at least, or the label and its number arrive as one word.
         assert f"{label}  " in row, row
     assert "2   production-ready boxes failed a check that ran" in both
+
+
+def test_spec_010_004_intent_and_ceiling_transition_atomically():
+    """The candidate's own record, proved statically and with no live receipt.
+
+    Everything this asserts is in the tree right now: the spec's status, the record it
+    supersedes, the three MADRs and the human named in them, the Intent's own transition
+    and the digest it points at, and a ceiling that equals the tree it counts. Nothing here
+    reads a receipt, reaches a network or claims a release — those are separate proofs with
+    separate consent, and a static check that pretended to them would be the green this
+    whole wave exists to refuse."""
+
+    import re
+    from hashlib import sha256
+
+    from ai_engineering import contract, intent
+
+    def frontmatter(path: Path) -> dict[str, str]:
+        block = path.read_text(encoding="utf-8").split("---", 2)[1]
+        return dict(
+            (key.strip(), value.strip().strip('"'))
+            for key, _, value in (line.partition(":") for line in block.splitlines())
+            if key.strip()
+        )
+
+    spec = SPEC.read_text(encoding="utf-8")
+    assert frontmatter(SPEC)["status"] == "shipped"
+    assert frontmatter(SPEC)["supersedes"] == "004"
+    superseded = ROOT / "specs" / "004-solution-intent-home" / "spec.md"
+    assert frontmatter(superseded)["status"] == "superseded"
+
+    # The three records this wave could not close itself, and the human who closed them.
+    for number, slug in (
+        ("0005", "intent-supersedes-0004"),
+        ("0006", "governed-mission"),
+        ("0007", "cli-contract"),
+    ):
+        fields = frontmatter(ROOT / "docs" / "adr" / f"{number}-{slug}.md")
+        assert fields["status"] == "accepted", number
+        for field in ("authority_role", "approval_ref", "approved_at"):
+            assert fields.get(field), (number, field)
+        assert not re.search(r"agent|reviewer", fields["authority_role"], re.IGNORECASE)
+
+    record = json.loads((ROOT / ".ai" / "intent.md").read_text(encoding="utf-8"))
+    lifecycle = record["lifecycle"]
+    assert lifecycle["status"] == "active"
+    assert set(lifecycle["approval"]) == {"authority_role", "approval_ref", "approved_at"}
+    assert [(move["from"], move["to"]) for move in lifecycle["transitions"]] == [
+        ("draft", "active")
+    ]
+    pointed = next(link for link in record["relations"] if link["id"] == "010")
+    assert pointed["target_digest"] == "sha256:" + sha256(spec.encode()).hexdigest()
+    assert intent.validate(ROOT / ".ai" / "intent.md", ROOT).outcome == "PASS"
+
+    # Eight evidence records, one per box, and not one of them claims a receipt.
+    section = spec.split("## Production-ready", 1)[1]
+    recorded = [line for line in section.splitlines() if line.startswith("| ")]
+    assert len(recorded) == 9  # the header and the eight boxes; `|---` is not a row
+    for box, row in zip(readiness.BOXES, recorded[1:], strict=True):
+        assert box.label in row, box.id
+        assert "INCOMPLETE" in row, box.id
+
+    # Zero slack: the ceiling is the tree, so the next line added has to be argued for.
+    assert contract.repo_lines(ROOT) == contract.REPO_CEILING
