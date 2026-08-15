@@ -803,7 +803,21 @@ DESCRIPTION_MAX = 1000
 # be one CI cannot reproduce. Both checks were proved by moving the pin and watching the
 # recipe stop. A test holds the justfile's pins equal to the workflow's, so drift on either
 # side turns the build red naming the engine.
-REPO_CEILING = 50_717
+# 50,717 to 51,038 for EP-050 and EP-265: the five ways a scanner lane reports nothing
+# without having looked, each one INCOMPLETE and each one with its own fixture. A missing
+# engine, missing rules, a crash, a timeout and zero inputs all print the same thing on a
+# terminal — no findings — and every one of them is a green that means the opposite.
+#
+# It has a caller, which is the whole reason it is here rather than in a drawer: `just
+# security` runs its three engines through the contract now instead of as three bare
+# commands, and INCOMPLETE fails that gate exactly as a finding does. Proved by moving
+# `policy/semgrep.yml` aside and watching the gate go red on LANE_RULES_MISSING while the
+# other two lanes stayed green — which is precisely the case three bare commands could not
+# tell apart from a clean run.
+#
+# The fixtures drive real subprocesses. A lane runner tested against a stubbed runner proves
+# its branches; it does not prove that a missing binary raises what the code catches.
+REPO_CEILING = 51_038
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

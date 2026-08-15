@@ -52,10 +52,11 @@ test:
 
 security:
     @test "$(gitleaks version)" = "{{gitleaks_version}}" || { echo "gitleaks is $(gitleaks version) and this gate is written for {{gitleaks_version}}. An untested scanner's answer is not evidence."; exit 1; }
-    gitleaks dir . --redact --no-banner --exit-code 1
-    uv run --with {{semgrep}} semgrep scan --config policy/semgrep.yml --error --quiet
     @trivy --version | head -1 | grep -qx "Version: {{trivy_version}}" || { echo "trivy is not {{trivy_version}}. An untested scanner's answer is not evidence."; exit 1; }
-    trivy fs --scanners vuln,license,misconfig --exit-code 1 --severity CRITICAL,HIGH,MEDIUM .
+    # Through the lane contract rather than as three bare commands: a missing engine, missing
+    # rules, a crash, a timeout or zero inputs each read as INCOMPLETE, and INCOMPLETE fails
+    # this gate exactly as a finding does. Three bare commands could not tell those apart.
+    uv run --with {{semgrep}} python -c "import sys; from pathlib import Path; from ai_engineering import scan; sys.exit(scan.baseline(Path('.')))"
 
 # Its own recipe, and not folded into `test`: instrumenting the interpreter adds startup
 # cost to every subprocess, and the dispatcher latency assertion is a security property
