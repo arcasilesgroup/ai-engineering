@@ -11,7 +11,8 @@
     "adapter_version",
     "detection",
     "translations",
-    "trust"
+    "trust",
+    "proof"
   ],
   "properties": {
     "schema": { "const": "urn:ai-engineering:surface-adapter:1" },
@@ -86,6 +87,18 @@
             "deny": { "$ref": "#/$defs/non_empty" },
             "error": { "$ref": "#/$defs/non_empty" }
           }
+        }
+      }
+    },
+    "proof": {
+      "title": "proof",
+      "description": "What an enforcement receipt must carry to count as a proof of this adapter. A machine-independent requirement on purpose: a command carries an absolute path, a payload digest carries whitespace, and neither can be compared between two machines. The receipt id can. When a superseding version of this adapter changes what a denial looks like, this id moves with it and every receipt written under the old one stops proving anything — which is the point, and is why a version bump beyond 1 must appear in the id.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receipt_id"],
+      "properties": {
+        "receipt_id": {
+          "$ref": "#/$defs/non_empty"
         }
       }
     },

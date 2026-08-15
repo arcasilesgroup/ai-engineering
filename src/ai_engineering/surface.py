@@ -11,11 +11,14 @@ nothing. And a surface that cannot deny reports enforcement as not applicable ra
 as a gap somebody might one day close — while a denial receipt handed to such a surface is
 refused rather than believed, because that receipt is a claim the surface cannot make.
 
-**What this does not yet do**, said here rather than left to be discovered: it proves that
-a receipt exists, names its own state, ran, and is fresh. It does not yet measure the
-receipt against a requirement it did not write. That binding arrives with each surface's
-adapter, which is where the command and the digests it must match first exist. Until then a
-state that reads PASS means "this ran and said so", not "this ran the thing we require".
+**Where a surface has an adapter, the receipt is measured against it.** The adapter declares
+the exact receipt id an enforcement proof must carry, and a receipt naming anything else is
+INCOMPLETE — including one written under a superseded adapter, because a version bump moves
+that id with it. So on those surfaces a PASS means "this ran the thing we require".
+
+**Where a surface has no adapter yet, it does not.** There the id is the one this module
+composes, and a PASS still means only "this ran and said so". The two are different claims
+and this file will not print the same word for both without saying which it had.
 """
 
 from __future__ import annotations
@@ -129,6 +132,34 @@ def _finished(record: dict[str, object], now: datetime) -> int | None:
     return None if parsed > now else int((now - parsed).total_seconds())
 
 
+ADAPTERS = "adapters"
+
+
+@cache
+def adapter_proof(surface: str) -> str:
+    """The receipt id this surface's adapter requires, or "" where no adapter exists.
+
+    Read from `policy/adapters/<surface>.adapter.json`, which is data and not code, and
+    cached because a report reads twenty-four rows and the answer cannot change inside one
+    run. An adapter that cannot be parsed answers "" — the receipt then has to satisfy this
+    module's own convention, which is the weaker claim and is reported as such rather than
+    as a missing adapter nobody mentioned.
+    """
+
+    import json
+
+    from ai_engineering import paths
+
+    try:
+        found = paths.policy(ADAPTERS) / f"{surface}.adapter.json"
+        if not found.is_file():
+            return ""
+        declared = json.loads(found.read_text(encoding="utf-8"))
+        return str(declared.get("proof", {}).get("receipt_id", ""))
+    except (OSError, ValueError, TypeError, AttributeError):
+        return ""
+
+
 def _standing(root: Path, surface: str, state: str, now: datetime) -> Standing:
     def answer(status: str, code: str, age: int | None = None) -> Standing:
         return Standing(surface, state, status, code, age)
@@ -172,7 +203,11 @@ def _standing(root: Path, surface: str, state: str, now: datetime) -> Standing:
     if enforcing:
         # Applicable, and on a surface that cannot deny: a claim it is not able to make.
         return answer("FAIL", CANNOT_ENFORCE)
-    if record.get("id") != f"{surface}.{state}":
+    # The adapter's requirement where there is one, and this module's own convention where
+    # there is not. The difference matters: the first is a requirement the receipt did not
+    # write, which is the whole of what makes it evidence rather than a self-report.
+    required = adapter_proof(surface) if state == "enforcement" else ""
+    if record.get("id") != (required or f"{surface}.{state}"):
         return answer("INCOMPLETE", RECEIPT_MISMATCH)
 
     age = _finished(record, now)

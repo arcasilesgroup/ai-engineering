@@ -31,6 +31,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -66,6 +69,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "zed.enforcement"
         }
       }
     },
@@ -101,6 +107,9 @@
         "trust": {
           "required": true,
           "ceremony": "the person types /hooks"
+        },
+        "proof": {
+          "receipt_id": "codex-cli.enforcement"
         }
       }
     }
@@ -137,6 +146,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "windsurf.enforcement"
         }
       }
     },
@@ -171,6 +183,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -204,6 +219,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -238,6 +256,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -272,6 +293,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -305,6 +329,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -339,6 +366,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -374,6 +404,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -408,6 +441,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -435,6 +471,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -469,6 +508,9 @@
         },
         "trust": {
           "ceremony": "the person types /hooks"
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -503,6 +545,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -537,6 +582,9 @@
         },
         "trust": {
           "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
         }
       }
     },
@@ -572,7 +620,10 @@
         "trust": {
           "required": false
         },
-        "notes": "handy"
+        "notes": "handy",
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
       }
     },
     {
@@ -610,6 +661,46 @@
         "heartbeat": {
           "installed": true,
           "loaded": true
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "an adapter whose proof requirement is blank, which requires nothing of a receipt",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": ""
         }
       }
     }

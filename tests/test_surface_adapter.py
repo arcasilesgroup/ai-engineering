@@ -67,6 +67,9 @@ def test_adapter_schema_is_closed_and_versioned():
         "detection",
         "translations",
         "trust",
+        # Task 16's field. Required and not optional: an adapter that declares no proof
+        # requirement is one whose receipts prove only that something ran.
+        "proof",
     }
     assert schema["properties"]["surface_id"]["enum"] == list(SURFACES)
 
@@ -154,6 +157,7 @@ def test_every_invalid_adapter_fixture_is_refused():
         "trust",
         "adapter_version",
         "schema",
+        "proof",
     )
     reasons = " ".join(case["why"] for case in cases["invalid"]).lower()
     named = {
@@ -166,6 +170,7 @@ def test_every_invalid_adapter_fixture_is_refused():
         "trust": "trust",
         "adapter_version": "no version",
         "schema": "another schema",
+        "proof": "proof requirement is blank",
     }
     for field in closed:
         assert named[field] in reasons, field
@@ -761,3 +766,80 @@ def test_the_first_adapter_instance_conforms_to_the_schema_it_was_frozen_against
     assert adapter["surface_id"] == "claude-code"
     assert adapter["detection"]["written_by_us"] is False
     assert adapter["translations"]["exit_meaning"]["2"] == "deny"
+
+
+def test_a_receipt_that_names_no_adapter_proves_nothing(tmp_path, monkeypatch):
+    """Specification 011's Task 16, deferred once because three bindings each fought a
+    contract that already existed.
+
+    `protocol_id` and `protocol_version` are forbidden on an automated receipt.
+    `input_digest` already means the payload that was checked, and re-pointing it would
+    change what every existing receipt claims. `command` carries an absolute path, so no two
+    machines can write the same string. What is left is the receipt id: machine-independent,
+    already required to match, and free for the adapter to declare instead of this module.
+
+    So the adapter declares it, and a receipt that satisfies every other rule — shaped,
+    automated, applicable, fresh, PASS — but names the id a superseded adapter required
+    reads INCOMPLETE rather than proving a denial.
+    """
+
+    from datetime import UTC, datetime
+
+    from ai_engineering import surface
+
+    now = datetime.now(UTC)
+    fresh = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    root = tmp_path / "repository"
+    (root / surface.RECEIPTS).mkdir(parents=True)
+
+    def write(receipt_id: str) -> None:
+        (root / surface.RECEIPTS / "claude-code.enforcement.json").write_text(
+            json.dumps(_receipt("claude-code", "enforcement", finished=fresh) | {"id": receipt_id}),
+            encoding="utf-8",
+        )
+
+    surface.adapter_proof.cache_clear()
+    required = surface.adapter_proof("claude-code")
+    assert required, "the adapter declares no receipt id, so nothing is bound"
+
+    write(required)
+    proved = surface.read(root, now=now).state("claude-code", "enforcement")
+    assert proved.outcome == "PASS", proved
+
+    # The same receipt under the id a superseded adapter version would have required.
+    write("claude-code.enforcement.v0")
+    stale = surface.read(root, now=now).state("claude-code", "enforcement")
+    assert stale.outcome == "INCOMPLETE"
+    assert stale.code == surface.RECEIPT_MISMATCH
+
+
+def test_a_surface_with_no_adapter_keeps_the_convention_and_says_which_claim_it_made():
+    """The other half, and the one that keeps this honest: where no adapter exists there is
+    no requirement the receipt did not write, and this module says so in its own docstring
+    rather than printing the same word for both claims."""
+
+    from ai_engineering import surface
+
+    surface.adapter_proof.cache_clear()
+    assert surface.adapter_proof("cursor") == ""
+    body = (ROOT / "src" / "ai_engineering" / "surface.py").read_text(encoding="utf-8")
+    assert "this ran the thing we require" in body
+    assert "the weaker claim" in body
+
+
+def test_every_adapter_puts_a_version_beyond_one_into_the_id_it_requires():
+    """The rule that makes supersession mechanical rather than remembered. Version 1 uses the
+    plain id, and anything after it carries the version — so a bump that forgets to move the
+    id is a bump this test refuses."""
+
+    from ai_engineering import paths
+
+    for found in sorted((paths.policy("adapters")).glob("*.adapter.json")):
+        declared = json.loads(found.read_text(encoding="utf-8"))
+        version = str(declared["adapter_version"])
+        required = declared["proof"]["receipt_id"]
+        assert required.startswith(f"{declared['surface_id']}.enforcement"), required
+        if version != "1":
+            assert required.endswith(f".v{version}"), (
+                f"{found.name} is at version {version} and requires {required}"
+            )

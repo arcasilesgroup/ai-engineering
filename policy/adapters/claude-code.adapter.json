@@ -30,6 +30,9 @@
       "error": "stderr, and the call proceeds"
     }
   },
+  "proof": {
+    "receipt_id": "claude-code.enforcement"
+  },
   "trust": {
     "required": false
   }

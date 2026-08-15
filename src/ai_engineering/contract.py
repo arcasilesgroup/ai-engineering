@@ -866,7 +866,22 @@ DESCRIPTION_MAX = 1000
 # check fails when the two disagree. Proved by appending one comment to the specification
 # and watching it name the new hash. What a gate can honestly do here ends there: the
 # approval itself belongs to a person, and no test can grant one.
-REPO_CEILING = 51_742
+# 51,742 to 51,981 for specification 011's Task 16, deferred once with three attempts
+# recorded and none taken. The three are still true: `protocol_id` is forbidden on an
+# automated receipt, `input_digest` already means the payload that was checked, and
+# `command` carries an absolute path. What was left is the field none of them looked at —
+# the receipt id, which is machine-independent, already required to match, and free for the
+# adapter to declare instead of for this module to compose.
+#
+# So the adapter declares it, `surface.py` reads it where an adapter exists, and a receipt
+# that satisfies every other rule while naming the id a superseded version required is
+# INCOMPLETE. A version bump beyond 1 has to appear in that id, held by a test, so
+# supersession is mechanical rather than remembered.
+#
+# The docstring stops saying the same thing about both cases. Where an adapter exists a PASS
+# now means "this ran the thing we require"; where none exists it still means "this ran and
+# said so", and the file says which claim it had rather than printing one word for two.
+REPO_CEILING = 51_981
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
