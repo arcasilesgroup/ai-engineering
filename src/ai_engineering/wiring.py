@@ -357,6 +357,29 @@ def prior_hooks_path(root: Path) -> str:
     ).stdout.strip()
 
 
+def anchor_answers() -> subprocess.CompletedProcess[str]:
+    """Ask this interpreter whether it can run the product, and hand back what it said.
+
+    Its own function because it is the one part of wiring that depends on the environment
+    rather than on the repository, and a test about where files land should not turn on
+    whether the interpreter running it happens to have the package importable. It did:
+    inside the mutation harness's sandbox this probe fails, and it took a shipped test on
+    canonical homes down with it, so the mutation gate could not collect a baseline at all.
+
+    `-m` puts the working directory on `sys.path`, so without `PYTHONSAFEPATH` the module
+    that answers is whichever `ai_engineering/` the installer happened to be standing in.
+    A review planted one and watched it satisfy this check."""
+
+    return subprocess.run(
+        [sys.executable, "-m", "ai_engineering.cli", "--version"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+        env={**os.environ, "PYTHONSAFEPATH": "1"},
+    )
+
+
 def wire_git(root: Path) -> str:
     """Repository-scoped, absolute, expanded. A global core.hooksPath would impose our
     commit convention on every foreign clone on the machine, forks included.
@@ -372,19 +395,8 @@ def wire_git(root: Path) -> str:
     on a repository somebody just installed into. So the command runs first, and none of
     the three keys is written unless it did."""
 
-    anchor = [sys.executable, "-m", "ai_engineering.cli", "--version"]
     try:
-        proved = subprocess.run(
-            anchor,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-            # `-m` puts the working directory on `sys.path`, so without this the module that
-            # answers is whichever `ai_engineering/` the installer happened to be standing
-            # in. A review planted one and watched it satisfy this check.
-            env={**os.environ, "PYTHONSAFEPATH": "1"},
-        )
+        proved = anchor_answers()
     except (OSError, subprocess.SubprocessError) as why:
         raise Unreadable(
             f"the CLI this install would record could not be executed: {why.__class__.__name__}"
