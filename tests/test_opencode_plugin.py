@@ -58,18 +58,35 @@ def _drive(tmp_path: Path, python: str, chain: str, monkeypatch) -> list[list[st
     # instead of remembered.
     from ai_engineering import wiring
 
+    # The home is redirected BEFORE the plugin is written, not only for the child. The
+    # first version set it afterwards and only in the subprocess environment, so
+    # `__BEAT__` baked an absolute path to the operator's real home and every run wrote
+    # their live OpenCode heartbeat — the signal `doctor` reads to decide the plugin is
+    # loaded. A suite that forges the evidence a diagnostic trusts is worse than one that
+    # tests nothing, and this file's own docstring promised it did not.
+    house = tmp_path / "house"
+    house.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("AI_ENGINEERING_HOME", str(house / ".ai-engineering"))
+    monkeypatch.setenv("HOME", str(house))
+    monkeypatch.setenv("USERPROFILE", str(house))
+    # `paths.load` inserts the hooks directory at the front of `sys.path` and never removes
+    # it, and monkeypatch does not restore `sys.path` — two stub `chain.py` files were being
+    # left there, ahead of the real one, for every test that ran afterwards.
+    monkeypatch.setattr(sys, "path", list(sys.path))
+
     materialised = tmp_path / "opencode.ts"
     monkeypatch.setattr(wiring.sys, "executable", python)
     monkeypatch.setattr(wiring.paths, "hooks", lambda: Path(chain).parent)
     wiring.ts_opencode(materialised)
+    assert str(house) in materialised.read_text(encoding="utf-8"), (
+        "the plugin was written pointing at a home this test does not own"
+    )
     driver = tmp_path / "drive.mts"
     driver.write_text(DRIVER.replace("PLUGIN_PATH", f"./{materialised.name}"), encoding="utf-8")
     # Its own home and its own session, because the loop guard counts repeats and this
     # test would otherwise deny its own ordinary call on the sixth run — and because a test
     # that writes into the operator's real `~/.ai-engineering` has already happened once in
     # this repository's history and is not going to happen twice.
-    house = tmp_path / "house"
-    house.mkdir(parents=True, exist_ok=True)
     once = f"probe-{uuid4().hex}"
     done = subprocess.run(
         ["node", "--experimental-strip-types", str(driver)],
@@ -94,6 +111,15 @@ def _drive(tmp_path: Path, python: str, chain: str, monkeypatch) -> list[list[st
         if os.environ.get("AI_ENG_REQUIRE_NODE"):
             raise AssertionError(excuse)
         pytest.skip(excuse)
+    # The heartbeat, checked on every leg. OpenCode's loader swallows a shape mismatch with
+    # no error, no warning and no log, so this file is the only evidence the plugin was ever
+    # loaded — and `ai-eng doctor` reads it to decide whether this surface can enforce at
+    # all. Nothing asserted it existed, so a mutant that stopped writing it, or wrote it
+    # somewhere nobody reads, survived: the guard would keep denying while the diagnostic
+    # reported the surface as never loaded.
+    beat = house / ".ai-engineering" / "cache" / "opencode-heartbeat"
+    assert beat.is_file(), "the plugin loaded and left no evidence that it had"
+    assert beat.read_text(encoding="utf-8").startswith("20"), beat.read_text(encoding="utf-8")
     return json.loads(done.stdout.strip().splitlines()[-1])
 
 
@@ -158,3 +184,28 @@ def test_the_plugin_denies_when_it_cannot_run_its_own_guard(tmp_path, monkeypatc
     for row in _drive(mute, real, str(mute / "chain.py"), monkeypatch):
         assert row[1] == "denied", row
         assert "the guard could not run" in row[2], f"an exit 2 that decided nothing: {row}"
+
+    # What the guard is actually told, and which stream the person is shown. Both were
+    # unmeasured: the real dispatcher writes the guard's name to *both* streams, so the one
+    # assertion above passed whichever one the plugin read, and nothing at all looked at the
+    # payload — a plugin that sent an empty tool name or dropped the session the loop guard
+    # counts repeats by would have gone on denying the one call this test makes and stopped
+    # protecting every call after it.
+    echo = tmp_path / "echo"
+    echo.mkdir(parents=True, exist_ok=True)
+    (echo / "chain.py").write_text(
+        'import sys\nprint(\'{"hookSpecificOutput": {"permission": "deny"}}\')\n'
+        'sys.stderr.write("PAYLOAD " + sys.stdin.read())\nsys.exit(2)\n',
+        encoding="utf-8",
+    )
+    for row in _drive(echo, real, str(echo / "chain.py"), monkeypatch):
+        assert row[1] == "denied", row
+        # The message is the guard's, from stderr. Reading stdout instead would show the
+        # person the machine-readable decision the *other* surfaces consume.
+        assert row[2].startswith("PAYLOAD "), f"this came from the wrong stream: {row}"
+        assert "hookSpecificOutput" not in row[2], row
+        sent = json.loads(row[2].removeprefix("PAYLOAD "))
+        assert sent["hook_event_name"] == "PreToolUse", sent
+        assert sent["tool_name"] == "Bash", sent
+        assert sent["session_id"].startswith("probe-"), sent
+        assert sent["tool_input"], f"the guard was asked about a call with no arguments: {sent}"
