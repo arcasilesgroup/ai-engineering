@@ -297,40 +297,41 @@ for a trailer key that does not exist (`Ai-Eng-Audit`) and read the empty result
 
 The second named the chain break as the cause. Asserted. The third said the cause could not
 be dated at all. Also asserted. The fourth built an inference from the tree: 162 commits ran
-the append-wholesale hook after the break, an anchor-capable CLI writes its `✗ FAIL` block
+the append-wholesale hook after the break — 161 of them locally, one a server-side squash
+— an anchor-capable CLI writes its `✗ FAIL` block
 to stdout on a chain that does not hold, that hook appended stdout to the message, and no
 commit carries the block — so the misconfiguration must have been in effect throughout.
 Refuted: it rests on `core.hooksPath` and `ai.managed` being set for the whole window,
 which is `.git/config` state with no history — the same undated class the third attempt had
 correctly refused, reintroduced as the load-bearing premise of its own correction.
 
-The fifth answer is the one nobody looked for, and two commands give it:
+The fifth answer claimed the chain break was not only sufficient but first, from the commit
+graph. Refuted too. The commit it rested on is a GitHub server-side squash, so its committer
+date is the merge time and no local hook ever ran on it; the break timestamp is the
+self-reported `ts` of a link the auditor itself flags BROKEN, carrying a pytest-forged
+machine id, which is not in the commit graph at all; and this clone was made 21 seconds
+before the interval it reasons over, so "no commit in between" is provable only for what
+reached the remote.
 
-```
-$ git cat-file -p 226cf58f | sed -n 2p
-parent 51ac07f640476c01290e514d73652703ae2b4868      # the last anchored commit
-$ git log -1 --format=%cI 226cf58f                   # its immediate child
-2026-08-12T14:40:47+02:00                            # = 12:40:47Z, after the 12:26:06Z break
-```
+**What is established, and it is where this stops.** The break is *sufficient*:
+`audit.anchor_line` raises unless the chain recomputes clean, so after it no anchor-capable
+CLI can emit a footer, and every anchor in this repository predates it.
 
-There is no commit between the last one that anchored and the break. `audit.anchor_line`
-raises unless the chain recomputes clean, so from 12:26:06Z onward no run of any
-anchor-capable CLI could emit a footer — and every local commit that could have been
-anchored since falls after that instant. The break is sufficient, and it is first because
-nothing else had an opportunity to act: there is no commit in the interval where the chain
-was intact and the anchor failed anyway. Whether `ai.eng` was also misconfigured then
-changes nothing and remains unrecoverable, because the value was repaired outside the tree.
-
-This paragraph was written four times before somebody asked git for the parent of the
-commit after the last anchored one.
+**What is not establishable, with the reason.** Not which cause acted first. The hook
+resolves `ai.eng` and runs the CLI *before* anything reads the chain — a CLI without
+`--anchor` returns empty and the chain is never consulted — so the competing cause
+short-circuits strictly earlier in the mechanism, and the moment its value changed was
+never recorded anywhere. Five answers were written and the fifth argued the opposite of
+what the code does.
 
 The pattern is the finding, and it is why this is written down rather than deleted:
 **four attempts at one sentence, each refuted, the fourth failing by committing the exact
 error the third had identified, and the answer sitting two commands away the whole time.**
-Every refutation came from a reader executing something; none from re-reading. Three of the
-four attempts reached for evidence outside the tree — file birthtimes, `.git/config` state,
-a value already repaired — while the commit graph, which is dated, replicated and
-immutable, went unasked. A correction is a claim, and this section is the measurement that
+Every refutation came from a reader executing something; none from re-reading. The last one
+reached for the commit graph, which is the right instinct and still wrong, because it read a
+server-side squash as a local commit and took a timestamp from a link the auditor calls
+tampered. The lesson is not "prefer the commit graph": it is that each answer was written to
+the length of the confidence, and the confidence was never measured. A correction is a claim, and this section is the measurement that
 says corrections are not more reliable than what they correct.
 
 What is open, and what this block is for:
