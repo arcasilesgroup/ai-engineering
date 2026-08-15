@@ -382,3 +382,82 @@ def test_install_matrix_contract_rejects_invalid_native_matrix_indentation():
     mutated = "\n".join(lines) + "\n"
     with pytest.raises(AssertionError):
         _assert_install_matrix_contract(mutated)
+
+
+def _check_workflow() -> str:
+    return (ROOT / ".github" / "workflows" / "check.yml").read_text(encoding="utf-8")
+
+
+def test_check_workflow_marks_missing_or_skipped_evidence_incomplete():
+    """Every lane still runs, and a lane that ran without observing anything says so.
+
+    A job result is `success` when the job exited zero. It is `success` when the job's
+    credentials were withheld and it scanned nothing, too — and that shape of green is the
+    one this product exists to refuse. So the aggregate reads what a lane reports it
+    observed, not only how it exited, and missing evidence is `INCOMPLETE` out loud.
+
+    A fork pull request is the one case where the absence is nobody's fault and no code on
+    the branch can cure it: GitHub withholds the secret. That is named and allowed. Anywhere
+    else it fails, because a run that should have had the evidence and did not is a run
+    whose green nobody earned.
+    """
+
+    workflow = _check_workflow()
+    lines = workflow.splitlines()
+
+    # The lanes the plan requires, still present and still needed by the aggregate.
+    aggregate = _child_block(lines, "  ci-result:")
+    text = "\n".join(aggregate)
+    for lane in ("check", "suite", "mutation", "typecheck", "sonar", "snyk"):
+        assert f"{lane}=${{{{ needs.{lane}.result }}}}" in text, lane
+    assert "needs: [check, suite, mutation, typecheck, sonar, snyk]" in text
+    assert "if: always()" in text
+
+    # A skipped job is a failure, which is what makes a deleted or renamed lane visible.
+    assert '[ "${pair##*=}" = "success" ] || failed=1' in text
+
+    # And a lane that reported no evidence is INCOMPLETE rather than a silent pass.
+    assert "SNYK_EVIDENCE: ${{ needs.snyk.outputs.evidence }}" in text
+    assert 'if [ "${SNYK_EVIDENCE:-unavailable}" != "ran" ]; then' in text
+    assert 'if [ "$FORK" = "true" ]; then' in text
+    assert "CI Result INCOMPLETE" in text
+    assert "Missing evidence is INCOMPLETE, and INCOMPLETE is not a pass." in text
+    assert "exit 1" in text
+
+    # The job has to declare the output, or the aggregate reads an empty string forever and
+    # the branch above can never fire.
+    snyk = "\n".join(_child_block(lines, "  snyk:"))
+    assert "evidence: ${{ steps.scan.outputs.evidence || 'unavailable' }}" in snyk
+    assert 'echo "evidence=ran" >> "$GITHUB_OUTPUT"' in snyk
+    assert 'echo "evidence=unavailable" >> "$GITHUB_OUTPUT"' in snyk
+
+    # No lane may be waived by a flag that turns its failure into a pass.
+    assert "continue-on-error" not in workflow
+
+    # The coverage artifact still has to exist, or Sonar reports zero and calls it a pass.
+    assert "test -s coverage.xml" in workflow
+
+
+@pytest.mark.parametrize(
+    "removal",
+    [
+        'if [ "${SNYK_EVIDENCE:-unavailable}" != "ran" ]; then',
+        "SNYK_EVIDENCE: ${{ needs.snyk.outputs.evidence }}",
+        'echo "evidence=ran" >> "$GITHUB_OUTPUT"',
+        '[ "${pair##*=}" = "success" ] || failed=1',
+    ],
+)
+def test_check_workflow_contract_notices_a_removed_evidence_gate(removal):
+    """Each assertion above must be load-bearing. A contract that still passes with its
+    subject deleted is a contract that was reading something else."""
+
+    mutated = _check_workflow().replace(removal, "", 1)
+    assert mutated != _check_workflow()
+    with pytest.raises(AssertionError):
+        lines = mutated.splitlines()
+        aggregate = "\n".join(_child_block(lines, "  ci-result:"))
+        snyk = "\n".join(_child_block(lines, "  snyk:"))
+        assert "SNYK_EVIDENCE: ${{ needs.snyk.outputs.evidence }}" in aggregate
+        assert 'if [ "${SNYK_EVIDENCE:-unavailable}" != "ran" ]; then' in aggregate
+        assert '[ "${pair##*=}" = "success" ] || failed=1' in aggregate
+        assert 'echo "evidence=ran" >> "$GITHUB_OUTPUT"' in snyk

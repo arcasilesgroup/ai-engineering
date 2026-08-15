@@ -234,6 +234,11 @@ jobs:
   # semgrep, and that is where the quota goes.
   snyk:
     name: Snyk Security
+    # What this job observed, not merely whether it exited zero. A job that skipped its
+    # scan and reported success is missing evidence wearing a green tick, and the aggregate
+    # below cannot tell the two apart from a job result alone.
+    outputs:
+      evidence: ${{ steps.scan.outputs.evidence || 'unavailable' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -258,6 +263,7 @@ jobs:
         if: steps.token.outputs.present == 'true'
         run: npm install -g "snyk@${SNYK_VERSION}" --ignore-scripts
       - name: Snyk code test
+        id: scan
         if: steps.token.outputs.present == 'true'
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -267,9 +273,11 @@ jobs:
           rc=$?
           printf '%s\n' "$out"
           if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qiE 'test limit|increase your tests|rate.?limit|429|too many requests|authentication (error|failed)|not authori|quota'; then
+            echo "evidence=unavailable" >> "$GITHUB_OUTPUT"
             echo "::warning title=Snyk non-blocking::Snyk was unavailable (quota or auth), not silent. semgrep and the adversarial suite still ran."
             exit 0
           fi
+          echo "evidence=ran" >> "$GITHUB_OUTPUT"
           exit "$rc"
 
   # The context branch protection requires. Without it, a job that stops running — renamed,
@@ -286,8 +294,14 @@ jobs:
       - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
           egress-policy: audit
+      # A green tick means every job ran and every job passed. It does not yet mean every
+      # job observed anything: a lane whose credentials were withheld exits zero having
+      # scanned nothing. So the aggregate reads the evidence a job reports as well as its
+      # result, and says INCOMPLETE out loud rather than letting the absence pass as a pass.
       - name: every job ran, and every job passed
         env:
+          SNYK_EVIDENCE: ${{ needs.snyk.outputs.evidence }}
+          FORK: ${{ github.event.pull_request.head.repo.fork }}
           RESULTS: >-
             check=${{ needs.check.result }}
             suite=${{ needs.suite.result }}
@@ -304,5 +318,14 @@ jobs:
           if [ "$failed" -ne 0 ]; then
             echo "::error title=CI Result::a job did not report success. A skipped job counts as a failure: a gate nobody notices stopping is a gate that is already gone."
             exit 1
+          fi
+          printf '  %-12s %s\n' "snyk evidence" "${SNYK_EVIDENCE:-unavailable}"
+          if [ "${SNYK_EVIDENCE:-unavailable}" != "ran" ]; then
+            if [ "$FORK" = "true" ]; then
+              echo "::warning title=CI Result INCOMPLETE::SAST evidence is missing on this run. GitHub withholds secrets from a fork pull request and no code on this branch can change that, so this is INCOMPLETE and named rather than green."
+            else
+              echo "::error title=CI Result::SAST evidence is missing on a run that should have had it. Missing evidence is INCOMPLETE, and INCOMPLETE is not a pass."
+              exit 1
+            fi
           fi
           echo "six jobs, six successes"
