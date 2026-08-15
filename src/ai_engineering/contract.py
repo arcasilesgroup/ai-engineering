@@ -758,7 +758,18 @@ DESCRIPTION_MAX = 1000
 # The hook is gated on a claim being held. Demanding a gate receipt on every commit in every
 # repository that has never coordinated would put a wall between a person and their own
 # working tree, and the wall would be this framework's.
-REPO_CEILING = 50_210
+# 50,210 to 50,358 for four non-goals that had no check, and for the two patterns that
+# were wrong on their first run. A non-goal with no check is a sentence, and the shape
+# arrives six months later in a commit that looked reasonable on its own.
+#
+# Every scan plants the shape first and asserts the scan finds it: a scan that finds nothing
+# and a scan that looked at nothing print the same result. The bare-force pattern flagged
+# `uv tool install --force`, which is neither a push nor destructive to anybody else's work,
+# so it reads per line and only where a push is. The ownership pattern flagged the word
+# "settle", because bare `ttl` is inside it, and it flagged `checkpoint`'s prose about an
+# expired receipt — which is a required control two files over, so `expire` is deliberately
+# not in the list and the comment says why.
+REPO_CEILING = 50_358
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
