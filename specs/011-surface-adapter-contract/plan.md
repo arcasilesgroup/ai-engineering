@@ -248,6 +248,79 @@ is closed and proved by execution; the receipt waits for a matrix that can run t
     the recipe rather than skipping, because a proof that stops running without saying so
     still reads green. No receipt is written and opencode's enforcement stays unproven.
 
+### Block C closed, after three review rounds
+
+The added rule earned its place again. Round one rejected the fail-open narrowing; round
+two rejected its repairs (the escaping landed in one of three copies, and the plugin test
+was writing the operator's real OpenCode heartbeat); round three rejected the repairs to
+*those* — the anchor fix appended a trailer after a blank line, which starts a second
+trailer block and drops the `Co-Authored-By:` every commit here carries. Each round's
+finding was introduced by the previous round's repair, and none was found by re-reading.
+
+Three times in this block a test agreed with the defect because it chose the input that
+could not see it: a POSIX path cannot see a Windows escape, and a commit message with no
+trailers cannot see a trailer being orphaned. Twice the agreeing test was written in the
+same commit as the fix it was supposed to prove.
+
+**A correction to the record, because the commit that carries it cannot be amended.**
+Commit `f849796a`'s message says the forged heartbeat "reported opencode as proven on a
+machine where the plugin is not installed" and that "doctor now says UNPROVEN". All three
+parts are false. On this machine opencode *is* installed, it is unwired, and
+`doctor.standing` returns at the unwired branch before the heartbeat branch is reached —
+so the word read UNPROVEN before and after. `BLOCKS` comes only from an enforcement
+receipt and never from a heartbeat. The repair itself is correct and verified: the suite
+no longer writes into the operator's home. Only the account of the consequence was
+unbacked, written while correcting an unbacked claim, which is now the seventh instance of
+that pattern this wave has measured.
+
+### Block R — the record's own fail-open, found while closing Block C
+
+A commit-msg hook failing in front of me, not a search. Diagnosing it produced findings
+that belong to the audit chain rather than to any surface, so they get their own block
+rather than being folded into one that has already closed.
+
+What is already repaired: the hook appended the verb's whole stdout to the commit message,
+so a chain that does not hold wrote a rendered `✗ FAIL` block into it, and `|| true` kept
+that silent. Machine state, repaired outside the tree: `git config ai.eng` pointed at a
+v0.13 install with no `--anchor` flag, so the anchor errored on every commit this
+repository has ever made and no commit in `git log` carries the trailer.
+
+What is open, and what this block is for:
+
+12. **A process that is not the operator cannot poison the operator's chain** — **file**
+    `hooks/_emit.py`. **check**: `uv run pytest tests/test_record.py -k
+    a_foreign_machine_cannot_write_into_this_chain`. **rollback**: `git revert <commit>`.
+    **done when**: the buffer follows the same home the sealed chain follows, so a test
+    faking `machine_id()` writes to its own buffer; and a buffered line whose stamp names
+    another machine is sealed as that machine's, not as this one's tampering. Measured
+    today: 22 permanently BROKEN links dated 2026-08-12, each carrying a different fake
+    machine id and a `pytest-of-…` path in its payload, written by this product's own test
+    suite into the operator's real chain — because the buffer is repository-local and
+    `AI_ENGINEERING_HOME` does not redirect it. `ai-eng audit verify`, the command the
+    README offers as the tamper detector, therefore fails on this machine for good, and
+    `audit --anchor` refuses a footer, so no future commit here can be anchored. One
+    poisoned line is a ratchet with no way back.
+
+13. **A break that has been accounted for can be closed without rewriting the chain** —
+    **file** `src/ai_engineering/audit.py`. **check**: `uv run pytest tests/test_record.py
+    -k an_accounted_break_is_recorded_not_erased`. **rollback**: `git revert <commit>`.
+    **done when**: a human with authority can record, as a new link, that a named range of
+    links is known-bad and why; verification reports the break and the accounting together
+    and stops blocking the anchor; and nothing anywhere deletes or edits an existing link,
+    because that is the act the chain exists to detect. Without this, task 12 stops new
+    poisoning and leaves this machine's record permanently unusable.
+
+14. **The buffer is sealed, and a buffer that is not sealed says so** — **file**
+    `hooks/session.py`. **check**: `uv run pytest tests/test_record.py -k
+    an_unsealed_buffer_is_reported`. **rollback**: `git revert <commit>`. **done when**:
+    `doctor` reports the age of the newest sealed link and the depth of the unsealed
+    buffer, and an unsealed buffer beyond a stated bound is not PASS. Measured today: the
+    durable chain has 987 links and stops on 2026-08-12; the buffer holds 4,499 unsealed
+    lines. `flush()` has exactly one caller, on `SessionEnd`/`Stop`. Half of "survives
+    losing the laptop" has been three days stale with nothing said, and `_emit.emit`
+    swallows every failure to one stderr line, which is where both of this block's defects
+    lived unseen.
+
 ### Blocks D onward — one surface per block, in provability order
 
 `opencode` (routers exist to be built and a denial is plausible), then `codex-cli` (links
