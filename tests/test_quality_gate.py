@@ -524,3 +524,55 @@ def test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renam
 
     # And the whole step fails closed: strict shell, no `|| true` on an assertion.
     assert "set -euo pipefail" in body
+
+
+def test_release_workflow_retains_wheel_contents_provenance_and_head_sha_receipts():
+    """What a release may claim, and what it may not.
+
+    A tag can be pushed from any commit on any branch, including one nobody reviewed, and
+    afterwards the only record is a version number. So the tagged commit must be one the
+    default branch already contains, asked of git rather than trusted from whoever tagged.
+
+    The wheel contents lane stays, and grows: every artifact this wave added has to be in
+    the thing that ships, and every hard-renamed file has to be absent from it. A rename is
+    only hard if the old file is gone from the artifact a stranger installs.
+
+    And nothing here claims a release was observed. This workflow builds, proves and
+    publishes; whether the world received it is a receipt somebody else has to fetch.
+    """
+
+    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+
+    # The commit a tag names has to be one main already holds.
+    assert "git merge-base --is-ancestor" in workflow
+    assert "refs/remotes/origin/main" in workflow
+    assert "fetch-depth: 0" in workflow
+    assert "origin/main does not contain" in workflow
+
+    # The tag and the package still have to agree, and the wheel still has to carry the
+    # product rather than a subset of it.
+    assert 'test "$tag" = "$pkg"' in workflow
+    for shipped in (
+        "ai_engineering/hooks/chain.py",
+        "ai_engineering/policy/iocs.yml",
+        "ai_engineering/git-hooks/pre-push",
+        "ai_engineering/skills/ai-spec/SKILL.md",
+        "ai_engineering/hooks/change_scope_guard.py",
+        "ai_engineering/policy/risk-acceptance-v1.schema.json",
+        "ai_engineering/acceptance.py",
+        "ai_engineering/acceptance_privacy.py",
+    ):
+        assert shipped in workflow, shipped
+    assert "the wheel still carries a hard-renamed file" in workflow
+
+    # Provenance is attested and the publish is a separate job, so a build cannot publish
+    # itself by accident.
+    assert "actions/attest-build-provenance" in workflow
+    assert "pypa/gh-action-pypi-publish" in workflow
+    assert "id-token: write" in workflow or "attestations: write" in workflow
+
+    # And no lane claims an observed release. P0 verifies contracts; a receipt is fetched,
+    # never asserted, and asserting one here would be the green nobody earned.
+    for claimed in ("release verified", "published successfully", "receipt confirmed"):
+        assert claimed not in workflow.lower(), claimed
+    assert "continue-on-error" not in workflow
