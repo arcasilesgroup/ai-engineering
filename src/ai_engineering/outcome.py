@@ -144,6 +144,12 @@ class Fact:
     status: str
     summary: str
     detail: str | None
+    # `detail` is the evidence — what was observed. `cure` is what to do about it, and the
+    # JSON envelope used to drop it: a check object was `{id, status, summary, detail}`,
+    # so the machine-readable half told a consumer something failed and withheld the one
+    # field that says what to do, while the human half had it on screen. Optional, because
+    # most facts have no cure and inventing one is worse than omitting it.
+    cure: str | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -156,6 +162,7 @@ class Fact:
             or not self.summary
             or len(self.summary) > _MAX_SUMMARY
             or (self.detail is not None and len(self.detail) > _MAX_DETAIL)
+            or (self.cure is not None and len(self.cure) > _MAX_DETAIL)
         ):
             raise ValueError("execution fact is not bounded and canonical")
 
@@ -165,6 +172,7 @@ class Fact:
             "status": self.status,
             "summary": self.summary,
             "detail": self.detail,
+            "cure": self.cure,
         }
 
 
@@ -250,7 +258,13 @@ def _text(value: object, limit: int) -> str:
     return safe if len(safe) <= limit else safe[: limit - 1].rstrip() + "…"
 
 
-def fact(id: str, status: str, summary: str, detail: str | None = None) -> Fact:
+def fact(
+    id: str,
+    status: str,
+    summary: str,
+    detail: str | None = None,
+    cure: str | None = None,
+) -> Fact:
     """Build one bounded fact without retaining terminal prose buffers."""
 
     return Fact(
@@ -258,6 +272,10 @@ def fact(id: str, status: str, summary: str, detail: str | None = None) -> Fact:
         status=status,
         summary=_text(summary, _MAX_SUMMARY),
         detail=None if detail is None else _text(detail, _MAX_DETAIL),
+        # An empty cure is no cure. `doctor.resolve` returns one for an assertion whose
+        # repair is a person rather than a command, and "" is not a shorter answer than
+        # absent — it is the same answer spelled so that a consumer has to special-case it.
+        cure=_text(cure, _MAX_DETAIL) if cure else None,
     )
 
 

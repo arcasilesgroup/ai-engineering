@@ -1012,6 +1012,10 @@ def test_spec_success_has_exact_facts_and_json_and_pending_is_not_canonical(
             "status": "APPLIED",
             "summary": "Created governed spec",
             "detail": "specs/012-machine-tree/spec.md",
+            # `detail` is what was observed; `cure` is what to do about it, and a change
+            # that applied cleanly has nothing to do about it. The key is present and null
+            # rather than absent, so a consumer reads one shape for every fact.
+            "cure": None,
         }
     ]
     assert payload["remaining"] == [] and payload["error"] is None
@@ -1825,6 +1829,7 @@ def test_cli_json_transports_real_facts_and_keeps_invalid_usage_one_object(
             "status": "APPLIED",
             "summary": "Updated the local digest read receipt",
             "detail": None,
+            "cure": None,
         }
     ]
 

@@ -1141,7 +1141,9 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
             ui.verdict(number, "fail", title, problem)
             ui.cure("FAIL", cure)
             failed.append(number)
-            check_facts.append(outcome.fact(f"assertion-{number}", "FAIL", title, problem))
+            check_facts.append(
+                outcome.fact(f"assertion-{number}", "FAIL", title, problem, cure=cure)
+            )
             if unattended(cure):
                 cures[number] = cure
 

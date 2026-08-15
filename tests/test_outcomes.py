@@ -223,3 +223,19 @@ def test_execution_facts_are_bounded_without_widening_the_result_schema() -> Non
         outcome.Execution(terminal, "summary", (), (), (), (), object())
     with pytest.raises(ValueError, match="execution fact"):
         outcome.Fact("not allowed space", "PASS", "summary", None)
+
+
+def test_a_failing_check_carries_its_cure_into_the_json():
+    """`doctor` computes a cure for every failing assertion and prints it — `ui.cure` even
+    refuses one that names a way around the thing that blocked. The JSON envelope dropped
+    it: a check object was `{id, status, summary, detail}` and nothing else.
+
+    So the machine-readable half told a consumer that something failed and withheld the one
+    field that says what to do, while the human half had it on screen. A contract that is
+    poorer than the screen it mirrors is a contract nobody will use twice."""
+
+    fact = outcome.fact("assertion-13", "FAIL", "a title", "what is wrong", cure="ai-eng init")
+    assert fact.as_dict()["cure"] == "ai-eng init"
+    # And it stays optional, because most facts have no cure and inventing one would be
+    # worse than omitting it.
+    assert outcome.fact("assertion-1", "PASS", "a title").as_dict()["cure"] is None
