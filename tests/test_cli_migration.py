@@ -42,6 +42,10 @@ from ai_engineering import (
     wiring,
 )
 
+# Every test here drives a verb that wires git, and none of them is about whether the
+# interpreter running the suite can import the product. That is what the fixture states.
+pytestmark = pytest.mark.usefixtures("answering_anchor")
+
 ROOT = Path(__file__).parents[1]
 INTENT_FIXTURE = ROOT / "tests" / "fixtures" / "intent-v1.json"
 
@@ -194,17 +198,6 @@ def test_init_writes_only_canonical_homes_and_receipt(
     monkeypatch.setattr(capability, "validate", validate_capabilities)
     monkeypatch.setattr(intent, "validate", validate_intent)
     monkeypatch.setattr(capability, "preflight", no_skill_preflight)
-    # This test is about where files land, so it fixes the one thing here that depends on
-    # the environment instead of on the repository: whether the interpreter running the
-    # suite can import the product. Inside the mutation harness's sandbox it cannot, and
-    # this test failed there for a reason it does not test — taking the baseline, and with
-    # it the whole mutation gate, down. Liveness has its own test; this one states it.
-    monkeypatch.setattr(
-        wiring,
-        "anchor_answers",
-        lambda: subprocess.CompletedProcess([], 0, "ai-engineering 1.0.0\n", ""),
-    )
-
     result = init.main(["--no-global", "--project", str(root), "-y"])
 
     assert type(result) is outcome.Result

@@ -5,6 +5,7 @@ library Python executed by path, because on the hot path `import ai_engineering`
 about 110 ms. Tests reach them the same way the dispatcher does.
 """
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -43,3 +44,26 @@ def coloured(monkeypatch):
     ui.reset()
     yield
     ui.reset()
+
+
+@pytest.fixture
+def answering_anchor(monkeypatch):
+    """The interpreter running the suite can import the product; the child it spawns with
+    `PYTHONSAFEPATH` may not, because `src` reaches this process through conftest and not
+    through the environment.
+
+    That asymmetry is real and the installer is right to refuse on it — a git anchor naming
+    an interpreter that cannot run the product is the defect it was added to catch. But it
+    is an ambient fact, and a test about where files land must not turn on it. Inside the
+    mutation harness's sandbox it does not hold, and the tests that inherited it failed
+    there for a reason they do not test, stopping the gate before it collected a baseline.
+
+    Tests that are about the probe itself do not take this fixture."""
+
+    from ai_engineering import __version__, wiring
+
+    monkeypatch.setattr(
+        wiring,
+        "anchor_answers",
+        lambda: subprocess.CompletedProcess([], 0, f"ai-engineering {__version__}\n", ""),
+    )
