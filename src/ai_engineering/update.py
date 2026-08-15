@@ -399,7 +399,13 @@ def main(argv: list[str]) -> outcome.Result:
         return outcome.result("INCOMPLETE")
     if _version(pinned) == _version(args.to):
         print("  already pinned to that version. Nothing changed.")
-        return outcome.result("PASS")
+        # A dry run may not say PASS. This branch sits above the dry-run branch and
+        # returned before it, so `update --dry-run` on an already-pinned repository
+        # reported "the requested operation and all applicable checks completed" for a run
+        # that deliberately did nothing. `WOULD_CHANGE` reads "a complete dry run derived
+        # exact changes and made none", and the empty set is an exact set: what the word
+        # distinguishes is that the derivation was complete, not that it found something.
+        return outcome.dry_run(exact_changes=True) if args.dry_run else outcome.result("PASS")
 
     try:
         steps = migrations(pinned, args.to)

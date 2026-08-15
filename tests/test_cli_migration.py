@@ -445,6 +445,48 @@ def test_doctor_migration_reports_all_contract_states(
     assert captured.err == ""
 
 
+def test_update_dry_run_never_reports_the_outcome_of_work_it_did_not_do(
+    tmp_path: Path,
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`update --dry-run` on an already-pinned repository returned PASS — "the requested
+    operation and all applicable checks completed" — for a run that deliberately did
+    nothing. The already-pinned branch sits above the dry-run branch and returns before it.
+
+    A dry run may report `WOULD_CHANGE`, which reads "a complete dry run derived exact
+    changes and made none". The empty set is an exact set; what distinguishes the word is
+    that the derivation was complete, not that it found something. PASS is the one word a
+    dry run may never say, because it asserts an end state nobody moved to."""
+
+    root = _repository(tmp_path)
+    (root / ".ai" / "config.toml").write_text(
+        skeletons.CONFIG_TOML.format(version=update.__version__), encoding="utf-8"
+    )
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=T",
+            "-c",
+            "user.email=t@x.invalid",
+            "commit",
+            "-m",
+            "pinned fixture",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    monkeypatch.chdir(root)
+    result = update.main(["--to", update.__version__, "--dry-run"])
+    assert result.outcome != "PASS", f"a dry run claimed a completed operation: {result}"
+    assert result == outcome.result("WOULD_CHANGE"), result
+
+
 def test_update_is_explicit_non_auto_and_returns_outcome(
     tmp_path: Path,
     isolated_home: Path,
