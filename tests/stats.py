@@ -199,9 +199,26 @@ def gather() -> dict:
             ),
             "telemetry": len(chain.TELEMETRY),
             "surfaces": len(surfaces),
-            "proven": sum(1 for s in surfaces if s.get("proven")),
+            # Counted from receipts, because the flag that used to answer this was a
+            # thing we typed. A surface is proven when a denial executed there.
+            "proven": len(_enforced()),
             "suppressions": suppressions(),
         },
+    }
+
+
+def _enforced() -> set[str]:
+    """The surfaces whose enforcement receipt proved, read the way the product reads it."""
+
+    sys.path.insert(0, str(ROOT / "src"))
+    from datetime import UTC, datetime
+
+    from ai_engineering import surface
+
+    return {
+        row.surface
+        for row in surface.read(ROOT, now=datetime.now(UTC)).rows
+        if row.state == "enforcement" and row.outcome == "PASS" and row.code == surface.PROVEN
     }
 
 

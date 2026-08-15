@@ -440,3 +440,23 @@ def test_the_coverage_word_is_earned_and_never_declared(tmp_path, monkeypatch):
     for name in tier_two:
         if words[name] == "BLOCKS":
             assert states[name] == "PASS", name
+
+
+def test_no_surface_flag_can_assert_a_state_a_receipt_has_not_earned():
+    """The field is deleted, not deprecated and not defaulted.
+
+    A deprecated field is one somebody still reads, and a defaulted one is a claim with a
+    quieter voice. The only way a surface can be said to have denied anything is a receipt,
+    so the table has no way to say it — and this fails if it comes back under any spelling."""
+
+    table = (ROOT / "policy" / "surfaces.toml").read_text(encoding="utf-8")
+    rows = [line.strip() for line in table.splitlines() if not line.strip().startswith("#")]
+    for spelling in ("proven", "is_proven", "denial_proven", "blocks", "covered"):
+        assert not [row for row in rows if row.startswith(f"{spelling} ")], spelling
+
+    # And nothing reads one. A reader with no field is the half that would otherwise sit
+    # there defaulting quietly to False and looking like it works.
+    for module in ("doctor.py", "wiring.py", "init.py", "uninstall.py"):
+        source = (ROOT / "src" / "ai_engineering" / module).read_text(encoding="utf-8")
+        assert '["proven"]' not in source, module
+        assert '"proven"' not in source, module
