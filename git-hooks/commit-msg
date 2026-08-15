@@ -29,7 +29,13 @@ AI_ENG="${AI_ENG:-$(git config --get ai.eng || echo ai-eng)}"
 if command -v "${AI_ENG%% *}" >/dev/null 2>&1; then
   anchor="$($AI_ENG audit --anchor 2>/dev/null | grep -E '^Ai-Eng-Anchor: ' || true)"
   if [ -n "$anchor" ]; then
-    printf '\n%s\n' "$anchor" >>"$1"
+    # git places it, because git is what reads it back. Appending it after a blank line
+    # looks right and starts a *second* trailer block: every commit here ends with
+    # `Co-Authored-By:`, and `git interpret-trailers --parse` then returns the anchor
+    # alone. The trailer the gate reads would have vanished from every commit that
+    # anchored — and the first test written for this passed, because it used a message
+    # with no trailers, the one shape where the bug cannot appear.
+    git interpret-trailers --in-place --trailer "$anchor" "$1"
   else
     echo "commit-msg: this commit is not anchored — run \`ai-eng audit verify\`." >&2
   fi

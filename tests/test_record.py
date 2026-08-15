@@ -560,8 +560,16 @@ def test_the_commit_msg_hook_appends_the_footer_and_never_the_verdict(tmp_path, 
     )
     stub.chmod(0o755)
 
+    # This repository's actual convention: every commit ends with a trailer. The first
+    # version of this test wrote a message with none, which is the one shape where an
+    # anchor appended after a blank line parses — it starts a second trailer block, and on
+    # a real message `git interpret-trailers --parse` then returns the anchor alone and the
+    # `Co-Authored-By` the gate reads is gone. The test agreed with the defect by picking
+    # the input that could not see it.
+    signed = "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+    original = f"test(x): a probe\n\nbody.\n\n{signed}\n"
     message = tmp_path / "COMMIT_EDITMSG"
-    message.write_text("test(x): a probe\n\nbody.\n", encoding="utf-8")
+    message.write_text(original, encoding="utf-8")
     hook = Path(__file__).resolve().parents[1] / "git-hooks" / "commit-msg"
     done = subprocess.run(
         ["bash", str(hook), str(message)],
@@ -578,8 +586,10 @@ def test_the_commit_msg_hook_appends_the_footer_and_never_the_verdict(tmp_path, 
     assert "Exit code" not in written, written
     assert "PASS" not in written and "FAIL" not in written, written
     if holds:
-        assert written.endswith(f"\n{footer}\n"), written
-        # Git has to see it as a trailer, not as a line of prose that looks like one.
+        assert written.endswith(f"{footer}\n"), written
+        # Git has to see it as a trailer, and see the one that was already there. Asserting
+        # only that the anchor parses is what let the append that deletes its neighbour go
+        # green.
         parsed = subprocess.run(
             ["git", "interpret-trailers", "--parse"],
             cwd=repo,
@@ -588,9 +598,9 @@ def test_the_commit_msg_hook_appends_the_footer_and_never_the_verdict(tmp_path, 
             text=True,
             check=True,
         )
-        assert parsed.stdout.strip() == footer
+        assert parsed.stdout.splitlines() == [signed, footer], parsed.stdout
     else:
-        assert written == "test(x): a probe\n\nbody.\n"
+        assert written == original
         # And it says so. Three days of unanchored commits went by without a word, which is
         # the exact failure the record exists to make impossible.
         assert "not anchored" in done.stderr, done.stderr
