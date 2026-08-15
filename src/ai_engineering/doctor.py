@@ -13,9 +13,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import shlex
 import shutil
 import subprocess
+import sys
 import time
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
@@ -298,6 +301,69 @@ def git_hook_fires(root: Path | None) -> str | tuple[str, str] | None:
         return (
             f"core.hooksPath points at {configured}, which is not the directory this "
             f"install wires. Something lives there; none of it is ours.",
+            "ai-eng init --project",
+        )
+    return _anchor_answers(root)
+
+
+# The exact shape a live anchor has, and the only argument list this check will run. Not a
+# shell, and not whatever `ai.eng` happens to hold: a configured value that is executed is a
+# configured value that can be anything, and this check runs on a machine that may already
+# be doing what an injected instruction told it to.
+_ANCHOR_TAIL = ["-m", "ai_engineering.cli"]
+_ANCHOR_FOOTER = re.compile(r"^Ai-Eng-Anchor: \S+/\S+ seq=\d+ head=[0-9a-f]{12}$", re.M)
+
+
+def _anchor_answers(root: Path) -> str | tuple[str, str] | None:
+    """Whether the CLI this repository's anchor names can actually answer.
+
+    The hooks resolve the CLI through `ai.eng`, and a persisted anchor proves only that
+    somebody wrote a string. This machine was found with a live interpreter and a dead
+    `ai_engineering.cli` — an editable install pointing at a deleted worktree — so the anchor
+    read as configured, `git config --get` returned it, and every hook that used it failed.
+
+    So the value has to decompose to exactly this interpreter plus this module, and that
+    argument list is executed with a timeout and an isolated HOME. Anything else — a
+    different interpreter, a shell fragment, a non-zero exit, a timeout, no footer, or more
+    than one — is undecidable and cures with the command that rewrites the anchor.
+    """
+
+    configured = git(root, "config", "--get", "ai.eng")
+    if not configured:
+        raise Undecidable("ai.eng is not set here, so the hooks have no CLI to resolve")
+    if shlex.split(configured) != [sys.executable, *_ANCHOR_TAIL]:
+        return (
+            "ai.eng does not name this interpreter and this module, so what the hooks run "
+            "is not what this install would run",
+            "ai-eng init --project",
+        )
+    try:
+        answered = subprocess.run(
+            [sys.executable, *_ANCHOR_TAIL, "audit", "--anchor"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+            # Its own home, so the check cannot write into the real record just by asking
+            # a question, and cannot read one machine's state into another's answer.
+            env={**os.environ, "AI_ENGINEERING_HOME": str(paths.home())},
+        )
+    except (OSError, subprocess.SubprocessError) as why:
+        raise Undecidable(
+            f"the CLI the anchor names could not be executed: {why.__class__.__name__}"
+        ) from why
+    if answered.returncode != 0:
+        return (
+            "the CLI the anchor names is installed and does not run: the hooks resolve a "
+            "module that answers nothing",
+            "ai-eng init --project",
+        )
+    footers = _ANCHOR_FOOTER.findall(answered.stdout)
+    if len(footers) != 1:
+        return (
+            f"the CLI the anchor names printed {len(footers)} anchor footers, and a commit "
+            f"carries exactly one",
             "ai-eng init --project",
         )
     return None

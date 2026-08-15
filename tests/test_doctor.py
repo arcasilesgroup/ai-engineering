@@ -16,6 +16,7 @@ import time
 import types
 from datetime import date, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from rich.style import Style
@@ -563,6 +564,10 @@ def test_assertion_11_the_floor_has_to_be_the_one_this_install_wired(
     }
     if value[setting]:
         git(repo, "config", "core.hooksPath", value[setting])
+    # The anchor half of this assertion is exercised on its own below. Here it is wired the
+    # way `init` wires it, so a case that is about the hooks path is decided by the hooks
+    # path and not by an anchor the fixture never set.
+    git(repo, "config", "ai.eng", f"{sys.executable} -m ai_engineering.cli")
     got, detail = verdict(doctor.git_hook_fires, repo)
     assert (got, fragment in detail) == (want, True)
 
@@ -1274,3 +1279,77 @@ def test_no_surface_reads_as_covered_where_no_denial_has_ever_executed(home, rep
     assert "BLOCKS" in rows["claude-code"]
     assert "MISMATCH" in lines[0]
     assert doctor.surfaces_alive(None) is not None
+
+
+def test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module(repo, monkeypatch):
+    """A configured anchor is a string somebody wrote. This runs it.
+
+    The state this cures was found on a real machine: an editable install whose `.pth`
+    pointed at a deleted worktree, so the interpreter was alive, `ai_engineering.cli` was
+    dead, `git config --get ai.eng` answered, and every hook that resolved the CLI through
+    it failed on a repository somebody had just installed into. Assertion 11 said the wiring
+    was fine, because the string was there.
+
+    What it will not do is execute whatever the value happens to hold. A configured command
+    that gets run is a configured command that can be anything, on a machine that may
+    already be doing what an injected instruction told it to — so the value must decompose
+    to exactly this interpreter and this module, and that argument list is the only thing
+    this check ever runs.
+    """
+
+    ours = repo.parent / "wheel" / "git-hooks"
+    ours.mkdir(parents=True, exist_ok=True)
+    (ours / "pre-commit").write_text("#!/bin/sh\n")
+    monkeypatch.setattr(paths, "git_hooks", lambda: ours)
+    git(repo, "config", "core.hooksPath", str(ours))
+
+    # No anchor at all is undecidable: the hooks have no CLI to resolve.
+    assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
+
+    # A value that is not this interpreter and this module is refused without being run.
+    for foreign in (
+        "ai-eng",
+        "/usr/bin/python3 -m ai_engineering.cli",
+        f"{sys.executable} -m ai_engineering.cli; rm -rf /",
+        f"{sys.executable} -c 'print(1)'",
+        f"sh -c '{sys.executable} -m ai_engineering.cli'",
+    ):
+        git(repo, "config", "ai.eng", foreign)
+        state, detail = verdict(doctor.git_hook_fires, repo)
+        assert state == "fail", foreign
+        assert "does not name this interpreter and this module" in detail, foreign
+        assert doctor.resolve(11, doctor.git_hook_fires(repo))[1] == "ai-eng init --project"
+
+    # The live one passes, and it passed by running.
+    git(repo, "config", "ai.eng", f"{sys.executable} -m ai_engineering.cli")
+    assert verdict(doctor.git_hook_fires, repo)[0] == "ok"
+
+    # Only the anchor's own execution is stood in for. `git config --get` still runs, or
+    # the check would be reading a value this test never wrote.
+    real = doctor.subprocess.run
+
+    def only_the_anchor(answer):
+        def run(argv, *args, **kwargs):
+            if list(argv)[:1] == ["git"]:
+                return real(argv, *args, **kwargs)
+            if isinstance(answer, BaseException):
+                raise answer
+            return answer
+
+        return run
+
+    # A module that is installed and does not answer is the state this exists for.
+    footer = "Ai-Eng-Anchor: repo/machine seq=1 head=0123456789ab"
+    for dead in (
+        SimpleNamespace(returncode=1, stdout=footer),
+        SimpleNamespace(returncode=0, stdout=""),
+        SimpleNamespace(returncode=0, stdout="Ai-Eng-Anchor: not/a valid=footer\n"),
+        SimpleNamespace(returncode=0, stdout=f"{footer}\n{footer}\n"),
+    ):
+        monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(dead))
+        assert verdict(doctor.git_hook_fires, repo)[0] == "fail", dead
+
+    # And a hang is undecidable rather than a pass that waited.
+    hangs = subprocess.TimeoutExpired(cmd="python", timeout=30)
+    monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(hangs))
+    assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
