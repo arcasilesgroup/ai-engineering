@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -529,45 +530,57 @@ def test_the_anchor_written_into_a_commit_is_one_the_verifier_can_read_back(home
     assert found.group(3) == "2" and found.group(4) == events[-1]["hash"][:12]
 
 
-@pytest.mark.parametrize("holds", [True, False])
-def test_the_commit_msg_hook_appends_the_footer_and_never_the_verdict(tmp_path, holds):
-    """The hook itself, executed. Its format was tested and its behaviour never was, and
-    the two failures that hid in the gap are the ones that matter.
+# Not `SIGNED`: this module already binds that name to an acceptance argument list, and
+# rebinding it at import time would have replaced it for every test in the file.
+COAUTHOR = "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+FOOTER = "Ai-Eng-Anchor: testrepo/abcdef012345 seq=2 head=deadbeefcafe"
 
-    `audit --anchor` puts its progress on stderr and its verdict on stdout, because the
-    verdict is the data every other verb produces. The hook appended stdout wholesale, so a
-    chain that does not hold wrote `✗ FAIL / Reason: ... / Exit code: 1` into the commit
-    message. Nothing caught it because on this machine `ai.eng` pointed at a CLI too old to
-    have the flag, so the anchor had never been written at all — silently, for as long as
-    the repository has existed, because the call ends in `|| true`."""
+
+def _commit_msg(tmp_path, *, holds=True, body="body.\n", shim=""):
+    """Run the real hook over one message and report what it did.
+
+    The stub populates both streams the way the real verb does — progress on stderr, and
+    on stdout the footer *plus* the rendered verdict — so a test can tell "took the footer"
+    from "took whatever was on stdout"."""
 
     repo = tmp_path / "clone"
     repo.mkdir()
     for argv in (["init", "-q"], ["config", "ai.managed", "true"]):
         subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
 
-    footer = "Ai-Eng-Anchor: testrepo/abcdef012345 seq=2 head=deadbeefcafe"
     stub = tmp_path / "stub-eng"
-    # Both streams populated the way the real verb populates them, so the test can tell
-    # "took the footer" from "took whatever was on stdout".
     stub.write_text(
         "#!/bin/sh\n"
         'echo "  RUNNING 1/4  load the verb" >&2\n'
-        + (f"printf '\\n{footer}\\n'\n" if holds else "")
-        + ("printf '\\u2713 PASS\\nExit code: 0\\n'\n" if holds else "")
-        + ("printf '\\u2717 FAIL\\nReason: a violation\\nExit code: 1\\n'\n" if not holds else ""),
+        + (
+            f"printf '\\n{FOOTER}\\n'\nprintf '\\u2713 PASS\\nExit code: 0\\n'\n"
+            if holds
+            else "printf '\\u2717 FAIL\\nReason: a violation\\nExit code: 1\\n'\n"
+        ),
         encoding="utf-8",
     )
     stub.chmod(0o755)
 
+    environment = {**os.environ, "AI_ENG": str(stub)}
+    if shim:
+        # A `git` that fails the way a real one can. Everything the hook asks of git before
+        # this point still has to work, so it delegates the rest to the real one.
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        (bin_dir / "git").write_text(
+            f'#!/bin/sh\ncase "$1" in\n  {shim}\nesac\nexec {shutil.which("git")} "$@"\n',
+            encoding="utf-8",
+        )
+        (bin_dir / "git").chmod(0o755)
+        environment["PATH"] = f"{bin_dir}{os.pathsep}{environment.get('PATH', '')}"
+
     # This repository's actual convention: every commit ends with a trailer. The first
     # version of this test wrote a message with none, which is the one shape where an
-    # anchor appended after a blank line parses — it starts a second trailer block, and on
-    # a real message `git interpret-trailers --parse` then returns the anchor alone and the
-    # `Co-Authored-By` the gate reads is gone. The test agreed with the defect by picking
-    # the input that could not see it.
-    signed = "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-    original = f"test(x): a probe\n\nbody.\n\n{signed}\n"
+    # anchor appended after a blank line still parses — it starts a second trailer block,
+    # and on a real message `git interpret-trailers --parse` then returns the anchor alone
+    # and the `Co-Authored-By` that GitHub reads for attribution is gone. The test agreed
+    # with the defect by picking the input that could not see it.
+    original = f"test(x): a probe\n\n{body}\n{COAUTHOR}\n"
     message = tmp_path / "COMMIT_EDITMSG"
     message.write_text(original, encoding="utf-8")
     hook = Path(__file__).resolve().parents[1] / "git-hooks" / "commit-msg"
@@ -576,34 +589,84 @@ def test_the_commit_msg_hook_appends_the_footer_and_never_the_verdict(tmp_path, 
         cwd=repo,
         capture_output=True,
         text=True,
-        env={**os.environ, "AI_ENG": str(stub)},
+        env=environment,
     )
+    return done, message.read_text(encoding="utf-8"), original, repo
+
+
+def _trailers(repo, message: str, *, divider: bool = True) -> list[str]:
+    parsed = subprocess.run(
+        ["git", "interpret-trailers", *([] if divider else ["--no-divider"]), "--parse"],
+        cwd=repo,
+        input=message,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return parsed.stdout.splitlines()
+
+
+@pytest.mark.parametrize("holds", [True, False])
+def test_the_commit_msg_hook_appends_the_footer_and_never_the_verdict(tmp_path, holds):
+    """The hook itself, executed. Its format was tested and its behaviour never was, and
+    every failure that hid in the gap was in the behaviour.
+
+    `audit --anchor` puts its progress on stderr and its verdict on stdout, because the
+    verdict is the data every other verb produces. The hook appended stdout wholesale, so a
+    chain that does not hold wrote `✗ FAIL / Reason: ... / Exit code: 1` into the commit
+    message — and the call ends in `|| true`, so nothing would have said so."""
+
+    done, written, original, repo = _commit_msg(tmp_path, holds=holds)
 
     # Never a gate, in either direction: a hook that refuses commits is a hook people
     # delete, and the escape they reach for is the one rule 3 forbids.
     assert done.returncode == 0, done.stderr
-    written = message.read_text(encoding="utf-8")
     assert "Exit code" not in written, written
     assert "PASS" not in written and "FAIL" not in written, written
     if holds:
-        assert written.endswith(f"{footer}\n"), written
+        assert written.endswith(f"{FOOTER}\n"), written
         # Git has to see it as a trailer, and see the one that was already there. Asserting
         # only that the anchor parses is what let the append that deletes its neighbour go
         # green.
-        parsed = subprocess.run(
-            ["git", "interpret-trailers", "--parse"],
-            cwd=repo,
-            input=written,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        assert parsed.stdout.splitlines() == [signed, footer], parsed.stdout
+        assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
     else:
         assert written == original
-        # And it says so. Three days of unanchored commits went by without a word, which is
-        # the exact failure the record exists to make impossible.
         assert "not anchored" in done.stderr, done.stderr
+
+
+def test_a_divider_in_the_body_does_not_orphan_the_trailer_beside_the_anchor(tmp_path):
+    """Git stops reading a commit message at a bare `---`. Without `--no-divider` the
+    anchor lands above it, mid-body, and `--parse` returns the anchor alone — the exact
+    defect the placement fix was written to close, reappearing on a different input. No
+    commit here carries a divider today, which is why only an attacker of the fix would
+    have found it.
+
+    Asserted on the bytes, not through `--parse`: git's default reading stops at the
+    divider and finds no trailer block at all, with or without the anchor, so a parse-based
+    assertion would be measuring git's divider rule rather than where the hook put the
+    line. What has to hold is that the anchor joins the trailer already at the end."""
+
+    done, written, _, repo = _commit_msg(tmp_path, body="Some prose.\n\n---\n\nMore prose.\n")
+    assert done.returncode == 0, done.stderr
+    assert written.splitlines()[-2:] == [COAUTHOR, FOOTER], written
+    assert _trailers(repo, written, divider=False) == [COAUTHOR, FOOTER], written
+
+
+def test_a_git_that_cannot_place_the_anchor_leaves_the_commit_standing(tmp_path):
+    """The footer is not a gate, and the placement fix quietly made it one: under
+    `set -euo pipefail` a bare `git interpret-trailers` hands its exit status to the hook,
+    and git then refuses the commit. It is not hypothetical — a message file in a directory
+    git cannot write its temporary file into exits 128, and so does a config git declines
+    to parse. The person's escape from a hook that refuses commits is `--no-verify`, which
+    rule 3 forbids and a guard blocks: the hook whose bug forces its own bypass."""
+
+    done, written, original, _ = _commit_msg(
+        tmp_path,
+        shim='interpret-trailers) echo "error: unknown option \\`in-place\'" >&2; exit 129 ;;',
+    )
+    assert done.returncode == 0, f"the hook refused the commit: {done.stderr}"
+    assert written == original, written
+    assert "could not be placed" in done.stderr, done.stderr
 
 
 @pytest.mark.parametrize("head", ["known", "aaaaaaaaaaaa"])
