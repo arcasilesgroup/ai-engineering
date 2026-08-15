@@ -465,6 +465,18 @@ jobs:
           grep -q "claude-code .*enforcement .*SURFACE_PROVEN" surfaces.txt || {
             echo "the denial was receipted and the product could not read it back"; exit 1; }
 
+          # And the other two states did not follow it. Nothing here runs Claude Code: we
+          # can place the skills where it looks and watch our own guard deny, and we cannot
+          # watch the editor list a skill or invoke one. A receipt for "the files are where
+          # they should be" would be a receipt for a weaker thing wearing a stronger name,
+          # which is the substitution this wave exists to refuse — so those two stay
+          # unproven, and the job proves they stayed unproven rather than borrowing this
+          # one's answer.
+          grep -q "claude-code .*discovery .*SURFACE_RECEIPT_MISSING" surfaces.txt || {
+            echo "discovery is not proved here and something claimed it was"; exit 1; }
+          grep -q "claude-code .*invocation .*SURFACE_RECEIPT_MISSING" surfaces.txt || {
+            echo "invocation is not proved here and something claimed it was"; exit 1; }
+
       - name: the pin holds — install one version, pin another, and it must say so
         shell: bash
         run: |

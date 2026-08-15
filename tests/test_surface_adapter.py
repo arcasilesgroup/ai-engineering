@@ -628,5 +628,30 @@ def test_the_matrix_receipts_the_denial_it_already_executes():
     from hashlib import sha256
 
     assert sha256(step.encode()).hexdigest() == (
-        "6d1b2b0afc824bacc28a165f8e5236f62da0305e50bfbf551987a1ed2fc62855"
+        "5bd75fd29a6921188b4edc4643639753457b37823da3fe5a3714b71d676d0979"
     )
+
+
+def test_the_matrix_proves_discovery_and_invocation_separately():
+    """What the job can prove, it receipts. What it cannot, it leaves unproven and says so.
+
+    Nothing in CI runs Claude Code. We can place the skills where it looks and we can watch
+    our own guard deny — we cannot watch the editor list a skill or invoke one, and a
+    receipt for "the files are where they should be" would be a receipt for a weaker thing
+    wearing the name of a stronger one. That is the substitution this whole wave exists to
+    refuse, so the job asserts the two states stay unproven while the one it earned reads
+    PASS. Three states, three answers, and two of them are `no`."""
+
+    matrix = (ROOT / ".github" / "workflows" / "install-matrix.yml").read_text(encoding="utf-8")
+    step = matrix.split("a packaged guard actually denies, from the installed tree", 1)[1]
+    step = step.split("      - name:", 1)[0]
+
+    # Exactly one receipt file is written, and it is the enforcement one.
+    written = [line for line in step.splitlines() if ".ai/receipts/surface/" in line]
+    assert len(written) == 1, written
+    assert "claude-code.enforcement.json" in written[0]
+
+    # And the job proves the other two did not follow it. A state that borrowed another's
+    # answer would show here as PASS, which is the failure the three receipts exist for.
+    assert "claude-code .*discovery .*SURFACE_RECEIPT_MISSING" in step
+    assert "claude-code .*invocation .*SURFACE_RECEIPT_MISSING" in step
