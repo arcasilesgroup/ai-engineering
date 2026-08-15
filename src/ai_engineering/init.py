@@ -503,7 +503,17 @@ def _global_paths_safe(args) -> bool:
                 target = skills_root / source.name
                 if not os.path.lexists(target):
                     continue
-                if target.is_symlink() and target.resolve() == source.resolve():
+                # Ours if it points at the source, or at the store this verb installs into.
+                # Only the second is reachable after a successful run: `init` copies the
+                # skills to `home()/skills` and links every surface root at *that*, so a
+                # check that recognised the source alone declared its own finished work
+                # unsafe. Every second `init` on every machine returned False here and
+                # printed INCOMPLETE with no surface table, no reason and no cure — a guard
+                # failing closed for the wrong reason, in the only verb that installs one.
+                if target.is_symlink() and target.resolve() in (
+                    source.resolve(),
+                    (store / source.name).resolve(),
+                ):
                     continue
                 if target.is_dir() and str(skills_root) in copied:
                     continue

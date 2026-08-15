@@ -1102,3 +1102,44 @@ def test_main_runs_the_machine_step_then_the_project_step_and_returns_incomplete
     text = capsys.readouterr().err
     assert "\n◇ Project" in text
     assert "\n◇ Global" not in text
+
+
+def test_init_can_be_run_twice_on_a_machine_it_already_set_up(home, monkeypatch):
+    """The front door only opened once. `init` writes the skills into the application home
+    and symlinks each surface root at *that*, then its own safety check compares those
+    symlinks against `paths.skills()` — the source tree in a checkout, site-packages in a
+    wheel. Neither can ever equal the store `init` just created, so every second run on
+    every machine returned `_global_paths_safe() is False`.
+
+    What that looks like to a person: `ai-eng init` prints `INCOMPLETE — The framework
+    cannot decide or prove the claim`, with no surface table, no reason and no cure. It was
+    measured on the operator's own machine minutes after a successful install, on the exact
+    command that had worked.
+
+    A guard that fails closed for the wrong reason and says nothing is the failure this
+    product exists to cure, sitting in the only verb that installs it."""
+
+    store = paths.home() / "skills"
+    store.mkdir(parents=True)
+    surfaces = home / ".config" / "opencode" / "skills"
+    surfaces.mkdir(parents=True)
+    for source in paths.skills().glob("ai-*"):
+        (store / source.name).mkdir(exist_ok=True)
+        (surfaces / source.name).symlink_to(store / source.name)
+
+    args = init.parse(["--global", "--no-project", "--harness", "opencode", "--dry-run"])
+    monkeypatch.setattr(
+        init.wiring,
+        "detect",
+        lambda only=None: [
+            {"id": "opencode", "settings": "", "writer": "ts_opencode", "skills": str(surfaces)}
+        ],
+    )
+    monkeypatch.setattr(
+        init,
+        "_receipt_state",
+        lambda: {"wrote": [{"path": str(store), "kind": "skills", "how": "wheel"}]},
+    )
+    assert init._global_paths_safe(args), (
+        "a machine this verb installed itself cannot be one it refuses to look at"
+    )
