@@ -338,7 +338,20 @@ DESCRIPTION_MAX = 1000
 # 42,579 + 852 + 393 = 43,824. The rates over-predicted by an eighth last time and are
 # expected to again; the final commit of this work closes the ceiling back onto the tree
 # it measures, exactly as Task 53 did, so the slack is borrowed and not kept.
-REPO_CEILING = 45_406
+# 45,406 to 45,440, and the smallest raise this file records. Block C's
+# re-review reached round eleven and found that every test of the commit-msg hook set
+# `AI_ENG`, so the branch that resolves the CLI from `git config --get ai.eng` — the one a
+# real commit takes, and one of the two candidate causes an entire section of specs/011
+# exists to account for — had no coverage at all. The test that closes it is eleven lines
+# and its seam in the helper is seven; twenty-one with the docstring, and thirteen more
+# for this paragraph, which is the argument the raise is required to carry and is counted
+# rather than exempted.
+#
+# No forecast, because this is not forecast work: it is the ceiling doing what it is for.
+# The alternative was to delete something else to fit, which is the failure the number
+# exists to prevent, and the operator's standing instruction is to present the arithmetic
+# rather than scope the work down to the figure.
+REPO_CEILING = 45_440
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
