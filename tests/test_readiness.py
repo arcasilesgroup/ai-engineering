@@ -431,7 +431,11 @@ def test_doctor_fails_when_a_boxs_own_check_ran_and_failed(tmp_path, monkeypatch
     monkeypatch.setattr(doctor, "coverage", lambda where: [])
     reported = doctor.main([])
     assert reported.result.outcome == "FAIL"
-    assert "Security failed its own check" in reported.remaining
+    # Once, and by the box's own name. The aggregate fact restates the worst box, so
+    # counting both had one fault arriving as two things left to do.
+    assert [line for line in reported.remaining if "failed its own check" in line] == [
+        "Security failed its own check"
+    ]
     published = {fact.id: fact.as_dict() for fact in reported.checks}
     assert published["readiness-security"]["status"] == "FAIL"
 

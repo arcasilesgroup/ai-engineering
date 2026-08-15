@@ -1011,7 +1011,10 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     # A box whose own check ran and failed is a different answer, and it is decided, so it
     # counts — reporting a decided fault as something to look at later is the same lie as a
     # green nobody earned, told slowly.
-    readiness_failed = any(entry.status == "FAIL" for entry in boxes)
+    # The aggregate fact restates the worst box, so it is not counted beside it: one
+    # fault named twice reads as two.
+    failed_boxes = [entry for entry in boxes if entry.status == "FAIL" and entry.id != "readiness"]
+    readiness_failed = bool(failed_boxes)
 
     if unanswered:
         ui.section(
@@ -1031,14 +1034,14 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     result = _terminal_result(
         failed, unanswered, coverage_lines, coverage_unknown, readiness_failed
     )
-    verdict_panel(result, failed, len(unanswered), cures)
+    verdict_panel(result, failed, len(unanswered), cures, len(failed_boxes))
     if args.fix and cures:
         return repair(cures, argv)
     if args.fix:
         ui.write("\n  Nothing that failed here has a command --fix runs for you.", data=True)
     remaining = [
         *(f"assertion {number} failed" for number in failed),
-        *(f"{entry.summary} failed its own check" for entry in boxes if entry.status == "FAIL"),
+        *(f"{entry.summary} failed its own check" for entry in failed_boxes),
         *(f"assertion {number} could not be evaluated" for number, _, _ in unanswered),
         *(["surface coverage could not be evaluated"] if coverage_unknown else []),
     ]
@@ -1078,6 +1081,7 @@ def verdict_panel(
     failed: list[int],
     unanswered: int,
     cures: dict[int, str],
+    boxes_failed: int = 0,
 ) -> None:
     """Whether it passed, and if not, how much of it a command can put right. This was one
     unframed line under the coverage block, in the same weight as the rows above it, and it
@@ -1096,6 +1100,12 @@ def verdict_panel(
     ]
     if cures:
         rows.append(("fixable now", f"{len(cures)}   ai-eng doctor --fix"))
+    if boxes_failed:
+        # Counted on its own line rather than folded into the failures above, which are
+        # numbered assertions. Without it the banner read FAILED over "0 failed", and a
+        # verdict whose own counters contradict it is a verdict nobody reads twice.
+        word = "box" if boxes_failed == 1 else "boxes"
+        rows.append(("production-ready", f"{boxes_failed}   {word} failed a check that ran"))
     people = sorted(number for number in failed if number not in cures)
     if people:
         listed = ", ".join(str(number) for number in people)
