@@ -341,13 +341,20 @@ jobs:
           # One JSON object on stdout, nothing on stderr, for a verb that refuses.
           out=$(ai-eng --json audit verify 2>err.txt || true)
           test ! -s err.txt || { echo "json mode wrote to stderr"; cat err.txt; exit 1; }
-          test "$(printf '%s' "$out" | wc -l)" -le 1 || { echo "more than one line"; exit 1; }
+          test -n "$out" || { echo "json mode wrote nothing"; exit 1; }
+          test "$(printf '%s' "$out" | wc -l)" -eq 0 || { echo "more than one line"; exit 1; }
           printf '%s' "$out" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['command']=='audit'; assert d['outcome']; assert d['schema_version']=='1'"
 
-          # And the guard the wave renamed answers to its new name and not its old one.
+          # The renamed guard, asked of the wheel that is installed rather than of a report
+          # that never mentions a guard filename. Grepping doctor's JSON for the old name
+          # was true for a wheel still shipping it, and true for a wheel shipping nothing.
+          python3 -c "import sys; from ai_engineering import paths; h=paths.hooks(); sys.exit('the old guard name survives in the installed wheel' if (h/'design_gate.py').exists() else 'the renamed guard is not in the installed wheel' if not (h/'change_scope_guard.py').exists() else 0)"
+          ai-eng exception --help | grep -q change_scope_guard
+
           ai-eng --json doctor >doctor.json 2>err2.txt || true
           test ! -s err2.txt || { echo "json doctor wrote to stderr"; cat err2.txt; exit 1; }
-          ! grep -q design_gate doctor.json || { echo "the old guard name survives"; exit 1; }
+          test -s doctor.json || { echo "json doctor wrote nothing"; exit 1; }
+          python3 -c "import json,sys; d=json.load(open('doctor.json')); assert d['command']=='doctor'; assert d['outcome']"
 
       - name: zero to a green doctor, in a repository it has never seen
         shell: bash
