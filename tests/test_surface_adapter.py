@@ -171,3 +171,107 @@ def test_every_invalid_adapter_fixture_is_refused():
     }
     for field in closed:
         assert named[field] in reasons, field
+
+
+def _receipt(surface: str, state: str, *, finished: str, outcome: str = "PASS") -> dict[str, Any]:
+    return {
+        "schema": "urn:ai-engineering:check-evidence:1",
+        "schema_version": "1",
+        "kind": "automated",
+        "id": f"{surface}.{state}",
+        "applicability": "applicable",
+        "command": f"just prove-{state}",
+        "tool_version": "1.0.0",
+        "input_digest": "sha256:" + "0" * 64,
+        "artifact_digest": "sha256:" + "1" * 64,
+        "started_at": finished,
+        "finished_at": finished,
+        "max_age_seconds": 86_400,
+        "outcome": outcome,
+    }
+
+
+def test_discovery_invocation_and_enforcement_are_separate_receipts(tmp_path):
+    """The defect this wave exists for: one word answering three questions.
+
+    A surface can list the skills and be unable to run them. It can run them and never be
+    able to stop anything. So each state is read from its own receipt, a missing one is
+    unproven for that state alone, and no state is ever allowed to speak for another."""
+
+    from datetime import UTC, datetime, timedelta
+
+    from ai_engineering import surface
+
+    now = datetime(2026, 8, 15, 12, 0, 0, tzinfo=UTC)
+    fresh = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    root = tmp_path / "repository"
+    (root / surface.RECEIPTS).mkdir(parents=True)
+
+    def write(name: str, record: dict[str, Any] | None) -> None:
+        path = root / surface.RECEIPTS / f"{name}.json"
+        if record is None:
+            path.unlink(missing_ok=True)
+        else:
+            path.write_text(json.dumps(record), encoding="utf-8")
+
+    assert surface.STATES == ("discovery", "invocation", "enforcement")
+
+    # Nothing written: every state is unproven, with exactly one exception — the two
+    # instruction-only surfaces cannot deny, so their enforcement is answered rather than
+    # waiting to be proved. An answer is not a gap.
+    empty = surface.read(root, now=now)
+    assert len(empty.rows) == len(SURFACES) * len(surface.STATES)
+    answered = {
+        (row.surface, row.state) for row in empty.rows if row.code == surface.NOT_APPLICABLE
+    }
+    assert answered == {("pi", "enforcement"), ("zed", "enforcement")}
+    assert {row.outcome for row in empty.rows if row.code != surface.NOT_APPLICABLE} == {
+        "INCOMPLETE"
+    }
+    assert empty.result.outcome == "INCOMPLETE"
+
+    # Discovery proved, and it proves only itself. This is the whole point of the wave:
+    # visibility never proves invocation, and invocation never proves denial.
+    write("claude-code.discovery", _receipt("claude-code", "discovery", finished=fresh))
+    seen = surface.read(root, now=now)
+    assert seen.state("claude-code", "discovery").outcome == "PASS"
+    assert seen.state("claude-code", "invocation").outcome == "INCOMPLETE"
+    assert seen.state("claude-code", "enforcement").outcome == "INCOMPLETE"
+
+    # A receipt that names another surface's state does not tick this one.
+    write("opencode.invocation", _receipt("claude-code", "invocation", finished=fresh))
+    borrowed = surface.read(root, now=now)
+    assert borrowed.state("opencode", "invocation").outcome == "INCOMPLETE"
+    assert borrowed.state("opencode", "invocation").code == surface.RECEIPT_MISMATCH
+    assert borrowed.state("claude-code", "invocation").outcome == "INCOMPLETE"
+
+    # A check that ran and failed is decided, and says so rather than reading as unproven.
+    write(
+        "cursor.enforcement",
+        _receipt("cursor", "enforcement", finished=fresh, outcome="FAIL"),
+    )
+    failed = surface.read(root, now=now)
+    assert failed.state("cursor", "enforcement").outcome == "FAIL"
+    assert failed.result.outcome == "FAIL"
+
+    # A stale receipt is unproven, not passed: a denial that executed a year ago says
+    # nothing about the surface as it is now.
+    old = (now - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    write("codex-cli.discovery", _receipt("codex-cli", "discovery", finished=old))
+    stale = surface.read(root, now=now)
+    assert stale.state("codex-cli", "discovery").outcome == "INCOMPLETE"
+    assert stale.state("codex-cli", "discovery").code == surface.RECEIPT_STALE
+
+    # T3 surfaces cannot deny, so enforcement is not applicable rather than unproven — and
+    # a denial receipt for one is refused rather than believed.
+    for instruction_only in ("pi", "zed"):
+        assert surface.read(root, now=now).state(instruction_only, "enforcement").code == (
+            surface.NOT_APPLICABLE
+        )
+        write(
+            f"{instruction_only}.enforcement",
+            _receipt(instruction_only, "enforcement", finished=fresh),
+        )
+        claimed = surface.read(root, now=now).state(instruction_only, "enforcement")
+        assert claimed.outcome == "FAIL", instruction_only
+        assert claimed.code == surface.CANNOT_ENFORCE, instruction_only

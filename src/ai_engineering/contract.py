@@ -317,6 +317,13 @@ DESCRIPTION_MAX = 1000
 # Raising it is a commit whose message says why, and that commit is the conversation
 # this file exists to force.
 #
+# 43,824 to 45,406, and this one is a forecast that was wrong in a way worth naming. The
+# raise below budgeted three tasks and one repair and forgot that a wave also writes its
+# own spec and plan: those two files are 342 lines, which is most of the overrun. The rate
+# table measures tasks, so anything forecast from it and not itemised beside it is missing.
+# Remaining Block A work at the same rates: 3 tasks at 284 = 852, one review round at 393.
+# 44,161 + 852 + 393 = 45,406. The records are now counted where they were skipped.
+#
 # 42,579 to 43,824, and this is that conversation. P0 closed with no verb that transitions
 # a record: a MADR moves from proposed to accepted only by hand-editing YAML frontmatter,
 # and the validator additionally requires the transition to be its own commit. That is not
@@ -331,7 +338,7 @@ DESCRIPTION_MAX = 1000
 # 42,579 + 852 + 393 = 43,824. The rates over-predicted by an eighth last time and are
 # expected to again; the final commit of this work closes the ceiling back onto the tree
 # it measures, exactly as Task 53 did, so the slack is borrowed and not kept.
-REPO_CEILING = 43_824
+REPO_CEILING = 45_406
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
