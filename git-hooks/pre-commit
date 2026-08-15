@@ -18,3 +18,16 @@ elif [ "$(git config --get ai.managed || echo false)" = "true" ]; then
 else
   echo "pre-commit: gitleaks is not installed, so nothing scanned this commit for secrets." >&2
 fi
+# The other two receipts, and only while a claim is held. A repository that has never
+# coordinated has no checkpoint rules to break, and running this on every commit everywhere
+# would make the third receipt — a gate somebody has to have run — a wall between a person
+# and their own working tree.
+if [ -f ".ai/claim.json" ]; then
+  AI_ENG="${AI_ENG:-$(git config --get ai.eng || echo ai-eng)}"
+  if command -v "${AI_ENG%% *}" >/dev/null 2>&1; then
+    $AI_ENG spec checkpoint || {
+      echo "pre-commit: a claim is held and this checkpoint is missing a receipt." >&2
+      exit 1
+    }
+  fi
+fi

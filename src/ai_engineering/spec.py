@@ -551,12 +551,17 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     taken.add_argument("--path", action="append", default=[], required=True)
     taken.add_argument("--role", required=True)
     taken.add_argument("--remote", default="origin")
+    sub.add_parser("checkpoint")
     args = parser.parse_args(argv)
 
     root = paths.repo_root()
     if root is None:
         print("not inside a repository")
         return outcome.result("INCOMPLETE")
+    if args.action == "checkpoint":
+        from ai_engineering import checkpoint
+
+        return checkpoint.verify(root)
     if args.action == "claim":
         from ai_engineering import claim
 

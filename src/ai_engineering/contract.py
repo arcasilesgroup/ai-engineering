@@ -741,7 +741,24 @@ DESCRIPTION_MAX = 1000
 # the ordering in three subprocesses with three hash seeds now, and pins the exact order.
 # Both are the same defect this repository keeps finding in its own tests — the input that
 # cannot see the thing the test is named after.
-REPO_CEILING = 49_789
+# 49,789 to 50,210 for the checkpoint's three receipts, one of which this cannot produce.
+#
+# The audit measured what existed: `git-hooks/pre-push` covered secrets only, and
+# `acceptance_privacy.py` had never seen a staged diff. It sees one now — and the first
+# version of that scan reported on git's own punctuation, because a unified diff's header
+# carries `--- /dev/null` for every new file and the machine-path scanner is right to call
+# that an absolute path. It reads the added lines and nothing else: removals are already in
+# history, and this receipt is about what is being published.
+#
+# The third receipt is read, never produced. A check nobody ran is INCOMPLETE, a receipt
+# older than its own `max_age_seconds` is the same answer, and a receipt that ran and said
+# FAIL is a failure rather than an absence — the strongest evidence here, and reading it as
+# "no receipt" would turn the clearest answer into the vaguest one.
+#
+# The hook is gated on a claim being held. Demanding a gate receipt on every commit in every
+# repository that has never coordinated would put a wall between a person and their own
+# working tree, and the wall would be this framework's.
+REPO_CEILING = 50_210
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
