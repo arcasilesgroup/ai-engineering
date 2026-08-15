@@ -167,13 +167,27 @@ def test_the_opencode_plugin_is_the_shipped_source_with_this_machine_filled_in(m
     assert wiring.ts_opencode(path) == "plugin written"
     want = (paths.surfaces() / "opencode.ts").read_text(encoding="utf-8")
     for token, value in (
-        ("__PYTHON__", sys.executable),
-        ("__CHAIN__", str(paths.hooks() / "chain.py")),
-        ("__BEAT__", str(paths.home() / "cache" / "opencode-heartbeat")),
+        ('"__PYTHON__"', sys.executable),
+        ('"__CHAIN__"', str(paths.hooks() / "chain.py")),
+        ('"__BEAT__"', str(paths.home() / "cache" / "opencode-heartbeat")),
     ):
-        want = want.replace(token, value)
+        want = want.replace(token, json.dumps(value))
     assert path.read_text(encoding="utf-8") == want
     assert wiring.ts_opencode(path) == "plugin written"
+
+
+def test_a_windows_interpreter_path_is_escaped_rather_than_pasted(machine, tmp_path, monkeypatch):
+    """Every path on the machine that runs this suite is POSIX, so pasting one straight
+    into a TypeScript string and escaping it first produce byte-identical files — the test
+    above passes either way and agreed with the defect for as long as it existed. A Windows
+    path tells them apart: `C:\\Users\\me` pasted raw yields `\\U`, an invalid escape, and the
+    plugin fails to parse. To the operator that reads as OpenCode quietly running without a
+    guard, which is the exact failure this whole surface exists to prevent."""
+
+    monkeypatch.setattr(sys, "executable", r"C:\Users\me\python.exe")
+    path = tmp_path / "ai-engineering.ts"
+    assert wiring.ts_opencode(path) == "plugin written"
+    assert r'"C:\\Users\\me\\python.exe"' in path.read_text(encoding="utf-8")
 
 
 # ------------------------------------------------------------------ who gets written to
