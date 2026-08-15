@@ -726,7 +726,22 @@ DESCRIPTION_MAX = 1000
 # against the claim held on the remote. That does not exist, so EP-188 stays open and the
 # test file says so in its own docstring rather than reading as though the requirement had
 # closed.
-REPO_CEILING = 49_421
+# 49,421 to 49,789 for the DAG, and for two fixtures that were proving the wrong thing.
+#
+# Three sources of edge and no fourth invented: two claims over one path, a claim over a
+# file another claim's file imports, and the resources that cannot be shared at all. Where
+# the direction is genuinely arbitrary the work item decides, because two machines deriving
+# the plan have to derive the same plan and "arbitrary" is fine as long as it is identical.
+#
+# Both fixtures had to be corrected after the code passed them. The exclusive-resource case
+# gave both tasks `uv.lock`, which is an overlap, so the overlap rule ordered them and
+# deleting the exclusive rule changed nothing — measured by deleting it. It uses two
+# migrations and two schemas now, where nothing about the paths says the tasks collide. And
+# the determinism case looped inside one interpreter, where set iteration is stable: it runs
+# the ordering in three subprocesses with three hash seeds now, and pins the exact order.
+# Both are the same defect this repository keeps finding in its own tests — the input that
+# cannot see the thing the test is named after.
+REPO_CEILING = 49_789
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
