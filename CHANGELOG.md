@@ -8,6 +8,14 @@ search for.
 
 ### Breaking changes
 
+- The repository owner delegated approval of this wave's records, in the session that
+  closed P0, in these words: "Cierra el P0 automáticamente rellenando tú lo que haga falta.
+  Arregla eso también porque debe ser siempre automático." Recorded here because MADRs
+  0005, 0006 and 0007 name this entry as the reference for their approval, and an approval
+  reference that points at nothing a reader can open is not a reference. The role recorded
+  in those three records is `repository owner`; no model supplied it, and the schema refuses
+  a role that names an agent or a reviewer for exactly that reason.
+
 - The guard that used to be `hooks/design_gate.py` is now `hooks/change_scope_guard.py`.
   Nothing answers to the old path: if you referred to it in a settings file, a script or a
   document, that line now points at a file that is not there, and a hook whose file is
