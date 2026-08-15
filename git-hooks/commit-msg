@@ -14,6 +14,24 @@ grep -Eq '^(feat|fix|docs|refactor|test|chore|ci|perf|build|revert)(\([a-z0-9./-
 }
 # The anchor is a footer, not a gate: if it cannot be written the commit still stands.
 # A record that refuses commits is a record people delete.
+#
+# Only the footer is taken, and it is matched by its own shape rather than trusted to be
+# the whole of stdout. `audit --anchor` sends its progress to stderr and its verdict to
+# stdout, because the verdict is the data every other verb produces — so on a chain that
+# does not hold, appending stdout wholesale wrote "✗ FAIL / Reason: ... / Exit code: 1"
+# into the commit message. Measured, not feared: the only reason no commit here carries
+# that block is that `ai.eng` pointed at a CLI too old to have the flag at all.
+#
+# And it says so when there is nothing to append. This was silent for three days while the
+# chain sat broken and every commit went unanchored, which is the failure the record exists
+# to make impossible.
 AI_ENG="${AI_ENG:-$(git config --get ai.eng || echo ai-eng)}"
-if command -v "${AI_ENG%% *}" >/dev/null 2>&1; then $AI_ENG audit --anchor >>"$1" || true; fi
+if command -v "${AI_ENG%% *}" >/dev/null 2>&1; then
+  anchor="$($AI_ENG audit --anchor 2>/dev/null | grep -E '^Ai-Eng-Anchor: ' || true)"
+  if [ -n "$anchor" ]; then
+    printf '\n%s\n' "$anchor" >>"$1"
+  else
+    echo "commit-msg: this commit is not anchored — run \`ai-eng audit verify\`." >&2
+  fi
+fi
 exit 0

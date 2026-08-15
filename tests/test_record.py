@@ -529,6 +529,73 @@ def test_the_anchor_written_into_a_commit_is_one_the_verifier_can_read_back(home
     assert found.group(3) == "2" and found.group(4) == events[-1]["hash"][:12]
 
 
+@pytest.mark.parametrize("holds", [True, False])
+def test_the_commit_msg_hook_appends_the_footer_and_never_the_verdict(tmp_path, holds):
+    """The hook itself, executed. Its format was tested and its behaviour never was, and
+    the two failures that hid in the gap are the ones that matter.
+
+    `audit --anchor` puts its progress on stderr and its verdict on stdout, because the
+    verdict is the data every other verb produces. The hook appended stdout wholesale, so a
+    chain that does not hold wrote `✗ FAIL / Reason: ... / Exit code: 1` into the commit
+    message. Nothing caught it because on this machine `ai.eng` pointed at a CLI too old to
+    have the flag, so the anchor had never been written at all — silently, for as long as
+    the repository has existed, because the call ends in `|| true`."""
+
+    repo = tmp_path / "clone"
+    repo.mkdir()
+    for argv in (["init", "-q"], ["config", "ai.managed", "true"]):
+        subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
+
+    footer = "Ai-Eng-Anchor: testrepo/abcdef012345 seq=2 head=deadbeefcafe"
+    stub = tmp_path / "stub-eng"
+    # Both streams populated the way the real verb populates them, so the test can tell
+    # "took the footer" from "took whatever was on stdout".
+    stub.write_text(
+        "#!/bin/sh\n"
+        'echo "  RUNNING 1/4  load the verb" >&2\n'
+        + (f"printf '\\n{footer}\\n'\n" if holds else "")
+        + ("printf '\\u2713 PASS\\nExit code: 0\\n'\n" if holds else "")
+        + ("printf '\\u2717 FAIL\\nReason: a violation\\nExit code: 1\\n'\n" if not holds else ""),
+        encoding="utf-8",
+    )
+    stub.chmod(0o755)
+
+    message = tmp_path / "COMMIT_EDITMSG"
+    message.write_text("test(x): a probe\n\nbody.\n", encoding="utf-8")
+    hook = Path(__file__).resolve().parents[1] / "git-hooks" / "commit-msg"
+    done = subprocess.run(
+        ["bash", str(hook), str(message)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "AI_ENG": str(stub)},
+    )
+
+    # Never a gate, in either direction: a hook that refuses commits is a hook people
+    # delete, and the escape they reach for is the one rule 3 forbids.
+    assert done.returncode == 0, done.stderr
+    written = message.read_text(encoding="utf-8")
+    assert "Exit code" not in written, written
+    assert "PASS" not in written and "FAIL" not in written, written
+    if holds:
+        assert written.endswith(f"\n{footer}\n"), written
+        # Git has to see it as a trailer, not as a line of prose that looks like one.
+        parsed = subprocess.run(
+            ["git", "interpret-trailers", "--parse"],
+            cwd=repo,
+            input=written,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert parsed.stdout.strip() == footer
+    else:
+        assert written == "test(x): a probe\n\nbody.\n"
+        # And it says so. Three days of unanchored commits went by without a word, which is
+        # the exact failure the record exists to make impossible.
+        assert "not anchored" in done.stderr, done.stderr
+
+
 @pytest.mark.parametrize("head", ["known", "aaaaaaaaaaaa"])
 def test_a_commit_anchoring_a_link_this_chain_has_lost_is_reported(home, monkeypatch, head):
     """Git history is replicated and immutable; the chain on this laptop is neither. If
