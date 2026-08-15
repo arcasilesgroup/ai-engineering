@@ -204,7 +204,16 @@ def _status(box: Box, declared: object, root: Path, now: datetime) -> BoxStatus:
 
     if not isinstance(declared, dict) or not all(isinstance(key, str) for key in declared):
         return answer("INCOMPLETE", DECLARATION_INVALID)
-    if declared.get("max_age_seconds", 0) > MAX_AGE_CEILING:
+    window = declared.get("max_age_seconds", 0)
+    # Numbers only, before comparing. A quoted number is the likeliest hand-edit in this
+    # file, and comparing one to an integer raises out of the reader, out of doctor, and
+    # into a traceback where an INCOMPLETE belonged. Anything else falls through to the
+    # verifier, which already has an answer for a requirement of the wrong shape.
+    if (
+        isinstance(window, int | float)
+        and not isinstance(window, bool)
+        and window > MAX_AGE_CEILING
+    ):
         return answer("INCOMPLETE", FRESHNESS_TOO_LOOSE)
     try:
         # Kind and identity are this module's to state. A declaration that tries to set

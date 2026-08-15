@@ -429,3 +429,21 @@ def test_doctor_fails_when_a_boxs_own_check_ran_and_failed(tmp_path, monkeypatch
     # And an unproven box still leaves the verdict alone.
     monkeypatch.setattr(paths, "repo_root", lambda start=None: tmp_path / "nothing-here")
     assert doctor.main([]).result.outcome == "PASS"
+
+
+def test_a_declaration_of_the_wrong_shape_is_incomplete_and_not_a_traceback(tmp_path):
+    """A quoted number is the likeliest hand-edit in a file people write by hand, and the
+    freshness ceiling compared it to an integer — which left the reader, left doctor, and
+    arrived as a traceback where an INCOMPLETE belonged."""
+
+    box = next(entry for entry in readiness.BOXES if entry.id == "ci_cd")
+    for wrong in ("86400", None, [86_400], {"seconds": 86_400}, True):
+        shaped = _declared(box) | {"max_age_seconds": wrong}
+        root = _repository(
+            tmp_path / f"shaped-{type(wrong).__name__}-{wrong!s:.8}",
+            declarations={"ci_cd": shaped},
+            written={"ci_cd": _receipt(box, shaped, finished=NOW - timedelta(hours=1))},
+        )
+        answered = readiness.read(root, now=NOW)
+        assert answered.result.outcome == "INCOMPLETE", wrong
+        assert _codes(answered)["ci_cd"] != evidence.VERIFIED, wrong
