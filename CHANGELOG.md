@@ -45,11 +45,13 @@ search for.
   another, because the second rename loses instead of winning.
 
 - `ai-eng doctor` reports the eight production-ready boxes and how old the proof of each
-  one is. It reads a declaration you commit at `.ai-engineering/readiness.json` and one
-  receipt per box under `.ai-engineering/receipts`, and a box with no receipt, a stale
-  receipt or a receipt that does not match what you declared reads `INCOMPLETE` — unproven,
-  which is not the same as passed and is never shown as green. Nothing here is gated on it
-  yet; doctor tells you, and does not decide whether anything gets a URL.
+  one is. It reads a declaration you commit at `.ai/readiness.json` and one receipt per box
+  under `.ai/receipts`, and a box with no receipt, a stale receipt or a receipt that does not
+  match what you declared reads `INCOMPLETE` — unproven, which is not the same as passed and
+  is never shown as green. The receipts are this machine's and stay ignored; the declaration
+  is reviewed, and `ai-eng doctor` fails a repository that has receipts and has not committed
+  one. Nothing here is gated on it yet; doctor tells you, and does not decide whether
+  anything gets a URL.
 
 - Three things that used to carry on now stop. The installer refuses to write git's
   configuration when the command line tool it is about to point git at cannot be run — a

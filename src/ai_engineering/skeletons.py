@@ -208,6 +208,7 @@ AI_GITIGNORE = """*
 !.gitignore
 !config.toml
 !intent.md
+!readiness.json
 """
 
 INTENT_EXISTS = ("INTENT_ALREADY_EXISTS", "canonical Intent already exists")

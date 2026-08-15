@@ -32,8 +32,8 @@ from ai_engineering import evidence, outcome
 
 SCHEMA = "urn:ai-engineering:readiness:1"
 VERSION = "1"
-DECLARATION = ".ai-engineering/readiness.json"
-RECEIPTS = ".ai-engineering/receipts"
+DECLARATION = ".ai/readiness.json"
+RECEIPTS = ".ai/receipts"
 
 DECLARATION_MISSING = "READINESS_DECLARATION_MISSING"
 DECLARATION_MALFORMED = "READINESS_DECLARATION_MALFORMED"

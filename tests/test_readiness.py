@@ -326,3 +326,20 @@ def test_doctor_json_includes_readiness_receipt_status_and_age(tmp_path, monkeyp
     assert published["readiness-external_check"]["summary"] == "External check"
     # Reported, not gated: giving something a URL is not this verb's decision to make.
     assert reported.result.outcome == "PASS"
+
+
+def test_receipts_without_a_committed_declaration_are_a_repository_finding(tmp_path, monkeypatch):
+    """The receipts are this machine's and are ignored. The requirement they are measured
+    against is reviewed, so a repository holding one and not the other is a repository
+    where the same hand wrote the question and the answer."""
+
+    from ai_engineering import doctor
+
+    root = tmp_path / "repository"
+    (root / readiness.RECEIPTS).mkdir(parents=True)
+    committed = [".ai/.gitignore", ".ai/intent.md"]
+    monkeypatch.setattr(doctor, "tracked_files", lambda where: committed)
+    assert f"{readiness.DECLARATION} is not committed" in (doctor.polarity(root) or "")
+
+    committed.append(readiness.DECLARATION)
+    assert doctor.polarity(root) is None

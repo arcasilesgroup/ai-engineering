@@ -909,7 +909,7 @@ P0_SPELLINGS = (("ai-eng plan", "ai-eng exception"), ("ai-eng digest", "ai-eng r
 # nothing reads and a flag nothing passes are both prose.
 P0_HOMES = {
     "acceptance-r-": ROOT / "src" / "ai_engineering" / "acceptance.py",
-    ".ai-engineering/receipts": ROOT / "src" / "ai_engineering" / "readiness.py",
+    ".ai/receipts": ROOT / "src" / "ai_engineering" / "readiness.py",
     "PYTHONSAFEPATH": ROOT / "src" / "ai_engineering" / "wiring.py",
 }
 

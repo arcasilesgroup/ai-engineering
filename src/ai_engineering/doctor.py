@@ -564,10 +564,16 @@ def polarity(root: Path | None) -> str | None:
         raise Undecidable("not inside a repository")
     intent_home = ".ai/intent.md"
     tracked = {name for name in tracked_files(root) if name.startswith(".ai/")}
-    allowed = {".ai/.gitignore", ".ai/config.toml", intent_home}
+    allowed = {".ai/.gitignore", ".ai/config.toml", intent_home, readiness.DECLARATION}
     problems = []
     if intent_home not in tracked:
         problems.append(f"Solution Intent is not tracked at {intent_home}")
+    if (root / readiness.RECEIPTS).exists() and readiness.DECLARATION not in tracked:
+        # Receipts are this machine's, and are ignored. The requirement they are measured
+        # against is everybody's, and is reviewed — so a repository holding receipts whose
+        # declaration nobody has committed is one where the same hand wrote the question
+        # and the answer, which is the one thing the readiness verifier exists to prevent.
+        problems.append(f"receipts are here and {readiness.DECLARATION} is not committed")
     extra = tracked - allowed
     if extra:
         problems.append(f"state slipped into git: {sorted(extra)[:3]}")
