@@ -56,7 +56,7 @@ and review; a human or an already approved versioned policy authorizes decisions
 
 Proposed decision owner: the project maintainer role. That role is accountable for keeping
 the mission aligned with the Constitution and the governing specification. Naming the role
-in this proposed record does not grant authority, approve this recommendation or accept
+in this record does not by itself grant authority, approve this recommendation or accept
 risk. A valid reviewed transition must provide separate authority evidence.
 
 ## Consequences
@@ -75,5 +75,5 @@ Open risk: the word "governed" could be mistaken for a security or compliance gu
 This proposal does not claim regulatory compliance; each such claim still requires direct
 evidence. A second open risk is that bounded orchestrators may be treated as authorities
 because they can execute many steps. Capability checks and terminal outcomes reduce that
-risk but do not accept it. While this MADR is `proposed`, it cannot be treated as acceptance
-of those risks or as authority to implement beyond the separately approved plan.
+risk but do not accept it. Accepting this MADR is not acceptance of those risks and is not
+authority to implement beyond the separately approved plan.

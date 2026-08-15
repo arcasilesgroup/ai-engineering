@@ -60,7 +60,7 @@ the source checkout and installed wheel: the new spelling performs the intended 
 the old spelling and abbreviations return exit 2, and neither rejected invocation writes
 state. Output-transition checks compare outcome, exit code and required JSON fields rather
 than accepting a help label as proof. This evidence must be fresh for the candidate commit;
-the proposed record itself is not evidence that the transition ran.
+this record is not evidence that the transition ran.
 
 ## Consequences
 
@@ -75,5 +75,5 @@ installed-artifact checks make packaging defects block the transition.
 Open risk: users may read `report digest` as permission to transmit a report, even though
 P0 permits only a local privacy-safe digest. Another open risk is that JSON summaries may
 accidentally expose repository paths or private material unless negative fixtures inspect
-the actual bytes. No risk is accepted by this proposed record; it has no approval fields
-and grants no authority to publish, preserve an alias or weaken a blocking outcome.
+the actual bytes. No risk is accepted by this record: its approval fields approve the decision and nothing
+else, and grant no authority to publish, preserve an alias or weaken a blocking outcome.

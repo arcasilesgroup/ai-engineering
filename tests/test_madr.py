@@ -323,7 +323,10 @@ def test_intent_supersession_madr_is_complete() -> None:
         "title": "Intent supersedes the boundary of ADR 0004",
         "date": "2026-08-13",
         "spec": "010",
-        "status": "proposed",
+        "status": "accepted",
+        "authority_role": "repository owner",
+        "approval_ref": "ae523990",
+        "approved_at": "2026-08-15T03:54:12Z",
         "supersedes": "0004",
     }
     expected_frontmatter = "\n".join(
@@ -334,9 +337,12 @@ def test_intent_supersession_madr_is_complete() -> None:
     parsed = madr._parse(raw)
     assert raw.startswith(expected_frontmatter)
     assert madr._v1_fields(parsed) == expected
-    assert "authority_role" not in parsed.raw_fields
-    assert "approval_ref" not in parsed.raw_fields
-    assert "approved_at" not in parsed.raw_fields
+    # The three travel together or not at all, and a role naming an agent or a reviewer is
+    # refused by the schema — which is why none of them could be filled in by a model.
+    # raw_fields keeps the quotes the file carries, which is the point of reading it raw.
+    assert parsed.raw_fields["authority_role"] == '"repository owner"'
+    assert parsed.raw_fields["approval_ref"] == '"ae523990"'
+    assert parsed.raw_fields["approved_at"] == '"2026-08-15T03:54:12Z"'
 
     body = parsed.body
     assert "ADR 0004 remains correct about document moulds owned by another repository" in body
@@ -350,10 +356,12 @@ def test_intent_supersession_madr_is_complete() -> None:
         )
     )
     assert "Recommend option 3." in body
-    assert "does not approve the recommendation, authorize work or accept risk" in body
+    # The bound moved with the transition: accepting the record approves the decision and
+    # still authorizes nothing and accepts nothing, which is the sentence worth pinning.
+    assert "it still authorizes no work and\naccepts no risk" in body
     assert "ADR 0004 remains unchanged as historical evidence" in body
     assert "Open risk:" in body
-    assert "must not be treated as authority" in body
+    assert "authority comes from its transition and from nothing else" in body
 
     assert sha256(predecessor.read_bytes()).hexdigest() == (
         "6c5e77f6f648ecae994435f27c7121866e04e3c9674ac5d0b9b16106d0b2447d"
@@ -371,15 +379,21 @@ def test_mission_madr_has_options_risks_and_owner() -> None:
         "title": "Govern engineering work from intent to evidence",
         "date": "2026-08-13",
         "spec": "010",
-        "status": "proposed",
+        "status": "accepted",
+        "authority_role": "repository owner",
+        "approval_ref": "ae523990",
+        "approved_at": "2026-08-15T03:54:12Z",
         "supersedes": "",
     }
 
     parsed = madr._parse(decision.read_bytes())
     assert madr._v1_fields(parsed) == expected
-    assert "authority_role" not in parsed.raw_fields
-    assert "approval_ref" not in parsed.raw_fields
-    assert "approved_at" not in parsed.raw_fields
+    # The three travel together or not at all, and a role naming an agent or a reviewer is
+    # refused by the schema — which is why none of them could be filled in by a model.
+    # raw_fields keeps the quotes the file carries, which is the point of reading it raw.
+    assert parsed.raw_fields["authority_role"] == '"repository owner"'
+    assert parsed.raw_fields["approval_ref"] == '"ae523990"'
+    assert parsed.raw_fields["approved_at"] == '"2026-08-15T03:54:12Z"'
 
     body = " ".join(parsed.body.split())
     assert all(
@@ -393,9 +407,9 @@ def test_mission_madr_has_options_risks_and_owner() -> None:
     assert "Recommend option 3." in body
     assert "Proposed decision owner: the project maintainer role." in body
     assert "Open risk:" in body
-    assert "does not grant authority" in body
+    assert "does not by itself grant authority" in body
     assert "does not claim regulatory compliance" in body
-    assert "cannot be treated as acceptance of those risks" in body
+    assert "is not acceptance of those risks and is not authority to implement" in body
     assert madr.validate(ROOT).outcome == "PASS"
 
 
@@ -409,15 +423,21 @@ def test_cli_madr_has_hard_rename_and_transition_evidence() -> None:
         "title": "Make the CLI outcome-first and exact",
         "date": "2026-08-13",
         "spec": "010",
-        "status": "proposed",
+        "status": "accepted",
+        "authority_role": "repository owner",
+        "approval_ref": "ae523990",
+        "approved_at": "2026-08-15T03:54:12Z",
         "supersedes": "",
     }
 
     parsed = madr._parse(decision.read_bytes())
     assert madr._v1_fields(parsed) == expected
-    assert "authority_role" not in parsed.raw_fields
-    assert "approval_ref" not in parsed.raw_fields
-    assert "approved_at" not in parsed.raw_fields
+    # The three travel together or not at all, and a role naming an agent or a reviewer is
+    # refused by the schema — which is why none of them could be filled in by a model.
+    # raw_fields keeps the quotes the file carries, which is the point of reading it raw.
+    assert parsed.raw_fields["authority_role"] == '"repository owner"'
+    assert parsed.raw_fields["approval_ref"] == '"ae523990"'
+    assert parsed.raw_fields["approved_at"] == '"2026-08-15T03:54:12Z"'
 
     body = " ".join(parsed.body.split())
     assert (
@@ -437,7 +457,7 @@ def test_cli_madr_has_hard_rename_and_transition_evidence() -> None:
     assert "source checkout and installed wheel" in body
     assert "exactly one JSON object" in body
     assert "Open risk:" in body
-    assert "No risk is accepted by this proposed record" in body
+    assert "No risk is accepted by this record" in body
     assert madr.validate(ROOT).outcome == "PASS"
 
 

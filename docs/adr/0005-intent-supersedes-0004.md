@@ -51,10 +51,11 @@ by another repository still never enters this framework, while a framework-owned
 Intent contract and a user-owned `.ai/intent.md` instance are permitted. The earlier
 evidence, the rejection of copied content and the rule against mirrors remain in force.
 
-Spec 010 is draft and this MADR is `proposed`. It deliberately has no approval fields. This
-proposed record does not approve the recommendation, authorize work or accept risk. A human
-or an already approved versioned policy must supply that authority through a valid status
-transition.
+This MADR is `accepted`. Its authority came through a valid status transition: the
+repository owner approved it, the approval is written down where `approval_ref` points, and
+the record carries the role, the reference and the timestamp the schema requires together or
+not at all. Accepting it approves this recommendation; it still authorizes no work and
+accepts no risk, both of which have their own records.
 
 ## Consequences
 
@@ -69,5 +70,5 @@ also preserves language that can be misread when viewed without this proposal.
 
 Open risk: later additions could turn the minimal Intent into the kind of mould this record
 excludes. Its closed schema, canonical home and relation checks reduce that risk but do not
-accept it. A second risk is that the `supersedes` edge could be mistaken for approval; while
-the status is `proposed`, this record must not be treated as authority.
+accept it. A second risk is that the `supersedes` edge could be mistaken for approval: it is not one,
+and this record's authority comes from its transition and from nothing else.
