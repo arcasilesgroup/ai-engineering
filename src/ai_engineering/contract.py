@@ -383,7 +383,15 @@ DESCRIPTION_MAX = 1000
 # passing over it. Assertion 22 reports a buffer whose oldest line has been waiting longer
 # than any session lasts. 31 lines of test, 46 of assertion and reasoning, 5 for the four
 # prose counts an added assertion moves, and 6 for this paragraph.
-REPO_CEILING = 45_761
+# 45,761 to 45,812 for assertion 23. `policy/capabilities.toml` declares fifteen
+# capabilities with read roots, write roots, exec allowlists, network hosts, secrets and
+# human gates; `capability.preflight` validates every field and then refuses, because no
+# executor exists. That refusal is honest and a test already pins it. What nothing did was
+# say so — no assertion, no README line, no verb — so a reader of six governed fields per
+# capability had no way to learn that none of them stops anything. A declaration nobody
+# enforces and nobody flags is the shape this constitution names first among the things to
+# expose. 16 lines of test, 26 of assertion and reasoning, 6 for this paragraph.
+REPO_CEILING = 45_812
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
