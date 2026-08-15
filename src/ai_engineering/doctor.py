@@ -851,9 +851,10 @@ def _terminal_result(
     unanswered: list[tuple[int, str, str]],
     coverage_lines: list[str],
     coverage_unknown: bool,
+    readiness_failed: bool = False,
 ) -> outcome.Result:
     words = {word for line in coverage_lines for word in re.findall(r"[A-Z]+", line)}
-    if failed or "MISMATCH" in words:
+    if failed or readiness_failed or "MISMATCH" in words:
         return outcome.result("FAIL")
     if unanswered or coverage_unknown:
         return outcome.result("INCOMPLETE")
@@ -993,12 +994,17 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         )
 
     ui.section("Production-ready — a box is ticked by a receipt that ran, or not at all", data=True)
-    for entry in readiness_facts(root, now=datetime.now(UTC)):
+    boxes = readiness_facts(root, now=datetime.now(UTC))
+    for entry in boxes:
         ui.write(f"  {entry.status:<11} {entry.summary} — {entry.detail}", data=True)
         check_facts.append(entry)
-    # Reported, and deliberately not folded into the verdict below. Whether anything here
-    # is allowed a URL is a decision this verb observes and does not make, and a doctor that
-    # went red on every repository with no receipts yet would be turned off by everyone.
+    # Unproven is reported and not folded into the verdict: whether anything is allowed a
+    # URL is a decision this verb observes and does not make, and a doctor that went red on
+    # every repository with no receipts yet would be turned off by everybody who has one.
+    # A box whose own check ran and failed is a different answer, and it is decided, so it
+    # counts — reporting a decided fault as something to look at later is the same lie as a
+    # green nobody earned, told slowly.
+    readiness_failed = any(entry.status == "FAIL" for entry in boxes)
 
     if unanswered:
         ui.section(
@@ -1015,7 +1021,9 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
             "  None of these is a pass. Not evaluated is never green.", style="warn", data=True
         )
 
-    result = _terminal_result(failed, unanswered, coverage_lines, coverage_unknown)
+    result = _terminal_result(
+        failed, unanswered, coverage_lines, coverage_unknown, readiness_failed
+    )
     verdict_panel(result, failed, len(unanswered), cures)
     if args.fix and cures:
         return repair(cures, argv)
@@ -1023,6 +1031,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         ui.write("\n  Nothing that failed here has a command --fix runs for you.", data=True)
     remaining = [
         *(f"assertion {number} failed" for number in failed),
+        *(f"{entry.summary} failed its own check" for entry in boxes if entry.status == "FAIL"),
         *(f"assertion {number} could not be evaluated" for number, _, _ in unanswered),
         *(["surface coverage could not be evaluated"] if coverage_unknown else []),
     ]

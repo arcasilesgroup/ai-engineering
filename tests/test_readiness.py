@@ -402,3 +402,30 @@ def test_a_repository_cannot_declare_its_way_out_of_freshness(tmp_path):
         written={"ci_cd": _receipt(box, at_the_ceiling, finished=NOW - timedelta(hours=1))},
     )
     assert readiness.read(allowed, now=NOW).result.outcome == "PASS"
+
+
+def test_doctor_fails_when_a_boxs_own_check_ran_and_failed(tmp_path, monkeypatch):
+    """Unproven is reported and does not move the verdict. A check that ran and failed is
+    decided, and a verdict that reads PASS over a printed FAIL is the same green nobody
+    earned, told slowly."""
+
+    from ai_engineering import doctor, paths
+
+    box = next(entry for entry in readiness.BOXES if entry.id == "security")
+    declared = _declared(box)
+    now = datetime.now(UTC)
+    broken = _receipt(box, declared, finished=now - timedelta(hours=1)) | {"outcome": "FAIL"}
+    root = _repository(tmp_path / "failing", written={"security": broken}, now=now)
+
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    monkeypatch.setattr(doctor, "CHECKS", set())
+    monkeypatch.setattr(doctor, "coverage", lambda where: [])
+    reported = doctor.main([])
+    assert reported.result.outcome == "FAIL"
+    assert "Security failed its own check" in reported.remaining
+    published = {fact.id: fact.as_dict() for fact in reported.checks}
+    assert published["readiness-security"]["status"] == "FAIL"
+
+    # And an unproven box still leaves the verdict alone.
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: tmp_path / "nothing-here")
+    assert doctor.main([]).result.outcome == "PASS"
