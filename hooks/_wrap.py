@@ -16,6 +16,7 @@ decorator called telemetry.
 from __future__ import annotations
 
 import json
+import stat
 import sys
 import time
 from pathlib import Path
@@ -31,14 +32,36 @@ SECURITY = {"injection_guard", "no_verify_guard", "self_protect"}
 FLOW = {"change_scope_guard", "loop_guard"}
 
 
-def _bypass_file() -> Path:
-    return home() / "cache" / "bypass.json"
+def _bypass_file() -> Path | None:
+    """The grant this machine's own home holds, or nothing.
+
+    Reached one component at a time with nothing linked on the way. The verb that writes a
+    grant proves this before it writes; a reader that does not prove it before it reads
+    accepts a grant somebody redirected — and a guard that honours a redirected grant is a
+    guard that passes when it should block, which is the failure contract this file exists
+    to keep. Undecidable is nothing, so the guard blocks.
+    """
+
+    walked = home()
+    for component in ("", "cache", "bypass.json"):
+        walked = walked / component if component else walked
+        try:
+            value = walked.lstat()
+        except FileNotFoundError:
+            return None
+        except OSError:
+            return None
+        if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", 0):
+            return None
+    return walked
 
 
 def take_bypass(name: str) -> str | None:
     """Consume a one-off bypass granted by a human at a real keyboard. The agent has no
     keyboard, and that is the gate."""
     path = _bypass_file()
+    if path is None:
+        return None
     try:
         grant = json.loads(path.read_text())
     except (OSError, ValueError):
@@ -68,7 +91,11 @@ def deny(name: str, message: str, structured: bool = False) -> None:
     text = f"[{name}] {message}"
     sys.stderr.write(text + "\n")
     if name not in SECURITY:
-        recipe = f'ai-eng plan --skip "<reason>" --guard {name}'
+        # `plan` was hard-renamed to `exception`, and this line kept printing the dead
+        # name — so every flow-guard denial handed a person a command the product refuses.
+        # A remedy nobody can run is worse than none: they type it, it fails, and the next
+        # thing they look for is the way around the guard.
+        recipe = f'ai-eng exception --skip "<reason>" --guard {name}'
         sys.stderr.write(f"[{name}] A person — not you — can grant one bypass: {recipe}\n")
     if structured:
         print(

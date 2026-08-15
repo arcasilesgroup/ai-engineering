@@ -19,6 +19,7 @@ import threading
 import time
 import tomllib
 import uuid
+from pathlib import Path
 
 import _emit
 import _otlp
@@ -1177,3 +1178,76 @@ def test_dispatcher_table_marks_blocking_hooks_as_guards_and_rejects_gaps(repo, 
     assert chain.cached("abc")["by"] == "loop_guard"
     path.write_text(json.dumps({"abc": {"deny": False}}), encoding="utf-8")
     assert chain.cached("abc") == {"deny": False}
+
+
+def test_wrap_cures_plan_exception_naming_and_preserves_fail_closed_guard(
+    repo, monkeypatch, capsys
+):
+    """Two things the wrapper owes, and the second is the one that had rotted.
+
+    A flow guard's denial offers a person a way to grant one bypass. That line named
+    `ai-eng plan`, a verb hard-renamed to `exception` — so the remedy printed under every
+    flow denial was a command the product refuses. A remedy nobody can run is worse than
+    none: they type it, it fails, and the next thing they look for is the way around.
+
+    And the grant is now read the way it is written: one component at a time, nothing
+    linked. A guard that honours a redirected grant passes where it should block, which is
+    the failure contract this file exists to keep.
+    """
+
+    import _wrap
+
+    # The recipe names the verb that exists, and no line anywhere still names the old one.
+    with pytest.raises(SystemExit):
+        _wrap.deny("loop_guard", "BLOCKED: enough")
+    offered = capsys.readouterr().err
+    assert 'ai-eng exception --skip "<reason>" --guard loop_guard' in offered
+    assert "ai-eng plan" not in offered
+    wrapper = Path(__file__).resolve().parents[1] / "hooks" / "_wrap.py"
+    assert "ai-eng plan" not in wrapper.read_text(encoding="utf-8")
+
+    # A security guard is still offered nothing at all.
+    with pytest.raises(SystemExit):
+        _wrap.deny("injection_guard", "BLOCKED: no")
+    assert "can grant one bypass" not in capsys.readouterr().err
+
+    # The grant, written and then read back through the same rules.
+    store = _wrap.home() / "cache" / "bypass.json"
+    store.parent.mkdir(parents=True, exist_ok=True)
+    grant = {"guard": "loop_guard", "reason": "a person said so", "expires": time.time() + 900}
+    store.write_text(json.dumps(grant), encoding="utf-8")
+    assert _wrap.take_bypass("loop_guard") == "a person said so"
+    assert not store.exists()  # consumed, so it is one bypass and not a standing one
+
+    # Redirected at the leaf: nothing is honoured, and the file it pointed at is untouched.
+    elsewhere = _wrap.home() / "somebody-elses-grant.json"
+    elsewhere.write_text(json.dumps(grant), encoding="utf-8")
+    store.symlink_to(elsewhere)
+    assert _wrap.take_bypass("loop_guard") is None
+    assert json.loads(elsewhere.read_text(encoding="utf-8")) == grant
+    store.unlink()
+
+    # Redirected at the directory above it: the same answer.
+    outside = _wrap.home() / "somebody-elses-cache"
+    outside.mkdir()
+    (outside / "bypass.json").write_text(json.dumps(grant), encoding="utf-8")
+    store.parent.rmdir()
+    store.parent.symlink_to(outside, target_is_directory=True)
+    assert _wrap.take_bypass("loop_guard") is None
+    assert (outside / "bypass.json").exists()
+
+    # And the two failure contracts are unchanged: a crashing guard denies, a crashing
+    # telemetry hook does not.
+    @_wrap.guard("crasher")
+    def crashes(payload):
+        raise RuntimeError("boom")
+
+    @_wrap.telemetry("watcher")
+    def watches(payload):
+        raise RuntimeError("boom")
+
+    assert crashes.hook_class == "guard" and watches.hook_class == "telemetry"
+    with pytest.raises(SystemExit) as denied:
+        crashes({})
+    assert denied.value.code != 0
+    assert watches({}) is None
