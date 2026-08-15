@@ -343,3 +343,36 @@ def test_receipts_without_a_committed_declaration_are_a_repository_finding(tmp_p
 
     committed.append(readiness.DECLARATION)
     assert doctor.polarity(root) is None
+
+
+def test_nothing_linked_on_the_way_and_no_duplicate_key_decides_a_box(tmp_path):
+    """Three ways a reader can be told one thing while a person reads another."""
+
+    import os
+
+    import pytest
+
+    linked = _repository(tmp_path / "linked")
+    elsewhere = tmp_path / "elsewhere"
+    (linked / ".ai").rename(elsewhere)
+    try:
+        os.symlink(elsewhere, linked / ".ai", target_is_directory=True)
+    except (NotImplementedError, OSError):  # pragma: no cover - platform without symlinks
+        pytest.skip("this platform does not let this user create a symlink")
+    redirected = readiness.read(linked, now=NOW)
+    assert redirected.result.outcome == "INCOMPLETE"
+    assert redirected.code == readiness.DECLARATION_MALFORMED
+
+    doubled = _repository(tmp_path / "doubled")
+    body = (doubled / readiness.DECLARATION).read_text(encoding="utf-8")
+    exempt = json.dumps(_declared(next(b for b in readiness.BOXES if b.id == "security")))
+    doubled_body = body.replace('"boxes": {', f'"boxes": {{"security": {exempt},', 1)
+    (doubled / readiness.DECLARATION).write_text(doubled_body, encoding="utf-8")
+    twice = readiness.read(doubled, now=NOW)
+    assert twice.result.outcome == "INCOMPLETE"
+    assert twice.code == readiness.DECLARATION_MALFORMED
+
+    ahead = _repository(tmp_path / "ahead", finished={"logs": NOW + timedelta(days=365)})
+    future = readiness.read(ahead, now=NOW)
+    assert future.result.outcome == "INCOMPLETE"
+    assert future.age_of("logs") is None

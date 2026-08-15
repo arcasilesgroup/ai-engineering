@@ -21,14 +21,13 @@ fault as undecidable is the same lie as a green nobody earned, told the other wa
 
 from __future__ import annotations
 
-import json
 import stat
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
-from ai_engineering import evidence, outcome
+from ai_engineering import evidence, intent, outcome
 
 SCHEMA = "urn:ai-engineering:readiness:1"
 VERSION = "1"
@@ -121,15 +120,36 @@ def _refused(code: str, status: str = "INCOMPLETE") -> Readiness:
     return Readiness(outcome.result(status), code, ())
 
 
+def _anchored(root: Path, relative: str) -> Path:
+    """Walk to that path one component at a time with nothing linked on the way.
+
+    Checking only the last component was not enough, and the docstring that said links are
+    not followed was wrong: replacing the `.ai` directory itself with a link to somewhere
+    else had the declaration and all eight receipts read through it, and every box came
+    back verified. A receipt that is really a redirection somewhere else is a receipt
+    somebody else wrote, and that is as true of the directory holding it as of the file."""
+
+    walked = root
+    for component in PurePosixPath(relative).parts:
+        walked = walked / component
+        try:
+            info = walked.lstat()
+        except FileNotFoundError:
+            return walked  # absent is absent, and nothing was redirected on the way
+        except OSError as error:
+            raise _Unreadable from error
+        if stat.S_ISLNK(info.st_mode) or getattr(info, "st_reparse_tag", 0):
+            raise _Unreadable
+    return walked
+
+
 def _read(path: Path) -> bytes | None:
     """The bytes at that exact path, nothing if there is no file, and a refusal if there
     is one this process cannot read as itself.
 
-    A link is not followed and a directory is not read: a receipt that is really a
-    redirection somewhere else is a receipt somebody else wrote. The content is proven
-    afterwards by requirement and digest, so this stops short of the open-and-restat
-    dance the policy schema needs — the schema decides what a receipt may say, while a
-    receipt only says it."""
+    The content is proven afterwards by requirement and digest, so this stops short of the
+    open-and-restat dance the policy schema needs — the schema decides what a receipt may
+    say, while a receipt only says it."""
 
     try:
         info = path.lstat()
@@ -146,7 +166,13 @@ def _read(path: Path) -> bytes | None:
 
 
 def _object(raw: bytes) -> dict[str, Any]:
-    record = json.loads(raw.decode("utf-8"))
+    """Read as the rest of the product reads JSON, which refuses a duplicate key.
+
+    `json.loads` keeps the last of two keys with the same name. A declaration whose visible
+    text marks the security box applicable, followed further down by a second `security`
+    saying it does not apply, reads one way to a reviewer and the other way to this."""
+
+    record = intent._json(raw.decode("utf-8"))
     if not isinstance(record, dict) or not all(isinstance(key, str) for key in record):
         raise ValueError("not an object with string keys")
     return record
@@ -158,7 +184,9 @@ def _age(raw: bytes, now: datetime) -> int | None:
     try:
         finished = _object(raw)["finished_at"]
         parsed = datetime.fromisoformat(finished.removesuffix("Z") + "+00:00")
-        return int((now - parsed).total_seconds())
+        # A receipt dated in the future has no age. It is refused as malformed either way,
+        # and printing "-31536000s old" beside that refusal helps nobody read it.
+        return None if parsed > now else int((now - parsed).total_seconds())
     except (AttributeError, KeyError, OverflowError, TypeError, ValueError):
         return None
 
@@ -177,7 +205,7 @@ def _status(box: Box, declared: object, root: Path, now: datetime) -> BoxStatus:
     except TypeError:
         return answer("INCOMPLETE", DECLARATION_INVALID)
     try:
-        raw = _read(root / RECEIPTS / f"{box.id}.json")
+        raw = _read(_anchored(root, f"{RECEIPTS}/{box.id}.json"))
     except _Unreadable:
         return answer("INCOMPLETE", RECEIPT_UNREADABLE)
     verified = evidence.verify(raw, expected=expected, now=now)
@@ -191,7 +219,7 @@ def read(root: Path, *, now: datetime) -> Readiness:
         return _refused(TIME_INVALID)
     now = now.astimezone(UTC)
     try:
-        raw = _read(root / DECLARATION)
+        raw = _read(_anchored(root, DECLARATION))
     except _Unreadable:
         return _refused(DECLARATION_MALFORMED)
     if raw is None:
