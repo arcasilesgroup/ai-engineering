@@ -24,7 +24,26 @@ import uuid
 from _emit import chain_path, config, machine_id, repo_id
 
 KEEP = ("cls", "name", "seq", "ts", "session", "repo", "machine", "hash")
-KEEP_DATA = ("outcome", "phase", "verb", "exit", "guard", "fp", "archived", "ms", "id")
+# The four at the end are spec 011's field names and spec 014's export path: which surface
+# an event came from, which version of it, which adapter translated it, and how a denial was
+# expressed there. They are in clear because every one of them names software rather than a
+# person or a place — and outside this list they would leave as a sixteen-character hash,
+# which answers no question anybody exports observability to ask.
+KEEP_DATA = (
+    "outcome",
+    "phase",
+    "verb",
+    "exit",
+    "guard",
+    "fp",
+    "archived",
+    "ms",
+    "id",
+    "surface_id",
+    "surface_version",
+    "adapter_version",
+    "deny_protocol",
+)
 
 
 def opaque(value) -> dict:

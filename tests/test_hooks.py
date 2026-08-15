@@ -987,7 +987,24 @@ def test_a_field_nobody_thought_of_still_leaves_as_a_hash(repo, field):
     assert _otlp.opaque(canary)["sha256"] in text
 
 
-IN_THE_CLEAR = ("outcome", "phase", "verb", "exit", "guard", "fp", "archived", "ms", "id")
+# The last four are EP-277's: which surface an event came from, which version of it, which
+# adapter translated it, and how a denial was expressed there. Written out here for the same
+# reason as the rest — a list read from the module lets a deleted field delete its own test.
+IN_THE_CLEAR = (
+    "outcome",
+    "phase",
+    "verb",
+    "exit",
+    "guard",
+    "fp",
+    "archived",
+    "ms",
+    "id",
+    "surface_id",
+    "surface_version",
+    "adapter_version",
+    "deny_protocol",
+)
 
 
 @pytest.mark.parametrize("field", IN_THE_CLEAR)
@@ -999,6 +1016,14 @@ def test_the_allow_list_is_exactly_what_passes_through_in_the_clear(field):
     assert _otlp.KEEP_DATA == IN_THE_CLEAR
     out = _otlp.redact({"cls": "blocked", "data": {field: "plain"}}, "strict")
     assert out["data"][field] == "plain"
+
+
+def test_no_field_that_names_a_person_or_a_place_is_in_the_clear():
+    """The allow-list grew, and the reason it may is that every name on it is software. A
+    field naming a person, a host or a path would leave verbatim from every machine that
+    exports, which is the one mistake this list cannot survive making once."""
+    for named in ("user", "host", "hostname", "path", "email", "ip", "client", "repo_name"):
+        assert named not in _otlp.KEEP_DATA, named
 
 
 def test_only_the_first_two_words_of_a_command_leave():

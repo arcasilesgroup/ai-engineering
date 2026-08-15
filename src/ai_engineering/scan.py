@@ -10,6 +10,7 @@ completion over inputs that existed, and found nothing.
 
 from __future__ import annotations
 
+import hashlib
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,6 +19,7 @@ from ai_engineering import outcome
 
 MISSING_ENGINE = "LANE_ENGINE_MISSING"
 MISSING_RULES = "LANE_RULES_MISSING"
+TAMPERED_RULES = "LANE_RULES_TAMPERED"
 CRASHED = "LANE_CRASHED"
 TIMEOUT = "LANE_TIMEOUT"
 NO_INPUTS = "LANE_NO_INPUTS"
@@ -33,6 +35,7 @@ class Lane:
     id: str
     argv: tuple[str, ...]
     rules: Path | None = None
+    rules_digest: str = ""
     findings_exit: int = 1
     timeout: int = DEFAULT_TIMEOUT
     extra: tuple[str, ...] = field(default=())
@@ -59,13 +62,27 @@ def run(lane: Lane, root: Path, inputs: list[str]) -> outcome.Fact:
             "there was nothing to scan, so nothing was scanned",
             "point the lane at files that exist, or say why this stack has none",
         )
-    if lane.rules is not None and not Path(lane.rules).is_file():
-        return _incomplete(
-            lane,
-            MISSING_RULES,
-            f"the rules at {Path(lane.rules).name} are not there",
-            "restore the rules file; an engine with no rules looks for nothing",
-        )
+    if lane.rules is not None:
+        where = Path(root) / lane.rules if not Path(lane.rules).is_absolute() else Path(lane.rules)
+        if not where.is_file():
+            return _incomplete(
+                lane,
+                MISSING_RULES,
+                f"the rules at {Path(lane.rules).name} are not there",
+                "restore the rules file; an engine with no rules looks for nothing",
+            )
+        # One byte is enough. A rule deleted from the middle of a file leaves an engine that
+        # runs, exits zero, and no longer looks for the thing it was deleted for — which is
+        # indistinguishable from a clean scan unless the bytes themselves are pinned.
+        if lane.rules_digest:
+            found = hashlib.sha256(where.read_bytes()).hexdigest()
+            if found != lane.rules_digest:
+                return _incomplete(
+                    lane,
+                    TAMPERED_RULES,
+                    f"{Path(lane.rules).name} is not the file this lane was pinned to",
+                    "review the change and move the pin deliberately, or restore the file",
+                )
 
     try:
         done = subprocess.run(
@@ -127,6 +144,9 @@ BASELINE = (
         "semantic",
         ("semgrep", "scan"),
         rules=Path("policy/semgrep.yml"),
+        # Moved deliberately when the rules change, and a test says so with the command that
+        # prints the new value. A pin nobody has to update is a pin nobody notices missing.
+        rules_digest="81adf3bdbd24ca883bbc75d659e9a44ba0967ef4c4445628bb78f63f85a26c2a",
         extra=("--config", "policy/semgrep.yml", "--error", "--quiet"),
     ),
     Lane(

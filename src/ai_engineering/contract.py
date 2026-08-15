@@ -817,7 +817,24 @@ DESCRIPTION_MAX = 1000
 #
 # The fixtures drive real subprocesses. A lane runner tested against a stubbed runner proves
 # its branches; it does not prove that a missing binary raises what the code catches.
-REPO_CEILING = 51_038
+# 51,038 to 51,169 for EP-051 at the one artefact this repository can pin today, and for
+# EP-277's four fields.
+#
+# A rule deleted from the middle of a rules file leaves an engine that runs, exits zero and
+# no longer looks for the thing it was deleted for — a clean scan and a blind one, printing
+# the same words. So the semantic lane pins the bytes of `policy/semgrep.yml`, the fixture
+# flips one bit and watches the lane refuse, and a test holds the pin equal to the file so
+# that editing the rules without moving the pin turns the build red. Same discipline as this
+# ceiling, one directory over. The wheel and SBOM halves of EP-051 need a release, and the
+# scanner-binary half needs two checksums that are a network call away; both are recorded
+# rather than claimed.
+#
+# EP-277: `surface_id`, `surface_version`, `adapter_version` and `deny_protocol` leave in
+# clear now instead of as sixteen-character hashes, because every one of them names software
+# rather than a person or a place — and a hash of "claude-code" answers no question anybody
+# exports observability to ask. A new test asserts no field naming a person, a host or a
+# path is on that list, because the list growing once is how it grows twice.
+REPO_CEILING = 51_169
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -143,3 +143,53 @@ def test_the_privacy_scanner_and_the_lane_runner_agree_on_the_vocabulary():
     assert unavailable.outcome == "INCOMPLETE"
     assert scan.MISSING_ENGINE.startswith("LANE_")
     assert acceptance_privacy.CLEAN.outcome == "PASS"
+
+
+def test_one_flipped_byte_in_the_rules_stops_the_lane(tmp_path):
+    """EP-051's tamper fixture, at the one artefact this repository pins today.
+
+    A rule deleted from the middle of a file leaves an engine that runs, exits zero and no
+    longer looks for the thing it was deleted for. That is indistinguishable from a clean
+    scan unless the bytes themselves are pinned, so the lane refuses when they differ."""
+
+    import hashlib
+
+    from ai_engineering import scan
+
+    rules = tmp_path / "rules.yml"
+    rules.write_text("rules: []\n", encoding="utf-8")
+    pinned = hashlib.sha256(rules.read_bytes()).hexdigest()
+    lane = scan.Lane(
+        "pinned", engine(tmp_path, "raise SystemExit(0)"), rules=rules, rules_digest=pinned
+    )
+
+    assert scan.run(lane, tmp_path, ["a.py"]).status == "PASS"
+
+    body = bytearray(rules.read_bytes())
+    body[0] ^= 0x01  # one byte, and the engine would still have run happily
+    rules.write_bytes(bytes(body))
+
+    tampered = scan.run(lane, tmp_path, ["a.py"])
+    assert tampered.status == "INCOMPLETE"
+    assert "LANE_RULES_TAMPERED" in tampered.detail
+
+
+def test_the_baseline_pin_is_the_rules_file_this_repository_actually_ships():
+    """The pin moves deliberately or the gate goes red. This is the same discipline as the
+    line ceiling: the number lives in one place, and changing the thing it measures without
+    changing it is what turns the build red.
+
+    To move it: python -c "import hashlib,pathlib;
+    print(hashlib.sha256(pathlib.Path('policy/semgrep.yml').read_bytes()).hexdigest())"
+    """
+
+    import hashlib
+
+    from ai_engineering import scan
+
+    semantic = next(lane for lane in scan.BASELINE if lane.id == "semantic")
+    actual = hashlib.sha256((ROOT / "policy" / "semgrep.yml").read_bytes()).hexdigest()
+
+    assert semantic.rules_digest == actual, (
+        "policy/semgrep.yml changed and its pin did not. Move the pin in the same commit."
+    )
