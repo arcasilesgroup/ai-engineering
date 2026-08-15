@@ -282,32 +282,36 @@ rather than being folded into one that has already closed.
 
 What is already repaired: the hook appended the verb's whole stdout to the commit message,
 so a chain that does not hold wrote a rendered `✗ FAIL` block into it, and `|| true` kept
-that silent. Machine state, repaired outside the tree: `git config ai.eng` was read once,
-at 2026-08-15T07:46Z, naming an install whose `audit` has no `--anchor` flag, and repointed
-at the editable one. That is a single reading of a file with no history — the value at any
-earlier moment is not recoverable, so it is a fault that was present, not a fault that can
-be dated or blamed for anything.
+that silent. Machine state, repaired outside the tree: `git config ai.eng` named an
+install whose `audit` has no `--anchor` flag, and was repointed at the editable one on
+2026-08-15.
 
 **Correction, one review round later.** The sentence that stood here said the anchor
 "errored on every commit this repository has ever made and no commit in `git log` carries
 the trailer". Both halves are false: 111 commits carry an `Ai-Eng-Anchor:` trailer with
-this machine's real id, the newest on 2026-08-10 at `seq=917` — the last clean link. I had
+this machine's real id — 111 as `git interpret-trailers --parse` counts them, 112 messages
+containing the line — the newest on 2026-08-10 at `seq=917`, the last clean link. I had
 probed three commits for a trailer key that does not exist (`Ai-Eng-Audit`), read the empty
 result as proof of absence, and wrote it into the correction whose own subject is unbacked
 claims.
 
 **And a correction to that correction, one round later again.** It went on to say the
 `ai.eng` misconfiguration "is not why the anchors stopped", naming the chain break instead.
-That is asserted, not measured. What is measured: there is no commit at all between the
-last anchored one (2026-08-10T18:01:14Z) and the first BROKEN link (2026-08-12T12:26:06Z),
-so the history has no observation in the window where the two causes could be told apart.
-What is **not** measured, and was written here as though it were: that the misconfiguration
-was already in effect then. Nothing dates it — `ai.eng` is `.git/config` state with no
-history, it has since been repaired, and the chain records no CLI version on any of its 987
-links. So the honest statement is that the chain break is sufficient on its own and the
-misconfiguration cannot be placed in time at all. Replacing an unmeasured cause with another
-unmeasured cause is the same defect wearing the corrected sentence, and doing it a second
-time inside the correction is how this section reached three rounds.
+That was asserted. So was the next attempt, which said the misconfiguration could not be
+dated at all and the chain break was sufficient on its own. Both were written without
+measuring, in a section whose subject is claims written without measuring.
+
+It is measurable, from the tree, and the answer is the opposite one. The append-wholesale
+form of the hook was live from 2026-08-08 until 2026-08-15T07:52Z, and 162 commits ran it
+after the first BROKEN link. On a chain that does not hold, an anchor-capable CLI writes
+`✗ FAIL / Reason: … / Exit code: 1` to **stdout**, which that hook appended to the message;
+the CLI `ai.eng` actually named writes nothing to stdout and exits 2. Exactly one commit in
+the repository contains that block, and it is `78bdf968` quoting it in prose. Silence across
+162 commits dates the misconfiguration to the whole window 2026-08-12 → 2026-08-15. The
+chain break leaves no trace in any commit; the misconfiguration leaves 162.
+
+Three corrections to one sentence, each guessing at a cause that the repository could have
+been asked about directly.
 
 What is open, and what this block is for:
 
