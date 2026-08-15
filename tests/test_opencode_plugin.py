@@ -82,11 +82,21 @@ def _drive(tmp_path: Path, python: str, chain: str) -> list[list[str]]:
         },
     )
     if done.returncode != 0:
-        pytest.skip(f"this node cannot run the plugin as OpenCode does: {done.stderr[-200:]}")
+        # A skip is the honest answer on a machine whose node cannot strip types — and it
+        # is the wrong answer in CI, where a silent skip means this proof quietly stopped
+        # running and nothing said so. The job that owns the TypeScript surface sets the
+        # marker, and there a skip is a failure.
+        excuse = f"this node cannot run the plugin as OpenCode does: {done.stderr[-200:]}"
+        if os.environ.get("AI_ENG_REQUIRE_NODE"):
+            raise AssertionError(excuse)
+        pytest.skip(excuse)
     return json.loads(done.stdout.strip().splitlines()[-1])
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="no node here to run the plugin with")
+@pytest.mark.skipif(
+    shutil.which("node") is None and not os.environ.get("AI_ENG_REQUIRE_NODE"),
+    reason="no node here to run the plugin with",
+)
 def test_the_plugin_denies_when_it_cannot_run_its_own_guard(tmp_path):
     """Two calls, twice: once with a working dispatcher and once with none.
 

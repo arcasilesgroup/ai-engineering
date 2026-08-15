@@ -214,13 +214,29 @@ has, where the job exercises the dispatcher and not the adapter.
     signal, or an error — and the thrown message says which, so a denial caused by a broken
     install is not reported as a policy denial.
 
-11. **The plugin's denial executes and is receipted** — **file** `.github/workflows/install-matrix.yml`.
-    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_the_matrix_executes_the_opencode_plugin_and_receipts_it`.
-    **rollback**: `git revert <commit>`. **done when**: the job imports the compiled plugin,
-    calls its `tool.execute.before` with a `--no-verify` payload, and requires it to throw;
-    calls it again with a dispatcher that cannot spawn and requires it to throw as well;
-    writes `opencode.enforcement` only after both, and reads it back through the product.
-    Discovery and invocation stay unreceipted for the same reason they do on claude-code.
+### Amendment, made while executing Task 11
+
+Task 11 asked the installed-wheel matrix to run the plugin and receipt it. The matrix has
+no TypeScript-capable toolchain and cannot be given one cheaply: `setup-node` is an action,
+and every action added here has to clear a repository allowlist before the workflow will
+start at all — a workflow that never starts has no job and no log to read, which this
+repository has already paid for once.
+
+`just typecheck` is the recipe that owns this surface and the one place node and npm are
+guaranteed, so the execution lands there and runs in CI through `just check` like every
+other gate. What it cannot do is write a receipt: a receipt says a denial executed on an
+installed artifact, and this runs from the checkout. So opencode's enforcement stays
+`SURFACE_RECEIPT_MISSING`, which is the truth.
+
+That is a smaller delivery than the task asked for and it is the honest one. The fail-open
+is closed and proved by execution; the receipt waits for a matrix that can run the surface.
+
+11. **The plugin's denial executes in the gate** — **file** `justfile`.
+    **check**: `just typecheck`.
+    **rollback**: `git revert <commit>`. **done when**: `just typecheck` runs the plugin's
+    deny path for both cases and fails if either allows; a node that cannot run it fails
+    the recipe rather than skipping, because a proof that stops running without saying so
+    still reads green. No receipt is written and opencode's enforcement stays unproven.
 
 ### Blocks D onward — one surface per block, in provability order
 

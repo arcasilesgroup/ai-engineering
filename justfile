@@ -27,6 +27,17 @@ lint:
 typecheck:
     npm install --silent --no-audit --no-fund
     npm exec -- tsc --noEmit
+    # Compiling it proves it parses. This runs it: the plugin's own deny path, driven the
+    # way OpenCode drives it, once with a working dispatcher and once with none. The second
+    # is the case spec 010 wrote down twice and left open — a guard that allows because it
+    # could not run.
+    #
+    # Here rather than in `test`, because this is the recipe that owns the TypeScript
+    # surface and the one place node is guaranteed. AI_ENG_REQUIRE_NODE turns that suite's
+    # skip into a failure: a runner whose node cannot strip types would otherwise skip
+    # silently, and a proof that stops running without saying so is worth less than no
+    # proof, because it still reads green.
+    AI_ENG_REQUIRE_NODE=1 uv run --with {{pytest}} pytest -q tests/test_opencode_plugin.py
 
 test:
     uv run --with {{pytest}} pytest -q
