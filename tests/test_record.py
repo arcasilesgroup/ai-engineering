@@ -1075,11 +1075,22 @@ def test_a_quiet_week_says_so_instead_of_reporting_a_clean_bill(home, monkeypatc
 VALID_HEADER = "name: ai-thing\ndescription: Does one thing. Not for two — use /ai-other.\n"
 
 
-def _skill(root: Path, header: str = VALID_HEADER, body: str = "A body.\n") -> Path:
+def _skill(
+    root: Path, header: str = VALID_HEADER, body: str = "A body.\n", corpus: bool = True
+) -> Path:
     folder = root / "ai-thing"
     folder.mkdir(exist_ok=True)
     path = folder / "SKILL.md"
     path.write_text(f"---\n{header}---\n\n{body}", encoding="utf-8")
+    if corpus:
+        # Every fixture carries one, because the contract requires one of every skill and a
+        # fixture that skips it would be testing a different contract from the one that
+        # ships. The `corpus=False` leg is how the requirement itself is tested.
+        (folder / "corpus.md").write_text(
+            "# Corpus: ai-thing\n\n## Routes here\n\n- do the one thing — it is the one "
+            "thing\n\n## Refuses\n\n- do the other thing — use `/ai-other`\n",
+            encoding="utf-8",
+        )
     return path
 
 

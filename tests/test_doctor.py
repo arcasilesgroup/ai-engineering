@@ -1242,6 +1242,14 @@ def test_assertion_1_a_skill_that_breaks_the_contract_is_named_on_the_users_mach
     skill.write_text("---\nname: ai-thing\ndescription: does things\n---\n")
     assert "Not for" in (doctor.skills_contract(None) or "")
     skill.write_text("---\nname: ai-thing\ndescription: does things. Not for x — use /ai-y\n---\n")
+    # The routing corpus is part of the contract now, so a skill with a correct header and
+    # nothing that can judge its routing is still incomplete — which is the whole point of
+    # D-012-01: every check above this one is about the file's shape.
+    assert "no corpus.md" in (doctor.skills_contract(None) or "")
+    (skill.parent / "corpus.md").write_text(
+        "# Corpus\n\n## Routes here\n\n- a thing — it is the thing\n\n"
+        "## Refuses\n\n- another thing — use `/ai-y`\n"
+    )
     assert doctor.skills_contract(None) is None
 
 

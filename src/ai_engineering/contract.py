@@ -524,7 +524,22 @@ DESCRIPTION_MAX = 1000
 # exist. `doctor` assertion 19 said so and the audit recorded it FAILED. The Intent's
 # relation digest and its "Spec 010 is shipped" fact moved in the same commit, which is the
 # transition working: changing the file invalidated the relation and something noticed.
-REPO_CEILING = 46_722
+# 46,722 to 46,806 for spec 012's first decision, D-012-01: no skill lands without a case
+# it must take and a case it must refuse.
+#
+# Everything `audit_one` checked before this was shape — fields, line ceiling, description
+# length, the "Not for" clause, a jargon list. None of it can tell a skill that routes
+# correctly from one that fires on everything, so a skill whose description overlapped its
+# neighbour's passed every gate this repository had, and the audit's verdict on all eight
+# was that not one has an executed check demonstrating a refusal.
+#
+# The refusal half is the one that matters: "what it does" is in every description ever
+# written, and "what it must not do" is what stops the wrong skill firing. Each corpus takes
+# its refusals from the neighbour's positive territory and names that skill, so the day two
+# descriptions drift into each other a file somebody else wrote goes red. Plain markdown in
+# the skill's own directory, not a registry — one more home is one more thing to keep in
+# sync, and this week's audit already found four copies of a list.
+REPO_CEILING = 46_809
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
@@ -593,7 +608,43 @@ def audit_one(path: Path) -> list[str]:
     for word in JARGON:
         if word in body:
             found.append(f"{name}: {word!r} — write it so somebody who does not code can follow")
+    found.extend(_corpus_problems(path.parent, name))
     return found
+
+
+ROUTES = "## Routes here"
+REFUSES = "## Refuses"
+
+
+def _corpus_problems(folder: Path, name: str) -> list[str]:
+    """The two lists a skill is judged by, in the skill's own directory.
+
+    Everything above this checks the file's *shape* — its fields, its length, its
+    vocabulary. None of it can tell a skill that routes correctly from one that fires on
+    everything, so a skill whose description overlapped its neighbour's passed every gate
+    this repository had. Spec 012 D-012-01: no skill file lands before a case it must take
+    and a case it must refuse.
+
+    Plain markdown beside the skill, not a registry: one more home is one more thing to
+    keep in sync, and the audit has already found four copies of a list this week. The
+    refusal half is the one that matters — "what it does" is in every description ever
+    written, and "what it must not do" is the half that stops the wrong skill firing."""
+
+    corpus = folder / "corpus.md"
+    if not corpus.exists():
+        return [
+            f"{name}: no corpus.md. A skill needs a case it must take and a case it must "
+            f"refuse, or nothing can tell it apart from the skill beside it."
+        ]
+    text_ = corpus.read_text(encoding="utf-8")
+    problems = []
+    for heading in (ROUTES, REFUSES):
+        section = text_.partition(heading)[2].partition("\n## ")[0]
+        if heading not in text_ or not [
+            line for line in section.splitlines() if line.strip().startswith("- ")
+        ]:
+            problems.append(f"{name}: corpus.md has no cases under {heading!r}")
+    return problems
 
 
 # Not the product, so not counted, and these two reasons are the only ones that qualify:
