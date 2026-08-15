@@ -692,7 +692,24 @@ DESCRIPTION_MAX = 1000
 # together, and the only gate was the pull request. The test reads the `on:` block rather
 # than the file, and asserts the other half too — no job may be conditioned on the event
 # name, because a lane the queue skips is a lane `CI Result` counts as a failure.
-REPO_CEILING = 48_787
+# 48,787 to 49,137 for the claim, which is P3's first executable obligation: one task, one
+# work item, one writer, decided by the remote rather than by either side.
+#
+# Two things were measured before any of it was written. `git push --force-with-lease=<ref>:`
+# is not a compare-and-swap when both writers push the same value — both are told
+# "Everything up-to-date" and both believe they won — so the claim ref points at an object
+# unique to the claimant, and the loser is refused by git's own fast-forward rule. And a
+# commit takes its author from whoever is sitting at the machine, so the claim object is
+# written with an identity that belongs to this framework and to nobody: a coordination
+# record carrying a person's address has published a person to everyone who can fetch.
+#
+# `spec claim` is the caller, and it cost the will an honest line. The check that derives
+# which verbs touch the network knew about sockets opened in this process and nothing about
+# a verb that hands the work to git — so a command could have pushed to a server while
+# printing `network none`, which is the same false green that check already exists to
+# prevent, one process boundary away instead of one indirection. It follows sibling imports
+# and reads the git subcommands that talk to a remote now.
+REPO_CEILING = 49_137
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

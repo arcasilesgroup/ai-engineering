@@ -541,12 +541,26 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     shown.add_argument("id", type=_argument(re.compile(r"^[0-9]+$"), "spec id"))
     listed = sub.add_parser("list")
     listed.add_argument("--all", action="store_true", help="include superseded specs")
+    # The one subcommand here that reaches a remote, and the reason `spec`'s declared scope
+    # names one. A claim is a decision recorded where the other machine can also read it —
+    # which is what this verb is for — and it is the only shape of that decision two agents
+    # who cannot talk to each other can both act on.
+    taken = sub.add_parser("claim")
+    taken.add_argument("item", type=_argument(_REF, "work item", maximum=_MAX_REF))
+    taken.add_argument("--base", required=True, help="the exact SHA this claim is taken against")
+    taken.add_argument("--path", action="append", default=[], required=True)
+    taken.add_argument("--role", required=True)
+    taken.add_argument("--remote", default="origin")
     args = parser.parse_args(argv)
 
     root = paths.repo_root()
     if root is None:
         print("not inside a repository")
         return outcome.result("INCOMPLETE")
+    if args.action == "claim":
+        from ai_engineering import claim
+
+        return claim.take(root, args.item, args.base, args.path, args.role, args.remote)
     if args.action == "new":
         return _new(root, args.slug, args.ref)
     if args.action == "list":

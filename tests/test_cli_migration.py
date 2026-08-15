@@ -2480,12 +2480,34 @@ def test_every_verb_states_its_will_before_mutating_and_counts_its_steps(
     # were opening a socket through a hook loaded by path — the exact false green this
     # repository exists to prevent, produced by the test that was supposed to prevent it.
     # So the walk follows `paths.load(...)` into `hooks/`, which is where the egress lives.
-    egress = ("urlopen", "urllib.request", "import socket", "httpx", "requests.")
+    # A socket opened in this process is not the only way out. `spec claim` reaches a
+    # remote by handing the work to git, and a check that only knows about `urlopen` would
+    # have watched a verb push to a server while its will said `network none` — the same
+    # false green as before, one process boundary away instead of one indirection. The git
+    # subcommands that talk to a remote are markers too.
+    egress = (
+        "urlopen",
+        "urllib.request",
+        "import socket",
+        "httpx",
+        "requests.",
+        '"push"',
+        '"fetch"',
+        '"ls-remote"',
+    )
     hooks = ROOT / "hooks"
 
     def reaches_egress(name: str) -> bool:
         body = (ROOT / "src" / "ai_engineering" / f"{name}.py").read_text(encoding="utf-8")
         bodies = [body]
+        # One level of sibling import, literal names only, including the ones written inside
+        # a function. `spec` loads `claim` where it uses it, and following the import is the
+        # difference between reading the verb and reading what the verb runs.
+        for sibling in re.findall(r"from ai_engineering import ([a-z_, ]+)", body):
+            for module in (part.strip() for part in sibling.split(",")):
+                beside = ROOT / "src" / "ai_engineering" / f"{module}.py"
+                if beside.is_file() and module != name:
+                    bodies.append(beside.read_text(encoding="utf-8"))
         # The bound, said honestly: this follows a verb module into the hooks it names with
         # a double-quoted literal, and no further. It does not follow `src`-to-`src` imports,
         # so a verb reaching egress through a sibling module — or through `paths.load(name)`

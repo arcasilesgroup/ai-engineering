@@ -69,8 +69,12 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
     "spec": (
         "record what was decided, or list what already is",
         ("the Intent", "every spec"),
-        ("one new spec directory, on `spec new` only",),
-        (),
+        ("one new spec directory, on `spec new` only", "one claim ref, on `spec claim` only"),
+        # `spec claim` is the only subcommand that reaches a remote, and a will that named
+        # no network for the verb that can take a claim would be the exact defect the
+        # comment above this table describes: a command that opens a connection while
+        # printing that it will not.
+        ("the git remote a claim is taken against, on `spec claim` only",),
     ),
     "decide": (
         "add a decision to its spec, or promote it to an MADR",
