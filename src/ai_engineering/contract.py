@@ -479,7 +479,14 @@ DESCRIPTION_MAX = 1000
 # mirrors of guards, skills, templates or policy homes" is the first line of the Never
 # list, and this was the product breaking it about its own data. The list derives from the
 # table now, and the schema enum is checked against it rather than maintained beside it.
-REPO_CEILING = 46_458
+# 46,458 to 46,506 for the sixth of the twenty. A check object in the JSON envelope was
+# `{id, status, summary, detail}` and nothing else, so the machine-readable half told a
+# consumer that something failed and withheld the one field that says what to do — while
+# the human half had it on screen, computed by the same function, three lines earlier.
+# A contract poorer than the screen it mirrors is a contract nobody uses twice. `detail`
+# was already the evidence; `cure` is what was missing, it is optional because most facts
+# have none, and an empty one is stored as absent rather than as "".
+REPO_CEILING = 46_506
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
