@@ -435,11 +435,21 @@ jobs:
           # despite real evidence, which makes the honest path harder than the dishonest
           # one. So the thing that ran writes the receipt for what it ran.
           #
+          # What this proves, exactly: the packaged dispatcher denies on claude-code's
+          # documented payload — the JSON contract that editor sends, on stdin, honoured by
+          # exit 2. What it does not prove is the editor itself invoking the hook and
+          # honouring that exit. That half needs the editor, and nothing here runs it, so
+          # the receipt is the strongest thing available and it is not everything.
+          #
           # Written after the proof and never before it, and kept by nobody: no artifact
           # upload, no commit. A receipt that outlives its job is a claim about a machine
           # that no longer exists, and the proof here is that the product read it back.
           stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          digest=$(printf '%s' "$payload" | shasum -a 256 | cut -d' ' -f1)
+          # python3, not shasum: `shasum` is a Perl script this repository has never
+          # exercised on windows-latest, and bare python3 already runs three times in this
+          # same all-three-OS job. Free swap, one fewer thing that has to be true.
+          sha() { python3 -c "import hashlib,sys;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())"; }
+          digest=$(printf '%s' "$payload" | sha)
           mkdir -p .ai/receipts/surface
           cat > .ai/receipts/surface/claude-code.enforcement.json <<RECEIPT
           {
@@ -448,10 +458,10 @@ jobs:
             "kind": "automated",
             "id": "claude-code.enforcement",
             "applicability": "applicable",
-            "command": "python \$guards/chain.py PreToolUse < a --no-verify payload",
+            "command": "uv run --no-project --python 3.12 python \$guards/chain.py PreToolUse",
             "tool_version": "$(ai-eng --version)",
             "input_digest": "sha256:$digest",
-            "artifact_digest": "sha256:$(printf '%s' "$said" | shasum -a 256 | cut -d' ' -f1)",
+            "artifact_digest": "sha256:$(printf '%s' "$said" | sha)",
             "started_at": "$stamp",
             "finished_at": "$stamp",
             "max_age_seconds": 86400,
@@ -461,8 +471,16 @@ jobs:
 
           # Read back through the product's own reader, not through this file's opinion of
           # what it just wrote. If `report surfaces` cannot see it, the loop is not closed.
-          ai-eng report surfaces | tee surfaces.txt
-          grep -q "claude-code .*enforcement .*SURFACE_PROVEN" surfaces.txt || {
+          #
+          # `|| true`, and it is not hiding anything: `report surfaces` returns the worst of
+          # twenty-four rows, twenty-one of which are legitimately unproven on a fresh
+          # machine, so under `set -eo pipefail` this line aborted the step and every
+          # assertion below it — the whole payload of this task and the next — became
+          # unreachable code. The same idiom two steps above says why: a fresh machine is
+          # red on purpose. If `report` actually dies, surfaces.txt is empty and the greps
+          # below fail anyway, which is the check that matters.
+          ai-eng report surfaces | tee surfaces.txt || true
+          grep -q "claude-code .*enforcement .*SURFACE_PROVEN " surfaces.txt || {
             echo "the denial was receipted and the product could not read it back"; exit 1; }
 
           # And the other two states did not follow it. Nothing here runs Claude Code: we

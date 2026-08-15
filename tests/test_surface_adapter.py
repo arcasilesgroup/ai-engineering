@@ -607,10 +607,20 @@ def test_the_matrix_receipts_the_denial_it_already_executes():
     assert '"kind": "automated"' in step
     assert '"applicability": "applicable"' in step
     assert '"outcome": "PASS"' in step
-    assert "chain.py PreToolUse" in step, "the receipt names the command that was run"
+    # The command as it was actually run, not prose wearing shell syntax. The first version
+    # of this receipt said `python $guards/chain.py PreToolUse < a --no-verify payload`,
+    # which parses as a redirect from a file called `a` — and this assertion passed over it,
+    # because "chain.py PreToolUse" is inside both. The requirement binding that arrives
+    # with each adapter compares this field; a value that cannot match is worse than none.
+    ran = "uv run --no-project --python 3.12 python \\$guards/chain.py PreToolUse"
+    assert f'"command": "{ran}"' in step
 
-    # And it is read back by the product, not asserted by the workflow's own opinion.
-    assert "ai-eng report surfaces" in step
+    # And it is read back by the product, not asserted by the workflow's own opinion —
+    # reachably, which is the whole of the blocker this test did not catch. `report
+    # surfaces` returns the worst of twenty-four rows and twenty-one are legitimately
+    # unproven on a fresh machine, so under `set -eo pipefail` the read aborted the step and
+    # every assertion after it was unreachable code.
+    assert "ai-eng report surfaces | tee surfaces.txt || true" in step
     assert "SURFACE_PROVEN" in step
 
     # Nothing is kept. A receipt that survives the job is a claim about a machine that no
@@ -628,7 +638,7 @@ def test_the_matrix_receipts_the_denial_it_already_executes():
     from hashlib import sha256
 
     assert sha256(step.encode()).hexdigest() == (
-        "5bd75fd29a6921188b4edc4643639753457b37823da3fe5a3714b71d676d0979"
+        "3dc54f32ff24c72d008726879b4f1715ac6e050da6875b5a7b90c7eff3fcd0ee"
     )
 
 

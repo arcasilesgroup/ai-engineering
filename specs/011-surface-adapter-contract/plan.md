@@ -173,12 +173,27 @@ left open: the wheel executes a denial and nothing receipts it.
    end to end rather than asserted. Nothing is committed or uploaded: the receipt is a
    runtime artifact, and the proof is that it was read, not that it was kept.
 
-9. **The three states, from the artifact** — **file** `.github/workflows/install-matrix.yml`.
+### Amendment, made while reviewing Task 9
+
+Task 9's done-when asked for discovery and invocation to be "executed and receipted". The
+delivery executes and receipts neither, and the commit message says so plainly while the
+plan did not — the same silent drift the Task 7 amendment wrote a paragraph against, one
+task later.
+
+They are not receipted because they cannot be executed here. Proving discovery needs Claude
+Code itself: a key withheld from fork pull requests, a billed session, and a
+non-deterministic answer — and `doctor.coverage` already refuses that route in its own
+docstring, "no probes, no billed sessions". Anything cheaper collapses to "the files are
+present", which `policy/check-evidence-v1.schema.json` names as not-proof in as many words:
+`metadata_is_proof: false`. So the honest delivery is the refusal, made checkable.
+
+9. **The two states nobody can execute stay unproven** — **file** `.github/workflows/install-matrix.yml`.
    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_the_matrix_proves_discovery_and_invocation_separately`.
-   **rollback**: `git revert <commit>`. **done when**: discovery and invocation are executed
-   and receipted separately from enforcement, each by something that would fail if the
-   surface could not do it; a state nobody could execute stays unreceipted rather than
-   acquiring a receipt for a weaker thing.
+   **rollback**: `git revert <commit>`. **done when**: exactly one receipt is written and it
+   is the enforcement one; the job asserts from the same output that discovery and
+   invocation read `SURFACE_RECEIPT_MISSING`, so a state that borrowed another's answer
+   fails the run. Receipting either of them from anything weaker than the surface itself is
+   refused, and the refusal is what this task delivers.
 
 ### Blocks C onward — one surface per block, in provability order
 
