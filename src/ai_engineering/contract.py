@@ -486,7 +486,19 @@ DESCRIPTION_MAX = 1000
 # A contract poorer than the screen it mirrors is a contract nobody uses twice. `detail`
 # was already the evidence; `cure` is what was missing, it is optional because most facts
 # have none, and an empty one is stored as absent rather than as "".
-REPO_CEILING = 46_506
+# 46,506 to 46,644 for the seventh of the twenty, and the one that was hiding the most.
+# Thirteen attacks shared a single negative control, and five of the nine guards were not
+# in its fixtures at all — so a guard that started firing on ordinary input was caught only
+# if it happened to fire on a control somebody had written for a different guard. A control
+# that does not name its guard is a control for whichever guard you were lucky about.
+#
+# Each control now declares what it is clean for, five were written for the guards that had
+# none — an ordinary repeat under the loop guard, three files inside the scope budget, a
+# commit that merely mentions `--no-verify`, somebody else's file with our filename, and a
+# plugin that did report loading — and the run refuses to go green while any attacked guard
+# lacks one. The suite is 19 cases over 9 guards, and it named `doctor-21` as uncontrolled
+# the moment the check existed, which is how I knew the check worked.
+REPO_CEILING = 46_644
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
