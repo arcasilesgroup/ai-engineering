@@ -925,7 +925,7 @@ def test_no_workflow_promises_a_verifier_this_product_does_not_have():
         path.read_text(encoding="utf-8") for path in (ROOT / "src" / "ai_engineering").glob("*.py")
     )
     for capability, evidence in (("attestation", "attest"), ("SBOM", "sbom")):
-        claimed = f"doctor` can verify" in promises and evidence in promises.lower()
+        claimed = "doctor` can verify" in promises and evidence in promises.lower()
         assert not claimed or evidence in verbs.lower(), (
             f"a workflow says doctor verifies the {capability} and no verb reads one"
         )
