@@ -537,7 +537,17 @@ COAUTHOR = "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 FOOTER = "Ai-Eng-Anchor: testrepo/abcdef012345 seq=2 head=deadbeefcafe"
 
 
-def _commit_msg(tmp_path, *, holds=True, body="body.\n", shim="", config=(), trailer=True):
+def _commit_msg(
+    tmp_path,
+    *,
+    holds=True,
+    body="body.\n",
+    shim="",
+    config=(),
+    trailer=True,
+    subject="test(x): a probe",
+    engine=None,
+):
     """Run the real hook over one message and report what it did.
 
     The stub populates both streams the way the real verb does — progress on stderr, and
@@ -562,7 +572,7 @@ def _commit_msg(tmp_path, *, holds=True, body="body.\n", shim="", config=(), tra
     )
     stub.chmod(0o755)
 
-    environment = {**os.environ, "AI_ENG": str(stub)}
+    environment = {**os.environ, "AI_ENG": engine if engine is not None else str(stub)}
     if shim:
         # A `git` that fails the way a real one can. Everything the hook asks of git before
         # this point still has to work, so it delegates the rest to the real one.
@@ -583,7 +593,7 @@ def _commit_msg(tmp_path, *, holds=True, body="body.\n", shim="", config=(), tra
     # trailer cannot show that defect, which is exactly why the first version of this test
     # passed against it. Fixing that by only ever testing the trailer shape would swap one
     # blind spot for the other, so `trailer=False` keeps the other half covered.
-    original = f"test(x): a probe\n\n{body}" + (f"\n{COAUTHOR}\n" if trailer else "")
+    original = f"{subject}\n\n{body}" + (f"\n{COAUTHOR}\n" if trailer else "")
     message = tmp_path / "COMMIT_EDITMSG"
     message.write_text(original, encoding="utf-8")
     hook = Path(__file__).resolve().parents[1] / "git-hooks" / "commit-msg"
@@ -681,6 +691,31 @@ def test_a_git_that_cannot_place_the_anchor_leaves_the_commit_standing(tmp_path,
     assert done.returncode == 0, f"the hook refused the commit ({how}): {done.stderr}"
     assert written == original, written
     assert "could not be placed" in done.stderr, done.stderr
+
+
+@pytest.mark.parametrize(
+    ("route", "kwargs", "says"),
+    [
+        # git wrote the subject itself. The exemption is for the subject rule, and it used
+        # to `exit 0` and take the anchor with it, so every merge left the record in
+        # silence. A subject git chose is not a reason to leave the commit unrecorded.
+        ("a merge subject", {"subject": "Merge branch 'feature'"}, "Ai-Eng-Anchor: "),
+        # And the CLI named by `ai.eng` not being on this machine — an editable install
+        # pointing at a deleted worktree, which `doctor` has its own check for. The hook
+        # tested `command -v` and, finding nothing, did nothing and said nothing.
+        ("an unresolvable cli", {"engine": "/nonexistent/ai-eng"}, "not on this machine"),
+    ],
+)
+def test_no_path_through_the_hook_goes_unanchored_in_silence(tmp_path, route, kwargs, says):
+    """Three routes said nothing at all, and the comment above them claimed that was the
+    failure this record exists to make impossible. Every one of the six tests written for
+    this hook supplied a resolvable stub and a `test(x):` subject, so not one of them could
+    reach either route below. A hook that is quiet when it cannot record is how days of
+    unanchored commits passed under a green gate."""
+
+    done, written, _, _ = _commit_msg(tmp_path, **kwargs)
+    assert done.returncode == 0, done.stderr
+    assert says in (written if says.startswith("Ai-Eng") else done.stderr), (written, done.stderr)
 
 
 def test_a_message_with_no_trailer_of_its_own_still_gets_the_anchor(tmp_path):
