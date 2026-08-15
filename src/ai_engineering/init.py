@@ -777,5 +777,8 @@ def main(argv: list[str]) -> outcome.Result:
         return _terminal(machine, project)
     except KeyboardInterrupt:
         return outcome.result("CANCELLED")
-    except (OSError, subprocess.SubprocessError, wiring.Unreadable):
+    except (OSError, subprocess.SubprocessError, wiring.Unreadable) as why:
+        # Said, not swallowed. The anchor check exists to name a broken install, and a
+        # generic "cannot decide" tells the person nothing they can act on.
+        print(f"  INCOMPLETE  {why}")
         return outcome.result("INCOMPLETE")

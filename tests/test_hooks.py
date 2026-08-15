@@ -1147,6 +1147,9 @@ def test_dispatcher_table_marks_blocking_hooks_as_guards_and_rejects_gaps(repo, 
             assert declared in ("guard", "telemetry"), name
             if event in blocking and name not in chain.TELEMETRY:
                 assert declared == "guard", name
+            # Both directions. The dispatcher now skips a hook whose name is in TELEMETRY,
+            # so a guard added to that set would stop running instead of being refused.
+            assert (name in chain.TELEMETRY) == (declared == "telemetry"), name
 
     class Undeclared:
         @staticmethod

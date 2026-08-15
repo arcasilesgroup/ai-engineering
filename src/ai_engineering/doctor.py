@@ -111,7 +111,16 @@ def families() -> list[str]:
 
 
 class Undecidable(Exception):
-    """Raised when a check could not be evaluated. Never counted as a pass."""
+    """Raised when a check could not be evaluated. Never counted as a pass.
+
+    It may carry a cure. Without one, "could not decide" and "could not decide, and here is
+    the command that would settle it" were the same state, so a check whose answer is one
+    command away had to be reported as a failure to say so — which is a red nobody earned.
+    """
+
+    def __init__(self, message: str, cure: str = "") -> None:
+        super().__init__(message)
+        self.cure = cure
 
 
 def check(number: int, family: str, title: str, in_ci: bool = True):
@@ -306,12 +315,35 @@ def git_hook_fires(root: Path | None) -> str | tuple[str, str] | None:
     return _anchor_answers(root)
 
 
-# The exact shape a live anchor has, and the only argument list this check will run. Not a
+# The exact shape a live anchor has, and the only argument lists this check will run. Not a
 # shell, and not whatever `ai.eng` happens to hold: a configured value that is executed is a
-# configured value that can be anything, and this check runs on a machine that may already
-# be doing what an injected instruction told it to.
+# configured value that can be anything, on a machine that may already be doing what an
+# injected instruction told it to.
 _ANCHOR_TAIL = ["-m", "ai_engineering.cli"]
 _ANCHOR_FOOTER = re.compile(r"^Ai-Eng-Anchor: \S+/\S+ seq=\d+ head=[0-9a-f]{12}$", re.M)
+_ANCHOR_CURE = "ai-eng init --project"
+
+
+def _run_anchor(root: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run this interpreter's own CLI, in the repository being diagnosed, safely.
+
+    `PYTHONSAFEPATH` is the whole reason this helper exists. `-m` prepends the child's
+    working directory to `sys.path`, and the working directory here is somebody's
+    repository — so a repository holding a top-level `ai_engineering/` package had its own
+    `cli.py` executed by `ai-eng doctor`, and could print a well-formed footer to make this
+    assertion pass. A review planted exactly that and watched it work. The flag stops the
+    implicit path entry, so the module that answers is the installed one.
+    """
+
+    return subprocess.run(
+        [sys.executable, *_ANCHOR_TAIL, *arguments],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+        env={**os.environ, "PYTHONSAFEPATH": "1"},
+    )
 
 
 def _anchor_answers(root: Path) -> str | tuple[str, str] | None:
@@ -322,49 +354,58 @@ def _anchor_answers(root: Path) -> str | tuple[str, str] | None:
     `ai_engineering.cli` — an editable install pointing at a deleted worktree — so the anchor
     read as configured, `git config --get` returned it, and every hook that used it failed.
 
-    So the value has to decompose to exactly this interpreter plus this module, and that
-    argument list is executed with a timeout and an isolated HOME. Anything else — a
-    different interpreter, a shell fragment, a non-zero exit, a timeout, no footer, or more
-    than one — is undecidable and cures with the command that rewrites the anchor.
+    Liveness and anchorability are asked separately, because they have different answers. A
+    module that cannot run is a broken install and a failure. A module that runs and cannot
+    anchor is a chain that has not been established yet, which is true of every fresh
+    machine — reporting that as a broken install would make this assertion red by
+    construction, and a doctor that is red by construction is a doctor somebody silences.
     """
 
     configured = git(root, "config", "--get", "ai.eng")
     if not configured:
-        raise Undecidable("ai.eng is not set here, so the hooks have no CLI to resolve")
-    if shlex.split(configured) != [sys.executable, *_ANCHOR_TAIL]:
+        raise Undecidable(
+            "ai.eng is not set here, so the hooks have no CLI to resolve", _ANCHOR_CURE
+        )
+    # POSIX quoting rules eat a Windows path's backslashes, and a space in an interpreter
+    # path splits it in two. Both made this assertion permanently red on a real machine.
+    if shlex.split(configured, posix=os.name != "nt") != [sys.executable, *_ANCHOR_TAIL]:
         return (
             "ai.eng does not name this interpreter and this module, so what the hooks run "
             "is not what this install would run",
-            "ai-eng init --project",
+            _ANCHOR_CURE,
         )
     try:
-        answered = subprocess.run(
-            [sys.executable, *_ANCHOR_TAIL, "audit", "--anchor"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-            # Its own home, so the check cannot write into the real record just by asking
-            # a question, and cannot read one machine's state into another's answer.
-            env={**os.environ, "AI_ENGINEERING_HOME": str(paths.home())},
-        )
+        alive = _run_anchor(root, ["--version"])
     except (OSError, subprocess.SubprocessError) as why:
         raise Undecidable(
-            f"the CLI the anchor names could not be executed: {why.__class__.__name__}"
+            f"the CLI the anchor names could not be executed: {why.__class__.__name__}",
+            _ANCHOR_CURE,
         ) from why
-    if answered.returncode != 0:
+    if alive.returncode != 0 or "ai-engineering" not in alive.stdout:
         return (
             "the CLI the anchor names is installed and does not run: the hooks resolve a "
             "module that answers nothing",
-            "ai-eng init --project",
+            _ANCHOR_CURE,
         )
-    footers = _ANCHOR_FOOTER.findall(answered.stdout)
+    try:
+        footed = _run_anchor(root, ["audit", "--anchor"])
+    except (OSError, subprocess.SubprocessError) as why:
+        raise Undecidable(
+            f"the CLI the anchor names could not be executed: {why.__class__.__name__}",
+            _ANCHOR_CURE,
+        ) from why
+    if footed.returncode != 0:
+        raise Undecidable(
+            "the CLI the anchor names runs and cannot anchor a commit yet, so this "
+            "repository's chain is not in a state to sign one",
+            _ANCHOR_CURE,
+        )
+    footers = _ANCHOR_FOOTER.findall(footed.stdout)
     if len(footers) != 1:
         return (
             f"the CLI the anchor names printed {len(footers)} anchor footers, and a commit "
             f"carries exactly one",
-            "ai-eng init --project",
+            _ANCHOR_CURE,
         )
     return None
 
@@ -846,6 +887,9 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
                 # this is the only reader of it that must not stop: a diagnosis that dies on
                 # one broken file tells you nothing about the other nineteen assertions.
                 ui.verdict(number, "unknown", title, f"could not evaluate: {why}")
+                offered = getattr(why, "cure", "")
+                if offered:
+                    ui.cure("INCOMPLETE", offered)
                 unanswered.append((number, title, str(why)))
                 check_facts.append(
                     outcome.fact(f"assertion-{number}", "INCOMPLETE", title, str(why))

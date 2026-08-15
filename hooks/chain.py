@@ -209,13 +209,12 @@ def main() -> int:
                 emit(name, "error", error=repr(broken), outcome="ignored")
                 continue
             emit(name, "error", error=repr(broken), outcome="blocked")
-            payload["_denied"] = (name, "BLOCKED: this guard could not even be loaded")
-            deny(
-                name,
+            said = (
                 "BLOCKED: this guard could not even be loaded, so nothing here can "
-                "say whether the action is safe. Fix the guard.",
-                structured=payload["_structured"],
+                "say whether the action is safe. Fix the guard."
             )
+            remember(fp, {"deny": True, "by": name, "message": said})
+            deny(name, said, structured=payload["_structured"])
         # The class the hook declares about itself, read here and not only in a test. A
         # guard that lost its decorator is a hook the dispatcher would run on a blocking
         # event with no promise about what a crash means — which is a fail-open control
@@ -227,13 +226,12 @@ def main() -> int:
                 emit(name, "error", error=f"declares {kind!r}, not telemetry", outcome="ignored")
                 continue
             emit(name, "error", error=f"declares {kind!r}, not guard", outcome="blocked")
-            payload["_denied"] = (name, "BLOCKED: this hook does not declare itself a guard")
-            deny(
-                name,
+            said = (
                 "BLOCKED: this hook runs where a call can be stopped and does not declare "
-                "itself a guard, so nothing here can say whether the action is safe.",
-                structured=payload["_structured"],
+                "itself a guard, so nothing here can say whether the action is safe."
             )
+            remember(fp, {"deny": True, "by": name, "message": said})
+            deny(name, said, structured=payload["_structured"])
         try:
             module.run(payload)
         except SystemExit:

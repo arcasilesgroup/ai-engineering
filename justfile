@@ -182,7 +182,7 @@ mutate *paths:
 changed:
     #!/usr/bin/env bash
     set -euo pipefail
-    # The same three questions hooks/design_gate.py asks, in the same order and with the
+    # The same three questions hooks/change_scope_guard.py asks, in the same order and with the
     # same fallbacks: the branch against its merge base, the dirty tree, the untracked
     # files. Two controls that disagree about what a change is are one control and a bug.
     ref="$(git symbolic-ref --quiet refs/remotes/origin/HEAD || true)"

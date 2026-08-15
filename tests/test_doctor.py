@@ -26,6 +26,9 @@ from ai_engineering import __version__, audit, cli, doctor, outcome, paths, wiri
 emit = paths.load("_emit")
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
 @pytest.fixture
 def home(tmp_path, monkeypatch):
     """A machine of this test's own. Everything doctor reports is derived from what is
@@ -535,7 +538,7 @@ def test_assertion_3_a_hook_on_a_blocking_event_that_is_not_a_guard(
     ],
 )
 def test_assertion_11_the_floor_has_to_be_the_one_this_install_wired(
-    repo, monkeypatch, setting, want, fragment
+    home, repo, monkeypatch, setting, want, fragment
 ):
     """git never expands ~ in core.hooksPath. It saves without complaint, the hooks never
     run, and every commit goes through: a floor that is not there is worse than none,
@@ -565,9 +568,11 @@ def test_assertion_11_the_floor_has_to_be_the_one_this_install_wired(
     if value[setting]:
         git(repo, "config", "core.hooksPath", value[setting])
     # The anchor half of this assertion is exercised on its own below. Here it is wired the
-    # way `init` wires it, so a case that is about the hooks path is decided by the hooks
-    # path and not by an anchor the fixture never set.
+    # way `init` wires it and its liveness is stood in for, so a case that is about the
+    # hooks path is decided by the hooks path — and never by whether this machine happens
+    # to hold a chain that can be anchored.
     git(repo, "config", "ai.eng", f"{sys.executable} -m ai_engineering.cli")
+    monkeypatch.setattr(doctor, "_anchor_answers", lambda root: None)
     got, detail = verdict(doctor.git_hook_fires, repo)
     assert (got, fragment in detail) == (want, True)
 
@@ -1281,7 +1286,7 @@ def test_no_surface_reads_as_covered_where_no_denial_has_ever_executed(home, rep
     assert doctor.surfaces_alive(None) is not None
 
 
-def test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module(repo, monkeypatch):
+def test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module(home, repo, monkeypatch):
     """A configured anchor is a string somebody wrote. This runs it.
 
     The state this cures was found on a real machine: an editable install whose `.pth`
@@ -1320,9 +1325,29 @@ def test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module(repo,
         assert "does not name this interpreter and this module" in detail, foreign
         assert doctor.resolve(11, doctor.git_hook_fires(repo))[1] == "ai-eng init --project"
 
-    # The live one passes, and it passed by running.
+    # The live one runs for real. On a machine with no chain yet — every fresh install —
+    # the module answers `--version` and cannot anchor, and that is undecidable rather than
+    # a broken install. A check that is red by construction is a check somebody silences.
     git(repo, "config", "ai.eng", f"{sys.executable} -m ai_engineering.cli")
+    state, detail = verdict(doctor.git_hook_fires, repo)
+    assert state == "undecidable", detail
+    assert "cannot anchor a commit yet" in detail
+
+    # And with a chain it can anchor, it passes.
+    footer = "Ai-Eng-Anchor: repo/machine seq=1 head=0123456789ab"
+    real_run = doctor.subprocess.run
+
+    def anchored(argv, *args, **kwargs):
+        if list(argv)[:1] == ["git"]:
+            return real_run(argv, *args, **kwargs)
+        if "--version" in list(argv):
+            return SimpleNamespace(returncode=0, stdout="ai-engineering 1.0.0")
+        return SimpleNamespace(returncode=0, stdout=f"{footer}\n")
+
+    monkeypatch.setattr(doctor.subprocess, "run", anchored)
     assert verdict(doctor.git_hook_fires, repo)[0] == "ok"
+    monkeypatch.undo()
+    monkeypatch.setattr(paths, "git_hooks", lambda: ours)
 
     # Only the anchor's own execution is stood in for. `git config --get` still runs, or
     # the check would be reading a value this test never wrote.
@@ -1332,24 +1357,73 @@ def test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module(repo,
         def run(argv, *args, **kwargs):
             if list(argv)[:1] == ["git"]:
                 return real(argv, *args, **kwargs)
+            if "--version" in list(argv):
+                # Liveness is a separate question from anchorability, so the stub answers
+                # it separately: these cases are about a module that runs and misbehaves.
+                return SimpleNamespace(returncode=0, stdout="ai-engineering 1.0.0")
             if isinstance(answer, BaseException):
                 raise answer
             return answer
 
         return run
 
-    # A module that is installed and does not answer is the state this exists for.
-    footer = "Ai-Eng-Anchor: repo/machine seq=1 head=0123456789ab"
-    for dead in (
-        SimpleNamespace(returncode=1, stdout=footer),
+    # A module that runs and prints the wrong thing is a failure; one that runs and cannot
+    # anchor is undecidable. Two different answers, because they have two different cures.
+    for wrong in (
         SimpleNamespace(returncode=0, stdout=""),
         SimpleNamespace(returncode=0, stdout="Ai-Eng-Anchor: not/a valid=footer\n"),
         SimpleNamespace(returncode=0, stdout=f"{footer}\n{footer}\n"),
     ):
-        monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(dead))
-        assert verdict(doctor.git_hook_fires, repo)[0] == "fail", dead
+        monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(wrong))
+        assert verdict(doctor.git_hook_fires, repo)[0] == "fail", wrong
+    monkeypatch.setattr(
+        doctor.subprocess, "run", only_the_anchor(SimpleNamespace(returncode=1, stdout=""))
+    )
+    assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
 
     # And a hang is undecidable rather than a pass that waited.
     hangs = subprocess.TimeoutExpired(cmd="python", timeout=30)
     monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(hangs))
     assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
+
+
+def test_the_anchor_check_runs_the_installed_module_and_never_the_repository_it_diagnoses(
+    home, repo
+):
+    """The hole a review opened in this check, kept shut.
+
+    `python -m` puts the child's working directory on `sys.path`, and the working directory
+    here is somebody's repository. So a repository containing a top-level `ai_engineering/`
+    package had its own `cli.py` executed by `ai-eng doctor` — and could print a well-formed
+    anchor footer to make the assertion that runs it report ok. The reviewer planted exactly
+    that and watched it work: the marker file was written and assertion 11 went green.
+
+    `PYTHONSAFEPATH` removes the implicit path entry, so the module that answers is the one
+    that is installed. This test is the plant, and it must find nothing.
+    """
+
+    planted = repo / "ai_engineering"
+    planted.mkdir()
+    marker = repo / "the-plant-ran"
+    (planted / "__init__.py").write_text("", encoding="utf-8")
+    (planted / "cli.py").write_text(
+        "from pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text('executed', encoding='utf-8')\n"
+        "print('Ai-Eng-Anchor: repo/machine seq=1 head=0123456789ab')\n"
+        "print('ai-engineering 9.9.9')\n",
+        encoding="utf-8",
+    )
+
+    answered = doctor._run_anchor(repo, ["--version"])
+    assert not marker.exists(), "the repository being diagnosed executed its own code"
+    assert answered.returncode == 0
+    assert "ai-engineering" in answered.stdout
+    assert "9.9.9" not in answered.stdout
+
+    # And the flag is what does it, stated where somebody would otherwise remove it.
+    assert "PYTHONSAFEPATH" in (ROOT / "src" / "ai_engineering" / "doctor.py").read_text(
+        encoding="utf-8"
+    )
+    assert "PYTHONSAFEPATH" in (ROOT / "src" / "ai_engineering" / "wiring.py").read_text(
+        encoding="utf-8"
+    )

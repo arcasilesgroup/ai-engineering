@@ -13,6 +13,7 @@ fires nothing, and lets the commit through without a complaint. It is measured.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -373,7 +374,17 @@ def wire_git(root: Path) -> str:
 
     anchor = [sys.executable, "-m", "ai_engineering.cli", "--version"]
     try:
-        proved = subprocess.run(anchor, capture_output=True, text=True, timeout=30, check=False)
+        proved = subprocess.run(
+            anchor,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+            # `-m` puts the working directory on `sys.path`, so without this the module that
+            # answers is whichever `ai_engineering/` the installer happened to be standing
+            # in. A review planted one and watched it satisfy this check.
+            env={**os.environ, "PYTHONSAFEPATH": "1"},
+        )
     except (OSError, subprocess.SubprocessError) as why:
         raise Unreadable(
             f"the CLI this install would record could not be executed: {why.__class__.__name__}"
