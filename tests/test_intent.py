@@ -138,9 +138,19 @@ def test_repository_dogfood_intent_is_canonical() -> None:
     assert not re.search(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b", rendered)
 
 
-def test_ai_gitignore_unignores_only_intent_md(tmp_path: Path) -> None:
+def test_ai_gitignore_unignores_only_the_records_that_are_reviewed(tmp_path: Path) -> None:
+    """Two records here are everybody's and are committed — the Solution Intent and the
+    readiness declaration a receipt is measured against. Everything else under `.ai/` is
+    this machine's, including the receipts themselves, and stays out of git."""
+
     rules = (ROOT / ".ai" / ".gitignore").read_text(encoding="utf-8")
-    assert rules.splitlines() == ["*", "!.gitignore", "!config.toml", "!intent.md"]
+    assert rules.splitlines() == [
+        "*",
+        "!.gitignore",
+        "!config.toml",
+        "!intent.md",
+        "!readiness.json",
+    ]
 
     repository = tmp_path / "repository"
     ignore_home = repository / ".ai"
@@ -168,8 +178,10 @@ def test_ai_gitignore_unignores_only_intent_md(tmp_path: Path) -> None:
         ".ai/nested/intent.md",
         ".ai/intent.md~",
         ".ai/.intent.md.swp",
+        ".ai/receipts/ci_cd.json",
+        ".ai/readiness.json.bak",
     )
-    for path in (".ai/config.toml", ".ai/intent.md", *materialized_ignored):
+    for path in (".ai/config.toml", ".ai/intent.md", ".ai/readiness.json", *materialized_ignored):
         candidate = repository / path
         candidate.parent.mkdir(parents=True, exist_ok=True)
         candidate.write_text("candidate\n", encoding="utf-8")
@@ -192,6 +204,7 @@ def test_ai_gitignore_unignores_only_intent_md(tmp_path: Path) -> None:
     assert not is_ignored(".ai/.gitignore")
     assert not is_ignored(".ai/config.toml")
     assert not is_ignored(".ai/intent.md")
+    assert not is_ignored(".ai/readiness.json")
     assert all(is_ignored(path) for path in materialized_ignored)
     assert all(
         is_ignored(path)
@@ -200,6 +213,8 @@ def test_ai_gitignore_unignores_only_intent_md(tmp_path: Path) -> None:
             ".ai/INTENT.MD",
             ".ai/intent.md/child.txt",
             ".ai/nested/intent.md/child.txt",
+            ".ai/Readiness.json",
+            ".ai/nested/readiness.json",
         )
     )
 
