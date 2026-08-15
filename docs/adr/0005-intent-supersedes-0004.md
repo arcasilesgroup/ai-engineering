@@ -6,7 +6,10 @@ id: "0005"
 title: "Intent supersedes the boundary of ADR 0004"
 date: "2026-08-13"
 spec: "010"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-15T03:54:12Z"
 supersedes: "0004"
 ---
 
