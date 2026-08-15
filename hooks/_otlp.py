@@ -33,6 +33,22 @@ def opaque(value) -> dict:
 
 
 def redact(event: dict, mode: str) -> dict:
+    """Everything outside the two allow-lists leaves as a hash and a length.
+
+    `command` keeps its first token and nothing else. It used to keep the first two,
+    written after the hashing pass so the prefix survived every mode including strict —
+    and the second token is the argument on any command that takes one:
+    `curl https://host/?token=…` is two tokens, and so is `psql --password=…`. The one
+    test guarding it used `git push <canary>`, where the canary is the third token and
+    falls outside the cut, so the suite agreed with the defect by choosing the input that
+    could not see it. The first token is the program, which is never an argument, and it
+    still answers the question the field was added for: what ran.
+
+    `mode` still selects, and `"none"` still sends unlisted fields verbatim. That escape
+    hatch is deliberate, configured by `redact` in the pin, and its removal is a decision
+    recorded in specs/014 — a draft nobody has approved. A defect is repaired here; a
+    decision waits for the person who takes it."""
+
     out = {k: event[k] for k in KEEP if k in event}
     data = event.get("data") or {}
     kept = {k: v for k, v in data.items() if k in KEEP_DATA}
@@ -40,8 +56,9 @@ def redact(event: dict, mode: str) -> dict:
         kept.update({k: opaque(v) for k, v in data.items() if k not in KEEP_DATA})
     else:
         kept.update({k: v for k, v in data.items() if k not in KEEP_DATA})
-    if isinstance(data.get("command"), str):
-        kept["command"] = " ".join(data["command"].split()[:2])
+    if mode != "none" and isinstance(data.get("command"), str):
+        kept["command"] = data["command"].split()[:1]
+        kept["command"] = kept["command"][0] if kept["command"] else ""
     out["data"] = kept
     return out
 

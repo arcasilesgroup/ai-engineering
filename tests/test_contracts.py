@@ -636,7 +636,15 @@ def test_constitution_contract_rejects_negated_or_moved_assertions(case):
 # The four numbers this repository states about itself in prose, and every sentence that
 # states one. Each is derived on the left and read out of the file on the right, never
 # derived on both sides: a test that computes both halves the same way cannot fail.
-WORDS = {5: "five", 8: "eight", 10: "ten", 16: "sixteen", 20: "twenty", 21: "twenty-one", 22: "twenty-two"}
+WORDS = {
+    5: "five",
+    8: "eight",
+    10: "ten",
+    16: "sixteen",
+    20: "twenty",
+    21: "twenty-one",
+    22: "twenty-two",
+}
 COUNTED = (
     ("skills", "README.md", "{Word} written procedures"),
     ("skills", "AGENTS.md", "carries {word} skills"),
@@ -729,7 +737,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 45_871
+    assert contract.REPO_CEILING == 45_959
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -864,16 +872,62 @@ def test_nothing_free_text_leaves_the_machine():
     assert canary not in json.dumps(body), "a free-text field left the machine unhashed"
 
 
+def test_a_two_word_command_does_not_carry_its_argument_off_the_machine():
+    """The canary above is the third word of `git push <canary>`, and the exporter kept the
+    first two — so the one test guarding this picked the input that cannot see the defect.
+
+    `redact` hashes every unlisted field and then overwrites `command` with its first two
+    whitespace-separated tokens, after the hashing pass, in every mode including strict. A
+    command whose second token is the sensitive part therefore leaves whole: a URL with a
+    token in the query string is two tokens, and so is `--password=…`.
+
+    Nothing needed that field. `verb` is already kept verbatim, so the plaintext prefix
+    added a leak and no information."""
+
+    import _otlp
+
+    canary = "correct-horse-battery-staple"
+    for command in (f"curl https://example.test/?token={canary}", f"psql --password={canary}"):
+        body = _otlp.as_logs(
+            [
+                {
+                    "cls": "command",
+                    "name": "audit",
+                    "seq": 1,
+                    "ts": "now",
+                    "session": "s",
+                    "repo": "r",
+                    "machine": "m",
+                    "hash": "h",
+                    "data": {"verb": "audit", "command": command},
+                }
+            ],
+            "strict",
+        )
+        assert canary not in json.dumps(body), f"the argument left the machine: {command}"
+
+
 def test_the_guards_start_fast_enough_to_be_guards():
-    """p95 under 200 ms. On the surfaces that time out and carry on, a slow guard is a
-    disabled guard: here latency is a security property."""
+    """A real p95 over twenty runs, under 200 ms. On the surfaces that time out and carry
+    on, a slow guard is a disabled guard: here latency is a security property.
+
+    The docstring said p95 and the assertion took `sorted(timings)[len // 2]` of five
+    samples, which is the median — the measurement that hides exactly the tail a percentile
+    exists to catch, under a name claiming to catch it. Five samples cannot carry a 95th
+    percentile at all.
+
+    Twenty can, and the max was tried first and rejected: measured alone this dispatcher
+    runs 37-45 ms, but this suite runs under `-n auto` and one scheduling spike put a
+    single sample over the bound. A bound the machine's load can trip is a test people
+    learn to rerun, and a test people rerun is not a gate."""
+
     import time
 
     payload = json.dumps(
         {"tool_name": "Read", "tool_input": {"file_path": str(ROOT / "README.md")}}
     )
     timings = []
-    for _ in range(5):
+    for _ in range(20):
         started = time.perf_counter()
         subprocess.run(
             [sys.executable, str(paths.hooks() / "chain.py"), "PreToolUse"],
@@ -882,7 +936,8 @@ def test_the_guards_start_fast_enough_to_be_guards():
             capture_output=True,
         )
         timings.append(time.perf_counter() - started)
-    assert sorted(timings)[len(timings) // 2] < 0.2, f"the dispatcher took {timings}"
+    p95 = sorted(timings)[int(len(timings) * 0.95) - 1]
+    assert p95 < 0.2, f"the dispatcher's p95 start was {p95:.3f}s: {sorted(timings)}"
 
 
 def test_a_denial_hands_back_the_bypass_that_unblocks_the_guard_that_denied(capsys):

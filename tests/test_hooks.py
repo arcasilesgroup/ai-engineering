@@ -1002,7 +1002,7 @@ def test_only_the_first_two_words_of_a_command_leave():
     branch name that names a customer. The verb and its subcommand are enough to read the
     record by."""
     out = _otlp.redact({"data": {"command": "git push origin secret-customer-branch"}}, "strict")
-    assert out["data"]["command"] == "git push"
+    assert out["data"]["command"] == "git"
 
 
 def test_turning_redaction_off_is_the_only_way_free_text_leaves():
