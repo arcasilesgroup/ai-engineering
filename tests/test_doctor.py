@@ -158,7 +158,7 @@ def test_the_contract_states_and_their_exact_outcomes(
     "everything is fine" off a doctor that measured nothing. The --ci rows prove the skip
     is a skip: the local-only check returns a failure, so if it ran the outcome is FAIL."""
     monkeypatch.setattr(doctor, "CHECKS", list(rows))
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
     result = doctor.main(argv)
     assert type(result) is outcome.Execution
@@ -755,7 +755,7 @@ def stub(monkeypatch, rows):
     """A doctor whose twenty-one checks are whatever this test needs, run outside any
     repository so nothing on the machine can change the answer."""
     monkeypatch.setattr(doctor, "CHECKS", rows)
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
 
 
@@ -838,7 +838,9 @@ def test_the_three_muted_kinds_of_line_under_the_report_are_dressed_as_such(
     them is a pass. Undecorated all three are ordinary text in a screen that is mostly
     ordinary text, and the last one is a warning — the whole point of printing it."""
     stub(monkeypatch, [(3, "The context", "refused", True, raises(doctor.Undecidable("why")))])
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  T2  a  BLOCKS  a denial ran here"])
+    monkeypatch.setattr(
+        doctor, "coverage", lambda root, **_: ["  T2  a  BLOCKS  a denial ran here"]
+    )
     doctor.main([])
     out = capsys.readouterr().out
     styles = doctor.ui.THEME.styles
@@ -885,7 +887,7 @@ def test_fix_runs_the_verb_that_already_carries_the_consent_and_then_asks_again(
     The stub check keeps failing, so the second pass fails too: `--fix` reports what is
     true after the attempt and never what it hoped for."""
     monkeypatch.setattr(doctor, "CHECKS", [(2, "The pin", "wiring", True, lambda root: "broken")])
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
     result = doctor.main(["--fix"])
     assert type(result) is outcome.Execution
@@ -916,7 +918,7 @@ def test_fix_runs_each_distinct_cure_once_however_many_checks_named_it(
             (11, "The pin", "c", True, lambda root: "broken"),
         ],
     )
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
     doctor.main(["--fix"])
     assert invoked == [["init", "--global", "--no-project", "-y"], ["init", "--project", "-y"]]
@@ -931,7 +933,7 @@ def test_a_cure_whose_verb_asks_a_person_something_is_printed_and_never_run(monk
     monkeypatch.setattr(
         doctor, "CHECKS", [(12, "The pin", "pin", True, lambda root: ("stale", "ai-eng update"))]
     )
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
     doctor.main(["--fix"])
     assert invoked == []
@@ -951,7 +953,7 @@ def test_fix_with_nothing_it_can_repair_says_so_and_writes_nothing(monkeypatch, 
     """The failure that has no command is the common one — seventeen of the twenty-one —
     and a flag that silently does nothing reads as a flag that ran."""
     monkeypatch.setattr(doctor, "CHECKS", [(4, "The context", "yours", True, lambda root: "TODO")])
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
     result = doctor.main(["--fix"])
     assert type(result) is outcome.Execution
@@ -978,7 +980,7 @@ def test_a_cure_that_exits_non_zero_stops_the_rest_instead_of_reporting_a_clean_
             (11, "The pin", "b", True, lambda root: "broken"),
         ],
     )
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
     result = doctor.main(["--fix"])
     assert type(result) is outcome.Result

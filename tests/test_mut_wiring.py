@@ -660,7 +660,7 @@ def test_the_report_prints_one_line_per_state_and_hands_every_check_the_reposito
             (5, "The outside", "fifth", True, lambda root: "the server said no"),
         ],
     )
-    monkeypatch.setattr(doctor, "coverage", lambda root: [f"  surfaces for {root}"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: [f"  surfaces for {root}"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: here)
 
     result = doctor.main([])
@@ -710,7 +710,7 @@ def test_ci_leaves_the_local_only_checks_unrun_and_still_runs_everything_else(mo
             (3, "The wiring", "a runner can answer this", True, lambda root: None),
         ],
     )
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
 
     result = doctor.main(["--ci"])

@@ -76,8 +76,9 @@ from 528 files, which is where the previous version ended up.
   Everything that is not true in every session belongs in a skill.
 - Every `SKILL.md` is capped at `contract.CEILING` lines. Longer means it is a procedure
   that should be a script, which is rule 12 applied to our own files.
-- Three surfaces read UNPROVEN in the coverage line and they stay that way until a denial
-  actually executes there. A green nobody has earned is the failure this product cures.
+- No surface reads BLOCKS until a denial has receipted there, and none has. The word is
+  read from a receipt and there is no field left that can assert it. A green nobody has
+  earned is the failure this product cures.
 
 ## How to run it
 

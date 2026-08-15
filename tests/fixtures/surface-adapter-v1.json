@@ -29,11 +29,6 @@
             "deny": "permissionDecision=deny"
           }
         },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
-        },
         "trust": {
           "required": false
         }
@@ -69,11 +64,6 @@
             "deny": "permissionDecision=deny"
           }
         },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
-        },
         "trust": {
           "required": false
         }
@@ -107,11 +97,6 @@
             "allow": "permissionDecision=allow",
             "deny": "permissionDecision=deny"
           }
-        },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
         },
         "trust": {
           "required": true,
@@ -150,11 +135,6 @@
             "deny": "permissionDecision=deny"
           }
         },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
-        },
         "trust": {
           "required": false
         }
@@ -189,11 +169,6 @@
             "deny": "permissionDecision=deny"
           }
         },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
-        },
         "trust": {
           "required": false
         }
@@ -226,11 +201,6 @@
             "allow": "permissionDecision=allow",
             "deny": "permissionDecision=deny"
           }
-        },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
         },
         "trust": {
           "required": false
@@ -266,11 +236,6 @@
             "deny": "permissionDecision=deny"
           }
         },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
-        },
         "trust": {
           "required": false
         }
@@ -305,11 +270,6 @@
             "deny": "permissionDecision=deny"
           }
         },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
-        },
         "trust": {
           "required": false
         }
@@ -342,11 +302,6 @@
             "allow": "permissionDecision=allow",
             "deny": "permissionDecision=deny"
           }
-        },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
         },
         "trust": {
           "required": false
@@ -381,11 +336,6 @@
             "allow": "permissionDecision=allow",
             "deny": "permissionDecision=deny"
           }
-        },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
         },
         "trust": {
           "required": false
@@ -422,11 +372,6 @@
             "deny": "permissionDecision=deny"
           }
         },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
-        },
         "trust": {
           "required": false
         }
@@ -461,11 +406,6 @@
             "sometimes": "b"
           }
         },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
-        },
         "trust": {
           "required": false
         }
@@ -492,126 +432,6 @@
           "reply": {
             "allow": "a"
           }
-        },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
-        },
-        "trust": {
-          "required": false
-        }
-      }
-    },
-    {
-      "why": "a heartbeat that says installed and nothing else",
-      "record": {
-        "schema": "urn:ai-engineering:surface-adapter:1",
-        "schema_version": "1",
-        "surface_id": "claude-code",
-        "adapter_version": "1.0.0",
-        "detection": {
-          "signal": "~/.claude/settings.json holds a PreToolUse entry",
-          "written_by_us": false
-        },
-        "translations": {
-          "payload_field": {
-            "tool_name": "tool_name",
-            "tool_input": "tool_input"
-          },
-          "lifecycle_event": {
-            "PreToolUse": "PreToolUse",
-            "PostToolUse": "PostToolUse"
-          },
-          "exit_meaning": {
-            "0": "allow",
-            "2": "deny"
-          },
-          "reply": {
-            "allow": "permissionDecision=allow",
-            "deny": "permissionDecision=deny"
-          }
-        },
-        "heartbeat": {
-          "installed": true
-        },
-        "trust": {
-          "required": false
-        }
-      }
-    },
-    {
-      "why": "a heartbeat observed at a time in no fixed shape",
-      "record": {
-        "schema": "urn:ai-engineering:surface-adapter:1",
-        "schema_version": "1",
-        "surface_id": "claude-code",
-        "adapter_version": "1.0.0",
-        "detection": {
-          "signal": "~/.claude/settings.json holds a PreToolUse entry",
-          "written_by_us": false
-        },
-        "translations": {
-          "payload_field": {
-            "tool_name": "tool_name",
-            "tool_input": "tool_input"
-          },
-          "lifecycle_event": {
-            "PreToolUse": "PreToolUse",
-            "PostToolUse": "PostToolUse"
-          },
-          "exit_meaning": {
-            "0": "allow",
-            "2": "deny"
-          },
-          "reply": {
-            "allow": "permissionDecision=allow",
-            "deny": "permissionDecision=deny"
-          }
-        },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "yesterday"
-        },
-        "trust": {
-          "required": false
-        }
-      }
-    },
-    {
-      "why": "a heartbeat flag that is a word rather than an answer",
-      "record": {
-        "schema": "urn:ai-engineering:surface-adapter:1",
-        "schema_version": "1",
-        "surface_id": "claude-code",
-        "adapter_version": "1.0.0",
-        "detection": {
-          "signal": "~/.claude/settings.json holds a PreToolUse entry",
-          "written_by_us": false
-        },
-        "translations": {
-          "payload_field": {
-            "tool_name": "tool_name",
-            "tool_input": "tool_input"
-          },
-          "lifecycle_event": {
-            "PreToolUse": "PreToolUse",
-            "PostToolUse": "PostToolUse"
-          },
-          "exit_meaning": {
-            "0": "allow",
-            "2": "deny"
-          },
-          "reply": {
-            "allow": "permissionDecision=allow",
-            "deny": "permissionDecision=deny"
-          }
-        },
-        "heartbeat": {
-          "installed": true,
-          "loaded": "yes",
-          "observed_at": "2026-08-15T00:00:00Z"
         },
         "trust": {
           "required": false
@@ -647,11 +467,6 @@
             "deny": "permissionDecision=deny"
           }
         },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
-        },
         "trust": {
           "ceremony": "the person types /hooks"
         }
@@ -685,11 +500,6 @@
             "allow": "permissionDecision=allow",
             "deny": "permissionDecision=deny"
           }
-        },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
         },
         "trust": {
           "required": false
@@ -725,11 +535,6 @@
             "deny": "permissionDecision=deny"
           }
         },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
-        },
         "trust": {
           "required": false
         }
@@ -764,15 +569,48 @@
             "deny": "permissionDecision=deny"
           }
         },
-        "heartbeat": {
-          "installed": true,
-          "loaded": true,
-          "observed_at": "2026-08-15T00:00:00Z"
-        },
         "trust": {
           "required": false
         },
         "notes": "handy"
+      }
+    },
+    {
+      "why": "an adapter that declares it is loaded, which is the deleted flag under a longer name",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "heartbeat": {
+          "installed": true,
+          "loaded": true
+        }
       }
     }
   ]

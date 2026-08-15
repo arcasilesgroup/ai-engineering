@@ -382,7 +382,7 @@ def test_doctor_migration_reports_all_contract_states(
     }
     for expected, checks, coverage in cases:
         monkeypatch.setattr(doctor, "CHECKS", checks)
-        monkeypatch.setattr(doctor, "coverage", lambda root, lines=coverage: lines)
+        monkeypatch.setattr(doctor, "coverage", lambda root, lines=coverage, **_: lines)
 
         result = doctor.main([])
 
@@ -409,7 +409,7 @@ def test_doctor_migration_reports_all_contract_states(
         [(1, "The context", "coverage boundary assertion", True, lambda root: None)],
     )
 
-    def unreadable_coverage(root):
+    def unreadable_coverage(root, **_):
         raise wiring.Unreadable("coverage state could not be read")
 
     monkeypatch.setattr(doctor, "coverage", unreadable_coverage)
@@ -430,7 +430,7 @@ def test_doctor_migration_reports_all_contract_states(
     monkeypatch.setattr(
         doctor,
         "coverage",
-        lambda root: ["  T2   stub             UNPROVEN  no denial has executed here"],
+        lambda root, **_: ["  T2   stub             UNPROVEN  no denial has executed here"],
     )
     assert cli.main(["--json", "doctor"]) == 0
     captured = capsys.readouterr()
@@ -1448,8 +1448,8 @@ def test_report_is_hard_rename_and_bare_report_refuses(
         report_command.main(["issue", "draft"])
     assert future_surface.value.code == outcome.invalid_cli_exit()
 
-    monkeypatch.setattr(report_command.doctor, "events", lambda repository: [])
-    monkeypatch.setattr(report_command.doctor, "coverage", lambda repository: [])
+    monkeypatch.setattr(report_command.doctor, "events", lambda repository, **_: [])
+    monkeypatch.setattr(report_command.doctor, "coverage", lambda repository, **_: [])
     rendered = report_command.main(["digest"])
     assert type(rendered) is outcome.Execution
     assert rendered.outcome == "PASS"
@@ -1721,7 +1721,7 @@ def test_cli_json_transports_real_facts_and_keeps_invalid_usage_one_object(
             (2, "The test", "executed unknown", True, unknown),
         ],
     )
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  T2   focal  BLOCKS  executed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  T2   focal  BLOCKS  executed"])
     assert cli.main(["doctor", "--json"]) == 1
     doctor_output = capsys.readouterr()
     assert doctor_output.err == "" and doctor_output.out.count("\n") == 1
@@ -1769,7 +1769,7 @@ def test_cli_json_transports_real_facts_and_keeps_invalid_usage_one_object(
     monkeypatch.setattr(
         report_command.doctor,
         "coverage",
-        lambda root: ["  T2   focal  BLOCKS  executed"],
+        lambda root, **_: ["  T2   focal  BLOCKS  executed"],
     )
     assert cli.main(["report", "digest", "--json"]) == 0
     report_output = capsys.readouterr()

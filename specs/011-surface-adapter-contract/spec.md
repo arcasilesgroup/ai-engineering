@@ -135,7 +135,7 @@ PROVEN by something that executes, or the wave does not close.
 | EP-015, EP-018, EP-213 | INCOMPLETE | Codex links, `agents/openai.yaml`, executed `/skills` and `$ai-*` proof |
 | EP-016, EP-147, EP-277 | INCOMPLETE | a receipt carrying surface id, version, adapter version and deny protocol |
 | EP-019, EP-208 | INCOMPLETE | discovery, invocation and enforcement as three states |
-| EP-020 | INCOMPLETE | the `surface proof` command the exit criteria name and that does not exist |
+| EP-020 | INCOMPLETE | a command that answers per surface — landed as `ai-eng report surfaces`, because an eleventh verb would have cost a doctrine change to say the same thing |
 | EP-081, EP-300, EP-301 | INCOMPLETE | one adapter contract, translations that fail closed |
 | EP-196, EP-202 | INCOMPLETE | `proven` earned by an executed denial, never set by hand |
 | EP-206, EP-209, EP-210, EP-214, EP-215 | INCOMPLETE | per-surface pinned versions and executed denials |

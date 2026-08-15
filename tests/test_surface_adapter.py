@@ -66,7 +66,6 @@ def test_adapter_schema_is_closed_and_versioned():
         "adapter_version",
         "detection",
         "translations",
-        "heartbeat",
         "trust",
     }
     assert schema["properties"]["surface_id"]["enum"] == list(SURFACES)
@@ -86,16 +85,17 @@ def test_adapter_schema_is_closed_and_versioned():
         assert table["additionalProperties"] is False, name
         assert table["properties"], name
 
-    assert set(schema["properties"]["heartbeat"]["properties"]) == {
-        "installed",
-        "loaded",
-        "observed_at",
-    }
+    # No heartbeat here. It is read from the discovery and invocation receipts, because an
+    # adapter that could declare "I am loaded" is the deleted `proven` flag under a longer
+    # name — and this contract is the file that wave wrote to stop exactly that.
+    assert "heartbeat" not in schema["properties"]
+    assert "heartbeat_is_not_declared" in schema["x-adapter-policy"]
     assert set(schema["properties"]["trust"]["properties"]) == {"required", "ceremony"}
 
     # The policy the reader must obey, declared beside the shape it applies to, so a reader
     # written later cannot quietly choose a friendlier rule.
-    assert schema["x-adapter-policy"] == {
+    assert schema["x-adapter-policy"] | {"heartbeat_is_not_declared": ""} == {
+        "heartbeat_is_not_declared": "",
         "unknown_value": "deny",
         "missing_translation": "INCOMPLETE",
         "undetectable_is_absent": False,
@@ -151,7 +151,6 @@ def test_every_invalid_adapter_fixture_is_refused():
         "lifecycle_event",
         "exit_meaning",
         "reply",
-        "heartbeat",
         "trust",
         "adapter_version",
         "schema",
@@ -164,7 +163,6 @@ def test_every_invalid_adapter_fixture_is_refused():
         "lifecycle_event": "lifecycle event",
         "exit_meaning": "exit code",
         "reply": "reply shape",
-        "heartbeat": "heartbeat",
         "trust": "trust",
         "adapter_version": "no version",
         "schema": "another schema",
@@ -333,7 +331,7 @@ def test_coverage_prints_three_states_and_never_one_word_for_three_questions(tmp
     try:
         paths_module.repo_root = _Fixed(root)
         doctor.CHECKS = set()
-        doctor.coverage = lambda where: []
+        doctor.coverage = lambda where, **_: []
         published = {fact.id for fact in doctor.main([]).checks}
     finally:
         paths_module.repo_root = original
@@ -454,9 +452,117 @@ def test_no_surface_flag_can_assert_a_state_a_receipt_has_not_earned():
     for spelling in ("proven", "is_proven", "denial_proven", "blocks", "covered"):
         assert not [row for row in rows if row.startswith(f"{spelling} ")], spelling
 
+    # Nor may any schema declare the same claim under another name. This block wrote a new
+    # policy file and the guard could not see it: the adapter contract carried a hand-typed
+    # `heartbeat` saying "installed, loaded, observed at", which is the deleted flag with
+    # three fields instead of one.
+    for schema in sorted((ROOT / "policy").glob("*.schema.json")):
+        declared = json.loads(schema.read_text(encoding="utf-8")).get("properties", {})
+        for claim in ("proven", "heartbeat", "blocks", "covered"):
+            assert claim not in declared, f"{schema.name} declares {claim}"
+
     # And nothing reads one. A reader with no field is the half that would otherwise sit
     # there defaulting quietly to False and looking like it works.
     for module in ("doctor.py", "wiring.py", "init.py", "uninstall.py"):
         source = (ROOT / "src" / "ai_engineering" / module).read_text(encoding="utf-8")
         assert '["proven"]' not in source, module
         assert '"proven"' not in source, module
+
+
+def test_a_file_somebody_typed_is_not_a_receipt(tmp_path):
+    """Everything a review demonstrated reading as proven, and the honest case it refused.
+
+    The flag this wave deleted could have walked back in as a filename: four keys in a
+    file nobody reviews, and the coverage screen printed "a denial has executed here" over
+    it. A receipt has to be a receipt before anything it says is worth reading."""
+
+    from datetime import UTC, datetime, timedelta
+
+    from ai_engineering import surface
+
+    now = datetime(2026, 8, 15, 12, 0, 0, tzinfo=UTC)
+    fresh = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    root = tmp_path / "repository"
+    (root / surface.RECEIPTS).mkdir(parents=True)
+
+    def standing(name: str, body: str) -> tuple[str, str]:
+        (root / surface.RECEIPTS / f"{name}.json").write_text(body, encoding="utf-8")
+        row = surface.read(root, now=now).state(*name.split("."))
+        (root / surface.RECEIPTS / f"{name}.json").unlink()
+        return row.outcome, row.code
+
+    junk = json.dumps(
+        {
+            "id": "opencode.enforcement",
+            "finished_at": fresh,
+            "max_age_seconds": 86_400,
+            "outcome": "PASS",
+        }
+    )
+    assert standing("opencode.enforcement", junk) == ("INCOMPLETE", surface.RECEIPT_MALFORMED)
+
+    # A receipt that says the check did not apply is a receipt saying it did not run.
+    excused = _receipt("cursor", "enforcement", finished=fresh) | {
+        "applicability": "not_applicable",
+        "reason": "there is nothing to deny in this configuration",
+    }
+    assert standing("cursor.enforcement", json.dumps(excused)) == (
+        "INCOMPLETE",
+        surface.RECEIPT_MISMATCH,
+    )
+
+    # ...and on a surface that cannot deny, it is the honest thing to write, so it is taken.
+    honest = _receipt("pi", "enforcement", finished=fresh) | {"applicability": "not_applicable"}
+    assert standing("pi.enforcement", json.dumps(honest)) == ("PASS", surface.NOT_APPLICABLE)
+
+    # A human-attested receipt is not an automated one, whatever date it carries.
+    attested = _receipt("codex-cli", "discovery", finished=fresh) | {"kind": "human"}
+    assert standing("codex-cli.discovery", json.dumps(attested)) == (
+        "INCOMPLETE",
+        surface.RECEIPT_MALFORMED,
+    )
+
+    # Sixty kilobytes of nesting fits inside the size bound and used to take the whole
+    # report down with it: doctor aborted mid-run and printed no terminal result at all.
+    deep = '{"a":' * 9996 + "1" + "}" * 9996
+    assert len(deep) < surface.MAX_BYTES if hasattr(surface, "MAX_BYTES") else True
+    assert standing("vscode-copilot.discovery", deep) == (
+        "INCOMPLETE",
+        surface.RECEIPT_MALFORMED,
+    )
+
+    # WARN is a legal outcome, and calling it malformed taught the wrong vocabulary.
+    warned = _receipt("cursor", "discovery", finished=fresh) | {"outcome": "WARN"}
+    assert standing("cursor.discovery", json.dumps(warned)) == ("WARN", surface.WARNED)
+
+
+def test_a_surface_state_that_ran_and_failed_makes_the_verdict_fail(tmp_path, monkeypatch):
+    """It printed FAIL into the JSON envelope and returned PASS with exit 0.
+
+    The production-ready block already makes this argument and is wired for it: a check
+    that ran and failed is decided, so it counts. The surface block was wired the other
+    way, which is a gate result this code did not observe."""
+
+    from datetime import UTC, datetime, timedelta
+
+    from ai_engineering import doctor, paths, surface
+
+    now = datetime.now(UTC)
+    fresh = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    root = tmp_path / "repository"
+    (root / surface.RECEIPTS).mkdir(parents=True)
+    (root / surface.RECEIPTS / "cursor.enforcement.json").write_text(
+        json.dumps(_receipt("cursor", "enforcement", finished=fresh) | {"outcome": "FAIL"}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    monkeypatch.setattr(doctor, "CHECKS", set())
+    monkeypatch.setattr(doctor, "coverage", lambda where, **_: [])
+    reported = doctor.main([])
+
+    assert reported.result.outcome == "FAIL"
+    assert reported.result.exit_code != 0
+    failing = [fact.id for fact in reported.checks if fact.status == "FAIL"]
+    assert failing == ["surface-cursor-enforcement"]
+    assert "cursor · enforcement failed" in reported.remaining

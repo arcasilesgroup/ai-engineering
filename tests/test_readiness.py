@@ -318,7 +318,7 @@ def test_doctor_json_includes_readiness_receipt_status_and_age(tmp_path, monkeyp
     live = _repository(tmp_path / "live", now=datetime.now(UTC))
     monkeypatch.setattr(paths, "repo_root", lambda start=None: live)
     monkeypatch.setattr(doctor, "CHECKS", set())
-    monkeypatch.setattr(doctor, "coverage", lambda root: [])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: [])
     reported = doctor.main([])
     # `checks` is the list cli.main serializes into the JSON envelope, one fact per entry.
     published = {fact.id: fact.as_dict() for fact in reported.checks}
@@ -433,7 +433,7 @@ def test_doctor_fails_when_a_boxs_own_check_ran_and_failed(tmp_path, monkeypatch
 
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     monkeypatch.setattr(doctor, "CHECKS", set())
-    monkeypatch.setattr(doctor, "coverage", lambda where: [])
+    monkeypatch.setattr(doctor, "coverage", lambda where, **_: [])
     reported = doctor.main([])
     assert reported.result.outcome == "FAIL"
     # Once, and by the box's own name. The aggregate fact restates the worst box, so

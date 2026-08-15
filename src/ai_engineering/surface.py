@@ -50,6 +50,7 @@ RECEIPT_MALFORMED = "SURFACE_RECEIPT_MALFORMED"
 RECEIPT_MISMATCH = "SURFACE_RECEIPT_MISMATCH"
 RECEIPT_STALE = "SURFACE_RECEIPT_STALE"
 EXECUTED_FAIL = "SURFACE_EXECUTED_FAIL"
+WARNED = "SURFACE_PROVEN_WITH_WARNING"
 NOT_APPLICABLE = "SURFACE_ENFORCEMENT_NOT_APPLICABLE"
 CANNOT_ENFORCE = "SURFACE_CANNOT_ENFORCE"
 PROVEN = "SURFACE_PROVEN"
@@ -123,13 +124,34 @@ def _standing(root: Path, surface: str, state: str, now: datetime) -> Standing:
         )
     try:
         record = _object(raw)
-    except (UnicodeDecodeError, ValueError):
+    except (RecursionError, UnicodeDecodeError, ValueError):
+        # RecursionError is in the list because a 60 KB file of nested objects sits well
+        # inside the size bound and takes the whole report down with it: measured, `doctor`
+        # aborted mid-run with a traceback and printed no terminal result at all.
         return answer("INCOMPLETE", RECEIPT_MALFORMED)
 
+    # It has to be a check-evidence receipt before anything it says is worth reading. Four
+    # constants, and they are the difference between a receipt and a file somebody typed:
+    # a review demonstrated that a four-key object with no schema, no kind and no command
+    # read as `SURFACE_PROVEN`, and that `doctor` then printed "a denial has executed here"
+    # over it. That is the flag this wave deleted, wearing a filename.
+    if (
+        record.get("schema") != "urn:ai-engineering:check-evidence:1"
+        or record.get("schema_version") != "1"
+        or record.get("kind") != "automated"
+        or record.get("applicability") not in {"applicable", "not_applicable"}
+    ):
+        return answer("INCOMPLETE", RECEIPT_MALFORMED)
+
+    # A receipt that says the check does not apply is a receipt saying it did not run.
+    # On a surface that cannot deny, that is the honest thing to write and it is accepted;
+    # anywhere else it proves nothing, and it certainly does not prove a denial.
+    if record.get("applicability") == "not_applicable":
+        return (
+            answer("PASS", NOT_APPLICABLE) if enforcing else answer("INCOMPLETE", RECEIPT_MISMATCH)
+        )
     if enforcing:
-        # A receipt exists claiming a denial executed on a surface that cannot deny. That is
-        # decided and wrong, not unproven: believing it would hand the coverage screen its
-        # first fabricated green.
+        # Applicable, and on a surface that cannot deny: a claim it is not able to make.
         return answer("FAIL", CANNOT_ENFORCE)
     if record.get("id") != f"{surface}.{state}":
         return answer("INCOMPLETE", RECEIPT_MISMATCH)
@@ -143,9 +165,15 @@ def _standing(root: Path, surface: str, state: str, now: datetime) -> Standing:
     if age > min(window, MAX_AGE_CEILING):
         return answer("INCOMPLETE", RECEIPT_STALE, age)
 
-    if record.get("outcome") == "FAIL":
+    spoken = record.get("outcome")
+    if spoken == "FAIL":
         return answer("FAIL", EXECUTED_FAIL, age)
-    if record.get("outcome") != "PASS":
+    if spoken == "WARN":
+        # A legal outcome the schema allows, and it was being called malformed. It is not
+        # a pass and it is not a failure; it is the thing the vocabulary already has a word
+        # for, and saying the wrong word about it teaches a reader the wrong vocabulary.
+        return answer("WARN", WARNED, age)
+    if spoken != "PASS":
         return answer("INCOMPLETE", RECEIPT_MALFORMED, age)
     return answer("PASS", PROVEN, age)
 

@@ -813,9 +813,9 @@ def standing(
     policy/surfaces.toml, and never from the settings file — so on a machine `ai-eng
     uninstall` had just stripped, the block whose entire job is *where a call can actually
     be stopped* printed `claude-code BLOCKS a denial has executed here` and
-    `copilot-cli UNPROVEN installed and wired`, over zero entries. `proven` says a denial has
-    executed on this kind of surface at some point in this product's life; it can never say
-    there is anything here to execute one now."""
+    `copilot-cli UNPROVEN installed and wired`, over zero entries. A receipt says a denial
+    executed on this surface, on this machine; nothing here says there is one able to
+    execute another now, which is what the installed and wired branches above are for."""
     if surface["id"] not in installed:
         return "UNPROVEN", "not installed here, so nothing about it is proven"
     if surface["tier"] == "T3":
@@ -850,7 +850,7 @@ def enforced(root: Path | None, *, now: datetime) -> frozenset[str]:
     )
 
 
-def coverage(root: Path | None) -> list[str]:
+def coverage(root: Path | None, *, now: datetime | None = None) -> list[str]:
     """The honesty layer, and it is derived: from the pin, the settings files on disk and
     the recorded trust state. No probes, no billed sessions. A surface that is not installed
     here reads UNPROVEN, not "covered".
@@ -881,7 +881,7 @@ def coverage(root: Path | None) -> list[str]:
         inert = surfaces_alive(root) or ""
     except Undecidable:
         inert = ""  # nothing installed, so every row below already reads UNPROVEN
-    proved = enforced(root, now=datetime.now(UTC))
+    proved = enforced(root, now=now or datetime.now(UTC))
     for surface in wiring.table()["surface"]:
         word, why = standing(surface, installed, inert, guarded, proved=proved)
         lines.append(f"  {surface['tier']:<4} {surface['id']:<16} {word:<9} {why}")
@@ -894,9 +894,10 @@ def _terminal_result(
     coverage_lines: list[str],
     coverage_unknown: bool,
     readiness_failed: bool = False,
+    surface_failed: bool = False,
 ) -> outcome.Result:
     words = {word for line in coverage_lines for word in re.findall(r"[A-Z]+", line)}
-    if failed or readiness_failed or "MISMATCH" in words:
+    if failed or readiness_failed or surface_failed or "MISMATCH" in words:
         return outcome.result("FAIL")
     if unanswered or coverage_unknown:
         return outcome.result("INCOMPLETE")
@@ -999,6 +1000,10 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
             ui.write(f"  {label:<14}{where}", data=True)
         return outcome.result("PASS")
 
+    # One clock for the whole run. Two `datetime.now()` calls read the receipts at two
+    # different instants, and a receipt expiring between them makes the one-word block
+    # and the state block disagree about the same file.
+    observed = datetime.now(UTC)
     failed: list[int] = []
     unanswered: list[tuple[int, str, str]] = []
     cures: dict[int, str] = {}
@@ -1053,7 +1058,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     ui.write(data=True)
     coverage_unknown = False
     try:
-        coverage_lines = coverage(root)
+        coverage_lines = coverage(root, now=observed)
     except (Undecidable, wiring.Unreadable) as why:
         coverage_unknown = True
         coverage_lines = []
@@ -1080,9 +1085,15 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     ui.section("Surfaces — three questions, and one receipt for each of them", data=True)
     for line in STATE_LEGEND:
         ui.write(line, style="muted", data=True)
-    for entry in surface_states(root, now=datetime.now(UTC)):
+    states = surface_states(root, now=observed)
+    for entry in states:
         ui.write(f"  {entry.status:<11} {entry.summary} — {entry.detail}", data=True)
         check_facts.append(entry)
+    # A state whose own check ran and failed is decided, so it counts — the same argument
+    # the production-ready block already makes, wired the same way. It printed FAIL into
+    # the JSON envelope and returned PASS with exit 0, which is a gate result this code
+    # did not observe.
+    surface_failed = any(entry.status == "FAIL" for entry in states)
 
     ui.section("Production-ready — a box is ticked by a receipt that ran, or not at all", data=True)
     boxes = readiness_facts(root, now=datetime.now(UTC))
@@ -1116,7 +1127,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         )
 
     result = _terminal_result(
-        failed, unanswered, coverage_lines, coverage_unknown, readiness_failed
+        failed, unanswered, coverage_lines, coverage_unknown, readiness_failed, surface_failed
     )
     verdict_panel(result, failed, len(unanswered), cures, len(failed_boxes))
     if args.fix and cures:
@@ -1126,6 +1137,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     remaining = [
         *(f"assertion {number} failed" for number in failed),
         *(f"{entry.summary} failed its own check" for entry in failed_boxes),
+        *(f"{entry.summary} failed" for entry in states if entry.status == "FAIL"),
         *(f"assertion {number} could not be evaluated" for number, _, _ in unanswered),
         *(["surface coverage could not be evaluated"] if coverage_unknown else []),
     ]
