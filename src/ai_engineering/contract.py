@@ -375,7 +375,15 @@ DESCRIPTION_MAX = 1000
 # printed, with the account beside it, and a chain whose only findings are accounted breaks
 # reports WARN and anchors again. 45 of the lines are the test, 94 the verb and the
 # reasoning, 5 this paragraph.
-REPO_CEILING = 45_678
+# 45,678 to 45,761 for Block R Task 14, the last of the three and the one that would have
+# caught the other two. Half of "survives losing the laptop" is the seal, and nothing
+# measured whether it still runs: `flush()` has one caller outside the suite, on
+# `SessionEnd`/`Stop`, and when that path stopped firing this machine accumulated 4,500
+# events inside the clone, outside the chain, for three days, with twenty-one assertions
+# passing over it. Assertion 22 reports a buffer whose oldest line has been waiting longer
+# than any session lasts. 31 lines of test, 46 of assertion and reasoning, 5 for the four
+# prose counts an added assertion moves, and 6 for this paragraph.
+REPO_CEILING = 45_761
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
