@@ -88,7 +88,7 @@ def test_every_assertion_has_a_unique_number_a_family_and_a_sentence():
     # 5 is retired, not renumbered: the numbers are cited in prose all over this repository
     # and moving them would silently repoint every one of those citations. It was the line
     # ceiling, and the test plane owns that assertion now.
-    assert sorted(numbers) == [n for n in range(1, 22) if n != 5]
+    assert sorted(numbers) == [n for n in range(1, 23) if n != 5]
     for number, family, title, in_ci, fn in doctor.CHECKS:
         assert family and title and callable(fn) and isinstance(in_ci, bool), number
 
@@ -276,6 +276,36 @@ def test_a_chain_that_was_never_written_is_not_a_broken_chain_and_is_not_a_pass_
     with pytest.raises(doctor.Undecidable, match="nothing has been written"):
         doctor.chain_intact(repo)
     assert emit.chain_path(repo).parent.exists()
+
+
+def test_a_buffer_that_stopped_being_sealed_is_reported(home, repo):
+    """Half of "survives losing the laptop" is the seal, and nothing measured whether it
+    still runs. Measured on the operator's machine: the durable chain held 987 links and
+    stopped on 2026-08-12, while the in-clone buffer had grown past 4,500 unsealed lines
+    and was still growing. `flush()` has exactly one caller outside the suite, on
+    `SessionEnd`/`Stop` — so if that path stops firing, every event since sits in a file
+    inside the clone, outside the hash chain, and no assertion says a word.
+
+    A buffer is not a failure: it is where events live between seals. A buffer whose oldest
+    line has been waiting longer than any session lasts is a seal that stopped."""
+
+    (repo / ".ai").mkdir(exist_ok=True)
+    (repo / ".ai" / "config.toml").write_text("[pin]\nversion='1'\n")
+    buffer = emit.buffer_path(repo)
+
+    # Written here rather than through `emit`, which resolves the root from the working
+    # directory: the buffer under test has to be this repository's, not the one the suite
+    # happens to run in.
+    fresh = {"ts": emit.now(), "cls": "blocked", "name": "loop_guard", "data": {}}
+    buffer.write_text(json.dumps(fresh) + "\n", encoding="utf-8")
+    assert doctor.buffer_sealed(repo) is None, "a buffer written moments ago is not a finding"
+
+    buffer.write_text(
+        json.dumps({**fresh, "ts": "2020-01-01T00:00:00.000+00:00"}) + "\n", encoding="utf-8"
+    )
+    said = doctor.buffer_sealed(repo)
+    assert said and "unsealed" in said, said
+    assert "2020-01-01" in said, said
 
 
 def test_assertion_16_reports_could_not_evaluate_over_a_block_nobody_can_read(home, repo):

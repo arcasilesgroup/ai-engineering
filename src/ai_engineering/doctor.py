@@ -1,4 +1,4 @@
-"""Twenty assertions and one line.
+"""Twenty-one assertions and one line.
 
 These are not document sections: they are checks that fail. `--ci` runs the ones that
 make sense on a runner and says in its output which it skipped, because a doctor that
@@ -525,6 +525,51 @@ def chain_intact(root: Path | None) -> str | None:
             return f"link {index} does not extend the one before it"
         prev = event.get("hash", "")
     return None
+
+
+# A session is minutes; a day is two orders of magnitude more. Anything older than this
+# waiting in the buffer is not a session in progress, it is a seal that stopped.
+SEAL_MAX_AGE = 86_400
+
+
+@check(22, "The record", "The buffer is being sealed into the chain")
+def buffer_sealed(root: Path | None) -> str | None:
+    """Half of "survives losing the laptop" is the seal, and nothing measured whether it
+    still runs. `flush()` has exactly one caller outside the suite, on `SessionEnd`/`Stop`;
+    if that path stops firing, every event since sits in a file inside the clone, outside
+    the hash chain, and no assertion says a word. Measured on this repository's own machine:
+    987 sealed links stopping on 2026-08-12 beside a buffer past 4,500 lines and growing.
+
+    A buffer is not a failure — it is where events live between seals. A buffer whose
+    oldest line has been waiting longer than any session lasts is a different statement."""
+
+    emit = paths.load("_emit")
+    buffer = emit.buffer_path(root)
+    if buffer is None or not buffer.exists():
+        return None
+    lines = [line for line in buffer.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if not lines:
+        return None
+    oldest = ""
+    for line in lines:
+        try:
+            stamp = json.loads(line).get("ts", "")
+        except ValueError:
+            continue
+        if isinstance(stamp, str) and stamp and (not oldest or stamp < oldest):
+            oldest = stamp
+    if not oldest:
+        return None
+    try:
+        waited = datetime.now(UTC) - datetime.fromisoformat(oldest)
+    except (TypeError, ValueError):
+        return None
+    if waited.total_seconds() <= SEAL_MAX_AGE:
+        return None
+    return (
+        f"{len(lines)} events unsealed, the oldest waiting since {oldest[:19]}: "
+        f"the session hook that seals the buffer has not run"
+    )
 
 
 @check(10, "The record", "Continuity: this head extends the last archived one")
