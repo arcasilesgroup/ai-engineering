@@ -275,3 +275,69 @@ def test_discovery_invocation_and_enforcement_are_separate_receipts(tmp_path):
         claimed = surface.read(root, now=now).state(instruction_only, "enforcement")
         assert claimed.outcome == "FAIL", instruction_only
         assert claimed.code == surface.CANNOT_ENFORCE, instruction_only
+
+
+def test_coverage_prints_three_states_and_never_one_word_for_three_questions(tmp_path):
+    """One word per surface answered three questions. Doctor now prints the three, and a
+    state without a receipt prints as unproven rather than as nothing at all — an omitted
+    row reads, to anyone counting, like a question that was not worth asking."""
+
+    from datetime import UTC, datetime, timedelta
+
+    from ai_engineering import doctor, surface
+
+    now = datetime(2026, 8, 15, 12, 0, 0, tzinfo=UTC)
+    fresh = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    root = tmp_path / "repository"
+    (root / surface.RECEIPTS).mkdir(parents=True)
+    (root / surface.RECEIPTS / "claude-code.enforcement.json").write_text(
+        json.dumps(_receipt("claude-code", "enforcement", finished=fresh)), encoding="utf-8"
+    )
+
+    facts = {fact.id: fact for fact in doctor.surface_states(root, now=now)}
+    assert len(facts) == len(SURFACES) * len(surface.STATES)
+
+    proved = facts["surface-claude-code-enforcement"]
+    assert proved.status == "PASS"
+    assert proved.summary == "claude-code · enforcement"
+    assert "a denial has executed here" in (proved.detail or "")
+
+    # Two questions nobody answered about the same surface, each unproven on its own.
+    for state in ("discovery", "invocation"):
+        assert facts[f"surface-claude-code-{state}"].status == "INCOMPLETE"
+
+    # And the surfaces that cannot deny say so instead of waiting to be proved.
+    for instruction_only in ("pi", "zed"):
+        row = facts[f"surface-{instruction_only}-enforcement"]
+        assert row.status == "PASS"
+        assert "cannot deny" in (row.detail or "")
+
+    # The legend defines each of the three, in the vocabulary the block already uses.
+    legend = "\n".join(doctor.STATE_LEGEND)
+    for state in surface.STATES:
+        assert state in legend, state
+
+    # And doctor carries them into the JSON envelope beside everything else it reports.
+    import ai_engineering.paths as paths_module
+
+    class _Fixed:
+        def __init__(self, where):
+            self.where = where
+
+        def __call__(self, start=None):
+            return self.where
+
+    original = paths_module.repo_root
+    checks = doctor.CHECKS
+    coverage = doctor.coverage
+    try:
+        paths_module.repo_root = _Fixed(root)
+        doctor.CHECKS = set()
+        doctor.coverage = lambda where: []
+        published = {fact.id for fact in doctor.main([]).checks}
+    finally:
+        paths_module.repo_root = original
+        doctor.CHECKS = checks
+        doctor.coverage = coverage
+    assert "surface-claude-code-enforcement" in published
+    assert "surface-zed-enforcement" in published

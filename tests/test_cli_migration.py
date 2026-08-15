@@ -1726,7 +1726,15 @@ def test_cli_json_transports_real_facts_and_keeps_invalid_usage_one_object(
     doctor_output = capsys.readouterr()
     assert doctor_output.err == "" and doctor_output.out.count("\n") == 1
     doctor_payload = json.loads(doctor_output.out)
-    assert [(row["id"], row["status"]) for row in doctor_payload["checks"]] == [
+    reported = [(row["id"], row["status"]) for row in doctor_payload["checks"]]
+    # Twenty-four of them are the surface block: eight surfaces, three states each, every
+    # one printed even where nothing is receipted. They are counted rather than listed
+    # because listing them here would move this test's subject from the JSON envelope to
+    # the surface table, and the table has its own tests.
+    surfaces = [row for row in reported if row[0].startswith("surface-")]
+    assert len(surfaces) == 24
+    assert {status for _, status in surfaces} == {"INCOMPLETE", "PASS"}
+    assert [row for row in reported if not row[0].startswith("surface-")] == [
         ("assertion-1", "PASS"),
         ("assertion-2", "INCOMPLETE"),
         ("coverage-1", "PASS"),

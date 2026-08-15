@@ -25,6 +25,10 @@ from pathlib import Path, PurePosixPath
 
 from ai_engineering import __version__, audit, outcome, paths, readiness, ui, wiring
 
+# Aliased: three loops in this file already bind `surface` to a row of the wiring table,
+# and a module that shadows a local is a module somebody silently reads the wrong one of.
+from ai_engineering import surface as surfaces
+
 # A problem, or a problem and the cure that is not the one FIXES holds for this number.
 # One check needs the second form: a pin can be wrong two ways and they are two commands.
 Assertion = Callable[[Path | None], "str | tuple[str, str] | None"]
@@ -876,6 +880,48 @@ def _terminal_result(
     return outcome.result("PASS")
 
 
+# The three questions the coverage word used to answer at once, defined where somebody
+# running `doctor` will meet them. Each is read from its own receipt and speaks for nothing
+# else: a surface can list the skills and be unable to run them, and it can run them and
+# never be able to stop anything.
+STATE_LEGEND = (
+    "  discovery   the surface can see the skills · invocation somebody can run one",
+    "  enforcement a denial has executed here · not applicable a T3 surface cannot deny",
+)
+
+
+def surface_states(root: Path | None, *, now: datetime) -> list[outcome.Fact]:
+    """Discovery, invocation and enforcement for every surface, one fact each.
+
+    Every row is printed even when nothing has been receipted, because an omitted row
+    reads, to anything counting, like a question that was not worth asking. Unproven is the
+    honest answer and it is never a pass."""
+
+    if root is None:
+        return []
+    said = {
+        surfaces.PROVEN: "a denial has executed here",
+        surfaces.NOT_APPLICABLE: "a T3 surface cannot deny, so there is nothing to prove",
+        surfaces.RECEIPT_MISSING: "no receipt: unproven, which is not a pass",
+        surfaces.RECEIPT_STALE: "the receipt is older than a proof is allowed to be",
+        surfaces.RECEIPT_MISMATCH: "the receipt names another surface or another state",
+        surfaces.CANNOT_ENFORCE: "a denial receipt for a surface that cannot deny",
+    }
+    facts = []
+    for row in surfaces.read(root, now=now).rows:
+        detail = said.get(row.code, row.code)
+        aged = "" if row.age_seconds is None else f" · {row.age_seconds}s old"
+        facts.append(
+            outcome.fact(
+                f"surface-{row.surface}-{row.state}",
+                row.outcome,
+                f"{row.surface} · {row.state}",
+                detail + aged,
+            )
+        )
+    return facts
+
+
 def readiness_facts(root: Path | None, *, now: datetime) -> list[outcome.Fact]:
     """What the production-ready boxes are proven to be, and how old the proof is.
 
@@ -1005,6 +1051,13 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         check_facts.append(
             outcome.fact(f"coverage-{index}", coverage_status, "Surface coverage", line)
         )
+
+    ui.section("Surfaces — three questions, and one receipt for each of them", data=True)
+    for line in STATE_LEGEND:
+        ui.write(line, style="muted", data=True)
+    for entry in surface_states(root, now=datetime.now(UTC)):
+        ui.write(f"  {entry.status:<11} {entry.summary} — {entry.detail}", data=True)
+        check_facts.append(entry)
 
     ui.section("Production-ready — a box is ticked by a receipt that ran, or not at all", data=True)
     boxes = readiness_facts(root, now=datetime.now(UTC))
