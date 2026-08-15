@@ -881,7 +881,17 @@ DESCRIPTION_MAX = 1000
 # The docstring stops saying the same thing about both cases. Where an adapter exists a PASS
 # now means "this ran the thing we require"; where none exists it still means "this ran and
 # said so", and the file says which claim it had rather than printing one word for two.
-REPO_CEILING = 51_981
+# 51,981 to 52,036 for the cadence report measured against the session that used it, and
+# for the one rule this session broke while reading the audit that recorded it broken.
+#
+# One primary home per commit: measured across nineteen commits, the widest touches five and
+# four touch four or more. The reason is structural — a capability here is a file in
+# `.agents/`, a declaration in `policy/`, a count in two prose files that `COUNTED` holds
+# equal to the tree, and a line in this one — so the rule and this repository's own drift
+# gates pull opposite ways. The gates are right; a count nobody updates is a count that
+# lies. The tension is recorded as open rather than resolved by a commit guessing at
+# somebody else's rule.
+REPO_CEILING = 52_036
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
