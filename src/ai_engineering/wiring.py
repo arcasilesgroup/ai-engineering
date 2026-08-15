@@ -362,7 +362,28 @@ def wire_git(root: Path) -> str:
 
     ai.eng records which CLI wrote these hooks. `command -v ai-eng` proves a binary exists
     and never that it is this one: an older install on the PATH has no `accept` verb, so
-    pre-push refused every push in the repository it had just been installed into."""
+    pre-push refused every push in the repository it had just been installed into.
+
+    And the anchor is executed before it is written down. A live interpreter with a dead
+    `ai_engineering.cli` — an editable install whose `.pth` points at a deleted worktree,
+    which is the state this machine was actually found in — persists an anchor that looks
+    configured and answers nothing. Every hook that resolves the CLI through it then fails
+    on a repository somebody just installed into. So the command runs first, and none of
+    the three keys is written unless it did."""
+
+    anchor = [sys.executable, "-m", "ai_engineering.cli", "--version"]
+    try:
+        proved = subprocess.run(anchor, capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.SubprocessError) as why:
+        raise Unreadable(
+            f"the CLI this install would record could not be executed: {why.__class__.__name__}"
+        ) from why
+    if proved.returncode != 0 or "ai-engineering" not in proved.stdout:
+        raise Unreadable(
+            "the CLI this install would record did not answer `--version`, so the git anchor "
+            "would name an interpreter that cannot run it"
+        )
+
     rows = (
         ("core.hooksPath", str(paths.git_hooks())),
         ("ai.managed", "true"),

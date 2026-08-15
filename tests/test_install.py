@@ -1474,3 +1474,88 @@ def test_the_config_template_renders_to_toml_carrying_the_version(home):
 def test_the_ci_snippet_keeps_its_actions_expression(home):
     """The copy-and-paste workflow init prints at the end of a project install."""
     assert "${{ env.PIN }}" in skeletons.CHECK_YML.format(version="9.9.9")
+
+
+def test_wire_git_executes_the_configured_module_before_persisting_it(repo, monkeypatch):
+    """The anchor is proved to run before it is written down.
+
+    This machine was found with an editable install whose `.pth` pointed at a deleted
+    worktree: a live interpreter, a dead `ai_engineering.cli`, and a persisted anchor that
+    looked configured and answered nothing. Every hook that resolves the CLI through it then
+    failed on a repository somebody had just installed into — and `doctor` said the anchor
+    was set, because it was.
+
+    So the command runs first, and a failure writes none of the three keys. Not one of them:
+    a half-written anchor is the same lie with fewer fields.
+    """
+
+    keys = ("core.hooksPath", "ai.managed", "ai.eng")
+
+    def configured() -> dict[str, str]:
+        found = {}
+        for key in keys:
+            answer = subprocess.run(
+                ["git", "-C", str(repo), "config", "--get", key],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if answer.returncode == 0:
+                found[key] = answer.stdout.strip()
+        return found
+
+    assert configured() == {}
+
+    # The exact command, and nothing else, before any key is written.
+    ran: list[list[str]] = []
+    real = wiring.subprocess.run
+
+    def watch(argv, *args, **kwargs):
+        ran.append(list(argv))
+        return real(argv, *args, **kwargs)
+
+    monkeypatch.setattr(wiring.subprocess, "run", watch)
+    wiring.wire_git(repo)
+    assert ran[0] == [sys.executable, "-m", "ai_engineering.cli", "--version"]
+    assert configured()["ai.eng"] == f"{sys.executable} -m ai_engineering.cli"
+    monkeypatch.undo()
+
+    # And every way that command can fail to answer leaves the anchor untouched.
+    for failure in (
+        SimpleNamespace(returncode=1, stdout="ai-engineering 1.0.0"),
+        SimpleNamespace(returncode=0, stdout=""),
+        SimpleNamespace(returncode=0, stdout="some other tool 9.9"),
+    ):
+        fresh = repo.parent / f"fresh-{failure.returncode}-{len(failure.stdout)}"
+        subprocess.run(["git", "init", "-b", "main", str(fresh)], check=True, capture_output=True)
+        monkeypatch.setattr(wiring.subprocess, "run", lambda *a, _r=failure, **k: _r)
+        with pytest.raises(wiring.Unreadable):
+            wiring.wire_git(fresh)
+        monkeypatch.undo()
+        for key in keys:
+            answer = subprocess.run(
+                ["git", "-C", str(fresh), "config", "--get", key],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            assert answer.returncode != 0, key
+
+    # A timeout is a failure too, and it is the one a hung interpreter produces.
+    def hangs(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="python", timeout=30)
+
+    hung = repo.parent / "hung"
+    subprocess.run(["git", "init", "-b", "main", str(hung)], check=True, capture_output=True)
+    monkeypatch.setattr(wiring.subprocess, "run", hangs)
+    with pytest.raises(wiring.Unreadable):
+        wiring.wire_git(hung)
+    monkeypatch.undo()
+    assert (
+        subprocess.run(
+            ["git", "-C", str(hung), "config", "--get", "ai.eng"],
+            capture_output=True,
+            check=False,
+        ).returncode
+        != 0
+    )
