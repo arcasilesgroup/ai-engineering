@@ -30,22 +30,25 @@ if command -v "${AI_ENG%% *}" >/dev/null 2>&1; then
   anchor="$($AI_ENG audit --anchor 2>/dev/null | grep -E '^Ai-Eng-Anchor: ' || true)"
   if [ -n "$anchor" ]; then
     # git places it, because git is what reads it back. Appending it after a blank line
-    # looks right and starts a *second* trailer block: every commit here ends with
-    # `Co-Authored-By:`, and `git interpret-trailers --parse` then returns the anchor
-    # alone. GitHub's co-author attribution is the reader that loses — nothing in this
-    # repository reads that trailer, and an earlier version of this comment said "the gate
-    # reads it", which is a claim with no reader behind it. The first test written for
-    # this passed because it used a message with no trailers, the one shape where the bug
-    # cannot appear.
+    # looks right and starts a *second* trailer block: 145 of this repository's 298 commits
+    # end with `Co-Authored-By:`, and on one of those `git interpret-trailers --parse`
+    # then returns the anchor alone. GitHub's co-author attribution is the reader that
+    # loses — nothing in this repository reads that trailer, and an earlier version of
+    # this comment said "the gate reads it", which is a claim with no reader behind it.
+    # The first test written for this passed because it used a message with no trailers,
+    # which is the majority shape here and the one where the bug cannot appear.
     #
     # `--no-divider` because git stops reading a message at a bare `---`, so one containing
     # a divider gets the anchor inserted mid-body and the trailer is orphaned all over
     # again.
     #
     # And it cannot fail the commit. Under `set -e` a bare call makes any git that cannot
-    # do this — an unwritable directory for the temp file it creates, a config it refuses
-    # to parse — the hook's own exit status, and git then rejects the commit. Measured:
-    # exit 128 from a read-only directory. Lines 15-16 say this is a footer and not a gate,
+    # do this the hook's own exit status, and git then rejects the commit. Measured: exit
+    # 128 from a directory git cannot write its temporary file into, and 129 from a git too
+    # old for one of these options. Not a config git refuses to parse — an earlier version
+    # of this comment named that route and it cannot happen, because line 5 asks git for
+    # `ai.managed` first and exits 0 when that fails, so this block is never reached.
+    # Lines 15-16 say this is a footer and not a gate,
     # and a hook that refuses commits is one people escape with `--no-verify`, which rule 3
     # forbids and a guard blocks: the hook whose bug forces its own bypass.
     git interpret-trailers --no-divider --in-place --trailer "$anchor" "$1" ||

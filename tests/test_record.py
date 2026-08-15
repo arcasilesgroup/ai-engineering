@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -567,19 +568,21 @@ def _commit_msg(tmp_path, *, holds=True, body="body.\n", shim=""):
         # this point still has to work, so it delegates the rest to the real one.
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
+        real = shlex.quote(shutil.which("git"))
         (bin_dir / "git").write_text(
-            f'#!/bin/sh\ncase "$1" in\n  {shim}\nesac\nexec {shutil.which("git")} "$@"\n',
+            f'#!/bin/sh\ncase "$1" in\n  {shim}\nesac\nexec {real} "$@"\n',
             encoding="utf-8",
         )
         (bin_dir / "git").chmod(0o755)
         environment["PATH"] = f"{bin_dir}{os.pathsep}{environment.get('PATH', '')}"
 
-    # This repository's actual convention: every commit ends with a trailer. The first
-    # version of this test wrote a message with none, which is the one shape where an
-    # anchor appended after a blank line still parses — it starts a second trailer block,
-    # and on a real message `git interpret-trailers --parse` then returns the anchor alone
-    # and the `Co-Authored-By` that GitHub reads for attribution is gone. The test agreed
-    # with the defect by picking the input that could not see it.
+    # A message that already carries a trailer: 145 of this repository's 298 commits do.
+    # The first version of this test wrote one with none — the majority shape, and the one
+    # where an anchor appended after a blank line still parses, because it starts a second
+    # trailer block and there is no first one to orphan. On a message with a trailer,
+    # `git interpret-trailers --parse` then returns the anchor alone and the
+    # `Co-Authored-By` GitHub reads for attribution is gone. The test agreed with the
+    # defect by picking the input that could not see it.
     original = f"test(x): a probe\n\n{body}\n{COAUTHOR}\n"
     message = tmp_path / "COMMIT_EDITMSG"
     message.write_text(original, encoding="utf-8")
@@ -656,9 +659,12 @@ def test_a_git_that_cannot_place_the_anchor_leaves_the_commit_standing(tmp_path)
     """The footer is not a gate, and the placement fix quietly made it one: under
     `set -euo pipefail` a bare `git interpret-trailers` hands its exit status to the hook,
     and git then refuses the commit. It is not hypothetical — a message file in a directory
-    git cannot write its temporary file into exits 128, and so does a config git declines
-    to parse. The person's escape from a hook that refuses commits is `--no-verify`, which
-    rule 3 forbids and a guard blocks: the hook whose bug forces its own bypass."""
+    git cannot write its temporary file into exits 128, and a git too old for one of these
+    options exits 129, which is what this shim reproduces. Not a config git declines to
+    parse: an earlier version of this docstring said so, and that route cannot reach the
+    anchor at all, because the hook asks git for `ai.managed` on its fifth line and exits 0
+    when that fails. The person's escape from a hook that refuses commits is `--no-verify`,
+    which rule 3 forbids and a guard blocks: the hook whose bug forces its own bypass."""
 
     done, written, original, _ = _commit_msg(
         tmp_path,
