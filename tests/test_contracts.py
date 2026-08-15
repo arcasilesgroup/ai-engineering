@@ -915,12 +915,16 @@ P0_HOMES = {
 
 
 def _breaking_block() -> str:
-    """Everything under the newest release's breaking-changes heading."""
+    """Everything under the newest release's breaking-changes heading, and nothing else.
+
+    It stopped at the next release and so swallowed every other subsection of the same one:
+    a hard rename written up under `### Fixed` satisfied a test whose whole subject is that
+    breaking changes are written up as breaking changes."""
 
     lines = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()
     start = lines.index("### Breaking changes")
     rest = lines[start + 1 :]
-    ends = [index for index, line in enumerate(rest) if line.startswith("## ")]
+    ends = [index for index, line in enumerate(rest) if line.startswith("##")]
     return "\n".join(rest[: ends[0]] if ends else rest)
 
 
