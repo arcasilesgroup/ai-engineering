@@ -20,9 +20,10 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 
-from ai_engineering import __version__, audit, outcome, paths, ui, wiring
+from ai_engineering import __version__, audit, outcome, paths, readiness, ui, wiring
 
 # A problem, or a problem and the cure that is not the one FIXES holds for this number.
 # One check needs the second form: a pin can be wrong two ways and they are two commands.
@@ -855,6 +856,38 @@ def _terminal_result(
     return outcome.result("PASS")
 
 
+def readiness_facts(root: Path | None, *, now: datetime) -> list[outcome.Fact]:
+    """What the production-ready boxes are proven to be, and how old the proof is.
+
+    Age is reported next to every verdict because a receipt has two ways of not meaning
+    anything, and only one of them shows up as a failure: it can say the wrong thing, or it
+    can say the right thing about a run from six months ago. The second is the one that
+    reads green in every summary that only counts outcomes.
+
+    No box is claimed here that a receipt did not carry, and a repository with nothing to
+    read reports that it has nothing to read."""
+
+    if root is None:
+        return [
+            outcome.fact(
+                "readiness",
+                "INCOMPLETE",
+                "Production-ready boxes",
+                "there is no repository here to read receipts from",
+            )
+        ]
+    report = readiness.read(root, now=now)
+    facts = [
+        outcome.fact("readiness", report.result.outcome, "Production-ready boxes", report.code)
+    ]
+    for box in report.boxes:
+        aged = "no receipt to age" if box.age_seconds is None else f"{box.age_seconds}s old"
+        facts.append(
+            outcome.fact(f"readiness-{box.id}", box.outcome, box.label, f"{box.code} · {aged}")
+        )
+    return facts
+
+
 def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     parser = argparse.ArgumentParser("ai-eng doctor")
     parser.add_argument("--ci", action="store_true", help="only the checks a runner can answer")
@@ -952,6 +985,14 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         check_facts.append(
             outcome.fact(f"coverage-{index}", coverage_status, "Surface coverage", line)
         )
+
+    ui.section("Production-ready — a box is ticked by a receipt that ran, or not at all", data=True)
+    for entry in readiness_facts(root, now=datetime.now(UTC)):
+        ui.write(f"  {entry.status:<11} {entry.summary} — {entry.detail}", data=True)
+        check_facts.append(entry)
+    # Reported, and deliberately not folded into the verdict below. Whether anything here
+    # is allowed a URL is a decision this verb observes and does not make, and a doctor that
+    # went red on every repository with no receipts yet would be turned off by everyone.
 
     if unanswered:
         ui.section(

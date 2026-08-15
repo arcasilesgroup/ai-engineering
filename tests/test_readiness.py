@@ -89,6 +89,7 @@ def _repository(
     finished: dict[str, datetime] | None = None,
     written: dict[str, dict[str, Any]] | None = None,
     omitted: frozenset[str] = frozenset(),
+    now: datetime = NOW,
 ) -> Path:
     """A repository whose eight boxes are declared and receipted, minus what a control
     deliberately removes or replaces."""
@@ -105,9 +106,8 @@ def _repository(
             continue
         declared = declarations.get(box.id, _declared(box))
         boxes[box.id] = declared
-        receipt = written.get(
-            box.id, _receipt(box, declared, finished=finished.get(box.id, NOW - timedelta(hours=1)))
-        )
+        fresh = finished.get(box.id, now - timedelta(hours=1))
+        receipt = written.get(box.id, _receipt(box, declared, finished=fresh))
         if receipt is not None:
             (receipts / f"{box.id}.json").write_text(json.dumps(receipt), encoding="utf-8")
     (root / readiness.DECLARATION).write_text(
@@ -284,3 +284,45 @@ def test_adversarial_runner_records_denials_and_clean_control(tmp_path, monkeypa
     serialized = json.dumps([_receipts(tmp_path / name) for name in ("green", "missed", "fired")])
     assert str(Path.home()) not in serialized
     assert str(tmp_path) not in serialized
+
+
+def test_doctor_json_includes_readiness_receipt_status_and_age(tmp_path, monkeypatch):
+    from ai_engineering import doctor, paths
+
+    proven = _repository(tmp_path / "proven")
+    facts = {fact.id: fact for fact in doctor.readiness_facts(proven, now=NOW)}
+    assert set(facts) == {"readiness", *(f"readiness-{box.id}" for box in readiness.BOXES)}
+    assert facts["readiness"].status == "PASS"
+    assert facts["readiness"].detail == evidence.VERIFIED
+    for box in readiness.BOXES:
+        entry = facts[f"readiness-{box.id}"]
+        assert entry.status == "PASS"
+        assert entry.summary == box.label
+        assert entry.detail == f"{evidence.VERIFIED} · 3600s old"
+
+    unreceipted = _repository(tmp_path / "missing", written={"security": None})
+    absent = {fact.id: fact for fact in doctor.readiness_facts(unreceipted, now=NOW)}
+    assert absent["readiness"].status == "INCOMPLETE"
+    assert absent["readiness-security"].status == "INCOMPLETE"
+    assert absent["readiness-security"].detail == f"{evidence.MISSING} · no receipt to age"
+    assert absent["readiness-logs"].status == "PASS"
+
+    undeclared = {fact.id: fact for fact in doctor.readiness_facts(tmp_path / "empty", now=NOW)}
+    assert set(undeclared) == {"readiness"}
+    assert undeclared["readiness"].status == "INCOMPLETE"
+    assert undeclared["readiness"].detail == readiness.DECLARATION_MISSING
+
+    # Nothing here has a URL, so nothing here may report a ticked box.
+    assert doctor.readiness_facts(ROOT, now=datetime.now(UTC))[0].status != "PASS"
+
+    live = _repository(tmp_path / "live", now=datetime.now(UTC))
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: live)
+    monkeypatch.setattr(doctor, "CHECKS", set())
+    monkeypatch.setattr(doctor, "coverage", lambda root: [])
+    reported = doctor.main([])
+    # `checks` is the list cli.main serializes into the JSON envelope, one fact per entry.
+    published = {fact.id: fact.as_dict() for fact in reported.checks}
+    assert published["readiness"]["status"] == "PASS"
+    assert published["readiness-external_check"]["summary"] == "External check"
+    # Reported, not gated: giving something a URL is not this verb's decision to make.
+    assert reported.result.outcome == "PASS"

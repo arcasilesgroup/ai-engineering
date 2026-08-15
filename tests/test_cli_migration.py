@@ -1727,6 +1727,11 @@ def test_cli_json_transports_real_facts_and_keeps_invalid_usage_one_object(
         ("assertion-1", "PASS"),
         ("assertion-2", "INCOMPLETE"),
         ("coverage-1", "PASS"),
+        # This repository declares no production-ready boxes, so the one honest thing to
+        # transport about them is that they are unproven. A doctor that omitted the row
+        # entirely would read, to anything counting statuses, as a run with nothing left
+        # to prove.
+        ("readiness", "INCOMPLETE"),
     ]
 
     today = date.today().isoformat()
