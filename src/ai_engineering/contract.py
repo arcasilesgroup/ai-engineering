@@ -415,7 +415,14 @@ DESCRIPTION_MAX = 1000
 # load can trip is a test people learn to rerun. Measured alone: 37-45 ms.
 #
 # 66 lines of test and docstring, 5 of fix, 6 for this paragraph.
-REPO_CEILING = 45_959
+# 45,959 to 45,997 for the third defect the P4 draft found. `release.yml` said attestations
+# ship "so `ai-eng doctor` can verify that the running wheel is the one this tag produced",
+# and `grep -rn attest src/ai_engineering/` returns nothing: the workflow described a
+# capability that had never existed. A header comment is where a claim hides longest — no
+# test reads one, no reviewer diffs it twice, and the sentence outlives everybody who could
+# contradict it. The constitution's line is "never claim a gate result this code did not
+# observe", and this was our own. 18 lines of test, 7 of corrected comment, 6 here.
+REPO_CEILING = 45_997
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

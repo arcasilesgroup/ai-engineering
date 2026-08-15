@@ -1,8 +1,15 @@
 name: release
 
 # Releases are signed by the workflow that built them, not by a long-lived token on
-# somebody's laptop. Attestations ship with the wheel so `ai-eng doctor` can verify that
-# the running wheel is the one this tag produced.
+# somebody's laptop. Attestations ship with the wheel, and a consumer verifies one with
+# `gh attestation verify dist/*.whl --repo <owner>/<repo>`, which needs the network.
+#
+# This used to say `ai-eng doctor` verifies it. No verb reads an attestation — the
+# sentence described a capability that had never existed, in a header comment, which is
+# where a claim hides longest: no test reads one and no reviewer diffs it twice. The
+# verifier, an SBOM naming the same digest, and the doctor-side check are specs/014's
+# work; until they land the honest statement is the command above. A test now binds the
+# two, so the claim can only return with the code.
 
 on:
   push:

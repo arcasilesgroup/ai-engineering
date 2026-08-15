@@ -737,7 +737,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 45_959
+    assert contract.REPO_CEILING == 45_997
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -905,6 +905,30 @@ def test_a_two_word_command_does_not_carry_its_argument_off_the_machine():
             "strict",
         )
         assert canary not in json.dumps(body), f"the argument left the machine: {command}"
+
+
+def test_no_workflow_promises_a_verifier_this_product_does_not_have():
+    """`release.yml` said attestations ship "so `ai-eng doctor` can verify that the running
+    wheel is the one this tag produced", and `grep -rn attest src/ai_engineering/` returned
+    nothing. The workflow described a capability that has never existed.
+
+    The constitution's own line is "never claim a gate result this code did not observe",
+    and a header comment is where a claim hides longest: no test reads it, no reviewer
+    diffs it twice, and the sentence outlives every person who could contradict it. This
+    binds the two together, so the claim can only return with the code."""
+
+    promises = " ".join(
+        (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
+        for name in ("release.yml", "check.yml", "install-matrix.yml")
+    )
+    verbs = " ".join(
+        path.read_text(encoding="utf-8") for path in (ROOT / "src" / "ai_engineering").glob("*.py")
+    )
+    for capability, evidence in (("attestation", "attest"), ("SBOM", "sbom")):
+        claimed = f"doctor` can verify" in promises and evidence in promises.lower()
+        assert not claimed or evidence in verbs.lower(), (
+            f"a workflow says doctor verifies the {capability} and no verb reads one"
+        )
 
 
 def test_the_guards_start_fast_enough_to_be_guards():
