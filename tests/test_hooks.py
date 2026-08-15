@@ -1005,12 +1005,19 @@ def test_only_the_first_two_words_of_a_command_leave():
     assert out["data"]["command"] == "git"
 
 
-def test_turning_redaction_off_is_the_only_way_free_text_leaves():
-    """The escape hatch exists and is configured, so it is pinned here: if `strict` ever
-    started behaving like `none`, this test and the one above would have to disagree."""
+def test_redaction_cannot_be_turned_off_by_configuration():
+    """`redact = "none"` sent every unlisted field verbatim, and it was a supported value in
+    the pin. A configuration that disables a privacy control is a control whoever runs the
+    exporter can switch off, and nothing downstream could tell a machine that had redacted
+    from one that had been told not to.
+
+    This pinned the escape hatch before spec 014 D-014-08 approved deleting it. Rule 4: hard
+    delete, no shim — an unknown value redacts like every other, because the safe reading of
+    a word nobody recognises is the strict one."""
+
     event = {"cls": "blocked", "data": {"reason": "plain"}}
-    assert _otlp.redact(event, "none")["data"]["reason"] == "plain"
-    assert _otlp.redact(event, "strict")["data"]["reason"] != "plain"
+    for mode in ("none", "off", "strict", "", "anything at all"):
+        assert _otlp.redact(event, mode)["data"]["reason"] != "plain", mode
 
 
 def test_an_event_carries_its_severity_and_its_five_attributes(repo):

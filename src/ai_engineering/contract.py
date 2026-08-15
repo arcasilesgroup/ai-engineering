@@ -553,7 +553,14 @@ DESCRIPTION_MAX = 1000
 # the end of a long session would have been the worst of the four, so the binding is
 # Task 16 with its own done-when, and this repository has enough half-designed controls
 # already — the audit found twenty.
-REPO_CEILING = 47_045
+# 47,045 to 47,106 for spec 014 D-014-08, now that it is approved: `redact = "none"` is
+# deleted. It was a supported value in the pin and it sent every field outside the two
+# allow-lists to the collector verbatim. A configuration value that disables a privacy
+# control is a control whoever runs the exporter can switch off, and nothing downstream
+# could tell a machine that had redacted from one that had been told not to. Hard delete,
+# no shim, written in the CHANGELOG — and an unrecognised mode redacts like every other,
+# because the safe reading of a word nobody knows is the strict one.
+REPO_CEILING = 47_106
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

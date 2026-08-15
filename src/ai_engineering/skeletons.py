@@ -201,7 +201,8 @@ signals = []
 encoding = "json"
 auth_header = ""
 auth_env = ""
-redact = "strict"
+# `redact` is gone: the exporter always redacts, and there was never a second thing to
+# choose. It used to accept "none", which sent every unlisted field verbatim.
 """
 
 AI_GITIGNORE = """*

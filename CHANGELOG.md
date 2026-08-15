@@ -8,6 +8,16 @@ search for.
 
 ### Breaking changes
 
+- `redact` is gone from `[observability]` in `.ai/config.toml`, and the exporter always
+  redacts. It accepted `"strict"` and `"none"`, and `"none"` sent every field outside the
+  two allow-lists to the collector verbatim — free text, guard reasons, whatever a payload
+  happened to carry. A configuration value that disables a privacy control is a control
+  whoever runs the exporter can switch off, and nothing downstream could tell a machine
+  that had redacted from one that had been told not to. What changes for you: **if your pin
+  says `redact = "none"`, that line now does nothing and your exports are redacted.** The
+  key is simply ignored rather than rejected, so nothing breaks on upgrade; delete it when
+  convenient. Recorded as D-014-08 in `specs/014-security-baseline-no-false-pass`.
+
 - `policy/surfaces.toml` has no `proven` column. It was a field somebody typed, and
   OpenCode's row said `true` with no denial ever executed there — so `ai-eng doctor`'s
   coverage line printed "a denial has executed here" on the strength of it. The word is now

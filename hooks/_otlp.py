@@ -44,19 +44,19 @@ def redact(event: dict, mode: str) -> dict:
     could not see it. The first token is the program, which is never an argument, and it
     still answers the question the field was added for: what ran.
 
-    `mode` still selects, and `"none"` still sends unlisted fields verbatim. That escape
-    hatch is deliberate, configured by `redact` in the pin, and its removal is a decision
-    recorded in specs/014 — a draft nobody has approved. A defect is repaired here; a
-    decision waits for the person who takes it."""
+    `mode` is read and ignored, and it stays in the signature only so a caller passing the
+    old value still redacts. `"none"` used to send every unlisted field verbatim and it was
+    a supported value in the pin: a configuration that disables a privacy control is a
+    control whoever runs the exporter can switch off, and nothing downstream could tell a
+    machine that had redacted from one that had been told not to. Deleted under spec 014
+    D-014-08, hard, with no shim — rule 4 — and an unrecognised value redacts like every
+    other, because the safe reading of a word nobody knows is the strict one."""
 
     out = {k: event[k] for k in KEEP if k in event}
     data = event.get("data") or {}
     kept = {k: v for k, v in data.items() if k in KEEP_DATA}
-    if mode != "none":
-        kept.update({k: opaque(v) for k, v in data.items() if k not in KEEP_DATA})
-    else:
-        kept.update({k: v for k, v in data.items() if k not in KEEP_DATA})
-    if mode != "none" and isinstance(data.get("command"), str):
+    kept.update({k: opaque(v) for k, v in data.items() if k not in KEEP_DATA})
+    if isinstance(data.get("command"), str):
         kept["command"] = data["command"].split()[:1]
         kept["command"] = kept["command"][0] if kept["command"] else ""
     out["data"] = kept
