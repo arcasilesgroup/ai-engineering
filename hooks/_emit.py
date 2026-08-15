@@ -24,6 +24,7 @@ from pathlib import Path
 
 CLASSES = ("blocked", "allowed", "bypassed", "command", "error", "session")
 EDITED = "this line was edited between the guard that wrote it and the seal"
+FOREIGN = "another machine identity wrote this line into the buffer; it is not sealed as ours"
 LOCK_WAIT_SECONDS = 0.05
 
 
@@ -131,6 +132,16 @@ def chain_path(root: Path | None = None) -> Path:
 
 
 def buffer_path(root: Path | None = None) -> Path | None:
+    """The in-clone buffer. It is repository-local and the key that stamps it is not: a
+    process with its own `AI_ENGINEERING_HOME` writes here with a key the owner of the
+    default home cannot verify.
+
+    Making the buffer follow the home was tried and reverted. `AI_ENGINEERING_HOME` is the
+    only way a test isolates itself, so keying the buffer off it means the buffer is never
+    exercised by anything — four suites went red proving exactly that. A feature nothing
+    can test to protect a record is the wrong trade. The seal classifies such a line as
+    another machine's instead, which is what it is."""
+
     root = root or repo_root()
     if root is None or not (root / ".ai" / "config.toml").exists():
         return None
@@ -310,13 +321,36 @@ def sealable(line: str) -> dict:
     """One buffered line, ready to be linked. A line that does not carry this machine's
     stamp — edited, truncated, or not JSON at all — is sealed as the error that says so,
     with what it claimed kept beside it. Dropping it instead would delete the only
-    evidence that anything touched the record, and that evidence is the whole product."""
+    evidence that anything touched the record, and that evidence is the whole product.
+
+    Except when the line names a different machine. `stamp` keys off `home()/buffer.key`,
+    which `AI_ENGINEERING_HOME` redirects, while the buffer is repository-local and does
+    not — so any process with its own home writes here with a key this machine has never
+    seen. That is not tampering, and calling it tampering made this repository's own test
+    suite put 22 permanently BROKEN links into the operator's chain: `audit verify` failed
+    for good and `audit --anchor` stopped emitting a footer, so no commit on that machine
+    could be anchored again. A chain accusing itself of an edit it never suffered is worse
+    than no chain, because the one command that detects a real edit had been spent.
+
+    A forged `machine` field buys nothing: it changes the body, so the digest changes, and
+    the line still cannot be presented as an authenticated one of ours. It only relabels an
+    unverifiable line as somebody else's, which is what it is."""
     try:
         event = json.loads(line)
         if hmac.compare_digest(event.pop("stamp", ""), stamp(event)):
             return event
     except (AttributeError, TypeError, ValueError):
         event = {"data": {"line": line[:120]}}
+    named = event.get("machine") if isinstance(event, dict) else None
+    if isinstance(named, str) and named and named != machine_id():
+        return {
+            "ts": now(),
+            "name": "buffer",
+            **event,
+            "machine": machine_id(),
+            "cls": "error",
+            "data": {"outcome": "foreign", "error": FOREIGN, "machine": named},
+        }
     event = {"ts": now(), "name": "buffer", **event, "cls": "error"}
     event["data"] = {"outcome": "edited", "error": EDITED, "claimed": event.get("data")}
     return event

@@ -385,6 +385,59 @@ def test_a_failed_flush_keeps_a_partial_chain_and_its_sealed_buffer(repo):
     assert buffer.read_bytes() == buffered_before
 
 
+def test_a_line_from_another_machine_is_sealed_as_foreign_and_never_as_tampering(repo):
+    """The failure this closes was found on the operator's own machine, not imagined.
+
+    `stamp()` keys off `home()/buffer.key`, which `AI_ENGINEERING_HOME` redirects, while
+    `buffer_path()` is repository-local and it does not. So any process with its own home —
+    every test in this suite that isolates one — writes into the operator's real buffer with
+    a key their machine cannot verify, and the next honest flush seals those lines as
+    `outcome: "edited"`, which is the literal tamper marker.
+
+    Measured consequence: 22 permanently BROKEN links, `ai-eng audit verify` failing for
+    good, and `audit --anchor` refusing a footer, so no commit on that machine can ever be
+    anchored again. The chain accused itself of an edit it never suffered.
+
+    A line naming another machine cannot be stamped by this one's key and that is not
+    evidence of tampering — it is evidence that somebody else's record arrived here. It is
+    sealed as exactly that, and the chain still holds."""
+
+    (repo / ".ai").mkdir()
+    (repo / ".ai" / "config.toml").write_text("[pin]\n version='1'\n")
+    _emit.emit("loop_guard", "blocked", reason="ours")
+    buffer = _emit.buffer_path(repo)
+
+    # What a differently-homed process leaves behind: a well-formed event naming its own
+    # machine, stamped with a key this one has never seen.
+    theirs = {
+        "ts": _emit.now(),
+        "cls": "error",
+        "name": "uninstall",
+        "session": "ffffffffffff",
+        "repo": _emit.repo_id(repo),
+        "machine": "8b19b2341ada",
+        "operation_id": "x",
+        "trace_id": "y",
+        "data": {"verb": "uninstall", "exit": 2},
+        "stamp": "00" * 32,
+    }
+    with buffer.open("a", encoding="utf-8") as fh:
+        fh.write(_emit.stable_json(theirs) + "\n")
+
+    _emit.flush(repo)
+    sealed = [json.loads(line) for line in _emit.chain_path(repo).read_text().splitlines()]
+    assert len(sealed) == 2, sealed
+    assert sealed[0]["data"]["reason"] == "ours"
+    outcome = sealed[1]["data"]["outcome"]
+    assert outcome == "foreign", f"a line from another machine was sealed as {outcome!r}"
+    assert sealed[1]["data"]["machine"] == "8b19b2341ada"
+
+    # And the chain still verifies: nothing here is an edit, so nothing may report one.
+    from ai_engineering import audit
+
+    assert not [why for kind, why in audit._chain_findings(sealed) if kind == "BROKEN"]
+
+
 def test_the_digest_covers_the_body_and_only_the_body():
     """The hash has to change when anything in the event changes, and must not depend on
     the hash field itself or on key order — otherwise an edit is either undetectable or
