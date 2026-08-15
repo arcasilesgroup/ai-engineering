@@ -399,7 +399,23 @@ DESCRIPTION_MAX = 1000
 # reason and no cure. Measured on the operator's machine minutes after a successful
 # install, on the exact command that had worked. 39 lines of test, 6 of fix and reasoning,
 # 5 for this paragraph.
-REPO_CEILING = 45_871
+# 45,871 to 45,959 for two observability defects the P4 and P5 drafts found while measuring
+# the tree, both of them a control that reads as stronger than it is.
+#
+# `_otlp.redact` kept the first two whitespace-separated tokens of `command`, written after
+# the hashing pass so the prefix survived strict mode. The second token is the argument on
+# any command that takes one: `curl https://host/?token=…` is two tokens. The one test
+# guarding it used `git push <canary>`, where the canary is the third token and falls
+# outside the cut — the sixth time this session a suite agreed with a defect by choosing
+# the input that could not see it. The first token is the program, never an argument.
+#
+# And the latency check said p95 in its name and its docstring and took the median of five
+# samples. Twenty samples and a real p95; the max was tried first and rejected because this
+# suite runs under `-n auto` and one scheduling spike tripped it, and a bound the machine's
+# load can trip is a test people learn to rerun. Measured alone: 37-45 ms.
+#
+# 66 lines of test and docstring, 5 of fix, 6 for this paragraph.
+REPO_CEILING = 45_959
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
