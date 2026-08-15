@@ -560,7 +560,15 @@ DESCRIPTION_MAX = 1000
 # could tell a machine that had redacted from one that had been told not to. Hard delete,
 # no shim, written in the CHANGELOG — and an unrecognised mode redacts like every other,
 # because the safe reading of a word nobody knows is the strict one.
-REPO_CEILING = 47_106
+# 47,106 to 47,114 for what the first P4 sitting learned, recorded in specs/014 rather
+# than attempted. D-014-05 is blocked on two numbers that are not in this repository — the
+# official SHA-256 of the gitleaks and Trivy releases — and learning them is a network call
+# with its own consent; the mechanism is one line per download. D-014-07 is blocked on a
+# caller, not an executor: `grep -rn "preflight(" src/ hooks/` finds two hits and both are a
+# different function with the same name, so teaching the capability one to return PASS would
+# produce a permission that stops nothing — a green nobody earned, inside the function
+# written to prevent them.
+REPO_CEILING = 47_114
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
