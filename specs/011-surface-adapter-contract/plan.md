@@ -89,13 +89,28 @@ without saying so is a plan nobody can review against what happened.
    invocation and enforcement separately; no row can print a word for a state without a
    receipt; the legend defines each state in the vocabulary already used.
 
-5. **The `surface proof` verb** — **file** `src/ai_engineering/cli.py`.
-   **check**: `pytest -q tests/test_surface_adapter.py::test_surface_proof_reports_three_states_and_invents_none`.
-   **rollback**: `git revert <commit>`. **done when**: the exit criteria's own command
-   exists, reports the three states per surface with the age of each proof, and returns
-   `INCOMPLETE` rather than a state for anything unreceipted. Adding an eleventh verb reds
-   the two exact-ten assertions, so this task also amends both, deliberately and in the same
-   commit.
+### Amendment, made while executing Task 5
+
+Task 5 said `surface proof` and named `cli.py`, which means an eleventh verb. Counted
+before writing it: AGENTS.md states a ten-verb CLI, two assertions pin exactly ten, and the
+installed-wheel matrix counts them from the artifact. So a new verb is a doctrine change
+plus four files, to deliver a report a verb that already exists is for.
+
+`report` is that verb — "produce the local governed report" — it already has subcommands,
+and its declared scope already covers reading this repository's records and writing nothing
+more than a local receipt. `report surfaces` needs no new verb, no doctrine amendment and
+no change to the counts. Rule 5 says delete before you abstract; this is the same instinct
+one step earlier, which is not adding the thing in the first place.
+
+The exit criterion the proposal names is a command that answers per surface. It does not
+say the command must be a verb, and a subcommand answers it exactly.
+
+5. **The `surface proof` report** — **file** `src/ai_engineering/report.py`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_surface_proof_reports_three_states_and_invents_none`.
+   **rollback**: `git revert <commit>`. **done when**: `ai-eng report surfaces` reports the
+   three states per surface with the age of each proof, returns `INCOMPLETE` rather than a
+   state for anything unreceipted, and adds no verb — the two exact-ten assertions and the
+   installed-wheel count stay untouched, which is the evidence that it added none.
 
 6. **`proven` stops being writable** — **file** `policy/surfaces.toml`.
    **check**: `pytest -q tests/test_surface_adapter.py::test_no_surface_flag_can_assert_a_state_a_receipt_has_not_earned`.

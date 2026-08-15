@@ -341,3 +341,43 @@ def test_coverage_prints_three_states_and_never_one_word_for_three_questions(tmp
         doctor.coverage = coverage
     assert "surface-claude-code-enforcement" in published
     assert "surface-zed-enforcement" in published
+
+
+def test_surface_proof_reports_three_states_and_invents_none(tmp_path, monkeypatch, capsys):
+    """The command the proposal's exit criteria name, and the count it must not change.
+
+    It answers per surface, prints the age of each proof beside it, and says INCOMPLETE for
+    anything unreceipted rather than inventing a state. And it is a subcommand, not an
+    eleventh verb: the two exact-ten assertions and the installed-wheel count are the
+    evidence that nothing was added to the surface a person types."""
+
+    from datetime import UTC, datetime, timedelta
+
+    from ai_engineering import paths, report, surface
+
+    now = datetime.now(UTC)
+    fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    root = tmp_path / "repository"
+    (root / surface.RECEIPTS).mkdir(parents=True)
+    (root / surface.RECEIPTS / "claude-code.discovery.json").write_text(
+        json.dumps(_receipt("claude-code", "discovery", finished=fresh)), encoding="utf-8"
+    )
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+
+    result = report.main(["surfaces"])
+    printed = capsys.readouterr().out
+
+    # Unproven anywhere means unproven overall. One receipt does not make a surface proved.
+    assert result.outcome == "INCOMPLETE"
+    assert "claude-code" in printed and "discovery" in printed
+    assert "7200s" in printed, "the age of the proof is printed beside it"
+    for state in surface.STATES:
+        assert state in printed, state
+    assert printed.count("INCOMPLETE") >= 2
+
+    # No eleventh verb: the two counts this repository states about itself are untouched.
+    verbs = (ROOT / "src" / "ai_engineering" / "cli.py").read_text(encoding="utf-8")
+    assert verbs.count('": (\n        "') == 10
+    matrix = (ROOT / ".github" / "workflows" / "install-matrix.yml").read_text(encoding="utf-8")
+    assert 'test "$listed" = "10"' in matrix
+    assert "surface" not in matrix.split("for verb in ")[1].split("; do")[0]

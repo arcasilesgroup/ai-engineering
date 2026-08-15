@@ -12,9 +12,10 @@ import json
 import sys
 import time
 from collections import Counter
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 
-from ai_engineering import doctor, outcome, paths
+from ai_engineering import doctor, outcome, paths, surface
 
 
 def within(events: list[dict], days: int) -> list[dict]:
@@ -46,14 +47,41 @@ def repeats(events: list[dict]) -> list[str]:
     ]
 
 
+def surfaces(root: Path | None) -> outcome.Result:
+    """The three states of every surface, with the age of each proof beside it.
+
+    A subcommand and not an eleventh verb. `report` already exists to produce the local
+    governed report, already carries subcommands, and its declared scope already covers
+    reading this repository's records — so the exit criterion is answered without a
+    doctrine change, without touching the two assertions that pin exactly ten verbs, and
+    without changing what the installed wheel counts.
+
+    Nothing here is invented. A state with no receipt prints as unproven, and one unproven
+    state anywhere makes the whole answer INCOMPLETE: a surface is not proved by the one
+    question somebody got round to answering."""
+
+    if root is None:
+        print("  INCOMPLETE: not inside a repository, so there are no receipts to read")
+        return outcome.result("INCOMPLETE")
+
+    report = surface.read(root, now=datetime.now(UTC))
+    for row in report.rows:
+        aged = "" if row.age_seconds is None else f"  {row.age_seconds}s"
+        print(f"  {row.outcome:<11} {row.surface:<16} {row.state:<12} {row.code}{aged}")
+    return report.result
+
+
 def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     parser = argparse.ArgumentParser(prog="ai-eng report")
     commands = parser.add_subparsers(dest="command")
     digest = commands.add_parser("digest")
     digest.add_argument("--weeks", type=int, default=1)
     commands.add_parser("issue")
+    commands.add_parser("surfaces")
     args = parser.parse_args(argv)
 
+    if args.command == "surfaces":
+        return surfaces(paths.repo_root())
     if args.command is None:
         print(
             "INCOMPLETE: bare report is planned for P2 and is not implemented; "
