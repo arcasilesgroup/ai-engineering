@@ -656,7 +656,14 @@ DESCRIPTION_MAX = 1000
 # command with and without it and got identical bytes. The test had been failing because
 # the suite exports `NO_COLOR` for every test and the child inherited it. A no-op with a
 # confident comment is the defect this repository keeps finding, so it is not in the diff.
-REPO_CEILING = 48_336
+# 48,336 to 48,452 for `ai-build`, the tenth skill, and for the check that makes its two
+# hard refusals worth writing. It says it does not widen scope and does not bypass the
+# gate, and it names `change_scope_guard.py` and `no_verify_guard.py` rather than promising
+# to behave — so a test reads every skill file for a `hooks/<name>.py` citation, requires it
+# to be in the dispatcher table, and requires anything cited in a refusal list to be a guard
+# on a blocking event. Proved red by pointing one citation at a telemetry hook. Delete
+# either guard and the sentence that leans on it goes red with the file's name on it.
+REPO_CEILING = 48_452
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

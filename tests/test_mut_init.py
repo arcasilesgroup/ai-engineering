@@ -432,7 +432,10 @@ def test_the_machine_setup_reports_the_skills_every_link_and_each_guard_entry(
     init.global_step(init.parse(["--global", "-y"]))
     text = capsys.readouterr().err
     installed = len(list((paths.home() / "skills").glob("ai-*")))
-    assert f"   ✓ {installed} skills   → {paths.home() / 'skills'}/ai-*/\n" in text
+    # Whitespace-normalised: the label is padded to a column, so a two-digit count moves the
+    # arrow one place left. What this row is about is the number and the destination.
+    squeezed = re.sub(r"[ ]+", " ", text)
+    assert f"✓ {installed} skills → {paths.home() / 'skills'}/ai-*/\n" in squeezed
     found = {s["skills"] for s in wiring.detect() if s.get("skills")}
     assert found == {"~/.claude/skills", "~/.agents/skills"}
     for root in sorted(found):

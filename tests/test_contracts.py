@@ -146,6 +146,42 @@ def test_no_surface_is_detected_by_a_path_another_surface_makes_us_write():
     )
 
 
+def test_a_skill_that_names_a_guard_names_one_that_can_deny():
+    """D-012-01's other half: a refusal a skill states has to be enforced by something.
+
+    `ai-build` says it does not widen scope and does not bypass the gate, and it names the
+    two guards that stop it rather than promising to behave. That is only worth writing if
+    the names are real, so this reads every skill file for a `hooks/<name>.py` citation and
+    requires it to be in the dispatcher table — and, where the citation sits in the corpus's
+    refusal list, to be a guard on a blocking event rather than a telemetry hook that never
+    stopped anything. Delete `change_scope_guard.py` and the sentence in `ai-build` that
+    relies on it turns red here."""
+    import re
+
+    import chain
+
+    blocking = {
+        name for event in ("PreToolUse", "PostToolUse") for name, _ in chain.TABLE[event]
+    } - chain.TELEMETRY
+    registered = {name for rows in chain.TABLE.values() for name, _ in rows}
+    cited = False
+    for skill in sorted((ROOT / ".agents" / "skills").glob("ai-*")):
+        for path in (skill / "SKILL.md", skill / "corpus.md"):
+            if not path.is_file():
+                continue
+            body = path.read_text(encoding="utf-8")
+            named = set(re.findall(r"hooks/([a-z_]+)\.py", body))
+            assert not named - registered, f"{path}: no such hook {sorted(named - registered)}"
+            refusals = body.split("## Refuses", 1)[1] if "## Refuses" in body else ""
+            enforcing = set(re.findall(r"hooks/([a-z_]+)\.py", refusals))
+            assert not enforcing - blocking, (
+                f"{path}: {sorted(enforcing - blocking)} is cited as refusing something and "
+                f"is not a guard on a blocking event"
+            )
+            cited = cited or bool(named)
+    assert cited, "no skill cites a guard, so this test proves nothing about any of them"
+
+
 def test_every_skill_meets_the_contract():
     block = 'name: a\ndescription: >-\n  one\n  two\nlicense: "MIT"\n'
     assert text.flat_yaml(block) == {"name": "a", "description": "one two", "license": "MIT"}
@@ -744,7 +780,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 48_336
+    assert contract.REPO_CEILING == 48_452
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
