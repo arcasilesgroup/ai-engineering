@@ -42,7 +42,7 @@ RECEIPT_UNREADABLE = "READINESS_RECEIPT_UNREADABLE"
 FRESHNESS_TOO_LOOSE = "READINESS_FRESHNESS_TOO_LOOSE"
 TIME_INVALID = "READINESS_TIME_INVALID"
 
-_MAX_BYTES = 100_000
+MAX_BYTES = 100_000
 # The longest a proof may be allowed to stand. The receipt schema bounds `max_age_seconds`
 # below and not above, so a repository could declare a year of slack — measured, a receipt
 # from the year 2000 read PASS with its age printed beside it — and freshness stops meaning
@@ -164,7 +164,7 @@ def _read(path: Path) -> bytes | None:
         return None
     except OSError as error:
         raise _Unreadable from error
-    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or info.st_size > _MAX_BYTES:
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or info.st_size > MAX_BYTES:
         raise _Unreadable
     try:
         return path.read_bytes()

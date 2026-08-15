@@ -124,6 +124,15 @@ mutate *paths:
         uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut run $globs
         set +f
         uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut export-cicd-stats
+        # Out of the sandbox before the trap deletes it. Without this the run reports a
+        # score and destroys the only record of which mutants lived, so "which ones
+        # survived" costs another full run to ask — measured, it cost several.
+        cp mutants/mutmut-cicd-stats.json "$here/mutants-stats.json" 2>/dev/null || true
+        # The score says how much is unproven; only the names say what. The stats file
+        # carries counts alone, so the list comes out beside it or the next person pays
+        # another full run to learn which defects nobody would notice.
+        uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut results \
+            > "$here/mutants-survivors.txt" 2>/dev/null || true
         # Before the score, never after it: an escape has to be reported even on the
         # run that was going to fail for its own reasons.
         if [ "$before" != "$(cksum $watched 2>/dev/null || true)" ]; then

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -562,3 +562,104 @@ def test_spec_010_004_intent_and_ceiling_transition_atomically():
         # the suite in a copied tree with no history. The record above is readable anywhere;
         # only the count needs a repository, so only the count waits for one.
         assert contract.repo_lines(ROOT) <= contract.REPO_CEILING
+
+
+def test_every_shape_a_declaration_can_be_wrong_in_is_refused(tmp_path):
+    """The mutation gate measured this module at 76% and named where: the box reader and
+    the two bounded reads it depends on. These are the inputs those branches exist for, and
+    each is a shape a hand-edited file really takes."""
+
+    import os
+    import stat as stat_module
+
+    box = next(entry for entry in readiness.BOXES if entry.id == "ci_cd")
+
+    def declaring(where: str, shape: Any) -> Path:
+        """A repository whose ci_cd box is declared as that exact shape, written after the
+        receipts so a shape the receipt builder cannot read still reaches the reader."""
+
+        root = _repository(tmp_path / where)
+        body = json.loads((root / readiness.DECLARATION).read_text(encoding="utf-8"))
+        body["boxes"]["ci_cd"] = shape
+        (root / readiness.DECLARATION).write_text(json.dumps(body), encoding="utf-8")
+        return root
+
+    # A box whose declaration is not an object at all.
+    for index, wrong in enumerate(("applicable", ["applicable"], 7, None)):
+        answered = readiness.read(declaring(f"shaped-{index}", wrong), now=NOW)
+        assert answered.result.outcome == "INCOMPLETE", wrong
+        assert _codes(answered)["ci_cd"] == readiness.DECLARATION_INVALID, wrong
+
+    # A box declaring a field the requirement has no room for. Kind and identity are this
+    # module's to state, so a declaration that tries to set either collides and is refused.
+    for extra in ({"kind": "human"}, {"id": "logs"}, {"invented": "yes"}):
+        root = declaring(f"extra-{next(iter(extra))}", _declared(box) | extra)
+        assert _codes(readiness.read(root, now=NOW))["ci_cd"] == readiness.DECLARATION_INVALID, (
+            extra
+        )
+
+    # A declaration that is valid JSON and not an object.
+    for index, body in enumerate(("[]", '"active"', "12")):
+        root = _repository(tmp_path / f"json-{index}")
+        (root / readiness.DECLARATION).write_text(body, encoding="utf-8")
+        assert readiness.read(root, now=NOW).code == readiness.DECLARATION_MALFORMED, body
+
+    # A receipt too big to be a receipt, and one that is a directory rather than a file.
+    oversized = _repository(tmp_path / "oversized")
+    (oversized / readiness.RECEIPTS / "logs.json").write_text(
+        " " * (readiness.MAX_BYTES + 1), encoding="utf-8"
+    )
+    assert _codes(readiness.read(oversized, now=NOW))["logs"] == readiness.RECEIPT_UNREADABLE
+
+    shaped = _repository(tmp_path / "not-a-file")
+    (shaped / readiness.RECEIPTS / "logs.json").unlink()
+    (shaped / readiness.RECEIPTS / "logs.json").mkdir()
+    assert _codes(readiness.read(shaped, now=NOW))["logs"] == readiness.RECEIPT_UNREADABLE
+
+    # And a receipt this process is not allowed to read is unreadable, not absent.
+    if os.getuid() != 0:  # pragma: no branch - the suite does not run as root
+        closed = _repository(tmp_path / "closed")
+        receipt = closed / readiness.RECEIPTS / "logs.json"
+        receipt.chmod(0)
+        try:
+            assert _codes(readiness.read(closed, now=NOW))["logs"] == readiness.RECEIPT_UNREADABLE
+        finally:
+            receipt.chmod(stat_module.S_IRUSR | stat_module.S_IWUSR)
+
+
+def test_the_reader_refuses_a_clock_it_cannot_use_and_reports_the_worst_box(tmp_path):
+    """Two things the survivors named: the guard on the clock, and which box the aggregate
+    speaks for. A reader handed a naive datetime cannot say how old anything is, and a
+    repository with one failing box and one unproven one is failing, not unproven."""
+
+    box = next(entry for entry in readiness.BOXES if entry.id == "ci_cd")
+    root = _repository(tmp_path / "clock")
+
+    for unusable in (
+        datetime(2026, 3, 4, 12, 0, 0),  # no timezone at all
+        datetime(2026, 3, 4, 12, 0, 0, tzinfo=timezone(timedelta(hours=2))),
+        "2026-03-04T12:00:00Z",
+        None,
+    ):
+        refused = readiness.read(root, now=unusable)
+        assert refused.result.outcome == "INCOMPLETE", unusable
+        assert refused.code == readiness.TIME_INVALID, unusable
+        assert refused.boxes == ()
+
+    # A decided failure and an unproven box together: the aggregate speaks for the worse of
+    # the two, and INCOMPLETE is not the worse one.
+    failing = _receipt(box, _declared(box), finished=NOW - timedelta(hours=1)) | {"outcome": "FAIL"}
+    mixed = _repository(tmp_path / "mixed", written={"ci_cd": failing, "security": None})
+    report = readiness.read(mixed, now=NOW)
+    assert report.result.outcome == "FAIL"
+    assert report.code == evidence.EXECUTED_FAIL
+    assert _codes(report)["security"] == evidence.MISSING
+
+    # A warning is worse than a pass and better than either of those.
+    warned = _receipt(box, _declared(box), finished=NOW - timedelta(hours=1)) | {"outcome": "WARN"}
+    warning = readiness.read(_repository(tmp_path / "warned", written={"ci_cd": warned}), now=NOW)
+    assert warning.result.outcome == "WARN"
+    assert warning.code == evidence.VERIFIED_WITH_WARNING
+
+    # And a box nobody asked about has no age rather than somebody else's.
+    assert readiness.read(root, now=NOW).age_of("not-a-box") is None
