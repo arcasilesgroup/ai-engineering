@@ -30,13 +30,19 @@ def _git(root: Path, *args: str) -> str:
     return done.stdout
 
 
-def staged(root: Path) -> list[str]:
-    """The paths this checkpoint would publish, in git's own words."""
+def staged(root: Path, base: str = "") -> list[str]:
+    """The paths this checkpoint would publish, in git's own words.
 
-    return [name for name in _git(root, "diff", "--cached", "--name-only").splitlines() if name]
+    Staged, or — at the merge gate, where nothing is staged and the commits already exist —
+    everything this branch changed since it left `base`."""
+
+    args = ["diff", "--cached", "--name-only"]
+    if base:
+        args = ["diff", "--name-only", f"{base}...HEAD"]
+    return [name for name in _git(root, *args).splitlines() if name]
 
 
-def _privacy(root: Path) -> outcome.Fact:
+def _privacy(root: Path, base: str = "") -> outcome.Fact:
     """The staged content, not the working directory. A file that is lying around and was
     never added is not what a checkpoint publishes, and reading it instead is how a scan
     reports on something nobody was about to send."""
@@ -48,7 +54,7 @@ def _privacy(root: Path) -> outcome.Fact:
     # deleted was already in history, and this receipt is about what is being published.
     added = [
         line[1:]
-        for line in _git(root, "diff", "--cached", "--unified=0").splitlines()
+        for line in _git(root, *_diff_args(base)).splitlines()
         if line.startswith("+") and not line.startswith("+++")
     ]
     body = "\n".join(added)[:MAX_STAGED_BYTES]
@@ -76,9 +82,18 @@ def _privacy(root: Path) -> outcome.Fact:
     )
 
 
-def _inside(root: Path) -> outcome.Fact:
+def _diff_args(base: str) -> list[str]:
+    if base:
+        return ["diff", "--unified=0", f"{base}...HEAD"]
+    return ["diff", "--cached", "--unified=0"]
+
+
+def _inside(root: Path, base: str = "", claimed: list[str] | None = None) -> outcome.Fact:
     """The same rule the guard enforces on the write, enforced again on the diff — because
     a write that never went through the guard is exactly what this catches."""
+
+    if claimed is not None:
+        return _compare(root, base, claimed, "the claim held on the remote")
 
     where = root / claim.IN_FORCE
     if not where.is_file():
@@ -90,7 +105,7 @@ def _inside(root: Path) -> outcome.Fact:
         )
     try:
         held = json.loads(where.read_text(encoding="utf-8"))
-        claimed = [str(one).rstrip("/") for one in held["paths"]]
+        claimed = [str(one) for one in held["paths"]]
     except (OSError, ValueError, KeyError, TypeError):
         return outcome.fact(
             "claimed-paths",
@@ -100,9 +115,18 @@ def _inside(root: Path) -> outcome.Fact:
             cure="fix or remove the claim file, then check again",
         )
 
+    return _compare(root, base, claimed, str(held.get("item", "this claim")))
+
+
+def _compare(root: Path, base: str, claimed: list[str], named: str) -> outcome.Fact:
+    # Normalised here and not at each caller. The local claim file was stripped of its
+    # trailing slash and the one read from the remote was not, so `alpha/` became `alpha//`
+    # and every path inside the claim read as outside it — a gate that failed the writer who
+    # had done exactly what they claimed.
+    claimed = [str(one).rstrip("/") for one in claimed]
     outside = [
         name
-        for name in staged(root)
+        for name in staged(root, base)
         if not any(name == one or name.startswith(f"{one}/") for one in claimed)
     ]
     if outside:
@@ -110,11 +134,11 @@ def _inside(root: Path) -> outcome.Fact:
             "claimed-paths",
             "FAIL",
             "The claim in force",
-            f"{held.get('item', 'this claim')} does not cover: {', '.join(sorted(outside))}",
+            f"{named} does not cover: {', '.join(sorted(outside))}",
             cure="unstage them, or widen the claim and take it again",
         )
     return outcome.fact(
-        "claimed-paths", "PASS", "The claim in force", f"every staged path is inside {claimed}"
+        "claimed-paths", "PASS", "The claim in force", f"every changed path is inside {claimed}"
     )
 
 
@@ -158,14 +182,38 @@ def _executed(root: Path, now: datetime | None = None) -> outcome.Fact:
     )
 
 
-def verify(root: Path, now: datetime | None = None) -> outcome.Execution:
+def verify(
+    root: Path,
+    now: datetime | None = None,
+    base: str = "",
+    item: str = "",
+    remote: str = "origin",
+) -> outcome.Execution:
     """The three receipts, and the worst of them as the answer.
 
     FAIL outranks INCOMPLETE, and both outrank a pass: a checkpoint is published or it is
     not, and "two of three" is not a state anything downstream can act on.
     """
 
-    facts = [_privacy(root), _inside(root), _executed(root, now)]
+    # At the merge gate the claim cannot come from the machine being judged: the writer
+    # holds that file and could have written anything in it. `item` says to read the claim
+    # from the remote instead, which is the one copy both sides can see.
+    claimed = claim.held(root, item, remote) if item else None
+    if item and claimed is None:
+        return outcome.execution(
+            outcome.result("INCOMPLETE"),
+            summary=f"no claim for {item} is held on {remote}; there is nothing to check against",
+            checks=[
+                outcome.fact(
+                    "claimed-paths",
+                    "INCOMPLETE",
+                    "The claim on the remote",
+                    f"{item} is not claimed on {remote}",
+                    cure="claim it before pushing, or check without --item",
+                )
+            ],
+        )
+    facts = [_privacy(root, base), _inside(root, base, claimed), _executed(root, now)]
     said = {fact.status for fact in facts}
     word = "FAIL" if "FAIL" in said else "INCOMPLETE" if "INCOMPLETE" in said else "PASS"
     return outcome.execution(

@@ -769,7 +769,23 @@ DESCRIPTION_MAX = 1000
 # "settle", because bare `ttl` is inside it, and it flagged `checkpoint`'s prose about an
 # expired receipt — which is a required control two files over, so `expire` is deliberately
 # not in the list and the comment says why.
-REPO_CEILING = 50_358
+# 50,358 to 50,583 for the merge gate, and for a defect the fixture found by being real.
+#
+# The gate cannot take the writer's word for what was claimed: that file lives on the
+# machine being judged, and rewriting it to cover everything is one command. `--item` reads
+# the claim from the remote instead, which is the one copy both sides can see, and a test
+# widens the local file to `["."]` and asserts nothing changes.
+#
+# The defect: the local claim file was stripped of its trailing slash and the list read from
+# the remote was not, so `alpha/` became `alpha//` and every path inside the claim read as
+# outside it. That gate would have failed the writer who had done exactly what they claimed
+# — the most expensive kind of false positive, because the cure it suggests is to stop
+# claiming. Normalised in one place now, and the fixture that caught it is two disjoint
+# claims that both have to pass.
+#
+# A work item nobody claimed is INCOMPLETE and not a pass: reading it as "no violation
+# found" would let an unclaimed branch through the one gate that exists to notice it.
+REPO_CEILING = 50_583
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -551,7 +551,10 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     taken.add_argument("--path", action="append", default=[], required=True)
     taken.add_argument("--role", required=True)
     taken.add_argument("--remote", default="origin")
-    sub.add_parser("checkpoint")
+    checked = sub.add_parser("checkpoint")
+    checked.add_argument("--base", default="", help="verify this branch against that SHA or ref")
+    checked.add_argument("--item", default="", help="read the claim from the remote, not here")
+    checked.add_argument("--remote", default="origin")
     args = parser.parse_args(argv)
 
     root = paths.repo_root()
@@ -561,7 +564,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     if args.action == "checkpoint":
         from ai_engineering import checkpoint
 
-        return checkpoint.verify(root)
+        return checkpoint.verify(root, base=args.base, item=args.item, remote=args.remote)
     if args.action == "claim":
         from ai_engineering import claim
 

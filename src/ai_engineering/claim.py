@@ -79,6 +79,25 @@ def record(item: str, base_sha: str, paths: list[str], role: str, claimant: str)
     return "\n".join(lines) + "\n"
 
 
+def held(root: Path, item: str, remote: str = "origin") -> list[str] | None:
+    """The paths a claim holds, read from the remote rather than from this machine.
+
+    The merge gate is the one reader that cannot be told what was claimed by the writer it
+    is judging. `ls-remote` for the ref, `fetch` for the object, and the message is the
+    record — which is why the record is the message and not a file in the branch.
+    """
+
+    reference = REF.format(item=item)
+    listed = _git(root, "ls-remote", remote, reference).stdout.split()
+    if not listed:
+        return None
+    _git(root, "fetch", remote, f"{reference}:{reference}")
+    body = _git(root, "show", "-s", "--format=%B", listed[0]).stdout
+    if not body.strip():
+        return None
+    return [line[len("path ") :] for line in body.splitlines() if line.startswith("path ")]
+
+
 def _refused(code: str, message: str, cure: str) -> outcome.Execution:
     return outcome.execution(
         outcome.result("INCOMPLETE"),
