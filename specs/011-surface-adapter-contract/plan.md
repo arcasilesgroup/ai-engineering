@@ -195,7 +195,34 @@ present", which `policy/check-evidence-v1.schema.json` names as not-proof in as 
    fails the run. Receipting either of them from anything weaker than the surface itself is
    refused, and the refusal is what this task delivers.
 
-### Blocks C onward — one surface per block, in provability order
+### Block C — opencode, and the fail-open spec 010 wrote down and left open
+
+Spec 010's own deferred notes name it twice: "OpenCode currently checks only `status===2`;
+`null` from spawn failure/timeout can pass" and "The OpenCode `status===2`/`null` risk
+remains explicitly open until P1." This is P1. A guard that allows the call when its own
+dispatcher fails to spawn is the root pattern this product exists to cure, sitting in the
+one surface file no Python test can reach.
+
+It is also the surface with the strongest available proof: the plugin is our code, it runs
+under node, and its deny path can be executed directly — which is more than claude-code
+has, where the job exercises the dispatcher and not the adapter.
+
+10. **The plugin fails closed** — **file** `surfaces/opencode.ts`.
+    **check**: `npm exec -- tsc --noEmit` plus the node case in Task 11's step.
+    **rollback**: `git revert <commit>`. **done when**: anything that is not an observed
+    clean allow denies — a non-zero status, a null status from spawn failure or timeout, a
+    signal, or an error — and the thrown message says which, so a denial caused by a broken
+    install is not reported as a policy denial.
+
+11. **The plugin's denial executes and is receipted** — **file** `.github/workflows/install-matrix.yml`.
+    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_the_matrix_executes_the_opencode_plugin_and_receipts_it`.
+    **rollback**: `git revert <commit>`. **done when**: the job imports the compiled plugin,
+    calls its `tool.execute.before` with a `--no-verify` payload, and requires it to throw;
+    calls it again with a dispatcher that cannot spawn and requires it to throw as well;
+    writes `opencode.enforcement` only after both, and reads it back through the product.
+    Discovery and invocation stay unreceipted for the same reason they do on claude-code.
+
+### Blocks D onward — one surface per block, in provability order
 
 `opencode` (routers exist to be built and a denial is plausible), then `codex-cli` (links
 and `agents/openai.yaml`, with the trust ceremony), then `cursor`, `copilot-cli` and

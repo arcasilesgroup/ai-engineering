@@ -64,6 +64,30 @@ export const AiEngineering = async () => {
         input: payload,
         timeout: 5000,
       });
+      // Anything that is not an observed clean allow denies. `status === 2` alone let the
+      // call through whenever the dispatcher could not be spawned at all: a missing
+      // interpreter, a deleted worktree, a five-second timeout all give `status === null`,
+      // and this returned as if the guard had considered the call and approved it. Spec 010
+      // wrote that risk down twice and left it open for this wave. A guard that allows
+      // because it could not run is the root pattern this product exists to cure.
+      //
+      // The two are told apart in the message, because they need different repairs: a
+      // policy denial is the guard working, and a broken install is not.
+      if (result.error || result.signal || result.status === null) {
+        const why = result.error?.message ?? result.signal ?? "no exit status";
+        throw new Error(
+          `[ai-engineering] BLOCKED: the guard could not run (${why}), so this call is ` +
+            `refused rather than allowed. Fix the install: run \`ai-eng doctor\`.`,
+        );
+      }
+      // Exit 2 and nothing else, because that is the deny protocol. The first attempt at
+      // this fix denied on any non-zero status, which reads as strictly safer and is not:
+      // the dispatcher exits 1 on a non-blocking error by its own documented contract —
+      // "every surface treats it as a non-blocking error, the call went through" — and on
+      // this very machine an ordinary `echo` call exits 1 today. That version refused
+      // every tool call on any machine with a telemetry hiccup, which is not a guard, it
+      // is an outage. Failing closed means refusing when we cannot decide, not refusing
+      // when the answer was no objection.
       if (result.status === 2) {
         throw new Error(
           result.stderr.toString().trim() || "denied by ai-engineering",
