@@ -41,7 +41,6 @@ from ai_engineering import (
 
 TODAY = date.today().isoformat()
 # The record stores a UTC date; local midnight is not the same instant.
-UTC_TODAY = datetime.now(UTC).date().isoformat()
 YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
 TOMORROW = (date.today() + timedelta(days=1)).isoformat()
 SIGNED = [
@@ -53,6 +52,17 @@ SIGNED = [
     "proof.txt",
 ]
 A_WEEK_AGO = (date.today() - timedelta(days=7)).isoformat()
+
+
+def utc_today() -> str:
+    """Read at the moment of the assertion, never at import.
+
+    A module-level constant is the date the suite started, and a run that straddles UTC
+    midnight then compares two different days and fails for no reason anybody can act on.
+    This suite hit exactly that twice.
+    """
+
+    return datetime.now(UTC).date().isoformat()
 
 
 def _fixture_spec(root: Path, slug: str, ref: str = "") -> Path:
@@ -390,10 +400,12 @@ def test_publishing_an_acceptance_never_opens_the_spec_for_write(repo, monkeypat
     )
     (folder / "spec.md").write_text(body, encoding="utf-8")
     before = (folder / "spec.md").read_bytes()
+    stamped = utc_today()
     completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     assert (folder / "spec.md").read_bytes() == before
     record = _records(repo, "001-a")[0]
-    assert record["authority_role"] == "Ada" and record["accepted"] == UTC_TODAY
+    assert record["authority_role"] == "Ada"
+    assert record["accepted"] in {stamped, utc_today()}
     assert record["justification"] == "it is fenced off"
     # And the record is bound to the exact bytes that were displayed, not to a re-reading.
     assert record["spec_digest"] == "sha256:" + hashlib.sha256(before).hexdigest()

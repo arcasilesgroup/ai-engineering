@@ -28,10 +28,20 @@ from ai_engineering import (
 )
 
 TODAY = date.today().isoformat()
-# The record stores a UTC date; local midnight is not the same instant.
-UTC_TODAY = datetime.now(UTC).date().isoformat()
 YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
 TOMORROW = (date.today() + timedelta(days=1)).isoformat()
+
+
+def utc_today() -> str:
+    """Read at the moment of the assertion, never at import.
+
+    A module-level constant is the date the suite started, and a run that straddles UTC
+    midnight then compares two different days and fails for no reason anybody can act on.
+    This suite hit exactly that twice.
+    """
+
+    return datetime.now(UTC).date().isoformat()
+
 
 MACHINE = "machine01"
 REPO_ID = "therepo"
@@ -276,6 +286,7 @@ def test_an_acceptance_carries_every_field_it_owes_and_invents_none(repo, capsys
     read as filled in and say nothing true."""
     _confirmed(monkeypatch)
     spec_md = _spec(repo, "001-a", "# a\n")
+    stamped = utc_today()
     completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
     assert capsys.readouterr().out.splitlines()[-2:] == [
         f"  ✓ published specs/001-a/acceptance-r-001-01/record.json — it expires {TOMORROW}, "
@@ -283,6 +294,9 @@ def test_an_acceptance_carries_every_field_it_owes_and_invents_none(repo, capsys
         "  This records the bytes you confirmed. It does not claim who confirmed them.",
     ]
     record = _published(repo, "001-a")
+    # The stamp is the record's own, bracketed by the two moments around the call, so a run
+    # that crosses UTC midnight compares the same day it was written on.
+    assert record["accepted"] in {stamped, utc_today()}
     stated = record.pop("record_digest")
     assert record == {
         "schema": "urn:ai-engineering:risk-acceptance:1",
@@ -293,7 +307,7 @@ def test_an_acceptance_carries_every_field_it_owes_and_invents_none(repo, capsys
         "finding": "F-1",
         "severity": "medium",
         "authority_role": "Ada",
-        "accepted": UTC_TODAY,
+        "accepted": record["accepted"],
         "expires": TOMORROW,
         "renewals": 0,
         "renews": "",
