@@ -116,7 +116,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         for name in (
             "injection_guard",
             "loop_guard",
-            "design_gate",
+            "change_scope_guard",
             "no_verify_guard",
             "self_protect",
         )

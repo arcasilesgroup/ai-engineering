@@ -49,7 +49,7 @@ def has_plan(names: set[str]) -> bool:
     return any(name.startswith("specs/") and name.endswith("plan.md") for name in names)
 
 
-@guard("design_gate")
+@guard("change_scope_guard")
 def run(payload: dict) -> str | None:
     budget = int(config().get("guards", {}).get("design_budget", BUDGET))
     if budget <= 0:

@@ -886,7 +886,7 @@ def test_the_guards_start_fast_enough_to_be_guards():
 
 def test_a_denial_hands_back_the_bypass_that_unblocks_the_guard_that_denied(capsys):
     """Nothing asserted any denial message's content before this, which is how a wrong flag
-    shipped: a loop_guard denial handed back the command that unblocks design_gate."""
+    shipped: a loop_guard denial handed back the command that unblocks change_scope_guard."""
     import _wrap
 
     with pytest.raises(SystemExit):

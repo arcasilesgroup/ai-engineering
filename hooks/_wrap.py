@@ -28,7 +28,7 @@ from _emit import emit, home
 SECURITY = {"injection_guard", "no_verify_guard", "self_protect"}
 
 # Flow guards allow a one-off bypass, but only one a person granted at a keyboard.
-FLOW = {"design_gate", "loop_guard"}
+FLOW = {"change_scope_guard", "loop_guard"}
 
 
 def _bypass_file() -> Path:

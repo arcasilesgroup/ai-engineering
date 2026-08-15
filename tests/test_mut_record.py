@@ -189,7 +189,10 @@ def test_a_week_with_nothing_in_it_says_which_two_things_that_could_mean(report)
     assert "    assertion 7 is what tells the two apart." in printed
     assert "  Bypassed 0 times." in printed
     assert "  Quiet controls — no real block this window; liveness is assertion 7's job:" in printed
-    assert "    injection_guard, loop_guard, design_gate, no_verify_guard, self_protect" in printed
+    assert (
+        "    injection_guard, loop_guard, change_scope_guard, no_verify_guard, self_protect"
+        in printed
+    )
     assert "  Commands: none" in printed
     assert "  Errors: 0" in printed
 
@@ -197,7 +200,7 @@ def test_a_week_with_nothing_in_it_says_which_two_things_that_could_mean(report)
 def test_a_control_that_blocked_this_week_is_not_listed_as_quiet(report):
     """The quiet list is the liveness reading. A guard that fired and is still named
     there tells the reader to go looking for a fault that is not present."""
-    report.events = [_event("design_gate", "blocked", reason="no plan")]
+    report.events = [_event("change_scope_guard", "blocked", reason="no plan")]
     assert "    injection_guard, loop_guard, no_verify_guard, self_protect" in report.run()
 
 
@@ -258,12 +261,15 @@ def test_two_repeated_judgements_are_two_separate_rows(report):
     """Rule 12's list is read one line at a time and acted on one line at a time. Rows
     run together on a single line are rows that cannot be acted on."""
     report.events = [_event("loop_guard", "blocked", reason="a loop")] * 3 + [
-        _event("design_gate", "bypassed", reason="shipping late")
+        _event("change_scope_guard", "bypassed", reason="shipping late")
     ] * 3
     printed = report.run()
     assert "  Rule 12 — the same judgement, three times or more:" in printed
     assert "    loop_guard · a loop 3× same verdict each time → owed a script" in printed
-    assert "    design_gate · shipping late 3× same verdict each time → owed a script" in printed
+    assert (
+        "    change_scope_guard · shipping late 3× same verdict each time → owed a script"
+        in printed
+    )
 
 
 def test_a_configured_sink_that_is_receiving_nothing_says_so(report, monkeypatch):

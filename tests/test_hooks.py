@@ -134,7 +134,7 @@ def test_a_guard_that_returns_a_reason_denies_with_that_reason(repo, capsys):
         ("injection_guard", False),
         ("no_verify_guard", False),
         ("self_protect", False),
-        ("design_gate", True),
+        ("change_scope_guard", True),
         ("loop_guard", True),
     ],
 )
@@ -223,7 +223,7 @@ def test_a_bypass_is_single_use_and_only_for_the_guard_it_names(repo):
     consent would silently become a standing exemption."""
     house = _emit.home()
     grant(house, "loop_guard")
-    assert _wrap.take_bypass("design_gate") is None  # not this guard's grant
+    assert _wrap.take_bypass("change_scope_guard") is None  # not this guard's grant
     assert _wrap.take_bypass("loop_guard") == "why"
     assert _wrap.take_bypass("loop_guard") is None  # consumed
     grant(house, "loop_guard", seconds=-1)
@@ -235,7 +235,8 @@ def test_a_bypass_is_single_use_and_only_for_the_guard_it_names(repo):
 
 
 @pytest.mark.parametrize(
-    ("name", "denies"), [("loop_guard", False), ("design_gate", False), ("injection_guard", True)]
+    ("name", "denies"),
+    [("loop_guard", False), ("change_scope_guard", False), ("injection_guard", True)],
 )
 def test_a_bypass_cannot_be_forged_for_a_security_guard(repo, name, denies):
     """A grant file naming a security guard must do nothing. If it worked, writing one file
@@ -548,7 +549,7 @@ def test_normalise_survives_every_shape_a_surface_sends(raw, expected):
         ("PreToolUse", "Bash", ["self_protect", "no_verify_guard", "loop_guard"]),
         ("PreToolUse", "BashOutput", ["loop_guard"]),
         ("PreToolUse", "", ["loop_guard"]),
-        ("PreToolUse", "NotebookEdit", ["self_protect", "loop_guard", "design_gate"]),
+        ("PreToolUse", "NotebookEdit", ["self_protect", "loop_guard", "change_scope_guard"]),
         ("PostToolUse", "mcp__linear__issue", ["injection_guard", "loop_guard"]),
         ("PostToolUse", "WebFetchExtra", ["loop_guard"]),
         ("SessionStart", "", ["session"]),
@@ -1091,3 +1092,35 @@ def test_the_formatter_runs_on_the_file_it_was_handed_and_on_nothing_else(repo, 
     autoformat.run({"tool_input": {"file_path": str(repo / "notes.txt")}})  # no formatter
     autoformat.run({"tool_input": {"file_path": str(repo / "gone.py")}})  # never written
     assert len(ran) == 1
+
+
+def test_change_scope_guard_is_hard_rename_of_design_gate():
+    """The old name is gone from the product, not aliased beside the new one.
+
+    A rename that leaves the previous spelling working is two names for one control, and the
+    day they disagree is the day somebody bypasses the one that is not wired. So the check is
+    not that the new name exists — it is that the old one exists nowhere the product can
+    reach, including the dispatcher table, the wrapper's flow set, the verb that grants a
+    bypass, and the report that names bypassed guards.
+    """
+
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    hooks = root / "hooks"
+    assert (hooks / "change_scope_guard.py").is_file()
+    assert not (hooks / "design_gate.py").exists()
+
+    # Not a name the dispatcher, the wrapper or any verb still answers to.
+    reachable = [*hooks.glob("*.py"), *(root / "src" / "ai_engineering").glob("*.py")]
+    named = [path.name for path in reachable if "design_gate" in path.read_text(encoding="utf-8")]
+    assert named == [], named
+
+    # Registered under the new name, on the events that can block, and as a guard.
+    registered = {name for rows in chain.TABLE.values() for name, _ in rows}
+    assert "change_scope_guard" in registered and "design_gate" not in registered
+    module = __import__("change_scope_guard")
+    assert getattr(module.run, "hook_class", None) == "guard"
+
+    # And the grant it reads is its own: a bypass minted for the old name buys nothing.
+    assert "change_scope_guard" in _wrap.FLOW and "design_gate" not in _wrap.FLOW

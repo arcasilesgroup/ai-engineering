@@ -2287,7 +2287,7 @@ def test_exception_refuses_aliased_bypass_and_leaves_no_grant_after_incomplete(
         outcome.result("PASS")
     )
     granted = json.loads(store.read_text(encoding="utf-8"))
-    assert granted["guard"] == "design_gate"
+    assert granted["guard"] == "change_scope_guard"
     assert granted["reason"] == "a bounded and recorded exception"
 
 

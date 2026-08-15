@@ -244,7 +244,7 @@ def guard_crashes(tmp: Path) -> bool:
     return pre("Read", {"file_path": str(tmp / "any.txt")}, hooks=broken) == 2
 
 
-@case("no plan", "design_gate")
+@case("no plan", "change_scope_guard")
 def no_plan(tmp: Path) -> bool:
     """A stale plan stays shut: file three passes, four denies, and the new plan can open it."""
     work = repo(tmp)

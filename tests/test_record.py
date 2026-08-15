@@ -766,9 +766,9 @@ def test_a_bypassed_guard_is_named_in_the_report_a_person_reads(home, monkeypatc
     _write(
         home,
         [
-            dict(_event("design_gate", "bypassed", "shipping late"), seq=1),
-            dict(_event("design_gate", "bypassed", "shipping late"), seq=2),
-            dict(_event("design_gate", "bypassed", "shipping late"), seq=3),
+            dict(_event("change_scope_guard", "bypassed", "shipping late"), seq=1),
+            dict(_event("change_scope_guard", "bypassed", "shipping late"), seq=2),
+            dict(_event("change_scope_guard", "bypassed", "shipping late"), seq=3),
             dict(_event("injection_guard", "blocked", "a payload"), seq=4),
             dict(_event("cli", "error", ""), seq=5),
         ],
@@ -776,7 +776,7 @@ def test_a_bypassed_guard_is_named_in_the_report_a_person_reads(home, monkeypatc
     completed(report.main(["digest"]))
     out = capsys.readouterr().out
     assert "Bypassed 3 times." in out
-    assert "3× design_gate — shipping late" in out
+    assert "3× change_scope_guard — shipping late" in out
     assert "A guard you bypass three times is a guard to fix or to delete." in out
     assert "Blocked 1 times" in out and "injection_guard — a payload" in out
     assert "loop_guard" in out and "injection_guard" not in out.split("Quiet controls")[1]
