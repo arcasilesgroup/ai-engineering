@@ -316,7 +316,22 @@ DESCRIPTION_MAX = 1000
 # ceiling with room in it never has to be argued for, and the argument is the control.
 # Raising it is a commit whose message says why, and that commit is the conversation
 # this file exists to force.
-REPO_CEILING = 42_579
+#
+# 42,579 to 43,824, and this is that conversation. P0 closed with no verb that transitions
+# a record: a MADR moves from proposed to accepted only by hand-editing YAML frontmatter,
+# and the validator additionally requires the transition to be its own commit. That is not
+# a missing convenience. It is the reason this repository sat blocked for six turns waiting
+# for nine values a person had to type, and it is the opposite of what the product claims
+# to be for. The operator asked for it to be automatic, and the specification already names
+# the shape: authority comes from an authorized human "or preapproved policy".
+#
+# Forecast from this file's own measured rates rather than a guess:
+#   3 tasks at 284   = 852   the closed policy schema, this repository's instance, the verb
+#   1 repair at 393  = 393   one review round, at the measured repair rate
+# 42,579 + 852 + 393 = 43,824. The rates over-predicted by an eighth last time and are
+# expected to again; the final commit of this work closes the ceiling back onto the tree
+# it measures, exactly as Task 53 did, so the slack is borrowed and not kept.
+REPO_CEILING = 43_824
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

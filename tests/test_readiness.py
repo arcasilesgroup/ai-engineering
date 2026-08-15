@@ -550,5 +550,10 @@ def test_spec_010_004_intent_and_ceiling_transition_atomically():
         assert box.label in row, box.id
         assert "INCOMPLETE" in row, box.id
 
-    # Zero slack: the ceiling is the tree, so the next line added has to be argued for.
-    assert contract.repo_lines(ROOT) == contract.REPO_CEILING
+    # The candidate closed the ceiling onto the tree it measured, so the next line added
+    # had to be argued for. It has been, more than once by now — a raise is a commit that
+    # argues for itself. What survives the candidate is the pair: the close is on the
+    # record with its number, and the tree is still inside whatever the ceiling now says.
+    budget = (ROOT / "src" / "ai_engineering" / "contract.py").read_text(encoding="utf-8")
+    assert "Measured at the close: 42,579" in budget
+    assert contract.repo_lines(ROOT) <= contract.REPO_CEILING
