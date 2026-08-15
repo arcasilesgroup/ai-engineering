@@ -254,7 +254,8 @@ The added rule earned its place again. Round one rejected the fail-open narrowin
 two rejected its repairs (the escaping landed in one of three copies, and the plugin test
 was writing the operator's real OpenCode heartbeat); round three rejected the repairs to
 *those* — the anchor fix appended a trailer after a blank line, which starts a second
-trailer block and drops the `Co-Authored-By:` every commit here carries. Each round's
+trailer block and drops the `Co-Authored-By:` that 145 of this repository's 298 commits
+carry. Each round's
 finding was introduced by the previous round's repair, and none was found by re-reading.
 
 Three times in this block a test agreed with the defect because it chose the input that
@@ -287,12 +288,19 @@ v0.13 install with no `--anchor` flag.
 **Correction, one review round later.** The sentence that stood here said the anchor
 "errored on every commit this repository has ever made and no commit in `git log` carries
 the trailer". Both halves are false: 111 commits carry an `Ai-Eng-Anchor:` trailer with
-this machine's real id, the newest on 2026-08-10 at `seq=917` — the last clean link.
-Anchoring worked and stopped when the chain broke on 2026-08-12, which is the opposite
-cause from the one written down. I had probed three commits for a trailer key that does
-not exist (`Ai-Eng-Audit`), read the empty result as proof of absence, and wrote it into
-the correction whose own subject is unbacked claims. The `ai.eng` misconfiguration is real
-and worth repairing; it is not why the anchors stopped.
+this machine's real id, the newest on 2026-08-10 at `seq=917` — the last clean link. I had
+probed three commits for a trailer key that does not exist (`Ai-Eng-Audit`), read the empty
+result as proof of absence, and wrote it into the correction whose own subject is unbacked
+claims.
+
+**And a correction to that correction, one round later again.** It went on to say the
+`ai.eng` misconfiguration "is not why the anchors stopped", naming the chain break instead.
+That is asserted, not measured, and this repository cannot separate the two causes: there
+is no commit at all between the last anchored one (2026-08-10T20:01:14) and the first
+BROKEN link (2026-08-12T12:26:06Z), and the misconfiguration was already in effect at the
+first commit after it. Either alone would have stopped the anchor. What is measured is that
+both were true; which bit first is not recoverable from here. Replacing an unmeasured cause
+with another unmeasured cause is the same defect wearing the corrected sentence.
 
 What is open, and what this block is for:
 
@@ -326,7 +334,7 @@ What is open, and what this block is for:
     `doctor` reports the age of the newest sealed link and the depth of the unsealed
     buffer, and an unsealed buffer beyond a stated bound is not PASS. Measured today: the
     durable chain has 987 links and stops on 2026-08-12; the buffer holds 4,499 unsealed
-    lines. `flush()` has exactly one caller, on `SessionEnd`/`Stop`. Half of "survives
+    lines. `flush()` has exactly one caller outside the suite, on `SessionEnd`/`Stop`. Half of "survives
     losing the laptop" has been three days stale with nothing said, and `_emit.emit`
     swallows every failure to one stderr line, which is where both of this block's defects
     lived unseen.
