@@ -730,7 +730,7 @@ def test_the_surface_list_has_one_home_and_the_rest_derive_from_it():
     from ai_engineering import surface, wiring
 
     declared = tuple(row["id"] for row in wiring.table()["surface"])
-    assert surface.SURFACES == declared, (
+    assert declared == surface.SURFACES, (
         "surface.SURFACES has drifted from policy/surfaces.toml, which is the one that "
         "decides what gets installed"
     )

@@ -737,7 +737,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 46_644
+    assert contract.REPO_CEILING == 46_669
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -932,25 +932,31 @@ def test_no_workflow_promises_a_verifier_this_product_does_not_have():
 
 
 def test_the_guards_start_fast_enough_to_be_guards():
-    """A real p95 over twenty runs, under 200 ms. On the surfaces that time out and carry
-    on, a slow guard is a disabled guard: here latency is a security property.
+    """The guard's own p95 under the 50 ms the proposal states. On the surfaces that time
+    out and carry on, a slow guard is a disabled guard: here latency is a security property.
 
-    The docstring said p95 and the assertion took `sorted(timings)[len // 2]` of five
-    samples, which is the median — the measurement that hides exactly the tail a percentile
-    exists to catch, under a name claiming to catch it. Five samples cannot carry a 95th
-    percentile at all.
+    Two corrections live in this one check. It used to say p95 in its name and its
+    docstring and take `sorted(timings)[len // 2]` of five samples, which is the median —
+    the measurement that hides exactly the tail a percentile exists to catch. And it
+    asserted 200 ms against a stated requirement of 50, so the bound was four times looser
+    than the thing it was named for and nothing said so.
 
-    Twenty can, and the max was tried first and rejected: measured alone this dispatcher
-    runs 37-45 ms, but this suite runs under `-n auto` and one scheduling spike put a
-    single sample over the bound. A bound the machine's load can trip is a test people
-    learn to rerun, and a test people rerun is not a gate."""
+    The number it now asserts is ours rather than Python's. A bare interpreter that does
+    nothing costs ~18 ms on this machine, which no guard can avoid and no rewrite of ours
+    will change; the whole dispatcher start is ~42 ms. Asserting 50 ms on the total would
+    leave 8 ms of headroom and flake under `-n auto`, and a bound the machine's load can
+    trip is a test people learn to rerun. Subtracting the floor measures the part this
+    repository is accountable for, which is what `guard_p95_ms` is asking for."""
 
     import time
+
+    def p95(samples: list[float]) -> float:
+        return sorted(samples)[int(len(samples) * 0.95) - 1]
 
     payload = json.dumps(
         {"tool_name": "Read", "tool_input": {"file_path": str(ROOT / "README.md")}}
     )
-    timings = []
+    dispatched, bare = [], []
     for _ in range(20):
         started = time.perf_counter()
         subprocess.run(
@@ -959,9 +965,16 @@ def test_the_guards_start_fast_enough_to_be_guards():
             text=True,
             capture_output=True,
         )
-        timings.append(time.perf_counter() - started)
-    p95 = sorted(timings)[int(len(timings) * 0.95) - 1]
-    assert p95 < 0.2, f"the dispatcher's p95 start was {p95:.3f}s: {sorted(timings)}"
+        dispatched.append(time.perf_counter() - started)
+        started = time.perf_counter()
+        subprocess.run([sys.executable, "-c", "pass"], capture_output=True)
+        bare.append(time.perf_counter() - started)
+
+    ours = p95(dispatched) - p95(bare)
+    assert ours < 0.05, (
+        f"the guard's own p95 was {ours * 1000:.1f} ms: dispatcher {p95(dispatched) * 1000:.1f} ms "
+        f"over an interpreter floor of {p95(bare) * 1000:.1f} ms"
+    )
 
 
 def test_a_denial_hands_back_the_bypass_that_unblocks_the_guard_that_denied(capsys):

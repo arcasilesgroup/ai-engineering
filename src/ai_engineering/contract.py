@@ -498,7 +498,19 @@ DESCRIPTION_MAX = 1000
 # plugin that did report loading — and the run refuses to go green while any attacked guard
 # lacks one. The suite is 19 cases over 9 guards, and it named `doctor-21` as uncontrolled
 # the moment the check existed, which is how I knew the check worked.
-REPO_CEILING = 46_644
+# 46,644 to 46,669 for the eighth, which is the latency check finally measuring what it
+# is named for. It said p95 and took the median of five samples; it was corrected to a real
+# p95 earlier today and still asserted 200 ms against a stated requirement of 50, four
+# times looser than the thing it is named for, with nothing saying so.
+#
+# The number it asserts now is ours rather than Python's. Measured: a bare interpreter that
+# does nothing costs ~18 ms here, the whole dispatcher start ~42 ms, so our share is ~24 ms
+# against the stated 50. Asserting 50 on the total would leave 8 ms of headroom and flake
+# under `-n auto`, and a bound the machine's load can trip is a test people learn to rerun.
+# Subtracting the floor measures the part this repository is accountable for, which is what
+# the proposal's `guard_p95_ms` indicator is asking for. Green three times under parallel
+# load before it was believed.
+REPO_CEILING = 46_669
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
