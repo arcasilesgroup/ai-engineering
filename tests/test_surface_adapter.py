@@ -452,14 +452,26 @@ def test_no_surface_flag_can_assert_a_state_a_receipt_has_not_earned():
     for spelling in ("proven", "is_proven", "denial_proven", "blocks", "covered"):
         assert not [row for row in rows if row.startswith(f"{spelling} ")], spelling
 
-    # Nor may any schema declare the same claim under another name. This block wrote a new
-    # policy file and the guard could not see it: the adapter contract carried a hand-typed
-    # `heartbeat` saying "installed, loaded, observed at", which is the deleted flag with
-    # three fields instead of one.
+    # Nor may any schema declare the same claim, at any depth, under any container name.
+    # The first version of this guard read only the top-level `properties` and matched four
+    # words: a re-review showed that nesting the identical block one level down, or calling
+    # it `liveness`, walked straight past. The claim is the field names, not the wrapper.
+    claims = {"proven", "heartbeat", "blocks", "covered", "installed", "loaded", "observed_at"}
+
+    def declared(node: Any) -> set[str]:
+        found: set[str] = set()
+        if isinstance(node, dict):
+            found |= set(node.get("properties", {}))
+            for value in node.values():
+                found |= declared(value)
+        elif isinstance(node, list):
+            for value in node:
+                found |= declared(value)
+        return found
+
     for schema in sorted((ROOT / "policy").glob("*.schema.json")):
-        declared = json.loads(schema.read_text(encoding="utf-8")).get("properties", {})
-        for claim in ("proven", "heartbeat", "blocks", "covered"):
-            assert claim not in declared, f"{schema.name} declares {claim}"
+        named = declared(json.loads(schema.read_text(encoding="utf-8"))) & claims
+        assert not named, f"{schema.name} declares {sorted(named)}"
 
     # And nothing reads one. A reader with no field is the half that would otherwise sit
     # there defaulting quietly to False and looking like it works.
@@ -512,7 +524,12 @@ def test_a_file_somebody_typed_is_not_a_receipt(tmp_path):
     )
 
     # ...and on a surface that cannot deny, it is the honest thing to write, so it is taken.
-    honest = _receipt("pi", "enforcement", finished=fresh) | {"applicability": "not_applicable"}
+    # With its reason, because the schema requires one — a record that says a check does
+    # not apply and does not say why is not an excuse, it is a shrug.
+    honest = _receipt("pi", "enforcement", finished=fresh) | {
+        "applicability": "not_applicable",
+        "reason": "pi is instruction-only and has no hook that can deny",
+    }
     assert standing("pi.enforcement", json.dumps(honest)) == ("PASS", surface.NOT_APPLICABLE)
 
     # A human-attested receipt is not an automated one, whatever date it carries.

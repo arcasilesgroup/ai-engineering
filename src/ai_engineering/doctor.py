@@ -895,13 +895,14 @@ def _terminal_result(
     coverage_unknown: bool,
     readiness_failed: bool = False,
     surface_failed: bool = False,
+    surface_warned: bool = False,
 ) -> outcome.Result:
     words = {word for line in coverage_lines for word in re.findall(r"[A-Z]+", line)}
     if failed or readiness_failed or surface_failed or "MISMATCH" in words:
         return outcome.result("FAIL")
     if unanswered or coverage_unknown:
         return outcome.result("INCOMPLETE")
-    if words & {"INERT", "UNPROVEN", "OPEN"}:
+    if surface_warned or words & {"INERT", "UNPROVEN", "OPEN"}:
         return outcome.result("WARN")
     return outcome.result("PASS")
 
@@ -932,6 +933,8 @@ def surface_states(root: Path | None, *, now: datetime) -> list[outcome.Fact]:
         surfaces.RECEIPT_STALE: "the receipt is older than a proof is allowed to be",
         surfaces.RECEIPT_MISMATCH: "the receipt names another surface or another state",
         surfaces.CANNOT_ENFORCE: "a denial receipt for a surface that cannot deny",
+        surfaces.WARNED: "it ran, it passed, and it had something to say",
+        surfaces.REFUSED_EXCUSE: "the receipt says the check did not apply, and here it does",
     }
     facts = []
     for row in surfaces.read(root, now=now).rows:
@@ -1094,9 +1097,14 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     # the JSON envelope and returned PASS with exit 0, which is a gate result this code
     # did not observe.
     surface_failed = any(entry.status == "FAIL" for entry in states)
+    # A warning is not a failure and it is not nothing. It joins the same branch the
+    # coverage vocabulary already routes INERT and UNPROVEN to, rather than being invented
+    # as a status that appears in the envelope and changes no verdict — which is blocker
+    # two's shape one severity down.
+    surface_warned = any(entry.status == "WARN" for entry in states)
 
     ui.section("Production-ready — a box is ticked by a receipt that ran, or not at all", data=True)
-    boxes = readiness_facts(root, now=datetime.now(UTC))
+    boxes = readiness_facts(root, now=observed)
     for entry in boxes:
         ui.write(f"  {entry.status:<11} {entry.summary} — {entry.detail}", data=True)
         check_facts.append(entry)
@@ -1127,7 +1135,13 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         )
 
     result = _terminal_result(
-        failed, unanswered, coverage_lines, coverage_unknown, readiness_failed, surface_failed
+        failed,
+        unanswered,
+        coverage_lines,
+        coverage_unknown,
+        readiness_failed,
+        surface_failed,
+        surface_warned,
     )
     verdict_panel(result, failed, len(unanswered), cures, len(failed_boxes))
     if args.fix and cures:

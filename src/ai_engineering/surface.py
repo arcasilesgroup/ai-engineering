@@ -22,9 +22,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import cache
 from pathlib import Path
 
-from ai_engineering import outcome
+from ai_engineering import evidence, outcome
 from ai_engineering.readiness import _anchored, _object, _read, _Unreadable
 
 RECEIPTS = ".ai/receipts/surface"
@@ -51,6 +52,7 @@ RECEIPT_MISMATCH = "SURFACE_RECEIPT_MISMATCH"
 RECEIPT_STALE = "SURFACE_RECEIPT_STALE"
 EXECUTED_FAIL = "SURFACE_EXECUTED_FAIL"
 WARNED = "SURFACE_PROVEN_WITH_WARNING"
+REFUSED_EXCUSE = "SURFACE_NOT_APPLICABLE_REFUSED"
 NOT_APPLICABLE = "SURFACE_ENFORCEMENT_NOT_APPLICABLE"
 CANNOT_ENFORCE = "SURFACE_CANNOT_ENFORCE"
 PROVEN = "SURFACE_PROVEN"
@@ -98,6 +100,17 @@ class Report:
         return {"result": self.result.as_dict(), "rows": [row.as_dict() for row in self.rows]}
 
 
+@cache
+def _shaped() -> evidence._SchemaValidator:
+    """The canonical check-evidence schema, read once and reused.
+
+    This module deliberately does not bind a receipt to a requirement — that arrives with
+    each surface's adapter. It does insist the file is a receipt, and the schema is what
+    knows what that means."""
+
+    return evidence._SchemaValidator(evidence.intent._json(evidence.SCHEMA_PATH.read_bytes()))
+
+
 def _finished(record: dict[str, object], now: datetime) -> int | None:
     try:
         stamp = record["finished_at"]
@@ -130,17 +143,14 @@ def _standing(root: Path, surface: str, state: str, now: datetime) -> Standing:
         # aborted mid-run with a traceback and printed no terminal result at all.
         return answer("INCOMPLETE", RECEIPT_MALFORMED)
 
-    # It has to be a check-evidence receipt before anything it says is worth reading. Four
-    # constants, and they are the difference between a receipt and a file somebody typed:
-    # a review demonstrated that a four-key object with no schema, no kind and no command
-    # read as `SURFACE_PROVEN`, and that `doctor` then printed "a denial has executed here"
-    # over it. That is the flag this wave deleted, wearing a filename.
-    if (
-        record.get("schema") != "urn:ai-engineering:check-evidence:1"
-        or record.get("schema_version") != "1"
-        or record.get("kind") != "automated"
-        or record.get("applicability") not in {"applicable", "not_applicable"}
-    ):
+    # It has to be a check-evidence receipt before anything it says is worth reading, and
+    # "a receipt" means the canonical schema says so — not a handful of keys this module
+    # picked. The first attempt at this was four constants, and a re-review showed it moved
+    # the cost of a forgery from typing four keys to typing eight in the same unreviewed
+    # file. The schema is the thing that already knows what a receipt must carry: command,
+    # tool version, both digests, both timestamps. Asking it is one line and closes the
+    # class rather than the two examples.
+    if not _shaped().valid(record) or record.get("kind") != "automated":
         return answer("INCOMPLETE", RECEIPT_MALFORMED)
 
     # A receipt that says the check does not apply is a receipt saying it did not run.

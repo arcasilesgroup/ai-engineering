@@ -41,9 +41,11 @@ from the settings file each surface already reads.
 `ai-eng doctor` ends with one line per surface, and it is derived from the receipt, the
 pin and the settings files on disk — never from a probe or a billed session.
 
-- **No surface reads as blocking.** Not one has a receipted denial yet, so every row
-  reads **unproven** — including Claude Code, which is perfectly able to deny and on
-  which a denial does execute in CI. What is missing is the receipt, not the ability.
+- **No surface reads as blocking.** Not one has a receipted denial, so every surface
+  that can deny reads **unproven** — including Claude Code, which is perfectly able
+  to. CI does execute the dispatcher's deny path from the installed wheel, but nothing
+  has yet executed one *through* a surface and written the receipt, and the distinction
+  is the whole point. What is missing is the evidence, not the ability.
 - **Codex CLI** installs and then sits **inert** until a human types `/hooks` to approve
   it. It is skipped silently until then, and nothing but a person can change that.
 - **Cursor**, **VS Code Copilot** and **Copilot CLI** document a working deny, and none of

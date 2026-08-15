@@ -12,8 +12,10 @@ search for.
   OpenCode's row said `true` with no denial ever executed there — so `ai-eng doctor`'s
   coverage line printed "a denial has executed here" on the strength of it. The word is now
   read from that surface's enforcement receipt under `.ai/receipts/surface`, and the table
-  has no way to assert it. What changes for you: **every surface reads `UNPROVEN` until a
-  denial is receipted on it**, including ones that deny perfectly well today. Nothing lost a
+  has no way to assert it. What changes for you: **every surface that can deny reads
+  `UNPROVEN` until a denial is receipted on it**, including ones that deny perfectly
+  well today. The two instruction-only surfaces still read `ADVISES`, which is what
+  they always were. Nothing lost a
   capability; the claim lost its evidence. A repository carrying a hand-written
   `surfaces.toml` with that field keeps working — the field is ignored, and it is ignored
   rather than honoured on purpose.
