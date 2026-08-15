@@ -834,7 +834,12 @@ DESCRIPTION_MAX = 1000
 # rather than a person or a place — and a hash of "claude-code" answers no question anybody
 # exports observability to ask. A new test asserts no field naming a person, a host or a
 # path is on that list, because the list growing once is how it grows twice.
-REPO_CEILING = 51_169
+# 51,169 to 51,227 for the audit's own addendum: thirty-three requirements that have moved
+# since it was measured, each row naming the executed proof rather than the commit that
+# claims it. The audit is the document this work is judged against, and an audit that goes
+# stale is a measurement somebody will quote next month as though it were current — which is
+# the first correction the audit itself had to make about the report above it.
+REPO_CEILING = 51_227
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
