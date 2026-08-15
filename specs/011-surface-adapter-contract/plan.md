@@ -286,7 +286,7 @@ that silent. Machine state, repaired outside the tree: `git config ai.eng` named
 install whose `audit` has no `--anchor` flag, and was repointed at the editable one on
 2026-08-15.
 
-**Why the anchors stopped is not recorded here, after four attempts to record it.**
+**Why the anchors stopped, on the fifth attempt, and what the first four cost.**
 
 The first version said the anchor "errored on every commit this repository has ever made
 and no commit in `git log` carries the trailer". False: 111 commits carry an
@@ -300,26 +300,38 @@ be dated at all. Also asserted. The fourth built an inference from the tree: 162
 the append-wholesale hook after the break, an anchor-capable CLI writes its `✗ FAIL` block
 to stdout on a chain that does not hold, that hook appended stdout to the message, and no
 commit carries the block — so the misconfiguration must have been in effect throughout.
+Refuted: it rests on `core.hooksPath` and `ai.managed` being set for the whole window,
+which is `.git/config` state with no history — the same undated class the third attempt had
+correctly refused, reintroduced as the load-bearing premise of its own correction.
 
-That one is refuted too, and by three separate holes. It assumes `core.hooksPath` and
-`ai.managed` were set for the whole window, which is `.git/config` state with no history —
-the very class the third attempt had correctly refused to date, reintroduced as the
-load-bearing premise of its own correction. One of the 162 was a GitHub-side squash by
-another committer, where no local hook ran at all. And the install the argument names did
-not exist for the first 29 hours of the window, so for 21 of the 162 the described
-mechanism is impossible. The pre-repair value of `ai.eng` was changed outside the tree and
-is unrecoverable.
+The fifth answer is the one nobody looked for, and two commands give it:
 
-So it stays unanswered. What is measured and stays: the chain broke at
-2026-08-12T12:26:06Z, no commit after it carries an anchor, `ai.eng` named an install with
-no `--anchor` flag when it was read, and the append-wholesale hook was in the tree for the
-whole period. Which of those stopped the anchors first is not in this repository.
+```
+$ git cat-file -p 226cf58f | sed -n 2p
+parent 51ac07f640476c01290e514d73652703ae2b4868      # the last anchored commit
+$ git log -1 --format=%cI 226cf58f                   # its immediate child
+2026-08-12T14:40:47+02:00                            # = 12:40:47Z, after the 12:26:06Z break
+```
 
-The pattern is the finding, and it is the reason this is written down rather than deleted:
-**four attempts at one sentence, each refuted, and the fourth failed by committing the
-exact error the third had identified.** Every one was caught by a reader executing
-commands; none by re-reading. A correction is a claim, and this section is the measurement
-that says corrections are not more reliable than what they correct.
+There is no commit between the last one that anchored and the break. `audit.anchor_line`
+raises unless the chain recomputes clean, so from 12:26:06Z onward no run of any
+anchor-capable CLI could emit a footer — and every local commit that could have been
+anchored since falls after that instant. The break is sufficient, and it is first because
+nothing else had an opportunity to act: there is no commit in the interval where the chain
+was intact and the anchor failed anyway. Whether `ai.eng` was also misconfigured then
+changes nothing and remains unrecoverable, because the value was repaired outside the tree.
+
+This paragraph was written four times before somebody asked git for the parent of the
+commit after the last anchored one.
+
+The pattern is the finding, and it is why this is written down rather than deleted:
+**four attempts at one sentence, each refuted, the fourth failing by committing the exact
+error the third had identified, and the answer sitting two commands away the whole time.**
+Every refutation came from a reader executing something; none from re-reading. Three of the
+four attempts reached for evidence outside the tree — file birthtimes, `.git/config` state,
+a value already repaired — while the commit graph, which is dated, replicated and
+immutable, went unasked. A correction is a claim, and this section is the measurement that
+says corrections are not more reliable than what they correct.
 
 What is open, and what this block is for:
 
