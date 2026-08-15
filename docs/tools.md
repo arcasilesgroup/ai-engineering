@@ -21,10 +21,10 @@ just --list                # muestra las tareas de desarrollo
 | `uv run ai-eng update [--to VERSION] [--force]` | Migra el pin del proyecto de forma interactiva. `--force` **solo informa** qué se descartaría; nunca sobrescribe cambios locales. |
 | `uv run ai-eng spec new SLUG [--ref owner/repo#45]` | Crea `specs/NNN-slug/spec.md`; `--ref` solo anota el work item en el frontmatter y no rellena nada. |
 | `uv run ai-eng spec list [--all]` · `uv run ai-eng spec show ID` | Lista especificaciones o muestra una; `--all` incluye las reemplazadas. |
-| `uv run ai-eng decide "DECISIÓN" [--why "MOTIVO"] [--adr] [--supersede NNNN]` · `uv run ai-eng decide --list` | Guarda una decisión en la spec más nueva o crea/lista un ADR en `docs/adr/`. |
+| `uv run ai-eng decide "DECISIÓN" [--why "MOTIVO"] [--madr] [--supersede NNNN]` · `uv run ai-eng decide --list` | Guarda una decisión en la spec más nueva o crea/lista un ADR en `docs/adr/`. |
 | `uv run ai-eng accept --finding ID --expires AAAA-MM-DD --by PERSONA --justification TEXTO [--severity NIVEL] [--follow-up TEXTO] [--spec ID]` · `uv run ai-eng accept --expired` | Registra un riesgo con dueño y caducidad, o lista los ya caducados. Las cuatro primeras son obligatorias: una aceptación sin nombre y sin razón no es una aceptación. |
 | `uv run ai-eng audit [verify\|replay] [--anchors] [--session ID] [--anchor]` | Verifica o reproduce la cadena de auditoría. `--anchors` coteja Git; `--anchor` es para el hook `commit-msg`. |
-| `uv run ai-eng digest [--weeks N]` | Resume sesiones, bloqueos, bypasses, errores y cobertura del periodo; marca el resumen como leído. |
+| `uv run ai-eng report digest [--weeks N]` · `uv run ai-eng report issue` | Resume sesiones, bloqueos, bypasses, errores y cobertura del periodo; marca el resumen como leído. |
 | `uv run ai-eng exception --skip "MOTIVO" [--guard change_scope_guard\|loop_guard]` | Con confirmación humana, concede **un** bypass durante 15 minutos y lo registra. No funciona sin terminal interactiva. |
 | `uv run ai-eng uninstall [--project] [-y]` | Quita lo instalado según el recibo, e imprime una línea por fila: lo que quita y, para lo que conserva, por qué. Sin `--project` no entra en ningún repositorio y los nombra. Conserva siempre `specs/`, `CONSTITUTION.md`, `AGENTS.md`, `docs/adr/` y el registro externo. |
 | `uv run ai-eng --version` · `uv run ai-eng <comando> --help` | Muestra la versión o todas las opciones reales de un comando. |
