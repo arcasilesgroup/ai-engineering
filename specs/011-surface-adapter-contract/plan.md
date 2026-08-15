@@ -286,53 +286,40 @@ that silent. Machine state, repaired outside the tree: `git config ai.eng` named
 install whose `audit` has no `--anchor` flag, and was repointed at the editable one on
 2026-08-15.
 
-**Why the anchors stopped, on the fifth attempt, and what the first four cost.**
+**Why the anchors stopped, and the cost of five attempts to say it.**
 
-The first version said the anchor "errored on every commit this repository has ever made
-and no commit in `git log` carries the trailer". False: 111 commits carry an
-`Ai-Eng-Anchor:` trailer that `git interpret-trailers --parse` reads, on 111 messages
-carrying 113 such lines — two commits carry it twice, which is itself orphaning evidence.
-The newest is on 2026-08-10 at `seq=917`, the last clean link. I had probed three commits
-for a trailer key that does not exist (`Ai-Eng-Audit`) and read the empty result as proof.
+Measured, and this is the whole of it: the chain broke at 2026-08-12T12:26:06Z as recorded
+by link 918; `audit.anchor_line` raises unless the chain recomputes clean, so after that no
+anchor-capable CLI can emit a footer; every one of the 111 anchored commits predates it; and
+`ai.eng` named an install with no `--anchor` flag when it was read on 2026-08-15. The break
+is **sufficient**. Which cause acted **first** is not establishable and the reason is
+structural: the hook resolves `ai.eng` and runs the CLI before anything reads the chain, so
+the competing cause short-circuits earlier in the mechanism, and the moment its value
+changed was never recorded anywhere.
 
-The second named the chain break as the cause. Asserted. The third said the cause could not
-be dated at all. Also asserted. The fourth built an inference from the tree: 162 commits ran
-the append-wholesale hook after the break — 161 of them locally, one a server-side squash
-— an anchor-capable CLI writes its `✗ FAIL` block
-to stdout on a chain that does not hold, that hook appended stdout to the message, and no
-commit carries the block — so the misconfiguration must have been in effect throughout.
-Refuted: it rests on `core.hooksPath` and `ai.managed` being set for the whole window,
-which is `.git/config` state with no history — the same undated class the third attempt had
-correctly refused, reintroduced as the load-bearing premise of its own correction.
+Five versions of that paragraph were written and a reader refuted each. The first asserted
+a cause; the second asserted a different one; the third asserted no cause was knowable; the
+fourth built an inference on `.git/config` state, which is the undated class the third had
+just refused; the fifth reasoned from the commit graph and read a server-side squash as a
+local commit, took its timestamp from a link the auditor itself flags tampered, and argued
+that the chain acted first when the code consults it last.
 
-The fifth answer claimed the chain break was not only sufficient but first, from the commit
-graph. Refuted too. The commit it rested on is a GitHub server-side squash, so its committer
-date is the merge time and no local hook ever ran on it; the break timestamp is the
-self-reported `ts` of a link the auditor itself flags BROKEN, carrying a pytest-forged
-machine id, which is not in the commit graph at all; and this clone was made 21 seconds
-before the interval it reasons over, so "no commit in between" is provable only for what
-reached the remote.
+**The amendment this cost bought.** Review rounds 1-4 and 7 found defects in behaviour, and
+every one was worth the round. Rounds 5, 6, 8, 9, 10 and 11 found, almost entirely, defects
+in *this paragraph* — an account of history that no code reads and no user acts on. The rule
+"a re-review that returns REJECT re-arms itself" does not terminate against prose, because
+each correction is itself a new claim and a reader can always refute a new claim.
 
-**What is established, and it is where this stops.** The break is *sufficient*:
-`audit.anchor_line` raises unless the chain recomputes clean, so after it no anchor-capable
-CLI can emit a footer, and every anchor in this repository predates it.
+> **A round that returns only findings about the record of history is recorded and does not
+> re-arm.** Behaviour, coverage, and any claim a reader would act on still re-arm without
+> limit. And the structural fix comes first: an unfalsifiable account does not go in a
+> product artifact at all. The hook comment now points here; this paragraph states what is
+> measured and stops.
 
-**What is not establishable, with the reason.** Not which cause acted first. The hook
-resolves `ai.eng` and runs the CLI *before* anything reads the chain — a CLI without
-`--anchor` returns empty and the chain is never consulted — so the competing cause
-short-circuits strictly earlier in the mechanism, and the moment its value changed was
-never recorded anywhere. Five answers were written and the fifth argued the opposite of
-what the code does.
-
-The pattern is the finding, and it is why this is written down rather than deleted:
-**four attempts at one sentence, each refuted, the fourth failing by committing the exact
-error the third had identified, and the answer sitting two commands away the whole time.**
-Every refutation came from a reader executing something; none from re-reading. The last one
-reached for the commit graph, which is the right instinct and still wrong, because it read a
-server-side squash as a local commit and took a timestamp from a link the auditor calls
-tampered. The lesson is not "prefer the commit graph": it is that each answer was written to
-the length of the confidence, and the confidence was never measured. A correction is a claim, and this section is the measurement that
-says corrections are not more reliable than what they correct.
+Block C closes on its deliverable, which was met at round four and has survived every attack
+since: the OpenCode plugin fails closed, proved by executing it under node, with the width
+mutation-tested in both directions. Six defects the eleven rounds found in the hook and its
+tests are fixed and each has a test that dies without it.
 
 What is open, and what this block is for:
 

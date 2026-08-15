@@ -13,12 +13,8 @@ set -euo pipefail
 # does not hold, appending stdout wholesale writes "✗ FAIL / Reason: ... / Exit code: 1"
 # into the commit message.
 #
-# Why the anchors stopped being written here is not answered in this file. Five versions of
-# this comment tried and a reader refuted each in turn, the last by arguing the opposite of
-# what the code below does — `eng` is resolved and run before anything reads the chain, so
-# a CLI without `--anchor` short-circuits earlier than any chain state can. What survives is
-# that the broken chain is *sufficient*, not that it was first; `specs/011` holds that and
-# the account of the five attempts. A hook comment is for what the hook does.
+# Why the anchors stopped here is in `specs/011`, not in this comment: five versions of it
+# tried to say and a reader refuted each. A hook comment is for what the hook does.
 #
 # And every path but the quiet success says something. Three used to say nothing: a chain
 # that does not hold, an `ai.eng` naming something `command -v` cannot find, and a subject
