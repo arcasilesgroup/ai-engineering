@@ -470,7 +470,16 @@ DESCRIPTION_MAX = 1000
 # and the verifier is what somebody runs when they already suspect something, so a false
 # green here is the expensive direction. Assertion 6 asks the verifier now rather than
 # re-implementing half of it, which is the plugin's three-copies finding one file over.
-REPO_CEILING = 46_416
+# 46,416 to 46,458 for the fifth of the twenty, and the one the constitution names first.
+# The eight surface ids were written out four times — `policy/surfaces.toml`, the adapter
+# schema's enum, `surface.SURFACES`, and a test — and only the schema and the test were
+# tied to each other. Nothing tied either to the wiring table that decides what actually
+# gets installed, so a ninth surface added there would have left three copies behind and
+# the module that reports coverage would have carried on reporting eight. "Never create
+# mirrors of guards, skills, templates or policy homes" is the first line of the Never
+# list, and this was the product breaking it about its own data. The list derives from the
+# table now, and the schema enum is checked against it rather than maintained beside it.
+REPO_CEILING = 46_458
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
