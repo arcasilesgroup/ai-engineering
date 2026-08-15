@@ -13,11 +13,12 @@ set -euo pipefail
 # does not hold, appending stdout wholesale writes "✗ FAIL / Reason: ... / Exit code: 1"
 # into the commit message.
 #
-# Why the anchors stopped being written here is deliberately not answered. Four versions of
-# this comment answered it four different ways and a reviewer refuted every one; the last
-# rested on `.git/config` state, which has no history, so "the hook was not wired then" is
-# indistinguishable from every story told about it. A hook comment is for what the hook
-# does. `specs/011` keeps the account of the guessing.
+# Why the anchors stopped being written here is not answered in this file. Four versions of
+# this comment tried, three of them reaching outside the tree for evidence — file
+# birthtimes, `.git/config` state, a value already repaired — and a reader refuted each in
+# turn. The answer is in the commit graph, which is dated and immutable, and `specs/011`
+# holds it along with the account of the four attempts. A hook comment is for what the hook
+# does.
 #
 # And every path but the quiet success says something. Three used to say nothing: a chain
 # that does not hold, an `ai.eng` naming something `command -v` cannot find, and a subject

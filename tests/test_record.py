@@ -716,8 +716,8 @@ def test_a_cli_the_hook_cannot_even_run_is_reported_rather_than_skipped(tmp_path
     """`command -v` finding nothing used to mean the hook did nothing and said nothing.
     Every other test supplies a resolvable stub, so not one of them could reach it, and a
     hook that is quiet when it cannot record is how a run of unanchored commits passed
-    under a green gate. How long a run is not stated here: three different figures were
-    written into these files across three rounds and none of them was measured."""
+    under a green gate. How long a run is not stated here: two figures were written into
+    these files across three rounds and neither was measured."""
 
     done, written, original, _ = _commit_msg(tmp_path, engine="/nonexistent/ai-eng")
     assert done.returncode == 0, done.stderr
