@@ -282,8 +282,17 @@ rather than being folded into one that has already closed.
 What is already repaired: the hook appended the verb's whole stdout to the commit message,
 so a chain that does not hold wrote a rendered `✗ FAIL` block into it, and `|| true` kept
 that silent. Machine state, repaired outside the tree: `git config ai.eng` pointed at a
-v0.13 install with no `--anchor` flag, so the anchor errored on every commit this
-repository has ever made and no commit in `git log` carries the trailer.
+v0.13 install with no `--anchor` flag.
+
+**Correction, one review round later.** The sentence that stood here said the anchor
+"errored on every commit this repository has ever made and no commit in `git log` carries
+the trailer". Both halves are false: 111 commits carry an `Ai-Eng-Anchor:` trailer with
+this machine's real id, the newest on 2026-08-10 at `seq=917` — the last clean link.
+Anchoring worked and stopped when the chain broke on 2026-08-12, which is the opposite
+cause from the one written down. I had probed three commits for a trailer key that does
+not exist (`Ai-Eng-Audit`), read the empty result as proof of absence, and wrote it into
+the correction whose own subject is unbacked claims. The `ai.eng` misconfiguration is real
+and worth repairing; it is not why the anchors stopped.
 
 What is open, and what this block is for:
 
@@ -294,8 +303,9 @@ What is open, and what this block is for:
     faking `machine_id()` writes to its own buffer; and a buffered line whose stamp names
     another machine is sealed as that machine's, not as this one's tampering. Measured
     today: 22 permanently BROKEN links dated 2026-08-12, each carrying a different fake
-    machine id and a `pytest-of-…` path in its payload, written by this product's own test
-    suite into the operator's real chain — because the buffer is repository-local and
+    machine id, 11 of them a `pytest-of-…` path in the payload and the other 11 an
+    `uninstall` verb record — they come in pairs — written by this product's own test
+    suite into the operator's real chain, because the buffer is repository-local and
     `AI_ENGINEERING_HOME` does not redirect it. `ai-eng audit verify`, the command the
     README offers as the tamper detector, therefore fails on this machine for good, and
     `audit --anchor` refuses a footer, so no future commit here can be anchored. One
