@@ -394,32 +394,6 @@ commands that produce them.**
 without direct evidence, and EP-320 repeats it. Everything above is either a file and line
 that was read, or a thing that must be proved before this wave closes.
 
-## What the first implementation sitting learned
-
-D-014-08 landed the day this was approved: `redact = "none"` is gone, hard, with its
-CHANGELOG entry. Two other decisions were started and stopped, and what stopped them is
-worth more than a half-delivery would have been.
-
-**D-014-05 needs two numbers that are not in this repository.** `check.yml` downloads three
-scanner tarballs and checksums one; adding the other two means knowing the official SHA-256
-of the gitleaks and Trivy releases at their pinned versions, and the only way to learn them
-is to fetch them. That is a network call, which needs its own consent. The mechanism is one
-line per download — `echo "$SHA  file.tgz" | sha256sum -c -`, exactly as actionlint already
-does — so this is blocked on a value, not on a design.
-
-**D-014-07 is blocked on a caller, not on an executor.** `capability.preflight` validates
-fifteen declarations across eighteen modes and returns `INCOMPLETE` on every path.
-`grep -rn "preflight(" src/ hooks/` finds two hits and both are `init._project_preflight`,
-a different function with the same name. **Nothing calls the capability one.** So teaching
-it to return `PASS` for a declared, in-scope action would produce a permission that stops
-nothing — a green nobody earned, inside the function written to prevent them.
-
-The decision D-014-07 actually needs first is *which caller obeys it*: the ten verbs before
-they act, the dispatcher before a tool call, or a new boundary. Each is a different product.
-That belongs in its own sitting with its own red fixture, and the executor arrives after it,
-not before — which is the same shape as spec 011's Task 16, where three bindings were tried
-against contracts that already existed and the fourth guess would have been the worst.
-
 ## Accepted risks
 
 None. Every risk above stays open until removed or accepted by an authorised human with

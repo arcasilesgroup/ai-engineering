@@ -568,7 +568,19 @@ DESCRIPTION_MAX = 1000
 # different function with the same name, so teaching the capability one to return PASS would
 # produce a permission that stops nothing — a green nobody earned, inside the function
 # written to prevent them.
-REPO_CEILING = 47_114
+# 47,114 to 47,157 for the first P4 sitting's findings, and for where they had to go.
+#
+# I wrote them into specification 014, which is approved at an exact digest, and the check
+# written three hours earlier caught it within a minute: "approved at d19fbeff… and now
+# hashes to 774454a4… — either revert the edit or take the approval again". It offered two
+# honest moves and I took the first. Implementation findings are not the specification;
+# they are what happened when somebody tried to build from it, so they live in the audit
+# record, which nobody has approved and which exists for exactly this.
+#
+# The two findings: D-014-05 is blocked on two SHA-256 values that are not in this
+# repository, which is a network call and its own consent. D-014-07 is blocked on a caller
+# — nothing calls `capability.preflight`, so a PASS from it would stop nothing.
+REPO_CEILING = 47_157
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
