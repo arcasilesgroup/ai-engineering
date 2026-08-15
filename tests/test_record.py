@@ -693,10 +693,7 @@ def test_a_git_that_cannot_place_the_anchor_leaves_the_commit_standing(tmp_path,
     assert "could not be placed" in done.stderr, done.stderr
 
 
-@pytest.mark.parametrize(
-    "subject", ["Merge branch 'feature'", 'Revert "fix(x): a thing"', "fixup! x"]
-)
-def test_a_subject_git_wrote_itself_is_still_anchored(tmp_path, subject):
+def test_a_subject_git_wrote_itself_is_still_anchored(tmp_path):
     """The exemption at the top of the hook is for the subject rule. It used to `exit 0`
     and take the anchor with it, so every merge left the record with nothing written and
     nothing said. A subject git chose is not a reason to leave the commit unrecorded.
@@ -704,9 +701,13 @@ def test_a_subject_git_wrote_itself_is_still_anchored(tmp_path, subject):
     Asserted through `--parse`, not by looking for the line: the first version of this test
     checked the string was somewhere in the file, which the round-three orphaning defect
     passes. The merge path is the only path this test owns, so a weak assertion here is a
-    blind spot nothing else covers."""
+    blind spot nothing else covers.
 
-    done, written, _, repo = _commit_msg(tmp_path, subject=subject)
+    One subject, not one per keyword: `Merge`, `Revert` and `fixup!` are alternations of a
+    single `grep -Eq` and nothing downstream reads the subject, so three parameters were
+    three copies of one case running three times."""
+
+    done, written, _, repo = _commit_msg(tmp_path, subject="Merge branch 'feature'")
     assert done.returncode == 0, done.stderr
     assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
 
@@ -714,8 +715,9 @@ def test_a_subject_git_wrote_itself_is_still_anchored(tmp_path, subject):
 def test_a_cli_the_hook_cannot_even_run_is_reported_rather_than_skipped(tmp_path):
     """`command -v` finding nothing used to mean the hook did nothing and said nothing.
     Every other test supplies a resolvable stub, so not one of them could reach it, and a
-    hook that is quiet when it cannot record is how five days of unanchored commits passed
-    under a green gate."""
+    hook that is quiet when it cannot record is how a run of unanchored commits passed
+    under a green gate. How long a run is not stated here: three different figures were
+    written into these files across three rounds and none of them was measured."""
 
     done, written, original, _ = _commit_msg(tmp_path, engine="/nonexistent/ai-eng")
     assert done.returncode == 0, done.stderr

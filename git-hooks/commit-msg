@@ -10,19 +10,19 @@ set -euo pipefail
 # Only the footer is taken, and it is matched by its own shape rather than trusted to be
 # the whole of stdout. `audit --anchor` sends its progress to stderr and its verdict to
 # stdout, because the verdict is the data every other verb produces — so on a chain that
-# does not hold, appending stdout wholesale wrote "✗ FAIL / Reason: ... / Exit code: 1"
-# into the commit message. No commit here carries that block, and the reason is in the
-# tree: 162 commits ran the append-wholesale form after the chain broke, an anchor-capable
-# CLI writes that block to stdout on a chain that does not hold, and the CLI `ai.eng`
-# actually named writes nothing at all and exits 2. Silence across all 162 dates the
-# misconfiguration to the whole window. Two earlier versions of this comment guessed the
-# opposite and a third said the question could not be answered.
+# does not hold, appending stdout wholesale writes "✗ FAIL / Reason: ... / Exit code: 1"
+# into the commit message.
+#
+# Why the anchors stopped being written here is deliberately not answered. Four versions of
+# this comment answered it four different ways and a reviewer refuted every one; the last
+# rested on `.git/config` state, which has no history, so "the hook was not wired then" is
+# indistinguishable from every story told about it. A hook comment is for what the hook
+# does. `specs/011` keeps the account of the guessing.
 #
 # And every path but the quiet success says something. Three used to say nothing: a chain
 # that does not hold, an `ai.eng` naming something `command -v` cannot find, and a subject
-# git wrote itself. Silence is how this went unanchored for five days under a green gate,
-# and an unanchored commit nobody was told about is the failure the record exists to make
-# impossible.
+# git wrote itself. An unanchored commit nobody was told about is the failure the record
+# exists to make impossible.
 anchor_footer() {
   local eng anchor
   eng="${AI_ENG:-$(git config --get ai.eng || echo ai-eng)}"
