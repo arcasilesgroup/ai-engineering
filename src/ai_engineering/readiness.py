@@ -209,11 +209,7 @@ def _status(box: Box, declared: object, root: Path, now: datetime) -> BoxStatus:
     # file, and comparing one to an integer raises out of the reader, out of doctor, and
     # into a traceback where an INCOMPLETE belonged. Anything else falls through to the
     # verifier, which already has an answer for a requirement of the wrong shape.
-    if (
-        isinstance(window, int | float)
-        and not isinstance(window, bool)
-        and window > MAX_AGE_CEILING
-    ):
+    if isinstance(window, int | float) and window > MAX_AGE_CEILING:
         return answer("INCOMPLETE", FRESHNESS_TOO_LOOSE)
     try:
         # Kind and identity are this module's to state. A declaration that tries to set
