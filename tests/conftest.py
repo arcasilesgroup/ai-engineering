@@ -6,18 +6,12 @@ about 110 ms. Tests reach them the same way the dispatcher does.
 """
 
 import subprocess
-import sys
-from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-for folder in ("src", "hooks"):
-    sys.path.insert(0, str(ROOT / folder))
-
 # Imported here and not in the fixture: the fixture replaces this function, so the handle
 # to the real one has to be taken before anything can have replaced it.
-from ai_engineering import wiring as _wiring  # noqa: E402
+from ai_engineering import wiring as _wiring
 
 _REAL_ANCHOR = _wiring.anchor_answers
 

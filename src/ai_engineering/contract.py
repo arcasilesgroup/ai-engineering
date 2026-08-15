@@ -422,7 +422,15 @@ DESCRIPTION_MAX = 1000
 # test reads one, no reviewer diffs it twice, and the sentence outlives everybody who could
 # contradict it. The constitution's line is "never claim a gate result this code did not
 # observe", and this was our own. 18 lines of test, 7 of corrected comment, 6 here.
-REPO_CEILING = 45_997
+# 45,997 to 46,008 for rule 3, which this repository was breaking in two of its own files.
+# `tests/stats.py` counts suppressions and prints the number; it is deliberately outside
+# `just check`, so the repository counted its own violations and gated on none of them. It
+# printed 2. `tests/conftest.py` carried `# noqa: E402` because it inserted `src` and
+# `hooks` on `sys.path` and then imported the package underneath — pytest has had a
+# `pythonpath` option since 7.0, so the ordering is configuration now and the exemption is
+# gone. `tests/test_readiness.py` carried `# pragma: no cover` on a platform branch in a
+# test file, and coverage only measures `src` and `hooks`, so it suppressed nothing at all.
+REPO_CEILING = 46_008
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

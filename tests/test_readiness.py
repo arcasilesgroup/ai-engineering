@@ -371,7 +371,7 @@ def test_nothing_linked_on_the_way_and_no_duplicate_key_decides_a_box(tmp_path):
     (linked / ".ai").rename(elsewhere)
     try:
         os.symlink(elsewhere, linked / ".ai", target_is_directory=True)
-    except (NotImplementedError, OSError):  # pragma: no cover - platform without symlinks
+    except (NotImplementedError, OSError):
         pytest.skip("this platform does not let this user create a symlink")
     redirected = readiness.read(linked, now=NOW)
     assert redirected.result.outcome == "INCOMPLETE"
