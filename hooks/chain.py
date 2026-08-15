@@ -115,10 +115,27 @@ def cache_file() -> Path:
 
 
 def cached(fp: str) -> dict | None:
+    """A remembered verdict, or nothing. Anything malformed is nothing.
+
+    A truthy read of `entry["deny"]` would let `{"deny": "no"}` — or a string, or a list —
+    decide a call, and the branch below treats "not a denial" as "let it through". So the
+    shape is checked and an entry that is not exactly one well-formed verdict is discarded,
+    which puts the guards back in the path rather than skipping them.
+
+    What this cannot do is authenticate the file. Anything able to write it can also write
+    `hooks/*.py`, so it is not a new way in; it is stated here because a cache that looks
+    like a control and is not one is worse than a cache nobody mistook for a control.
+    """
+
     try:
-        return json.loads(cache_file().read_text()).get(fp)
+        entry = json.loads(cache_file().read_text()).get(fp)
     except (OSError, ValueError):
         return None
+    if not isinstance(entry, dict) or not isinstance(entry.get("deny"), bool):
+        return None
+    if entry["deny"] and not all(isinstance(entry.get(key), str) for key in ("by", "message")):
+        return None
+    return entry
 
 
 def remember(fp: str, verdict: dict) -> None:
@@ -197,6 +214,24 @@ def main() -> int:
                 name,
                 "BLOCKED: this guard could not even be loaded, so nothing here can "
                 "say whether the action is safe. Fix the guard.",
+                structured=payload["_structured"],
+            )
+        # The class the hook declares about itself, read here and not only in a test. A
+        # guard that lost its decorator is a hook the dispatcher would run on a blocking
+        # event with no promise about what a crash means — which is a fail-open control
+        # wearing a guard's name. Undeclared is refused, not assumed.
+        kind = getattr(getattr(module, "run", None), "hook_class", None)
+        expected = "telemetry" if name in TELEMETRY else "guard"
+        if kind != expected:
+            if expected == "telemetry":
+                emit(name, "error", error=f"declares {kind!r}, not telemetry", outcome="ignored")
+                continue
+            emit(name, "error", error=f"declares {kind!r}, not guard", outcome="blocked")
+            payload["_denied"] = (name, "BLOCKED: this hook does not declare itself a guard")
+            deny(
+                name,
+                "BLOCKED: this hook runs where a call can be stopped and does not declare "
+                "itself a guard, so nothing here can say whether the action is safe.",
                 structured=payload["_structured"],
             )
         try:

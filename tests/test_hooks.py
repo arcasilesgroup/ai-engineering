@@ -1124,3 +1124,56 @@ def test_change_scope_guard_is_hard_rename_of_design_gate():
 
     # And the grant it reads is its own: a bypass minted for the old name buys nothing.
     assert "change_scope_guard" in _wrap.FLOW and "design_gate" not in _wrap.FLOW
+
+
+def test_dispatcher_table_marks_blocking_hooks_as_guards_and_rejects_gaps(repo, monkeypatch):
+    """The dispatcher reads the class, and reads it at dispatch time.
+
+    A contract test can prove every hook in the tree declares itself. It cannot prove the
+    dispatcher would refuse one that stopped declaring — a decorator lost in a refactor, a
+    module swapped on disk between install and call. On an event where a call can be
+    stopped, undeclared is refused; on telemetry it is skipped and recorded, because
+    telemetry that fails closed would block Git.
+    """
+
+    import chain
+
+    blocking = {"PreToolUse", "PostToolUse"}
+    for event, rows in chain.TABLE.items():
+        for name, _pattern in rows:
+            module = __import__(name)
+            declared = getattr(module.run, "hook_class", None)
+            assert declared in ("guard", "telemetry"), name
+            if event in blocking and name not in chain.TELEMETRY:
+                assert declared == "guard", name
+
+    class Undeclared:
+        @staticmethod
+        def run(payload):
+            raise AssertionError("a hook with no class must never be run")
+
+    monkeypatch.setattr(chain, "TABLE", {"PreToolUse": [("undeclared", r".*")]})
+    monkeypatch.setattr(chain.importlib, "import_module", lambda name: Undeclared)
+    monkeypatch.setattr(
+        chain.sys, "stdin", io.StringIO(json.dumps({"tool_name": "Bash", "command": "ls"}))
+    )
+    monkeypatch.setattr(chain.sys, "argv", ["chain.py", "PreToolUse"])
+    with pytest.raises(SystemExit) as blocked:
+        chain.main()
+    assert blocked.value.code != 0
+
+    # A remembered verdict that is not exactly one well-formed verdict is not a verdict.
+    # `{"deny": "no"}` used to read as "not a denial", which is how a malformed cache line
+    # let a call past every guard in the table.
+    for forged in ({"deny": "no"}, {"deny": None}, ["deny"], {}, {"deny": True}, 17):
+        path = chain.cache_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"abc": forged}), encoding="utf-8")
+        assert chain.cached("abc") is None, forged
+    path.write_text(
+        json.dumps({"abc": {"deny": True, "by": "loop_guard", "message": "BLOCKED: enough"}}),
+        encoding="utf-8",
+    )
+    assert chain.cached("abc")["by"] == "loop_guard"
+    path.write_text(json.dumps({"abc": {"deny": False}}), encoding="utf-8")
+    assert chain.cached("abc") == {"deny": False}
