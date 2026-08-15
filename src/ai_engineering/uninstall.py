@@ -143,14 +143,15 @@ def _skills_owned(root: Path, how: str) -> bool:
 
 
 def _opencode_source() -> str:
-    source = (paths.surfaces() / "opencode.ts").read_text(encoding="utf-8")
-    for token, value in (
-        ("__PYTHON__", sys.executable),
-        ("__CHAIN__", str(paths.hooks() / "chain.py")),
-        ("__BEAT__", str(paths.home() / "cache" / "opencode-heartbeat")),
-    ):
-        source = source.replace(token, value)
-    return source
+    """What the installer would write, asked of the installer.
+
+    This was a second copy of the substitution, and `_guard_owned` compares the installed
+    bytes to it. When the writer was corrected and this was not, they disagreed — and a
+    mismatch here aborts the entire uninstall, not the plugin row: skills, git config and
+    every other surface stay put, reported as "nothing removed". A reconstruction that can
+    drift from the thing it reconstructs is not a check, it is a second bug waiting."""
+
+    return wiring.opencode_source()
 
 
 def _json_guard_owned(data: dict, how: str) -> bool:

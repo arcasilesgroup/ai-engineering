@@ -217,24 +217,36 @@ def json_codex(path: Path) -> str:
     return f"appended, position {len(groups)} of {len(groups)}"
 
 
-def ts_opencode(path: Path) -> str:
-    """One TypeScript file that shells out to the same dispatcher every other surface
-    calls. Not weightless: the moment any local plugin exists OpenCode creates a
-    lockfile and a ~61 MB node_modules, and the first run pays an install."""
-    path.parent.mkdir(parents=True, exist_ok=True)
+def opencode_source() -> str:
+    """The plugin exactly as it is installed, from one definition.
+
+    There were three: this writer, `uninstall`'s reconstruction, and a test's copy. They
+    agreed only by accident of platform, and the moment one was corrected the other two
+    disagreed — `uninstall` compares the installed bytes to its own reconstruction and
+    refuses the *whole* run when they differ, so a fix here removed nothing anywhere. One
+    function, three callers, and drift stops being possible."""
+
     source = (paths.surfaces() / "opencode.ts").read_text(encoding="utf-8")
     for token, value in (
         ('"__PYTHON__"', sys.executable),
         ('"__CHAIN__"', str(paths.hooks() / "chain.py")),
         ('"__BEAT__"', str(paths.home() / "cache" / "opencode-heartbeat")),
     ):
-        # The quotes are replaced too, and the value is written as a JSON string. Dropping
-        # a raw Windows path inside existing quotes made `C:\Users\me\...` into
-        # `C:Usersme...` — every backslash a TypeScript escape — so the plugin pointed at a
-        # path that does not exist. It used to allow silently; now it denies every call,
-        # which is the right direction and the wrong outcome.
+        # The quotes go too, and the value is written as a JSON string. Dropping a raw
+        # Windows path inside existing quotes made `C:\Users\me\...` into `C:Usersme...`
+        # — every backslash a TypeScript escape — so the plugin pointed at a path that never
+        # existed. It used to allow silently; once the plugin failed closed it denied
+        # everything instead.
         source = source.replace(token, json.dumps(value))
-    path.write_text(source, encoding="utf-8")
+    return source
+
+
+def ts_opencode(path: Path) -> str:
+    """One TypeScript file that shells out to the same dispatcher every other surface
+    calls. Not weightless: the moment any local plugin exists OpenCode creates a
+    lockfile and a ~61 MB node_modules, and the first run pays an install."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(opencode_source(), encoding="utf-8")
     return "plugin written"
 
 
