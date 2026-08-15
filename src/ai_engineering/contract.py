@@ -425,12 +425,29 @@ DESCRIPTION_MAX = 1000
 # 45,997 to 46,008 for rule 3, which this repository was breaking in two of its own files.
 # `tests/stats.py` counts suppressions and prints the number; it is deliberately outside
 # `just check`, so the repository counted its own violations and gated on none of them. It
-# printed 2. `tests/conftest.py` carried `# noqa: E402` because it inserted `src` and
+# printed 2. `tests/conftest.py` carried an E402 exemption because it inserted `src` and
 # `hooks` on `sys.path` and then imported the package underneath — pytest has had a
 # `pythonpath` option since 7.0, so the ordering is configuration now and the exemption is
 # gone. `tests/test_readiness.py` carried `# pragma: no cover` on a platform branch in a
 # test file, and coverage only measures `src` and `hooks`, so it suppressed nothing at all.
-REPO_CEILING = 46_008
+# 46,008 to 46,240 for the requirement-by-requirement audit and one defect it found.
+#
+# 162 of the lines are `docs/audit-2026-08-15.md`, which is what the standing goal asked
+# for: five independent auditors over 27 process-optimization commitments and 385
+# evolution-proposal requirements, under one rule — PROVEN only if somebody ran a command
+# and can paste its decisive output. It reports that the proposal is not implemented and
+# names twenty FAILED requirements, which is a larger delivery than a percentage.
+#
+# The rest is the first of those twenty. `doctor.surfaces_alive` returns `(message, cure)`
+# as soon as any surface is unwired, and the coverage block did `surfaces_alive(root) or
+# ""` — a tuple is not a string, so `surface["name"] in inert` stopped being a substring
+# test and became an exact-element test that is never true. The block could therefore never
+# print INERT while any surface was unwired, and the two surfaces that fail *silently* —
+# Codex without its trust ceremony, OpenCode whose plugin was dropped with no error and no
+# log — printed as `installed and wired` on the operator's machine while assertion 21 was
+# telling them both were dead. Nothing reached it: every existing case had all surfaces
+# wired or none, and the bug needs one of each.
+REPO_CEILING = 46_240
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
