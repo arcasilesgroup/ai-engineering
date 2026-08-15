@@ -519,7 +519,13 @@ def test_spec_010_004_intent_and_ceiling_transition_atomically():
         )
 
     spec = SPEC.read_text(encoding="utf-8")
-    assert frontmatter(SPEC)["status"] == "shipped"
+    # Draft, and it went back to draft on purpose. The plan reserves `shipped` until the
+    # final candidate proves exact-HEAD receipts from `check.yml` and `install-matrix.yml`,
+    # and the branch has never been pushed, so those runs cannot exist. `doctor` assertion
+    # 19 said so and the audit recorded it as FAILED: a wave marked shipped on receipts
+    # nobody could produce is the green this whole product exists to refuse, and the
+    # repository was doing it to itself. The operator chose the record over the word.
+    assert frontmatter(SPEC)["status"] == "draft"
     assert frontmatter(SPEC)["supersedes"] == "004"
     superseded = ROOT / "specs" / "004-solution-intent-home" / "spec.md"
     assert frontmatter(superseded)["status"] == "superseded"

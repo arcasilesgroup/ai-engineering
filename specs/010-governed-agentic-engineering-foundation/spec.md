@@ -1,7 +1,7 @@
 ---
 id: "010"
 slug: governed-agentic-engineering-foundation
-status: shipped
+status: draft
 date: 2026-08-13
 ref: ""
 supersedes: "004"
