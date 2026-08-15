@@ -282,8 +282,11 @@ rather than being folded into one that has already closed.
 
 What is already repaired: the hook appended the verb's whole stdout to the commit message,
 so a chain that does not hold wrote a rendered `✗ FAIL` block into it, and `|| true` kept
-that silent. Machine state, repaired outside the tree: `git config ai.eng` pointed at a
-v0.13 install with no `--anchor` flag.
+that silent. Machine state, repaired outside the tree: `git config ai.eng` was read once,
+at 2026-08-15T07:46Z, naming an install whose `audit` has no `--anchor` flag, and repointed
+at the editable one. That is a single reading of a file with no history — the value at any
+earlier moment is not recoverable, so it is a fault that was present, not a fault that can
+be dated or blamed for anything.
 
 **Correction, one review round later.** The sentence that stood here said the anchor
 "errored on every commit this repository has ever made and no commit in `git log` carries
