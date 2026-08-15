@@ -892,3 +892,57 @@ def test_a_denial_hands_back_the_bypass_that_unblocks_the_guard_that_denied(caps
     with pytest.raises(SystemExit):
         _wrap.deny("loop_guard", "denied")
     assert "--guard loop_guard" in capsys.readouterr().err
+
+
+# What P0 broke, named in the words somebody upgrading would search for. The list is
+# written here rather than derived, because "is this a breaking change" is a judgement no
+# script can make — but every claim in it is checked against the tree, so an entry that
+# stops being true fails here instead of ageing quietly in a file nobody rereads.
+P0_BREAKING = (
+    ("hooks/design_gate.py", "hooks/change_scope_guard.py"),
+    ("src/ai_engineering/plan.py", "src/ai_engineering/exception.py"),
+    ("src/ai_engineering/digest.py", "src/ai_engineering/report.py"),
+)
+P0_SPELLINGS = (("ai-eng plan", "ai-eng exception"), ("ai-eng digest", "ai-eng report"))
+# Where a class of file now lives, and the behaviour that changed direction. Each of these
+# strings has to be somewhere in the code as well as in the changelog: a canonical home
+# nothing reads and a flag nothing passes are both prose.
+P0_HOMES = {
+    "acceptance-r-": ROOT / "src" / "ai_engineering" / "acceptance.py",
+    ".ai-engineering/receipts": ROOT / "src" / "ai_engineering" / "readiness.py",
+    "PYTHONSAFEPATH": ROOT / "src" / "ai_engineering" / "wiring.py",
+}
+
+
+def _breaking_block() -> str:
+    """Everything under the newest release's breaking-changes heading."""
+
+    lines = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+    start = lines.index("### Breaking changes")
+    rest = lines[start + 1 :]
+    ends = [index for index, line in enumerate(rest) if line.startswith("## ")]
+    return "\n".join(rest[: ends[0]] if ends else rest)
+
+
+def test_changelog_names_all_p0_hard_renames_deletes_and_fail_closed_changes():
+    """Rule 4 as an exit code. No compatibility shims means the only thing standing between
+    somebody's working setup and a silent breakage is this file, so every name that stopped
+    working has to be in it — spelled the way they had it, not the way we have it now."""
+
+    block = _breaking_block()
+    for gone, replacement in P0_BREAKING:
+        assert not (ROOT / gone).exists(), f"{gone} was not hard-deleted"
+        assert (ROOT / replacement).exists(), f"{replacement} does not exist"
+        assert gone in block, f"the changelog does not name the deleted {gone}"
+        assert replacement in block, f"the changelog does not name {replacement}"
+    for gone, replacement in (*P0_SPELLINGS, ("--adr", "--madr")):
+        assert gone in block and replacement in block, f"{gone} is not written down"
+        # The reference a person copies commands out of must not still offer the old one.
+        assert gone not in (ROOT / "docs" / "tools.md").read_text(encoding="utf-8")
+    for home, proof in P0_HOMES.items():
+        assert home in proof.read_text(encoding="utf-8"), f"{home} is prose, not code"
+        assert home in block, f"the changelog does not name {home}"
+    # Fail-closed is the direction that surprises people: things that used to answer now
+    # refuse, so the changelog says so in the words the failure prints.
+    for refusal in ("INCOMPLETE", "fails closed", "origin/main"):
+        assert refusal in block, f"the changelog does not say {refusal}"
