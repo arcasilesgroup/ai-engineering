@@ -213,7 +213,12 @@ def main() -> int:
                 "BLOCKED: this guard could not even be loaded, so nothing here can "
                 "say whether the action is safe. Fix the guard."
             )
-            remember(fp, {"deny": True, "by": name, "message": said})
+            # Only when this call is one the cache is keyed on. The fingerprint omits the
+            # event, so remembering a PostToolUse denial here overwrote the PreToolUse
+            # answer for the same call, and a later delivery was denied by a guard that was
+            # never on its row.
+            if dedup:
+                remember(fp, {"deny": True, "by": name, "message": said})
             deny(name, said, structured=payload["_structured"])
         # The class the hook declares about itself, read here and not only in a test. A
         # guard that lost its decorator is a hook the dispatcher would run on a blocking
@@ -230,7 +235,12 @@ def main() -> int:
                 "BLOCKED: this hook runs where a call can be stopped and does not declare "
                 "itself a guard, so nothing here can say whether the action is safe."
             )
-            remember(fp, {"deny": True, "by": name, "message": said})
+            # Only when this call is one the cache is keyed on. The fingerprint omits the
+            # event, so remembering a PostToolUse denial here overwrote the PreToolUse
+            # answer for the same call, and a later delivery was denied by a guard that was
+            # never on its row.
+            if dedup:
+                remember(fp, {"deny": True, "by": name, "message": said})
             deny(name, said, structured=payload["_structured"])
         try:
             module.run(payload)

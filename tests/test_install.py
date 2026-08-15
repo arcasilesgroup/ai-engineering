@@ -1541,6 +1541,25 @@ def test_wire_git_executes_the_configured_module_before_persisting_it(repo, monk
             )
             assert answer.returncode != 0, key
 
+    # The same plant as doctor's, against the writer — which runs with no `cwd=` at all,
+    # so what it would have picked up is the installer's own shell directory.
+    planted = repo.parent / "planted"
+    (planted / "ai_engineering").mkdir(parents=True)
+    marker = planted / "the-plant-ran"
+    (planted / "ai_engineering" / "__init__.py").write_text("", encoding="utf-8")
+    (planted / "ai_engineering" / "cli.py").write_text(
+        "from pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text('executed', encoding='utf-8')\n"
+        "print('ai-engineering 9.9.9')\n",
+        encoding="utf-8",
+    )
+    standing = repo.parent / "standing"
+    subprocess.run(["git", "init", "-b", "main", str(standing)], check=True, capture_output=True)
+    monkeypatch.chdir(planted)
+    wiring.wire_git(standing)
+    monkeypatch.undo()
+    assert not marker.exists(), "the directory the installer stood in executed its own code"
+
     # A timeout is a failure too, and it is the one a hung interpreter produces.
     def hangs(*args, **kwargs):
         raise subprocess.TimeoutExpired(cmd="python", timeout=30)

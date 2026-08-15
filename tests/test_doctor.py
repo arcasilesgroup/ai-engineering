@@ -1353,17 +1353,19 @@ def test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module(home,
     # the check would be reading a value this test never wrote.
     real = doctor.subprocess.run
 
-    def only_the_anchor(answer):
+    def only_the_anchor(answer, alive=None):
+        alive = alive or SimpleNamespace(returncode=0, stdout="ai-engineering 1.0")
+
         def run(argv, *args, **kwargs):
             if list(argv)[:1] == ["git"]:
                 return real(argv, *args, **kwargs)
-            if "--version" in list(argv):
-                # Liveness is a separate question from anchorability, so the stub answers
-                # it separately: these cases are about a module that runs and misbehaves.
-                return SimpleNamespace(returncode=0, stdout="ai-engineering 1.0.0")
-            if isinstance(answer, BaseException):
-                raise answer
-            return answer
+            # Liveness is a separate question from anchorability, so the stub answers it
+            # separately — and answerably, because the dead-module branch is the one this
+            # test is named for and hard-coding a live answer removed the only path to it.
+            chosen = alive if "--version" in list(argv) else answer
+            if isinstance(chosen, BaseException):
+                raise chosen
+            return chosen
 
         return run
 
@@ -1381,10 +1383,52 @@ def test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module(home,
     )
     assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
 
-    # And a hang is undecidable rather than a pass that waited.
+    # The state this test is named for: the interpreter is alive and the module is not.
+    for dead in (
+        SimpleNamespace(returncode=1, stdout=""),
+        SimpleNamespace(returncode=0, stdout=""),
+        SimpleNamespace(returncode=0, stdout="some other tool 9.9"),
+    ):
+        monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(dead, alive=dead))
+        state, detail = verdict(doctor.git_hook_fires, repo)
+        assert state == "fail", dead
+        assert "installed and does not run" in detail, dead
+
+    # And a hang is undecidable rather than a pass that waited — on either call.
     hangs = subprocess.TimeoutExpired(cmd="python", timeout=30)
     monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(hangs))
     assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
+    monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(hangs, alive=hangs))
+    assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
+
+    # A path with a space in it is the default Windows install, and it used to make this
+    # assertion permanently red with a cure that rewrote the same unreadable value.
+    for spaced in (
+        "/Users/My Name/.venv/bin/python",
+        r"C:\Program Files\Python312\python.exe",
+    ):
+        assert doctor._interpreter_of(f"{spaced} -m ai_engineering.cli") == spaced
+
+
+def test_an_undecidable_assertion_prints_the_cure_it_carries(capsys):
+    """`INCOMPLETE` and `INCOMPLETE, and here is the command that settles it` were the same
+    state, so a check whose answer was one command away had to be reported as a failure to
+    say so. This is the rendering half of that, which nothing else drives."""
+
+    from ai_engineering import ui
+
+    ui.reset()
+    raised = doctor.Undecidable("the chain is not in a state to sign one", "ai-eng init --project")
+    assert str(raised) == "the chain is not in a state to sign one"
+    assert raised.cure == "ai-eng init --project"
+    ui.verdict(11, "unknown", "A git hook actually fires", f"could not evaluate: {raised}")
+    ui.cure("INCOMPLETE", raised.cure)
+    printed = capsys.readouterr().out
+    assert "could not evaluate: the chain is not in a state to sign one" in printed
+    assert "fix: ai-eng init --project" in printed
+
+    # An Undecidable with no cure prints none, rather than a line promising one.
+    assert doctor.Undecidable("nothing to be done here").cure == ""
 
 
 def test_the_anchor_check_runs_the_installed_module_and_never_the_repository_it_diagnoses(

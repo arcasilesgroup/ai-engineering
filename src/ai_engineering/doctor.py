@@ -15,7 +15,6 @@ import argparse
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -324,6 +323,21 @@ _ANCHOR_FOOTER = re.compile(r"^Ai-Eng-Anchor: \S+/\S+ seq=\d+ head=[0-9a-f]{12}$
 _ANCHOR_CURE = "ai-eng init --project"
 
 
+def _interpreter_of(configured: str) -> str:
+    """The interpreter an `ai.eng` value names, or an empty string when it names none.
+
+    The value is always one interpreter followed by `-m ai_engineering.cli`, so the tail is
+    matched exactly and whatever precedes it is the interpreter — quoted or not, with spaces
+    or without. A tokeniser cannot do this: `shlex` in POSIX mode eats backslashes and in
+    Windows mode keeps the quotes, and either way a path with a space becomes two arguments.
+    """
+
+    suffix = " " + " ".join(_ANCHOR_TAIL)
+    if not configured.endswith(suffix):
+        return ""
+    return configured[: -len(suffix)].strip().strip('"')
+
+
 def _run_anchor(root: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
     """Run this interpreter's own CLI, in the repository being diagnosed, safely.
 
@@ -366,9 +380,11 @@ def _anchor_answers(root: Path) -> str | tuple[str, str] | None:
         raise Undecidable(
             "ai.eng is not set here, so the hooks have no CLI to resolve", _ANCHOR_CURE
         )
-    # POSIX quoting rules eat a Windows path's backslashes, and a space in an interpreter
-    # path splits it in two. Both made this assertion permanently red on a real machine.
-    if shlex.split(configured, posix=os.name != "nt") != [sys.executable, *_ANCHOR_TAIL]:
+    # Compared by shape rather than by tokenising. POSIX quoting eats a Windows path's
+    # backslashes and every splitter cuts `C:\Program Files\...` in two, so both spellings
+    # were permanently red — with a cure that rewrites the same unsplittable value, which
+    # is a loop and not a repair. The value has one exact shape, so it is read as one.
+    if _interpreter_of(configured) != sys.executable:
         return (
             "ai.eng does not name this interpreter and this module, so what the hooks run "
             "is not what this install would run",
