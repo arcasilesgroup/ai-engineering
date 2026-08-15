@@ -96,8 +96,8 @@
       "additionalProperties": false,
       "required": ["installed", "loaded"],
       "properties": {
-        "installed": { "type": "boolean" },
-        "loaded": { "type": "boolean" },
+        "installed": { "enum": [true, false] },
+        "loaded": { "enum": [true, false] },
         "observed_at": { "$ref": "#/$defs/timestamp" }
       }
     },
@@ -107,7 +107,7 @@
       "additionalProperties": false,
       "required": ["required"],
       "properties": {
-        "required": { "type": "boolean" },
+        "required": { "enum": [true, false] },
         "ceremony": { "$ref": "#/$defs/non_empty" }
       }
     }

@@ -103,3 +103,71 @@ def test_adapter_schema_is_closed_and_versioned():
         "state_never_implies_another": True,
         "t3_enforcement": "not_applicable",
     }
+
+
+def _validator():
+    """The shared reader, told about this contract's one extra keyword.
+
+    Built on the same `_Schema` every other policy in this repository is read with, so an
+    adapter cannot be accepted by a validator written to be kind to it."""
+
+    from ai_engineering import intent
+
+    class _AdapterSchema(intent._Schema):
+        _KEYWORDS = intent._Schema._KEYWORDS | {"x-adapter-policy"}
+
+    return _AdapterSchema(json.loads(SCHEMA_PATH.read_text(encoding="utf-8")))
+
+
+def test_every_invalid_adapter_fixture_is_refused():
+    """Invalid first, and refused before any adapter exists to satisfy them.
+
+    Each case names the hole it opens rather than a number, because a fixture called
+    `invalid_7` tells the next reader nothing about what stopped being true."""
+
+    cases = json.loads((ROOT / "tests" / "fixtures" / "surface-adapter-v1.json").read_text("utf-8"))
+    schema = _validator()
+
+    assert len(cases["invalid"]) >= len(SURFACES), "fewer holes named than there are surfaces"
+
+    # Each invalid case must fail for the reason it names and not for an accident, so every
+    # one of them still carries all eight required keys. A fixture that is refused because
+    # it forgot something unrelated proves the schema rejects malformed JSON, which nobody
+    # doubted, and proves nothing about the field it was written for.
+    required = set(json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))["required"])
+    for case in cases["invalid"]:
+        assert required <= set(case["record"]), case["why"]
+    for case in cases["valid"]:
+        assert schema.valid(case["record"]), case["why"]
+    for case in cases["invalid"]:
+        assert not schema.valid(case["record"]), case["why"]
+
+    # Every closed field has at least one case that breaks it, so adding a field without a
+    # fixture is a field nobody proved closed.
+    closed = (
+        "surface_id",
+        "detection",
+        "payload_field",
+        "lifecycle_event",
+        "exit_meaning",
+        "reply",
+        "heartbeat",
+        "trust",
+        "adapter_version",
+        "schema",
+    )
+    reasons = " ".join(case["why"] for case in cases["invalid"]).lower()
+    named = {
+        "surface_id": "ninth surface",
+        "detection": "detection",
+        "payload_field": "payload field",
+        "lifecycle_event": "lifecycle event",
+        "exit_meaning": "exit code",
+        "reply": "reply shape",
+        "heartbeat": "heartbeat",
+        "trust": "trust",
+        "adapter_version": "no version",
+        "schema": "another schema",
+    }
+    for field in closed:
+        assert named[field] in reasons, field
