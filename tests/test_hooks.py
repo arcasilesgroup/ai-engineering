@@ -1307,3 +1307,48 @@ def test_wrap_cures_plan_exception_naming_and_preserves_fail_closed_guard(
         crashes({})
     assert denied.value.code != 0
     assert watches({}) is None
+
+
+def test_an_export_the_collector_rejected_is_recorded_and_not_treated_as_delivery(
+    repo, monkeypatch
+):
+    """`_otlp.probe` already decides the hard part: a 2xx carrying rejected records is not
+    a delivery, and it says so in its own return value. `session.py` called `send_tail` and
+    threw the tuple away, so the one place that actually exports never read the answer.
+
+    Silent partial loss is the worst shape this can take: the collector says 200, the
+    operator's dashboard is missing events, and nothing anywhere in the record says a
+    single line failed to land. Telemetry may not decide, and it may not stay quiet about
+    its own failure either — that is what the `error` class is for."""
+
+    import session as session_hook
+
+    (repo / ".ai").mkdir(exist_ok=True)
+    (repo / ".ai" / "config.toml").write_text("[pin]\nversion='1'\n")
+    _emit.emit("loop_guard", "blocked", reason="something to send")
+
+    monkeypatch.setattr(
+        session_hook, "config", lambda root=None: {"observability": {"endpoint": "http://x"}}
+    )
+    otlp = paths_load_otlp()
+    monkeypatch.setattr(otlp, "send_tail", lambda count: (200, 3, "3 rejected"))
+
+    session_hook.run({"hook_event_name": "SessionEnd"})
+
+    # In the buffer, not the chain: `flush` has already run, so the event describing the
+    # export cannot be inside the batch it describes. It seals with the next session, which
+    # is why the operator is also told now, on stderr.
+    buffered = [
+        json.loads(line)
+        for line in _emit.buffer_path(repo).read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    rejected = [row for row in buffered if row.get("data", {}).get("rejected")]
+    assert rejected, "an export the collector rejected left no trace in the record"
+    assert rejected[-1]["cls"] == "error", rejected[-1]
+
+
+def paths_load_otlp():
+    import _otlp
+
+    return _otlp

@@ -57,4 +57,17 @@ def run(payload: dict) -> None:
     if moved and config().get("observability", {}).get("endpoint"):
         import _otlp
 
-        _otlp.send_tail(moved)  # off the hot path on purpose: never during a tool call
+        # Off the hot path on purpose: never during a tool call. And the answer is read.
+        # `_otlp.probe` already decides the hard part — a 2xx carrying rejected records is
+        # not a delivery — and this, the one place that actually exports, used to throw the
+        # tuple away. Silent partial loss is the worst shape it can take: the collector
+        # says 200, the dashboard is missing events, and nothing in the record says a line
+        # failed to land. Telemetry may not decide; it may not be quiet about its own
+        # failure either, which is what the `error` class is for.
+        status, rejected, detail = _otlp.send_tail(moved)
+        if rejected or not (200 <= status < 300):
+            # Both: the event is durable and seals with the next session, and the line is
+            # visible now. The event alone would tell the operator a day late; the line
+            # alone would vanish with the terminal.
+            emit("otlp", "error", status=status, rejected=rejected, detail=detail, sent=moved)
+            note(f"the collector did not take {rejected or moved} of {moved} events: {detail}")
