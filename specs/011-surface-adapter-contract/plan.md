@@ -286,32 +286,40 @@ that silent. Machine state, repaired outside the tree: `git config ai.eng` named
 install whose `audit` has no `--anchor` flag, and was repointed at the editable one on
 2026-08-15.
 
-**Correction, one review round later.** The sentence that stood here said the anchor
-"errored on every commit this repository has ever made and no commit in `git log` carries
-the trailer". Both halves are false: 111 commits carry an `Ai-Eng-Anchor:` trailer with
-this machine's real id — 111 as `git interpret-trailers --parse` counts them, 112 messages
-containing the line — the newest on 2026-08-10 at `seq=917`, the last clean link. I had
-probed three commits for a trailer key that does not exist (`Ai-Eng-Audit`), read the empty
-result as proof of absence, and wrote it into the correction whose own subject is unbacked
-claims.
+**Why the anchors stopped is not recorded here, after four attempts to record it.**
 
-**And a correction to that correction, one round later again.** It went on to say the
-`ai.eng` misconfiguration "is not why the anchors stopped", naming the chain break instead.
-That was asserted. So was the next attempt, which said the misconfiguration could not be
-dated at all and the chain break was sufficient on its own. Both were written without
-measuring, in a section whose subject is claims written without measuring.
+The first version said the anchor "errored on every commit this repository has ever made
+and no commit in `git log` carries the trailer". False: 111 commits carry an
+`Ai-Eng-Anchor:` trailer that `git interpret-trailers --parse` reads, on 111 messages
+carrying 113 such lines — two commits carry it twice, which is itself orphaning evidence.
+The newest is on 2026-08-10 at `seq=917`, the last clean link. I had probed three commits
+for a trailer key that does not exist (`Ai-Eng-Audit`) and read the empty result as proof.
 
-It is measurable, from the tree, and the answer is the opposite one. The append-wholesale
-form of the hook was live from 2026-08-08 until 2026-08-15T07:52Z, and 162 commits ran it
-after the first BROKEN link. On a chain that does not hold, an anchor-capable CLI writes
-`✗ FAIL / Reason: … / Exit code: 1` to **stdout**, which that hook appended to the message;
-the CLI `ai.eng` actually named writes nothing to stdout and exits 2. Exactly one commit in
-the repository contains that block, and it is `78bdf968` quoting it in prose. Silence across
-162 commits dates the misconfiguration to the whole window 2026-08-12 → 2026-08-15. The
-chain break leaves no trace in any commit; the misconfiguration leaves 162.
+The second named the chain break as the cause. Asserted. The third said the cause could not
+be dated at all. Also asserted. The fourth built an inference from the tree: 162 commits ran
+the append-wholesale hook after the break, an anchor-capable CLI writes its `✗ FAIL` block
+to stdout on a chain that does not hold, that hook appended stdout to the message, and no
+commit carries the block — so the misconfiguration must have been in effect throughout.
 
-Three corrections to one sentence, each guessing at a cause that the repository could have
-been asked about directly.
+That one is refuted too, and by three separate holes. It assumes `core.hooksPath` and
+`ai.managed` were set for the whole window, which is `.git/config` state with no history —
+the very class the third attempt had correctly refused to date, reintroduced as the
+load-bearing premise of its own correction. One of the 162 was a GitHub-side squash by
+another committer, where no local hook ran at all. And the install the argument names did
+not exist for the first 29 hours of the window, so for 21 of the 162 the described
+mechanism is impossible. The pre-repair value of `ai.eng` was changed outside the tree and
+is unrecoverable.
+
+So it stays unanswered. What is measured and stays: the chain broke at
+2026-08-12T12:26:06Z, no commit after it carries an anchor, `ai.eng` named an install with
+no `--anchor` flag when it was read, and the append-wholesale hook was in the tree for the
+whole period. Which of those stopped the anchors first is not in this repository.
+
+The pattern is the finding, and it is the reason this is written down rather than deleted:
+**four attempts at one sentence, each refuted, and the fourth failed by committing the
+exact error the third had identified.** Every one was caught by a reader executing
+commands; none by re-reading. A correction is a claim, and this section is the measurement
+that says corrections are not more reliable than what they correct.
 
 What is open, and what this block is for:
 
