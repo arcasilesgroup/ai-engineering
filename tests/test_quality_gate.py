@@ -510,7 +510,7 @@ def test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renam
 
     surface = _named_step(lines, "the ten verbs, the hard renames and one JSON object")
     assert _raw_digest(surface) == (
-        "97b4a3a6e2bef80c02fffae908f2b1d6dff20caa67a4716d1155f588450d4caf"
+        "9e769bc187bf61da8409f59016ead282da9642099a9ab87f44a2a6bdf41c7597"
     )
     body = "\n".join(surface)
 
