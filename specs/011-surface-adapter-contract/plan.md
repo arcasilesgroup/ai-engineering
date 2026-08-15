@@ -137,6 +137,49 @@ actually executes there — applied to all eight, because none of them has ever 
    **rollback**: `git revert <commit>`. **done when**: the field is deleted, not deprecated,
    and the test fails if it returns under any spelling.
 
+### Block B — the denial that already runs, receipted
+
+Restored: the Task 6 amendment above replaced a span reaching to the next heading and took
+Block B's three tasks with it. Recorded rather than quietly re-added, because a plan losing
+a block silently is the failure mode the amendments exist to prevent.
+
+### Amendment, made while starting Block B
+
+Task 7 said `src/ai_engineering/adapters/claude_code.py`. Two things are wrong with that,
+and the second is the one that matters.
+
+Everything the contract asks an adapter for — a detection signal, four translation tables,
+a trust ceremony — is data, and AGENTS.md says where data lives: "`policy/` — data, not
+code". A module holding a dict is a dict with a `.py` extension.
+
+The second: nothing would read it. The interim audit's largest single finding is
+`capability.py`, where fifteen capabilities declare six governed fields each, the schema
+validates them, and every declared action still returns `ENFORCEMENT_UNAVAILABLE` because
+nothing calls the preflight. **A declaration that governs nothing is the defect this wave
+is fixing, not a step toward fixing it.** Writing a second one, in the same wave, to satisfy
+a task number, would be indefensible.
+
+So Task 7 is deferred, and Block B is the two tasks that close the gap this wave actually
+left open: the wheel executes a denial and nothing receipts it.
+
+7. **Deferred.** An adapter record lands when a reader needs one, not before.
+
+8. **The wheel's denial writes its receipt** — **file** `.github/workflows/install-matrix.yml`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_the_matrix_receipts_the_denial_it_already_executes`.
+   **rollback**: `git revert <commit>`. **done when**: the step that already denies
+   `--no-verify` from the installed wheel writes a check-evidence receipt for
+   `claude-code.enforcement` naming the command it ran, and the job asserts
+   `ai-eng report surfaces` reads that state as PASS in the same run — so the loop is proved
+   end to end rather than asserted. Nothing is committed or uploaded: the receipt is a
+   runtime artifact, and the proof is that it was read, not that it was kept.
+
+9. **The three states, from the artifact** — **file** `.github/workflows/install-matrix.yml`.
+   **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_the_matrix_proves_discovery_and_invocation_separately`.
+   **rollback**: `git revert <commit>`. **done when**: discovery and invocation are executed
+   and receipted separately from enforcement, each by something that would fail if the
+   surface could not do it; a state nobody could execute stays unreceipted rather than
+   acquiring a receipt for a weaker thing.
+
 ### Blocks C onward — one surface per block, in provability order
 
 `opencode` (routers exist to be built and a denial is plausible), then `codex-cli` (links
