@@ -447,7 +447,21 @@ DESCRIPTION_MAX = 1000
 # log — printed as `installed and wired` on the operator's machine while assertion 21 was
 # telling them both were dead. Nothing reached it: every existing case had all surfaces
 # wired or none, and the bug needs one of each.
-REPO_CEILING = 46_240
+# 46,240 to 46,360 for two more of the twenty the audit found, both of them a control
+# that computes the right answer and then loses it.
+#
+# `hooks/session.py` is the one place that actually exports to a collector. `_otlp.probe`
+# already decides the hard part — a 2xx carrying rejected records is not a delivery — and
+# session.py called `send_tail` and threw the tuple away. Silent partial loss is the worst
+# shape it can take: the collector says 200, the dashboard is missing events, and nothing
+# in the record says a line failed to land. It now emits an `error` event and says one line
+# on stderr, because the event alone tells the operator a day late and the line alone
+# vanishes with the terminal.
+#
+# And `update --dry-run` reported PASS on an already-pinned repository: "the requested
+# operation and all applicable checks completed", for a run that deliberately did nothing.
+# The already-pinned branch sits above the dry-run branch and returned before it.
+REPO_CEILING = 46_360
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
