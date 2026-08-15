@@ -636,7 +636,7 @@ def test_constitution_contract_rejects_negated_or_moved_assertions(case):
 # The four numbers this repository states about itself in prose, and every sentence that
 # states one. Each is derived on the left and read out of the file on the right, never
 # derived on both sides: a test that computes both halves the same way cannot fail.
-WORDS = {5: "five", 8: "eight", 10: "ten", 16: "sixteen", 20: "twenty", 21: "twenty-one"}
+WORDS = {5: "five", 8: "eight", 10: "ten", 16: "sixteen", 20: "twenty", 21: "twenty-one", 22: "twenty-two"}
 COUNTED = (
     ("skills", "README.md", "{Word} written procedures"),
     ("skills", "AGENTS.md", "carries {word} skills"),
@@ -729,7 +729,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 45_761
+    assert contract.REPO_CEILING == 45_812
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]

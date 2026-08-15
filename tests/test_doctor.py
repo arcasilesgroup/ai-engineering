@@ -88,7 +88,7 @@ def test_every_assertion_has_a_unique_number_a_family_and_a_sentence():
     # 5 is retired, not renumbered: the numbers are cited in prose all over this repository
     # and moving them would silently repoint every one of those citations. It was the line
     # ceiling, and the test plane owns that assertion now.
-    assert sorted(numbers) == [n for n in range(1, 23) if n != 5]
+    assert sorted(numbers) == [n for n in range(1, 24) if n != 5]
     for number, family, title, in_ci, fn in doctor.CHECKS:
         assert family and title and callable(fn) and isinstance(in_ci, bool), number
 
@@ -306,6 +306,22 @@ def test_a_buffer_that_stopped_being_sealed_is_reported(home, repo):
     said = doctor.buffer_sealed(repo)
     assert said and "unsealed" in said, said
     assert "2020-01-01" in said, said
+
+
+def test_fifteen_declared_capabilities_that_enforce_nothing_are_reported(home, repo):
+    """`policy/capabilities.toml` declares fifteen capabilities with read roots, write
+    roots, exec allowlists, network hosts, secrets and human gates, and `preflight`
+    validates every one of them and then refuses, because no executor exists. That refusal
+    is honest and is pinned elsewhere.
+
+    What nothing did was say so. No assertion, no README line, no verb mentioned it, so a
+    reader of six governed fields per capability had no way to learn that none of them
+    stops anything. A declaration nobody enforces and nobody flags is the shape of a false
+    green, and the constitution's first duty is to expose that rather than hide it."""
+
+    said = doctor.capabilities_enforced(repo)
+    assert said and "none is enforced" in said, said
+    assert said.startswith("15 "), said
 
 
 def test_assertion_16_reports_could_not_evaluate_over_a_block_nobody_can_read(home, repo):

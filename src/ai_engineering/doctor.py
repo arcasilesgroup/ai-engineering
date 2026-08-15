@@ -1,4 +1,4 @@
-"""Twenty-one assertions and one line.
+"""Twenty-two assertions and one line.
 
 These are not document sections: they are checks that fail. `--ci` runs the ones that
 make sense on a runner and says in its output which it skipped, because a doctor that
@@ -569,6 +569,33 @@ def buffer_sealed(root: Path | None) -> str | None:
     return (
         f"{len(lines)} events unsealed, the oldest waiting since {oldest[:19]}: "
         f"the session hook that seals the buffer has not run"
+    )
+
+
+@check(23, "The record", "Declared capabilities say whether anything enforces them")
+def capabilities_enforced(root: Path | None) -> str | None:
+    """`policy/capabilities.toml` declares fifteen capabilities with read roots, write
+    roots, exec allowlists, network hosts, secrets and human gates. `capability.preflight`
+    validates all of it and then returns `CAPABILITY_ENFORCEMENT_UNAVAILABLE`, because no
+    executor exists yet — which is the honest answer and is pinned by a test.
+
+    What was missing is anybody being told. Nothing in `doctor`, the README or any verb
+    mentioned it, so a reader of that file saw six governed fields per capability and had
+    no way to learn that none of them stops anything. A declaration nobody enforces and
+    nobody flags is the shape of a false green, and this repository's constitution says to
+    expose that rather than hide it."""
+
+    from ai_engineering import capability
+
+    try:
+        declared = capability._validated(None)["capabilities"]
+    except Exception:  # the manifest has its own assertion; this one is about enforcement
+        return None
+    if not declared:
+        return None
+    return (
+        f"{len(declared)} capabilities are declared and none is enforced: preflight "
+        f"validates the declaration and refuses, because no executor is installed"
     )
 
 
