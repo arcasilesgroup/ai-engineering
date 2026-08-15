@@ -1532,3 +1532,36 @@ _ACTIVE_LIFECYCLE = {
         }
     ],
 }
+
+
+def test_an_approved_specification_still_hashes_to_what_was_approved():
+    """MADR 0008 approves five specifications at exact digests, and a digest is only as
+    good as the discipline around it. Editing any of the five invalidates its approval,
+    and nothing would have said so.
+
+    That is not hypothetical: the audit found exactly this in specification 010's own
+    plan, where an invalidated plan digest sat beside an approved one and no check in
+    `src/`, `tests/` or `hooks/` read either. The gate was prose, so it could not fail.
+
+    This reads the table out of the record and recomputes it. A specification that changed
+    after approval turns red naming itself, which leaves two honest moves — revert the
+    edit, or take the approval again — and removes the third, which is not noticing."""
+
+    import hashlib
+    import re
+
+    record = (
+        ROOT / "docs" / "adr" / "0008-the-five-wave-specifications-are-approved-at-exact-digests.md"
+    )
+    rows = re.findall(
+        r"\| `(specs/[^`]+)` \| P\d \| `([0-9a-f]{16})` \|", record.read_text("utf-8")
+    )
+    assert len(rows) == 5, f"the approval table lost a row: {rows}"
+    for folder, approved in rows:
+        spec = ROOT / folder / "spec.md"
+        assert spec.exists(), f"{folder} was approved and is not here"
+        now = hashlib.sha256(spec.read_bytes()).hexdigest()[:16]
+        assert now == approved, (
+            f"{folder}/spec.md was approved at {approved} and now hashes to {now}: "
+            f"either revert the edit or take the approval again"
+        )
