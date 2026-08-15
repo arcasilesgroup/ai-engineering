@@ -796,7 +796,14 @@ DESCRIPTION_MAX = 1000
 # EP-186 need a draft pull request and a merge queue actually running, EP-180 needs a plan
 # schema this version does not have, and the fixtures prove git's file transport rather than
 # the network one. Each is a consent or a specification away, not a line of code away.
-REPO_CEILING = 50_646
+# 50,646 to 50,717 for EP-045: the two sides of the gate pinned the same, and each engine
+# asked what it is before it is trusted. CI downloaded exact releases of five engines while
+# `just security` ran whatever gitleaks and trivy the machine carried — so a local green
+# could come from an older engine that no longer looks for the thing, and a local red could
+# be one CI cannot reproduce. Both checks were proved by moving the pin and watching the
+# recipe stop. A test holds the justfile's pins equal to the workflow's, so drift on either
+# side turns the build red naming the engine.
+REPO_CEILING = 50_717
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

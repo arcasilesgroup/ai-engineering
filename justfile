@@ -6,6 +6,14 @@
 ruff := "ruff==0.16.2"
 pytest := "pytest==9.1.1"
 semgrep := "semgrep==1.172.0"
+# The two engines that are not installed by `uv run --with`, and therefore the two that
+# could be any version the machine happens to carry. CI downloads exactly these releases;
+# `security` below asks each one what it is before it trusts what it says, because a
+# scanner whose version we did not test is a scanner whose answer we cannot read — a local
+# green from an older engine, or a local red CI cannot reproduce. A test holds these equal
+# to the workflow's own pins, so drift on either side turns the build red naming the engine.
+gitleaks_version := "8.30.1"
+trivy_version := "0.73.0"
 coverage := "coverage==7.15.4"
 mutmut := "mutmut==3.7.0"
 
@@ -43,8 +51,10 @@ test:
     uv run --with {{pytest}} pytest -q
 
 security:
+    @test "$(gitleaks version)" = "{{gitleaks_version}}" || { echo "gitleaks is $(gitleaks version) and this gate is written for {{gitleaks_version}}. An untested scanner's answer is not evidence."; exit 1; }
     gitleaks dir . --redact --no-banner --exit-code 1
     uv run --with {{semgrep}} semgrep scan --config policy/semgrep.yml --error --quiet
+    @trivy --version | head -1 | grep -qx "Version: {{trivy_version}}" || { echo "trivy is not {{trivy_version}}. An untested scanner's answer is not evidence."; exit 1; }
     trivy fs --scanners vuln,license,misconfig --exit-code 1 --severity CRITICAL,HIGH,MEDIUM .
 
 # Its own recipe, and not folded into `test`: instrumenting the interpreter adds startup

@@ -594,3 +594,57 @@ def test_release_workflow_retains_wheel_contents_provenance_and_head_sha_receipt
     for claimed in ("release verified", "published successfully", "receipt confirmed"):
         assert claimed not in workflow.lower(), claimed
     assert "continue-on-error" not in workflow
+
+
+# Both sides of the gate, and the one place each of them says which engine it trusts. CI
+# downloads an exact release; `just security` runs whatever is on the machine — and a
+# scanner whose version we did not test is one whose answer we cannot read, in either
+# direction: a local green from an older engine, or a local red CI cannot reproduce.
+PINNED_ENGINES = ("gitleaks", "trivy", "semgrep")
+
+
+def _justfile() -> str:
+    return (ROOT / "justfile").read_text(encoding="utf-8")
+
+
+def _pins(body: str, pattern: str) -> dict[str, str]:
+    import re
+
+    return {name: version for name, version in re.findall(pattern, body)}
+
+
+def test_the_two_sides_of_the_gate_pin_the_same_engine_versions():
+    """EP-045. CI pins five engines and `just security` pinned one, so the two could drift
+    apart silently — and the first anybody would know is a pull request that fails on a
+    finding nobody can reproduce locally, or worse, passes locally on an engine that no
+    longer looks for it."""
+
+    import re
+
+    recipe = _justfile()
+    workflow = _check_workflow()
+
+    declared = _pins(recipe, r'(\w+)_version := "([0-9][^"]*)"')
+    declared["semgrep"] = re.search(r'semgrep := "semgrep==([^"]+)"', recipe).group(1)
+    in_ci = _pins(workflow, r"(\w+)_VERSION: \"([^\"]+)\"".replace("\\", ""))
+    in_ci = {name.lower(): version for name, version in in_ci.items()}
+
+    for engine in PINNED_ENGINES:
+        assert engine in declared, f"`just security` does not pin {engine}"
+        if engine in in_ci:
+            assert declared[engine] == in_ci[engine], (
+                f"{engine} is {declared[engine]} for `just` and {in_ci[engine]} in CI"
+            )
+
+
+def test_the_security_recipe_refuses_an_engine_it_did_not_pin():
+    """The pin is only a pin if something reads it. Each engine is asked its version before
+    it is trusted, and the recipe stops rather than reporting what an untested scanner
+    happened to say."""
+
+    recipe = _justfile()
+    security = recipe.split("\nsecurity:", 1)[1].split("\n\n", 1)[0]
+
+    for engine in ("gitleaks", "trivy"):
+        assert f"{{{{{engine}_version}}}}" in security, f"{engine} runs unpinned"
+    assert security.count("exit 1") >= 2, "a version mismatch does not stop the recipe"
