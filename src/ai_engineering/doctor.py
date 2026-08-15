@@ -568,7 +568,14 @@ def polarity(root: Path | None) -> str | None:
     problems = []
     if intent_home not in tracked:
         problems.append(f"Solution Intent is not tracked at {intent_home}")
-    if (root / readiness.RECEIPTS).exists() and readiness.DECLARATION not in tracked:
+    # A receipt for one of the boxes, and not merely the folder they live in. That folder
+    # holds every check-evidence receipt this machine writes — the adversarial suite puts
+    # four of its own there — and keying on its existence made running that suite red this
+    # assertion in a class nothing can repair.
+    if (
+        any((root / readiness.RECEIPTS / f"{box.id}.json").exists() for box in readiness.BOXES)
+        and readiness.DECLARATION not in tracked
+    ):
         # Receipts are this machine's, and are ignored. The requirement they are measured
         # against is everybody's, and is reviewed — so a repository holding receipts whose
         # declaration nobody has committed is one where the same hand wrote the question

@@ -336,9 +336,18 @@ def test_receipts_without_a_committed_declaration_are_a_repository_finding(tmp_p
     from ai_engineering import doctor
 
     root = tmp_path / "repository"
-    (root / readiness.RECEIPTS).mkdir(parents=True)
+    receipts = root / readiness.RECEIPTS
+    receipts.mkdir(parents=True)
     committed = [".ai/.gitignore", ".ai/intent.md"]
     monkeypatch.setattr(doctor, "tracked_files", lambda where: committed)
+
+    # The folder is where every check-evidence receipt this machine writes lives, and the
+    # adversarial suite puts four of its own in it. Its existence proves nothing, and
+    # keying on it made running that suite red this assertion with nothing to repair.
+    (receipts / "adversarial-attacks.json").write_text("{}", encoding="utf-8")
+    assert doctor.polarity(root) is None
+
+    (receipts / "security.json").write_text("{}", encoding="utf-8")
     assert f"{readiness.DECLARATION} is not committed" in (doctor.polarity(root) or "")
 
     committed.append(readiness.DECLARATION)
