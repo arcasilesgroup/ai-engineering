@@ -27,6 +27,17 @@ CLEAN = {
 }
 
 
+_ARGUMENTS = (
+    "--title",
+    CLEAN["title"],
+    "--what-happened",
+    CLEAN["what_happened"],
+    "--expected",
+    CLEAN["expected"],
+    *[argument for step in CLEAN["steps"] for argument in ("--step", step)],
+)
+
+
 def payload(**overrides) -> dict:
     from ai_engineering import issue
 
@@ -166,6 +177,151 @@ def test_the_draft_is_local_gitignored_and_the_preview_is_the_exact_bytes(tmp_pa
     assert str(written.relative_to(root)).startswith(".ai/")
     assert issue.digest(built) in printed
     assert json.loads(written.read_text(encoding="utf-8")) == built
+
+
+@pytest.fixture
+def pinned_scanner(monkeypatch):
+    """The secret scanner at its pinned version, reading the directory it is handed.
+
+    Standing in for it keeps these tests answering their own question — routing, consent,
+    destination — on a machine that has no gitleaks. Whether gitleaks itself recognises a
+    given secret is `just security`'s question and it runs the real binary."""
+
+    from ai_engineering import acceptance_privacy
+
+    def scanner(argv, cwd):
+        if argv[1] == "version":
+            return SimpleNamespace(returncode=0, stdout=acceptance_privacy.GITLEAKS_VERSION)
+        seen = "".join(p.read_text(encoding="utf-8") for p in Path(cwd).rglob("*.json"))
+        return SimpleNamespace(returncode=1 if "AKIA" in seen else 0, stdout="")
+
+    monkeypatch.setattr(acceptance_privacy, "_run", scanner)
+
+
+def _repository(tmp_path: Path) -> Path:
+    root = tmp_path / "repository"
+    (root / ".ai").mkdir(parents=True)
+    (root / ".ai" / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
+    return root
+
+
+def _asked(monkeypatch, answer: bool) -> list[str]:
+    """Stand in for the controlling terminal and record what it was asked to confirm.
+
+    The list is the evidence for the half that matters more than the answer: a route that
+    must never be taken is one nobody is ever offered."""
+
+    from ai_engineering import accept
+
+    seen: list[str] = []
+
+    def reader(expected: str) -> bool:
+        seen.append(expected)
+        return answer
+
+    monkeypatch.setattr(accept, "controlling_terminal_response", reader)
+    return seen
+
+
+def test_a_security_finding_is_never_offered_a_public_route(
+    tmp_path, monkeypatch, capsys, pinned_scanner
+):
+    """EP-274. A vulnerability never ends in a public issue.
+
+    Refused before the terminal is read, not after: a control that asks first and refuses
+    second has already put the wrong route in front of somebody at 2am. The private route
+    it prints is the one `SECURITY.md` publishes, and a test binds the two so they cannot
+    drift into two different answers."""
+
+    from ai_engineering import issue, report
+
+    asked = _asked(monkeypatch, answer=True)
+    root = _repository(tmp_path)
+    monkeypatch.setattr(report.paths, "repo_root", lambda start=None: root)
+
+    result = report.main(
+        [
+            "issue",
+            "--kind",
+            "security",
+            "--submit",
+            "--title",
+            "the guard can be made to allow a write it must deny",
+            "--what-happened",
+            "a crafted payload reaches the allow branch of the guard",
+            "--expected",
+            "the guard denies, because it cannot decide",
+            "--step",
+            "send the crafted payload",
+        ]
+    )
+    printed = capsys.readouterr().out
+
+    assert result.outcome == "INCOMPLETE"
+    assert asked == [], "somebody was offered a public route for a vulnerability"
+    assert issue.PRIVATE_ROUTE in printed
+    assert issue.PRIVATE_ROUTE in (ROOT / "SECURITY.md").read_text(encoding="utf-8")
+
+
+def test_submit_without_the_typed_confirmation_sends_nothing(tmp_path, monkeypatch, pinned_scanner):
+    """EP-275. Sending is a separate action a person confirms, at a keyboard.
+
+    The phrase carries the payload's own digest, so what is confirmed is one exact payload
+    and not "the last thing on screen"."""
+
+    from ai_engineering import issue, report
+
+    asked = _asked(monkeypatch, answer=False)
+    root = _repository(tmp_path)
+    monkeypatch.setattr(report.paths, "repo_root", lambda start=None: root)
+
+    result = report.main(
+        ["issue", "--kind", "bug", "--submit", *_ARGUMENTS],
+    )
+
+    assert result.outcome == "INCOMPLETE"
+    assert len(asked) == 1
+    built = issue.build(**CLEAN)
+    assert issue.confirmation(built)[:20] in asked[0]
+    assert issue.digest(built)[:16] in asked[0]
+
+
+def test_a_confirmed_submit_stops_at_the_destination_that_does_not_exist(
+    tmp_path, monkeypatch, pinned_scanner
+):
+    """The honest end of this path today.
+
+    A person can confirm, and there is still nowhere to send: no destination is configured
+    and this package has no transport. That is INCOMPLETE and it says which, rather than
+    PASS for work that did not happen — the defect `update --dry-run` was fixed for one
+    wave ago."""
+
+    from ai_engineering import report
+
+    _asked(monkeypatch, answer=True)
+    root = _repository(tmp_path)
+    monkeypatch.setattr(report.paths, "repo_root", lambda start=None: root)
+
+    result = report.main(["issue", "--kind", "bug", "--submit", *_ARGUMENTS])
+
+    assert result.outcome == "INCOMPLETE"
+    assert any("DESTINATION" in fact.detail or "DESTINATION" in fact.id for fact in result.checks)
+
+
+def test_drafting_alone_never_reads_the_terminal(tmp_path, monkeypatch, pinned_scanner):
+    """Submit is a separate action, which means the draft path cannot be a quiet first half
+    of it. Nothing asks, so nothing can be answered by accident."""
+
+    from ai_engineering import report
+
+    asked = _asked(monkeypatch, answer=True)
+    root = _repository(tmp_path)
+    monkeypatch.setattr(report.paths, "repo_root", lambda start=None: root)
+
+    result = report.main(["issue", "--kind", "bug", *_ARGUMENTS])
+
+    assert result.outcome == "PASS"
+    assert asked == []
 
 
 def test_no_eleventh_verb_and_the_stub_sentence_is_gone():

@@ -127,6 +127,22 @@ def scan(root: Path, payload: dict) -> list[acceptance_privacy.Verdict]:
     return findings
 
 
+# The route a vulnerability takes instead of a public issue. The words are `SECURITY.md`'s
+# own, and a test asserts they are still in it: two spellings of one route is one route
+# somebody follows to a page that does not exist.
+PRIVATE_ROUTE = "Security → Report a vulnerability"
+
+
+def confirmation(payload: dict) -> str:
+    """What a person types to send this exact payload.
+
+    The digest is in the phrase because consent is to one payload and not to a screen. If
+    the draft changed after the preview, the phrase no longer matches what was shown.
+    """
+
+    return f"SEND {payload['kind']} {digest(payload)[:16]}"
+
+
 def draft(root: Path, payload: dict) -> Path:
     """Write the local draft and show what it holds.
 

@@ -15,7 +15,7 @@ from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
-from ai_engineering import doctor, issue, outcome, paths, surface
+from ai_engineering import accept, doctor, issue, outcome, paths, surface
 
 
 def within(events: list[dict], days: int) -> list[dict]:
@@ -71,6 +71,52 @@ def surfaces(root: Path | None) -> outcome.Result:
     return report.result
 
 
+def submit(payload: dict, written: Path) -> outcome.Execution:
+    """Ask the keyboard, and then say where this would have gone.
+
+    Two refusals, in this order. The person has to type the phrase carrying this payload's
+    digest at the controlling terminal — not stdin, not a flag, not an environment variable,
+    because a script can supply all three. And then there is nowhere to send: no destination
+    is configured and this package has no transport. That is INCOMPLETE naming the thing
+    that is missing, not PASS for work that did not happen.
+    """
+
+    phrase = issue.confirmation(payload)
+    print(f"\n  To send this exact payload, type: {phrase}")
+    if not accept.controlling_terminal_response(phrase):
+        return outcome.execution(
+            outcome.result("INCOMPLETE"),
+            summary="Not confirmed at the keyboard; the draft is on disk and nothing was sent",
+            checks=[
+                outcome.fact(
+                    "consent",
+                    "INCOMPLETE",
+                    "Typed confirmation",
+                    "ISSUE_SUBMIT_NOT_CONFIRMED",
+                    cure=f"rerun and type {phrase} at a terminal",
+                )
+            ],
+            remaining=[f"The draft is at {written.name} and has not been sent"],
+        )
+    return outcome.execution(
+        outcome.result("INCOMPLETE"),
+        summary="Confirmed, and there is nowhere to send it: no destination is configured",
+        checks=[
+            outcome.fact(
+                "consent", "PASS", "Typed confirmation", "confirmed at the controlling terminal"
+            ),
+            outcome.fact(
+                "destination",
+                "INCOMPLETE",
+                "Submission destination",
+                "ISSUE_SUBMIT_NO_DESTINATION",
+                cure="send the previewed bytes yourself, by the route your organisation uses",
+            ),
+        ],
+        remaining=[f"Nothing left this machine. The exact bytes are at {written.name}"],
+    )
+
+
 def report_issue(root: Path | None, args: argparse.Namespace) -> outcome.Result | outcome.Execution:
     """Draft one governed report, locally, and send nothing.
 
@@ -110,7 +156,28 @@ def report_issue(root: Path | None, args: argparse.Namespace) -> outcome.Result 
             remaining=[finding.code for finding in refused],
         )
 
+    if args.submit and payload["kind"] == "security":
+        # Before the terminal, not after. A control that asks first and refuses second has
+        # already put the wrong route in front of somebody at the end of a long day.
+        print(f"  INCOMPLETE: a vulnerability never becomes a public issue. {issue.PRIVATE_ROUTE}")
+        return outcome.execution(
+            outcome.result("INCOMPLETE"),
+            summary="A security finding routes to private disclosure; nothing was written",
+            checks=[
+                outcome.fact(
+                    "route",
+                    "INCOMPLETE",
+                    "Disclosure route",
+                    "ISSUE_SECURITY_ROUTE_IS_PRIVATE",
+                    cure=f"report it privately: {issue.PRIVATE_ROUTE}",
+                )
+            ],
+            remaining=[f"Disclose privately: {issue.PRIVATE_ROUTE}"],
+        )
+
     written = issue.draft(root, payload)
+    if args.submit:
+        return submit(payload, written)
     return outcome.execution(
         outcome.result("PASS"),
         summary=f"Drafted a {payload['kind']} report locally; nothing has been sent",
@@ -136,6 +203,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     report.add_argument("--what-happened", dest="what_happened", required=True)
     report.add_argument("--expected", required=True)
     report.add_argument("--step", action="append", default=[], required=True)
+    report.add_argument("--submit", action="store_true")
     commands.add_parser("surfaces")
     args = parser.parse_args(argv)
 

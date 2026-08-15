@@ -599,7 +599,16 @@ DESCRIPTION_MAX = 1000
 # scanned. Nothing sends. The draft is one local file under `.ai/`, shown as the exact bytes
 # with their digest, and a refused payload leaves no file at all — the artefact somebody can
 # still send is the one that matters.
-REPO_CEILING = 47_633
+# 47,633 to 47,882 for the half of `report issue` that could ever send, and for the two
+# refusals that stand between a person and that. The security route refuses before the
+# terminal is read rather than after: a control that asks first and declines second has
+# already put the wrong route in front of somebody at the end of a long day, and the test
+# asserts on what was offered rather than on what was answered. The typed phrase carries
+# the payload's own digest, so consent is to one payload and not to a screen. And a
+# confirmed submit still ends INCOMPLETE, naming the destination that does not exist,
+# because there is no transport here and PASS for work that did not happen is the exact
+# defect `update --dry-run` was fixed for two waves ago.
+REPO_CEILING = 47_882
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
