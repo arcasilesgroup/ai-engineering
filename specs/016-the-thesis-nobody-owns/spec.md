@@ -188,8 +188,8 @@ re-specified here.
 | EP-096 | ROUTED to 013 | DAG, worktree per task, checkpoints, queue; no authority-envelope subsystem |
 | EP-097 | PROVEN | four value lines in `CONSTITUTION.md` and no second home: `git ls-files \| grep -ci soul` → `0` |
 | EP-098 | PROVEN | `grep -c '^\[\[capabilities\]\]' policy/capabilities.toml` → `15`, exactly the eight plus the seven named |
-| EP-099 | PROVEN | `ls .agents/skills` → eight, no brainstorm skill; discovery is step 1 of `ai-spec/SKILL.md` |
-| EP-102 | PROVEN | eight skills against ten verbs in `ai-eng --help`; only `spec` has a same-named skill, and the other nine — `init`, `doctor`, `update`, `decide`, `accept`, `audit`, `report`, `exception`, `uninstall` — have none |
+| EP-099 | PROVEN | `ls .agents/skills` → nine, no brainstorm skill; discovery is step 1 of `ai-spec/SKILL.md` |
+| EP-102 | PROVEN | nine skills against ten verbs in `ai-eng --help`; `spec` and `report` have a same-named skill and the other eight — `init`, `doctor`, `update`, `decide`, `accept`, `audit`, `exception`, `uninstall` — have none |
 
 ### What `EP-098` proves, and what it does not
 

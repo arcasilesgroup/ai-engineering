@@ -236,12 +236,12 @@ proof_requirements = { allow = ["ai-report.digest.allow"], deny = ["ai-report.di
 [[capabilities.modes]]
 id = "issue"
 read_roots = [".ai/reports"]
-write_roots = []
+write_roots = [".ai/issue"]
 exec_allowlist = [{ executable = "gh", argument_pattern = "issue.create" }]
 network = [{ protocol = "https", host = "api.github.com", purpose = "issue.publish" }]
 secrets = ["github.token"]
 human_gate = "before_publish"
-enforcement = ["preflight.read", "preflight.exec", "preflight.network", "preflight.secrets", "preflight.human-gate"]
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.network", "preflight.secrets", "preflight.human-gate"]
 proof_requirements = { allow = ["ai-report.issue.allow"], deny = ["ai-report.issue.deny"], installed_artifact = true }
 
 [[capabilities]]

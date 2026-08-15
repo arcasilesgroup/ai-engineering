@@ -617,7 +617,19 @@ DESCRIPTION_MAX = 1000
 # `tests/test_mut_init.py` stands a three-skill wheel in front of both — which the literal
 # and its gate together could not do. The entry leaves `COUNTED`; everything still on that
 # list is prose, where there is nothing to count.
-REPO_CEILING = 47_935
+# 47,935 to 48,045 for the ninth skill, which is the first one this repository has admitted
+# through a gate rather than by writing a file. `ai-report` lands last of its wave and not
+# first: the verb it documents exists, the three fixtures that stop it exist, and its corpus
+# takes every refusal from a neighbour's positive territory and names that skill — so the
+# day two descriptions drift into each other, a file somebody else wrote goes red.
+#
+# Two things came with it. `policy/capabilities.toml` declared that the issue mode writes
+# nowhere while the code writes one draft, and nothing enforces the declaration yet, so the
+# two could have disagreed until the day an executor arrived and denied the command for
+# doing its job; a test binds the declared write root to `issue.draft_path` now. And the
+# skill count moved in two sentences of prose, which `COUNTED` caught, which is the half of
+# that gate that is doing exactly what it was built for.
+REPO_CEILING = 48_045
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

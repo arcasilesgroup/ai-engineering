@@ -324,6 +324,29 @@ def test_drafting_alone_never_reads_the_terminal(tmp_path, monkeypatch, pinned_s
     assert asked == []
 
 
+def test_the_declaration_says_where_the_draft_lands():
+    """EP-098's declaration, bound to the code that has to obey it.
+
+    `policy/capabilities.toml` declared that `ai-report`'s issue mode writes nowhere, and
+    the drafting this wave built writes one file. Nothing enforces the declaration yet — one
+    of the fifteen enforces anything, which is what doctor's assertion 23 says — so the two
+    could disagree for as long as that stayed true, and the day an executor arrives it would
+    deny the command that is doing its job. A declaration nobody checks against the code is
+    the same shape as a receipt nobody earned."""
+
+    import tomllib
+
+    from ai_engineering import issue
+
+    manifest = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))
+    report = next(item for item in manifest["capabilities"] if item["id"] == "ai-report")
+    mode = next(one for one in report["modes"] if one["id"] == "issue")
+
+    root = Path("/somewhere")
+    assert mode["write_roots"] == [str(issue.draft_path(root).parent.relative_to(root))]
+    assert "preflight.write" in mode["enforcement"]
+
+
 def test_no_eleventh_verb_and_the_stub_sentence_is_gone():
     """EP-227, EP-228, and the sentence the specification says becomes a lie.
 
