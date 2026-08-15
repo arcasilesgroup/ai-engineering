@@ -223,8 +223,11 @@ def opencode_source() -> str:
     There were three: this writer, `uninstall`'s reconstruction, and a test's copy. They
     agreed only by accident of platform, and the moment one was corrected the other two
     disagreed — `uninstall` compares the installed bytes to its own reconstruction and
-    refuses the *whole* run when they differ, so a fix here removed nothing anywhere. One
-    function, three callers, and drift stops being possible."""
+    refuses the *whole* run when they differ, so a fix here removed nothing anywhere.
+
+    Two callers now, not the three an earlier draft of this line claimed: the writer below
+    and `uninstall._opencode_source`. The test still reconstructs independently, which is
+    what a test is for — it would agree with any defect it shared a definition with."""
 
     source = (paths.surfaces() / "opencode.ts").read_text(encoding="utf-8")
     for token, value in (
