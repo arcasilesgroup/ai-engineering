@@ -8,6 +8,7 @@ than PASS — missing, stale, mismatched, undeclared, or belonging to another bo
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
@@ -19,6 +20,18 @@ from ai_engineering import evidence, readiness
 ROOT = Path(__file__).parents[1]
 SPEC = ROOT / "specs" / "010-governed-agentic-engineering-foundation" / "spec.md"
 NOW = datetime(2026, 3, 4, 12, 0, 0, tzinfo=UTC)
+
+
+def _adversarial():
+    """The runner as the suite runs it — by path, because it is a script and not a
+    package, and importing it any other way would test a copy."""
+
+    loaded = importlib.util.spec_from_file_location(
+        "adversarial_run", ROOT / "tests" / "adversarial" / "run.py"
+    )
+    module = importlib.util.module_from_spec(loaded)
+    loaded.loader.exec_module(module)
+    return module
 
 
 def _digest(text: str) -> str:
@@ -193,3 +206,81 @@ def test_readiness_requires_eight_executable_fresh_receipts_and_negative_control
 
     here = readiness.read(ROOT, now=datetime.now(UTC))
     assert here.result.outcome != "PASS"
+
+
+def _receipts(root: Path) -> dict[str, dict[str, Any]]:
+    return {
+        path.stem: json.loads(path.read_text(encoding="utf-8"))
+        for path in sorted((root / readiness.RECEIPTS).glob("*.json"))
+    }
+
+
+def _canonical(value: Any) -> str:
+    canonical = json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return "sha256:" + sha256(canonical.encode()).hexdigest()
+
+
+def test_adversarial_runner_records_denials_and_clean_control(tmp_path, monkeypatch):
+    monkeypatch.setenv("AI_ENGINEERING_HOME", str(tmp_path / "home"))
+    adversarial = _adversarial()
+    caught, version = adversarial.probe(["git", "--version"])
+    assert caught and version.startswith("git version ")
+    absent, nothing = adversarial.probe([str(tmp_path / "no-such-tool"), "--version"])
+    assert (absent, nothing) == (False, "")
+
+    def outcomes(attack: bool, control: bool) -> dict[str, tuple[str, Any]]:
+        return {
+            "injection · file": ("injection_guard", lambda tmp: attack),
+            "negative control": ("none", lambda tmp: control),
+        }
+
+    def run(root: Path, attack: bool, control: bool) -> tuple[int, dict[str, dict[str, Any]]]:
+        monkeypatch.setattr(adversarial, "CASES", outcomes(attack, control))
+        return adversarial.main(root=root), _receipts(root)
+
+    exit_code, written = run(tmp_path / "green", True, True)
+    assert exit_code == 0
+    assert set(written) == {
+        "adversarial-attacks",
+        "adversarial-control",
+        "local-command-git",
+        "local-command-python",
+    }
+    assert written["local-command-git"]["tool_version"] == version
+    assert {receipt["outcome"] for receipt in written.values()} == {"PASS"}
+
+    inputs = adversarial.inputs_digest()
+    for name, record in written.items():
+        expected = evidence.Expectation(
+            kind="automated",
+            id=name,
+            applicability="applicable",
+            command=record["command"],
+            tool_version=record["tool_version"],
+            input_digest=inputs,
+            artifact_digest=record["artifact_digest"],
+            max_age_seconds=adversarial.RECEIPT_MAX_AGE,
+        )
+        verified = evidence.verify(record, expected=expected, now=datetime.now(UTC))
+        assert verified.code == evidence.VERIFIED, (name, verified.code)
+
+    assert written["adversarial-attacks"]["artifact_digest"] == _canonical(
+        {"cases": {"injection · file": True}, "guards": {"injection_guard": True}}
+    )
+    assert written["adversarial-control"]["artifact_digest"] == _canonical(
+        {"cases": {"negative control": True}}
+    )
+
+    missed_code, missed = run(tmp_path / "missed", False, True)
+    assert missed_code == 1
+    assert missed["adversarial-attacks"]["outcome"] == "FAIL"
+    assert missed["adversarial-control"]["outcome"] == "PASS"
+
+    fired_code, fired = run(tmp_path / "fired", True, False)
+    assert fired_code == 1
+    assert fired["adversarial-control"]["outcome"] == "FAIL"
+    assert fired["adversarial-attacks"]["outcome"] == "PASS"
+
+    serialized = json.dumps([_receipts(tmp_path / name) for name in ("green", "missed", "fired")])
+    assert str(Path.home()) not in serialized
+    assert str(tmp_path) not in serialized
