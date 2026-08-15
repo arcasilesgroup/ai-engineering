@@ -351,7 +351,19 @@ DESCRIPTION_MAX = 1000
 # The alternative was to delete something else to fit, which is the failure the number
 # exists to prevent, and the operator's standing instruction is to present the arithmetic
 # rather than scope the work down to the figure.
-REPO_CEILING = 45_440
+# 45,440 to 45,535 for Block R Task 12, the first repair to the record's own fail-open.
+# 53 lines of test, 35 of product and docstring, 6 for this paragraph. The defect it closes
+# was measured on the operator's machine: `stamp()` keys off `home()/buffer.key`, which
+# `AI_ENGINEERING_HOME` redirects, while the buffer is repository-local and does not — so
+# every test that isolates a home wrote into the operator's real buffer with a key their
+# machine could not verify, and the seal classified 22 such lines as tampering. `ai-eng
+# audit verify` failed permanently and `audit --anchor` stopped emitting a footer, so no
+# commit on that machine could be anchored. The one command that detects a real edit had
+# been spent on an edit that never happened.
+#
+# Most of the 88 is the test, and that ratio is the point: the product change is a branch,
+# and what it is worth is the executed proof that a foreign line no longer breaks a chain.
+REPO_CEILING = 45_535
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
