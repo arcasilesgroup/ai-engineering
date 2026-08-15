@@ -537,7 +537,7 @@ COAUTHOR = "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 FOOTER = "Ai-Eng-Anchor: testrepo/abcdef012345 seq=2 head=deadbeefcafe"
 
 
-def _commit_msg(tmp_path, *, holds=True, body="body.\n", shim=""):
+def _commit_msg(tmp_path, *, holds=True, body="body.\n", shim="", config=(), trailer=True):
     """Run the real hook over one message and report what it did.
 
     The stub populates both streams the way the real verb does — progress on stderr, and
@@ -546,7 +546,7 @@ def _commit_msg(tmp_path, *, holds=True, body="body.\n", shim=""):
 
     repo = tmp_path / "clone"
     repo.mkdir()
-    for argv in (["init", "-q"], ["config", "ai.managed", "true"]):
+    for argv in (["init", "-q"], ["config", "ai.managed", "true"], *config):
         subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
 
     stub = tmp_path / "stub-eng"
@@ -576,14 +576,14 @@ def _commit_msg(tmp_path, *, holds=True, body="body.\n", shim=""):
         (bin_dir / "git").chmod(0o755)
         environment["PATH"] = f"{bin_dir}{os.pathsep}{environment.get('PATH', '')}"
 
-    # A message that already carries a trailer: 145 of this repository's 298 commits do.
-    # The first version of this test wrote one with none — the majority shape, and the one
-    # where an anchor appended after a blank line still parses, because it starts a second
-    # trailer block and there is no first one to orphan. On a message with a trailer,
-    # `git interpret-trailers --parse` then returns the anchor alone and the
-    # `Co-Authored-By` GitHub reads for attribution is gone. The test agreed with the
-    # defect by picking the input that could not see it.
-    original = f"test(x): a probe\n\n{body}\n{COAUTHOR}\n"
+    # Both shapes, because this repository writes both in roughly equal numbers. A message
+    # that already carries a trailer is the one an anchor appended after a blank line
+    # orphans — it starts a second trailer block, and `--parse` then returns the anchor
+    # alone without the `Co-Authored-By` GitHub reads for attribution. A message with no
+    # trailer cannot show that defect, which is exactly why the first version of this test
+    # passed against it. Fixing that by only ever testing the trailer shape would swap one
+    # blind spot for the other, so `trailer=False` keeps the other half covered.
+    original = f"test(x): a probe\n\n{body}" + (f"\n{COAUTHOR}\n" if trailer else "")
     message = tmp_path / "COMMIT_EDITMSG"
     message.write_text(original, encoding="utf-8")
     hook = Path(__file__).resolve().parents[1] / "git-hooks" / "commit-msg"
@@ -655,24 +655,43 @@ def test_a_divider_in_the_body_does_not_orphan_the_trailer_beside_the_anchor(tmp
     assert _trailers(repo, written, divider=False) == [COAUTHOR, FOOTER], written
 
 
-def test_a_git_that_cannot_place_the_anchor_leaves_the_commit_standing(tmp_path):
+@pytest.mark.parametrize(
+    ("how", "kwargs"),
+    [
+        # A git that does not know one of the options — what an older git is.
+        ("unknown option", {"shim": "interpret-trailers) exit 129 ;;"}),
+        # And a config git parses only when it is asked to. This route is the one an earlier
+        # version of this test called unreachable, on the reasoning that the hook's fifth
+        # line asks git for `ai.managed` and exits 0 when that fails. `config --get` does
+        # not validate keys nobody asked for, so it answers `true` and the anchor block runs
+        # anyway. The claim was written in the commit whose subject was unmeasured claims,
+        # and the test that "proved" it used the shim — the one input that cannot see it.
+        ("bad config", {"config": (["config", "core.abbrev", "notanumber"],)}),
+    ],
+)
+def test_a_git_that_cannot_place_the_anchor_leaves_the_commit_standing(tmp_path, how, kwargs):
     """The footer is not a gate, and the placement fix quietly made it one: under
     `set -euo pipefail` a bare `git interpret-trailers` hands its exit status to the hook,
-    and git then refuses the commit. It is not hypothetical — a message file in a directory
-    git cannot write its temporary file into exits 128, and a git too old for one of these
-    options exits 129, which is what this shim reproduces. Not a config git declines to
-    parse: an earlier version of this docstring said so, and that route cannot reach the
-    anchor at all, because the hook asks git for `ai.managed` on its fifth line and exits 0
-    when that fails. The person's escape from a hook that refuses commits is `--no-verify`,
-    which rule 3 forbids and a guard blocks: the hook whose bug forces its own bypass."""
+    and git then refuses the commit. Not hypothetical — a message file in a directory git
+    cannot write its temporary file into exits 128, and both routes below exit non-zero
+    here. The person's escape from a hook that refuses commits is `--no-verify`, which rule
+    3 forbids and a guard blocks: the hook whose bug forces its own bypass."""
 
-    done, written, original, _ = _commit_msg(
-        tmp_path,
-        shim='interpret-trailers) echo "error: unknown option \\`in-place\'" >&2; exit 129 ;;',
-    )
-    assert done.returncode == 0, f"the hook refused the commit: {done.stderr}"
+    done, written, original, _ = _commit_msg(tmp_path, **kwargs)
+    assert done.returncode == 0, f"the hook refused the commit ({how}): {done.stderr}"
     assert written == original, written
     assert "could not be placed" in done.stderr, done.stderr
+
+
+def test_a_message_with_no_trailer_of_its_own_still_gets_the_anchor(tmp_path):
+    """The other half of this repository's commits. Every assertion about placement was
+    written on the shape that carries a trailer, because that is the shape the orphaning
+    defect needed — and testing only that swaps one blind spot for the other. Here the
+    anchor is the whole trailer block, and it still has to be one git can read."""
+
+    done, written, _, repo = _commit_msg(tmp_path, trailer=False)
+    assert done.returncode == 0, done.stderr
+    assert _trailers(repo, written) == [FOOTER], written
 
 
 @pytest.mark.parametrize("head", ["known", "aaaaaaaaaaaa"])

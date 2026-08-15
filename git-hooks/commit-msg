@@ -19,38 +19,46 @@ grep -Eq '^(feat|fix|docs|refactor|test|chore|ci|perf|build|revert)(\([a-z0-9./-
 # the whole of stdout. `audit --anchor` sends its progress to stderr and its verdict to
 # stdout, because the verdict is the data every other verb produces — so on a chain that
 # does not hold, appending stdout wholesale wrote "✗ FAIL / Reason: ... / Exit code: 1"
-# into the commit message. Measured, not feared: the only reason no commit here carries
-# that block is that `ai.eng` pointed at a CLI too old to have the flag at all.
+# into the commit message. No commit here carries that block, and why not is not something
+# this repository can answer: `ai.eng` also pointed at a CLI too old to have the flag, the
+# value is `.git/config` state with no history, and nothing dates it. Two sufficient causes,
+# no way to separate them.
 #
-# And it says so when there is nothing to append. This was silent for three days while the
-# chain sat broken and every commit went unanchored, which is the failure the record exists
-# to make impossible.
+# And it says so when there is nothing to append. It was silent while the chain sat broken
+# and every commit went unanchored, which is the failure the record exists to make
+# impossible.
 AI_ENG="${AI_ENG:-$(git config --get ai.eng || echo ai-eng)}"
 if command -v "${AI_ENG%% *}" >/dev/null 2>&1; then
   anchor="$($AI_ENG audit --anchor 2>/dev/null | grep -E '^Ai-Eng-Anchor: ' || true)"
   if [ -n "$anchor" ]; then
     # git places it, because git is what reads it back. Appending it after a blank line
-    # looks right and starts a *second* trailer block: 145 of this repository's 298 commits
-    # end with `Co-Authored-By:`, and on one of those `git interpret-trailers --parse`
-    # then returns the anchor alone. GitHub's co-author attribution is the reader that
-    # loses — nothing in this repository reads that trailer, and an earlier version of
-    # this comment said "the gate reads it", which is a claim with no reader behind it.
-    # The first test written for this passed because it used a message with no trailers,
-    # which is the majority shape here and the one where the bug cannot appear.
+    # looks right and starts a *second* trailer block, so on any message that already ends
+    # with a trailer — roughly half of this repository's, all of them `Co-Authored-By:` —
+    # `git interpret-trailers --parse` then returns the anchor alone. GitHub's co-author
+    # attribution is the reader that loses; nothing in this repository reads that trailer,
+    # and an earlier version of this comment said "the gate reads it", a claim with no
+    # reader behind it. A later one put an exact count here, which was the wrong predicate
+    # and went stale on the next commit: a live counter does not belong in a comment.
+    # The first test written for this used a message with no trailers, the other half,
+    # where the bug cannot appear.
     #
     # `--no-divider` because git stops reading a message at a bare `---`, so one containing
     # a divider gets the anchor inserted mid-body and the trailer is orphaned all over
     # again.
     #
     # And it cannot fail the commit. Under `set -e` a bare call makes any git that cannot
-    # do this the hook's own exit status, and git then rejects the commit. Measured: exit
-    # 128 from a directory git cannot write its temporary file into, and 129 from a git too
-    # old for one of these options. Not a config git refuses to parse — an earlier version
-    # of this comment named that route and it cannot happen, because line 5 asks git for
-    # `ai.managed` first and exits 0 when that fails, so this block is never reached.
-    # Lines 15-16 say this is a footer and not a gate,
-    # and a hook that refuses commits is one people escape with `--no-verify`, which rule 3
-    # forbids and a guard blocks: the hook whose bug forces its own bypass.
+    # do this the hook's own exit status, and git then rejects the commit. Three measured
+    # routes: 128 from a directory git cannot write its temporary file into, 129 from a git
+    # that does not know one of these options, and 128 from a config git parses only when
+    # asked — `core.abbrev=notanumber` passes line 5's `config --get` and kills
+    # `interpret-trailers`. An earlier version of this comment claimed that third route was
+    # unreachable because line 5 exits first. It is reachable, `config --get` does not
+    # validate keys nobody asked for, and the sentence denying it was written in the commit
+    # whose subject was unmeasured claims in these comments.
+    #
+    # Lines 15-16 say this is a footer and not a gate, and a hook that refuses commits is
+    # one people escape with `--no-verify`, which rule 3 forbids and a guard blocks: the
+    # hook whose bug forces its own bypass.
     git interpret-trailers --no-divider --in-place --trailer "$anchor" "$1" ||
       echo "commit-msg: the anchor could not be placed; the commit stands." >&2
   else
