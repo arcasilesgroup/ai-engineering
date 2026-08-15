@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-engineering:surface-adapter:1",
+  "title": "One surface adapter, closed on both sides",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "surface_id",
+    "adapter_version",
+    "detection",
+    "translations",
+    "heartbeat",
+    "trust"
+  ],
+  "properties": {
+    "schema": { "const": "urn:ai-engineering:surface-adapter:1" },
+    "schema_version": { "const": "1" },
+    "surface_id": {
+      "enum": [
+        "claude-code",
+        "opencode",
+        "codex-cli",
+        "cursor",
+        "copilot-cli",
+        "vscode-copilot",
+        "pi",
+        "zed"
+      ]
+    },
+    "adapter_version": { "$ref": "#/$defs/non_empty" },
+    "detection": {
+      "title": "detection",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["signal", "written_by_us"],
+      "properties": {
+        "signal": { "$ref": "#/$defs/non_empty" },
+        "written_by_us": { "const": false },
+        "undetectable_reason": { "$ref": "#/$defs/non_empty" }
+      }
+    },
+    "translations": {
+      "title": "translations",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["payload_field", "lifecycle_event", "exit_meaning", "reply"],
+      "properties": {
+        "payload_field": {
+          "title": "payload_field",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tool_name": { "$ref": "#/$defs/non_empty" },
+            "tool_input": { "$ref": "#/$defs/non_empty" },
+            "tool_response": { "$ref": "#/$defs/non_empty" },
+            "tool_use_id": { "$ref": "#/$defs/non_empty" }
+          }
+        },
+        "lifecycle_event": {
+          "title": "lifecycle_event",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "PreToolUse": { "$ref": "#/$defs/non_empty" },
+            "PostToolUse": { "$ref": "#/$defs/non_empty" },
+            "Stop": { "$ref": "#/$defs/non_empty" },
+            "SessionStart": { "$ref": "#/$defs/non_empty" }
+          }
+        },
+        "exit_meaning": {
+          "title": "exit_meaning",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "0": { "enum": ["allow", "observed"] },
+            "2": { "enum": ["deny"] }
+          }
+        },
+        "reply": {
+          "title": "reply",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allow": { "$ref": "#/$defs/non_empty" },
+            "deny": { "$ref": "#/$defs/non_empty" },
+            "error": { "$ref": "#/$defs/non_empty" }
+          }
+        }
+      }
+    },
+    "heartbeat": {
+      "title": "heartbeat",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["installed", "loaded"],
+      "properties": {
+        "installed": { "type": "boolean" },
+        "loaded": { "type": "boolean" },
+        "observed_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "trust": {
+      "title": "trust",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "ceremony": { "$ref": "#/$defs/non_empty" }
+      }
+    }
+  },
+  "$defs": {
+    "non_empty": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    }
+  },
+  "x-adapter-policy": {
+    "unknown_value": "deny",
+    "missing_translation": "INCOMPLETE",
+    "undetectable_is_absent": false,
+    "states": ["discovery", "invocation", "enforcement"],
+    "state_never_implies_another": true,
+    "t3_enforcement": "not_applicable"
+  }
+}

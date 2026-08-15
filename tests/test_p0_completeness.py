@@ -99,6 +99,18 @@ P0: dict[str, tuple[str, str, str]] = {
     ),
 }
 
+# Every schema P0 shipped, named rather than globbed. See the closure rule below.
+P0_SCHEMAS = frozenset(
+    {
+        "policy/capability-manifest.schema.json",
+        "policy/check-evidence-v1.schema.json",
+        "policy/intent-v1.schema.json",
+        "policy/madr-v1.schema.json",
+        "policy/outcome-v1.schema.json",
+        "policy/risk-acceptance-v1.schema.json",
+    }
+)
+
 # The words that belong to a later wave. None of them is P0's to claim, and the alias P0
 # removed is here too: a rename with an alias left behind is not a rename.
 LATER_WAVES = (
@@ -178,12 +190,18 @@ def test_every_p0_requirement_is_claimed_by_evidence_that_exists():
         assert needle in proof.read_text(encoding="utf-8"), f"{where} does not hold {name}"
 
     # Coverage, the other way round: a requirement the contract states and nothing claims.
-    # The contract names its schemas as one phrase, so the three of them cannot be told
-    # apart by the words alone. Every schema file in the tree is required to be claimed by
-    # something here instead: a schema P0 shipped and nothing maps is the same hole.
+    # The contract names its schemas as one phrase, so they cannot be told apart by the
+    # words alone; the set P0 shipped is named instead. Both directions bite. A schema
+    # added to that set and mapped by nothing is the hole this catches, and a schema a
+    # later wave ships is not P0's to claim — the second half is why this list is frozen
+    # rather than globbed, because a glob would have quietly enrolled P1's first schema
+    # into P0's evidence the moment it landed.
     claimed_paths = {where for _, where, _ in P0.values()}
-    for schema in sorted((ROOT / "policy").glob("*.schema.json")):
-        assert f"policy/{schema.name}" in claimed_paths, f"no P0 requirement claims {schema.name}"
+    assert claimed_paths >= P0_SCHEMAS, f"unclaimed: {sorted(P0_SCHEMAS - claimed_paths)}"
+    shipped_later = {
+        f"policy/{schema.name}" for schema in (ROOT / "policy").glob("*.schema.json")
+    } - P0_SCHEMAS
+    assert not (shipped_later & claimed_paths), sorted(shipped_later & claimed_paths)
 
     assert not uncovered(p0, [phrase for phrase, _, _ in P0.values()])
 
