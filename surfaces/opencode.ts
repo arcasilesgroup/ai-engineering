@@ -64,31 +64,33 @@ export const AiEngineering = async () => {
         input: payload,
         timeout: 5000,
       });
-      // Anything that is not an observed clean allow denies. `status === 2` alone let the
-      // call through whenever the dispatcher could not be spawned at all: a missing
-      // interpreter, a deleted worktree, a five-second timeout all give `status === null`,
-      // and this returned as if the guard had considered the call and approved it. Spec 010
-      // wrote that risk down twice and left it open for this wave. A guard that allows
-      // because it could not run is the root pattern this product exists to cure.
+      // Two answers exist and everything else is the guard failing to give one. The
+      // dispatcher's only deliberate exits are 0 and 2 — every `sys.exit` in hooks/ is one
+      // of those, and `main()` only ever returns 0 — so 1 is CPython's uncaught-exception
+      // status and means it died before a single guard decided.
       //
-      // The two are told apart in the message, because they need different repairs: a
-      // policy denial is the guard working, and a broken install is not.
-      if (result.error || result.signal || result.status === null) {
-        const why = result.error?.message ?? result.signal ?? "no exit status";
+      // A previous version of this branch allowed on any status but 2, justified by a
+      // comment in the dispatcher describing exit 1 as non-blocking and by a measurement
+      // showing an ordinary call exiting 1 here. Both were wrong: that comment describes a
+      // fail-open the same team then fixed, and the measurement was an artifact of running
+      // the dispatcher with PYTHONSAFEPATH, which breaks its own imports. Run properly, an
+      // ordinary call exits 0. So the narrow version allowed `git commit --no-verify`
+      // whenever the interpreter could start and the dispatcher could not run.
+      const spoke =
+        result.status === 2 && result.stdout.toString().includes('"permission"');
+      if (!spoke && result.status !== 0) {
+        // Not a policy denial: the guard could not reach one. CPython also exits 2 when it
+        // cannot open the script at all, which is what a moved or rebuilt install looks
+        // like — so the two are told apart by whether a decision was actually spoken, not
+        // by the number alone. They need different repairs.
+        const why =
+          result.error?.message ?? result.signal ?? `exit ${result.status}`;
         throw new Error(
           `[ai-engineering] BLOCKED: the guard could not run (${why}), so this call is ` +
             `refused rather than allowed. Fix the install: run \`ai-eng doctor\`.`,
         );
       }
-      // Exit 2 and nothing else, because that is the deny protocol. The first attempt at
-      // this fix denied on any non-zero status, which reads as strictly safer and is not:
-      // the dispatcher exits 1 on a non-blocking error by its own documented contract —
-      // "every surface treats it as a non-blocking error, the call went through" — and on
-      // this very machine an ordinary `echo` call exits 1 today. That version refused
-      // every tool call on any machine with a telemetry hiccup, which is not a guard, it
-      // is an outage. Failing closed means refusing when we cannot decide, not refusing
-      // when the answer was no objection.
-      if (result.status === 2) {
+      if (spoke) {
         throw new Error(
           result.stderr.toString().trim() || "denied by ai-engineering",
         );

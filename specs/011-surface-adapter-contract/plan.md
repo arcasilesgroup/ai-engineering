@@ -214,6 +214,16 @@ has, where the job exercises the dispatcher and not the adapter.
     signal, or an error — and the thrown message says which, so a denial caused by a broken
     install is not reported as a policy denial.
 
+    **This done-when was met, then unmet, then met again.** The first implementation denied
+    on any non-zero status, as written here. It was narrowed to `status === 2` on the
+    strength of a dispatcher comment describing exit 1 as non-blocking and a measurement
+    showing an ordinary call exiting 1 — and the code was narrowed without amending this
+    line, which is the silent drift the Task 7 amendment wrote a paragraph against. A review
+    found both supports false: that comment describes a fail-open the same team fixed, and
+    the measurement was an artifact of running the dispatcher under `PYTHONSAFEPATH`, which
+    breaks its own imports. Run properly it exits 0. The narrow version allowed
+    `git commit --no-verify` whenever the interpreter started and the dispatcher did not.
+
 ### Amendment, made while executing Task 11
 
 Task 11 asked the installed-wheel matrix to run the plugin and receipt it. The matrix has

@@ -224,11 +224,16 @@ def ts_opencode(path: Path) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     source = (paths.surfaces() / "opencode.ts").read_text(encoding="utf-8")
     for token, value in (
-        ("__PYTHON__", sys.executable),
-        ("__CHAIN__", str(paths.hooks() / "chain.py")),
-        ("__BEAT__", str(paths.home() / "cache" / "opencode-heartbeat")),
+        ('"__PYTHON__"', sys.executable),
+        ('"__CHAIN__"', str(paths.hooks() / "chain.py")),
+        ('"__BEAT__"', str(paths.home() / "cache" / "opencode-heartbeat")),
     ):
-        source = source.replace(token, value)
+        # The quotes are replaced too, and the value is written as a JSON string. Dropping
+        # a raw Windows path inside existing quotes made `C:\Users\me\...` into
+        # `C:Usersme...` — every backslash a TypeScript escape — so the plugin pointed at a
+        # path that does not exist. It used to allow silently; now it denies every call,
+        # which is the right direction and the wrong outcome.
+        source = source.replace(token, json.dumps(value))
     path.write_text(source, encoding="utf-8")
     return "plugin written"
 
