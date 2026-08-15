@@ -694,28 +694,33 @@ def test_a_git_that_cannot_place_the_anchor_leaves_the_commit_standing(tmp_path,
 
 
 @pytest.mark.parametrize(
-    ("route", "kwargs", "says"),
-    [
-        # git wrote the subject itself. The exemption is for the subject rule, and it used
-        # to `exit 0` and take the anchor with it, so every merge left the record in
-        # silence. A subject git chose is not a reason to leave the commit unrecorded.
-        ("a merge subject", {"subject": "Merge branch 'feature'"}, "Ai-Eng-Anchor: "),
-        # And the CLI named by `ai.eng` not being on this machine — an editable install
-        # pointing at a deleted worktree, which `doctor` has its own check for. The hook
-        # tested `command -v` and, finding nothing, did nothing and said nothing.
-        ("an unresolvable cli", {"engine": "/nonexistent/ai-eng"}, "not on this machine"),
-    ],
+    "subject", ["Merge branch 'feature'", 'Revert "fix(x): a thing"', "fixup! x"]
 )
-def test_no_path_through_the_hook_goes_unanchored_in_silence(tmp_path, route, kwargs, says):
-    """Three routes said nothing at all, and the comment above them claimed that was the
-    failure this record exists to make impossible. Every one of the six tests written for
-    this hook supplied a resolvable stub and a `test(x):` subject, so not one of them could
-    reach either route below. A hook that is quiet when it cannot record is how days of
-    unanchored commits passed under a green gate."""
+def test_a_subject_git_wrote_itself_is_still_anchored(tmp_path, subject):
+    """The exemption at the top of the hook is for the subject rule. It used to `exit 0`
+    and take the anchor with it, so every merge left the record with nothing written and
+    nothing said. A subject git chose is not a reason to leave the commit unrecorded.
 
-    done, written, _, _ = _commit_msg(tmp_path, **kwargs)
+    Asserted through `--parse`, not by looking for the line: the first version of this test
+    checked the string was somewhere in the file, which the round-three orphaning defect
+    passes. The merge path is the only path this test owns, so a weak assertion here is a
+    blind spot nothing else covers."""
+
+    done, written, _, repo = _commit_msg(tmp_path, subject=subject)
     assert done.returncode == 0, done.stderr
-    assert says in (written if says.startswith("Ai-Eng") else done.stderr), (written, done.stderr)
+    assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
+
+
+def test_a_cli_the_hook_cannot_even_run_is_reported_rather_than_skipped(tmp_path):
+    """`command -v` finding nothing used to mean the hook did nothing and said nothing.
+    Every other test supplies a resolvable stub, so not one of them could reach it, and a
+    hook that is quiet when it cannot record is how five days of unanchored commits passed
+    under a green gate."""
+
+    done, written, original, _ = _commit_msg(tmp_path, engine="/nonexistent/ai-eng")
+    assert done.returncode == 0, done.stderr
+    assert written == original, written
+    assert "not on this machine" in done.stderr, done.stderr
 
 
 def test_a_message_with_no_trailer_of_its_own_still_gets_the_anchor(tmp_path):

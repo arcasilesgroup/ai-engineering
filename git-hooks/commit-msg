@@ -11,19 +11,24 @@ set -euo pipefail
 # the whole of stdout. `audit --anchor` sends its progress to stderr and its verdict to
 # stdout, because the verdict is the data every other verb produces — so on a chain that
 # does not hold, appending stdout wholesale wrote "✗ FAIL / Reason: ... / Exit code: 1"
-# into the commit message. No commit here carries that block; why not is not a question
-# this repository can answer, because nothing dates the `ai.eng` value and the chain
-# records no version, so the broken chain is the one cause that can be placed in time.
+# into the commit message. No commit here carries that block, and the reason is in the
+# tree: 162 commits ran the append-wholesale form after the chain broke, an anchor-capable
+# CLI writes that block to stdout on a chain that does not hold, and the CLI `ai.eng`
+# actually named writes nothing at all and exits 2. Silence across all 162 dates the
+# misconfiguration to the whole window. Two earlier versions of this comment guessed the
+# opposite and a third said the question could not be answered.
 #
-# And every path through this function says something. Three of them used to say nothing:
-# a chain that does not hold, an `ai.eng` naming a CLI that is not on this machine — an
-# editable install pointing at a deleted worktree, which `doctor` has a check for — and a
-# subject git wrote itself. Silence is how this went unanchored for days with a green
-# gate, and an unanchored commit nobody was told about is the failure the record exists to
-# make impossible.
+# And every path but the quiet success says something. Three used to say nothing: a chain
+# that does not hold, an `ai.eng` naming something `command -v` cannot find, and a subject
+# git wrote itself. Silence is how this went unanchored for five days under a green gate,
+# and an unanchored commit nobody was told about is the failure the record exists to make
+# impossible.
 anchor_footer() {
   local eng anchor
   eng="${AI_ENG:-$(git config --get ai.eng || echo ai-eng)}"
+  # Only whether the first word is executable. A `python -m ai_engineering.cli` whose
+  # module is gone passes this and fails below, which is the branch that reports it — an
+  # earlier version of this comment named that case here, where it never arrives.
   if ! command -v "${eng%% *}" >/dev/null 2>&1; then
     echo "commit-msg: not anchored — \`${eng%% *}\` is not on this machine. Run \`ai-eng doctor\`." >&2
     return 0
