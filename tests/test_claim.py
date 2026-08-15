@@ -116,6 +116,30 @@ def test_a_claim_record_carrying_a_machine_path_never_reaches_the_remote(tmp_pat
     assert not git(two, "ls-remote", "origin", claim.REF.format(item="work-44")).stdout.strip()
 
 
+def test_a_winning_claim_leaves_the_file_the_guard_reads_and_a_losing_one_does_not(
+    tmp_path, remote
+):
+    """The two halves have to agree. `claim_scope_guard` denies a write outside the claim
+    in force, and it reads that from `.ai/claim.json` — so the writer who lost the race must
+    not be left holding a file that says it owns the work."""
+
+    from ai_engineering import claim
+
+    one, two = tmp_path / "one", tmp_path / "two"
+    base = claim.base(one)
+    first = claim.take(one, "work-46", base, ["src/thing.py"], "writer-one")
+    second = claim.take(two, "work-46", base, ["src/thing.py"], "writer-two")
+
+    assert first.outcome == "PASS" and second.outcome == "INCOMPLETE"
+    assert (one / claim.IN_FORCE).is_file()
+    assert not (two / claim.IN_FORCE).exists(), "the loser was left believing it holds the work"
+
+    import json
+
+    held = json.loads((one / claim.IN_FORCE).read_text(encoding="utf-8"))
+    assert held["paths"] == ["src/thing.py"] and held["item"] == "work-46"
+
+
 def test_the_claim_object_carries_our_identity_and_not_the_machine_s(tmp_path, remote):
     """A commit takes its author from whoever is sitting there. A coordination record that
     carries a person's name and address has published a person, so the claim object is

@@ -740,6 +740,7 @@ def test_constitution_contract_rejects_negated_or_moved_assertions(case):
 # derived on both sides: a test that computes both halves the same way cannot fail.
 WORDS = {
     5: "five",
+    6: "six",
     8: "eight",
     9: "nine",
     12: "twelve",
@@ -847,7 +848,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 49_137
+    assert contract.REPO_CEILING == 49_421
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]

@@ -31,7 +31,7 @@ once per session. `CLAUDE.md` is one line that imports this file.
 
 ## What this project is
 
-A wheel on PyPI that carries twelve skills, five guards and a ten-verb CLI. One command
+A wheel on PyPI that carries twelve skills, six guards and a ten-verb CLI. One command
 places the skills and registers the guards in the settings file each surface already
 reads, so they are present in every project on a machine without a single file landing in
 any of them. It writes specs, plans, decisions and dated risk acceptances as plain text in
@@ -39,7 +39,7 @@ the user's repository, and verifies them with a command that exits non-zero.
 
 ## The shape of the tree
 
-- `hooks/` — the dispatcher, the two decorators, five guards, two telemetry hooks. Standard
+- `hooks/` — the dispatcher, the two decorators, six guards, two telemetry hooks. Standard
   library only, executed by path, never importing the package: on the hot path that import
   costs about 110 ms, and a slow guard is a disabled guard.
 - `src/ai_engineering/` — the ten verbs. This half may import freely.

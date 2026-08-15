@@ -603,7 +603,11 @@ def test_normalise_survives_every_shape_a_surface_sends(raw, expected):
         ("PreToolUse", "Bash", ["self_protect", "no_verify_guard", "loop_guard"]),
         ("PreToolUse", "BashOutput", ["loop_guard"]),
         ("PreToolUse", "", ["loop_guard"]),
-        ("PreToolUse", "NotebookEdit", ["self_protect", "loop_guard", "change_scope_guard"]),
+        (
+            "PreToolUse",
+            "NotebookEdit",
+            ["self_protect", "loop_guard", "change_scope_guard", "claim_scope_guard"],
+        ),
         ("PostToolUse", "mcp__linear__issue", ["injection_guard", "loop_guard"]),
         ("PostToolUse", "WebFetchExtra", ["loop_guard"]),
         ("SessionStart", "", ["session"]),

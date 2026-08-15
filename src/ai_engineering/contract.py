@@ -709,7 +709,24 @@ DESCRIPTION_MAX = 1000
 # printing `network none`, which is the same false green that check already exists to
 # prevent, one process boundary away instead of one indirection. It follows sibling imports
 # and reads the git subcommands that talk to a remote now.
-REPO_CEILING = 49_137
+# 49,137 to 49,421 for the sixth guard, and for the half of EP-188 that this is not.
+#
+# A claim says which paths one writer may change while it is held, and the guard enforces
+# that where the write happens rather than where the conflict appears. Three shapes of
+# refusal, each one measured: outside the claimed paths, outside the repository entirely,
+# and a claim file that exists and cannot be parsed — which denies, because "unreadable"
+# and "absent" must not be the same answer when somebody else may hold the work. The path
+# is resolved and not compared as text: `src/thing.py/../../elsewhere.py` is inside the
+# claim by string and outside it by path, and the string is the one an attacker writes.
+#
+# The local file is written only after the remote agreed, so the writer who lost the race
+# is not left holding a file that says it owns the work.
+#
+# What this is not: `claimed_paths` is also to be enforced by CI over the pushed diff,
+# against the claim held on the remote. That does not exist, so EP-188 stays open and the
+# test file says so in its own docstring rather than reading as though the requirement had
+# closed.
+REPO_CEILING = 49_421
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

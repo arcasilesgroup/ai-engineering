@@ -12,6 +12,7 @@ the branch is, the reasoning is out of date and so is the claim.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import uuid
@@ -20,6 +21,9 @@ from pathlib import Path
 from ai_engineering import acceptance_privacy, outcome
 
 REF = "refs/ai-eng/claims/{item}"
+# Where the guard on this machine reads what is claimed. Under `.ai/`, which is disposable
+# and gitignored: a claim is state about one worktree and belongs in nobody's diff.
+IN_FORCE = Path(".ai") / "claim.json"
 TIMEOUT_SECONDS = 60
 
 # A commit takes its author from whoever is sitting at the machine. A coordination record
@@ -145,10 +149,23 @@ def take(
             "read who holds it, and take a different task",
         )
 
+    # The guard reads this, and it is written only after the remote agreed. A claim file
+    # that appeared before the push would let a writer who lost the race carry on believing
+    # it holds the work — which is the disagreement the remote exists to settle.
+    local = root / IN_FORCE
+    local.parent.mkdir(parents=True, exist_ok=True)
+    local.write_text(
+        json.dumps({"item": item, "base": expected_base, "role": role, "paths": list(paths)}),
+        encoding="utf-8",
+    )
+
     return outcome.execution(
         outcome.result("PASS"),
         summary=f"{item} is claimed at {expected_base[:12]} for {len(paths)} path(s)",
-        changes=[outcome.fact("claim-ref", "APPLIED", "Claimed on the remote", reference)],
+        changes=[
+            outcome.fact("claim-ref", "APPLIED", "Claimed on the remote", reference),
+            outcome.fact("claim-local", "APPLIED", "The claim the guard reads", str(IN_FORCE)),
+        ],
         checks=[
             outcome.fact("claim-object", "OBSERVED", "The claim object", object_id),
             outcome.fact("claim-base", "OBSERVED", "The base it was taken against", expected_base),

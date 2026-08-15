@@ -427,6 +427,34 @@ def control_loop(tmp: Path) -> bool:
     return codes == [0, 0]
 
 
+@case("write outside the claim", "claim_scope_guard")
+def outside_the_claim(tmp: Path) -> bool:
+    """A claim is held over one path and the write goes to another. The denial has to come
+    from the dispatcher rather than from a function a test called directly, because that is
+    the only version of it an agent ever meets."""
+
+    work = repo(tmp)
+    (work / ".ai").mkdir(exist_ok=True)
+    (work / ".ai" / "claim.json").write_text(
+        json.dumps({"item": "work-42", "paths": ["src/thing.py"]})
+    )
+    (work / "src").mkdir(exist_ok=True)
+    inside = pre("Write", {"file_path": str(work / "src" / "thing.py")}, cwd=work)
+    outside = pre("Write", {"file_path": str(work / "src" / "other.py")}, cwd=work)
+    return inside == 0 and outside == 2
+
+
+@case("control · claim_scope_guard", "none", controls="claim_scope_guard")
+def control_claim_scope(tmp: Path) -> bool:
+    """No claim in force is every repository that has never coordinated, and the guard has
+    no opinion there. A control that only proved the claimed path is writable would have
+    said nothing about the case that is almost all of them."""
+
+    work = repo(tmp)
+    (work / "anything.py").write_text("x = 1\n")
+    return pre("Write", {"file_path": str(work / "anything.py")}, cwd=work) == 0
+
+
 @case("control · change_scope_guard", "none", controls="change_scope_guard")
 def control_change_scope(tmp: Path) -> bool:
     """Three files on a branch with no plan is the budget, not a breach. The attack proves
