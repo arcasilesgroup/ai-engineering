@@ -225,5 +225,8 @@ def test_p0_claims_nothing_that_belongs_to_a_later_wave():
     # And it is answered by the same command CI runs, rather than by a file somebody has to
     # remember to run: `just check` calls `test`, and `test` runs the whole tests directory.
     recipe = (ROOT / "justfile").read_text(encoding="utf-8")
-    assert "\ncheck: build lint typecheck test cover security counts\n" in recipe
+    # The list is read rather than pinned as one string: `check` grew a `register` recipe in
+    # P5 and this assertion is about `test` being in it, not about the order of the others.
+    called = recipe.split("\ncheck:", 1)[1].splitlines()[0].split()
+    assert "test" in called and "lint" in called and "security" in called, called
     assert "\ntest:\n    uv run --with {{pytest}} pytest -q\n" in recipe

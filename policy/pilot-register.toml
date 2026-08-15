@@ -1,0 +1,176 @@
+# The thirteen indicators that decide, and the fourteen things that must not come back.
+#
+# Data, not code: the reader is `tests/pilot_register.py` and it runs inside `just check`.
+# A row that nothing computes carries `no_instrument` with a reason and no bound, because a
+# bound nobody can measure is a number somebody will quote. A bound and `no_instrument` in
+# the same row is an error and the reader says so.
+#
+# `claimed` below is how P5 is declared complete. It cannot be true while any row is
+# uninstrumented, and the reader names every such row rather than printing a count — a
+# count is a thing you round; a list is a thing you have to answer.
+
+[claim]
+p5_complete = false
+why = "six indicators have no instrument and the pilot itself has not been run"
+
+# ── the thirteen ────────────────────────────────────────────────────────────────────
+
+[[indicator]]
+id = "surface_proof_age"
+bound = "red when an observed denial is older than seven days"
+command = "ai-eng report surfaces"
+wave = "P1"
+
+[[indicator]]
+id = "guard_p95_ms"
+no_instrument = """the check named after p95 took the middle of five samples, which is a \
+median, and it ran on one dispatcher rather than per surface. It measures a floor now and \
+says so. A real p95 needs a quiet machine and a per-surface run, and neither exists here."""
+wave = "P4"
+
+[[indicator]]
+id = "mutation_score"
+bound = "89% floor for the package, with an explicit matrix for the guards"
+command = "just mutate"
+wave = "P0"
+
+[[indicator]]
+id = "adversarial_control"
+bound = "every attacked gate has a clean control that must not fire"
+command = "uv run python tests/adversarial/run.py"
+wave = "P0"
+
+[[indicator]]
+id = "otlp_rejected"
+no_instrument = """a 2xx carrying rejected records is decided in `_otlp.probe` and recorded \
+by `session.py`, and no command prints the number. The rule is enforced; the indicator is \
+not published, and this register exists to keep those two apart."""
+wave = "P4"
+
+[[indicator]]
+id = "spec_evidence"
+bound = "every production-ready box names a command or says it does not apply"
+command = "ai-eng doctor"
+wave = "P0"
+
+[[indicator]]
+id = "skill_eval_delta"
+no_instrument = """there is no evaluation runner, no approved corpus and no named approver, \
+so there is nothing to take a delta of. Specification 012 records the same absence when it \
+refuses to invent the comparison."""
+wave = "P2"
+
+[[indicator]]
+id = "repo_files_written"
+bound = "the framework writes only into the homes it declares, and grows none"
+command = "ai-eng doctor"
+wave = "P0"
+
+[[indicator]]
+id = "intent_trace_coverage"
+no_instrument = """no BDD criterion exists in this repository, so coverage over them is \
+undefined. Inventing a definition here would make the number whatever its author chose."""
+wave = "P2"
+
+[[indicator]]
+id = "a11y_critical_journey"
+no_instrument = """no critical journey is enumerated anywhere, and a coverage figure over \
+an empty list is 100%. The skill states the method; nothing has run it."""
+wave = "P2"
+
+[[indicator]]
+id = "aaa_exception_age"
+no_instrument = """`ai-eng accept` already ages an acceptance with owner and expiry, and no \
+AAA criterion has ever been recorded, so there is nothing aged."""
+wave = "P2"
+
+[[indicator]]
+id = "coordination_overlap"
+bound = "zero concurrent writers on one work item or one claimed path"
+command = "ai-eng spec checkpoint --base <ref> --item <work-item>"
+wave = "P3"
+
+[[indicator]]
+id = "report_payload_unknown"
+bound = "any field outside the allow-list stops the send; the schema is closed"
+command = "uv run --with pytest==9.1.1 pytest -q tests/test_issue.py"
+wave = "P2"
+
+# ── the fourteen ────────────────────────────────────────────────────────────────────
+
+[[prohibition]]
+id = "ide-mirrors"
+never = "per-IDE mirrors, or copies of the framework inside a consumer repository"
+check = "ai-eng doctor assertion 18 — every framework file has one declared home"
+
+[[prohibition]]
+id = "inventory-target"
+never = "the fifty-four skills as an inventory target"
+reason = """an intention no check can read. What can be checked is the cost of each \
+addition, and `contract.audit_one` charges it: a corpus, a refusal case, a declared mode."""
+
+[[prohibition]]
+id = "wrong-mission"
+never = "fundraising, marketing, media, video, slides or support as the wheel's mission"
+check = "tests/test_contracts.py — the constitution's mission and its Never list"
+
+[[prohibition]]
+id = "coordination-database"
+never = "a coordination database, heartbeat or TTL takeover before Git and CI have failed"
+check = "tests/test_coordination_shape.py — no ownership store, heartbeat or takeover"
+
+[[prohibition]]
+id = "agent-per-lens"
+never = "one agent per review lens"
+reason = """no check can count agents that do not exist. The lenses are files under \
+`ai-review/references/`, loaded by the diff, and that is the shape that keeps it true."""
+
+[[prohibition]]
+id = "hook-ran-events"
+never = "events that prove only that a hook started"
+check = "hooks/_emit.py — six closed classes, and a raise on anything else"
+
+[[prohibition]]
+id = "council-and-envelope"
+never = "two ai-spec modes, a mandatory council, model majority, or an authority envelope"
+reason = """none of them exists to be found. The check that would matter is on the day \
+somebody adds one, and it is a review, not a grep: a council arrives as an argument."""
+
+[[prohibition]]
+id = "artificial-ceiling"
+never = "an artificial ceiling of verbs or skills that worsens the information architecture"
+reason = """a judgement about architecture, which no gate holds. The ten verbs and the \
+skill count are both bound by tests, so a change to either is visible and argued for."""
+
+[[prohibition]]
+id = "documented-proven"
+never = "a surface marked proven for reading documentation or writing a file"
+check = "tests/test_surface_adapter.py — the word is read from a receipt, never declared"
+
+[[prohibition]]
+id = "documentation-portal"
+never = "a documentation portal the core must maintain in order to work"
+reason = """nothing in `just check` reads a website. The site lives in another repository \
+by decision, and the check that keeps it there is that this one never imports it."""
+
+[[prohibition]]
+id = "publish-every-commit"
+never = "publishing every local commit, rebasing in the background, or forcing without a SHA"
+check = "tests/test_coordination_shape.py — bare force, background rebase, per-commit push"
+
+[[prohibition]]
+id = "publish-user-text"
+never = "publishing a user's logs or free text in order to report an error"
+check = "tests/test_issue.py — a closed payload with no field for either"
+
+[[prohibition]]
+id = "scanner-accessibility"
+never = "declaring accessibility or AAA from contrast, axe or any scanner without a person"
+reason = """a scanner cannot tell you it did not look. The refusal is written as a corpus \
+case in `ai-design` — "axe passed, so we are accessible" — and no gate here claims AAA."""
+
+[[prohibition]]
+id = "score-compliance"
+never = "claiming certification, compliance or total security from a score or a model"
+reason = """there is no compliance verb to make the claim with. `ai-security` refuses it in \
+its corpus, and refusing is the only thing a skill can do about a sentence somebody types."""

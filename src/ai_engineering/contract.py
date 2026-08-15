@@ -839,7 +839,23 @@ DESCRIPTION_MAX = 1000
 # claims it. The audit is the document this work is judged against, and an audit that goes
 # stale is a measurement somebody will quote next month as though it were current — which is
 # the first correction the audit itself had to make about the report above it.
-REPO_CEILING = 51_227
+# 51,227 to 51,694 for P5's register, which is the one artefact that makes an unequipped
+# wave readable instead of merely unfinished.
+#
+# Thirteen indicator rows and fourteen prohibition rows, as data in `policy/`, read by one
+# file in `tests/` that `just check` runs. Seven indicators carry a command and a bound;
+# six carry `no_instrument` and the reason, and the reader names all six every run rather
+# than printing how many — a count is a thing you round, a list is a thing you answer.
+#
+# A bound beside `no_instrument` is an error, and so is a command with no bound: the first
+# is a number nobody can measure and somebody will quote, the second is a number printed
+# into a log. The reader refuses a P5 completion claim while any row is unequipped and names
+# every one of them in the refusal, which is the only thing in this repository that can stop
+# a wave closing on work nobody did.
+#
+# Every case in its test mutates the register and asserts the reader says no. A reader
+# tested only on the register that already passes is a reader nobody has seen refuse.
+REPO_CEILING = 51_694
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -278,9 +278,15 @@ counts:
     @echo "RAN lint=$(uv run --with {{ruff}} ruff format --check . | grep -oE '^[0-9]+')"
     @echo "RAN tests=$(uv run --with {{pytest}} pytest -q --collect-only 2>/dev/null | grep -cE '::')"
 
+# The thirteen indicators and the fourteen prohibitions, read out of `policy/` and printed
+# with every row that has no instrument named. Inside `check` and not beside it: the reader
+# refuses a P5 completion claim, and a refusal nobody runs is a refusal that never happens.
+register:
+    @uv run python tests/pilot_register.py
+
 # Where things stand, from the tree, with no model doing the arithmetic. Not in `check`:
 # it asserts nothing and a report inside a gate is a report people read as a gate.
 stats:
     @uv run python tests/stats.py
 
-check: build lint typecheck test cover security counts
+check: build lint typecheck test cover security register counts
