@@ -72,11 +72,22 @@ proved today.
    for that state alone and never borrows another's answer; a T3 surface reports enforcement
    not applicable and cannot be given a denial receipt.
 
-4. **`proven` stops being writable** — **file** `policy/surfaces.toml`.
-   **check**: `pytest -q tests/test_surface_adapter.py::test_no_surface_flag_can_assert_a_state_a_receipt_has_not_earned`.
-   **rollback**: `git revert <commit>`. **done when**: the static `proven` field is deleted,
-   not deprecated; every reader takes the answer from a receipt; the test fails if the field
-   returns under any spelling.
+### Amendment, made while executing Task 4
+
+Tasks 4 and 6 were the wrong way round and the code said so. Deleting the static `proven`
+field breaks its only reader — `doctor.py:820` — so Task 4 as written forced a second
+product home into one commit, which this plan's own atomicity rule forbids. Doctor has to
+take its answer from the receipts *before* the flag it currently reads can go.
+
+They are swapped below. Nothing else changes: the same two tasks, the same checks, the same
+done-whens. Recording it here rather than quietly reordering, because a plan that drifts
+without saying so is a plan nobody can review against what happened.
+
+4. **Doctor reads the three states** — **file** `src/ai_engineering/doctor.py`.
+   **check**: `pytest -q tests/test_surface_adapter.py::test_coverage_prints_three_states_and_never_one_word_for_three_questions`.
+   **rollback**: `git revert <commit>`. **done when**: the coverage block prints discovery,
+   invocation and enforcement separately; no row can print a word for a state without a
+   receipt; the legend defines each state in the vocabulary already used.
 
 5. **The `surface proof` verb** — **file** `src/ai_engineering/cli.py`.
    **check**: `pytest -q tests/test_surface_adapter.py::test_surface_proof_reports_three_states_and_invents_none`.
@@ -86,11 +97,11 @@ proved today.
    the two exact-ten assertions, so this task also amends both, deliberately and in the same
    commit.
 
-6. **Doctor reads the three states** — **file** `src/ai_engineering/doctor.py`.
-   **check**: `pytest -q tests/test_surface_adapter.py::test_coverage_prints_three_states_and_never_one_word_for_three_questions`.
-   **rollback**: `git revert <commit>`. **done when**: the coverage block prints discovery,
-   invocation and enforcement separately; no row can print a word for a state without a
-   receipt; the legend defines each state in the vocabulary already used.
+6. **`proven` stops being writable** — **file** `policy/surfaces.toml`.
+   **check**: `pytest -q tests/test_surface_adapter.py::test_no_surface_flag_can_assert_a_state_a_receipt_has_not_earned`.
+   **rollback**: `git revert <commit>`. **done when**: the static `proven` field is deleted,
+   not deprecated; every reader takes the answer from a receipt; the test fails if the field
+   returns under any spelling.
 
 *Block A closes with a fresh review, repairs, re-review — re-arming on REJECT — and one
 `just check`.*
