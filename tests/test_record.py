@@ -757,6 +757,51 @@ def test_a_message_with_no_trailer_of_its_own_still_gets_the_anchor(tmp_path):
     assert _trailers(repo, written) == [FOOTER], written
 
 
+def test_a_break_that_has_been_accounted_for_is_recorded_and_never_erased(home, monkeypatch):
+    """The chain had no way back. One poisoned link and `audit verify` fails for good,
+    `anchor_line` raises, and no commit on that machine can ever be anchored again — a
+    ratchet with no recovery path, measured on the operator's own machine at 22 links.
+
+    Erasing the links is the one thing that must not happen: it is the act the chain exists
+    to detect. So the account is a *new* link. Verification reports the break and the
+    account together, the old links keep saying what they always said, and the anchor works
+    again because the break has been answered rather than hidden.
+
+    It is not a way out from under a real edit. The account itself is a link, so adding one
+    later moves the head, and the head is what the anchors in git commits pin — replicated
+    and immutable, unlike this file."""
+
+    monkeypatch.setattr(home, "repo_id", lambda root=None: "testrepo")
+    events = _links(home, 3)
+    events[1]["data"] = {"outcome": "edited", "error": home.EDITED, "claimed": {}}
+    events[1]["hash"] = home.digest(events[1])
+    events[2]["prev"] = events[1]["hash"]
+    events[2]["hash"] = home.digest(events[2])
+    _write(home, events)
+
+    assert audit.verify(None, False), "a poisoned link must be reported before it is accounted"
+    with pytest.raises(ValueError):
+        audit.anchor_line(None)
+
+    accounted = audit.account(
+        None, first=2, last=2, why="written by a test with its own home", by="Ada"
+    )
+    assert accounted == outcome.result("PASS"), accounted
+
+    # The old link is untouched: the account is an addition, never a rewrite.
+    after = [json.loads(line) for line in home.chain_path().read_text().splitlines()]
+    assert after[1] == events[1]
+    assert len(after) == len(events) + 1
+
+    # Still reported, and reported as answered rather than as an open break. Erasing it is
+    # the act this file exists to catch, so the line stays and the word changes.
+    kinds = dict((why.split(":")[0], kind) for kind, why in audit._chain_findings(after))
+    assert kinds.get("link 2") == "ACCOUNTED", kinds
+    assert "BROKEN" not in kinds.values(), kinds
+    # And the anchor works again, which is the whole point of being able to do this.
+    assert "Ai-Eng-Anchor: " in audit.anchor_line(None)
+
+
 @pytest.mark.parametrize("head", ["known", "aaaaaaaaaaaa"])
 def test_a_commit_anchoring_a_link_this_chain_has_lost_is_reported(home, monkeypatch, head):
     """Git history is replicated and immutable; the chain on this laptop is neither. If

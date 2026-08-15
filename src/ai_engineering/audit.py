@@ -26,13 +26,16 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from ai_engineering import outcome, paths
+from ai_engineering import accept, outcome, paths
 
 ANCHOR = re.compile(r"^Ai-Eng-Anchor: (\S+)/(\S+) seq=(\d+) head=([0-9a-f]{12})$", re.M)
 INTENT_HOME = ".ai/intent.md"
 INTENT_INCOMPLETE_PREFIX = f"Solution Intent at {INTENT_HOME} is INCOMPLETE: "
 ROOT_INCOMPLETE = "Repository context is INCOMPLETE: no repository root can be proven"
 CHAIN_INCOMPLETE_PREFIX = "Chain evidence is INCOMPLETE: "
+# The event name an account carries. Not a new event class: the six are closed, and an
+# account is a command a person ran, which is what `command` means.
+ACCOUNT = "audit_account"
 HISTORY_INCOMPLETE_PREFIX = "Anchor history is INCOMPLETE: "
 
 
@@ -70,8 +73,14 @@ class _Inspection:
     def result(self) -> outcome.Result:
         if any(kind == "BROKEN" for kind, _ in self.findings):
             return outcome.result("FAIL")
-        if self.findings:
+        # An accounted break is still printed — it is never erased — but it has been
+        # answered by a human with authority, so it does not hold the chain open. Reading
+        # it as INCOMPLETE would leave the anchor refused forever, which is the ratchet the
+        # account exists to release.
+        if any(kind not in ("ACCOUNTED", "WARN") for kind, _ in self.findings):
             return outcome.result("INCOMPLETE")
+        if any(kind == "ACCOUNTED" for kind, _ in self.findings):
+            return outcome.result("WARN")
         return outcome.result("PASS")
 
 
@@ -207,12 +216,34 @@ def verify_intent(root: Path) -> list[str]:
     return [INTENT_INCOMPLETE_PREFIX + f"{result.code} — {result.reason}"]
 
 
+def _accounted(events: list[dict]) -> dict[int, str]:
+    """Every link a human with authority has already answered for, and what they said.
+
+    An account is a link like any other, so it is covered by the digest of every link after
+    it and by the head that git commits anchor. Adding one retroactively moves the head and
+    the anchors stop matching, which is the case `_history_findings` already reports. That
+    is what keeps this from being a way out from under a real edit."""
+
+    answered: dict[int, str] = {}
+    for event in events:
+        data = event.get("data")
+        if event.get("name") != ACCOUNT or not isinstance(data, dict):
+            continue
+        first, last = data.get("first"), data.get("last")
+        if type(first) is not int or type(last) is not int:
+            continue
+        for seq in range(first, last + 1):
+            answered[seq] = f"{data.get('why', '')} — {data.get('by', '')}".strip(" —")
+    return answered
+
+
 def _chain_findings(events: list[dict]) -> list[tuple[str, str]]:
     emit = paths.load("_emit")
     findings: list[tuple[str, str]] = []
     problem = getattr(events, "problem", "")
     if problem:
         findings.append(("INCOMPLETE", CHAIN_INCOMPLETE_PREFIX + problem))
+    answered = _accounted(events)
     prev = ""
     for seq, event in enumerate(events, 1):
         if event.get("cls") == "unreadable":
@@ -231,7 +262,16 @@ def _chain_findings(events: list[dict]) -> list[tuple[str, str]]:
         if (data or {}).get("outcome") == "edited":
             # Sealed truthfully, so every hash below matches. Without this line the one
             # command README.md offers as the tamper detector exits 0 over a rewritten event.
-            findings.append(("BROKEN", f"link {seq}: it arrived edited before it was sealed"))
+            #
+            # Unless a human with authority has already answered for it. The break is still
+            # reported — it is never erased, because erasing is the act this file exists to
+            # catch — but a break that has been accounted for does not go on blocking the
+            # anchor forever. Without that, one poisoned link ends anchoring on a machine
+            # permanently, which is what happened here at 22 links.
+            if seq in answered:
+                findings.append(("ACCOUNTED", f"link {seq}: accounted for — {answered[seq]}"))
+            else:
+                findings.append(("BROKEN", f"link {seq}: it arrived edited before it was sealed"))
         if type(event.get("seq")) is not int or event.get("seq") != seq:
             findings.append(("BROKEN", f"link {seq}: the sequence jumps to {event.get('seq')}"))
         if event.get("prev") != prev:
@@ -397,6 +437,25 @@ def _anchor_line(root: Path | None, events: list[dict] | tuple[dict, ...]) -> st
     )
 
 
+def account(root: Path | None, *, first: int, last: int, why: str, by: str) -> outcome.Result:
+    """Answer for a named range of broken links, as a new link.
+
+    The chain had no way back before this. One link sealed as edited and `verify` fails for
+    good, `anchor_line` raises, and no commit on that machine can be anchored again — a
+    ratchet, measured here at 22 links written by this repository's own test suite.
+
+    Nothing is erased or rewritten. The links keep saying exactly what they said; this adds
+    a record that a person with authority looked at them and said why they are there. A
+    reader sees both, which is the honest shape: the break happened, and it was answered."""
+
+    emit = paths.load("_emit")
+    if first < 1 or last < first or not why.strip() or not by.strip():
+        return outcome.result("INCOMPLETE")
+    emit.emit(ACCOUNT, "command", first=first, last=last, why=why.strip(), by=by.strip())
+    emit.flush(root)
+    return outcome.result("PASS")
+
+
 def anchor_line(root: Path | None) -> str:
     inspection = _inspect(
         root,
@@ -404,8 +463,8 @@ def anchor_line(root: Path | None) -> str:
         require_root=False,
         include_intent=False,
     )
-    if inspection.result.outcome != "PASS":
-        raise ValueError("an anchor requires one freshly recomputed intact chain")
+    if inspection.result.outcome not in ("PASS", "WARN"):
+        raise ValueError("an anchor requires a chain that is intact or accounted for")
     return _anchor_line(root, inspection.events)
 
 
@@ -416,7 +475,12 @@ def _render(inspection: _Inspection, *, stream=None) -> None:
 
 def main(argv: list[str]) -> outcome.Result:
     parser = argparse.ArgumentParser("ai-eng audit")
-    parser.add_argument("action", nargs="?", default="verify", choices=["verify", "replay"])
+    parser.add_argument(
+        "action", nargs="?", default="verify", choices=["verify", "replay", "account"]
+    )
+    parser.add_argument("--range", help="the broken links to answer for, as FIRST-LAST")
+    parser.add_argument("--why", help="why those links are there")
+    parser.add_argument("--by", help="the person answering for them")
     parser.add_argument("--anchors", action="store_true", help="also check the anchors in git")
     parser.add_argument("--session")
     parser.add_argument("--anchor", action="store_true", help="print the footer for commit-msg")
@@ -424,6 +488,10 @@ def main(argv: list[str]) -> outcome.Result:
 
     if args.action == "replay" and args.anchors:
         parser.error("--anchors applies only to verify")
+    if args.action == "account" and not (args.range and args.why and args.by):
+        parser.error("account requires --range FIRST-LAST, --why and --by")
+    if args.action != "account" and (args.range or args.why or args.by):
+        parser.error("--range, --why and --by apply only to account")
     if args.action != "replay" and args.session is not None:
         parser.error("--session applies only to replay")
     if args.anchor and (args.action != "verify" or args.anchors or args.session):
@@ -442,11 +510,29 @@ def main(argv: list[str]) -> outcome.Result:
             require_root=True,
             include_intent=False,
         )
-        if inspection.result.outcome != "PASS":
+        if inspection.result.outcome not in ("PASS", "WARN"):
             _render(inspection, stream=sys.stderr)
             return inspection.result
+        # A chain whose only findings are accounted breaks still anchors. The alternative
+        # is what this machine lived with: one poisoned link and no commit can ever carry a
+        # footer again, so the record stops growing at exactly the moment somebody is
+        # trying to repair it.
+        if inspection.findings:
+            _render(inspection, stream=sys.stderr)
         print(_anchor_line(root, inspection.events), end="")
-        return outcome.result("PASS")
+        return inspection.result
+    if args.action == "account":
+        try:
+            first, _, last = args.range.partition("-")
+            bounds = (int(first), int(last or first))
+        except ValueError:
+            parser.error("--range must read FIRST-LAST, both whole numbers")
+        # The same ceremony a risk acceptance asks for, and for the same reason: this is a
+        # person taking responsibility for evidence a machine cannot judge. An agent that
+        # can type into this process cannot answer a prompt on the controlling terminal.
+        if not accept.controlling_terminal_response(f"ACCOUNT {args.range} AS {args.by}"):
+            return outcome.result("INCOMPLETE")
+        return account(root, first=bounds[0], last=bounds[1], why=args.why, by=args.by)
     if args.action == "replay":
         inspection = _inspect(
             root,
