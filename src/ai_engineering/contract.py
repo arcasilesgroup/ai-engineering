@@ -391,7 +391,15 @@ DESCRIPTION_MAX = 1000
 # capability had no way to learn that none of them stops anything. A declaration nobody
 # enforces and nobody flags is the shape this constitution names first among the things to
 # expose. 16 lines of test, 26 of assertion and reasoning, 6 for this paragraph.
-REPO_CEILING = 45_812
+# 45,812 to 45,871 for the front door. `init` copies the skills into `home()/skills` and
+# links every surface root at that store, and its own safety check recognised only
+# `paths.skills()` — the source tree in a checkout, site-packages in a wheel. Neither can
+# equal the store `init` just created, so `_global_paths_safe` returned False on every
+# second run on every machine and the verb printed INCOMPLETE with no surface table, no
+# reason and no cure. Measured on the operator's machine minutes after a successful
+# install, on the exact command that had worked. 39 lines of test, 6 of fix and reasoning,
+# 5 for this paragraph.
+REPO_CEILING = 45_871
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
