@@ -620,8 +620,11 @@ def test_the_matrix_receipts_the_denial_it_already_executes():
     # surfaces` returns the worst of twenty-four rows and twenty-one are legitimately
     # unproven on a fresh machine, so under `set -eo pipefail` the read aborted the step and
     # every assertion after it was unreachable code.
-    assert "ai-eng report surfaces | tee surfaces.txt || true" in step
-    assert "SURFACE_PROVEN" in step
+    assert "ai-eng report surfaces | tee surfaces.txt || rc=$?" in step
+    # With the trailing space, because SURFACE_PROVEN is a prefix of
+    # SURFACE_PROVEN_WITH_WARNING — the same blindness this test was written to catch in
+    # the workflow, left in the test that catches it.
+    assert 'SURFACE_PROVEN "' in step
 
     # Nothing is kept. A receipt that survives the job is a claim about a machine that no
     # longer exists, which is the freshness defect this wave already met once.
@@ -638,7 +641,7 @@ def test_the_matrix_receipts_the_denial_it_already_executes():
     from hashlib import sha256
 
     assert sha256(step.encode()).hexdigest() == (
-        "3dc54f32ff24c72d008726879b4f1715ac6e050da6875b5a7b90c7eff3fcd0ee"
+        "03aaf864af0d565b0755aa5c9a6aac7fa198037dd92338235c7fd5592d337bd3"
     )
 
 
