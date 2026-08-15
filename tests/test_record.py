@@ -1342,19 +1342,29 @@ def test_a_verb_that_runs_is_recorded_with_its_exit_code(home, monkeypatch, caps
     assert events[0]["data"]["ms"] >= 0
 
 
-def test_a_verb_that_blows_up_is_recorded_before_the_traceback_reaches_the_user(home, monkeypatch):
+def test_a_verb_that_blows_up_is_recorded_before_the_person_is_told(home, monkeypatch, capsys):
     """A crash is the event most worth having and the easiest to lose: the process is on
-    its way out. If it were emitted after the re-raise it would never be written."""
+    its way out. If it were emitted after the report it would never be written.
+
+    What the person is told changed in P2 and what is recorded did not. The record keeps
+    the exception's repr, because that is the half a maintainer reads; the screen gets the
+    four bounded fields, because that is the half that ends up pasted into an issue."""
 
     def boom(argv):
         raise RuntimeError("nothing was written")
 
     monkeypatch.setattr(exception, "main", boom)
-    with pytest.raises(RuntimeError):
-        cli.main(["exception"])
+    assert cli.main(["exception"]) == 1
+    printed = capsys.readouterr().err
+    assert "UNEXPECTED_ERROR" in printed and "Traceback" not in printed
+    assert "RuntimeError" not in printed
     events = [json.loads(line) for line in home.chain_path(None).read_text().splitlines()]
-    assert events[-1]["cls"] == "error"
-    assert "nothing was written" in events[-1]["data"]["error"]
+    assert [event["cls"] for event in events] == ["error", "command"]
+    assert "nothing was written" in events[0]["data"]["error"]
+    assert events[1]["data"]["exit"] == 1
+
+    with pytest.raises(RuntimeError):
+        cli.main(["--debug", "exception"])
 
 
 def test_an_interrupt_is_a_clean_exit_and_not_an_error(home, monkeypatch, capsys):

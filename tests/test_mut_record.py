@@ -433,10 +433,16 @@ def test_the_verb_that_blew_up_is_the_name_on_the_error(recorded, monkeypatch):
         raise RuntimeError("nothing was written")
 
     monkeypatch.setattr(exception, "main", boom)
-    with pytest.raises(RuntimeError):
-        cli.main(["exception"])
-    assert [(name, cls) for name, cls, _ in recorded] == [("exception", "error")]
+    assert cli.main(["exception"]) == 1
+    # Two events now, and the second one is the point: a crashed run used to leave the
+    # error and no `command` line at all, because the traceback took the process out
+    # before the dispatcher could record what had run and with what exit code.
+    assert [(name, cls) for name, cls, _ in recorded] == [
+        ("exception", "error"),
+        ("exception", "command"),
+    ]
     assert "nothing was written" in recorded[0][2]["error"]
+    assert recorded[1][2]["exit"] == 1
 
 
 def test_how_long_the_verb_took_is_recorded_in_milliseconds(recorded, monkeypatch):

@@ -139,6 +139,18 @@ def denied_role(role: str) -> bool:
     return bool(tokens & _DENIED_ROLE_TOKENS)
 
 
+# `--non-interactive` lands here rather than in the renderer, because what it changes is
+# consent and not appearance. It is set once by the dispatcher, and every asker reads it.
+NON_INTERACTIVE = False
+DECISION_REQUIRED = "DECISION_REQUIRED: this run was told not to ask, and nothing answered"
+
+
+def _open_terminal():
+    """The controlling-terminal boundary, in one place so it can be seen not to be crossed."""
+
+    return open("CONIN$" if os.name == "nt" else "/dev/tty", encoding="utf-8")
+
+
 def controlling_terminal_response(expected: str) -> bool:
     """Read one line from the OS controlling terminal and compare it to the exact challenge.
 
@@ -147,11 +159,15 @@ def controlling_terminal_response(expected: str) -> bool:
     arrived through the controlling-terminal boundary — not that a particular human was
     present, and not that they were entitled to the role they claimed. P0 has no proof of
     either, and no outcome this module returns says otherwise.
+
+    Under `--non-interactive` the answer is no, and the device is never opened. A mode that
+    promises not to ask has to be observable as not asking.
     """
 
-    device = "CONIN$" if os.name == "nt" else "/dev/tty"
+    if NON_INTERACTIVE:
+        return False
     try:
-        with open(device, encoding="utf-8") as terminal:
+        with _open_terminal() as terminal:
             answer = terminal.readline()
     except OSError:
         # The device name is deliberately not reported: it names a machine.

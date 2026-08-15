@@ -629,7 +629,34 @@ DESCRIPTION_MAX = 1000
 # doing its job; a test binds the declared write root to `issue.draft_path` now. And the
 # skill count moved in two sentences of prose, which `COUNTED` caught, which is the half of
 # that gate that is doing exactly what it was built for.
-REPO_CEILING = 48_045
+# 48,045 to 48,336 for D-012-06: two flags and the proof that the three renderings agree.
+#
+# The proof came first and it is three real processes, because "the same run in all three"
+# cannot be shown by three calls into one interpreter that caches its console after the
+# first. It also found what it was pointed at: nothing in this repository compared what a
+# person sees with what a script parses, and one of them being wrong is the whole failure
+# this product is about. The envelope carries no `exit_code` field, which is EP-090's and
+# an unapproved specification's, so the test reads the outcome-to-code mapping instead and
+# says in the file that it is doing that rather than quietly asserting less.
+#
+# `--debug` is now the only route a traceback reaches a person. It is the fastest way to put
+# an absolute path and a username onto a screen that is about to be pasted into an issue,
+# and `report issue` exists two commits earlier to stop exactly that. What is recorded did
+# not change: the exception's repr still goes to the chain, because that is the half a
+# maintainer reads. A crashed run also emits its `command` event for the first time — the
+# re-raise used to take the process out before the dispatcher could record what had run.
+#
+# `--non-interactive` lives in `accept`, because what it changes is consent and not
+# appearance, and the consent reader refuses without opening the device at all: a mode that
+# promises not to ask has to be observable as not asking. `init`'s question returns no
+# rather than its default, which is yes.
+#
+# One line was written and then deleted. I added `force_terminal` to the console, with a
+# comment saying rich re-decided what `plain()` had already decided; I then ran the same
+# command with and without it and got identical bytes. The test had been failing because
+# the suite exports `NO_COLOR` for every test and the child inherited it. A no-op with a
+# confident comment is the defect this repository keeps finding, so it is not in the diff.
+REPO_CEILING = 48_336
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

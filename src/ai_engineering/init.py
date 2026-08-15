@@ -55,8 +55,17 @@ banner = ui.banner  # one drawing of the product's face, and it lives with the r
 
 
 def ask(question: str, default: bool, args) -> bool:
+    from ai_engineering import accept
+
     if args.yes:
         return default
+    if accept.NON_INTERACTIVE:
+        # Not the default, and not the safe-looking one either: the question goes
+        # unanswered and the run stops. A mode that answers for you is a mode that sets a
+        # machine up on nobody's word, and this question's default is yes.
+        out(f"   {accept.DECISION_REQUIRED}: {question}")
+        out("   Pass the flag that decides it, or -y, or run without --non-interactive.")
+        return False
     if not sys.stdin.isatty():
         return default
     reply = input(f"◆ {question} ({'Y/n' if default else 'y/N'}) › ").strip().lower()

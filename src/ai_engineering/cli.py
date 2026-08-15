@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import time
+import traceback
 import uuid
 from datetime import UTC, datetime
 
@@ -250,7 +251,7 @@ def _global_json(command: str) -> int:
     return 0
 
 
-def _json_dispatch(verb: str, rest: list[str]) -> int:
+def _json_dispatch(verb: str, rest: list[str], *, debug: bool = False) -> int:
     """Run one verb without a terminal and retain only its bounded structured facts."""
     started_at = _timestamp()
     previous_stdin = sys.stdin
@@ -322,6 +323,8 @@ def _json_dispatch(verb: str, rest: list[str]) -> int:
                 execution = outcome.execution(outcome.result("CANCELLED"))
                 process_exit = execution.exit_code
             except BaseException:
+                if debug:
+                    traceback.print_exc()
                 execution = outcome.execution(
                     outcome.result("INCOMPLETE"),
                     summary="The command failed before producing bounded execution facts",
@@ -339,6 +342,8 @@ def _json_dispatch(verb: str, rest: list[str]) -> int:
         execution = outcome.execution(outcome.result("CANCELLED"))
         process_exit = execution.exit_code
     except BaseException:
+        if debug:
+            traceback.print_exc()
         execution = outcome.execution(
             outcome.result("INCOMPLETE"),
             summary="The command failed before its execution boundary was available",
@@ -356,9 +361,34 @@ def _json_dispatch(verb: str, rest: list[str]) -> int:
     return process_exit
 
 
+UNEXPECTED = "The command failed before producing bounded execution facts"
+
+
+def crash(exc: BaseException, *, debug: bool) -> outcome.Error:
+    """One bounded error for an unexpected failure, or the traceback if it was asked for.
+
+    A traceback is the fastest way to put an absolute path, a username and the shape of
+    somebody's filesystem onto a screen that is about to be pasted into an issue, so it is
+    printed on request and never by default. The exception reaches the event record either
+    way; what `--debug` changes is what a person sees.
+    """
+
+    if debug:
+        raise exc
+    return outcome.error("UNEXPECTED_ERROR", UNEXPECTED, False, "rerun with --debug for the trace")
+
+
 def main(argv: list[str] | None = None) -> int:
     speakable()
     argv = list(sys.argv[1:] if argv is None else argv)
+    # Both are global and both are stripped here, exactly as `--json` is: a verb that had to
+    # know about either is a verb that can disagree with the next one about what it means.
+    debug = "--debug" in argv
+    if "--non-interactive" in argv:
+        from ai_engineering import accept
+
+        accept.NON_INTERACTIVE = True
+    argv = [flag for flag in argv if flag not in ("--debug", "--non-interactive")]
     json_flags = argv.count("--json")
     json_mode = json_flags > 0
     if json_mode:
@@ -380,7 +410,7 @@ def main(argv: list[str] | None = None) -> int:
         verb, rest = argv[0], argv[1:]
         if verb not in VERBS:
             return _invalid_json("invalid", "Unknown command", "run ai-eng --json --help")
-        return _json_dispatch(verb, rest)
+        return _json_dispatch(verb, rest, debug=debug)
     if "--adr" in argv:
         sys.stderr.write("ai-eng: there is no option '--adr'.\n")
         return 2
@@ -449,7 +479,12 @@ def main(argv: list[str] | None = None) -> int:
         code = 2
     except Exception as exc:
         paths.load("_emit").emit(verb, "error", error=repr(exc))
-        raise
+        failure = crash(exc, debug=debug)
+        sys.stderr.write(
+            f"\n✗ {failure.code}\n{failure.message}\n"
+            f"Retryable: {'yes' if failure.retryable else 'no'}\nNext action: {failure.cure}\n"
+        )
+        code = outcome.result("INCOMPLETE").exit_code
     # The index is where the run actually reached, not the length of the list. A run that
     # was interrupted before its outcome could be reported did not perform four stages, and
     # printing 4/4 over three would make the count a decoration again.
