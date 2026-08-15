@@ -524,7 +524,15 @@ def chain_intact(root: Path | None) -> str | None:
         if event.get("prev") != prev:
             return f"link {index} does not extend the one before it"
         prev = event.get("hash", "")
-    return None
+    # And the seal, asked of the verifier rather than re-implemented. This walked `prev`
+    # and `hash` only, so a link sealed as `outcome: "edited"` — the literal tamper marker,
+    # whose hashes all match precisely because it was sealed truthfully — passed here while
+    # `ai-eng audit verify` refused the same file. Measured on the operator's machine:
+    # the verifier exits 1 on 22 broken links while this printed "the hash chain is intact
+    # and writable". Two readers of one file, two verdicts, and the greener one is the one
+    # on the summary screen. That direction is what makes it a defect.
+    broken = [why for kind, why in audit._chain_findings(audit.read(root)) if kind == "BROKEN"]
+    return broken[0] if broken else None
 
 
 # A session is minutes; a day is two orders of magnitude more. Anything older than this

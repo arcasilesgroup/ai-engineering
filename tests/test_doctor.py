@@ -228,17 +228,30 @@ def test_outside_a_working_copy_none_of_these_is_green(name):
     [
         (lambda rows: rows, "", ""),
         (lambda rows: [rows[0], {**rows[1], "prev": "0" * 64}], "does not extend", "not extend"),
-        (lambda rows: [{**rows[0], "data": {"r": "rewritten"}}, rows[1]], "", "it was edited"),
+        (
+            lambda rows: [{**rows[0], "data": {"r": "rewritten"}}, rows[1]],
+            "it was edited",
+            "it was edited",
+        ),
     ],
     ids=["intact", "linkage broken", "body edited after it was hashed"],
 )
-def test_assertion_6_compares_the_linkage_and_never_recomputes_a_hash(
+def test_the_two_readers_of_the_chain_reach_the_same_verdict(
     home, repo, edit, doctor_says, audit_says
 ):
-    """Assertion 6 checks that each link names the one before it, and nothing else. So an
-    event whose body was rewritten after its hash was taken keeps its linkage and reads as
-    intact, while audit — walking the same file — calls it edited. Today's behaviour,
-    pinned: "the hash chain is intact" is a statement about the linkage only."""
+    """This used to pin the opposite, and its own docstring named the tension it was
+    documenting: assertion 6 walked linkage only, so an event whose body was rewritten
+    after its hash was taken read as intact here while `audit` — walking the same file —
+    called it edited.
+
+    That is a false green in the direction that matters. `ai-eng doctor` is the summary
+    screen; `ai-eng audit verify` is the command somebody runs when they already suspect
+    something. Measured on the operator's machine, the verifier exited 1 on 22 broken links
+    while this printed "the hash chain is intact and writable".
+
+    Assertion 6 asks the verifier now rather than re-implementing half of it, so the two
+    cannot part company again — which is the same finding as the plugin's three copies of
+    one substitution, one file over."""
     path = chain(repo, {}, {})
     rows = [json.loads(line) for line in path.read_text().splitlines()]
     path.write_text("".join(json.dumps(row) + "\n" for row in edit(rows)))
@@ -276,6 +289,32 @@ def test_a_chain_that_was_never_written_is_not_a_broken_chain_and_is_not_a_pass_
     with pytest.raises(doctor.Undecidable, match="nothing has been written"):
         doctor.chain_intact(repo)
     assert emit.chain_path(repo).parent.exists()
+
+
+def test_doctor_cannot_call_a_chain_intact_that_the_verifier_calls_broken(home, repo):
+    """Two readers of one file, and they disagreed. Assertion 6 walked `prev` and `hash`
+    only, so a link sealed as `outcome: "edited"` — the literal tamper marker, whose hashes
+    all match because it was sealed truthfully — passed it. `ai-eng audit verify` refused
+    the same file.
+
+    Measured on the operator's machine: `audit verify` exits 1 on 22 broken links while
+    `doctor` prints `ok  The hash chain is intact and writable`. The greener of the two
+    verdicts is the one on the summary screen, which is the direction that makes it a
+    defect rather than a curiosity.
+
+    Assertion 6 asks the verifier now, so the two cannot part company again."""
+
+    path = chain(repo, {}, {}, {})
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    rows[1]["data"] = {"outcome": "edited", "error": emit.EDITED, "claimed": {}}
+    rows[1]["hash"] = emit.digest(rows[1])
+    rows[2]["prev"] = rows[1]["hash"]
+    rows[2]["hash"] = emit.digest(rows[2])
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    said = doctor.chain_intact(repo)
+    assert said and "link 2" in said, f"doctor called a sealed-as-edited chain intact: {said!r}"
+    assert [w for w in audit.verify(repo, anchors=False) if "link 2" in w], "the verifier agrees"
 
 
 def test_a_buffer_that_stopped_being_sealed_is_reported(home, repo):
