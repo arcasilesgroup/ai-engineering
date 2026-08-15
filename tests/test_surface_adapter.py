@@ -583,3 +583,50 @@ def test_a_surface_state_that_ran_and_failed_makes_the_verdict_fail(tmp_path, mo
     failing = [fact.id for fact in reported.checks if fact.status == "FAIL"]
     assert failing == ["surface-cursor-enforcement"]
     assert "cursor · enforcement failed" in reported.remaining
+
+
+def test_the_matrix_receipts_the_denial_it_already_executes():
+    """The denial ran on three operating systems and fed nothing.
+
+    That is why claude-code went from over-claiming on a flag to under-claiming despite
+    real executed evidence — and it made the honest path harder than the dishonest one,
+    which is the worst state to leave a control in. The step that denies now writes the
+    receipt for what it just did, and the job reads it back through the product's own
+    reader in the same run. Written, read, and never kept: the receipt is a runtime
+    artifact, and the proof is that it was read, not that it survived."""
+
+    matrix = (ROOT / ".github" / "workflows" / "install-matrix.yml").read_text(encoding="utf-8")
+    step = matrix.split("a packaged guard actually denies, from the installed tree", 1)[1]
+    step = step.split("      - name:", 1)[0]
+
+    # The receipt is written only after the denial is proved, and it names what it ran.
+    assert step.index("no_verify_guard") < step.index("claude-code.enforcement.json"), (
+        "the receipt is written before the denial that earns it"
+    )
+    assert '"id": "claude-code.enforcement"' in step
+    assert '"kind": "automated"' in step
+    assert '"applicability": "applicable"' in step
+    assert '"outcome": "PASS"' in step
+    assert "chain.py PreToolUse" in step, "the receipt names the command that was run"
+
+    # And it is read back by the product, not asserted by the workflow's own opinion.
+    assert "ai-eng report surfaces" in step
+    assert "SURFACE_PROVEN" in step
+
+    # Nothing is kept. A receipt that survives the job is a claim about a machine that no
+    # longer exists, which is the freshness defect this wave already met once.
+    assert "upload-artifact" not in step
+    # Grepped as commands rather than as text: the denial payload this step feeds the guard
+    # is literally `git commit --no-verify -m x`, so a substring search finds the thing the
+    # test exists to forbid inside the thing it exists to prove.
+    run = [line.strip() for line in step.splitlines()]
+    assert not [line for line in run if line.startswith(("git add", "git commit", "git push"))]
+
+    # Pinned by digest, like the three steps P0 pinned and for the same reason: this step
+    # is now the only executed evidence any surface has, and a later task that extends the
+    # matrix must not edit what it extends. Moving it by a byte is a deliberate act.
+    from hashlib import sha256
+
+    assert sha256(step.encode()).hexdigest() == (
+        "6d1b2b0afc824bacc28a165f8e5236f62da0305e50bfbf551987a1ed2fc62855"
+    )

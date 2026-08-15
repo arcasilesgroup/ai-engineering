@@ -429,6 +429,42 @@ jobs:
             *) echo "exit 2 came from something other than the guard"; exit 1 ;;
           esac
 
+          # A denial executed. Until now it fed nothing: the coverage line read UNPROVEN
+          # for claude-code while this job proved, on three operating systems, that the
+          # packaged guard denies. Over-claiming on a flag was replaced by under-claiming
+          # despite real evidence, which makes the honest path harder than the dishonest
+          # one. So the thing that ran writes the receipt for what it ran.
+          #
+          # Written after the proof and never before it, and kept by nobody: no artifact
+          # upload, no commit. A receipt that outlives its job is a claim about a machine
+          # that no longer exists, and the proof here is that the product read it back.
+          stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          digest=$(printf '%s' "$payload" | shasum -a 256 | cut -d' ' -f1)
+          mkdir -p .ai/receipts/surface
+          cat > .ai/receipts/surface/claude-code.enforcement.json <<RECEIPT
+          {
+            "schema": "urn:ai-engineering:check-evidence:1",
+            "schema_version": "1",
+            "kind": "automated",
+            "id": "claude-code.enforcement",
+            "applicability": "applicable",
+            "command": "python \$guards/chain.py PreToolUse < a --no-verify payload",
+            "tool_version": "$(ai-eng --version)",
+            "input_digest": "sha256:$digest",
+            "artifact_digest": "sha256:$(printf '%s' "$said" | shasum -a 256 | cut -d' ' -f1)",
+            "started_at": "$stamp",
+            "finished_at": "$stamp",
+            "max_age_seconds": 86400,
+            "outcome": "PASS"
+          }
+          RECEIPT
+
+          # Read back through the product's own reader, not through this file's opinion of
+          # what it just wrote. If `report surfaces` cannot see it, the loop is not closed.
+          ai-eng report surfaces | tee surfaces.txt
+          grep -q "claude-code .*enforcement .*SURFACE_PROVEN" surfaces.txt || {
+            echo "the denial was receipted and the product could not read it back"; exit 1; }
+
       - name: the pin holds — install one version, pin another, and it must say so
         shell: bash
         run: |
