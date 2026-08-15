@@ -510,7 +510,21 @@ DESCRIPTION_MAX = 1000
 # Subtracting the floor measures the part this repository is accountable for, which is what
 # the proposal's `guard_p95_ms` indicator is asking for. Green three times under parallel
 # load before it was believed.
-REPO_CEILING = 46_669
+# 46,669 to 46,722 for the operator's two decisions on the audit's findings.
+#
+# MADR 0008 approves specifications 011 to 015 at exact digests. The status vocabulary is
+# closed at draft/shipped/superseded and stays that way: approval is not a state of the
+# work, it is a fact about a person and a moment, and a status word carries no authority,
+# no date and no digest. The record names all three, and a test recomputes the five hashes
+# — because the audit found the same mechanism rotting in specification 010's own plan,
+# where an invalidated digest sat beside an approved one and no check read either.
+#
+# And specification 010 goes back to `draft`. Its plan reserves `shipped` until a candidate
+# proves exact-HEAD CI receipts; the branch has never been pushed, so those runs cannot
+# exist. `doctor` assertion 19 said so and the audit recorded it FAILED. The Intent's
+# relation digest and its "Spec 010 is shipped" fact moved in the same commit, which is the
+# transition working: changing the file invalidated the relation and something noticed.
+REPO_CEILING = 46_722
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
