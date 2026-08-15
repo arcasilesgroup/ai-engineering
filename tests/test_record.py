@@ -547,6 +547,7 @@ def _commit_msg(
     trailer=True,
     subject="test(x): a probe",
     engine=None,
+    config_engine=False,
 ):
     """Run the real hook over one message and report what it did.
 
@@ -572,7 +573,15 @@ def _commit_msg(
     )
     stub.chmod(0o755)
 
-    environment = {**os.environ, "AI_ENG": engine if engine is not None else str(stub)}
+    if config_engine:
+        # The path a real commit takes: no override in the environment, the CLI named by
+        # `git config --get ai.eng`.
+        subprocess.run(
+            ["git", "config", "ai.eng", str(stub)], cwd=repo, check=True, capture_output=True
+        )
+    environment = {k: v for k, v in os.environ.items() if k != "AI_ENG"}
+    if engine is not False:
+        environment["AI_ENG"] = engine if engine is not None else str(stub)
     if shim:
         # A `git` that fails the way a real one can. Everything the hook asks of git before
         # this point still has to work, so it delegates the rest to the real one.
@@ -708,6 +717,18 @@ def test_a_subject_git_wrote_itself_is_still_anchored(tmp_path):
     three copies of one case running three times."""
 
     done, written, _, repo = _commit_msg(tmp_path, subject="Merge branch 'feature'")
+    assert done.returncode == 0, done.stderr
+    assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
+
+
+def test_the_cli_is_resolved_from_ai_eng_when_the_environment_names_none(tmp_path):
+    """`AI_ENG` is the override; `git config --get ai.eng` is what a real commit uses. Every
+    other test in this file sets the environment variable, so the resolution path that
+    actually runs on a person's machine had no coverage at all — and a misconfigured
+    `ai.eng` is one of the two candidate causes Block R exists to account for. The one
+    branch a whole section of the plan is about was the one branch nothing executed."""
+
+    done, written, _, repo = _commit_msg(tmp_path, engine=False, config_engine=True)
     assert done.returncode == 0, done.stderr
     assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
 
