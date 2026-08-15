@@ -6,7 +6,10 @@ id: "0007"
 title: "Make the CLI outcome-first and exact"
 date: "2026-08-13"
 spec: "010"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-15T03:54:12Z"
 supersedes: ""
 ---
 
