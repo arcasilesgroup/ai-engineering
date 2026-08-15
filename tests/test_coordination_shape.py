@@ -135,3 +135,40 @@ def test_the_claim_module_names_no_second_writer_of_ownership():
     written = re.findall(r'"push"|IN_FORCE|open\(|write_text', body)
     assert written.count('"push"') == 1, "more than one place publishes a claim"
     assert claim.REF.startswith("refs/"), claim.REF
+
+
+def test_the_intent_schema_gained_no_runtime_coordination_field():
+    """EP-181. The Solution Intent is durable context — what is fixed, what varies, what is
+    true now, what is intended. A claim, a base SHA or a lease in there would make a
+    long-lived record carry the state of one afternoon's run, and the record would be wrong
+    by the next morning without anybody editing it."""
+
+    import json
+
+    schema = json.loads((ROOT / "policy" / "intent-v1.schema.json").read_text(encoding="utf-8"))
+    body = json.dumps(schema)
+    for runtime in ("claim", "base_sha", "worktree", "lease", "branch", "writer"):
+        assert runtime not in body, f"the Intent schema grew a runtime field: {runtime}"
+
+    top = set(schema["properties"])
+    assert top == {
+        "schema",
+        "schema_version",
+        "type",
+        "identity",
+        "solution_intent",
+        "ownership",
+        "relations",
+        "lifecycle",
+    }, sorted(top)
+
+
+def test_ci_verifies_a_branch_against_its_claim_only_when_one_exists():
+    """EP-184. The gate runs where the diff is, and says "not applicable" out loud when the
+    branch holds no claim — rather than passing quietly, which reads the same as passing."""
+
+    workflow = (ROOT / ".github" / "workflows" / "check.yml").read_text(encoding="utf-8")
+    assert "spec checkpoint" in workflow
+    step = workflow.split("spec checkpoint", 1)[0]
+    assert "ls-remote" in step, "the step never asks whether a claim exists"
+    assert "not applicable" in workflow

@@ -114,6 +114,21 @@ jobs:
       - name: the record is intact
         run: ai-eng audit verify
 
+      # The claim, checked where the diff is. A branch that holds no claim is not a branch
+      # that passed: it says "not applicable" and says it out loud, because a quiet pass and
+      # a real one look identical in a log six weeks later. The claim is read from the
+      # remote rather than from the branch, which is the one copy both sides can see.
+      - name: the branch stayed inside the claim it took
+        env:
+          ITEM: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [ -z "$(git ls-remote origin "refs/ai-eng/claims/$ITEM")" ]; then
+            echo "no claim is held for $ITEM: not applicable"
+            exit 0
+          fi
+          git fetch --no-tags origin "+refs/heads/${{ github.base_ref || 'main' }}:refs/gate/base"
+          ai-eng spec checkpoint --base refs/gate/base --item "$ITEM"
+
   suite:
     runs-on: ubuntu-latest
     timeout-minutes: 10

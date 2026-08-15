@@ -785,7 +785,18 @@ DESCRIPTION_MAX = 1000
 #
 # A work item nobody claimed is INCOMPLETE and not a pass: reading it as "no violation
 # found" would let an unclaimed branch through the one gate that exists to notice it.
-REPO_CEILING = 50_583
+# 50,583 to 50,646 to close what P3 can close on this machine. The Intent schema is
+# asserted not to have grown a claim, a base SHA, a lease or a branch: a long-lived record
+# carrying the state of one afternoon's run is wrong by the next morning without anybody
+# editing it. And CI verifies the branch against the claim held on the remote, saying "not
+# applicable" out loud where no claim exists — a quiet pass and a real one look identical in
+# a log six weeks later.
+#
+# What P3 cannot close here is written down rather than left to be discovered: EP-183 and
+# EP-186 need a draft pull request and a merge queue actually running, EP-180 needs a plan
+# schema this version does not have, and the fixtures prove git's file transport rather than
+# the network one. Each is a consent or a specification away, not a line of code away.
+REPO_CEILING = 50_646
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
