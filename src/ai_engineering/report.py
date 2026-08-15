@@ -15,7 +15,7 @@ from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
-from ai_engineering import doctor, outcome, paths, surface
+from ai_engineering import doctor, issue, outcome, paths, surface
 
 
 def within(events: list[dict], days: int) -> list[dict]:
@@ -71,12 +71,71 @@ def surfaces(root: Path | None) -> outcome.Result:
     return report.result
 
 
+def report_issue(root: Path | None, args: argparse.Namespace) -> outcome.Result | outcome.Execution:
+    """Draft one governed report, locally, and send nothing.
+
+    The order is the whole control: build from the allow-list, scan the exact bytes, and
+    only then write and show them. A refusal names the class it found and leaves no file,
+    because the artefact a person can still send is the one that matters.
+    """
+
+    if root is None:
+        print("  INCOMPLETE: not inside a repository, so there is nowhere to keep a draft")
+        return outcome.result("INCOMPLETE")
+
+    payload = issue.build(
+        kind=args.kind,
+        title=args.title,
+        what_happened=args.what_happened,
+        expected=args.expected,
+        steps=args.step,
+    )
+    refused = issue.scan(root, payload)
+    if refused:
+        for finding in refused:
+            print(f"  {finding.outcome:<11} {finding.code}: {finding.reason}")
+        return outcome.execution(
+            outcome.result("INCOMPLETE"),
+            summary=f"{len(refused)} finding(s) stopped this report; nothing was written or sent",
+            checks=[
+                outcome.fact(
+                    f"scan-{index}",
+                    "FAIL" if finding.outcome == "FAIL" else "INCOMPLETE",
+                    "Payload scan",
+                    finding.reason,
+                    cure="rewrite the field in your own words, without the value it carried",
+                )
+                for index, finding in enumerate(refused, 1)
+            ],
+            remaining=[finding.code for finding in refused],
+        )
+
+    written = issue.draft(root, payload)
+    return outcome.execution(
+        outcome.result("PASS"),
+        summary=f"Drafted a {payload['kind']} report locally; nothing has been sent",
+        changes=[
+            outcome.fact("issue-draft", "APPLIED", "Wrote the local draft", str(written.name))
+        ],
+        checks=[
+            outcome.fact("scan", "PASS", "Payload scan", "no forbidden class in the exact bytes"),
+            outcome.fact("digest", "OBSERVED", "Payload digest", issue.digest(payload)),
+        ],
+        remaining=["Nothing has been sent. Sending is a separate action a person confirms."],
+    )
+
+
 def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     parser = argparse.ArgumentParser(prog="ai-eng report")
     commands = parser.add_subparsers(dest="command")
     digest = commands.add_parser("digest")
     digest.add_argument("--weeks", type=int, default=1)
-    commands.add_parser("issue")
+    report = commands.add_parser("issue")
+    report.add_argument("--kind", choices=issue.KINDS, required=True)
+    report.add_argument("--title", required=True)
+    report.add_argument("--what-happened", dest="what_happened", required=True)
+    report.add_argument("--expected", required=True)
+    report.add_argument("--step", action="append", default=[], required=True)
     commands.add_parser("surfaces")
     args = parser.parse_args(argv)
 
@@ -90,12 +149,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         )
         return outcome.result("INCOMPLETE")
     if args.command == "issue":
-        print(
-            "INCOMPLETE: report issue is planned for P2 and is not implemented; "
-            "nothing was written or sent.",
-            file=sys.stderr,
-        )
-        return outcome.result("INCOMPLETE")
+        return report_issue(paths.repo_root(), args)
 
     root = paths.repo_root()
     events = within(doctor.events(root), 7 * args.weeks)

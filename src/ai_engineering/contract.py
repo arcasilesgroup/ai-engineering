@@ -587,7 +587,19 @@ DESCRIPTION_MAX = 1000
 # caught rather than a person. A ten-line raise is the smallest this file has recorded and
 # it is argued for like the large ones, because a ceiling that moves quietly is not a
 # ceiling — including when what moved it is the sentence explaining the move.
-REPO_CEILING = 47_167
+# 47,167 to 47,633 for the first capability of P2, and the only one whose exit criterion is
+# an exit code. `report issue` printed "planned for P2 and is not implemented" and returned
+# INCOMPLETE, which was honest and became a lie the moment anything half-built it.
+#
+# The 466: a closed payload schema in `policy/`, the module that builds against it, the
+# subcommand, and the three red fixtures — machine path, personal datum, secret — written
+# before the code that rejects them. The allow-list is the control and the scanners are the
+# backstop: logs, diffs, environment, paths, hosts and remotes have no field to arrive in,
+# so the only route left is a person pasting one into the prose, and that is what is
+# scanned. Nothing sends. The draft is one local file under `.ai/`, shown as the exact bytes
+# with their digest, and a refused payload leaves no file at all — the artefact somebody can
+# still send is the one that matters.
+REPO_CEILING = 47_633
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

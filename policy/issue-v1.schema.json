@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-engineering:issue:1",
+  "title": "One issue payload, closed on the side that leaves the machine",
+  "description": "The whole field set a report may carry. It is an allow-list and not a filter: logs, diff, source, specs, chain, environment, paths, host, user, email, IP address, remotes and client data have no field to arrive in, so no scanner has to catch them there. What a scanner catches is those classes smuggled inside the prose fields, which is the only route left.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "kind",
+    "title",
+    "what_happened",
+    "expected",
+    "steps",
+    "framework_version",
+    "created_at"
+  ],
+  "properties": {
+    "schema": {
+      "const": "urn:ai-engineering:issue:1"
+    },
+    "schema_version": {
+      "const": "1"
+    },
+    "kind": {
+      "description": "A security finding never becomes a public issue. The kind decides the route before anything is written, not after somebody reads the prose.",
+      "enum": ["bug", "security"]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 120
+    },
+    "what_happened": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 2000
+    },
+    "expected": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 2000
+    },
+    "steps": {
+      "description": "Written by the person reporting. A step is a sentence somebody typed, never a captured command line: a captured command carries the path it ran from.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 300
+      }
+    },
+    "framework_version": {
+      "description": "This package's own version. It is the one fact populated without being typed, because it is a property of the software being reported and not of the machine reporting it.",
+      "type": "string",
+      "maxLength": 32
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    }
+  }
+}

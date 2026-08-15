@@ -1481,12 +1481,18 @@ def test_report_is_hard_rename_and_bare_report_refuses(
     before = _snapshot(root)
     product_home = isolated_home / ".ai-engineering"
 
-    for argv in ([], ["issue"]):
-        refused = report_command.main(argv)
-        assert type(refused) is outcome.Result
-        assert refused.outcome == "INCOMPLETE"
+    refused = report_command.main([])
+    assert type(refused) is outcome.Result
+    assert refused.outcome == "INCOMPLETE"
     refusal = capsys.readouterr()
     assert "P2" in refusal.err and "not implemented" in refusal.err
+
+    # `issue` is implemented now, and its refusal moved to the only honest place for a
+    # missing field: invalid usage, before anything is built. It never infers a value and
+    # never drafts half a payload, which is EP-236 read at the one command that can send.
+    with pytest.raises(SystemExit) as incomplete_issue:
+        report_command.main(["issue"])
+    assert incomplete_issue.value.code == outcome.invalid_cli_exit()
     assert _snapshot(root) == before
     assert sentinel.read_bytes() == b"foreign sentinel\n"
     assert not product_home.exists()
