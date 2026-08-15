@@ -254,9 +254,9 @@ The added rule earned its place again. Round one rejected the fail-open narrowin
 two rejected its repairs (the escaping landed in one of three copies, and the plugin test
 was writing the operator's real OpenCode heartbeat); round three rejected the repairs to
 *those* — the anchor fix appended a trailer after a blank line, which starts a second
-trailer block and drops the `Co-Authored-By:` that 145 of this repository's 298 commits
-carry. Each round's
-finding was introduced by the previous round's repair, and none was found by re-reading.
+trailer block and drops the `Co-Authored-By:` that roughly half this repository's commits
+carry. Each round's finding was introduced by the previous round's repair, and none was
+found by re-reading.
 
 Three times in this block a test agreed with the defect because it chose the input that
 could not see it: a POSIX path cannot see a Windows escape, and a commit message with no
@@ -295,12 +295,16 @@ claims.
 
 **And a correction to that correction, one round later again.** It went on to say the
 `ai.eng` misconfiguration "is not why the anchors stopped", naming the chain break instead.
-That is asserted, not measured, and this repository cannot separate the two causes: there
-is no commit at all between the last anchored one (2026-08-10T20:01:14) and the first
-BROKEN link (2026-08-12T12:26:06Z), and the misconfiguration was already in effect at the
-first commit after it. Either alone would have stopped the anchor. What is measured is that
-both were true; which bit first is not recoverable from here. Replacing an unmeasured cause
-with another unmeasured cause is the same defect wearing the corrected sentence.
+That is asserted, not measured. What is measured: there is no commit at all between the
+last anchored one (2026-08-10T18:01:14Z) and the first BROKEN link (2026-08-12T12:26:06Z),
+so the history has no observation in the window where the two causes could be told apart.
+What is **not** measured, and was written here as though it were: that the misconfiguration
+was already in effect then. Nothing dates it — `ai.eng` is `.git/config` state with no
+history, it has since been repaired, and the chain records no CLI version on any of its 987
+links. So the honest statement is that the chain break is sufficient on its own and the
+misconfiguration cannot be placed in time at all. Replacing an unmeasured cause with another
+unmeasured cause is the same defect wearing the corrected sentence, and doing it a second
+time inside the correction is how this section reached three rounds.
 
 What is open, and what this block is for:
 
@@ -332,12 +336,13 @@ What is open, and what this block is for:
     `hooks/session.py`. **check**: `uv run pytest tests/test_record.py -k
     an_unsealed_buffer_is_reported`. **rollback**: `git revert <commit>`. **done when**:
     `doctor` reports the age of the newest sealed link and the depth of the unsealed
-    buffer, and an unsealed buffer beyond a stated bound is not PASS. Measured today: the
-    durable chain has 987 links and stops on 2026-08-12; the buffer holds 4,499 unsealed
-    lines. `flush()` has exactly one caller outside the suite, on `SessionEnd`/`Stop`. Half of "survives
-    losing the laptop" has been three days stale with nothing said, and `_emit.emit`
-    swallows every failure to one stderr line, which is where both of this block's defects
-    lived unseen.
+    buffer, and an unsealed buffer beyond a stated bound is not PASS. Measured on
+    2026-08-15: the durable chain has 987 links and stops at 2026-08-12T23:10:45Z, while
+    the buffer had 4,499 unsealed lines and is still growing — the depth is a live counter
+    and the figure here is the reading, not a property. `flush()` has exactly one caller
+    outside the suite, on `SessionEnd`/`Stop`. Half of "survives losing the laptop" went
+    stale with nothing said, and `_emit.emit` swallows every failure to one stderr line,
+    which is where both of this block's defects lived unseen.
 
 ### Blocks D onward — one surface per block, in provability order
 
