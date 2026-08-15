@@ -53,6 +53,14 @@ search for.
   one. Nothing here is gated on it yet; doctor tells you, and does not decide whether
   anything gets a URL.
 
+- If this repository was set up by an earlier release, its `.ai/.gitignore` ignores
+  everything under `.ai/` except three names, and the readiness declaration is not one of
+  them — so a declaration written there is dropped by `git add -A` without a word. Add
+  `!readiness.json` to `.ai/.gitignore` and commit it. There is no command that does this
+  for you: that file is written once when a project is set up and deliberately never
+  rewritten, because rewriting it is how a tuned ignore file gets reset under somebody.
+  `ai-eng doctor` names the line to add when it finds receipts without a declaration.
+
 - Three things that used to carry on now stop. The installer refuses to write git's
   configuration when the command line tool it is about to point git at cannot be run — a
   wired repository whose hooks resolve to nothing is worse than an unwired one, because it

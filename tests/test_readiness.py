@@ -348,7 +348,12 @@ def test_receipts_without_a_committed_declaration_are_a_repository_finding(tmp_p
     assert doctor.polarity(root) is None
 
     (receipts / "security.json").write_text("{}", encoding="utf-8")
-    assert f"{readiness.DECLARATION} is not committed" in (doctor.polarity(root) or "")
+    reported = doctor.polarity(root) or ""
+    assert f"{readiness.DECLARATION} is not committed" in reported
+    # And it names the line to add, because no verb performs this one: the managed
+    # ignore file is written once and never rewritten, so every repository set up by an
+    # earlier release drops this declaration on `git add -A` with nothing said.
+    assert "!readiness.json to .ai/.gitignore" in reported
 
     committed.append(readiness.DECLARATION)
     assert doctor.polarity(root) is None

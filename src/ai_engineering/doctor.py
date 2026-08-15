@@ -580,7 +580,13 @@ def polarity(root: Path | None) -> str | None:
         # against is everybody's, and is reviewed — so a repository holding receipts whose
         # declaration nobody has committed is one where the same hand wrote the question
         # and the answer, which is the one thing the readiness verifier exists to prevent.
-        problems.append(f"receipts are here and {readiness.DECLARATION} is not committed")
+        # With the remedy in it, because there is no verb that performs it: `.ai/.gitignore`
+        # is written once and never rewritten, so a repository set up by an earlier release
+        # has an ignore file that drops this declaration silently on `git add -A`.
+        problems.append(
+            f"receipts are here and {readiness.DECLARATION} is not committed — add "
+            f"!{PurePosixPath(readiness.DECLARATION).name} to .ai/.gitignore, then commit it"
+        )
     extra = tracked - allowed
     if extra:
         problems.append(f"state slipped into git: {sorted(extra)[:3]}")
