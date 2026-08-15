@@ -82,8 +82,8 @@ pytest_add_cli_args_test_selection = ["tests", "--ignore=tests/test_contracts.py
 # part of the package — they are standard library Python executed by path, because on the
 # hot path `import ai_engineering` costs about 110 ms — so the suite reaches them the way
 # the dispatcher does. `conftest.py` used to do this with `sys.path.insert` and then import
-# the package underneath, which is `E402`, and it carried a `# noqa` to say so. AGENTS.md
-# rule 3 is never to silence a linter; pytest has had this option since 7.0.
+# the package underneath, which is `E402`, and it carried an inline exemption comment to
+# say so. AGENTS.md rule 3 is never to silence a linter; pytest has had this since 7.0.
 pythonpath = ["src", "hooks"]
 
 [tool.coverage.run]

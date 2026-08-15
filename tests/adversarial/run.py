@@ -371,8 +371,11 @@ def control_guard_alive(tmp: Path) -> bool:
         os.environ.pop("AI_ENGINEERING_HOME", None)
 
 
-@case("control · reads, writes, commits and pushes", "none",
-      controls="injection_guard pre-push commit-msg pre-commit")
+@case(
+    "control · reads, writes, commits and pushes",
+    "none",
+    controls="injection_guard pre-push commit-msg pre-commit",
+)
 def negative_control(tmp: Path) -> bool:
     work = repo(tmp)
     git(work, "checkout", "-b", "quiet")

@@ -428,8 +428,8 @@ DESCRIPTION_MAX = 1000
 # printed 2. `tests/conftest.py` carried an E402 exemption because it inserted `src` and
 # `hooks` on `sys.path` and then imported the package underneath — pytest has had a
 # `pythonpath` option since 7.0, so the ordering is configuration now and the exemption is
-# gone. `tests/test_readiness.py` carried `# pragma: no cover` on a platform branch in a
-# test file, and coverage only measures `src` and `hooks`, so it suppressed nothing at all.
+# gone. `tests/test_readiness.py` carried a coverage-exemption pragma on a platform branch
+# in a test file, and coverage measures only `src` and `hooks`, so it suppressed nothing.
 # 46,008 to 46,240 for the requirement-by-requirement audit and one defect it found.
 #
 # 162 of the lines are `docs/audit-2026-08-15.md`, which is what the standing goal asked
@@ -580,7 +580,14 @@ DESCRIPTION_MAX = 1000
 # The two findings: D-014-05 is blocked on two SHA-256 values that are not in this
 # repository, which is a network call and its own consent. D-014-07 is blocked on a caller
 # — nothing calls `capability.preflight`, so a PASS from it would stop nothing.
-REPO_CEILING = 47_157
+# 47,157 to 47,167: three lines the formatter wrote and the seven of this paragraph.
+# Specification 016 is 342 lines and costs nothing here, because `specs/` is not the
+# product. What costs is `tests/adversarial/run.py`: the `controls=` argument pushed the
+# decorator over the width and `ruff format` split it across five lines, which the gate
+# caught rather than a person. A ten-line raise is the smallest this file has recorded and
+# it is argued for like the large ones, because a ceiling that moves quietly is not a
+# ceiling — including when what moved it is the sentence explaining the move.
+REPO_CEILING = 47_167
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
