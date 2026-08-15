@@ -1445,3 +1445,80 @@ def test_decide_madr_listing_decodes_status_and_marks_malformed_values_unknown(
         f"  {'0003-broken':<44} ?",
         f"  {'0004-unknown':<44} ?",
     ]
+
+
+def test_decide_accept_takes_its_authority_from_the_approved_intent(tmp_path, monkeypatch):
+    """A record could only be accepted by hand-editing YAML, which is why this repository
+    sat blocked waiting for values a person had to type into three files.
+
+    The authority is not invented and it is not asked for again: it is read from the
+    Solution Intent, which is committed, validated and already carries the human who
+    approved it. An Intent that does not validate grants nothing. An Intent still in draft
+    grants nothing, because a draft has no approval block to read.
+    """
+
+    from ai_engineering import decide, intent, paths
+
+    root = tmp_path / "repository"
+    (root / "docs" / "adr").mkdir(parents=True)
+    (root / ".ai").mkdir()
+    record = json.loads((ROOT / ".ai" / "intent.md").read_text(encoding="utf-8"))
+    spec_path = "specs/010-governed-agentic-engineering-foundation/spec.md"
+    (root / "specs" / "010-governed-agentic-engineering-foundation").mkdir(parents=True)
+    body = (ROOT / spec_path).read_bytes()
+    (root / spec_path).write_bytes(body)
+
+    def write_intent(lifecycle: dict) -> None:
+        record["lifecycle"] = lifecycle
+        (root / ".ai" / "intent.md").write_text(
+            json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    proposed = (
+        '---\nschema: "urn:ai-engineering:madr:1"\nschema_version: "1"\ntype: "adr"\n'
+        'id: "0009"\ntitle: "A decision that needs accepting"\ndate: "2026-08-15"\n'
+        'spec: "010"\nstatus: "proposed"\nsupersedes: ""\n---\n\n# 0009. A decision\n'
+    )
+    decision = root / "docs" / "adr" / "0009-a-decision.md"
+    decision.write_text(proposed, encoding="utf-8")
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+
+    # A draft Intent has no approval block, so it grants nothing and nothing is written.
+    write_intent({"status": "draft", "transitions": []})
+    assert decide.main(["--accept", "0009"]).outcome == "INCOMPLETE"
+    assert decision.read_text(encoding="utf-8") == proposed
+
+    write_intent(json.loads(json.dumps(_ACTIVE_LIFECYCLE)))
+    assert intent.validate(root / ".ai" / "intent.md", root).outcome == "PASS"
+    assert decide.main(["--accept", "0009"]).outcome == "PASS"
+
+    accepted = decision.read_text(encoding="utf-8")
+    assert 'status: "accepted"' in accepted
+    assert 'authority_role: "repository owner"' in accepted
+    assert 'approval_ref: "ae523990"' in accepted
+    assert re.search(r'approved_at: "\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"', accepted)
+    assert madr._parse(accepted.encode()).raw_fields["status"] == '"accepted"'
+
+    # Accepting twice is not a second approval; the record has already left `proposed`.
+    assert decide.main(["--accept", "0009"]).outcome == "INCOMPLETE"
+    assert decision.read_text(encoding="utf-8") == accepted
+
+
+_ACTIVE_LIFECYCLE = {
+    "status": "active",
+    "approval": {
+        "authority_role": "repository owner",
+        "approval_ref": "ae523990",
+        "approved_at": "2026-08-15T03:54:12Z",
+    },
+    "transitions": [
+        {
+            "from": "draft",
+            "to": "active",
+            "changed_at": "2026-08-15T03:54:12Z",
+            "authority_role": "repository owner",
+            "approval_ref": "ae523990",
+        }
+    ],
+}

@@ -20,9 +20,10 @@ import os
 import re
 import stat
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
+from ai_engineering import intent as intents
 from ai_engineering import madr, outcome, paths, text
 from ai_engineering import spec as specs
 from ai_engineering.intent import Validation
@@ -314,19 +315,90 @@ def listing(root: Path) -> list[str]:
     return rows
 
 
+def granted(root: Path) -> tuple[str, str] | str:
+    """The authority this repository already recorded, or why there is none.
+
+    Not asked for again, and never invented. The Solution Intent is committed, validated
+    and carries the human who approved it; a record transition is that same authority
+    applied to a smaller thing. An Intent that does not validate grants nothing, and one
+    still in draft grants nothing either, because a draft has no approval block to read —
+    which is the whole point of the draft state.
+
+    This is the specification's own second path: "an authorized human **or preapproved
+    policy**". The policy is the approved Intent, and it is one a person committed."""
+
+    home = root / ".ai" / "intent.md"
+    verdict = intents.validate(home, root)
+    if verdict.outcome != "PASS":
+        why = verdict.code or "unknown"
+        return f"the Solution Intent does not validate ({why}), so it grants nothing"
+    try:
+        lifecycle = json.loads(home.read_text(encoding="utf-8"))["lifecycle"]
+        approval = lifecycle["approval"]
+        role, reference = approval["authority_role"], approval["approval_ref"]
+    except (KeyError, OSError, ValueError):
+        return "the Solution Intent is a draft, so it carries no approval to act on"
+    if re.search(r"agent|reviewer", role, re.IGNORECASE):
+        return (
+            f"the recorded role is {role!r}, and a record is never accepted by an "
+            "agent or a reviewer"
+        )
+    return role, reference
+
+
+def accept(root: Path, number: str) -> outcome.Result:
+    """Move one MADR out of `proposed`, with the three fields the schema wants together.
+
+    Every one of them is read or measured, never typed at a person: the role and the
+    reference come from the approved Intent, and the timestamp is now. The transition still
+    has to be its own commit, because that is what the validator checks and it is what
+    makes the change reviewable — so this writes the record and names the commit rather
+    than making it."""
+
+    found = sorted(adr_dir(root).glob(f"{number}-*.md"))
+    if len(found) != 1:
+        print(f"  INCOMPLETE: {len(found)} MADRs are numbered {number}")
+        return outcome.result("INCOMPLETE")
+    decision = found[0]
+    raw = decision.read_bytes()
+    if madr._parse(raw).raw_fields.get("status") != '"proposed"':
+        print(f"  INCOMPLETE: {number} has already left `proposed`; accepting is not repeatable")
+        return outcome.result("INCOMPLETE")
+
+    authority = granted(root)
+    if isinstance(authority, str):
+        print(f"  INCOMPLETE: {authority}")
+        return outcome.result("INCOMPLETE")
+    role, reference = authority
+    stamped = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    decision.write_text(
+        raw.decode("utf-8").replace(
+            'status: "proposed"',
+            f'status: "accepted"\nauthority_role: "{role}"\n'
+            f'approval_ref: "{reference}"\napproved_at: "{stamped}"',
+            1,
+        ),
+        encoding="utf-8",
+    )
+    print(f"  {decision.relative_to(root)} accepted as {role}, on the authority of {reference}")
+    print(f"  commit it on its own: git add {decision.relative_to(root)} && git commit")
+    return outcome.result("PASS")
+
+
 def main(argv: list[str]) -> outcome.Result:
     parser = argparse.ArgumentParser("ai-eng decide", allow_abbrev=False)
     parser.add_argument("title", nargs="?", default="")
     parser.add_argument("--madr", action="store_true", help="propose it in docs/adr/")
     parser.add_argument("--supersede", default="", metavar="NNNN")
     parser.add_argument("--list", action="store_true")
+    parser.add_argument("--accept", default="", metavar="NNNN", help="accept a proposed MADR")
     parser.add_argument("--why", default="", help="the rationale, when it stays inside the spec")
     parser.add_argument(
         "--spec", default="", help="which spec it belongs to; needed when more than one is open"
     )
     args = parser.parse_args(argv)
 
-    if not args.list:
+    if not args.list and not args.accept:
         try:
             title = _title(args.title)
         except ValueError as why:
@@ -336,6 +408,8 @@ def main(argv: list[str]) -> outcome.Result:
     if root is None:
         print("not inside a repository")
         return outcome.result("INCOMPLETE")
+    if args.accept:
+        return accept(root, args.accept)
     if args.list:
         try:
             rows = listing(root)
