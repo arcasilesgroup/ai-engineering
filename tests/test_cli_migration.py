@@ -42,10 +42,6 @@ from ai_engineering import (
     wiring,
 )
 
-# Every test here drives a verb that wires git, and none of them is about whether the
-# interpreter running the suite can import the product. That is what the fixture states.
-pytestmark = pytest.mark.usefixtures("answering_anchor")
-
 ROOT = Path(__file__).parents[1]
 INTENT_FIXTURE = ROOT / "tests" / "fixtures" / "intent-v1.json"
 
@@ -1136,7 +1132,11 @@ def test_concurrent_spec_processes_never_share_a_numeric_id(
         "import sys; from ai_engineering import spec; "
         "raise SystemExit(spec.main(['new', sys.argv[1]]).exit_code)"
     )
-    environment = {**os.environ, "PYTHONPATH": str(ROOT / "src")}
+    # The real tree, when something told us where it is: inside the mutation sandbox
+    # `ROOT` is the instrumented copy, and a child importing it dies on a config it
+    # cannot find from a throwaway working directory.
+    source = os.environ.get("AI_ENG_REAL_SRC") or str(ROOT / "src")
+    environment = {**os.environ, "PYTHONPATH": source}
     slugs = ["parallel-one", "parallel-two", "parallel-three"]
     processes = [
         subprocess.Popen(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
@@ -92,6 +93,27 @@ def test_repository_dogfood_intent_is_canonical() -> None:
         "reason": "relation digest does not match target",
     }
 
+    assert not re.search(r"/(?:Users|home)/|[A-Za-z]:\\\\", rendered)
+    assert not re.search(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b", rendered)
+
+
+@pytest.mark.skipif(
+    bool(os.environ.get("AI_ENG_REAL_SRC")),
+    reason=(
+        "this half asks git what the repository tracks, and the mutation harness runs the "
+        "suite in a copied tree with no .git in it. Answering it there would mean asking a "
+        "different question. It runs in every other suite, including CI's."
+    ),
+)
+def test_the_intent_has_no_mirror_anywhere_in_the_repository() -> None:
+    """One home, and nothing that reads like a second one.
+
+    Split out of the canonical-record test because it asks a different thing of a different
+    subject: that test reads one file, this one asks git for the whole inventory — and only
+    one of the two needs a repository to exist."""
+
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+
     repository_homes = subprocess.run(
         [
             "git",
@@ -130,8 +152,6 @@ def test_repository_dogfood_intent_is_canonical() -> None:
             ".ai/.intent.md.swp",
         ]
     )
-    assert not re.search(r"/(?:Users|home)/|[A-Za-z]:\\\\", rendered)
-    assert not re.search(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b", rendered)
 
 
 def test_ai_gitignore_unignores_only_the_records_that_are_reviewed(tmp_path: Path) -> None:

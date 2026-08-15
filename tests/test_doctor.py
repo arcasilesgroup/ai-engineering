@@ -1325,11 +1325,27 @@ def test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module(home,
         assert "does not name this interpreter and this module" in detail, foreign
         assert doctor.resolve(11, doctor.git_hook_fires(repo))[1] == "ai-eng init --project"
 
-    # The live one runs for real. On a machine with no chain yet — every fresh install —
-    # the module answers `--version` and cannot anchor, and that is undecidable rather than
-    # a broken install. A check that is red by construction is a check somebody silences.
+    # On a machine with no chain yet — every fresh install — the module answers `--version`
+    # and cannot anchor, and that is undecidable rather than a broken install. A check that
+    # is red by construction is a check somebody silences.
+    #
+    # Only liveness is stood in for, and only because it is ambient: inside the mutation
+    # harness's sandbox the child cannot import the package, so this block reported a dead
+    # module and took the whole gate's baseline with it. The anchor call still runs for
+    # real, which is the half this block is about. A dead module is asserted below, where
+    # it is the subject rather than the weather.
     git(repo, "config", "ai.eng", f"{sys.executable} -m ai_engineering.cli")
+    live = doctor.subprocess.run
+
+    def answering(argv, *args, **kwargs):
+        if "--version" in list(argv):
+            return SimpleNamespace(returncode=0, stdout="ai-engineering 1.0.0")
+        return live(argv, *args, **kwargs)
+
+    monkeypatch.setattr(doctor.subprocess, "run", answering)
     state, detail = verdict(doctor.git_hook_fires, repo)
+    monkeypatch.undo()
+    monkeypatch.setattr(paths, "git_hooks", lambda: ours)
     assert state == "undecidable", detail
     assert "cannot anchor a commit yet" in detail
 
@@ -1432,7 +1448,7 @@ def test_an_undecidable_assertion_prints_the_cure_it_carries(capsys):
 
 
 def test_the_anchor_check_runs_the_installed_module_and_never_the_repository_it_diagnoses(
-    home, repo
+    home, repo, monkeypatch
 ):
     """The hole a review opened in this check, kept shut.
 
@@ -1457,6 +1473,11 @@ def test_the_anchor_check_runs_the_installed_module_and_never_the_repository_it_
         "print('ai-engineering 9.9.9')\n",
         encoding="utf-8",
     )
+
+    # The child needs a real package to answer with, and inside the mutation sandbox there
+    # is none on its path. Naming it explicitly leaves the subject exactly where it was:
+    # the plant is in the working directory, and `PYTHONSAFEPATH` is what keeps it out.
+    monkeypatch.setenv("PYTHONPATH", os.environ.get("AI_ENG_REAL_SRC") or str(ROOT / "src"))
 
     answered = doctor._run_anchor(repo, ["--version"])
     assert not marker.exists(), "the repository being diagnosed executed its own code"

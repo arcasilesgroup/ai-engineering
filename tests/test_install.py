@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -1476,7 +1477,19 @@ def test_the_ci_snippet_keeps_its_actions_expression(home):
     assert "${{ env.PIN }}" in skeletons.CHECK_YML.format(version="9.9.9")
 
 
-def test_wire_git_executes_the_configured_module_before_persisting_it(repo, monkeypatch):
+@pytest.mark.skipif(
+    bool(os.environ.get("AI_ENG_REAL_SRC")),
+    reason=(
+        "the mutation sandbox has no environment in which a child can import the product, "
+        "and this test's whole subject is that the real command runs before the anchor is "
+        "written. Standing that command in for would leave the test asserting itself. It "
+        "runs in every other suite, including CI's, and it is skipped here rather than "
+        "hollowed out — a dead mutation gate cost more than this one test's reach."
+    ),
+)
+def test_wire_git_executes_the_configured_module_before_persisting_it(
+    repo, monkeypatch, real_anchor
+):
     """The anchor is proved to run before it is written down.
 
     This machine was found with an editable install whose `.pth` pointed at a deleted

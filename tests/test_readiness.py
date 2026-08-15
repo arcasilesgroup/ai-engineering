@@ -500,6 +500,7 @@ def test_spec_010_004_intent_and_ceiling_transition_atomically():
     separate consent, and a static check that pretended to them would be the green this
     whole wave exists to refuse."""
 
+    import os
     import re
     from hashlib import sha256
 
@@ -556,4 +557,8 @@ def test_spec_010_004_intent_and_ceiling_transition_atomically():
     # record with its number, and the tree is still inside whatever the ceiling now says.
     budget = (ROOT / "src" / "ai_engineering" / "contract.py").read_text(encoding="utf-8")
     assert "Measured at the close: 42,579" in budget
-    assert contract.repo_lines(ROOT) <= contract.REPO_CEILING
+    if not os.environ.get("AI_ENG_REAL_SRC"):
+        # Counting the tree means asking git what it tracks, and the mutation harness runs
+        # the suite in a copied tree with no history. The record above is readable anywhere;
+        # only the count needs a repository, so only the count waits for one.
+        assert contract.repo_lines(ROOT) <= contract.REPO_CEILING

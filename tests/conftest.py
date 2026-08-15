@@ -15,6 +15,12 @@ ROOT = Path(__file__).resolve().parents[1]
 for folder in ("src", "hooks"):
     sys.path.insert(0, str(ROOT / folder))
 
+# Imported here and not in the fixture: the fixture replaces this function, so the handle
+# to the real one has to be taken before anything can have replaced it.
+from ai_engineering import wiring as _wiring  # noqa: E402
+
+_REAL_ANCHOR = _wiring.anchor_answers
+
 
 @pytest.fixture(autouse=True)
 def undecorated(monkeypatch):
@@ -46,7 +52,7 @@ def coloured(monkeypatch):
     ui.reset()
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def answering_anchor(monkeypatch):
     """The interpreter running the suite can import the product; the child it spawns with
     `PYTHONSAFEPATH` may not, because `src` reaches this process through conftest and not
@@ -67,3 +73,16 @@ def answering_anchor(monkeypatch):
         "anchor_answers",
         lambda: subprocess.CompletedProcess([], 0, f"ai-engineering {__version__}\n", ""),
     )
+
+
+@pytest.fixture
+def real_anchor(monkeypatch):
+    """Put the probe back, for the tests that are about the probe.
+
+    The fixture above is autouse because the fact it states is ambient and almost no test
+    is about it. Almost: one test asserts the exact argument list the installer executes
+    before it persists an anchor, and that one has to watch the real thing run."""
+
+    from ai_engineering import wiring
+
+    monkeypatch.setattr(wiring, "anchor_answers", _REAL_ANCHOR)

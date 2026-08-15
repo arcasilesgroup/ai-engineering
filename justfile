@@ -109,6 +109,13 @@ mutate *paths:
         before="$(cksum $watched 2>/dev/null || true)"
         export UV_CACHE_DIR="${UV_CACHE_DIR:-$(uv cache dir)}"
         export HOME="$house" USERPROFILE="$house" AI_ENGINEERING_HOME="$house/.ai-engineering"
+        # One test spawns child processes that import the package. Inside the sandbox that
+        # import resolves to the instrumented copy, whose shim then looks for mutmut's
+        # config relative to the child's working directory — a throwaway repository that
+        # has none — and the baseline died there, so the whole gate collected nothing.
+        # The children read the real tree instead. It costs that one test its reach over
+        # mutants in spec.py, which is a trade worth making against a gate that is dead.
+        export AI_ENG_REAL_SRC="$here/src"
         export XDG_CONFIG_HOME="$house/.config" XDG_DATA_HOME="$house/.local/share"
         rsync -a --exclude=.git --exclude=.venv --exclude=dist --exclude=mutants \
               --exclude=.pytest_cache --exclude=.ruff_cache ./ "$away/"

@@ -64,9 +64,9 @@ source_paths = ["src/ai_engineering"]
 # The sandbox holds only source and tests, and this suite reads files: the skills, the
 # wiring table, the git hooks, the doctrine. Without these the baseline run is red and
 # mutmut reports nothing rather than reporting a survivor.
-also_copy = [".agents", ".github", "docs", "git-hooks", "hooks", "migrations", "policy",
-             "specs", "surfaces", "AGENTS.md", "CLAUDE.md", "CONSTITUTION.md", "LICENSE",
-             "NOTICE", "README.md", "SECURITY.md", "justfile"]
+also_copy = [".agents", ".ai", ".github", "docs", "git-hooks", "hooks", "migrations", "policy",
+             "specs", "surfaces", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md", "CONSTITUTION.md",
+             "LICENSE", "NOTICE", "README.md", "SECURITY.md", "justfile"]
 # test_contracts.py is left out on purpose and not because it is inconvenient: it asserts
 # the repository's own shape — the line ceiling, the doctrine's length, the skill contract
 # — which no mutant of the product can change, and it counts lines with `git ls-files`,
