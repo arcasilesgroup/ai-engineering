@@ -1,0 +1,179 @@
+"""Whether P0 is finished, asked once, against the spec's own words.
+
+Every other test in this suite proves one mechanism. This one asks the question a person
+actually has: is the wave done. It answers it by reading the P0 section of the spec,
+requiring every sentence in it to be claimed by exactly the evidence that claim rests on,
+and requiring that evidence to be present in the tree right now.
+
+Two failure directions, and the second is the one this file exists for. A requirement can
+be added to the spec and never implemented — that reddens here because nothing claims the
+sentence. Or a later wave's work can be counted as this one's, which is how a wave gets
+declared complete while the thing it promised is still missing; so every phrase claimed
+here has to come out of the P0 section and appear nowhere in P1 to P5, and the markers of
+those waves may not be claimed at all.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SPEC = ROOT / "specs" / "010-governed-agentic-engineering-foundation" / "spec.md"
+
+# Requirement, the words in the spec that state it, and where in this repository it is.
+# Every phrase is a verbatim substring of the P0 section once its line wrapping is undone,
+# and every needle is a string that is really in the file named beside it — a requirement
+# whose evidence is a path that exists but says nothing is a requirement nobody checked.
+P0: dict[str, tuple[str, str, str]] = {
+    "identity": (
+        "P0 lands the identity",
+        "docs/adr/0006-governed-mission.md",
+        "mission",
+    ),
+    "intent": (
+        "Intent",
+        "policy/intent-v1.schema.json",
+        "urn:ai-engineering:intent",
+    ),
+    "madr": ("MADR contracts", "policy/madr-v1.schema.json", "urn:ai-engineering:madr"),
+    "spec-flow": ("the single `ai-spec` flow", ".agents/skills/ai-spec/SKILL.md", "ai-spec"),
+    "capability-manifest": (
+        "capability manifest",
+        "policy/capability-manifest.schema.json",
+        "capabilit",
+    ),
+    "outcome-schema": (
+        "outcome/check/evidence/JSON schemas",
+        "policy/outcome-v1.schema.json",
+        "x-outcome-policy",
+    ),
+    "evidence-schema": (
+        "outcome/check/evidence/JSON schemas",
+        "policy/check-evidence-v1.schema.json",
+        "x-evidence-policy",
+    ),
+    "acceptance-schema": (
+        "outcome/check/evidence/JSON schemas",
+        "policy/risk-acceptance-v1.schema.json",
+        "x-acceptance-policy",
+    ),
+    "hard-renames": ("hard renames", "CHANGELOG.md", "hooks/change_scope_guard.py"),
+    "report-digest": ("`report digest`", "src/ai_engineering/report.py", 'add_parser("digest")'),
+    "invalid-fixtures-first": (
+        "with invalid fixtures red before valid implementations",
+        "tests/fixtures/risk-acceptance-v1.json",
+        "invalid",
+    ),
+    "frozen-waves": (
+        "It freezes the P1-P5 contracts below.",
+        "specs/010-governed-agentic-engineering-foundation/spec.md",
+        "### P5 —",
+    ),
+    "guard-rename": (
+        "P0 hard-renames `design_gate` to `change_scope_guard`, with no alias, because the "
+        "guard enforces approved scope and plan presence rather than judging design.",
+        "hooks/change_scope_guard.py",
+        "change_scope_guard",
+    ),
+    "release-lanes": (
+        "P0 retains the current trusted-publishing, provenance, dependency-audit, "
+        "installed-wheel test and security-analysis lanes.",
+        ".github/workflows/release.yml",
+        "id-token: write",
+    ),
+    "pinned-dependencies": (
+        "Every new dependency is exactly pinned in its governing lock or action reference.",
+        ".github/workflows/check.yml",
+        'GITLEAKS_VERSION: "8.30.1"',
+    ),
+    "missing-lane-incomplete": (
+        "A removed, skipped or missing required lane is `INCOMPLETE` and blocks release",
+        ".github/workflows/check.yml",
+        "INCOMPLETE",
+    ),
+    "lanes-supplement": (
+        "a new lane supplements rather than silently replaces existing proof.",
+        "tests/test_quality_gate.py",
+        "ee7b8e1a10b1c9da9a6810b0711c4d653af5348e80c3e46bfb1d265dd5838b5d",
+    ),
+}
+
+# The words that belong to a later wave. None of them is P0's to claim, and the alias P0
+# removed is here too: a rename with an alias left behind is not a rename.
+LATER_WAVES = (
+    "surface adapter",
+    "merge_group",
+    "SBOM",
+    "external pilot",
+    "provider-neutral semantic review",
+    "design_gate.py",
+)
+
+
+def _sections() -> dict[str, str]:
+    """Each wave's contract as one reflowed paragraph, keyed by its wave."""
+
+    text = SPEC.read_text(encoding="utf-8")
+    found = list(re.finditer(r"^### (P[0-5]) — .*$", text, flags=re.MULTILINE))
+    ends = [*(match.start() for match in found[1:]), text.index("\n## ", found[-1].start())]
+    return {
+        match.group(1): " ".join(text[match.end() : end].split())
+        for match, end in zip(found, ends, strict=True)
+    }
+
+
+def test_every_p0_requirement_is_claimed_by_evidence_that_exists():
+    waves = _sections()
+    p0 = waves["P0"]
+    later = " ".join(body for wave, body in waves.items() if wave != "P0")
+
+    for name, (phrase, where, needle) in P0.items():
+        assert phrase in p0, f"{name} claims words the P0 contract does not contain"
+        # A term may well recur — `report digest` lands in P0 and is constrained again in
+        # P2 — so the disjointness that matters is the whole statement. The sentence a
+        # claim rests on has to be P0's own, because a later wave's sentence counted here
+        # is exactly how a wave gets declared finished on work nobody in it did.
+        statement = next(part for part in p0.split(". ") if phrase in part + ".")
+        assert statement not in later, f"{name} rests on a sentence a later wave states"
+        proof = ROOT / where
+        assert proof.exists(), f"{name} rests on {where}, which is not in the tree"
+        assert needle in proof.read_text(encoding="utf-8"), f"{where} does not hold {name}"
+
+    # Coverage, the other way round: a requirement the contract states and nothing here
+    # claims. It splits as finely as the prose allows — full stops, semicolons, commas and
+    # `and` — because this contract lands eleven separate things in one sentence, and at
+    # sentence granularity any one of them could be dropped from the map and the sentence
+    # would still read as covered by its neighbours.
+    # The contract names its schemas as one phrase, so the three of them cannot be told
+    # apart by the words alone. Every schema file in the tree is required to be claimed by
+    # something here instead: a schema P0 shipped and nothing maps is the same hole.
+    claimed_paths = {where for _, where, _ in P0.values()}
+    for schema in sorted((ROOT / "policy").glob("*.schema.json")):
+        assert f"policy/{schema.name}" in claimed_paths, f"no P0 requirement claims {schema.name}"
+
+    claims = [phrase for phrase, _, _ in P0.values()]
+    for unit in re.split(r"(?<=[.;]) |, | and ", p0):
+        unit = unit.strip().rstrip(".,;")
+        assert unit and any(unit in claim or claim in unit for claim in claims), (
+            f"no evidence is mapped to: {unit}"
+        )
+
+
+def test_p0_claims_nothing_that_belongs_to_a_later_wave():
+    """The failure this repository is built against, applied to itself: a wave declared
+    finished on work that was never in it. P1 to P5 are frozen contracts and none of them
+    is evidence for anything here."""
+
+    claimed = " ".join(
+        f"{phrase} {where} {needle}" for phrase, where, needle in P0.values()
+    ).lower()
+    for marker in LATER_WAVES:
+        assert marker.lower() not in claimed, f"P0 claims {marker}, which is not P0's"
+    assert not (ROOT / "hooks" / "design_gate.py").exists()
+
+    # And it is answered by the same command CI runs, rather than by a file somebody has to
+    # remember to run: `just check` calls `test`, and `test` runs the whole tests directory.
+    recipe = (ROOT / "justfile").read_text(encoding="utf-8")
+    assert "\ncheck: build lint typecheck test cover security counts\n" in recipe
+    assert "\ntest:\n    uv run --with {{pytest}} pytest -q\n" in recipe
