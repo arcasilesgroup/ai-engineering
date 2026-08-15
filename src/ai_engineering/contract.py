@@ -539,7 +539,21 @@ DESCRIPTION_MAX = 1000
 # descriptions drift into each other a file somebody else wrote goes red. Plain markdown in
 # the skill's own directory, not a registry — one more home is one more thing to keep in
 # sync, and this week's audit already found four copies of a list.
-REPO_CEILING = 46_809
+# 46,809 to 47,045 for Task 7's deferral ending and the task it uncovered.
+#
+# `policy/surface-adapter-v1.schema.json` was frozen in Block A with no instance, and the
+# amendment said an adapter lands when a reader needs one. Blocks D onward do, so
+# `claude-code` gets the first — the only surface whose denial an executed run has produced.
+#
+# The rest is the honest half. `surface.py` still proves only that a receipt exists, names
+# its own state, ran and is fresh; binding it to a requirement was attempted three times and
+# each attempt fought an existing contract. `protocol_id` is forbidden on an automated
+# receipt by the check-evidence schema. `input_digest` already means the payload that was
+# checked. `command` carries an absolute path, so no two machines match. A fourth guess at
+# the end of a long session would have been the worst of the four, so the binding is
+# Task 16 with its own done-when, and this repository has enough half-designed controls
+# already — the audit found twenty.
+REPO_CEILING = 47_045
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

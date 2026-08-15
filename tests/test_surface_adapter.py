@@ -736,3 +736,28 @@ def test_the_surface_list_has_one_home_and_the_rest_derive_from_it():
     )
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     assert schema["properties"]["surface_id"]["enum"] == list(declared)
+
+
+def test_the_first_adapter_instance_conforms_to_the_schema_it_was_frozen_against():
+    """Task 7's deferral ends here: the schema was frozen in Block A with no instance, and
+    the amendment said an adapter record lands when a reader needs one. Blocks D onward need
+    one, so `claude-code` — the only surface whose denial an executed run has ever produced
+    — gets the first.
+
+    What it does not yet do is bind a receipt to a requirement, which is the hole this
+    module's own docstring admits. Three bindings were tried and each fought a contract that
+    already exists: `protocol_id` is forbidden on an automated receipt by the check-evidence
+    schema, `input_digest` already means the payload that was checked, and `command` carries
+    a machine path so no two runs can match. That binding needs a designed field and a plan
+    amendment, not a fourth guess at the end of a long session, and it is written down in
+    specs/011 rather than half-shipped."""
+
+    from ai_engineering import paths
+
+    adapter = json.loads(
+        (paths.policy("adapters") / "claude-code.adapter.json").read_text(encoding="utf-8")
+    )
+    assert _validator().valid(adapter), adapter
+    assert adapter["surface_id"] == "claude-code"
+    assert adapter["detection"]["written_by_us"] is False
+    assert adapter["translations"]["exit_meaning"]["2"] == "deny"

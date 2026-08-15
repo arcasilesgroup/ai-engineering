@@ -31,6 +31,7 @@ from ai_engineering.readiness import _anchored, _object, _read, _Unreadable
 RECEIPTS = ".ai/receipts/surface"
 STATES = ("discovery", "invocation", "enforcement")
 
+
 def _declared() -> tuple[str, ...]:
     """The surfaces, from the one file that decides which ones get installed.
 

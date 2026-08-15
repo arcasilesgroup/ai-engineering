@@ -359,6 +359,41 @@ What is open, and what this block is for:
     stale with nothing said, and `_emit.emit` swallows every failure to one stderr line,
     which is where both of this block's defects lived unseen.
 
+### Amendment, made while ending Task 7's deferral
+
+Task 7 was deferred until a reader needed an adapter. Blocks D onward do, so
+`policy/adapters/claude-code.adapter.json` lands as the first instance of a schema that had
+none — for the one surface whose denial an executed run has ever produced.
+
+**What it does not do, and why that is a task rather than a line.** `src/ai_engineering/
+surface.py` still proves only that a receipt exists, names its own state, ran and is fresh.
+Binding it to a requirement was attempted three times in one sitting and each attempt fought
+a contract that already exists:
+
+- `protocol_id` and `protocol_version` are exactly the right names, and
+  `policy/check-evidence-v1.schema.json` **forbids both on an `automated` receipt** — they
+  belong to the `human` and `external` kinds. Adding them makes a valid receipt invalid.
+- `input_digest` is required and already carries a meaning: the payload that was checked.
+  The installed-wheel matrix writes the guard payload's digest there. Re-pointing it at the
+  adapter would silently change what every existing receipt claims.
+- `command` is where a declared requirement would naturally live, and the matrix's command
+  contains an absolute path to the installed guards, so no two machines can produce the same
+  string. Matching it exactly would fail everywhere except the machine that wrote it.
+
+So the binding needs a field designed for it, in the adapter schema, with a form that is
+stable across machines — and the adapter schema is `additionalProperties: false` at every
+level, which is the property that makes it worth having and also means the field is an
+amendment rather than an addition.
+
+16. **A receipt is measured against the adapter it claims to have exercised** — **file**
+    `policy/surface-adapter-v1.schema.json`. **check**: `uv run pytest
+    tests/test_surface_adapter.py -k a_receipt_that_names_no_adapter_proves_nothing`.
+    **rollback**: `git revert <commit>`. **done when**: the adapter declares a
+    machine-independent proof requirement; an enforcement receipt for a surface that has an
+    adapter must satisfy it; a receipt that names none, or names a superseded adapter
+    version, reads `INCOMPLETE` and not `PASS`; and `surface.py`'s docstring stops saying
+    that a `PASS` means "this ran and said so" rather than "this ran the thing we require".
+
 ### Blocks D onward — one surface per block, in provability order
 
 `opencode` (routers exist to be built and a denial is plausible), then `codex-cli` (links
