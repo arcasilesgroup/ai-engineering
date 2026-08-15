@@ -142,6 +142,25 @@ PROVEN by something that executes, or the wave does not close.
 | EP-207 | NO-EVIDENCE | either a Codex-app row with real evidence, or an explicit refusal to claim one |
 | EP-278, EP-283 | INCOMPLETE | p95 guard latency and per-surface denial-proof age |
 
+### Two of those requirements are refused, not pending
+
+Recorded here because a reader auditing the proposal will otherwise count them as misses,
+and a miss and a decision are different things.
+
+**EP-013 — the four adapter fields in `policy/surfaces.toml`. REFUSED by D-011-02.** The
+proposal asks for `native_slash`, `skill_selector`, `command_adapter` and `invocation` as
+declared fields. That is the shape of the `proven` flag this wave exists to delete: four
+more static booleans a person can type, which cannot contradict whoever typed them. What
+replaced it is the receipt: a field is not written down, it is earned by something that
+ran. The requirement's intent — knowing what each surface can do — is met by the three
+states; its stated mechanism is refused.
+
+**EP-020 — a `surface proof` verb. PARTIALLY REFUSED, by the Task 5 amendment.** The
+proposal names `surface proof --id <surface>`. The exit criterion it states is a command
+that answers per surface, and `ai-eng report surfaces` answers it. An eleventh verb would
+have cost a doctrine change, two pinned assertions and the installed-wheel count, to say
+the same thing a subcommand says. The `--id` filter is not refused, only unbuilt.
+
 ## Non-goals
 
 - No new surface ID, and no ninth surface.
