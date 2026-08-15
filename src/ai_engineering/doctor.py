@@ -1087,7 +1087,7 @@ def verdict_panel(
     failed: list[int],
     unanswered: int,
     cures: dict[int, str],
-    boxes_failed: int = 0,
+    boxes_failed: int,
 ) -> None:
     """Whether it passed, and if not, how much of it a command can put right. This was one
     unframed line under the coverage block, in the same weight as the rows above it, and it
@@ -1110,8 +1110,14 @@ def verdict_panel(
         # Counted on its own line rather than folded into the failures above, which are
         # numbered assertions. Without it the banner read FAILED over "0 failed", and a
         # verdict whose own counters contradict it is a verdict nobody reads twice.
+        #
+        # The label is short because the column that holds it is sixteen wide and pads to
+        # exactly that: `production-ready` filled it and printed hard against its own
+        # count, in the one row this exists to make legible.
         word = "box" if boxes_failed == 1 else "boxes"
-        rows.append(("production-ready", f"{boxes_failed}   {word} failed a check that ran"))
+        rows.append(
+            ("not ready", f"{boxes_failed}   production-ready {word} failed a check that ran")
+        )
     people = sorted(number for number in failed if number not in cures)
     if people:
         listed = ", ".join(str(number) for number in people)

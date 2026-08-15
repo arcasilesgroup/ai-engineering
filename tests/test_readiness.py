@@ -15,7 +15,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from ai_engineering import evidence, readiness
+from ai_engineering import evidence, outcome, readiness
 
 ROOT = Path(__file__).parents[1]
 SPEC = ROOT / "specs" / "010-governed-agentic-engineering-foundation" / "spec.md"
@@ -465,3 +465,26 @@ def test_a_declaration_of_the_wrong_shape_is_incomplete_and_not_a_traceback(tmp_
         answered = readiness.read(root, now=NOW)
         assert answered.result.outcome == "INCOMPLETE", wrong
         assert _codes(answered)["ci_cd"] != evidence.VERIFIED, wrong
+
+
+def test_the_verdict_row_for_a_failed_box_is_legible(capsys):
+    """The row exists to make a verdict legible, and nothing asserted how it renders.
+
+    Its label sits in a column sixteen wide that pads to exactly that, so a sixteen-
+    character label prints hard against its own count — which is what `production-ready`
+    did, in the one line added to stop a verdict contradicting itself."""
+
+    from ai_engineering import doctor
+
+    doctor.verdict_panel(outcome.result("FAIL"), [], 0, {}, 1)
+    single = capsys.readouterr().out
+    assert "not ready" in single
+    assert "1   production-ready box failed a check that ran" in single
+
+    doctor.verdict_panel(outcome.result("FAIL"), [7], 0, {}, 2)
+    both = capsys.readouterr().out
+    for label in ("not ready", "needs a person"):
+        row = next(line for line in both.splitlines() if label in line)
+        # Two spaces at least, or the label and its number arrive as one word.
+        assert f"{label}  " in row, row
+    assert "2   production-ready boxes failed a check that ran" in both
