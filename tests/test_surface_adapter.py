@@ -668,3 +668,46 @@ def test_the_matrix_proves_discovery_and_invocation_separately():
     # answer would show here as PASS, which is the failure the three receipts exist for.
     assert "claude-code .*discovery .*SURFACE_RECEIPT_MISSING" in step
     assert "claude-code .*invocation .*SURFACE_RECEIPT_MISSING" in step
+
+
+def test_an_inert_surface_still_reads_inert_when_another_one_is_unwired(monkeypatch, tmp_path):
+    """`surfaces_alive` returns a *tuple* — message and cure — as soon as any surface has
+    no entry of ours, and the coverage block does `inert = surfaces_alive(root) or ""`.
+    A tuple is not a string, so `surface["name"] in inert` stops being a substring test and
+    becomes an exact-element test, and it is never true.
+
+    The consequence is the one its own comment forbids: the two surfaces that fail
+    *silently* — Codex without its trust ceremony, OpenCode whose plugin was dropped with
+    no error and no log — print as `installed and wired`, which reads healthier than
+    UNPROVEN, on a machine where assertion 21 is telling the person they are dead.
+
+    Nothing reached this. Every existing case has either all surfaces wired or none of
+    them, and the bug needs one of each."""
+
+    from ai_engineering import doctor, wiring
+
+    rows = [
+        {"id": "codex-cli", "name": "Codex CLI", "tier": "T2", "trust_required": True},
+        {"id": "cursor", "name": "Cursor", "tier": "T2"},
+    ]
+    monkeypatch.setattr(wiring, "detect", lambda only=None: rows)
+    monkeypatch.setattr(wiring, "wired", lambda: ([rows[0]], [rows[1]]))
+    monkeypatch.setattr(doctor.paths, "home", lambda: tmp_path)
+
+    said = doctor.surfaces_alive(None)
+    message = said[0] if isinstance(said, tuple) else said
+    assert "Cursor: no entry of ours" in message, said
+    assert "Codex CLI: installed but INERT" in message, said
+
+    # Through `coverage`, not through `standing` with a hand-made argument: the defect is
+    # in what `coverage` passes down, so a test that unwraps the tuple itself reproduces
+    # the bug instead of catching it.
+    monkeypatch.setattr(wiring, "detect", lambda only=None: rows)
+    monkeypatch.setattr(
+        wiring,
+        "table",
+        lambda: {"surface": [{**row, "writer": "json_codex"} for row in rows]},
+    )
+    printed = "\n".join(doctor.coverage(None))
+    codex = next(line for line in printed.splitlines() if "codex-cli" in line)
+    assert "INERT" in codex, f"the coverage block called a silently dead surface: {codex}"

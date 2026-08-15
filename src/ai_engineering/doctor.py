@@ -950,7 +950,17 @@ def coverage(root: Path | None, *, now: datetime | None = None) -> list[str]:
         s["id"] for s in wiring.table()["surface"] if s["writer"] == "none"
     }
     try:
-        inert = surfaces_alive(root) or ""
+        # The message only. `surfaces_alive` returns `(message, cure)` as soon as any
+        # surface has no entry of ours, and a tuple is not a string: `surface["name"] in
+        # inert` silently stops being a substring test and becomes an exact-element test
+        # that is never true. So the coverage block could not print INERT whenever any one
+        # surface was unwired, and the two surfaces that fail *silently* — Codex without
+        # its trust ceremony, OpenCode whose plugin was dropped with no error and no log —
+        # printed as `installed and wired` on a machine where assertion 21 was telling the
+        # person they were dead. That is the case the comment beside `INERT` says must
+        # never be reported as covered.
+        said = surfaces_alive(root)
+        inert = (said[0] if isinstance(said, tuple) else said) or ""
     except Undecidable:
         inert = ""  # nothing installed, so every row below already reads UNPROVEN
     proved = enforced(root, now=now or datetime.now(UTC))
