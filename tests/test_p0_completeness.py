@@ -123,6 +123,43 @@ def _sections() -> dict[str, str]:
     }
 
 
+def uncovered(section: str, claims: list[str]) -> list[str]:
+    """Everything the contract states that no claim accounts for.
+
+    It splits as finely as the prose allows — full stops, semicolons, commas and `and` —
+    because this contract lands eleven separate things in one sentence, and at sentence
+    granularity any one of them could be dropped from the map while its neighbours kept
+    the sentence looking covered.
+
+    The test is one-directional on purpose. Accepting a unit because some claim is a
+    substring *of it* was measured letting three invented requirements through, including
+    two naming later waves: `Intent`, `hard renames` and `capability manifest` are short
+    enough that almost any new sentence contains one. A claim has to cover the statement,
+    not merely appear somewhere inside it."""
+
+    return [
+        unit
+        for raw in re.split(r"(?<=[.;]) |, | and ", section)
+        if (unit := raw.strip().rstrip(".,;")) and not any(unit in claim for claim in claims)
+    ]
+
+
+def test_the_coverage_rule_rejects_a_requirement_nothing_claims():
+    """The rule that decides whether the map is complete, held against text it has never
+    seen — otherwise it is only ever exercised on prose already known to pass."""
+
+    claims = ["Intent", "hard renames", "capability manifest"]
+    invented = (
+        "P0 ships a signed SBOM alongside the Intent.",
+        "P0 must publish a reproducible build attestation for every hard renames artifact.",
+        "P0 delivers an external pilot with a capability manifest.",
+        "P0 encrypts the chain at rest.",
+    )
+    for sentence in invented:
+        assert uncovered(sentence, claims), f"absorbed silently: {sentence}"
+    assert not uncovered("Intent", claims)
+
+
 def test_every_p0_requirement_is_claimed_by_evidence_that_exists():
     waves = _sections()
     p0 = waves["P0"]
@@ -140,11 +177,7 @@ def test_every_p0_requirement_is_claimed_by_evidence_that_exists():
         assert proof.exists(), f"{name} rests on {where}, which is not in the tree"
         assert needle in proof.read_text(encoding="utf-8"), f"{where} does not hold {name}"
 
-    # Coverage, the other way round: a requirement the contract states and nothing here
-    # claims. It splits as finely as the prose allows — full stops, semicolons, commas and
-    # `and` — because this contract lands eleven separate things in one sentence, and at
-    # sentence granularity any one of them could be dropped from the map and the sentence
-    # would still read as covered by its neighbours.
+    # Coverage, the other way round: a requirement the contract states and nothing claims.
     # The contract names its schemas as one phrase, so the three of them cannot be told
     # apart by the words alone. Every schema file in the tree is required to be claimed by
     # something here instead: a schema P0 shipped and nothing maps is the same hole.
@@ -152,12 +185,11 @@ def test_every_p0_requirement_is_claimed_by_evidence_that_exists():
     for schema in sorted((ROOT / "policy").glob("*.schema.json")):
         assert f"policy/{schema.name}" in claimed_paths, f"no P0 requirement claims {schema.name}"
 
-    claims = [phrase for phrase, _, _ in P0.values()]
-    for unit in re.split(r"(?<=[.;]) |, | and ", p0):
-        unit = unit.strip().rstrip(".,;")
-        assert unit and any(unit in claim or claim in unit for claim in claims), (
-            f"no evidence is mapped to: {unit}"
-        )
+    assert not uncovered(p0, [phrase for phrase, _, _ in P0.values()])
+
+    # A wave contract that names a later wave's work is claiming it, whatever the map says.
+    for marker in LATER_WAVES:
+        assert marker.lower() not in p0.lower(), f"the P0 contract names {marker}"
 
 
 def test_p0_claims_nothing_that_belongs_to_a_later_wave():
