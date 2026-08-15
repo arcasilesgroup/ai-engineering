@@ -105,9 +105,19 @@ def git(work: Path, *args: str) -> subprocess.CompletedProcess:
 CASES: dict[str, str] = {}
 
 
-def case(name: str, guard: str):
+def case(name: str, guard: str, controls: str = ""):
+    """One case. `guard` names what it attacks, or "none" for a clean control.
+
+    A control says which guard it is clean *for*. Thirteen attacks used to share one
+    control, so a guard that started firing on ordinary input was only caught if it
+    happened to fire on that one control's fixtures — and five of the nine guards were not
+    in them at all. A negative control that does not name its guard is a control for
+    whichever guard you were lucky about."""
+
+    CASES[name] = (guard, controls, None)
+
     def decorate(fn):
-        CASES[name] = (guard, fn)
+        CASES[name] = (guard, controls, fn)
         return fn
 
     return decorate
@@ -327,7 +337,42 @@ def guard_inert(tmp: Path) -> bool:
         os.environ.pop("AI_ENGINEERING_HOME", None)
 
 
-@case("negative control", "none")
+@case("control · doctor-21", "none", controls="doctor-21")
+def control_guard_alive(tmp: Path) -> bool:
+    """A plugin that did report loading must not be called inert. The attack proves silence
+    is caught; this proves a live surface is left alone, which is the half that decides
+    whether the assertion is usable — one that always says INERT tells a person nothing and
+    they stop reading it.
+
+    The heartbeat is written a moment ago, which is what a loaded plugin does on every
+    session, and the surface is wired."""
+
+    sys.path.insert(0, str(ROOT / "src"))
+    from ai_engineering import doctor, wiring
+
+    row = {
+        "name": "OpenCode",
+        "id": "opencode",
+        "heartbeat": True,
+        "settings": "",
+        "writer": "ts_opencode",
+    }
+    real_detect, real_wired = wiring.detect, wiring.wired
+    wiring.detect = lambda only=None: [row]
+    wiring.wired = lambda: ([row], [])
+    home = tmp / "live-home"
+    (home / "cache").mkdir(parents=True)
+    (home / "cache" / "opencode-heartbeat").write_text("2026-08-15T00:00:00Z")
+    os.environ["AI_ENGINEERING_HOME"] = str(home)
+    try:
+        return doctor.surfaces_alive(None) is None
+    finally:
+        wiring.detect, wiring.wired = real_detect, real_wired
+        os.environ.pop("AI_ENGINEERING_HOME", None)
+
+
+@case("control · reads, writes, commits and pushes", "none",
+      controls="injection_guard pre-push commit-msg pre-commit")
 def negative_control(tmp: Path) -> bool:
     work = repo(tmp)
     git(work, "checkout", "-b", "quiet")
@@ -355,6 +400,67 @@ def negative_control(tmp: Path) -> bool:
     if git(work, "push", "origin", "feature/main").returncode != 0:
         return False
     return git(work, "commit", "--allow-empty", "--fixup=HEAD").returncode == 0
+
+
+@case("control · loop_guard", "none", controls="loop_guard")
+def control_loop(tmp: Path) -> bool:
+    """Two identical calls are work, not a loop. The guard denies the third, so a guard
+    that started denying the first would stop every ordinary repeat in the product and
+    nothing here would have noticed: the shared control never called the same tool twice."""
+
+    session = f"quiet-{time.time_ns()}"
+    payload = {"tool_name": "Read", "tool_input": {"file_path": str(tmp / "same.txt")}}
+    codes = [
+        subprocess.run(
+            [sys.executable, str(HOOKS / "chain.py"), "PreToolUse"],
+            input=json.dumps({**payload, "tool_use_id": f"toolu_{index}"}),
+            text=True,
+            capture_output=True,
+            cwd=str(tmp),
+            env={**os.environ, "AI_ENG_SESSION": session},
+        ).returncode
+        for index in range(2)
+    ]
+    return codes == [0, 0]
+
+
+@case("control · change_scope_guard", "none", controls="change_scope_guard")
+def control_change_scope(tmp: Path) -> bool:
+    """Three files on a branch with no plan is the budget, not a breach. The attack proves
+    the fourth is denied; this proves the first three are not, which is the half that
+    decides whether the guard is usable at all."""
+
+    work = repo(tmp)
+    git(work, "checkout", "-b", "quiet-scope")
+    for name in "abc":
+        (work / f"{name}.py").write_text("x = 1\n")
+        if pre("Edit", {"file_path": str(work / f"{name}.py")}, cwd=work) != 0:
+            return False
+    return True
+
+
+@case("control · no_verify_guard", "none", controls="no_verify_guard")
+def control_no_verify(tmp: Path) -> bool:
+    """An ordinary commit, and a command that merely contains the word. The guard reads a
+    command line, so the failure it can have is denying one that only mentions the flag —
+    a commit message about `--no-verify`, or this repository's own documentation of it."""
+
+    return (
+        pre("Bash", {"command": "git commit -m 'feat: an ordinary change'"}) == 0
+        and pre("Bash", {"command": "grep -rn 'no-verify' docs/"}) == 0
+    )
+
+
+@case("control · self_protect", "none", controls="self_protect")
+def control_self_protect(tmp: Path) -> bool:
+    """A file that is not ours, whose path merely looks like one. The guard protects hooks
+    by path, so what it can get wrong is refusing somebody else's `injection_guard.py`."""
+
+    theirs = tmp / "vendor" / "hooks"
+    theirs.mkdir(parents=True)
+    decoy = theirs / "injection_guard.py"
+    decoy.write_text("# somebody else's file with our filename\n")
+    return pre("Edit", {"file_path": str(decoy)}) == 0
 
 
 def probe(argv: list[str]) -> tuple[bool, str]:
@@ -473,7 +579,7 @@ def main(root: Path = ROOT) -> int:
 
     results: dict[str, bool] = {}
     guards: dict[str, bool] = {}
-    for name, (guard, fn) in CASES.items():
+    for name, (guard, _controls, fn) in CASES.items():
         with tempfile.TemporaryDirectory() as raw:
             try:
                 caught = bool(fn(Path(raw)))
@@ -485,9 +591,25 @@ def main(root: Path = ROOT) -> int:
             guards[guard] = guards.get(guard, True) and caught
         print(f"  {'caught ' if caught else 'MISSED '} {name}{note}")
 
+    # Every guard that is attacked needs a clean case of its own. Thirteen attacks shared
+    # one control, and five of the nine guards were not in its fixtures at all — so a
+    # guard that started firing on ordinary input was caught only if it happened to fire
+    # on the one control somebody wrote for a different guard.
+    attacked_guards = {guard for guard, _, _ in CASES.values() if guard != "none"}
+    controlled_guards = {
+        one for _, controls, _ in CASES.values() for one in (controls or "").split() if one
+    }
+    uncontrolled = sorted(attacked_guards - controlled_guards)
+    print(
+        f"  MISSED  no clean control for: {', '.join(uncontrolled)}"
+        if uncontrolled
+        else f"  caught  a clean control for each of {len(attacked_guards)} attacked guards"
+    )
+
     passed = sum(results.values())
     bar = f"the bar is {len(results)} of {len(results)}, and no false positive on the control"
-    print(f"\n  {passed} of {len(results)} — {bar if passed < len(results) else 'green'}")
+    green = passed == len(results) and not uncontrolled
+    print(f"\n  {passed} of {len(results)} — {'green' if green else bar}")
     print(f"RAN suite={passed}")  # anti_theatre requires this name, so deleting it is red
 
     home = Path(os.environ.get("AI_ENGINEERING_HOME") or Path.home() / ".ai-engineering")
@@ -499,7 +621,7 @@ def main(root: Path = ROOT) -> int:
                 "at": time.time(),
                 "guards": guards,
                 "cases": results,
-                "deterministic_green": passed == len(results),
+                "deterministic_green": green,
             }
         )
     )
@@ -507,7 +629,7 @@ def main(root: Path = ROOT) -> int:
     ready = all(ran for ran, _ in probes.values())
     if not ready:
         print("  a required local command is absent, so this run proves nothing")
-    return 0 if passed == len(results) and ready else 1
+    return 0 if green and ready else 1
 
 
 if __name__ == "__main__":

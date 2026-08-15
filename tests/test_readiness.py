@@ -228,10 +228,14 @@ def test_adversarial_runner_records_denials_and_clean_control(tmp_path, monkeypa
     absent, nothing = adversarial.probe([str(tmp_path / "no-such-tool"), "--version"])
     assert (absent, nothing) == (False, "")
 
-    def outcomes(attack: bool, control: bool) -> dict[str, tuple[str, Any]]:
+    def outcomes(attack: bool, control: bool) -> dict[str, tuple[str, str, Any]]:
+        # The middle field is which guard a control is clean *for*. Thirteen attacks used
+        # to share one control, and five of the nine guards were not in its fixtures at
+        # all, so a guard that started firing on ordinary input was caught only if it
+        # happened to fire on a control somebody wrote for a different guard.
         return {
-            "injection · file": ("injection_guard", lambda tmp: attack),
-            "negative control": ("none", lambda tmp: control),
+            "injection · file": ("injection_guard", "", lambda tmp: attack),
+            "negative control": ("none", "injection_guard", lambda tmp: control),
         }
 
     def run(root: Path, attack: bool, control: bool) -> tuple[int, dict[str, dict[str, Any]]]:
