@@ -461,7 +461,16 @@ DESCRIPTION_MAX = 1000
 # And `update --dry-run` reported PASS on an already-pinned repository: "the requested
 # operation and all applicable checks completed", for a run that deliberately did nothing.
 # The already-pinned branch sits above the dry-run branch and returned before it.
-REPO_CEILING = 46_360
+# 46,360 to 46,416 for the fourth of the twenty, and the one with the largest audience.
+# `ai-eng doctor` printed "the hash chain is intact and writable" while `ai-eng audit
+# verify` exited 1 on 22 broken links in the same file. Assertion 6 walked `prev` and
+# `hash` only, so a link sealed as `outcome: "edited"` — the tamper marker, whose hashes
+# match precisely because it was sealed truthfully — passed it. A test pinned the split
+# and its own docstring named the tension it was documenting. Doctor is the summary screen
+# and the verifier is what somebody runs when they already suspect something, so a false
+# green here is the expensive direction. Assertion 6 asks the verifier now rather than
+# re-implementing half of it, which is the plugin's three-copies finding one file over.
+REPO_CEILING = 46_416
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
