@@ -648,7 +648,13 @@ WORDS = {
 COUNTED = (
     ("skills", "README.md", "{Word} written procedures"),
     ("skills", "AGENTS.md", "carries {word} skills"),
-    ("skills", "src/ai_engineering/init.py", "Writes {n} skills into"),
+    # `init.py` is not on this list any more, and this is the one entry that should never
+    # have been. The two sentences here are output about the machine in front of somebody,
+    # not prose about this repository: bound to this repository's count, they printed
+    # "Writes 8 skills" on a machine whose store held three, and the gate stayed green
+    # because the count it checked was ours. They are counted now — the plan off the wheel,
+    # the receipt off the store — and `tests/test_mut_init.py` stands a three-skill wheel in
+    # front of both. Everything left on this list is prose, where there is nothing to count.
     ("verbs", "README.md", "with {word} verbs"),
     ("verbs", "AGENTS.md", "a {word}-verb CLI"),
     ("verbs", "AGENTS.md", "`src/ai_engineering/` — the {word} verbs"),
@@ -737,7 +743,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 47_882
+    assert contract.REPO_CEILING == 47_935
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]

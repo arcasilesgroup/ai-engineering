@@ -148,8 +148,13 @@ def global_step(args) -> outcome.Result:
             mark, style = "wired by name only", "warn"
         rows.append((surface["name"], surface["detect"] or "—", mark, style))
     ui.survey(rows)
+    # Counted from what this wheel carries, not written into the sentence. `already` below
+    # says the same thing about the line it replaced; these two were the same literal, in
+    # the same file, four lines apart.
+    shipped = len(list(paths.skills().glob("ai-*")))
     out(
-        f"\n   Writes 8 skills into {paths.home() / 'skills'}, symlinks from the roots above,\n"
+        f"\n   Writes {shipped} skills into {paths.home() / 'skills'}, symlinks from the "
+        f"roots above,\n"
         f"   and one guard entry in each found surface's own settings file.\n"
         f"   Nothing else is touched. Undo: `ai-eng uninstall`.\n"
     )
@@ -170,7 +175,11 @@ def global_step(args) -> outcome.Result:
             return outcome.result("CANCELLED")
 
     written = wiring.install_skills(found)
-    ui.step("ok", "8 skills  ", f"→ {paths.home() / 'skills'}/ai-*/")
+    # Counted off the store after the copy, so this row reports what landed rather than what
+    # was intended. The line above counts the wheel; a receipt that reads the same number as
+    # the plan cannot contradict it, and contradicting it is the only reason to print one.
+    landed = len(list((paths.home() / "skills").glob("ai-*")))
+    ui.step("ok", f"{landed} skills".ljust(10), f"→ {paths.home() / 'skills'}/ai-*/")
     for row in written[1:]:
         ui.step("ok", f"{row['how']:<8}", f"→ {row['path']}")
     pending_approval = False

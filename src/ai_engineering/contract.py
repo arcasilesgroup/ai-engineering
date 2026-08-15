@@ -608,7 +608,16 @@ DESCRIPTION_MAX = 1000
 # confirmed submit still ends INCOMPLETE, naming the destination that does not exist,
 # because there is no transport here and PASS for work that did not happen is the exact
 # defect `update --dry-run` was fixed for two waves ago.
-REPO_CEILING = 47_882
+# 47,882 to 47,935 for two literals in `init.py`, and for a correction to what I thought
+# they were. I called them unguarded; they were not. `COUNTED` in the contract suite bound
+# "Writes 8 skills into" to this repository's own skill directory, and it turned red inside
+# a minute of the edit. The real defect is one level up: both sentences are output about the
+# machine in front of somebody, and bound to our count they printed eight over a store
+# holding three. The plan line counts the wheel, the receipt line counts what landed, and
+# `tests/test_mut_init.py` stands a three-skill wheel in front of both — which the literal
+# and its gate together could not do. The entry leaves `COUNTED`; everything still on that
+# list is prose, where there is nothing to count.
+REPO_CEILING = 47_935
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

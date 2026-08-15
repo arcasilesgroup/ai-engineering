@@ -324,8 +324,9 @@ def test_the_dry_run_surveys_every_surface_marks_the_found_one_and_writes_nothin
     # nothing here is in a position to make it.
     assert "   VS Code Copilot    —                          wired by name only\n" in text
     assert "\n◇ Global\n" in text
+    shipped = len(list(paths.skills().glob("ai-*")))
     assert (
-        f"   Writes 8 skills into {paths.home() / 'skills'}, symlinks from the roots above,"
+        f"   Writes {shipped} skills into {paths.home() / 'skills'}, symlinks from the roots above,"
     ) in text
     assert "   → skipped.\n" in text
     assert not wiring.receipt_path().exists()
@@ -394,6 +395,33 @@ def test_unattended_and_piped_runs_never_reach_the_widget(home, tty, typed, caps
     assert not wiring.receipt_path().exists()
 
 
+def test_both_skill_counts_are_counted_rather_than_typed(home, capsys, no_keyboard, monkeypatch):
+    """The literal `8` that `already`'s docstring says was removed, in the two lines beside
+    it that still had it.
+
+    A number written into a sentence is a fact about the wheel that shipped the sentence and
+    not about the machine reading it, and this repository's own audit counted that shape
+    twenty times. So the wheel is stood in for with three skills: a count that is read says
+    three, and a count that is typed says eight on a machine where eight is wrong.
+
+    Both lines are here on purpose. They are computed from different things — the first from
+    what the wheel carries, before anything is written, and the second from what landed in
+    the store — because a plan and a receipt that read the same variable cannot disagree,
+    and disagreeing is the whole job of the second one."""
+    shipped = home / "wheel-skills"
+    for name in ("ai-spec", "ai-plan", "ai-review"):
+        (shipped / name).mkdir(parents=True)
+        (shipped / name / "SKILL.md").write_text("---\nname: x\n---\n", encoding="utf-8")
+    monkeypatch.setattr(paths, "skills", lambda: shipped)
+    (home / ".claude").mkdir()
+
+    init.global_step(init.parse(["--global", "--dry-run"]))
+    assert f"   Writes 3 skills into {paths.home() / 'skills'}" in capsys.readouterr().err
+
+    init.global_step(init.parse(["--global", "-y"]))
+    assert f"   ✓ 3 skills   → {paths.home() / 'skills'}/ai-*/\n" in capsys.readouterr().err
+
+
 def test_the_machine_setup_reports_the_skills_every_link_and_each_guard_entry(
     home, capsys, no_keyboard
 ):
@@ -403,7 +431,8 @@ def test_the_machine_setup_reports_the_skills_every_link_and_each_guard_entry(
     (home / ".codex").mkdir()
     init.global_step(init.parse(["--global", "-y"]))
     text = capsys.readouterr().err
-    assert f"   ✓ 8 skills   → {paths.home() / 'skills'}/ai-*/\n" in text
+    installed = len(list((paths.home() / "skills").glob("ai-*")))
+    assert f"   ✓ {installed} skills   → {paths.home() / 'skills'}/ai-*/\n" in text
     found = {s["skills"] for s in wiring.detect() if s.get("skills")}
     assert found == {"~/.claude/skills", "~/.agents/skills"}
     for root in sorted(found):
