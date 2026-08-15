@@ -650,7 +650,11 @@ def test_the_link_branch_leaves_a_skill_this_install_never_wrote(home, capsys, k
     root = home / ".claude" / "skills"
     root.mkdir(parents=True)
     (root / "ai-spec").symlink_to(store / "ai-spec")
-    theirs = root / "ai-design"
+    # A name that is provably not one of ours, asserted rather than assumed: this fixture
+    # used to plant `ai-design`, and the day `ai-design` shipped the "somebody else's skill"
+    # in the test became one of ours and the test stopped testing what it says.
+    theirs = root / "ai-not-one-of-ours"
+    assert not (paths.skills() / theirs.name).exists()
     theirs.symlink_to(home / "somewhere-else")
     wiring.record([{"path": str(root), "kind": "link", "how": "symlink"}])
 

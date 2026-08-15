@@ -146,6 +146,41 @@ def test_no_surface_is_detected_by_a_path_another_surface_makes_us_write():
     )
 
 
+# D-012-04's exit condition, and the three it fired on. Each of these was to survive only
+# if a routing evaluation showed it was distinct; specification 012 records that the
+# comparison has no baseline, no sample and no margin, and that there is no evaluation
+# runner here. No evidence means the condition is not met, which is the fail-closed reading
+# and the only one this repository is allowed — so none of the three shipped, and the work
+# each was going to do has a home that exists.
+ABSORBED = {
+    "ai-test": ".agents/skills/ai-build/SKILL.md",
+    "ai-verify": ".agents/skills/ai-review/references/testing.md",
+    "ai-animation": ".agents/skills/ai-review/references/motion.md",
+}
+
+
+def test_the_three_absorption_candidates_did_not_ship_and_their_work_has_a_home():
+    """A capability that exists to occupy a name is what specification 012's non-goals
+    forbid, and an absorbed one that quietly leaves its work nowhere is worse.
+
+    So this asserts both halves: the three directories do not exist, and the file that
+    absorbed each one does. Add `.agents/skills/ai-animation/` back without a routing
+    evaluation and this goes red naming it."""
+    for name, home in ABSORBED.items():
+        assert not (ROOT / ".agents" / "skills" / name).exists(), (
+            f"{name} shipped without the routing evaluation D-012-04 makes its exit condition"
+        )
+        assert (ROOT / home).is_file(), f"{name} was absorbed into {home}, which does not exist"
+
+    # The two lenses EP-125 and EP-126 ask for, which is where motion and frontend judgement
+    # live now that neither has a skill of its own.
+    lenses = {
+        path.stem
+        for path in (ROOT / ".agents" / "skills" / "ai-review" / "references").glob("*.md")
+    }
+    assert {"frontend", "motion"} <= lenses, sorted(lenses)
+
+
 def test_a_skill_that_names_a_guard_names_one_that_can_deny():
     """D-012-01's other half: a refusal a skill states has to be enforced by something.
 
@@ -676,6 +711,7 @@ WORDS = {
     5: "five",
     8: "eight",
     9: "nine",
+    12: "twelve",
     10: "ten",
     16: "sixteen",
     20: "twenty",
@@ -780,7 +816,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 48_452
+    assert contract.REPO_CEILING == 48_744
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]

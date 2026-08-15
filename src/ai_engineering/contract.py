@@ -663,7 +663,30 @@ DESCRIPTION_MAX = 1000
 # to be in the dispatcher table, and requires anything cited in a refusal list to be a guard
 # on a blocking event. Proved red by pointing one citation at a telemetry hook. Delete
 # either guard and the sentence that leans on it goes red with the file's name on it.
-REPO_CEILING = 48_452
+# 48,452 to 48,744 to close P2's catalogue: two capabilities land, three do not, and the
+# three are the part worth the lines.
+#
+# `ai-security` reasons about a boundary and runs the scanners this repository already
+# pins, and it refuses the two things it has no standing to do — accepting a risk, which is
+# `ai-eng accept` with a named person and an expiry, and declaring compliance, which is a
+# claim about an organisation. `ai-design` is one gateway with four routes, an AA floor and
+# evidence measured off the rendered result rather than the CSS somebody wrote.
+#
+# `ai-test`, `ai-verify` and `ai-animation` do not exist as files. Each was to survive only
+# if a routing evaluation showed it distinct; specification 012 already recorded that the
+# comparison has no baseline, no sample and no margin and that no evaluation runner exists
+# here. No evidence is not weak evidence — the condition is unmet, and fail-closed is the
+# only reading this repository allows itself. Their work has a home: test design is step 2
+# of `ai-build`, mechanical verification is the gate and `references/testing.md`, and motion
+# judgement is the new `references/motion.md` beside the new `references/frontend.md`, which
+# are EP-125 and EP-126. A test asserts both halves, so adding one of the three back without
+# an evaluation turns the build red naming it.
+#
+# Four of the lines are a fixture that stopped testing what it says. `test_install` planted
+# a skill "somebody else installed" and called it `ai-design`, so the day `ai-design`
+# shipped, the foreign skill in the test became one of ours and `uninstall` was right to
+# refuse it. The name is asserted not to be ours now, rather than assumed.
+REPO_CEILING = 48_744
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
