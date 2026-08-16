@@ -935,7 +935,25 @@ DESCRIPTION_MAX = 1000
 # with a capital. Two of the ten open with their own subcommands, so it counted eight and
 # called a correct wheel wrong. The case of a sentence is not evidence of anything, and
 # making it evidence is how a check ends up wrong about something that is right.
-REPO_CEILING = 52_199
+# 52,199 to 52,327 for the deepest thing this push found: every pull request this
+# repository could ever open was INCOMPLETE, and nothing local could see it.
+#
+# GitHub checks out `refs/pull/N/merge` — a merge of the branch into its base — and the MADR
+# validator walked that merge's edges as transitions. The edge from the base parent leaps
+# over every state each decision passed through on the branch, and each of those was
+# validated where it was made. Judged as a transition, the leap fails. Reproduced by
+# building the same merge shape locally with `commit-tree`, which is the only way to see it:
+# nothing in a linear checkout ever validates a merge commit.
+#
+# The rule is about content, not shape. A merge whose decisions are one parent's decisions
+# introduced none of its own. A merge that resolved to a set neither parent holds is work no
+# line has reviewed, and every one of its edges still has to be legal — with a fixture that
+# jumps a decision from proposed straight to superseded and is refused.
+#
+# And one identity: the DAG test's own merge ran without the author every other write in
+# that file carries, so it passed for everyone with a configured git user and for no CI
+# runner.
+REPO_CEILING = 52_327
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

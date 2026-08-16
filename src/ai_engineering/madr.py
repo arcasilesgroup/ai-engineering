@@ -764,6 +764,19 @@ def _transitions(
     empty = _Snapshot({}, {}, {})
     for revision in revisions:
         sources = parents[revision] or ("",)
+        # A merge whose decisions are one parent's decisions introduced none of its own, and
+        # the edge from the other parent is a leap over states that were each validated where
+        # they were made. Judging that leap as a transition fails every merge whose second
+        # parent is more than one decision behind — which is every pull request, and which is
+        # why this was invisible until a branch first reached CI: locally nothing ever
+        # validates a merge commit.
+        #
+        # A merge that resolved to a set neither parent holds is new work that no line has
+        # reviewed, and every one of its edges still has to be a legal transition.
+        if len(sources) > 1 and any(
+            parent and snapshots[parent] == snapshots[revision] for parent in sources
+        ):
+            continue
         for parent in sources:
             if not _edge_valid(
                 empty if not parent else snapshots[parent],

@@ -511,6 +511,22 @@ def _commit_existing(root: Path, message: str) -> None:
     )
 
 
+def _merge(root: Path, branch: str) -> None:
+    """A merge commit, with the same identity every other write here uses."""
+    subprocess.run(
+        ["git", "merge", "--quiet", "--no-ff", branch, "-m", "merge"],
+        cwd=root,
+        check=True,
+        env={
+            **os.environ,
+            "GIT_AUTHOR_NAME": "role",
+            "GIT_AUTHOR_EMAIL": "role",
+            "GIT_COMMITTER_NAME": "role",
+            "GIT_COMMITTER_EMAIL": "role",
+        },
+    )
+
+
 def _git_status(root: Path) -> list[str]:
     result = subprocess.run(
         ["git", "status", "--short"], cwd=root, check=True, capture_output=True, text=True
@@ -901,9 +917,10 @@ def test_madr_reviewer_repro_checks_each_git_dag_edge(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     _commit_existing(root, "left proposal")
-    subprocess.run(
-        ["git", "merge", "--quiet", "--no-ff", "right", "-m", "merge"], cwd=root, check=True
-    )
+    # The identity every other write in this file carries. Without it the merge commit
+    # cannot be created on a machine with no configured user, which is every CI runner —
+    # so this test passed for everyone who already had one and for no one else.
+    _merge(root, "right")
     assert madr.validate(root).outcome == "PASS"
 
 
@@ -1565,3 +1582,83 @@ def test_an_approved_specification_still_hashes_to_what_was_approved():
             f"{folder}/spec.md was approved at {approved} and now hashes to {now}: "
             f"either revert the edit or take the approval again"
         )
+
+
+def test_a_merge_that_changes_no_decision_is_not_a_transition(tmp_path: Path) -> None:
+    """The case that fails every pull request, and that nothing local can see.
+
+    GitHub checks out `refs/pull/N/merge`: a merge of the branch into its base. Its edge
+    from the base parent leaps over every state each decision passed through on the branch —
+    and each of those was validated where it was made. Judged as a transition, that leap
+    fails, so every pull request in a repository with more than one decision behind it was
+    INCOMPLETE. Nothing local validates a merge commit, which is why it took a first push.
+    """
+
+    corpus = json.loads(FIXTURE_PATH.read_text())
+    root = tmp_path / "behind"
+    _write_repository(root, corpus["base"], corpus["body"])
+    _commit(root, "proposed")
+    subprocess.run(["git", "branch", "base"], cwd=root, check=True)
+
+    # The branch moves a decision through every legal state it has.
+    decision = root / "docs" / "adr" / "0001-decision.md"
+    decision.write_text(
+        _render_madr(
+            {**corpus["base"], "status": "accepted", **corpus["approval"]}, corpus["body"]
+        ),
+        encoding="utf-8",
+    )
+    _commit_existing(root, "accepted")
+    decision.write_text(
+        _render_madr(
+            {**corpus["base"], "status": "superseded", **corpus["approval"]}, corpus["body"]
+        ),
+        encoding="utf-8",
+    )
+    (root / "docs" / "adr" / "0002-successor.md").write_text(
+        _render_madr({**corpus["base"], "id": "0002", "title": "Successor"}, corpus["body"]),
+        encoding="utf-8",
+    )
+    _commit_existing(root, "superseded")
+
+    # The base is two states behind, and the merge takes the branch's decisions unchanged.
+    subprocess.run(["git", "checkout", "--quiet", "base"], cwd=root, check=True)
+    _merge(root, "main")
+
+    assert madr.validate(root).outcome == "PASS"
+
+
+def test_a_merge_that_invents_a_state_neither_parent_holds_is_refused(tmp_path: Path) -> None:
+    """The other half, and the reason the rule above is about content rather than shape.
+
+    A merge whose decisions are neither parent's is work no line has reviewed, so every one
+    of its edges still has to be a legal transition. Here the resolution jumps a decision
+    straight from proposed to superseded, which no allowed edge permits."""
+
+    corpus = json.loads(FIXTURE_PATH.read_text())
+    root = tmp_path / "invented"
+    _write_repository(root, corpus["base"], corpus["body"])
+    _commit(root, "proposed")
+    subprocess.run(["git", "branch", "base"], cwd=root, check=True)
+
+    (root / "docs" / "adr" / "0002-successor.md").write_text(
+        _render_madr({**corpus["base"], "id": "0002", "title": "Successor"}, corpus["body"]),
+        encoding="utf-8",
+    )
+    _commit_existing(root, "a second proposal")
+
+    subprocess.run(["git", "checkout", "--quiet", "base"], cwd=root, check=True)
+    _merge(root, "main")
+
+    # The merge resolves to something neither side held: proposed straight to superseded.
+    (root / "docs" / "adr" / "0001-decision.md").write_text(
+        _render_madr(
+            {**corpus["base"], "status": "superseded", **corpus["approval"]}, corpus["body"]
+        ),
+        encoding="utf-8",
+    )
+    _commit_existing(root, "an invented state")
+
+    result = madr.validate(root)
+    assert result.outcome == "INCOMPLETE"
+    assert result.code == "MADR_TRANSITION_INVALID"
