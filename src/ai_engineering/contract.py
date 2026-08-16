@@ -1193,7 +1193,14 @@ DESCRIPTION_MAX = 1000
 # the three things a test pass may not do, the evidence manifest whose row is INCOMPLETE
 # until every column is filled, and allowlists that run without `--fix` because a formatter
 # that repairs what it measures reports on a file that no longer exists.
-REPO_CEILING = 54_704
+# 54,704 to 54,716 for the shape a security finding is written in — seven fields and no
+# eighth, a blank one making the finding INCOMPLETE. It lives in the skill and not in
+# `policy/` deliberately: a schema there is a contract something produces, and nothing in
+# this wave produces a finding. `scan.py` runs engines and reads exit codes, and D-014-01
+# decided against reimplementing their parsers. Shipping a schema with no producer is the
+# defect the three commits above this one were spent removing, and doing it again in the
+# same afternoon would say the lesson had not been learnt.
+REPO_CEILING = 54_723
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

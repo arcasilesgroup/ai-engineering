@@ -39,7 +39,12 @@ command that produced it and its outcome.
    here, and keep it only if that case fails. An unexploitable finding spends somebody's
    afternoon and teaches them to skip the next one.
 6. Report each finding as PASS, FAIL or INCOMPLETE with the command beside it. Nothing is
-   PASS because it looks fine; INCOMPLETE is the honest answer and it is not a failure.
+   PASS because it looks fine; INCOMPLETE is the honest answer and it is not a failure. One
+   finding is seven fields and no eighth: the boundary it crosses, what an attacker controls,
+   the reachable effect, the state, the exact command or the file and line that decides it,
+   the refutation you tried in step 5, and what would close it. A field left blank makes the
+   finding INCOMPLETE — a finding whose effect nobody wrote down is a preference with a
+   severity attached.
 7. Stop at the boundary of your authority. Accepting a risk is `ai-eng accept` with a named
    person, a reason and an expiry date. Compliance is a claim about an organisation and this
    skill has no standing to make one.

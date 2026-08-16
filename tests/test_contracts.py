@@ -848,7 +848,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 54_704
+    assert contract.REPO_CEILING == 54_723
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1208,6 +1208,13 @@ SKILL_CONTENT = (
     ("EP-127", "ai-review/references/testing.md", "The evidence manifest"),
     ("EP-127", "ai-review/references/testing.md", "A row missing a column is INCOMPLETE"),
     ("EP-128", "ai-review/references/testing.md", "Allowlists run without `--fix`"),
+    # The shape a finding is written in. It lives in the skill and not in `policy/` on
+    # purpose: a schema in `policy/` is a contract something produces, and nothing in this
+    # wave produces a finding — `scan.py` runs engines and reads exit codes, and D-014-01
+    # decided not to reimplement their parsers. Shipping a schema with no producer is the
+    # defect three commits above this one were spent removing.
+    ("EP-041", "ai-security/SKILL.md", "seven fields and no eighth"),
+    ("EP-261", "ai-security/SKILL.md", "A field left blank makes the\n   finding INCOMPLETE"),
 )
 
 
