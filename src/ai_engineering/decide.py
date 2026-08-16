@@ -355,15 +355,29 @@ def accept(root: Path, number: str) -> outcome.Result:
     makes the change reviewable — so this writes the record and names the commit rather
     than making it."""
 
-    # Four digits and nothing else, checked before the value reaches a glob. `--accept`
-    # takes text off the command line and this built a pattern out of it: `..` is a legal
-    # glob segment, so `--accept ../../../../etc/rc` matched a file outside `docs/adr` and
-    # the rewrite below would have edited it. A framework whose subject is filesystem
-    # authority does not get to make that mistake in its own record verb.
+    # Four digits and nothing else, and then the directory is read rather than searched.
+    # `--accept` takes text off the command line and this built a glob pattern out of it:
+    # `..` is a legal glob segment, so `--accept ../../../../etc/rc` matched a file outside
+    # `docs/adr` and the rewrite below would have edited it. A framework whose subject is
+    # filesystem authority does not get to make that mistake in its own record verb.
+    #
+    # Both halves, and the second is the one that holds. A validated number is a promise
+    # about this call; listing the directory and comparing names is a property of the code —
+    # every path here comes from `adr_dir(root)` and the argument never touches path
+    # construction at all, so there is no spelling of it that reaches outside.
     if re.fullmatch(r"[0-9]{4}", number) is None:
         print(f"  INCOMPLETE: {number!r} is not a four-digit MADR number")
         return outcome.result("INCOMPLETE")
-    found = sorted(adr_dir(root).glob(f"{number}-*.md"))
+    try:
+        entries = sorted(adr_dir(root).iterdir())
+    except OSError:
+        print("  INCOMPLETE: docs/adr could not be read")
+        return outcome.result("INCOMPLETE")
+    found = [
+        entry
+        for entry in entries
+        if entry.is_file() and entry.suffix == ".md" and entry.name.startswith(f"{number}-")
+    ]
     if len(found) != 1:
         print(f"  INCOMPLETE: {len(found)} MADRs are numbered {number}")
         return outcome.result("INCOMPLETE")

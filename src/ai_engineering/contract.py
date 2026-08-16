@@ -1073,7 +1073,15 @@ DESCRIPTION_MAX = 1000
 # outside `docs/adr`. The other three: an acceptance schema whose patterns are compiled
 # against text a person wrote and whose bytes nothing pinned, a redundant alternative that
 # made a lone dot look special when it never was, and an alternation left to precedence.
-REPO_CEILING = 53_032
+# 53,032 to 53,112 for the two that a validated argument does not settle. The traversal
+# fix was right and the scanner still reported it, because a promise about one call is not
+# a property of the code: `accept` now reads `docs/adr` and compares names, so every path
+# it handles comes from that directory and the argument never reaches path construction at
+# all. The same shape one file over: the acceptance contract's seven expressions are
+# written out in source and `_pattern` refuses one it does not hold, so nothing compiles an
+# expression out of a file's contents. The digest pin stays; it is the promise, and this is
+# the property. A test holds the two sides together in both directions.
+REPO_CEILING = 53_112
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -757,6 +757,42 @@ def test_unified_reader_separates_integrity_from_binding_freshness(tmp_path) -> 
     assert acceptance.current(root).code == "ACCEPTANCE_CHECKSUM"
 
 
+def test_every_expression_the_contract_states_is_written_in_source_and_no_others() -> None:
+    """The schema is digest-pinned and its expressions are written out in `acceptance.py`,
+    and those are two controls with one job between them: nothing compiles a regular
+    expression out of a file's contents. This is the joint. If the schema grows a pattern
+    the module does not hold, validation refuses instead of compiling it — and this fails
+    first, in the suite, naming the pattern, rather than at a user's next `doctor`.
+
+    Both directions. A pattern in source that the schema no longer states is dead weight
+    that reads as coverage."""
+
+    from ai_engineering import acceptance
+
+    stated: list[str] = []
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            if "pattern" in node:
+                stated.append(node["pattern"])
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(acceptance.schema())
+
+    assert stated, "the contract states no patterns at all, so this proves nothing"
+    assert set(stated) == set(acceptance._PATTERNS), sorted(set(stated) ^ set(acceptance._PATTERNS))
+    for source in stated:
+        assert acceptance._pattern(source).pattern == source
+
+    with pytest.raises(acceptance.Refusal) as refused:
+        acceptance._pattern("^never-stated$")
+    assert refused.value.code == "ACCEPTANCE_CONTRACT_UNRECOGNISED"
+
+
 def test_a_legacy_block_written_on_windows_is_read_and_bound_to_its_own_bytes(tmp_path) -> None:
     """The same file, with the line endings half the world writes.
 

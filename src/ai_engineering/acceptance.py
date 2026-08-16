@@ -25,7 +25,6 @@ import re
 import stat
 from dataclasses import dataclass, field, replace
 from datetime import date
-from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -56,16 +55,35 @@ _DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
-@lru_cache(maxsize=64)
+# The seven expressions the contract states, written out here as source. Compiling the
+# string a file happens to hold is how a regular expression stops being ours: the schema is
+# digest-pinned above and that is a good control, but a pin is a promise about bytes and
+# this is the code that would run if the promise were ever wrong. Written here, the set is
+# closed by the language rather than by a check — nothing constructs an expression at all —
+# and `_pattern` refuses a pattern it does not already hold, which is the same refusal the
+# digest makes, one layer in, where the compiling actually happens.
+_EVIDENCE_PATH = r"^(?:(?!\.\.?(?:/|$))[^/\\\u0000-\u001f]+/)*(?!\.\.?$)[^/\\\u0000-\u001f]+$"
+_PATTERNS: dict[str, re.Pattern[str]] = {
+    "^R-[0-9]{3}-[0-9]{2}$": re.compile(r"^R-[0-9]{3}-[0-9]{2}$"),
+    "^[0-9]{3}$": re.compile(r"^[0-9]{3}$"),
+    "^(|R-[0-9]{3}-[0-9]{2})$": re.compile(r"^(|R-[0-9]{3}-[0-9]{2})$"),
+    "^(|sha256:[0-9a-f]{64})$": re.compile(r"^(|sha256:[0-9a-f]{64})$"),
+    "^sha256:[0-9a-f]{64}$": re.compile(r"^sha256:[0-9a-f]{64}$"),
+    "^[0-9]{4}-[0-9]{2}-[0-9]{2}$": re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"),
+    _EVIDENCE_PATH: re.compile(_EVIDENCE_PATH),
+}
+
+
 def _pattern(source: str) -> re.Pattern[str]:
-    """One compiler for every schema pattern, and one place they are counted.
+    """The compiled expression this contract states, or a refusal."""
 
-    Compiled once rather than on each field of each block: the register is read whole
-    on every `doctor` run and the same handful of expressions were being rebuilt for
-    every value in it. The cache is bounded, because an unbounded one keyed on a string
-    is a place to put unbounded strings."""
-
-    return re.compile(source)
+    found = _PATTERNS.get(source)
+    if found is None:
+        raise Refusal(
+            "ACCEPTANCE_CONTRACT_UNRECOGNISED",
+            "the contract states an expression this release does not hold",
+        )
+    return found
 
 
 _NOT_A_STRING = frozenset({"true", "false", "yes", "no", "on", "off", "null", "~"})
