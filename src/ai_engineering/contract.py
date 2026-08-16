@@ -1617,7 +1617,27 @@ DESCRIPTION_MAX = 1000
 # words that a row there is not a pass, and the audit counts them INCOMPLETE. What changes is
 # that the unproven half of this proposal is now two things a person can tell apart: work
 # that is queued, and decisions that were taken — each with what would reopen it.
-REPO_CEILING = 58_683
+#
+# 58,683 to 58,844 for two more surface adapters, and for the defect the first of them
+# exposed on its first run.
+#
+# `payload_field` is closed on our four canonical names, so the schema says the key is ours
+# and the value is what that surface sends. `chain.adapter_aliases` read the pair the other
+# way round. Nothing could tell: the only adapter that existed mapped every name to itself,
+# so both readings agreed and neither the schema nor the loop could be shown wrong. Two
+# identity mappings are not a test of a translation, and the first real one would have
+# renamed `tool_input` to `args` on every surface at once — emptying the payload that every
+# write guard reads, which is how a whole fleet of surfaces goes silently unguarded.
+#
+# Two fixtures had encoded the wrong direction too, so the planted-spelling test was
+# planting a shape the schema refuses. Both are the right way round now, and a new test
+# reads every shipped adapter against the table in the direction the schema declares.
+#
+# OpenCode and VS Code Copilot are the two: the tree already knew what each sends, from the
+# plugin we install and from the settings file the second one shares with the first. Codex,
+# Cursor and Copilot CLI get none, and that is the same refusal as the layer below — an
+# adapter written from a guess is fabricated detection with a longer name.
+REPO_CEILING = 58_844
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -108,7 +108,17 @@ def adapter_aliases() -> dict:
             continue
         if not isinstance(fields, dict):
             continue
-        for sent, ours in fields.items():
+        # The key is our canonical name and the value is what that surface sends, because
+        # that is what the schema declares: `payload_field` is closed on our four names, so
+        # a typo in a key is refused rather than silently becoming a translation nobody
+        # asked for. This function needs the other direction, so it inverts.
+        #
+        # It read the pair the wrong way round until the second adapter landed. The only one
+        # that existed mapped every name to itself, so both readings agreed and neither the
+        # schema nor this loop could be wrong — and the first non-identity adapter would have
+        # renamed `tool_input` to `args` on every surface at once, emptying the payload every
+        # write guard reads. Two identity mappings are not a test of a translation.
+        for ours, sent in fields.items():
             if isinstance(sent, str) and isinstance(ours, str) and sent and ours:
                 aliases[sent] = ours
     return aliases

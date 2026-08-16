@@ -1413,7 +1413,11 @@ def test_a_spelling_declared_only_in_an_adapter_reaches_the_guards(tmp_path, mon
                 "schema_version": "1",
                 "surface_id": "invented",
                 "adapter_version": "1",
-                "translations": {"payload_field": {"toolNameInSomeOtherDialect": "tool_name"}},
+                # Our canonical name is the key and the surface's spelling is the value,
+                # which is what the schema declares and what `adapter_aliases` inverts. This
+                # fixture had it the other way round and passed, because the only adapter
+                # shipping at the time mapped every name to itself.
+                "translations": {"payload_field": {"tool_name": "toolNameInSomeOtherDialect"}},
             }
         ),
         encoding="utf-8",
@@ -1434,7 +1438,7 @@ def test_an_adapter_nobody_can_parse_costs_its_own_surface_and_no_other(tmp_path
     adapters.mkdir()
     (adapters / "broken.adapter.json").write_text("{not json", encoding="utf-8")
     (adapters / "fine.adapter.json").write_text(
-        json.dumps({"translations": {"payload_field": {"aDialect": "tool_name"}}}), encoding="utf-8"
+        json.dumps({"translations": {"payload_field": {"tool_name": "aDialect"}}}), encoding="utf-8"
     )
     monkeypatch.setattr(chain, "ADAPTERS", adapters)
 

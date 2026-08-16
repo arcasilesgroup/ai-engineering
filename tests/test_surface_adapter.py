@@ -910,3 +910,58 @@ def test_an_adapter_past_its_first_version_carries_that_version_in_its_receipt_i
     # And the rule is shown biting, on an adapter that does what the schema warns about.
     moved = {"adapter_version": "2", "proof": {"receipt_id": "claude-code.enforcement"}}
     assert str(moved["adapter_version"]) not in str(moved["proof"]["receipt_id"])
+
+
+def test_the_adapter_table_is_read_in_the_direction_its_schema_declares():
+    """The defect two non-identity adapters exposed on their first run.
+
+    `payload_field` is closed on our four canonical names, so the key is ours and the value
+    is what that surface sends — a typo in a key is refused rather than quietly becoming a
+    translation nobody asked for. `chain.adapter_aliases` needs the other direction and read
+    the pair the wrong way round.
+
+    Nothing could tell, because the only adapter that existed mapped every name to itself:
+    both readings agreed, and two identity mappings are not a test of a translation. The
+    first non-identity adapter would have renamed `tool_input` to `args` on every surface at
+    once, emptying the payload that every write guard reads — which is how a whole fleet of
+    surfaces is silently unguarded.
+    """
+    import json
+
+    import chain
+
+    aliases = chain.adapter_aliases()
+    for path in sorted(chain.ADAPTERS.glob("*.adapter.json")):
+        declared = json.loads(path.read_text(encoding="utf-8"))
+        for ours, sent in declared["translations"]["payload_field"].items():
+            assert aliases[sent] == ours, (
+                f"{path.name}: the table turns {sent!r} into {aliases.get(sent)!r}, and the "
+                f"adapter says that surface sends {sent!r} for our {ours!r}"
+            )
+
+    # And end to end, on a surface that does not spell anything the way we do.
+    payload = chain.normalise({"tool": "Write", "args": {"filePath": "/tmp/x"}})
+    assert payload["tool_name"] == "Write"
+    assert payload["tool_input"]["file_path"] == "/tmp/x"
+
+
+def test_every_surface_with_an_adapter_declares_one_the_schema_accepts():
+    """Two more landed, and each is a claim about somebody else's software. What keeps them
+    honest is the closed schema: an adapter naming a surface this project does not wire, or
+    a field outside the four, is refused rather than merged into the table."""
+    import json
+
+    import chain
+
+    declared = {
+        json.loads(path.read_text(encoding="utf-8"))["surface_id"]
+        for path in chain.ADAPTERS.glob("*.adapter.json")
+    }
+    assert {"claude-code", "opencode", "vscode-copilot"} <= declared
+
+    # The surfaces with no adapter have none because nobody has read their payload, not
+    # because nobody thought about it — writing one from a guess is the fabricated detection
+    # this project already refuses one layer down.
+    assert "codex-cli" not in declared, (
+        "an adapter for codex-cli would be a claim about a payload no receipt has ever shown"
+    )
