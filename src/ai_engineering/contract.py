@@ -1486,7 +1486,23 @@ DESCRIPTION_MAX = 1000
 # a skill's instructions are any good. A green from something named evaluation reads as an
 # evaluation of the writing, and this is the repository that keeps finding controls that
 # read stronger than they are.
-REPO_CEILING = 57_122
+#
+# 57,122 to 57,380 for the finding nothing produced. `ai-security` defines one as seven
+# fields and no eighth, and `just security` printed "it found something" and stopped, so the
+# next move was always to run the engine again by hand. It runs itself now, on a failed lane
+# only, in the output format its own vendor documents — reading SARIF is not reimplementing
+# a detector, which is what D-014-01 refused, it is the alternative to doing so.
+#
+# Three of the seven fields a scanner can fill and four it cannot: the boundary crossed,
+# what an attacker controls, the refutation somebody tried and what would close it are
+# judgements nobody has made. So every finding that arrives this way arrives INCOMPLETE by
+# the skill's own rule and names which four are blank. A scanner hit that reads as a
+# completed finding is a preference with a severity attached, and a queue of those is how a
+# team learns to skip the next one — the same green nobody earned, with the sign reversed.
+#
+# EP-262's nine detector classes stay refused, and the refusal is in the register with what
+# would reopen it rather than in a commit message nobody will find.
+REPO_CEILING = 57_380
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

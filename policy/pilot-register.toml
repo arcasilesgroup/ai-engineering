@@ -235,3 +235,9 @@ id = "EP-324"
 asks = "no code before an approved plan"
 reason = "`hooks/change_scope_guard.py` reads whether a plan exists on the branch, which is the weaker of the two questions and the only one a hook can answer inside its latency budget. Approval here is an MADR naming an exact digest; no plan in this repository has one, so a guard demanding it would deny every write on every branch including the one writing the plan."
 reopen_when = "a plan is approved by digest in an accepted MADR, so the guard has something to read that is not itself"
+
+[[ungated]]
+id = "EP-262"
+asks = "nine classes of security detector, written here as code"
+reason = "D-014-01 refused to reimplement the engines' detectors: a detector we wrote is one more thing to keep current with the vendors who write theirs full time, and the wrong answer arrives wearing our name. What executes instead is the reading of what those engines already produce — `scan.report` parses each lane's own SARIF into the seven-field finding the skill defines, and every one of them arrives INCOMPLETE naming the four fields no scanner can fill."
+reopen_when = "a class of finding matters to this framework and no pinned engine detects it, which makes writing that one detector cheaper than living without it"

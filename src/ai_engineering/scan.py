@@ -40,6 +40,10 @@ class Lane:
     findings_exit: int = 1
     timeout: int = DEFAULT_TIMEOUT
     extra: tuple[str, ...] = field(default=())
+    # How this engine is asked for SARIF, with `{}` standing for the file it writes. Empty
+    # means it was never asked: `report` then says so rather than reporting nothing found,
+    # which is the same distinction the whole module is about, one level down.
+    sarif: tuple[str, ...] = field(default=())
 
 
 def _incomplete(lane: Lane, code: str, why: str, cure: str) -> outcome.Fact:
@@ -140,7 +144,12 @@ def run(lane: Lane, root: Path, inputs: list[str]) -> outcome.Fact:
 # future reader of it see the same list. Each `findings_exit` is the engine's documented
 # code for "I found something"; anything else it can exit is undefined and INCOMPLETE.
 BASELINE = (
-    Lane("secrets", ("gitleaks", "dir"), extra=("--redact", "--no-banner", "--exit-code", "1")),
+    Lane(
+        "secrets",
+        ("gitleaks", "dir"),
+        extra=("--redact", "--no-banner", "--exit-code", "1"),
+        sarif=("--report-format", "sarif", "--report-path", "{}"),
+    ),
     Lane(
         "semantic",
         ("semgrep", "scan"),
@@ -149,6 +158,7 @@ BASELINE = (
         # prints the new value. A pin nobody has to update is a pin nobody notices missing.
         rules_digest="81adf3bdbd24ca883bbc75d659e9a44ba0967ef4c4445628bb78f63f85a26c2a",
         extra=("--config", "policy/semgrep.yml", "--error", "--quiet"),
+        sarif=("--sarif-output", "{}"),
     ),
     Lane(
         "dependencies",
@@ -161,6 +171,7 @@ BASELINE = (
             "--severity",
             "CRITICAL,HIGH,MEDIUM",
         ),
+        sarif=("--format", "sarif", "--output", "{}"),
     ),
 )
 
@@ -220,6 +231,113 @@ CROSS_CHECKS = (
 )
 
 
+# The seven fields `ai-security` says one finding is, and no eighth. Three of them a scanner
+# can fill and four of them it cannot, which is the whole reason this record exists rather
+# than a line of engine output pasted into a report: the effect, the location and the command
+# are observations, and the boundary crossed, what an attacker controls, the refutation
+# somebody tried and what would close it are judgements nobody has made yet.
+#
+# So every finding a scanner produces is INCOMPLETE by the skill's own rule — a field left
+# blank makes the finding INCOMPLETE — and it names which fields are blank. A scanner hit
+# presented as a completed finding is a preference with a severity attached, and a queue of
+# them is how a team learns to skip the next one.
+UNANSWERED = "nobody has answered this"
+
+
+@dataclass(frozen=True, slots=True)
+class Finding:
+    """One finding in the seven fields the skill defines, and no eighth."""
+
+    boundary: str
+    attacker_controls: str
+    effect: str
+    state: str
+    decided_by: str
+    refutation: str
+    closed_by: str
+
+    def blank(self) -> tuple[str, ...]:
+        return tuple(
+            name
+            for name in ("boundary", "attacker_controls", "refutation", "closed_by")
+            if getattr(self, name) == UNANSWERED
+        )
+
+
+def _results(report: Path) -> list[dict]:
+    """Every result in a SARIF file, or nothing if it is not one.
+
+    SARIF is the engines' own output format and reading it is not reimplementing their
+    detectors, which is what `D-014-01` refused. A file that is not SARIF, or that this
+    version of the format nests differently, yields no results — and `report` turns that
+    into an INCOMPLETE rather than a clean answer.
+    """
+
+    import json
+
+    try:
+        loaded = json.loads(report.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(loaded, dict):
+        return []
+    found: list[dict] = []
+    for run_of in loaded.get("runs", []):
+        if isinstance(run_of, dict):
+            found.extend(row for row in run_of.get("results", []) if isinstance(row, dict))
+    return found
+
+
+def report(lane: Lane, root: Path, inputs: list[str]) -> list[Finding]:
+    """Ask a lane's engine what it found, in its own words, as findings.
+
+    Run separately and only when a lane has already failed: the gate's verdict comes from
+    the exit code and nothing here may change it. The second run costs nothing on a green
+    gate and, on a red one, is the difference between "it found something" and a list
+    somebody can act on.
+    """
+
+    if not lane.sarif or not inputs:
+        return []
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as area:
+        where = Path(area) / "report.sarif"
+        flags = tuple(flag.format(where) for flag in lane.sarif)
+        try:
+            subprocess.run(
+                [*lane.argv, *lane.extra, *flags, *inputs],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                timeout=lane.timeout,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return []
+        rows = _results(where)
+
+    findings = []
+    for row in rows:
+        first = (row.get("locations") or [{}])[0]
+        physical = first.get("physicalLocation", {}) if isinstance(first, dict) else {}
+        at = physical.get("artifactLocation", {}).get("uri", "an unnamed file")
+        line = physical.get("region", {}).get("startLine", "?")
+        message = row.get("message", {}).get("text", "").strip() or row.get("ruleId", "")
+        findings.append(
+            Finding(
+                boundary=UNANSWERED,
+                attacker_controls=UNANSWERED,
+                effect=" ".join(message.split())[:200],
+                state="INCOMPLETE",
+                decided_by=f"{' '.join(lane.argv)} — {at}:{line}",
+                refutation=UNANSWERED,
+                closed_by=UNANSWERED,
+            )
+        )
+    return findings
+
+
 def cross_check(lane: Lane, root: Path, inputs: list[str]) -> outcome.Fact:
     """A second opinion, or the honest answer that nobody asked for one.
 
@@ -254,6 +372,16 @@ def baseline(root: Path) -> int:
         print(f"  {fact.status:<11} {lane.id:<13} {fact.detail}")
         if fact.status != "PASS":
             worst = 1
+        if fact.status == "FAIL":
+            # "It found something" is where a security gate used to stop, and the next move
+            # was always to run the engine again by hand. It runs itself now, in its own
+            # output format, and every finding arrives INCOMPLETE with the four fields no
+            # scanner can fill named — because a scanner hit that reads as a completed
+            # finding is exactly the green nobody earned, with the sign reversed.
+            for finding in report(lane, root, ["."]):
+                print(f"  {finding.state:<11} {lane.id:<13} {finding.effect}")
+                print(f"  {'':<11} {'':<13} decided by {finding.decided_by}")
+                print(f"  {'':<11} {'':<13} nobody has answered: {', '.join(finding.blank())}")
     # What the dependency answer was about, named. `trivy fs .` reads every repository and
     # names no stack, so one whose manifests the engine does not support passes exactly like
     # one it read and found nothing in. A repository with no manifest at all is declining a

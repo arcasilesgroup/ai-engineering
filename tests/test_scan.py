@@ -263,3 +263,111 @@ def test_the_dependency_answer_names_the_stacks_it_was_about(tmp_path, capsys):
     bare = tmp_path / "bare"
     bare.mkdir()
     assert scan.stacks(bare) == [] and scan.images(bare) == []
+
+
+# EP-043 and the standing overclaim beside it. `ai-security` defines a finding as seven
+# fields and no eighth, and until now nothing in this repository produced one: `just
+# security` printed "it found something" and the next move was always to run the engine
+# again by hand. These fixtures drive real SARIF through the reader, including SARIF that
+# is not SARIF, because a reader that only ever meets well-formed input is a reader nobody
+# has watched fail.
+SARIF = """{"version": "2.1.0", "runs": [{"results": [
+  {"ruleId": "policy.shell-with-user-string",
+   "message": {"text": "A shell string built from a variable."},
+   "locations": [{"physicalLocation": {
+     "artifactLocation": {"uri": "src/thing.py"}, "region": {"startLine": 12}}}]}
+]}]}"""
+
+
+def writer(tmp_path: Path, body: str) -> tuple[str, ...]:
+    """An engine that writes the report it was asked for, then exits as a finding."""
+    script = tmp_path / "reporter.py"
+    script.write_text(
+        "import sys\n"
+        "where = sys.argv[sys.argv.index('--out') + 1]\n"
+        f"open(where, 'w', encoding='utf-8').write({body!r})\n"
+        "raise SystemExit(1)\n",
+        encoding="utf-8",
+    )
+    return (sys.executable, str(script))
+
+
+def test_a_finding_a_scanner_produced_is_seven_fields_and_incomplete(tmp_path):
+    """The four fields a scanner cannot fill are the reason the record exists.
+
+    The effect, the location and the command are observations. The boundary crossed, what an
+    attacker controls, the refutation somebody tried and what would close it are judgements,
+    and no engine has made any of them. The skill's own rule is that a blank field makes the
+    finding INCOMPLETE, so every finding that arrives this way arrives INCOMPLETE and names
+    which four are blank — a scanner hit presented as a completed finding is a preference
+    with a severity attached."""
+    from ai_engineering import scan
+
+    lane = scan.Lane("semantic", writer(tmp_path, SARIF), sarif=("--out", "{}"))
+    found = scan.report(lane, tmp_path, ["src/thing.py"])
+
+    assert len(found) == 1
+    finding = found[0]
+    assert finding.state == "INCOMPLETE"
+    assert finding.effect == "A shell string built from a variable."
+    assert "src/thing.py:12" in finding.decided_by
+    assert finding.blank() == ("boundary", "attacker_controls", "refutation", "closed_by")
+
+    # Seven and no eighth, read off the record rather than counted here by hand.
+    from dataclasses import fields
+
+    assert len(fields(scan.Finding)) == 7
+
+
+def test_a_lane_never_asked_for_sarif_reports_nothing_rather_than_nothing_found(tmp_path):
+    """The same distinction the module is named for, one level down: an engine nobody asked
+    for a report has not reported that there is nothing to report."""
+    from ai_engineering import scan
+
+    lane = scan.Lane("quiet", writer(tmp_path, SARIF))
+    assert scan.report(lane, tmp_path, ["src/thing.py"]) == []
+    assert scan.report(scan.BASELINE[0], tmp_path, []) == []
+
+
+@pytest.mark.parametrize(
+    "body", ("not json at all", "[]", '{"runs": "a string"}', '{"runs": [{"results": [1, 2]}]}')
+)
+def test_a_report_that_is_not_sarif_yields_no_findings_and_does_not_crash(tmp_path, body):
+    from ai_engineering import scan
+
+    lane = scan.Lane("broken", writer(tmp_path, body), sarif=("--out", "{}"))
+    assert scan.report(lane, tmp_path, ["src/thing.py"]) == []
+
+
+def test_an_engine_that_cannot_run_produces_no_findings_and_never_a_verdict(tmp_path):
+    """`report` never decides anything. The gate's verdict is the exit code `run` read, and
+    an engine that is missing here has already been INCOMPLETE there."""
+    from ai_engineering import scan
+
+    lane = scan.Lane("gone", ("this-engine-is-not-installed",), sarif=("--out", "{}"))
+    assert scan.report(lane, tmp_path, ["src/thing.py"]) == []
+
+
+def test_the_gate_prints_the_findings_of_a_lane_that_failed(tmp_path, capsys, monkeypatch):
+    """What an operator sees. "It found something" is where this used to stop."""
+    from ai_engineering import scan
+
+    lane = scan.Lane("semantic", writer(tmp_path, SARIF), sarif=("--out", "{}"))
+    monkeypatch.setattr(scan, "BASELINE", (lane,))
+    (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+
+    assert scan.baseline(tmp_path) == 1
+    printed = capsys.readouterr().out
+    assert "FAIL        semantic" in printed
+    assert "INCOMPLETE  semantic      A shell string built from a variable." in printed
+    assert "nobody has answered: boundary, attacker_controls, refutation, closed_by" in printed
+
+
+def test_every_baseline_lane_knows_how_to_be_asked_for_its_findings():
+    """A lane with no `sarif` flags is a lane whose findings nobody can read, and all three
+    of this repository's own lanes support the format their vendors document."""
+    from ai_engineering import scan
+
+    for lane in scan.BASELINE:
+        assert lane.sarif, f"{lane.id} cannot be asked what it found"
+        assert "{}" in " ".join(lane.sarif), f"{lane.id} names no file to write"
