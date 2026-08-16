@@ -1009,7 +1009,12 @@ DESCRIPTION_MAX = 1000
 # changed instead: the removal runs under a pty where one can be made, and the refusal is
 # what is asserted where one cannot. A step that cannot pass on any platform proves nothing
 # in either direction, which is worse than either answer.
-REPO_CEILING = 52_695
+# 52,695 to 52,707 for a step that broke the step after it. The pin check edits
+# `.ai/config.toml` to prove `doctor` refuses a mismatched version, and left it edited — so
+# `uninstall` met a recorded target whose bytes somebody had changed and refused to remove
+# it, saying exactly that. The verb was right both times; the job was reading the second
+# refusal as a bug in removal. The mutation is undone where it was made.
+REPO_CEILING = 52_707
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

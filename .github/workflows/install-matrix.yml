@@ -544,6 +544,13 @@ jobs:
           cd "$RUNNER_TEMP/stranger"
           sed -i.bak 's/^version = .*/version = "0.0.1"/' .ai/config.toml
           if ai-eng doctor --ci; then echo "doctor went green on a mismatched pin"; exit 1; fi
+          # Put it back. The pin is a file the receipt records, and `uninstall` refuses to
+          # remove a recorded target whose bytes somebody changed — correctly, and it said
+          # so: "a receipted target no longer matches the exact bytes or entries owned".
+          # This step mutated it to prove the pin holds, so this step undoes it; the next
+          # one is about removal and must not inherit a machine this one edited.
+          mv .ai/config.toml.bak .ai/config.toml
+          ai-eng doctor --ci || true
 
       - name: uninstall leaves the record behind
         shell: bash
