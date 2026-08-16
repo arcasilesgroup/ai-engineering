@@ -1715,7 +1715,23 @@ DESCRIPTION_MAX = 1000
 # Writing it took three goes to stop the file matching itself. Spelled as one literal, the
 # alternation between the first two prefixes is a home directory belonging to a user called
 # `|`, and so was the comment explaining that.
-REPO_CEILING = 59_307
+#
+# 59,307 to 59,363 for the other report, measured at last. Three passes had measured the
+# evolution proposal and none had re-measured the process research — reading it is not
+# measuring it, which is what this record spends five hundred lines telling other people.
+#
+# 10 proven, 4 failed, 8 incomplete, 4 with no evidence. The four failures are this session's
+# and three are the same fact: the widest commit touches nineteen files where the commitment
+# is one primary home, and the gate ran about once per commit against two recorded block
+# reviews. Slower and stricter than the cadence rather than looser, which is the honest
+# direction to deviate in, and still not what was agreed.
+#
+# The fourth is worse than a failure. The run count is unauditable from this tree: the
+# receipts are gitignored and the workflow does not trigger on a push to this branch, so the
+# only source for how many times the gate ran is this record's own prose. A number nobody can
+# contradict is the shape this product exists to refuse, and it is now in the product's own
+# audit of itself.
+REPO_CEILING = 59_363
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
