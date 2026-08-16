@@ -1200,7 +1200,18 @@ DESCRIPTION_MAX = 1000
 # decided against reimplementing their parsers. Shipping a schema with no producer is the
 # defect the three commits above this one were spent removing, and doing it again in the
 # same afternoon would say the lesson had not been learnt.
-REPO_CEILING = 54_723
+# 54,723 to 54,770 for the mission this product is named after. EP-066: the proposal's
+# mission names nine verbs and a guardrails clause, and `CONSTITUTION.md` carried four of
+# them — plan, implement, verify, validate and audit were each at zero occurrences, and so
+# were guardrail, harness and traceable. `doctor` assertion 4 reads that file and prints ok,
+# because it checks the file is short, present and filled in, never what it says.
+#
+# The sentence is corrected and a check reads it, scoped to the Mission section: those words
+# appear all over the file — `audit` is a verb of the product, `review` is a skill — and a
+# scan of the whole document would have passed on those and proved nothing about the one
+# sentence that owes them. Deleting `audit` from it turns the check red naming `audit`;
+# that was run in both directions.
+REPO_CEILING = 54_781
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -8,7 +8,10 @@ The identity of this project. Read it once per session, before anything else.
 is to support companies, including regulated ones, startups and individual developers.
 
 It is intended to support human-led work and bounded autonomous orchestrators from
-Solution Intent through discovery, decisions, change, review, evidence and production.
+Solution Intent onward: discover, specify, decide, plan, implement, verify, validate,
+review and audit. Its controls are guardrails that fail closed, its checks are harnesses
+that execute rather than assert, and what it claims is traceable to the evidence that
+proves it.
 
 Before work, the intended framework says what may happen. During work, it reports where
 it is. Afterward, it says what happened, what proves it and what may happen next.

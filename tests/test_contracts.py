@@ -323,8 +323,10 @@ CONSTITUTION_ASSERTIONS = {
         "Its mission is to support companies, including regulated ones, startups and "
         "individual developers.",
         "It is intended to support human-led work and bounded autonomous orchestrators "
-        "from Solution Intent through discovery, decisions, change, review, evidence and "
-        "production.",
+        "from Solution Intent onward: discover, specify, decide, plan, implement, verify, "
+        "validate, review and audit. Its controls are guardrails that fail closed, its "
+        "checks are harnesses that execute rather than assert, and what it claims is "
+        "traceable to the evidence that proves it.",
     ),
     "Values": (
         "Pragmatism — Prefer the smallest control that proves the required outcome.",
@@ -848,7 +850,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 54_723
+    assert contract.REPO_CEILING == 54_781
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1226,3 +1228,45 @@ def test_the_guidance_a_requirement_asks_for_is_in_the_file_that_owes_it(
 
     body = (ROOT / ".agents" / "skills" / where).read_text(encoding="utf-8")
     assert phrase in body, f"{requirement}: {where} no longer carries it"
+
+
+# The nine verbs the mission has to name, and the three words of the clause beside them.
+# Stems rather than whole words, because "verify", "verified" and "verification" are the same
+# claim and a check that demanded one spelling would be a check on grammar.
+MISSION_VERBS = (
+    "discover",
+    "specif",
+    "decid",
+    "plan",
+    "implement",
+    "verif",
+    "validat",
+    "review",
+    "audit",
+)
+MISSION_CLAUSE = ("guardrail", "harness", "traceable")
+
+
+def test_the_mission_names_every_verb_it_claims_to_govern():
+    """EP-066, and the reason it was INCOMPLETE rather than absent.
+
+    `ai-eng doctor` assertion 4 reads `CONSTITUTION.md` and prints ok, because it checks the
+    file is short, present and filled in — not what it says. So the mission could name four
+    of its nine verbs and nothing anywhere would notice, which is what the audit measured:
+    plan, implement, verify, validate and audit were all at zero occurrences, and so was the
+    whole guardrails clause.
+
+    Scoped to the Mission section on purpose. The words appear all over this file — `audit`
+    is a verb of the product and `review` is a skill — and a scan of the whole document would
+    pass on those and prove nothing about the sentence that is supposed to carry them.
+    """
+
+    identity = (ROOT / "CONSTITUTION.md").read_text(encoding="utf-8")
+    body = identity.split("## Mission", 1)[1].split("\n## ", 1)[0].lower()
+
+    missing = [word for word in (*MISSION_VERBS, *MISSION_CLAUSE) if word not in body]
+    assert not missing, f"the Mission names none of: {', '.join(missing)}"
+
+    # And the scan is shown finding something, because a scan that looked at nothing and a
+    # scan that found nothing print the same result.
+    assert "traceable" not in identity.split("## Who it is for", 1)[1].lower().split("\n## ")[0]
