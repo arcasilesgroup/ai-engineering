@@ -1421,7 +1421,16 @@ DESCRIPTION_MAX = 1000
 # naming an exact digest, no plan in this repository has one, and a guard demanding it would
 # deny every write on every branch including the one writing the plan. Recorded in the
 # register with what would change it, rather than left in a comment nobody would find.
-REPO_CEILING = 56_450
+# 56,450 to 56,461 for three clauses nothing read and one requirement I stopped on. The
+# review lens, its security reference and the AA floor were each cited as what closes a
+# requirement and pinned by nothing; they are rows on the checklist now.
+#
+# EP-010 is the stop. `spec new` asks nothing today, so "the same schema with and without a
+# human answer" holds by construction and a fixture writing both records would prove it.
+# Three attempts at that fixture were refused by the spec transaction with "could not prove
+# an unchanged safe filesystem state", and rule 7 says stop at two. It is in the register
+# with what it needs — a fixture that can stand up a repository shaped as `init` leaves one.
+REPO_CEILING = 56_470
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -851,7 +851,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 56_450
+    assert contract.REPO_CEILING == 56_470
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1245,6 +1245,11 @@ SKILL_CONTENT = (
     ("EP-357", "ai-explore/SKILL.md", "a tour is longer than"),
     ("EP-385", "ai-design/SKILL.md", "asset card naming"),
     ("EP-344", "ai-ship/SKILL.md", "somebody upgrading would search for"),
+    # The review lens and the AA floor, each cited as what closes a requirement and each
+    # read by nothing. `ai-review/SKILL.md` and its security reference had no row at all.
+    ("EP-022", "ai-design/SKILL.md", "WCAG 2.2 AA is the release floor"),
+    ("EP-044", "ai-review/SKILL.md", "file:line"),
+    ("EP-264", "ai-review/references/security.md", "the source, the sink"),
 )
 
 
