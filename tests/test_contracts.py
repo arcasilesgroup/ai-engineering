@@ -848,7 +848,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 54_654
+    assert contract.REPO_CEILING == 54_704
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1198,6 +1198,16 @@ SKILL_CONTENT = (
     ("EP-248", "ai-review/references/frontend.md", "Touch targets are at least 24 by 24"),
     ("EP-248", "ai-review/references/frontend.md", "Nothing flashes more than three times"),
     ("EP-248", "ai-review/references/frontend.md", "returns focus to whatever opened it"),
+    # What the two absorbed skills owed. Absorption is a decision this repository took and
+    # defends; absorption without the work landing is a deletion with a nicer name, and the
+    # audit found all four of these in no file at all.
+    ("EP-115", "ai-review/references/testing.md", "Start from the risk, not from the function"),
+    ("EP-115", "ai-review/references/testing.md", "**Negative**: the input that must be refused"),
+    ("EP-116", "ai-review/references/testing.md", "It does not change production code"),
+    ("EP-116", "ai-review/references/testing.md", "does not raise coverage over code nobody calls"),
+    ("EP-127", "ai-review/references/testing.md", "The evidence manifest"),
+    ("EP-127", "ai-review/references/testing.md", "A row missing a column is INCOMPLETE"),
+    ("EP-128", "ai-review/references/testing.md", "Allowlists run without `--fix`"),
 )
 
 

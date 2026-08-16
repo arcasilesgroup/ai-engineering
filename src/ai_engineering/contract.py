@@ -1186,7 +1186,14 @@ DESCRIPTION_MAX = 1000
 # why a cluster of requirements read PROVEN against a gate that could not fail. Where the
 # specification itself says a requirement is a judgement no gate may enforce, this checks
 # that the guidance exists and never that it was followed. Two different sentences.
-REPO_CEILING = 54_654
+# 54,654 to 54,697 for what two absorbed skills owed and never paid. Absorption is a
+# decision this repository took and defends — a skill that cannot beat the one beside it
+# should not ship — but absorption without the work landing is a deletion with a nicer name,
+# and the audit found all four in no file: the risk-first test matrix and its four kinds,
+# the three things a test pass may not do, the evidence manifest whose row is INCOMPLETE
+# until every column is filled, and allowlists that run without `--fix` because a formatter
+# that repairs what it measures reports on a file that no longer exists.
+REPO_CEILING = 54_704
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
