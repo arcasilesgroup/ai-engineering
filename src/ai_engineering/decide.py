@@ -297,6 +297,20 @@ def append(spec: Path, fields: dict) -> None:
 def listing(root: Path) -> list[str]:
     """A grep over headers. There is no index file to maintain by hand, because a
     hand-maintained index rots."""
+    # Read the edges before the rows, because half of a supersession lives in the other
+    # file. ADR 0002 says `superseded by 0003` in its own status and reads correctly; ADR
+    # 0004 does not, and deliberately — 0005 supersedes it and its body says "ADR 0004
+    # remains unchanged as historical evidence", which is a decision this listing has no
+    # business overturning by editing the file. What it should not do is repeat the
+    # omission: a reader of this list saw `0004 … proposed` with nothing to say the record
+    # had been replaced a month earlier, while the fact was sitting in 0005 all along.
+    incoming: dict[str, str] = {}
+    for path in sorted(adr_dir(root).glob("*.md")):
+        head = path.read_text(errors="replace")[:400]
+        claimed = re.search(r'^supersedes:\s*"?([0-9]{4})"?\s*$', head, re.M)
+        if claimed:
+            incoming[claimed.group(1)] = path.stem[:4]
+
     rows = []
     for path in sorted(adr_dir(root).glob("*.md")):
         head = path.read_text(errors="replace")[:400]
@@ -311,7 +325,16 @@ def listing(root: Path) -> list[str]:
             or re.fullmatch(r"superseded by [0-9]{4}", status)
         ):
             status = "?"
-        rows.append(f"  {path.stem:<44} {status}")
+        # Derived, and marked as derived. `superseded by 0003` is what a record says about
+        # itself; `← 0005` is what another record says about it, and a reader deserves to
+        # know which of the two they are being told.
+        replaced = incoming.get(path.stem[:4])
+        note = (
+            f"  ← superseded by {replaced}, which says so"
+            if replaced and replaced not in status
+            else ""
+        )
+        rows.append(f"  {path.stem:<44} {status}{note}")
     return rows
 
 

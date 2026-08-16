@@ -1338,7 +1338,18 @@ DESCRIPTION_MAX = 1000
 # costs them today and what changes for them, and it asks for a name rather than a category,
 # because "the user" is a way of not deciding. First, before the problem, since a problem
 # stated before anybody says whose it is arrives as a fact about the code.
-REPO_CEILING = 55_751
+# 55,751 to 55,820 for EP-001, and for the fourth time this session a gate stopped me doing
+# the wrong thing. A supersession has two halves and only one is required: ADR 0002 carries
+# `superseded by 0003` in its own status, ADR 0004 does not, and `decide --list` printed
+# `0004 … proposed` with nothing to say the record had been replaced a month earlier.
+#
+# The obvious fix is to edit 0004, and it is wrong. ADR 0005's body says "ADR 0004 remains
+# unchanged as historical evidence", a decision pinned by a digest in `test_madr.py`, and
+# editing the file would rewrite the evidence the decision exists to preserve. I tried it;
+# the pin refused. So the listing derives what the file does not carry and marks it as
+# derived: `superseded by 0003` is what a record says about itself and `← 0005` is what
+# another record says about it, and a reader is told which of the two they are getting.
+REPO_CEILING = 55_831
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

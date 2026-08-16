@@ -1721,3 +1721,49 @@ def test_a_merge_that_invents_a_state_neither_parent_holds_is_refused(tmp_path: 
     result = madr.validate(root)
     assert result.outcome == "INCOMPLETE"
     assert result.code == "MADR_TRANSITION_INVALID"
+
+
+def test_a_record_superseded_by_another_is_named_even_when_it_does_not_say_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """EP-001. A supersession has two halves and only one of them is required.
+
+    ADR 0002 carries `superseded by 0003` in its own status. ADR 0004 does not, and
+    deliberately: 0005 supersedes it and its body says "ADR 0004 remains unchanged as
+    historical evidence", a decision pinned by a digest in this file. Editing 0004 to close
+    the loop would rewrite the evidence the decision exists to preserve — I tried it, and
+    that pin refused.
+
+    So the listing derives what the file does not carry, and marks it as derived. A reader
+    saw `0004 … proposed` with nothing to say the record had been replaced a month earlier,
+    while the fact sat in 0005 the whole time. `superseded by 0003` is what a record says
+    about itself; `← 0005` is what another record says about it, and the reader is told
+    which of the two they are getting. Where the record already says it, nothing is added.
+    """
+
+    root = tmp_path / "records"
+    (root / "docs" / "adr").mkdir(parents=True)
+    (root / "docs" / "adr" / "0011-the-old-one.md").write_text(
+        '---\nstatus: proposed\nsupersedes: ""\n---\n\n# 0011. The old one\n', encoding="utf-8"
+    )
+    (root / "docs" / "adr" / "0012-the-new-one.md").write_text(
+        '---\nstatus: "accepted"\nsupersedes: "0011"\n---\n\n# 0012. The new one\n',
+        encoding="utf-8",
+    )
+    (root / "docs" / "adr" / "0013-says-it-itself.md").write_text(
+        '---\nstatus: superseded by 0012\nsupersedes: ""\n---\n\n# 0013. Says it itself\n',
+        encoding="utf-8",
+    )
+
+    rows = {line.split()[0][:4]: line for line in decide.listing(root)}
+
+    assert "← superseded by 0012, which says so" in rows["0011"]
+    assert "←" not in rows["0012"]
+    # It already says so in its own status, so the listing adds nothing and repeats nothing.
+    assert "←" not in rows["0013"]
+
+    # And the repository's own pair: 0004 is proposed, 0005 supersedes it, and the reader
+    # of this list is told without either file moving.
+    here = {line.split()[0][:4]: line for line in decide.listing(ROOT)}
+    assert "← superseded by 0005, which says so" in here["0004"]
+    assert "←" not in here["0002"]
