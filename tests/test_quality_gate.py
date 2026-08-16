@@ -712,3 +712,77 @@ def test_no_workflow_carries_an_expression_with_nothing_in_it():
             f"{path.name} holds an expression with nothing inside it: the runner parses it "
             f"wherever it appears, including inside a comment, and refuses the whole file"
         )
+
+
+# The eight recipes `just check` runs, and whether anything has ever shown each one saying
+# no. Four are controlled by their own readers' fixtures: `test` is red fixtures end to end,
+# `security` has one per INCOMPLETE code plus a tamper fixture, `register` mutates the
+# register and asserts the refusal, and `counts` fired today when prose and the registry
+# disagreed. Two are controlled below by planting a violation and running the real engine.
+# Two are not, and the reason is recorded rather than left to be discovered.
+GATE_CONTROLS = {
+    "build": "a wheel that fails to build takes minutes to construct and proves the "
+    "packaging tool works, not that this gate does",
+    "lint": "executed below",
+    "typecheck": "executed below",
+    "test": "the suite is negative fixtures end to end",
+    "cover": "a run under the floor needs a full coverage pass; the floor itself is "
+    "asserted by tests/test_contracts.py",
+    "security": "one fixture per INCOMPLETE code, plus the rules-tamper fixture",
+    "register": "tests/test_pilot_register.py mutates the register and asserts each refusal",
+    "counts": "test_the_counts_this_repository_states_about_itself_are_the_counts_it_has",
+}
+
+
+def test_every_recipe_the_gate_runs_is_named_here_with_its_control_or_its_reason():
+    """EP-060. The adversarial suite has a clean control for each of ten attacked guards.
+    The eight recipes `just check` runs had none, and no reason was recorded for the gap —
+    which is the half of the requirement that was never argued rather than never built.
+
+    A control that only ever runs against input that passes has never been seen saying no,
+    and this repository's whole position is that such a check is indistinguishable from one
+    that cannot. Six of the eight are controlled; two carry a written reason, which rule 12
+    is explicit is the honest answer when a judgement cannot fail closed cheaply."""
+
+    recipes = (ROOT / "justfile").read_text(encoding="utf-8")
+    line = next(one for one in recipes.splitlines() if one.startswith("check:"))
+    ordered = line.removeprefix("check:").split()
+
+    assert ordered, "the gate runs nothing, so this proves nothing"
+    assert set(ordered) == set(GATE_CONTROLS), (
+        f"the gate runs {sorted(set(ordered) ^ set(GATE_CONTROLS))} and this table does not: "
+        f"a recipe added without a control or a reason is a check nobody has seen fail"
+    )
+    for name in ordered:
+        assert GATE_CONTROLS[name].strip(), f"{name} carries neither a control nor a reason"
+
+
+def test_the_linter_and_the_type_checker_are_shown_saying_no(tmp_path):
+    """The two controls that are cheap to execute, executed. Planted first and then found,
+    which is the shape every scan in this repository owes: a run that finds nothing and a
+    run that looked at nothing print the same result."""
+
+    import subprocess
+
+    planted = tmp_path / "planted.py"
+    planted.write_text("import os\n\n\ndef f(x: int) -> str:\n    return x\n", encoding="utf-8")
+
+    lint = subprocess.run(
+        ["uv", "run", "--with", "ruff==0.16.2", "ruff", "check", str(planted)],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+    assert lint.returncode != 0, lint.stdout
+    assert "F401" in lint.stdout, lint.stdout  # the unused import it was planted for
+
+    types = subprocess.run(
+        ["uv", "run", "--with", "mypy==2.3.0", "mypy", "--no-error-summary", str(planted)],
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+    )
+    assert types.returncode != 0, types.stdout
+    assert "return-value" in types.stdout, types.stdout

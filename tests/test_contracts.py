@@ -851,7 +851,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 55_831
+    assert contract.REPO_CEILING == 55_926
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1236,6 +1236,15 @@ SKILL_CONTENT = (
     # defect three commits above this one were spent removing.
     ("EP-041", "ai-security/SKILL.md", "seven fields and no eighth"),
     ("EP-261", "ai-security/SKILL.md", "A field left blank makes the\n   finding INCOMPLETE"),
+    # Five clauses each cited by a specification as what closes a requirement, and none of
+    # them read by anything. The audit put it plainly: deleting those lines turns nothing
+    # red, so the requirement rested on a file staying the way somebody left it.
+    ("EP-113", "ai-debug/SKILL.md", "A named cause at `file:line`"),
+    ("EP-114", "ai-debug/SKILL.md", "one sentence on why that line produces"),
+    ("EP-366", "ai-debug/SKILL.md", "## Conflicts"),
+    ("EP-357", "ai-explore/SKILL.md", "a tour is longer than"),
+    ("EP-385", "ai-design/SKILL.md", "asset card naming"),
+    ("EP-344", "ai-ship/SKILL.md", "somebody upgrading would search for"),
 )
 
 

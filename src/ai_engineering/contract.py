@@ -1349,7 +1349,19 @@ DESCRIPTION_MAX = 1000
 # the pin refused. So the listing derives what the file does not carry and marks it as
 # derived: `superseded by 0003` is what a record says about itself and `← 0005` is what
 # another record says about it, and a reader is told which of the two they are getting.
-REPO_CEILING = 55_831
+# 55,831 to 55,914 for EP-060 and five clauses nothing read. The adversarial suite has a
+# clean control for each of ten attacked guards; the eight recipes `just check` runs had
+# none, and no reason was recorded for the gap — which is the half of that requirement
+# nobody had argued rather than the half nobody had built. Six are controlled now, two by
+# planting a violation and running the real engine, and two carry a written reason, which
+# rule 12 says is the honest answer when a judgement cannot fail closed cheaply. A recipe
+# added to the gate without either turns the table red.
+#
+# The five clauses are `ai-debug`'s named cause and its conflicts section, `ai-explore`'s
+# tour, `ai-design`'s asset card and `ai-ship`'s changelog wording. Each was cited by a
+# specification as what closes a requirement, and the audit put it plainly: deleting those
+# lines turned nothing red, so the requirement rested on a file staying as somebody left it.
+REPO_CEILING = 55_926
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
