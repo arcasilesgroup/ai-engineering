@@ -982,14 +982,20 @@ if sys.platform == "win32":
         return True
 
     def _win_error(message: str, code: int | None = None) -> TransactionError:
+        # The number travels with every class, not only with the one nobody classified.
+        # Three of these four branches dropped it, so a Windows failure arrived as
+        # "exclusive directory publish failed" and nothing else — true, useless, and
+        # indistinguishable between "this filesystem cannot do it" and "we passed a bad
+        # argument". The POSIX twin at `_publish` has printed its code all along.
         value = ctypes.get_last_error() if code is None else code
+        detail = f"{message}: native error {value}"
         if value in {32, 33}:
-            return Busy(message)
+            return Busy(detail)
         if value in {80, 183}:
-            return Collision(message)
+            return Collision(detail)
         if value in {1, 50, 87, 120}:
-            return Unsupported(message)
-        return Unsafe(f"{message}: native error {value}")
+            return Unsupported(detail)
+        return Unsafe(detail)
 
     def _win_directory_names(handle: int, *, maximum: int = _SPELLING_LIMIT) -> tuple[str, ...]:
         names: list[str] = []
@@ -1363,11 +1369,26 @@ if sys.platform == "win32":
             if canonical == self._authority:
                 self._require_canonical_authority()
             parent, name, parents = self._walk_parent(canonical)
-            try:
-                handle = _win_nt_open(parent, name, directory=False)
-            finally:
+            # The authority is read through the handle that holds the lock, and this is not
+            # an optimisation. `LockFileEx` on Windows is mandatory and enforced per handle:
+            # the exclusive range this writer took over the whole file blocks `ReadFile` on
+            # every other handle, including one this same process opens a line later. On
+            # POSIX the equivalent lock is advisory, so opening a second descriptor and
+            # reading is fine — which is why this ran green everywhere it was ever run and
+            # raised `Busy: regular file read failed` the first time it reached Windows, on
+            # a file the caller had exclusive rights to. `_require_canonical_authority`
+            # above has already proved this handle is the canonical file.
+            owned = canonical == self._authority and self._authority_handle != 0
+            if owned:
                 if parent != self._root:
                     _win_close(parent)
+                handle = self._authority_handle
+            else:
+                try:
+                    handle = _win_nt_open(parent, name, directory=False)
+                finally:
+                    if parent != self._root:
+                        _win_close(parent)
             try:
                 before = _win_generation(handle, canonical)
                 if canonical == self._authority and (
@@ -1382,7 +1403,8 @@ if sys.platform == "win32":
                     raise Unsafe("regular file changed while it was read")
                 return Observation(canonical, body, after, parents, maximum)
             finally:
-                _win_close(handle)
+                if not owned:
+                    _win_close(handle)
 
         def unchanged(self, observation: Observation) -> bool:
             try:

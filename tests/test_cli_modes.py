@@ -180,9 +180,20 @@ def test_non_interactive_installs_nothing_it_was_not_told_to_install(home, capsy
 def test_both_flags_are_global_and_the_verb_never_sees_them():
     """Stripped before the verb is dispatched, exactly as `--json` already is. A verb that
     had to know about them is a verb that can disagree with the next one about what they
-    mean, and `spec list` takes no options at all — so if either reached it, argparse would
-    exit 2 instead of listing anything."""
+    mean.
 
+    Measured against the same command without the flag, and not against zero. Asserting
+    `returncode == 0` looked stricter and was a different claim: it said `spec list`
+    succeeds, which depends on where it runs. The mutation gate runs the suite from an
+    rsync'd copy with no `.git` in it, where `spec list` correctly answers INCOMPLETE with
+    "not inside a repository" and exits 1 — so this test failed there while passing here,
+    and its message said "the flag reached the verb" about a run where it plainly had not.
+    Comparing the two runs proves the actual rule: the verb cannot tell the flag was
+    passed, wherever the verb happens to be standing."""
+
+    plain = run(["spec", "list"], NO_COLOR="1")
     for flag in ("--non-interactive", "--debug"):
         listed = run([flag, "spec", "list"], NO_COLOR="1")
-        assert listed.returncode == 0, f"{flag} reached the verb: {listed.stderr[-300:]}"
+        assert "unrecognized arguments" not in listed.stderr, f"{flag} reached the verb"
+        assert listed.returncode == plain.returncode, f"{flag} changed the outcome"
+        assert listed.stdout == plain.stdout, f"{flag} changed what the verb printed"

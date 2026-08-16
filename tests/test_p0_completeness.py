@@ -95,7 +95,7 @@ P0: dict[str, tuple[str, str, str]] = {
     "lanes-supplement": (
         "a new lane supplements rather than silently replaces existing proof.",
         "tests/test_quality_gate.py",
-        "ee7b8e1a10b1c9da9a6810b0711c4d653af5348e80c3e46bfb1d265dd5838b5d",
+        "b81028e7c88d58dd70c2148f572d913e3cfba4cde5754fb311e97f4704bafb98",
     ),
 }
 

@@ -132,7 +132,12 @@ jobs:
           export WORKSPACE="$GITHUB_WORKSPACE"
           export NATIVE_TEST="$run/test_spec_transaction.py"
           cd "$run"
-          "$python" - $NATIVE_CONTROLS <<'PY'
+          # Split into an array rather than left unquoted. The variable carries several
+          # test names and has to become several arguments, which bare `$VAR` does by
+          # accident and shellcheck reports as SC2086 — a rule that is right about the
+          # hazard even when the splitting is wanted. The array says it is wanted.
+          read -ra controls <<< "$NATIVE_CONTROLS"
+          "$python" - "${controls[@]}" <<'PY'
           import os
           import sys
           from pathlib import Path
@@ -235,7 +240,8 @@ jobs:
           export WORKSPACE="$GITHUB_WORKSPACE"
           export ACCEPTANCE_TEST="$run/tests/test_acceptance.py"
           cd "$run"
-          "$python" - $ACCEPTANCE_CONTROLS <<'PY'
+          read -ra controls <<< "$ACCEPTANCE_CONTROLS"
+          "$python" - "${controls[@]}" <<'PY'
           import os
           import sys
           from pathlib import Path

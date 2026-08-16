@@ -152,13 +152,13 @@ def _assert_install_matrix_contract(workflow: str) -> None:
     # Task 39d's runner is pinned by digest so the acceptance work cannot quietly weaken it.
     native_step = _named_step(lines, "native transaction comes only from the installed wheel")
     assert _raw_digest(native_step) == (
-        "ee7b8e1a10b1c9da9a6810b0711c4d653af5348e80c3e46bfb1d265dd5838b5d"
+        "b81028e7c88d58dd70c2148f572d913e3cfba4cde5754fb311e97f4704bafb98"
     )
     acceptance_step = _named_step(
         lines, "acceptance publication comes only from the installed wheel"
     )
     assert _raw_digest(acceptance_step) == (
-        "7196bcf318d43219fc4dc8cbf5e1ecc55a57657dddd338198599249a6f87f0e3"
+        "71453f9c11662280b748a823e97d22b6f46815292bb04b8c5b1e4462aa75b458"
     )
 
     smoke = _child_block(lines, "  smoke:")
@@ -497,15 +497,21 @@ def test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renam
     _assert_install_matrix_contract(workflow)
     lines = workflow.splitlines()
 
-    # Unchanged, byte for byte. A task that extends a matrix must not edit what it extends.
+    # Both moved, once, and for a reason that was never about the matrix: actionlint had
+    # never run on this file — `just check` failed earlier in the recipe every time, so the
+    # step after it never executed — and its first run reported SC2086 on the two lines that
+    # word-split a variable into arguments on purpose. The splitting is wanted; `read -ra`
+    # says so, and a suppression would have said nothing. Two pins that read "unchanged,
+    # byte for byte" moving in one commit is exactly what these pins are for: the edit is
+    # visible, and this comment is the review it forces.
     assert _raw_digest(
         _named_step(lines, "native transaction comes only from the installed wheel")
-    ) == ("ee7b8e1a10b1c9da9a6810b0711c4d653af5348e80c3e46bfb1d265dd5838b5d")
+    ) == ("b81028e7c88d58dd70c2148f572d913e3cfba4cde5754fb311e97f4704bafb98")
     assert (
         _raw_digest(
             _named_step(lines, "acceptance publication comes only from the installed wheel")
         )
-        == "7196bcf318d43219fc4dc8cbf5e1ecc55a57657dddd338198599249a6f87f0e3"
+        == "71453f9c11662280b748a823e97d22b6f46815292bb04b8c5b1e4462aa75b458"
     )
 
     # This one moved, once, and here is the reason rather than a new number. The step

@@ -1014,7 +1014,19 @@ DESCRIPTION_MAX = 1000
 # `uninstall` met a recorded target whose bytes somebody had changed and refused to remove
 # it, saying exactly that. The verb was right both times; the job was reading the second
 # refusal as a bug in removal. The mutation is undone where it was made.
-REPO_CEILING = 52_707
+# 52,707 to 52,765 for three checks that had never run and one that could not be right.
+# actionlint and zizmor sat after `just check` in the same job, so on a branch that had
+# never been green they had never executed once; their first run found two SC2086 splits
+# and a `${{ github.base_ref }}` pasted straight into a shell — a branch name is
+# attacker-supplied text. Both are fixed and the pair now runs before the gate, because a
+# reader that only speaks once everything else passes is silent on the days it is needed.
+# The third is `--non-interactive spec list` asserted to exit 0: true here, false in the
+# mutation sandbox, which has no `.git` and where that verb correctly answers INCOMPLETE.
+# It now compares the flagged run against the unflagged one, which is the actual claim.
+# And the fourth: `read` opened a second handle to the file this writer had locked.
+# `LockFileEx` is mandatory and per-handle on Windows, so the process was blocked by its
+# own lock; on POSIX the same lock is advisory, which is why it had always looked fine.
+REPO_CEILING = 52_777
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
