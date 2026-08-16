@@ -843,3 +843,32 @@ def test_every_adapter_puts_a_version_beyond_one_into_the_id_it_requires():
             assert required.endswith(f".v{version}"), (
                 f"{found.name} is at version {version} and requires {required}"
             )
+
+
+def test_a_surface_this_framework_will_not_claim_says_so_where_a_command_can_read_it():
+    """EP-207. The refusal existed as a non-goal line inside a draft specification, which is
+    a refusal no command can read and the next person to add a row has nothing to argue
+    with. It is data now, beside the rows it is an argument about.
+
+    Three things are checked, and the third is the one that matters: an id cannot be both
+    claimed and refused, so a row quietly added above turns this red rather than shadowing
+    the refusal; and a refusal with no reopening condition is a permanent no, which is not a
+    decision this framework is allowed to take on somebody's behalf.
+    """
+
+    from ai_engineering import wiring
+
+    declared = wiring.table()
+    refused = declared.get("refused", [])
+    claimed = {surface["id"] for surface in declared["surface"]}
+
+    assert refused, "the refusals are gone, so the argument they carried is gone with them"
+    for row in refused:
+        assert row["id"] not in claimed, f"{row['id']} is both claimed and refused"
+        assert row.get("reason"), f"{row['id']} refuses with no reason, which is a preference"
+        assert row.get("reopen_when"), f"{row['id']} refuses forever, which is not ours to do"
+
+    assert "codex-app" in {row["id"] for row in refused}
+    # And the reason names the thing that cannot be done, not a preference about doing it.
+    reason = next(row["reason"] for row in refused if row["id"] == "codex-app")
+    assert "read a receipt back" in reason

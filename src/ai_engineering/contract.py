@@ -1225,7 +1225,14 @@ DESCRIPTION_MAX = 1000
 # written into the chain as a fact, and the chain is what has to be trustworthy when
 # everything else is in doubt. The adapter version is read from the same directory the
 # translations come from, or an adapter would stamp a version that translated nothing.
-REPO_CEILING = 54_909
+# 54,909 to 54,949 for EP-207, which asked for either a Codex-app row with real evidence or
+# an explicit refusal to claim one. The refusal existed, as a non-goal line inside a draft
+# specification — which is a refusal no command can read, and leaves the next person to add
+# that row with nothing to argue against. It is data now, beside the rows it argues about,
+# and the check reads three things: an id cannot be both claimed and refused, a refusal
+# with no reason is a preference, and a refusal with no reopening condition is a permanent
+# no that this framework is not entitled to take on somebody else's behalf.
+REPO_CEILING = 54_956
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

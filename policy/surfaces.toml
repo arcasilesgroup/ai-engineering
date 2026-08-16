@@ -97,6 +97,17 @@ note = "Free by convention, zero lines. Detected by its own settings directory a
 # ~/.agents/skills and enforces nothing above the git layer. That is T3, and it is
 # the honest label.
 
+# Surfaces this framework deliberately does not claim, and why. A refusal that lives only
+# in a specification's non-goals is a refusal no command can read, and the next person to
+# add a row has nothing to argue with — so the argument lives here, beside the rows it is
+# an argument about. `tests/test_surface_adapter.py` reads this: an id may not appear both
+# here and above, and a row with no reason is an error rather than a preference.
+[[refused]]
+id = "codex-app"
+name = "Codex, the hosted application"
+reason = "It runs somebody else's machine. Nothing here can place a skill on it, register a guard in it, or read a receipt back out of it, so every state this framework reports would be a claim about a surface it cannot reach. The CLI of the same name is a different program and has its own row above."
+reopen_when = "the hosted application exposes a settings file or an API this framework can write a guard entry into, and read a denial receipt back from"
+
 [protect]
 # self_protect denies writes against these, and against every settings file and skills
 # root in the table above, which it derives rather than repeats. Seven literals lived
