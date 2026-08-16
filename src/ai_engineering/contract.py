@@ -1591,7 +1591,21 @@ DESCRIPTION_MAX = 1000
 # person meets on their own surface, and it now carries the phase and one example, both read
 # from files that already hold them: the manifest, and the labelled corpus the routing
 # evaluation runs on. An example nothing checks is the sentence that goes stale first.
-REPO_CEILING = 58_527
+#
+# 58,527 to 58,561 for the last of the five overclaims, and for a requirement that was half
+# pinned. `EP-083` and `EP-117` ask for cross-model replay as advisory and blocking only
+# after a stable baseline. The routing evaluation that ships is deterministic and it is right
+# that it blocks — a situation two skills both claim is a defect and not a score, and holding
+# a correctness check advisory until a baseline existed would be weakening a real gate to
+# satisfy a rule written for a different kind of check. The half that is genuinely missing
+# needs several models replaying one corpus, which this gate cannot run and this framework
+# will not require an account to install. Both are in the register with what would reopen
+# them, and a row there is not a pass.
+#
+# And `EP-113`: one clause of a two-clause requirement was pinned, so step 4 of `ai-debug` —
+# the one that makes it red-first rather than a fix with an opinion attached — could be
+# deleted with the whole suite green. Four more clauses are read now.
+REPO_CEILING = 58_561
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

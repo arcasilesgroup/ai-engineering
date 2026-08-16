@@ -244,3 +244,15 @@ id = "EP-262"
 asks = "nine classes of security detector, written here as code"
 reason = "D-014-01 refused to reimplement the engines' detectors: a detector we wrote is one more thing to keep current with the vendors who write theirs full time, and the wrong answer arrives wearing our name. What executes instead is the reading of what those engines already produce — `scan.report` parses each lane's own SARIF into the seven-field finding the skill defines, and every one of them arrives INCOMPLETE naming the four fields no scanner can fill."
 reopen_when = "a class of finding matters to this framework and no pinned engine detects it, which makes writing that one detector cheaper than living without it"
+
+[[ungated]]
+id = "EP-083"
+asks = "evals on new probabilistic skills, with cross-model replay as advisory before anything blocks"
+reason = "the routing evaluation that ships is deterministic, and it is right that it blocks: a situation two skills both claim is a defect, not a score, and holding a correctness check advisory until a baseline exists would be weakening a real gate to satisfy a rule written for a different kind of check. The half that is genuinely missing needs several models replaying the same corpus, which this gate cannot run and this framework will not require an account to install."
+reopen_when = "a skill ships whose output is probabilistic rather than a routing decision, or a replay harness exists that a person can run without this framework holding a key"
+
+[[ungated]]
+id = "EP-117"
+asks = "small golden cases, cross-model advisory, and blocking only after a stable baseline"
+reason = "the golden cases exist and run — 160 labelled routing cases beside the skills, evaluated on every gate — and the same argument as EP-083 applies to the rest: no baseline is recorded because a deterministic check has nothing to take a delta of, and `skill_eval_delta` says so in this register rather than pretending to a number"
+reopen_when = "the evaluation produces a score that can move for a reason other than a defect, which is the first moment a baseline and a margin mean anything"
