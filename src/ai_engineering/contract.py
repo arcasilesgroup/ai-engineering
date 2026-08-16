@@ -891,7 +891,22 @@ DESCRIPTION_MAX = 1000
 # gates pull opposite ways. The gates are right; a count nobody updates is a count that
 # lies. The tension is recorded as open rather than resolved by a commit guessing at
 # somebody else's rule.
-REPO_CEILING = 52_036
+# 52,036 to 52,102 for the owner's three answers, taken in one sitting.
+#
+# The cadence's fourth activation step: both current digests approved, recorded in MADR 0009
+# rather than inside the file it approves — a paragraph naming its own file's digest changes
+# it by existing, so the number in the file would never be the one anybody agreed to. The
+# one-primary-home rule gains the exception the owner chose: a commit may move the counts and
+# ceilings another check forces it to move, and nothing else.
+#
+# And D-014-05, which was blocked on two numbers that are not in this repository. With
+# consent for that one network call they are here, from each publisher's own checksum file.
+# actionlint was the only download whose bytes were ever checked, on a workflow that also
+# pulls the two engines whose entire job is to find things — a mirror or a compromised
+# release could have handed either of them a binary that finds nothing, and the gate would
+# have gone green having scanned with it. All five downloads are checked now, and a test
+# reads the workflow rather than a list, so the sixth is caught for never being named.
+REPO_CEILING = 52_102
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

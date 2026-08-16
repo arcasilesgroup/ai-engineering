@@ -648,3 +648,28 @@ def test_the_security_recipe_refuses_an_engine_it_did_not_pin():
     for engine in ("gitleaks", "trivy"):
         assert f"{{{{{engine}_version}}}}" in security, f"{engine} runs unpinned"
     assert security.count("exit 1") >= 2, "a version mismatch does not stop the recipe"
+
+
+def test_every_downloaded_engine_has_its_bytes_checked():
+    """D-014-05. The version says which release we asked for; the checksum says the bytes we
+    got are that release.
+
+    actionlint was the only download whose bytes were checked, on a workflow that also pulls
+    the two engines whose entire job is to find things — so a mirror, a cache or a
+    compromised release could have handed either of them a binary that finds nothing, and
+    the gate would have gone green having scanned with it.
+
+    Read from the file rather than from a list here: a sixth download added later is caught
+    by this because it was never named."""
+
+    workflow = _check_workflow()
+    lines = workflow.splitlines()
+    downloads = [index for index, line in enumerate(lines) if "curl -sSfL -o" in line]
+
+    assert downloads, "the workflow downloads nothing, so this test proves nothing"
+    for index in downloads:
+        target = lines[index].split("-o", 1)[1].split()[0]
+        following = lines[index + 1] if index + 1 < len(lines) else ""
+        assert "sha256sum -c" in following, (
+            f"{target} is downloaded on line {index + 1} and its bytes are never checked"
+        )

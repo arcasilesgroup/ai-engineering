@@ -30,6 +30,12 @@ env:
   # The linux_amd64 line from the official actionlint_1.7.12_checksums.txt. The version
   # says which release we asked for; the checksum says the bytes we got are that release.
   ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+  # The other two, from the same publishers' own checksum files, read on 2026-08-16 with the
+  # owner's consent for that one network call. Until this, actionlint was the only download
+  # whose bytes were checked: the version said which release we asked for and nothing said
+  # the bytes we got were that release, on the two engines whose whole job is to find things.
+  GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  TRIVY_SHA256: "2edd39da482bb4e9831962487b68f68e3928ec3137794757f54d00383d79547b"
   PIP_AUDIT_VERSION: "2.10.1"
   MYPY_VERSION: "2.3.0"
   SNYK_VERSION: "1.1306.3"
@@ -53,8 +59,10 @@ jobs:
       - name: install just and the scanners
         run: |
           curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
           curl -sSfL -o trivy.tgz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tgz" | sha256sum -c -
           tar -xzf trivy.tgz trivy && sudo install trivy /usr/local/bin/
           curl -sSfL -o actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           echo "${ACTIONLINT_SHA256}  actionlint.tgz" | sha256sum -c -
@@ -143,6 +151,7 @@ jobs:
       - name: install gitleaks
         run: |
           curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
       - name: every attack, and a clean control it must not fire on
         run: uv run python tests/adversarial/run.py
@@ -165,6 +174,7 @@ jobs:
       - name: install gitleaks and just
         run: |
           curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
           uv tool install "rust-just==${JUST_VERSION}"
       - name: break it on purpose and fail if nothing notices

@@ -14,6 +14,21 @@ see which of the two numbers is the file in front of them, and
 when this paragraph and the file disagree. That check is the answer to PO-24: the digests
 were prose that nothing read, so an edit to either file changed nothing anybody would notice.
 
+**The repository owner approved both current digests on 2026-08-16**, and the approval is
+recorded in `docs/adr/0009-the-current-spec-010-digests-are-approved.md` rather than in this
+paragraph. It has to live outside the file it approves: an approval that names the digest of
+the file it is written in changes that digest by being written, and the second number is
+never the one anybody agreed to.
+
+**One primary home per commit, and the exception the owner wrote into it.** The rule above
+stands for every change to behaviour. It cannot be satisfied by a commit that adds a
+capability: a skill is a file under `.agents/`, a declaration in `policy/`, a count in
+`README.md` and `AGENTS.md` that `COUNTED` holds equal to the tree, and a line in
+`contract.py` — and splitting those across commits leaves a tree whose gate is red in
+between, which is what the rule exists to prevent. So a commit may also move the counts and
+line ceilings that another check forces it to move, and nothing else. A count is not a
+second product home; it is the same change, written where a gate can read it.
+
 The amended specification also states that treating a controlling-terminal response as the P0 human-authority handoff requires renewed human approval of this exact amended specification **and** this exact plan. That grant is not bundled into the digest approval, because a person approving a budget amendment should not silently also be granting the P0 authority semantics. The approval reply must therefore contain two separate named statements: one approving the exact plan digest, and one granting the controlling-terminal handoff. A reply carrying only the digest approves the plan and withholds the grant, and every acceptance task stays blocked until the grant arrives.
 
 There is exactly one repository writer before P3. One delegated writer executes the Tasks in a block sequentially; a fresh independent read-only reviewer reviews the closed block before any later block may consume it. No global initialization, installation, network mutation, publishing, tagging, or deployment runs without separate explicit consent. Each Task remains one atomic commit. A Task may change exactly **one primary production, policy, documentation, or workflow file**, plus only its focused supporting test/fixture file(s); it may not change a second product home. Revisiting a primary file is allowed only for a named, distinct semantic change and a distinct commit. A block-review repair may revisit the affected Task's primary file only to resolve a named ledger finding; it remains an atomic commit inside that Task's original scope, and a finding never authorizes a second product home or broader behavior. The sole exception is the final transition: one semantic transaction updates primary spec010, its predecessor spec004, the dogfood `.ai/intent.md`, and `src/ai_engineering/contract.py`, plus their focused readiness and contract tests, to avoid either a stale record or an intermediate line ceiling; spec010 remains the named primary. Rollback for every Task and repair commit is `git revert <commit>`.

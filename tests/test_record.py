@@ -1416,3 +1416,19 @@ def test_the_approval_digests_in_the_plan_are_read_by_something():
         assert "covers these bytes no longer" in plan, (
             "the specification has changed since approval and the plan implies it has not"
         )
+
+    # And the approval that followed, which lives outside the file it approves: a paragraph
+    # in `plan.md` naming that plan's digest changes it by existing, so the number in the
+    # file would never be the number anybody agreed to.
+    record = " ".join(
+        (root / "docs" / "adr" / "0009-the-current-spec-010-digests-are-approved.md")
+        .read_text(encoding="utf-8")
+        .split()
+    )
+    for named in ("spec.md", "plan.md"):
+        digest = hashlib.sha256((folder / named).read_bytes()).hexdigest()
+        assert digest in record, (
+            f"{named} hashes to {digest} and MADR 0009 approves something else. "
+            "An edit after an approval needs a new approval, not a new number in the record."
+        )
+    assert "docs/adr/0009" in plan, "the plan does not point at the approval that covers it"
