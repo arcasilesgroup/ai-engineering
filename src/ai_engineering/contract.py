@@ -1457,7 +1457,20 @@ DESCRIPTION_MAX = 1000
 # commit that made the change, which is the whole reason adding a field is a decision
 # somebody takes rather than a file that drifted overnight. A phase nothing serves is a word
 # in a schema, so the test refuses that too.
-REPO_CEILING = 56_626
+#
+# 56,626 to 56,765 for the three capabilities absorbed with an instruction attached, where
+# the instruction was the part that never landed. "Add a simplification lens to ai-review"
+# left no lens; "move the valuable heuristics to ai-review and ai-spec" left neither file
+# carrying them; "ai-note already stores this and persistence lives outside the framework"
+# left ai-note never saying so. Absorption is a decision this repository defends, and it is
+# only defensible when the work arrives somewhere — recorded as an absence, it is a deletion
+# with a nicer name and nothing could tell the difference.
+#
+# The check that came with them found the same defect one file over: the review skill walked
+# five lenses and the directory held seven, so `frontend.md` and `motion.md` — everything a
+# person actually sees — were written, committed and routed to by nothing. Every lens in the
+# directory has to be named by the procedure now.
+REPO_CEILING = 56_765
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

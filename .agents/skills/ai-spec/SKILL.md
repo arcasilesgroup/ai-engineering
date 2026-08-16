@@ -41,7 +41,11 @@ It is a decision record, not code, a plan or permission the agent gave itself.
 8. Create the draft with `ai-eng spec new <slug>`; add `--ref owner/repo#45` only when that
    is the real work item. If this supersedes shipped work, create a new spec, link the old
    record and explain the change; never rewrite history.
-9. Keep decisions in their spec unless they constrain future specs. For those, record a
+9. Architecture advice belongs inside the options, never beside them. Where a boundary, a
+   dependency, a duplicated source of truth or the cost of reversing it decides between two
+   options, say so in the option that carries it. A separate architectural opinion nobody
+   has to answer is the advisor this project chose not to build.
+10. Keep decisions in their spec unless they constrain future specs. For those, record a
    proposed `ai-eng decide --madr "<title>"`; proposal is not approval. Leave every
    production-ready box unticked until the named command supplies fresh evidence.
 

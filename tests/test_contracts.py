@@ -212,6 +212,61 @@ def test_the_three_absorption_candidates_did_not_ship_and_their_work_has_a_home(
     assert {"frontend", "motion"} <= lenses, sorted(lenses)
 
 
+# The other three the proposal absorbed, each with the instruction that made absorption
+# honest rather than a deletion with a nicer name. In all three the instruction was the part
+# that never landed, which is the same finding as `ABSORBED` above, one wave later.
+ABSORBED_ELSEWHERE = {
+    "ai-simplify": (".agents/skills/ai-review/references/simplification.md",),
+    "ai-advise": (
+        ".agents/skills/ai-review/references/architecture.md",
+        ".agents/skills/ai-spec/SKILL.md",
+    ),
+    "ai-learn": (".agents/skills/ai-note/SKILL.md",),
+}
+
+
+def test_an_absorbed_capability_left_its_work_in_the_file_that_took_it():
+    """EP-373, EP-332 and EP-352.
+
+    Absorbing a capability is a decision this repository defends: a separate simplifier
+    repeats a rule the project already has, a separate advisor duplicates the judgement and
+    the output, and a separate learner is a second source of truth for something git already
+    versions. What makes that defensible is the work arriving somewhere. All three arrived
+    nowhere, and nothing could tell, because absorption was recorded as an absence.
+
+    So both halves again: the directory does not exist, and every file named as its new home
+    does. `ai-advise` names two, because the proposal split it across a diff and a decision.
+    """
+    for name, homes in ABSORBED_ELSEWHERE.items():
+        assert not (ROOT / ".agents" / "skills" / name).exists(), (
+            f"{name} shipped as a skill after being absorbed, and nothing routes to it"
+        )
+        for home in homes:
+            assert (ROOT / home).is_file(), f"{name} was absorbed into {home}, which is not there"
+
+
+def test_every_review_lens_is_named_by_the_skill_that_walks_them():
+    """A checklist in `references/` that the procedure never names is a file nobody works.
+
+    Two were in exactly that state — `frontend.md` and `motion.md` were written for EP-125
+    and EP-126, and step 3 listed five lenses that did not include either. The reviewer
+    following the skill would have walked five of seven, and the two it skipped are the two
+    covering everything a person sees. Naming them is the cheap half; this is the half that
+    keeps them named when the next lens is added.
+    """
+    skill = (ROOT / ".agents" / "skills" / "ai-review" / "SKILL.md").read_text(encoding="utf-8")
+    lenses = sorted(
+        path.stem
+        for path in (ROOT / ".agents" / "skills" / "ai-review" / "references").glob("*.md")
+    )
+    assert lenses, "the review skill has no lenses at all"
+
+    # `simplify.md` is walked as "simplification"; the stem is the file and the word is the
+    # pass, so a prefix is what the procedure has to carry.
+    missing = [lens for lens in lenses if lens not in skill]
+    assert not missing, f"lenses no step routes to: {missing}"
+
+
 def test_a_skill_that_names_a_guard_names_one_that_can_deny():
     """D-012-01's other half: a refusal a skill states has to be enforced by something.
 
@@ -480,7 +535,16 @@ AI_SPEC_SECTIONS = {
         "8. Create the draft with `ai-eng spec new <slug>`; add `--ref owner/repo#45` only when "
         "that is the real work item. If this supersedes shipped work, create a new spec, link the "
         "old record and explain the change; never rewrite history.",
-        "9. Keep decisions in their spec unless they constrain future specs. For those, record a "
+        # EP-332. `ai-advise` was absorbed with the instruction "move the valuable heuristics
+        # to ai-review and ai-spec", and this is the ai-spec half: architecture judgement
+        # that arrives as a separate opinion is an opinion nobody has to answer, which is
+        # exactly the duplicated output the absorption was meant to avoid. Inside an option
+        # it has to be weighed, because the option either wins or loses on it.
+        "9. Architecture advice belongs inside the options, never beside them. Where a boundary, "
+        "a dependency, a duplicated source of truth or the cost of reversing it decides between "
+        "two options, say so in the option that carries it. A separate architectural opinion "
+        "nobody has to answer is the advisor this project chose not to build.",
+        "10. Keep decisions in their spec unless they constrain future specs. For those, record a "
         'proposed `ai-eng decide --madr "<title>"`; proposal is not approval. Leave every '
         "production-ready box unticked until the named command supplies fresh evidence.",
     ),
@@ -851,7 +915,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 56_626
+    assert contract.REPO_CEILING == 56_765
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1261,6 +1325,23 @@ SKILL_CONTENT = (
     ("EP-361", "ai-ship/SKILL.md", "Never `--no-verify`"),
     ("EP-361", "ai-ship/SKILL.md", "in plain words, for somebody"),
     ("EP-361", "ai-ship/SKILL.md", "the pull request must target"),
+    # Three more capabilities the proposal absorbed with an instruction attached, and in all
+    # three the instruction was the part that never landed. "Add a simplification lens to
+    # ai-review" left no lens; "move the valuable heuristics to ai-review and ai-spec" left
+    # neither file carrying them; "ai-note already stores this and persistence lives outside
+    # the wheel" left ai-note never saying so, which is the half a reader would go looking
+    # for when they wonder where their findings are kept.
+    ("EP-373", "ai-review/references/simplification.md", "The smaller version, in one sentence"),
+    ("EP-373", "ai-review/references/simplification.md", "An abstraction with one caller"),
+    ("EP-332", "ai-review/references/architecture.md", "The boundary the change crosses"),
+    ("EP-332", "ai-review/references/architecture.md", "State that now lives in two places"),
+    ("EP-332", "ai-spec/SKILL.md", "Architecture advice belongs inside the options"),
+    ("EP-352", "ai-note/SKILL.md", "not this framework's"),
+    (
+        "EP-352",
+        "ai-note/SKILL.md",
+        "a second source of\n   truth for something git already versions",
+    ),
 )
 
 
