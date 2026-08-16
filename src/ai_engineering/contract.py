@@ -1742,7 +1742,13 @@ DESCRIPTION_MAX = 1000
 # the same reason the audit above gives: there is no independent record of the gate run, so
 # "green after the repair" is this record's own word. Writing the hand-off does not close
 # that, and pretending it did would be the defect this file is a list of.
-REPO_CEILING = 59_423
+#
+# 59,423 to 59,438 for the rest of EP-044. `file:line` was pinned and the two clauses that
+# make a review a review were not — the challenge before anything blocks, and the default to
+# dismissing — so a reviewer could have been left auto-accepting its own findings with the
+# whole suite green. Pinning one clause of a requirement is how a requirement half rots, and
+# this is the second time that sentence has had to be written this week.
+REPO_CEILING = 59_438
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

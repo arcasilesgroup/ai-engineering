@@ -922,7 +922,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 59_423
+    assert contract.REPO_CEILING == 59_438
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1328,6 +1328,15 @@ SKILL_CONTENT = (
     # read by nothing. `ai-review/SKILL.md` and its security reference had no row at all.
     ("EP-022", "ai-design/SKILL.md", "WCAG 2.2 AA is the release floor"),
     ("EP-044", "ai-review/SKILL.md", "file:line"),
+    # The rest of the same requirement. `file:line` was pinned and the two clauses that make
+    # the review a review were not, so a reviewer could have been left auto-accepting its own
+    # findings with the suite green: the challenge before anything blocks, and the default to
+    # dismissing. Specification 014 says the word "provider-neutral" has no check behind it,
+    # which is true and is a different sentence from these two, which now do.
+    ("EP-044", "ai-review/SKILL.md", "try to kill it, and default to dismissing"),
+    ("EP-044", "ai-review/SKILL.md", "A real bug you are\n   unsure of still blocks"),
+    ("EP-044", "ai-review/SKILL.md", "Never report what a tool already reports"),
+    ("EP-044", "ai-review/SKILL.md", "A finding\n   without a failing scenario is an opinion"),
     ("EP-264", "ai-review/references/security.md", "the source, the sink"),
     # `ai-explore` answered every question in the words of whoever wrote the code, and rule 9
     # says explain it so somebody who does not code can follow. The audit found no audience
