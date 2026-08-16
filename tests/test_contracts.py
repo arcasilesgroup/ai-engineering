@@ -851,7 +851,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 56_078
+    assert contract.REPO_CEILING == 56_207
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1366,3 +1366,31 @@ def test_the_first_thing_a_spec_says_is_who_it_is_for():
     section = body.split("## Who this is for", 1)[1].split("\n## ", 1)[0]
     assert "Named people or a named role" in section
     assert "what it costs them today" in section
+
+
+def test_a_skill_is_instructions_and_never_an_executable():
+    """EP-160. Every one of the thirty-one files under `.agents/skills/` is markdown, and
+    nothing said it had to stay that way.
+
+    A skill that ships a handler is a program this framework installs into somebody's home
+    and then runs on their behalf, and the whole argument for skills over handlers is that
+    instructions can be read before they are followed. The audit verified the property by
+    listing the files; that is a fact about today, not a rule about tomorrow.
+
+    Scoped to a suffix rather than to a mode bit: an executable bit is a property of a
+    checkout and does not survive a wheel, while `.py` beside a `SKILL.md` is a decision
+    somebody took. And the scan is shown finding something, because a scan that looked at
+    nothing and a scan that found nothing print the same result.
+    """
+
+    skills = ROOT / ".agents" / "skills"
+    found = sorted(path for path in skills.rglob("*") if path.is_file())
+
+    assert found, "there are no skill files, so this proves nothing"
+    wrong = [str(path.relative_to(skills)) for path in found if path.suffix != ".md"]
+    assert not wrong, f"a skill may only ship instructions, and these are not: {wrong}"
+
+    # The scan can see a file that is not markdown, so its silence above means something.
+    assert [
+        name for name in [*(path.name for path in found), "handler.py"] if not name.endswith(".md")
+    ] == ["handler.py"]

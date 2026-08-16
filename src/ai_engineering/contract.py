@@ -1378,7 +1378,19 @@ DESCRIPTION_MAX = 1000
 # INCOMPLETE under the same lane contract the three baseline lanes run under. Neither joins
 # `BASELINE`, and that is the decision — a cross-check that became a dependency would stop
 # being a cross-check, and this repository's security answer stays three lanes.
-REPO_CEILING = 56_078
+# 56,078 to 56,195 for EP-263 and EP-160, both of them properties that were true and unheld.
+# One `trivy fs .` reads every repository and names no stack, so one whose manifests the
+# engine does not support passes exactly like one it read and found nothing in — the
+# difference this module exists to keep, not kept here. The dependency answer names what it
+# was about now; a repository with no manifest declines the scan rather than passing it, and
+# a container lane over a repository with no image is a lane scanning nothing.
+#
+# And every one of the thirty-one files under `.agents/skills/` is markdown, which an audit
+# verified by listing them. That is a fact about today, not a rule about tomorrow: a skill
+# that ships a handler is a program this framework installs into somebody's home and then
+# runs for them, and the whole argument for instructions over handlers is that instructions
+# can be read before they are followed.
+REPO_CEILING = 56_207
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

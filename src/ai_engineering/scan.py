@@ -174,6 +174,46 @@ BASELINE = (
 # found spec prose and no code, so a reader could not tell "we decided not to require this"
 # from "nobody thought about it", and the requirement asks for exactly that distinction:
 # configured and unable to run is INCOMPLETE, absent is not applicable.
+# The manifests a dependency scan is about, by the file each stack keeps them in. One
+# `trivy fs .` covers every repository and names none of them, so a repository whose stack
+# the engine does not read passes exactly like one it read and found nothing in — which is
+# the difference this whole module exists to keep. Naming what was covered is what turns
+# "it ran and found nothing" into an answer somebody can check.
+MANIFESTS = (
+    "pyproject.toml",
+    "requirements.txt",
+    "package.json",
+    "Cargo.toml",
+    "go.mod",
+    "Gemfile",
+    "pom.xml",
+    "build.gradle",
+    "composer.json",
+)
+IMAGES = ("Dockerfile", "Containerfile")
+
+
+def stacks(root: Path) -> list[str]:
+    """Every dependency manifest in this repository, by name and sorted.
+
+    Shallow on purpose: a manifest inside `node_modules` or a vendored copy belongs to
+    somebody else's project, and walking the whole tree turns one answer into hundreds.
+    """
+
+    found = {name for name in MANIFESTS if (Path(root) / name).is_file()}
+    for entry in sorted(Path(root).iterdir()) if Path(root).is_dir() else []:
+        if entry.is_dir() and not entry.name.startswith((".", "node_modules")):
+            found.update(name for name in MANIFESTS if (entry / name).is_file())
+    return sorted(found)
+
+
+def images(root: Path) -> list[str]:
+    """The container definitions, if any. A container lane over a repository with no image
+    is a lane scanning nothing, and this repository has none."""
+
+    return sorted(name for name in IMAGES if (Path(root) / name).is_file())
+
+
 CROSS_CHECKS = (
     Lane("skillspector", ("skillspector", "scan")),
     Lane("claude-security", ("claude-security", "review")),
@@ -214,4 +254,21 @@ def baseline(root: Path) -> int:
         print(f"  {fact.status:<11} {lane.id:<13} {fact.detail}")
         if fact.status != "PASS":
             worst = 1
+    # What the dependency answer was about, named. `trivy fs .` reads every repository and
+    # names no stack, so one whose manifests the engine does not support passes exactly like
+    # one it read and found nothing in. A repository with no manifest at all is declining a
+    # dependency scan rather than passing one, and it says so.
+    present = stacks(root)
+    print(
+        f"  {'OBSERVED':<11} {'manifests':<13} {', '.join(present)}"
+        if present
+        else f"  {'SKIPPED':<11} {'manifests':<13} no dependency manifest here, so there is "
+        f"nothing for a dependency scan to be about"
+    )
+    found = images(root)
+    print(
+        f"  {'OBSERVED':<11} {'images':<13} {', '.join(found)}"
+        if found
+        else f"  {'SKIPPED':<11} {'images':<13} no container image here, so no container lane runs"
+    )
     return worst

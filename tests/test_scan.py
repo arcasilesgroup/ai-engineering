@@ -231,3 +231,35 @@ def test_a_cross_check_nobody_installed_is_declined_and_not_failed(tmp_path, mon
 
     fact = scan.cross_check(scan.CROSS_CHECKS[0], tmp_path, ["."])
     assert fact.status == "INCOMPLETE", fact
+
+
+def test_the_dependency_answer_names_the_stacks_it_was_about(tmp_path, capsys):
+    """EP-263. One `trivy fs .` reads every repository and names no stack, so one whose
+    manifests the engine does not support passes exactly like one it read and found nothing
+    in. That is the difference this module exists to keep, and it was not kept here.
+
+    A repository with no manifest at all is declining a dependency scan rather than passing
+    one, and a container lane over a repository with no image is a lane scanning nothing.
+    Both are said out loud instead of being absent from the output.
+    """
+
+    from ai_engineering import scan
+
+    assert scan.stacks(ROOT) == ["package.json", "pyproject.toml"]
+    assert scan.images(ROOT) == []
+
+    # Shallow, and one level down. A manifest inside `node_modules` belongs to somebody
+    # else's project, and walking the whole tree turns one answer into hundreds.
+    (tmp_path / "service").mkdir()
+    (tmp_path / "service" / "go.mod").write_text("module x\n", encoding="utf-8")
+    (tmp_path / "node_modules" / "left-pad").mkdir(parents=True)
+    (tmp_path / "node_modules" / "left-pad" / "package.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
+
+    assert scan.stacks(tmp_path) == ["go.mod"]
+    assert scan.images(tmp_path) == ["Dockerfile"]
+
+    # And a repository with neither says so rather than printing nothing.
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    assert scan.stacks(bare) == [] and scan.images(bare) == []
