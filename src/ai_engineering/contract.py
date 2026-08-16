@@ -1250,7 +1250,28 @@ DESCRIPTION_MAX = 1000
 # module docstring, the verb table and two lines in `ui.py`. The test that caught them
 # derives the number from the registry and formats the prose, which is the pattern the
 # ceiling comment above has been arguing for all along.
-REPO_CEILING = 55_283
+# 55,283 to 55,331 for a false green found by reading a loop rather than the name above it.
+# The checkpoint's third receipt kept one record, assigned inside a loop over `sorted(...)`,
+# so the winner was the alphabetically last fresh receipt while the variable holding it was
+# called `freshest`. With `adversarial-attacks.json` reporting FAIL and
+# `local-command-python.json` reporting PASS — both real names this repository writes, in
+# their real order — the checkpoint reported that the checks had run and passed. Nothing in
+# the output said otherwise. The worst fresh receipt decides now, and a fixture built from
+# those two names fails against the old expression.
+#
+# Worth recording separately: the audit said nothing writes `.ai/receipts/*.json`. That was
+# wrong — `tests/adversarial/run.py` writes four, fully shaped — and checking it rather than
+# taking it is what put the loop in front of me.
+# 55,343 to 55,392 for two overclaims an independent reader found by counting. Three of the
+# thirteen enumerated accessibility items were pinned and ten were not, so the enumeration
+# could be deleted item by item with the suite green — a checklist covering a quarter of
+# what it names is the gate it replaced, one size down. All thirteen are pinned now.
+#
+# And every router fixture planted a fabricated surface, so nothing proved `init` ever
+# reaches the generator: on a machine where the install had run, assertion 24 still answered
+# "no router has been written here". A real `init` on a stranger's machine now writes real
+# routers and the check reads them back; emptying the installer's call turns it red.
+REPO_CEILING = 55_401
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

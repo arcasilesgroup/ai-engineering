@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -208,3 +209,41 @@ def test_the_commit_hook_asks_for_the_receipts_only_while_a_claim_is_held():
     guarded = hook.split('if [ -f ".ai/claim.json" ]; then', 1)
     assert len(guarded) == 2, "the checkpoint runs unconditionally"
     assert "spec checkpoint" in guarded[1]
+
+
+def test_a_failing_receipt_is_not_masked_by_a_passing_one_that_sorts_later(working):
+    """The defect this fixture exists for, found by reading the loop rather than the name.
+
+    `_executed` kept one receipt, assigned inside a loop over `sorted(...)`, so the winner
+    was the alphabetically last fresh receipt while the variable holding it was called
+    `freshest`. A FAIL from `adversarial-attacks.json` was therefore overwritten by a PASS
+    from `local-command-python.json`, and the checkpoint reported that the checks had run and
+    passed. Nothing in the output said otherwise, which is what makes it a false green rather
+    than an ordering preference.
+
+    Both names are real ones this repository writes, and the order is the real order: `a`
+    before `l`. The worst fresh receipt decides now.
+    """
+
+    from ai_engineering import checkpoint
+
+    folder = working / ".ai" / "receipts"
+    folder.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for name, said in (("adversarial-attacks", "FAIL"), ("local-command-python", "PASS")):
+        (folder / f"{name}.json").write_text(
+            json.dumps(
+                {
+                    "id": name,
+                    "outcome": said,
+                    "finished_at": stamp,
+                    "max_age_seconds": 86400,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    fact = checkpoint._executed(working)
+
+    assert fact.status == "FAIL", fact
+    assert fact.detail and "adversarial-attacks" in fact.detail

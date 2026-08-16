@@ -148,7 +148,14 @@ def _executed(root: Path, now: datetime | None = None) -> outcome.Fact:
 
     folder = root / RECEIPTS
     moment = now or datetime.now(UTC)
-    freshest: tuple[str, str] | None = None
+    # Every fresh receipt, and the worst of them decides. It used to keep one — assigned in a
+    # loop over `sorted(...)`, so the winner was the alphabetically last fresh receipt while
+    # the variable holding it was called `freshest`. With `adversarial-attacks.json` reporting
+    # FAIL and `local-command-python.json` reporting PASS, this returned PASS: a failing check
+    # masked by a passing one whose filename sorts later. Nothing about that is visible in the
+    # output, which is what makes it the shape this product exists to refuse rather than an
+    # ordering preference.
+    fresh: list[tuple[str, str]] = []
     for found in sorted(folder.glob("*.json")) if folder.is_dir() else []:
         try:
             record = json.loads(found.read_text(encoding="utf-8"))
@@ -157,9 +164,11 @@ def _executed(root: Path, now: datetime | None = None) -> outcome.Fact:
             )
             age = (moment - finished).total_seconds()
             if age <= float(record.get("max_age_seconds", 0)):
-                freshest = (str(record.get("outcome", "")), str(record.get("id", found.stem)))
+                fresh.append((str(record.get("outcome", "")), str(record.get("id", found.stem))))
         except (OSError, ValueError, KeyError, TypeError):
             continue
+    failed = [row for row in fresh if row[0] != "PASS"]
+    freshest = failed[0] if failed else (fresh[0] if fresh else None)
     if freshest is None:
         return outcome.fact(
             "checks-executed",

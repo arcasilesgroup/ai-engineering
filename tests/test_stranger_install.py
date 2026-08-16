@@ -200,3 +200,34 @@ def test_uninstall_refuses_without_a_keyboard_and_removes_nothing(stranger, monk
     assert refused.outcome == "INCOMPLETE"
     assert "requires a person at a keyboard" in capsys.readouterr().out
     assert wiring.receipt().get("wrote") == before, "a refusal changed the receipt"
+
+
+def test_a_real_install_writes_a_real_router_and_doctor_reads_it_back(stranger, monkeypatch):
+    """The proof every other router fixture does not give.
+
+    All of them plant a fabricated surface `{"id": "invented", "commands": tmp_path}`, which
+    proves the generator works and says nothing about whether `ai-eng init` ever reaches it.
+    An independent reader pointed that out: on a machine where the install ran, assertion 24
+    still answered "no router has been written here". A generator nothing calls is the same
+    shape as a contract nothing reads, and this file has spent a week on those.
+
+    So: a real `init` on a stranger's machine, and the router read back off the receipt by
+    the check that is supposed to notice it.
+    """
+
+    from ai_engineering import doctor, paths, wiring
+
+    (Path.home() / ".claude").mkdir(parents=True, exist_ok=True)  # the surface is detected
+    init.main(["--global", "--project", ".", "-y"])
+
+    recorded = [row for row in wiring.receipt().get("wrote", []) if row.get("kind") == "router"]
+    assert recorded, "the install wrote no router on a machine where Claude Code is present"
+
+    expected = {f"{skill.name}.md" for skill in paths.skills().glob("ai-*")}
+    assert {Path(row["path"]).name for row in recorded} == expected
+    for row in recorded:
+        assert Path(row["path"]).is_file()
+        assert Path(row["path"]).parent == Path.home() / ".claude" / "commands"
+
+    # And the check that reads them back agrees, on the same machine, with no argument.
+    assert doctor.routers_intact(stranger) is None

@@ -851,7 +851,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 55_283
+    assert contract.REPO_CEILING == 55_401
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1198,9 +1198,27 @@ SKILL_CONTENT = (
     ("EP-253", "ai-design/SKILL.md", "approved residency and retention, and get consent"),
     ("EP-256", "ai-design/SKILL.md", "proves nothing about alt text, contrast, trademark"),
     ("EP-028", "ai-review/references/frontend.md", "The definition of done, item by item"),
-    ("EP-248", "ai-review/references/frontend.md", "Touch targets are at least 24 by 24"),
-    ("EP-248", "ai-review/references/frontend.md", "Nothing flashes more than three times"),
+    # All thirteen, and the reason is a finding about this table. Three were pinned and ten
+    # were not, so the enumeration could be deleted item by item with the suite staying green
+    # — a checklist that covers a quarter of what it names is the same defect as the gate it
+    # was written to replace, one size down. An independent reader found it by counting.
+    ("EP-248", "ai-review/references/frontend.md", "Name, role, value and state readable"),
     ("EP-248", "ai-review/references/frontend.md", "returns focus to whatever opened it"),
+    ("EP-248", "ai-review/references/frontend.md", "Touch targets are at least 24 by 24"),
+    ("EP-248", "ai-review/references/frontend.md", "A pointer action can be cancelled"),
+    (
+        "EP-248",
+        "ai-review/references/frontend.md",
+        "Anything that needs a drag has a way that does not",
+    ),
+    ("EP-248", "ai-review/references/frontend.md", "Orientation is not locked"),
+    ("EP-248", "ai-review/references/frontend.md", "400% zoom, and the content reflows"),
+    ("EP-248", "ai-review/references/frontend.md", "Forced-colours mode keeps every boundary"),
+    ("EP-248", "ai-review/references/frontend.md", "Paste works in password and one-time-code"),
+    ("EP-248", "ai-review/references/frontend.md", "Announcements reach a screen reader"),
+    ("EP-248", "ai-review/references/frontend.md", "Nothing flashes more than three times"),
+    ("EP-248", "ai-review/references/frontend.md", "Audio and video carry an alternative"),
+    ("EP-248", "ai-review/references/frontend.md", "Motion respects the reduced-motion preference"),
     # What the two absorbed skills owed. Absorption is a decision this repository took and
     # defends; absorption without the work landing is a deletion with a nicer name, and the
     # audit found all four of these in no file at all.
