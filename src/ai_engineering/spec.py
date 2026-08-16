@@ -449,6 +449,20 @@ def _publication_reports(pending: str) -> dict[str, _Report]:
 
 
 def _new(root: Path, slug: str, ref: str) -> outcome.Execution:
+    # The Intent is this transaction's anchor, and a repository that has never had one is
+    # the ordinary state of every repository on its first day. Without this the writer
+    # refused with "filesystem resolved a missing or differently spelled entry" — true about
+    # a path and useless about a decision, in the command `init` closes by recommending.
+    if not (root / ".ai" / "intent.md").is_file():
+        return _finish(
+            _incomplete_report(
+                "INTENT_MISSING",
+                "there is no Solution Intent here yet, and a spec is a decision inside one. "
+                "Write `.ai/intent.md` first — `/ai-spec` walks through it — and run this again",
+                retryable=False,
+            )
+        )
+
     candidate_name: str | None = None
     pending: spec_transaction.Pending | None = None
     publication_reports: dict[str, _Report] | None = None

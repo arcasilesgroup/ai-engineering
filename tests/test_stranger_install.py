@@ -151,3 +151,24 @@ def test_a_folder_this_install_never_wrote_is_still_refused_and_says_why(
     assert result.outcome == "INCOMPLETE"
     assert "not this installer's to write" in printed
     assert stranger_file.read_text(encoding="utf-8") == "not ours\n"
+
+
+def test_the_first_spec_names_the_missing_intent_rather_than_a_path(stranger, capsys):
+    """The command `init` closes by recommending, on the machine `init` just set up.
+
+    It answered "filesystem resolved a missing or differently spelled entry" — true about a
+    path and useless about a decision. A spec is a decision inside a Solution Intent, this
+    repository has none yet, and that is the ordinary state of every repository on its first
+    day. The refusal says so and names what to write."""
+
+    from ai_engineering import spec
+
+    init.main(["--global", "--project", ".", "-y"])
+    capsys.readouterr()
+
+    result = spec.main(["new", "first-thing"])
+    printed = capsys.readouterr().out
+
+    assert result.outcome == "INCOMPLETE"
+    assert "no Solution Intent here yet" in printed
+    assert not list((stranger / "specs").glob("*first-thing")), "a spec was published anyway"

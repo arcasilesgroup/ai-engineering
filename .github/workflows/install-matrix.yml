@@ -407,7 +407,15 @@ jobs:
           ai-eng doctor --fix 2>&1 | tee fix.log || true
           grep -q chain.py "$HOME/.claude/settings.json" || { echo "--fix did not rewire"; exit 1; }
           ai-eng doctor --paths
-          ai-eng spec new first-thing
+          # A spec is a decision inside a Solution Intent, and this machine has none: `init`
+          # does not write one because it is the user's to write. So the refusal is the
+          # documented path, and what this asserts is that it names the missing Intent —
+          # the verb used to answer "filesystem resolved a missing or differently spelled
+          # entry", which is true about a path and useless about a decision.
+          ai-eng spec new first-thing 2>&1 | tee spec.log || true
+          grep -q "no Solution Intent here yet" spec.log \
+            || { echo "spec new did not name the missing Intent"; exit 1; }
+          test ! -d specs/001-first-thing || { echo "a spec was published without an Intent"; exit 1; }
           # A stranger's machine has one commit that was made before this tool existed, so
           # nothing is anchored and nothing can be proved about it. INCOMPLETE is the true
           # answer and this asserts it: exit zero here would have meant the verifier said

@@ -994,7 +994,16 @@ DESCRIPTION_MAX = 1000
 # read as somebody else's, so a fresh machine whose editor had already made the folder
 # could never be initialised at all. An empty directory has nothing in it to lose; one
 # holding a file this install did not write is still refused — and now says which and why.
-REPO_CEILING = 52_591
+# 52,591 to 52,643 for the next verb in the same sentence. `init` closes by recommending
+# `ai-eng spec new <slug>`, and on the machine `init` had just set up that command answered
+# "the spec transaction could not prove an unchanged safe filesystem state" — because the
+# transaction anchors on `.ai/intent.md`, which does not exist there.
+#
+# True about a path and useless about a decision. A spec is a decision inside a Solution
+# Intent; a repository on its first day has none, and `init` does not write one because it
+# is the user's to write. The refusal names the Intent and what to do about it now, the
+# install matrix asserts that wording, and a fixture asserts no spec is published anyway.
+REPO_CEILING = 52_643
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
