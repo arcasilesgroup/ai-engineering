@@ -159,3 +159,33 @@ def test_every_command_in_the_register_names_something_that_exists():
             named = [word for word in command.split() if word.startswith("tests/")]
             assert named, f"{row['id']} names no verb, recipe or file: {command}"
             assert (ROOT / named[0]).exists(), f"{row['id']} names a file that is not there"
+
+
+def test_a_bound_stated_twice_has_to_agree_with_itself():
+    """EP-283. `surface_proof_age` said seven days in a sentence, `surface.MAX_AGE_CEILING`
+    caps a receipt's own declared window at thirty-one, and nothing said which number
+    governed or compared the two. That is the same shape as the manifest declaring a
+    capability the gate forbade, and an audit found both on the same day.
+
+    The bound is a number now and the reader reads the ceiling from the module that enforces
+    it, so the two cannot drift. A bound looser than that ceiling is refused, because an
+    indicator that goes red only after the reader has already refused the receipt is an
+    indicator that never goes red."""
+
+    from ai_engineering import surface
+
+    rows = {str(row["id"]): row for row in register()["indicator"]}
+    assert rows["surface_proof_age"]["bound_seconds"] == 7 * 24 * 3600
+    assert pilot_register._CEILING == surface.MAX_AGE_CEILING
+
+    loose = {
+        "indicator": [{**rows["surface_proof_age"], "bound_seconds": surface.MAX_AGE_CEILING + 1}],
+        "prohibition": [],
+    }
+    assert any("could never go red first" in line for line in pilot_register.problems(loose))
+
+    wrong = {
+        "indicator": [{**rows["surface_proof_age"], "bound_seconds": "seven days"}],
+        "prohibition": [],
+    }
+    assert any("not a positive number" in line for line in pilot_register.problems(wrong))

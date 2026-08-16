@@ -1323,7 +1323,15 @@ DESCRIPTION_MAX = 1000
 # continuous-integration repair, independent review happened twice and neither time as the
 # rule describes, and both times it found real defects. That is the fifth gap in a protocol
 # this repository adopted, and writing it down is the only part I get to do about it.
-REPO_CEILING = 55_643
+# 55,643 to 55,702 for EP-283, the second bound this week that was written twice and
+# compared nowhere. `surface_proof_age` said seven days in a sentence; `surface.py` caps a
+# receipt's own declared window at thirty-one; nothing said which governed. It is a number
+# in the register now, and the register's reader imports the ceiling from the module that
+# enforces it rather than writing it down again — two copies of a number are two numbers,
+# which is the whole reason this row needed fixing. A bound looser than that ceiling is
+# refused, because an indicator that only goes red after the reader has already refused the
+# receipt is an indicator that never goes red.
+REPO_CEILING = 55_710
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -26,6 +26,14 @@ INDICATORS = 13
 PROHIBITIONS = 14
 
 
+# Read from the module that enforces it rather than written down again. Two copies of a
+# number are two numbers, and this file exists because of one that had drifted.
+try:  # the package is on the path under `just check`; a bare run of this file need not be
+    from ai_engineering.surface import MAX_AGE_CEILING as _CEILING
+except ImportError:  # pragma: no cover - exercised only outside the suite's path
+    _CEILING = 2_678_400
+
+
 def problems(register: dict) -> list[str]:
     """Every way this register is not a register. One list, so the reader prints all of
     them rather than the first — a shape error found one run at a time is four runs."""
@@ -60,6 +68,21 @@ def problems(register: dict) -> list[str]:
             found.append(f"{name} carries a bound and no instrument; that pair is an error")
         if equipped and not row.get("bound"):
             found.append(f"{name} names a command and no bound, so nothing can go red")
+        # A bound stated twice has to agree with itself. `surface_proof_age` said seven days
+        # in a sentence while `surface.MAX_AGE_CEILING` caps a receipt's own window at
+        # thirty-one, and nothing said which number governed or compared them — the same
+        # shape as the manifest that declared a capability the gate forbade. A numeric bound
+        # is optional; a numeric bound looser than the ceiling it sits under is an error,
+        # because an indicator that goes red only after the reader has already refused the
+        # receipt is an indicator that never goes red.
+        seconds = row.get("bound_seconds")
+        if seconds is not None and (not isinstance(seconds, int) or seconds <= 0):
+            found.append(f"{name} carries a bound_seconds that is not a positive number")
+        elif seconds is not None and seconds > _CEILING:
+            found.append(
+                f"{name} bounds at {seconds}s, past the {_CEILING}s ceiling the reader "
+                f"enforces: it could never go red first"
+            )
 
     for row in prohibitions:
         name = str(row.get("id", "<unnamed>"))

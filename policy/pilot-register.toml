@@ -18,6 +18,12 @@ why = "six indicators have no instrument and the pilot itself has not been run"
 [[indicator]]
 id = "surface_proof_age"
 bound = "red when an observed denial is older than seven days"
+# The same bound as a number, because the sentence above is the only place seven days was
+# written and nothing could compare it to anything. `surface.py` caps any receipt's own
+# declared window at thirty-one days; an indicator bound looser than the ceiling it sits
+# under would be an indicator that can never go red before the reader has already refused
+# the receipt, and nothing said which of the two numbers governed. The reader compares them.
+bound_seconds = 604_800
 command = "ai-eng report surfaces"
 wave = "P1"
 
