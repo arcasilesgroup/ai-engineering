@@ -88,7 +88,7 @@ def test_every_assertion_has_a_unique_number_a_family_and_a_sentence():
     # 5 is retired, not renumbered: the numbers are cited in prose all over this repository
     # and moving them would silently repoint every one of those citations. It was the line
     # ceiling, and the test plane owns that assertion now.
-    assert sorted(numbers) == [n for n in range(1, 24) if n != 5]
+    assert sorted(numbers) == [n for n in range(1, 25) if n != 5]
     for number, family, title, in_ci, fn in doctor.CHECKS:
         assert family and title and callable(fn) and isinstance(in_ci, bool), number
 
@@ -1596,3 +1596,37 @@ def test_the_anchor_check_runs_the_installed_module_and_never_the_repository_it_
     assert "PYTHONSAFEPATH" in (ROOT / "src" / "ai_engineering" / "wiring.py").read_text(
         encoding="utf-8"
     )
+
+
+def test_a_router_somebody_edited_or_removed_is_reported_and_never_repaired(home, repo, tmp_path):
+    """Assertion 24. A router is a file this installer wrote into somebody's home, so it owes
+    the same answer as everything else it wrote: is it there, and is it ours.
+
+    Reported and not repaired. `--fix` rewriting a file a person deleted would be the
+    installer overruling them, and this check has no cure that runs unattended for exactly
+    that reason — the cure it names is a command a person chooses to type."""
+
+    from ai_engineering import wiring
+
+    commands = tmp_path / "commands"
+    written = wiring.install_routers([{"id": "invented", "commands": str(commands), "skills": ""}])
+    wiring.record(written)
+
+    assert doctor.routers_intact(repo) is None
+
+    Path(written[0]["path"]).unlink()
+    Path(written[1]["path"]).write_text("mine now\n", encoding="utf-8")
+    said = doctor.routers_intact(repo)
+
+    assert isinstance(said, tuple)
+    assert "1 removed" in said[0] and "1 edited" in said[0]
+    assert str(len(written)) in said[0]
+
+
+def test_a_machine_with_no_router_says_it_could_not_evaluate_rather_than_ok(home, repo):
+    """Seven of the eight surfaces declare no command root, so most machines have no router
+    at all. Nothing written is not the same as nothing wrong, and an ok here would be a pass
+    over a question nobody asked."""
+
+    with pytest.raises(doctor.Undecidable):
+        doctor.routers_intact(repo)

@@ -191,6 +191,17 @@ def global_step(args) -> outcome.Result:
     ui.step("ok", f"{landed} skills".ljust(10), f"→ {paths.home() / 'skills'}/ai-*/")
     for row in written[1:]:
         ui.step("ok", f"{row['how']:<8}", f"→ {row['path']}")
+    # The routers, and the count of surfaces that could not have one. A surface with no
+    # declared command root is not a failure and is not silence either: it is the reason
+    # `/ai-spec` works on one surface and not on the next, and a person deciding whether
+    # they are set up deserves the number rather than the discovery.
+    routers = wiring.install_routers(found)
+    written.extend(routers)
+    without = [s["id"] for s in found if not s.get("commands")]
+    if routers:
+        ui.step("ok", f"{len(routers)} routers".ljust(10), f"→ /{'ai-*'} on 1 surface")
+    if without:
+        ui.step("would", "routers".ljust(10), f"no command root declared: {', '.join(without)}")
     pending_approval = False
     for name, target, detail in wiring.install_guards(found):
         # Appended and not merged means a person has to approve it before it runs, which

@@ -8,6 +8,7 @@ behaviour this product was built to argue against.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -20,7 +21,7 @@ from ai_engineering import __version__, outcome, paths, wiring
 from ai_engineering import init as installer
 
 KEEPS = ("specs/", "CONSTITUTION.md", "AGENTS.md", "docs/adr/")
-GLOBAL_KINDS = ("guard", "link", "skills")
+GLOBAL_KINDS = ("guard", "link", "skills", "router")
 
 
 def receipt_state() -> tuple[dict, list[dict]] | None:
@@ -250,6 +251,25 @@ def _git_value(root: Path, key: str) -> str | None:
     return read.stdout.strip() if read.returncode == 0 else ""
 
 
+def _router_owned(row: dict) -> bool:
+    """A generated router is ours only while it is still the bytes we generated.
+
+    The digest travels in `how` rather than as a fifth key, because the receipt's four-field
+    shape is validated on read and an optional key is how a contract rots. A file somebody
+    edited is theirs now: they wanted something we did not write, and removing it would be
+    this installer deciding that its own version of a person's file is the real one.
+    """
+
+    target = Path(row["path"])
+    _, _, recorded = row["how"].partition(" ")
+    if not recorded:
+        return False
+    if not target.is_file():
+        return True  # already gone is the state uninstall was trying to reach
+    body = target.read_bytes()
+    return hashlib.sha256(body).hexdigest() == recorded
+
+
 def _owned(row: dict, root: Path | None) -> bool:
     kind = row["kind"]
     if kind == "guard":
@@ -258,6 +278,8 @@ def _owned(row: dict, root: Path | None) -> bool:
         return _skills_owned(Path(row["path"]), row["how"])
     if kind == "skills":
         return _skills_owned(Path(row["path"]), "wheel")
+    if kind == "router":
+        return _router_owned(row)
     if root is None:
         return False
     if kind == "project":
@@ -347,6 +369,10 @@ def inside(path: str, root: Path) -> bool:
     return Path(path) == root or root in Path(path).parents
 
 
+def _hex(value: str) -> bool:
+    return all(character in "0123456789abcdef" for character in value)
+
+
 def canonical(row: dict, root: Path | None) -> dict | None:
     """Return the trusted form of a destination this installer is capable of owning.
 
@@ -371,6 +397,22 @@ def canonical(row: dict, root: Path | None) -> dict | None:
         target = paths.home() / "skills"
         if path == str(target) and how == "wheel":
             return {"path": str(target), "kind": "skills", "how": "wheel"}
+    if kind == "router":
+        # Derived, never trusted. The path has to be one this installer could have written —
+        # a command root the table declares, holding a file named after a skill in the wheel
+        # — and `how` has to be a generation stamp of the right shape. A receipt saying
+        # `router` over an arbitrary path would otherwise be an unlink of anything.
+        for surface in wiring.table()["surface"]:
+            declared = surface.get("commands")
+            if not declared:
+                continue
+            marker, _, recorded = how.partition(" ")
+            if marker != "generated" or len(recorded) != 64 or not _hex(recorded):
+                continue
+            for skill in sorted(paths.skills().glob("ai-*")):
+                target = wiring.expand(declared) / f"{skill.name}.md"
+                if path == str(target):
+                    return {"path": str(target), "kind": "router", "how": how}
     if root is None:
         return None
     if kind == "project":

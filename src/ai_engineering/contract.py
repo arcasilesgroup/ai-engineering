@@ -1232,7 +1232,25 @@ DESCRIPTION_MAX = 1000
 # and the check reads three things: an id cannot be both claimed and refused, a refusal
 # with no reason is a preference, and a refusal with no reopening condition is a permanent
 # no that this framework is not entitled to take on somebody else's behalf.
-REPO_CEILING = 54_956
+# 54,956 to 55,265 for the routers, which spec 011 asked for with four properties and which
+# nothing generated at all: `/ai-*` commands, a receipt, a hash, a doctor check and an
+# uninstall path. The hash is what makes it an install rather than a file drop — without it
+# nothing downstream can tell a router nobody touched from one somebody rewrote, and
+# `uninstall` would remove either. It travels inside `how` rather than as a fifth receipt
+# key, because that row's four-field shape is validated on read and an optional key is how
+# a contract rots; `canonical` derives the path from the table and refuses a `router` row
+# naming anything else, or a receipt would be an unlink of any file on the machine.
+#
+# One surface of eight declares a command root, and the seven are the finding rather than an
+# omission. A router written into a directory whose convention we guessed at lands where a
+# person does not expect it, does nothing, and has to be found by hand — worse than the
+# absence, and the absence is what `init` and `doctor` report.
+#
+# Assertion 24 came with it, so three sentences that stated the count had to move: the
+# module docstring, the verb table and two lines in `ui.py`. The test that caught them
+# derives the number from the registry and formats the prose, which is the pattern the
+# ceiling comment above has been arguing for all along.
+REPO_CEILING = 55_283
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

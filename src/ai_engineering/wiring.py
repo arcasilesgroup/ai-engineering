@@ -12,6 +12,7 @@ fires nothing, and lets the commit through without a complaint. It is measured.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -363,6 +364,85 @@ def install_skills(surfaces: list[dict] | None = None) -> list[dict]:
             how = link(skill, expand(root) / skill.name)
         written.append({"path": str(expand(root)), "kind": "link", "how": how})
     return written
+
+
+ROUTER = """---
+description: {description}
+---
+
+Use the `{name}` skill to handle this request. The canonical skill body lives in the shared
+skills root this framework installed; load it and follow it. Everything after the command
+name is the request, forwarded verbatim.
+
+$ARGUMENTS
+"""
+
+
+def router_body(name: str, description: str) -> str:
+    """One router, generated from the skill it routes to.
+
+    A router is a convenience and not a second copy: it names the skill and forwards the
+    request, and every instruction still lives in one `SKILL.md`. A router that restated any
+    of it would be the second normative layer `EP-071` forbids, kept up to date by hand.
+    """
+
+    return ROUTER.format(name=name, description=description.strip().replace("\n", " "))
+
+
+def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
+    """A `/ai-*` command per skill, into the surfaces that declare where those live.
+
+    Generated, hashed and recorded — those three together are what makes this an install
+    rather than a file drop. `how` carries the digest of exactly what was written, so
+    `doctor` can tell a router nobody touched from one somebody edited, and `uninstall` can
+    refuse to remove a file that is no longer the one we wrote.
+
+    Only surfaces with a `commands` root get one, and today that is one of eight. Writing a
+    router into a directory whose convention was guessed at is worse than not writing it:
+    the file lands somewhere a person did not expect, does nothing, and has to be found by
+    hand. The absence is reported by `doctor` rather than filled in by the installer.
+    """
+
+    rows = table()["surface"] if surfaces is None else surfaces
+    written: list[dict] = []
+    for surface in rows:
+        root = surface.get("commands")
+        if not root:
+            continue
+        where = expand(root)
+        where.mkdir(parents=True, exist_ok=True)
+        for skill in sorted(paths.skills().glob("ai-*")):
+            body = router_body(skill.name, _described(skill))
+            target = where / f"{skill.name}.md"
+            target.write_text(body, encoding="utf-8")
+            digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+            written.append({"path": str(target), "kind": "router", "how": f"generated {digest}"})
+    return written
+
+
+def _described(skill: Path) -> str:
+    """The skill's own description, so the router and the skill cannot disagree.
+
+    Folded, because every one of these is written `description: >-` with the text on the
+    lines below it. Reading only the first line answered with the fold marker and produced a
+    router describing itself by its own name — which is a description that tells a person
+    nothing they did not already have from the command they typed.
+    """
+
+    lines = (skill / "SKILL.md").read_text(encoding="utf-8").splitlines()
+    for index, line in enumerate(lines):
+        if not line.startswith("description:"):
+            continue
+        inline = line.removeprefix("description:").strip()
+        if inline and inline not in (">-", ">", "|", "|-"):
+            return inline
+        folded = []
+        for following in lines[index + 1 :]:
+            if not following.startswith("  "):
+                break
+            folded.append(following.strip())
+        return " ".join(folded) or skill.name
+    return skill.name
 
 
 def install_guards(surfaces: list[dict]) -> list[tuple[str, str, str]]:

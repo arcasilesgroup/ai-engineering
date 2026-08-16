@@ -1,4 +1,4 @@
-"""Twenty-two assertions and one line.
+"""Twenty-three assertions and one line.
 
 These are not document sections: they are checks that fail. `--ci` runs the ones that
 make sense on a runner and says in its output which it skipped, because a doctor that
@@ -12,6 +12,7 @@ because a green nobody earned is the failure this whole product exists to cure.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -612,6 +613,42 @@ def capabilities_enforced(root: Path | None) -> str | None:
     raise Undecidable(
         f"{len(declared)} capabilities are declared and nothing enforces them: preflight "
         f"validates the declaration and then refuses, because no executor exists yet"
+    )
+
+
+@check(24, "The wiring", "Every generated router is still the one we generated")
+def routers_intact(root: Path | None) -> str | tuple[str, str] | None:
+    """A router is a file this installer wrote into somebody's home, so it owes the same
+    answer as every other file it wrote: is it there, and is it ours.
+
+    The digest travels in the receipt beside the path. A router that is gone was removed by
+    somebody and that is their business — it is reported, not repaired, because `--fix`
+    rewriting a file a person deleted is the installer overruling them. A router that is
+    there and different is the more interesting state: somebody wanted something else, and
+    `uninstall` will now leave it alone rather than deleting their work.
+    """
+
+    recorded = [row for row in wiring.receipt().get("wrote", []) if row.get("kind") == "router"]
+    if not recorded:
+        raise Undecidable("no router has been written here, so there is none to check")
+    missing, edited = [], []
+    for row in recorded:
+        target = Path(row["path"])
+        _, _, digest = str(row.get("how", "")).partition(" ")
+        if not target.is_file():
+            missing.append(target.name)
+        elif hashlib.sha256(target.read_bytes()).hexdigest() != digest:
+            edited.append(target.name)
+    if not missing and not edited:
+        return None
+    said = []
+    if missing:
+        said.append(f"{len(missing)} removed ({', '.join(sorted(missing)[:3])})")
+    if edited:
+        said.append(f"{len(edited)} edited ({', '.join(sorted(edited)[:3])})")
+    return (
+        f"of {len(recorded)} routers, {' and '.join(said)}",
+        "`ai-eng init` writes them again; an edited one is left alone by `uninstall`",
     )
 
 

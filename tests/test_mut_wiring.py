@@ -14,6 +14,7 @@ HOME, and nothing may touch this checkout.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -762,3 +763,100 @@ def test_a_suite_that_never_ran_here_is_named_as_unevaluated_rather_than_passed(
     with pytest.raises(doctor.Undecidable) as why:
         doctor.suite_result()
     assert str(why.value) == "the adversarial suite has never written a result here"
+
+
+def test_a_router_is_generated_hashed_and_recorded_for_the_surface_that_declares_a_root(
+    machine, tmp_path, monkeypatch
+):
+    """EP-014, EP-017, EP-205, EP-212. Spec 011 asks for generated `/ai-*` routers with a
+    receipt, a hash, a doctor check and an uninstall path — and nothing generated a router at
+    all. Four properties, and the receipt with the digest in it is what makes this an install
+    rather than a file drop: without it, nothing downstream can tell a router nobody touched
+    from one somebody rewrote, and `uninstall` would delete either.
+
+    Generated, so the router carries the skill's own description: a router that restated any
+    of the skill body would be the second normative layer EP-071 forbids, kept in step by
+    hand."""
+
+    commands = tmp_path / "commands"
+    surface = {"id": "invented", "commands": str(commands), "skills": ""}
+
+    written = wiring.install_routers([surface])
+
+    assert written, "no router was written for a surface that declares a command root"
+    for row in written:
+        assert row["kind"] == "router"
+        target = Path(row["path"])
+        assert target.is_file() and target.parent == commands
+        marker, _, digest = row["how"].partition(" ")
+        assert marker == "generated" and len(digest) == 64
+        body = target.read_text(encoding="utf-8")
+        assert hashlib.sha256(body.encode("utf-8")).hexdigest() == digest
+        # The router names its skill and forwards the request, and nothing else.
+        assert f"Use the `{target.stem}` skill" in body
+        assert "$ARGUMENTS" in body
+
+    names = {Path(row["path"]).stem for row in written}
+    assert names == {skill.name for skill in paths.skills().glob("ai-*")}
+
+
+def test_a_surface_with_no_command_root_gets_no_router_and_no_invented_path(machine, tmp_path):
+    """Seven of the eight surfaces declare no command root, and the installer writes nothing
+    for them rather than guessing. A router in a directory whose convention we invented lands
+    where a person does not expect it, does nothing, and has to be found by hand — which is
+    worse than the absence, and the absence is what `doctor` reports."""
+
+    assert wiring.install_routers([{"id": "invented", "commands": "", "skills": ""}]) == []
+    assert wiring.install_routers([{"id": "invented", "skills": ""}]) == []
+
+
+def test_uninstall_removes_a_router_it_wrote_and_leaves_one_somebody_edited(machine, tmp_path):
+    """The half that makes a hash worth recording. A generated router is ours only while it
+    is still the bytes we generated: a file somebody edited is theirs now — they wanted
+    something we did not write — and removing it would be this installer deciding that its
+    own version of a person's file is the real one.
+
+    Both directions in one fixture, because the interesting failure is the asymmetric one:
+    a rule that removes everything and a rule that removes nothing both look tidy in a test
+    that only asserts one case."""
+
+    from ai_engineering import uninstall
+
+    commands = tmp_path / "commands"
+    written = wiring.install_routers([{"id": "invented", "commands": str(commands), "skills": ""}])
+    ours, theirs = written[0], written[1]
+
+    edited = Path(theirs["path"])
+    edited.write_text("I wanted something else here\n", encoding="utf-8")
+
+    assert uninstall._owned(ours, None) is True
+    assert uninstall._owned(theirs, None) is False
+    # And gone already is the state uninstall was trying to reach, not a refusal.
+    Path(ours["path"]).unlink()
+    assert uninstall._owned(ours, None) is True
+
+
+def test_a_receipt_row_naming_a_router_outside_a_declared_command_root_is_refused(machine):
+    """`canonical` is a closed allow-list of what this installer may remove, and it derives
+    the path rather than trusting the row. Without that, a receipt saying `router` over an
+    arbitrary path turns uninstall into an unlink of anything on the machine."""
+
+    from ai_engineering import uninstall
+
+    real = wiring.expand("~/.claude/commands") / "ai-spec.md"
+    digest = "0" * 64
+    assert uninstall.canonical(
+        {"path": str(real), "kind": "router", "how": f"generated {digest}"}, None
+    ) == {"path": str(real), "kind": "router", "how": f"generated {digest}"}
+
+    for row in (
+        {"path": "/etc/passwd", "kind": "router", "how": f"generated {digest}"},
+        {"path": str(real), "kind": "router", "how": "generated not-a-digest"},
+        {"path": str(real), "kind": "router", "how": "copied " + digest},
+        {
+            "path": str(real.parent / "not-a-skill.md"),
+            "kind": "router",
+            "how": f"generated {digest}",
+        },
+    ):
+        assert uninstall.canonical(row, None) is None, row

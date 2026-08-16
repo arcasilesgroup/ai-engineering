@@ -18,6 +18,12 @@ detect = "~/.claude"
 settings = "~/.claude/settings.json"
 writer = "json_claude"
 skills = "~/.claude/skills"
+# The only row with a command root, and the absence elsewhere is the finding rather than an
+# omission. A router is a file written into somebody's home, and writing one into a
+# directory whose convention we guessed at is a worse outcome than not writing it: seven
+# surfaces have no declared root here because nobody has evidenced where theirs goes, and
+# `ai-eng doctor` says so rather than the installer inventing a path.
+commands = "~/.claude/commands"
 note = "Exit code 2 denies, even under bypassPermissions."
 
 [[surface]]
