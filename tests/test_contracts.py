@@ -851,7 +851,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 56_327
+    assert contract.REPO_CEILING == 56_394
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1394,3 +1394,45 @@ def test_a_skill_is_instructions_and_never_an_executable():
     assert [
         name for name in [*(path.name for path in found), "handler.py"] if not name.endswith(".md")
     ] == ["handler.py"]
+
+
+def test_the_template_gives_the_spec_every_section_the_skill_demands_of_it():
+    """EP-167, and an inconsistency between two of our own artefacts.
+
+    `ai-spec`'s SKILL.md requires a self-challenge, assumptions and unresolved risks kept
+    apart, and observable Given/When/Then examples for the success, the denial and the
+    undecidable path. The template `ai-eng spec new` writes had none of the three. So the
+    skill asked for sections the product did not provide, and every spec written by this
+    tool started by disagreeing with the instructions for writing it.
+
+    Read off the skill rather than written down twice: the sections are derived from the
+    numbered steps that demand them, so a step deleted from the skill and a heading deleted
+    from the template both turn this red — which is the same joint the capability manifest
+    was missing when it declared a capability the gate forbade.
+    """
+
+    from ai_engineering import spec
+
+    headings = [
+        line.removeprefix("## ") for line in spec.TEMPLATE.splitlines() if line.startswith("## ")
+    ]
+    skill = (ROOT / ".agents" / "skills" / "ai-spec" / "SKILL.md").read_text(encoding="utf-8")
+
+    assert "challenge the recommendation once" in skill
+    assert "Challenged once" in headings
+
+    assert "Record assumptions and unresolved risks separately" in skill
+    assert "Assumptions and unresolved risks" in headings
+
+    assert "observable BDD examples" in skill and "Given/When/Then" in skill
+    examples = next(one for one in headings if one.startswith("Examples"))
+    body = spec.TEMPLATE.split(f"## {examples}", 1)[1].split("\n## ", 1)[0]
+    assert "Given / When / Then" in body
+    # Line-wrapped in the template, so the phrase is matched without the newline in it.
+    assert "the undecidable path" in body, "the undecidable path is the forgotten one"
+
+    # And the order is the order of the work: the challenge comes after the decision it
+    # challenges, and the examples after the assumptions they rest on.
+    assert headings.index("Decision") < headings.index("Challenged once")
+    assert headings.index("Challenged once") < headings.index("Assumptions and unresolved risks")
+    assert headings.index("Assumptions and unresolved risks") < headings.index(examples)

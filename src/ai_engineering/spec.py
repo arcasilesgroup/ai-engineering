@@ -80,6 +80,23 @@ not code can follow.
 TODO: the one chosen, and why the others were not. If this decision constrains specs
 that do not exist yet, promote it: `ai-eng decide --madr "<title>"`.
 
+## Challenged once
+
+TODO: the strongest realistic case that the decision above is wrong. Then either revise
+it or keep it and say why the case fails. A challenge nobody could lose to is not one.
+
+## Assumptions and unresolved risks
+
+TODO: what this decision takes as true without proving it, and what is still open. Kept
+apart from each other and from accepted risk: an assumption written as a fact is how a
+spec stops being checkable, and `ai-eng accept` is the only thing that accepts a risk.
+
+## Examples somebody can check
+
+TODO: Given / When / Then for the important success, the denial and the case nobody can
+decide. Observable outcomes, not intentions — an example whose Then is "it works" is a
+sentence, and the undecidable path is the one that gets forgotten.
+
 ## Decisions
 
 <!-- ai-eng decide writes yaml blocks here -->

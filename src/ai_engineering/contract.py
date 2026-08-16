@@ -1403,7 +1403,15 @@ DESCRIPTION_MAX = 1000
 # permanent no about somebody else's requirement is not this framework's to take. A test
 # also refuses an id that is both excused there and pinned in the guidance checklist, so the
 # register cannot end up arguing with the gate the way the capability manifest did.
-REPO_CEILING = 56_327
+# 56,327 to 56,386 for EP-167, another disagreement between two of our own artefacts.
+# `ai-spec` requires a self-challenge, assumptions and unresolved risks kept apart, and
+# observable Given/When/Then examples for the success, the denial and the undecidable path.
+# The template `ai-eng spec new` writes had none of the three, so every spec this tool wrote
+# began by disagreeing with the instructions for writing it. The check reads the sections
+# off the skill rather than listing them twice: a step deleted from the skill and a heading
+# deleted from the template both turn it red, which is the joint the capability manifest was
+# missing when it declared a capability the gate forbade.
+REPO_CEILING = 56_394
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
