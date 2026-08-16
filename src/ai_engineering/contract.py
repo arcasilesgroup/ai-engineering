@@ -982,7 +982,19 @@ DESCRIPTION_MAX = 1000
 # held by a test and it stands. The install matrix reads the outcome word now instead of
 # demanding exit zero, which is the same shape as the `doctor || true` two lines above it —
 # a fresh machine is red on purpose, and the step says which red it expects.
-REPO_CEILING = 52_500
+# 52,500 to 52,591 for a refusal that said nothing, in the first verb anybody runs.
+#
+# `init` has three early returns, and every one of them printed the will, four stage lines
+# and INCOMPLETE — no reason, no cure, no surface table. On a CI runner it fired on all
+# three operating systems and the step failed two lines later with "the pin was never
+# written", which is a symptom and not the cause.
+#
+# The cause: the install matrix creates `~/.claude/skills/ai-*` before installing, on
+# purpose, to force the copy path Windows takes everywhere. Those empty directories were
+# read as somebody else's, so a fresh machine whose editor had already made the folder
+# could never be initialised at all. An empty directory has nothing in it to lose; one
+# holding a file this install did not write is still refused — and now says which and why.
+REPO_CEILING = 52_591
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

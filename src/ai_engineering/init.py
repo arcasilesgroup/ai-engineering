@@ -535,6 +535,14 @@ def _global_paths_safe(args) -> bool:
                     continue
                 if target.is_dir() and str(skills_root) in copied:
                     continue
+                # An empty directory of ours by name has nothing in it to lose, and it is
+                # the state a skills root is in the first time a surface creates one — which
+                # the install matrix reproduces on purpose to force the copy path. Refusing
+                # it meant a fresh machine whose editor had made the folder could never be
+                # initialised at all. A directory with something in it that this install did
+                # not write is a different thing and is still refused.
+                if target.is_dir() and not any(target.iterdir()):
+                    continue
                 return False
     except (KeyError, OSError, UnicodeError, wiring.Unreadable):
         return False
@@ -767,21 +775,44 @@ def _terminal(*results: outcome.Result) -> outcome.Result:
     return outcome.result("INCOMPLETE")
 
 
+def _refused(why: str, cure: str) -> outcome.Result:
+    """An INCOMPLETE that says which one it is.
+
+    Three refusals in `main` printed nothing at all: the will, the four stage lines and
+    then INCOMPLETE with no surface table, no reason and no cure. A person meeting that has
+    no move, and it is the first verb anybody runs. Measured on a CI runner, where a skills
+    root already held directories with our names and this verb refused every install on that
+    machine in silence."""
+
+    out(f"\n   INCOMPLETE: {why}")
+    out(f"   {cure}")
+    return outcome.result("INCOMPLETE")
+
+
 def main(argv: list[str]) -> outcome.Result:
     args = parse(argv)
     # Invocation authorizes this verb's deterministic install scope. The manifest check
     # proves only that the declarations we install are canonical; metadata grants nothing.
     declared = capability.validate()
     if declared.outcome != "PASS":
-        return outcome.result("INCOMPLETE")
+        return _refused(
+            f"the capability manifest this wheel ships is not canonical: {declared.code}",
+            "reinstall the wheel; this is a defect in the package rather than in your machine",
+        )
 
     try:
         prepared = _project_preflight(args)
         if prepared is None:
-            return outcome.result("INCOMPLETE")
+            return _refused(
+                "this repository's path cannot be followed safely",
+                "check that no directory in the path is a symlink, and that it is readable",
+            )
         root, intent_state = prepared
         if not args.skip_global and not _global_paths_safe(args):
-            return outcome.result("INCOMPLETE")
+            return _refused(
+                "something in this machine's install paths is not this installer's to write",
+                "run `ai-eng doctor` to see which surface, or move that file aside",
+            )
 
         banner()
         machine = global_step(args)

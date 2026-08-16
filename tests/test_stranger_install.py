@@ -59,7 +59,10 @@ def test_both_halves_in_one_command_report_one_outcome(stranger, capsys):
     """The exact argv the install matrix runs, and the exact thing it checks: an outcome a
     person can act on, and the files that outcome claims."""
 
-    result = init.main(["--global", "--project", str(stranger), "-y"])
+    # `.` and not an absolute path: the matrix passes a dot, and the two travel different
+    # code paths through the preflight. A test that passed the resolved path would be
+    # testing the argv nobody types.
+    result = init.main(["--global", "--project", ".", "-y"])
     printed = capsys.readouterr().err
 
     assert type(result) in (outcome.Result, outcome.Execution)
@@ -103,3 +106,48 @@ def test_the_matrix_runs_this_exact_command(stranger):
         Path(__file__).resolve().parents[1] / ".github" / "workflows" / "install-matrix.yml"
     ).read_text(encoding="utf-8")
     assert "ai-eng init --global --project . -y" in matrix
+
+
+def test_a_skills_root_that_already_holds_empty_folders_does_not_stop_the_install(
+    stranger, monkeypatch, capsys
+):
+    """What the install matrix does on purpose, and what it found.
+
+    It creates `~/.claude/skills/ai-*` before installing, to force the copy path that
+    Windows takes on every platform. Those empty directories made `_global_paths_safe`
+    refuse, so `init` returned INCOMPLETE having written nothing and printed no reason —
+    on all three operating systems, in the smoke test for the command a stranger runs
+    first."""
+
+    from ai_engineering import paths
+
+    root = Path.home() / ".claude" / "skills"
+    for source in sorted(paths.skills().glob("ai-*")):
+        (root / source.name).mkdir(parents=True)
+
+    init.main(["--global", "--project", ".", "-y"])
+
+    assert (stranger / ".ai" / "config.toml").is_file(), capsys.readouterr().err[-500:]
+    assert (Path.home() / ".claude" / "settings.json").is_file()
+
+
+def test_a_folder_this_install_never_wrote_is_still_refused_and_says_why(
+    stranger, monkeypatch, capsys
+):
+    """The other side of it. An empty directory has nothing to lose; one with somebody
+    else's file in it is theirs, and refusing is right — refusing in silence is not."""
+
+    from ai_engineering import paths
+
+    root = Path.home() / ".claude" / "skills"
+    for source in sorted(paths.skills().glob("ai-*")):
+        (root / source.name).mkdir(parents=True)
+    stranger_file = root / "ai-spec" / "somebody-elses.md"
+    stranger_file.write_text("not ours\n", encoding="utf-8")
+
+    result = init.main(["--global", "--project", ".", "-y"])
+    printed = capsys.readouterr().err
+
+    assert result.outcome == "INCOMPLETE"
+    assert "not this installer's to write" in printed
+    assert stranger_file.read_text(encoding="utf-8") == "not ours\n"
