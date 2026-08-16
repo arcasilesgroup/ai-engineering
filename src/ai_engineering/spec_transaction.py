@@ -804,6 +804,7 @@ if sys.platform == "win32":
     _FILE_NON_DIRECTORY_FILE = 0x40
     _FILE_SYNCHRONOUS_IO_NONALERT = 0x20
     _FILE_OPEN_REPARSE_POINT = 0x00200000
+    _FILE_RENAME_INFORMATION = 10  # the NT class, not Win32's FileRenameInfo = 3
     _FILE_TYPE_DISK = 0x1
     _ERROR_NO_MORE_FILES = 18
     _FILE_BEGIN = 0
@@ -968,6 +969,14 @@ if sys.platform == "win32":
     _ntdll.NtCreateFile.restype = wintypes.LONG
     _ntdll.RtlNtStatusToDosError.argtypes = [wintypes.LONG]
     _ntdll.RtlNtStatusToDosError.restype = wintypes.ULONG
+    _ntdll.NtSetInformationFile.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        wintypes.ULONG,
+        ctypes.c_int,
+    ]
+    _ntdll.NtSetInformationFile.restype = wintypes.LONG
 
 
 def _windows_unavailable() -> Unsupported:
@@ -1227,8 +1236,27 @@ if sys.platform == "win32":
         ctypes.memmove(
             ctypes.addressof(raw) + _FILE_RENAME_INFO.file_name.offset, encoded, len(encoded)
         )
-        if not _kernel32.SetFileInformationByHandle(handle, 3, raw, size):
-            raise _win_error("exclusive directory publish failed")
+        # Below Win32 on purpose. `SetFileInformationByHandle` documents `RootDirectory` as
+        # "must be NULL" and answers ERROR_INVALID_PARAMETER when it is not — measured, 87,
+        # three times on the same Windows run. Handing it a full path instead would satisfy
+        # the call and lose the property the whole transaction is built on: a path is
+        # re-resolved at rename time, and re-resolution is the window somebody moves a
+        # directory through between the check and the publish. `NtSetInformationFile` is
+        # where the handle-relative rename actually lives, and `FILE_RENAME_INFORMATION` has
+        # the same layout the buffer above already has. Its NTSTATUS goes through
+        # `RtlNtStatusToDosError`, so one classifier still reads one kind of number.
+        status_block = _IO_STATUS_BLOCK()
+        status = _ntdll.NtSetInformationFile(
+            wintypes.HANDLE(handle),
+            ctypes.byref(status_block),
+            raw,
+            size,
+            _FILE_RENAME_INFORMATION,
+        )
+        if status < 0:
+            raise _win_error(
+                "exclusive directory publish failed", _ntdll.RtlNtStatusToDosError(status)
+            )
 
     class _WindowsWriter:
         def __init__(self, root: Path, authority: str, home: str) -> None:

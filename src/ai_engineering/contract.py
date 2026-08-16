@@ -1026,7 +1026,13 @@ DESCRIPTION_MAX = 1000
 # And the fourth: `read` opened a second handle to the file this writer had locked.
 # `LockFileEx` is mandatory and per-handle on Windows, so the process was blocked by its
 # own lock; on POSIX the same lock is advisory, which is why it had always looked fine.
-REPO_CEILING = 52_777
+# 52,777 to 52,813 for the number the last raise bought. `_win_error` now carries its
+# native code on every class, and the code was 87 — ERROR_INVALID_PARAMETER, three times,
+# from `SetFileInformationByHandle` with a `RootDirectory` handle set. That entry point
+# documents the field as "must be NULL"; the handle-relative rename lives below Win32, at
+# `NtSetInformationFile`. Passing a full path instead would have satisfied the call and
+# thrown away the anchoring the whole transaction exists for.
+REPO_CEILING = 52_813
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
