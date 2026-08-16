@@ -800,6 +800,15 @@ def main(argv: list[str]) -> outcome.Result:
             if active_root is not None:
                 active_root = _lexical_path(active_root)
                 intent_state = intent.validate(active_root / ".ai" / "intent.md", active_root)
+        # INCOMPLETE while the Intent is missing or unreadable, which is a decision this
+        # repository already took and `test_init_keeps_missing_or_invalid_intent_incomplete`
+        # holds: a repository without its canonical Intent is not a governed one, and the
+        # honest word for "I cannot prove this is governed" is not PASS.
+        #
+        # What changed is what the person is told. `intent.validate` reported
+        # INTENT_SCHEMA_INVALID over a file nobody had written, which sends a reader looking
+        # for a mistake in a document that does not exist; a missing Intent says
+        # INTENT_MISSING now, and the two states stop being one answer.
         if project_ran and (intent_state is None or intent_state.outcome != "PASS"):
             project = outcome.result("INCOMPLETE")
         return _terminal(machine, project)

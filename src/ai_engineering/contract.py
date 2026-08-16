@@ -966,7 +966,23 @@ DESCRIPTION_MAX = 1000
 # INCOMPLETE is the true answer there; exit zero would have meant the verifier said PASS
 # over a chain with no anchors. The step asserts the word now, so a crash or a PASS both
 # fail and the honest answer passes.
-REPO_CEILING = 52_351
+# 52,351 to 52,500 for the command a stranger types first, which no test had ever run
+# whole. The suite covered the machine half and the repository half separately, each with
+# the other switched off, so `init --global --project . -y` — the exact argv the install
+# matrix runs on three operating systems — had never been executed by anything that could
+# read its outcome. The first run anybody watched was on a CI runner.
+#
+# What it found: `intent.validate` answered `INTENT_SCHEMA_INVALID` over a file nobody had
+# written. Absent and malformed were one answer, which is the reading `claim_scope_guard`
+# refuses one directory over — and it sends a person looking for a mistake in a document
+# that does not exist. A missing Intent says `INTENT_MISSING` now.
+#
+# What it did not change: the verdict. A repository without its canonical Intent is not a
+# governed repository and this verb will not say PASS over one; that decision is already
+# held by a test and it stands. The install matrix reads the outcome word now instead of
+# demanding exit zero, which is the same shape as the `doctor || true` two lines above it —
+# a fresh machine is red on purpose, and the step says which red it expects.
+REPO_CEILING = 52_500
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

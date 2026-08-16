@@ -20,6 +20,12 @@ from typing import Any
 from ai_engineering import paths
 
 SCHEMA_INVALID = ("INTENT_SCHEMA_INVALID", "schema validation failed")
+# Absent is not malformed. A repository where nobody has written an Intent yet and one
+# holding an Intent that does not parse are two different states, and they were the same
+# answer here — which is the reading `claim_scope_guard` refuses one directory over, and
+# which made a stranger's first install report a schema failure over a file that was never
+# there.
+MISSING = ("INTENT_MISSING", "no Intent has been written here yet")
 RELATION_STALE = ("INTENT_RELATION_STALE", "relation digest does not match target")
 RELATION_MISSING = ("INTENT_RELATION_BROKEN", "relation target does not exist")
 RELATION_AMBIGUOUS = ("INTENT_RELATION_BROKEN", "relation target is ambiguous")
@@ -378,7 +384,9 @@ def _load_source(source: Mapping[str, Any] | Path, files: _Files, home: str) -> 
         if component.is_symlink():
             raise ValueError("Intent path is not canonical")
     if not expected.is_file():
-        raise ValueError("Intent cannot be read")
+        # Absent, and said so. `ValueError` here becomes `INTENT_SCHEMA_INVALID` above, which
+        # sends a reader looking for a mistake in a document nobody has written.
+        raise FileNotFoundError(f"no Intent at {home}")
     return _json(expected.read_bytes())
 
 
@@ -652,6 +660,11 @@ def validate(
             return _incomplete(SCHEMA_INVALID)
     except _RepositoryProblem as problem:
         return _incomplete(problem.result)
+    except FileNotFoundError:
+        # Before the OSError clause below, which would otherwise call an absent file a
+        # schema failure — the one answer that sends somebody looking for a mistake in a
+        # document that does not exist.
+        return _incomplete(MISSING)
     except (KeyError, OSError, TypeError, ValueError, re.error, _UnsupportedSchema):
         return _incomplete(SCHEMA_INVALID)
 

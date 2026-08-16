@@ -383,7 +383,13 @@ jobs:
           for skill in "$GITHUB_WORKSPACE"/.agents/skills/ai-*; do
             mkdir -p "$HOME/.claude/skills/$(basename "$skill")"
           done
-          ai-eng init --global --project . -y 2>&1 | tee init.log
+          # `|| true`, and the reason is the same one two lines below about doctor: a
+          # repository with no Intent is not a governed repository, and this verb says
+          # INCOMPLETE over one rather than PASS. Every file it promised is asserted
+          # underneath, and the outcome word is asserted after the log — so a crash, a
+          # missing file or a PASS over an ungoverned repository all still fail here.
+          ai-eng init --global --project . -y 2>&1 | tee init.log || true
+          grep -q "INCOMPLETE" init.log || { echo "init did not report its outcome"; exit 1; }
           test -f .ai/config.toml || { echo "the pin was never written"; exit 1; }
           test -f CONSTITUTION.md || { echo "identity was never written"; exit 1; }
           grep -q chain.py "$HOME/.claude/settings.json" || { echo "no guard entry"; exit 1; }
