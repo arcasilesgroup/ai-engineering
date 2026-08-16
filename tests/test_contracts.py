@@ -851,7 +851,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 55_401
+    assert contract.REPO_CEILING == 55_519
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1289,3 +1289,43 @@ def test_the_mission_names_every_verb_it_claims_to_govern():
     # And the scan is shown finding something, because a scan that looked at nothing and a
     # scan that found nothing print the same result.
     assert "traceable" not in identity.split("## Who it is for", 1)[1].lower().split("\n## ")[0]
+
+
+def test_every_declared_capability_has_a_skill_or_names_where_its_work_went():
+    """The only contradiction in 385 requirements, and it was between two of our own files.
+
+    `policy/capabilities.toml` declares fifteen capabilities. `.agents/skills/` holds twelve.
+    The three that are declared and absent are exactly the three
+    `test_the_three_absorption_candidates_did_not_ship_and_their_work_has_a_home` asserts
+    must not exist — so the manifest said this product has a capability while a passing gate
+    said the skill must not be there. Two sources of truth about what this product is, and
+    an independent audit found them disagreeing three times.
+
+    They agree now, and by construction rather than by coincidence: a capability with no
+    skill is legal only while the absorption map names where its work went. Adding a
+    fourteenth capability without a skill turns this red, and so does deleting an absorption
+    row while leaving the manifest alone. Neither file had to move — what was missing was
+    anything reading both.
+    """
+
+    import tomllib
+
+    declared = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))
+    ids = [str(row["id"]) for row in declared["capabilities"]]
+    skills = {path.name for path in (ROOT / ".agents" / "skills").glob("ai-*") if path.is_dir()}
+
+    assert ids, "the manifest declares nothing, so this proves nothing"
+    assert skills, "there are no skills, so this proves nothing"
+
+    homeless = [name for name in ids if name not in skills]
+    assert sorted(homeless) == sorted(ABSORBED), (
+        f"the manifest declares {sorted(homeless)} with no skill, and the absorption map "
+        f"names {sorted(ABSORBED)}: two files disagreeing about what this product has"
+    )
+    for name in homeless:
+        where = ROOT / ABSORBED[name]
+        assert where.is_file(), f"{name} was absorbed into {ABSORBED[name]}, which is not there"
+
+    # And every skill is declared, so the disagreement cannot be closed from the other side
+    # by shipping a skill nobody wrote a capability for.
+    assert not skills - set(ids), f"these skills are declared nowhere: {sorted(skills - set(ids))}"

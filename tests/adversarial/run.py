@@ -610,17 +610,31 @@ def main(root: Path = ROOT) -> int:
 
     results: dict[str, bool] = {}
     guards: dict[str, bool] = {}
+    unrunnable: list[str] = []
     for name, (guard, _controls, fn) in CASES.items():
         with tempfile.TemporaryDirectory() as raw:
             try:
-                caught = bool(fn(Path(raw)))
-                note = ""
+                caught, broke = bool(fn(Path(raw))), ""
             except Exception as why:
-                caught, note = False, f"  ({why})"
+                # Three words, not two, and this is the whole of the change. A case that
+                # raised before reaching a verdict used to print MISSED, which is the label
+                # for "the guard let the attack through" — so a missing dependency read as a
+                # security finding. Measured: on an interpreter without `rich`, three cases
+                # raised and the suite printed 18 of 21, and a reader would have gone looking
+                # for a guard bug. It still fails, because a case nobody could run is not a
+                # case that passed; what changes is that the word says which of the two it is.
+                caught, broke = False, str(why)
+                unrunnable.append(name)
         results[name] = caught
         if guard != "none":
             guards[guard] = guards.get(guard, True) and caught
-        print(f"  {'caught ' if caught else 'MISSED '} {name}{note}")
+        word = "caught " if caught else ("NOT RUN" if broke else "MISSED ")
+        print(f"  {word} {name}{f'  ({broke})' if broke else ''}")
+    if unrunnable:
+        print(
+            f"  NOT RUN {len(unrunnable)} of {len(CASES)} raised before reaching a verdict: "
+            f"{', '.join(unrunnable)} — this is the environment, not the guards"
+        )
 
     # Every guard that is attacked needs a clean case of its own. Thirteen attacks shared
     # one control, and five of the nine guards were not in its fixtures at all — so a

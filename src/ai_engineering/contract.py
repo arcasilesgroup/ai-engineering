@@ -1271,7 +1271,33 @@ DESCRIPTION_MAX = 1000
 # reaches the generator: on a machine where the install had run, assertion 24 still answered
 # "no router has been written here". A real `init` on a stranger's machine now writes real
 # routers and the check reads them back; emptying the installer's call turns it red.
-REPO_CEILING = 55_401
+# 55,401 to 55,439 for EP-016, whose answer is narrower than the requirement asked for and
+# was already decided. It wants an enforcement receipt bound to the adapter version and the
+# denial protocol; the schema binds both through `receipt_id` instead, on the argument that
+# two fields beside it would be a second source of truth and EP-300 arriving again. Adding
+# them was tried here and reverted: the adapter schema is closed and the description already
+# says "when a superseding version changes what a denial looks like, this id moves with it".
+#
+# A good rule, and it was a sentence in a description. Nothing read it, so an adapter could
+# go to version 2, keep the same id, and every receipt earned against version 1's denial
+# would keep vouching for a protocol that had changed underneath it. Now a check reads it.
+# Vacuous today — every adapter is at version 1 — and it bites on the day it has to.
+# 55,450 to 55,504 for the only contradiction in 385 requirements, and it was between two
+# of our own files. `policy/capabilities.toml` declares fifteen capabilities;
+# `.agents/skills/` holds twelve; the three that are declared and absent are exactly the
+# three a passing test forbids from existing. The manifest said this product has a
+# capability while the gate said the skill must not be there, and a second audit found them
+# disagreeing three times. Neither file moved — what was missing was anything reading both,
+# so a capability with no skill is legal now only while the absorption map names where its
+# work went, in either direction.
+#
+# And the adversarial suite stops calling an environment failure a security finding. A case
+# that raised before reaching a verdict printed MISSED, which is the label for "the guard
+# let the attack through": on an interpreter without `rich`, three cases raised and the
+# suite printed 18 of 21, and the reader goes hunting a guard bug instead of a dependency.
+# It still fails, because a case nobody could run is not a case that passed. NOT RUN says
+# which of the two it is, with the exception beside it.
+REPO_CEILING = 55_519
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -872,3 +872,41 @@ def test_a_surface_this_framework_will_not_claim_says_so_where_a_command_can_rea
     # And the reason names the thing that cannot be done, not a preference about doing it.
     reason = next(row["reason"] for row in refused if row["id"] == "codex-app")
     assert "read a receipt back" in reason
+
+
+def test_an_adapter_past_its_first_version_carries_that_version_in_its_receipt_id():
+    """EP-016, and the answer is narrower than the requirement asked for.
+
+    The requirement wants an enforcement receipt bound to the adapter version and the denial
+    protocol. The schema already decided how: not by adding two fields, which would be a
+    second source of truth beside `receipt_id` and the EP-300 defect arriving again, but by
+    making the id itself move — "when a superseding version of this adapter changes what a
+    denial looks like, this id moves with it and every receipt written under the old one
+    stops proving anything".
+
+    That is a good rule and it was a sentence in a description. Nothing read it, so an
+    adapter could go to version 2, keep `claude-code.enforcement`, and every receipt earned
+    against version 1's denial would keep vouching for a protocol that had changed
+    underneath it. It is vacuous today — every adapter is at version 1 — and it bites on the
+    exact day it has to.
+    """
+
+    from ai_engineering import paths
+
+    adapters = sorted((paths.policy("adapters")).glob("*.adapter.json"))
+    assert adapters, "there are no adapters, so this proves nothing"
+
+    for found in adapters:
+        declared = json.loads(found.read_text(encoding="utf-8"))
+        version = str(declared["adapter_version"])
+        receipt_id = str(declared["proof"]["receipt_id"])
+        if version != "1":
+            assert version in receipt_id, (
+                f"{found.name} is at adapter version {version} and its receipt id is "
+                f"{receipt_id!r}: every receipt earned under the previous denial protocol "
+                f"still proves this one"
+            )
+
+    # And the rule is shown biting, on an adapter that does what the schema warns about.
+    moved = {"adapter_version": "2", "proof": {"receipt_id": "claude-code.enforcement"}}
+    assert str(moved["adapter_version"]) not in str(moved["proof"]["receipt_id"])
