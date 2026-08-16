@@ -14,6 +14,7 @@ from __future__ import annotations
 import ast
 import io
 import json
+import os
 import sys
 import threading
 import time
@@ -1442,3 +1443,58 @@ def test_an_adapter_nobody_can_parse_costs_its_own_surface_and_no_other(tmp_path
 
     monkeypatch.setattr(chain, "ADAPTERS", tmp_path / "not-here")
     assert chain.normalise({"toolName": "Edit"})["tool_name"] == "Edit"
+
+
+def test_every_event_says_which_surface_it_came_through_or_that_it_could_not_tell(monkeypatch):
+    """EP-084 and D-016-03. The event body carried no surface and no adapter, while
+    `_otlp.KEEP_DATA` kept `surface_id`, `surface_version`, `adapter_version` and
+    `deny_protocol` in the clear — an export allow-list for four fields nothing produced.
+    Every event in the chain was silent about where the decision was taken.
+
+    `undetermined` is a value and not an absent key. A missing field reads as "this build is
+    older"; this reads as "this run could not say", and the second is the true one on every
+    surface that does not identify itself in what it sends."""
+
+    monkeypatch.delenv("AI_ENG_SURFACE", raising=False)
+    monkeypatch.delenv("AI_ENG_ADAPTER", raising=False)
+    assert _emit.surface() == _emit.UNDETERMINED
+    assert _emit.adapter() == _emit.UNDETERMINED
+
+    monkeypatch.setenv("AI_ENG_SURFACE", "claude-code")
+    monkeypatch.setenv("AI_ENG_ADAPTER", "1")
+    assert _emit.surface() == "claude-code"
+    assert _emit.adapter() == "1"
+
+
+def test_the_adapter_version_is_read_from_the_file_that_did_the_translating():
+    """One directory, two readers. An adapter that translates a payload and an adapter that
+    stamps the record have to be the same file, or the record names a version that
+    translated nothing."""
+
+    assert chain.adapter_version("claude-code") == "1"
+    assert chain.adapter_version("a-surface-with-no-adapter") == "undetermined"
+
+
+def test_only_a_surface_that_identifies_itself_is_named_in_the_record(monkeypatch, tmp_path):
+    """`policy/surfaces.toml` detects by an install path, which says a surface exists on this
+    machine and not that this call came through it. `transcript_path` is the one thing a
+    surface sends about itself, so it is the only thing allowed to name one — anything more
+    would be a guess written into the chain as a fact, and the chain is the artefact that has
+    to be trustworthy when everything else is in doubt."""
+
+    monkeypatch.delenv("AI_ENG_SURFACE", raising=False)
+    monkeypatch.setenv("AI_ENG_SESSION", "fixed")
+    monkeypatch.setattr(chain.sys, "argv", ["chain.py", "PreToolUse"])
+    monkeypatch.setattr(chain.sys, "stdin", io.StringIO(json.dumps({"toolName": "Read"})))
+    monkeypatch.setattr(chain, "selected", lambda event, tool: [])
+    chain.main()
+    assert os.environ.get("AI_ENG_SURFACE") is None
+
+    monkeypatch.setattr(
+        chain.sys,
+        "stdin",
+        io.StringIO(json.dumps({"tool_name": "Read", "transcript_path": "/somewhere"})),
+    )
+    chain.main()
+    assert os.environ["AI_ENG_SURFACE"] == "claude-code"
+    assert os.environ["AI_ENG_ADAPTER"] == "1"

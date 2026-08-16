@@ -156,6 +156,37 @@ def session_id() -> str:
     return sid
 
 
+# What an event says when nobody can tell. It is a value and not an absent field, because a
+# missing key reads as "this build is older" and this reads as "this run could not say" —
+# and the second is the true one on every surface but the one that identifies itself.
+UNDETERMINED = "undetermined"
+
+
+def surface() -> str:
+    """Which surface this call came through, or that it could not be told.
+
+    The event body carried neither a surface nor an adapter, while `_otlp.KEEP_DATA` kept
+    `surface_id`, `surface_version`, `adapter_version` and `deny_protocol` in the clear —
+    an export allow-list for four fields nothing produced. That is the same defect as a
+    schema with no producer, one layer along, and it means every event in the chain is
+    silent about where the decision was taken.
+
+    Read from the environment because the dispatcher is the only thing that sees the raw
+    payload and it sets this before importing a guard. Undetermined is the honest default
+    and is expected to be the common one: only a surface that identifies itself in what it
+    sends can be named, and inferring the rest from an install path would be a guess
+    written into the record as a fact.
+    """
+
+    return os.environ.get("AI_ENG_SURFACE") or UNDETERMINED
+
+
+def adapter() -> str:
+    """The adapter version this surface's translations came from, or undetermined."""
+
+    return os.environ.get("AI_ENG_ADAPTER") or UNDETERMINED
+
+
 def digest(event: dict) -> str:
     body = {k: v for k, v in event.items() if k != "hash"}
     return hashlib.sha256(stable_json(body).encode()).hexdigest()
@@ -305,6 +336,8 @@ def emit(name: str, cls: str, **data) -> None:
             "session": session_id(),
             "repo": repo_id(root),
             "machine": machine_id(),
+            "surface": surface(),
+            "adapter": adapter(),
             "operation_id": str(uuid.uuid4()),
             "trace_id": str(uuid.uuid4()),
             "data": data,

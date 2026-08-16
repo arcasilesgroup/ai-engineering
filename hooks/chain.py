@@ -114,6 +114,22 @@ def adapter_aliases() -> dict:
     return aliases
 
 
+def adapter_version(surface_id: str) -> str:
+    """The version the surface's adapter declares, or that it could not be read.
+
+    One more reader of `policy/adapters/`, and deliberately the same directory the aliases
+    come from: an adapter that translates a payload and an adapter that stamps the record
+    have to be the same file, or the record names a version that translated nothing.
+    """
+
+    try:
+        declared = json.loads((ADAPTERS / f"{surface_id}.adapter.json").read_text("utf-8"))
+        version = declared.get("adapter_version")
+    except (OSError, ValueError, TypeError):
+        return "undetermined"
+    return str(version) if version else "undetermined"
+
+
 def normalise(raw: dict) -> dict:
     """Both spellings, one shape. Without this a guard scoped to file edits receives
     every tool call in a shape it does not expect, crashes, and correctly blocks
@@ -231,6 +247,15 @@ def main() -> int:
     # snake_case spelling: VS Code Copilot reads the same settings file and would otherwise
     # be mistaken for it, and it sends camelCase, which is not aliased to this key.
     payload["_structured"] = "transcript_path" in body
+    # And the record says which surface, or says it could not tell. `transcript_path` is the
+    # one signal a surface sends about itself that nothing else here sends: `policy/surfaces
+    # .toml` detects by an install path, which says a surface exists on this machine and not
+    # that this call came through it. Anything more would be a guess written into the chain
+    # as a fact, and the chain is the artefact that has to be trustworthy when everything
+    # else is in doubt.
+    if payload["_structured"]:
+        os.environ.setdefault("AI_ENG_SURFACE", "claude-code")
+        os.environ.setdefault("AI_ENG_ADAPTER", adapter_version("claude-code"))
     event = sys.argv[1] if len(sys.argv) > 1 else payload.get("hook_event_name", "")
     tool = payload.get("tool_name", "")
     fp = fingerprint(payload)

@@ -1211,7 +1211,21 @@ DESCRIPTION_MAX = 1000
 # scan of the whole document would have passed on those and proved nothing about the one
 # sentence that owes them. Deleting `audit` from it turns the check red naming `audit`;
 # that was run in both directions.
-REPO_CEILING = 54_781
+# 54,781 to 54,895 for EP-084 and D-016-03. The event body carried no surface and no
+# adapter, while `_otlp.KEEP_DATA` kept `surface_id`, `surface_version`, `adapter_version`
+# and `deny_protocol` in the clear — an export allow-list for four fields nothing produced,
+# which is a schema with no producer one layer along. Every event in the chain was silent
+# about where the decision was taken.
+#
+# `undetermined` is a value and not an absent key: a missing field reads as an older build,
+# and this reads as a run that could not say, which is the true one nearly everywhere. Only
+# `transcript_path` names a surface, because it is the one thing a surface sends about
+# itself; `policy/surfaces.toml` detects by an install path, which says a surface exists on
+# this machine and not that this call came through it. Inferring the rest would be a guess
+# written into the chain as a fact, and the chain is what has to be trustworthy when
+# everything else is in doubt. The adapter version is read from the same directory the
+# translations come from, or an adapter would stamp a version that translated nothing.
+REPO_CEILING = 54_909
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
