@@ -1108,7 +1108,18 @@ DESCRIPTION_MAX = 1000
 # `docs/adr/` is excluded from this count and `docs/` is not, so an audit pays where a
 # decision does not. That asymmetry is worth an argument; it is not worth shrinking the
 # audit to avoid having it.
-REPO_CEILING = 53_553
+# 53,553 to 53,676 for the gate nobody had ever seen the output of. Measured: a whole-tree
+# mutation run is 20,816 mutants and 121 minutes, against a job capped at 30 — so it never
+# finished, never printed a score, and was reported as `cancelled` on every commit for
+# weeks. The score, when it finally printed, is 71% against a floor of 89: the floor was
+# earned on a 42,000-line tree and P1 to P5 added 11,000 whose tests kill fewer mutants.
+# The whole tree now runs on a schedule and blocks nothing; the pull request runs over its
+# own diff and blocks on the floor. `anti_theatre` accepts the scoped run only against a
+# receipt showing a whole-tree run that completed inside four days — read from the server,
+# because the branch is what is being judged. Not "and passed": requiring green there would
+# mean nothing merges until the whole standing backlog is cleared, which is a different
+# decision and not this one's to take.
+REPO_CEILING = 53_687
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
