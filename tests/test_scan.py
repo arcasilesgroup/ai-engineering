@@ -11,6 +11,7 @@ the branches; it does not prove that a missing binary raises what the code catch
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -193,3 +194,40 @@ def test_the_baseline_pin_is_the_rules_file_this_repository_actually_ships():
     assert semantic.rules_digest == actual, (
         "policy/semgrep.yml changed and its pin did not. Move the pin in the same commit."
     )
+
+
+def test_a_cross_check_nobody_installed_is_declined_and_not_failed(tmp_path, monkeypatch):
+    """EP-046 and EP-282. The proposal names two products as optional cross-checks and the
+    tree said nothing at all about them: a search found spec prose and no code, so a reader
+    could not tell "we decided not to require these" from "nobody thought about it".
+
+    The requirement asks for exactly that distinction. Absent is not applicable and passes —
+    an organisation that never installed a tool is declining a second opinion, not failing a
+    check. Configured and unable to answer is INCOMPLETE, and INCOMPLETE is not a pass,
+    which is the same contract the three baseline lanes already run under.
+
+    Neither is in `BASELINE`, and that is the decision: this repository's security answer is
+    three lanes and it passes with neither of these installed. A cross-check that became a
+    dependency would stop being a cross-check.
+    """
+
+    from ai_engineering import scan
+
+    assert {lane.id for lane in scan.CROSS_CHECKS} == {"skillspector", "claude-security"}
+    assert not {lane.id for lane in scan.CROSS_CHECKS} & {lane.id for lane in scan.BASELINE}
+
+    for lane in scan.CROSS_CHECKS:
+        fact = scan.cross_check(lane, tmp_path, ["."])
+        assert fact.status == "SKIPPED", fact
+        assert "not installed here" in (fact.detail or "")
+
+    # Installed and unable to answer is the other half, and it is not a pass. The engine is
+    # a script that exits with a code the lane contract reads as "could not run".
+    engine = tmp_path / "bin"
+    engine.mkdir()
+    (engine / "skillspector").write_text("#!/bin/sh\nexit 3\n", encoding="utf-8")
+    (engine / "skillspector").chmod(0o755)
+    monkeypatch.setenv("PATH", f"{engine}:{os.environ['PATH']}")
+
+    fact = scan.cross_check(scan.CROSS_CHECKS[0], tmp_path, ["."])
+    assert fact.status == "INCOMPLETE", fact

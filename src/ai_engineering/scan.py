@@ -11,6 +11,7 @@ completion over inputs that existed, and found nothing.
 from __future__ import annotations
 
 import hashlib
+import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -162,6 +163,41 @@ BASELINE = (
         ),
     ),
 )
+
+
+# The two cross-checks the proposal names by product, and the reason they are here rather
+# than in `BASELINE`. Neither is required: this repository's baseline is the three lanes
+# above and it passes with neither installed, which is the whole point of a cross-check —
+# a second opinion an organisation may want, never a dependency this framework acquires.
+#
+# What was missing is that the tree said nothing at all about them. `grep` for either name
+# found spec prose and no code, so a reader could not tell "we decided not to require this"
+# from "nobody thought about it", and the requirement asks for exactly that distinction:
+# configured and unable to run is INCOMPLETE, absent is not applicable.
+CROSS_CHECKS = (
+    Lane("skillspector", ("skillspector", "scan")),
+    Lane("claude-security", ("claude-security", "review")),
+)
+
+
+def cross_check(lane: Lane, root: Path, inputs: list[str]) -> outcome.Fact:
+    """A second opinion, or the honest answer that nobody asked for one.
+
+    Absent means not applicable and passes: an organisation that never installed this tool
+    is not failing a check, it is declining one. Present means it runs under exactly the
+    contract the baseline runs under — an engine that is there and cannot answer is
+    INCOMPLETE, and INCOMPLETE is not a pass. The difference between those two sentences is
+    the entire requirement.
+    """
+
+    if shutil.which(lane.argv[0]) is None:
+        return outcome.fact(
+            f"cross-{lane.id}",
+            "SKIPPED",
+            f"The {lane.id} cross-check",
+            f"{lane.argv[0]} is not installed here, so there is no second opinion to read",
+        )
+    return run(lane, root, inputs)
 
 
 def baseline(root: Path) -> int:

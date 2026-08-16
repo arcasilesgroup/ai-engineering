@@ -1369,7 +1369,16 @@ DESCRIPTION_MAX = 1000
 # now receives nothing and says why. The number is not validated against the destination and
 # is not meant to be: it is the record that a person decided, in the file where the endpoint
 # is chosen, and that decision is what was absent.
-REPO_CEILING = 55_995
+# 55,995 to 56,069 for EP-046 and EP-282, where the tree said nothing at all. The proposal
+# names two products as optional cross-checks; a search found spec prose and no code, so a
+# reader could not tell "we decided not to require these" from "nobody thought about it".
+# The requirement asks for exactly that distinction and it is the whole of the work: absent
+# is not applicable and passes, because an organisation that never installed a tool is
+# declining a second opinion rather than failing a check; installed and unable to answer is
+# INCOMPLETE under the same lane contract the three baseline lanes run under. Neither joins
+# `BASELINE`, and that is the decision — a cross-check that became a dependency would stop
+# being a cross-check, and this repository's security answer stays three lanes.
+REPO_CEILING = 56_078
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
