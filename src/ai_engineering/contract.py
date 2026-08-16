@@ -1538,7 +1538,20 @@ DESCRIPTION_MAX = 1000
 # left the coverage answer still green; a length was compared against itself; and `phase`
 # was declared, required and read by nothing, which the harness now prints as the map it was
 # added to be.
-REPO_CEILING = 57_869
+#
+# 57,869 to 58,039 for the sample the evaluation never had. Beside every skill is a
+# `corpus.md` the admission gate demands before the skill may land — the cases it must take
+# and the cases it must refuse, each refusal naming the skill that should have it — and the
+# only thing reading it checked that the two headings were there with a bullet under each.
+# That is a shape check over a labelled routing set of 160 cases, 70 of which name their
+# answer. So the rules are answered twice now: once by a description against the other
+# descriptions, and once by the cases somebody wrote down. A routing evaluation with no
+# sample is a self-consistency check wearing an evaluation's name.
+#
+# The case it exists for is two skills refusing the same sentence. Each file reads correctly
+# on its own and the person who typed it has two skills declining them, which is why nothing
+# reading one file at a time could ever have found it.
+REPO_CEILING = 58_039
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -42,8 +42,12 @@ def test_it_runs_as_a_command_and_says_what_it_did_not_evaluate():
     # The score is read off the corpus rather than typed here: a number in a test is the
     # same defect one file further along.
     found = corpus()
-    total = sum(len(skill["claims"]) + len(skill["refusals"]) for skill in found.values())
+    total = sum(
+        len(skill["claims"]) + len(skill["refusals"]) + len(skill["takes"]) + len(skill["sends"])
+        for skill in found.values()
+    )
     assert f"RAN skilleval={total}" in done.stdout
+    assert "labelled cases beside them" in done.stdout
     assert f"{len(found)} skills route" in done.stdout
 
     # The map, printed. `phase` is declared for a person meeting the catalogue with no idea
@@ -208,3 +212,75 @@ def test_a_skill_the_manifest_never_declared_is_refused(tmp_path, monkeypatch):
 def test_an_empty_corpus_evaluates_nothing_and_says_so(tmp_path, monkeypatch):
     monkeypatch.setattr(skill_eval, "SKILLS", tmp_path)
     assert skill_eval.main() == 1
+
+
+# The labelled sample, and one fixture per rule it answers. Every case below is a real shape
+# a corpus can take, and each one is defensible in the file it lives in — which is why
+# nothing that reads one file at a time could ever have caught it.
+def test_the_labelled_cases_are_read_off_the_files_that_hold_them():
+    """The sample is real and it is the one the admission gate already demands. Counted from
+    the files rather than written down here, because a number typed into a test is the same
+    defect one file further along."""
+    found = corpus()
+    assert sum(len(skill["takes"]) for skill in found.values()) >= 70
+    assert sum(len(skill["sends"]) for skill in found.values()) >= 80
+
+    # And the labels are labels: most refusals name the skill that should have the case.
+    named = [target for skill in found.values() for _, target in skill["sends"] if target]
+    assert len(named) >= 60
+    assert set(named) <= set(found)
+
+
+def test_two_skills_taking_one_case_is_a_fork_the_descriptions_cannot_show():
+    broken = copy.deepcopy(corpus())
+    borrowed = broken["ai-report"]["takes"][0]
+    broken["ai-debug"]["takes"].append(borrowed)
+    found = skill_eval.problems(broken)
+    assert any("both take the case" in line for line in found), found
+
+
+def test_a_case_both_skills_refuse_leaves_the_person_who_wrote_it_nowhere():
+    """The one this exists to catch. `ai-report` sends "this is failing, work out why" to
+    `/ai-debug`; if `ai-debug` also refused it, each file would still read correctly on its
+    own and the person who typed the sentence would have two skills declining it."""
+    broken = copy.deepcopy(corpus())
+    case, target = next((case, target) for case, target in broken["ai-report"]["sends"] if target)
+    broken[target]["sends"].append((case, "ai-report"))
+    found = skill_eval.problems(broken)
+    assert any("which refuses it too" in line for line in found), found
+
+
+def test_a_case_sent_to_a_skill_that_is_not_there_is_a_dead_end():
+    broken = copy.deepcopy(corpus())
+    broken["ai-debug"]["sends"].append(("naming the release", "ai-release"))
+    assert any("which is not a skill" in line for line in skill_eval.problems(broken))
+
+
+def test_a_skill_that_takes_and_refuses_the_same_case_contradicts_itself():
+    broken = copy.deepcopy(corpus())
+    broken["ai-debug"]["sends"].append((broken["ai-debug"]["takes"][0], "ai-plan"))
+    assert any("both takes and refuses" in line for line in skill_eval.problems(broken))
+
+
+def test_a_case_sent_to_itself_is_a_loop():
+    broken = copy.deepcopy(corpus())
+    broken["ai-debug"]["sends"].append(("designing the fix", "ai-debug"))
+    assert any("to itself" in line for line in skill_eval.problems(broken))
+
+
+def test_a_corpus_row_that_is_not_a_quoted_case_is_skipped_and_not_guessed_at(tmp_path):
+    """Inventing a label out of unquoted prose would put this harness in the business of
+    deciding what somebody meant. The admission gate already refuses a corpus with no rows,
+    so silence here cannot hide an empty file."""
+    (tmp_path / "corpus.md").write_text(
+        '## Routes here\n\n- a sentence with no quotes\n- "a real case" — and why\n\n'
+        "## Refuses\n\n- prose\n",
+        encoding="utf-8",
+    )
+    read = skill_eval.cases(tmp_path)
+    assert read == {"takes": ["a real case"], "sends": []}
+
+    # A skill directory with no corpus at all reads as no cases rather than raising: the
+    # admission gate in `contract.audit_one` is what refuses that, and two checks refusing
+    # the same thing in different words is one of them going stale.
+    assert skill_eval.cases(tmp_path / "nothing-here") == {"takes": [], "sends": []}

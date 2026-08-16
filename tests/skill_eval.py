@@ -20,6 +20,14 @@ and a graph has properties a machine can settle without a model in the loop:
   the corpus disagreeing with itself, which is the defect this repository keeps finding in
   its own files under a different name.
 
+Beside every skill is a `corpus.md` the admission gate already demands: the cases it must
+take and the cases it must refuse, each refusal naming the skill that should have it. That
+is a labelled routing set, and until this ran the only thing reading it checked that the two
+headings existed with a bullet under each. So the rules above are answered twice — once by a
+skill's description against the other descriptions, and once by the cases somebody wrote
+down. A routing evaluation with no sample is a self-consistency check wearing an
+evaluation's name.
+
 What it does not evaluate: whether the instructions inside a skill are any good. No model
 runs here, nothing is scored for quality, and a corpus that passes this has been shown to
 route consistently and nothing more. Saying so is the point — the alternative is a green
@@ -77,8 +85,46 @@ def corpus(root: Path | None = None) -> dict[str, dict]:
                 (subject.strip().lower(), target.strip())
                 for subject, target in _REFUSAL.findall(text)
             ],
+            **cases(skill),
         }
     return found
+
+
+def _section(body: str, heading: str) -> list[str]:
+    part = body.partition(heading)[2].partition("\n## ")[0]
+    return [line.strip()[2:].strip() for line in part.splitlines() if line.strip().startswith("- ")]
+
+
+def cases(skill: Path) -> dict[str, list]:
+    """The labelled cases beside a skill, which are the sample this evaluation runs on.
+
+    `corpus.md` is required before a skill may land — a case it must take and a case it must
+    refuse — and until now the only thing that read it checked that the two headings were
+    there with a bullet under each. That is a shape check. The cases themselves are a
+    labelled routing set: each refusal quotes a situation and names the skill that should
+    have it, which is exactly what an evaluation needs and nothing was running.
+
+    A row that is not a quoted situation is skipped rather than guessed at. The admission
+    gate already refuses a corpus with no rows at all, so silence here cannot hide an empty
+    file — and inventing a label out of unquoted prose would put this harness in the business
+    of deciding what somebody meant.
+    """
+
+    body = (
+        (skill / "corpus.md").read_text(encoding="utf-8") if (skill / "corpus.md").is_file() else ""
+    )
+    takes = []
+    for row in _section(body, "## Routes here"):
+        quoted = re.match(r'"([^"]+)"', row)
+        if quoted:
+            takes.append(quoted.group(1).lower())
+    sends = []
+    for row in _section(body, "## Refuses"):
+        quoted = re.match(r'"([^"]+)"', row)
+        target = _SKILL_TARGET.search(row)
+        if quoted:
+            sends.append((quoted.group(1).lower(), target.group(1) if target else ""))
+    return {"takes": takes, "sends": sends}
 
 
 def verbs() -> set[str]:
@@ -121,6 +167,32 @@ def problems(found: dict[str, dict], known_verbs: set[str] | None = None) -> lis
                             f'{name} claims "{phrase}" and {other} claims "{theirs}"; '
                             "one contains the other and nothing decides between them"
                         )
+
+    # The labelled cases, run. Everything above evaluates a skill's description against the
+    # other descriptions; this evaluates the sample somebody wrote down as what the skill
+    # must take and what it must send away — and a routing evaluation with no sample is a
+    # self-consistency check wearing an evaluation's name.
+    for name, skill in found.items():
+        for case in skill.get("takes", []):
+            for other, rival in found.items():
+                if other <= name:
+                    continue
+                if case in rival.get("takes", []):
+                    broken.append(f'{name} and {other} both take the case "{case}"')
+        for case, target in skill.get("sends", []):
+            if case in skill.get("takes", []):
+                broken.append(f'{name} both takes and refuses the case "{case}"')
+            if not target:
+                continue
+            if target == name:
+                broken.append(f'{name} sends the case "{case}" to itself')
+            elif target not in found:
+                broken.append(f'{name} sends the case "{case}" to {target}, which is not a skill')
+            elif any(case == theirs for theirs, _ in found[target].get("sends", [])):
+                # The one this exists to catch. Two skills refusing the same case leaves the
+                # person who wrote it with nowhere to go, and each file is defensible on its
+                # own — which is why nothing that reads one file at a time can see it.
+                broken.append(f'{name} sends the case "{case}" to {target}, which refuses it too')
 
     for name, skill in found.items():
         for subject, target in skill["refusals"]:
@@ -198,7 +270,16 @@ def main() -> int:
         for row in refusals
         if not _SKILL_TARGET.search(row[1]) and not _VERB_TARGET.search(row[1])
     ]
+    takes = sum(len(skill["takes"]) for skill in found.values())
+    sends = sum(len(skill["sends"]) for skill in found.values())
+    labelled = [
+        (case, target) for skill in found.values() for case, target in skill["sends"] if target
+    ]
     print(f"  {len(found)} skills route {claims} situations and hand off {len(refusals)} more,")
+    print(
+        f"  measured against {takes + sends} labelled cases beside them — {takes} a skill must "
+        f"take, {sends} it must refuse, {len(labelled)} of those naming the skill that has it —"
+    )
     print("  with no situation claimed twice and no refusal naming a place that is not there.")
     print(f"  {len(leaves)} of those hand-offs leave the framework rather than naming a skill:")
     for subject, target in leaves:
@@ -216,7 +297,7 @@ def main() -> int:
         print(f"    {phase:<14} {', '.join(sorted(by_phase.get(phase, ['—'])))}")
 
     print("  Nothing here evaluates whether a skill's instructions are any good.")
-    print(f"RAN skilleval={claims + len(refusals)}")
+    print(f"RAN skilleval={claims + len(refusals) + takes + sends}")
     return 0
 
 
