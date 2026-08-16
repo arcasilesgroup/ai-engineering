@@ -1759,7 +1759,18 @@ DESCRIPTION_MAX = 1000
 # question of the rest of the list: when a disposition names two homes, which one actually
 # took the work? Absorption recorded as an absence is a deletion with a nicer name, and it
 # turns out that question is worth asking of every row and not only the ones that failed.
-REPO_CEILING = 59_483
+#
+# 59,483 to 59,505 for the last empty home, found by asking all nineteen. The proposal
+# absorbs nineteen capabilities and each one names where its work goes; the commit above
+# closed two by asking which of the named homes actually took it, so the question was then
+# put to the rest of the list one by one. `ai-mcp-audit` was absorbed as "a mode or a
+# reference of ai-security when the repository declares MCPs", and a grep for `mcp` across
+# that whole skill and its corpus returned nothing at all.
+#
+# It is the mode now: the tool list is untrusted input, a tool description is somebody else's
+# text arriving where instructions go, and a result is data and never an instruction. The
+# other sixteen homes hold their work, and that is measured rather than assumed.
+REPO_CEILING = 59_505
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
