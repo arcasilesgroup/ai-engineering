@@ -1090,7 +1090,15 @@ DESCRIPTION_MAX = 1000
 # the Intent. In the file whose whole purpose is to be the thing that cannot be forged.
 # Both are quoted through `json.dumps` now, as every other field of that header already
 # was, and a fixture writes `status: "rejected"` through the old code and fails.
-REPO_CEILING = 53_158
+# 53,158 to 53,181 for a number that lived only in a sentence. `specs/015` says eleven of
+# the fourteen prohibitions are decidable by absence and names the three that are not; the
+# register shipped with seven arguing their case, and nothing compared the two. `just
+# register` prints the split from the register on every run now, and the test reads the
+# expected numbers off the register rather than writing them down — a number typed into a
+# test is the same defect one file further along. The sentence in the specification is
+# still wrong: correcting it moves an approved digest, and the gate refused the edit,
+# which is the gate working. It is on the list of things owed to the operator.
+REPO_CEILING = 53_189
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

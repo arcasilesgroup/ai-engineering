@@ -96,6 +96,18 @@ def main() -> int:
     for name in missing:
         print(f"    no_instrument  {name}")
 
+    # The prohibitions split the same way and nothing printed it, so the only statement of
+    # how many can fail closed was a sentence in a specification — and that sentence said
+    # eleven while the register shipped seven. Rule 12 keeps a judgement no script can
+    # decide as a prompt with its reason written down, which is what those rows are; what
+    # was missing is anybody being able to see how many there are without counting by hand.
+    # The number is read from the register on every run now, so it cannot go stale again.
+    argued = [str(row["id"]) for row in register.get("prohibition", []) if not row.get("check")]
+    decided = PROHIBITIONS - len(argued)
+    print(f"  {decided} of {PROHIBITIONS} prohibitions fail closed; {len(argued)} are argued:")
+    for name in argued:
+        print(f"    reason_only    {name}")
+
     claimed = bool(register.get("claim", {}).get("p5_complete"))
     if claimed and missing:
         print("\n  P5 is claimed complete while these have no instrument:", file=sys.stderr)

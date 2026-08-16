@@ -39,6 +39,17 @@ def test_it_runs_as_a_command_and_names_every_row_that_has_no_instrument():
     assert "no_instrument  guard_p95_ms" in done.stdout
     assert "RAN register=27" in done.stdout
 
+    # The prohibitions split too, and until now nothing printed it: the only statement of
+    # how many of them can fail closed was a sentence in `specs/015` — and that sentence
+    # said eleven while the register shipped seven arguing their case. Nothing compared the
+    # two, so nothing could go red. Read off the register here rather than written down,
+    # because a number typed into a test is the same defect one file further along.
+    rows = register()["prohibition"]
+    argued = [str(row["id"]) for row in rows if not row.get("check")]
+    assert f"{len(rows) - len(argued)} of {len(rows)} prohibitions fail closed" in done.stdout
+    for name in argued:
+        assert f"reason_only    {name}" in done.stdout
+
 
 def test_a_bound_beside_no_instrument_is_an_error():
     """The pair specification 015 names explicitly: a bound nobody can measure is a number
