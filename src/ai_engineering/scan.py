@@ -242,17 +242,12 @@ def covered(root: Path, lane: Lane | None = None) -> set[str]:
     engine = lane or BASELINE[-1]
     try:
         done = subprocess.run(
-            [
-                *engine.argv,
-                "--scanners",
-                "vuln",
-                "--list-all-pkgs",
-                "--format",
-                "json",
-                "--quiet",
-                "--include-dev-deps",
-                ".",
-            ],
+            # The lane's own arguments, and not a second copy of them. Built from `argv`
+            # alone this asked a different question than the run that decided the verdict:
+            # remove `--include-dev-deps` from the lane and the coverage line would still
+            # have reported the npm tree read — a green answer about a scan that skipped it,
+            # which is the defect that flag was added to close, restated one function over.
+            [*engine.argv, *engine.extra, "--list-all-pkgs", "--format", "json", "."],
             cwd=root,
             capture_output=True,
             text=True,
@@ -279,7 +274,13 @@ def unread(root: Path, lane: Lane | None = None) -> list[str]:
     excluded, produces the same silence as a stack with nothing wrong in it.
     """
 
-    read = covered(root, lane)
+    # By name, because the two sides speak different dialects: `stacks` returns the bare
+    # file name and the engine returns the path it read it at. A repository whose package
+    # lives in `api/` — the shape `stacks` descends a level to find — was therefore
+    # permanently INCOMPLETE over a file the engine had read, with no cure short of hoisting
+    # the lock to the root. A control somebody can only satisfy by rearranging their
+    # repository is a control they learn to skip.
+    read = {Path(target).name for target in covered(root, lane)}
     return [
         manifest
         for manifest in stacks(root)
@@ -366,8 +367,24 @@ def _results(report: Path) -> list[dict]:
         return []
     found: list[dict] = []
     for run_of in loaded.get("runs", []):
-        if isinstance(run_of, dict):
-            found.extend(row for row in run_of.get("results", []) if isinstance(row, dict))
+        if not isinstance(run_of, dict):
+            continue
+        for row in run_of.get("results", []):
+            # Shaped, not merely present. The docstring above promises that a report this
+            # code cannot read yields nothing rather than an answer, and for a while it only
+            # kept that promise down to the row: `"message": "a string"` is a shape some
+            # converters emit, and it left an AttributeError coming out of the security gate
+            # instead of a verdict. A gate that terminates with a traceback has not decided,
+            # and this module's whole rule is that an undecided lane is INCOMPLETE.
+            if not isinstance(row, dict):
+                continue
+            message = row.get("message")
+            locations = row.get("locations")
+            if message is not None and not isinstance(message, dict):
+                continue
+            if locations is not None and not isinstance(locations, list):
+                continue
+            found.append(row)
     return found
 
 
@@ -403,10 +420,18 @@ def report(lane: Lane, root: Path, inputs: list[str]) -> list[Finding]:
     findings = []
     for row in rows:
         first = (row.get("locations") or [{}])[0]
-        physical = first.get("physicalLocation", {}) if isinstance(first, dict) else {}
-        at = physical.get("artifactLocation", {}).get("uri", "an unnamed file")
-        line = physical.get("region", {}).get("startLine", "?")
-        message = row.get("message", {}).get("text", "").strip() or row.get("ruleId", "")
+        physical = first.get("physicalLocation") if isinstance(first, dict) else None
+        physical = physical if isinstance(physical, dict) else {}
+        artifact = physical.get("artifactLocation")
+        region = physical.get("region")
+        at = (
+            artifact.get("uri", "an unnamed file")
+            if isinstance(artifact, dict)
+            else "an unnamed file"
+        )
+        line = region.get("startLine", "?") if isinstance(region, dict) else "?"
+        text = (row.get("message") or {}).get("text")
+        message = str(text).strip() if text is not None else str(row.get("ruleId", ""))
         findings.append(
             Finding(
                 boundary=UNANSWERED,
@@ -488,6 +513,16 @@ def baseline(root: Path) -> int:
                 f"  {'INCOMPLETE':<11} {'coverage':<13} the engine read no file for "
                 f"{', '.join(missed)}: a stack it did not read reports as a stack with "
                 f"nothing in it"
+            )
+            # And the cure, in the line, because two legitimate shapes land here — a
+            # manifest whose lock file is not committed, and a stack whose lock file is
+            # opt-in and rarely used. Both are genuinely unscanned, so neither is a false
+            # positive; what would make this a control people skip is arriving with no way
+            # forward but rearranging the repository.
+            print(
+                f"  {'':<11} {'':<13} commit the file the engine reads for it "
+                f"({', '.join(sorted({n for m in missed for n in READS.get(m, ())}))}), "
+                f"or record a dated risk acceptance with `ai-eng accept`"
             )
         else:
             print(

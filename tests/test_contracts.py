@@ -261,10 +261,17 @@ def test_every_review_lens_is_named_by_the_skill_that_walks_them():
     )
     assert lenses, "the review skill has no lenses at all"
 
-    # `simplify.md` is walked as "simplification"; the stem is the file and the word is the
-    # pass, so a prefix is what the procedure has to carry.
-    missing = [lens for lens in lenses if lens not in skill]
-    assert not missing, f"lenses no step routes to: {missing}"
+    # Against the list the procedure actually walks, not against the whole file. Searching
+    # the file for the word matched prose anywhere in it — an independent reviewer probed a
+    # new unrouted lens against ten plausible names and eight of them passed, including
+    # `plan.md`, `review.md` and `git.md`. A check that passes for the likely next input is
+    # a check that will be green on the day it matters.
+    walked = skill.partition("one of them:")[2].partition(". Each")[0]
+    assert walked, "step 3 no longer lists the lenses it walks, so nothing routes to any of them"
+    named = {word.strip(" \n,.") for word in walked.replace(" and ", ", ").split(",")}
+
+    missing = [lens for lens in lenses if lens not in named]
+    assert not missing, f"lenses no step routes to: {missing} (step 3 walks {sorted(named)})"
 
 
 def test_a_skill_that_names_a_guard_names_one_that_can_deny():
@@ -915,7 +922,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 57_574
+    assert contract.REPO_CEILING == 57_869
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]

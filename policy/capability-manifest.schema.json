@@ -249,7 +249,7 @@
             "build",
             "verify"
           ],
-          "description": "Which of the five phases this capability serves. A person meeting twelve commands with no map has to try them to find out what they are for, and the phase is the map. One phase each: a capability that served two would be two capabilities, which is the routing argument the skills already make about themselves."
+          "description": "Which of the five phases this capability serves. A person meeting a catalogue of fifteen with no map has to try them to find out what they are for, and the phase is the map. One phase each: a capability that served two would be two capabilities, which is the routing argument the skills already make about themselves."
         },
         "modes": {
           "type": "array",

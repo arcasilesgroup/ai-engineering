@@ -37,7 +37,14 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / ".agents" / "skills"
 
 _TRIGGER = re.compile(r'"([^"]+)"')
-_REFUSAL = re.compile(r"Not for ([^.]*?)\s+—\s+use ([^,.]+)")
+# The whole tail after the dash, and not only the tails that begin with "use". Requiring
+# that word made the rule below — a refusal that names nowhere to take the work — unreachable
+# from any file in the tree: five of the thirty-one written clauses were invisible to this
+# harness, including the one clause that names no destination at all, which is the case the
+# rule exists for. A check that cannot see the input it was written for is the defect this
+# repository is named after, so the regex reads every clause and the classification happens
+# below, where it can be argued with.
+_REFUSAL = re.compile(r"Not for ([^.]*?)\s*[—:]\s*([^.]+)")
 _SKILL_TARGET = re.compile(r"/(ai-[a-z-]+)")
 _VERB_TARGET = re.compile(r"`ai-eng ([a-z-]+)")
 
@@ -132,8 +139,15 @@ def problems(found: dict[str, dict], known_verbs: set[str] | None = None) -> lis
                         f'{name} sends "{subject}" to `ai-eng {to_verb.group(1)}`, '
                         "which is not a verb this CLI has"
                     )
-            else:
+            elif not target.strip():
                 broken.append(f'{name} refuses "{subject}" and names nowhere to take it')
+            # A destination outside the catalogue is legal and stays legal. Three of them
+            # are written today — the repository's own docs, the person saying go, and the
+            # gate in CI — and none of the three has a skill, because no skill owns them.
+            # Requiring one would have made this harness demand a fake route to satisfy
+            # itself, which is worse than the silence it replaced. What it does instead is
+            # count them and print them, so a hand-off out of the framework is something a
+            # reader sees rather than something that reads as an absence.
 
             # And the corpus has to agree with itself: a refusal naming one destination
             # while a third skill claims that same situation leaves the reader with two
@@ -178,11 +192,31 @@ def main() -> int:
         return 1
 
     claims = sum(len(skill["claims"]) for skill in found.values())
-    routes = sum(len(skill["refusals"]) for skill in found.values())
-    print(f"  {len(found)} skills route {claims} situations and hand off {routes} more,")
+    refusals = [row for skill in found.values() for row in skill["refusals"]]
+    leaves = [
+        row
+        for row in refusals
+        if not _SKILL_TARGET.search(row[1]) and not _VERB_TARGET.search(row[1])
+    ]
+    print(f"  {len(found)} skills route {claims} situations and hand off {len(refusals)} more,")
     print("  with no situation claimed twice and no refusal naming a place that is not there.")
+    print(f"  {len(leaves)} of those hand-offs leave the framework rather than naming a skill:")
+    for subject, target in leaves:
+        print(f"    elsewhere      {subject} — {target}")
+
+    # The map, which is the only reason the manifest carries a phase at all. It was declared
+    # for a person meeting the catalogue with no idea what any of it is for, and a field no
+    # command ever shows that person is a field that answers nobody. This is the command
+    # that shows it.
+    by_phase: dict[str, list[str]] = {}
+    for row in declared["capabilities"]:
+        by_phase.setdefault(str(row["phase"]), []).append(str(row["id"]))
+    print(f"  the {len(by_phase)} phases the catalogue is arranged in:")
+    for phase in ("discover", "decide", "plan", "build", "verify"):
+        print(f"    {phase:<14} {', '.join(sorted(by_phase.get(phase, ['—'])))}")
+
     print("  Nothing here evaluates whether a skill's instructions are any good.")
-    print(f"RAN skilleval={claims + routes}")
+    print(f"RAN skilleval={claims + len(refusals)}")
     return 0
 
 

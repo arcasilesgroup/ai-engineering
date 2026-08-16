@@ -46,6 +46,22 @@ def test_it_runs_as_a_command_and_says_what_it_did_not_evaluate():
     assert f"RAN skilleval={total}" in done.stdout
     assert f"{len(found)} skills route" in done.stdout
 
+    # The map, printed. `phase` is declared for a person meeting the catalogue with no idea
+    # what any of it is for, and a field no command ever shows that person answers nobody.
+    # Read from the manifest here rather than restated, so a phase moving there moves this.
+    import tomllib
+
+    declared = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))
+    for row in declared["capabilities"]:
+        line = next(
+            one for one in done.stdout.splitlines() if one.strip().startswith(str(row["phase"]))
+        )
+        assert str(row["id"]) in line, (row["id"], row["phase"])
+
+    # And a hand-off that leaves the framework is visible rather than silent.
+    assert "hand-offs leave the framework" in done.stdout
+    assert "that is just check in CI" in done.stdout
+
 
 def test_a_skill_that_claims_nothing_is_a_skill_nothing_reaches():
     broken = copy.deepcopy(corpus())
@@ -100,8 +116,61 @@ def test_a_skill_refusing_work_to_itself_is_a_loop():
 
 def test_a_refusal_that_names_nowhere_is_not_a_route():
     broken = copy.deepcopy(corpus())
-    broken["ai-debug"]["refusals"].append(("designing the fix", "somebody else"))
+    broken["ai-debug"]["refusals"].append(("designing the fix", "   "))
     assert any("names nowhere to take it" in line for line in skill_eval.problems(broken))
+
+
+def test_a_hand_off_out_of_the_framework_is_legal_and_counted():
+    """Three of these are written today and none has a skill, because no skill owns the
+    repository's documentation, the person saying go, or the gate in CI. Requiring one would
+    have made this harness demand a fake route to satisfy itself. So it stays legal — and it
+    is printed, because a hand-off nobody can see reads as an absence."""
+    fine = copy.deepcopy(corpus())
+    fine["ai-debug"]["refusals"].append(("running the gates", "that is just check in CI"))
+    assert skill_eval.problems(fine) == []
+
+
+def test_the_extraction_reads_the_shapes_the_tree_actually_writes():
+    """The layer every other fixture skipped. Each of these mutates the parsed dictionary,
+    so for a while nothing exercised the reading of a `SKILL.md` at all — and the reading is
+    where the defect was: the pattern demanded the word "use" after the dash, so five of the
+    thirty-one written refusals were invisible, including the one that names no skill, which
+    is the case the rule exists for. A rule that cannot see its own input is the thing this
+    repository is named after."""
+    written = 0
+    for folder in sorted((ROOT / ".agents" / "skills").iterdir()):
+        body = (folder / "SKILL.md").read_text(encoding="utf-8")
+        text = skill_eval.description(body)
+        assert text, folder.name
+        assert skill_eval._TRIGGER.findall(text), f"{folder.name} declares no trigger phrase"
+
+        # Every clause the file writes is a clause the harness reads. Counted from the file
+        # rather than from the parser, which is the only way the two can disagree.
+        import re
+
+        clauses = re.findall(r"Not for [^.]*\.", text)
+        assert len(clauses) == len(skill_eval._REFUSAL.findall(text)), (
+            f"{folder.name}: {len(clauses)} refusals written, "
+            f"{len(skill_eval._REFUSAL.findall(text))} read"
+        )
+        written += len(clauses)
+    assert written >= 30, written
+
+    # And a file with no frontmatter description at all yields nothing rather than raising.
+    assert skill_eval.description("# just a heading\n") == ""
+
+
+def test_it_reads_the_tree_it_is_pointed_at(tmp_path):
+    """`corpus` takes a root, and this is what proves the parameter is wired: the default is
+    read on the call rather than bound to the signature, so pointing it elsewhere reads
+    elsewhere. Before that fix it went on reading this repository and would have reported a
+    pass about a corpus it never opened."""
+    body = (ROOT / ".agents" / "skills" / "ai-debug" / "SKILL.md").read_text(encoding="utf-8")
+    (tmp_path / "ai-debug").mkdir()
+    (tmp_path / "ai-debug" / "SKILL.md").write_text(body, encoding="utf-8")
+
+    assert sorted(skill_eval.corpus(tmp_path)) == ["ai-debug"]
+    assert len(skill_eval.corpus()) > 1
 
 
 def test_a_third_skill_claiming_what_a_refusal_sends_elsewhere_is_a_disagreement():

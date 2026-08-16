@@ -36,11 +36,13 @@ ENFORCEMENT_UNAVAILABLE = (
 PASS = intent.Validation("PASS")
 SCHEMA_PATH = paths.policy("capability-manifest.schema.json")
 MANIFEST_PATH = paths.policy("capabilities.toml")
-# Moved once, deliberately, when the manifest gained `phase`. The pin is what makes that
-# a decision somebody takes rather than a file that drifted, and this is the commit it
-# was taken in — a person meeting twelve commands with no map has to try them to learn
-# what they are for, and the phase is the map.
-_EXPECTED_SCHEMA_DIGEST = "d76ce4483068704e377ad7357fccf433fbefaddd38957042b1cfb81c5a75abee"
+# Moved deliberately when the manifest gained `phase`, and moved a second time when an
+# independent review found the sentence explaining it counting the wrong things: it said
+# twelve commands, where the catalogue is fifteen capabilities, the skill tree is twelve
+# directories and the CLI has ten verbs. The pin is what makes a change here a decision
+# somebody takes rather than a file that drifted, and a wrong number inside a governed file
+# is exactly what it exists to make expensive.
+_EXPECTED_SCHEMA_DIGEST = "1f1273266cc1f01a366aa5277082c6fe50976cee16f0adda045e62461f1df9e2"
 _MAX_POLICY_BYTES = 1_000_000
 # The `\.` alternative that stood here matched nothing the class after it did not:
 # a dot is already in `[A-Za-z0-9._-]`. It read as though a lone `.` were special

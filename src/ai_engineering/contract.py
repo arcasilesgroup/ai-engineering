@@ -1516,7 +1516,29 @@ DESCRIPTION_MAX = 1000
 # it read no file for is INCOMPLETE and fails the gate, which is the module's own rule
 # applied one level up: a stack nobody scanned reports exactly like a stack with nothing
 # in it.
-REPO_CEILING = 57_574
+#
+# 57,574 to 57,869 for a block review, which is the first one this shape of work has had.
+# The process record already said so: the block cadence covers implementation blocks, and
+# the requirement-closure work after it ran with no boundary and no independent reviewer.
+# Five commits went in that way. One read-only reviewer found nine things and two of them
+# were live defects nobody could have seen by re-reading:
+#
+# A repository whose package sits in `api/` was permanently INCOMPLETE over a lock file the
+# engine had read, because one side of the comparison speaks file names and the other speaks
+# paths — a control somebody can only satisfy by rearranging their repository is a control
+# they learn to skip. And the SARIF reader promised in its own docstring that a report it
+# could not read yields nothing rather than an answer, while four shapes of malformed row
+# took an AttributeError out through the security gate instead of a verdict.
+#
+# The rest were the house defect: the routing harness demanded the word "use" after the
+# dash, so five of thirty-one written refusals were invisible to it and the rule about a
+# refusal naming nowhere could not fire on any real file; the lens check searched the whole
+# skill for a word, and eight of ten plausible new lens names passed it; `covered` built a
+# second copy of the lane's command, so deleting the flag that fixed the npm scan would have
+# left the coverage answer still green; a length was compared against itself; and `phase`
+# was declared, required and read by nothing, which the harness now prints as the map it was
+# added to be.
+REPO_CEILING = 57_869
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

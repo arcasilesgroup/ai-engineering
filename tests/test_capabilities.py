@@ -499,9 +499,13 @@ def test_every_capability_says_which_phase_it_serves():
     declared = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))[
         "capabilities"
     ]
-    phases = [str(row["phase"]) for row in declared]
+    # `.get`, because the comprehension that read `row["phase"]` made the assertion below
+    # unconditionally true — it raised on the line above instead, and a length compared
+    # against itself is a check that cannot fail. The gate is real either way, but a line
+    # that reads like a check and is not is the class this repository hunts.
+    phases = [row.get("phase") for row in declared]
 
-    assert len(phases) == len(declared), "a capability with no phase is a command with no map"
+    assert all(phases), "a capability with no phase is a command with no map"
     assert set(phases) == {"discover", "decide", "plan", "build", "verify"}
 
     # Every phase has at least one capability: a phase nothing serves is a word in a schema.
@@ -511,3 +515,11 @@ def test_every_capability_says_which_phase_it_serves():
     # And the manifest still validates against the schema whose digest was moved for it,
     # which is what makes the pin a gate rather than a comment.
     assert capability._validated(None)["capabilities"], "the manifest no longer validates"
+
+    # The map has a reader, which is the only reason a field like this is worth declaring:
+    # `tests/skill_eval.py` prints the catalogue arranged by phase on every run of the gate,
+    # so a phase nobody serves and a capability nobody placed are visible to a person rather
+    # than only to a schema. An independent review found this field written and wired to
+    # nothing, which is the other half of the defect this file is about. The reader is
+    # proven where it runs — `test_skill_eval.py` drives the command and reads every
+    # capability off its phase line — and not asserted a second time here.

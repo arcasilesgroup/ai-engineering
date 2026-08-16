@@ -442,11 +442,125 @@ def test_every_manifest_this_gate_looks_for_says_which_file_answers_for_it():
 
 
 def test_the_dependency_lane_includes_the_packages_a_build_depends_on():
-    """Measured, not assumed. With this flag off, this repository's entire npm tree was
-    excluded from every scan the gate ran, and the lane exited zero — the same silence as a
-    clean one. A build dependency compiles the plugin that ships inside the wheel, so "it is
-    only a development dependency" is not a boundary this project has."""
+    """With this flag off, this repository's entire npm tree was excluded from every scan
+    the gate ran and the lane exited zero — the same silence as a clean one. A build
+    dependency compiles the plugin that ships inside the wheel, so "it is only a development
+    dependency" is not a boundary this project has.
+
+    The measurement is here rather than in a commit message, because a docstring that says
+    "measured" over an assertion about a constant is the claim outrunning its proof, which
+    an independent review said about the first version of this test. What is measured is the
+    lock file: every package in it is a development one, so with the flag off there is
+    nothing for the engine to report and its silence is indistinguishable from a clean tree.
+    """
+    import json
+
     from ai_engineering import scan
 
     lane = next(one for one in scan.BASELINE if one.id == "dependencies")
     assert "--include-dev-deps" in lane.extra
+
+    lock = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
+    packages = [row for name, row in lock["packages"].items() if name]
+    assert packages, "the lock file names no packages, so this measured nothing"
+    assert all(row.get("dev") for row in packages), (
+        "a non-development package appeared in the lock file; the flag is still right, but "
+        "the reason written here no longer describes what is in it"
+    )
+
+
+# What an independent review of the two commits above found, each one reproduced here first
+# and then held. All three were the same shape: a control that reads stronger than it is.
+@pytest.mark.parametrize(
+    ("name", "body"),
+    (
+        ("message is a plain string", '{"runs": [{"results": [{"message": "a string"}]}]}'),
+        (
+            "region is a list",
+            '{"runs": [{"results": [{"locations": [{"physicalLocation": {"region": []}}]}]}]}',
+        ),
+        (
+            "artifactLocation is a string",
+            '{"runs": [{"results": [{"locations":'
+            ' [{"physicalLocation": {"artifactLocation": "x"}}]}]}]}',
+        ),
+        ("the text is a number", '{"runs": [{"results": [{"message": {"text": 7}}]}]}'),
+        ("locations is an object", '{"runs": [{"results": [{"locations": {}}]}]}'),
+        (
+            "physicalLocation is a string",
+            '{"runs": [{"results": [{"locations": [{"physicalLocation": "x"}]}]}]}',
+        ),
+    ),
+)
+def test_sarif_shaped_differently_yields_findings_or_none_and_never_a_traceback(
+    tmp_path, name, body
+):
+    """The reader's own docstring promised this and did not keep it. Every earlier fixture
+    stopped at the `runs`/`results` level, so the extraction loop had never met a malformed
+    row — and `"message": "a string"` is a shape real converters emit. What came out of the
+    security gate was an AttributeError rather than a verdict, and a gate that terminates
+    with a traceback has not decided anything: this module's whole rule is that a lane which
+    could not answer is INCOMPLETE."""
+    from ai_engineering import scan
+
+    lane = scan.Lane("odd", writer(tmp_path, body), sarif=("--out", "{}"))
+    for finding in scan.report(lane, tmp_path, ["src/thing.py"]):
+        assert finding.state == "INCOMPLETE", name
+        assert isinstance(finding.effect, str) and isinstance(finding.decided_by, str)
+
+
+def test_a_manifest_one_directory_down_is_covered_by_the_file_the_engine_read(tmp_path):
+    """`stacks` descends one level on purpose and returns bare file names; the engine
+    returns the path it read them at. Comparing the two directly made every repository with
+    a `web/` or `api/` package permanently INCOMPLETE over a file the engine had read, with
+    no cure but hoisting the lock to the root — and a control somebody can only satisfy by
+    rearranging their repository is a control they learn to skip."""
+    from ai_engineering import scan
+
+    (tmp_path / "api").mkdir()
+    (tmp_path / "api" / "package.json").write_text("{}", encoding="utf-8")
+    lane = scan.Lane(
+        "dependencies", lister(tmp_path, '{"Results": [{"Target": "api/package-lock.json"}]}')
+    )
+
+    assert scan.stacks(tmp_path) == ["package.json"]
+    assert scan.unread(tmp_path, lane) == []
+
+    # And a stack it genuinely read nothing for is still caught, wherever it sits.
+    (tmp_path / "api" / "Cargo.toml").write_text("", encoding="utf-8")
+    assert scan.unread(tmp_path, lane) == ["Cargo.toml"]
+
+
+def test_the_coverage_question_is_asked_with_the_lane_s_own_arguments(tmp_path):
+    """Built from `argv` alone, this asked a different question than the run that decided the
+    verdict: the flags were a second copy, so removing `--include-dev-deps` from the lane
+    would have left the coverage line still reporting the npm tree read — a green answer
+    about a scan that skipped it, which is the defect that flag was added to close."""
+    from ai_engineering import scan
+
+    echo = tmp_path / "echo.py"
+    echo.write_text(
+        "import sys, json\nprint(json.dumps({'Results': [{'Target': ' '.join(sys.argv[1:])}]}))\n",
+        encoding="utf-8",
+    )
+    lane = scan.Lane("dependencies", (sys.executable, str(echo)), extra=("--a-lane-flag",))
+
+    assert any("--a-lane-flag" in target for target in scan.covered(tmp_path, lane))
+
+
+def test_a_stack_the_engine_read_nothing_for_is_told_how_to_close_it(tmp_path, capsys, monkeypatch):
+    """Two legitimate shapes land on INCOMPLETE here — a manifest whose lock file is not
+    committed, and a stack whose lock file is opt-in and rarely used. Both are genuinely
+    unscanned, so neither is a false positive. What would turn this into a control people
+    skip is arriving with no way forward, so the line names the file that would answer it
+    and the command that records the decision not to."""
+    from ai_engineering import scan
+
+    (tmp_path / "Cargo.toml").write_text("", encoding="utf-8")
+    lane = scan.Lane("dependencies", lister(tmp_path, '{"Results": []}'))
+    monkeypatch.setattr(scan, "BASELINE", (lane,))
+
+    assert scan.baseline(tmp_path) == 1
+    printed = capsys.readouterr().out
+    assert "Cargo.lock" in printed
+    assert "ai-eng accept" in printed
