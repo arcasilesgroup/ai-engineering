@@ -1694,7 +1694,12 @@ DESCRIPTION_MAX = 1000
 # That is the failure mode an ungated register has, and it took one session to arrive: it
 # becomes somewhere to put work. The row is gone and the binding is executed instead, both
 # ways — the boxes are the promises, and the register is checked for not having it back.
-REPO_CEILING = 59_187
+#
+# 59,187 to 59,218 so the published measurement is not stale. 259 of 385, and the one that
+# moved is the one a reviewer sent back. What the same paragraph records is the nine defects
+# two independent block reviews found in work this session had already called done — every
+# one by executing, none by re-reading, and not one of them by a gate.
+REPO_CEILING = 59_218
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
