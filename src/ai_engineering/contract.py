@@ -1098,7 +1098,17 @@ DESCRIPTION_MAX = 1000
 # test is the same defect one file further along. The sentence in the specification is
 # still wrong: correcting it moves an approved digest, and the gate refused the edit,
 # which is the gate working. It is on the list of things owed to the operator.
-REPO_CEILING = 53_189
+# 53,189 to 53,543 — 354 lines, the largest raise in this file, and all of it one document.
+# `docs/audit-2026-08-16.md` is the goal's terminal deliverable: every one of the 385
+# requirements in the evolution proposal classified against this tree, the 192 proven ones
+# as ranges and each of the 193 that are not proven on its own line with the reason. The
+# arithmetic: 137 lines of finding and argument, 217 of appendix, and the appendix is the
+# part that cannot be compressed further without deleting the demonstration itself — a
+# table where a row says "measured elsewhere" proves nothing to the person reading it.
+# `docs/adr/` is excluded from this count and `docs/` is not, so an audit pays where a
+# decision does not. That asymmetry is worth an argument; it is not worth shrinking the
+# audit to avoid having it.
+REPO_CEILING = 53_553
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
