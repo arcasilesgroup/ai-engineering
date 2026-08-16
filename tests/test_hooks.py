@@ -1101,7 +1101,7 @@ def test_a_two_hundred_is_not_a_delivery(repo, monkeypatch, payload, delivered):
     response. Read only the status code and the doctor reports a working destination while
     everything sent is being dropped — observability nobody has."""
     (_emit.home() / "config.toml").write_text(
-        '[observability]\nendpoint = "http://collector.invalid:4318/"\n'
+        '[observability]\nendpoint = "http://collector.invalid:4318/"\nretention_days = 30\n'
     )
     monkeypatch.setattr(_otlp.urllib.request, "urlopen", lambda r, timeout=0: Reply(200, payload))
     assert _otlp.probe()[0] is delivered
@@ -1498,3 +1498,49 @@ def test_only_a_surface_that_identifies_itself_is_named_in_the_record(monkeypatc
     chain.main()
     assert os.environ["AI_ENG_SURFACE"] == "claude-code"
     assert os.environ["AI_ENG_ADAPTER"] == "1"
+
+
+def test_an_endpoint_with_no_stated_retention_receives_nothing(tmp_path, monkeypatch):
+    """EP-048's remaining half, and the shape it had to take.
+
+    This exporter can say exactly what leaves — two allow-lists, and everything else a hash
+    and a length. It cannot say how long the far end keeps it, because that is somebody
+    else's system. What it can refuse is to send anything at all to a destination nobody has
+    written a retention down for: the decision is made deliberately, in the file where the
+    endpoint is chosen, and until it is made nothing is exported.
+
+    `retention_days` is not validated against the destination and is not meant to be. It is
+    the record that a person decided, which is the thing that was missing — `retention`
+    appeared in no file in this repository."""
+
+    home = tmp_path / "home"
+    (home / ".ai").mkdir(parents=True)
+    monkeypatch.setenv("AI_ENGINEERING_HOME", str(home / ".ai-engineering"))
+    (home / ".ai-engineering").mkdir(parents=True, exist_ok=True)
+
+    def configured(body: str) -> None:
+        (home / ".ai-engineering" / "config.toml").write_text(body, encoding="utf-8")
+
+    monkeypatch.setattr(
+        _otlp,
+        "config",
+        lambda: __import__("tomllib").loads(
+            (home / ".ai-engineering" / "config.toml").read_text(encoding="utf-8")
+        ),
+    )
+
+    configured('[observability]\nendpoint = "http://collector.invalid:4318"\n')
+    status, rejected, detail = _otlp.post("logs", {})
+    assert (status, rejected) == (0, 0)
+    assert "nobody has decided how long this is kept" in detail
+
+    for bad in ("0", "-1", "true", '"thirty"'):
+        configured(
+            f'[observability]\nendpoint = "http://collector.invalid:4318"\nretention_days = {bad}\n'
+        )
+        assert "nobody has decided" in _otlp.post("logs", {})[2], bad
+
+    # And with the decision made it gets past this gate and fails on the network instead,
+    # which is the honest next answer for a host that does not exist.
+    configured('[observability]\nendpoint = "http://collector.invalid:4318"\nretention_days = 30\n')
+    assert "nobody has decided" not in _otlp.post("logs", {})[2]

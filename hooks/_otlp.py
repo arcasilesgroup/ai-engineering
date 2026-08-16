@@ -123,6 +123,21 @@ def post(signal: str, body: dict) -> tuple[int, int, str]:
     endpoint = str(settings.get("endpoint", "")).rstrip("/")
     if not endpoint:
         return 0, 0, "no endpoint configured"
+    # A destination with no stated retention gets nothing. This exporter can say exactly
+    # what leaves — two allow-lists, everything else a hash and a length — and it cannot say
+    # how long the far end keeps it, because that is the operator's system and not ours.
+    # What it can refuse to do is send personal-adjacent telemetry to somewhere nobody has
+    # written down a retention for. `retention_days` is a number the person configuring the
+    # endpoint puts beside it; it is not validated against the destination, and it is not
+    # meant to be. It is the decision, made deliberately, in the file where the endpoint is
+    # chosen — and no export happens until somebody has made it.
+    retention = settings.get("retention_days")
+    if not isinstance(retention, int) or isinstance(retention, bool) or retention <= 0:
+        return (
+            0,
+            0,
+            "no retention_days beside the endpoint: nobody has decided how long this is kept",
+        )
     headers = {"Content-Type": "application/json"}
     name, env = settings.get("auth_header"), settings.get("auth_env")
     if name and env:

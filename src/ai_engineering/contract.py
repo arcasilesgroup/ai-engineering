@@ -1361,7 +1361,15 @@ DESCRIPTION_MAX = 1000
 # tour, `ai-design`'s asset card and `ai-ship`'s changelog wording. Each was cited by a
 # specification as what closes a requirement, and the audit put it plainly: deleting those
 # lines turned nothing red, so the requirement rested on a file staying as somebody left it.
-REPO_CEILING = 55_926
+# 55,926 to 55,987 for the half of EP-048 that was genuinely missing. The exporter can say
+# exactly what leaves — two allow-lists, everything else a hash and a length — and it cannot
+# say how long the far end keeps it, because that is somebody else's system. `retention`
+# appeared in no file here. What it can refuse is to send anything at all to a destination
+# nobody has written a retention down for, so an endpoint without `retention_days` beside it
+# now receives nothing and says why. The number is not validated against the destination and
+# is not meant to be: it is the record that a person decided, in the file where the endpoint
+# is chosen, and that decision is what was absent.
+REPO_CEILING = 55_995
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
