@@ -673,3 +673,47 @@ def test_the_reader_refuses_a_clock_it_cannot_use_and_reports_the_worst_box(tmp_
 
     # And a box nobody asked about has no age rather than somebody else's.
     assert readiness.read(root, now=NOW).age_of("not-a-box") is None
+
+
+def test_the_boxes_are_the_list_of_promises_and_each_one_resolves_to_an_evidence(tmp_path):
+    """EP-065, taken back out of the register that had filed it.
+
+    "One executed evidence per promise" was recorded as a judgement no gate could hold,
+    because nobody had a list of promises and whoever wrote one would also decide the score.
+    Its own reopening condition named the production-ready boxes as that list — and a
+    reviewer pointed out that the condition had fired before the row was written.
+    `readiness.BOXES` is eight rows in code, fixed here rather than configured because which
+    boxes exist is not the consumer's choice, and `_status` ties each one to a receipt with
+    an expectation and an age. Nobody chooses the list and nobody chooses the score.
+
+    That is the failure mode an ungated register has: it becomes somewhere to put work. The
+    row is gone and this is what replaces it — the binding, executed, both ways.
+    """
+    from datetime import UTC, datetime
+
+    from ai_engineering import readiness
+
+    assert len(readiness.BOXES) == 8
+    assert len({box.id for box in readiness.BOXES}) == 8, "a promise is named twice"
+    assert {box.kind for box in readiness.BOXES} == {"automated", "external"}
+
+    # Every box resolves to an answer rather than to silence, and the answer is one of the
+    # words this project allows. A promise whose evidence is missing is INCOMPLETE, which is
+    # what makes the list a claim somebody can check rather than a list of headings.
+    now = datetime.now(UTC)
+    for box in readiness.BOXES:
+        answered = readiness._status(box, {"max_age_seconds": 86_400}, tmp_path, now)
+        assert answered.id == box.id
+        assert answered.outcome in {"PASS", "FAIL", "INCOMPLETE"}
+        assert answered.outcome == "INCOMPLETE", "a box with no receipt cannot be a pass"
+        assert answered.code, f"{box.id} answered without saying why"
+
+    # And the register no longer files it as something no gate can hold.
+    import tomllib
+
+    register = tomllib.loads((ROOT / "policy" / "pilot-register.toml").read_text(encoding="utf-8"))
+    assert "EP-065" not in {str(row["id"]) for row in register.get("ungated", [])}, (
+        "EP-065 is back in the ungated register, and its reopening condition is met by "
+        "readiness.BOXES — an ungated row for work that can be gated is the register "
+        "becoming a place to file things"
+    )

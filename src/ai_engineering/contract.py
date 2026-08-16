@@ -1680,7 +1680,21 @@ DESCRIPTION_MAX = 1000
 # and passed the two purest instances of what it exists to find — a schema nothing validates
 # against and a register nothing prints, both named only in a docstring. It finds four now,
 # and each carries the truth about why it has no reader rather than an absence.
-REPO_CEILING = 59_135
+#
+# 59,135 to 59,187 for taking one requirement back out of the register that had filed it.
+#
+# `EP-065` — one executed evidence per promise — was recorded as a judgement no gate could
+# hold, on the argument that nobody has a list of promises and whoever wrote one would also
+# decide the score. Its own reopening condition named the production-ready boxes as that
+# list, and a reviewer pointed out the condition had fired before the row was written:
+# `readiness.BOXES` is eight rows in code, fixed rather than configured because which boxes
+# exist is not the consumer's choice, and every one resolves to a receipt with an expectation
+# and an age.
+#
+# That is the failure mode an ungated register has, and it took one session to arrive: it
+# becomes somewhere to put work. The row is gone and the binding is executed instead, both
+# ways — the boxes are the promises, and the register is checked for not having it back.
+REPO_CEILING = 59_187
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

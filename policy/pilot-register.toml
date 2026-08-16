@@ -284,12 +284,6 @@ reason = "the most tempting of these, because it sounds countable. It is not, un
 reopen_when = "a BDD criterion exists in this repository, which is what a step would be counted between"
 
 [[ungated]]
-id = "EP-065"
-asks = "one executed evidence per promise"
-reason = "the one-home half executes — `ai-eng doctor` assertion 18 refuses a framework file outside its declared home — and the promise half names no list of promises to count against. Whoever wrote the list would also decide the score."
-reopen_when = "the production-ready boxes become the list, which is the only enumeration of promises this repository has"
-
-[[ungated]]
 id = "EP-068"
 asks = "rubrics for KISS, YAGNI, DRY, SOLID, Clean Architecture and Clean Code"
 reason = "the criteria are one line each in AGENTS.md rule 10 and one line each in every spec. The rubric is unwritten on purpose: rule 12 turns a judgement into a script after it has resolved the same way three times, and none of these has been recorded resolving once."
