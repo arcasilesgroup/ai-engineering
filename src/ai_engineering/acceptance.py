@@ -45,7 +45,11 @@ DERIVED_LEGACY = "derived legacy"
 CANONICAL_RECORD = "canonical record"
 
 _ID = re.compile(r"^R-([0-9]{3})-([0-9]{2})$")
-_LEGACY_BLOCK = re.compile(rb"^```yaml\n.*?^```", re.S | re.M)
+# The carriage return is optional and the opening fence is captured, because the span
+# below is measured off what actually matched. A spec file written on Windows holds
+# CRLF, the fence read as unclosed, and this reader answered PASS over zero acceptances
+# in a file that held one — the quietest way a register can be wrong.
+_LEGACY_BLOCK = re.compile(rb"^(```yaml\r?\n).*?^```", re.S | re.M)
 _KEY = re.compile(r"^([a-zA-Z][\w.-]*):\s*(.*)$")
 _DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -253,7 +257,7 @@ def legacy_spans(body: bytes) -> list[tuple[int, int, str]]:
     spans: list[tuple[int, int, str]] = []
     for match in _LEGACY_BLOCK.finditer(body):
         start, end = match.span()
-        inner = body[start + len(b"```yaml\n") : end - len(b"```")]
+        inner = body[start + len(match.group(1)) : end - len(b"```")]
         spans.append((start, end, _text(inner, "a legacy acceptance block")))
     return spans
 

@@ -196,11 +196,11 @@ def _json_guard_owned(data: dict, how: str) -> bool:
         handler = {
             "type": "command",
             "command": wiring.command("PreToolUse"),
-            "timeout_ms": 5000,
-            "status_message": f"{wiring.MARK} guards",
+            "timeout": 5,
+            "statusMessage": f"{wiring.MARK} guards",
             "async": False,
         }
-        return same([{"handlers": [handler]}, handler])
+        return same([{"hooks": [handler]}, handler])
     if how == "json_copilot":
         return data == {
             "hooks": {"preToolUse": [{"type": "command", "command": wiring.command("PreToolUse")}]}

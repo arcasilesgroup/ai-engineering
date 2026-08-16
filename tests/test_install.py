@@ -1396,7 +1396,7 @@ def test_update_rewrites_a_stale_entry_and_leaves_an_append_only_surface_alone(
     # Spelled the way a wheel installs it, so nothing here is recognisable as ours: what has
     # to leave this file alone is the append_only rule, not json_codex recognising itself.
     unknown = '"/gone/python" "/gone/ai_engineering/hooks/chain.py" PreToolUse'
-    wiring.write_json(codex, {"hooks": {"PreToolUse": [{"handlers": [{"command": unknown}]}]}})
+    wiring.write_json(codex, {"hooks": {"PreToolUse": [{"hooks": [{"command": unknown}]}]}})
     frozen = codex.read_text(encoding="utf-8")
 
     result = update.main(["--to", "9.9.9"])

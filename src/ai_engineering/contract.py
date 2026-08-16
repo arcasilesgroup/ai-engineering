@@ -1038,7 +1038,21 @@ DESCRIPTION_MAX = 1000
 # dict of variants, so it counted the variants and reported "more than one place publishes
 # a claim" about code that publishes from one. It reads the tree the mutants were generated
 # from now, which is the tree the assertion was always about.
-REPO_CEILING = 52_829
+# 52,829 to 52,849 for a guard on a T2 surface that could never have run. The Codex entry
+# was written with `handlers`, `timeout_ms` and `status_message`; Codex CLI 0.147.0
+# declares the group as `matcher` and `hooks` and the handler fields as `type`, `command`,
+# `commandWindows`, `timeout`, `async` and `statusMessage`, and the word `handlers` appears
+# in that binary only as Rust module paths. Read off the shipped binary and off a machine
+# where every hook another tool had written used the vendor spelling and only ours did not.
+# It can be attempted now. It is still unproven, and no line here says otherwise.
+# 52,849 to 52,893 for a register that answered PASS over nothing. The fenced-block
+# recogniser required a bare newline after ```yaml, so a spec file written on Windows —
+# CRLF, which is what that platform writes — read as having no acceptances at all. Not a
+# refusal: a clean PASS over an empty register for a file holding a live risk acceptance.
+# Every fixture in the suite wrote LF, so nothing could see it until three Windows tests
+# did. The fence now takes an optional carriage return, the bound span is measured off what
+# matched rather than off an assumed length, and a CRLF fixture holds it down everywhere.
+REPO_CEILING = 52_893
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

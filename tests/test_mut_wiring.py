@@ -130,19 +130,19 @@ def test_the_codex_handler_is_appended_whole_after_a_stranger_and_never_written_
     field, or inserting above somebody else's group, silently invalidates their trust —
     and a second copy of our own group is a blocking guard firing twice."""
     path = tmp_path / "hooks.json"
-    stranger = {"handlers": [{"command": "somebody else's hook"}]}
+    stranger = {"hooks": [{"command": "somebody else's hook"}]}
     path.write_text(json.dumps({"hooks": {"PreToolUse": [stranger]}}), encoding="utf-8")
 
     assert wiring.json_codex(path) == "appended, position 2 of 2"
     groups = json.loads(path.read_text())["hooks"]["PreToolUse"]
     assert groups[0] == stranger
     assert groups[1] == {
-        "handlers": [
+        "hooks": [
             {
                 "type": "command",
                 "command": wiring.command("PreToolUse"),
-                "timeout_ms": 5000,
-                "status_message": "ai-engineering guards",
+                "timeout": 5,
+                "statusMessage": "ai-engineering guards",
                 "async": False,
             }
         ]

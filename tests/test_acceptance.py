@@ -757,6 +757,39 @@ def test_unified_reader_separates_integrity_from_binding_freshness(tmp_path) -> 
     assert acceptance.current(root).code == "ACCEPTANCE_CHECKSUM"
 
 
+def test_a_legacy_block_written_on_windows_is_read_and_bound_to_its_own_bytes(tmp_path) -> None:
+    """The same file, with the line endings half the world writes.
+
+    Every fixture in this suite writes LF, so the fence recogniser could require a bare
+    newline after ```yaml and nothing here would notice. On Windows a spec file holds CRLF,
+    the block read as unclosed, and this reader answered PASS over an empty register for a
+    file that carried an acceptance — a risk accepted and then silently unrecorded, which is
+    worse than either refusing or reporting it. Three Windows tests found it; this one finds
+    it anywhere, which is where a fixture belongs.
+
+    The digest is asserted too: the span is measured off what matched, so a longer fence
+    must not shift it onto the wrong bytes."""
+
+    from ai_engineering import acceptance
+
+    slug = "001-v1-from-scratch"
+    root = _repository(tmp_path, slug=slug)
+    block = {case["id"]: case for case in _corpus()["legacy_blocks"]}["legacy-valid"]["block"]
+    spec = root / "specs" / slug / "spec.md"
+    written = spec.read_text(encoding="utf-8") + "\n" + block + "\n"
+    spec.write_bytes(written.replace("\n", "\r\n").encode("utf-8"))
+    stored = spec.read_bytes()
+
+    decided = acceptance.read(root)
+
+    assert decided.outcome == "PASS", decided.as_dict()
+    assert [entry.provenance for entry in decided.entries] == [acceptance.STORED_LEGACY]
+    assert spec.read_bytes() == stored, "reading history may never rewrite it"
+    start = stored.index(b"```yaml")
+    end = stored.index(b"```", start + 8) + 3
+    assert decided.entries[0].digest == "sha256:" + hashlib.sha256(stored[start:end]).hexdigest()
+
+
 def test_unified_reader_reads_frozen_legacy_history_without_rewriting_it(tmp_path) -> None:
     from ai_engineering import acceptance
 

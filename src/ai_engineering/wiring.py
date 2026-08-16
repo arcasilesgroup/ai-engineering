@@ -194,7 +194,20 @@ def json_codex(path: Path) -> str:
     matcher, async flag — keyed by source path, group index and handler index. So the
     handler is frozen whole and appended, never reordered: inserting above somebody
     else's entry silently invalidates their trust, and there is a TODO in the vendor's
-    own source about replacing that positional key."""
+    own source about replacing that positional key.
+
+    The keys are `hooks`, `timeout` and `statusMessage`, and they were `handlers`,
+    `timeout_ms` and `status_message` until this was read off the shipped binary rather
+    than off a document. Codex CLI 0.147.0 declares `ConfiguredHookMatcherGroup` with two
+    fields, `matcher` and `hooks`, and an `internally tagged enum HookHandlerConfig` whose
+    fields are `type`, `command`, `commandWindows`, `timeout`, `async`, `statusMessage` and
+    `additionalContextLimit`. The word `handlers` appears in that binary only as Rust
+    module paths. On a machine with Codex installed, every hook another tool had written
+    used the vendor spelling and only ours did not.
+
+    So this entry could not deserialise, and a guard that cannot deserialise is a guard
+    that never ran. It is still unproven: no denial has receipted on this surface, and
+    nothing here claims one has. What changed is that it can now be attempted."""
     data = read_json(path)
     groups = data.setdefault("hooks", {}).setdefault("PreToolUse", [])
     for group in groups:
@@ -202,12 +215,12 @@ def json_codex(path: Path) -> str:
             return f"already present at position {groups.index(group) + 1} of {len(groups)}"
     groups.append(
         {
-            "handlers": [
+            "hooks": [
                 {
                     "type": "command",
                     "command": command("PreToolUse"),
-                    "timeout_ms": 5000,
-                    "status_message": f"{MARK} guards",
+                    "timeout": 5,
+                    "statusMessage": f"{MARK} guards",
                     "async": False,
                 }
             ]
