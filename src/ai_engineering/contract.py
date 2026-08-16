@@ -1139,7 +1139,21 @@ DESCRIPTION_MAX = 1000
 # at its cap again with nothing printed. Six modules is what 30 minutes buys after setup.
 # Above it the job refuses in one line and names the scheduled run, rather than passing —
 # a gate you can escape by touching more files is not a gate.
-REPO_CEILING = 53_955
+# 53,955 to 54,295 to close EP-090 and EP-079, and to withdraw the reason the last audit
+# had for granting them. The envelope printed `schema_version: "1"` and no `schema`: a
+# version number for a document nobody could find, in a directory holding eight schemas and
+# none for the one object every verb prints. A reader written against version 1 of *what*
+# could not check it was reading the right kind of thing, and a field added on a Thursday
+# was indistinguishable from one that had always been there.
+#
+# `policy/envelope-v1.schema.json` is closed — every field required, no additional
+# properties, the terminal vocabulary read from `outcome-v1` rather than restated — and the
+# proof is not that the file parses. Four real verbs are executed and their actual stdout is
+# validated against it, two of them answering INCOMPLETE or FAIL, because an envelope has to
+# be a valid envelope when the news is bad and the error branch is the half a happy-path
+# fixture never reaches. The validator is measured too: a scan that finds nothing and a scan
+# that looked at nothing print the same result.
+REPO_CEILING = 54_309
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

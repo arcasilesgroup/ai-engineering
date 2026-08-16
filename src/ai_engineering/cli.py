@@ -120,6 +120,10 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
 # run does not reach, or an index past it, is a decoration and `ui.running` refuses it.
 STAGES = ("load the verb", "run it", "report the outcome", "record the command")
 
+# One home. `policy/envelope-v1.schema.json` is the contract and this is its name; a test
+# reads that file's `$id` against this constant, so the two cannot drift apart quietly.
+ENVELOPE_SCHEMA = "urn:ai-engineering:envelope:1"
+
 # Every verb writes this, on every run, whatever else it does or refuses to do. It was
 # missing from all ten entries above, which made `writes none` on `audit` a false statement
 # about a command that had just appended a line.
@@ -180,6 +184,13 @@ def _envelope(
     finished_at: str,
 ) -> dict:
     return {
+        # The envelope names its own contract. It carried a `schema_version` and no
+        # `schema`, which is a version number for a document nobody could find: a reader
+        # written against version 1 of *what* had no way to check it was reading the right
+        # object, and `policy/` held eight schemas and none for the one thing every verb
+        # prints. `outcome-v1` has said both from the start; this is the same rule applied
+        # to the envelope that carries it.
+        "schema": ENVELOPE_SCHEMA,
         "schema_version": "1",
         "command": command,
         "operation_id": str(uuid.uuid4()),

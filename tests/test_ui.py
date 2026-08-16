@@ -145,7 +145,13 @@ def test_cli_noninteractive_json_is_one_object_and_never_null(monkeypatch, capsy
     assert rendered.err == "" and rendered.out.count("\n") == 1
     assert "child" not in rendered.out and "\x1b[" not in rendered.out
     payload = json.loads(rendered.out)
+    # `schema` first, and it is new. The envelope carried a version number for a document
+    # nobody could find — `policy/` had eight schemas and none for the one object every verb
+    # prints — so a reader written against "version 1" had no way to check it was reading
+    # the right kind of thing. The order is asserted rather than the set, because the first
+    # field a human sees in a piped line should say what the line is.
     assert list(payload) == [
+        "schema",
         "schema_version",
         "command",
         "operation_id",
@@ -159,6 +165,7 @@ def test_cli_noninteractive_json_is_one_object_and_never_null(monkeypatch, capsy
         "next_actions",
         "error",
     ]
+    assert payload["schema"] == cli.ENVELOPE_SCHEMA
     assert payload["schema_version"] == "1" and payload["command"] == "doctor"
     assert uuid.UUID(payload["operation_id"]).version == 4
     assert payload["outcome"] == "PASS" and payload["summary"] == outcome.result("PASS").reason
