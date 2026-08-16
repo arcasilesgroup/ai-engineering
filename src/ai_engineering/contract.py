@@ -1297,7 +1297,21 @@ DESCRIPTION_MAX = 1000
 # suite printed 18 of 21, and the reader goes hunting a guard bug instead of a dependency.
 # It still fails, because a case nobody could run is not a case that passed. NOT RUN says
 # which of the two it is, with the exception beside it.
-REPO_CEILING = 55_519
+# 55,519 to 55,528 for one line I wrote and should not have. Re-measuring the process
+# commitments — PO-15 and PO-20, no linter silenced anywhere — found an inline exemption
+# comment I had added two hours earlier, on an import-order rule, in the repository whose
+# rule 3 forbids exactly that. The repository had already ruled on this exact case:
+# `pyproject.toml`'s `pythonpath` comment records that `conftest.py` used to reach a module
+# by editing the search path and importing underneath it, and that pytest has had a proper
+# answer since 7.0. `tests` joins `src` and `hooks` there, and the exemption is gone.
+#
+# Then the first attempt at this very comment failed the gate, because it quoted the
+# exemption's own syntax and `policy/semgrep.yml` reads every file for that token. That is
+# the second time in one session: a comment inside a workflow quoted an expression and the
+# whole file stopped parsing. The rule is not to quote the thing you are describing when a
+# machine reads the file looking for it. An audit that only measures other people's work is
+# a different job from this one.
+REPO_CEILING = 55_534
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

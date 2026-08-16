@@ -17,15 +17,11 @@ same green with a document stapled to it.
 from __future__ import annotations
 
 import json
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import anti_theatre
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-import anti_theatre  # noqa: E402  — the reader under test lives beside this file
 
 ROOT = Path(__file__).resolve().parents[1]
 

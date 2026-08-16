@@ -84,7 +84,12 @@ pytest_add_cli_args_test_selection = ["tests", "--ignore=tests/test_contracts.py
 # the dispatcher does. `conftest.py` used to do this with `sys.path.insert` and then import
 # the package underneath, which is `E402`, and it carried an inline exemption comment to
 # say so. AGENTS.md rule 3 is never to silence a linter; pytest has had this since 7.0.
-pythonpath = ["src", "hooks"]
+# `tests` joins them for the same reason and by the same ruling: `tests/anti_theatre.py`
+# and `tests/pilot_register.py` are readers this suite has to import, and reaching them
+# with `sys.path.insert` plus an import underneath is E402 again. I wrote that exemption
+# into `tests/test_anti_theatre.py` and the process audit found it two hours later, in the
+# repository whose rule 3 is never to silence a linter.
+pythonpath = ["src", "hooks", "tests"]
 
 [tool.coverage.run]
 # The guards run by path in a subprocess, so without patch the suite that fires every one
