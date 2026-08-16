@@ -1390,7 +1390,20 @@ DESCRIPTION_MAX = 1000
 # that ships a handler is a program this framework installs into somebody's home and then
 # runs for them, and the whole argument for instructions over handlers is that instructions
 # can be read before they are followed.
-REPO_CEILING = 56_207
+# 56,207 to 56,314 for rule 12's other half, which was being honoured and was unfindable.
+# "A judgement that cannot fail closed stays a prompt and you write down why" — the reasons
+# existed, across three specifications, two comments in this file and a test docstring, so a
+# reader asking "did anybody decide this, or did it just never get built?" had to find all
+# six before they could tell. Six requirements now say it in one place, each with what it
+# asks, why no gate can hold it, and what would change that.
+#
+# A row there is not a pass and never becomes one: the audit still counts these INCOMPLETE,
+# because the requirement asks for behaviour and the row records how the decision is held.
+# `reopen_when` is the field worth enforcing — a row without one is a permanent no, and a
+# permanent no about somebody else's requirement is not this framework's to take. A test
+# also refuses an id that is both excused there and pinned in the guidance checklist, so the
+# register cannot end up arguing with the gate the way the capability manifest did.
+REPO_CEILING = 56_327
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

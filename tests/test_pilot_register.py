@@ -189,3 +189,39 @@ def test_a_bound_stated_twice_has_to_agree_with_itself():
         "prohibition": [],
     }
     assert any("not a positive number" in line for line in pilot_register.problems(wrong))
+
+
+def test_a_requirement_nobody_will_gate_says_what_would_change_that():
+    """Rule 12's other half, given one home.
+
+    "A judgement that cannot fail closed stays a prompt and you write down why" was being
+    honoured — the reasons existed — across three specifications, two ceiling comments and a
+    test docstring. A reader asking "did anybody decide this, or did it just never get
+    built?" had to find all six before they could tell.
+
+    A row here is not a pass and never becomes one: the audit counts these INCOMPLETE,
+    because the requirement asks for behaviour and this records how the decision is held.
+    What it must carry is `reopen_when` — a row without one is a permanent no, and a
+    permanent no about somebody else's requirement is not this framework's to take.
+    """
+
+    rows = register().get("ungated", [])
+    assert rows, "the ungated list is empty, so this proves nothing"
+
+    for row in rows:
+        assert str(row["id"]).startswith("EP-"), row
+        assert row["asks"].strip() and row["reason"].strip() and row["reopen_when"].strip()
+
+    # Each of the three fields is required, and the reader is shown refusing each absence.
+    for missing in ("asks", "reason", "reopen_when"):
+        broken = {"indicator": [], "prohibition": [], "ungated": [{**rows[0]}]}
+        del broken["ungated"][0][missing]
+        found = pilot_register.problems(broken)
+        assert any(rows[0]["id"] in line for line in found), (missing, found)
+
+    # And no requirement is both gated and excused: an id here must not name a check that
+    # exists, or the register would be arguing with itself the way the manifest did.
+    ids = {str(row["id"]) for row in rows}
+    body = (ROOT / "tests" / "test_contracts.py").read_text(encoding="utf-8")
+    for name in ids:
+        assert f'("{name}", "ai-' not in body, f"{name} is excused here and pinned there"

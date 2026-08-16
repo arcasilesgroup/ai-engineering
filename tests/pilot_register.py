@@ -84,6 +84,22 @@ def problems(register: dict) -> list[str]:
                 f"enforces: it could never go red first"
             )
 
+    # A requirement this framework will not gate owes four things, and the fourth is the one
+    # worth enforcing: `reopen_when` is what would change the decision. Without it a row is a
+    # permanent no, and a permanent no about somebody else's requirement is not a decision
+    # this framework is entitled to take. The reasons used to live in three specifications,
+    # two ceiling comments and a test docstring, so a reader asking whether anybody had
+    # decided at all had to find six places before they could tell.
+    for row in register.get("ungated", []):
+        name = str(row.get("id", "<unnamed>"))
+        for field, why in (
+            ("asks", "does not say what the requirement asks for"),
+            ("reason", "does not say why no gate can hold it"),
+            ("reopen_when", "refuses forever, which is not this framework's to decide"),
+        ):
+            if not str(row.get(field, "")).strip():
+                found.append(f"{name} {why}")
+
     for row in prohibitions:
         name = str(row.get("id", "<unnamed>"))
         if not row.get("never"):
@@ -130,6 +146,12 @@ def main() -> int:
     print(f"  {decided} of {PROHIBITIONS} prohibitions fail closed; {len(argued)} are argued:")
     for name in argued:
         print(f"    reason_only    {name}")
+
+    ungated = [str(row["id"]) for row in register.get("ungated", [])]
+    if ungated:
+        print(f"  {len(ungated)} requirements are held by a written reason and no gate:")
+        for name in ungated:
+            print(f"    ungated        {name}")
 
     claimed = bool(register.get("claim", {}).get("p5_complete"))
     if claimed and missing:

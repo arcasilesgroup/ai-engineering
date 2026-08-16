@@ -180,3 +180,52 @@ id = "score-compliance"
 never = "claiming certification, compliance or total security from a score or a model"
 reason = """there is no compliance verb to make the claim with. `ai-security` refuses it in \
 its corpus, and refusing is the only thing a skill can do about a sentence somebody types."""
+
+# ── the ungated ─────────────────────────────────────────────────────────────────────
+#
+# Requirements this framework will not gate, and why. Rule 12 is explicit: a judgement that
+# cannot fail closed stays a prompt with its reason written down. What was missing is one
+# place to write it — the reasons were scattered across three specifications, two ceiling
+# comments and a test docstring, so a reader asking "did anybody decide this, or did it just
+# never get built?" had to find all six before they could tell.
+#
+# A row here is not a pass and never becomes one. The audit counts these INCOMPLETE, which
+# is correct: the requirement asks for behaviour and this records a decision about how it is
+# held. `reopen_when` is what would change the decision, and a row without one is a
+# permanent no this framework is not entitled to take on somebody else's behalf.
+
+[[ungated]]
+id = "EP-119"
+asks = "the design capability imposes no style"
+reason = "a check on taste. What a gate can hold is that the rejected styles are named and the guidance exists, which `tests/test_contracts.py` pins phrase by phrase."
+reopen_when = "somebody can state a style violation as a property of a file rather than of an opinion"
+
+[[ungated]]
+id = "EP-158"
+asks = "one trigger and one responsibility per skill"
+reason = "every description carries four to six trigger phrases on purpose: a router with one phrase per skill misroutes everything a person says differently. `contract.audit_one` holds the half that is checkable — a description that does not say what the skill is not for."
+reopen_when = "a routing evaluation shows the extra phrases cost more misroutes than they prevent"
+
+[[ungated]]
+id = "EP-163"
+asks = "the writing is readable by somebody who does not code"
+reason = "a grade-level gate on prose is a check on style. The jargon ban is the half that executes — six words refused across every skill body by `contract.audit_one`."
+reopen_when = "a readability measure exists that a person disagreeing with it can argue against"
+
+[[ungated]]
+id = "EP-179"
+asks = "a snapshot as a contract term separate from freshness"
+reason = "the checkpoint already carries freshness and the merge gate already carries final combination; a third word for the same two facts is vocabulary, not a control."
+reopen_when = "two writers need to agree on a state neither freshness nor combination describes"
+
+[[ungated]]
+id = "EP-302"
+asks = "a test was red before the fix"
+reason = "nothing can observe a test that failed on somebody's machine before they wrote the fix. It is the first thing `ai-build` requires and the first thing a reviewer asks for."
+reopen_when = "the record carries a red run somebody else can read, which needs a receipt this product does not write"
+
+[[ungated]]
+id = "EP-305"
+asks = "names express intention"
+reason = "a judgement about language. The half that executes is the other clause of the same requirement: an error carries its cause and its cure, asserted in `test_doctor.py` and `test_outcomes.py`."
+reopen_when = "a naming rule exists that is not a preference"
