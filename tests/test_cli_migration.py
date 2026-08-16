@@ -1774,6 +1774,11 @@ def test_cli_json_transports_real_facts_and_keeps_invalid_usage_one_object(
         ],
     )
     monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  T2   focal  BLOCKS  executed"])
+    # The root this run reports on, named rather than inherited. Without it the surface block
+    # is empty wherever there is no repository — which is exactly the mutation harness, whose
+    # sandbox is a copied tree with no history — so this test asserted twenty-four rows in
+    # every environment that happened to be a checkout and zero in the one that runs it most.
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: tmp_path)
     assert cli.main(["doctor", "--json"]) == 1
     doctor_output = capsys.readouterr()
     assert doctor_output.err == "" and doctor_output.out.count("\n") == 1

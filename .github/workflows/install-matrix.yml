@@ -402,7 +402,13 @@ jobs:
           grep -q chain.py "$HOME/.claude/settings.json" || { echo "--fix did not rewire"; exit 1; }
           ai-eng doctor --paths
           ai-eng spec new first-thing
-          ai-eng audit verify
+          # A stranger's machine has one commit that was made before this tool existed, so
+          # nothing is anchored and nothing can be proved about it. INCOMPLETE is the true
+          # answer and this asserts it: exit zero here would have meant the verifier said
+          # PASS over a chain with no anchors, which is the false green this product exists
+          # to refuse. What must not happen is a crash, or the word PASS.
+          verdict=$(ai-eng --json audit verify 2>/dev/null || true)
+          printf '%s' "$verdict" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['outcome']=='INCOMPLETE', d['outcome']"
 
       # No guard has ever been executed from the built wheel. The matrix proved the CLI
       # half and `release.yml` proves the dispatcher shipped inside the zip, which says the

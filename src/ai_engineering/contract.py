@@ -953,7 +953,20 @@ DESCRIPTION_MAX = 1000
 # And one identity: the DAG test's own merge ran without the author every other write in
 # that file carries, so it passed for everyone with a configured git user and for no CI
 # runner.
-REPO_CEILING = 52_327
+# 52,327 to 52,351 for the last two CI-only failures, both of them a test that inherited
+# its environment instead of naming it.
+#
+# The JSON envelope test asserted twenty-four surface rows and got none under the mutation
+# harness, whose sandbox is a copied tree with no history: no repository means no surface
+# block, so the test held in every environment that happened to be a checkout and failed in
+# the one that runs it most. It names its root now.
+#
+# And the install smoke ran `ai-eng audit verify` expecting exit zero on a stranger's
+# machine, where one commit exists from before this tool did and nothing is anchored.
+# INCOMPLETE is the true answer there; exit zero would have meant the verifier said PASS
+# over a chain with no anchors. The step asserts the word now, so a crash or a PASS both
+# fail and the honest answer passes.
+REPO_CEILING = 52_351
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
