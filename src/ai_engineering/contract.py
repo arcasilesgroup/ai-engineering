@@ -1637,7 +1637,27 @@ DESCRIPTION_MAX = 1000
 # plugin we install and from the settings file the second one shares with the first. Codex,
 # Cursor and Copilot CLI get none, and that is the same refusal as the layer below — an
 # adapter written from a guess is fabricated detection with a longer name.
-REPO_CEILING = 58_844
+#
+# 58,844 to 59,000 for asking one question of the whole of `policy/`: is this file read by
+# something that is not a test?
+#
+# It is the generalisation of the defect the commit above found by hand. A schema nothing
+# validates against, a table nothing consults, a register nothing prints — each is a document
+# that reads like a control, and `policy/` is where they collect, because a data file cannot
+# fail to compile. Asked of every file at once, the answer has to be a reader in `src/`,
+# `hooks/`, `surfaces/`, the justfile or a workflow, or an exemption saying why there is
+# none. `policy/adapters/` has one and it is true: the dispatcher globs the directory, so an
+# adapter is added by dropping it in.
+#
+# The threat model was the one real orphan, so the security lane counts its boundaries where
+# somebody running it will see them. Absent is declined and present-and-unreadable is
+# INCOMPLETE, which is the rule this module already applies to an engine: a repository that
+# has not written a threat model is not failing a check, and demanding one from every
+# consumer would make the lane an opinion.
+#
+# Writing that fixture found one more: `covered` indexed an empty baseline and crashed, where
+# this module's own rule is that an engine which cannot answer leaves every stack unread.
+REPO_CEILING = 59_000
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

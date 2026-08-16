@@ -239,7 +239,12 @@ def covered(root: Path, lane: Lane | None = None) -> set[str]:
 
     import json
 
-    engine = lane or BASELINE[-1]
+    # No lane and no baseline is not a coverage answer of "everything": it is nobody having
+    # asked. Indexing an empty tuple here raised instead, which is a crash where the module's
+    # own rule is that an engine which cannot answer leaves every stack unread.
+    engine = lane or (BASELINE[-1] if BASELINE else None)
+    if engine is None:
+        return set()
     try:
         done = subprocess.run(
             # The lane's own arguments, and not a second copy of them. Built from `argv`
@@ -466,6 +471,23 @@ def cross_check(lane: Lane, root: Path, inputs: list[str]) -> outcome.Fact:
     return run(lane, root, inputs)
 
 
+def model(root: Path) -> list[dict]:
+    """The boundaries `policy/threat-model.toml` declares, or nothing if it cannot be read.
+
+    Read from the repository being scanned rather than from the installed package: a
+    consumer's own threat model is theirs, and a framework that showed its own boundaries
+    over somebody else's tree would be answering a question nobody asked.
+    """
+
+    import tomllib
+
+    where = Path(root) / "policy" / "threat-model.toml"
+    try:
+        return list(tomllib.loads(where.read_text(encoding="utf-8")).get("boundary", []))
+    except (OSError, tomllib.TOMLDecodeError):
+        return []
+
+
 def baseline(root: Path) -> int:
     """Run the three lanes and return the exit code the gate should take.
 
@@ -494,6 +516,34 @@ def baseline(root: Path) -> int:
     # names no stack, so one whose manifests the engine does not support passes exactly like
     # one it read and found nothing in. A repository with no manifest at all is declining a
     # dependency scan rather than passing one, and it says so.
+    # The boundaries this framework says it holds, counted where a person running the
+    # security lane will see them. The threat model is data and a test resolves every path
+    # in it; what this adds is that somebody who runs `just security` is told how many
+    # boundaries there are and that each names a control — a threat model nobody ever meets
+    # is the document this project spent a wave arguing against.
+    # Absent is declined and present-and-unreadable is INCOMPLETE, which is the same rule
+    # this module applies to an engine. A repository that has not written a threat model is
+    # not failing a check, and demanding one from every consumer would make this lane an
+    # opinion; a threat model that is there and cannot be parsed is a control nobody can
+    # read, and that is not a pass.
+    if not (Path(root) / "policy" / "threat-model.toml").is_file():
+        print(
+            f"  {'SKIPPED':<11} {'boundaries':<13} this repository declares no threat model, so "
+            f"there is nothing for these engines to be about"
+        )
+    elif boundaries := model(root):
+        held = [row for row in boundaries if not row.get("reason")]
+        print(
+            f"  {'OBSERVED':<11} {'boundaries':<13} {len(boundaries)} declared, {len(held)} with "
+            f"a control this tree holds whole"
+        )
+    else:
+        print(
+            f"  {'INCOMPLETE':<11} {'boundaries':<13} the threat model is there and could not be "
+            f"read, so nothing says what these engines are for"
+        )
+        worst = 1
+
     # The second opinion, asked rather than only declared. This function existed and nothing
     # in the product called it: an organisation that installs one of these engines expecting
     # the framework to read it would have got the same silence as one that installed nothing,

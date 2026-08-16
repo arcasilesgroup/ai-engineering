@@ -131,3 +131,89 @@ def test_a_skill_with_no_declared_phase_says_so_rather_than_reading_as_one():
 
     body = wiring.router_body("ai-something", "a description", "", "")
     assert "phase not declared" in body
+
+
+# Read by something that is not a test, or argued for. `policy/` is data and data is only
+# governance when something consults it — the whole `policy/adapters/` directory sat beside a
+# schema its only consumer read backwards, and the reason nobody noticed is that a data file
+# has no compiler. This is that question asked of every file at once.
+POLICY_EXEMPT = {
+    "policy/adapters": "read as a directory by `hooks/chain.py`, which globs it rather than "
+    "naming any one file — an adapter is added by dropping it in, which is the point",
+}
+
+
+def test_every_policy_file_is_read_by_something_that_is_not_a_test():
+    """The generalisation of a defect this repository has now found twice.
+
+    A schema nothing validates against, a table nothing consults, a register nothing prints:
+    each is a document that reads like a control, and `policy/` is where they accumulate
+    because a data file cannot fail to compile. So the question is asked of the whole
+    directory, and the answer has to be a reader in the product — `src/`, `hooks/`,
+    `surfaces/`, the justfile or a workflow — because a file only tests read is a file that
+    governs the tests.
+    """
+    import subprocess
+
+    where = ("src", "hooks", "surfaces", "justfile", ".github")
+    orphans = []
+    for path in sorted((ROOT / "policy").rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(ROOT).as_posix()
+        if any(relative.startswith(prefix) for prefix in POLICY_EXEMPT):
+            continue
+        found = subprocess.run(
+            ["git", "-C", str(ROOT), "grep", "-l", "--", path.name, *where],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.split()
+        if not found:
+            orphans.append(relative)
+
+    assert not orphans, (
+        f"policy files nothing in the product reads: {orphans}. Either give each one a "
+        f"reader, or say in POLICY_EXEMPT why it has none — an unexplained absence is how "
+        f"a document comes to read like a control."
+    )
+
+
+def test_the_exemptions_name_a_directory_that_is_there_and_say_why():
+    """An exemption list is the second place a claim can rot. Each entry has to point at
+    something and carry an argument long enough to disagree with."""
+    for prefix, why in POLICY_EXEMPT.items():
+        assert (ROOT / prefix).exists(), f"{prefix} is exempted and is not there"
+        assert len(why.split()) >= 12, f"{prefix}: the reason says too little to argue with"
+
+
+def test_the_security_lane_counts_the_boundaries_a_person_can_see(tmp_path, capsys, monkeypatch):
+    """The threat model's own reader. Every path in it is resolved by the tests above, and
+    that made it a file only the suite ever opened — so somebody running the security lane
+    is told how many boundaries there are and how many carry a whole control.
+
+    Absent is declined and present-and-unreadable is INCOMPLETE, which is the rule this
+    module already applies to an engine: a repository that has not written a threat model is
+    not failing a check, and demanding one from every consumer would make this lane an
+    opinion."""
+    from ai_engineering import scan
+
+    monkeypatch.setattr(scan, "BASELINE", ())
+    monkeypatch.setattr(scan, "CROSS_CHECKS", ())
+
+    assert scan.baseline(tmp_path) == 0
+    assert "SKIPPED     boundaries" in capsys.readouterr().out
+
+    (tmp_path / "policy").mkdir()
+    (tmp_path / "policy" / "threat-model.toml").write_text("[[boundary\n", encoding="utf-8")
+    assert scan.baseline(tmp_path) == 1
+    assert "INCOMPLETE  boundaries" in capsys.readouterr().out
+
+    # And this repository's own, counted from the file rather than written down here. The
+    # run still exits 1, because the engines are stubbed out and a coverage question nobody
+    # can answer is INCOMPLETE — which is the rule working, not a failure of this fixture.
+    assert len(scan.model(ROOT)) == len(boundaries())
+    assert scan.baseline(ROOT) == 1
+    printed = capsys.readouterr().out
+    assert f"{len(boundaries())} declared" in printed
+    assert "INCOMPLETE  coverage" in printed
