@@ -851,7 +851,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 55_710
+    assert contract.REPO_CEILING == 55_751
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1329,3 +1329,31 @@ def test_every_declared_capability_has_a_skill_or_names_where_its_work_went():
     # And every skill is declared, so the disagreement cannot be closed from the other side
     # by shipping a skill nobody wrote a capability for.
     assert not skills - set(ids), f"these skills are declared nowhere: {sorted(skills - set(ids))}"
+
+
+def test_the_first_thing_a_spec_says_is_who_it_is_for():
+    """EP-095. The template emitted six headings and none of them named a person.
+
+    An auditor downgraded this from INCOMPLETE to NO-EVIDENCE with an argument worth
+    keeping: a six-heading template is not partial delivery of a seventh. Nothing addressed
+    the requirement at all — `stakeholder` appeared in no file, and `audience` only in a
+    ceiling comment and a design step.
+
+    It is the first section, before the problem, because a problem stated before anybody
+    says whose it is arrives as a fact about the code. And the check reads the template
+    rather than a spec on disk: every spec this product will ever write comes through here,
+    and one already written can be edited by whoever owns it."""
+
+    from ai_engineering import spec
+
+    body = spec.TEMPLATE
+    assert "## Who this is for, and what it is worth to them" in body
+    headings = [line for line in body.splitlines() if line.startswith("## ")]
+    assert headings[0] == "## Who this is for, and what it is worth to them", headings
+    assert "## Context and problem" in headings
+
+    # The prompt has to ask for a name rather than a category, or the section fills with
+    # "the user" and says nothing the heading did not already say.
+    section = body.split("## Who this is for", 1)[1].split("\n## ", 1)[0]
+    assert "Named people or a named role" in section
+    assert "what it costs them today" in section

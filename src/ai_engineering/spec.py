@@ -59,6 +59,12 @@ supersedes: ""
 
 # {title}
 
+## Who this is for, and what it is worth to them
+
+TODO: who has this problem, what it costs them today, and what changes for them when this
+is done. Named people or a named role — "the user" is a way of not deciding. A spec that
+cannot say whose day gets better is a spec about the tree rather than about the work.
+
 ## Context and problem
 
 TODO: what is true today, and what about it is a problem. Written so somebody who does

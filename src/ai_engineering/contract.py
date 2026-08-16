@@ -1331,7 +1331,14 @@ DESCRIPTION_MAX = 1000
 # which is the whole reason this row needed fixing. A bound looser than that ceiling is
 # refused, because an indicator that only goes red after the reader has already refused the
 # receipt is an indicator that never goes red.
-REPO_CEILING = 55_710
+# 55,710 to 55,744 for EP-095, which an auditor downgraded rather than credited, with an
+# argument worth keeping: a six-heading spec template is not partial delivery of a seventh.
+# Nothing addressed it at all — `stakeholder` appeared in no file and `audience` only in a
+# ceiling comment and a design step. The template asks first who has the problem, what it
+# costs them today and what changes for them, and it asks for a name rather than a category,
+# because "the user" is a way of not deciding. First, before the problem, since a problem
+# stated before anybody says whose it is arrives as a fact about the code.
+REPO_CEILING = 55_751
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
