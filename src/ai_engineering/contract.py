@@ -1311,7 +1311,19 @@ DESCRIPTION_MAX = 1000
 # whole file stopped parsing. The rule is not to quote the thing you are describing when a
 # machine reads the file looking for it. An audit that only measures other people's work is
 # a different job from this one.
-REPO_CEILING = 55_534
+# 55,534 to 55,631 for the second pass of the audit, folded into the same file as the first
+# because they were measured on the same day and a reader needs the movement, not two
+# documents to reconcile. 236 of 385 proven against 192, and the first three CONTRADICTED
+# verdicts this record has carried — all three between `policy/capabilities.toml` and the
+# gate that forbids the skills it declares.
+#
+# It also records what the first pass got wrong: seven verdicts were graded against files
+# the audit called absent that existed at its own commit. And it records what this session
+# did to the protocol it audits — the block cadence did not govern twenty commits of
+# continuous-integration repair, independent review happened twice and neither time as the
+# rule describes, and both times it found real defects. That is the fifth gap in a protocol
+# this repository adopted, and writing it down is the only part I get to do about it.
+REPO_CEILING = 55_643
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
