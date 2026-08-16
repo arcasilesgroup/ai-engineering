@@ -1133,7 +1133,13 @@ DESCRIPTION_MAX = 1000
 # job inside it silently never happens, `CI Result` among them. actionlint says it in one
 # line and lives inside the job that could not start, so the narrow half now runs in the
 # suite on every machine: no workflow may carry an expression with nothing inside it.
-REPO_CEILING = 53_935
+# 53,935 to 53,949 for a bound the first version of the scoped lane did not have. "The diff"
+# is not always small: this branch changes 32 product modules against main, which at the
+# measured 2.9 mutants a second is a whole-tree run wearing a diff's name, and the lane died
+# at its cap again with nothing printed. Six modules is what 30 minutes buys after setup.
+# Above it the job refuses in one line and names the scheduled run, rather than passing —
+# a gate you can escape by touching more files is not a gate.
+REPO_CEILING = 53_955
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

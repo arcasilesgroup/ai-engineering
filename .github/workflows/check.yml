@@ -262,8 +262,22 @@ jobs:
               { echo "refusing a changed path with an unexpected character: $name" >&2; exit 1; }
             paths="${paths}${name} "
           done <<< "$(git diff --name-only refs/mutate/base...HEAD -- 'src/*.py')"
+          # And a bound, because "the diff" is not always small. Measured on 2026-08-16:
+          # 2.9 mutants a second, 20,816 mutants over 32 modules, so a module averages 650
+          # and this job's 30 minutes buys roughly 4,300 after setup — six modules. A branch
+          # wider than that is a whole-tree run wearing a diff's name, and the honest answer
+          # is to say so in one line rather than die at the cap with nothing printed, which
+          # is what the lane did for weeks. It refuses rather than waving the branch through:
+          # a gate you can escape by touching more files is not a gate, and a change this
+          # wide wants splitting anyway.
+          count=$(printf '%s' "$paths" | wc -w | tr -d ' ')
+          if [ "$count" -gt 6 ]; then
+            echo "this branch changes ${count} product modules and this lane measures six." >&2
+            echo "A diff that wide is a whole-tree run, which the scheduled workflow does." >&2
+            exit 1
+          fi
           echo "paths=${paths}" >> "$GITHUB_OUTPUT"
-          echo "changed: ${paths:-<none>}"
+          echo "changed: ${paths:-<none>} (${count} of at most 6)"
 
       # The receipt, read from the server rather than from the branch, because the branch is
       # what is being judged. `anti_theatre` accepts a scoped run only against a whole-tree
