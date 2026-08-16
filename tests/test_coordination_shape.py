@@ -13,10 +13,20 @@ same result.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# The tree these assertions are about, which is not always the tree they run in. The
+# mutation harness copies the repository and lets mutmut rewrite `src/`: every function
+# becomes a dispatcher plus a dict of variants, so a check that counts one occurrence of a
+# string in a module counts it once per variant and fails on a file nobody wrote. That is
+# what happened to the single-writer count below — it read a generated artifact and
+# reported "more than one place publishes a claim" about code that publishes from one.
+# `AI_ENG_REAL_SRC` names the `src/` those mutants were generated from.
+SOURCE = Path(os.environ["AI_ENG_REAL_SRC"]).parent if os.environ.get("AI_ENG_REAL_SRC") else ROOT
 SEARCHED = ("src/ai_engineering", "hooks", "git-hooks", ".github/workflows")
 
 
@@ -101,7 +111,7 @@ COORDINATION = (
 def test_no_ownership_store_no_heartbeat_and_no_ttl_takeover():
     """EP-192. The branch on the remote is the only record of who holds a work item, and a
     claim is released by the writer rather than expired by a clock."""
-    coordinating = [(name, (ROOT / name).read_text(encoding="utf-8")) for name in COORDINATION]
+    coordinating = [(name, (SOURCE / name).read_text(encoding="utf-8")) for name in COORDINATION]
     assert len(coordinating) == 4, "the coordination surface moved and this list did not"
     assert hits(OWNERSHIP_STORE, [("planted", "heartbeat = 30  # seconds")]) == ["planted"]
     assert hits(OWNERSHIP_STORE, coordinating) == []
@@ -130,7 +140,7 @@ def test_the_claim_module_names_no_second_writer_of_ownership():
 
     from ai_engineering import claim
 
-    body = (ROOT / "src" / "ai_engineering" / "claim.py").read_text(encoding="utf-8")
+    body = (SOURCE / "src" / "ai_engineering" / "claim.py").read_text(encoding="utf-8")
     # The remote ref, and the local file that only mirrors it for the guard to read.
     written = re.findall(r'"push"|IN_FORCE|open\(|write_text', body)
     assert written.count('"push"') == 1, "more than one place publishes a claim"

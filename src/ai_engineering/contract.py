@@ -1032,7 +1032,13 @@ DESCRIPTION_MAX = 1000
 # documents the field as "must be NULL"; the handle-relative rename lives below Win32, at
 # `NtSetInformationFile`. Passing a full path instead would have satisfied the call and
 # thrown away the anchoring the whole transaction exists for.
-REPO_CEILING = 52_813
+# 52,813 to 52,829 for a check that counted occurrences in a file mutmut had rewritten.
+# The single-writer test read `claim.py` as text and required exactly one `"push"`; the
+# mutation harness runs the suite over a copy where every function is a dispatcher plus a
+# dict of variants, so it counted the variants and reported "more than one place publishes
+# a claim" about code that publishes from one. It reads the tree the mutants were generated
+# from now, which is the tree the assertion was always about.
+REPO_CEILING = 52_829
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
