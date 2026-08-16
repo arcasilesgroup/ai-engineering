@@ -371,3 +371,82 @@ def test_every_baseline_lane_knows_how_to_be_asked_for_its_findings():
     for lane in scan.BASELINE:
         assert lane.sarif, f"{lane.id} cannot be asked what it found"
         assert "{}" in " ".join(lane.sarif), f"{lane.id} names no file to write"
+
+
+# EP-042's other half: which engine covers a stack, and which file it read. A list of
+# manifests cannot answer either. Measured on this repository while writing these: trivy
+# read `uv.lock` and nothing else, so every package in `package-lock.json` — twenty-three of
+# them — had been excluded from every scan this gate ever ran, and the lane exited zero.
+def lister(tmp_path: Path, body: str) -> tuple[str, ...]:
+    """An engine that answers the listing question and nothing else."""
+    script = tmp_path / "lister.py"
+    script.write_text(f"print({body!r})\n", encoding="utf-8")
+    return (sys.executable, str(script))
+
+
+def test_a_stack_the_engine_read_no_file_for_is_incomplete(tmp_path, capsys, monkeypatch):
+    """The failure this closes, in its exact shape: a manifest is there, the engine read
+    nothing for it, and the lane above says it found nothing. Both statements are true and
+    together they read as a clean scan of a stack nobody scanned."""
+    from ai_engineering import scan
+
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    lane = scan.Lane("dependencies", lister(tmp_path, '{"Results": [{"Target": "uv.lock"}]}'))
+    # The lane the gate runs and the engine `covered` asks are the same engine, which is the
+    # point: the file it read is read off the run that decided the verdict.
+    monkeypatch.setattr(scan, "BASELINE", (lane,))
+
+    assert scan.unread(tmp_path, lane) == ["package.json"]
+    assert scan.baseline(tmp_path) == 1
+
+    printed = capsys.readouterr().out
+    assert "INCOMPLETE  coverage      the engine read no file for package.json" in printed
+    assert "a stack it did not read reports as a stack with nothing in it" in printed
+
+
+def test_a_stack_whose_resolved_file_was_read_is_covered(tmp_path, monkeypatch):
+    from ai_engineering import scan
+
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    lane = scan.Lane(
+        "dependencies", lister(tmp_path, '{"Results": [{"Target": "package-lock.json"}]}')
+    )
+    assert scan.unread(tmp_path, lane) == []
+
+
+def test_an_engine_that_cannot_answer_leaves_every_stack_uncovered(tmp_path):
+    """Fail closed. An engine that is missing, crashes or answers with something that is not
+    its own format has not told us it read anything, and the honest reading of that is that
+    it did not."""
+    from ai_engineering import scan
+
+    (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    for body in ("not json", "[]", '{"Results": "a string"}'):
+        lane = scan.Lane("dependencies", lister(tmp_path, body))
+        assert scan.covered(tmp_path, lane) == set()
+        assert scan.unread(tmp_path, lane) == ["pyproject.toml"]
+
+    gone = scan.Lane("dependencies", ("this-engine-is-not-installed",))
+    assert scan.covered(tmp_path, gone) == set()
+
+
+def test_every_manifest_this_gate_looks_for_says_which_file_answers_for_it():
+    """A manifest in one table and not the other would be a stack that is always
+    INCOMPLETE, or one that is never checked. Neither is a decision anybody took."""
+    from ai_engineering import scan
+
+    assert set(scan.MANIFESTS) == set(scan.READS)
+    for manifest, reads in scan.READS.items():
+        assert reads, manifest
+
+
+def test_the_dependency_lane_includes_the_packages_a_build_depends_on():
+    """Measured, not assumed. With this flag off, this repository's entire npm tree was
+    excluded from every scan the gate ran, and the lane exited zero — the same silence as a
+    clean one. A build dependency compiles the plugin that ships inside the wheel, so "it is
+    only a development dependency" is not a boundary this project has."""
+    from ai_engineering import scan
+
+    lane = next(one for one in scan.BASELINE if one.id == "dependencies")
+    assert "--include-dev-deps" in lane.extra

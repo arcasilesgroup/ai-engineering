@@ -170,6 +170,12 @@ BASELINE = (
             "1",
             "--severity",
             "CRITICAL,HIGH,MEDIUM",
+            # Off by default in this engine, and measured here: with it off, the whole npm
+            # tree of this repository — every package in `package-lock.json` — was excluded
+            # from every scan this gate has ever run, and the lane exited zero. A build
+            # dependency compiles the plugin that ships in the wheel, so "it is only a dev
+            # dependency" is not a boundary this project has.
+            "--include-dev-deps",
         ),
         sarif=("--format", "sarif", "--output", "{}"),
     ),
@@ -202,6 +208,83 @@ MANIFESTS = (
     "composer.json",
 )
 IMAGES = ("Dockerfile", "Containerfile")
+
+# Which file the engine actually reads for each stack, which is the half of EP-042 that a
+# list of manifests cannot answer. A dependency scanner does not read the manifest a person
+# edits; it reads the resolved file beside it, and where that file is absent it reads
+# nothing, reports nothing and exits zero — which is indistinguishable from a clean scan.
+# Measured on this repository: `pyproject.toml` with no lock produced "Not scanned", and
+# `package-lock.json` was excluded entirely because its packages are all development ones.
+READS = {
+    "pyproject.toml": ("uv.lock", "poetry.lock", "pdm.lock", "requirements.txt"),
+    "requirements.txt": ("requirements.txt",),
+    "package.json": ("package-lock.json", "pnpm-lock.yaml", "yarn.lock"),
+    "Cargo.toml": ("Cargo.lock",),
+    "go.mod": ("go.mod", "go.sum"),
+    "Gemfile": ("Gemfile.lock",),
+    "pom.xml": ("pom.xml",),
+    "build.gradle": ("gradle.lockfile",),
+    "composer.json": ("composer.lock",),
+}
+
+
+def covered(root: Path, lane: Lane | None = None) -> set[str]:
+    """Every file the dependency engine actually read, in its own words.
+
+    Asked of the engine rather than inferred from the tree: what a scanner supports is the
+    scanner's business and it changes between releases, so a table of ours claiming coverage
+    would be a claim about somebody else's software that nothing checks. An engine that
+    cannot answer returns nothing, and nothing is what makes a stack INCOMPLETE below.
+    """
+
+    import json
+
+    engine = lane or BASELINE[-1]
+    try:
+        done = subprocess.run(
+            [
+                *engine.argv,
+                "--scanners",
+                "vuln",
+                "--list-all-pkgs",
+                "--format",
+                "json",
+                "--quiet",
+                "--include-dev-deps",
+                ".",
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=engine.timeout,
+            check=False,
+        )
+        loaded = json.loads(done.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return set()
+    if not isinstance(loaded, dict):
+        return set()
+    return {
+        str(row.get("Target"))
+        for row in (loaded.get("Results") or [])
+        if isinstance(row, dict) and row.get("Target")
+    }
+
+
+def unread(root: Path, lane: Lane | None = None) -> list[str]:
+    """Every stack this repository has that the engine read no file for.
+
+    This is the distinction the whole module is named after, at the level of a stack rather
+    than a lane: a manifest whose resolved file is missing, or whose packages the engine
+    excluded, produces the same silence as a stack with nothing wrong in it.
+    """
+
+    read = covered(root, lane)
+    return [
+        manifest
+        for manifest in stacks(root)
+        if not any(name in read for name in READS.get(manifest, ()))
+    ]
 
 
 def stacks(root: Path) -> list[str]:
@@ -393,6 +476,24 @@ def baseline(root: Path) -> int:
         else f"  {'SKIPPED':<11} {'manifests':<13} no dependency manifest here, so there is "
         f"nothing for a dependency scan to be about"
     )
+    # And which of them the engine read a file for. A manifest it read nothing for is a
+    # stack that was not scanned, reported by the lane above as nothing found — so it is
+    # INCOMPLETE and it fails this gate, exactly as every other way of reporting nothing
+    # without having looked does.
+    if present:
+        missed = unread(root)
+        if missed:
+            worst = 1
+            print(
+                f"  {'INCOMPLETE':<11} {'coverage':<13} the engine read no file for "
+                f"{', '.join(missed)}: a stack it did not read reports as a stack with "
+                f"nothing in it"
+            )
+        else:
+            print(
+                f"  {'OBSERVED':<11} {'coverage':<13} the engine read a file for every "
+                f"manifest here"
+            )
     found = images(root)
     print(
         f"  {'OBSERVED':<11} {'images':<13} {', '.join(found)}"

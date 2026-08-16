@@ -1502,7 +1502,21 @@ DESCRIPTION_MAX = 1000
 #
 # EP-262's nine detector classes stay refused, and the refusal is in the register with what
 # would reopen it rather than in a commit message nobody will find.
-REPO_CEILING = 57_380
+#
+# 57,380 to 57,574 for the other half of EP-042: which engine covers a stack, and which file
+# it read. A list of manifests answers neither, and writing this found the gap live in our
+# own gate. The dependency engine excludes development packages by default, so every one of
+# the twenty-three in `package-lock.json` had been left out of every scan this gate has ever
+# run — and the lane exited zero, which is the same silence as a clean one. A build
+# dependency compiles the plugin that ships inside the wheel, so "only a dev dependency" is
+# not a boundary this project has.
+#
+# The engine is asked what it read rather than a table of ours claiming coverage, because
+# what a scanner supports is the scanner's business and changes between releases. A manifest
+# it read no file for is INCOMPLETE and fails the gate, which is the module's own rule
+# applied one level up: a stack nobody scanned reports exactly like a stack with nothing
+# in it.
+REPO_CEILING = 57_574
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
