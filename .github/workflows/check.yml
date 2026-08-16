@@ -148,8 +148,19 @@ jobs:
           sys.exit(1 if decided else 0)
           PY
 
+      # The seal first, and this is what makes the line under it a check rather than a
+      # formality. Events live in an in-flight buffer until a session ends; on a runner no
+      # session ever ends, so the chain was never created and `audit verify` answered
+      # CHAIN_MISSING — INCOMPLETE, exit 1, on every commit. Both halves were wrong: the
+      # step could not pass, and had it passed it would have verified nothing.
+      #
+      # `SessionEnd` through the real dispatcher, exactly as a surface fires it, seals what
+      # this job actually recorded. Then `verify` reads a chain with this run's own links in
+      # it, which is the only version of that question worth asking.
       - name: the record is intact
-        run: ai-eng audit verify
+        run: |
+          echo '{"hook_event_name":"SessionEnd"}' | python3 hooks/chain.py SessionEnd
+          ai-eng audit verify
 
       # The claim, checked where the diff is. A branch that holds no claim is not a branch
       # that passed: it says "not applicable" and says it out loud, because a quiet pass and

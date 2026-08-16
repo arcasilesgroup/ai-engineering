@@ -1059,7 +1059,13 @@ DESCRIPTION_MAX = 1000
 # other half of the same report: nothing FAILED. And assertion 23 stops calling itself a
 # failure. Nothing executed there — the executor is what is missing — so it is undecidable,
 # which prints the same warning under a heading that reads "None of these is a pass."
-REPO_CEILING = 52_941
+# 52,941 to 52,957 for the step after it, wrong in both directions at once. Events sit in
+# an in-flight buffer until a session ends; on a runner no session ends, so no chain was
+# ever created and `audit verify` answered CHAIN_MISSING on every commit — a step that
+# could not pass, and one that would have verified nothing if it had. `SessionEnd` now goes
+# through the real dispatcher first, exactly as a surface fires it, so verify reads a chain
+# holding this job's own links.
+REPO_CEILING = 52_957
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
