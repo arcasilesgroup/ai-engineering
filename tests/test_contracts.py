@@ -851,7 +851,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 56_518
+    assert contract.REPO_CEILING == 56_541
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1250,6 +1250,17 @@ SKILL_CONTENT = (
     ("EP-022", "ai-design/SKILL.md", "WCAG 2.2 AA is the release floor"),
     ("EP-044", "ai-review/SKILL.md", "file:line"),
     ("EP-264", "ai-review/references/security.md", "the source, the sink"),
+    # `ai-explore` answered every question in the words of whoever wrote the code, and rule 9
+    # says explain it so somebody who does not code can follow. The audit found no audience
+    # mode anywhere in that file.
+    ("EP-346", "ai-explore/SKILL.md", "Match the words to who is asking"),
+    ("EP-346", "ai-explore/SKILL.md", "never answer a business question with a call graph"),
+    # And `ai-ship`, whose seven steps are the last thing between a change and a repository
+    # somebody else has to live with, was read by nothing beyond its frontmatter.
+    ("EP-361", "ai-ship/SKILL.md", "one commit, one change"),
+    ("EP-361", "ai-ship/SKILL.md", "Never `--no-verify`"),
+    ("EP-361", "ai-ship/SKILL.md", "in plain words, for somebody"),
+    ("EP-361", "ai-ship/SKILL.md", "the pull request must target"),
 )
 
 

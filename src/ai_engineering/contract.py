@@ -1440,7 +1440,15 @@ DESCRIPTION_MAX = 1000
 #
 # So both records are written now and their shapes are diffed, and against the template as
 # well, because two records equally wrong would agree with each other.
-REPO_CEILING = 56_518
+# 56,518 to 56,533 for the audience `ai-explore` never had and the seven steps of `ai-ship`
+# nothing read. Rule 9 says explain it so somebody who does not code can follow, and the
+# skill that answers questions about a repository had no mode for that reader at all — every
+# answer was in the words of whoever wrote the code. It asks who is asking now, and never
+# answers a business question with a call graph. And `ai-ship` is the last thing between a
+# change and a repository somebody else has to live with; nothing beyond its frontmatter was
+# read, so its one-commit-one-change rule, its refusal of `--no-verify`, its plain-words
+# first paragraph and its closing-keyword constraint were all a file staying as it was.
+REPO_CEILING = 56_541
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
