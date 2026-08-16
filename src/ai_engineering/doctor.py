@@ -591,7 +591,15 @@ def capabilities_enforced(root: Path | None) -> str | None:
     mentioned it, so a reader of that file saw six governed fields per capability and had
     no way to learn that none of them stops anything. A declaration nobody enforces and
     nobody flags is the shape of a false green, and this repository's constitution says to
-    expose that rather than hide it."""
+    expose that rather than hide it.
+
+    Reported as undecidable and not as a failure, which is a correction. FAIL is what an
+    executed check says when it conclusively finds a violation; nothing executed here,
+    because the executor is what does not exist. The message is unchanged and still prints,
+    now under "Not evaluated", where the line beneath it reads "None of these is a pass."
+    That is the same warning without the wrong word on it — and the wrong word was load
+    bearing: it made `doctor` FAIL on every machine, forever, which is a red nobody can
+    clear and therefore a red everybody learns to ignore."""
 
     from ai_engineering import capability
 
@@ -601,9 +609,9 @@ def capabilities_enforced(root: Path | None) -> str | None:
         return None
     if not declared:
         return None
-    return (
-        f"{len(declared)} capabilities are declared and none is enforced: preflight "
-        f"validates the declaration and refuses, because no executor is installed"
+    raise Undecidable(
+        f"{len(declared)} capabilities are declared and nothing enforces them: preflight "
+        f"validates the declaration and then refuses, because no executor exists yet"
     )
 
 

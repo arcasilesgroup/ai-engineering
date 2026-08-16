@@ -121,10 +121,32 @@ jobs:
           PY
           uv run --no-project --with "pip-audit==${PIP_AUDIT_VERSION}" pip-audit --strict -r requirements.txt
 
+      # `ai-eng doctor --ci` cannot exit 0, on any commit, and it is not supposed to. `--ci`
+      # counts every check a runner cannot answer as unanswered, unanswered is INCOMPLETE,
+      # and "not evaluated is never green" is the rule this whole product is about. So the
+      # step as written — the command alone, its exit code taken as the verdict — was a step
+      # that could never pass. It went unnoticed because every earlier failure in this job
+      # ran out of road before reaching it.
+      #
+      # What a runner can gate on is the other half of the same report: nothing FAILED here.
+      # The readable report goes into the log for a person, and the JSON one is what decides.
       - name: is the system healthy
         run: |
           uv tool install --editable .
-          ai-eng doctor --ci
+          ai-eng doctor --ci || true
+          ai-eng --json doctor --ci > "$RUNNER_TEMP/doctor.json" || true
+          uv run --no-project python - "$RUNNER_TEMP/doctor.json" <<'PY'
+          import json, sys
+
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          remaining = report.get("remaining", [])
+          decided = [line for line in remaining if not line.endswith("could not be evaluated")]
+          print(f"{report['outcome']}: {len(decided)} decided faults, "
+                f"{len(remaining) - len(decided)} unanswerable on a runner")
+          for line in decided:
+              print(f"  {line}")
+          sys.exit(1 if decided else 0)
+          PY
 
       - name: the record is intact
         run: ai-eng audit verify

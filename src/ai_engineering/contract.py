@@ -1052,7 +1052,14 @@ DESCRIPTION_MAX = 1000
 # Every fixture in the suite wrote LF, so nothing could see it until three Windows tests
 # did. The fence now takes an optional carriage return, the bound span is measured off what
 # matched rather than off an assumed length, and a CRLF fixture holds it down everywhere.
-REPO_CEILING = 52_893
+# 52,893 to 52,941 for the last step in the gate, which could never pass. `doctor --ci`
+# counts every check a runner cannot answer as unanswered and unanswered is INCOMPLETE, so
+# taking its exit code as the verdict was a step no commit could satisfy — unnoticed
+# because every earlier failure in that job ran out of road first. It now gates on the
+# other half of the same report: nothing FAILED. And assertion 23 stops calling itself a
+# failure. Nothing executed there — the executor is what is missing — so it is undecidable,
+# which prints the same warning under a heading that reads "None of these is a pass."
+REPO_CEILING = 52_941
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

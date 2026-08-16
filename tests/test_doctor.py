@@ -358,9 +358,15 @@ def test_fifteen_declared_capabilities_that_enforce_nothing_are_reported(home, r
     stops anything. A declaration nobody enforces and nobody flags is the shape of a false
     green, and the constitution's first duty is to expose that rather than hide it."""
 
-    said = doctor.capabilities_enforced(repo)
-    assert said and "none is enforced" in said, said
-    assert said.startswith("15 "), said
+    # Undecidable and not FAIL. Nothing executed — the executor is what is missing — and
+    # FAIL is reserved for an executed check that conclusively found a violation. It still
+    # prints, under a heading whose last line is "None of these is a pass." The distinction
+    # is not cosmetic: as a failure it made `doctor` red on every machine forever, which is
+    # a red nobody can clear and so a red everybody learns to scroll past.
+    got, detail = verdict(doctor.capabilities_enforced, repo)
+    assert got == "undecidable"
+    assert "nothing enforces them" in detail, detail
+    assert detail.startswith("15 "), detail
 
 
 def test_assertion_16_reports_could_not_evaluate_over_a_block_nobody_can_read(home, repo):
