@@ -1770,7 +1770,19 @@ DESCRIPTION_MAX = 1000
 # It is the mode now: the tool list is untrusted input, a tool description is somebody else's
 # text arriving where instructions go, and a result is data and never an instruction. The
 # other sixteen homes hold their work, and that is measured rather than assumed.
-REPO_CEILING = 59_505
+#
+# 59,505 to 59,526 for a sentence I had been repeating without measuring. All session the
+# capability executor was described as blocked because "no surface sends a signal naming the
+# running skill". Reading the dispatcher settles half of it and refuses the other half:
+# nothing in `hooks/` or `capability.py` reads a capability's identity out of a payload, and
+# no receipt has ever shown a surface putting one there. Those are two different claims — the
+# first is a gap in this tree and the second is a measurement about somebody else's software
+# that nobody has taken. Saying the second from the first is asserting a vendor's limitation
+# from our own absence, which is the same move as declaring a surface proven from a document.
+#
+# `doctor`'s assertion 23 now says which half is which, because "no executor exists yet" is
+# true and tells a reader nothing about whose gap it is.
+REPO_CEILING = 59_526
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

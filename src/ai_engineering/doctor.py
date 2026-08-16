@@ -610,9 +610,18 @@ def capabilities_enforced(root: Path | None) -> str | None:
         return None
     if not declared:
         return None
+    # What is missing, named, because "no executor exists yet" is true and tells a reader
+    # nothing about whether the gap is ours or the surface's. Two things are absent and only
+    # one of them is in our hands: nothing here reads a running capability's identity out of
+    # a payload, and no receipt has ever shown a surface putting one there. Those are
+    # different claims — the first is a gap in this tree, the second is a measurement about
+    # somebody else's software that has never been taken. Saying "no surface sends it" would
+    # be asserting the second from the first.
     raise Undecidable(
         f"{len(declared)} capabilities are declared and nothing enforces them: preflight "
-        f"validates the declaration and then refuses, because no executor exists yet"
+        f"validates the declaration and then refuses. An executor needs the running "
+        f"capability's identity to arrive with the action, and nothing here reads one — nor "
+        f"has any receipt yet shown a surface sending one"
     )
 
 
