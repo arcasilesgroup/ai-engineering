@@ -1448,7 +1448,16 @@ DESCRIPTION_MAX = 1000
 # change and a repository somebody else has to live with; nothing beyond its frontmatter was
 # read, so its one-commit-one-change rule, its refusal of `--no-verify`, its plain-words
 # first paragraph and its closing-keyword constraint were all a file staying as it was.
-REPO_CEILING = 56_541
+# 56,541 to 56,626 for the map that twelve commands never had. The manifest is the only
+# file that enumerates all fifteen capabilities, and it said what each one may touch without
+# ever saying what any of them is for — so a person meeting the set had to run them to find
+# out. The five phases the work actually moves through are named in the proposal and were in
+# no file a machine reads: discover, decide, plan, build, verify. Each capability declares
+# exactly one, the schema requires it, and the schema's pinned digest moved for it in the
+# commit that made the change, which is the whole reason adding a field is a decision
+# somebody takes rather than a file that drifted overnight. A phase nothing serves is a word
+# in a schema, so the test refuses that too.
+REPO_CEILING = 56_626
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

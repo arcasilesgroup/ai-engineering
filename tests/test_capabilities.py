@@ -205,7 +205,16 @@ def test_capability_schema_is_closed_and_permission_distinct() -> None:
     manifest = {
         "schema": "urn:ai-engineering:capability-manifest:1",
         "schema_version": "1",
-        "capabilities": [{"id": "ai-spec", "modes": [_mode("read"), _mode("write", write=True)]}],
+        # `phase` is required now: a capability with no phase is a command a person has to
+        # try in order to learn what it is for, and the manifest is the only place that
+        # enumerates all fifteen.
+        "capabilities": [
+            {
+                "id": "ai-spec",
+                "phase": "decide",
+                "modes": [_mode("read"), _mode("write", write=True)],
+            }
+        ],
     }
     assert _manifest_accepts(manifest, schema)
 
@@ -466,3 +475,39 @@ def test_capability_preflight_rejects_unhashable_action_kinds() -> None:
             "code": "CAPABILITY_ACTION_INVALID",
             "reason": "requested action is malformed",
         }
+
+
+def test_every_capability_says_which_phase_it_serves():
+    """EP-135. Twelve commands and no map: a person meeting them had to try each one to
+    learn what it was for, and the five phases the work actually moves through — discover,
+    decide, plan, build, verify — were named in no file that lists the capabilities.
+
+    The manifest is the only place all fifteen are enumerated, so the phase belongs there
+    rather than in a README paragraph that would drift from it. One phase each, and that is
+    the same argument the skills make about themselves: a capability serving two phases is
+    two capabilities, which is what the routing clause already says.
+
+    The schema digest moved for this and the move is recorded where it was made. That pin is
+    the whole reason adding a field is a decision somebody takes rather than a file that
+    drifted overnight.
+    """
+
+    import tomllib
+
+    from ai_engineering import capability
+
+    declared = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))[
+        "capabilities"
+    ]
+    phases = [str(row["phase"]) for row in declared]
+
+    assert len(phases) == len(declared), "a capability with no phase is a command with no map"
+    assert set(phases) == {"discover", "decide", "plan", "build", "verify"}
+
+    # Every phase has at least one capability: a phase nothing serves is a word in a schema.
+    for name in {"discover", "decide", "plan", "build", "verify"}:
+        assert phases.count(name) >= 1, name
+
+    # And the manifest still validates against the schema whose digest was moved for it,
+    # which is what makes the pin a gate rather than a comment.
+    assert capability._validated(None)["capabilities"], "the manifest no longer validates"

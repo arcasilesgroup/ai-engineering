@@ -36,7 +36,11 @@ ENFORCEMENT_UNAVAILABLE = (
 PASS = intent.Validation("PASS")
 SCHEMA_PATH = paths.policy("capability-manifest.schema.json")
 MANIFEST_PATH = paths.policy("capabilities.toml")
-_EXPECTED_SCHEMA_DIGEST = "2af5f4e200bcd1c19ed8577249c2fe2b0dbb41a22cc1924226f76b9b39c16620"
+# Moved once, deliberately, when the manifest gained `phase`. The pin is what makes that
+# a decision somebody takes rather than a file that drifted, and this is the commit it
+# was taken in — a person meeting twelve commands with no map has to try them to learn
+# what they are for, and the phase is the map.
+_EXPECTED_SCHEMA_DIGEST = "d76ce4483068704e377ad7357fccf433fbefaddd38957042b1cfb81c5a75abee"
 _MAX_POLICY_BYTES = 1_000_000
 # The `\.` alternative that stood here matched nothing the class after it did not:
 # a dot is already in `[A-Za-z0-9._-]`. It read as though a lone `.` were special
