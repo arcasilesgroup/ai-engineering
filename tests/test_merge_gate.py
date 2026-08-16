@@ -137,3 +137,56 @@ def test_a_branch_with_no_claim_on_the_remote_is_incomplete_and_not_a_pass(tmp_p
 
     assert result.outcome == "INCOMPLETE"
     assert {fact.id: fact.status for fact in result.checks}["claimed-paths"] == "INCOMPLETE"
+
+
+def test_the_order_of_every_claim_is_derived_where_somebody_reads_it(tmp_path, shared):
+    """EP-184. `dag` was written for P3, proven deterministic against its own fixtures, and
+    imported by nothing outside its own test file — correct code that no gate had ever run.
+    A contract nothing executes is the shape this repository exists to refuse, and it had
+    grown one of its own.
+
+    Two claims are taken against one remote and the checkpoint reports the order they run
+    in. OBSERVED and never a pass: an order is a fact about what can run beside what, not a
+    verdict on the branch being judged."""
+
+    from ai_engineering import checkpoint, claim
+
+    one, two = tmp_path / "one", tmp_path / "two"
+    base = claim.base(one)
+    assert claim.take(one, "work-alpha", base, ["alpha/"], "writer-one").outcome == "PASS"
+    assert claim.take(two, "work-beta", base, ["beta/"], "writer-two").outcome == "PASS"
+
+    # The reader that did not exist. `held` answers about one work item because the gate
+    # judges one branch; an order is a fact about all of them at once.
+    assert [one["item"] for one in claim.every(one)] == ["work-alpha", "work-beta"]
+
+    branch(one, "alpha-work", "alpha/added.py", "VALUE = 2\n")
+    result = checkpoint.verify(one, base=base, item="work-alpha")
+    order = [fact for fact in result.checks if fact.id == "claim-order"]
+
+    assert len(order) == 1, [fact.id for fact in result.checks]
+    assert order[0].status == "OBSERVED"
+    assert order[0].detail and "work-alpha" in order[0].detail and "work-beta" in order[0].detail
+    # And it is not counted as a pass: the summary says how many receipts passed, and an
+    # observation is not one of them. Two of four here — the third receipt is a check
+    # somebody has to have executed and this fixture has not, which the older tests in this
+    # file already document. Four is the number that matters: adding a receipt that quietly
+    # counted itself as passing is precisely the failure this one exists to report.
+    assert result.summary.startswith("2 of 4")
+
+
+def test_no_claim_at_all_is_an_answer_and_not_an_order(tmp_path, shared):
+    """An empty namespace is the ordinary state of a repository with one writer, which is
+    what the Solution Intent still requires. Skipped says so; a pass over nothing would
+    not, and this is the reader that would otherwise report one."""
+
+    from ai_engineering import checkpoint, claim
+
+    one = tmp_path / "one"
+    branch(one, "no-claim", "alpha/added.py", "VALUE = 2\n")
+    result = checkpoint.verify(one, base=claim.base(one))
+    order = [fact for fact in result.checks if fact.id == "claim-order"]
+
+    assert len(order) == 1
+    assert order[0].status == "SKIPPED"
+    assert order[0].detail and "no claim is held" in order[0].detail

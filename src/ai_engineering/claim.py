@@ -98,6 +98,33 @@ def held(root: Path, item: str, remote: str = "origin") -> list[str] | None:
     return [line[len("path ") :] for line in body.splitlines() if line.startswith("path ")]
 
 
+def every(root: Path, remote: str = "origin") -> list[dict]:
+    """Every claim the remote holds, as the shape `dag.order` reads.
+
+    `held` answers about one work item because the merge gate judges one branch. An order is
+    a fact about all of them at once, and there was no way to ask for all of them — which is
+    why `dag` had no caller anywhere in the product and its determinism was proven against
+    fixtures only. One `ls-remote` over the whole namespace, then the record of each.
+
+    A claim whose object cannot be read is skipped rather than fatal: a reader that dies on
+    one unreadable ref reports nothing about the others, and the order it would have derived
+    is the one thing worth having here.
+    """
+
+    prefix = REF.format(item="")
+    listed = _git(root, "ls-remote", remote, f"{prefix}*").stdout.splitlines()
+    tasks: list[dict] = []
+    for line in listed:
+        parts = line.split()
+        if len(parts) != 2 or not parts[1].startswith(prefix):
+            continue
+        item = parts[1][len(prefix) :]
+        paths = held(root, item, remote)
+        if paths:
+            tasks.append({"item": item, "paths": paths})
+    return sorted(tasks, key=lambda one: one["item"])
+
+
 def _refused(code: str, message: str, cure: str) -> outcome.Execution:
     return outcome.execution(
         outcome.result("INCOMPLETE"),

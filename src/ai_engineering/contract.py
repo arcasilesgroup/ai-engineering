@@ -1161,7 +1161,18 @@ DESCRIPTION_MAX = 1000
 # surface is disabled by installing on it, so a broken adapter costs its own spellings and
 # no others. Three fixtures: a spelling that exists only in a data file arrives in the shape
 # the guards read, a malformed adapter loses nothing else, and a missing directory is fine.
-REPO_CEILING = 54_414
+# 54,414 to 54,548 to close EP-184. `dag` was written for P3, proven deterministic against
+# its own fixtures, and imported by nothing outside its own test file — correct code no gate
+# had ever run, which is the same shape as the adapter table above and as `actionlint` two
+# entries before it. Three findings, one week, one lesson: written is not wired.
+#
+# It has a caller now. `claim.every` reads the whole claim namespace off the remote, because
+# `held` answers about one work item and an order is a fact about all of them at once, and
+# the checkpoint derives the order as a fourth receipt. OBSERVED, never a pass: an order
+# says what can run beside what, not whether this branch is good. It can be INCOMPLETE — a
+# cycle, or a file whose imports cannot be read — and that is a real refusal, because an
+# order nobody can derive is one two writers would each invent differently.
+REPO_CEILING = 54_559
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -17,7 +17,7 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
-from ai_engineering import acceptance_privacy, claim, outcome
+from ai_engineering import acceptance_privacy, claim, dag, outcome
 
 RECEIPTS = Path(".ai") / "receipts"
 MAX_STAGED_BYTES = 400_000
@@ -182,6 +182,54 @@ def _executed(root: Path, now: datetime | None = None) -> outcome.Fact:
     )
 
 
+def _ordered(root: Path, remote: str) -> outcome.Fact:
+    """The order every claim on the remote runs in, derived where somebody reads it.
+
+    `dag` was written for P3, proven deterministic against fixtures, and imported by nothing
+    outside its own test file — so the module was correct and no gate had ever run it. A
+    contract nothing executes is the shape this repository exists to refuse, and it had
+    grown one of its own.
+
+    It is OBSERVED and never a pass: an order is a fact about what can run beside what, not
+    a verdict on this branch. What it can be is INCOMPLETE — a cycle, or a file whose
+    imports cannot be read — and that is a real refusal, because an order nobody can derive
+    is one two writers would each invent differently.
+    """
+
+    try:
+        tasks = claim.every(root, remote)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return outcome.fact(
+            "claim-order",
+            "INCOMPLETE",
+            "The order the claims run in",
+            f"the claims on {remote} could not be listed",
+            cure="check the remote is reachable, then derive the order again",
+        )
+    if not tasks:
+        return outcome.fact(
+            "claim-order",
+            "SKIPPED",
+            "The order the claims run in",
+            f"no claim is held on {remote}, so there is no order to derive",
+        )
+    derived = dag.order(root, tasks)
+    if derived.outcome != "PASS":
+        return outcome.fact(
+            "claim-order",
+            "INCOMPLETE",
+            "The order the claims run in",
+            derived.summary,
+            cure="break the cycle, or exclude the file whose imports cannot be read",
+        )
+    return outcome.fact(
+        "claim-order",
+        "OBSERVED",
+        "The order the claims run in",
+        ", ".join(dag.sequence(derived)),
+    )
+
+
 def verify(
     root: Path,
     now: datetime | None = None,
@@ -213,12 +261,18 @@ def verify(
                 )
             ],
         )
-    facts = [_privacy(root, base), _inside(root, base, claimed), _executed(root, now)]
+    facts = [
+        _privacy(root, base),
+        _inside(root, base, claimed),
+        _executed(root, now),
+        _ordered(root, remote),
+    ]
     said = {fact.status for fact in facts}
     word = "FAIL" if "FAIL" in said else "INCOMPLETE" if "INCOMPLETE" in said else "PASS"
+    passed = sum(fact.status == "PASS" for fact in facts)
     return outcome.execution(
         outcome.result(word),
-        summary=f"{sum(fact.status == 'PASS' for fact in facts)} of 3 checkpoint receipts pass",
+        summary=f"{passed} of {len(facts)} checkpoint receipts pass",
         checks=facts,
         remaining=[
             fact.detail for fact in facts if fact.detail and fact.status not in ("PASS", "SKIPPED")
