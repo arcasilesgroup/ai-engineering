@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -370,6 +371,10 @@ ROUTER = """---
 description: {description}
 ---
 
+# {name} · {phase}
+
+{example}
+
 Use the `{name}` skill to handle this request. The canonical skill body lives in the shared
 skills root this framework installed; load it and follow it. Everything after the command
 name is the request, forwarded verbatim.
@@ -378,15 +383,56 @@ $ARGUMENTS
 """
 
 
-def router_body(name: str, description: str) -> str:
+def phases() -> dict[str, str]:
+    """Which of the five phases each capability serves, read from the one file that lists
+    all fifteen. A second copy here would be a second answer within a week."""
+
+    try:
+        declared = tomllib.loads(paths.policy("capabilities.toml").read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    return {str(row["id"]): str(row.get("phase", "")) for row in declared.get("capabilities", [])}
+
+
+def example(skill: Path) -> str:
+    """One case the skill must take, in the words somebody would actually type.
+
+    Taken from the labelled corpus beside it rather than written here, so the example a
+    person reads on their surface is one the routing evaluation runs every time the gate
+    does. An example nothing checks is the sentence that goes stale first.
+    """
+
+    corpus = skill / "corpus.md"
+    if not corpus.is_file():
+        return ""
+    section = corpus.read_text(encoding="utf-8").partition("## Routes here")[2]
+    for line in section.partition("\n## ")[0].splitlines():
+        quoted = re.match(r'-\s+"([^"]+)"', line.strip())
+        if quoted:
+            return quoted.group(1)
+    return ""
+
+
+def router_body(name: str, description: str, phase: str = "", case: str = "") -> str:
     """One router, generated from the skill it routes to.
 
     A router is a convenience and not a second copy: it names the skill and forwards the
     request, and every instruction still lives in one `SKILL.md`. A router that restated any
     of it would be the second normative layer `EP-071` forbids, kept up to date by hand.
+
+    The phase and the example are not a restatement for the same reason the description is
+    not: every one of them is read from a file that already holds it — the manifest and the
+    labelled corpus — and written with a digest beside it. Without them a person meeting the
+    catalogue on their own surface got a wall of commands with no map, which is the thing
+    `EP-135` names, and the map was being printed only where the gate runs.
     """
 
-    return ROUTER.format(name=name, description=description.strip().replace("\n", " "))
+    return ROUTER.format(
+        name=name,
+        description=description.strip().replace("\n", " "),
+        phase=phase or "phase not declared",
+        example=f"Say something like: “{case}”" if case else "",
+    )
 
 
 def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
@@ -405,6 +451,7 @@ def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
 
     rows = table()["surface"] if surfaces is None else surfaces
     written: list[dict] = []
+    placed = phases()
     for surface in rows:
         root = surface.get("commands")
         if not root:
@@ -412,7 +459,9 @@ def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
         where = expand(root)
         where.mkdir(parents=True, exist_ok=True)
         for skill in sorted(paths.skills().glob("ai-*")):
-            body = router_body(skill.name, _described(skill))
+            body = router_body(
+                skill.name, _described(skill), placed.get(skill.name, ""), example(skill)
+            )
             target = where / f"{skill.name}.md"
             target.write_text(body, encoding="utf-8")
             digest = hashlib.sha256(body.encode("utf-8")).hexdigest()

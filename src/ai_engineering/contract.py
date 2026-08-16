@@ -1569,7 +1569,29 @@ DESCRIPTION_MAX = 1000
 # prove it is honest about what it cannot measure. `scan.cross_check` was called by its own
 # test and by nothing in the product, so an organisation installing one of the two engines
 # the proposal names would have got the silence of one that installed nothing.
-REPO_CEILING = 58_172
+#
+# 58,172 to 58,527 for the threat model this framework never wrote about itself, and for
+# putting the phase map where the person it was written for actually is.
+#
+# `ai-security` step 1 tells every user to write the boundary and the data down before
+# anything else. A third audit put it plainly: this project demands one from everybody and
+# has none. So it is data rather than prose — one row per boundary naming what an attacker
+# controls, what happens with no control, the file that holds the control and the test that
+# proves the control can still say no — and every one of those paths resolves against the
+# tree. A row may record a half-built control and then has to say which half, because a
+# threat model listing only solved problems is a marketing page.
+#
+# Writing the check found a boundary the model had missed: `loop_guard` ships, denies, and
+# nobody had written down what it is for. That is the direction that catches a gap rather
+# than a drift, and it fired on the first run.
+#
+# And EP-135, properly this time. The five phases were declared, required by a schema and
+# printed by the gate, so the only person who ever saw the map was a developer running
+# `just check` — while the requirement says the surfaces show it. The router is the file a
+# person meets on their own surface, and it now carries the phase and one example, both read
+# from files that already hold them: the manifest, and the labelled corpus the routing
+# evaluation runs on. An example nothing checks is the sentence that goes stale first.
+REPO_CEILING = 58_527
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
