@@ -210,7 +210,11 @@ def _validated_head(path: Path) -> tuple[int, str]:
 def _exclusive(fd: int):
     """A short inter-process lock; contention loses telemetry rather than stalling work."""
     deadline = time.monotonic() + LOCK_WAIT_SECONDS
-    if os.name == "nt":
+    # `sys.platform` and not `os.name`: they answer the same question at runtime, and only
+    # this one is a platform check a type checker understands. Under `os.name` the two lock
+    # constants read as missing attributes everywhere except Windows, because the stubs for
+    # `msvcrt` are not loaded on any other platform.
+    if sys.platform == "win32":
         import msvcrt
 
         lock, unlock = msvcrt.LK_NBLCK, msvcrt.LK_UNLCK

@@ -1328,7 +1328,7 @@ def verdict_panel(
     ui.summary(title, rows, style)
 
 
-def repair(cures: dict[int, str], argv: list[str]) -> outcome.Result:
+def repair(cures: dict[int, str], argv: list[str]) -> outcome.Result | outcome.Execution:
     """Runs what the failures themselves named, each command once, and then asks the whole
     question again. In this process rather than through a shell: `ai-eng` is on the PATH of
     the person who typed it and not necessarily of whatever would run it here, and a repair

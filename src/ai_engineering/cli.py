@@ -18,6 +18,7 @@ import time
 import traceback
 import uuid
 from datetime import UTC, datetime
+from types import ModuleType
 
 from ai_engineering import __version__, outcome, paths, wiring
 
@@ -267,12 +268,16 @@ def _json_dispatch(verb: str, rest: list[str], *, debug: bool = False) -> int:
         ),
     )
     process_exit = terminal.exit_code
-    ui = None
+    # Declared before the try so the `finally` below can still reset a console that was
+    # built, and named apart from the module so that "not imported yet" and "the renderer"
+    # are two things rather than one name meaning both.
+    renderer: ModuleType | None = None
     try:
         with _silence():
             from ai_engineering import ui
 
-            ui.reset()
+            renderer = ui
+            renderer.reset()
             sys.stdin = io.StringIO("")
             try:
                 module = importlib.import_module(f"ai_engineering.{verb}")
@@ -341,7 +346,8 @@ def _json_dispatch(verb: str, rest: list[str], *, debug: bool = False) -> int:
                 process_exit = execution.exit_code
             finally:
                 with contextlib.suppress(BaseException):
-                    ui.reset()
+                    if renderer is not None:
+                        renderer.reset()
     except KeyboardInterrupt:
         execution = outcome.execution(outcome.result("CANCELLED"))
         process_exit = execution.exit_code

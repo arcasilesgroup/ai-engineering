@@ -106,15 +106,19 @@ def migrations(pinned: str, target: str) -> list[Path]:
         ranges.append((low_key, high_key, scripts))
 
     cursor = start
-    steps = []
-    for low, high, scripts in sorted(ranges):
-        if high <= start or low >= finish:
+    steps: list[Path] = []
+    # `from_key` and `to_key` rather than `low` and `high`: those two names are already the
+    # string halves of a directory name twenty lines above, and reusing them here made one
+    # function hold two meanings for each — which a type checker reads as a contradiction
+    # and a person reads as the same thing twice.
+    for from_key, to_key, scripts in sorted(ranges):
+        if to_key <= start or from_key >= finish:
             continue
-        starts_in_declared_line = not steps and start[: len(low)] == low
-        if (low != cursor and not starts_in_declared_line) or high > finish:
+        starts_in_declared_line = not steps and start[: len(from_key)] == from_key
+        if (from_key != cursor and not starts_in_declared_line) or to_key > finish:
             raise Undecidable("the forward migration path is not contiguous")
         steps.extend(scripts)
-        cursor = high
+        cursor = to_key
     return steps
 
 
@@ -217,7 +221,7 @@ def _render_pin(body: bytes, target: str) -> tuple[str, bytes]:
         _version(pinned)
         section = re.search(r"(?ms)^\[framework\][^\r\n]*\r?\n(?P<body>.*?)(?=^\[|\Z)", text)
         rows = list(_VERSION.finditer(section.group("body"))) if section else []
-        if not isinstance(pinned, str) or not pinned or len(rows) != 1:
+        if not isinstance(pinned, str) or not pinned or len(rows) != 1 or section is None:
             raise ValueError("the framework version is not exact")
         row = rows[0]
         if row.group("value") != pinned:

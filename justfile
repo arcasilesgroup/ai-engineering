@@ -16,6 +16,8 @@ gitleaks_version := "8.30.1"
 trivy_version := "0.73.0"
 coverage := "coverage==7.15.4"
 mutmut := "mutmut==3.7.0"
+# The same pin the workflow carries, and a test holds the two equal.
+mypy := "mypy==2.3.0"
 
 build:
     uv build
@@ -33,6 +35,12 @@ lint:
 # pinned at its call site. The modules land at the root and never under surfaces/, because
 # `surfaces` is force-included into the wheel and a node_modules there would ship to PyPI.
 typecheck:
+    # Python first, and here rather than only in CI. `AGENTS.md` says this file is what CI
+    # runs; for the whole life of this branch it was not, because mypy existed in the
+    # workflow alone — so the local gate went green over 45 type errors and the first
+    # anybody could know was the first time the branch reached CI, 253 commits in.
+    uv run --no-project --python 3.11 --with {{mypy}} \
+        --with "rich>=13.0,<16.0" --with "questionary>=2.0,<3.0" mypy src hooks
     npm install --silent --no-audit --no-fund
     npm exec -- tsc --noEmit
     # Compiling it proves it parses. This runs it: the plugin's own deny path, driven the

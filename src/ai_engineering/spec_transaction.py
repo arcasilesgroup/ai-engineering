@@ -779,7 +779,7 @@ def _publish_windows_pending(
 # The Windows backend uses NT relative opens so staging cannot be redirected through a
 # renamed parent. The small wrappers stay here because optional packages would make the
 # publication guarantee depend on the environment being repaired.
-if os.name == "nt":
+if sys.platform == "win32":
     from ctypes import wintypes
 
     _INVALID_HANDLE = ctypes.c_void_p(-1).value
@@ -974,7 +974,7 @@ def _windows_unavailable() -> Unsupported:
     return Unsupported("Windows native transaction APIs are unavailable")
 
 
-if os.name == "nt":
+if sys.platform == "win32":
 
     def _win_close(handle: int) -> bool:
         if handle not in {0, _INVALID_HANDLE}:
@@ -1540,7 +1540,7 @@ def writer(root: Path, authority: str, home: str) -> Iterator[Any]:
     implementation: Any
     if os.name == "posix":
         implementation = _PosixWriter(root, authority, home)
-    elif os.name == "nt":
+    elif sys.platform == "win32":
         implementation = _WindowsWriter(root, authority, home)
     else:
         raise Unsupported("host has no native spec transaction backend")

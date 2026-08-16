@@ -224,7 +224,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     sessions = {e.get("session") for e in events}
     blocked = by_reason(events, "blocked")
     bypassed = by_reason(events, "bypassed")
-    commands = Counter(e["name"] for e in events if e.get("cls") == "command")
+    seen_commands = Counter(e["name"] for e in events if e.get("cls") == "command")
     errors = [e for e in events if e.get("cls") == "error"]
     check_facts = [
         outcome.fact("sessions", "OBSERVED", "Sessions observed", str(len(sessions))),
@@ -277,7 +277,8 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         print(f"    {', '.join(quiet)}")
 
     command_detail = (
-        "  ".join(f"{str(name)[:64]} {count}" for name, count in commands.most_common(20)) or "none"
+        "  ".join(f"{str(name)[:64]} {count}" for name, count in seen_commands.most_common(20))
+        or "none"
     )
     print("\n  Commands: " + command_detail)
     check_facts.append(outcome.fact("commands", "OBSERVED", "Commands observed", command_detail))

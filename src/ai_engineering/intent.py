@@ -597,10 +597,11 @@ def _relations_valid(
             target = pending.pop()
             if target in graph:
                 continue
-            content = contents.get(target)
-            if content is None:
-                content = files.read(target)
-                contents[target] = content
+            cached = contents.get(target)
+            if cached is None:
+                cached = files.read(target)
+                contents[target] = cached
+            content = cached
             _register_identity(target, identities)
             if not _target_valid(target, content):
                 raise _RepositoryProblem(RELATION_IDENTITY)

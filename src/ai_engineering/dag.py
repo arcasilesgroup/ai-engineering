@@ -109,7 +109,7 @@ def sequence(result: outcome.Execution) -> list[str]:
     """The order out of the result, for a caller that wants the list rather than the facts."""
 
     for fact in result.checks:
-        if fact.id == "dag-order":
+        if fact.id == "dag-order" and fact.detail:
             return [item for item in fact.detail.split(", ") if item]
     return []
 

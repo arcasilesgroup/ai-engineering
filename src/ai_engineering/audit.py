@@ -353,22 +353,26 @@ def _history_findings(root: Path, events: list[dict]) -> list[tuple[str, str]]:
                     f"has no such link: the record was truncated or replaced",
                 )
             )
-        elif known[head] is None:
-            findings.append(
-                (
-                    "INCOMPLETE",
-                    HISTORY_INCOMPLETE_PREFIX
-                    + f"HISTORY_AMBIGUOUS — head prefix {head} names multiple links",
+        else:
+            # Bound once. Two subscripts of the same key are two reads to a type checker and
+            # two facts to a reader, and only one of them is the link this branch is about.
+            placed = known[head]
+            if placed is None:
+                findings.append(
+                    (
+                        "INCOMPLETE",
+                        HISTORY_INCOMPLETE_PREFIX
+                        + f"HISTORY_AMBIGUOUS — head prefix {head} names multiple links",
+                    )
                 )
-            )
-        elif known[head][0] != int(number):
-            findings.append(
-                (
-                    "BROKEN",
-                    f"a commit anchors head {head} at seq {number}, but the recomputed "
-                    f"chain places it at seq {known[head][0]}",
+            elif placed[0] != int(number):
+                findings.append(
+                    (
+                        "BROKEN",
+                        f"a commit anchors head {head} at seq {number}, but the recomputed "
+                        f"chain places it at seq {placed[0]}",
+                    )
                 )
-            )
     if not seen:
         findings.append(
             (

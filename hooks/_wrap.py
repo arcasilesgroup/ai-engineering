@@ -51,7 +51,7 @@ def _bypass_file() -> Path | None:
             return None
         except OSError:
             return None
-        if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", 0):
+        if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", False):
             return None
     return walked
 

@@ -190,7 +190,7 @@ def _safe_stat(path: Path, device: int, *, directory: bool) -> None:
         ) from error
     if stat.S_ISLNK(value.st_mode):
         raise Refusal("ACCEPTANCE_UNSAFE_PATH", "an acceptance path component is a symbolic link")
-    if getattr(value, "st_reparse_tag", 0):
+    if getattr(value, "st_reparse_tag", False):
         raise Refusal("ACCEPTANCE_UNSAFE_PATH", "an acceptance path component is a reparse point")
     if value.st_dev != device:
         raise Refusal("ACCEPTANCE_UNSAFE_PATH", "an acceptance path crosses a filesystem boundary")
@@ -256,6 +256,21 @@ def legacy_spans(body: bytes) -> list[tuple[int, int, str]]:
         inner = body[start + len(b"```yaml\n") : end - len(b"```")]
         spans.append((start, end, _text(inner, "a legacy acceptance block")))
     return spans
+
+
+def _identity(stored: str, where: str) -> re.Match[str]:
+    """The two halves of an acceptance id, or a refusal.
+
+    `fullmatch` can answer None, and four call sites read `.group()` off it as though it
+    could not. A malformed id would have raised an AttributeError from inside the parser
+    whose whole job is to refuse malformed input — the one place a crash reads as a bug in
+    the reader rather than as a fault in what was read.
+    """
+
+    named = _ID.fullmatch(stored)
+    if named is None:
+        raise Refusal("ACCEPTANCE_ID_MALFORMED", f"{where} carries an id that is not one")
+    return named
 
 
 def _parse_legacy(block: str, where: str) -> dict[str, str] | None:
@@ -480,7 +495,7 @@ def _spec_directories(root: Path, device: int) -> list[Path]:
         # A link is refused rather than skipped: skipping one takes whatever it points at
         # out of the register without saying so. A plain file cannot hold records at all,
         # so it is not a spec directory and it hides nothing.
-        if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", 0):
+        if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", False):
             raise Refusal("ACCEPTANCE_UNSAFE_PATH", f"the spec entry {entry.name} is a link")
         if not stat.S_ISDIR(value.st_mode):
             continue
@@ -508,7 +523,7 @@ def _legacy_entries(directory: Path, device: int, budget: _Budget) -> list[tuple
             continue
         record = _normalized_legacy(fields, where)
         stored = record["id"]
-        if stored and _ID.fullmatch(stored).group(1) != owner:
+        if stored and _identity(stored, where).group(1) != owner:
             raise Refusal("ACCEPTANCE_OWNER_MISMATCH", f"{where} names another spec's namespace")
         found.append(
             (
@@ -517,7 +532,7 @@ def _legacy_entries(directory: Path, device: int, budget: _Budget) -> list[tuple
                     provenance=STORED_LEGACY if stored else DERIVED_LEGACY,
                     home=home,
                     owner=owner,
-                    ordinal=_ID.fullmatch(stored).group(2) if stored else "",
+                    ordinal=_identity(stored, where).group(2) if stored else "",
                     finding=record["finding"],
                     severity=record["severity"],
                     accepted=record["accepted"],
@@ -549,7 +564,7 @@ def _record_entries(
         expected = "acceptance-" + record["id"].lower()
         if leaf.name != expected:
             raise Refusal("ACCEPTANCE_PATH_MISMATCH", f"{home} does not live at its own identity")
-        if record["spec"] != owner or _ID.fullmatch(record["id"]).group(1) != owner:
+        if record["spec"] != owner or _identity(record["id"], str(home)).group(1) != owner:
             raise Refusal("ACCEPTANCE_OWNER_MISMATCH", f"{home} names another spec's namespace")
         found.append(
             Entry(
@@ -557,7 +572,7 @@ def _record_entries(
                 provenance=CANONICAL_RECORD,
                 home=home,
                 owner=owner,
-                ordinal=_ID.fullmatch(record["id"]).group(2),
+                ordinal=_identity(record["id"], str(home)).group(2),
                 finding=record["finding"],
                 severity=record["severity"],
                 accepted=record["accepted"],

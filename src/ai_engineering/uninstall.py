@@ -155,7 +155,10 @@ def _opencode_source() -> str:
 
 
 def _json_guard_owned(data: dict, how: str) -> bool:
-    own = []
+    # Entries of ours found anywhere in the settings tree. `dict` and not `object`: every
+    # one of them is rendered as JSON below, and a list that could hold anything is a list
+    # whose renderer has to guess.
+    own: list[dict] = []
 
     def collect(node) -> None:
         if isinstance(node, list):
@@ -175,7 +178,7 @@ def _json_guard_owned(data: dict, how: str) -> bool:
         return sorted(map(render, own)) == sorted(map(render, expected))
 
     if how == "json_claude":
-        expected = []
+        expected: list[dict] = []
         for event in wiring.EVENTS:
             hook = {"type": "command", "command": wiring.command(event)}
             expected.extend(({"matcher": "*", "hooks": [hook]}, hook))
@@ -187,18 +190,17 @@ def _json_guard_owned(data: dict, how: str) -> bool:
         ]
         return data.get("failClosed") is True and same(expected)
     if how == "json_codex":
-        expected = {
-            "handlers": [
-                {
-                    "type": "command",
-                    "command": wiring.command("PreToolUse"),
-                    "timeout_ms": 5000,
-                    "status_message": f"{wiring.MARK} guards",
-                    "async": False,
-                }
-            ]
+        # Named apart from the list above: `expected` there is what a settings file should
+        # hold, and this is one handler plus the object that wraps it. One name for both was
+        # two shapes under one word, which is how a reader and a type checker both lose it.
+        handler = {
+            "type": "command",
+            "command": wiring.command("PreToolUse"),
+            "timeout_ms": 5000,
+            "status_message": f"{wiring.MARK} guards",
+            "async": False,
         }
-        return same([expected, expected["handlers"][0]])
+        return same([{"handlers": [handler]}, handler])
     if how == "json_copilot":
         return data == {
             "hooks": {"preToolUse": [{"type": "command", "command": wiring.command("PreToolUse")}]}
@@ -476,7 +478,7 @@ def redirection(path: Path, allowed: tuple[Path, ...]) -> str:
                 return ""
             except OSError:
                 return "undecided"
-            if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", 0):
+            if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", False):
                 return "redirected"
         return ""
     return "undecided"
@@ -502,7 +504,7 @@ def fate(row: dict, root: Path | None) -> str:
         return f"kept — not this repository ({root})"
     if not owned(row, root):
         return "kept — receipt target is not one this installer can own"
-    where = redirection(wiring.expand(path), anchors(kind, root))
+    where = redirection(wiring.expand(str(path)), anchors(str(kind), root))
     if where == "redirected":
         # Not a keep either. A row this run did not undo is a row still in the receipt and a
         # guard still wired; reporting that as success is the failure this verb exists to

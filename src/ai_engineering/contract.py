@@ -906,7 +906,25 @@ DESCRIPTION_MAX = 1000
 # release could have handed either of them a binary that finds nothing, and the gate would
 # have gone green having scanned with it. All five downloads are checked now, and a test
 # reads the workflow rather than a list, so the sixth is caught for never being named.
-REPO_CEILING = 52_102
+# 52,102 to 52,168 for 45 type errors nobody could see, and for the reason nobody could.
+#
+# `AGENTS.md` says `just check` is what CI runs. It was not: `typecheck` ran `tsc` and the
+# plugin suite, and mypy existed in the workflow alone — so the local gate went green over
+# 45 errors in 15 files for the whole life of this branch, and the first anybody could know
+# was the first time it reached CI, 253 commits in. Pushing was what found it.
+#
+# None of the 45 is silenced. Two were mine. Three were the same platform guard written as
+# `os.name` instead of `sys.platform`, which is the same answer at runtime and opaque to a
+# type checker, so every Windows-only symbol read as missing everywhere else. Four were a
+# regex `fullmatch` whose `None` four call sites treated as impossible — a malformed id
+# would have raised an AttributeError from inside the parser whose whole job is refusing
+# malformed input. And several were one name meaning two things in one function: `low` and
+# `high` as both strings and version tuples, `commands` as both a subparser and a counter,
+# `expected` as both a settings list and one handler.
+#
+# mypy is in the local recipe now, pinned to the workflow's version, and a test holds the
+# two equal. The next divergence of this shape costs one run, not one branch.
+REPO_CEILING = 52_168
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

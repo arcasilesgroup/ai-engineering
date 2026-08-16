@@ -145,7 +145,7 @@ def _anchored(root: Path, relative: str) -> Path:
             return walked  # absent is absent, and nothing was redirected on the way
         except OSError as error:
             raise _Unreadable from error
-        if stat.S_ISLNK(info.st_mode) or getattr(info, "st_reparse_tag", 0):
+        if stat.S_ISLNK(info.st_mode) or getattr(info, "st_reparse_tag", False):
             raise _Unreadable
     return walked
 

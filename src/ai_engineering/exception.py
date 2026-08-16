@@ -64,7 +64,7 @@ def anchored_store() -> Path:
             raise _Unsafe(f"the grant store could not be read at {component or 'its home'}") from (
                 error
             )
-        if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", 0):
+        if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", False):
             raise _Unsafe(f"the grant store is redirected at {component or 'its home'}")
     return walked
 

@@ -220,5 +220,7 @@ def verify(
         outcome.result(word),
         summary=f"{sum(fact.status == 'PASS' for fact in facts)} of 3 checkpoint receipts pass",
         checks=facts,
-        remaining=[fact.detail for fact in facts if fact.status not in ("PASS", "SKIPPED")],
+        remaining=[
+            fact.detail for fact in facts if fact.detail and fact.status not in ("PASS", "SKIPPED")
+        ],
     )
