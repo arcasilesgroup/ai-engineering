@@ -471,21 +471,35 @@ def cross_check(lane: Lane, root: Path, inputs: list[str]) -> outcome.Fact:
     return run(lane, root, inputs)
 
 
-def model(root: Path) -> list[dict]:
-    """The boundaries `policy/threat-model.toml` declares, or nothing if it cannot be read.
+def model(root: Path) -> list[dict] | None:
+    """The boundaries `policy/threat-model.toml` declares, or `None` if it cannot be read.
 
-    Read from the repository being scanned rather than from the installed package: a
-    consumer's own threat model is theirs, and a framework that showed its own boundaries
-    over somebody else's tree would be answering a question nobody asked.
+    `None` and `[]` are different answers and the first version of this conflated them: a
+    file holding only comments is readable and declares nothing, and it was reported as one
+    that could not be read — a false statement that reddened the gate.
+
+    Every way the file can be shaped wrongly is caught here rather than thrown at the caller.
+    `[boundary]` instead of `[[boundary]]` is the likeliest typo this format has, and it
+    produced a list of the string's characters and then an AttributeError out through the
+    security gate — the same defect this module fixed in its SARIF reader one commit earlier,
+    committed while fixing it.
+
+    Read from the repository being scanned rather than from the installed package, so that
+    when a consumer-facing verb reaches this it reads the consumer's own boundaries. Nothing
+    reaches it that way yet: `just security` is the only caller and it passes this tree.
     """
 
     import tomllib
 
     where = Path(root) / "policy" / "threat-model.toml"
     try:
-        return list(tomllib.loads(where.read_text(encoding="utf-8")).get("boundary", []))
+        declared = tomllib.loads(where.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):
-        return []
+        return None
+    rows = declared.get("boundary", [])
+    if not isinstance(rows, list):
+        return None
+    return [row for row in rows if isinstance(row, dict)]
 
 
 def baseline(root: Path) -> int:
@@ -512,10 +526,6 @@ def baseline(root: Path) -> int:
                 print(f"  {finding.state:<11} {lane.id:<13} {finding.effect}")
                 print(f"  {'':<11} {'':<13} decided by {finding.decided_by}")
                 print(f"  {'':<11} {'':<13} nobody has answered: {', '.join(finding.blank())}")
-    # What the dependency answer was about, named. `trivy fs .` reads every repository and
-    # names no stack, so one whose manifests the engine does not support passes exactly like
-    # one it read and found nothing in. A repository with no manifest at all is declining a
-    # dependency scan rather than passing one, and it says so.
     # The boundaries this framework says it holds, counted where a person running the
     # security lane will see them. The threat model is data and a test resolves every path
     # in it; what this adds is that somebody who runs `just security` is told how many
@@ -526,23 +536,24 @@ def baseline(root: Path) -> int:
     # not failing a check, and demanding one from every consumer would make this lane an
     # opinion; a threat model that is there and cannot be parsed is a control nobody can
     # read, and that is not a pass.
+    boundaries = model(root)
     if not (Path(root) / "policy" / "threat-model.toml").is_file():
         print(
             f"  {'SKIPPED':<11} {'boundaries':<13} this repository declares no threat model, so "
             f"there is nothing for these engines to be about"
         )
-    elif boundaries := model(root):
-        held = [row for row in boundaries if not row.get("reason")]
-        print(
-            f"  {'OBSERVED':<11} {'boundaries':<13} {len(boundaries)} declared, {len(held)} with "
-            f"a control this tree holds whole"
-        )
-    else:
+    elif boundaries is None:
         print(
             f"  {'INCOMPLETE':<11} {'boundaries':<13} the threat model is there and could not be "
             f"read, so nothing says what these engines are for"
         )
         worst = 1
+    else:
+        held = [row for row in boundaries if not row.get("reason")]
+        print(
+            f"  {'OBSERVED':<11} {'boundaries':<13} {len(boundaries)} declared, {len(held)} with "
+            f"a control this tree holds whole"
+        )
 
     # The second opinion, asked rather than only declared. This function existed and nothing
     # in the product called it: an organisation that installs one of these engines expecting
@@ -556,6 +567,10 @@ def baseline(root: Path) -> int:
         if fact.status not in ("PASS", "SKIPPED"):
             worst = 1
 
+    # What the dependency answer was about, named. `trivy fs .` reads every repository and
+    # names no stack, so one whose manifests the engine does not support passes exactly like
+    # one it read and found nothing in. A repository with no manifest at all is declining a
+    # dependency scan rather than passing one, and it says so.
     present = stacks(root)
     print(
         f"  {'OBSERVED':<11} {'manifests':<13} {', '.join(present)}"

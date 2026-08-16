@@ -149,7 +149,17 @@ def normalise(raw: dict) -> dict:
     out.setdefault("tool_name", out.get("tool") or "")
     out.setdefault("tool_input", out.get("input") or {})
     if isinstance(out["tool_input"], dict):
-        out["tool_input"] = {aliases.get(k, k): v for k, v in out["tool_input"].items()}
+        # The built-in floor and not the adapter table, because the table is one flat map
+        # over every surface and a tool's own arguments are not a surface's payload. With
+        # the adapters merged in, OpenCode's `args → tool_input` and `tool → tool_name`
+        # rewrote the arguments of an MCP tool whose parameters are legitimately named
+        # `args` and `tool` — on Claude Code, which never sent either spelling. Measured:
+        # `{"tool": "rm", "args": ["-rf", "/"]}` reached the guards and the audit record as
+        # `{"tool_name": "rm", "tool_input": ["-rf", "/"]}`, a call the surface never made.
+        #
+        # Nothing shipped today reads those keys, so it corrupted the record rather than
+        # opening a door. The next guard would not have been so lucky.
+        out["tool_input"] = {BUILT_IN_ALIASES.get(k, k): v for k, v in out["tool_input"].items()}
         # The notebook tools send notebook_path and nothing else. Both guards on their
         # rows read file_path, so without this the table claimed coverage of two tools
         # that always passed.

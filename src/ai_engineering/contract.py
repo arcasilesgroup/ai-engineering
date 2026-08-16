@@ -1657,7 +1657,30 @@ DESCRIPTION_MAX = 1000
 #
 # Writing that fixture found one more: `covered` indexed an empty baseline and crashed, where
 # this module's own rule is that an engine which cannot answer leaves every stack unread.
-REPO_CEILING = 59_000
+#
+# 59,000 to 59,135 for a second block review, and it found four things the first one of this
+# shape would have found too if it had been asked the same question twice.
+#
+# One adapter's translation was being applied to every other surface's tool arguments.
+# `adapter_aliases` is one flat table and it was reaching inside `tool_input`, so OpenCode's
+# `args` and `tool` rewrote the parameters of an MCP call on Claude Code, which never sent
+# either spelling — measured, and reaching the guards and the audit record as a call the
+# surface never made. Nothing shipped reads those keys, so it corrupted the record rather
+# than opening a door; the next guard would not have been so lucky.
+#
+# `scan.model` took an AttributeError out through the security gate on `[boundary]` instead
+# of `[[boundary]]`, which is the likeliest typo this format has — the same defect this
+# module had fixed in its SARIF reader one commit earlier, committed while fixing it. And it
+# called a readable file that declares nothing unreadable, which is a false statement that
+# reddened the gate.
+#
+# Two of the new checks could not fail. The guard-to-boundary check only saw handlers named
+# `*_guard`, so a blocking hook called anything else shipped unnamed and `self_protect`'s own
+# row could be deleted unnoticed. The orphan check searched for a mention rather than a read,
+# and passed the two purest instances of what it exists to find — a schema nothing validates
+# against and a register nothing prints, both named only in a docstring. It finds four now,
+# and each carries the truth about why it has no reader rather than an absence.
+REPO_CEILING = 59_135
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

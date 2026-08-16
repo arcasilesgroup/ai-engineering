@@ -63,9 +63,13 @@ def test_every_guard_in_the_dispatcher_is_a_boundary_this_model_names():
     model reds the build naming itself."""
     import chain
 
-    guards = {
-        name for handlers in chain.TABLE.values() for name, _ in handlers if name.endswith("_guard")
-    }
+    # Every hook that is not telemetry, and not only the ones spelled `*_guard`. A reviewer
+    # defeated the suffix version twice: a blocking hook named `secret_scan` shipped with no
+    # row and the file stayed green, and deleting `self_protect`'s own row — a blocking
+    # PreToolUse hook that is in the model — went unnoticed for the same reason. A check that
+    # only sees the handlers somebody remembered to name correctly is a naming convention
+    # wearing a control's clothes.
+    guards = {name for handlers in chain.TABLE.values() for name, _ in handlers} - chain.TELEMETRY
     named = {Path(row["control"]).stem for row in boundaries()}
     missing = sorted(guards - named)
     assert not missing, f"guards this threat model never mentions: {missing}"
@@ -140,6 +144,20 @@ def test_a_skill_with_no_declared_phase_says_so_rather_than_reading_as_one():
 POLICY_EXEMPT = {
     "policy/adapters": "read as a directory by `hooks/chain.py`, which globs it rather than "
     "naming any one file — an adapter is added by dropping it in, which is the point",
+    "policy/pilot-register.toml": "read by `tests/pilot_register.py`, which the `register` "
+    "recipe runs as a step of `just check` rather than as a test — the reader lives under "
+    "tests/ and runs as a gate, and `just register` is the command that prints it",
+    "policy/quality-gate.toml": "read by `tests/quality_gate.py`, in the same shape as the "
+    "pilot register: a gate step whose reader happens to live beside the suite, and the "
+    "workflow that consumes its verdict names the reader rather than the data",
+    "policy/envelope-v1.schema.json": "nothing validates against it, and that is a real gap "
+    "rather than a shape. The envelope is emitted by `cli.py` and the schema is enforced by "
+    "the suite, so a wrong envelope reds the gate and never a user's run. Closing it means "
+    "validating on the emitting path, which is a change to what every JSON call costs",
+    "policy/surface-adapter-v1.schema.json": "nothing in the product validates an adapter "
+    "against it: the dispatcher reads the directory raw because it runs on a 20 ms budget "
+    "and may not import the package. Recorded as a half-built control in the "
+    "`dispatcher-input` boundary, with what is and is not covered",
 }
 
 
@@ -161,10 +179,31 @@ def test_every_policy_file_is_read_by_something_that_is_not_a_test():
         if not path.is_file():
             continue
         relative = path.relative_to(ROOT).as_posix()
-        if any(relative.startswith(prefix) for prefix in POLICY_EXEMPT):
+        if any(relative == prefix or relative.startswith(prefix + "/") for prefix in POLICY_EXEMPT):
             continue
+        # A line that opens the file, not a line that mentions it. Searching for the bare
+        # name passed the two purest instances of what this test exists to find: the adapter
+        # schema is named only in a docstring and a comment and nothing validates against it,
+        # and the pilot register is named only in a docstring. It also passed a planted
+        # `policy/settings.json`, because that name appears all over the installer. A
+        # mention is not a reader, and this is the difference between the two.
         found = subprocess.run(
-            ["git", "-C", str(ROOT), "grep", "-l", "--", path.name, *where],
+            [
+                "git",
+                "-C",
+                str(ROOT),
+                "grep",
+                "-lE",
+                # The name inside a quoted string, which is what a read looks like and what
+                # prose does not: this repository writes a path in backticks when it is
+                # talking about it and in quotes when it is opening it. A keyword-and-name
+                # pattern was not enough — it still passed the adapter schema and the pilot
+                # register, both named only in a docstring, which are the two purest
+                # instances of the thing this test exists to find.
+                rf"[\"'][^\"']*{path.name}",
+                "--",
+                *where,
+            ],
             capture_output=True,
             text=True,
             check=False,
@@ -217,3 +256,37 @@ def test_the_security_lane_counts_the_boundaries_a_person_can_see(tmp_path, caps
     printed = capsys.readouterr().out
     assert f"{len(boundaries())} declared" in printed
     assert "INCOMPLETE  coverage" in printed
+
+    # The second half of that line carries the only judgement in it, and nothing read it:
+    # replacing `held` with every row left the suite green. A boundary whose control is half
+    # built is counted apart, and the count says so.
+    partial = [row for row in boundaries() if row.get("reason")]
+    assert partial, "no boundary records a half-built control, so this proves nothing"
+    assert f"{len(boundaries()) - len(partial)} with a control this tree holds whole" in printed
+
+    # And a threat model that is readable and declares nothing is not an unreadable one.
+    (tmp_path / "policy" / "threat-model.toml").write_text("# nothing yet\n", encoding="utf-8")
+    assert scan.baseline(tmp_path) == 0
+    assert "OBSERVED    boundaries    0 declared" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "body",
+    (
+        "[boundary]\nid = 'x'\n",  # the likeliest typo this format has
+        "boundary = 'later'\n",
+        "boundary = 5\n",
+        "[[boundary]]\nid = 'x'\n[[other]]\n",
+    ),
+)
+def test_a_threat_model_shaped_wrongly_is_a_verdict_and_never_a_traceback(tmp_path, body):
+    """`[boundary]` instead of `[[boundary]]` produced a list of a string's characters and
+    then an AttributeError out through the security gate — the same defect this module had
+    just fixed in its SARIF reader, committed while fixing it. A gate that terminates with a
+    traceback has not decided anything."""
+    from ai_engineering import scan
+
+    (tmp_path / "policy").mkdir()
+    (tmp_path / "policy" / "threat-model.toml").write_text(body, encoding="utf-8")
+    read = scan.model(tmp_path)
+    assert read is None or all(isinstance(row, dict) for row in read)
