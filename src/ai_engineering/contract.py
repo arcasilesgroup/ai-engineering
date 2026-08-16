@@ -1699,7 +1699,23 @@ DESCRIPTION_MAX = 1000
 # moved is the one a reviewer sent back. What the same paragraph records is the nine defects
 # two independent block reviews found in work this session had already called done — every
 # one by executing, none by re-reading, and not one of them by a gate.
-REPO_CEILING = 59_218
+#
+# 59,218 to 59,307 for rule 8, which had no control at all. A measurement of the process
+# report went looking and found a shipped specification carrying its owner's home directory,
+# pasted out of a terminal three waves ago — a username, a directory layout and a whole home
+# in one string, in a repository that ships as a wheel. Nobody could have noticed: the only
+# thing looking was a person reading a diff.
+#
+# The synthetic names fixtures use are allowed by name rather than by pattern, because "looks
+# synthetic" is a judgement and a list is not. The one live breach is exempted with what it
+# is and why it stays: this project does not rewrite a record it has shipped, and the name is
+# the commit author of all 321 commits on this branch, so it is hygiene rather than
+# disclosure. Named so it cannot grow, and so the next one is refused.
+#
+# Writing it took three goes to stop the file matching itself. Spelled as one literal, the
+# alternation between the first two prefixes is a home directory belonging to a user called
+# `|`, and so was the comment explaining that.
+REPO_CEILING = 59_307
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

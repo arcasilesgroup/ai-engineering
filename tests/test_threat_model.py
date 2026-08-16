@@ -290,3 +290,76 @@ def test_a_threat_model_shaped_wrongly_is_a_verdict_and_never_a_traceback(tmp_pa
     (tmp_path / "policy" / "threat-model.toml").write_text(body, encoding="utf-8")
     read = scan.model(tmp_path)
     assert read is None or all(isinstance(row, dict) for row in read)
+
+
+# Rule 8 says no secrets, no personal data and no machine paths in committed files, and
+# nothing enforced it. A measurement of the process report found a real breach sitting in the
+# tree: a shipped specification carries a home directory with its owner's name in it, pasted
+# out of a terminal three waves ago. Nobody could have noticed, because the only thing looking
+# was a person reading a diff.
+#
+# The synthetic names fixtures use are allowed by name. That is deliberate and narrow: a test
+# needs a path shaped like a real one, and a list of the words we chose is the difference
+# between "this is a fixture" and "this looks like a fixture".
+# Every one of these was chosen by somebody writing a fixture, and they are listed rather
+# than pattern-matched because "looks synthetic" is a judgement and a list is not.
+FIXTURE_NAMES = ("somebody", "someone", "My", "me", "user", "test", "skills", "victim", "…")
+PATH_EXEMPT = {
+    "specs/008-the-receipt-that-only-grows/spec.md": "two lines pasted from a terminal in a "
+    "shipped specification. This project does not rewrite a record it has shipped, and the "
+    "name is the commit author of every commit on this branch, so it is a hygiene breach "
+    "rather than a disclosure. Named here so it cannot grow, and so the next one is refused",
+}
+
+
+def test_no_committed_file_carries_somebody_s_home_directory():
+    """Rule 8, which had no control at all until a process audit went looking.
+
+    A machine path in a committed file is somebody's username, their directory layout and
+    often their whole home in one string, published to whoever installs the wheel. It arrives
+    the same way every time: pasted out of a terminal into a document, where it reads like
+    output rather than like data about a person.
+
+    Fixtures need paths that look real, so the names we made up for them are allowed by name.
+    Anything else is refused, and an exemption has to say what it is and why it stays.
+    """
+    import re
+    import subprocess
+
+    tracked = subprocess.run(
+        ["git", "-C", str(ROOT), "ls-files"], capture_output=True, text=True, check=False
+    ).stdout.split()
+    # Assembled from pieces so this file does not match itself. Spelled out, the alternation
+    # between the first two prefixes reads as a home directory belonging to a user named `|`,
+    # and the comment explaining that would have done it too.
+    sep = "/"
+    prefixes = (
+        f"{sep}Users{sep}",
+        f"{sep}home{sep}",
+        "C:" + "\\" * 2 + "Users" + "\\" * 2,
+    )
+    home = re.compile("(" + "|".join(prefixes) + r")([^/\\\s\"'`,)]+)")
+
+    found = []
+    for name in tracked:
+        if name in PATH_EXEMPT or name.endswith((".lock", "-lock.json")):
+            continue
+        try:
+            body = (ROOT / name).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for _, who in home.findall(body):
+            if who not in FIXTURE_NAMES:
+                found.append(f"{name}: a home directory belonging to {who!r}")
+
+    assert not found, (
+        "\n".join(sorted(set(found)))
+        + "\nRule 8: no machine paths in committed files. Use a name from FIXTURE_NAMES, "
+        "elide it, or add the file to PATH_EXEMPT with what it is and why it stays."
+    )
+
+
+def test_the_path_exemptions_are_real_files_and_carry_an_argument():
+    for name, why in PATH_EXEMPT.items():
+        assert (ROOT / name).is_file(), f"{name} is exempted and is not in the tree"
+        assert len(why.split()) >= 20, f"{name}: the reason says too little to argue with"
