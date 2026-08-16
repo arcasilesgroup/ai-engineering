@@ -1119,7 +1119,21 @@ DESCRIPTION_MAX = 1000
 # because the branch is what is being judged. Not "and passed": requiring green there would
 # mean nothing merges until the whole standing backlog is cleared, which is a different
 # decision and not this one's to take.
-REPO_CEILING = 53_687
+# 53,687 to 53,921, and 201 of those lines were already in the last commit. The gate ran
+# before `git add`, so `git ls-files` could not see two new files and the ceiling closed on
+# a tree that was missing them — a commit that went over its own ceiling and said it had
+# not. CI would have caught it and CI never started, for the reason below. Everything is
+# staged before the gate now.
+#
+# The rest is the workflow that would not parse. A comment inside a `run:` block quoted the
+# syntax of a workflow expression, in a sentence explaining why the value beside it travels
+# through the environment instead. The runner reads a script for expressions wherever they
+# appear, including inside a `#`, so the file became invalid — and an invalid workflow does
+# not fail a job. It produces a run with no jobs at all, named after the file, while every
+# job inside it silently never happens, `CI Result` among them. actionlint says it in one
+# line and lives inside the job that could not start, so the narrow half now runs in the
+# suite on every machine: no workflow may carry an expression with nothing inside it.
+REPO_CEILING = 53_935
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

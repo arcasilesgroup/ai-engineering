@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -685,4 +686,29 @@ def test_every_downloaded_engine_has_its_bytes_checked():
         following = lines[index + 1] if index + 1 < len(lines) else ""
         assert "sha256sum -c" in following, (
             f"{target} is downloaded on line {index + 1} and its bytes are never checked"
+        )
+
+
+def test_no_workflow_carries_an_expression_with_nothing_in_it():
+    """A workflow that does not start is not a workflow that fails.
+
+    Measured on 2026-08-16: a comment inside a `run:` block quoted the syntax of a GitHub
+    expression, in a sentence explaining why the value beside it travels through the
+    environment instead. The runner reads a `run:` block for expressions and does not care
+    that this one is inside a `#`, so the file became invalid — and an invalid workflow does
+    not produce a failing job. It produces a run with no jobs at all, named after the file,
+    while every job it contains silently never happens. On a pull request that reads as one
+    lane missing, which is the shape `CI Result` exists to catch and could not, because
+    `CI Result` is one of the jobs that never ran.
+
+    actionlint says this in one line and lives in CI, inside the very job that could not
+    start. So the narrow half of it runs here too, in the suite, on every machine.
+    """
+
+    empty = re.compile(r"\$\{\{\s*\}\}")
+    for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+        body = path.read_text(encoding="utf-8")
+        assert empty.search(body) is None, (
+            f"{path.name} holds an expression with nothing inside it: the runner parses it "
+            f"wherever it appears, including inside a comment, and refuses the whole file"
         )

