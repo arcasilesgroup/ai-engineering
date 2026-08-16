@@ -596,6 +596,11 @@ def main(argv: list[str]) -> outcome.Result:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
+    # A terminal, and `-y` does not substitute for one: `test_uninstall_is_explicit` pins
+    # exactly that, and it is the decision this repository already took. I moved this line
+    # to let the install matrix run and put it back when the test that owns it said no —
+    # the matrix is what changed instead, because a step that can never pass is a step that
+    # proves nothing either way.
     if not sys.stdin.isatty():
         print("  INCOMPLETE: uninstall requires a person at a keyboard. Nothing removed.")
         return outcome.result("INCOMPLETE")

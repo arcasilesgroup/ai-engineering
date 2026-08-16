@@ -1003,7 +1003,13 @@ DESCRIPTION_MAX = 1000
 # Intent; a repository on its first day has none, and `init` does not write one because it
 # is the user's to write. The refusal names the Intent and what to do about it now, the
 # install matrix asserts that wording, and a fixture asserts no spec is published anyway.
-REPO_CEILING = 52_643
+# 52,643 to 52,695 for a step that could never pass, and for a decision I moved and put
+# back. `uninstall` requires a person at a keyboard and `-y` does not substitute for one —
+# `test_uninstall_is_explicit` owns that, and it said no when I changed it. So the matrix
+# changed instead: the removal runs under a pty where one can be made, and the refusal is
+# what is asserted where one cannot. A step that cannot pass on any platform proves nothing
+# in either direction, which is worse than either answer.
+REPO_CEILING = 52_695
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -549,7 +549,20 @@ jobs:
         shell: bash
         run: |
           cd "$RUNNER_TEMP/stranger"
-          ai-eng uninstall --project -y
+          # A runner has no controlling terminal, and this verb requires one: `-y` does not
+          # substitute for a keyboard, which is a decision `test_uninstall_is_explicit` owns.
+          # So the removal runs under a pty where one can be made, and the refusal is what is
+          # asserted where one cannot — rather than a step that could never pass on any of
+          # the three, which is what this was.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            ai-eng uninstall --project -y 2>&1 | tee uninstall.log || true
+            grep -q "requires a person at a keyboard" uninstall.log \
+              || { echo "uninstall did not name its own gate"; exit 1; }
+            grep -q chain.py "$HOME/.claude/settings.json" \
+              || { echo "a refused uninstall removed the guard entry anyway"; exit 1; }
+            exit 0
+          fi
+          python3 -c "import pty,sys; sys.exit(pty.spawn(['ai-eng','uninstall','--project','-y']))"
           test -d specs || { echo "uninstall deleted the user's specs"; exit 1; }
           # "specs/ survived" is equally true of a run that removed nothing and said so. The
           # copies this job forced `link` to make are the branch R-008-01 named as unproven,

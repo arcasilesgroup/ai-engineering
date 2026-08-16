@@ -172,3 +172,31 @@ def test_the_first_spec_names_the_missing_intent_rather_than_a_path(stranger, ca
     assert result.outcome == "INCOMPLETE"
     assert "no Solution Intent here yet" in printed
     assert not list((stranger / "specs").glob("*first-thing")), "a spec was published anyway"
+
+
+def test_uninstall_refuses_without_a_keyboard_and_removes_nothing(stranger, monkeypatch, capsys):
+    """The gate no test had exercised outside a faked terminal, on a real install.
+
+    `-y` does not substitute for a keyboard here — `test_uninstall_is_explicit` pins that,
+    and it stands. What this adds is the same refusal against a repository this session
+    actually installed into, and the proof that a refusal removes nothing."""
+
+    import sys
+
+    from ai_engineering import uninstall, wiring
+
+    init.main(["--global", "--project", ".", "-y"])
+    capsys.readouterr()
+    before = wiring.receipt().get("wrote")
+    assert before, "the install wrote nothing, so this proves nothing"
+
+    class NoTerminal:
+        def isatty(self):
+            return False
+
+    monkeypatch.setattr(sys, "stdin", NoTerminal())
+    refused = uninstall.main(["--project", "-y"])
+
+    assert refused.outcome == "INCOMPLETE"
+    assert "requires a person at a keyboard" in capsys.readouterr().out
+    assert wiring.receipt().get("wrote") == before, "a refusal changed the receipt"
