@@ -229,3 +229,9 @@ id = "EP-305"
 asks = "names express intention"
 reason = "a judgement about language. The half that executes is the other clause of the same requirement: an error carries its cause and its cure, asserted in `test_doctor.py` and `test_outcomes.py`."
 reopen_when = "a naming rule exists that is not a preference"
+
+[[ungated]]
+id = "EP-324"
+asks = "no code before an approved plan"
+reason = "`hooks/change_scope_guard.py` reads whether a plan exists on the branch, which is the weaker of the two questions and the only one a hook can answer inside its latency budget. Approval here is an MADR naming an exact digest; no plan in this repository has one, so a guard demanding it would deny every write on every branch including the one writing the plan."
+reopen_when = "a plan is approved by digest in an accepted MADR, so the guard has something to read that is not itself"

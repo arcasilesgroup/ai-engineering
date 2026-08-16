@@ -1411,7 +1411,17 @@ DESCRIPTION_MAX = 1000
 # off the skill rather than listing them twice: a step deleted from the skill and a heading
 # deleted from the template both turn it red, which is the joint the capability manifest was
 # missing when it declared a capability the gate forbade.
-REPO_CEILING = 56_394
+# 56,394 to 56,440 for EP-324, and for a sentence rather than a behaviour. Rule 1 says "no
+# code before an approved plan"; `change_scope_guard` reads whether a plan exists on the
+# branch, which is the weaker of the two questions and the only one a hook can answer inside
+# its latency budget. The refusal said "has no plan", true about what was checked and easy
+# to read as the stronger claim. It now says which of the two it asked.
+#
+# The guard is not made to demand approval, and that is deliberate: approval here is an MADR
+# naming an exact digest, no plan in this repository has one, and a guard demanding it would
+# deny every write on every branch including the one writing the plan. Recorded in the
+# register with what would change it, rather than left in a comment nobody would find.
+REPO_CEILING = 56_450
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

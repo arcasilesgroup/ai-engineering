@@ -1544,3 +1544,31 @@ def test_an_endpoint_with_no_stated_retention_receives_nothing(tmp_path, monkeyp
     # which is the honest next answer for a host that does not exist.
     configured('[observability]\nendpoint = "http://collector.invalid:4318"\nretention_days = 30\n')
     assert "nobody has decided" not in _otlp.post("logs", {})[2]
+
+
+def test_the_plan_gate_says_which_of_the_two_questions_it_asked():
+    """EP-324. Rule 1 says "no code before an approved plan". This guard reads whether a
+    plan exists on the branch, which is the weaker of the two, and its refusal said "has no
+    plan" — true about what it checked and easy to read as the stronger claim.
+
+    Approval here is an MADR naming an exact digest and no plan in this repository has one,
+    so a guard demanding it would deny every write on every branch including the one writing
+    the plan. That is recorded in the register with what would change it. What this asserts
+    is the honesty of the sentence a person actually sees when they are denied."""
+
+    import tomllib
+
+    source = (Path(__file__).resolve().parents[1] / "hooks" / "change_scope_guard.py").read_text(
+        encoding="utf-8"
+    )
+    assert "not that anybody approved it" in source
+    assert "Existence, and never approval" in source
+
+    register = tomllib.loads(
+        (Path(__file__).resolve().parents[1] / "policy" / "pilot-register.toml").read_text(
+            encoding="utf-8"
+        )
+    )
+    excused = {str(row["id"]): row for row in register["ungated"]}
+    assert "EP-324" in excused, "the gap is in the guard and nowhere a reader would find it"
+    assert excused["EP-324"]["reopen_when"].strip()

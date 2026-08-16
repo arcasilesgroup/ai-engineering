@@ -45,7 +45,16 @@ def has_plan(names: set[str]) -> bool:
     """The plan that opens the gate has to belong to the branch it opens. The glob this
     replaces asked only whether any plan.md existed anywhere under specs/, so the first
     spec a repository ever wrote opened the gate for every branch after it — which is why
-    this guard had not fired in its own repository since 001 landed."""
+    this guard had not fired in its own repository since 001 landed.
+
+    Existence, and never approval. Rule 1 says "no code before an approved plan" and this
+    reads whether a plan is there — which is the weaker of the two and the only one a hook
+    can answer in twenty milliseconds. Approval in this framework is an MADR naming an exact
+    digest, and no plan in this repository has one yet, so a guard that demanded it would
+    deny every write on every branch including the one writing the plan. The gap is recorded
+    in `policy/pilot-register.toml` with what would change it, and the message below says
+    which of the two questions was asked rather than implying both.
+    """
     return any(name.startswith("specs/") and name.endswith("plan.md") for name in names)
 
 
@@ -72,4 +81,7 @@ def run(payload: dict) -> str | None:
     files |= {target} if target else set()
     if len(files) <= budget:
         return None
-    return f"this branch has changed {len(files)} files and has no plan. Write one with /ai-plan."
+    return (
+        f"this branch has changed {len(files)} files and has no plan on it. Write one with "
+        f"/ai-plan. This checks that a plan exists, not that anybody approved it."
+    )
