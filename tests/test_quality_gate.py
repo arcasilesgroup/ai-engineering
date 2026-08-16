@@ -730,6 +730,8 @@ GATE_CONTROLS = {
     "asserted by tests/test_contracts.py",
     "security": "one fixture per INCOMPLETE code, plus the rules-tamper fixture",
     "register": "tests/test_pilot_register.py mutates the register and asserts each refusal",
+    "skilleval": "tests/test_skill_eval.py mutates the corpus once per routing rule and "
+    "asserts the harness refuses each one",
     "counts": "test_the_counts_this_repository_states_about_itself_are_the_counts_it_has",
 }
 

@@ -292,9 +292,17 @@ counts:
 register:
     @uv run python tests/pilot_register.py
 
+# The routing evaluation over the skill corpus. `ai-reliability-eval` was absorbed with the
+# instruction to become a CI harness, because an evaluation that always decides the same way
+# is code and not a prompt — and until this recipe existed, `check` evaluated a skill's
+# format and nothing about what it routes. It prints what it did not measure, because a
+# green from something named evaluation reads as an evaluation of the writing.
+skilleval:
+    @uv run python tests/skill_eval.py
+
 # Where things stand, from the tree, with no model doing the arithmetic. Not in `check`:
 # it asserts nothing and a report inside a gate is a report people read as a gate.
 stats:
     @uv run python tests/stats.py
 
-check: build lint typecheck test cover security register counts
+check: build lint typecheck test cover security register skilleval counts

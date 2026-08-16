@@ -1470,7 +1470,23 @@ DESCRIPTION_MAX = 1000
 # five lenses and the directory held seven, so `frontend.md` and `motion.md` — everything a
 # person actually sees — were written, committed and routed to by nothing. Every lens in the
 # directory has to be named by the procedure now.
-REPO_CEILING = 56_765
+#
+# 56,765 to 57,122 for the evaluation this gate never had. `ai-reliability-eval` was
+# absorbed with an instruction — become a CI harness, because an evaluation that always
+# decides the same way is code and not a prompt — and `just check` went on evaluating a
+# skill's format and nothing about what it routes. Routing is the part that is decidable
+# without a model: a skill that claims nothing is unreachable, two skills claiming one
+# situation is a fork with no rule for taking it, a refusal naming a skill that is not there
+# or a verb this CLI does not have is a dead end that reads like a route, and a refusal
+# sending work to one place while a third skill claims it is the corpus disagreeing with
+# itself. Eleven fixtures mutate the corpus and watch the harness refuse each one, because
+# a harness only ever run against a corpus that passes has never been seen saying no.
+#
+# It prints what it did not measure, in the run, every time: nothing here evaluates whether
+# a skill's instructions are any good. A green from something named evaluation reads as an
+# evaluation of the writing, and this is the repository that keeps finding controls that
+# read stronger than they are.
+REPO_CEILING = 57_122
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

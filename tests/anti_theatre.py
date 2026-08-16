@@ -30,7 +30,7 @@ WHOLE_TREE_MAX_AGE_HOURS = 96
 # names as the third argument — the mutation job runs in its own CI job, so its RAN line
 # never reaches this log, and without a second call that whole gate could stop running
 # with nothing to notice. One reader, one contract, called once per gate.
-REQUIRED = ("lint", "tests", "suite")
+REQUIRED = ("lint", "tests", "suite", "register", "skilleval")
 # This check only ever runs on this repository — it is not in the wheel and does not reach
 # a user's. So it covers the two manifests that can appear here, and no more.
 MANIFESTS = {
