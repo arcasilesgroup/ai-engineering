@@ -1430,7 +1430,17 @@ DESCRIPTION_MAX = 1000
 # Three attempts at that fixture were refused by the spec transaction with "could not prove
 # an unchanged safe filesystem state", and rule 7 says stop at two. It is in the register
 # with what it needs — a fixture that can stand up a repository shaped as `init` leaves one.
-REPO_CEILING = 56_470
+# 56,470 to 56,508, and EP-010 comes back out of that register. Stopping was right and it
+# was not the end of the work: rule 7 says stop guessing, not stop. The next move after the
+# stop is a diff against something that already works, and `tests/test_mut_spec.py` has a
+# fixture that runs `spec new` every day. The difference was never in the product — an
+# Intent has to be `active` and to name a spec that exists, which the fixture does and a
+# bare record does not, and three attempts at building one from scratch could not find that
+# because each was a fresh guess rather than a comparison.
+#
+# So both records are written now and their shapes are diffed, and against the template as
+# well, because two records equally wrong would agree with each other.
+REPO_CEILING = 56_518
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

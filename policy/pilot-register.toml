@@ -235,9 +235,3 @@ id = "EP-324"
 asks = "no code before an approved plan"
 reason = "`hooks/change_scope_guard.py` reads whether a plan exists on the branch, which is the weaker of the two questions and the only one a hook can answer inside its latency budget. Approval here is an MADR naming an exact digest; no plan in this repository has one, so a guard demanding it would deny every write on every branch including the one writing the plan."
 reopen_when = "a plan is approved by digest in an accepted MADR, so the guard has something to read that is not itself"
-
-[[ungated]]
-id = "EP-010"
-asks = "the same schema whether or not a human answered a question"
-reason = "tried and stopped rather than guessed. `spec new` asks nothing today — no prompt, no interactive branch — so the property holds by construction, and a fixture writing both records would have proven it. Three attempts at that fixture were refused by the spec transaction with `could not prove an unchanged safe filesystem state`, and rule 7 says stop at two. What the fixture needs is a repository shaped exactly as `ai-eng init` leaves one, which is a piece of work in itself."
-reopen_when = "a fixture can stand up a governed repository the transaction accepts, or `spec new` grows its first question"

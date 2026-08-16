@@ -580,3 +580,47 @@ def test_exception_help_names_the_command_and_documents_the_bypass_flags(wide, c
     ):
         assert token in out
     assert " why this change does not need a plan\n" in out
+
+
+def test_a_spec_written_with_answers_and_one_written_without_have_the_same_shape(
+    approved_repo, capsys, monkeypatch
+):
+    """EP-010. The record a person was asked questions for and the record nobody was asked
+    about have to be the same kind of thing, or an answer changes what the document *is*
+    rather than what it says — and a reader cannot tell which they are holding.
+
+    Nothing had ever compared the two: a search for a with-answers and without-answers pair
+    across the whole suite found one hit, a specification recording its own absence. It is
+    proven the only way it can be, by writing both and diffing the shape.
+
+    `spec new` asks nothing today — no prompt, no interactive branch — so the property holds
+    by construction, and that is exactly why it is worth pinning rather than assuming. The
+    day somebody adds a question is the day the two could diverge, and this is what notices.
+
+    Built on this file's fixture rather than a new one. Three attempts at standing up a
+    governed repository from scratch were refused by the transaction, and the difference
+    turned out to be here all along: the Intent has to be `active` and to name a spec that
+    exists, which `approved_repo` does and a bare record does not.
+    """
+
+    from ai_engineering import accept
+
+    shapes = []
+    for asked, slug in ((True, "asked-thing"), (False, "silent-thing")):
+        monkeypatch.setattr(accept, "NON_INTERACTIVE", not asked)
+        result = spec.main(["new", slug])
+        assert result.outcome == "PASS", capsys.readouterr().out
+        capsys.readouterr()
+        written = next((approved_repo / "specs").glob(f"*-{slug}")) / "spec.md"
+        body = written.read_text(encoding="utf-8")
+        front = [line.split(":", 1)[0] for line in body.split("---", 2)[1].splitlines() if line]
+        shapes.append(front + [line for line in body.splitlines() if line.startswith("## ")])
+
+    assert shapes[0] == shapes[1]
+    # And the shape is the template's, so a section added to one path and not the other
+    # cannot pass by both records happening to be equally wrong.
+    template = spec.TEMPLATE
+    expected = [
+        line.split(":", 1)[0] for line in template.split("---", 2)[1].splitlines() if line
+    ] + [line for line in template.splitlines() if line.startswith("## ")]
+    assert shapes[0] == expected
