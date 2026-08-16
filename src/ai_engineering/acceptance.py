@@ -25,6 +25,7 @@ import re
 import stat
 from dataclasses import dataclass, field, replace
 from datetime import date
+from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -53,6 +54,20 @@ _LEGACY_BLOCK = re.compile(rb"^(```yaml\r?\n).*?^```", re.S | re.M)
 _KEY = re.compile(r"^([a-zA-Z][\w.-]*):\s*(.*)$")
 _DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+@lru_cache(maxsize=64)
+def _pattern(source: str) -> re.Pattern[str]:
+    """One compiler for every schema pattern, and one place they are counted.
+
+    Compiled once rather than on each field of each block: the register is read whole
+    on every `doctor` run and the same handful of expressions were being rebuilt for
+    every value in it. The cache is bounded, because an unbounded one keyed on a string
+    is a place to put unbounded strings."""
+
+    return re.compile(source)
+
+
 _NOT_A_STRING = frozenset({"true", "false", "yes", "no", "on", "off", "null", "~"})
 _LEAF = re.compile(r"^acceptance-(r-[0-9]{3}-[0-9]{2})$")
 # The frozen legacy evidence syntax: one normalized repository-relative path, then the
@@ -162,10 +177,27 @@ class _Budget:
             )
 
 
-def schema() -> dict[str, Any]:
-    """The one canonical contract, read from its file so this code cannot drift from it."""
+# The bytes this reader is allowed to treat as its contract. Every `pattern` in that file
+# is compiled and run against text a person wrote, so the file is the only thing standing
+# between "our expression" and "an expression somebody supplied" — and until this line it
+# stood on nothing but its path. `capability` pins its schema exactly this way; this is the
+# same control on the other policy file, and the same one-line refusal when it moves.
+_EXPECTED_SCHEMA_DIGEST = "727523b570d737c527c51e92934dd1c516eab4231b72c57a7c496beaac34cec2"
 
-    return json.loads(paths.policy("risk-acceptance-v1.schema.json").read_text(encoding="utf-8"))
+
+def schema() -> dict[str, Any]:
+    """The one canonical contract, read from its file so this code cannot drift from it,
+    and refused when its bytes are not the bytes this release was built against."""
+
+    from ai_engineering import capability
+
+    loaded = json.loads(paths.policy("risk-acceptance-v1.schema.json").read_text(encoding="utf-8"))
+    if sha256(capability._canonical_json(loaded)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
+        raise Refusal(
+            "ACCEPTANCE_CONTRACT_UNRECOGNISED",
+            "the risk-acceptance contract is not the one this release was built against",
+        )
+    return loaded
 
 
 def _device(root: Path) -> int:
@@ -407,7 +439,7 @@ def _validate_field(
         raise Refusal("ACCEPTANCE_MALFORMED", f"{where} holds an unexpected {name}")
     if "enum" in node and value not in node["enum"]:
         raise Refusal("ACCEPTANCE_MALFORMED", f"{where} holds an undefined {name}")
-    if "pattern" in node and re.fullmatch(node["pattern"], value) is None:
+    if "pattern" in node and _pattern(node["pattern"]).fullmatch(value) is None:
         raise Refusal("ACCEPTANCE_MALFORMED", f"{where} holds a malformed {name}")
     if len(value) < node.get("minLength", 0):
         raise Refusal("ACCEPTANCE_MALFORMED", f"{where} holds an empty {name}")

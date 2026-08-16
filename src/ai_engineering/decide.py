@@ -355,6 +355,14 @@ def accept(root: Path, number: str) -> outcome.Result:
     makes the change reviewable — so this writes the record and names the commit rather
     than making it."""
 
+    # Four digits and nothing else, checked before the value reaches a glob. `--accept`
+    # takes text off the command line and this built a pattern out of it: `..` is a legal
+    # glob segment, so `--accept ../../../../etc/rc` matched a file outside `docs/adr` and
+    # the rewrite below would have edited it. A framework whose subject is filesystem
+    # authority does not get to make that mistake in its own record verb.
+    if re.fullmatch(r"[0-9]{4}", number) is None:
+        print(f"  INCOMPLETE: {number!r} is not a four-digit MADR number")
+        return outcome.result("INCOMPLETE")
     found = sorted(adr_dir(root).glob(f"{number}-*.md"))
     if len(found) != 1:
         print(f"  INCOMPLETE: {len(found)} MADRs are numbered {number}")

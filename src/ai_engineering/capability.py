@@ -38,7 +38,11 @@ SCHEMA_PATH = paths.policy("capability-manifest.schema.json")
 MANIFEST_PATH = paths.policy("capabilities.toml")
 _EXPECTED_SCHEMA_DIGEST = "2af5f4e200bcd1c19ed8577249c2fe2b0dbb41a22cc1924226f76b9b39c16620"
 _MAX_POLICY_BYTES = 1_000_000
-_ROOT = re.compile(r"^(?:\.|[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*)$")
+# The `\.` alternative that stood here matched nothing the class after it did not:
+# a dot is already in `[A-Za-z0-9._-]`. It read as though a lone `.` were special
+# and handled apart, and it never was — `_DOT_SEGMENT` below is what refuses dot
+# segments, in one place, on every root.
+_ROOT = re.compile(r"^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$")
 _DOT_SEGMENT = re.compile(r"(^|/)\.{1,2}(/|$)")
 _WILDCARD = re.compile(r"[*?\[\]{}]")
 _DIMENSIONS = {

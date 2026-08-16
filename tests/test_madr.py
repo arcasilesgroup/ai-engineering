@@ -1307,6 +1307,31 @@ def test_decide_madr_creation_is_exclusive_and_cleans_partial_writes(
     assert preexisting_home.is_dir() and list(preexisting_home.iterdir()) == []
 
 
+def test_accept_refuses_a_number_that_is_a_path_and_leaves_the_file_outside_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--accept` takes text off the command line and `accept` built a glob pattern out of
+    it. `..` is a legal glob segment, so a number spelled as a path matched a file outside
+    `docs/adr`, and the rewrite that follows would have edited it — in the one verb whose
+    subject is the record's own authority.
+
+    The refusal is asserted, and so is the file: a check that only reads the message would
+    pass against a version that printed it and wrote anyway."""
+
+    root = tmp_path / "escaping"
+    _repository_with_spec(root)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    outside = tmp_path / "0001-not-ours.md"
+    outside.write_text('---\nstatus: "proposed"\n---\n', encoding="utf-8")
+
+    result = decide.main(["", "--accept", "../../0001"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    assert "not a four-digit MADR number" in capsys.readouterr().out
+    assert outside.read_text(encoding="utf-8") == '---\nstatus: "proposed"\n---\n'
+
+
 def test_decide_madr_never_follows_a_canonical_home_symlink(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

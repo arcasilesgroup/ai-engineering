@@ -1065,7 +1065,15 @@ DESCRIPTION_MAX = 1000
 # could not pass, and one that would have verified nothing if it had. `SessionEnd` now goes
 # through the real dispatcher first, exactly as a surface fires it, so verify reads a chain
 # holding this job's own links.
-REPO_CEILING = 52_957
+# 52,957 to 53,024 for the first SonarCloud run this branch ever had. It had been skipped
+# on every commit — it needs the coverage artefact from a job that was failing — so 253
+# commits of new code met it at once, and four of the twelve findings were real. One is a
+# path traversal in our own record verb: `--accept` put command-line text straight into a
+# glob, `..` is a legal glob segment, and the rewrite that follows would have edited a file
+# outside `docs/adr`. The other three: an acceptance schema whose patterns are compiled
+# against text a person wrote and whose bytes nothing pinned, a redundant alternative that
+# made a lone dot look special when it never was, and an alternation left to precedence.
+REPO_CEILING = 53_032
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

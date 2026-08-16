@@ -219,7 +219,11 @@ def _render_pin(body: bytes, target: str) -> tuple[str, bytes]:
         parsed = tomllib.loads(text)
         pinned = parsed["framework"]["version"]
         _version(pinned)
-        section = re.search(r"(?ms)^\[framework\][^\r\n]*\r?\n(?P<body>.*?)(?=^\[|\Z)", text)
+        # The alternation inside the lookahead is grouped rather than left to precedence.
+        # It read `(?=^\[|\Z)` and meant `(?=(?:^\[)|\Z)`; those are the same thing here
+        # and the reader has to know the rule to be sure of it, which is the whole of
+        # the objection.
+        section = re.search(r"(?ms)^\[framework\][^\r\n]*\r?\n(?P<body>.*?)(?=(?:^\[)|\Z)", text)
         rows = list(_VERSION.finditer(section.group("body"))) if section else []
         if not isinstance(pinned, str) or not pinned or len(rows) != 1 or section is None:
             raise ValueError("the framework version is not exact")
