@@ -1748,7 +1748,18 @@ DESCRIPTION_MAX = 1000
 # dismissing — so a reviewer could have been left auto-accepting its own findings with the
 # whole suite green. Pinning one clause of a requirement is how a requirement half rots, and
 # this is the second time that sentence has had to be written this week.
-REPO_CEILING = 59_438
+#
+# 59,438 to 59,483 for two more absorptions that named two homes each and filled one.
+# `ai-docs` was absorbed as "a docs lens in ai-review and docs tasks in ai-ship" — ai-ship's
+# changelog clause was pinned and the lens did not exist. `ai-resolve-conflicts` as
+# "resolution by intent belongs to ai-ship and ai-debug" — ai-debug carried it and ai-ship
+# said nothing about a conflict at all.
+#
+# Same shape as EP-373 and EP-332 two weeks of commits ago, and found by asking the same
+# question of the rest of the list: when a disposition names two homes, which one actually
+# took the work? Absorption recorded as an absence is a deletion with a nicer name, and it
+# turns out that question is worth asking of every row and not only the ones that failed.
+REPO_CEILING = 59_483
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

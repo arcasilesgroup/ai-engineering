@@ -922,7 +922,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 59_438
+    assert contract.REPO_CEILING == 59_483
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1324,6 +1324,15 @@ SKILL_CONTENT = (
     ("EP-357", "ai-explore/SKILL.md", "a tour is longer than"),
     ("EP-385", "ai-design/SKILL.md", "asset card naming"),
     ("EP-344", "ai-ship/SKILL.md", "somebody upgrading would search for"),
+    # Two more absorptions that named two homes each and filled one. `ai-docs` was absorbed as
+    # "a docs lens in ai-review and docs tasks in ai-ship", and the lens was the empty half.
+    # `ai-resolve-conflicts` as "resolution by intent belongs to ai-ship and ai-debug", and
+    # ai-ship said nothing about a conflict at all. Same shape as EP-373 and EP-332, found by
+    # the same question: which of the two homes actually took the work?
+    ("EP-344", "ai-review/references/docs.md", "still says the old thing"),
+    ("EP-344", "ai-review/references/docs.md", "An example that nothing runs"),
+    ("EP-366", "ai-ship/SKILL.md", "resolved by intent and never by taking a side"),
+    ("EP-366", "ai-ship/SKILL.md", "resolved by whoever pushed last is a decision"),
     # The review lens and the AA floor, each cited as what closes a requirement and each
     # read by nothing. `ai-review/SKILL.md` and its security reference had no row at all.
     ("EP-022", "ai-design/SKILL.md", "WCAG 2.2 AA is the release floor"),

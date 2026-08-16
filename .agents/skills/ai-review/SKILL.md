@@ -31,7 +31,7 @@ Findings, each one at `file:line`, each with the smallest change that would reso
    framework exists to cure, arriving as a confident report about the half that fit.
 3. Work the checklists in `references/`, one lens at a time, and every lens in that
    directory is one of them: correctness, security, performance, testing, compatibility,
-   architecture, simplification, frontend and motion. Each is a separate pass; mixing them
+   architecture, simplification, docs, frontend and motion. Each is a separate pass; mixing them
    is how the security one gets skipped. Skip a lens the diff cannot touch and name the one
    you skipped — a lens nothing routes to is a checklist nobody works.
 4. Never report what a tool already reports. Formatting, lint, secrets, dependency

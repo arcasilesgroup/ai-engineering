@@ -40,6 +40,10 @@ Commits, a changelog entry, a pull request, and a branch that gets deleted after
    the default branch, or the keyword is ignored and nothing is linked or closed.
 7. After it merges, delete the branch, and say in one line what is now true that was not
    true before.
+8. A conflict is resolved by intent and never by taking a side. Read what each side was
+   trying to do, say it in the merge in one line each, and keep the change that serves both
+   — or stop and ask, because a conflict resolved by whoever pushed last is a decision
+   nobody took. `/ai-debug` owns finding the cause when the merged result then misbehaves.
 
 ## Done when
 
