@@ -1307,6 +1307,40 @@ def test_decide_madr_creation_is_exclusive_and_cleans_partial_writes(
     assert preexisting_home.is_dir() and list(preexisting_home.iterdir()) == []
 
 
+def test_an_authority_role_holding_a_newline_cannot_write_its_own_frontmatter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The role and the reference come out of `.ai/intent.md`, which a person edits, and
+    `accept` interpolated them between bare quotes. A role holding a newline therefore wrote
+    its own lines into this header — `status`, `supersedes` and `spec` are each one newline
+    away from being forged by editing the Intent, in the file whose whole purpose is to be
+    the thing that cannot be forged.
+
+    Both values are quoted through `json.dumps` now, exactly as `_render_proposal` already
+    writes every field of this header. Measured at the seam that changed: `granted` answers
+    the hostile pair and the bytes on disk are read back."""
+
+    root = tmp_path / "forging"
+    _repository_with_spec(root)
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    assert decide.main(["Keep authority outside the agent", "--madr"]).outcome == "PASS"
+    monkeypatch.setattr(
+        decide,
+        "granted",
+        lambda _root: ('owner"\nstatus: "rejected', 'PR#1"\nsupersedes: "0002'),
+    )
+
+    assert decide.main(["", "--accept", "0001"]).outcome == "PASS"
+
+    written = (root / "docs" / "adr" / "0001-keep-authority-outside-the-agent.md").read_text(
+        encoding="utf-8"
+    )
+    header = written.split("---", 2)[1].splitlines()
+    assert [line for line in header if line.startswith("status:")] == ['status: "accepted"']
+    assert not [line for line in header if line.startswith('supersedes: "0002')]
+    assert len([line for line in header if line.startswith("authority_role:")]) == 1
+
+
 def test_accept_refuses_a_number_that_is_a_path_and_leaves_the_file_outside_alone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

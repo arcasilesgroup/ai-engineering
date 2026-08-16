@@ -1081,7 +1081,16 @@ DESCRIPTION_MAX = 1000
 # written out in source and `_pattern` refuses one it does not hold, so nothing compiles an
 # expression out of a file's contents. The digest pin stays; it is the promise, and this is
 # the property. A test holds the two sides together in both directions.
-REPO_CEILING = 53_112
+# 53,112 to 53,149 for a forgery the scanner found by pointing at the wrong thing. It kept
+# reporting `accept`'s write after the traversal was gone, and the flow it drew ran through
+# the file's own bytes into the header — not a path fault, and a real one underneath it.
+# The role and the reference come from `.ai/intent.md`, which a person edits, and they were
+# interpolated between bare quotes: a role holding a newline wrote its own frontmatter, so
+# `status`, `supersedes` and `spec` were each one newline away from being forged by editing
+# the Intent. In the file whose whole purpose is to be the thing that cannot be forged.
+# Both are quoted through `json.dumps` now, as every other field of that header already
+# was, and a fixture writes `status: "rejected"` through the old code and fails.
+REPO_CEILING = 53_158
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

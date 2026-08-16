@@ -393,15 +393,22 @@ def accept(root: Path, number: str) -> outcome.Result:
         return outcome.result("INCOMPLETE")
     role, reference = authority
     stamped = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    decision.write_text(
-        raw.decode("utf-8").replace(
-            'status: "proposed"',
-            f'status: "accepted"\nauthority_role: "{role}"\n'
-            f'approval_ref: "{reference}"\napproved_at: "{stamped}"',
-            1,
-        ),
-        encoding="utf-8",
+    # Both values are quoted through `json.dumps`, as `_render_proposal` already writes
+    # every field of this header. They come from `.ai/intent.md`, which a person edits, and
+    # they were interpolated between bare quotes — so a role holding a newline wrote its own
+    # frontmatter lines into this record. `status`, `supersedes` and `spec` are all one
+    # newline away from being forgeable by editing the Intent, and this is the file whose
+    # whole purpose is to be the thing that cannot be forged. Ordinary values are unchanged
+    # byte for byte; the escaping only shows up on values that were never legal.
+    written = raw.decode("utf-8").replace(
+        'status: "proposed"',
+        'status: "accepted"\n'
+        f"authority_role: {json.dumps(role, ensure_ascii=False)}\n"
+        f"approval_ref: {json.dumps(reference, ensure_ascii=False)}\n"
+        f'approved_at: "{stamped}"',
+        1,
     )
+    decision.write_text(written, encoding="utf-8")
     print(f"  {decision.relative_to(root)} accepted as {role}, on the authority of {reference}")
     print(f"  commit it on its own: git add {decision.relative_to(root)} && git commit")
     return outcome.result("PASS")
