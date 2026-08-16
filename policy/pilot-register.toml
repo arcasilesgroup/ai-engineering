@@ -61,9 +61,12 @@ wave = "P0"
 
 [[indicator]]
 id = "skill_eval_delta"
-no_instrument = """there is no evaluation runner, no approved corpus and no named approver, \
-so there is nothing to take a delta of. Specification 012 records the same absence when it \
-refuses to invent the comparison."""
+no_instrument = """two of the three absences this row used to record are gone: `just \
+skilleval` is an evaluation runner inside the gate, and the 160 labelled cases beside the \
+skills are a corpus it runs on. What is still missing is what a delta needs — a baseline \
+recorded at a commit, a margin, and a named approver for the corpus — so there is a score \
+and nothing to take a delta of. Specification 012 refuses to invent the comparison, and a \
+first run that blocks is not a baseline."""
 wave = "P2"
 
 [[indicator]]

@@ -1551,7 +1551,25 @@ DESCRIPTION_MAX = 1000
 # The case it exists for is two skills refusing the same sentence. Each file reads correctly
 # on its own and the person who typed it has two skills declining them, which is why nothing
 # reading one file at a time could ever have found it.
-REPO_CEILING = 58_039
+#
+# 58,039 to 58,172 for the third audit and the two things it found that nobody asked for.
+# 258 of 385 proven, 67.0%, and the arithmetic is computed from the auditors' tables rather
+# than added up: 33 newly proven on top of a standing 236 would have counted eleven twice,
+# because eleven of the re-measured had already been proven. A total that rounds in its own
+# favour is what an audit and a ceiling both exist to prevent.
+#
+# Five of the eleven this session claimed were overclaims, found by a reader comparing what
+# was built against what was asked — which no gate here could have done. The shape is the one
+# this product is named after: build the half you know how to build, and call the requirement
+# closed.
+#
+# And the two nobody asked for. The register justified `skill_eval_delta` having no
+# instrument with "there is no evaluation runner, no approved corpus", which this session
+# made false and left standing — a stale reason inside the file this repository points at to
+# prove it is honest about what it cannot measure. `scan.cross_check` was called by its own
+# test and by nothing in the product, so an organisation installing one of the two engines
+# the proposal names would have got the silence of one that installed nothing.
+REPO_CEILING = 58_172
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

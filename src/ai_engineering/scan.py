@@ -494,6 +494,18 @@ def baseline(root: Path) -> int:
     # names no stack, so one whose manifests the engine does not support passes exactly like
     # one it read and found nothing in. A repository with no manifest at all is declining a
     # dependency scan rather than passing one, and it says so.
+    # The second opinion, asked rather than only declared. This function existed and nothing
+    # in the product called it: an organisation that installs one of these engines expecting
+    # the framework to read it would have got the same silence as one that installed nothing,
+    # which is the distinction this whole module is named after — applied to the two engines
+    # the proposal names by product. Absent is SKIPPED and passes; present and unable to
+    # answer is INCOMPLETE and does not.
+    for lane in CROSS_CHECKS:
+        fact = cross_check(lane, root, ["."])
+        print(f"  {fact.status:<11} {lane.id:<13} {fact.detail}")
+        if fact.status not in ("PASS", "SKIPPED"):
+            worst = 1
+
     present = stacks(root)
     print(
         f"  {'OBSERVED':<11} {'manifests':<13} {', '.join(present)}"

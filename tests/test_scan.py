@@ -564,3 +564,31 @@ def test_a_stack_the_engine_read_nothing_for_is_told_how_to_close_it(tmp_path, c
     printed = capsys.readouterr().out
     assert "Cargo.lock" in printed
     assert "ai-eng accept" in printed
+
+
+def test_the_gate_asks_the_cross_checks_and_does_not_only_declare_them(
+    tmp_path, capsys, monkeypatch
+):
+    """`cross_check` existed and nothing in the product called it — an independent audit
+    found it exercised by its own test alone.
+
+    An organisation that installs one of the two engines the proposal names, expecting this
+    framework to read it, would have got exactly the silence of one that installed nothing.
+    That is the distinction this module is named after, so the baseline asks both: absent is
+    SKIPPED and passes, present and unable to answer is INCOMPLETE and does not."""
+    from ai_engineering import scan
+
+    monkeypatch.setattr(scan, "BASELINE", ())
+    monkeypatch.setattr(scan, "CROSS_CHECKS", (scan.Lane("second-opinion", ("no-such-engine",)),))
+    assert scan.baseline(tmp_path) == 0
+    assert "SKIPPED     second-opinion" in capsys.readouterr().out
+
+    # And one that is installed and cannot answer fails the gate rather than declining it.
+    monkeypatch.setattr(
+        scan,
+        "CROSS_CHECKS",
+        (scan.Lane("second-opinion", engine(tmp_path, "raise SystemExit(97)")),),
+    )
+    assert scan.baseline(tmp_path) == 1
+    printed = capsys.readouterr().out
+    assert "INCOMPLETE  second-opinion" in printed and "LANE_CRASHED" in printed
