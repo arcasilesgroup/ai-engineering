@@ -1116,9 +1116,17 @@ if sys.platform == "win32":
         delete: bool = False,
     ) -> int:
         name = _win_component(name)
+        # Cast, and the buffer kept in a local. The structure's field is `LPWSTR` and
+        # `create_unicode_buffer` answers a `c_wchar_Array`: ctypes converts one to the
+        # other for a function argument and refuses it in a structure, which is why this
+        # raised `TypeError: incompatible types` on every Windows run and on no other
+        # platform. The local is what keeps the buffer alive — a cast holds no reference,
+        # and a freed buffer here is a path the kernel reads after we have released it.
         buffer = ctypes.create_unicode_buffer(name)
         encoded_bytes = len(name.encode("utf-16-le"))
-        unicode_name = _UNICODE_STRING(encoded_bytes, encoded_bytes, buffer)
+        unicode_name = _UNICODE_STRING(
+            encoded_bytes, encoded_bytes, ctypes.cast(buffer, wintypes.LPWSTR)
+        )
         attributes = _OBJECT_ATTRIBUTES(
             ctypes.sizeof(_OBJECT_ATTRIBUTES),
             wintypes.HANDLE(parent),

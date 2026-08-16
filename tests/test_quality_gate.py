@@ -508,9 +508,15 @@ def test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renam
         == "7196bcf318d43219fc4dc8cbf5e1ecc55a57657dddd338198599249a6f87f0e3"
     )
 
+    # This one moved, once, and here is the reason rather than a new number. The step
+    # counted verbs with a regex that required each description to start with a capital
+    # letter; two of the ten open with their own subcommands, so it counted eight and failed
+    # a wheel that was right — on all three operating systems, the first time this branch
+    # ever reached CI. The pin is what made that edit a reviewable act instead of a quiet
+    # one, which is the whole reason it is here.
     surface = _named_step(lines, "the ten verbs, the hard renames and one JSON object")
     assert _raw_digest(surface) == (
-        "9e769bc187bf61da8409f59016ead282da9642099a9ab87f44a2a6bdf41c7597"
+        "f74e3be06ea3867c412cd3dc9d90236b0b8b947f1ac8df9f8ad691dd47bdbfd1"
     )
     body = "\n".join(surface)
 

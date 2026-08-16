@@ -924,7 +924,18 @@ DESCRIPTION_MAX = 1000
 #
 # mypy is in the local recipe now, pinned to the workflow's version, and a test holds the
 # two equal. The next divergence of this shape costs one run, not one branch.
-REPO_CEILING = 52_168
+# 52,168 to 52,199 for the two things CI found that no local run could.
+#
+# A `TypeError` on every Windows run of the native transaction path: the structure field is
+# `LPWSTR` and `create_unicode_buffer` answers a `c_wchar_Array`, which ctypes converts for
+# a function argument and refuses in a structure. Three tests failed on that leg alone, and
+# the fix has to be verified there because no other platform executes the block.
+#
+# And the install matrix counted verbs with a regex that required each description to start
+# with a capital. Two of the ten open with their own subcommands, so it counted eight and
+# called a correct wheel wrong. The case of a sentence is not evidence of anything, and
+# making it evidence is how a check ends up wrong about something that is right.
+REPO_CEILING = 52_199
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

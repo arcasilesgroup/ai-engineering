@@ -327,7 +327,13 @@ jobs:
           for verb in init doctor update spec decide accept audit report exception uninstall; do
             printf '%s' "$help" | grep -qE "^  $verb " || { echo "no verb: $verb"; exit 1; }
           done
-          listed=$(printf '%s' "$help" | grep -cE '^  [a-z]+ +[A-Z]')
+          # Any description, not only one that starts with a capital. Two of the ten open
+          # with their own subcommands — `spec new | spec list | spec show` and `audit
+          # verify …` — so this counted eight and called the wheel wrong. The check is about
+          # how many verbs the surface lists; the case of the sentence beside each one is
+          # not evidence of anything, and making it evidence made the check wrong about a
+          # wheel that was right.
+          listed=$(printf '%s' "$help" | grep -cE '^  [a-z]+ +[^ ]')
           test "$listed" = "10" || { echo "the surface lists $listed verbs, not ten"; exit 1; }
 
           # The hard renames, from the side that matters: the old spelling must refuse.
