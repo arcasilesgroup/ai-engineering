@@ -559,7 +559,10 @@ def test_an_edited_buffer_is_sealed_as_the_error_that_says_it_was_edited(repo):
 # --- the payload every surface is read through ---------------------------------------
 
 
-@pytest.mark.parametrize(("camel", "snake"), sorted(chain.ALIASES.items()))
+# Read from the same function the dispatcher reads, so a spelling declared in an adapter
+# is covered by this the day it is declared — and a spelling deleted from the floor is
+# not quietly dropped from the parametrisation with it.
+@pytest.mark.parametrize(("camel", "snake"), sorted(chain.adapter_aliases().items()))
 def test_both_spellings_of_every_alias_arrive_in_one_shape(camel, snake):
     """VS Code and Cursor send camelCase where Claude Code sends snake_case. A guard that
     reads only one spelling sees an empty payload on the other surface and allows
@@ -1388,3 +1391,54 @@ def paths_load_otlp():
     import _otlp
 
     return _otlp
+
+
+def test_a_spelling_declared_only_in_an_adapter_reaches_the_guards(tmp_path, monkeypatch):
+    """EP-081. `policy/adapters/*.json` described a translation table that nothing in the
+    product read: the tests read it, the dispatcher normalised from its own hardcoded dict,
+    and the two were free to disagree for as long as nobody looked. A contract with no
+    consumer is a document, and a document is not a control.
+
+    Planted first, then found — the shape every scan in this repository owes. A spelling
+    that exists only in a data file has to arrive in the shape the guards read, or the file
+    is decoration."""
+
+    adapters = tmp_path / "adapters"
+    adapters.mkdir()
+    (adapters / "invented.adapter.json").write_text(
+        json.dumps(
+            {
+                "schema": "urn:ai-engineering:surface-adapter:1",
+                "schema_version": "1",
+                "surface_id": "invented",
+                "adapter_version": "1",
+                "translations": {"payload_field": {"toolNameInSomeOtherDialect": "tool_name"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(chain, "ADAPTERS", adapters)
+
+    assert chain.normalise({"toolNameInSomeOtherDialect": "Bash"})["tool_name"] == "Bash"
+    # And the floor survives beside it: an adapter adds spellings and can never remove one.
+    assert chain.normalise({"toolName": "Edit"})["tool_name"] == "Edit"
+
+
+def test_an_adapter_nobody_can_parse_costs_its_own_surface_and_no_other(tmp_path, monkeypatch):
+    """The one thing normalisation must never do is fail. A guard that crashes is a guard
+    that denies, and denying every call is how a whole surface is disabled by installing on
+    it — so a broken data file loses its own spellings and nothing else."""
+
+    adapters = tmp_path / "adapters"
+    adapters.mkdir()
+    (adapters / "broken.adapter.json").write_text("{not json", encoding="utf-8")
+    (adapters / "fine.adapter.json").write_text(
+        json.dumps({"translations": {"payload_field": {"aDialect": "tool_name"}}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(chain, "ADAPTERS", adapters)
+
+    assert chain.normalise({"aDialect": "Bash"})["tool_name"] == "Bash"
+    assert chain.normalise({"toolName": "Edit"})["tool_name"] == "Edit"
+
+    monkeypatch.setattr(chain, "ADAPTERS", tmp_path / "not-here")
+    assert chain.normalise({"toolName": "Edit"})["tool_name"] == "Edit"

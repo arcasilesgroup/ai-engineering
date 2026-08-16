@@ -1153,7 +1153,15 @@ DESCRIPTION_MAX = 1000
 # be a valid envelope when the news is bad and the error branch is the half a happy-path
 # fixture never reaches. The validator is measured too: a scan that finds nothing and a scan
 # that looked at nothing print the same result.
-REPO_CEILING = 54_309
+# 54,309 to 54,406 to close EP-081. `policy/adapters/*.json` and the adapter schema
+# described a translation table that nothing in the product read: the tests read it, the
+# dispatcher normalised from its own hardcoded dict, and the two were free to disagree for
+# as long as nobody looked. The dispatcher reads the adapters now, over a built-in floor it
+# cannot lose — a guard that crashes is a guard that denies, and denying every call is how a
+# surface is disabled by installing on it, so a broken adapter costs its own spellings and
+# no others. Three fixtures: a spelling that exists only in a data file arrives in the shape
+# the guards read, a malformed adapter loses nothing else, and a missing directory is fine.
+REPO_CEILING = 54_414
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

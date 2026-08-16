@@ -59,7 +59,11 @@ TABLE: dict[str, list[tuple[str, str]]] = {
 # a gate as telemetry, turns CI red with a message that names it.
 TELEMETRY = {"autoformat", "session"}
 
-ALIASES = {
+# The floor, and the reason it is a floor rather than the whole table. A surface whose
+# spelling is missing here sends a shape the guards do not expect; a guard that crashes is a
+# guard that denies, and denying every call on a surface is how you disable a whole product
+# by installing it. So these are built in and cannot be removed by editing a data file.
+BUILT_IN_ALIASES = {
     "toolName": "tool_name",
     "toolInput": "tool_input",
     "toolResponse": "tool_response",
@@ -70,17 +74,56 @@ ALIASES = {
     "workspaceRoot": "cwd",
     "workspacePath": "cwd",
 }
+ADAPTERS = Path(__file__).resolve().parent.parent / "policy" / "adapters"
+
+
+def adapter_aliases() -> dict:
+    """Every spelling the declared adapters translate, over the built-in floor.
+
+    `policy/adapters/*.json` and `policy/surface-adapter-v1.schema.json` described a
+    translation table that nothing in the product read: the tests read it, the dispatcher
+    normalised from its own hardcoded dict, and the two were free to disagree for as long as
+    nobody checked. A contract with no consumer is a document, and this repository's whole
+    argument is that a document is not a control.
+
+    Read here rather than in the package, because this file may never import it — and read
+    on each call, because a dispatcher process lives for one call. It costs a directory
+    listing and a few kilobytes of JSON against a 20 ms budget.
+
+    Unreadable is not fatal and deliberately so. The one thing normalisation must never do
+    is fail: the floor above is what the guards need, and an adapter file somebody broke
+    should cost its surface's extra spellings, not every call on every surface.
+    """
+
+    aliases = dict(BUILT_IN_ALIASES)
+    try:
+        files = sorted(ADAPTERS.glob("*.adapter.json"))
+    except OSError:
+        return aliases
+    for path in files:
+        try:
+            declared = json.loads(path.read_text(encoding="utf-8"))
+            fields = declared["translations"]["payload_field"]
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if not isinstance(fields, dict):
+            continue
+        for sent, ours in fields.items():
+            if isinstance(sent, str) and isinstance(ours, str) and sent and ours:
+                aliases[sent] = ours
+    return aliases
 
 
 def normalise(raw: dict) -> dict:
     """Both spellings, one shape. Without this a guard scoped to file edits receives
     every tool call in a shape it does not expect, crashes, and correctly blocks
     everything — which is how you deny a whole surface by installing on it."""
-    out = {ALIASES.get(key, key): value for key, value in raw.items()}
+    aliases = adapter_aliases()
+    out = {aliases.get(key, key): value for key, value in raw.items()}
     out.setdefault("tool_name", out.get("tool") or "")
     out.setdefault("tool_input", out.get("input") or {})
     if isinstance(out["tool_input"], dict):
-        out["tool_input"] = {ALIASES.get(k, k): v for k, v in out["tool_input"].items()}
+        out["tool_input"] = {aliases.get(k, k): v for k, v in out["tool_input"].items()}
         # The notebook tools send notebook_path and nothing else. Both guards on their
         # rows read file_path, so without this the table claimed coverage of two tools
         # that always passed.
