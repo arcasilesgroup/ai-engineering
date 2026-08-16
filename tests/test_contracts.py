@@ -848,7 +848,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 54_559
+    assert contract.REPO_CEILING == 54_654
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1171,3 +1171,41 @@ def test_changelog_names_all_p0_hard_renames_deletes_and_fail_closed_changes():
     # refuse, so the changelog says so in the words the failure prints.
     for refusal in ("INCOMPLETE", "fails closed", "origin/main"):
         assert refusal in block, f"the changelog does not say {refusal}"
+
+
+# Requirement id, the file that must carry it, and a phrase that is only there when it does.
+# A checklist and not an engine, in the shape `tests/mutation.py` already uses for the guards:
+# these are content requirements, and no parser decides whether a paragraph means what it
+# says. What this stops is the content disappearing — `contract.audit_one` checks a skill's
+# frontmatter, its ceiling and its two corpus headings, and would not notice any line below
+# being deleted, which the audit of 2026-08-16 recorded as the reason a whole cluster of
+# requirements reads PROVEN against a gate that cannot fail.
+#
+# Where the specification itself says a requirement is a judgement no gate may claim to
+# enforce — EP-119, EP-239, EP-241 and EP-246 — this checks that the guidance exists and
+# never that the guidance was followed. Those are two different sentences and only one of
+# them is checkable.
+SKILL_CONTENT = (
+    ("EP-239", "ai-design/SKILL.md", "material visual decision"),
+    ("EP-241", "ai-design/SKILL.md", "reduces uncertainty about the thing being built"),
+    ("EP-243", "ai-design/corpus.md", "absorbed here as the `verify` route"),
+    ("EP-244", "ai-design/corpus.md", "optional and never assumed"),
+    ("EP-245", "ai-design/SKILL.md", "Minimalist and industrial-brutalist"),
+    ("EP-246", "ai-design/SKILL.md", "the agency look"),
+    ("EP-253", "ai-design/SKILL.md", "approved residency and retention, and get consent"),
+    ("EP-256", "ai-design/SKILL.md", "proves nothing about alt text, contrast, trademark"),
+    ("EP-028", "ai-review/references/frontend.md", "The definition of done, item by item"),
+    ("EP-248", "ai-review/references/frontend.md", "Touch targets are at least 24 by 24"),
+    ("EP-248", "ai-review/references/frontend.md", "Nothing flashes more than three times"),
+    ("EP-248", "ai-review/references/frontend.md", "returns focus to whatever opened it"),
+)
+
+
+@pytest.mark.parametrize(("requirement", "where", "phrase"), SKILL_CONTENT)
+def test_the_guidance_a_requirement_asks_for_is_in_the_file_that_owes_it(
+    requirement, where, phrase
+):
+    """One line per requirement, so deleting the guidance names the requirement it cost."""
+
+    body = (ROOT / ".agents" / "skills" / where).read_text(encoding="utf-8")
+    assert phrase in body, f"{requirement}: {where} no longer carries it"

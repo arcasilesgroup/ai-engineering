@@ -49,6 +49,22 @@ record where every line names the command or the observation that satisfied it.
 7. Motion belongs to the diff that carries it. Curves, duration, gestures, interruptibility,
    reduced motion and the performance budget are judged by `/ai-review`'s motion lens, and
    this skill does not own that detail.
+8. Two real directions only where there is a material visual decision, and one otherwise. A
+   pair of variants on a form nobody is arguing about is work performed at somebody.
+9. Imagery only where it reduces uncertainty about the thing being built. A picture that
+   proves nothing about alt text, contrast, trademark, copyright or accessibility has not
+   answered any of the questions this route exists to answer.
+10. A provider outside this repository is a data decision before it is a design one:
+    classify what is sent, name the approved residency and retention, and get consent.
+11. Styles are named on a brief, never defaulted to. Minimalist and industrial-brutalist are
+    two choices among many, and this skill imposes none of them.
+
+## Never
+
+The list is here because the reasons are judgements no gate can hold, and a judgement with
+nowhere to live is a judgement nobody applies: fixed dials, randomisation, a mandatory
+AIDA or GSAP, "the agency look", perpetual motion, a double bezel, pills everywhere, and one
+colour, type scale or layout declared universal.
 
 ## Done when
 

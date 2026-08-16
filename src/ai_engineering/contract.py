@@ -1172,7 +1172,21 @@ DESCRIPTION_MAX = 1000
 # says what can run beside what, not whether this branch is good. It can be INCOMPLETE — a
 # cycle, or a file whose imports cannot be read — and that is a real refusal, because an
 # order nobody can derive is one two writers would each invent differently.
-REPO_CEILING = 54_559
+# 54,559 to 54,640 for guidance that was specified, claimed closed, and never written down.
+# Ten requirements: the enumerated accessibility definition of done, the rejected-styles
+# list, the absorbed and optional tool lists, two-directions-only, imagery that reduces
+# uncertainty, the data decision before an external provider, and what an image does not
+# prove. The audit of 2026-08-16 found none of them in any file while the specification's
+# table said they had landed.
+#
+# The check beside them is a checklist, not an engine, in the shape `tests/mutation.py`
+# already uses: one row per requirement naming the file and a phrase only there when the
+# guidance is. `contract.audit_one` reads a skill's frontmatter, its ceiling and its two
+# corpus headings, and would not notice any of those lines being deleted — which is exactly
+# why a cluster of requirements read PROVEN against a gate that could not fail. Where the
+# specification itself says a requirement is a judgement no gate may enforce, this checks
+# that the guidance exists and never that it was followed. Two different sentences.
+REPO_CEILING = 54_654
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

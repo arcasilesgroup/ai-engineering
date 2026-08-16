@@ -23,3 +23,8 @@ implementation, and accessibility evidence measured off the rendered result.
 - "just make it look nicer" — refused as a trigger with nothing in it: this skill needs an audience, a surface and a spec, and "nicer" names none of the three.
 - "axe passed, so we are accessible" — refused: a scanner is a filter, not a verdict, and AA is a floor somebody has to evidence line by line.
 - "open the pull request with the new design" — use `/ai-ship`, because the changelog, the pull request and the closing keyword belong to it.
+- "give me three variants of this checkbox" — refused: two real directions where there is a material visual decision, one otherwise, and a checkbox nobody is arguing about is neither.
+- "use the agency look, with the double bezel and everything" — refused: fixed dials, randomisation, a mandatory AIDA or GSAP, perpetual motion, pills everywhere and one universal colour, type scale or layout are all named as things this skill never does.
+- "send the screenshots to the image model and see what it suggests" — refused until the data decision is made: what is sent is classified, its residency and retention are approved, and consent exists.
+- "run the design audit skill on this repository" — the audit, the taste pass, the redesign pass and the impeccable pass are absorbed here as the `verify` route, and this is where they land.
+- "generate the component from this screenshot" — optional and never assumed: image-to-code, brand kits, image generation and picking a UI library are tools this route may reach for, and none of them is a step it always takes.
