@@ -256,3 +256,113 @@ id = "EP-117"
 asks = "small golden cases, cross-model advisory, and blocking only after a stable baseline"
 reason = "the golden cases exist and run — 160 labelled routing cases beside the skills, evaluated on every gate — and the same argument as EP-083 applies to the rest: no baseline is recorded because a deterministic check has nothing to take a delta of, and `skill_eval_delta` says so in this register rather than pretending to a number"
 reopen_when = "the evaluation produces a score that can move for a reason other than a defect, which is the first moment a baseline and a margin mean anything"
+
+# ── the judgements no script settles, gathered ──────────────────────────────────────
+#
+# Every one of these already had a reason written down, and they were spread across four
+# specifications, a ceiling comment and a test docstring. A reader asking "did somebody
+# decide this, or did it just never get built?" had to find all six places before they could
+# tell. Rule 12 says a judgement that cannot fail closed stays a prompt and you write down
+# why; this is where the why lives, and a row here is not a pass and never becomes one.
+
+[[ungated]]
+id = "EP-062"
+asks = "autonomy that never becomes unlimited authority"
+reason = "an intent, not a thing to count. Its recordable half does execute — the mission names all nine verbs and `tests/test_contracts.py` reads them out of CONSTITUTION.md — and the rest would be a check whose author also chose what it counted, which passes on the day it is written."
+reopen_when = "somebody states an authority boundary as a property of a call rather than of a paragraph"
+
+[[ungated]]
+id = "EP-063"
+asks = "the person enters where the decision changes"
+reason = "it names no observable. Where a decision changes is exactly the judgement `ai-spec` exists to make, and a gate that decided it would be the second decision-maker specification 012 refuses."
+reopen_when = "a class of decision is found that always needs a person, three times, which is rule 12's own trigger"
+
+[[ungated]]
+id = "EP-064"
+asks = "how many steps are traced from an intent to an evidence that can go red"
+reason = "the most tempting of these, because it sounds countable. It is not, until somebody says what a step is and what makes an evidence red-capable, and both choices decide the answer. `intent_trace_coverage` sits in this register uninstrumented for the same reason."
+reopen_when = "a BDD criterion exists in this repository, which is what a step would be counted between"
+
+[[ungated]]
+id = "EP-065"
+asks = "one executed evidence per promise"
+reason = "the one-home half executes — `ai-eng doctor` assertion 18 refuses a framework file outside its declared home — and the promise half names no list of promises to count against. Whoever wrote the list would also decide the score."
+reopen_when = "the production-ready boxes become the list, which is the only enumeration of promises this repository has"
+
+[[ungated]]
+id = "EP-068"
+asks = "rubrics for KISS, YAGNI, DRY, SOLID, Clean Architecture and Clean Code"
+reason = "the criteria are one line each in AGENTS.md rule 10 and one line each in every spec. The rubric is unwritten on purpose: rule 12 turns a judgement into a script after it has resolved the same way three times, and none of these has been recorded resolving once."
+reopen_when = "the same criterion decides the same way in three reviews, recorded"
+
+[[ungated]]
+id = "EP-073"
+asks = "a decision is promoted to an MADR when it conditions the future"
+reason = "\"conditions the future\" is the judgement, and a rule that promoted every decision would make the record unreadable, which is the failure the previous version of this project actually had."
+reopen_when = "a shape of decision is found that always conditions the future, three times"
+
+[[ungated]]
+id = "EP-087"
+asks = "v1 already beats the legacy version in truth rather than in volume"
+reason = "a comparative claim against a tree that is not in this repository and cannot be run here. Nothing this gate executes can reach the other side of the comparison."
+reopen_when = "the legacy tree is available to run, which would make it a benchmark rather than a claim"
+
+[[ungated]]
+id = "EP-160"
+asks = "a skill saves context by shipping instructions rather than a handler"
+reason = "the instructions half executes — `tests/test_contracts.py` refuses an executable in a skill directory — and nothing measures context saved, because measuring it means running a model twice and calling the difference the skill's doing."
+reopen_when = "a replay harness exists that can run the same task with and without a skill loaded"
+
+[[ungated]]
+id = "EP-161"
+asks = "a judgement that repeats becomes a script"
+reason = "rule 12 itself, and the only coded part is the ceiling on a SKILL.md: over eighty lines is a procedure that should be a script. The threshold half — how often is repeated — is the judgement, and a number chosen here would be chosen by whoever wrote this line."
+reopen_when = "the same judgement is recorded resolving the same way three times, which is the threshold rule 12 already states in words"
+
+[[ungated]]
+id = "EP-166"
+asks = "research before asking, in ai-spec"
+reason = "the clause is pinned phrase by phrase and nothing executes the skill, which is true of every instruction this framework ships. A gate that ran a skill would be a second model in the gate."
+reopen_when = "a skill's output becomes an artefact a command can read, rather than a conversation"
+
+[[ungated]]
+id = "EP-168"
+asks = "a human answer outranks an inference when a person is reachable"
+reason = "no code detects an interactive channel, and one that guessed would be wrong in both directions: a pipe is not proof nobody is there, and a terminal is not proof somebody is."
+reopen_when = "a surface reports whether a person is present, rather than the process inferring it"
+
+[[ungated]]
+id = "EP-169"
+asks = "the least-scope reversible option is the default without a person"
+reason = "the clause executes as far as any instruction does, and ranking two options by reversibility is the judgement `ai-spec` is for. A gate ranking them would be choosing the option."
+reopen_when = "reversibility becomes a declared property of an action rather than a reading of it"
+
+[[ungated]]
+id = "EP-170"
+asks = "four escalation triggers, detected"
+reason = "irreversible, high-risk, contradictory and cross-cutting are readings of a decision, not fields on it. `ai-spec` returns INCOMPLETE when it reads one, which is the enforcement this framework has."
+reopen_when = "a decision record carries the four as declared fields, which would make them checkable and would also make them somebody's assertion"
+
+[[ungated]]
+id = "EP-171"
+asks = "more reviewers do not change the authority boundary"
+reason = "there is no council code to bound and no gap metric to compute. What executes is the refusal itself: `tests/test_contracts.py` refuses an edit that lets a reviewer grant authority."
+reopen_when = "a council ships, at which point the boundary needs a gate rather than a sentence"
+
+[[ungated]]
+id = "EP-175"
+asks = "the agent challenges its own recommendation once"
+reason = "the spec template requires the section and the skill requires the challenge; whether the challenge was real is a reading of prose. A check on its presence would be satisfied by a heading."
+reopen_when = "a challenge that changed the recommendation can be told from one that did not, by something other than a person reading both"
+
+[[ungated]]
+id = "EP-178"
+asks = "an irreversible or cross-cutting decision without authority returns INCOMPLETE"
+reason = "the return executes and the detection does not, which is EP-170 from the other side: nothing in a decision record marks it irreversible."
+reopen_when = "as EP-170"
+
+[[ungated]]
+id = "EP-303"
+asks = "a BDD example exists before code"
+reason = "the spec template emits the section and pins its order, so a spec without it is refused. Whether the example inside is real is the same reading problem as EP-175, and a placeholder passes a presence check."
+reopen_when = "an example becomes something a runner executes, which is what would make it more than a heading"

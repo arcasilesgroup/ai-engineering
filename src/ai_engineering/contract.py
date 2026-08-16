@@ -1605,7 +1605,19 @@ DESCRIPTION_MAX = 1000
 # And `EP-113`: one clause of a two-clause requirement was pinned, so step 4 of `ai-debug` —
 # the one that makes it red-first rather than a fix with an opinion attached — could be
 # deleted with the whole suite green. Four more clauses are read now.
-REPO_CEILING = 58_561
+#
+# 58,561 to 58,683 for seventeen judgements no script settles, gathered into the one file
+# that holds them. Every one already had a reason written down and they were spread across
+# four specifications, a ceiling comment and a test docstring, so a reader asking "did
+# somebody decide this, or did it just never get built?" had to find six places before they
+# could tell. Rule 12 says such a judgement stays a prompt and you write down why; what was
+# missing was anywhere to look it up.
+#
+# None of this raises the proven count and it is not meant to. The register says in its own
+# words that a row there is not a pass, and the audit counts them INCOMPLETE. What changes is
+# that the unproven half of this proposal is now two things a person can tell apart: work
+# that is queued, and decisions that were taken — each with what would reopen it.
+REPO_CEILING = 58_683
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
