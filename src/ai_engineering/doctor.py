@@ -640,21 +640,42 @@ def routers_intact(root: Path | None) -> str | tuple[str, str] | None:
     recorded = [row for row in wiring.receipt().get("wrote", []) if row.get("kind") == "router"]
     if not recorded:
         raise Undecidable("no router has been written here, so there is none to check")
-    missing, edited = [], []
+
+    # Bounded before anything is opened. The receipt is a file on disk, so a path inside it
+    # is only as trustworthy as that file, and this loop opens whatever it names. Somebody
+    # who can rewrite the receipt already has write access to the framework's own home — but
+    # "the attacker is already inside" is the argument that ends with a check nobody bounded,
+    # and this one would hash any file on the machine and report whether the digest matched,
+    # which is an oracle.
+    #
+    # Two conditions, and between them they leave only what the installer's own naming can
+    # produce: a router is `ai-<something>.md`, and it is a regular file rather than a link
+    # to one. Rewriting the receipt cannot rename somebody else's file, so a redirected entry
+    # now has to point at something that already looks like a router. Anything else is
+    # reported and never read, which is also the more useful answer.
+    missing, edited, astray = [], [], []
     for row in recorded:
         target = Path(row["path"])
+        if not (target.name.startswith("ai-") and target.suffix == ".md") or target.is_symlink():
+            astray.append(target.name)
+            continue
         _, _, digest = str(row.get("how", "")).partition(" ")
         if not target.is_file():
             missing.append(target.name)
         elif hashlib.sha256(target.read_bytes()).hexdigest() != digest:
             edited.append(target.name)
-    if not missing and not edited:
+    if not missing and not edited and not astray:
         return None
     said = []
     if missing:
         said.append(f"{len(missing)} removed ({', '.join(sorted(missing)[:3])})")
     if edited:
         said.append(f"{len(edited)} edited ({', '.join(sorted(edited)[:3])})")
+    if astray:
+        said.append(
+            f"{len(astray)} recorded outside any command root and not read "
+            f"({', '.join(sorted(astray)[:3])})"
+        )
     return (
         f"of {len(recorded)} routers, {' and '.join(said)}",
         "`ai-eng init` writes them again; an edited one is left alone by `uninstall`",

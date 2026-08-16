@@ -1782,7 +1782,25 @@ DESCRIPTION_MAX = 1000
 #
 # `doctor`'s assertion 23 now says which half is which, because "no executor exists yet" is
 # true and tells a reader nothing about whose gap it is.
-REPO_CEILING = 59_526
+#
+# 59,526 to 59,599 for a BLOCKER that was not a false positive, and for correcting what I had
+# been telling the operator about all of them.
+#
+# The claim was "nine SonarCloud findings, reviewed, none real". The API says one quality-gate
+# condition fails — `new_security_rating` at 5 where 1 is required — driven by eleven security
+# findings on new code, not nine. Ten of the eleven are defensible: paths built from a
+# tempfile, from a fixed literal, from a name validated and then matched against `iterdir`,
+# from a root already through `_safe_path`, and from `dir_fd`-relative opens whose whole
+# purpose is to make path traversal impossible. The eleventh is assertion 24.
+#
+# It read a path out of the machine receipt and hashed whatever it found, so somebody who
+# could rewrite that file could point it at anything on the machine and learn whether a digest
+# matched. "They are already inside" is true and is the argument that ends with a check nobody
+# bounded. Two conditions now leave only what the installer's own naming produces — the entry
+# is `ai-<something>.md` and it is a regular file, neither of which editing the receipt alone
+# can satisfy — and anything else is reported instead of opened, which is also the more useful
+# answer.
+REPO_CEILING = 59_599
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

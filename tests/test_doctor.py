@@ -1630,3 +1630,37 @@ def test_a_machine_with_no_router_says_it_could_not_evaluate_rather_than_ok(home
 
     with pytest.raises(doctor.Undecidable):
         doctor.routers_intact(repo)
+
+
+def test_a_receipt_pointing_somewhere_else_is_reported_and_never_opened(home, repo, tmp_path):
+    """The path SonarCloud called a BLOCKER, bounded rather than argued away.
+
+    Assertion 24 reads a path out of the machine receipt and hashes whatever it finds there.
+    The receipt is a file on disk, so somebody who can rewrite it could point the check at
+    any file on the machine and learn whether its digest matched — an oracle. "They are
+    already inside" is true and is the argument that ends with a check nobody bounded.
+
+    Two conditions leave only what the installer's own naming produces, and neither can be
+    satisfied by editing the receipt alone: the entry has to be `ai-<something>.md`, and it
+    has to be a regular file rather than a link to one."""
+    from ai_engineering import wiring
+
+    commands = tmp_path / "commands"
+    written = wiring.install_routers([{"id": "invented", "commands": str(commands), "skills": ""}])
+    wiring.record(written)
+    assert doctor.routers_intact(repo) is None
+
+    secret = tmp_path / "id_rsa"
+    secret.write_text("a private key\n", encoding="utf-8")
+    wiring.record([{"path": str(secret), "kind": "router", "how": "generated deadbeef"}])
+
+    said = doctor.routers_intact(repo)
+    assert isinstance(said, tuple)
+    assert "outside" in said[0] and "id_rsa" in said[0]
+
+    # And a link wearing a router's name is refused for the same reason.
+    link = commands / "ai-linked.md"
+    link.symlink_to(secret)
+    wiring.record([{"path": str(link), "kind": "router", "how": "generated deadbeef"}])
+    again = doctor.routers_intact(repo)
+    assert isinstance(again, tuple) and "ai-linked.md" in again[0]
