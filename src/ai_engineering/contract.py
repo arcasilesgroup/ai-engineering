@@ -1731,7 +1731,18 @@ DESCRIPTION_MAX = 1000
 # only source for how many times the gate ran is this record's own prose. A number nobody can
 # contradict is the shape this product exists to refuse, and it is now in the product's own
 # audit of itself.
-REPO_CEILING = 59_363
+#
+# 59,363 to 59,423 for the two block hand-offs the plan requires and no commit carried. Six
+# fields each: base, final HEAD, commits reviewed, related suite, reviewer disposition,
+# repairs, gate.
+#
+# They are late and say so. A hand-off written after the fact cannot prove the freeze it
+# claims — nobody can now show that writes stopped while the reviewer read — so they record
+# what the tree can still show and assert the rest. And both are missing the same field for
+# the same reason the audit above gives: there is no independent record of the gate run, so
+# "green after the repair" is this record's own word. Writing the hand-off does not close
+# that, and pretending it did would be the defect this file is a list of.
+REPO_CEILING = 59_423
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
