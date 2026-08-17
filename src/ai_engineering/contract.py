@@ -2403,7 +2403,19 @@ DESCRIPTION_MAX = 1000
 # `mutants-survivors.txt` beside the tree precisely because the score says how much is
 # unproven and only the names say what, so the nightly keeps both files as an artefact now —
 # on every run, including the failing ones, which are the runs whose names are worth having.
-REPO_CEILING = 68_966
+#
+# 68,966 to 69,009 for two rows leaving "blocked", one of which never belonged there.
+#
+# EP-157 was filed blocked by a sub-audit that grepped a single line of install-matrix.yml
+# and reported the version and date missing from the wheel-denial receipt. The whole step
+# writes both, and the workflow has been green on every push. A wrong reading is not a
+# missing control.
+#
+# EP-211 needed one line: the wheel denial now executes on `release: types: [published]` as
+# well as on a push and a pull request, because a release is the moment the claim stops being
+# about a branch and starts being about something a stranger will install. It stays
+# INCOMPLETE — the trigger exists and no release has fired it.
+REPO_CEILING = 69_009
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

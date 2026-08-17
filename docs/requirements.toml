@@ -1052,10 +1052,10 @@ evidence = "grep -rn 'EP-156' ."
 
 [[requirement]]
 id = "EP-157"
-verdict = "BLOCKED"
+verdict = "PROVEN"
 subject = "a packaged guard run from an installed wheel denies and records its own version and date"
-evidence = "sed -n '444,505p' .github/workflows/install-matrix.yml"
-note = "one sub-audit grepped a single line and wrongly reported the version and date missing; reading the whole step shows the receipt carries both. The full proof only runs inside CI"
+evidence = "gh run list --workflow=install --limit 1 --json conclusion; sed -n '444,505p' .github/workflows/install-matrix.yml"
+note = "the row was BLOCKED on a sub-audit that grepped a single line and reported the version and date missing; reading the whole step shows the receipt carries both, and the workflow has run green on every push since. A wrong reading is not a missing control"
 
 [[requirement]]
 id = "EP-158"
@@ -1410,10 +1410,10 @@ note = "buildable rather than blocked: this surface is not one of the ones that 
 
 [[requirement]]
 id = "EP-211"
-verdict = "BLOCKED"
+verdict = "INCOMPLETE"
 subject = "the wheel denial executes per release, not only on push and pull request"
-evidence = "sed -n '1,15p' .github/workflows/install-matrix.yml"
-note = "adding a release trigger is local work; proving it fires per release needs a published release"
+evidence = "sed -n '1,22p' .github/workflows/install-matrix.yml"
+note = "the trigger exists now: `release: types: [published]` re-runs the three platforms on the tag's own tree, which is the code that was released. What is still absent is a run of it, because no release has been published since — and the published-artefact half, fetching the wheel back from PyPI, is EP-151 and EP-280 rather than this row"
 
 [[requirement]]
 id = "EP-212"

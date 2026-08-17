@@ -8,6 +8,16 @@ on:
   push:
     branches: [main, v1]
   pull_request:
+  # `EP-211`: the wheel denial has to execute per release and not only on a push and a pull
+  # request. A release is the moment the claim stops being about a branch and starts being
+  # about something a stranger will install, and until now nothing re-ran these three
+  # platforms at that moment — the last evidence was whatever the merge commit produced.
+  #
+  # This builds the tag's own tree, which is the code that was released. It is not yet the
+  # published artefact fetched back from PyPI: that is `EP-151` and `EP-280`, it needs the
+  # network and a real release, and it is not what this trigger claims.
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
