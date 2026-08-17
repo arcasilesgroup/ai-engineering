@@ -2575,7 +2575,18 @@ DESCRIPTION_MAX = 1000
 # fails says so instead of crashing, and the test now runs it in a subprocess with no
 # inherited environment: the only arrangement that tells a runner that works from a runner
 # that works *here*.
-REPO_CEILING = 71_377
+# 71,377 to 71,637 for the third instalment of "raise the tests, not the floor".
+#
+# `scan` and `spec` measured together at 76%. Of 395 survivors, 175 lived in `spec.main`,
+# `spec._new` and `spec._materialize` and 52 in `scan.report` and `scan.baseline` — the same
+# two shapes as every instalment before it: help blocks nothing reads, and what a function
+# does when somebody else's output is not the shape it hoped for.
+#
+# Every help block of the verb and its five subcommands is pinned whole at COLUMNS=90, and
+# `scan.report` is driven through a stub that writes SARIF where the lane's own flags say it
+# will be written — so a row with no locations, no artefact, no region, no message, and one
+# four kilobytes long each arrive as a finding whose seven fields are asserted.
+REPO_CEILING = 71_637
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

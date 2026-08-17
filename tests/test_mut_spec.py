@@ -913,3 +913,103 @@ def test_a_refusal_with_no_pending_path_still_says_nothing_was_published():
     assert payload.changes == ()
     assert [fact.id for fact in payload.checks] == ["spec-publication"]
     assert report.lines == ("  INCOMPLETE  something went wrong",)
+
+
+# ---------------------------------------------------------------- what the verb says
+
+# Ninety-one mutants of `spec.main` survived the pass that measured this module, and the
+# cause is the one the justfile already records for the guards: the survivors are sentences a
+# person reads, and every fixture asserted the outcome word instead of the words. A parser
+# whose flags are renamed, whose help sentences are rewritten and whose defaults are moved is
+# invisible to a test that passes valid arguments and reads the verdict.
+
+
+def test_the_verb_and_its_five_subcommands_say_exactly_what_they_accept(monkeypatch, capsys):
+    """Every help block, whole, at a fixed width.
+
+    Fixed at `COLUMNS=90` so the wrapping is the same on every machine — otherwise this
+    passes here and fails on a narrower terminal for a reason that has nothing to do with the
+    parser. The blocks are compared line for line rather than searched, because a flag that
+    keeps its name and loses its sentence is a flag nobody can use and `in` cannot see it.
+    """
+    from ai_engineering import spec
+
+    monkeypatch.setenv("COLUMNS", "90")
+
+    def block(*argv: str) -> list[str]:
+        with pytest.raises(SystemExit):
+            spec.main([*argv, "--help"])
+        return capsys.readouterr().out.rstrip("\n").splitlines()
+
+    assert block() == [
+        "usage: ai-eng spec [-h] {new,show,list,claim,checkpoint} ...",
+        "",
+        "positional arguments:",
+        "  {new,show,list,claim,checkpoint}",
+        "",
+        "options:",
+        "  -h, --help            show this help message and exit",
+    ]
+
+    assert block("new") == [
+        "usage: ai-eng spec new [-h] [--ref REF] slug",
+        "",
+        "positional arguments:",
+        "  slug",
+        "",
+        "options:",
+        "  -h, --help  show this help message and exit",
+        '  --ref REF   a work item, e.g. "owner/repo#45"',
+    ]
+
+    assert block("list") == [
+        "usage: ai-eng spec list [-h] [--all]",
+        "",
+        "options:",
+        "  -h, --help  show this help message and exit",
+        "  --all       include superseded specs",
+    ]
+
+    # `claim` is the one whose flags are all required and whose `--base` sentence is the
+    # whole of what makes a claim a claim: an exact SHA rather than a branch that moves.
+    assert block("claim") == [
+        "usage: ai-eng spec claim [-h] --base BASE --path PATH --role ROLE [--remote REMOTE] item",
+        "",
+        "positional arguments:",
+        "  item",
+        "",
+        "options:",
+        "  -h, --help       show this help message and exit",
+        "  --base BASE      the exact SHA this claim is taken against",
+        "  --path PATH",
+        "  --role ROLE",
+        "  --remote REMOTE",
+    ]
+
+    assert block("checkpoint")[:6] == [
+        "usage: ai-eng spec checkpoint [-h] [--base BASE] [--item ITEM] [--remote REMOTE]",
+        "",
+        "options:",
+        "  -h, --help       show this help message and exit",
+        "  --base BASE      verify this branch against that SHA or ref",
+        "  --item ITEM      read the claim from the remote, not here",
+    ]
+
+
+def test_an_unknown_subcommand_exits_the_way_cli_misuse_exits(monkeypatch, capsys):
+    """Two exits, and they are not the same thing. A parser refusing an argument is misuse
+    and exits 2 by the canonical rule; a verb refusing to act is an outcome. Conflating them
+    would let a typo report as a governed refusal."""
+    from ai_engineering import outcome, spec
+
+    monkeypatch.setenv("COLUMNS", "90")
+    with pytest.raises(SystemExit) as bad:
+        spec.main(["nonesuch"])
+    assert bad.value.code == outcome.invalid_cli_exit()
+    assert "invalid choice" in capsys.readouterr().err
+
+    # And a required flag left out of `claim` is the same class, not a claim that failed.
+    with pytest.raises(SystemExit) as missing:
+        spec.main(["claim", "item", "--path", "x", "--role", "y"])
+    assert missing.value.code == outcome.invalid_cli_exit()
+    assert "--base" in capsys.readouterr().err

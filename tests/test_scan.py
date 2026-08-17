@@ -11,9 +11,12 @@ the branches; it does not prove that a missing binary raises what the code catch
 
 from __future__ import annotations
 
+import json
 import os
+import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from conftest import repository
@@ -1127,3 +1130,149 @@ def test_the_whole_security_report_is_this_exact_block_of_lines(tmp_path, monkey
         "`ai-eng accept`",
         "  SKIPPED     images        no container image here, so no container lane runs",
     ]
+
+
+def _sarif(results: list[dict]) -> dict:
+    return {"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "t"}}, "results": results}]}
+
+
+def test_every_shape_a_sarif_row_can_be_missing_becomes_a_finding_that_still_reads(
+    tmp_path, monkeypatch
+):
+    """Twenty-six mutants of `report` survived, and all of them are what this function does
+    when a row is not the shape it hoped for.
+
+    An engine's SARIF is somebody else's output. A row with no locations, a location with no
+    artefact, an artefact with no region, a message that is absent, a message that is four
+    kilobytes of wrapped text — each is a thing a real engine emits, and each one this
+    function turns into a finding a person reads. Nothing asserted any of them, so the
+    fallbacks could have been deleted or swapped and the suite would not have moved.
+
+    Driven through the whole function rather than around it: the stub writes the SARIF where
+    the lane's own flags say it will be written, so the argument formatting is exercised too.
+    """
+    from ai_engineering import scan
+
+    lane = scan.Lane(id="t", argv=("engine",), sarif=("--out", "{}"))
+
+    def engine(argv, **kwargs):
+        where = Path(argv[argv.index("--out") + 1])
+        where.write_text(json.dumps(_sarif(engine.rows)), encoding="utf-8")
+        return SimpleNamespace(returncode=1, stdout="", stderr="")
+
+    monkeypatch.setattr(scan.subprocess, "run", engine)
+
+    engine.rows = [
+        {
+            "message": {"text": "a real finding"},
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": "src/a.py"},
+                        "region": {"startLine": 12},
+                    }
+                }
+            ],
+        },
+        {"message": {"text": "no locations at all"}},
+        {"message": {"text": "no artefact"}, "locations": [{"physicalLocation": {"region": {}}}]},
+        {
+            "ruleId": "RULE-7",
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": "src/b.py"},
+                        "region": {"startLine": 3},
+                    }
+                }
+            ],
+        },
+        {"message": {"text": "  wrapped\n   across\tlines  "}, "locations": []},
+    ]
+    found = scan.report(lane, tmp_path, ["."])
+
+    assert [one.effect for one in found] == [
+        "a real finding",
+        "no locations at all",
+        "no artefact",
+        "RULE-7",
+        "wrapped across lines",
+    ]
+    assert [one.decided_by for one in found] == [
+        "engine — src/a.py:12",
+        "engine — an unnamed file:?",
+        "engine — an unnamed file:?",
+        "engine — src/b.py:3",
+        "engine — an unnamed file:?",
+    ]
+    # A row with no message falls back to its rule id, which is the fourth one above: an
+    # engine that reports a rule and no prose still has to arrive as something a person can
+    # look up, and an empty effect there would be a finding that says nothing at all.
+    assert found[3].effect == "RULE-7"
+
+    # Six of the seven fields are the same on every one of them, and that is the contract:
+    # a scanner names what it saw and answers none of the questions a person must.
+    for one in found:
+        assert one.state == "INCOMPLETE"
+        assert one.boundary == scan.UNANSWERED
+        assert one.attacker_controls == scan.UNANSWERED
+        assert one.refutation == scan.UNANSWERED
+        assert one.closed_by == scan.UNANSWERED
+
+
+def test_a_message_longer_than_the_bound_is_cut_and_a_lane_with_no_sarif_says_nothing(
+    tmp_path, monkeypatch
+):
+    """Two limits, and the second is the one that matters most.
+
+    The effect is a line in a report, so an engine emitting four kilobytes must not become
+    the report. And a lane that was never asked for SARIF returns nothing at all — which the
+    docstring is careful to distinguish from "it found nothing", because a lane with no
+    machine-readable output is a lane nobody can list findings from.
+    """
+    from ai_engineering import scan
+
+    def engine(argv, **kwargs):
+        where = Path(argv[argv.index("--out") + 1])
+        where.write_text(
+            json.dumps(_sarif([{"message": {"text": "x" * 500}, "locations": []}])),
+            encoding="utf-8",
+        )
+        return SimpleNamespace(returncode=1, stdout="", stderr="")
+
+    monkeypatch.setattr(scan.subprocess, "run", engine)
+
+    lane = scan.Lane(id="t", argv=("engine",), sarif=("--out", "{}"))
+    (cut,) = scan.report(lane, tmp_path, ["."])
+    assert len(cut.effect) == 200
+    assert cut.effect == "x" * 200
+
+    # Never asked, and no inputs: two separate reasons to return nothing, and neither runs
+    # the engine.
+    ran = []
+    monkeypatch.setattr(scan.subprocess, "run", lambda *a, **k: ran.append(a) or None)
+    assert scan.report(scan.Lane(id="t", argv=("engine",)), tmp_path, ["."]) == []
+    assert scan.report(lane, tmp_path, []) == []
+    assert ran == [], "an engine was run for a lane that cannot report"
+
+
+def test_an_engine_that_cannot_run_reports_nothing_rather_than_raising(tmp_path, monkeypatch):
+    """This runs only when a lane has already failed, so it must never be the thing that
+    takes the gate down. An engine that is absent, or that times out on the second run, gives
+    an empty list — the verdict was already decided by the exit code and nothing here may
+    change it."""
+    from ai_engineering import scan
+
+    lane = scan.Lane(id="t", argv=("engine",), sarif=("--out", "{}"))
+    for failure in (OSError("gone"), subprocess.TimeoutExpired("engine", 1)):
+        monkeypatch.setattr(
+            scan.subprocess, "run", lambda *a, _f=failure, **k: (_ for _ in ()).throw(_f)
+        )
+        assert scan.report(lane, tmp_path, ["."]) == []
+
+    # And a run that writes no SARIF at all, which is what an engine does when it crashes
+    # after starting.
+    monkeypatch.setattr(
+        scan.subprocess, "run", lambda *a, **k: SimpleNamespace(returncode=1, stdout="", stderr="")
+    )
+    assert scan.report(lane, tmp_path, ["."]) == []
