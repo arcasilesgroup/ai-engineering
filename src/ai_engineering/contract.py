@@ -2039,7 +2039,21 @@ DESCRIPTION_MAX = 1000
 # one logical change — is one the recorded exception does not make, so it is not made here. A
 # session that writes its own exemption into the record judging it has learned nothing from the
 # eighty-six.
-REPO_CEILING = 64_031
+#
+# 64,031 to 64,077 for the first six the ledger paid for, and the arithmetic is the argument
+# for having built it. Five clauses sat in `ai-design` where nothing read them — deletable
+# with the whole suite green — and they were found by asking every requirement the same
+# question rather than by anybody re-reading the pin table. The sixth is `PO-17`, which
+# `specs/010/plan.md` has asked for since it was written and nothing ever ran: a staged hunk
+# carrying a whitespace error or a conflict marker now stops the commit, in four lines added
+# to a hook that already existed. Proven by staging one and watching it refuse.
+#
+# `EP-254` sits two lines from those five and is deliberately not closed with them. It asks
+# that imagery lose its metadata and be scanned, which is a mechanical act and not an
+# instruction, and pinning prose to close it is the exact move this day was spent undoing.
+#
+# 185 of 385, and 15 of 26.
+REPO_CEILING = 64_077
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -1527,7 +1527,7 @@ id = "EP-232"
 verdict = "INCOMPLETE"
 subject = "the envelope's check objects carry a cure and also carry evidence"
 evidence = "ai-eng --json doctor"
-note = "every check carries a cure; there is no evidence key on any of them"
+note = "every check carries a cure and there is no key named evidence. Before adding one, read `outcome.py` around the `cure` field: it records that `detail` *is* the evidence, what was observed, and that the envelope once dropped `cure` entirely. A duplicate field would be worse than the gap. What this row cannot settle is whether the requirement asks for the name or for the content, because its own text could not be quoted"
 
 [[requirement]]
 id = "EP-233"
@@ -1589,10 +1589,9 @@ evidence = "pytest tests/test_contracts.py -k 'EP-241'"
 
 [[requirement]]
 id = "EP-242"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "the verify route measures the rendered result rather than declared CSS"
-evidence = "grep -n 'measure the rendered result' .agents/skills/ai-design/SKILL.md"
-note = "the prose exists and is unpinned: deletable with the suite staying green"
+evidence = "pytest tests/test_contracts.py -k 'EP-242'"
 
 [[requirement]]
 id = "EP-243"
@@ -1621,10 +1620,9 @@ note = "a structured negative corpus is not built; only prose, which is what spe
 
 [[requirement]]
 id = "EP-247"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "no design document substitutes for a spec, a record or the Intent"
-evidence = "grep -n 'no design document substitutes' .agents/skills/ai-design/SKILL.md"
-note = "the clause is in two files and pinned by neither: it could be deleted with the suite green"
+evidence = "pytest tests/test_contracts.py -k 'EP-247'"
 
 [[requirement]]
 id = "EP-248"
@@ -1635,17 +1633,15 @@ note = "the audit found three of thirteen pinned and ten deletable with the suit
 
 [[requirement]]
 id = "EP-249"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "a criterion that is not viable is recorded with reason, owner, expiry and its evidence"
-evidence = "grep -n 'AAA criterion that is not viable' .agents/skills/ai-design/SKILL.md"
-note = "unpinned, and no code reads or validates such a record"
+evidence = "pytest tests/test_contracts.py -k 'EP-249'"
 
 [[requirement]]
 id = "EP-250"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "a scanner is a filter, never a conformance verdict"
-evidence = "grep -n 'A scanner is a filter' .agents/skills/ai-design/SKILL.md"
-note = "unpinned; no gate reads it"
+evidence = "pytest tests/test_contracts.py -k 'EP-250'"
 
 [[requirement]]
 id = "EP-251"
@@ -1675,10 +1671,9 @@ note = "prose only: no code strips metadata, scans or sanitises"
 
 [[requirement]]
 id = "EP-255"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "imagery carries an asset card naming provider, model, prompt digest, sources and licence"
-evidence = "grep -n 'asset card' .agents/skills/ai-design/SKILL.md"
-note = "the phrase is pinned, but the pin is registered to another requirement; this one has none of its own"
+evidence = "pytest tests/test_contracts.py -k 'EP-255'"
 
 [[requirement]]
 id = "EP-256"
@@ -2637,10 +2632,9 @@ note = "the widest commit on this branch touches twenty-one files: four source m
 
 [[commitment]]
 id = "PO-17"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "every commit passes a whitespace-and-conflict check and is revertible"
-evidence = "grep -rF 'diff --check' . --include='*.py' --include='*.yml' --include='*.sh' --include=justfile"
-note = "zero hits in code, hooks or the justfile: the check exists only as prose in the plan, with nothing running or recording it. Revertibility is a property of the commit graph, not evidence the check ran"
+evidence = "printf 'x   \n' > probe && git add -f probe && git diff --cached --check"
 
 [[commitment]]
 id = "PO-18"

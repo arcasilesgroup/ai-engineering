@@ -922,7 +922,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 64_031
+    assert contract.REPO_CEILING == 64_077
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1342,6 +1342,18 @@ SKILL_CONTENT = (
     # The review lens and the AA floor, each cited as what closes a requirement and each
     # read by nothing. `ai-review/SKILL.md` and its security reference had no row at all.
     ("EP-022", "ai-design/SKILL.md", "WCAG 2.2 AA is the release floor"),
+    # Five clauses that were in the file and read by nothing, found by the fourth pass over
+    # every requirement rather than by anybody re-reading this table. Each could have been
+    # deleted with the whole suite green, which is what "unpinned" means and why it is worth
+    # a row. `EP-254` is deliberately not among them: it asks for imagery to lose its
+    # metadata and be scanned, which is a mechanical act and not an instruction, and pinning
+    # prose would be exactly the overclaim this session spent the day undoing.
+    ("EP-242", "ai-design/SKILL.md", "measure the rendered result, not the CSS you wrote"),
+    ("EP-247", "ai-design/SKILL.md", "no design document substitutes for a"),
+    ("EP-247", "ai-design/corpus.md", "no design document substitutes for a spec"),
+    ("EP-249", "ai-design/SKILL.md", "recorded with reason, owner, expiry and"),
+    ("EP-250", "ai-design/SKILL.md", "A scanner is a filter, not a verdict"),
+    ("EP-255", "ai-design/corpus.md", "provider, model, prompt digest, sources and licence"),
     ("EP-044", "ai-review/SKILL.md", "file:line"),
     # The rest of the same requirement. `file:line` was pinned and the two clauses that make
     # the review a review were not, so a reviewer could have been left auto-accepting its own
