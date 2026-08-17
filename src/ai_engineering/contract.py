@@ -1978,7 +1978,20 @@ DESCRIPTION_MAX = 1000
 # exactly the move that put `EP-044` into the published total on pins guarding other
 # sentences. `specs/014` still calls the SBOM future work and is deliberately not edited —
 # MADR `0008` pins its digest, so amending it would invalidate the approval it carries.
-REPO_CEILING = 60_885
+#
+# 60,885 to 60,994 for `PO-01`, `PO-06` and `PO-13`, which the audit recorded as this
+# project's honest failure: the block cadence did not govern requirement-closure work and the
+# protocol had no rule for it. The rule is `docs/adr/0011`, accepted. The execution is Block
+# G, whose hand-off is written on the day rather than after it. And the third thing, without
+# which the other two are prose: `tests/test_record.py` now reads the hand-off section and
+# refuses a block that names no reviewer, no repair or no gate. Verified by blanking Block G's
+# gate cell and watching it die by name.
+#
+# `PO-16` is re-measured in the same commit and is further from met than when it was written:
+# the exception covers a commit moving a count another check forces it to move, and these
+# repair commits touch eighteen and nine files. Recorded as open, with the argument that a
+# repair pass is one change deliberately not made on its behalf.
+REPO_CEILING = 60_994
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

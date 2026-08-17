@@ -1465,3 +1465,44 @@ def test_a_broken_link_is_printed_with_the_command_that_answers_it():
     # A chain with nothing broken says nothing. A cure printed under a clean report is
     # noise, and noise is how the next real one gets skipped.
     assert audit._cure([("WARN", "nothing to see")]) == []
+
+
+def test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate():
+    """`PO-01`, `PO-06` and `PO-13` asked that the block cadence govern this work, and for
+    most of two sessions it did not — the audit records that as the honest failure. The rule
+    is now `docs/adr/0011`, accepted, and the evidence that it ran is a table per block in
+    `docs/audit-2026-08-16.md`.
+
+    A cadence whose only evidence is prose lapses on the first busy afternoon, which is how
+    these three came to be open in the first place. So the prose is read. Every block named
+    under the hand-offs heading has to carry the three fields that distinguish a block that
+    happened from a block that was described: who reviewed it and what they found, what was
+    repaired, and what the gate said afterwards.
+
+    Deliberately not checked here: that the gate output is independent. It is not — the
+    receipts are gitignored and no workflow runs on this branch — and the record says so in
+    its own words. A test asserting a green nobody can produce would be the defect this
+    repository is named after.
+    """
+
+    import re
+
+    root = Path(__file__).resolve().parents[1]
+    body = (root / "docs" / "audit-2026-08-16.md").read_text("utf-8")
+    start = body.index("## The block hand-offs")
+    section = body[start : body.index("\n## ", start + 10)]
+
+    blocks = re.findall(r"^### Block (\w+)", section, re.M)
+    assert len(blocks) >= 3, f"only {blocks} have a hand-off; three blocks have closed"
+
+    for name in blocks:
+        where = section.index(f"### Block {name}")
+        table = section[where : section.find("###", where + 5) or len(section)]
+        for field in ("reviewer disposition", "repair commit", "gate"):
+            assert field in table, f"Block {name}'s hand-off names no {field}"
+        # A field with no value is a field nobody filled. The table is one row per line, so
+        # what is asserted is that something follows the name inside its own row.
+        for line in table.splitlines():
+            if line.startswith("| reviewer disposition") or line.startswith("| gate"):
+                cells = [one.strip() for one in line.strip("|").split("|")]
+                assert len(cells) == 2 and cells[1], f"Block {name}: {cells[0]!r} is empty"
