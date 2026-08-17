@@ -360,3 +360,205 @@ def test_no_eleventh_verb_and_the_stub_sentence_is_gone():
 
     source = (ROOT / "src" / "ai_engineering" / "report.py").read_text(encoding="utf-8")
     assert "report issue is planned for P2" not in source
+
+
+def _report_help(monkeypatch, capsys, *argv: str) -> list[str]:
+    """One subcommand's whole help block, at a fixed width so it is comparable."""
+    from ai_engineering import report
+
+    monkeypatch.setenv("COLUMNS", "90")
+    with pytest.raises(SystemExit):
+        report.main([*argv, "--help"])
+    return capsys.readouterr().out.rstrip("\n").splitlines()
+
+
+def test_the_report_verb_declares_exactly_these_three_subcommands(monkeypatch, capsys):
+    """Two hundred and fifty-two mutants lived in this verb, more than any other in the tree,
+    and its declared surface is most of them.
+
+    `report` is the only verb that can send something outward, so what it accepts is not a
+    convenience — every argument is a field of a payload that may leave the machine, and the
+    five required ones are what stop a report being sent half-written. A default moved or a
+    choice list widened is invisible to a test that passes valid arguments and reads the
+    outcome, which is what every fixture here did.
+    """
+    assert _report_help(monkeypatch, capsys) == [
+        "usage: ai-eng report [-h] {digest,issue,surfaces} ...",
+        "",
+        "positional arguments:",
+        "  {digest,issue,surfaces}",
+        "",
+        "options:",
+        "  -h, --help            show this help message and exit",
+    ]
+
+
+def test_the_issue_subcommand_requires_all_five_fields_and_offers_one_flag(monkeypatch, capsys):
+    """`--kind` is a closed choice of two and the difference between them decides whether a
+    public route is offered at all. The other four are the payload, and `--submit` is the one
+    flag that turns a draft into something that leaves."""
+    assert _report_help(monkeypatch, capsys, "issue") == [
+        "usage: ai-eng report issue [-h] --kind {bug,security} --title TITLE --what-happened",
+        "                           WHAT_HAPPENED --expected EXPECTED --step STEP [--submit]",
+        "",
+        "options:",
+        "  -h, --help            show this help message and exit",
+        "  --kind {bug,security}",
+        "  --title TITLE",
+        "  --what-happened WHAT_HAPPENED",
+        "  --expected EXPECTED",
+        "  --step STEP",
+        "  --submit",
+    ]
+
+
+def test_the_other_two_subcommands_say_exactly_what_they_need(monkeypatch, capsys):
+    """`digest` takes a window and `surfaces` takes nothing. Both are read-only and neither
+    can send anything, which is why they carry no confirmation flag."""
+    assert _report_help(monkeypatch, capsys, "digest") == [
+        "usage: ai-eng report digest [-h] [--weeks WEEKS]",
+        "",
+        "options:",
+        "  -h, --help     show this help message and exit",
+        "  --weeks WEEKS",
+    ]
+    assert _report_help(monkeypatch, capsys, "surfaces") == [
+        "usage: ai-eng report surfaces [-h]",
+        "",
+        "options:",
+        "  -h, --help  show this help message and exit",
+    ]
+
+
+def test_an_issue_missing_any_required_field_is_refused_rather_than_sent_half_written(
+    monkeypatch, capsys
+):
+    """Five required arguments, each removed on its own.
+
+    A report missing its title, or what happened, or what was expected, is one nobody
+    receiving it can act on — and `report` is the verb that can send it outward. Omitting all
+    five at once would pass with four of them optional, so each is checked alone.
+    """
+    from ai_engineering import report
+
+    monkeypatch.setenv("COLUMNS", "90")
+    whole = [
+        "issue",
+        "--kind",
+        "bug",
+        "--title",
+        "t",
+        "--what-happened",
+        "x",
+        "--expected",
+        "y",
+        "--step",
+        "z",
+    ]
+    for flag in ("--kind", "--title", "--what-happened", "--expected", "--step"):
+        where = whole.index(flag)
+        with pytest.raises(SystemExit) as refused:
+            report.main(whole[:where] + whole[where + 2 :])
+        assert refused.value.code == 2, flag
+        assert flag in capsys.readouterr().err, flag
+
+    # And a kind outside the closed pair is refused rather than treated as a bug, because the
+    # two differ in whether a public route is ever offered.
+    where = whole.index("--kind")
+    with pytest.raises(SystemExit) as refused:
+        report.main(whole[: where + 1] + ["incident"] + whole[where + 2 :])
+    assert refused.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def _args(**changed):
+    """The five fields of a valid report, as the parser hands them over."""
+    import argparse
+
+    fields = {
+        "kind": "bug",
+        "title": "a title",
+        "what_happened": "what happened",
+        "expected": "what was expected",
+        "step": ["one step"],
+        "submit": False,
+    }
+    fields.update(changed)
+    return argparse.Namespace(**fields)
+
+
+def test_every_outcome_of_a_governed_report_says_its_own_summary(tmp_path, capsys):
+    """Ninety-nine mutants lived in the one function that decides what a report becomes.
+
+    It has four ends and they are not interchangeable: no repository, a payload the scan
+    refused, a vulnerability asked to go public, and a clean draft. Each writes a different
+    thing to disk — three of them nothing at all — and each says something different to the
+    person. Every fixture here had checked the outcome word and the file, and none had checked
+    the summary, which is the sentence that says what happened to their report.
+    """
+    from ai_engineering import report
+
+    outside = report.report_issue(None, _args())
+    assert outside.outcome == "INCOMPLETE"
+    assert "nowhere to keep a draft" in capsys.readouterr().out
+
+    clean = report.report_issue(tmp_path, _args())
+    assert clean.result.outcome == "PASS"
+    assert clean.summary == "Drafted a bug report locally; nothing has been sent"
+    assert clean.remaining == (
+        "Nothing has been sent. Sending is a separate action a person confirms.",
+    )
+    assert [fact.id for fact in clean.changes] == ["issue-draft"]
+    assert [fact.id for fact in clean.checks] == ["scan", "digest"]
+    assert [fact.status for fact in clean.checks] == ["PASS", "OBSERVED"]
+
+
+def test_a_refused_payload_leaves_no_file_and_names_every_class_it_found(tmp_path, capsys):
+    """The refusal that matters most, and the field that proves it: no draft is written.
+
+    The order is the whole control — build, scan the exact bytes, and only then write. A
+    version that wrote first and scanned second would leave on disk exactly the artefact
+    somebody could still send, which is the one this refusal exists to prevent.
+    """
+    from ai_engineering import report
+
+    refused = report.report_issue(tmp_path, _args(title="my key is at /Users/somebody/.ssh/id_rsa"))
+
+    assert refused.result.outcome == "INCOMPLETE"
+    assert refused.summary.endswith("stopped this report; nothing was written or sent")
+    assert refused.summary[0].isdigit(), "the summary does not say how many findings there were"
+    assert refused.remaining, "a refusal named no class at all"
+    assert all(fact.cure for fact in refused.checks), "a refused field carries no way forward"
+    assert all(
+        fact.cure == "rewrite the field in your own words, without the value it carried"
+        for fact in refused.checks
+    )
+    assert not list(tmp_path.glob("**/*.json")), "a refused report still wrote a draft"
+
+
+def test_a_vulnerability_is_refused_before_the_terminal_and_not_after(tmp_path, capsys):
+    """Asked to go public, a security finding is routed privately — and the check happens
+    before anything is written or any confirmation is asked.
+
+    A control that asked first and refused second has already put the wrong route in front of
+    somebody at the end of a long day, so what this asserts is not only the refusal but that
+    no draft exists afterwards and the private route is named in the line.
+    """
+    from ai_engineering import issue as issue_module
+    from ai_engineering import report
+
+    routed = report.report_issue(tmp_path, _args(kind="security", submit=True))
+
+    assert routed.result.outcome == "INCOMPLETE"
+    assert routed.summary == "A security finding routes to private disclosure; nothing was written"
+    assert [fact.id for fact in routed.checks] == ["route"]
+    assert routed.checks[0].detail == "ISSUE_SECURITY_ROUTE_IS_PRIVATE"
+    assert issue_module.PRIVATE_ROUTE in routed.checks[0].cure
+    assert issue_module.PRIVATE_ROUTE in capsys.readouterr().out
+    assert not list(tmp_path.glob("**/*.json")), "a refused vulnerability still wrote a draft"
+
+    # And a security report that is *not* asked to go public is drafted like any other, which
+    # is the half that stops this refusal from becoming a ban on reporting vulnerabilities.
+    drafted = report.report_issue(tmp_path, _args(kind="security"))
+    assert drafted.result.outcome == "PASS"
+    assert drafted.summary == "Drafted a security report locally; nothing has been sent"

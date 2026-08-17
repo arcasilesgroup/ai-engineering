@@ -2240,7 +2240,26 @@ DESCRIPTION_MAX = 1000
 # not a `.env` and `mykey` is not a key. And one function up, that a path inside the declared
 # roots is still refused unless the mode names that class of secret too, which is what stops a
 # capability declaring `read_roots = ["."]` from reading everybody's private keys.
-REPO_CEILING = 65_943
+#
+# 65,943 to 66,164 for `report.py`, 72% to 77%, which carried more survivors than any other
+# module in this tree — and it is the one verb that can send something outward.
+#
+# Its declared surface was most of them. Five required arguments and a closed choice of two
+# kinds, and every fixture passed valid ones and read the outcome, so a widened choice list or
+# a dropped `required` was invisible. Each is removed on its own now, and `--kind incident` is
+# refused, because the two kinds differ in whether a public route is ever offered.
+#
+# Then the four ends of `report_issue`, which are not interchangeable: no repository, a payload
+# the scan refused, a vulnerability asked to go public, and a clean draft. Three of them write
+# nothing, and the fixtures had checked the outcome word and the file but never the summary —
+# the sentence that tells a person what became of their report. The refusal cases now assert
+# that no draft exists afterwards, which is the whole reason the order is build, scan, then
+# write: a version that wrote first would leave on disk exactly the artefact somebody could
+# still send.
+#
+# And the half that keeps the security refusal honest: a vulnerability *not* asked to go public
+# is drafted like any other. Without that, this control reads as a ban on reporting them.
+REPO_CEILING = 66_164
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
