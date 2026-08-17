@@ -2688,7 +2688,23 @@ DESCRIPTION_MAX = 1000
 #
 # The ledger's own rule now includes NO-EVIDENCE among the verdicts that owe a reason, with
 # the unrecoverable rows excused because their subject already carries it in that word.
-REPO_CEILING = 72_345
+# 72,345 to 72,529 for the diagnosis's own biggest blind spots.
+#
+# `doctor` measured at 78%, and it is the largest module in the product and the one making
+# the twenty-six statements a person on an installed machine reads. Of its 243 survivors, 89
+# were in `main` and 36 in `_anchor_answers`.
+#
+# `--paths` is the half somebody pipes into a script: five classes, five paths, and nothing
+# else runs — a diagnosis that answered "where are things" by executing twenty-six checks
+# would be answering a different question slowly. `--ci` is the shape a false green would
+# take if it were quiet: what a runner cannot answer prints as skipped, carries the reason
+# and arrives in the envelope as a SKIPPED fact rather than being left out of it.
+#
+# `_anchor_answers` has six outcomes and two pairs of them differ in a way that matters: a
+# module that cannot run is a broken install, and one that runs and cannot anchor is a fresh
+# machine. Reporting the second as the first makes the assertion red by construction, and a
+# red by construction is a red somebody silences.
+REPO_CEILING = 72_529
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

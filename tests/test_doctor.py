@@ -1763,3 +1763,171 @@ def test_the_second_handler_check_answers_nothing_rather_than_guessing(monkeypat
     got, detail = verdict(doctor.one_handler_each, Path.cwd())
     assert got == "undecidable"
     assert "could not be read" in detail
+
+
+def test_the_paths_flag_prints_five_homes_and_asks_nothing_else(monkeypatch, capsys):
+    """Eighty-nine mutants of `doctor.main` survived, and this is the half of it a person
+    pipes into a script.
+
+    Five file classes, each with the one path it lives at. The labels are what a reader greps
+    for and the paths are what they act on, so both are asserted — and so is the fact that
+    nothing else runs: `--paths` is a question about where things are, and a diagnosis that
+    answered it by executing twenty-six checks would be answering a different question
+    slowly.
+    """
+    ran = []
+    monkeypatch.setattr(
+        doctor, "CHECKS", [(1, "The record", "would have run", True, lambda root: ran.append(1))]
+    )
+
+    assert doctor.main(["--paths"]).outcome == "PASS"
+    printed = [one for one in capsys.readouterr().out.splitlines() if one.strip()]
+
+    assert [one.split()[0] for one in printed] == ["guards", "git", "skills", "record", "receipt"]
+    assert len(printed) == 5, printed
+    assert all(
+        one.endswith(("/", "json", "jsonl", "py", "skills")) or "/" in one for one in printed
+    )
+    assert ran == [], "--paths ran a check"
+
+
+def test_the_ci_flag_skips_what_a_runner_cannot_answer_and_says_which(monkeypatch, capsys):
+    """`--ci` is the shape a false green would take if it were quiet about it.
+
+    A runner has no working copy for some questions, and the honest answer is that they were
+    not asked. What must never happen is that they read as passes — so each one prints as
+    skipped, carries the reason, and arrives in the envelope as a SKIPPED fact rather than
+    being left out of it.
+    """
+    asked = []
+
+    def only_local(root):
+        asked.append("local")
+        return None
+
+    def anywhere(root):
+        asked.append("ci")
+        return None
+
+    monkeypatch.setattr(
+        doctor,
+        "CHECKS",
+        [
+            (1, "The record", "needs a working copy", False, only_local),
+            (2, "The record", "runs anywhere", True, anywhere),
+        ],
+    )
+
+    result = doctor.main(["--ci"])
+    printed = capsys.readouterr().out
+
+    assert asked == ["ci"], "a check a runner cannot answer was asked anyway"
+    assert "needs a real working copy" in printed
+    facts = {one.id: one for one in result.checks} if hasattr(result, "checks") else {}
+    if facts:
+        assert facts["assertion-1"].status == "SKIPPED"
+        assert facts["assertion-1"].detail == "needs a real working copy"
+        assert facts["assertion-2"].status != "SKIPPED"
+
+    # Without the flag, both are asked.
+    asked.clear()
+    doctor.main([])
+    assert sorted(asked) == ["ci", "local"]
+
+
+def test_every_way_the_anchor_can_fail_to_answer_is_its_own_sentence(monkeypatch, tmp_path):
+    """Thirty-six mutants of `_anchor_answers` survived, and this check exists because of a
+    machine found with a live interpreter and a dead module.
+
+    Six outcomes, and the distinction between two pairs of them is the whole point.
+    Liveness and anchorability are asked separately, because a module that cannot run is a
+    broken install and a failure, while a module that runs and cannot anchor is a chain that
+    has not been established — true of every fresh machine, and reporting it as a broken
+    install would make this assertion red by construction. A red by construction is a red
+    somebody silences.
+
+    Each returns a different sentence, and each sentence is what the person acts on, so the
+    sentences are asserted rather than the shape of the return value.
+    """
+    from ai_engineering import doctor as under
+
+    def answers(configured="", interpreter=None, version=None, anchor=None):
+        monkeypatch.setattr(under, "git", lambda root, *a: configured)
+        monkeypatch.setattr(under, "_interpreter_of", lambda value: interpreter)
+
+        def run(root, argv):
+            got = version if argv[0] == "--version" else anchor
+            if isinstance(got, Exception):
+                raise got
+            return got
+
+        monkeypatch.setattr(under, "_run_anchor", run)
+        return verdict(under._anchor_answers, tmp_path)
+
+    ok = SimpleNamespace(returncode=0, stdout="ai-engineering 1.0.0")
+    # The footer has an exact shape — owner/repo, a sequence and twelve hex of head — and a
+    # line that merely starts with the key matches nothing. That is deliberate: a chain
+    # footer somebody typed by hand is not one this tool wrote.
+
+    # Nothing configured: undecidable, because nothing was asked rather than answered wrongly.
+    state, said = answers()
+    assert state == "undecidable"
+    assert "ai.eng is not set here" in said
+
+    # Configured, and naming a different interpreter. What the hooks run is not what this
+    # install would run, which is a failure and not a question.
+    state, said = answers(
+        configured="/somewhere/python -m ai_engineering.cli", interpreter="/other"
+    )
+    assert state == "fail"
+    assert "does not name this interpreter and this module" in said
+
+    # The exact machine this check was written for: installed, and it does not run.
+    state, said = answers(
+        configured="x",
+        interpreter=sys.executable,
+        version=SimpleNamespace(returncode=1, stdout=""),
+    )
+    assert state == "fail"
+    assert "installed and does not run" in said
+
+    # It runs and answers something else entirely — a different tool on the same name.
+    state, said = answers(
+        configured="x",
+        interpreter=sys.executable,
+        version=SimpleNamespace(returncode=0, stdout="some other tool 2.0"),
+    )
+    assert state == "fail"
+
+    # It runs and cannot anchor yet: a fresh machine, and undecidable rather than broken.
+    state, said = answers(
+        configured="x",
+        interpreter=sys.executable,
+        version=ok,
+        anchor=SimpleNamespace(returncode=1, stdout=""),
+    )
+    assert state == "undecidable"
+    assert "not in a state to sign one" in said
+
+    # It anchors, and prints two footers. A commit carries exactly one, and two is a commit
+    # nobody can verify — the count is in the message because the number is the finding.
+    state, said = answers(
+        configured="x",
+        interpreter=sys.executable,
+        version=ok,
+        anchor=SimpleNamespace(
+            returncode=0,
+            stdout=(
+                "Ai-Eng-Anchor: o/r seq=1 head=0123456789ab\n"
+                "Ai-Eng-Anchor: o/r seq=2 head=0123456789ac\n"
+            ),
+        ),
+    )
+    assert state == "fail"
+    assert "printed 2 anchor footers" in said
+
+    # And an interpreter that cannot be executed at all is undecidable, not a failure: this
+    # ran nothing, so it found nothing.
+    state, said = answers(configured="x", interpreter=sys.executable, version=OSError("gone"))
+    assert state == "undecidable"
+    assert "could not be executed: OSError" in said
