@@ -2753,7 +2753,21 @@ DESCRIPTION_MAX = 1000
 # that said something executed without saying when is a claim with no shelf life. An
 # unrecognised code still prints as itself rather than being dropped: to anything counting,
 # an omitted row reads like a question that was not worth asking.
-REPO_CEILING = 72_891
+# 72,891 to 72,992 for the honesty layer's own table.
+#
+# `coverage` had thirteen survivors. Its first line is the pin, and the word after it decides
+# the whole verdict: MISMATCH is what `_terminal_result` scans for, and a wheel and a pin
+# that disagree mean the hooks on this machine are not the ones this repository thinks it
+# has. Both spellings are asserted, and the red one is asserted through the function that
+# reads it rather than by looking at the string.
+#
+# The bug this function was corrected for gets a case at last: `surfaces_alive` returns a
+# tuple as soon as any surface is unwired, and a substring test against a tuple is never
+# true — so two surfaces that fail silently printed as covered while another assertion was
+# telling the person they were dead. And an undecidable liveness check leaves the rows
+# reading UNPROVEN rather than emptying the table, because silence is not the honest word
+# for a machine this framework has never been wired into.
+REPO_CEILING = 72_992
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

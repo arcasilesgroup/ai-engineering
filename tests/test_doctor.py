@@ -2244,3 +2244,90 @@ def test_every_surface_state_arrives_as_a_sentence_and_never_as_a_code(tmp_path,
     # And outside a repository there is nothing to read rather than twenty-four unproven
     # rows: no receipts exist to be missing.
     assert under.surface_states(None, now=datetime.now(UTC)) == []
+
+
+def test_the_coverage_table_says_pin_first_and_never_calls_an_unwired_surface_covered(
+    tmp_path, monkeypatch
+):
+    """Thirteen mutants of `coverage` survived, and this table is the honesty layer.
+
+    Its first line is the pin, and the word after it decides the whole verdict: `MISMATCH`
+    is scanned for by `_terminal_result` and turns the diagnosis red. A wheel and a pin that
+    disagree mean the hooks on this machine are not the ones this repository thinks it has.
+
+    Then a row per surface, with the tier first. The bug this function was corrected for is
+    in the docstring and is worth a case: `surfaces_alive` returns a tuple as soon as any
+    surface is unwired, and a substring test against a tuple is never true — so two surfaces
+    that fail *silently* printed as covered on a machine where another assertion was telling
+    the person they were dead.
+    """
+    from datetime import UTC, datetime
+
+    from ai_engineering import __version__, wiring
+    from ai_engineering import doctor as under
+
+    monkeypatch.setattr(
+        under.paths,
+        "load",
+        lambda name: SimpleNamespace(config=lambda root: {"framework": {"version": __version__}}),
+    )
+    monkeypatch.setattr(wiring, "detect", lambda: [])
+    monkeypatch.setattr(wiring, "wired", lambda: ([], []))
+    monkeypatch.setattr(under, "enforced", lambda root, *, now: set())
+    monkeypatch.setattr(under, "surfaces_alive", lambda root: ("opencode is inert", "a cure"))
+
+    lines = under.coverage(tmp_path, now=datetime.now(UTC))
+
+    assert lines[0].startswith("  PIN  wheel ")
+    assert lines[0].endswith("  OK"), lines[0]
+    assert "MISMATCH" not in lines[0]
+
+    # The pin disagreeing is the one word in this table that makes the run red.
+    monkeypatch.setattr(
+        under.paths,
+        "load",
+        lambda name: SimpleNamespace(config=lambda root: {"framework": {"version": "0.0.1"}}),
+    )
+    mismatched = under.coverage(tmp_path, now=datetime.now(UTC))
+    assert mismatched[0].endswith("  MISMATCH")
+    assert (
+        under._terminal_result(
+            failed=[], unanswered=[], coverage_lines=mismatched[:1], coverage_unknown=False
+        ).outcome
+        == "FAIL"
+    )
+
+    # A tuple from `surfaces_alive` is read as its message. Without this, the substring test
+    # below it is never true and an inert surface reads as covered.
+    assert any("opencode" in one for one in lines[1:])
+    assert len(lines) > len(under.OPEN), "the per-surface rows are gone"
+
+
+def test_nothing_installed_leaves_every_row_unproven_rather_than_undecided(tmp_path, monkeypatch):
+    """`surfaces_alive` raises when nothing is installed, and the answer is not a missing
+    table: every row already reads UNPROVEN, which is the honest word for a machine this
+    framework has never been wired into. Swallowing the exception into an empty table would
+    replace twenty-four honest rows with silence."""
+    from datetime import UTC, datetime
+
+    from ai_engineering import __version__, wiring
+    from ai_engineering import doctor as under
+
+    monkeypatch.setattr(
+        under.paths,
+        "load",
+        lambda name: SimpleNamespace(config=lambda root: {"framework": {"version": __version__}}),
+    )
+    monkeypatch.setattr(wiring, "detect", lambda: [])
+    monkeypatch.setattr(wiring, "wired", lambda: ([], []))
+    monkeypatch.setattr(under, "enforced", lambda root, *, now: set())
+
+    def nothing(root):
+        raise under.Undecidable("nothing is installed here")
+
+    monkeypatch.setattr(under, "surfaces_alive", nothing)
+
+    lines = under.coverage(tmp_path, now=datetime.now(UTC))
+
+    assert len(lines) > 1, "an undecidable liveness check emptied the table"
+    assert any("UNPROVEN" in one for one in lines), lines
