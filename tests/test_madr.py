@@ -1611,9 +1611,16 @@ _ACTIVE_LIFECYCLE = {
 
 
 def test_an_approved_specification_still_hashes_to_what_was_approved():
-    """MADR 0008 approves five specifications at exact digests, and a digest is only as
-    good as the discipline around it. Editing any of the five invalidates its approval,
-    and nothing would have said so.
+    """MADR 0008 records five specifications at exact digests, and a digest is only as good
+    as the discipline around it. Editing any of the five invalidates that record, and
+    nothing would have said so.
+
+    It says "records" and not "approves", which is a correction. The record itself reads
+    `status: proposed` — this project's own word for "nobody has taken this" — so a test
+    citing it as an approval was a control claiming more authority than its source has. What
+    the digests are worth without that acceptance is still real and worth keeping: they prove
+    a file has not moved since somebody wrote its digest down. That is a precaution, not
+    evidence that anybody approved it, and the two are not the same sentence.
 
     That is not hypothetical: the audit found exactly this in specification 010's own
     plan, where an invalidated plan digest sat beside an approved one and no check in
@@ -1633,6 +1640,22 @@ def test_an_approved_specification_still_hashes_to_what_was_approved():
         r"\| `(specs/[^`]+)` \| P\d \| `([0-9a-f]{16})` \|", record.read_text("utf-8")
     )
     assert len(rows) == 5, f"the approval table lost a row: {rows}"
+
+    # And the two halves may not disagree. While the record is a proposal, no specification
+    # it names may claim to be approved — that pairing would be a specification resting its
+    # status on a record that grants nothing, which is the shape this file exists to catch.
+    import re as _re
+
+    proposed = 'status: "proposed"' in record.read_text("utf-8")
+    for named, _ in rows:
+        header = (ROOT / named / "spec.md").read_text("utf-8")
+        status = _re.search(r"^status: (\w+)", header, _re.M)
+        assert status, named
+        if proposed:
+            assert status.group(1) == "draft", (
+                f"{named} reads {status.group(1)!r} while MADR 0008, which carries its "
+                f"approval, is still proposed. Accept the record or leave the spec draft."
+            )
     for folder, approved in rows:
         spec = ROOT / folder / "spec.md"
         assert spec.exists(), f"{folder} was approved and is not here"

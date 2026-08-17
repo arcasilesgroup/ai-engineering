@@ -1880,7 +1880,21 @@ DESCRIPTION_MAX = 1000
 # matches and only the key differs, so it arrives as `edited` — the wording reserved for
 # tampering. And my own run-collapsing counted complaints instead of links until a fixture
 # printed "2 broken link(s) in 2 run(s): 2 2" on the first run.
-REPO_CEILING = 60_018
+#
+# 60,018 to 60,055 for a test that cited an approval its own source does not carry. MADR 0008
+# holds the five specifications' digests and reads `status: proposed` — this project's word
+# for "nobody has taken this" — while the test enforcing those digests opened by saying the
+# record "approves" them.
+#
+# The enforcement is worth keeping and the sentence was not: a digest proves a file has not
+# moved since somebody wrote it down, which is a precaution rather than evidence that anybody
+# approved it. Those are two different claims and only one of them was true.
+#
+# The check now also refuses the pairing that would matter: while the record is a proposal,
+# no specification it names may read anything but `draft`. All five do today, so it lands
+# green — and the day one of them claims approval on the strength of a record that grants
+# nothing, it turns red naming the specification.
+REPO_CEILING = 60_055
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
