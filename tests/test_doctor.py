@@ -1931,3 +1931,79 @@ def test_every_way_the_anchor_can_fail_to_answer_is_its_own_sentence(monkeypatch
     state, said = answers(configured="x", interpreter=sys.executable, version=OSError("gone"))
     assert state == "undecidable"
     assert "could not be executed: OSError" in said
+
+
+def test_the_tracked_inventory_is_refused_rather_than_returned_short(tmp_path, monkeypatch):
+    """Eighteen mutants of `tracked_files` survived, and every reader of it decides what is
+    committed where.
+
+    `-z` exists because a filename may contain a newline, and a splitter that used one would
+    turn one file into two — which, in the check that finds framework files outside their
+    homes, invents a stray that is not there and hides the one that is. So the separator is
+    asserted with a name that would break a line-splitter.
+
+    Everything else is a refusal, and they matter more than the success: an inventory that
+    came back short reads as a repository with nothing wrong in it. Absent git, a git that
+    fails, output that is not UTF-8, output missing its final separator, and an empty name
+    between two separators are five ways to be short, and each is undecidable rather than an
+    empty list.
+    """
+    from ai_engineering import doctor as under
+
+    def answers(stdout=b"", code=0, error=None):
+        def run(argv, **kwargs):
+            if error is not None:
+                raise error
+            return SimpleNamespace(returncode=code, stdout=stdout, stderr=b"")
+
+        monkeypatch.setattr(under.subprocess, "run", run)
+
+    answers(b"a.py\0b/c.py\0")
+    assert under.tracked_files(tmp_path) == ["a.py", "b/c.py"]
+
+    # A newline inside a name. The only separator is the NUL, and this is why.
+    answers(b"one\ntwo.py\0plain.py\0")
+    assert under.tracked_files(tmp_path) == ["one\ntwo.py", "plain.py"]
+
+    # Nothing tracked at all is an empty inventory and not a refusal: a fresh repository is
+    # a real state, and refusing it would make this red by construction.
+    answers(b"")
+    assert under.tracked_files(tmp_path) == []
+
+    for why, kwargs in (
+        ("git is not installed", {"error": FileNotFoundError("git")}),
+        ("git timed out", {"error": subprocess.TimeoutExpired("git", 10)}),
+        ("git failed", {"code": 128}),
+        ("the output is not UTF-8", {"stdout": b"\xff\xfe.py\0"}),
+        ("the last name has no separator", {"stdout": b"a.py\0b.py"}),
+        ("an empty name between two separators", {"stdout": b"a.py\0\0b.py\0"}),
+    ):
+        answers(**kwargs)
+        with pytest.raises(under.Undecidable, match="could not inventory tracked files"):
+            under.tracked_files(tmp_path)
+        assert why, "every refusal above is named, so the reason is in the failure output"
+
+
+def test_the_inventory_asks_about_the_repository_it_was_handed(tmp_path, monkeypatch):
+    """`-C <root>`, and it is the argument that decides which repository is answered about.
+
+    Without it this reads whatever repository the process happens to be standing in — which,
+    for a diagnosis run from inside one repository about another, is a report about the wrong
+    tree that looks exactly like a report about the right one.
+    """
+    from ai_engineering import doctor as under
+
+    seen = []
+    monkeypatch.setattr(
+        under.subprocess,
+        "run",
+        lambda argv, **kw: (
+            seen.append(argv) or SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
+        ),
+    )
+
+    under.tracked_files(tmp_path)
+
+    assert seen[0][:4] == ["git", "-C", str(tmp_path), "ls-files"]
+    assert "-z" in seen[0], "the separator that makes a newline in a name safe is gone"
+    assert "--cached" in seen[0]

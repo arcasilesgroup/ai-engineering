@@ -2704,7 +2704,20 @@ DESCRIPTION_MAX = 1000
 # module that cannot run is a broken install, and one that runs and cannot anchor is a fresh
 # machine. Reporting the second as the first makes the assertion red by construction, and a
 # red by construction is a red somebody silences.
-REPO_CEILING = 72_529
+# 72,529 to 72,618 for the inventory every home check reads.
+#
+# `tracked_files` had eighteen survivors, and `-z` exists because a filename may contain a
+# newline: a splitter that used one turns one file into two, which in the check that finds
+# framework files outside their homes invents a stray that is not there and hides the one
+# that is. So the separator is asserted with a name that would break a line-splitter, and
+# `-C <root>` with it — without that this answers about whatever repository the process
+# happens to be standing in, which looks exactly like an answer about the right one.
+#
+# The five refusals matter more than the success: an inventory that came back short reads as
+# a repository with nothing wrong in it. Absent git, a git that fails, output that is not
+# UTF-8, a missing final separator, and an empty name between two separators. An empty
+# inventory is not among them — a fresh repository is a real state.
+REPO_CEILING = 72_618
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
