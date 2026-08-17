@@ -2197,7 +2197,30 @@ DESCRIPTION_MAX = 1000
 # written into `.ai/.gitignore` and CI found the assertion still holding the old list — the
 # same rule in two places, one of them updated. That is duplication working as designed: the
 # branch could not go green while the two disagreed.
-REPO_CEILING = 65_340
+#
+# 65,340 to 65,758 for the two modules this comment has named as the payers since it was
+# written: `uninstall` 78% to 81%, `update` 60% to 63%. `update.py` had no test file at all,
+# which is why the sentence about them was true.
+#
+# The work worth reading is `tests/test_update.py`. `_read_pin` is the hardened boundary of the
+# whole verb — it opens the pin inside an already-verified directory descriptor and refuses
+# anything that is not one bounded regular file which did not move while it was read — and not
+# one of its conditions had ever been exercised. A symlink to a file elsewhere, a second hard
+# link to the same inode, a size that would make the read unbounded, and a swap between the
+# open and the last stat now each have a case, separately, because one wrong file and one
+# refusal passes with five of the six conditions deleted.
+#
+# `uninstall`'s cluster was `_json_guard_owned`, which decides whether a settings file may be
+# rewritten. Two ways to be wrong and both bad: too strict leaves our hooks in somebody's
+# editor for ever, too loose deletes an entry a person added. Every fixture had driven the file
+# the installer had just written, which is the one shape it is guaranteed to accept.
+#
+# One expectation of mine was wrong there and the code was right: somebody else's hook beside
+# ours is still owned, because the question is whether *our* entries are the ones we wrote, not
+# whether the file holds nothing else. An editor's settings file is shared. What refuses is a
+# second copy of one of ours — nine entries where eight were written, and it cannot tell which
+# of the two duplicates is its own.
+REPO_CEILING = 65_758
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

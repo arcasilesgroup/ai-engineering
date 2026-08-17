@@ -2599,3 +2599,124 @@ def test_every_verb_states_its_will_before_mutating_and_counts_its_steps(
     payload = json.loads(machine.out)
     assert payload["command"] == "exception" and payload["outcome"] == "PASS"
     assert "RUNNING" not in machine.out and "will" not in payload
+
+
+def test_owned_means_exactly_our_entries_and_nothing_beside_them():
+    """Fifty-one mutants lived in the one function that decides whether uninstall may delete.
+
+    `_json_guard_owned` answers a question with two bad ways to be wrong. Too strict and
+    uninstall leaves our hooks behind in somebody's editor for ever, because it cannot prove
+    they are ours. Too loose and it deletes an entry a person added by hand. Nothing had asked
+    it either question: every fixture drove the file the installer had just written, which is
+    the one shape it is guaranteed to accept.
+
+    So each surface's exact shape is asserted true, and four near-misses are asserted false:
+    one of our entries missing, one extra of somebody else's beside ours, a required sibling
+    field flipped, and a command that is nearly but not quite the one we install.
+    """
+    from ai_engineering import uninstall, wiring
+
+    claude_hooks = [
+        {"type": "command", "command": wiring.command(event)} for event in wiring.EVENTS
+    ]
+    claude = {
+        "hooks": {
+            event: [{"matcher": "*", "hooks": [hook]}]
+            for event, hook in zip(wiring.EVENTS, claude_hooks, strict=True)
+        }
+    }
+    assert uninstall._json_guard_owned(claude, "json_claude")
+
+    # One of the four events missing: these are ours and they are not all here, so this file
+    # is not one uninstall wrote and it may not be rewritten as if it were.
+    short = {"hooks": {k: v for k, v in list(claude["hooks"].items())[:3]}}
+    assert not uninstall._json_guard_owned(short, "json_claude")
+
+    # Somebody else's hook beside ours is still owned, and that is the right answer — which is
+    # worth stating because the opposite is the intuitive one. This function asks whether *our*
+    # entries are exactly the ones we wrote, not whether the file contains nothing else. An
+    # editor's settings file is shared, so refusing here would leave our hooks in it for ever;
+    # what protects a person's work is that removal touches only the entries this answered for.
+    shared = {
+        "hooks": {
+            **claude["hooks"],
+            "PreToolUse": [
+                *claude["hooks"]["PreToolUse"],
+                {"matcher": "*", "hooks": [{"type": "command", "command": "their-own-tool"}]},
+            ],
+        }
+    }
+    assert uninstall._json_guard_owned(shared, "json_claude")
+
+    # A command one character from ours is not ours.
+    nearly = {
+        "hooks": {
+            event: [
+                {
+                    "matcher": "*",
+                    "hooks": [{"type": "command", "command": wiring.command(event) + " "}],
+                }
+            ]
+            for event in wiring.EVENTS
+        }
+    }
+    assert not uninstall._json_guard_owned(nearly, "json_claude")
+
+    # Cursor carries a sibling field that is part of what makes the file ours: without
+    # `failClosed` the entries could be anybody's copy of the same command.
+    cursor_hook = {"command": wiring.command("PreToolUse")}
+    cursor = {"failClosed": True, "hooks": {"beforeShellExecution": [cursor_hook, cursor_hook]}}
+    assert uninstall._json_guard_owned(cursor, "json_cursor")
+    assert not uninstall._json_guard_owned({**cursor, "failClosed": False}, "json_cursor")
+    assert not uninstall._json_guard_owned(
+        {"hooks": {"beforeShellExecution": [cursor_hook, cursor_hook]}}, "json_cursor"
+    )
+
+    # Codex's handler carries a timeout, a status message and an async flag, and each is part
+    # of the shape. A handler missing one is not the one this installer writes.
+    handler = {
+        "type": "command",
+        "command": wiring.command("PreToolUse"),
+        "timeout": 5,
+        "statusMessage": f"{wiring.MARK} guards",
+        "async": False,
+    }
+    codex = {"hooks": {"PreToolUse": [{"hooks": [handler]}]}}
+    assert uninstall._json_guard_owned(codex, "json_codex")
+    for field in ("timeout", "statusMessage", "async"):
+        thinner = {key: value for key, value in handler.items() if key != field}
+        assert not uninstall._json_guard_owned(
+            {"hooks": {"PreToolUse": [{"hooks": [thinner]}]}}, "json_codex"
+        ), field
+
+    # Copilot is compared whole rather than by collected entries, so anything beside ours is
+    # a different file.
+    copilot = {
+        "hooks": {"preToolUse": [{"type": "command", "command": wiring.command("PreToolUse")}]}
+    }
+    assert uninstall._json_guard_owned(copilot, "json_copilot")
+    assert not uninstall._json_guard_owned({**copilot, "theirs": 1}, "json_copilot")
+
+    # And a spelling this function does not know is refused rather than assumed owned, which
+    # is the direction that matters: an unknown surface is one uninstall must not touch.
+    assert not uninstall._json_guard_owned(claude, "json_something_new")
+
+
+def test_a_second_copy_of_one_of_our_own_entries_stops_the_removal():
+    """The case that does refuse, and the reason is the interesting half.
+
+    Somebody else's hook beside ours is fine: removal touches only our entries. But a second
+    copy of one of *ours* is not, because now the file holds nine entries this function
+    recognises and the installer writes eight. It cannot tell which of the two duplicates it
+    wrote, and removing both would be guessing. So it refuses, and the refusal is what stops an
+    uninstall from deleting an entry a person copied on purpose.
+    """
+    from ai_engineering import uninstall, wiring
+
+    mine = {
+        event: [{"matcher": "*", "hooks": [{"type": "command", "command": wiring.command(event)}]}]
+        for event in wiring.EVENTS
+    }
+    doubled = {"hooks": {**mine, "PreToolUse": [*mine["PreToolUse"], *mine["PreToolUse"]]}}
+
+    assert not uninstall._json_guard_owned(doubled, "json_claude")
