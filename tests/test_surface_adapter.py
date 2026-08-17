@@ -957,7 +957,10 @@ def test_every_surface_with_an_adapter_declares_one_the_schema_accepts():
         json.loads(path.read_text(encoding="utf-8"))["surface_id"]
         for path in chain.ADAPTERS.glob("*.adapter.json")
     }
-    assert {"claude-code", "opencode", "vscode-copilot"} <= declared
+    # Two, not three. VS Code Copilot's landed with OpenCode's and went back out the same
+    # day: D-011-02 lands adapters one at a time behind an executed denial, and nothing
+    # anywhere runs that surface's path.
+    assert declared == {"claude-code", "opencode"}
 
     # The surfaces with no adapter have none because nobody has read their payload, not
     # because nobody thought about it — writing one from a guess is the fabricated detection
@@ -965,3 +968,56 @@ def test_every_surface_with_an_adapter_declares_one_the_schema_accepts():
     assert "codex-cli" not in declared, (
         "an adapter for codex-cli would be a claim about a payload no receipt has ever shown"
     )
+
+
+# D-011-02, which nothing read until now: adapters land one at a time, each behind its own
+# executed denial. The rationale is in specification 011 — the alternative is eight adapters
+# landing together, of which seven are unprovable, "which is how a wave gets declared
+# finished on work nobody could verify". It is a precedent and precedents are only worth
+# what reads them.
+#
+# One row per surface that has an adapter, naming the file that executes that surface's
+# denial. Not a receipt: receipts are written on a runner and this test has to hold on a
+# laptop. What it holds is the harder half — that somebody can point at the thing that runs.
+DENIAL_EXECUTED_BY = {
+    "claude-code": ".github/workflows/install-matrix.yml",
+    "opencode": "tests/test_opencode_plugin.py",
+}
+
+
+def test_no_adapter_lands_without_something_that_executes_its_denial():
+    """EP-298, and it caught the session that wrote it.
+
+    Two adapters landed together earlier today — OpenCode and VS Code Copilot — and neither
+    was behind a denial. OpenCode's turned out to be fine: `just typecheck` runs the plugin's
+    own deny path, driven the way OpenCode drives it. VS Code Copilot's was not: it shares
+    Claude Code's settings file, is wired by name, and nothing anywhere runs its path. It was
+    removed rather than argued for, because a precedent you write an exception to on the day
+    it first applies to you is not a precedent.
+
+    Two of eight surfaces have an adapter, which is what "one at a time" looks like from
+    inside.
+    """
+    import json
+
+    import chain
+
+    shipped = {
+        json.loads(path.read_text(encoding="utf-8"))["surface_id"]
+        for path in chain.ADAPTERS.glob("*.adapter.json")
+    }
+    missing = sorted(shipped - set(DENIAL_EXECUTED_BY))
+    assert not missing, (
+        f"adapters whose surface has no executed denial: {missing}. D-011-02 lands them one "
+        f"at a time, each behind its own — remove it, or name what runs it here."
+    )
+    for surface, runner in DENIAL_EXECUTED_BY.items():
+        if surface in shipped:
+            assert (ROOT / runner).is_file(), f"{surface} names {runner}, which is not there"
+
+
+def test_the_precedent_this_check_reads_is_still_the_one_written_down():
+    """A check enforcing a decision has to break when the decision changes, or it enforces
+    whatever it happened to be written against."""
+    spec = (ROOT / "specs" / "011-surface-adapter-contract" / "spec.md").read_text(encoding="utf-8")
+    assert "adapters land one at a time, each behind its own executed denial" in spec

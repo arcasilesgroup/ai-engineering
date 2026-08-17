@@ -1825,7 +1825,23 @@ DESCRIPTION_MAX = 1000
 # branch carrying it merges. The message says that, and says it is a one-time admin merge
 # rather than a standing exemption. A blocker whose cure is "merge this to learn the cure"
 # is a blocker somebody rediscovers at midnight.
-REPO_CEILING = 59_724
+#
+# 59,724 to 59,758 for a precedent that had no reader, and for the thing it caught first.
+#
+# `D-011-02` says adapters land one at a time, each behind its own executed denial, because
+# the alternative is eight landing together of which seven are unprovable — "how a wave gets
+# declared finished on work nobody could verify". Nothing read it. `EP-298` said so and it
+# sat as INCOMPLETE for a wave.
+#
+# Two adapters landed together earlier today, and one of them had no denial anywhere: VS Code
+# Copilot shares another surface's settings file, is wired by name, and nothing runs its
+# path. It is out. OpenCode's stays, because `just typecheck` runs the plugin's own deny path
+# the way OpenCode drives it, which is exactly what the precedent asks for.
+#
+# Writing an exception for myself on the day the rule first applied to me would have made it
+# not a rule. The check also reads the sentence out of specification 011, so a decision that
+# changes takes its enforcement with it.
+REPO_CEILING = 59_758
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
