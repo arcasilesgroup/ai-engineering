@@ -2717,7 +2717,19 @@ DESCRIPTION_MAX = 1000
 # a repository with nothing wrong in it. Absent git, a git that fails, output that is not
 # UTF-8, a missing final separator, and an empty name between two separators. An empty
 # inventory is not among them — a fresh repository is a real state.
-REPO_CEILING = 72_618
+# 72,618 to 72,702 for the one word the whole diagnosis collapses to.
+#
+# Twenty-six assertions, a coverage table and three flags arrive at `_terminal_result` and
+# leave as a single word and an exit code. Four states in a strict order, and the order is
+# the entire meaning: a failed assertion beside an unanswered one is a failure, because what
+# was found does not stop being found when something else could not be asked; an unanswered
+# assertion beside a warning is INCOMPLETE, because a question nobody could ask outranks a
+# state somebody chose to accept.
+#
+# Twelve of its mutants survived. Each trigger is now asserted alone, each precedence pair is
+# asserted, and a verdict that printed FAIL and exited zero — the false green this product is
+# named after, in the command whose job is to say whether the system is healthy — has a case.
+REPO_CEILING = 72_702
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

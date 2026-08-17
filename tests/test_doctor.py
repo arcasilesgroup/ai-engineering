@@ -2007,3 +2007,75 @@ def test_the_inventory_asks_about_the_repository_it_was_handed(tmp_path, monkeyp
     assert seen[0][:4] == ["git", "-C", str(tmp_path), "ls-files"]
     assert "-z" in seen[0], "the separator that makes a newline in a name safe is gone"
     assert "--cached" in seen[0]
+
+
+def test_the_one_word_the_whole_diagnosis_collapses_to():
+    """Twelve mutants of `_terminal_result` survived, and every one of the twenty-six
+    assertions arrives here to become a single word and an exit code.
+
+    Four states in a strict order — FAIL, then INCOMPLETE, then WARN, then PASS — and the
+    order is the entire meaning. A failed assertion beside an unanswered one is a failure:
+    the thing that was found does not stop being found because something else could not be
+    asked. And an unanswered assertion beside a warning is INCOMPLETE, because a question
+    nobody could ask outranks a state somebody chose to accept.
+
+    Everything below is asserted as the outcome word rather than as a shape, because the
+    word is what the person and the exit code both come from.
+    """
+    from ai_engineering import doctor as under
+
+    def word(**kwargs):
+        base = {"failed": [], "unanswered": [], "coverage_lines": [], "coverage_unknown": False}
+        return under._terminal_result(**{**base, **kwargs}).outcome
+
+    assert word() == "PASS"
+
+    # Each of the three that fail, alone.
+    assert word(failed=[7]) == "FAIL"
+    assert word(readiness_failed=True) == "FAIL"
+    assert word(surface_failed=True) == "FAIL"
+
+    # And the fourth, which arrives as a word inside the coverage table rather than a flag:
+    # a surface whose settings and receipt disagree is a mismatch, and a mismatch is a
+    # failure however green everything around it is.
+    assert word(coverage_lines=["  claude-code   MISMATCH   the entry is not ours"]) == "FAIL"
+
+    # Unanswered, and the coverage table that could not be built.
+    assert word(unanswered=[(3, "a title", "why")]) == "INCOMPLETE"
+    assert word(coverage_unknown=True) == "INCOMPLETE"
+
+    # Warned, and the three words that mean somebody has not proved something rather than
+    # that something is wrong.
+    assert word(surface_warned=True) == "WARN"
+    for said in ("INERT", "UNPROVEN", "OPEN"):
+        assert word(coverage_lines=[f"  cursor   {said}   nothing has denied here"]) == "WARN", said
+
+    # The precedence, which is the part a rewrite would get wrong quietly.
+    assert word(failed=[1], unanswered=[(2, "t", "w")]) == "FAIL"
+    assert word(failed=[1], surface_warned=True) == "FAIL"
+    assert word(unanswered=[(2, "t", "w")], surface_warned=True) == "INCOMPLETE"
+    assert word(coverage_unknown=True, coverage_lines=["  x   UNPROVEN   y"]) == "INCOMPLETE"
+    assert word(failed=[1], coverage_lines=["  x   UNPROVEN   y"]) == "FAIL"
+
+    # A word that is none of the five it looks for changes nothing, or every line of prose in
+    # that table would be able to move the verdict.
+    assert word(coverage_lines=["  claude-code   PROVEN   a denial executed here"]) == "PASS"
+    assert word(coverage_lines=["  a line with no capitals at all"]) == "PASS"
+
+
+def test_the_diagnosis_exits_non_zero_whenever_it_did_not_pass():
+    """The half of the same decision a script reads. A verdict that printed FAIL and exited
+    zero would be the false green this product is named after, arriving in the command whose
+    entire job is to say whether the system is healthy."""
+    from ai_engineering import doctor as under
+
+    for word, expected in (("PASS", 0), ("WARN", 0), ("INCOMPLETE", 1), ("FAIL", 1)):
+        got = under._terminal_result(
+            failed=[1] if word == "FAIL" else [],
+            unanswered=[(1, "t", "w")] if word == "INCOMPLETE" else [],
+            coverage_lines=[],
+            coverage_unknown=False,
+            surface_warned=word == "WARN",
+        )
+        assert got.outcome == word
+        assert (got.exit_code != 0) == bool(expected), (word, got.exit_code)
