@@ -6,7 +6,10 @@ id: "0009"
 title: "The current spec 010 digests are approved"
 date: "2026-08-16"
 spec: "010"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-17T13:22:17Z"
 supersedes: ""
 ---
 
