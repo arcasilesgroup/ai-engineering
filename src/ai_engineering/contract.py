@@ -2518,7 +2518,17 @@ DESCRIPTION_MAX = 1000
 # allowlists it, and a canary it is entitled to ignore would have made every clean run refuse
 # forever. It also caught two test fixtures that modelled a scanner by answering clean to
 # everything, which is the tampered scanner this exists to refuse.
-REPO_CEILING = 70_784
+# 70,784 to 70,852 for a prompt that was never printed.
+#
+# `audit account` is the one command that can clear a chain nobody else can clear, and it
+# opened the controlling terminal and waited in silence. The phrase to type existed only in
+# this source. The operator who needed it typed ahead, the reader took an empty line, the run
+# returned INCOMPLETE, and the phrase they had typed went to their shell — `zsh: command not
+# found: ACCOUNT`. Five attempts, none of which could ever have worked.
+#
+# A control whose refusal a person cannot act on is the defect this repository is named
+# after, and it was sitting in the recovery path for a broken chain.
+REPO_CEILING = 70_852
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

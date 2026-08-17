@@ -600,7 +600,20 @@ def main(argv: list[str]) -> outcome.Result:
         # The same ceremony a risk acceptance asks for, and for the same reason: this is a
         # person taking responsibility for evidence a machine cannot judge. An agent that
         # can type into this process cannot answer a prompt on the controlling terminal.
-        if not accept.controlling_terminal_response(f"ACCOUNT {args.range} AS {args.by}"):
+        #
+        # And the phrase is printed first, which it was not. The reader opened the terminal
+        # and waited in silence, so the only way to learn what to type was to read this
+        # source — and the operator who tried it typed ahead, the process read an empty line,
+        # returned INCOMPLETE, and their shell got the phrase: `zsh: command not found:
+        # ACCOUNT`. A control whose refusal a person cannot act on is the defect this
+        # repository is named after, and it was sitting in the one command that clears a
+        # chain nobody else can clear.
+        phrase = f"ACCOUNT {args.range} AS {args.by}"
+        print(f"\n  To answer for links {args.range}, type exactly this and press return:")
+        print(f"    {phrase}")
+        print("  Nothing is erased. This adds a record that a person looked and said why.")
+        if not accept.controlling_terminal_response(phrase):
+            print("  nothing was written: the phrase did not match, or there is no keyboard here.")
             return outcome.result("INCOMPLETE")
         return account(root, first=bounds[0], last=bounds[1], why=args.why, by=args.by)
     if args.action == "replay":

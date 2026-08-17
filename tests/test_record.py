@@ -1506,3 +1506,48 @@ def test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate():
             if line.startswith("| reviewer disposition") or line.startswith("| gate"):
                 cells = [one.strip() for one in line.strip("|").split("|")]
                 assert len(cells) == 2 and cells[1], f"Block {name}: {cells[0]!r} is empty"
+
+
+def test_the_account_command_says_what_to_type_before_it_waits_for_it(home, monkeypatch, capsys):
+    """The one command that can clear a chain nobody else can clear, and it asked in silence.
+
+    `controlling_terminal_response` opens the terminal and reads a line. It prints nothing,
+    and the caller printed nothing either — so the only way to learn the exact phrase was to
+    read this repository's source. The operator who needed it typed ahead, the reader took an
+    empty line, the run returned INCOMPLETE, and the phrase they had typed went to their
+    shell: `zsh: command not found: ACCOUNT`.
+
+    A control whose refusal a person cannot act on is the defect this repository is named
+    after, and it was sitting in the recovery path for a broken chain. Three things are held
+    here: the phrase is printed, it is printed *before* the wait, and a refusal says which of
+    the two reasons it was.
+    """
+    from ai_engineering import accept, audit
+
+    monkeypatch.setattr(accept, "controlling_terminal_response", lambda expected: False)
+
+    result = audit.main(
+        ["account", "--range", "918-923", "--why", "the tests wrote it", "--by", "somebody"]
+    )
+    printed = capsys.readouterr().out
+
+    assert result.outcome == "INCOMPLETE"
+    assert "ACCOUNT 918-923 AS somebody" in printed, "the phrase to type was never shown"
+    assert "type exactly this" in printed
+    assert "Nothing is erased" in printed, "the person is not told what they are agreeing to"
+    assert "did not match, or there is no keyboard here" in printed
+
+    # Printed before the wait, not after it. Anything else is a prompt nobody sees in time,
+    # which is what produced the shell error.
+    order = printed.index("ACCOUNT 918-923 AS somebody"), printed.index("did not match")
+    assert order[0] < order[1]
+
+    # And the phrase the caller prints is the phrase the reader compares against — one
+    # string, not two that happen to agree today.
+    seen: list[str] = []
+    monkeypatch.setattr(
+        accept, "controlling_terminal_response", lambda expected: seen.append(expected) or False
+    )
+    audit.main(["account", "--range", "1-2", "--why", "why", "--by", "who"])
+    assert seen == ["ACCOUNT 1-2 AS who"]
+    assert "ACCOUNT 1-2 AS who" in capsys.readouterr().out
