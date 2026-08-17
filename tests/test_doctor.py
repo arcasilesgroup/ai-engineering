@@ -347,26 +347,34 @@ def test_a_buffer_that_stopped_being_sealed_is_reported(home, repo):
     assert "2020-01-01" in said, said
 
 
-def test_fifteen_declared_capabilities_that_enforce_nothing_are_reported(home, repo):
+def test_fifteen_declared_capabilities_report_which_half_of_them_is_enforced(home, repo):
     """`policy/capabilities.toml` declares fifteen capabilities with read roots, write
-    roots, exec allowlists, network hosts, secrets and human gates, and `preflight`
-    validates every one of them and then refuses, because no executor exists. That refusal
-    is honest and is pinned elsewhere.
+    roots, exec allowlists, network hosts, secrets and human gates, and for a long time
+    `preflight` validated every one of them and then refused, because no executor existed.
 
     What nothing did was say so. No assertion, no README line, no verb mentioned it, so a
     reader of six governed fields per capability had no way to learn that none of them
-    stops anything. A declaration nobody enforces and nobody flags is the shape of a false
-    green, and the constitution's first duty is to expose that rather than hide it."""
+    stopped anything. A declaration nobody enforces and nobody flags is the shape of a false
+    green, and the constitution's first duty is to expose that rather than hide it.
 
-    # Undecidable and not FAIL. Nothing executed — the executor is what is missing — and
-    # FAIL is reserved for an executed check that conclusively found a violation. It still
-    # prints, under a heading whose last line is "None of these is a pass." The distinction
-    # is not cosmetic: as a failure it made `doctor` red on every machine forever, which is
+    Half of it is enforced now, by `executor.Sandbox`, and the sentence had to move with the
+    code or it would have become the same defect pointing the other way — a warning that
+    overstates is read once and then discounted, which costs exactly as much as one that
+    understates."""
+
+    # Still undecidable and still not FAIL, and the reason is unchanged: what remains open is
+    # a measurement about somebody else's software that has never been taken, not a violation
+    # this check executed and found. It prints under a heading whose last line is "None of
+    # these is a pass." As a failure it made `doctor` red on every machine forever, which is
     # a red nobody can clear and so a red everybody learns to scroll past.
     got, detail = verdict(doctor.capabilities_enforced, repo)
     assert got == "undecidable"
-    assert "nothing enforces them" in detail, detail
     assert detail.startswith("15 "), detail
+
+    # Both halves, in one sentence. Either alone is a claim a reader would act wrongly on.
+    assert "only this framework's own actions are enforced" in detail, detail
+    assert "one taken by a surface is not" in detail, detail
+    assert "nothing here reads one" in detail, detail
 
 
 def test_assertion_16_reports_could_not_evaluate_over_a_block_nobody_can_read(home, repo):

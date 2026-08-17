@@ -2312,7 +2312,21 @@ DESCRIPTION_MAX = 1000
 # compares the document a release would publish against the one a consumer re-derives from the
 # same bytes, read back off disk. Same property, and now it is one an analyser and a reader
 # can both see.
-REPO_CEILING = 66_708
+#
+# 66,708 to 67,559 for the executor, which is the largest single blocker the ledger had.
+#
+# Five requirements — EP-078, EP-137, EP-138, EP-162, EP-165 — shared one sentence in their
+# notes: not five jobs, one, and none of them moves until an executor exists. The manifest
+# declared read roots, write roots, an exec allowlist, hosts, secrets and a human gate for
+# fifteen capabilities, and `preflight` validated all of it and then refused on every path.
+# A control that cannot pass cannot fail either, so nothing could be shown to be stopped.
+#
+# `executor.Sandbox` owns the operation rather than sitting beside it, and re-decides at the
+# moment of the operation against the resolved path and the real binary. That is where the
+# lines went: the module, thirteen cases that each perform the action rather than reading a
+# verdict, the first real caller in `issue.draft`, and the audit section recording that four
+# of the five moved and EP-078 deliberately did not.
+REPO_CEILING = 67_559
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

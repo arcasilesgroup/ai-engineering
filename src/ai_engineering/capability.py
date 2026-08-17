@@ -363,8 +363,27 @@ def preflight(
     capability_id: str,
     mode_id: str,
     action: Action,
+    executor: Any = None,
 ) -> intent.Validation:
-    """Check canonical declaration and refuse until an installed executor proves enforcement."""
+    """Check the canonical declaration, then ask the executor that owns the operation.
+
+    With no executor the answer is `CAPABILITY_ENFORCEMENT_UNAVAILABLE`, unchanged and still
+    the honest one: a declaration checked beside an operation nobody owns is advice. That is
+    the default and it stays the default, because every caller that has not been rewritten
+    to go through an executor is still doing exactly what it did before.
+
+    An executor is a `Sandbox` — see `executor.py` — and it is asked two questions, after
+    the declaration has already refused anything outside scope. Whether a human confirmed
+    the action, when the mode declares a gate covering that kind of action; and whether the
+    executor is really about to perform this action under this identity.
+
+    The declaration goes first on purpose. A gate asked before it would put a person in
+    front of every out-of-scope action too, and a prompt that mostly precedes a refusal is a
+    prompt people learn to dismiss — which is how a gate stops being one.
+
+    Anything the executor raises is a refusal. This is a fail-closed control and an executor
+    that crashes has not proved it owns anything.
+    """
 
     try:
         manifest = _validated(None)
@@ -391,4 +410,20 @@ def preflight(
         return intent.Validation("INCOMPLETE", *ENFORCEMENT_UNAVAILABLE)
     if not declared:
         return intent.Validation("INCOMPLETE", *ACTION_UNDECLARED)
-    return intent.Validation("INCOMPLETE", *ENFORCEMENT_UNAVAILABLE)
+    if executor is None:
+        return intent.Validation("INCOMPLETE", *ENFORCEMENT_UNAVAILABLE)
+    from ai_engineering import executor as executor_module
+
+    try:
+        # An unrecognised gate word gates everything. The schema constrains the word, so
+        # this is unreachable through the shipped manifest — but the fallback that would
+        # read naturally here is an empty tuple, and that is a gate word nobody recognised
+        # silently meaning "ask nobody".
+        gate = executor_module.GATES.get(mode["human_gate"], tuple(_ACTION_CONTROLS))
+        if action.kind in gate and not executor.confirmed(action):
+            return intent.Validation("INCOMPLETE", *executor_module.HUMAN_GATE_UNCONFIRMED)
+        if not executor.owns(capability_id, mode_id, action):
+            return intent.Validation("INCOMPLETE", *ENFORCEMENT_UNAVAILABLE)
+    except Exception:
+        return intent.Validation("INCOMPLETE", *ENFORCEMENT_UNAVAILABLE)
+    return PASS

@@ -441,13 +441,30 @@ def test_capability_preflight_denies_undeclared_and_unenforced_actions(
         ).code
         == "CAPABILITY_ACTION_UNDECLARED"
     )
-    with pytest.raises(TypeError):
+    # The fourth parameter used to not exist, and this asserted that it did not: a manifest
+    # passed positionally raised `TypeError`, so nobody could hand `preflight` a widened
+    # declaration and be graded against it. That property still has to hold now that the
+    # slot is real, and it holds differently. The slot takes an executor, the manifest is
+    # still read from the canonical path, and an object that is not an executor cannot make
+    # anything pass — it refuses, because a control that crashes has proved nothing.
+    assert (
         capability_contract.preflight(
             "ai-review",
             "default",
             capability_contract.Action.write("src/pwn.py"),
             widened,
-        )
+        ).code
+        == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-review",
+            "default",
+            capability_contract.Action.execute("git", "status"),
+            widened,
+        ).code
+        == "CAPABILITY_ENFORCEMENT_UNAVAILABLE"
+    )
 
     changed_schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     changed_schema["description"] = "mutated policy"

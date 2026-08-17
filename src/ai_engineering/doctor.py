@@ -584,15 +584,21 @@ def buffer_sealed(root: Path | None) -> str | None:
 @check(23, "The record", "Declared capabilities say whether anything enforces them")
 def capabilities_enforced(root: Path | None) -> str | None:
     """`policy/capabilities.toml` declares fifteen capabilities with read roots, write
-    roots, exec allowlists, network hosts, secrets and human gates. `capability.preflight`
-    validates all of it and then returns `CAPABILITY_ENFORCEMENT_UNAVAILABLE`, because no
-    executor exists yet — which is the honest answer and is pinned by a test.
+    roots, exec allowlists, network hosts, secrets and human gates. Until `executor.py`
+    existed, `capability.preflight` validated all of it and then returned
+    `CAPABILITY_ENFORCEMENT_UNAVAILABLE` on every path — the honest answer, pinned by a
+    test, and a declaration nobody enforces and nobody flags is the shape of a false green.
 
-    What was missing is anybody being told. Nothing in `doctor`, the README or any verb
-    mentioned it, so a reader of that file saw six governed fields per capability and had
-    no way to learn that none of them stops anything. A declaration nobody enforces and
-    nobody flags is the shape of a false green, and this repository's constitution says to
-    expose that rather than hide it.
+    Half of that is now closed and the half that is not is what this line is for. An action
+    performed through a `Sandbox` is enforced: the path is resolved at the moment of the
+    operation, the executable comes off the allowlist, the human gate is asked, and the
+    decision lands in a corpus under the proof id the manifest declared. An action performed
+    by a *surface* is not, and cannot be from here — nothing reads a running capability's
+    identity out of somebody else's payload, and no receipt has ever shown one being sent.
+
+    So this stays undecidable rather than becoming a pass. "Some actions are enforced" is
+    not an answer a person can act on unless it also says which, and the sentence below
+    says which.
 
     Reported as undecidable and not as a failure, which is a correction. FAIL is what an
     executed check says when it conclusively finds a violation; nothing executed here,
@@ -618,8 +624,9 @@ def capabilities_enforced(root: Path | None) -> str | None:
     # somebody else's software that has never been taken. Saying "no surface sends it" would
     # be asserting the second from the first.
     raise Undecidable(
-        f"{len(declared)} capabilities are declared and nothing enforces them: preflight "
-        f"validates the declaration and then refuses. An executor needs the running "
+        f"{len(declared)} capabilities are declared and only this framework's own actions "
+        f"are enforced: an action taken through `executor.Sandbox` is decided at the "
+        f"operation, and one taken by a surface is not. An executor needs the running "
         f"capability's identity to arrive with the action, and nothing here reads one — nor "
         f"has any receipt yet shown a surface sending one"
     )
