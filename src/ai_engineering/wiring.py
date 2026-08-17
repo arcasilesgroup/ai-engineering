@@ -413,6 +413,44 @@ def example(skill: Path) -> str:
     return ""
 
 
+# The order the five phases run in, which is the only reason to order them at all: a map
+# sorted alphabetically would put `build` before `decide` and read as a claim about sequence
+# that is false. Named here rather than derived, because there is no field in the manifest
+# that says which comes first and inventing one to sort by would be a second answer.
+PHASE_ORDER = ("discover", "decide", "plan", "build", "verify")
+
+
+def phase_map() -> list[tuple[str, list[str]]]:
+    """The catalogue grouped the way it is meant to be read, in the order the work happens.
+
+    `EP-135` asks that the surfaces show the skills by the five phases, and until this
+    function the map existed in exactly one place: `tests/skill_eval.py`, a gate runner. So
+    the field was declared for a person meeting the catalogue with no idea what any of it is
+    for, and the only person who ever saw it was a developer watching CI — which is the
+    complaint the row was reopened with.
+
+    It lives here so the product can show it and the gate can call the same one. Two copies
+    of a map is two maps within a week.
+
+    A phase with nothing in it is returned empty rather than dropped: the five are a claim
+    about how the work is arranged, and a map that quietly showed four would be the claim
+    changing without anybody deciding to.
+    """
+
+    placed = phases()
+    grouped: dict[str, list[str]] = {phase: [] for phase in PHASE_ORDER}
+    for name, phase in sorted(placed.items()):
+        grouped.setdefault(phase, []).append(name)
+    ordered = [(phase, grouped.get(phase, [])) for phase in PHASE_ORDER]
+    # Anything declared under a phase nobody named comes last and is visible. Dropping it
+    # would hide a manifest that had grown a sixth phase, which is exactly the change
+    # somebody would want to see.
+    ordered += [
+        (phase, names) for phase, names in sorted(grouped.items()) if phase not in PHASE_ORDER
+    ]
+    return ordered
+
+
 def router_body(name: str, description: str, phase: str = "", case: str = "") -> str:
     """One router, generated from the skill it routes to.
 

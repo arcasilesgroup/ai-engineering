@@ -924,7 +924,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 70_247
+    assert contract.REPO_CEILING == 70_377
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1614,3 +1614,54 @@ def test_the_number_in_the_doctor_summary_is_the_number_of_assertions():
     assert f"The {len(doctor.CHECKS)} assertions" in said, (
         f"the summary reads {said!r} while doctor makes {len(doctor.CHECKS)} assertions"
     )
+
+
+def test_the_phase_map_is_one_map_and_the_product_owns_it():
+    """`EP-135`: the surfaces show the skills by the five phases.
+
+    The manifest has carried a `phase` per capability for a wave, and the only place the map
+    was ever assembled was `tests/skill_eval.py` — a gate runner. So a field declared for a
+    person meeting twelve unfamiliar commands was shown to nobody except a developer watching
+    CI, which is what the row was reopened with after the first pass called it closed.
+
+    Three things hold it closed. The map lives in the product; `ai-eng init` prints it at the
+    moment that person exists, having just been handed the twelve; and the runner reads the
+    same function rather than rebuilding it, because two copies of a map is two maps within a
+    week.
+    """
+    from ai_engineering import wiring
+
+    grouped = wiring.phase_map()
+
+    assert [phase for phase, _ in grouped] == list(wiring.PHASE_ORDER), (
+        "the map is not in the order the work happens, which makes it a claim about "
+        "sequence that is false"
+    )
+    placed = {name for _, names in grouped for name in names}
+    assert placed == set(wiring.phases()), "a declared capability is missing from the map"
+    assert all(names == sorted(names) for _, names in grouped)
+
+    # The runner reads it rather than rebuilding it, and `init` prints it. Both are asserted
+    # against the source, because the defect this closes is precisely a map with one reader.
+    runner = (ROOT / "tests" / "skill_eval.py").read_text(encoding="utf-8")
+    installer = (ROOT / "src" / "ai_engineering" / "init.py").read_text(encoding="utf-8")
+    assert "wiring.phase_map()" in runner, "the gate rebuilt the map instead of reading it"
+    assert "wiring.phase_map()" in installer, "the person who gets the skills is not shown it"
+
+
+def test_a_phase_nobody_named_is_shown_rather_than_dropped(monkeypatch):
+    """The branch that decides whether this map can lie by omission.
+
+    Five phases is a claim about how the work is arranged. A map that quietly showed four
+    because one was empty, or eleven skills because the twelfth was filed under a phase
+    nobody had named, would be that claim changing without anybody deciding to — so an empty
+    phase stays and an unrecognised one is appended where it can be seen.
+    """
+    from ai_engineering import wiring
+
+    monkeypatch.setattr(wiring, "phases", lambda: {"ai-spec": "decide", "ai-new": "afterwards"})
+    grouped = wiring.phase_map()
+
+    assert [phase for phase, _ in grouped][:5] == list(wiring.PHASE_ORDER)
+    assert ("discover", []) in grouped, "an empty phase was dropped from a map of five"
+    assert ("afterwards", ["ai-new"]) in grouped, "a capability was filed under nothing visible"

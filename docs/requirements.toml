@@ -913,10 +913,10 @@ evidence = "python tests/skill_eval.py"
 
 [[requirement]]
 id = "EP-135"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "the surfaces show the skills by the five phases"
-evidence = "python tests/skill_eval.py; grep -rn phase src/ hooks/ surfaces/"
-note = "the map is printed by the gate, so the person who meets it is a developer and never a user of the wheel"
+evidence = "pytest tests/test_contracts.py -k phase_map; grep -n phase_map src/ai_engineering/init.py"
+note = "the map moved out of the gate runner and into `wiring.phase_map`, `ai-eng init` prints it to the person who has just been handed the twelve skills, and the runner reads the same function rather than rebuilding it. An empty phase is shown and an unrecognised one is appended, because five phases is a claim about how the work is arranged and a map that quietly showed four would change that claim without anybody deciding to"
 
 [[requirement]]
 id = "EP-136"

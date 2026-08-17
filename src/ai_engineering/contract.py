@@ -2471,7 +2471,18 @@ DESCRIPTION_MAX = 1000
 # requires. It refuses to write when nothing denied, and when the denial named no guard — a
 # denial nobody can attribute is evidence that something said no, which is a narrower claim
 # than the receipt makes.
-REPO_CEILING = 70_247
+# 70,247 to 70,377 for EP-135, closed properly on the third attempt.
+#
+# The first pass called it closed when the manifest gained a phase per capability. The second
+# reopened it in one sentence: the map is printed by the gate, so the person who meets it is
+# a developer and never a user of the wheel. A field declared for somebody meeting twelve
+# unfamiliar commands, assembled only inside a CI runner, answers nobody.
+#
+# `wiring.phase_map()` is in the product, `ai-eng init` prints it to the person who has just
+# been handed the twelve, and the runner reads the same function. An empty phase is shown and
+# an unrecognised one is appended: five phases is a claim about how the work is arranged, and
+# a map that quietly showed four would change that claim without anybody deciding to.
+REPO_CEILING = 70_377
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -289,12 +289,16 @@ def main() -> int:
     # for a person meeting the catalogue with no idea what any of it is for, and a field no
     # command ever shows that person is a field that answers nobody. This is the command
     # that shows it.
-    by_phase: dict[str, list[str]] = {}
-    for row in declared["capabilities"]:
-        by_phase.setdefault(str(row["phase"]), []).append(str(row["id"]))
-    print(f"  the {len(by_phase)} phases the catalogue is arranged in:")
-    for phase in ("discover", "decide", "plan", "build", "verify"):
-        print(f"    {phase:<14} {', '.join(sorted(by_phase.get(phase, ['—'])))}")
+    # Read from the product rather than rebuilt here. This runner used to be the only place
+    # the map existed, which is what `EP-135` was reopened for: a field declared for a person
+    # meeting the catalogue, shown only to a developer watching CI. `ai-eng init` prints it
+    # now, to the person who has just been handed the twelve, and both call this.
+    from ai_engineering import wiring
+
+    grouped = wiring.phase_map()
+    print(f"  the {len(grouped)} phases the catalogue is arranged in:")
+    for phase, names in grouped:
+        print(f"    {phase:<14} {', '.join(names) or '—'}")
 
     print("  Nothing here evaluates whether a skill's instructions are any good.")
     print(f"RAN skilleval={claims + len(refusals) + takes + sends}")

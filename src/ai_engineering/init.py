@@ -189,6 +189,13 @@ def global_step(args) -> outcome.Result:
     # the plan cannot contradict it, and contradicting it is the only reason to print one.
     landed = len(list((paths.home() / "skills").glob("ai-*")))
     ui.step("ok", f"{landed} skills".ljust(10), f"→ {paths.home() / 'skills'}/ai-*/")
+    # And what they are for, grouped the way the catalogue is meant to be read. `EP-135` asks
+    # that the surfaces show the skills by the five phases, and the map existed only inside a
+    # gate runner — so the field was declared for a person meeting twelve unfamiliar commands
+    # and the only person who ever saw it was a developer watching CI. This is the moment that
+    # person exists: they have just been given the twelve.
+    for phase, names in wiring.phase_map():
+        ui.step("would", f"{phase:<8}".ljust(10), ", ".join(names) or "nothing declared")
     for row in written[1:]:
         ui.step("ok", f"{row['how']:<8}", f"→ {row['path']}")
     # The routers, and the count of surfaces that could not have one. A surface with no
