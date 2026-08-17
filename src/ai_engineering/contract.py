@@ -2296,7 +2296,23 @@ DESCRIPTION_MAX = 1000
 # the `try` — so a half-removed install raised out of the function instead of answering
 # CHAIN_UNREADABLE. Every caller treats a raise as a crash and a problem string as an answer,
 # so the one case the handler existed for was the one it could not reach.
-REPO_CEILING = 66_632
+#
+# 66,632 to 66,708 for the two findings the analyser raised against this session's own code,
+# both fair.
+#
+# `sbom.main` took paths from its arguments and `write` puts its output beside the path it was
+# handed — inside the release job, with whatever the shell's glob produced, in the job that
+# publishes what it finds in `dist/`. So an argument that is not a wheel is an argument that
+# decides where a file lands. Every argument is now checked before the first is written, so a
+# run naming one good wheel and one bad path describes neither, and the four refused shapes
+# each have a case.
+#
+# And a test asserting `document(built) == document(built)`, which reads as one expression
+# compared with itself and was flagged as such. The intent was determinism; the honest form
+# compares the document a release would publish against the one a consumer re-derives from the
+# same bytes, read back off disk. Same property, and now it is one an analyser and a reader
+# can both see.
+REPO_CEILING = 66_708
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -143,12 +143,29 @@ def matches(wheel: Path, bom: Path) -> bool:
 
 
 def main(argv: list[str]) -> int:
-    """`python -m ai_engineering.sbom dist/*.whl`, one BOM per wheel named."""
+    """`python -m ai_engineering.sbom dist/*.whl`, one BOM per wheel named.
 
-    wheels = [Path(one) for one in argv]
-    if not wheels:
+    Every argument is checked before anything is written, and that is not ceremony. This runs
+    inside the release job with whatever the shell's glob produced, and `write` puts its output
+    beside the path it was handed — so an argument that is not a wheel is an argument that
+    decides where a file lands. Static analysis called it out on the day it was written and it
+    was right: a caller passing a crafted path is exactly the shape this module cannot afford,
+    because the release job it runs in publishes what it finds in `dist/`.
+
+    Refusing is the whole answer. There is no repair to offer and no partial run to make: a
+    caller that named something other than a built wheel does not know what it is describing.
+    """
+
+    if not argv:
         print("  INCOMPLETE: no wheel was named, so nothing was described.")
         return 1
+    wheels = []
+    for one in argv:
+        wheel = Path(one).resolve()
+        if wheel.suffix != ".whl" or not wheel.is_file():
+            print(f"  INCOMPLETE: {one} is not a built wheel, so nothing was described.")
+            return 1
+        wheels.append(wheel)
     for wheel in wheels:
         print(f"  {write(wheel)}")
     return 0

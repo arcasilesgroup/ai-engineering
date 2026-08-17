@@ -92,7 +92,14 @@ def test_two_runs_over_the_same_bytes_produce_the_same_document(tmp_path):
     from ai_engineering import sbom
 
     built = wheel(tmp_path)
-    assert sbom.document(built) == sbom.document(built)
+    first = sbom.document(built)
+    written = json.loads(sbom.write(built).read_text("utf-8"))
+
+    # The second read comes off disk rather than from a second call, so what is compared is
+    # not one expression against itself: it is the document a release would publish against
+    # the one a consumer would re-derive from the same bytes.
+    assert written == first
+    assert written["serialNumber"] == first["serialNumber"], "the serial number moved"
 
 
 def test_a_wheel_without_exactly_one_metadata_is_refused(tmp_path):
@@ -193,3 +200,39 @@ def test_a_document_that_is_missing_or_unreadable_is_refused_and_never_raises(tm
         if body is not None:
             where.write_text(body, encoding="utf-8")
         assert not sbom.matches(built, where), f"{name} was accepted"
+
+
+def test_an_argument_that_is_not_a_built_wheel_is_refused_before_anything_is_written(
+    tmp_path, capsys
+):
+    """Static analysis found this on the day the module was written, and it was right.
+
+    `write` puts its output beside the path it was handed, and this runs inside the release job
+    with whatever the shell's glob produced — so an argument that is not a wheel is an argument
+    that decides where a file lands, in the job that publishes what it finds in `dist/`.
+
+    Four shapes are refused and none of them writes: a file that is not a wheel, a directory
+    named like one, a path that does not exist, and a wheel named after one that does. The
+    check runs over every argument before the first is written, so a run naming one good wheel
+    and one bad path describes neither.
+    """
+    from ai_engineering import sbom
+
+    good = wheel(tmp_path)
+
+    (tmp_path / "notes.txt").write_text("not a wheel", encoding="utf-8")
+    (tmp_path / "folder.whl").mkdir()
+
+    for bad in ("notes.txt", "folder.whl", "absent.whl"):
+        assert sbom.main([str(tmp_path / bad)]) == 1, bad
+        assert "is not a built wheel" in capsys.readouterr().out, bad
+
+    # One good and one bad describes neither, because the loop that checks runs to the end
+    # before the loop that writes begins.
+    assert sbom.main([str(good), str(tmp_path / "absent.whl")]) == 1
+    assert not list(tmp_path.glob("*.cdx.json")), "a refused run still wrote a document"
+
+    # And the good one on its own still works, or the four refusals above prove only that
+    # everything is refused.
+    assert sbom.main([str(good)]) == 0
+    assert list(tmp_path.glob("*.cdx.json"))
