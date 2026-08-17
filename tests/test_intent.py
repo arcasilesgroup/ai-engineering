@@ -1211,7 +1211,10 @@ def test_audit_recomputes_intent_relations_without_metadata_proof(
     monkeypatch.setattr(audit, "read", lambda root: [forged])
     monkeypatch.setattr(paths, "repo_root", lambda: no_ai)
     assert audit.main(["verify"]) == outcome.result("FAIL")
-    assert capsys.readouterr().out == (
+    # `startswith`, because a broken link is now followed by the command that answers for
+    # it. The findings themselves are unchanged and the forged sequence still arrives as
+    # itself rather than as a crash, which is what this case is about.
+    assert capsys.readouterr().out.startswith(
         "  BROKEN  link 1: the sequence jumps to 1 is INCOMPLETE: forged\n"
         "  INCOMPLETE  "
         + prefix

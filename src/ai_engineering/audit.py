@@ -23,6 +23,7 @@ import re
 import stat
 import subprocess
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -410,7 +411,62 @@ def verify(root: Path | None, anchors: bool) -> list[str]:
         require_root=False,
         include_intent=root is not None,
     )
+    # Findings only. The cure is presentation and belongs in `_render`, where a person
+    # reads it — appending it here made three fixtures that count findings go red, which is
+    # the fixtures being right: an API that returns advice mixed with data is one nobody can
+    # count.
     return [line for _, line in inspection.findings]
+
+
+def _cure(findings: Sequence[tuple[str, str]]) -> list[str]:
+    """The command that answers a broken link, printed beside the links themselves.
+
+    A break holds this machine's anchor open until a person answers for it, and until now
+    the report listed the links and stopped. Measured here: twenty-two of them from a single
+    day held the anchor for five days while every commit printed "this commit is not
+    anchored" — a warning with no reachable cure, which is the shape everybody learns to
+    ignore. The whole point of the account is that it exists; a reader has to be able to
+    find it.
+
+    The ranges are printed because a person answering for twenty-two links should not have
+    to derive five contiguous runs from a list by eye.
+    """
+
+    import re
+
+    # A set, because one link can be reported broken for more than one reason and the runs
+    # are about which links need answering, not how many complaints each one drew. Without
+    # it, two findings on link 2 printed "2 broken link(s) in 2 run(s): 2 2" — which a
+    # fixture caught on the first run.
+    numbers = sorted(
+        {
+            int(found.group(1))
+            for kind, line in findings
+            if kind == "BROKEN"
+            for found in [re.match(r"link (\d+):", line.strip())]
+            if found
+        }
+    )
+    if not numbers:
+        return []
+    runs: list[tuple[int, int]] = []
+    start = previous = numbers[0]
+    for seq in numbers[1:]:
+        if seq != previous + 1:
+            runs.append((start, previous))
+            start = seq
+        previous = seq
+    runs.append((start, previous))
+    spans = " ".join(f"{a}-{b}" if a != b else str(a) for a, b in runs)
+    return [
+        "",
+        f"  {len(numbers)} broken link(s) in {len(runs)} run(s): {spans}",
+        "  A break is never erased. Answering for one stops it holding the anchor open:",
+        "    ai-eng audit account --range FIRST-LAST --why '<what happened>' --by '<person>'",
+        "  A line a test wrote through the in-clone buffer under its own "
+        "AI_ENGINEERING_HOME arrives here as `edited`, because the seal cannot tell that "
+        "from a real edit — see the note in hooks/_emit.py before you decide which it was.",
+    ]
 
 
 def _replay(events: list[dict] | tuple[dict, ...], session: str) -> list[str]:
@@ -475,6 +531,11 @@ def anchor_line(root: Path | None) -> str:
 def _render(inspection: _Inspection, *, stream=None) -> None:
     destination = sys.stdout if stream is None else stream
     print("\n".join(f"  {kind}  {line}" for kind, line in inspection.findings), file=destination)
+    # The cure, beside the thing it cures. Listing the links and stopping is what this did,
+    # and it is why twenty-two of them held this machine's anchor for five days while every
+    # commit printed a warning whose remedy was in no output anywhere.
+    for line in _cure(inspection.findings):
+        print(line, file=destination)
 
 
 def main(argv: list[str]) -> outcome.Result:

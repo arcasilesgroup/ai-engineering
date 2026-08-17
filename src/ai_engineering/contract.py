@@ -1863,7 +1863,24 @@ DESCRIPTION_MAX = 1000
 # precedent requires, and a gate that was red on every commit with no commit able to clear
 # it. None of the three came from the requirement list. All three came from trying to use
 # the thing.
-REPO_CEILING = 59_888
+#
+# 59,888 to 60,018 for a warning this repository printed on every commit for five days with
+# its remedy in no output anywhere. `commit-msg` said "this commit is not anchored — run
+# ai-eng audit verify", and `audit verify` listed twenty-two broken links and stopped. The
+# account that releases them exists, requires a person at a controlling terminal by design,
+# and was named nowhere a reader would find it. I ignored that line about forty-five times
+# while writing commits about exactly this failure mode.
+#
+# The report carries the cure now, with the runs computed — somebody answering for
+# twenty-two links should not have to derive five contiguous ranges by eye — and it names
+# the likeliest innocent cause without deciding that is the cause.
+#
+# Two corrections underneath. `_emit.buffer_path` claimed the seal classifies a line from a
+# process with its own home as another machine's; it does not, because the machine id
+# matches and only the key differs, so it arrives as `edited` — the wording reserved for
+# tampering. And my own run-collapsing counted complaints instead of links until a fixture
+# printed "2 broken link(s) in 2 run(s): 2 2" on the first run.
+REPO_CEILING = 60_018
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

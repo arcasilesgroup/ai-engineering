@@ -1432,3 +1432,36 @@ def test_the_approval_digests_in_the_plan_are_read_by_something():
             "An edit after an approval needs a new approval, not a new number in the record."
         )
     assert "docs/adr/0009" in plan, "the plan does not point at the approval that covers it"
+
+
+def test_a_broken_link_is_printed_with_the_command_that_answers_it():
+    """The warning that ran for five days with its remedy in no output anywhere.
+
+    A break holds this machine's anchor open until a person answers for it. The report
+    listed the links and stopped, so every commit printed "this commit is not anchored" and
+    nothing anywhere said what to do about it — a warning with no reachable cure, which is
+    the shape everybody learns to ignore. Measured here on 2026-08-17: twenty-two links from
+    a single day, in five runs, unanswered since 2026-08-12.
+
+    The runs are computed rather than listed, because somebody answering for twenty-two
+    links should not have to derive five contiguous ranges from a list by eye.
+    """
+    from ai_engineering import audit
+
+    findings = [
+        ("BROKEN", "link 918: it arrived edited before it was sealed"),
+        ("BROKEN", "link 919: it arrived edited before it was sealed"),
+        ("BROKEN", "link 933: it arrived edited before it was sealed"),
+        ("WARN", "something else entirely"),
+    ]
+    said = "\n".join(audit._cure(findings))
+
+    assert "3 broken link(s) in 2 run(s): 918-919 933" in said
+    assert "ai-eng audit account --range FIRST-LAST" in said
+    assert "never erased" in said
+    # And it names the likeliest innocent cause without deciding it is the cause.
+    assert "AI_ENGINEERING_HOME" in said and "before you decide which it was" in said
+
+    # A chain with nothing broken says nothing. A cure printed under a clean report is
+    # noise, and noise is how the next real one gets skipped.
+    assert audit._cure([("WARN", "nothing to see")]) == []

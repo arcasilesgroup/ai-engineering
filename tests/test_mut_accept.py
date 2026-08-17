@@ -556,12 +556,17 @@ def test_two_broken_links_are_printed_one_per_line(anchored, capsys):
     events[1]["hash"] = emit.digest(events[1])
     _write_chain(emit, events, anchored)
     assert audit.main(["verify"]) == outcome.result("FAIL")
-    assert capsys.readouterr().out == (
+    printed = capsys.readouterr().out
+    assert printed.startswith(
         "  BROKEN  link 2: the sequence jumps to 5\n"
         "  BROKEN  link 2: it does not extend the link before it\n"
         "  INCOMPLETE  Solution Intent at .ai/intent.md is INCOMPLETE: "
         "INTENT_HOME_MISSING — Solution Intent is missing at .ai/intent.md\n"
     )
+    # And the cure follows, counting links rather than complaints: one link is reported
+    # broken twice here, and it is one link to answer for, not two.
+    assert "1 broken link(s) in 1 run(s): 2" in printed
+    assert "ai-eng audit account --range FIRST-LAST" in printed
 
 
 def test_replay_names_the_reason_the_error_or_the_verb_of_every_event(anchored):

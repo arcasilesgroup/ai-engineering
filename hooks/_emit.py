@@ -139,8 +139,19 @@ def buffer_path(root: Path | None = None) -> Path | None:
     Making the buffer follow the home was tried and reverted. `AI_ENGINEERING_HOME` is the
     only way a test isolates itself, so keying the buffer off it means the buffer is never
     exercised by anything — four suites went red proving exactly that. A feature nothing
-    can test to protect a record is the wrong trade. The seal classifies such a line as
-    another machine's instead, which is what it is."""
+    can test to protect a record is the wrong trade.
+
+    What this paragraph used to claim next was that the seal classifies such a line as
+    another machine's. It does not, and the difference cost an afternoon. `_classify` reads
+    the `machine` field, and a test on this machine with its own home writes the same machine
+    id with a different key — so the line is stamped unverifiable and reported as `edited`,
+    which is the wording reserved for tampering. Twenty-two of them from 2026-08-12 held this
+    machine's anchor open until somebody accounted for them, and every commit in between
+    printed a warning nobody could act on.
+
+    Telling the two apart needs something the line does not carry: which home stamped it.
+    Until it does, the honest reading is that `edited` covers both, and `ai-eng audit verify`
+    says so and names `audit account` as the cure."""
 
     root = root or repo_root()
     if root is None or not (root / ".ai" / "config.toml").exists():
