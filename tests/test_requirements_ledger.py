@@ -118,7 +118,15 @@ def test_a_verdict_that_needs_a_reason_carries_one():
     what it waits on; CONTRADICTED has to name the contradiction; UNFALSIFIABLE has to say
     what cannot be observed. PROVEN needs no note, because its command is its argument."""
 
-    owed = ("INCOMPLETE", "BLOCKED", "CONTRADICTED", "UNFALSIFIABLE")
+    # NO-EVIDENCE joined this list once the seven rows carrying it without a reason were
+    # written. "There is no evidence" is a claim like any other and it has causes that differ
+    # entirely: a file nobody can find, an editor nobody can run here, a decision that
+    # predates its own instrument, a deliberate non-build. A row that says none of them reads
+    # as an oversight, and four of the seven were not.
+    #
+    # The unrecoverable rows are excused below and only there, because their subject already
+    # carries the reason in the word `unrecoverable`.
+    owed = ("INCOMPLETE", "BLOCKED", "CONTRADICTED", "UNFALSIFIABLE", "NO-EVIDENCE")
     silent = [
         row["id"]
         for row in rows()

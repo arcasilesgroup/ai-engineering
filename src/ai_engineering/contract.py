@@ -2679,7 +2679,16 @@ DESCRIPTION_MAX = 1000
 # Ten of thirteen have a command now. The three that do not are honest: a p95 that is a
 # median over five samples, a rejected-record count nothing prints, and coverage over
 # behavioural criteria that do not exist here.
-REPO_CEILING = 72_319
+# 72,319 to 72,345 for seven rows that said there was no evidence and not why.
+#
+# "There is no evidence" is a claim like any other and its causes differ entirely: a file
+# nobody can find, an editor nobody can run here, a decision that predates its own
+# instrument, a deliberate non-build. A row saying none of them reads as an oversight, and
+# four of the seven were not.
+#
+# The ledger's own rule now includes NO-EVIDENCE among the verdicts that owe a reason, with
+# the unrecoverable rows excused because their subject already carries it in that word.
+REPO_CEILING = 72_345
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -142,6 +142,7 @@ id = "EP-015"
 verdict = "NO-EVIDENCE"
 subject = "Codex link restoration, /skills discovery, $ai-* invocation and agents/openai.yaml"
 evidence = "find . -iname openai.yaml"
+note = "no `agents/openai.yaml` is tracked anywhere in this repository, and the three executed halves — link restoration, `/skills` discovery and a `$ai-*` invocation — each need a live Codex session invoking them. Nothing that can be written here produces one"
 
 [[requirement]]
 id = "EP-016"
@@ -408,6 +409,7 @@ id = "EP-055"
 verdict = "NO-EVIDENCE"
 subject = "a labelled defect corpus and a stated bar for it"
 evidence = "grep -rli 'defect.corpus|labelled.defect' src/ policy/ tests/"
+note = "two labelled corpora exist and neither is this one. The routing corpus beside every skill labels situations a skill must take or refuse; the adversarial suite labels attacks a guard must stop. A defect corpus labels defects a reviewer must find, and building one without a stated bar would be a sample whose author decides its own pass mark"
 
 [[requirement]]
 id = "EP-056"
@@ -839,6 +841,7 @@ id = "EP-122"
 verdict = "NO-EVIDENCE"
 subject = "the absorb-versus-ship decision was backed by a routing evaluation"
 evidence = "grep -n 'no baseline, no sample' tests/test_contracts.py"
+note = "the routing evaluation exists and runs in the gate, and it postdates the absorb-versus-ship decision by a wave. Nothing can retro-evidence a decision taken before its instrument existed, and claiming the instrument as its backing would be dating the evidence to suit the claim"
 
 [[requirement]]
 id = "EP-123"
@@ -1231,6 +1234,7 @@ id = "EP-183"
 verdict = "NO-EVIDENCE"
 subject = "taking a claim opens a draft pull request"
 evidence = "git grep -n 'pull request|gh pr' src/ai_engineering/claim.py src/ai_engineering/checkpoint.py"
+note = "`claim.take` writes a remote branch with a compare-and-swap lease and opens nothing. A draft pull request is a network call to somebody else's API, and the half that could be built locally — the payload — would be an unexercised path this repository has learned to distrust"
 
 [[requirement]]
 id = "EP-184"
@@ -1427,6 +1431,7 @@ id = "EP-213"
 verdict = "NO-EVIDENCE"
 subject = "a Codex agent file, plus executed proof of discovery and invocation"
 evidence = "find . -iname 'openai.yaml'"
+note = "same as EP-015: no Codex agent file is tracked here, and executed proof of discovery and invocation needs that editor running. The two halves are one absence and one measurement nobody can take from this machine"
 
 [[requirement]]
 id = "EP-214"
@@ -1726,6 +1731,7 @@ id = "EP-260"
 verdict = "NO-EVIDENCE"
 subject = "a rubric per quality principle with file:line findings and an evidence id"
 evidence = "grep -rln 'KISS|YAGNI' --include='*.py' --include='*.md' ."
+note = "the same decision as EP-068 seen from the other side: the six quality principles are one line each in AGENTS.md and the rubric is deliberately unwritten, because a rubric over `KISS` is a grade somebody assigns rather than a property something has. What executes instead is that a review finding carries file:line and that an error carries its cause and its cure"
 
 [[requirement]]
 id = "EP-261"
@@ -2083,6 +2089,7 @@ id = "EP-314"
 verdict = "NO-EVIDENCE"
 subject = "a judgement no script can decide; it stays a prompt"
 evidence = "sed -n '178p' specs/015-pilot-without-instruments/spec.md"
+note = "recorded as ungated in policy/pilot-register.toml, with the reason and the condition that would reopen it. Rule 12 is explicit that a judgement which cannot fail closed stays a prompt with its reason written down"
 
 [[requirement]]
 id = "EP-315"
@@ -2116,12 +2123,14 @@ id = "EP-319"
 verdict = "NO-EVIDENCE"
 subject = "a judgement no script can decide; it stays a prompt"
 evidence = "sed -n '178p' specs/015-pilot-without-instruments/spec.md"
+note = "as EP-314: ungated by a recorded decision rather than by omission"
 
 [[requirement]]
 id = "EP-320"
 verdict = "NO-EVIDENCE"
 subject = "a judgement no script can decide; it stays a prompt"
 evidence = "sed -n '178p' specs/015-pilot-without-instruments/spec.md"
+note = "as EP-314: ungated by a recorded decision rather than by omission"
 
 [[requirement]]
 id = "EP-321"
