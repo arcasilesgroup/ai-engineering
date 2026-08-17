@@ -2109,7 +2109,23 @@ DESCRIPTION_MAX = 1000
 #
 # `EP-051` stays INCOMPLETE and the row says why: no fixture exists for a scanner binary, and
 # the one for the wheel itself needs a published release. Two of four is not four.
-REPO_CEILING = 64_398
+#
+# 64,398 to 64,471 for a parameter that decides which diff gets scanned and that nothing
+# exercised.
+#
+# `EP-179` wants the snapshot, freshness and final-combination correctness as three separately
+# checkable things, and the audit read the snapshot half as missing because `snapshot` appears
+# nowhere in `checkpoint.py`. It is called `base`, and it is threaded through `staged`,
+# `_diff_args`, `_privacy` and `_inside` — every receipt is relative to it. A name mismatch,
+# not an absent thing, which is what reading the module rather than grepping it turns up.
+#
+# The real gap was underneath: none of the eight fixtures in `tests/test_checkpoint.py` passed
+# a base. A parameter choosing the range a privacy scan runs over, unexercised, can stop
+# working in the worst shape available — a checkpoint over the wrong commits reporting clean.
+# Both directions are asserted now, because one of them passes with `base` ignored, and an
+# unresolvable base is held to not reading as an empty range. Verified by making `staged`
+# discard the argument and watching the pair go red.
+REPO_CEILING = 64_471
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

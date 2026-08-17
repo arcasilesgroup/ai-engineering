@@ -1207,8 +1207,8 @@ note = "the four triggers are named in prose; nothing detects any of them to pro
 id = "EP-179"
 verdict = "INCOMPLETE"
 subject = "snapshot, checkpoint freshness and final-combination correctness as three checkable things"
-evidence = "grep -n 'fresh|snapshot' src/ai_engineering/checkpoint.py"
-note = "freshness is real code; snapshot appears nowhere"
+evidence = "pytest tests/test_checkpoint.py -k snapshot"
+note = "all three halves are real. The snapshot is called `base` here, which is why an audit grepping for the word found nothing: it is threaded through `staged`, `_diff_args`, `_privacy` and `_inside`, so every receipt is computed relative to it. What was missing was anybody exercising it — none of the eight fixtures beside these two passed it, and a parameter deciding which diff gets scanned that nothing exercises can stop working in the worst available shape: a checkpoint over the wrong range, reporting clean. Both directions are asserted now, and an unresolvable base is held to not reading as an empty one"
 
 [[requirement]]
 id = "EP-180"

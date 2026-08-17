@@ -247,3 +247,60 @@ def test_a_failing_receipt_is_not_masked_by_a_passing_one_that_sorts_later(worki
 
     assert fact.status == "FAIL", fact
     assert fact.detail and "adversarial-attacks" in fact.detail
+
+
+def test_the_snapshot_the_checkpoint_is_taken_against_changes_what_it_sees(working):
+    """`EP-179` asks for the snapshot, freshness and final-combination correctness to be
+    three separately checkable things. This is the first of the three, and it was the one
+    nobody had checked.
+
+    It is called `base` here rather than snapshot, which is why an audit grepping for the
+    word found nothing: the parameter is threaded through `staged`, `_diff_args`, `_privacy`
+    and `_inside`, so every receipt is computed relative to it. What none of the eight
+    fixtures beside this one did was pass it. A parameter that decides which diff gets
+    scanned and that nothing exercises is a parameter that can stop working silently — and
+    the failure is the worst shape available: a checkpoint that scanned the wrong range and
+    reported clean.
+
+    So it is exercised both ways round. Committed work is invisible to a checkpoint taken
+    against HEAD and visible to one taken against the commit before it, over the same tree.
+    """
+    from ai_engineering import checkpoint
+
+    stage(working, "src/committed.py", "SECRET = 'not really'\n")
+    git(working, "commit", "-m", "feat: a commit this branch made")
+    behind = git(working, "rev-parse", "HEAD~1").stdout.strip()
+    head = git(working, "rev-parse", "HEAD").stdout.strip()
+    assert behind and head and behind != head
+
+    # No snapshot: only what is staged right now, and nothing is.
+    assert checkpoint.staged(working) == []
+
+    # Against HEAD: the commit is behind the snapshot, so it is not this checkpoint's to
+    # answer for. An empty answer here is correct and is exactly why the other direction
+    # has to be asserted too — on its own this line would pass with `base` ignored.
+    assert checkpoint.staged(working, head) == []
+
+    # Against the commit before it: the file appears, by name.
+    assert checkpoint.staged(working, behind) == ["src/committed.py"]
+
+
+def test_a_snapshot_that_names_nothing_is_not_read_as_a_clean_range(working):
+    """The fail-closed half. A base that no longer resolves — a rebased branch, a deleted
+    ref, a truncated SHA pasted by hand — must not answer "nothing changed", because that is
+    indistinguishable from a checkpoint over a branch that really changed nothing.
+
+    What this holds is that the answer is empty *and* the receipts do not claim a pass on
+    the strength of it. `git diff` against an unknown revision fails rather than returning
+    a diff, so the range is unreadable and the checkpoint has no evidence either way.
+    """
+    from ai_engineering import checkpoint
+
+    stage(working, "src/thing.py", "VALUE = 2\n")
+
+    unresolvable = "0" * 40
+    assert checkpoint.staged(working, unresolvable) == []
+
+    # And the staged file is still there to be found, which is the proof that the empty
+    # answer above came from the unreadable range and not from an empty tree.
+    assert checkpoint.staged(working) == ["src/thing.py"]
