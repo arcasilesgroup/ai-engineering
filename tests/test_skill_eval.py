@@ -369,3 +369,63 @@ def test_the_evaluation_leaves_a_receipt_the_product_itself_will_accept():
             timeout=300,
             check=False,
         )
+
+
+def test_a_corpus_that_shrinks_is_refused_against_the_baseline(tmp_path, monkeypatch):
+    """`EP-289`'s checkable half: an evaluation that cannot shrink noticeably.
+
+    Nothing compared this run's size to anything, so the labelled corpus could have fallen
+    from 254 cases to 3 and the run would have printed `RAN skilleval=3` and exited zero.
+    A number nothing is compared against is decoration.
+
+    Three states, and the middle one is why the margin is zero: this evaluation is
+    deterministic, so a band around the number would be a tolerance for variance that does
+    not exist, and what it would hide is somebody deleting cases.
+    """
+    import tomllib
+
+    import skill_eval
+
+    register = tomllib.loads((ROOT / "policy" / "pilot-register.toml").read_text(encoding="utf-8"))
+    agreed = next(row for row in register["baseline"] if row["id"] == "skill-routing")
+    assert agreed["margin"] == 0, "a margin over a deterministic count hides deleted cases"
+
+    assert skill_eval._against_baseline(agreed["measured"]) == 0
+    assert skill_eval._against_baseline(agreed["measured"] - 1) == 1, "a lost case passed"
+    assert skill_eval._against_baseline(agreed["measured"] + 1) == 1, "a new case passed"
+
+    # A register with no baseline is not a run with nothing to compare against: it is a
+    # register to repair, and the difference is the whole point of the three states.
+    empty = tmp_path / "register.toml"
+    empty.write_text("[claim]\np5_complete = false\n", encoding="utf-8")
+    monkeypatch.setattr(skill_eval, "ROOT", tmp_path)
+    (tmp_path / "policy").mkdir()
+    (tmp_path / "policy" / "pilot-register.toml").write_text(
+        empty.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    assert skill_eval._against_baseline(254) == 1
+
+
+def test_the_baseline_is_the_number_this_tree_actually_measures():
+    """The pin and the tree, held together. A baseline that drifted from the corpus would
+    make every run red for a reason nobody could act on, which is the failure mode of a pin
+    nothing keeps honest — and it is why this asserts against a real run rather than against
+    the constant twice."""
+    import subprocess
+    import sys
+    import tomllib
+
+    register = tomllib.loads((ROOT / "policy" / "pilot-register.toml").read_text(encoding="utf-8"))
+    agreed = next(row for row in register["baseline"] if row["id"] == "skill-routing")
+
+    done = subprocess.run(
+        [sys.executable, str(ROOT / "tests" / "skill_eval.py")],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        timeout=300,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout[-2000:]
+    assert f"RAN skilleval={agreed['measured']}" in done.stdout
+    assert f"baseline {agreed['measured']}, delta +0" in done.stdout

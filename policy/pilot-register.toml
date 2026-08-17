@@ -211,6 +211,36 @@ unit = "bypasses of any guard, in one report window"
 stated_in = "src/ai_engineering/report.py — a guard you bypass three times is a guard to fix or to delete"
 enforced_by = "ai_engineering.report.BYPASSES_WORTH_A_LOOK, printed by `ai-eng report digest`"
 
+# ── what a measurement is compared against ───────────────────────────────────────────
+#
+# `EP-289` asks for an evaluation delta with a baseline, a margin and a named approver. The
+# routing evaluation has run in the gate for a wave and nothing compared its size to
+# anything: the labelled corpus could have fallen from 254 cases to 3 and the run would have
+# printed `RAN skilleval=3` and exited zero. An evaluation that cannot shrink noticeably is
+# an evaluation whose number is decoration.
+#
+# The margin is zero and that is not strictness for its own sake. This evaluation is
+# deterministic — a graph over descriptions and a labelled corpus, with no model in the loop
+# — so the same tree gives the same number every time, and any band around it would be a
+# tolerance for a variance that does not exist. What a margin would hide here is somebody
+# deleting cases.
+#
+# So it moves the way `contract.REPO_CEILING` moves: in a commit that says why. That commit
+# is the approval, and it is the same mechanism this repository already trusts for the line
+# ceiling. What it is not is a named person, and `EP-289` asks for one — the row stays open
+# on that and the field says so rather than carrying a name nobody typed.
+
+[[baseline]]
+id = "skill-routing"
+measured = 254
+margin = 0
+command = "python tests/skill_eval.py"
+approved_by = ""
+reopen_when = "somebody with authority names themselves here, which closes EP-289's third half"
+why = """The count is claims plus refusals plus the labelled cases on both sides. Falling \
+means a skill stopped declaring what it routes or a corpus lost cases; rising means the \
+opposite. Both are worth a sentence, and neither should happen without one."""
+
 # ── the ungated ─────────────────────────────────────────────────────────────────────
 #
 # Requirements this framework will not gate, and why. Rule 12 is explicit: a judgement that

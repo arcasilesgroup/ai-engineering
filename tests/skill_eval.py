@@ -248,6 +248,46 @@ RECEIPT_SCHEMA = "urn:ai-engineering:check-evidence:1"
 RECEIPT_MAX_AGE = 86_400
 
 
+def _against_baseline(measured: int) -> int:
+    """Compare this run against the number somebody last agreed to, and refuse a silent move.
+
+    `EP-289` asks for a delta with a baseline and a margin. Until this, nothing compared the
+    evaluation's size to anything: the labelled corpus could have fallen from 254 cases to 3
+    and the run would have printed `RAN skilleval=3` and exited zero. An evaluation that
+    cannot shrink noticeably is an evaluation whose number is decoration.
+
+    The margin is zero, and that is not strictness for its own sake. This evaluation is
+    deterministic — a graph over descriptions and a labelled corpus, no model in the loop —
+    so the same tree gives the same number every time, and a band around it would be a
+    tolerance for variance that does not exist. What a margin would hide is somebody deleting
+    cases.
+
+    A missing baseline is not a pass. It is the register that has to be repaired, and saying
+    so is the difference between "nothing to compare against" and "compared and agreed".
+    """
+
+    register = ROOT / "policy" / "pilot-register.toml"
+    try:
+        rows = tomllib.loads(register.read_text(encoding="utf-8")).get("baseline", [])
+        agreed = next(row for row in rows if row["id"] == "skill-routing")
+    except (OSError, tomllib.TOMLDecodeError, KeyError, StopIteration):
+        print("  INCOMPLETE: no baseline for skill-routing in policy/pilot-register.toml,")
+        print("  so this number was compared against nothing.")
+        return 1
+
+    delta = measured - int(agreed["measured"])
+    if abs(delta) <= int(agreed["margin"]):
+        print(f"  baseline {agreed['measured']}, delta {delta:+d}, margin {agreed['margin']}")
+        return 0
+    print(
+        f"  FAIL: {measured} cases against a baseline of {agreed['measured']} — "
+        f"delta {delta:+d}, margin {agreed['margin']}."
+    )
+    print("  Coverage moved. Move the baseline in the same commit and say why, the way the")
+    print("  line ceiling moves; a number nobody argued for is a number that drifted.")
+    return 1
+
+
 def _corpus_digest() -> str:
     """What was evaluated: every skill body and every corpus beside it.
 
@@ -392,7 +432,7 @@ def main() -> int:
     measured = claims + len(refusals) + takes + sends
     _receipt(measured, started, {"measured": measured, "phases": grouped})
     print(f"RAN skilleval={measured}")
-    return 0
+    return _against_baseline(measured)
 
 
 if __name__ == "__main__":

@@ -1913,8 +1913,8 @@ evidence = "pytest tests/test_pilot_register.py"
 id = "EP-289"
 verdict = "INCOMPLETE"
 subject = "a skill-evaluation delta with a baseline, a margin and a named approver"
-evidence = "python tests/skill_eval.py"
-note = "a real runner over a labelled corpus exists and runs in the gate; the register records that a delta still needs a baseline at a commit, a margin and an approver"
+evidence = "python tests/skill_eval.py | grep baseline; pytest tests/test_skill_eval.py -k baseline"
+note = "two of the three exist and execute. The baseline is 254 in policy/pilot-register.toml and the run prints its delta; the margin is zero, argued rather than assumed — the evaluation is deterministic, so a band around the number would be a tolerance for variance that does not exist and what it would hide is deleted cases. Before this the corpus could have fallen from 254 to 3 and the run would have exited zero. The third half is a named approver: the field is empty on purpose rather than carrying a name nobody typed, and the row reopens when somebody with authority puts theirs there"
 
 [[requirement]]
 id = "EP-290"

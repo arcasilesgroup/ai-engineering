@@ -2552,7 +2552,18 @@ DESCRIPTION_MAX = 1000
 # record of a check that no reader would accept, produced by the file whose subject is checks
 # that only look like they ran. Verifying through `evidence.verify` rather than asserting that
 # keys exist is what found it, and is what the test does now.
-REPO_CEILING = 71_153
+# 71,153 to 71,318 for a number nothing was compared against.
+#
+# The routing evaluation has run in the gate for a wave and nothing checked its size, so the
+# labelled corpus could have fallen from 254 cases to 3 and the run would have printed
+# `RAN skilleval=3` and exited zero. EP-289 asks for a baseline, a margin and a named
+# approver; two of the three exist now.
+#
+# The margin is zero and it is argued: the evaluation is deterministic, so a band around the
+# number would be a tolerance for variance that does not exist, and what it would hide is
+# deleted cases. The baseline moves the way this ceiling moves — in a commit that says why.
+# The approver is empty on purpose rather than a name nobody typed.
+REPO_CEILING = 71_318
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
