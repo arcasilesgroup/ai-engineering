@@ -1939,7 +1939,16 @@ DESCRIPTION_MAX = 1000
 # "The other sixteen homes hold their work, and that is measured rather than assumed" names
 # no command and nothing reads it. Nine of the nineteen absorptions have neither a home check
 # nor a phrase pin. The sentence should have said which, and this is that correction.
-REPO_CEILING = 60_468
+#
+# 60,468 to 60,508 for the reviewer's last two, both of which the block commit above left
+# open. Assertion 24's bound named links and read only one of the two kinds: `is_symlink()`
+# is False for a hard link, so `os.link` inside a declared command root put the digest
+# oracle back — right digest silent, wrong digest reporting `1 edited` and naming the file.
+# `st_nlink` is asked now, and the fixture dies without it. And `.ai/intent.md`, the one
+# file that grants authority here, had its accountable role changed by an agent on a verbal
+# instruction with nothing in the tree recording who gave it; `docs/adr/0012` is that
+# receipt, proposed, and it is the owner's to accept or refuse.
+REPO_CEILING = 60_508
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

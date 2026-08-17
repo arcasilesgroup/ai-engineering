@@ -656,6 +656,22 @@ def routers_intact(root: Path | None) -> str | tuple[str, str] | None:
     # the surface table declares, it is called `ai-<something>.md`, and it is a regular file
     # rather than a link to one. A row that does not resolve to exactly that is reported and
     # never opened, which is also the more useful answer for whoever is reading the report.
+    #
+    # "A link to one" covers both kinds, and the second was missed. `is_symlink()` is False
+    # for a hard link, so `os.link(secret, root/"ai-oracle.md")` put the oracle back: guess
+    # the digest right and the row is silent, guess it wrong and the report says
+    # `1 edited (ai-oracle.md)`. Narrower than what it replaced — it needs a write into a
+    # declared command root — but a bound that names links and reads only one of the two
+    # kinds is the defect this file exists to find, so `st_nlink` is asked as well. A
+    # legitimate router has one name.
+    def _hard_linked(path: Path) -> bool:
+        """More than one name for these bytes. A router has one; an oracle needs two."""
+
+        try:
+            return path.stat().st_nlink > 1
+        except OSError:
+            return False
+
     roots = [
         wiring.expand(row["commands"]) for row in wiring.table()["surface"] if row.get("commands")
     ]
@@ -667,7 +683,7 @@ def routers_intact(root: Path | None) -> str | tuple[str, str] | None:
             astray.append(name or "<unnamed>")
             continue
         target = next((one for one in rebuilt if one.exists()), rebuilt[0])
-        if target.is_symlink():
+        if target.is_symlink() or _hard_linked(target):
             astray.append(name)
             continue
         _, _, digest = str(row.get("how", "")).partition(" ")

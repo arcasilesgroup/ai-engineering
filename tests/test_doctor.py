@@ -1675,3 +1675,18 @@ def test_a_receipt_pointing_somewhere_else_is_reported_and_never_opened(
     wiring.record([{"path": str(link), "kind": "router", "how": "generated deadbeef"}])
     again = doctor.routers_intact(repo)
     assert isinstance(again, tuple) and "ai-linked.md" in again[0]
+
+    # Both kinds of link, because only one of them was read. `is_symlink()` is False for a
+    # hard link, so `os.link` put the whole oracle back inside a declared command root: the
+    # right digest reported nothing and a wrong one reported `1 edited`, naming the file. An
+    # independent reviewer built exactly this. It is refused as astray now, and the report
+    # never opens it, so neither answer distinguishes anything.
+    import os
+
+    hard = commands / "ai-oracle.md"
+    os.link(secret, hard)
+    wiring.record([{"path": str(hard), "kind": "router", "how": "generated deadbeef"}])
+    hardened = doctor.routers_intact(repo)
+    assert isinstance(hardened, tuple)
+    assert "ai-oracle.md" in hardened[0]
+    assert "edited" not in hardened[0], "a hard link was hashed instead of being refused"
