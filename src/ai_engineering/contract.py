@@ -2176,7 +2176,28 @@ DESCRIPTION_MAX = 1000
 # so building several engines in one `tmp_path` left every lane pointing at whichever was
 # written last. The sleeping engine became an immediate exit and the timeout branch reported
 # PASS. Each engine has its own directory now.
-REPO_CEILING = 65_077
+#
+# 65,077 to 65,340 for `spec.py` from 67% to 74%, and for the second reader of a rule this
+# session had only told once.
+#
+# The spec verb's survivors were its own declared surface: a help sentence rewritten, a
+# default moved, `required` flipped. Forty-two in-process calls could not tell any of it apart,
+# because every one passed valid arguments and read the outcome — nothing looked at what the
+# verb says it accepts. The help block of every subcommand is pinned whole now, and each
+# required argument is removed on its own to watch the parser refuse.
+#
+# Then the four transaction failures, which had been rewritable into each other. Busy,
+# unsupported, collision and unsafe are four different instructions to a person: wait, stop
+# because this filesystem never will, the destination stopped being yours, or nothing could be
+# proven. `retryable` is pinned with them, because telling a filesystem that will never support
+# this to try again is a loop rather than an answer. And the two kinds of pending path stay
+# separate: proven means remove it, possible means inspect it without assuming it is yours.
+#
+# The second reader is `doctor`'s assertion 17. Committing the two research documents was
+# written into `.ai/.gitignore` and CI found the assertion still holding the old list — the
+# same rule in two places, one of them updated. That is duplication working as designed: the
+# branch could not go green while the two disagreed.
+REPO_CEILING = 65_340
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

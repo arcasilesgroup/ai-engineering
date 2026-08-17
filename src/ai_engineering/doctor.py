@@ -750,7 +750,20 @@ def polarity(root: Path | None) -> str | None:
         raise Undecidable("not inside a repository")
     intent_home = ".ai/intent.md"
     tracked = {name for name in tracked_files(root) if name.startswith(".ai/")}
-    allowed = {".ai/.gitignore", ".ai/config.toml", intent_home, readiness.DECLARATION}
+    # The pin, plus the two research documents this repository's work is judged against. They
+    # are inputs and not state: nobody's machine produced them, editing one to fit would be the
+    # defect, and until they were committed the requirement ledger was the only in-tree record
+    # of what they asked. The rule is written twice on purpose — here and in `.ai/.gitignore` —
+    # and CI caught this reader still holding the old list while the other had moved, which is
+    # the check working rather than duplication nobody wanted.
+    allowed = {
+        ".ai/.gitignore",
+        ".ai/config.toml",
+        intent_home,
+        readiness.DECLARATION,
+        ".ai/reports/evolution-proposal/index.html",
+        ".ai/reports/process-optimization-research/index.html",
+    }
     problems = []
     if intent_home not in tracked:
         problems.append(f"Solution Intent is not tracked at {intent_home}")

@@ -684,3 +684,232 @@ def test_the_refusal_names_which_two_values_disagree():
     # the original defect with an extra function in front of it.
     for said in (asleep, mismatched, drifted, refused):
         assert len(said.split()) >= 8, said
+
+
+def _help(monkeypatch, capsys, *argv: str) -> list[str]:
+    """One subcommand's whole help block, at a fixed width so it is comparable."""
+    import pytest as _pytest
+
+    from ai_engineering import spec
+
+    monkeypatch.setenv("COLUMNS", "90")
+    with _pytest.raises(SystemExit):
+        spec.main([*argv, "--help"])
+    return capsys.readouterr().out.rstrip("\n").splitlines()
+
+
+def test_the_verb_declares_exactly_these_subcommands(monkeypatch, capsys):
+    """One hundred and thirty-four mutants of `spec.main` survived, and hardly any were logic.
+
+    They were the parser: a help sentence rewritten, a default changed, a flag's name altered,
+    `required` flipped. Forty-two in-process calls to this function could not tell any of it
+    apart, because every one of them passed valid arguments and read the outcome — nothing
+    looked at what the verb says it accepts.
+
+    The help block is what a stranger reads before choosing a flag, so it is pinned whole. A
+    reworded option is then a diff beside the words, which is the only way this stays true.
+    """
+    lines = _help(monkeypatch, capsys)
+
+    assert lines[0] == "usage: ai-eng spec [-h] {new,show,list,claim,checkpoint} ..."
+    assert "positional arguments:" in lines
+    assert "  {new,show,list,claim,checkpoint}" in lines
+
+
+def test_the_claim_subcommand_says_exactly_what_it_needs(monkeypatch, capsys):
+    """`claim` is the only subcommand that reaches a remote, and every one of its four
+    arguments changes what gets written there. A default this test did not pin is a default
+    somebody can move without a diff anybody reads."""
+    assert _help(monkeypatch, capsys, "claim") == [
+        "usage: ai-eng spec claim [-h] --base BASE --path PATH --role ROLE [--remote REMOTE] item",
+        "",
+        "positional arguments:",
+        "  item",
+        "",
+        "options:",
+        "  -h, --help       show this help message and exit",
+        "  --base BASE      the exact SHA this claim is taken against",
+        "  --path PATH",
+        "  --role ROLE",
+        "  --remote REMOTE",
+    ]
+
+
+def test_the_checkpoint_subcommand_says_exactly_what_it_needs(monkeypatch, capsys):
+    """Both of its flags are about which snapshot the receipts are computed against, and both
+    default to empty — meaning "this branch, and the claim beside it" rather than a remote's."""
+    assert _help(monkeypatch, capsys, "checkpoint") == [
+        "usage: ai-eng spec checkpoint [-h] [--base BASE] [--item ITEM] [--remote REMOTE]",
+        "",
+        "options:",
+        "  -h, --help       show this help message and exit",
+        "  --base BASE      verify this branch against that SHA or ref",
+        "  --item ITEM      read the claim from the remote, not here",
+        "  --remote REMOTE",
+    ]
+
+
+def test_the_new_and_list_subcommands_say_exactly_what_they_need(monkeypatch, capsys):
+    """`new` takes a slug and an optional work item, and the example in its help is the whole
+    documentation of what a work item looks like. `list` has one flag and it is the one that
+    decides whether superseded specifications are shown."""
+    assert _help(monkeypatch, capsys, "new") == [
+        "usage: ai-eng spec new [-h] [--ref REF] slug",
+        "",
+        "positional arguments:",
+        "  slug",
+        "",
+        "options:",
+        "  -h, --help  show this help message and exit",
+        '  --ref REF   a work item, e.g. "owner/repo#45"',
+    ]
+    assert _help(monkeypatch, capsys, "list") == [
+        "usage: ai-eng spec list [-h] [--all]",
+        "",
+        "options:",
+        "  -h, --help  show this help message and exit",
+        "  --all       include superseded specs",
+    ]
+
+
+def test_a_subcommand_missing_a_required_argument_refuses_rather_than_defaulting(
+    monkeypatch, capsys
+):
+    """`required=True` on four of claim's arguments, and nothing had ever removed one to see.
+
+    A claim written with a base, a path or a role missing is a claim the other machine cannot
+    act on, so the parser refusing is the whole of the protection. Each is checked on its own,
+    because a test that omitted all four would pass with three of the four flags optional.
+    """
+    import pytest as _pytest
+
+    from ai_engineering import spec
+
+    monkeypatch.setenv("COLUMNS", "90")
+    whole = ["claim", "work-1", "--base", "abc", "--path", "src/a.py", "--role", "one"]
+    for flag in ("--base", "--path", "--role"):
+        where = whole.index(flag)
+        without = whole[:where] + whole[where + 2 :]
+        with _pytest.raises(SystemExit) as refused:
+            spec.main(without)
+        assert refused.value.code == 2, flag
+        assert flag in capsys.readouterr().err, flag
+
+    # And the positional, which argparse names differently in its complaint.
+    with _pytest.raises(SystemExit) as refused:
+        spec.main([one for one in whole if one != "work-1"])
+    assert refused.value.code == 2
+    assert "item" in capsys.readouterr().err
+
+
+def test_every_way_a_publication_can_fail_says_its_own_code_and_its_own_sentence():
+    """Four transaction failures, four codes, four sentences, and nothing had told them apart.
+
+    Thirty-one mutants of `_incomplete_report` and twenty of `_transaction_incomplete` survived
+    by rewriting these into each other. They are the only thing a person sees when `spec new`
+    refuses, and the difference between them is what they do next: a lock somebody else holds
+    is waited on, a filesystem that cannot prove safety is not retryable at all, and a
+    collision means the destination stopped being theirs.
+
+    `retryable` is pinned with them, because a refusal that says retry to a filesystem which
+    will never support this is a loop rather than an answer.
+    """
+    from ai_engineering import spec, spec_transaction
+
+    expected = {
+        "busy": (
+            "SPEC_TRANSACTION_BUSY",
+            "another spec transaction holds the canonical Intent lock",
+            True,
+        ),
+        "unsupported": (
+            "SPEC_TRANSACTION_UNSUPPORTED",
+            "this filesystem cannot prove a safe spec publication",
+            False,
+        ),
+        "collision": (
+            "SPEC_PUBLICATION_COLLISION",
+            "the reserved spec destination is no longer exclusive",
+            True,
+        ),
+        "unsafe": (
+            "SPEC_TRANSACTION_UNSAFE",
+            "the spec transaction could not prove an unchanged safe filesystem state",
+            True,
+        ),
+    }
+    problems = {
+        "busy": spec_transaction.Busy(),
+        "unsupported": spec_transaction.Unsupported(),
+        "collision": spec_transaction.Collision(),
+        "unsafe": spec_transaction.Unsafe(),
+    }
+
+    seen = set()
+    for kind, problem in problems.items():
+        assert spec._transaction_kind(problem) == kind
+        report = spec._transaction_incomplete(problem)
+        error = report.execution.error
+        code, message, retryable = expected[kind]
+        assert error.code == code, kind
+        assert error.message == message, kind
+        assert error.retryable is retryable, kind
+        assert report.execution.result.outcome == "INCOMPLETE"
+        assert report.lines[0] == f"  INCOMPLETE  {message}"
+        seen.add(code)
+
+    assert len(seen) == 4, "two failures share a code, so a reader cannot tell them apart"
+
+
+def test_a_pending_spec_is_named_and_the_two_kinds_of_pending_are_never_merged():
+    """A proven pending path and a possible one are different facts and different instructions.
+
+    Proven means this attempt wrote it, so it can be inspected and removed. Possible means a
+    stage failed before anybody could tell whose it is — so the instruction says inspect
+    without assuming ownership, and removing it on that basis would be deleting somebody
+    else's work. Merging the two is the mistake, and asking for both at once is refused.
+    """
+    from ai_engineering import spec, spec_transaction
+
+    proven = spec._transaction_incomplete(spec_transaction.Busy(), proven_pending="019-a-thing")
+    assert "    pending: specs/019-a-thing/spec.md" in proven.lines
+    proven_error = proven.execution
+    assert "Inspect or remove specs/019-a-thing/spec.md before retrying" in proven_error.remaining
+    assert list(proven_error.next_actions) == [
+        "inspect specs/019-a-thing/spec.md; remove it only after proving it is this attempt"
+    ]
+    assert any(fact.id == "spec-pending" for fact in proven_error.changes)
+
+    possible = spec._transaction_incomplete(spec_transaction.Busy(), possible_pending="020-other")
+    assert (
+        "    possible pending: specs/020-other/spec.md; inspect only if it exists" in possible.lines
+    )
+    possible_error = possible.execution
+    assert list(possible_error.next_actions) == [
+        "if specs/020-other/spec.md exists, inspect it without assuming ownership"
+    ]
+    assert possible_error.changes == (), "a possible pending path was reported as a change"
+    assert any(fact.id == "spec-pending-possible" for fact in possible_error.checks)
+
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError, match="cannot be both proven and possible"):
+        spec._incomplete_report("X", "y", proven_pending="a", possible_pending="b")
+
+
+def test_a_refusal_with_no_pending_path_still_says_nothing_was_published():
+    """The plain case, and the line that matters in it. Whatever went wrong, the remaining work
+    says no canonical spec was published — because a refusal that listed only the mechanical
+    fault would leave a reader wondering whether half of one had landed."""
+    from ai_engineering import spec
+
+    report = spec._incomplete_report("SPEC_X", "something went wrong")
+    payload = report.execution
+
+    assert payload.remaining == ("No canonical spec was published",)
+    assert list(payload.next_actions) == [
+        "restore one stable approved Intent snapshot and run spec new again"
+    ]
+    assert payload.changes == ()
+    assert [fact.id for fact in payload.checks] == ["spec-publication"]
+    assert report.lines == ("  INCOMPLETE  something went wrong",)
