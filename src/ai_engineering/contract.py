@@ -2355,7 +2355,24 @@ DESCRIPTION_MAX = 1000
 # Bytes it cannot read come back untouched and are reported as unscanned, which is the
 # distinction the whole ledger is about. The caller is `executor.Sandbox.write`, so this is
 # a control rather than a module nobody meets.
-REPO_CEILING = 68_341
+#
+# 68,341 to 68,803 for the mutation pass over the two modules this session added, and for the
+# defect it found.
+#
+# The owner's decision on 2026-08-17 was to keep the floor at 89 and raise the tests. Measured
+# first: 77% of deliberate defects caught across `imagery` and `executor`, which is under it.
+# Twenty-six cases later it is 86%, and the survivors that went were the ones the justfile
+# already warned about — sentences a person reads, asserted as counts rather than as words.
+# `_svg_findings` had twenty-two survivors because one assertion said `len(problems) == 4`
+# and never what any of the four said.
+#
+# And one real defect, found by a case written to kill a mutant. `Sandbox.write` claimed in
+# its own docstring to write "never through a symlink", and a link pointing *back into* the
+# root resolved to a declared path and was written through. The comment stated a property the
+# code did not enforce, which is this repository's most-found defect class, and it lasted one
+# commit. No component between the root and the file may be a link now, whichever way it
+# points.
+REPO_CEILING = 68_803
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

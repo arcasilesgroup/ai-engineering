@@ -119,8 +119,15 @@ def test_an_svg_loses_its_script_its_handlers_and_its_outbound_references():
   <circle r="4"/>
 </svg>"""
 
-    problems = imagery.findings(carried)
-    assert len(problems) == 4, problems
+    # The exact sentences, and not the count. Counting them is how the last mutation pass
+    # left twenty-two survivors in this one function: every message could be rewritten into
+    # nonsense and a length assertion would not notice. What a person reads *is* the output.
+    assert imagery.findings(carried) == [
+        "the SVG carries script, which executes",
+        "the SVG carries onclick, which is an event handler",
+        "the SVG carries onload, which is an event handler",
+        "the SVG references https://tracker.example/pixel.png, which a viewer fetches",
+    ]
 
     clean = imagery.stripped(carried)
 
@@ -204,3 +211,185 @@ def test_every_application_segment_that_can_carry_a_person_is_dropped(marker):
 
     assert imagery.findings(carried)
     assert b"a name in it" not in imagery.stripped(carried)
+
+
+def test_every_shape_of_executable_svg_is_named_by_the_thing_it_is():
+    """`foreignObject` is the one a reader forgets: it embeds arbitrary XHTML, so it is a
+    second door into the same room as `<script>`. And the attribute scan is case-insensitive
+    and reaches descendants, because an event handler four elements deep runs exactly as
+    well as one on the root."""
+
+    carried = b"""<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg">
+  <foreignObject width="1" height="1"/>
+  <g><g><rect onCLICK="steal()"/></g></g>
+</svg>"""
+
+    assert imagery.findings(carried) == [
+        "the SVG carries foreignObject, which executes",
+        "the SVG carries onCLICK, which is an event handler",
+    ]
+
+    clean = imagery.stripped(carried)
+    assert b"foreignObject" not in clean and b"onCLICK" not in clean
+    assert b"rect" in clean, "the element was removed with its handler"
+
+
+def test_every_way_a_reference_leaves_the_machine_is_caught_and_a_local_one_is_not():
+    """Four schemes a viewer fetches or executes, on both attributes that carry one, against
+    three that stay inside the file. A check on `https` alone would pass every test above and
+    let a protocol-relative URL through, which is the same beacon with two characters less.
+    """
+
+    def svg(attribute: str, value: str) -> bytes:
+        return (
+            '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg">'
+            f'<image {attribute}="{value}"/></svg>'
+        ).encode()
+
+    for attribute in ("href", "src"):
+        for value in (
+            "https://tracker.example/p.png",
+            "http://tracker.example/p.png",
+            "//tracker.example/p.png",
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+        ):
+            assert imagery.findings(svg(attribute, value)), f"{attribute}={value} passed"
+            assert value.encode() not in imagery.stripped(svg(attribute, value))
+
+        for local in ("data:image/png;base64,AAAA", "#gradient", "sprite.svg"):
+            assert imagery.findings(svg(attribute, local)) == [], f"{attribute}={local} refused"
+            assert local.encode() in imagery.stripped(svg(attribute, local))
+
+
+def test_a_long_reference_is_reported_truncated_and_still_removed_whole():
+    """The message is a line in a report, so a URL somebody padded to four kilobytes must not
+    become the report. Forty characters of it, and the whole thing gone from the file."""
+
+    long_one = "https://tracker.example/" + "a" * 400
+    carried = (
+        '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg">'
+        f'<image href="{long_one}"/></svg>'
+    ).encode()
+
+    problems = imagery.findings(carried)
+
+    assert problems == [f"the SVG references {long_one[:40]}, which a viewer fetches"]
+    assert len(long_one[:40]) == 40
+    assert b"aaaa" not in imagery.stripped(carried)
+
+
+def test_a_png_chunk_stream_that_lies_about_a_length_stops_being_read_there():
+    """Two ways a chunk header can be wrong, and both must stop the walk rather than index
+    past the end. A reader that trusted the declared length would either crash inside a
+    governed write or, worse, read whatever followed the buffer as a chunk name."""
+
+    honest = png((b"tEXt", b"Author\x00somebody"))
+
+    # A length larger than the whole file, and a length that merely runs past the end.
+    lying = bytearray(honest)
+    lying[8:12] = struct.pack(">I", 4_000_000_000)
+    assert list(imagery._png_chunks(bytes(lying))) == []
+
+    truncated = honest[: len(honest) - 4]
+    walked = [name for name, _ in imagery._png_chunks(truncated)]
+    assert b"IHDR" in walked and b"IEND" not in walked
+
+
+def test_a_jpeg_that_is_not_a_sequence_of_markers_is_handed_back_rather_than_walked():
+    """Three malformed shapes: a byte where a marker should be, a segment length below its
+    own two-byte header, and a length that runs past the end. Each yields the rest as opaque
+    data — the alternative is a loop that either never advances or reads past the buffer."""
+
+    for payload in (
+        b"\xff\xd8" + b"\x00\x11\x22\x33",
+        b"\xff\xd8" + b"\xff\xe1" + struct.pack(">H", 1) + b"x",
+        b"\xff\xd8" + b"\xff\xe1" + struct.pack(">H", 9999) + b"x",
+    ):
+        segments = list(imagery._jpeg_segments(payload))
+        assert segments and segments[-1][0] is None, payload
+        assert imagery.stripped(payload) == payload or imagery.kind(payload) == "jpeg"
+
+    # And the start of scan ends the walk: everything after it is the picture, not markers.
+    scanned = jpeg((0xE1, b"Exif\x00\x00drop me"))
+    kinds = [marker for marker, _ in imagery._jpeg_segments(scanned)]
+    assert kinds == [0xE1, None]
+
+
+def test_kind_reads_leading_space_a_bare_tag_and_a_namespace_and_refuses_a_bare_declaration():
+    """Four inputs that differ only in what a sloppy check would accept. The declaration
+    alone is XML and not SVG; the namespace without the tag is what this module's own output
+    looks like after re-serialisation, and calling that unreadable would mean reporting the
+    one file that was definitely scanned as unscanned."""
+
+    assert imagery.kind(b'  \n  <?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"/>')
+    assert imagery.kind(b'<svg xmlns="http://www.w3.org/2000/svg"/>') == "svg"
+    assert imagery.kind(b'<?xml version="1.0"?><root xmlns="http://www.w3.org/2000/svg"/>') == "svg"
+    assert imagery.kind(b'<?xml version="1.0"?><root/>') == ""
+    assert imagery.kind(b"") == ""
+
+
+def test_a_png_with_nothing_left_to_keep_is_returned_as_it_came():
+    """The branch a reader writes without thinking about: if every chunk is dropped there is
+    no picture to write, and returning an eight-byte signature would be this module
+    destroying a file it could not clean. It comes back untouched and `findings` says why."""
+
+    signature_only = imagery.PNG + b"\x00\x00\x00\x04tEXta\x00bc\x00\x00\x00\x00"
+
+    assert imagery.stripped(signature_only) == signature_only
+    assert imagery.findings(signature_only) == [
+        "the PNG carries tEXt, which is metadata and not picture"
+    ]
+
+
+def test_the_strip_and_the_scan_agree_on_every_fixture_in_this_file():
+    """The property that ties the two halves together, over everything above at once.
+
+    `stripped` and `findings` are separate functions with separate rules, and a defect in
+    either shows up as disagreement: bytes that scan dirty after being stripped, or bytes
+    that scan clean and still carry what a strip would remove. Neither is visible from a test
+    of one function alone, which is how a stripper and a scanner drift apart.
+    """
+
+    fixtures = [
+        png(),
+        png((b"tEXt", b"Author\x00somebody")),
+        png((b"gAMA", struct.pack(">I", 45455)), (b"iTXt", b"k\x00\x00\x00\x00\x00v")),
+        jpeg(),
+        jpeg((0xE0, b"JFIF\x00\x01\x02\x00\x00\x01\x00\x01\x00\x00")),
+        jpeg((0xE1, b"Exif\x00\x00somewhere")),
+        b'<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>',
+        b'<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"><script>x()</script></svg>',
+    ]
+
+    for payload in fixtures:
+        clean = imagery.stripped(payload)
+        assert imagery.findings(clean) == [], f"stripped bytes still scan dirty: {payload[:24]!r}"
+        assert imagery.kind(clean) == imagery.kind(payload), "the format changed"
+        assert imagery.stripped(clean) == clean, "stripping twice is not stripping once"
+
+    # And the other direction, with the one exception stated rather than hidden: a raster
+    # file that scans clean comes back byte for byte, and an SVG does not, because sanitising
+    # a document means parsing and re-serialising it. Attribute quoting and self-closing tags
+    # move; nothing a reader or a renderer can see does, which is why the checks above are on
+    # what the document says and not on its bytes.
+    for payload in fixtures:
+        if imagery.findings(payload) == [] and imagery.kind(payload) != "svg":
+            assert imagery.stripped(payload) == payload, "clean raster bytes were rewritten"
+
+
+def test_a_chunk_or_segment_this_module_keeps_is_kept_byte_for_byte():
+    """A stripper that rebuilt what it kept would be re-encoding somebody's image, and the
+    difference is invisible to every test that only asks whether a name is present."""
+
+    body = struct.pack(">IIB", 2835, 2835, 1)
+    carried = png((b"pHYs", body), (b"tEXt", b"drop\x00me"))
+
+    clean = imagery.stripped(carried)
+
+    assert body in clean, "the kept chunk was rebuilt rather than copied"
+    assert clean.count(b"pHYs") == 1, "the kept chunk was duplicated"
+
+    exif_free = jpeg((0xE0, b"JFIF\x00\x01\x02\x00\x00\x01\x00\x01\x00\x00"))
+    assert b"JFIF\x00\x01\x02" in imagery.stripped(exif_free)

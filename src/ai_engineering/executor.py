@@ -233,21 +233,40 @@ class Sandbox:
     def _resolved(self, relative: str, *, writing: bool) -> Path | None:
         """The real path, or nothing at all.
 
-        `resolve()` follows every link before the comparison, so a declared root containing
-        a symlink out of the tree is refused here rather than at open time. Reading also
-        requires a regular file that exists; writing does not, because the file is what the
-        operation is about to create — but its parent must already resolve inside the root,
-        or the write walks out through a linked directory.
+        Two conditions, and the first was missing for one commit. `resolve()` follows every
+        link before the comparison, so a link pointing *out* of the tree is refused — but a
+        link pointing *back in* resolved to a declared path and was written through, while
+        the docstring above said "never through a symlink". The comment claimed a property
+        the code did not enforce, which is the defect class this repository keeps finding,
+        and a mutation test found it here in the hour the module was written.
+
+        So no component between the root and the file may be a link, whichever way it points.
+        A governed write goes to the file that was named; a caller that meant the target
+        names the target. The resolve-and-compare stays as the second condition, because it
+        is what catches a link somebody creates between this check and the open.
+
+        Reading also requires a regular file that exists; writing does not, because the file
+        is what the operation is about to create — but its parent must already resolve inside
+        the root.
         """
 
+        named = self.root / relative
+        probe = named
+        while probe != self.root:
+            if probe.is_symlink():
+                return None
+            if probe.parent == probe:  # walked off the top: the path was never inside
+                return None
+            probe = probe.parent
+
         try:
-            candidate = (self.root / relative).resolve()
+            candidate = named.resolve()
             reference = candidate if not writing else candidate.parent
             reference.relative_to(self.root)
         except (OSError, ValueError):
             return None
         if writing:
-            return candidate if not candidate.is_symlink() else None
+            return candidate
         try:
             details = candidate.lstat()
         except OSError:

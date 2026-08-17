@@ -389,3 +389,240 @@ def test_the_report_verbs_draft_is_the_executors_first_real_caller(tmp_path):
     with pytest.raises(executor.Refused):
         issue.draft(root, payload)
     assert not (elsewhere / "draft.json").exists(), "the draft was written through a link"
+
+
+def test_the_process_runs_where_the_sandbox_says_and_its_output_comes_back_whole(tmp_path):
+    """Eighteen mutants of `run` survived the first pass because the tests asked only whether
+    it refused. Everything it returns is load bearing: the working directory decides which
+    repository `git` answers about, `text=True` decides whether a caller can read the output
+    at all, `check=False` decides whether a non-zero exit raises past the caller, and the
+    output has to be captured or it lands on the terminal instead of in the receipt.
+    """
+
+    box = sandbox(tmp_path, "ai-review", "default")
+    (box.root / "inside.txt").write_text("here", encoding="utf-8")
+
+    done = box.run("git", "rev-parse", "--is-inside-work-tree")
+
+    assert isinstance(done.stdout, str), "the output came back as bytes"
+    assert isinstance(done.stderr, str)
+
+    # The directory is the sandbox root and not the caller's. `pwd` is not on the allowlist,
+    # so this is asked of the one program that is — `git ls-files` in a directory that is not
+    # a repository fails, and it fails *about the sandbox*.
+    listed = box.run("git", "status", "--short")
+    assert listed.returncode != 0, "the sandbox root is a repository, so this proves nothing"
+    assert "inside.txt" not in listed.stdout
+
+    # A non-zero exit is a result and never an exception: `check=False`. A caller that got a
+    # raise here would treat every failing command as a crash of the framework.
+    assert box.run("git", "cat-file", "-e", "0" * 40).returncode != 0
+
+
+def test_a_command_that_does_not_finish_is_stopped_rather_than_waited_on(tmp_path):
+    """The timeout is a parameter with a default, which is the shape that rots: a default of
+    None and nobody would notice until a governed command hung a session forever."""
+
+    import subprocess
+
+    box = sandbox(tmp_path, "ai-review", "default")
+    with pytest.raises(subprocess.TimeoutExpired):
+        # `git` waiting on a terminal for credentials is the real version of this; a shell is
+        # not on the allowlist, so the wait is produced with the allowed program itself.
+        box.run("git", "-c", "core.editor=cat", "var", "GIT_EDITOR", timeout=0.000001)
+
+
+def test_every_field_of_a_recorded_decision_is_what_happened(tmp_path):
+    """Eleven survivors lived in `_record`, and each one is a field somebody reads later to
+    argue about what a control did. A corpus whose `allowed` is inverted, whose capability is
+    the mode, or whose code is empty on a refusal is worse than no corpus: it is evidence
+    that disagrees with the event it claims to record.
+    """
+
+    corpus = tmp_path / "runtime" / executor.CORPUS
+    box = sandbox(tmp_path, "ai-report", "issue", confirm=yes, corpus=corpus)
+
+    box.write(".ai/issue/draft.json", b"{}")
+    with pytest.raises(executor.Refused):
+        box.write("src/pwn.py", b"x")
+
+    allowed, denied = [json.loads(one) for one in corpus.read_text("utf-8").splitlines()]
+
+    assert allowed == {
+        "ts": allowed["ts"],
+        "capability": "ai-report",
+        "mode": "issue",
+        "kind": "write",
+        "allowed": True,
+        "code": "",
+        "proof_id": "ai-report.issue.allow",
+    }
+    assert denied["allowed"] is False
+    assert denied["code"] == "CAPABILITY_ACTION_UNDECLARED"
+    assert denied["proof_id"] == "ai-report.issue.deny"
+    assert denied["kind"] == "write"
+
+    # The timestamp is a real instant to the second, in UTC, with the Z spelling the chain
+    # uses. A record whose time is a local clock cannot be compared with anything.
+    assert len(allowed["ts"]) == 20 and allowed["ts"][10] == "T" and allowed["ts"].endswith("Z")
+
+    # And with no corpus configured, nothing is written and nothing raises: the corpus is
+    # optional and the decision is not.
+    quiet = sandbox(tmp_path, "ai-report", "issue", confirm=yes)
+    assert quiet.write(".ai/issue/draft.json", b"{}").exists()
+
+
+def test_a_secret_name_becomes_the_environment_name_this_process_would_have(monkeypatch, tmp_path):
+    """`github.token` is the manifest's spelling and `GITHUB_TOKEN` is the environment's.
+    Both separators map, because a declaration reading `github-token` must not silently find
+    nothing and be reported as an absent secret when it is a mistranslated one."""
+
+    box = sandbox(tmp_path, "ai-report", "issue", confirm=yes)
+
+    monkeypatch.setenv("GITHUB_TOKEN", "value-one")
+    assert box.secret("github.token") == "value-one"
+
+    monkeypatch.setenv("GITHUB_TOKEN", "")
+    with pytest.raises(executor.Refused) as refusal:
+        box.secret("github.token")
+    assert refusal.value.result.code == "CAPABILITY_SECRET_ABSENT"
+    assert refusal.value.result.outcome == "INCOMPLETE"
+
+
+def test_a_refusal_carries_the_code_and_the_reason_and_never_only_one(tmp_path):
+    """Four survivors in `_refuse`. The pair is the contract: a caller that catches this
+    puts the code in a receipt and the reason in front of a person, and either alone is a
+    refusal somebody has to guess at."""
+
+    box = sandbox(tmp_path, confirm=yes)
+
+    with pytest.raises(executor.Refused) as refusal:
+        box.write("src/pwn.py", b"x")
+
+    result = refusal.value.result
+    assert result.outcome == "INCOMPLETE"
+    assert result.code == "CAPABILITY_ACTION_UNDECLARED"
+    assert result.reason == "requested action is outside declared scope"
+    assert str(refusal.value) == result.reason, "the exception says nothing a person can read"
+
+
+def test_a_write_never_follows_a_link_even_when_the_link_stays_inside_the_root(tmp_path):
+    """`_opener` is `O_NOFOLLOW`, and eight of its mutants survived. The case that isolates
+    it is the one where the link points *inside* the root: every path check passes, both ends
+    are declared, and the only thing standing between the write and the wrong file is the
+    open flag."""
+
+    box = sandbox(tmp_path, confirm=yes)
+    (box.root / "docs" / "notes").mkdir(parents=True)
+    real = box.root / "docs" / "notes" / "real.md"
+    real.write_text("the original", encoding="utf-8")
+    (box.root / "docs" / "notes" / "link.md").symlink_to(real)
+
+    with pytest.raises(executor.Refused):
+        box.write("docs/notes/link.md", b"overwritten")
+    assert real.read_text(encoding="utf-8") == "the original"
+
+    with pytest.raises(executor.Refused):
+        box.read("docs/notes/link.md")
+
+    # The file it points at is readable by its own name, or the refusal above proves only
+    # that this directory is unreadable.
+    assert box.read("docs/notes/real.md") == b"the original"
+
+
+def test_a_read_returns_the_bytes_on_disk_and_a_write_returns_where_they_went(tmp_path):
+    """Thirteen survivors across `read` and `write`, and this is what they were: nothing
+    asserted the *value*. A read returning an empty bytes object and a write returning the
+    root would both have passed every case that only checked for a refusal."""
+
+    box = sandbox(tmp_path, confirm=yes)
+    payload = b"\x00\x01 binary \xff and text\n" * 100
+
+    written = box.write("docs/notes/big.bin", payload)
+
+    assert written == box.root / "docs" / "notes" / "big.bin"
+    assert written.read_bytes() == payload
+    assert box.read("docs/notes/big.bin") == payload
+
+    # A second write replaces rather than appends. `O_TRUNC`, and without it every governed
+    # write would grow the file it was rewriting.
+    box.write("docs/notes/big.bin", b"short")
+    assert box.read("docs/notes/big.bin") == b"short"
+
+
+def test_the_arguments_after_the_program_are_the_ones_that_run(tmp_path):
+    """Two ways the argv can be built wrongly and neither shows up in a refusal test.
+
+    Dropping everything after the program turns `git status --short` into `git`, and passing
+    the whole argv after the resolved binary turns it into `git git status`. Both are caught
+    by asking a program to say what it is: the first prints usage, the second says the
+    subcommand does not exist, and only the third prints a version.
+    """
+
+    box = sandbox(tmp_path, "ai-review", "default")
+
+    done = box.run("git", "--version")
+
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.startswith("git version"), done.stdout
+
+
+def test_a_governed_write_leaves_a_file_nobody_can_execute(tmp_path):
+    """`_opener` passes an explicit mode, and seven of its mutants survived a pass that never
+    looked at one. A governed write that produced an executable file would be this framework
+    handing somebody a program where they asked for a document."""
+
+    import stat as stat_module
+
+    box = sandbox(tmp_path, confirm=yes)
+    written = box.write("docs/notes/plain.md", b"text")
+
+    mode = stat_module.S_IMODE(written.stat().st_mode)
+
+    assert not mode & 0o111, f"the written file is executable: {mode:o}"
+    assert mode & 0o400, "the written file cannot be read by the person who wrote it"
+    assert not written.is_symlink()
+
+
+def test_the_sanitised_svg_comes_back_as_a_document_a_browser_still_reads(tmp_path):
+    """Nine survivors in the serialiser, and every one of them is about the bytes rather than
+    the tree. An SVG re-serialised without its declaration, in the wrong encoding, or under a
+    generated `ns0:` prefix is the same document and is not the same file — and the last of
+    those is what made `kind` stop recognising this module's own output."""
+
+    from ai_engineering import imagery
+
+    carried = (
+        b'<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg">'
+        b"<title>caf\xc3\xa9</title><script>x()</script></svg>"
+    )
+
+    clean = imagery.stripped(carried)
+
+    assert clean.startswith(b"<?xml"), "the declaration is gone"
+    assert b"encoding='utf-8'" in clean or b'encoding="utf-8"' in clean
+    assert b"ns0:" not in clean, "the default namespace became a generated prefix"
+    assert b"caf\xc3\xa9" in clean, "the text was re-encoded"
+    assert imagery.kind(clean) == "svg"
+    assert b"<script>" not in clean
+
+
+def test_the_corpus_line_is_one_json_object_per_line_and_the_file_is_appended(tmp_path):
+    """The format is the contract: a reader takes one line at a time, so a record written as
+    pretty JSON, without its newline, or over the top of the last one destroys every decision
+    before it. Three writes, three lines, in the order they happened."""
+
+    corpus = tmp_path / "deep" / "down" / executor.CORPUS
+    box = sandbox(tmp_path, confirm=yes, corpus=corpus)
+
+    box.write("docs/notes/one.md", b"1")
+    box.write("docs/notes/two.md", b"2")
+    with pytest.raises(executor.Refused):
+        box.write("src/three.py", b"3")
+
+    lines = corpus.read_text("utf-8").splitlines()
+
+    assert len(lines) == 3, "the corpus was overwritten rather than appended"
+    assert [json.loads(one)["allowed"] for one in lines] == [True, True, False]
+    assert all(one == one.strip() for one in lines), "a record spans more than one line"
+    assert corpus.read_text("utf-8").endswith("\n"), "the last record has no terminator"
