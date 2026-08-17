@@ -21,7 +21,7 @@
     ]
   },
   "ownership": {
-    "accountable_role": "repository maintainer"
+    "accountable_role": "repository owner"
   },
   "relations": [
     {
