@@ -624,3 +624,38 @@ def test_a_spec_written_with_answers_and_one_written_without_have_the_same_shape
         line.split(":", 1)[0] for line in template.split("---", 2)[1].splitlines() if line
     ] + [line for line in template.splitlines() if line.startswith("## ")]
     assert shapes[0] == expected
+
+
+def test_the_refusal_names_which_two_values_disagree():
+    """One message covered four different situations and named none of them.
+
+    Measured on this repository: `ai-eng spec new` refused with "the Solution Intent is not
+    actively approved by an accountable role" while the Intent was active and approved. The
+    real cause was that `authority_role` read `repository owner` and `accountable_role` read
+    `repository maintainer` — two names for one person, and the check compares strings. The
+    refusal was correct and unreadable, which cost an afternoon here and would cost a
+    stranger more. A control that is right and illegible gets worked around instead of fixed.
+    """
+    from ai_engineering import spec
+
+    transition = {"authority_role": "owner", "approval_ref": "abc"}
+
+    asleep = spec._why_not_authority("draft", "owner", "owner", transition)
+    assert "'draft'" in asleep and "active" in asleep
+
+    mismatched = spec._why_not_authority("active", "repository owner", "maintainer", transition)
+    assert "'repository owner'" in mismatched and "'maintainer'" in mismatched
+    assert "the same words" in mismatched
+
+    drifted = spec._why_not_authority(
+        "active", "owner", "owner", {"authority_role": "somebody else", "approval_ref": "abc"}
+    )
+    assert "'somebody else'" in drifted and "'owner'" in drifted
+
+    refused = spec._why_not_authority("active", "agent", "agent", {"authority_role": "agent"})
+    assert "'agent'" in refused and "refuses to read" in refused
+
+    # And every branch says something. A diagnostic that falls through to an empty string is
+    # the original defect with an extra function in front of it.
+    for said in (asleep, mismatched, drifted, refused):
+        assert len(said.split()) >= 8, said

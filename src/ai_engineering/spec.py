@@ -37,6 +37,34 @@ _MISSING_AUTHORITY = intent.Validation(
     "canonical Solution Intent is not actively approved by an accountable role",
 )
 
+
+def _why_not_authority(status: str, role: str, owner: str, transition: dict) -> str:
+    """Which of the four conditions failed, in the values that failed it.
+
+    The one message covered four different situations and named none of them. Measured on
+    this repository: the Intent was active and approved, and the verb refused because
+    `authority_role` read `repository owner` while `accountable_role` read
+    `repository maintainer` — two names for one person, and the check compares strings. The
+    refusal was correct and unreadable, so it cost an afternoon and would have cost a
+    stranger more. A control that is right and illegible gets worked around rather than
+    fixed."""
+
+    if status != "active":
+        return f"the Intent's lifecycle status is {status!r} and only 'active' grants this"
+    if role != owner:
+        return (
+            f"the Intent was approved by {role!r} and names {owner!r} as accountable. "
+            f"Whoever approves has to be whoever answers for it — if those are one person, "
+            f"the two fields have to say the same words"
+        )
+    if transition.get("authority_role") != role:
+        return (
+            f"the last transition was made by {transition.get('authority_role')!r} and the "
+            f"approval is held by {role!r}"
+        )
+    return f"the role {role!r} is one this framework refuses to read as an authority"
+
+
 BOXES = [
     "CI/CD — build, lint, test and security analysis on every push; deploy from the default branch",
     "Logs — structured JSON, one line per event, with level and service, to stdout",
@@ -305,7 +333,11 @@ def _authority(snapshot: _Snapshot) -> intent.Validation:
         or transition["approval_ref"] != approval["approval_ref"]
         or _NON_AUTHORITY.search(role)
     ):
-        return _MISSING_AUTHORITY
+        return intent.Validation(
+            _MISSING_AUTHORITY.outcome,
+            _MISSING_AUTHORITY.code,
+            _why_not_authority(lifecycle["status"], role, owner, transition),
+        )
     return intent.PASS
 
 

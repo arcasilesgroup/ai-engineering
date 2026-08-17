@@ -1841,7 +1841,18 @@ DESCRIPTION_MAX = 1000
 # Writing an exception for myself on the day the rule first applied to me would have made it
 # not a rule. The check also reads the sentence out of specification 011, so a decision that
 # changes takes its enforcement with it.
-REPO_CEILING = 59_758
+#
+# 59,758 to 59,836 for a refusal that was right and unreadable. `ai-eng spec new` covered
+# four different situations with one sentence and named none of them, so it said the Intent
+# was not actively approved while the Intent was active and approved. The real cause was that
+# `authority_role` read `repository owner` and `accountable_role` read `repository
+# maintainer` — two names for one person, and the check compares strings.
+#
+# The check is correct: whoever approves has to be whoever answers for it. What was wrong is
+# that finding this out took reading the source. A control that is right and illegible gets
+# worked around instead of fixed, which is the failure one layer up from the one this project
+# is named after.
+REPO_CEILING = 59_836
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
