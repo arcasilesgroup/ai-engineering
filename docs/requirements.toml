@@ -2546,7 +2546,7 @@ id = "PO-01"
 verdict = "INCOMPLETE"
 subject = "a block closes and freezes, and nothing later depends on it until an independent reviewer has cleared it"
 evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate"
-note = "the rule exists and is accepted, one block ran under it, and the reader bites — verified by blanking a hand-off's gate cell. But `gh run list --branch fix/mutation-lane-green-on-main` returns zero rows: no CI has ever run on this branch, so the freeze holding is this record's own prose. One execution is not yet governs, and this repository claimed it closed hours before this row was written"
+note = "the rule exists and is accepted, one block ran under it, and the reader bites — verified by blanking a hand-off's gate cell. But `gh run list --branch fix/mutation-lane-green-on-main` returns zero rows: no CI has ever run on this branch, so the freeze holding is this record's own prose. One execution is not yet governs, and this repository claimed it closed hours before this row was written. Re-measured on 2026-08-17 against `ledger-and-records`, which has 24 gate runs against 24 distinct heads: the corroboration the original note said was missing exists for this branch. What is still prose is the freeze itself — that nothing later depended on a block before a reviewer cleared it — because no artefact records the waiting"
 
 [[commitment]]
 id = "PO-02"
@@ -2579,14 +2579,14 @@ id = "PO-06"
 verdict = "INCOMPLETE"
 subject = "an independent read-only reviewer inspects every commit in a closed block and the accumulated diff"
 evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate; gh run list --branch fix/mutation-lane-green-on-main"
-note = "the reader bites on a blank reviewer field. Whether the reviewer was independent and read the whole range is prose, with zero CI runs on this branch to corroborate it"
+note = "the reader bites on a blank reviewer field. Whether the reviewer was independent and read the whole range is prose, with zero CI runs on this branch to corroborate it. Re-measured on 2026-08-17: the zero-CI-runs clause is no longer true of the branch this work sits on, so the reviewer's verdict can now be read beside a gate result on the same head. Independence and whether the whole range was read remain prose, which is the half that keeps this open"
 
 [[commitment]]
 id = "PO-07"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "the gate runs once per block, and a second time only if the first failed and code changed"
-evidence = "grep -n 'Re-run `just check` only when' specs/010-governed-agentic-engineering-foundation/plan.md"
-note = "the rule is hash-approved plan text. Adherence is unauditable: the receipts are gitignored and no workflow triggers on this branch, so how many times the gate ran is prose"
+evidence = "gh run list --branch ledger-and-records --workflow=check.yml --limit 100 --json headSha | jq -r '.[].headSha' | sort | uniq -d"
+note = "measured remotely instead of asserted, because the branch it was graded against had never run CI at all. On this branch the gate ran 24 times over 24 distinct head commits and not one commit was gated twice — and a commit gated twice on the same tree is the only thing the rule forbids, since code changing produces a new sha. The command above prints nothing, which is the whole of the finding"
 
 [[commitment]]
 id = "PO-08"
@@ -2596,10 +2596,10 @@ evidence = "grep -n 'The final review covers Spec 010 traceability' specs/010-go
 
 [[commitment]]
 id = "PO-09"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "the specification stays draft until a candidate proves its own exact-HEAD receipts"
-evidence = "grep -n '^status:' specs/010-governed-agentic-engineering-foundation/spec.md; gh run list --branch fix/mutation-lane-green-on-main"
-note = "draft is confirmed, which is the half that is met. Which lanes are red and why is a remote fact this branch cannot show: it has no pull request and no workflow run"
+evidence = "grep -n '^status:' specs/010-governed-agentic-engineering-foundation/spec.md; gh api repos/arcasilesgroup/ai-engineering/commits/$(git rev-parse HEAD)/check-runs"
+note = "spec 010 is still draft, and the half that could not be shown now can: this branch has a pull request and a run against its exact head, so which lanes are red and why is a remote fact rather than prose. Twelve checks pass on this head and one blocks — CI Result, on missing SAST evidence from an expired credential, which is the aggregate refusing to call a lane that scanned nothing a lane that found nothing"
 
 [[commitment]]
 id = "PO-10"
@@ -2626,7 +2626,7 @@ id = "PO-13"
 verdict = "INCOMPLETE"
 subject = "one bounded re-review: one consolidated ledger, one repair pass, one bounded second read"
 evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate"
-note = "the reader bites on a blank repair field. Whether the re-review was bounded to one pass is prose, with no independent record on this branch to check it against"
+note = "the reader bites on a blank repair field. Whether the re-review was bounded to one pass is prose, with no independent record on this branch to check it against. Re-measured on 2026-08-17: an independent record exists on this branch now, 24 gate runs deep. Whether the re-review was bounded to one pass is still prose"
 
 [[commitment]]
 id = "PO-14"

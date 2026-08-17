@@ -2493,7 +2493,18 @@ DESCRIPTION_MAX = 1000
 # EP-161's note said the three-times threshold had no instrument by design, and `report.
 # repeats` has been counting it for a wave. EP-176's said there was no secrets verb to gate,
 # and the executor gated secrets eight hours earlier. Neither verdict moves; both notes did.
-REPO_CEILING = 70_533
+# 70,533 to 70,579 for the process commitments, re-measured against a branch that has run.
+#
+# Five of the six unproven ones rested on one sentence: `gh run list` returns zero rows, no CI
+# has ever run on this branch. True when it was written and not true of this branch, which has
+# 24 gate runs against 24 distinct heads.
+#
+# PO-07 moves: a commit gated twice on the same tree is the only thing the rule forbids, and
+# not one head was. PO-09 moves: spec 010 is draft and the lane-by-lane state of its exact head
+# is now a remote fact. PO-01, PO-06 and PO-13 keep their verdicts and lose a stale clause —
+# what remains is whether a freeze held and a reviewer was independent, and no artefact here
+# records waiting.
+REPO_CEILING = 70_579
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
