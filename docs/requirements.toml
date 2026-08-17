@@ -535,7 +535,7 @@ id = "EP-078"
 verdict = "INCOMPLETE"
 subject = "the declared capabilities are enforced, not only declared"
 evidence = "sed -n '362,394p' src/ai_engineering/capability.py"
-note = "preflight returns ENFORCEMENT_UNAVAILABLE unconditionally, even for a fully declared and matched action"
+note = "preflight returns ENFORCEMENT_UNAVAILABLE unconditionally, even for a fully declared and matched action. Shares one blocker with EP-078, EP-137, EP-138, EP-162 and EP-165: `capability.preflight` refuses every action by design until an installed executor proves enforcement, and its own docstring says so. These are not five jobs; they are one, and none of them moves until the executor exists"
 
 [[requirement]]
 id = "EP-079"
@@ -906,14 +906,14 @@ id = "EP-137"
 verdict = "INCOMPLETE"
 subject = "each capability carries six executable-permission fields and something proves them"
 evidence = "pytest tests/test_capabilities.py -k declares_exactly_fifteen; sed -n '362,394p' src/ai_engineering/capability.py"
-note = "the declaration is checked; preflight returns ENFORCEMENT_UNAVAILABLE on every path"
+note = "the declaration is checked; preflight returns ENFORCEMENT_UNAVAILABLE on every path. Shares one blocker with EP-078, EP-137, EP-138, EP-162 and EP-165: `capability.preflight` refuses every action by design until an installed executor proves enforcement, and its own docstring says so. These are not five jobs; they are one, and none of them moves until the executor exists"
 
 [[requirement]]
 id = "EP-138"
 verdict = "INCOMPLETE"
 subject = "a capability that cannot prove its declared permissions is graded, not passed"
 evidence = "grep -n ENFORCEMENT_UNAVAILABLE src/ai_engineering/capability.py src/ai_engineering/doctor.py"
-note = "no executor exists to make two readers disagree, and none to make either of them pass"
+note = "no executor exists to make two readers disagree, and none to make either of them pass. Shares one blocker with EP-078, EP-137, EP-138, EP-162 and EP-165: `capability.preflight` refuses every action by design until an installed executor proves enforcement, and its own docstring says so. These are not five jobs; they are one, and none of them moves until the executor exists"
 
 [[requirement]]
 id = "EP-139"
@@ -1067,7 +1067,7 @@ id = "EP-162"
 verdict = "INCOMPLETE"
 subject = "deny-proof ids are declared per mode and backed by a corpus of captured denials"
 evidence = "pytest tests/test_capabilities.py::test_capabilities_toml_declares_exactly_fifteen_capabilities; find . -iname '*proof*'"
-note = "the declared half is tested; no corpus of captured evidence exists"
+note = "the declared half is tested; no corpus of captured evidence exists. Shares one blocker with EP-078, EP-137, EP-138, EP-162 and EP-165: `capability.preflight` refuses every action by design until an installed executor proves enforcement, and its own docstring says so. These are not five jobs; they are one, and none of them moves until the executor exists"
 
 [[requirement]]
 id = "EP-163"
@@ -1088,7 +1088,7 @@ id = "EP-165"
 verdict = "INCOMPLETE"
 subject = "a human gate is declared per mode and enforced at preflight"
 evidence = "pytest tests/test_capabilities.py -k human_gate; sed -n '375,393p' src/ai_engineering/capability.py"
-note = "the declaration is asserted per mode; preflight returns ENFORCEMENT_UNAVAILABLE on every path"
+note = "the declaration is asserted per mode; preflight returns ENFORCEMENT_UNAVAILABLE on every path. Shares one blocker with EP-078, EP-137, EP-138, EP-162 and EP-165: `capability.preflight` refuses every action by design until an installed executor proves enforcement, and its own docstring says so. These are not five jobs; they are one, and none of them moves until the executor exists"
 
 [[requirement]]
 id = "EP-166"
