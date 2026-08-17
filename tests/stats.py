@@ -115,10 +115,10 @@ def suppressions() -> list[str]:
 
 
 def committed_specs(names: list[str]) -> list[Path]:
-    """From the index, never the filesystem. `accept.blocks` globs the working tree, which
-    is right for the verb — a risk you are about to accept is still a risk — and wrong here:
-    every other number on this page comes from `git ls-files`, and one row counting a draft
-    that no reviewer has seen is two questions printed as one table."""
+    """From the index, never the filesystem. The acceptance register reads the working
+    tree, which is right for the verb — a risk you are about to accept is still a risk — and
+    wrong here: every other number on this page comes from `git ls-files`, and one row
+    counting a draft that no reviewer has seen is two questions printed as one table."""
     return [ROOT / n for n in names if n.startswith("specs/") and n.endswith("spec.md")]
 
 
@@ -199,9 +199,26 @@ def gather() -> dict:
             ),
             "telemetry": len(chain.TELEMETRY),
             "surfaces": len(surfaces),
-            "proven": sum(1 for s in surfaces if s.get("proven")),
+            # Counted from receipts, because the flag that used to answer this was a
+            # thing we typed. A surface is proven when a denial executed there.
+            "proven": len(_enforced()),
             "suppressions": suppressions(),
         },
+    }
+
+
+def _enforced() -> set[str]:
+    """The surfaces whose enforcement receipt proved, read the way the product reads it."""
+
+    sys.path.insert(0, str(ROOT / "src"))
+    from datetime import UTC, datetime
+
+    from ai_engineering import surface
+
+    return {
+        row.surface
+        for row in surface.read(ROOT, now=datetime.now(UTC)).rows
+        if row.state == "enforcement" and row.outcome == "PASS" and row.code == surface.PROVEN
     }
 
 

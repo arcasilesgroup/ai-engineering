@@ -1,0 +1,292 @@
+schema = "urn:ai-engineering:capability-manifest:1"
+schema_version = "1"
+
+[[capabilities]]
+id = "ai-explore"
+phase = "discover"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = []
+exec_allowlist = [{ executable = "git", argument_pattern = "read-only" }]
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.exec"]
+proof_requirements = { allow = ["ai-explore.default.allow"], deny = ["ai-explore.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-research"
+phase = "discover"
+
+[[capabilities.modes]]
+id = "local"
+read_roots = ["."]
+write_roots = []
+exec_allowlist = []
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read"]
+proof_requirements = { allow = ["ai-research.local.allow"], deny = ["ai-research.local.deny"], installed_artifact = true }
+
+[[capabilities.modes]]
+id = "cited-web"
+read_roots = ["."]
+write_roots = []
+exec_allowlist = []
+network = [
+  { protocol = "https", host = "api.exa.ai", purpose = "cited.research" },
+  { protocol = "https", host = "api.tavily.com", purpose = "cited.research" },
+]
+secrets = []
+human_gate = "before_network"
+enforcement = ["preflight.read", "preflight.network", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-research.cited-web.allow"], deny = ["ai-research.cited-web.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-spec"
+phase = "decide"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = ["specs", "docs/adr"]
+exec_allowlist = [{ executable = "ai-eng", argument_pattern = "spec.new" }]
+network = []
+secrets = []
+human_gate = "before_write"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-spec.default.allow"], deny = ["ai-spec.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-plan"
+phase = "plan"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = ["specs"]
+exec_allowlist = []
+network = []
+secrets = []
+human_gate = "before_write"
+enforcement = ["preflight.read", "preflight.write", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-plan.default.allow"], deny = ["ai-plan.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-build"
+phase = "build"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = ["."]
+exec_allowlist = [
+  { executable = "git", argument_pattern = "scoped.change" },
+  { executable = "just", argument_pattern = "declared.recipe" },
+  { executable = "uv", argument_pattern = "declared.check" },
+]
+network = []
+secrets = []
+human_gate = "before_write"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-build.default.allow"], deny = ["ai-build.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-debug"
+phase = "build"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = ["."]
+exec_allowlist = [
+  { executable = "git", argument_pattern = "scoped.change" },
+  { executable = "just", argument_pattern = "declared.recipe" },
+  { executable = "uv", argument_pattern = "declared.check" },
+]
+network = []
+secrets = []
+human_gate = "before_write"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-debug.default.allow"], deny = ["ai-debug.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-test"
+phase = "build"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = ["tests"]
+exec_allowlist = [
+  { executable = "just", argument_pattern = "declared.recipe" },
+  { executable = "uv", argument_pattern = "declared.check" },
+]
+network = []
+secrets = []
+human_gate = "before_write"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-test.default.allow"], deny = ["ai-test.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-design"
+phase = "build"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = ["."]
+exec_allowlist = [{ executable = "npm", argument_pattern = "run.dev" }]
+network = []
+secrets = []
+human_gate = "before_write"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-design.default.allow"], deny = ["ai-design.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-animation"
+phase = "build"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = ["."]
+exec_allowlist = [{ executable = "npm", argument_pattern = "run.dev" }]
+network = []
+secrets = []
+human_gate = "before_write"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-animation.default.allow"], deny = ["ai-animation.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-security"
+phase = "verify"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = []
+exec_allowlist = [
+  { executable = "gitleaks", argument_pattern = "repository.scan" },
+  { executable = "semgrep", argument_pattern = "repository.scan" },
+  { executable = "trivy", argument_pattern = "repository.scan" },
+]
+network = []
+secrets = []
+human_gate = "before_exec"
+enforcement = ["preflight.read", "preflight.exec", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-security.default.allow"], deny = ["ai-security.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-review"
+phase = "verify"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = []
+exec_allowlist = [{ executable = "git", argument_pattern = "read-only" }]
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.exec"]
+proof_requirements = { allow = ["ai-review.default.allow"], deny = ["ai-review.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-verify"
+phase = "verify"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = []
+exec_allowlist = [
+  { executable = "gitleaks", argument_pattern = "repository.scan" },
+  { executable = "just", argument_pattern = "declared.recipe" },
+  { executable = "npm", argument_pattern = "declared.check" },
+  { executable = "semgrep", argument_pattern = "repository.scan" },
+  { executable = "trivy", argument_pattern = "repository.scan" },
+  { executable = "uv", argument_pattern = "declared.check" },
+]
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.exec"]
+proof_requirements = { allow = ["ai-verify.default.allow"], deny = ["ai-verify.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-note"
+phase = "verify"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = ["docs/notes"]
+exec_allowlist = [{ executable = "git", argument_pattern = "scoped.change" }]
+network = []
+secrets = []
+human_gate = "before_write"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-note.default.allow"], deny = ["ai-note.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-report"
+phase = "verify"
+
+[[capabilities.modes]]
+id = "digest"
+read_roots = ["."]
+write_roots = [".ai/reports"]
+exec_allowlist = []
+network = []
+secrets = []
+human_gate = "before_write"
+enforcement = ["preflight.read", "preflight.write", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-report.digest.allow"], deny = ["ai-report.digest.deny"], installed_artifact = true }
+
+[[capabilities.modes]]
+id = "issue"
+read_roots = [".ai/reports"]
+write_roots = [".ai/issue"]
+exec_allowlist = [{ executable = "gh", argument_pattern = "issue.create" }]
+network = [{ protocol = "https", host = "api.github.com", purpose = "issue.publish" }]
+secrets = ["github.token"]
+human_gate = "before_publish"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.network", "preflight.secrets", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-report.issue.allow"], deny = ["ai-report.issue.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-ship"
+phase = "verify"
+
+[[capabilities.modes]]
+id = "commit"
+read_roots = ["."]
+write_roots = ["."]
+exec_allowlist = [
+  { executable = "git", argument_pattern = "commit" },
+  { executable = "just", argument_pattern = "check" },
+]
+network = []
+secrets = []
+human_gate = "before_write"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-ship.commit.allow"], deny = ["ai-ship.commit.deny"], installed_artifact = true }
+
+[[capabilities.modes]]
+id = "pull-request"
+read_roots = ["."]
+write_roots = ["."]
+exec_allowlist = [
+  { executable = "gh", argument_pattern = "pr.create" },
+  { executable = "git", argument_pattern = "push" },
+  { executable = "just", argument_pattern = "check" },
+]
+network = [{ protocol = "https", host = "api.github.com", purpose = "pull-request.publish" }]
+secrets = ["github.token"]
+human_gate = "before_publish"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.network", "preflight.secrets", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-ship.pull-request.allow"], deny = ["ai-ship.pull-request.deny"], installed_artifact = true }

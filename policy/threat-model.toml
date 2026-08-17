@@ -1,0 +1,161 @@
+# The threat model of this framework, about this framework.
+#
+# `ai-security` step 1 tells every user to write the boundary and the data down before
+# anything else, and this project had never written its own. A security product with no
+# threat model is the shape it exists to refuse, so this is the file that closes it — and it
+# is data rather than prose because a threat model nobody can check goes stale the week after
+# it is written.
+#
+# One row per boundary. `asset` is what is worth protecting, `controlled_by` names who
+# supplies the input crossing it, `harm` is what happens with no control, `control` names the
+# file that holds the control, and `check` names the test that proves the control can still
+# say no. `tests/test_threat_model.py` refuses a row whose control or check is not there, so
+# deleting either turns the build red naming the boundary it left open.
+#
+# A boundary with no control is allowed and must say so in `reason`: this file records what
+# is true, and a threat model that only lists solved problems is a marketing page.
+
+[[boundary]]
+id = "hook-stdin"
+asset = "the decision a guard returns to the surface that called it"
+controlled_by = "the surface, carrying a payload built from a model's request"
+harm = "a payload shaped to make a guard crash is a guard that never denied anything, and a crash that reads as silence is an allow"
+control = "hooks/_wrap.py"
+check = "tests/test_hooks.py"
+
+[[boundary]]
+id = "dispatcher-input"
+asset = "which guards run, and the payload every one of them reads"
+controlled_by = "whoever can write a file into the installed package's policy directory"
+harm = "the dispatcher decides which guards a call reaches and rewrites the payload they read, from a directory of JSON nothing validates at load. One wrong reading of that data emptied `tool_name` on every surface at once, which skips every matcher but `.*` and leaves the rest reading a blank path — measured, in this repository, from a file that cannot fail to compile"
+control = "hooks/self_protect.py"
+check = "tests/test_surface_adapter.py"
+reason = """`self_protect` refuses a write into `policy/` and the suite validates every \
+shipped adapter against its schema, so the file cannot change under a running install and \
+cannot be wrong in the tree. What no product code does is validate an adapter at load: the \
+dispatcher reads the directory raw, because it runs on a 20 ms budget and may not import \
+the package. An adapter arriving by any path that is not a write to `policy/` is therefore \
+unchecked until the next gate run."""
+
+[[boundary]]
+id = "tool-content"
+asset = "the guard's reading of text the model was asked to act on"
+controlled_by = "whoever wrote the file, page or tool result the model is holding"
+harm = "instructions arriving as data are followed as instructions, which is the whole of prompt injection"
+control = "hooks/injection_guard.py"
+check = "tests/adversarial/run.py"
+
+[[boundary]]
+id = "gate-bypass"
+asset = "the git hooks a repository's own gate depends on"
+controlled_by = "the agent, or anybody with a shell in the repository"
+harm = "`--no-verify` walks past every hook, and a gate that can be skipped by one flag is advice"
+control = "hooks/no_verify_guard.py"
+check = "tests/test_hooks.py"
+
+[[boundary]]
+id = "scope-creep"
+asset = "the files one approved change is allowed to touch"
+controlled_by = "the agent, which is also the thing being bounded"
+harm = "a change that grows past its plan is a change nobody approved, arriving under an approval somebody gave for something else"
+control = "hooks/change_scope_guard.py"
+check = "tests/test_hooks.py"
+
+[[boundary]]
+id = "claimed-paths"
+asset = "files another writer is holding on a remote claim"
+controlled_by = "a second orchestrator, on another machine"
+harm = "two writers editing one file silently is the failure a coordination system exists to prevent"
+control = "hooks/claim_scope_guard.py"
+check = "tests/test_claim_scope.py"
+
+[[boundary]]
+id = "runaway-agent"
+asset = "the user's money, rate limit and patience, and everything a retry loop can touch"
+controlled_by = "the agent itself, which will keep trying the same thing with the arguments tweaked"
+harm = "an agent that cannot stop is an agent nobody is supervising, and the same call failing five hundred times is a bill and a repository somebody has to unpick"
+control = "hooks/loop_guard.py"
+check = "tests/test_hooks.py"
+
+[[boundary]]
+id = "self-protection"
+asset = "the guards themselves, and the manifest that pins them"
+controlled_by = "the agent, which can write files"
+harm = "a control that can edit itself is a control, right up until the moment it matters"
+control = "hooks/self_protect.py"
+check = "tests/test_hooks.py"
+
+[[boundary]]
+id = "global-mutation"
+asset = "the settings files this framework writes on somebody's machine"
+controlled_by = "this framework's own installer"
+harm = "a file written outside its declared home is a file the user cannot find, review or remove, and an uninstall that misses it leaves a guard running forever"
+control = "src/ai_engineering/wiring.py"
+check = "tests/test_install.py"
+
+[[boundary]]
+id = "policy-data"
+asset = "the schemas and manifests every decision is validated against"
+controlled_by = "whoever can write to the installed package"
+harm = "an edited schema validates anything, and a validator with no rules passes everything it is shown"
+control = "src/ai_engineering/capability.py"
+check = "tests/test_capabilities.py"
+
+[[boundary]]
+id = "scanner-rules"
+asset = "the rules the semantic lane looks for"
+controlled_by = "whoever can write to the rules file"
+harm = "a rule deleted from the middle of a file leaves an engine that runs, exits zero and looks for nothing"
+control = "src/ai_engineering/scan.py"
+check = "tests/test_scan.py"
+
+[[boundary]]
+id = "evidence-chain"
+asset = "the hash-linked record of what this framework did"
+controlled_by = "anybody with the machine"
+harm = "a record that can be rewritten proves whatever the last writer wanted it to prove"
+control = "src/ai_engineering/audit.py"
+check = "tests/test_record.py"
+
+[[boundary]]
+id = "telemetry-egress"
+asset = "everything an event body could carry off the machine"
+controlled_by = "whoever configured the endpoint"
+harm = "prompts, paths and identifiers leaving a repository is the exfiltration a governance tool must never be the cause of"
+control = "hooks/_otlp.py"
+check = "tests/test_hooks.py"
+
+[[boundary]]
+id = "issue-payload"
+asset = "the bytes a fault report would send to a stranger"
+controlled_by = "the agent drafting the report"
+harm = "a secret, a personal detail or a machine path in a public issue cannot be recalled once it is posted"
+control = "src/ai_engineering/issue.py"
+check = "tests/test_issue.py"
+
+[[boundary]]
+id = "skill-instructions"
+asset = "the instructions a model loads and follows"
+controlled_by = "whoever can write into the skills root"
+harm = "a skill is executable text, and one that ships a shell script or an edited refusal is an instruction nobody reviewed"
+control = "src/ai_engineering/contract.py"
+check = "tests/test_contracts.py"
+
+[[boundary]]
+id = "supply-chain"
+asset = "the wheel a stranger installs"
+controlled_by = "the release pipeline and the index it publishes to"
+harm = "a package that is not the one we built is a guard written by somebody else"
+control = ".github/workflows/release.yml"
+check = "tests/test_quality_gate.py"
+reason = """provenance is attested and the SBOM is not: `EP-047` and `EP-280` need a \
+published release, which is why the release rows in the pilot register carry no instrument. \
+The control here is real and its second half is not built."""
+
+[[boundary]]
+id = "filesystem-race"
+asset = "the file a command believes it is writing"
+controlled_by = "anything else running on the machine at the same time"
+harm = "a symlink swapped between the check and the write puts our bytes wherever somebody else chose"
+control = "src/ai_engineering/spec_transaction.py"
+check = "tests/test_spec_transaction.py"

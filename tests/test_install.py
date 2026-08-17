@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -21,7 +23,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ai_engineering import __version__, init, paths, skeletons, uninstall, update, wiring
+from ai_engineering import __version__, init, outcome, paths, skeletons, uninstall, update, wiring
 
 
 @pytest.fixture
@@ -240,13 +242,32 @@ def test_a_receipt_from_an_older_version_is_installed_over_rather_than_believed(
     """When the wheel moves, every entry still names the directory the old one lived in and
     every guard is off. If `init` reads the receipt and calls the machine ready on the row
     count alone, the run that was meant to repoint them is the run that skipped them."""
+    foreign = tmp_path / "foreign-settings"
+    foreign.write_bytes(b"not owned\n")
     wiring.write_json(
-        wiring.receipt_path(), {"wrote": [{"path": "x", "kind": "guard"}], "version": "0.0.1"}
+        wiring.receipt_path(),
+        {
+            "wrote": [
+                {"path": "x", "kind": "guard"},
+                {"path": str(paths.home() / "skills"), "kind": "skills"},
+                {"path": str(foreign), "kind": "guard"},
+            ],
+            "version": "0.0.1",
+        },
     )
     not_a_repo = tmp_path / "nowhere"
     not_a_repo.mkdir()
     init.main(["-y", "--project", str(not_a_repo)])
-    assert wiring.receipt()["version"] == __version__, "a stale install reported itself ready"
+    receipt = wiring.receipt()
+    assert receipt["version"] == __version__, "a stale install reported itself ready"
+    assert {"path": "x", "kind": "guard"} not in receipt["wrote"]
+    assert all(
+        all(isinstance(row.get(field), str) for field in ("path", "kind", "how"))
+        for row in receipt["wrote"]
+    )
+    assert foreign.read_bytes() == b"not owned\n"
+    second = init.main(["--global", "--no-project", "-y"])
+    assert second.outcome == "PASS"
 
 
 def test_the_overwrite_question_only_returns_what_was_actually_chosen(keyboard, monkeypatch):
@@ -343,7 +364,9 @@ def test_a_dry_run_writes_nothing_at_all(repo, home, capsys):
     assert git_get(repo, "core.hooksPath") == "", "a dry run rewired git"
 
 
-def test_uninstall_gives_back_the_hooks_path_the_repository_had_before_us(repo, home, monkeypatch):
+def test_uninstall_gives_back_the_hooks_path_the_repository_had_before_us(
+    repo, home, monkeypatch, keyboard
+):
     """The wiring wrote core.hooksPath without ever reading what was there and uninstall
     unset it, so a repository that had its own hooks path did not get it back: the
     no-lock-in promise was a command that left the repository different from how it found
@@ -355,13 +378,14 @@ def test_uninstall_gives_back_the_hooks_path_the_repository_had_before_us(repo, 
     init.main(["--no-global", "--project", str(repo), "-y"])
     assert git_get(repo, "core.hooksPath") == str(paths.git_hooks())
     monkeypatch.chdir(repo)
-    uninstall.main(["--project", "-y"])
+    result = uninstall.main(["--project", "-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     assert git_get(repo, "core.hooksPath") == "--their/hooks"
     assert git_get(repo, "ai.managed") == ""
 
 
 def test_setting_a_repository_up_twice_still_gives_back_what_was_there_first(
-    repo, home, monkeypatch
+    repo, home, monkeypatch, keyboard
 ):
     """The `repo` row holds what `core.hooksPath` was before us, and `uninstall` restores
     from it. The second `init --project` read our own hooks directory as "before us" and
@@ -373,16 +397,18 @@ def test_setting_a_repository_up_twice_still_gives_back_what_was_there_first(
     row = next(r for r in wiring.receipt()["wrote"] if r["kind"] == "repo")
     assert row["how"] == "their/hooks", "the second run overwrote what was there before us"
     monkeypatch.chdir(repo)
-    uninstall.main(["--project", "-y"])
+    result = uninstall.main(["--project", "-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     assert git_get(repo, "core.hooksPath") == "their/hooks"
 
 
-def test_a_repository_that_had_no_hooks_path_gets_none_back(repo, home, monkeypatch):
+def test_a_repository_that_had_no_hooks_path_gets_none_back(repo, home, monkeypatch, keyboard):
     """The other half of the same rule: restoring a value nobody configured would leave a
     setting behind, which is the mirror of deleting one somebody did configure."""
     init.main(["--no-global", "--project", str(repo), "-y"])
     monkeypatch.chdir(repo)
-    uninstall.main(["--project", "-y"])
+    result = uninstall.main(["--project", "-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     assert git_get(repo, "core.hooksPath") == ""
 
 
@@ -411,7 +437,9 @@ def test_a_second_init_over_an_unchanged_repository_offers_nothing(repo, home):
     assert [name for name, _, _ in init.existing(repo)] == ["justfile"]
 
 
-def test_uninstall_keeps_a_justfile_the_installer_refused_to_overwrite(repo, home, monkeypatch):
+def test_uninstall_keeps_a_justfile_the_installer_refused_to_overwrite(
+    repo, home, monkeypatch, keyboard
+):
     """Uninstall used to unlink four files by name from a hardcoded tuple with no record
     that we had ever written them, so a justfile the installer explicitly declined to
     overwrite — and took no backup of — was deleted by the verb whose whole pitch is that
@@ -420,20 +448,21 @@ def test_uninstall_keeps_a_justfile_the_installer_refused_to_overwrite(repo, hom
     init.main(["--no-global", "--project", str(repo), "-y"])
     assert (repo / "justfile").read_text(encoding="utf-8").startswith("mine:")
     monkeypatch.chdir(repo)
-    uninstall.main(["--project", "-y"])
+    result = uninstall.main(["--project", "-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     assert (repo / "justfile").exists(), "uninstall deleted a file the user wrote"
 
 
-def test_uninstall_removes_skills_that_were_copied_rather_than_linked(home):
+def test_uninstall_removes_skills_that_were_copied_rather_than_linked(home, keyboard):
     """Uninstall a machine where the skills were copied in, which is what Windows gets.
 
     This was a strict xfail for as long as the link branch only unlinked symlinks: every
     skill this tool installed on Windows stayed behind, and the marker was the alarm on it."""
     root, row = surface_row("claude-code", "link", "copy")
-    (root / "ai-spec").mkdir(parents=True)
-    (root / "ai-spec" / "SKILL.md").write_text("copied", encoding="utf-8")
-    wiring.write_json(wiring.receipt_path(), {"wrote": [row]})
-    uninstall.main(["-y"])
+    shutil.copytree(paths.skills() / "ai-spec", root / "ai-spec")
+    wiring.record([row])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     assert not (root / "ai-spec").exists(), "a copied skill survived the uninstall"
 
 
@@ -473,15 +502,16 @@ def stripped(home) -> dict:
     }
 
 
-def test_the_receipt_stops_claiming_what_uninstall_removed(wired):
+def test_the_receipt_stops_claiming_what_uninstall_removed(wired, keyboard):
     """The record of what is installed, after the verb whose whole job is to uninstall it."""
-    uninstall.main(["-y"])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     assert stripped(wired) == {"guards": 0, "links": 0}, "uninstall left the machine wired"
     kinds = {row["kind"] for row in wiring.receipt().get("wrote", [])}
     assert not kinds & {"guard", "link"}, f"the receipt still claims {sorted(kinds)}"
 
 
-def test_a_machine_uninstall_stripped_is_not_reported_as_ready(wired):
+def test_a_machine_uninstall_stripped_is_not_reported_as_ready(wired, keyboard):
     """`ai-eng init` printed `Global ready · 4 links, 4 guards` over zero of both.
 
     Green from task 4, and for the smaller of the two reasons: the receipt shrinks now, so
@@ -489,32 +519,35 @@ def test_a_machine_uninstall_stripped_is_not_reported_as_ready(wired):
     because the answer is read from the machine — a receipt that goes stale for any reason
     this tool did not cause still reports ready. Task 8 owes that half, and its own test
     hands `global_ready` a full receipt over an empty disk."""
-    uninstall.main(["-y"])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     assert stripped(wired) == {"guards": 0, "links": 0}
     assert init.global_ready() is False, "a machine with no guards on it reported ready"
 
 
-def test_no_surface_reads_as_blocking_on_a_machine_that_was_just_stripped(wired, capsys):
+def test_no_surface_reads_as_blocking_without_deleting_an_unreceipted_heartbeat(
+    wired, capsys, keyboard
+):
     """The screen this whole spec was opened for, and the worst line on it. The coverage
     block is the product's headline claim — where a call can actually be stopped — and it
     decided each word from whether the vendor's own directory exists plus a static flag in
     policy/surfaces.toml. It never opened a settings file. So on the operator's machine,
     with zero entries anywhere, it printed `claude-code BLOCKS a denial has executed here`.
 
-    The OpenCode row is here for a second reason: its escape from INERT is a heartbeat cache
-    with a one-day window, which outlived the plugin file it attests to until uninstall
-    started clearing it."""
+    A heartbeat without an OpenCode receipt row is not uninstall authority. It stays even
+    though this run removes other, exactly receipted surfaces."""
     from ai_engineering import doctor
 
     beat = paths.home() / "cache" / "opencode-heartbeat"
     beat.parent.mkdir(parents=True, exist_ok=True)
     beat.touch()
-    uninstall.main(["-y"])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
 
     rows = [line for line in doctor.coverage(None) if line.startswith("  T")]
     assert rows, "the coverage block printed no surface at all"
     assert not [line for line in rows if "BLOCKS" in line], "\n".join(rows)
-    assert not beat.exists(), "the heartbeat outlived the plugin it attests to"
+    assert beat.exists(), "uninstall deleted a global cache no receipt row authorized"
 
 
 def test_a_full_receipt_over_an_empty_machine_is_not_ready(wired):
@@ -535,21 +568,23 @@ def test_a_full_receipt_over_an_empty_machine_is_not_ready(wired):
     assert init.global_ready() is False, "a full receipt outvoted an empty machine"
 
 
-def test_a_plain_init_after_uninstall_rewires_rather_than_reporting_ready(wired):
+def test_a_plain_init_after_uninstall_rewires_rather_than_reporting_ready(wired, keyboard):
     """The install verb, told by a log that there is nothing to install. Green from task 4
     for the same reason as the test above it, and owed the same second half by task 8."""
-    uninstall.main(["-y"])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     init.main(["--no-project", "-y"])
     assert stripped(wired)["guards"], "a plain `ai-eng init` wired nothing back"
 
 
-def test_doctor_does_not_call_a_stripped_machine_healthy(wired):
+def test_doctor_does_not_call_a_stripped_machine_healthy(wired, keyboard):
     """The one assertion whose title is `Every symlink resolves` reported ok with none left,
     because it tested that the recorded root exists — and a skills root exists because the
     surface made it, and keeps existing because it holds skills that belong to the user."""
     from ai_engineering import doctor
 
-    uninstall.main(["-y"])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     assert stripped(wired)["links"] == 0
     problem = None
     with contextlib.suppress(doctor.Undecidable):
@@ -557,7 +592,7 @@ def test_doctor_does_not_call_a_stripped_machine_healthy(wired):
     assert problem is not None, "assertion 13 passed with every one of our symlinks deleted"
 
 
-def test_the_count_of_links_removed_is_the_number_it_removed(home, capsys):
+def test_the_count_of_links_removed_is_the_number_it_removed(home, capsys, keyboard):
     """The line reports a count, so the count is asserted rather than its presence. Every
     arithmetic mutant of it — set to one, decremented, stepped by two — is a screen that
     says a number nobody counted, which is the smallest possible version of this spec."""
@@ -568,40 +603,45 @@ def test_the_count_of_links_removed_is_the_number_it_removed(home, capsys):
         (store / name).mkdir(parents=True)
         (root / name).symlink_to(store / name)
     wiring.record([{"path": str(root), "kind": "link", "how": "symlink"}])
-    uninstall.main(["-y"])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     assert f"✓ 3 skills removed from {root}" in capsys.readouterr().out
     assert not list(root.glob("ai-*"))
 
 
-def test_a_copied_skill_goes_only_where_the_receipt_says_we_copied(home):
+def test_a_copied_skill_goes_only_where_the_receipt_says_we_copied(home, keyboard):
     """`how` is the receipt answering the one question the disk cannot: a directory named
     like a skill is ours when we put it there and somebody else's otherwise. Without the row
     saying copy, a real directory in a skills root is not ours to delete."""
     store = paths.home() / "skills"
-    (store / "ai-spec").mkdir(parents=True)
+    shutil.copytree(paths.skills() / "ai-spec", store / "ai-spec")
     root = home / ".claude" / "skills"
-    (root / "ai-spec").mkdir(parents=True)
+    shutil.copytree(paths.skills() / "ai-spec", root / "ai-spec")
     wiring.record([{"path": str(root), "kind": "link", "how": "symlink"}])
-    uninstall.main(["-y"])
+    first = uninstall.main(["-y"])
+    assert type(first) is outcome.Result and first.outcome == "INCOMPLETE"
     assert (root / "ai-spec").is_dir(), "a directory was removed on a row that says symlink"
 
     wiring.record([{"path": str(root), "kind": "link", "how": "copy"}])
-    uninstall.main(["-y"])
+    second = uninstall.main(["-y"])
+    assert type(second) is outcome.Result and second.outcome == "PASS"
     assert not (root / "ai-spec").exists(), "the copy the receipt names survived"
 
 
-def test_a_project_file_somebody_deleted_by_hand_is_not_an_error(repo, home, monkeypatch):
+def test_a_project_file_somebody_deleted_by_hand_is_not_an_error(repo, home, monkeypatch, keyboard):
     """`uninstall` runs over a record of what was written, and a person is free to have
     removed any of it already. Reaching for a file that is gone has to be the ordinary case,
     not a traceback in the middle of unwiring a repository."""
     init.main(["--no-global", "--project", str(repo), "-y"])
     (repo / "justfile").unlink()
     monkeypatch.chdir(repo)
-    assert uninstall.main(["--project", "-y"]) == 0
+    result = uninstall.main(["--project", "-y"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert git_get(repo, "core.hooksPath") == "", "the unwiring stopped at the missing file"
 
 
-def test_the_link_branch_leaves_a_skill_this_install_never_wrote(home, capsys):
+def test_the_link_branch_leaves_a_skill_this_install_never_wrote(home, capsys, keyboard):
     """It globbed `ai-*` in the surface's skills root and unlinked whatever came back, so a
     skill somebody else installed under that prefix went with ours — from the verb that
     exists to prove this tool takes only what it brought."""
@@ -610,17 +650,24 @@ def test_the_link_branch_leaves_a_skill_this_install_never_wrote(home, capsys):
     root = home / ".claude" / "skills"
     root.mkdir(parents=True)
     (root / "ai-spec").symlink_to(store / "ai-spec")
-    theirs = root / "ai-design"
+    # A name that is provably not one of ours, asserted rather than assumed: this fixture
+    # used to plant `ai-design`, and the day `ai-design` shipped the "somebody else's skill"
+    # in the test became one of ours and the test stopped testing what it says.
+    theirs = root / "ai-not-one-of-ours"
+    assert not (paths.skills() / theirs.name).exists()
     theirs.symlink_to(home / "somewhere-else")
     wiring.record([{"path": str(root), "kind": "link", "how": "symlink"}])
 
-    uninstall.main(["-y"])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     assert not (root / "ai-spec").exists(), "ours survived"
     assert theirs.is_symlink(), "uninstall took a skill it never installed"
     assert "✓ 1 skills removed from" in capsys.readouterr().out
 
 
-def test_one_file_it_cannot_change_stops_that_file_and_not_the_loop(home, tmp_path, capsys):
+def test_one_ownership_mismatch_stops_the_whole_uninstall_before_the_loop(
+    home, tmp_path, capsys, keyboard
+):
     """The write was outside every `try` in a function whose read and parse were both
     guarded, so one settings file with the wrong permissions raised mid-loop and left every
     surface after it in the receipt's order still wired — the shape spec 003 closed for the
@@ -634,19 +681,21 @@ def test_one_file_it_cannot_change_stops_that_file_and_not_the_loop(home, tmp_pa
     rows = [locked_row, after_row]
     wiring.record(rows)
     try:
-        assert uninstall.main(["-y"]) == 1, "a run that left a guard wired reported success"
-        assert not wiring.ours(after.read_text(encoding="utf-8")), "the loop stopped at the first"
+        result = uninstall.main(["-y"])
+        assert type(result) is outcome.Result
+        assert result.outcome == "INCOMPLETE"
+        assert wiring.ours(locked.read_text(encoding="utf-8"))
+        assert wiring.ours(after.read_text(encoding="utf-8"))
         text = capsys.readouterr().out
-        assert f"✗ {locked} could not be written" in text
-        assert "1 of them are still wired and are still in the record" in text
+        assert "no longer matches the exact bytes or entries owned" in text
         left = [row["path"] for row in wiring.receipt()["wrote"]]
-        assert left == [locked_row["path"]], "the record forgot an entry that is still in the file"
+        assert left == [locked_row["path"], after_row["path"]]
     finally:
         locked.chmod(0o600)
 
 
 def test_a_settings_file_holding_our_entry_that_is_not_json_is_named_not_dismissed(
-    home, tmp_path, capsys
+    home, tmp_path, capsys, keyboard
 ):
     """It answered "had no entry of ours" about a file that had just proved it has one —
     the same false green this spec is about, one function down."""
@@ -654,11 +703,17 @@ def test_a_settings_file_holding_our_entry_that_is_not_json_is_named_not_dismiss
     target.parent.mkdir(parents=True)
     target.write_text(f'{{ // theirs\n "c": "{wiring.SIGNATURE}",\n}}\n', encoding="utf-8")
     wiring.record([row])
-    assert uninstall.main(["-y"]) == 1
-    assert "holds our entry and is not readable as JSON" in capsys.readouterr().out
+    before = target.read_bytes()
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    assert target.read_bytes() == before
+    assert "no longer matches the exact bytes or entries owned" in capsys.readouterr().out
 
 
-def test_uninstall_cannot_reach_a_repository_you_are_not_standing_in(repo, home, monkeypatch):
+def test_uninstall_cannot_reach_a_repository_you_are_not_standing_in(
+    repo, home, monkeypatch, keyboard
+):
     """`"…/repo-backup/justfile".startswith("…/repo")` is True, and the line that asked it
     went straight on to unlink. Standing in one repository deleted recorded files out of
     every sibling whose name began with the same letters. Nothing on the operator's machine
@@ -671,12 +726,15 @@ def test_uninstall_cannot_reach_a_repository_you_are_not_standing_in(repo, home,
     wiring.record([{"path": str(theirs), "kind": "project", "how": "written"}])
 
     monkeypatch.chdir(repo)
-    uninstall.main(["--project", "-y"])
+    before = wiring.receipt_path().read_bytes()
+    result = uninstall.main(["--project", "-y"])
+    assert type(result) is outcome.Result and result.outcome == "INCOMPLETE"
     assert theirs.exists(), "uninstall deleted a file in a repository it was never pointed at"
-    assert not (repo / "justfile").exists(), "and it failed to remove the one it was pointed at"
+    assert (repo / "justfile").exists(), "an ambiguous receipt still removed a valid target"
+    assert wiring.receipt_path().read_bytes() == before
 
 
-def test_a_tampered_receipt_cannot_turn_an_unowned_project_file_into_ours(repo, home, monkeypatch):
+def test_a_tampered_receipt_blocks_every_project_mutation(repo, home, monkeypatch, keyboard):
     """The receipt is evidence of an install, not authority to delete any path somebody
     writes into it. Even inside the selected repository, only the finite files `init` can
     create are candidates; otherwise a forged project row can delete AGENTS.md, source, or
@@ -695,11 +753,14 @@ def test_a_tampered_receipt_cannot_turn_an_unowned_project_file_into_ours(repo, 
     )
 
     monkeypatch.chdir(repo)
-    uninstall.main(["--project", "-y"])
+    before = wiring.receipt_path().read_bytes()
+    result = uninstall.main(["--project", "-y"])
 
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert theirs.read_text(encoding="utf-8") == "mine\n"
-    assert not ours.exists(), "the valid receipt row was not removed"
-    assert wiring.receipt()["wrote"] == [forged]
+    assert ours.read_text(encoding="utf-8") == "check:\n"
+    assert wiring.receipt_path().read_bytes() == before
 
 
 @pytest.mark.parametrize(
@@ -711,7 +772,7 @@ def test_a_tampered_receipt_cannot_turn_an_unowned_project_file_into_ours(repo, 
     ],
 )
 def test_a_tampered_receipt_cannot_expand_the_machine_paths_this_install_owns(
-    home, tmp_path, kind, how, file_target
+    home, tmp_path, kind, how, file_target, keyboard
 ):
     """Each global row kind has one source of allowed destinations: the surface table or
     the private skills store. A forged row outside that closed set must remain recorded and
@@ -726,8 +787,10 @@ def test_a_tampered_receipt_cannot_expand_the_machine_paths_this_install_owns(
     row = {"path": str(target), "kind": kind, "how": how}
     wiring.record([row])
 
-    uninstall.main(["-y"])
+    result = uninstall.main(["-y"])
 
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert owned_looking.exists()
     assert wiring.receipt()["wrote"] == [row]
 
@@ -803,11 +866,12 @@ def test_the_consent_question_is_the_answer_typed_into_it(home, typed, removed, 
     answered."""
     keyboard(typed)
     settings, row = surface_row("claude-code")
-    wiring.write_json(settings, {"hooks": [{"command": wiring.command("PreToolUse")}]})
+    wiring.json_claude(settings)
     wiring.record([row])
-    code = uninstall.main([])
+    result = uninstall.main([])
     assert wiring.ours(settings.read_text(encoding="utf-8")) is not removed
-    assert code == (0 if removed else 1)
+    assert type(result) is outcome.Result
+    assert result.outcome == ("PASS" if removed else "CANCELLED")
 
 
 def test_declining_says_so_and_leaves_the_record_exactly_as_it_was(home, capsys, keyboard):
@@ -816,34 +880,38 @@ def test_declining_says_so_and_leaves_the_record_exactly_as_it_was(home, capsys,
     spec spent fifteen tasks removing."""
     keyboard("n")
     settings, row = surface_row("claude-code")
-    wiring.write_json(settings, {"hooks": [{"command": wiring.command("PreToolUse")}]})
+    wiring.json_claude(settings)
     wiring.record([row])
     before = wiring.receipt_path().read_text(encoding="utf-8")
-    assert uninstall.main([]) == 1
+    result = uninstall.main([])
+    assert type(result) is outcome.Result
+    assert result.outcome == "CANCELLED"
     assert "  nothing removed.\n" in capsys.readouterr().out
     assert wiring.receipt_path().read_text(encoding="utf-8") == before
 
 
-def test_the_repository_half_is_retracted_from_the_record_too(repo, home, monkeypatch):
+def test_the_repository_half_is_retracted_from_the_record_too(repo, home, monkeypatch, keyboard):
     """`--project` unwires the repository, and the rows that described it have to leave the
     record with everything else — otherwise the next `uninstall` lists files it removed an
     hour ago and offers to remove them again."""
     init.main(["--no-global", "--project", str(repo), "-y"])
     assert [r["kind"] for r in wiring.receipt()["wrote"] if r["kind"] in ("project", "repo")]
     monkeypatch.chdir(repo)
-    uninstall.main(["--project", "-y"])
+    result = uninstall.main(["--project", "-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     left = [r["kind"] for r in wiring.receipt().get("wrote", [])]
     assert not [k for k in left if k in ("project", "repo")], f"the record kept {left}"
 
 
-def test_a_skills_store_that_is_already_gone_says_so_rather_than_ticking(home, capsys):
+def test_a_skills_store_that_is_already_gone_says_so_rather_than_ticking(home, capsys, keyboard):
     """A tick for work that did not happen is the smallest version of this spec's subject."""
     wiring.record([{"path": str(paths.home() / "skills"), "kind": "skills", "how": "wheel"}])
-    uninstall.main(["-y"])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     assert "→ " in capsys.readouterr().out
 
 
-def test_the_whole_uninstall_screen_line_for_line(home, capsys):
+def test_the_whole_uninstall_screen_line_for_line(home, capsys, keyboard):
     """Every line, not a fragment of one. Specs 005 and 006 both closed on the same lesson
     and it is written down in the ceiling comment: two screens asserted by fragment, where
     every line the fragment did not name could be emptied or upper-cased with the suite
@@ -854,7 +922,7 @@ def test_the_whole_uninstall_screen_line_for_line(home, capsys):
     header's count, the reason on each kept row and the repository it will not enter all
     assertions rather than decoration."""
     store = paths.home() / "skills"
-    (store / "ai-spec").mkdir(parents=True)
+    shutil.copytree(paths.skills() / "ai-spec", store / "ai-spec")
     root, link_row = surface_row("claude-code", "link", "symlink")
     root.mkdir(parents=True)
     (root / "ai-spec").symlink_to(store / "ai-spec")
@@ -870,7 +938,8 @@ def test_the_whole_uninstall_screen_line_for_line(home, capsys):
         ]
     )
     capsys.readouterr()
-    uninstall.main(["-y"])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     kept = "kept — repository files; re-run with --project inside that repository"
     assert capsys.readouterr().out == (
         f"  5 things are recorded here, and 3 of them will be removed:\n"
@@ -890,14 +959,14 @@ def test_the_whole_uninstall_screen_line_for_line(home, capsys):
     )
 
 
-def test_every_row_it_lists_gets_a_line_saying_what_happened_to_it(home, capsys):
+def test_every_row_it_lists_gets_a_line_saying_what_happened_to_it(home, capsys, keyboard):
     """It printed thirty-two rows under "every one is listed here", asked "Remove them?",
     and ran a loop with branches for two kinds. Nineteen project rows, four repo rows and one
     skills row fell through with no tick, no "kept", and no line at all — consent taken for
     work that was never going to happen."""
     settings, guard_row = surface_row("claude-code")
     _, link_row = surface_row("claude-code", "link", "symlink")
-    wiring.write_json(settings, {"hooks": [{"command": wiring.command("PreToolUse")}]})
+    wiring.json_claude(settings)
     rows = [
         guard_row,
         link_row,
@@ -906,7 +975,8 @@ def test_every_row_it_lists_gets_a_line_saying_what_happened_to_it(home, capsys)
         {"path": "/elsewhere/repo", "kind": "repo", "how": ""},
     ]
     wiring.record(rows)
-    uninstall.main(["-y"])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     text = capsys.readouterr().out
     assert "5 things are recorded here, and 3 of them will be removed" in text
     for row in rows:
@@ -919,15 +989,16 @@ def test_every_row_it_lists_gets_a_line_saying_what_happened_to_it(home, capsys)
     assert kept == {"project", "repo"}, f"the receipt kept {sorted(kept)}"
 
 
-def test_the_skills_store_is_removed_rather_than_listed_and_left(home, capsys):
+def test_the_skills_store_is_removed_rather_than_listed_and_left(home, capsys, keyboard):
     """Eight skills survived every uninstall, and `init` counted them off the disk on the
     next run and reported a ready machine. They are ours, under our own folder, and nothing
     else reads them."""
     store = paths.home() / "skills"
-    (store / "ai-spec").mkdir(parents=True)
+    shutil.copytree(paths.skills() / "ai-spec", store / "ai-spec")
     (store / "yours").mkdir()
     wiring.record([{"path": str(store), "kind": "skills", "how": "wheel"}])
-    uninstall.main(["-y"])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     assert not (store / "ai-spec").exists(), "the skills store survived"
     assert (store / "yours").exists(), "uninstall removed something that is not ours"
     assert "✓ skills removed from" in capsys.readouterr().out
@@ -938,8 +1009,15 @@ def test_a_receipt_with_nothing_this_run_can_remove_asks_no_question(home, capsy
     was already gone still asked whether to remove twenty-four things and then removed none.
     The typed answer here is `n`: reaching the question at all fails this test."""
     keyboard("n")
-    wiring.record([{"path": "/elsewhere/repo/justfile", "kind": "project", "how": "written"}])
-    assert uninstall.main([]) == 0, "it asked about rows it was never going to touch"
+    wiring.record(
+        [
+            {"path": "/elsewhere/repo/justfile", "kind": "project", "how": "written"},
+            {"path": "/elsewhere/repo", "kind": "repo", "how": ""},
+        ]
+    )
+    result = uninstall.main([])
+    assert type(result) is outcome.Result
+    assert result.outcome == "READY", "it asked about rows it was never going to touch"
     assert "Nothing to remove." in capsys.readouterr().out
 
 
@@ -949,14 +1027,16 @@ def test_uninstall_removes_nothing_until_somebody_types_yes(home, keyboard):
     on the run somebody started to read the list."""
     keyboard("n")
     settings, row = surface_row("claude-code")
-    wiring.write_json(settings, {"hooks": [{"command": wiring.command("PreToolUse")}]})
-    wiring.write_json(wiring.receipt_path(), {"wrote": [row]})
+    wiring.json_claude(settings)
+    wiring.record([row])
     before = settings.read_text(encoding="utf-8")
-    assert uninstall.main([]) == 1
+    result = uninstall.main([])
+    assert type(result) is outcome.Result
+    assert result.outcome == "CANCELLED"
     assert settings.read_text(encoding="utf-8") == before, "it removed the entry anyway"
 
 
-def test_uninstall_removes_the_opencode_plugin_and_keeps_going(home, capsys):
+def test_uninstall_removes_the_opencode_plugin_and_keeps_going(home, capsys, keyboard):
     """The installer records the OpenCode plugin as a guard row, so uninstall used to send
     it to the routine that strips JSON entries. That routine found the signature inside the
     TypeScript, handed the TypeScript to a JSON parser and raised — uncaught, and mid-loop,
@@ -967,19 +1047,15 @@ def test_uninstall_removes_the_opencode_plugin_and_keeps_going(home, capsys):
     plugin, plugin_row = surface_row("opencode")
     wiring.ts_opencode(plugin)
     settings, settings_row = surface_row("claude-code")
-    wiring.write_json(settings, {"hooks": {"PreToolUse": [{"command": wiring.command("x")}]}})
-    wiring.write_json(
-        wiring.receipt_path(),
-        {
-            "wrote": [
-                plugin_row,
-                settings_row,
-            ]
-        },
-    )
-    assert uninstall.main(["-y"]) == 0
+    wiring.json_claude(settings)
+    wiring.record([plugin_row, settings_row])
+    result = uninstall.main(["-y"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert not plugin.exists()
-    assert json.loads(settings.read_text(encoding="utf-8")) == {"hooks": {"PreToolUse": []}}
+    remaining = json.loads(settings.read_text(encoding="utf-8"))
+    assert wiring.SIGNATURE not in json.dumps(remaining)
+    assert all(rows == [] for rows in remaining["hooks"].values())
     assert "plugin removed" in capsys.readouterr().out
 
 
@@ -1012,13 +1088,178 @@ def pinned_repo(repo):
     return repo
 
 
+def test_update_migrations_are_strictly_forward_ordered_and_contiguous() -> None:
+    upgrade = update.migrations("0.13", "1.0")
+
+    assert [step.parent.name + "/" + step.name for step in upgrade] == ["0.13..1.0/unvendor.py"]
+    assert update.migrations("0.13.7", "1.0") == upgrade
+    assert update.migrations("1.0", "1.0.0") == []
+    with pytest.raises(update.Undecidable, match="downgrade"):
+        update.migrations("1.0", "0.13")
+
+
+def test_update_rejects_a_gap_in_the_shipped_migration_chain(tmp_path, monkeypatch) -> None:
+    folder = tmp_path / "migrations"
+    for name in ("0.13..0.14", "0.14..1.0"):
+        step = folder / name / "step.py"
+        step.parent.mkdir(parents=True)
+        step.write_text("pass\n", encoding="utf-8")
+    monkeypatch.setattr(update.paths, "shipped", lambda name: folder)
+
+    assert [step.parent.name for step in update.migrations("0.13", "1.0")] == [
+        "0.13..0.14",
+        "0.14..1.0",
+    ]
+    (folder / "0.14..1.0").rename(folder / "0.15..1.0")
+    with pytest.raises(update.Undecidable, match="not contiguous"):
+        update.migrations("0.13", "1.0")
+
+
+def test_update_blocks_a_downgrade_before_requesting_consent(
+    pinned_repo, keyboard, monkeypatch, capsys
+):
+    pin = pinned_repo / ".ai" / "config.toml"
+    before = pin.read_bytes()
+    keyboard("y")
+    monkeypatch.chdir(pinned_repo)
+    monkeypatch.setattr(
+        "builtins.input", lambda _: pytest.fail("a downgrade must stop before consent")
+    )
+
+    result = update.main(["--to", "0.13"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    assert pin.read_bytes() == before
+    assert "downgrade" in capsys.readouterr().out
+
+
+def test_update_rejects_an_aliased_pin_home_without_touching_its_target(
+    repo, tmp_path, keyboard, monkeypatch
+):
+    external = tmp_path / "foreign-ai-home"
+    external.mkdir()
+    external_pin = external / "config.toml"
+    external_pin.write_text(skeletons.CONFIG_TOML.format(version=__version__), encoding="utf-8")
+    before = external_pin.read_bytes()
+    (repo / ".ai").symlink_to(external, target_is_directory=True)
+    keyboard("y")
+    monkeypatch.chdir(repo)
+
+    result = update.main(["--to", "9.9.9"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    assert external_pin.read_bytes() == before
+
+
+def test_update_preserves_a_valid_pin_edit_made_while_consent_is_requested(
+    pinned_repo, keyboard, monkeypatch
+):
+    pin = pinned_repo / ".ai" / "config.toml"
+    monkeypatch.chdir(pinned_repo)
+
+    def edit_then_consent(_: str) -> str:
+        with pin.open("a", encoding="utf-8") as stream:
+            stream.write('\n[user]\nnote = "keep this concurrent edit"\n')
+        return "y"
+
+    keyboard("y")
+    monkeypatch.setattr("builtins.input", edit_then_consent)
+
+    result = update.main(["--to", "9.9.9"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    body = pin.read_text(encoding="utf-8")
+    assert 'version = "1.0.0"' in body
+    assert 'note = "keep this concurrent edit"' in body
+
+
+def test_update_rejects_a_same_bytes_pin_replacement_after_consent_snapshot(
+    pinned_repo, keyboard, monkeypatch
+):
+    pin = pinned_repo / ".ai" / "config.toml"
+    before = pin.read_bytes()
+    monkeypatch.chdir(pinned_repo)
+
+    def replace_then_consent(_: str) -> str:
+        replacement = pin.with_name("replacement.toml")
+        replacement.write_bytes(before)
+        replacement.replace(pin)
+        return "y"
+
+    keyboard("y")
+    monkeypatch.setattr("builtins.input", replace_then_consent)
+
+    result = update.main(["--to", "9.9.9"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    assert pin.read_bytes() == before
+
+
+def test_update_atomic_pin_publish_never_exposes_a_partial_temp_write(
+    pinned_repo, keyboard, monkeypatch
+):
+    pin = pinned_repo / ".ai" / "config.toml"
+    before = pin.read_bytes()
+    keyboard("y")
+    monkeypatch.chdir(pinned_repo)
+
+    def partial_write(descriptor: int, body: bytes) -> None:
+        update.os.write(descriptor, body[:12])
+        raise OSError("simulated short publish")
+
+    monkeypatch.setattr(update, "_write_all", partial_write)
+
+    result = update.main(["--to", "9.9.9"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    assert pin.read_bytes() == before
+    assert list(pin.parent.glob(".config.toml.ai-eng-*")) == []
+
+
+def test_update_names_the_nontransactional_risk_after_an_opaque_script_starts(
+    pinned_repo, keyboard, monkeypatch, capsys
+):
+    pin = pinned_repo / ".ai" / "config.toml"
+    before = pin.read_bytes()
+    touched = pinned_repo / "opaque-side-effect"
+    keyboard("y")
+    monkeypatch.chdir(pinned_repo)
+    monkeypatch.setattr(update, "migrations", lambda pinned, target: [Path("opaque.py")])
+    real_run = update.subprocess.run
+
+    def fail_after_effect(command, **kwargs):
+        if command[:2] == [sys.executable, "opaque.py"]:
+            touched.write_text("migration started\n", encoding="utf-8")
+            raise subprocess.CalledProcessError(1, command)
+        return real_run(command, **kwargs)
+
+    monkeypatch.setattr(update.subprocess, "run", fail_after_effect)
+
+    result = update.main(["--to", "9.9.9"])
+
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
+    assert pin.read_bytes() == before
+    assert touched.read_text(encoding="utf-8") == "migration started\n"
+    rendered = capsys.readouterr().out
+    assert "Migration scripts already ran and are not transactional" in rendered
+    assert "Update wrote nothing" not in rendered
+
+
 def test_update_never_runs_without_a_person_at_the_keyboard(pinned_repo, monkeypatch, capsys):
     """A change of governance is never silent. With no terminal — CI, a cron job, a wrapper
     script — update must refuse and leave the pin exactly as it found it."""
     monkeypatch.chdir(pinned_repo)
     pin = pinned_repo / ".ai" / "config.toml"
     before = pin.read_text(encoding="utf-8")
-    assert update.main(["--to", "9.9.9"]) == 1
+    result = update.main(["--to", "9.9.9"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert pin.read_text(encoding="utf-8") == before
     assert "decision" in capsys.readouterr().out
 
@@ -1034,7 +1275,9 @@ def test_update_refuses_while_a_framework_owned_file_has_uncommitted_changes(
     afternoon."""
     monkeypatch.chdir(pinned_repo)
     (pinned_repo / "justfile").write_text("mine:\n", encoding="utf-8")
-    assert update.main(flags) == 1
+    result = update.main(flags)
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert "REFUSED" in capsys.readouterr().out
     assert (pinned_repo / "justfile").read_text(encoding="utf-8") == "mine:\n"
 
@@ -1048,7 +1291,9 @@ def test_update_stops_where_there_is_nothing_pinned_to_update(
     """Run from a directory that is no repository, or one that was never set up, update has to
     say so and stop. Reading a pin that is not there is where a half-applied migration starts."""
     monkeypatch.chdir(repo if setup == "git" else tmp_path)
-    assert update.main([]) == 1
+    result = update.main([])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert message in capsys.readouterr().out
 
 
@@ -1076,7 +1321,9 @@ def test_update_runs_only_on_an_answer_that_is_exactly_yes(
     keyboard(typed)
     monkeypatch.chdir(pinned_repo)
     pin = pinned_repo / ".ai" / "config.toml"
-    assert update.main(["--to", "9.9.9"]) == (0 if runs else 1)
+    result = update.main(["--to", "9.9.9"])
+    assert type(result) is outcome.Result
+    assert result.outcome == ("PASS" if runs else "CANCELLED")
     assert ('version = "9.9.9"' in pin.read_text(encoding="utf-8")) is runs
 
 
@@ -1092,7 +1339,9 @@ def test_update_leaves_a_surface_this_machine_declined(pinned_repo, home, keyboa
     wiring.json_claude(home / ".claude" / "settings.json")
     wiring.record([{"path": "~/.claude/settings.json", "kind": "guard", "how": "json_claude"}])
 
-    assert update.main(["--to", "9.9.9"]) == 0
+    result = update.main(["--to", "9.9.9"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert not (home / ".cursor" / "hooks.json").exists(), "update wired a declined surface"
 
 
@@ -1109,7 +1358,9 @@ def test_update_records_the_entries_it_writes_so_uninstall_can_find_them(
     wiring.forget([{"path": "~/.claude/settings.json", "kind": "guard"}])
     wiring.record([{"path": "~/.claude/settings.json", "kind": "guard", "how": "json_claude"}])
 
-    assert update.main(["--to", "9.9.9"]) == 0
+    result = update.main(["--to", "9.9.9"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     rows = [r for r in wiring.receipt()["wrote"] if r["kind"] == "guard"]
     assert [r["path"] for r in rows] == ["~/.claude/settings.json"]
     assert rows[0]["how"] == "json_claude", "the row update wrote does not say how"
@@ -1145,10 +1396,12 @@ def test_update_rewrites_a_stale_entry_and_leaves_an_append_only_surface_alone(
     # Spelled the way a wheel installs it, so nothing here is recognisable as ours: what has
     # to leave this file alone is the append_only rule, not json_codex recognising itself.
     unknown = '"/gone/python" "/gone/ai_engineering/hooks/chain.py" PreToolUse'
-    wiring.write_json(codex, {"hooks": {"PreToolUse": [{"handlers": [{"command": unknown}]}]}})
+    wiring.write_json(codex, {"hooks": {"PreToolUse": [{"hooks": [{"command": unknown}]}]}})
     frozen = codex.read_text(encoding="utf-8")
 
-    assert update.main(["--to", "9.9.9"]) == 0
+    result = update.main(["--to", "9.9.9"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     written = claude.read_text(encoding="utf-8")
     assert "/gone/" not in written, "the stale entry survived; the guard is still not running"
     assert sys.executable in written
@@ -1226,3 +1479,119 @@ def test_the_config_template_renders_to_toml_carrying_the_version(home):
 def test_the_ci_snippet_keeps_its_actions_expression(home):
     """The copy-and-paste workflow init prints at the end of a project install."""
     assert "${{ env.PIN }}" in skeletons.CHECK_YML.format(version="9.9.9")
+
+
+@pytest.mark.skipif(
+    bool(os.environ.get("AI_ENG_REAL_SRC")),
+    reason=(
+        "the mutation sandbox has no environment in which a child can import the product, "
+        "and this test's whole subject is that the real command runs before the anchor is "
+        "written. Standing that command in for would leave the test asserting itself. It "
+        "runs in every other suite, including CI's, and it is skipped here rather than "
+        "hollowed out — a dead mutation gate cost more than this one test's reach."
+    ),
+)
+def test_wire_git_executes_the_configured_module_before_persisting_it(
+    repo, monkeypatch, real_anchor
+):
+    """The anchor is proved to run before it is written down.
+
+    This machine was found with an editable install whose `.pth` pointed at a deleted
+    worktree: a live interpreter, a dead `ai_engineering.cli`, and a persisted anchor that
+    looked configured and answered nothing. Every hook that resolves the CLI through it then
+    failed on a repository somebody had just installed into — and `doctor` said the anchor
+    was set, because it was.
+
+    So the command runs first, and a failure writes none of the three keys. Not one of them:
+    a half-written anchor is the same lie with fewer fields.
+    """
+
+    keys = ("core.hooksPath", "ai.managed", "ai.eng")
+
+    def configured() -> dict[str, str]:
+        found = {}
+        for key in keys:
+            answer = subprocess.run(
+                ["git", "-C", str(repo), "config", "--get", key],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if answer.returncode == 0:
+                found[key] = answer.stdout.strip()
+        return found
+
+    assert configured() == {}
+
+    # The exact command, and nothing else, before any key is written.
+    ran: list[list[str]] = []
+    real = wiring.subprocess.run
+
+    def watch(argv, *args, **kwargs):
+        ran.append(list(argv))
+        return real(argv, *args, **kwargs)
+
+    monkeypatch.setattr(wiring.subprocess, "run", watch)
+    wiring.wire_git(repo)
+    assert ran[0] == [sys.executable, "-m", "ai_engineering.cli", "--version"]
+    assert configured()["ai.eng"] == f"{sys.executable} -m ai_engineering.cli"
+    monkeypatch.undo()
+
+    # And every way that command can fail to answer leaves the anchor untouched.
+    for failure in (
+        SimpleNamespace(returncode=1, stdout="ai-engineering 1.0.0"),
+        SimpleNamespace(returncode=0, stdout=""),
+        SimpleNamespace(returncode=0, stdout="some other tool 9.9"),
+    ):
+        fresh = repo.parent / f"fresh-{failure.returncode}-{len(failure.stdout)}"
+        subprocess.run(["git", "init", "-b", "main", str(fresh)], check=True, capture_output=True)
+        monkeypatch.setattr(wiring.subprocess, "run", lambda *a, _r=failure, **k: _r)
+        with pytest.raises(wiring.Unreadable):
+            wiring.wire_git(fresh)
+        monkeypatch.undo()
+        for key in keys:
+            answer = subprocess.run(
+                ["git", "-C", str(fresh), "config", "--get", key],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            assert answer.returncode != 0, key
+
+    # The same plant as doctor's, against the writer — which runs with no `cwd=` at all,
+    # so what it would have picked up is the installer's own shell directory.
+    planted = repo.parent / "planted"
+    (planted / "ai_engineering").mkdir(parents=True)
+    marker = planted / "the-plant-ran"
+    (planted / "ai_engineering" / "__init__.py").write_text("", encoding="utf-8")
+    (planted / "ai_engineering" / "cli.py").write_text(
+        "from pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text('executed', encoding='utf-8')\n"
+        "print('ai-engineering 9.9.9')\n",
+        encoding="utf-8",
+    )
+    standing = repo.parent / "standing"
+    subprocess.run(["git", "init", "-b", "main", str(standing)], check=True, capture_output=True)
+    monkeypatch.chdir(planted)
+    wiring.wire_git(standing)
+    monkeypatch.undo()
+    assert not marker.exists(), "the directory the installer stood in executed its own code"
+
+    # A timeout is a failure too, and it is the one a hung interpreter produces.
+    def hangs(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="python", timeout=30)
+
+    hung = repo.parent / "hung"
+    subprocess.run(["git", "init", "-b", "main", str(hung)], check=True, capture_output=True)
+    monkeypatch.setattr(wiring.subprocess, "run", hangs)
+    with pytest.raises(wiring.Unreadable):
+        wiring.wire_git(hung)
+    monkeypatch.undo()
+    assert (
+        subprocess.run(
+            ["git", "-C", str(hung), "config", "--get", "ai.eng"],
+            capture_output=True,
+            check=False,
+        ).returncode
+        != 0
+    )

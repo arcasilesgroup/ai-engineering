@@ -17,12 +17,23 @@ import json
 import os
 import subprocess
 import sys
+import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
 CLASSES = ("blocked", "allowed", "bypassed", "command", "error", "session")
 EDITED = "this line was edited between the guard that wrote it and the seal"
+FOREIGN = "another machine identity wrote this line into the buffer; it is not sealed as ours"
+LOCK_WAIT_SECONDS = 0.05
+
+
+class ChainIntegrityError(ValueError):
+    """The durable chain cannot safely accept another link."""
+
+
+def stable_json(value) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
 def home() -> Path:
@@ -121,6 +132,27 @@ def chain_path(root: Path | None = None) -> Path:
 
 
 def buffer_path(root: Path | None = None) -> Path | None:
+    """The in-clone buffer. It is repository-local and the key that stamps it is not: a
+    process with its own `AI_ENGINEERING_HOME` writes here with a key the owner of the
+    default home cannot verify.
+
+    Making the buffer follow the home was tried and reverted. `AI_ENGINEERING_HOME` is the
+    only way a test isolates itself, so keying the buffer off it means the buffer is never
+    exercised by anything — four suites went red proving exactly that. A feature nothing
+    can test to protect a record is the wrong trade.
+
+    What this paragraph used to claim next was that the seal classifies such a line as
+    another machine's. It does not, and the difference cost an afternoon. `_classify` reads
+    the `machine` field, and a test on this machine with its own home writes the same machine
+    id with a different key — so the line is stamped unverifiable and reported as `edited`,
+    which is the wording reserved for tampering. Twenty-two of them from 2026-08-12 held this
+    machine's anchor open until somebody accounted for them, and every commit in between
+    printed a warning nobody could act on.
+
+    Telling the two apart needs something the line does not carry: which home stamped it.
+    Until it does, the honest reading is that `edited` covers both, and `ai-eng audit verify`
+    says so and names `audit account` as the cure."""
+
     root = root or repo_root()
     if root is None or not (root / ".ai" / "config.toml").exists():
         return None
@@ -135,11 +167,40 @@ def session_id() -> str:
     return sid
 
 
+# What an event says when nobody can tell. It is a value and not an absent field, because a
+# missing key reads as "this build is older" and this reads as "this run could not say" —
+# and the second is the true one on every surface but the one that identifies itself.
+UNDETERMINED = "undetermined"
+
+
+def surface() -> str:
+    """Which surface this call came through, or that it could not be told.
+
+    The event body carried neither a surface nor an adapter, while `_otlp.KEEP_DATA` kept
+    `surface_id`, `surface_version`, `adapter_version` and `deny_protocol` in the clear —
+    an export allow-list for four fields nothing produced. That is the same defect as a
+    schema with no producer, one layer along, and it means every event in the chain is
+    silent about where the decision was taken.
+
+    Read from the environment because the dispatcher is the only thing that sees the raw
+    payload and it sets this before importing a guard. Undetermined is the honest default
+    and is expected to be the common one: only a surface that identifies itself in what it
+    sends can be named, and inferring the rest from an install path would be a guess
+    written into the record as a fact.
+    """
+
+    return os.environ.get("AI_ENG_SURFACE") or UNDETERMINED
+
+
+def adapter() -> str:
+    """The adapter version this surface's translations came from, or undetermined."""
+
+    return os.environ.get("AI_ENG_ADAPTER") or UNDETERMINED
+
+
 def digest(event: dict) -> str:
     body = {k: v for k, v in event.items() if k != "hash"}
-    return hashlib.sha256(
-        json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
+    return hashlib.sha256(stable_json(body).encode()).hexdigest()
 
 
 def stamp(event: dict) -> str:
@@ -155,36 +216,121 @@ def stamp(event: dict) -> str:
     return hmac.new(path.read_bytes(), digest(event).encode(), hashlib.sha256).hexdigest()
 
 
-def head(path: Path) -> tuple[int, str]:
-    """(sequence, hash) of the last link, or (0, "") for an empty chain."""
+def _read_head(lines) -> tuple[int, str]:
+    """Read every supplied link; a corrupt chain has no safe head."""
+    seq, previous = 0, ""
+    for line_number, raw in enumerate(lines, 1):
+        if not raw.strip():
+            continue
+        try:
+            event = json.loads(raw)
+        except (UnicodeError, ValueError) as exc:
+            raise ChainIntegrityError(f"chain line {line_number} is invalid JSON") from exc
+        expected = seq + 1
+        if not isinstance(event, dict) or type(event.get("seq")) is not int:
+            raise ChainIntegrityError(f"chain sequence is invalid at line {line_number}")
+        if event["seq"] != expected:
+            raise ChainIntegrityError(f"chain sequence gap at line {line_number}")
+        if event.get("prev") != previous:
+            raise ChainIntegrityError(f"chain predecessor gap at line {line_number}")
+        current = event.get("hash")
+        if not isinstance(current, str) or not hmac.compare_digest(digest(event), current):
+            raise ChainIntegrityError(f"chain digest mismatch at line {line_number}")
+        seq, previous = expected, current
+    return seq, previous
+
+
+def _validated_head(path: Path) -> tuple[int, str]:
     try:
-        last = ""
         with path.open("rb") as fh:
-            for raw in fh:
-                if raw.strip():
-                    last = raw.decode()
-        if last:
-            ev = json.loads(last)
-            return int(ev["seq"]), ev["hash"]
-    except (OSError, ValueError, KeyError):
-        pass
-    return 0, ""
+            return _read_head(fh)
+    except FileNotFoundError:
+        return 0, ""
+
+
+@contextlib.contextmanager
+def _exclusive(fd: int):
+    """A short inter-process lock; contention loses telemetry rather than stalling work."""
+    deadline = time.monotonic() + LOCK_WAIT_SECONDS
+    # `sys.platform` and not `os.name`: they answer the same question at runtime, and only
+    # this one is a platform check a type checker understands. Under `os.name` the two lock
+    # constants read as missing attributes everywhere except Windows, because the stubs for
+    # `msvcrt` are not loaded on any other platform.
+    if sys.platform == "win32":
+        import msvcrt
+
+        lock, unlock = msvcrt.LK_NBLCK, msvcrt.LK_UNLCK
+
+        def apply(mode):
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, mode, 1)
+
+    else:
+        import fcntl
+
+        lock, unlock = fcntl.LOCK_EX | fcntl.LOCK_NB, fcntl.LOCK_UN
+
+        def apply(mode):
+            fcntl.flock(fd, mode)
+
+    while True:
+        try:
+            apply(lock)
+            break
+        except OSError as exc:
+            if time.monotonic() >= deadline:
+                raise TimeoutError("chain append is busy") from exc
+            time.sleep(0.001)
+    try:
+        yield
+    finally:
+        apply(unlock)
+
+
+def head(path: Path) -> tuple[int, str]:
+    """(sequence, hash) of a valid last link, or (0, "") when none is readable."""
+    try:
+        return _validated_head(path)
+    except (OSError, ChainIntegrityError):
+        return 0, ""
 
 
 def append(path: Path, events: list[dict]) -> int:
-    """Link events onto the chain at `path`. Returns the new head sequence."""
+    """Link events onto an intact chain at `path`. Returns the new head sequence."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    seq, prev = head(path)
-    lines = []
-    for ev in events:
-        seq += 1
-        ev = {**ev, "seq": seq, "prev": prev}
-        ev["hash"] = digest(ev)
-        prev = ev["hash"]
-        lines.append(json.dumps(ev, separators=(",", ":")))
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write("\n".join(lines) + "\n")
-    return seq
+    flags = os.O_APPEND | os.O_CREAT | os.O_RDWR | getattr(os, "O_CLOEXEC", 0)
+    no_follow = getattr(os, "O_NOFOLLOW", 0)
+    if no_follow:
+        flags |= no_follow
+    elif path.is_symlink():
+        raise OSError("chain path is a symlink")
+    fd = os.open(path, flags, 0o600)
+    try:
+        with _exclusive(fd):
+            with os.fdopen(fd, "rb", closefd=False) as fh:
+                seq, prev = _read_head(fh)
+            lines = []
+            for ev in events:
+                seq += 1
+                ev = {**ev, "seq": seq, "prev": prev}
+                ev["hash"] = digest(ev)
+                prev = ev["hash"]
+                lines.append(stable_json(ev))
+            payload = ("\n".join(lines) + "\n").encode()
+            start = os.lseek(fd, 0, os.SEEK_END)
+            try:
+                while payload:
+                    wrote = os.write(fd, payload)
+                    if not wrote:
+                        raise OSError("chain append wrote no data")
+                    payload = payload[wrote:]
+            except BaseException:
+                with contextlib.suppress(OSError):
+                    os.ftruncate(fd, start)
+                raise
+        return seq
+    finally:
+        os.close(fd)
 
 
 def emit(name: str, cls: str, **data) -> None:
@@ -192,17 +338,21 @@ def emit(name: str, cls: str, **data) -> None:
     what the caller was going to do."""
     if cls not in CLASSES:
         raise ValueError(f"unknown event class {cls!r}; the set is {CLASSES}")
-    root = repo_root()
-    event = {
-        "ts": now(),
-        "cls": cls,
-        "name": name,
-        "session": session_id(),
-        "repo": repo_id(root),
-        "machine": machine_id(),
-        "data": data,
-    }
     try:
+        root = repo_root()
+        event = {
+            "ts": now(),
+            "cls": cls,
+            "name": name,
+            "session": session_id(),
+            "repo": repo_id(root),
+            "machine": machine_id(),
+            "surface": surface(),
+            "adapter": adapter(),
+            "operation_id": str(uuid.uuid4()),
+            "trace_id": str(uuid.uuid4()),
+            "data": data,
+        }
         buf = buffer_path(root)
         if buf is None:
             append(chain_path(root), [event])
@@ -210,7 +360,7 @@ def emit(name: str, cls: str, **data) -> None:
             event["stamp"] = stamp(event)  # unstamped, it is a line the agent can rewrite
             buf.parent.mkdir(parents=True, exist_ok=True)
             with buf.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(event, separators=(",", ":")) + "\n")
+                fh.write(stable_json(event) + "\n")
     except Exception as exc:  # a failure to record never changes what the caller does
         print(f"[ai-eng] could not record {name}/{cls}: {exc}", file=sys.stderr)
 
@@ -219,13 +369,36 @@ def sealable(line: str) -> dict:
     """One buffered line, ready to be linked. A line that does not carry this machine's
     stamp — edited, truncated, or not JSON at all — is sealed as the error that says so,
     with what it claimed kept beside it. Dropping it instead would delete the only
-    evidence that anything touched the record, and that evidence is the whole product."""
+    evidence that anything touched the record, and that evidence is the whole product.
+
+    Except when the line names a different machine. `stamp` keys off `home()/buffer.key`,
+    which `AI_ENGINEERING_HOME` redirects, while the buffer is repository-local and does
+    not — so any process with its own home writes here with a key this machine has never
+    seen. That is not tampering, and calling it tampering made this repository's own test
+    suite put 22 permanently BROKEN links into the operator's chain: `audit verify` failed
+    for good and `audit --anchor` stopped emitting a footer, so no commit on that machine
+    could be anchored again. A chain accusing itself of an edit it never suffered is worse
+    than no chain, because the one command that detects a real edit had been spent.
+
+    A forged `machine` field buys nothing: it changes the body, so the digest changes, and
+    the line still cannot be presented as an authenticated one of ours. It only relabels an
+    unverifiable line as somebody else's, which is what it is."""
     try:
         event = json.loads(line)
         if hmac.compare_digest(event.pop("stamp", ""), stamp(event)):
             return event
     except (AttributeError, TypeError, ValueError):
         event = {"data": {"line": line[:120]}}
+    named = event.get("machine") if isinstance(event, dict) else None
+    if isinstance(named, str) and named and named != machine_id():
+        return {
+            "ts": now(),
+            "name": "buffer",
+            **event,
+            "machine": machine_id(),
+            "cls": "error",
+            "data": {"outcome": "foreign", "error": FOREIGN, "machine": named},
+        }
     event = {"ts": now(), "name": "buffer", **event, "cls": "error"}
     event["data"] = {"outcome": "edited", "error": EDITED, "claimed": event.get("data")}
     return event

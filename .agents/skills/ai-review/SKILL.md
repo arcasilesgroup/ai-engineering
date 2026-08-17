@@ -29,9 +29,11 @@ Findings, each one at `file:line`, each with the smallest change that would reso
    in the first line of the report, review it in named parts, and list the parts you have
    not read. A truncated pass reads exactly like a complete one, which is the failure this
    framework exists to cure, arriving as a confident report about the half that fit.
-3. Work the checklists in `references/`, one lens at a time: correctness, security,
-   performance, testing, compatibility. Each is a separate pass; mixing them is how the
-   security one gets skipped.
+3. Work the checklists in `references/`, one lens at a time, and every lens in that
+   directory is one of them: correctness, security, performance, testing, compatibility,
+   architecture, simplification, docs, frontend and motion. Each is a separate pass; mixing them
+   is how the security one gets skipped. Skip a lens the diff cannot touch and name the one
+   you skipped — a lens nothing routes to is a checklist nobody works.
 4. Never report what a tool already reports. Formatting, lint, secrets, dependency
    vulnerabilities — those ran in CI, and repeating them buries the findings only a person
    could have made. If the gate did not run, say that instead of standing in for it.

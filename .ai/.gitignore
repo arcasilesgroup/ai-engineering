@@ -1,3 +1,5 @@
 *
 !.gitignore
 !config.toml
+!intent.md
+!readiness.json

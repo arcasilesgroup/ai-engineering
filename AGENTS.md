@@ -31,7 +31,7 @@ once per session. `CLAUDE.md` is one line that imports this file.
 
 ## What this project is
 
-A wheel on PyPI that carries eight skills, five guards and a ten-verb CLI. One command
+A wheel on PyPI that carries twelve skills, six guards and a ten-verb CLI. One command
 places the skills and registers the guards in the settings file each surface already
 reads, so they are present in every project on a machine without a single file landing in
 any of them. It writes specs, plans, decisions and dated risk acceptances as plain text in
@@ -39,7 +39,7 @@ the user's repository, and verifies them with a command that exits non-zero.
 
 ## The shape of the tree
 
-- `hooks/` — the dispatcher, the two decorators, five guards, two telemetry hooks. Standard
+- `hooks/` — the dispatcher, the two decorators, six guards, two telemetry hooks. Standard
   library only, executed by path, never importing the package: on the hot path that import
   costs about 110 ms, and a slow guard is a disabled guard.
 - `src/ai_engineering/` — the ten verbs. This half may import freely.
@@ -47,7 +47,8 @@ the user's repository, and verifies them with a command that exits non-zero.
 - `surfaces/` — the OpenCode plugin. Everything else is wired by writing JSON.
 - `.agents/skills/` — the only skill tree. No mirrors, no sync, no second copy.
 - `specs/`, `docs/adr/` — the record. Committed, reviewed in a pull request.
-- `.ai/` — disposable, except `config.toml` and `.gitignore`, which are the pin.
+- `.ai/intent.md` — the user-owned, non-disposable canonical Intent.
+- `.ai/` — otherwise disposable, except `config.toml` and `.gitignore`, which are the pin.
 
 ## The two contracts that must not bend
 
@@ -75,8 +76,9 @@ from 528 files, which is where the previous version ended up.
   Everything that is not true in every session belongs in a skill.
 - Every `SKILL.md` is capped at `contract.CEILING` lines. Longer means it is a procedure
   that should be a script, which is rule 12 applied to our own files.
-- Three surfaces read UNPROVEN in the coverage line and they stay that way until a denial
-  actually executes there. A green nobody has earned is the failure this product cures.
+- No surface reads BLOCKS until a denial has receipted there, and none has. The word is
+  read from a receipt and there is no field left that can assert it. A green nobody has
+  earned is the failure this product cures.
 
 ## How to run it
 

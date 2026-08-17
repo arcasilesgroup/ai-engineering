@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-engineering:capability-manifest:1",
+  "title": "ai-engineering capability manifest v1",
+  "description": "Closed declarations of skill modes, permissions, enforcement points and required execution proof.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "capabilities"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "urn:ai-engineering:capability-manifest:1"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 15,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/capability"
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9._-]*$"
+    },
+    "repository_root": {
+      "type": "string",
+      "minLength": 1,
+      "anyOf": [
+        {
+          "const": "."
+        },
+        {
+          "allOf": [
+            {
+              "pattern": "^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+            },
+            {
+              "not": {
+                "pattern": "(^|/)\\.{1,2}(/|$)"
+              }
+            },
+            {
+              "not": {
+                "pattern": "[*?\\[\\]{}]"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "identifier_list": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "root_list": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/repository_root"
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executable",
+        "argument_pattern"
+      ],
+      "properties": {
+        "executable": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "argument_pattern": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    },
+    "network_destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "host",
+        "purpose"
+      ],
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+.-]*$"
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9.-]+$"
+        },
+        "purpose": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    },
+    "proof_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allow",
+        "deny",
+        "installed_artifact"
+      ],
+      "properties": {
+        "allow": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/identifier"
+          }
+        },
+        "deny": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/identifier"
+          }
+        },
+        "installed_artifact": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "mode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "read_roots",
+        "write_roots",
+        "exec_allowlist",
+        "network",
+        "secrets",
+        "human_gate",
+        "enforcement",
+        "proof_requirements"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "read_roots": {
+          "$ref": "#/$defs/root_list"
+        },
+        "write_roots": {
+          "$ref": "#/$defs/root_list"
+        },
+        "exec_allowlist": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/execution"
+          }
+        },
+        "network": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/network_destination"
+          }
+        },
+        "secrets": {
+          "$ref": "#/$defs/identifier_list"
+        },
+        "human_gate": {
+          "type": "string",
+          "enum": [
+            "never",
+            "before_write",
+            "before_exec",
+            "before_network",
+            "before_publish"
+          ]
+        },
+        "enforcement": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/identifier"
+          }
+        },
+        "proof_requirements": {
+          "$ref": "#/$defs/proof_requirements"
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "phase",
+        "modes"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": [
+            "ai-explore",
+            "ai-research",
+            "ai-spec",
+            "ai-plan",
+            "ai-build",
+            "ai-debug",
+            "ai-test",
+            "ai-design",
+            "ai-animation",
+            "ai-security",
+            "ai-review",
+            "ai-verify",
+            "ai-note",
+            "ai-report",
+            "ai-ship"
+          ]
+        },
+        "phase": {
+          "type": "string",
+          "enum": [
+            "discover",
+            "decide",
+            "plan",
+            "build",
+            "verify"
+          ],
+          "description": "Which of the five phases this capability serves. A person meeting a catalogue of fifteen with no map has to try them to find out what they are for, and the phase is the map. One phase each: a capability that served two would be two capabilities, which is the routing argument the skills already make about themselves."
+        },
+        "modes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/mode"
+          }
+        }
+      }
+    }
+  },
+  "x-capability-policy": {
+    "id_field": "id",
+    "ids_unique": true,
+    "allowed_ids": [
+      "ai-explore",
+      "ai-research",
+      "ai-spec",
+      "ai-plan",
+      "ai-build",
+      "ai-debug",
+      "ai-test",
+      "ai-design",
+      "ai-animation",
+      "ai-security",
+      "ai-review",
+      "ai-verify",
+      "ai-note",
+      "ai-report",
+      "ai-ship"
+    ]
+  },
+  "x-mode-policy": {
+    "id_field": "id",
+    "ids_unique_within_capability": true,
+    "permission_fields": [
+      "read_roots",
+      "write_roots",
+      "exec_allowlist",
+      "network",
+      "secrets",
+      "human_gate"
+    ],
+    "permission_sets_distinct_within_capability": true
+  }
+}

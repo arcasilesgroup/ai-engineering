@@ -19,8 +19,10 @@ suite drives, so every assertion in it holds the bytes a person with no colour s
 
 from __future__ import annotations
 
+import json
 import os
 import sys
+from collections.abc import Sequence
 
 from rich.console import Console
 from rich.panel import Panel
@@ -28,6 +30,7 @@ from rich.text import Text
 from rich.theme import Theme
 
 from ai_engineering import __version__
+from ai_engineering.outcome import Result
 
 # Taken from the project's own banner rather than chosen here, so the terminal and the
 # README are the same product.
@@ -49,26 +52,41 @@ THEME = Theme(
 
 # ✓ happened · · would happen · ⚠ happened and wants a person · ✗ did not happen
 MARKS = {"ok": ("✓", "ok"), "would": ("·", "muted"), "warn": ("⚠", "warn"), "fail": ("✗", "fail")}
+RESULT_MARKS = {
+    "READY": ("◇", "brand"),
+    "PASS": ("✓", "ok"),
+    "WARN": ("⚠", "warn"),
+    "FAIL": ("✗", "fail"),
+    "INCOMPLETE": ("?", "unknown"),
+    "CANCELLED": ("■", "muted"),
+    "WOULD_CHANGE": ("·", "muted"),
+}
 
 _consoles: dict[bool, Console] = {}
 
 
-def plain() -> bool:
+def plain(stream=None) -> bool:
     """The three ways a terminal says it does not want to be decorated. Checked here rather
     than left to the library, because `questionary` is a second library with its own idea
     and the answer has to be one answer."""
-    return "NO_COLOR" in os.environ or os.environ.get("TERM") == "dumb"
+    if "NO_COLOR" in os.environ or os.environ.get("TERM") == "dumb":
+        return True
+    stream = stream or sys.stderr
+    forced = os.environ.get("FORCE_COLOR") not in (None, "", "0")
+    is_terminal = getattr(stream, "isatty", lambda: False)
+    return not forced and not is_terminal()
 
 
 def console(data: bool = False) -> Console:
     """stdout for data, stderr for everything a person reads on the way past."""
     if data not in _consoles:
+        stream = sys.stdout if data else sys.stderr
         _consoles[data] = Console(
-            file=sys.stdout if data else sys.stderr,
+            file=stream,
             theme=THEME,
             # None and not no_color=True: no_color drops the colours and keeps bold and
             # dim, so a terminal that asked for nothing still receives escape sequences.
-            color_system=None if plain() else "auto",
+            color_system=None if plain(stream) else "auto",
             highlight=False,
             markup=False,
             emoji=False,
@@ -91,6 +109,32 @@ def write(text: str = "", style: str = "", data: bool = False) -> None:
     """One line, never wrapped. Nothing here has ever wrapped and a path that suddenly
     folds at column 80 is a path nobody can copy."""
     console(data).print(Text(text, style=style) if style else Text(text))
+
+
+def render_result(result: Result, *, json_mode: bool = False) -> dict[str, str | int]:
+    """Render one canonical result without changing its semantics or asking a question."""
+    payload = result.as_dict()
+    if json_mode:
+        sys.stdout.write(
+            json.dumps(
+                payload, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+            )
+            + "\n"
+        )
+        return payload
+
+    mark, style = RESULT_MARKS[result.outcome]
+    body = Text(f"{mark} {result.outcome}", style=style)
+    for label, value in (
+        ("Reason", result.reason),
+        ("Next action", result.next_action),
+        ("Exit code", str(result.exit_code)),
+    ):
+        body.append("\n")
+        body.append(f"{label}: ", style="head")
+        body.append(value)
+    console(data=True).print(body)
+    return payload
 
 
 WORDMARK = "{ ai } e n g i n e e r i n g"
@@ -144,7 +188,7 @@ VERDICTS = {
 
 
 def verdict(number: int, state: str, title: str, detail: str = "") -> None:
-    """One of doctor's twenty lines. The state carries the colour, so the failures in a run
+    """One of doctor's twenty-three lines. The state carries the colour, so the failures in a run
     stop being typographically identical to the passes — which is the whole reason a person
     runs the command."""
     word, style = VERDICTS[state]
@@ -156,11 +200,68 @@ def verdict(number: int, state: str, title: str, detail: str = "") -> None:
         console(data=True).print(Text(f"      {detail}", style="muted"))
 
 
-def cure(command: str) -> None:
+CURABLE = ("FAIL", "INCOMPLETE")
+# A cure is an instruction to a person under a result that blocked them. These are the ways
+# a "cure" stops being a repair and becomes a way around the thing that blocked, which is
+# the one sentence this product may never print.
+BYPASS_WORDS = ("--no-verify", "--force", "bypass", "exception --skip", "skip the", "ignore the")
+
+
+def will(
+    action: str,
+    reads: Sequence[str],
+    writes: Sequence[str],
+    network: Sequence[str],
+) -> None:
+    """What this command is about to do, before it does any of it.
+
+    Printed ahead of the first mutation, not after it. A person who reads this and stops has
+    lost nothing; the same words printed afterwards are a description of something they
+    were never given the chance to refuse.
+    """
+
+    console().print(Text("\n  will  ", style="head").append(action, style=""))
+    for label, values in (("reads", reads), ("writes", writes), ("network", network)):
+        line = Text(f"        {label:<8}")
+        line.append(", ".join(values) if values else "none", style="muted" if not values else "")
+        console().print(line)
+
+
+def running(index: int, total: int, name: str) -> None:
+    """`RUNNING 2/5  the thing being done` — counted, and counted honestly.
+
+    `n` is the number of steps the caller declared it would run, so a progress line that
+    reaches 5/5 means five things happened. An index past the total, or a total below one,
+    is a caller whose count is a decoration; that raises here rather than printing a number
+    nobody should trust.
+    """
+
+    if not isinstance(total, int) or isinstance(total, bool) or total < 1:
+        raise ValueError("a counted step needs a real total")
+    if not isinstance(index, int) or isinstance(index, bool) or not 1 <= index <= total:
+        raise ValueError(f"step {index} is outside a run of {total}")
+    line = Text("  RUNNING ", style="head")
+    line.append(f"{index}/{total}", style="")
+    line.append(f"  {name}")
+    console().print(line)
+
+
+def cure(status: str, command: str) -> None:
     """Under a failure, the exact thing to type — or the sentence that says nothing can be
     typed. Four of the twenty checks named their cure inside their prose and sixteen named
     nothing, so a reader had to work out for themselves which failures were theirs to fix by
-    hand and which were one command away. That is now a column and not a guess."""
+    hand and which were one command away. That is now a column and not a guess.
+
+    It renders only under a result that actually blocked. A cure offered beside a `PASS`
+    tells a person to repair something that is not broken, and a cure that names a way past
+    the gate is not a cure at all — both raise rather than print.
+    """
+
+    if status not in CURABLE:
+        raise ValueError(f"a cure belongs under {' or '.join(CURABLE)}, not {status}")
+    lowered = command.lower()
+    if any(word in lowered for word in BYPASS_WORDS):
+        raise ValueError("a cure may not name a way around the thing that blocked")
     line = Text("      ")
     if command:
         line.append("fix: ", style="head")
@@ -177,7 +278,7 @@ def cure(command: str) -> None:
 def summary(title: str, rows: list[tuple[str, str]], style: str) -> None:
     """The verdict, in the same frame as `init`'s last screen. It was a bare line under the
     coverage block before, in the same weight as the eight rows above it, and it was read
-    as more of the table — a person who had just run twenty checks could not say
+    as more of the table — a person who had just run twenty-three checks could not say
     whether they had passed. A frame is not decoration when it is the answer."""
     body = Text()
     for index, (label, detail) in enumerate(rows):

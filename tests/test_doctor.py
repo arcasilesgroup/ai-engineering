@@ -16,13 +16,17 @@ import time
 import types
 from datetime import date, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from rich.style import Style
 
-from ai_engineering import __version__, audit, cli, doctor, paths, wiring
+from ai_engineering import __version__, audit, cli, doctor, outcome, paths, wiring
 
 emit = paths.load("_emit")
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
@@ -84,7 +88,7 @@ def test_every_assertion_has_a_unique_number_a_family_and_a_sentence():
     # 5 is retired, not renumbered: the numbers are cited in prose all over this repository
     # and moving them would silently repoint every one of those citations. It was the line
     # ceiling, and the test plane owns that assertion now.
-    assert sorted(numbers) == [n for n in range(1, 22) if n != 5]
+    assert sorted(numbers) == [n for n in range(1, 25) if n != 5]
     for number, family, title, in_ci, fn in doctor.CHECKS:
         assert family and title and callable(fn) and isinstance(in_ci, bool), number
 
@@ -123,34 +127,43 @@ LOCAL = (4, "The pin", "a check a runner cannot answer", False, lambda root: "it
 
 
 @pytest.mark.parametrize(
-    "rows, argv, code, says, never",
+    "rows, argv, status, says, never",
     [
-        ((PASSES,), [], 0, "1 passed · 0 failed · 0 not evaluated", "FAIL"),
-        ((FAILS,), [], 1, "0 passed · 1 failed · 0 not evaluated", " ok "),
-        ((UNKNOWN,), [], 0, "Not evaluated is never green", " ok "),
-        ((PASSES, FAILS, UNKNOWN), [], 1, "1 passed · 1 failed · 1 not evaluated", ""),
-        ((LOCAL,), ["--ci"], 0, "SKIPPED", "FAIL"),
-        ((LOCAL,), [], 1, "FAIL", "SKIPPED"),
+        ((PASSES,), [], "PASS", "1 passed · 0 failed · 0 not evaluated", "FAIL"),
+        ((FAILS,), [], "FAIL", "0 passed · 1 failed · 0 not evaluated", " ok "),
+        ((UNKNOWN,), [], "INCOMPLETE", "Not evaluated is never green", " ok "),
+        (
+            (PASSES, FAILS, UNKNOWN),
+            [],
+            "FAIL",
+            "1 passed · 1 failed · 1 not evaluated",
+            "",
+        ),
+        ((LOCAL,), ["--ci"], "INCOMPLETE", "SKIPPED", "FAIL"),
+        ((LOCAL,), [], "FAIL", "FAIL", "SKIPPED"),
     ],
     ids=[
-        "a clean tree exits zero",
-        "one failure exits non-zero",
+        "a clean tree is PASS",
+        "one failure is FAIL",
         "could not evaluate is not a pass",
         "one of each",
         "--ci leaves a local-only check unrun",
         "outside CI that same check runs",
     ],
 )
-def test_the_three_states_and_what_each_does_to_the_exit_code(
-    monkeypatch, capsys, rows, argv, code, says, never
+def test_the_contract_states_and_their_exact_outcomes(
+    monkeypatch, capsys, rows, argv, status, says, never
 ):
     """Counting a check that could not run as one that passed is how somebody reads
     "everything is fine" off a doctor that measured nothing. The --ci rows prove the skip
-    is a skip: the local-only check returns a failure, so if it ran the exit code is 1."""
+    is a skip: the local-only check returns a failure, so if it ran the outcome is FAIL."""
     monkeypatch.setattr(doctor, "CHECKS", list(rows))
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
-    assert doctor.main(argv) == code
+    result = doctor.main(argv)
+    assert type(result) is outcome.Execution
+    assert result.outcome == status
+    assert result.checks
     out = capsys.readouterr().out
     assert says in out
     assert not never or never not in out
@@ -172,7 +185,9 @@ def test_paths_prints_one_home_per_file_class_and_all_of_them_are_this_machine(
     """Every file class has one home and doctor prints it. If any of these resolved
     outside the configured framework home, a test here would be writing into a real one."""
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
-    assert doctor.main(["--paths"]) == 0
+    result = doctor.main(["--paths"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     out = capsys.readouterr().out
     for label, where in (
         ("guards", paths.hooks()),
@@ -213,24 +228,39 @@ def test_outside_a_working_copy_none_of_these_is_green(name):
     [
         (lambda rows: rows, "", ""),
         (lambda rows: [rows[0], {**rows[1], "prev": "0" * 64}], "does not extend", "not extend"),
-        (lambda rows: [{**rows[0], "data": {"r": "rewritten"}}, rows[1]], "", "it was edited"),
+        (
+            lambda rows: [{**rows[0], "data": {"r": "rewritten"}}, rows[1]],
+            "it was edited",
+            "it was edited",
+        ),
     ],
     ids=["intact", "linkage broken", "body edited after it was hashed"],
 )
-def test_assertion_6_compares_the_linkage_and_never_recomputes_a_hash(
+def test_the_two_readers_of_the_chain_reach_the_same_verdict(
     home, repo, edit, doctor_says, audit_says
 ):
-    """Assertion 6 checks that each link names the one before it, and nothing else. So an
-    event whose body was rewritten after its hash was taken keeps its linkage and reads as
-    intact, while audit — walking the same file — calls it edited. Today's behaviour,
-    pinned: "the hash chain is intact" is a statement about the linkage only."""
+    """This used to pin the opposite, and its own docstring named the tension it was
+    documenting: assertion 6 walked linkage only, so an event whose body was rewritten
+    after its hash was taken read as intact here while `audit` — walking the same file —
+    called it edited.
+
+    That is a false green in the direction that matters. `ai-eng doctor` is the summary
+    screen; `ai-eng audit verify` is the command somebody runs when they already suspect
+    something. Measured on the operator's machine, the verifier exited 1 on 22 broken links
+    while this printed "the hash chain is intact and writable".
+
+    Assertion 6 asks the verifier now rather than re-implementing half of it, so the two
+    cannot part company again — which is the same finding as the plugin's three copies of
+    one substitution, one file over."""
     path = chain(repo, {}, {})
     rows = [json.loads(line) for line in path.read_text().splitlines()]
     path.write_text("".join(json.dumps(row) + "\n" for row in edit(rows)))
     got, detail = verdict(doctor.chain_intact, repo)
     assert (got, doctor_says in detail) == (("fail", True) if doctor_says else ("ok", True))
-    problems = " ".join(audit.verify(repo, anchors=False))
-    assert (audit_says in problems) and bool(problems) == bool(audit_says)
+    problems = audit.verify(repo, anchors=False)
+    assert "INTENT_HOME_MISSING" in problems[-1]
+    chain_problems = " ".join(problems[:-1])
+    assert (audit_says in chain_problems) and bool(chain_problems) == bool(audit_says)
 
 
 def test_a_half_written_last_line_is_reported_by_both_readers_of_the_chain(home, repo):
@@ -243,7 +273,10 @@ def test_a_half_written_last_line_is_reported_by_both_readers_of_the_chain(home,
         fh.write('{"cls": "blo')
     assert len(doctor.events(repo)) == 2
     assert "link 3" in (doctor.chain_intact(repo) or "")
-    assert len(audit.verify(repo, anchors=False)) == 1
+    problems = audit.verify(repo, anchors=False)
+    assert len(problems) == 2
+    assert "link 3" in problems[0]
+    assert "INTENT_HOME_MISSING" in problems[1]
 
 
 def test_a_chain_that_was_never_written_is_not_a_broken_chain_and_is_not_a_pass_either(home, repo):
@@ -256,6 +289,84 @@ def test_a_chain_that_was_never_written_is_not_a_broken_chain_and_is_not_a_pass_
     with pytest.raises(doctor.Undecidable, match="nothing has been written"):
         doctor.chain_intact(repo)
     assert emit.chain_path(repo).parent.exists()
+
+
+def test_doctor_cannot_call_a_chain_intact_that_the_verifier_calls_broken(home, repo):
+    """Two readers of one file, and they disagreed. Assertion 6 walked `prev` and `hash`
+    only, so a link sealed as `outcome: "edited"` — the literal tamper marker, whose hashes
+    all match because it was sealed truthfully — passed it. `ai-eng audit verify` refused
+    the same file.
+
+    Measured on the operator's machine: `audit verify` exits 1 on 22 broken links while
+    `doctor` prints `ok  The hash chain is intact and writable`. The greener of the two
+    verdicts is the one on the summary screen, which is the direction that makes it a
+    defect rather than a curiosity.
+
+    Assertion 6 asks the verifier now, so the two cannot part company again."""
+
+    path = chain(repo, {}, {}, {})
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    rows[1]["data"] = {"outcome": "edited", "error": emit.EDITED, "claimed": {}}
+    rows[1]["hash"] = emit.digest(rows[1])
+    rows[2]["prev"] = rows[1]["hash"]
+    rows[2]["hash"] = emit.digest(rows[2])
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    said = doctor.chain_intact(repo)
+    assert said and "link 2" in said, f"doctor called a sealed-as-edited chain intact: {said!r}"
+    assert [w for w in audit.verify(repo, anchors=False) if "link 2" in w], "the verifier agrees"
+
+
+def test_a_buffer_that_stopped_being_sealed_is_reported(home, repo):
+    """Half of "survives losing the laptop" is the seal, and nothing measured whether it
+    still runs. Measured on the operator's machine: the durable chain held 987 links and
+    stopped on 2026-08-12, while the in-clone buffer had grown past 4,500 unsealed lines
+    and was still growing. `flush()` has exactly one caller outside the suite, on
+    `SessionEnd`/`Stop` — so if that path stops firing, every event since sits in a file
+    inside the clone, outside the hash chain, and no assertion says a word.
+
+    A buffer is not a failure: it is where events live between seals. A buffer whose oldest
+    line has been waiting longer than any session lasts is a seal that stopped."""
+
+    (repo / ".ai").mkdir(exist_ok=True)
+    (repo / ".ai" / "config.toml").write_text("[pin]\nversion='1'\n")
+    buffer = emit.buffer_path(repo)
+
+    # Written here rather than through `emit`, which resolves the root from the working
+    # directory: the buffer under test has to be this repository's, not the one the suite
+    # happens to run in.
+    fresh = {"ts": emit.now(), "cls": "blocked", "name": "loop_guard", "data": {}}
+    buffer.write_text(json.dumps(fresh) + "\n", encoding="utf-8")
+    assert doctor.buffer_sealed(repo) is None, "a buffer written moments ago is not a finding"
+
+    buffer.write_text(
+        json.dumps({**fresh, "ts": "2020-01-01T00:00:00.000+00:00"}) + "\n", encoding="utf-8"
+    )
+    said = doctor.buffer_sealed(repo)
+    assert said and "unsealed" in said, said
+    assert "2020-01-01" in said, said
+
+
+def test_fifteen_declared_capabilities_that_enforce_nothing_are_reported(home, repo):
+    """`policy/capabilities.toml` declares fifteen capabilities with read roots, write
+    roots, exec allowlists, network hosts, secrets and human gates, and `preflight`
+    validates every one of them and then refuses, because no executor exists. That refusal
+    is honest and is pinned elsewhere.
+
+    What nothing did was say so. No assertion, no README line, no verb mentioned it, so a
+    reader of six governed fields per capability had no way to learn that none of them
+    stops anything. A declaration nobody enforces and nobody flags is the shape of a false
+    green, and the constitution's first duty is to expose that rather than hide it."""
+
+    # Undecidable and not FAIL. Nothing executed — the executor is what is missing — and
+    # FAIL is reserved for an executed check that conclusively found a violation. It still
+    # prints, under a heading whose last line is "None of these is a pass." The distinction
+    # is not cosmetic: as a failure it made `doctor` red on every machine forever, which is
+    # a red nobody can clear and so a red everybody learns to scroll past.
+    got, detail = verdict(doctor.capabilities_enforced, repo)
+    assert got == "undecidable"
+    assert "nothing enforces them" in detail, detail
+    assert detail.startswith("15 "), detail
 
 
 def test_assertion_16_reports_could_not_evaluate_over_a_block_nobody_can_read(home, repo):
@@ -366,11 +477,18 @@ def test_assertion_16_an_acceptance_that_ran_out_is_not_an_acceptance(repo, days
 
 
 def test_assertions_17_and_18_the_record_is_committed_and_the_state_is_not(repo):
-    """.ai/ holds one committed file and one ignore rule; anything else of ours inside git
-    is state leaking into review, and any framework file committed outside its declared
-    home is the first step back toward the 528 files this rebuild deleted."""
+    """.ai/ holds the pin, Intent and ignore rule; anything else of ours inside git is
+    state leaking into review, and any framework file committed outside its declared home
+    is the first step back toward the 528 files this rebuild deleted."""
+    corpus = json.loads((Path(__file__).parent / "fixtures" / "intent-v1.json").read_text())
+    canonical = corpus["base"]
     (repo / ".ai" / "config.toml").write_text("")
     (repo / ".ai" / ".gitignore").write_text("events.jsonl\n")
+    (repo / ".ai" / "intent.md").write_text(json.dumps(canonical["intent"]))
+    for file in canonical["repository"]["files"]:
+        target = repo / file["path"]
+        target.parent.mkdir(parents=True)
+        target.write_text(file["content"])
     git(repo, "add", "-A")
     assert verdict(doctor.polarity, repo) == ("ok", "")
     assert verdict(doctor.data_is_yours, repo) == ("ok", "")
@@ -511,7 +629,7 @@ def test_assertion_3_a_hook_on_a_blocking_event_that_is_not_a_guard(
     ],
 )
 def test_assertion_11_the_floor_has_to_be_the_one_this_install_wired(
-    repo, monkeypatch, setting, want, fragment
+    home, repo, monkeypatch, setting, want, fragment
 ):
     """git never expands ~ in core.hooksPath. It saves without complaint, the hooks never
     run, and every commit goes through: a floor that is not there is worse than none,
@@ -540,6 +658,12 @@ def test_assertion_11_the_floor_has_to_be_the_one_this_install_wired(
     }
     if value[setting]:
         git(repo, "config", "core.hooksPath", value[setting])
+    # The anchor half of this assertion is exercised on its own below. Here it is wired the
+    # way `init` wires it and its liveness is stood in for, so a case that is about the
+    # hooks path is decided by the hooks path — and never by whether this machine happens
+    # to hold a chain that can be anchored.
+    git(repo, "config", "ai.eng", f"{sys.executable} -m ai_engineering.cli")
+    monkeypatch.setattr(doctor, "_anchor_answers", lambda root: None)
     got, detail = verdict(doctor.git_hook_fires, repo)
     assert (got, fragment in detail) == (want, True)
 
@@ -722,7 +846,7 @@ def stub(monkeypatch, rows):
     """A doctor whose twenty-one checks are whatever this test needs, run outside any
     repository so nothing on the machine can change the answer."""
     monkeypatch.setattr(doctor, "CHECKS", rows)
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
 
 
@@ -782,7 +906,10 @@ def test_the_whole_report_is_data_and_none_of_it_is_chrome(monkeypatch, capsys):
             (3, "The context", "refused", True, raises(doctor.Undecidable("no endpoint"))),
         ],
     )
-    assert doctor.main(["--ci"]) == 0
+    result = doctor.main(["--ci"])
+    assert type(result) is outcome.Execution
+    assert result.outcome == "INCOMPLETE"
+    assert [fact.status for fact in result.checks[:3]] == ["PASS", "SKIPPED", "INCOMPLETE"]
     caught = capsys.readouterr()
     assert caught.err == "", "a line of the report went to the wrong stream"
     assert (
@@ -802,7 +929,9 @@ def test_the_three_muted_kinds_of_line_under_the_report_are_dressed_as_such(
     them is a pass. Undecorated all three are ordinary text in a screen that is mostly
     ordinary text, and the last one is a warning — the whole point of printing it."""
     stub(monkeypatch, [(3, "The context", "refused", True, raises(doctor.Undecidable("why")))])
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  T2  a  BLOCKS  a denial ran here"])
+    monkeypatch.setattr(
+        doctor, "coverage", lambda root, **_: ["  T2  a  BLOCKS  a denial ran here"]
+    )
     doctor.main([])
     out = capsys.readouterr().out
     styles = doctor.ui.THEME.styles
@@ -849,9 +978,12 @@ def test_fix_runs_the_verb_that_already_carries_the_consent_and_then_asks_again(
     The stub check keeps failing, so the second pass fails too: `--fix` reports what is
     true after the attempt and never what it hoped for."""
     monkeypatch.setattr(doctor, "CHECKS", [(2, "The pin", "wiring", True, lambda root: "broken")])
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
-    assert doctor.main(["--fix"]) == 1
+    result = doctor.main(["--fix"])
+    assert type(result) is outcome.Execution
+    assert result.outcome == "FAIL"
+    assert result.checks
     # -y is appended and --no-project is not: one is how a cure runs unattended, the other
     # is in the cure itself, so repairing a machine cannot set up a stray repository.
     assert invoked == [["init", "--global", "--no-project", "-y"]]
@@ -877,7 +1009,7 @@ def test_fix_runs_each_distinct_cure_once_however_many_checks_named_it(
             (11, "The pin", "c", True, lambda root: "broken"),
         ],
     )
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
     doctor.main(["--fix"])
     assert invoked == [["init", "--global", "--no-project", "-y"], ["init", "--project", "-y"]]
@@ -892,7 +1024,7 @@ def test_a_cure_whose_verb_asks_a_person_something_is_printed_and_never_run(monk
     monkeypatch.setattr(
         doctor, "CHECKS", [(12, "The pin", "pin", True, lambda root: ("stale", "ai-eng update"))]
     )
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
     doctor.main(["--fix"])
     assert invoked == []
@@ -912,9 +1044,12 @@ def test_fix_with_nothing_it_can_repair_says_so_and_writes_nothing(monkeypatch, 
     """The failure that has no command is the common one — seventeen of the twenty-one —
     and a flag that silently does nothing reads as a flag that ran."""
     monkeypatch.setattr(doctor, "CHECKS", [(4, "The context", "yours", True, lambda root: "TODO")])
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
-    assert doctor.main(["--fix"]) == 1
+    result = doctor.main(["--fix"])
+    assert type(result) is outcome.Execution
+    assert result.outcome == "FAIL"
+    assert result.checks
     assert invoked == []
     assert (
         "\n  Nothing that failed here has a command --fix runs for you.\n"
@@ -926,7 +1061,7 @@ def test_a_cure_that_exits_non_zero_stops_the_rest_instead_of_reporting_a_clean_
 ):
     """A repair that failed and a repair that was never attempted are different things, and
     running the second command over the wreckage of the first is how one broken install
-    becomes two. The exit code is the cure's, not doctor's."""
+    becomes two. A child's integer exit is not canonical proof, so doctor is INCOMPLETE."""
     monkeypatch.setattr(cli, "main", lambda argv: 3)
     monkeypatch.setattr(
         doctor,
@@ -936,9 +1071,11 @@ def test_a_cure_that_exits_non_zero_stops_the_rest_instead_of_reporting_a_clean_
             (11, "The pin", "b", True, lambda root: "broken"),
         ],
     )
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  PIN  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  PIN  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
-    assert doctor.main(["--fix"]) == 3
+    result = doctor.main(["--fix"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     out = capsys.readouterr().out
     assert "  it exited 3. The rest is not attempted." in out
     assert out.count("   2  FAIL     a") == 1, "it asked again after a repair that failed"
@@ -952,7 +1089,9 @@ def test_the_command_a_repair_runs_and_the_one_that_failed_are_dressed_apart(
     Undecorated they are two runs of ordinary text, and the second is the one that matters."""
     monkeypatch.setattr(cli, "main", lambda argv: 3)
     stub(monkeypatch, [(11, "The pin", "a", True, lambda root: "broken")])
-    assert doctor.main(["--fix"]) == 3
+    result = doctor.main(["--fix"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     out = capsys.readouterr().out
     styles = doctor.ui.THEME.styles
     assert styles["cmd"].render("  running ai-eng init --project -y") in out
@@ -1109,6 +1248,14 @@ def test_assertion_1_a_skill_that_breaks_the_contract_is_named_on_the_users_mach
     skill.write_text("---\nname: ai-thing\ndescription: does things\n---\n")
     assert "Not for" in (doctor.skills_contract(None) or "")
     skill.write_text("---\nname: ai-thing\ndescription: does things. Not for x — use /ai-y\n---\n")
+    # The routing corpus is part of the contract now, so a skill with a correct header and
+    # nothing that can judge its routing is still incomplete — which is the whole point of
+    # D-012-01: every check above this one is about the file's shape.
+    assert "no corpus.md" in (doctor.skills_contract(None) or "")
+    (skill.parent / "corpus.md").write_text(
+        "# Corpus\n\n## Routes here\n\n- a thing — it is the thing\n\n"
+        "## Refuses\n\n- another thing — use `/ai-y`\n"
+    )
     assert doctor.skills_contract(None) is None
 
 
@@ -1232,9 +1379,299 @@ def test_no_surface_reads_as_covered_where_no_denial_has_ever_executed(home, rep
     lines = doctor.coverage(repo)
     ids = [s["id"] for s in wiring.table()["surface"]]
     rows = dict(zip(ids, lines[1 : 1 + len(ids)], strict=True))
-    unproven = [s["id"] for s in wiring.table()["surface"] if not s["proven"]]
-    assert not [name for name in unproven if "BLOCKS" in rows[name]]
+    # Not one row, now: the word comes from an enforcement receipt and this repository has
+    # never written one. claude-code reads UNPROVEN here not because it lost a capability
+    # but because nobody ever receipted the denial it is perfectly able to execute — which
+    # is the sentence spec 010 wrote about three surfaces, arriving for all eight.
+    assert not [name for name in ids if "BLOCKS" in rows[name]]
     assert "INERT" in rows["opencode"] and "INERT" in rows["codex-cli"]
-    assert "BLOCKS" in rows["claude-code"]
+    assert "no denial has ever run here" in rows["claude-code"]
     assert "MISMATCH" in lines[0]
     assert doctor.surfaces_alive(None) is not None
+
+
+def test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module(home, repo, monkeypatch):
+    """A configured anchor is a string somebody wrote. This runs it.
+
+    The state this cures was found on a real machine: an editable install whose `.pth`
+    pointed at a deleted worktree, so the interpreter was alive, `ai_engineering.cli` was
+    dead, `git config --get ai.eng` answered, and every hook that resolved the CLI through
+    it failed on a repository somebody had just installed into. Assertion 11 said the wiring
+    was fine, because the string was there.
+
+    What it will not do is execute whatever the value happens to hold. A configured command
+    that gets run is a configured command that can be anything, on a machine that may
+    already be doing what an injected instruction told it to — so the value must decompose
+    to exactly this interpreter and this module, and that argument list is the only thing
+    this check ever runs.
+    """
+
+    ours = repo.parent / "wheel" / "git-hooks"
+    ours.mkdir(parents=True, exist_ok=True)
+    (ours / "pre-commit").write_text("#!/bin/sh\n")
+    monkeypatch.setattr(paths, "git_hooks", lambda: ours)
+    git(repo, "config", "core.hooksPath", str(ours))
+
+    # No anchor at all is undecidable: the hooks have no CLI to resolve.
+    assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
+
+    # A value that is not this interpreter and this module is refused without being run.
+    for foreign in (
+        "ai-eng",
+        "/usr/bin/python3 -m ai_engineering.cli",
+        f"{sys.executable} -m ai_engineering.cli; rm -rf /",
+        f"{sys.executable} -c 'print(1)'",
+        f"sh -c '{sys.executable} -m ai_engineering.cli'",
+    ):
+        git(repo, "config", "ai.eng", foreign)
+        state, detail = verdict(doctor.git_hook_fires, repo)
+        assert state == "fail", foreign
+        assert "does not name this interpreter and this module" in detail, foreign
+        assert doctor.resolve(11, doctor.git_hook_fires(repo))[1] == "ai-eng init --project"
+
+    # On a machine with no chain yet — every fresh install — the module answers `--version`
+    # and cannot anchor, and that is undecidable rather than a broken install. A check that
+    # is red by construction is a check somebody silences.
+    #
+    # Only liveness is stood in for, and only because it is ambient: inside the mutation
+    # harness's sandbox the child cannot import the package, so this block reported a dead
+    # module and took the whole gate's baseline with it. The anchor call still runs for
+    # real, which is the half this block is about. A dead module is asserted below, where
+    # it is the subject rather than the weather.
+    git(repo, "config", "ai.eng", f"{sys.executable} -m ai_engineering.cli")
+    live = doctor.subprocess.run
+
+    def answering(argv, *args, **kwargs):
+        if "--version" in list(argv):
+            return SimpleNamespace(returncode=0, stdout="ai-engineering 1.0.0")
+        return live(argv, *args, **kwargs)
+
+    monkeypatch.setattr(doctor.subprocess, "run", answering)
+    state, detail = verdict(doctor.git_hook_fires, repo)
+    monkeypatch.undo()
+    monkeypatch.setattr(paths, "git_hooks", lambda: ours)
+    assert state == "undecidable", detail
+    assert "cannot anchor a commit yet" in detail
+
+    # And with a chain it can anchor, it passes.
+    footer = "Ai-Eng-Anchor: repo/machine seq=1 head=0123456789ab"
+    real_run = doctor.subprocess.run
+
+    def anchored(argv, *args, **kwargs):
+        if list(argv)[:1] == ["git"]:
+            return real_run(argv, *args, **kwargs)
+        if "--version" in list(argv):
+            return SimpleNamespace(returncode=0, stdout="ai-engineering 1.0.0")
+        return SimpleNamespace(returncode=0, stdout=f"{footer}\n")
+
+    monkeypatch.setattr(doctor.subprocess, "run", anchored)
+    assert verdict(doctor.git_hook_fires, repo)[0] == "ok"
+    monkeypatch.undo()
+    monkeypatch.setattr(paths, "git_hooks", lambda: ours)
+
+    # Only the anchor's own execution is stood in for. `git config --get` still runs, or
+    # the check would be reading a value this test never wrote.
+    real = doctor.subprocess.run
+
+    def only_the_anchor(answer, alive=None):
+        alive = alive or SimpleNamespace(returncode=0, stdout="ai-engineering 1.0")
+
+        def run(argv, *args, **kwargs):
+            if list(argv)[:1] == ["git"]:
+                return real(argv, *args, **kwargs)
+            # Liveness is a separate question from anchorability, so the stub answers it
+            # separately — and answerably, because the dead-module branch is the one this
+            # test is named for and hard-coding a live answer removed the only path to it.
+            chosen = alive if "--version" in list(argv) else answer
+            if isinstance(chosen, BaseException):
+                raise chosen
+            return chosen
+
+        return run
+
+    # A module that runs and prints the wrong thing is a failure; one that runs and cannot
+    # anchor is undecidable. Two different answers, because they have two different cures.
+    for wrong in (
+        SimpleNamespace(returncode=0, stdout=""),
+        SimpleNamespace(returncode=0, stdout="Ai-Eng-Anchor: not/a valid=footer\n"),
+        SimpleNamespace(returncode=0, stdout=f"{footer}\n{footer}\n"),
+    ):
+        monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(wrong))
+        assert verdict(doctor.git_hook_fires, repo)[0] == "fail", wrong
+    monkeypatch.setattr(
+        doctor.subprocess, "run", only_the_anchor(SimpleNamespace(returncode=1, stdout=""))
+    )
+    assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
+
+    # The state this test is named for: the interpreter is alive and the module is not.
+    for dead in (
+        SimpleNamespace(returncode=1, stdout=""),
+        SimpleNamespace(returncode=0, stdout=""),
+        SimpleNamespace(returncode=0, stdout="some other tool 9.9"),
+    ):
+        monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(dead, alive=dead))
+        state, detail = verdict(doctor.git_hook_fires, repo)
+        assert state == "fail", dead
+        assert "installed and does not run" in detail, dead
+
+    # And a hang is undecidable rather than a pass that waited — on either call.
+    hangs = subprocess.TimeoutExpired(cmd="python", timeout=30)
+    monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(hangs))
+    assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
+    monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(hangs, alive=hangs))
+    assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
+
+    # A path with a space in it is the default Windows install, and it used to make this
+    # assertion permanently red with a cure that rewrote the same unreadable value.
+    for spaced in (
+        "/Users/My Name/.venv/bin/python",
+        r"C:\Program Files\Python312\python.exe",
+    ):
+        assert doctor._interpreter_of(f"{spaced} -m ai_engineering.cli") == spaced
+
+
+def test_an_undecidable_assertion_prints_the_cure_it_carries(capsys):
+    """`INCOMPLETE` and `INCOMPLETE, and here is the command that settles it` were the same
+    state, so a check whose answer was one command away had to be reported as a failure to
+    say so. This is the rendering half of that, which nothing else drives."""
+
+    from ai_engineering import ui
+
+    ui.reset()
+    raised = doctor.Undecidable("the chain is not in a state to sign one", "ai-eng init --project")
+    assert str(raised) == "the chain is not in a state to sign one"
+    assert raised.cure == "ai-eng init --project"
+    ui.verdict(11, "unknown", "A git hook actually fires", f"could not evaluate: {raised}")
+    ui.cure("INCOMPLETE", raised.cure)
+    printed = capsys.readouterr().out
+    assert "could not evaluate: the chain is not in a state to sign one" in printed
+    assert "fix: ai-eng init --project" in printed
+
+    # An Undecidable with no cure prints none, rather than a line promising one.
+    assert doctor.Undecidable("nothing to be done here").cure == ""
+
+
+def test_the_anchor_check_runs_the_installed_module_and_never_the_repository_it_diagnoses(
+    home, repo, monkeypatch
+):
+    """The hole a review opened in this check, kept shut.
+
+    `python -m` puts the child's working directory on `sys.path`, and the working directory
+    here is somebody's repository. So a repository containing a top-level `ai_engineering/`
+    package had its own `cli.py` executed by `ai-eng doctor` — and could print a well-formed
+    anchor footer to make the assertion that runs it report ok. The reviewer planted exactly
+    that and watched it work: the marker file was written and assertion 11 went green.
+
+    `PYTHONSAFEPATH` removes the implicit path entry, so the module that answers is the one
+    that is installed. This test is the plant, and it must find nothing.
+    """
+
+    planted = repo / "ai_engineering"
+    planted.mkdir()
+    marker = repo / "the-plant-ran"
+    (planted / "__init__.py").write_text("", encoding="utf-8")
+    (planted / "cli.py").write_text(
+        "from pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text('executed', encoding='utf-8')\n"
+        "print('Ai-Eng-Anchor: repo/machine seq=1 head=0123456789ab')\n"
+        "print('ai-engineering 9.9.9')\n",
+        encoding="utf-8",
+    )
+
+    # The child needs a real package to answer with, and inside the mutation sandbox there
+    # is none on its path. Naming it explicitly leaves the subject exactly where it was:
+    # the plant is in the working directory, and `PYTHONSAFEPATH` is what keeps it out.
+    monkeypatch.setenv("PYTHONPATH", os.environ.get("AI_ENG_REAL_SRC") or str(ROOT / "src"))
+
+    answered = doctor._run_anchor(repo, ["--version"])
+    assert not marker.exists(), "the repository being diagnosed executed its own code"
+    assert answered.returncode == 0
+    assert "ai-engineering" in answered.stdout
+    assert "9.9.9" not in answered.stdout
+
+    # And the flag is what does it, stated where somebody would otherwise remove it.
+    assert "PYTHONSAFEPATH" in (ROOT / "src" / "ai_engineering" / "doctor.py").read_text(
+        encoding="utf-8"
+    )
+    assert "PYTHONSAFEPATH" in (ROOT / "src" / "ai_engineering" / "wiring.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_a_router_somebody_edited_or_removed_is_reported_and_never_repaired(
+    home, repo, tmp_path, monkeypatch
+):
+    """Assertion 24. A router is a file this installer wrote into somebody's home, so it owes
+    the same answer as everything else it wrote: is it there, and is it ours.
+
+    Reported and not repaired. `--fix` rewriting a file a person deleted would be the
+    installer overruling them, and this check has no cure that runs unattended for exactly
+    that reason — the cure it names is a command a person chooses to type."""
+
+    from ai_engineering import wiring
+
+    commands = tmp_path / "commands"
+    surface = {"id": "invented", "commands": str(commands), "skills": ""}
+    # Declared in the table, because the check builds the path it opens from the table and
+    # takes only a file name from the receipt. A surface nobody declared has no router root,
+    # which is the point: the recorded string is never used as a path.
+    monkeypatch.setattr(wiring, "table", lambda: {"surface": [surface]})
+    written = wiring.install_routers([surface])
+    wiring.record(written)
+
+    assert doctor.routers_intact(repo) is None
+
+    Path(written[0]["path"]).unlink()
+    Path(written[1]["path"]).write_text("mine now\n", encoding="utf-8")
+    said = doctor.routers_intact(repo)
+
+    assert isinstance(said, tuple)
+    assert "1 removed" in said[0] and "1 edited" in said[0]
+    assert str(len(written)) in said[0]
+
+
+def test_a_machine_with_no_router_says_it_could_not_evaluate_rather_than_ok(home, repo):
+    """Seven of the eight surfaces declare no command root, so most machines have no router
+    at all. Nothing written is not the same as nothing wrong, and an ok here would be a pass
+    over a question nobody asked."""
+
+    with pytest.raises(doctor.Undecidable):
+        doctor.routers_intact(repo)
+
+
+def test_a_receipt_pointing_somewhere_else_is_reported_and_never_opened(
+    home, repo, tmp_path, monkeypatch
+):
+    """The path SonarCloud called a BLOCKER, bounded rather than argued away.
+
+    Assertion 24 reads a path out of the machine receipt and hashes whatever it finds there.
+    The receipt is a file on disk, so somebody who can rewrite it could point the check at
+    any file on the machine and learn whether its digest matched — an oracle. "They are
+    already inside" is true and is the argument that ends with a check nobody bounded.
+
+    Two conditions leave only what the installer's own naming produces, and neither can be
+    satisfied by editing the receipt alone: the entry has to be `ai-<something>.md`, and it
+    has to be a regular file rather than a link to one."""
+    from ai_engineering import wiring
+
+    commands = tmp_path / "commands"
+    surface = {"id": "invented", "commands": str(commands), "skills": ""}
+    monkeypatch.setattr(wiring, "table", lambda: {"surface": [surface]})
+    written = wiring.install_routers([surface])
+    wiring.record(written)
+    assert doctor.routers_intact(repo) is None
+
+    secret = tmp_path / "id_rsa"
+    secret.write_text("a private key\n", encoding="utf-8")
+    wiring.record([{"path": str(secret), "kind": "router", "how": "generated deadbeef"}])
+
+    said = doctor.routers_intact(repo)
+    assert isinstance(said, tuple)
+    assert "outside" in said[0] and "id_rsa" in said[0]
+
+    # And a link wearing a router's name is refused for the same reason.
+    link = commands / "ai-linked.md"
+    link.symlink_to(secret)
+    wiring.record([{"path": str(link), "kind": "router", "how": "generated deadbeef"}])
+    again = doctor.routers_intact(repo)
+    assert isinstance(again, tuple) and "ai-linked.md" in again[0]

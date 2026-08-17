@@ -4,6 +4,109 @@ Rule 4 of `AGENTS.md`: there are no compatibility shims here, so every hard rena
 every hard delete is written down in this file, in the words somebody upgrading would
 search for.
 
+## [Unreleased]
+
+### Breaking changes
+
+- `redact` is gone from `[observability]` in `.ai/config.toml`, and the exporter always
+  redacts. It accepted `"strict"` and `"none"`, and `"none"` sent every field outside the
+  two allow-lists to the collector verbatim — free text, guard reasons, whatever a payload
+  happened to carry. A configuration value that disables a privacy control is a control
+  whoever runs the exporter can switch off, and nothing downstream could tell a machine
+  that had redacted from one that had been told not to. What changes for you: **if your pin
+  says `redact = "none"`, that line now does nothing and your exports are redacted.** The
+  key is simply ignored rather than rejected, so nothing breaks on upgrade; delete it when
+  convenient. Recorded as D-014-08 in `specs/014-security-baseline-no-false-pass`.
+
+- `policy/surfaces.toml` has no `proven` column. It was a field somebody typed, and
+  OpenCode's row said `true` with no denial ever executed there — so `ai-eng doctor`'s
+  coverage line printed "a denial has executed here" on the strength of it. The word is now
+  read from that surface's enforcement receipt under `.ai/receipts/surface`, and the table
+  has no way to assert it. What changes for you: **every surface that can deny reads
+  `UNPROVEN` until a denial is receipted on it**, including ones that deny perfectly
+  well today. The two instruction-only surfaces still read `ADVISES`, which is what
+  they always were. Nothing lost a
+  capability; the claim lost its evidence. A repository carrying a hand-written
+  `surfaces.toml` with that field keeps working — the field is ignored, and it is ignored
+  rather than honoured on purpose.
+
+- The repository owner delegated approval of this wave's records, in the session that
+  closed P0, in these words: "Cierra el P0 automáticamente rellenando tú lo que haga falta.
+  Arregla eso también porque debe ser siempre automático." Recorded here because MADRs
+  0005, 0006 and 0007 name this entry as the reference for their approval, and an approval
+  reference that points at nothing a reader can open is not a reference. The role recorded
+  in those three records is `repository owner`; no model supplied it, and the schema refuses
+  a role that names an agent or a reviewer for exactly that reason.
+
+- The guard that used to be `hooks/design_gate.py` is now `hooks/change_scope_guard.py`.
+  Nothing answers to the old path: if you referred to it in a settings file, a script or a
+  document, that line now points at a file that is not there, and a hook whose file is
+  missing does not run. The old name said "design" for a check that has never looked at a
+  design — it counts how many files a change touches and stops one that has outgrown its
+  plan. The name it had sent people looking for a design document that does not exist. The
+  operator-facing setting is still spelled `design_budget`, so that one line does not move
+  under you; it will be renamed in its own release, and this file will say so.
+
+- `ai-eng plan` is now `ai-eng exception`, and `src/ai_engineering/plan.py` is gone,
+  replaced by `src/ai_engineering/exception.py`. The verb never planned anything. It asks a
+  person at a keyboard to grant one fifteen-minute bypass of a flow guard, which is an
+  exception to the rules and not a plan for anything. It was also the word printed at
+  somebody every time a guard denied them, which meant the product's own error messages
+  advertised a verb that did something else.
+
+- `ai-eng digest` is now `ai-eng report digest`, and `src/ai_engineering/digest.py` is gone,
+  replaced by `src/ai_engineering/report.py`. `ai-eng report issue` joins it. The old verb
+  did one thing and had a name that promised a category, and the second thing it was going
+  to have to do had nowhere to live.
+
+- `ai-eng decide --adr` is now `ai-eng decide --madr`. It writes the same file in the same
+  place. The record it writes is a Structured MADR — a specific documented format with
+  required fields — and calling the flag `--adr` invited the loose kind, which is prose
+  with a heading. There is no alias: the old spelling is refused, so a script that passes
+  it stops rather than silently deciding nothing.
+
+- An accepted risk is no longer a block of text inside a spec. It is published as one file
+  at `specs/NNN-slug/acceptance-r-NNN-NN/record.json`, created by a rename that fails if
+  something is already there, and never rewritten afterwards. `spec.md` is not opened for
+  writing at all any more. The blocks written by earlier versions are still read, exactly as
+  they were written, and are never altered in place: renewing one publishes a new record and
+  leaves the old text alone. What changed for you: accepting a risk no longer edits a file
+  you are also editing, and two acceptances racing each other can no longer overwrite one
+  another, because the second rename loses instead of winning.
+
+- `ai-eng doctor` reports the eight production-ready boxes and how old the proof of each
+  one is. It reads a declaration you commit at `.ai/readiness.json` and one receipt per box
+  under `.ai/receipts`, and a box with no receipt, a stale receipt or a receipt that does not
+  match what you declared reads `INCOMPLETE` — unproven, which is not the same as passed and
+  is never shown as green. The receipts are this machine's and stay ignored; the declaration
+  is reviewed, and `ai-eng doctor` fails a repository that has receipts and has not committed
+  one. Nothing here is gated on it yet; doctor tells you, and does not decide whether
+  anything gets a URL.
+
+- If this repository was set up by an earlier release, its `.ai/.gitignore` ignores
+  everything under `.ai/` except three names, and the readiness declaration is not one of
+  them — so a declaration written there is dropped by `git add -A` without a word. Add
+  `!readiness.json` to `.ai/.gitignore` and commit it. There is no command that does this
+  for you: that file is written once when a project is set up and deliberately never
+  rewritten, because rewriting it is how a tuned ignore file gets reset under somebody.
+  `ai-eng doctor` names the line to add when it finds receipts without a declaration.
+
+- Three things that used to carry on now stop. The installer refuses to write git's
+  configuration when the command line tool it is about to point git at cannot be run — a
+  wired repository whose hooks resolve to nothing is worse than an unwired one, because it
+  looks configured. `ai-eng uninstall` ends `INCOMPLETE` and lists what it could not place,
+  instead of exiting 0 with guards still wired. And the release workflow refuses to publish
+  a tag whose commit `origin/main` does not contain, so a tag pushed from any branch can no
+  longer ship code the default branch never held. This is the direction the whole framework
+  fails in: a guard that cannot decide fails closed, and only telemetry fails open.
+
+- `ai-eng doctor` and the installer now run their own command line tool with `PYTHONSAFEPATH`
+  set. Without it, Python puts the current directory at the front of its import path, so a
+  repository that happens to contain a folder named `ai_engineering` had *its* copy executed
+  by the check that was supposed to be diagnosing it — and could print whatever answer it
+  liked. If you keep a package by that name in a repository, the diagnosis now reads the
+  installed product instead of yours.
+
 ## 1.0.0 — 2026-08-10
 
 ### Breaking changes

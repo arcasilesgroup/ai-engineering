@@ -19,7 +19,16 @@ from types import SimpleNamespace
 
 import pytest
 
-from ai_engineering import __version__, cli, contract, digest, paths, plan, text
+from ai_engineering import (
+    __version__,
+    cli,
+    contract,
+    exception,
+    outcome,
+    paths,
+    text,
+)
+from ai_engineering import report as report_command
 
 TODAY = date.today().isoformat()
 
@@ -39,20 +48,22 @@ def test_an_event_with_no_timestamp_is_outside_every_window():
     """An event with no date is not evidence of anything happening this week. Read as the
     word "None" it sorts after every real date, so it would be counted forever."""
     undated = {"name": "a", "cls": "blocked", "session": "s", "data": {}}
-    assert digest.within([undated, _event("b", "blocked")], 7) == [_event("b", "blocked")]
+    assert report_command.within([undated, _event("b", "blocked")], 7) == [_event("b", "blocked")]
 
 
 def test_a_blocked_event_that_carries_no_reason_still_gets_a_line():
     """Older events, and guards that deny without a sentence, have no reason field. If
     reading them raises, one malformed event deletes the entire week's report."""
-    counted = digest.by_reason([_event("loop_guard", "blocked")], "blocked")
+    counted = report_command.by_reason([_event("loop_guard", "blocked")], "blocked")
     assert dict(counted) == {"loop_guard — ": 1}
 
 
 def test_a_very_long_reason_is_cut_at_seventy_characters():
     """The reason is a guard's whole denial message. Untrimmed it wraps the terminal and
     the counts stop lining up, so the cut is part of the report, not an accident."""
-    counted = digest.by_reason([_event("loop_guard", "blocked", reason="r" * 90)], "blocked")
+    counted = report_command.by_reason(
+        [_event("loop_guard", "blocked", reason="r" * 90)], "blocked"
+    )
     assert list(counted) == ["loop_guard — " + "r" * 70]
 
 
@@ -61,7 +72,7 @@ def test_the_same_name_with_two_different_reasons_is_not_the_same_judgement():
     verdicts from one guard are two judgements, and merging them invents a rule that is
     owed a script when nothing repeated at all."""
     events = [_event("loop_guard", "blocked", reason=reason) for reason in ("first", "second")] * 2
-    assert digest.repeats(events) == []
+    assert report_command.repeats(events) == []
 
 
 def test_three_denials_with_no_reason_are_still_three_of_the_same_thing():
@@ -69,7 +80,7 @@ def test_three_denials_with_no_reason_are_still_three_of_the_same_thing():
     anything other than nothing either crashes the report or prints a placeholder into
     the row somebody is asked to act on."""
     bare = {"name": "loop_guard", "cls": "blocked", "ts": TODAY, "session": "s"}
-    assert digest.repeats([bare] * 3) == [
+    assert report_command.repeats([bare] * 3) == [
         "    loop_guard ·  3× same verdict each time → owed a script"
     ]
 
@@ -78,7 +89,7 @@ def test_the_reason_in_a_repeat_row_is_cut_at_fifty_characters():
     """The row has to fit on one line beside its count, so the reason is trimmed shorter
     here than in the blocked list. A row that runs past the count is a row nobody reads."""
     events = [_event("loop_guard", "blocked", reason="r" * 80)] * 3
-    assert digest.repeats(events) == [
+    assert report_command.repeats(events) == [
         f"    loop_guard · {'r' * 50} 3× same verdict each time → owed a script"
     ]
 
@@ -113,11 +124,14 @@ def report(tmp_path, monkeypatch, capsys):
         state.asked.append(("coverage", passed))
         return state.coverage
 
-    monkeypatch.setattr(digest.doctor, "events", events)
-    monkeypatch.setattr(digest.doctor, "coverage", coverage)
+    monkeypatch.setattr(report_command.doctor, "events", events)
+    monkeypatch.setattr(report_command.doctor, "coverage", coverage)
 
     def run(*argv):
-        assert digest.main(list(argv)) == 0
+        execution = report_command.main(["digest", *argv])
+        assert type(execution) is outcome.Execution
+        assert execution.result == outcome.result("PASS")
+        assert execution.checks and execution.changes[0].status == "APPLIED"
         return capsys.readouterr().out.splitlines()
 
     state.run = run
@@ -158,11 +172,11 @@ def test_two_weeks_means_fourteen_days_and_not_a_day_more(report):
 
 
 def test_the_help_names_the_command_it_is_help_for(capsys):
-    """`ai-eng digest --help` reached through the verb table has to say which verb it is
-    describing; argparse otherwise names whatever binary started the process."""
+    """`ai-eng report digest --help` reached through the verb table names the command it
+    is describing; argparse otherwise names whatever binary started the process."""
     with pytest.raises(SystemExit):
-        digest.main(["--help"])
-    assert capsys.readouterr().out.startswith("usage: ai-eng digest")
+        report_command.main(["digest", "--help"])
+    assert capsys.readouterr().out.startswith("usage: ai-eng report digest")
 
 
 def test_a_week_with_nothing_in_it_says_which_two_things_that_could_mean(report):
@@ -175,7 +189,10 @@ def test_a_week_with_nothing_in_it_says_which_two_things_that_could_mean(report)
     assert "    assertion 7 is what tells the two apart." in printed
     assert "  Bypassed 0 times." in printed
     assert "  Quiet controls — no real block this window; liveness is assertion 7's job:" in printed
-    assert "    injection_guard, loop_guard, design_gate, no_verify_guard, self_protect" in printed
+    assert (
+        "    injection_guard, loop_guard, change_scope_guard, no_verify_guard, self_protect"
+        in printed
+    )
     assert "  Commands: none" in printed
     assert "  Errors: 0" in printed
 
@@ -183,7 +200,7 @@ def test_a_week_with_nothing_in_it_says_which_two_things_that_could_mean(report)
 def test_a_control_that_blocked_this_week_is_not_listed_as_quiet(report):
     """The quiet list is the liveness reading. A guard that fired and is still named
     there tells the reader to go looking for a fault that is not present."""
-    report.events = [_event("design_gate", "blocked", reason="no plan")]
+    report.events = [_event("change_scope_guard", "blocked", reason="no plan")]
     assert "    injection_guard, loop_guard, no_verify_guard, self_protect" in report.run()
 
 
@@ -244,12 +261,15 @@ def test_two_repeated_judgements_are_two_separate_rows(report):
     """Rule 12's list is read one line at a time and acted on one line at a time. Rows
     run together on a single line are rows that cannot be acted on."""
     report.events = [_event("loop_guard", "blocked", reason="a loop")] * 3 + [
-        _event("design_gate", "bypassed", reason="shipping late")
+        _event("change_scope_guard", "bypassed", reason="shipping late")
     ] * 3
     printed = report.run()
     assert "  Rule 12 — the same judgement, three times or more:" in printed
     assert "    loop_guard · a loop 3× same verdict each time → owed a script" in printed
-    assert "    design_gate · shipping late 3× same verdict each time → owed a script" in printed
+    assert (
+        "    change_scope_guard · shipping late 3× same verdict each time → owed a script"
+        in printed
+    )
 
 
 def test_a_configured_sink_that_is_receiving_nothing_says_so(report, monkeypatch):
@@ -355,16 +375,22 @@ def test_with_no_arguments_the_table_reads_the_real_command_line(monkeypatch, ca
 def test_the_flags_after_the_verb_reach_the_verb(recorded, monkeypatch):
     """The table splits the verb from its flags. Split one word too far along, every
     flagged command loses its first flag and the verb fails on arguments the user gave."""
-    monkeypatch.setattr(plan, "main", lambda argv: 0 if argv == ["--skip", "late"] else 9)
-    assert cli.main(["plan", "--skip", "late"]) == 0
+    monkeypatch.setattr(
+        exception,
+        "main",
+        lambda argv: (
+            outcome.result("PASS") if argv == ["--skip", "late"] else outcome.result("FAIL")
+        ),
+    )
+    assert cli.main(["exception", "--skip", "late"]) == 0
 
 
 def test_a_verb_that_fails_fails_the_whole_command(recorded, monkeypatch):
     """A non-zero exit is how a script calling `ai-eng` learns a gate said no. Collapsed
     to zero, every caller believes the gate passed."""
-    monkeypatch.setattr(plan, "main", lambda argv: 3)
-    assert cli.main(["plan"]) == 3
-    assert recorded[0][2]["exit"] == 3
+    monkeypatch.setattr(exception, "main", lambda argv: outcome.result("FAIL"))
+    assert cli.main(["exception"]) == 1
+    assert recorded[0][2]["exit"] == 1
 
 
 def test_an_interrupted_command_says_nothing_was_written(recorded, monkeypatch, capsys):
@@ -375,18 +401,28 @@ def test_an_interrupted_command_says_nothing_was_written(recorded, monkeypatch, 
     def stop(argv):
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(plan, "main", stop)
-    assert cli.main(["plan"]) == 130
-    assert capsys.readouterr().err == "\ninterrupted; nothing was written.\n"
+    monkeypatch.setattr(exception, "main", stop)
+    assert cli.main(["exception"]) == 130
+    # The will and the counted stages precede it now; what matters is that the last thing a
+    # person is told is what happened to their data, and that the count stopped where the
+    # run stopped rather than reporting a stage that never ran.
+    said = capsys.readouterr().err
+    assert said.endswith("\ninterrupted; nothing was written.\n")
+    assert "will  record one design exception, at a keyboard" in said
+    assert "RUNNING 2/4  run it: exception" in said
+    # The count says where the run reached, not how long the list is. An interrupted run
+    # never reported an outcome, so it performed three of four stages and says so.
+    assert "RUNNING 3/4  record the command" in said
+    assert "RUNNING 4/4" not in said
 
 
 def test_the_verb_that_ran_is_the_name_on_the_event(recorded, monkeypatch):
     """The digest groups by name. An event recorded under no name at all cannot be
     grouped, so the week's command counts silently lose the verb."""
-    monkeypatch.setattr(plan, "main", lambda argv: 0)
-    assert cli.main(["plan"]) == 0
-    assert [(name, cls) for name, cls, _ in recorded] == [("plan", "command")]
-    assert recorded[0][2]["verb"] == "plan"
+    monkeypatch.setattr(exception, "main", lambda argv: outcome.result("PASS"))
+    assert cli.main(["exception"]) == 0
+    assert [(name, cls) for name, cls, _ in recorded] == [("exception", "command")]
+    assert recorded[0][2]["verb"] == "exception"
 
 
 def test_the_verb_that_blew_up_is_the_name_on_the_error(recorded, monkeypatch):
@@ -396,11 +432,17 @@ def test_the_verb_that_blew_up_is_the_name_on_the_error(recorded, monkeypatch):
     def boom(argv):
         raise RuntimeError("nothing was written")
 
-    monkeypatch.setattr(plan, "main", boom)
-    with pytest.raises(RuntimeError):
-        cli.main(["plan"])
-    assert [(name, cls) for name, cls, _ in recorded] == [("plan", "error")]
+    monkeypatch.setattr(exception, "main", boom)
+    assert cli.main(["exception"]) == 1
+    # Two events now, and the second one is the point: a crashed run used to leave the
+    # error and no `command` line at all, because the traceback took the process out
+    # before the dispatcher could record what had run and with what exit code.
+    assert [(name, cls) for name, cls, _ in recorded] == [
+        ("exception", "error"),
+        ("exception", "command"),
+    ]
     assert "nothing was written" in recorded[0][2]["error"]
+    assert recorded[1][2]["exit"] == 1
 
 
 def test_how_long_the_verb_took_is_recorded_in_milliseconds(recorded, monkeypatch):
@@ -408,8 +450,8 @@ def test_how_long_the_verb_took_is_recorded_in_milliseconds(recorded, monkeypatc
     wrong unit every command reads as instant and nothing ever looks slow."""
     ticks = iter([2.0, 4.0])
     monkeypatch.setattr(cli, "time", SimpleNamespace(perf_counter=lambda: next(ticks)))
-    monkeypatch.setattr(plan, "main", lambda argv: 0)
-    assert cli.main(["plan"]) == 0
+    monkeypatch.setattr(exception, "main", lambda argv: outcome.result("PASS"))
+    assert cli.main(["exception"]) == 0
     assert recorded[0][2]["ms"] == 2000
 
 

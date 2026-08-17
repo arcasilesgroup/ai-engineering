@@ -298,7 +298,8 @@ def test_no_project_sets_up_the_machine_and_leaves_the_repository_alone(repo, ca
     the machine and nothing else is to answer a question, so a repair with nobody in the
     room would set up whatever repository the person happened to be standing in — writing
     four instruction files and a workflow into a tree that never asked for any of them."""
-    assert init.main(["--global", "--harness", "claude-code", "--no-project", "-y"]) == 0
+    result = init.main(["--global", "--harness", "claude-code", "--no-project", "-y"])
+    assert result.outcome == "PASS"
     assert {p.name for p in repo.iterdir()} == {".git"}
     assert "◇ Project" not in capsys.readouterr().err
 
@@ -323,8 +324,9 @@ def test_the_dry_run_surveys_every_surface_marks_the_found_one_and_writes_nothin
     # nothing here is in a position to make it.
     assert "   VS Code Copilot    —                          wired by name only\n" in text
     assert "\n◇ Global\n" in text
+    shipped = len(list(paths.skills().glob("ai-*")))
     assert (
-        f"   Writes 8 skills into {paths.home() / 'skills'}, symlinks from the roots above,"
+        f"   Writes {shipped} skills into {paths.home() / 'skills'}, symlinks from the roots above,"
     ) in text
     assert "   → skipped.\n" in text
     assert not wiring.receipt_path().exists()
@@ -393,6 +395,33 @@ def test_unattended_and_piped_runs_never_reach_the_widget(home, tty, typed, caps
     assert not wiring.receipt_path().exists()
 
 
+def test_both_skill_counts_are_counted_rather_than_typed(home, capsys, no_keyboard, monkeypatch):
+    """The literal `8` that `already`'s docstring says was removed, in the two lines beside
+    it that still had it.
+
+    A number written into a sentence is a fact about the wheel that shipped the sentence and
+    not about the machine reading it, and this repository's own audit counted that shape
+    twenty times. So the wheel is stood in for with three skills: a count that is read says
+    three, and a count that is typed says eight on a machine where eight is wrong.
+
+    Both lines are here on purpose. They are computed from different things — the first from
+    what the wheel carries, before anything is written, and the second from what landed in
+    the store — because a plan and a receipt that read the same variable cannot disagree,
+    and disagreeing is the whole job of the second one."""
+    shipped = home / "wheel-skills"
+    for name in ("ai-spec", "ai-plan", "ai-review"):
+        (shipped / name).mkdir(parents=True)
+        (shipped / name / "SKILL.md").write_text("---\nname: x\n---\n", encoding="utf-8")
+    monkeypatch.setattr(paths, "skills", lambda: shipped)
+    (home / ".claude").mkdir()
+
+    init.global_step(init.parse(["--global", "--dry-run"]))
+    assert f"   Writes 3 skills into {paths.home() / 'skills'}" in capsys.readouterr().err
+
+    init.global_step(init.parse(["--global", "-y"]))
+    assert f"   ✓ 3 skills   → {paths.home() / 'skills'}/ai-*/\n" in capsys.readouterr().err
+
+
 def test_the_machine_setup_reports_the_skills_every_link_and_each_guard_entry(
     home, capsys, no_keyboard
 ):
@@ -402,7 +431,11 @@ def test_the_machine_setup_reports_the_skills_every_link_and_each_guard_entry(
     (home / ".codex").mkdir()
     init.global_step(init.parse(["--global", "-y"]))
     text = capsys.readouterr().err
-    assert f"   ✓ 8 skills   → {paths.home() / 'skills'}/ai-*/\n" in text
+    installed = len(list((paths.home() / "skills").glob("ai-*")))
+    # Whitespace-normalised: the label is padded to a column, so a two-digit count moves the
+    # arrow one place left. What this row is about is the number and the destination.
+    squeezed = re.sub(r"[ ]+", " ", text)
+    assert f"✓ {installed} skills → {paths.home() / 'skills'}/ai-*/\n" in squeezed
     found = {s["skills"] for s in wiring.detect() if s.get("skills")}
     assert found == {"~/.claude/skills", "~/.agents/skills"}
     for root in sorted(found):
@@ -527,14 +560,12 @@ def test_an_empty_list_asks_nothing_at_all(tty, no_keyboard, capsys):
 # ── project_step ────────────────────────────────────────────────────────────────────
 
 
-def test_outside_a_git_repository_dash_y_creates_nothing_and_succeeds(tmp_path, home, capsys):
-    """Catches a plain directory being treated as a failure, which would break `ai-eng
-    init` for somebody who only wanted the machine set up — and catches the git init offer
-    defaulting to yes under -y, which would create a repository in whatever directory the
-    person happened to be standing in."""
+def test_outside_a_git_repository_dash_y_creates_nothing_and_is_incomplete(tmp_path, home, capsys):
+    """An explicitly named non-repository stays untouched and cannot claim completion."""
     plain = tmp_path / "plain"
     plain.mkdir()
-    assert init.project_step(init.parse(["--project", str(plain), "-y"])) == 0
+    result = init.project_step(init.parse(["--project", str(plain), "-y"]))
+    assert result.outcome == "INCOMPLETE"
     assert capsys.readouterr().err == (
         f"\n◇ Project   {plain}   not a git repository\n"
         "   → skipped. There is nothing to set up outside a repository.\n"
@@ -549,7 +580,8 @@ def test_a_directory_that_is_not_a_repository_is_offered_one(tmp_path, home, tty
     plain = tmp_path / "plain"
     plain.mkdir()
     typed.replies.append("y")
-    assert init.project_step(init.parse(["--project", str(plain)])) == 0
+    result = init.project_step(init.parse(["--project", str(plain)]))
+    assert result.outcome == "PASS"
     assert typed.prompts[0] == "◆ Run `git init` here? (y/N) › "
     assert (plain / ".git").is_dir()
     assert f"   ✓ git init   → {plain}\n" in capsys.readouterr().err
@@ -579,7 +611,8 @@ def test_the_git_init_offer_is_declined_without_a_person(tmp_path, home, no_keyb
     the same way: nothing created."""
     plain = tmp_path / "plain"
     plain.mkdir()
-    assert init.project_step(init.parse(["--project", str(plain), *argv])) == 0, why
+    result = init.project_step(init.parse(["--project", str(plain), *argv]))
+    assert result.outcome == "INCOMPLETE", why
     assert not (plain / ".git").exists()
 
 
@@ -592,7 +625,8 @@ def test_with_no_project_flag_outside_a_repository_it_names_the_directory_you_ar
     plain = tmp_path / "plain"
     plain.mkdir()
     monkeypatch.chdir(plain)
-    assert init.project_step(init.parse(["-y"])) == 0
+    result = init.project_step(init.parse(["-y"]))
+    assert result.outcome == "READY"
     assert f"\n◇ Project   {plain}   not a git repository\n" in capsys.readouterr().err
 
 
@@ -627,7 +661,8 @@ def test_a_project_path_that_is_not_a_directory_is_not_offered_a_repository(
     into a traceback in front of somebody who mistyped a path."""
     a_file = tmp_path / "notadir"
     a_file.write_text("I am a file\n", encoding="utf-8")
-    assert init.project_step(init.parse(["--project", str(a_file)])) == 0
+    result = init.project_step(init.parse(["--project", str(a_file)]))
+    assert result.outcome == "INCOMPLETE"
     assert "   → skipped. There is nothing to set up outside a repository.\n" in (
         capsys.readouterr().err
     )
@@ -639,7 +674,8 @@ def test_pressing_enter_at_the_git_init_offer_creates_nothing(tmp_path, home, tt
     cannot be undone by reading a backup."""
     plain = tmp_path / "plain"
     plain.mkdir()
-    assert init.project_step(init.parse(["--project", str(plain)])) == 0
+    result = init.project_step(init.parse(["--project", str(plain)]))
+    assert result.outcome == "INCOMPLETE"
     assert not (plain / ".git").exists()
     assert "   → skipped. There is nothing to set up outside a repository.\n" in (
         capsys.readouterr().err
@@ -653,7 +689,8 @@ def test_with_no_project_flag_it_looks_at_the_directory_you_are_standing_in(
     reports every repository as "not a git repository"."""
     monkeypatch.chdir(repo)
     typed.replies.append("n")
-    assert init.project_step(init.parse([])) == 0
+    result = init.project_step(init.parse([]))
+    assert result.outcome == "READY"
     assert f"\n◇ Project   {repo}   git repository, not set up\n" in capsys.readouterr().err
 
 
@@ -663,7 +700,8 @@ def test_a_repository_that_is_already_pinned_is_left_alone(repo, monkeypatch, ca
     (repo / ".ai").mkdir()
     (repo / ".ai" / "config.toml").write_text("already mine\n", encoding="utf-8")
     monkeypatch.chdir(repo)
-    assert init.project_step(init.parse([])) == 0
+    result = init.project_step(init.parse([]))
+    assert result.outcome == "READY"
     assert capsys.readouterr().err == (
         "  Project ready — .ai/config.toml, spec chain wired\n\n"
         "  Nothing to do. `ai-eng doctor` for the full check.\n"
@@ -676,7 +714,8 @@ def test_naming_the_project_explicitly_runs_the_setup_over_an_existing_pin(repo,
     the only way to repair a half-written install."""
     (repo / ".ai").mkdir()
     (repo / ".ai" / "config.toml").write_text("stale\n", encoding="utf-8")
-    assert init.project_step(init.parse(["--project", str(repo)])) == 0
+    result = init.project_step(init.parse(["--project", str(repo)]))
+    assert result.outcome == "PASS"
     text = capsys.readouterr().err
     assert "   git repository, not set up\n" in text
     assert (repo / "CLAUDE.md").exists(), "the rest of the setup did not run"
@@ -698,7 +737,7 @@ def test_the_pin_is_never_rewritten_because_update_is_the_verb_that_changes_it(r
     assert (repo / ".ai" / "config.toml").read_text() == mine
     assert [p for p in (repo / ".ai").iterdir() if ".bak-" in p.name] == []
     text = capsys.readouterr().err
-    assert "   ✓ .ai/.gitignore · specs/\n" in text
+    assert "   ✓ .ai/.gitignore · specs/.gitkeep\n" in text
     assert (
         "     .ai/config.toml was already here and is untouched. `ai-eng update` is the "
         "only verb that changes the pin.\n"
@@ -721,7 +760,8 @@ def test_saying_no_to_the_project_writes_nothing_and_says_so(repo, monkeypatch, 
     reassurance that nothing was written going missing."""
     monkeypatch.chdir(repo)
     typed.replies.append("n")
-    assert init.project_step(init.parse([])) == 0
+    result = init.project_step(init.parse([]))
+    assert result.outcome == "READY"
     assert typed.prompts == ["◆ Set up this project too? (Y/n) › "]
     assert "   → skipped. Nothing was written.\n" in capsys.readouterr().err
     assert not (repo / ".ai").exists()
@@ -733,14 +773,15 @@ def test_the_project_setup_writes_the_pin_the_ignore_file_and_specs_under_those_
 ):
     """Catches a file landing under a different name than the one reported — a pin that
     `doctor` and every later command then cannot find."""
-    assert init.project_step(init.parse(["--project", str(repo)])) == 0
+    result = init.project_step(init.parse(["--project", str(repo)]))
+    assert result.outcome == "PASS"
     assert ".ai" in {p.name for p in repo.iterdir()}
     assert "specs" in {p.name for p in repo.iterdir()}
     assert {p.name for p in (repo / ".ai").iterdir()} == {"config.toml", ".gitignore"}
     assert {p.name for p in (repo / "specs").iterdir()} == {".gitkeep"}
     assert (repo / ".ai" / ".gitignore").read_text() == skeletons.AI_GITIGNORE
     assert f'version = "{__version__}"' in (repo / ".ai" / "config.toml").read_text()
-    assert "   ✓ .ai/config.toml · .ai/.gitignore · specs/\n" in capsys.readouterr().err
+    assert "   ✓ .ai/config.toml · .ai/.gitignore · specs/.gitkeep\n" in capsys.readouterr().err
 
 
 def test_each_offered_file_is_written_with_the_description_the_user_was_shown(
@@ -766,7 +807,8 @@ def test_running_the_project_setup_twice_changes_nothing_and_still_succeeds(
     """Catches the second run crashing on a directory that is already there — the
     installer promises it is safe to run a thousand times."""
     init.project_step(init.parse(["--project", str(repo)]))
-    assert init.project_step(init.parse(["--project", str(repo)])) == 0
+    result = init.project_step(init.parse(["--project", str(repo)]))
+    assert result.outcome == "PASS"
 
 
 def test_files_that_are_already_there_are_named_and_left_as_they_are(repo, capsys, no_keyboard):
@@ -921,7 +963,8 @@ def test_the_ci_workflow_is_written_rather_than_pasted_and_nothing_goes_to_stdou
     this product asked a person to install by hand, and so the one step of an install that
     nothing afterwards could verify. It is a file now, written into a directory this creates
     if it has to, and stdout is empty because there is no longer anything to redirect."""
-    assert init.project_step(init.parse(["--project", str(repo)])) == 0
+    result = init.project_step(init.parse(["--project", str(repo)]))
+    assert result.outcome == "PASS"
     caught = capsys.readouterr()
     assert caught.out == ""
     assert "Paste these lines" not in caught.err
@@ -933,11 +976,12 @@ def test_the_ci_workflow_is_written_rather_than_pasted_and_nothing_goes_to_stdou
 
 def test_a_project_dry_run_prints_the_plan_and_writes_no_file(repo, capsys, no_keyboard):
     """Catches --dry-run writing anyway, which is the one promise a preview makes."""
-    assert init.project_step(init.parse(["--project", str(repo), "--dry-run"])) == 0
+    result = init.project_step(init.parse(["--project", str(repo), "--dry-run"]))
+    assert result.outcome == "WOULD_CHANGE"
     assert not (repo / ".ai").exists()
     assert not (repo / "specs").exists()
     assert not (repo / "CLAUDE.md").exists()
-    assert "   · .ai/config.toml · .ai/.gitignore · specs/\n" in capsys.readouterr().err
+    assert "   · .ai/config.toml · .ai/.gitignore · specs/.gitkeep\n" in capsys.readouterr().err
 
 
 def test_a_dry_run_never_says_anything_was_written(repo, capsys, no_keyboard):
@@ -961,7 +1005,7 @@ def test_a_dry_run_over_an_empty_repository_prints_the_checklist_it_promises(
     those are exactly the lines the flag used to suppress on the write side only."""
     init.project_step(init.parse(["--project", str(repo), "--dry-run"]))
     text = capsys.readouterr().err
-    assert "   · .ai/config.toml · .ai/.gitignore · specs/\n" in text
+    assert "   · .ai/config.toml · .ai/.gitignore · specs/.gitkeep\n" in text
     assert f"   · core.hooksPath → {paths.git_hooks()}\n" in text
     for name, (becomes, _) in init.OFFERS.items():
         assert f"   · {name} would be created ({becomes})\n" in text
@@ -1081,11 +1125,53 @@ def test_what_is_still_on_a_person_reaches_the_last_screen(repo, capsys, no_keyb
 # ── main ────────────────────────────────────────────────────────────────────────────
 
 
-def test_main_runs_the_machine_step_then_the_project_step_and_returns_its_code(
+def test_main_runs_the_machine_step_then_the_project_step_and_returns_incomplete_intent(
     repo, capsys, no_keyboard
 ):
-    """Catches main losing the project step's exit code, which is what CI reads."""
-    assert init.main(["--no-global", "--project", str(repo)]) == 0
+    """The install runs, but missing user-owned Intent cannot become a green result."""
+    result = init.main(["--no-global", "--project", str(repo)])
+    assert result.outcome == "INCOMPLETE"
     text = capsys.readouterr().err
     assert "\n◇ Project" in text
     assert "\n◇ Global" not in text
+
+
+def test_init_can_be_run_twice_on_a_machine_it_already_set_up(home, monkeypatch):
+    """The front door only opened once. `init` writes the skills into the application home
+    and symlinks each surface root at *that*, then its own safety check compares those
+    symlinks against `paths.skills()` — the source tree in a checkout, site-packages in a
+    wheel. Neither can ever equal the store `init` just created, so every second run on
+    every machine returned `_global_paths_safe() is False`.
+
+    What that looks like to a person: `ai-eng init` prints `INCOMPLETE — The framework
+    cannot decide or prove the claim`, with no surface table, no reason and no cure. It was
+    measured on the operator's own machine minutes after a successful install, on the exact
+    command that had worked.
+
+    A guard that fails closed for the wrong reason and says nothing is the failure this
+    product exists to cure, sitting in the only verb that installs it."""
+
+    store = paths.home() / "skills"
+    store.mkdir(parents=True)
+    surfaces = home / ".config" / "opencode" / "skills"
+    surfaces.mkdir(parents=True)
+    for source in paths.skills().glob("ai-*"):
+        (store / source.name).mkdir(exist_ok=True)
+        (surfaces / source.name).symlink_to(store / source.name)
+
+    args = init.parse(["--global", "--no-project", "--harness", "opencode", "--dry-run"])
+    monkeypatch.setattr(
+        init.wiring,
+        "detect",
+        lambda only=None: [
+            {"id": "opencode", "settings": "", "writer": "ts_opencode", "skills": str(surfaces)}
+        ],
+    )
+    monkeypatch.setattr(
+        init,
+        "_receipt_state",
+        lambda: {"wrote": [{"path": str(store), "kind": "skills", "how": "wheel"}]},
+    )
+    assert init._global_paths_safe(args), (
+        "a machine this verb installed itself cannot be one it refuses to look at"
+    )

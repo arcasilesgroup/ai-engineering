@@ -21,11 +21,11 @@ just --list                # muestra las tareas de desarrollo
 | `uv run ai-eng update [--to VERSION] [--force]` | Migra el pin del proyecto de forma interactiva. `--force` **solo informa** qué se descartaría; nunca sobrescribe cambios locales. |
 | `uv run ai-eng spec new SLUG [--ref owner/repo#45]` | Crea `specs/NNN-slug/spec.md`; `--ref` solo anota el work item en el frontmatter y no rellena nada. |
 | `uv run ai-eng spec list [--all]` · `uv run ai-eng spec show ID` | Lista especificaciones o muestra una; `--all` incluye las reemplazadas. |
-| `uv run ai-eng decide "DECISIÓN" [--why "MOTIVO"] [--adr] [--supersede NNNN]` · `uv run ai-eng decide --list` | Guarda una decisión en la spec más nueva o crea/lista un ADR en `docs/adr/`. |
+| `uv run ai-eng decide "DECISIÓN" [--why "MOTIVO"] [--madr] [--supersede NNNN]` · `uv run ai-eng decide --list` · `uv run ai-eng decide --accept NNNN` | Guarda una decisión en la spec más nueva o crea/lista un ADR en `docs/adr/`. `--accept` saca un MADR de `proposed` tomando la autoridad del Solution Intent aprobado; no la inventa ni la vuelve a pedir, y si el Intent no valida o sigue en borrador no concede nada. El commit lo haces tú. |
 | `uv run ai-eng accept --finding ID --expires AAAA-MM-DD --by PERSONA --justification TEXTO [--severity NIVEL] [--follow-up TEXTO] [--spec ID]` · `uv run ai-eng accept --expired` | Registra un riesgo con dueño y caducidad, o lista los ya caducados. Las cuatro primeras son obligatorias: una aceptación sin nombre y sin razón no es una aceptación. |
 | `uv run ai-eng audit [verify\|replay] [--anchors] [--session ID] [--anchor]` | Verifica o reproduce la cadena de auditoría. `--anchors` coteja Git; `--anchor` es para el hook `commit-msg`. |
-| `uv run ai-eng digest [--weeks N]` | Resume sesiones, bloqueos, bypasses, errores y cobertura del periodo; marca el resumen como leído. |
-| `uv run ai-eng plan --skip "MOTIVO" [--guard design_gate\|loop_guard]` | Con confirmación humana, concede **un** bypass durante 15 minutos y lo registra. No funciona sin terminal interactiva. |
+| `uv run ai-eng report digest [--weeks N]` | Resume sesiones, bloqueos, bypasses, errores y cobertura del periodo; marca el resumen como leído. `ai-eng report issue` existe como subcomando pero devuelve `INCOMPLETE`: no está implementado en P0 y no envía nada. |
+| `uv run ai-eng exception --skip "MOTIVO" [--guard change_scope_guard\|loop_guard]` | Con confirmación humana, concede **un** bypass durante 15 minutos y lo registra. No funciona sin terminal interactiva. |
 | `uv run ai-eng uninstall [--project] [-y]` | Quita lo instalado según el recibo, e imprime una línea por fila: lo que quita y, para lo que conserva, por qué. Sin `--project` no entra en ningún repositorio y los nombra. Conserva siempre `specs/`, `CONSTITUTION.md`, `AGENTS.md`, `docs/adr/` y el registro externo. |
 | `uv run ai-eng --version` · `uv run ai-eng <comando> --help` | Muestra la versión o todas las opciones reales de un comando. |
 
@@ -56,7 +56,7 @@ just --list                # muestra las tareas de desarrollo
 | Automático | Qué hace |
 |---|---|
 | `git-hooks/` | `pre-commit` busca secretos; `commit-msg` valida el asunto y añade el ancla; `pre-push` bloquea ramas protegidas, secretos salientes y riesgos caducados. |
-| `hooks/chain.py` | Despacha `self_protect`, `no_verify_guard`, `injection_guard`, `loop_guard`, `design_gate`, `autoformat` y `session`; no se ejecutan a mano. |
+| `hooks/chain.py` | Despacha `self_protect`, `no_verify_guard`, `injection_guard`, `loop_guard`, `change_scope_guard`, `autoformat` y `session`; no se ejecutan a mano. |
 | `hooks/_emit.py`, `_otlp.py`, `_wrap.py` | Mantienen el registro, exportan OTLP y definen el comportamiento fail-closed/fail-open; son auxiliares internos. |
 | `tests/test_*.py` · `surfaces/opencode.ts` | Pytest recoge los tests y OpenCode carga su plugin. |
 | `.agents/skills/ai-*` | El agente invoca `ai-debug`, `ai-explore`, `ai-note`, `ai-plan`, `ai-research`, `ai-review`, `ai-ship` y `ai-spec`; no son comandos del shell. |

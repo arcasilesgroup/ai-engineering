@@ -1,0 +1,719 @@
+"""The eight production-ready boxes, ticked only by receipts that were executed.
+
+The spec's rule is that nothing gets a URL until every box is ticked by observed
+evidence. This suite holds the reader to it from both sides: eight fresh executed
+receipts read PASS, and every way a box can fail to be proven reads something other
+than PASS — missing, stale, mismatched, undeclared, or belonging to another box.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+from datetime import UTC, datetime, timedelta, timezone
+from hashlib import sha256
+from pathlib import Path
+from typing import Any
+
+from ai_engineering import evidence, outcome, readiness
+
+ROOT = Path(__file__).parents[1]
+SPEC = ROOT / "specs" / "010-governed-agentic-engineering-foundation" / "spec.md"
+NOW = datetime(2026, 3, 4, 12, 0, 0, tzinfo=UTC)
+
+
+def _adversarial():
+    """The runner as the suite runs it — by path, because it is a script and not a
+    package, and importing it any other way would test a copy."""
+
+    loaded = importlib.util.spec_from_file_location(
+        "adversarial_run", ROOT / "tests" / "adversarial" / "run.py"
+    )
+    module = importlib.util.module_from_spec(loaded)
+    loaded.loader.exec_module(module)
+    return module
+
+
+def _digest(text: str) -> str:
+    return "sha256:" + sha256(text.encode()).hexdigest()
+
+
+def _declared(box: readiness.Box) -> dict[str, Any]:
+    """What a repository must state about a box before any receipt can tick it."""
+
+    declared: dict[str, Any] = {
+        "applicability": "applicable",
+        "command": f"just {box.id}",
+        "tool_version": "1.2.3",
+        "input_digest": _digest(f"input {box.id}"),
+        "artifact_digest": _digest(f"artifact {box.id}"),
+        "max_age_seconds": 86_400,
+    }
+    if box.kind == "external":
+        declared.update(
+            {
+                "test_id": "external-check-1",
+                "owner_role": "release-manager",
+                "protocol_id": "uptime-probe",
+                "protocol_version": "2",
+                "environment_id": "production",
+                "environment_version": "2026-03",
+                "receipt_digest": _digest("external receipt"),
+                "independent_path": "status-page",
+                "limits": "checks the public endpoint only, every 60 seconds",
+            }
+        )
+    return declared
+
+
+def _receipt(box: readiness.Box, declared: dict[str, Any], *, finished: datetime) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "schema": "urn:ai-engineering:check-evidence:1",
+        "schema_version": "1",
+        "kind": box.kind,
+        "id": box.id,
+        "started_at": (finished - timedelta(seconds=30)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "finished_at": finished.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "outcome": "PASS",
+    }
+    record.update(declared)
+    if box.kind in {"human", "external"}:
+        record["observation_date"] = finished.astimezone(UTC).date().isoformat()
+    return record
+
+
+def _repository(
+    tmp_path: Path,
+    *,
+    declarations: dict[str, dict[str, Any]] | None = None,
+    finished: dict[str, datetime] | None = None,
+    written: dict[str, dict[str, Any]] | None = None,
+    omitted: frozenset[str] = frozenset(),
+    now: datetime = NOW,
+) -> Path:
+    """A repository whose eight boxes are declared and receipted, minus what a control
+    deliberately removes or replaces."""
+
+    root = tmp_path / "repository"
+    receipts = root / readiness.RECEIPTS
+    receipts.mkdir(parents=True)
+    declarations = declarations or {}
+    finished = finished or {}
+    written = written or {}
+    boxes = {}
+    for box in readiness.BOXES:
+        if box.id in omitted:
+            continue
+        declared = declarations.get(box.id, _declared(box))
+        boxes[box.id] = declared
+        fresh = finished.get(box.id, now - timedelta(hours=1))
+        receipt = written.get(box.id, _receipt(box, declared, finished=fresh))
+        if receipt is not None:
+            (receipts / f"{box.id}.json").write_text(json.dumps(receipt), encoding="utf-8")
+    (root / readiness.DECLARATION).write_text(
+        json.dumps(
+            {"schema": readiness.SCHEMA, "schema_version": readiness.VERSION, "boxes": boxes}
+        ),
+        encoding="utf-8",
+    )
+    return root
+
+
+def _codes(report: readiness.Readiness) -> dict[str, str]:
+    return {box.id: box.code for box in report.boxes}
+
+
+def test_readiness_requires_eight_executable_fresh_receipts_and_negative_controls(tmp_path):
+    labels = [
+        line.split(" — ", 1)[0].removeprefix("- [ ] ").strip()
+        for line in SPEC.read_text(encoding="utf-8").splitlines()
+        if line.startswith("- [ ] ") and " — " in line
+    ]
+    production_ready = labels[-8:]
+    assert [box.label for box in readiness.BOXES] == production_ready
+    assert len(readiness.BOXES) == 8
+    assert len({box.id for box in readiness.BOXES}) == 8
+
+    proven = readiness.read(_repository(tmp_path / "proven"), now=NOW)
+    assert proven.result.outcome == "PASS"
+    assert set(_codes(proven).values()) == {evidence.VERIFIED}
+    assert all(box.age_seconds == 3_600 for box in proven.boxes)
+
+    unreceipted = _repository(tmp_path / "missing", written={"security": None})
+    missing = readiness.read(unreceipted, now=NOW)
+    assert missing.result.outcome == "INCOMPLETE"
+    assert _codes(missing)["security"] == evidence.MISSING
+    assert missing.age_of("security") is None
+
+    stale = readiness.read(
+        _repository(tmp_path / "stale", finished={"logs": NOW - timedelta(days=3)}), now=NOW
+    )
+    assert stale.result.outcome == "INCOMPLETE"
+    assert _codes(stale)["logs"] == evidence.STALE
+
+    box = next(entry for entry in readiness.BOXES if entry.id == "ci_cd")
+    failed = _receipt(box, _declared(box), finished=NOW - timedelta(hours=1)) | {"outcome": "FAIL"}
+    executed = readiness.read(_repository(tmp_path / "failed", written={"ci_cd": failed}), now=NOW)
+    assert executed.result.outcome == "FAIL"
+    assert _codes(executed)["ci_cd"] == evidence.EXECUTED_FAIL
+
+    borrowed = _receipt(box, _declared(box), finished=NOW - timedelta(hours=1)) | {"id": "logs"}
+    lent = readiness.read(_repository(tmp_path / "borrowed", written={"ci_cd": borrowed}), now=NOW)
+    assert lent.result.outcome == "INCOMPLETE"
+    assert _codes(lent)["ci_cd"] == evidence.REQUIREMENT_MISMATCH
+
+    tampered = _receipt(box, _declared(box) | {"artifact_digest": _digest("other")}, finished=NOW)
+    swap = _repository(tmp_path / "swapped", written={"ci_cd": tampered})
+    swapped = readiness.read(swap, now=NOW)
+    assert swapped.result.outcome == "INCOMPLETE"
+    assert _codes(swapped)["ci_cd"] == evidence.DIGEST_MISMATCH
+
+    undeclared = readiness.read(
+        _repository(tmp_path / "undeclared", omitted=frozenset({"traces"})), now=NOW
+    )
+    assert undeclared.result.outcome == "INCOMPLETE"
+    assert undeclared.code == readiness.BOXES_MISMATCH
+    assert undeclared.boxes == ()
+
+    extra = _repository(tmp_path / "extra")
+    declaration = json.loads((extra / readiness.DECLARATION).read_text(encoding="utf-8"))
+    declaration["boxes"]["marketing"] = _declared(box)
+    (extra / readiness.DECLARATION).write_text(json.dumps(declaration), encoding="utf-8")
+    invented = readiness.read(extra, now=NOW)
+    assert invented.result.outcome == "INCOMPLETE"
+    assert invented.code == readiness.BOXES_MISMATCH
+
+    absent = readiness.read(tmp_path / "nothing", now=NOW)
+    assert absent.result.outcome == "INCOMPLETE"
+    assert absent.code == readiness.DECLARATION_MISSING
+    assert absent.boxes == ()
+
+    unreadable = tmp_path / "unreadable"
+    (unreadable / readiness.RECEIPTS).mkdir(parents=True)
+    (unreadable / readiness.DECLARATION).write_text("{not json", encoding="utf-8")
+    assert readiness.read(unreadable, now=NOW).code == readiness.DECLARATION_MALFORMED
+
+    hopless = _declared(box) | {"applicability": "not_applicable", "reason": "one hop, no trace"}
+    traces = next(entry for entry in readiness.BOXES if entry.id == "traces")
+    unhopped = _repository(
+        tmp_path / "unhopped",
+        declarations={"traces": hopless},
+        written={"traces": _receipt(traces, hopless, finished=NOW - timedelta(hours=1))},
+    )
+    excused = readiness.read(unhopped, now=NOW)
+    assert excused.result.outcome == "PASS"
+    assert _codes(excused)["traces"] == evidence.NOT_APPLICABLE
+
+    here = readiness.read(ROOT, now=datetime.now(UTC))
+    assert here.result.outcome != "PASS"
+
+
+def _receipts(root: Path) -> dict[str, dict[str, Any]]:
+    return {
+        path.stem: json.loads(path.read_text(encoding="utf-8"))
+        for path in sorted((root / readiness.RECEIPTS).glob("*.json"))
+    }
+
+
+def _canonical(value: Any) -> str:
+    canonical = json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return "sha256:" + sha256(canonical.encode()).hexdigest()
+
+
+def test_adversarial_runner_records_denials_and_clean_control(tmp_path, monkeypatch):
+    monkeypatch.setenv("AI_ENGINEERING_HOME", str(tmp_path / "home"))
+    adversarial = _adversarial()
+    caught, version = adversarial.probe(["git", "--version"])
+    assert caught and version.startswith("git version ")
+    absent, nothing = adversarial.probe([str(tmp_path / "no-such-tool"), "--version"])
+    assert (absent, nothing) == (False, "")
+
+    def outcomes(attack: bool, control: bool) -> dict[str, tuple[str, str, Any]]:
+        # The middle field is which guard a control is clean *for*. Thirteen attacks used
+        # to share one control, and five of the nine guards were not in its fixtures at
+        # all, so a guard that started firing on ordinary input was caught only if it
+        # happened to fire on a control somebody wrote for a different guard.
+        return {
+            "injection · file": ("injection_guard", "", lambda tmp: attack),
+            "negative control": ("none", "injection_guard", lambda tmp: control),
+        }
+
+    def run(root: Path, attack: bool, control: bool) -> tuple[int, dict[str, dict[str, Any]]]:
+        monkeypatch.setattr(adversarial, "CASES", outcomes(attack, control))
+        return adversarial.main(root=root), _receipts(root)
+
+    exit_code, written = run(tmp_path / "green", True, True)
+    assert exit_code == 0
+    assert set(written) == {
+        "adversarial-attacks",
+        "adversarial-control",
+        "local-command-git",
+        "local-command-python",
+    }
+    assert written["local-command-git"]["tool_version"] == version
+    assert {receipt["outcome"] for receipt in written.values()} == {"PASS"}
+
+    inputs = adversarial.inputs_digest()
+    for name, record in written.items():
+        expected = evidence.Expectation(
+            kind="automated",
+            id=name,
+            applicability="applicable",
+            command=record["command"],
+            tool_version=record["tool_version"],
+            input_digest=inputs,
+            artifact_digest=record["artifact_digest"],
+            max_age_seconds=adversarial.RECEIPT_MAX_AGE,
+        )
+        verified = evidence.verify(record, expected=expected, now=datetime.now(UTC))
+        assert verified.code == evidence.VERIFIED, (name, verified.code)
+
+    assert written["adversarial-attacks"]["artifact_digest"] == _canonical(
+        {"cases": {"injection · file": True}, "guards": {"injection_guard": True}}
+    )
+    assert written["adversarial-control"]["artifact_digest"] == _canonical(
+        {"cases": {"negative control": True}}
+    )
+
+    missed_code, missed = run(tmp_path / "missed", False, True)
+    assert missed_code == 1
+    assert missed["adversarial-attacks"]["outcome"] == "FAIL"
+    assert missed["adversarial-control"]["outcome"] == "PASS"
+
+    fired_code, fired = run(tmp_path / "fired", True, False)
+    assert fired_code == 1
+    assert fired["adversarial-control"]["outcome"] == "FAIL"
+    assert fired["adversarial-attacks"]["outcome"] == "PASS"
+
+    serialized = json.dumps([_receipts(tmp_path / name) for name in ("green", "missed", "fired")])
+    assert str(Path.home()) not in serialized
+    assert str(tmp_path) not in serialized
+
+
+def test_doctor_json_includes_readiness_receipt_status_and_age(tmp_path, monkeypatch):
+    from ai_engineering import doctor, paths
+
+    proven = _repository(tmp_path / "proven")
+    facts = {fact.id: fact for fact in doctor.readiness_facts(proven, now=NOW)}
+    assert set(facts) == {"readiness", *(f"readiness-{box.id}" for box in readiness.BOXES)}
+    assert facts["readiness"].status == "PASS"
+    assert facts["readiness"].detail == evidence.VERIFIED
+    for box in readiness.BOXES:
+        entry = facts[f"readiness-{box.id}"]
+        assert entry.status == "PASS"
+        assert entry.summary == box.label
+        assert entry.detail == f"{evidence.VERIFIED} · 3600s old"
+
+    unreceipted = _repository(tmp_path / "missing", written={"security": None})
+    absent = {fact.id: fact for fact in doctor.readiness_facts(unreceipted, now=NOW)}
+    assert absent["readiness"].status == "INCOMPLETE"
+    assert absent["readiness-security"].status == "INCOMPLETE"
+    assert absent["readiness-security"].detail == f"{evidence.MISSING} · no receipt to age"
+    assert absent["readiness-logs"].status == "PASS"
+
+    undeclared = {fact.id: fact for fact in doctor.readiness_facts(tmp_path / "empty", now=NOW)}
+    assert set(undeclared) == {"readiness"}
+    assert undeclared["readiness"].status == "INCOMPLETE"
+    assert undeclared["readiness"].detail == readiness.DECLARATION_MISSING
+
+    # Nothing here has a URL, so nothing here may report a ticked box.
+    assert doctor.readiness_facts(ROOT, now=datetime.now(UTC))[0].status != "PASS"
+
+    live = _repository(tmp_path / "live", now=datetime.now(UTC))
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: live)
+    monkeypatch.setattr(doctor, "CHECKS", set())
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: [])
+    reported = doctor.main([])
+    # `checks` is the list cli.main serializes into the JSON envelope, one fact per entry.
+    published = {fact.id: fact.as_dict() for fact in reported.checks}
+    assert published["readiness"]["status"] == "PASS"
+    assert published["readiness-external_check"]["summary"] == "External check"
+    # Reported, not gated: giving something a URL is not this verb's decision to make.
+    assert reported.result.outcome == "PASS"
+
+
+def test_receipts_without_a_committed_declaration_are_a_repository_finding(tmp_path, monkeypatch):
+    """The receipts are this machine's and are ignored. The requirement they are measured
+    against is reviewed, so a repository holding one and not the other is a repository
+    where the same hand wrote the question and the answer."""
+
+    from ai_engineering import doctor
+
+    root = tmp_path / "repository"
+    receipts = root / readiness.RECEIPTS
+    receipts.mkdir(parents=True)
+    committed = [".ai/.gitignore", ".ai/intent.md"]
+    monkeypatch.setattr(doctor, "tracked_files", lambda where: committed)
+
+    # The folder is where every check-evidence receipt this machine writes lives, and the
+    # adversarial suite puts four of its own in it. Its existence proves nothing, and
+    # keying on it made running that suite red this assertion with nothing to repair.
+    (receipts / "adversarial-attacks.json").write_text("{}", encoding="utf-8")
+    assert doctor.polarity(root) is None
+
+    (receipts / "security.json").write_text("{}", encoding="utf-8")
+    reported = doctor.polarity(root) or ""
+    assert f"{readiness.DECLARATION} is not committed" in reported
+    # And it names the line to add, because no verb performs this one: the managed
+    # ignore file is written once and never rewritten, so every repository set up by an
+    # earlier release drops this declaration on `git add -A` with nothing said.
+    assert "!readiness.json to .ai/.gitignore" in reported
+
+    committed.append(readiness.DECLARATION)
+    assert doctor.polarity(root) is None
+
+
+def test_nothing_linked_on_the_way_and_no_duplicate_key_decides_a_box(tmp_path):
+    """Three ways a reader can be told one thing while a person reads another."""
+
+    import os
+
+    import pytest
+
+    linked = _repository(tmp_path / "linked")
+    elsewhere = tmp_path / "elsewhere"
+    (linked / ".ai").rename(elsewhere)
+    try:
+        os.symlink(elsewhere, linked / ".ai", target_is_directory=True)
+    except (NotImplementedError, OSError):
+        pytest.skip("this platform does not let this user create a symlink")
+    redirected = readiness.read(linked, now=NOW)
+    assert redirected.result.outcome == "INCOMPLETE"
+    assert redirected.code == readiness.DECLARATION_MALFORMED
+
+    doubled = _repository(tmp_path / "doubled")
+    body = (doubled / readiness.DECLARATION).read_text(encoding="utf-8")
+    exempt = json.dumps(_declared(next(b for b in readiness.BOXES if b.id == "security")))
+    doubled_body = body.replace('"boxes": {', f'"boxes": {{"security": {exempt},', 1)
+    (doubled / readiness.DECLARATION).write_text(doubled_body, encoding="utf-8")
+    twice = readiness.read(doubled, now=NOW)
+    assert twice.result.outcome == "INCOMPLETE"
+    assert twice.code == readiness.DECLARATION_MALFORMED
+
+    ahead = _repository(tmp_path / "ahead", finished={"logs": NOW + timedelta(days=365)})
+    future = readiness.read(ahead, now=NOW)
+    assert future.result.outcome == "INCOMPLETE"
+    assert future.age_of("logs") is None
+
+
+def test_a_repository_cannot_declare_its_way_out_of_freshness(tmp_path):
+    """The receipt schema bounds the freshness window below and not above, so without this
+    a declaration could allow a year of slack and a receipt from any date would verify.
+    Freshness stops meaning anything the moment the thing being judged picks the window."""
+
+    box = next(entry for entry in readiness.BOXES if entry.id == "ci_cd")
+    loose = _declared(box) | {"max_age_seconds": readiness.MAX_AGE_CEILING + 1}
+    ancient = datetime(2000, 1, 1, tzinfo=UTC)
+    root = _repository(
+        tmp_path / "loose",
+        declarations={"ci_cd": loose},
+        written={"ci_cd": _receipt(box, loose, finished=ancient)},
+    )
+    slack = readiness.read(root, now=NOW)
+    assert slack.result.outcome == "INCOMPLETE"
+    assert _codes(slack)["ci_cd"] == readiness.FRESHNESS_TOO_LOOSE
+
+    at_the_ceiling = _declared(box) | {"max_age_seconds": readiness.MAX_AGE_CEILING}
+    allowed = _repository(
+        tmp_path / "ceiling",
+        declarations={"ci_cd": at_the_ceiling},
+        written={"ci_cd": _receipt(box, at_the_ceiling, finished=NOW - timedelta(hours=1))},
+    )
+    assert readiness.read(allowed, now=NOW).result.outcome == "PASS"
+
+
+def test_doctor_fails_when_a_boxs_own_check_ran_and_failed(tmp_path, monkeypatch):
+    """Unproven is reported and does not move the verdict. A check that ran and failed is
+    decided, and a verdict that reads PASS over a printed FAIL is the same green nobody
+    earned, told slowly."""
+
+    from ai_engineering import doctor, paths
+
+    box = next(entry for entry in readiness.BOXES if entry.id == "security")
+    declared = _declared(box)
+    now = datetime.now(UTC)
+    broken = _receipt(box, declared, finished=now - timedelta(hours=1)) | {"outcome": "FAIL"}
+    root = _repository(tmp_path / "failing", written={"security": broken}, now=now)
+
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    monkeypatch.setattr(doctor, "CHECKS", set())
+    monkeypatch.setattr(doctor, "coverage", lambda where, **_: [])
+    reported = doctor.main([])
+    assert reported.result.outcome == "FAIL"
+    # Once, and by the box's own name. The aggregate fact restates the worst box, so
+    # counting both had one fault arriving as two things left to do.
+    assert [line for line in reported.remaining if "failed its own check" in line] == [
+        "Security failed its own check"
+    ]
+    published = {fact.id: fact.as_dict() for fact in reported.checks}
+    assert published["readiness-security"]["status"] == "FAIL"
+
+    # And an unproven box still leaves the verdict alone.
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: tmp_path / "nothing-here")
+    assert doctor.main([]).result.outcome == "PASS"
+
+
+def test_a_declaration_of_the_wrong_shape_is_incomplete_and_not_a_traceback(tmp_path):
+    """A quoted number is the likeliest hand-edit in a file people write by hand, and the
+    freshness ceiling compared it to an integer — which left the reader, left doctor, and
+    arrived as a traceback where an INCOMPLETE belonged."""
+
+    box = next(entry for entry in readiness.BOXES if entry.id == "ci_cd")
+    for wrong in ("86400", None, [86_400], {"seconds": 86_400}, True):
+        shaped = _declared(box) | {"max_age_seconds": wrong}
+        root = _repository(
+            tmp_path / f"shaped-{type(wrong).__name__}-{wrong!s:.8}",
+            declarations={"ci_cd": shaped},
+            written={"ci_cd": _receipt(box, shaped, finished=NOW - timedelta(hours=1))},
+        )
+        answered = readiness.read(root, now=NOW)
+        assert answered.result.outcome == "INCOMPLETE", wrong
+        assert _codes(answered)["ci_cd"] != evidence.VERIFIED, wrong
+
+
+def test_the_verdict_row_for_a_failed_box_is_legible(capsys):
+    """The row exists to make a verdict legible, and nothing asserted how it renders.
+
+    Its label sits in a column sixteen wide that pads to exactly that, so a sixteen-
+    character label prints hard against its own count — which is what `production-ready`
+    did, in the one line added to stop a verdict contradicting itself."""
+
+    from ai_engineering import doctor
+
+    doctor.verdict_panel(outcome.result("FAIL"), [], 0, {}, 1)
+    single = capsys.readouterr().out
+    assert "not ready" in single
+    assert "1   production-ready box failed a check that ran" in single
+
+    doctor.verdict_panel(outcome.result("FAIL"), [7], 0, {}, 2)
+    both = capsys.readouterr().out
+    for label in ("not ready", "needs a person"):
+        row = next(line for line in both.splitlines() if label in line)
+        # Two spaces at least, or the label and its number arrive as one word.
+        assert f"{label}  " in row, row
+    assert "2   production-ready boxes failed a check that ran" in both
+
+
+def test_spec_010_004_intent_and_ceiling_transition_atomically():
+    """The candidate's own record, proved statically and with no live receipt.
+
+    Everything this asserts is in the tree right now: the spec's status, the record it
+    supersedes, the three MADRs and the human named in them, the Intent's own transition
+    and the digest it points at, and a ceiling that equals the tree it counts. Nothing here
+    reads a receipt, reaches a network or claims a release — those are separate proofs with
+    separate consent, and a static check that pretended to them would be the green this
+    whole wave exists to refuse."""
+
+    import os
+    import re
+    from hashlib import sha256
+
+    from ai_engineering import contract, intent
+
+    def frontmatter(path: Path) -> dict[str, str]:
+        block = path.read_text(encoding="utf-8").split("---", 2)[1]
+        return dict(
+            (key.strip(), value.strip().strip('"'))
+            for key, _, value in (line.partition(":") for line in block.splitlines())
+            if key.strip()
+        )
+
+    spec = SPEC.read_text(encoding="utf-8")
+    # Draft, and it went back to draft on purpose. The plan reserves `shipped` until the
+    # final candidate proves exact-HEAD receipts from `check.yml` and `install-matrix.yml`,
+    # and the branch has never been pushed, so those runs cannot exist. `doctor` assertion
+    # 19 said so and the audit recorded it as FAILED: a wave marked shipped on receipts
+    # nobody could produce is the green this whole product exists to refuse, and the
+    # repository was doing it to itself. The operator chose the record over the word.
+    assert frontmatter(SPEC)["status"] == "draft"
+    assert frontmatter(SPEC)["supersedes"] == "004"
+    superseded = ROOT / "specs" / "004-solution-intent-home" / "spec.md"
+    assert frontmatter(superseded)["status"] == "superseded"
+
+    # The three records this wave could not close itself, and the human who closed them.
+    for number, slug in (
+        ("0005", "intent-supersedes-0004"),
+        ("0006", "governed-mission"),
+        ("0007", "cli-contract"),
+    ):
+        fields = frontmatter(ROOT / "docs" / "adr" / f"{number}-{slug}.md")
+        assert fields["status"] == "accepted", number
+        for field in ("authority_role", "approval_ref", "approved_at"):
+            assert fields.get(field), (number, field)
+        assert not re.search(r"agent|reviewer", fields["authority_role"], re.IGNORECASE)
+
+    record = json.loads((ROOT / ".ai" / "intent.md").read_text(encoding="utf-8"))
+    lifecycle = record["lifecycle"]
+    assert lifecycle["status"] == "active"
+    assert set(lifecycle["approval"]) == {"authority_role", "approval_ref", "approved_at"}
+    assert [(move["from"], move["to"]) for move in lifecycle["transitions"]] == [
+        ("draft", "active")
+    ]
+    pointed = next(link for link in record["relations"] if link["id"] == "010")
+    assert pointed["target_digest"] == "sha256:" + sha256(spec.encode()).hexdigest()
+    assert intent.validate(ROOT / ".ai" / "intent.md", ROOT).outcome == "PASS"
+
+    # Eight evidence records, one per box, and not one of them claims a receipt.
+    section = spec.split("## Production-ready", 1)[1]
+    recorded = [line for line in section.splitlines() if line.startswith("| ")]
+    assert len(recorded) == 9  # the header and the eight boxes; `|---` is not a row
+    for box, row in zip(readiness.BOXES, recorded[1:], strict=True):
+        assert box.label in row, box.id
+        assert "INCOMPLETE" in row, box.id
+
+    # The candidate closed the ceiling onto the tree it measured, so the next line added
+    # had to be argued for. It has been, more than once by now — a raise is a commit that
+    # argues for itself. What survives the candidate is the pair: the close is on the
+    # record with its number, and the tree is still inside whatever the ceiling now says.
+    budget = (ROOT / "src" / "ai_engineering" / "contract.py").read_text(encoding="utf-8")
+    assert "Measured at the close: 42,579" in budget
+    if not os.environ.get("AI_ENG_REAL_SRC"):
+        # Counting the tree means asking git what it tracks, and the mutation harness runs
+        # the suite in a copied tree with no history. The record above is readable anywhere;
+        # only the count needs a repository, so only the count waits for one.
+        assert contract.repo_lines(ROOT) <= contract.REPO_CEILING
+
+
+def test_every_shape_a_declaration_can_be_wrong_in_is_refused(tmp_path):
+    """The mutation gate measured this module at 76% and named where: the box reader and
+    the two bounded reads it depends on. These are the inputs those branches exist for, and
+    each is a shape a hand-edited file really takes."""
+
+    import os
+    import stat as stat_module
+
+    box = next(entry for entry in readiness.BOXES if entry.id == "ci_cd")
+
+    def declaring(where: str, shape: Any) -> Path:
+        """A repository whose ci_cd box is declared as that exact shape, written after the
+        receipts so a shape the receipt builder cannot read still reaches the reader."""
+
+        root = _repository(tmp_path / where)
+        body = json.loads((root / readiness.DECLARATION).read_text(encoding="utf-8"))
+        body["boxes"]["ci_cd"] = shape
+        (root / readiness.DECLARATION).write_text(json.dumps(body), encoding="utf-8")
+        return root
+
+    # A box whose declaration is not an object at all.
+    for index, wrong in enumerate(("applicable", ["applicable"], 7, None)):
+        answered = readiness.read(declaring(f"shaped-{index}", wrong), now=NOW)
+        assert answered.result.outcome == "INCOMPLETE", wrong
+        assert _codes(answered)["ci_cd"] == readiness.DECLARATION_INVALID, wrong
+
+    # A box declaring a field the requirement has no room for. Kind and identity are this
+    # module's to state, so a declaration that tries to set either collides and is refused.
+    for extra in ({"kind": "human"}, {"id": "logs"}, {"invented": "yes"}):
+        root = declaring(f"extra-{next(iter(extra))}", _declared(box) | extra)
+        assert _codes(readiness.read(root, now=NOW))["ci_cd"] == readiness.DECLARATION_INVALID, (
+            extra
+        )
+
+    # A declaration that is valid JSON and not an object.
+    for index, body in enumerate(("[]", '"active"', "12")):
+        root = _repository(tmp_path / f"json-{index}")
+        (root / readiness.DECLARATION).write_text(body, encoding="utf-8")
+        assert readiness.read(root, now=NOW).code == readiness.DECLARATION_MALFORMED, body
+
+    # A receipt too big to be a receipt, and one that is a directory rather than a file.
+    oversized = _repository(tmp_path / "oversized")
+    (oversized / readiness.RECEIPTS / "logs.json").write_text(
+        " " * (readiness.MAX_BYTES + 1), encoding="utf-8"
+    )
+    assert _codes(readiness.read(oversized, now=NOW))["logs"] == readiness.RECEIPT_UNREADABLE
+
+    shaped = _repository(tmp_path / "not-a-file")
+    (shaped / readiness.RECEIPTS / "logs.json").unlink()
+    (shaped / readiness.RECEIPTS / "logs.json").mkdir()
+    assert _codes(readiness.read(shaped, now=NOW))["logs"] == readiness.RECEIPT_UNREADABLE
+
+    # And a receipt this process is not allowed to read is unreadable, not absent.
+    if os.getuid() != 0:  # pragma: no branch - the suite does not run as root
+        closed = _repository(tmp_path / "closed")
+        receipt = closed / readiness.RECEIPTS / "logs.json"
+        receipt.chmod(0)
+        try:
+            assert _codes(readiness.read(closed, now=NOW))["logs"] == readiness.RECEIPT_UNREADABLE
+        finally:
+            receipt.chmod(stat_module.S_IRUSR | stat_module.S_IWUSR)
+
+
+def test_the_reader_refuses_a_clock_it_cannot_use_and_reports_the_worst_box(tmp_path):
+    """Two things the survivors named: the guard on the clock, and which box the aggregate
+    speaks for. A reader handed a naive datetime cannot say how old anything is, and a
+    repository with one failing box and one unproven one is failing, not unproven."""
+
+    box = next(entry for entry in readiness.BOXES if entry.id == "ci_cd")
+    root = _repository(tmp_path / "clock")
+
+    for unusable in (
+        datetime(2026, 3, 4, 12, 0, 0),  # no timezone at all
+        datetime(2026, 3, 4, 12, 0, 0, tzinfo=timezone(timedelta(hours=2))),
+        "2026-03-04T12:00:00Z",
+        None,
+    ):
+        refused = readiness.read(root, now=unusable)
+        assert refused.result.outcome == "INCOMPLETE", unusable
+        assert refused.code == readiness.TIME_INVALID, unusable
+        assert refused.boxes == ()
+
+    # A decided failure and an unproven box together: the aggregate speaks for the worse of
+    # the two, and INCOMPLETE is not the worse one.
+    failing = _receipt(box, _declared(box), finished=NOW - timedelta(hours=1)) | {"outcome": "FAIL"}
+    mixed = _repository(tmp_path / "mixed", written={"ci_cd": failing, "security": None})
+    report = readiness.read(mixed, now=NOW)
+    assert report.result.outcome == "FAIL"
+    assert report.code == evidence.EXECUTED_FAIL
+    assert _codes(report)["security"] == evidence.MISSING
+
+    # A warning is worse than a pass and better than either of those.
+    warned = _receipt(box, _declared(box), finished=NOW - timedelta(hours=1)) | {"outcome": "WARN"}
+    warning = readiness.read(_repository(tmp_path / "warned", written={"ci_cd": warned}), now=NOW)
+    assert warning.result.outcome == "WARN"
+    assert warning.code == evidence.VERIFIED_WITH_WARNING
+
+    # And a box nobody asked about has no age rather than somebody else's.
+    assert readiness.read(root, now=NOW).age_of("not-a-box") is None
+
+
+def test_the_boxes_are_the_list_of_promises_and_each_one_resolves_to_an_evidence(tmp_path):
+    """EP-065, taken back out of the register that had filed it.
+
+    "One executed evidence per promise" was recorded as a judgement no gate could hold,
+    because nobody had a list of promises and whoever wrote one would also decide the score.
+    Its own reopening condition named the production-ready boxes as that list — and a
+    reviewer pointed out that the condition had fired before the row was written.
+    `readiness.BOXES` is eight rows in code, fixed here rather than configured because which
+    boxes exist is not the consumer's choice, and `_status` ties each one to a receipt with
+    an expectation and an age. Nobody chooses the list and nobody chooses the score.
+
+    That is the failure mode an ungated register has: it becomes somewhere to put work. The
+    row is gone and this is what replaces it — the binding, executed, both ways.
+    """
+    from datetime import UTC, datetime
+
+    from ai_engineering import readiness
+
+    assert len(readiness.BOXES) == 8
+    assert len({box.id for box in readiness.BOXES}) == 8, "a promise is named twice"
+    assert {box.kind for box in readiness.BOXES} == {"automated", "external"}
+
+    # Every box resolves to an answer rather than to silence, and the answer is one of the
+    # words this project allows. A promise whose evidence is missing is INCOMPLETE, which is
+    # what makes the list a claim somebody can check rather than a list of headings.
+    now = datetime.now(UTC)
+    for box in readiness.BOXES:
+        answered = readiness._status(box, {"max_age_seconds": 86_400}, tmp_path, now)
+        assert answered.id == box.id
+        assert answered.outcome in {"PASS", "FAIL", "INCOMPLETE"}
+        assert answered.outcome == "INCOMPLETE", "a box with no receipt cannot be a pass"
+        assert answered.code, f"{box.id} answered without saying why"
+
+    # And the register no longer files it as something no gate can hold.
+    import tomllib
+
+    register = tomllib.loads((ROOT / "policy" / "pilot-register.toml").read_text(encoding="utf-8"))
+    assert "EP-065" not in {str(row["id"]) for row in register.get("ungated", [])}, (
+        "EP-065 is back in the ungated register, and its reopening condition is met by "
+        "readiness.BOXES — an ungated row for work that can be gated is the register "
+        "becoming a place to file things"
+    )

@@ -12,7 +12,10 @@ fires nothing, and lets the commit through without a complaint. It is measured.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import re
 import shutil
 import subprocess
 import sys
@@ -193,7 +196,20 @@ def json_codex(path: Path) -> str:
     matcher, async flag — keyed by source path, group index and handler index. So the
     handler is frozen whole and appended, never reordered: inserting above somebody
     else's entry silently invalidates their trust, and there is a TODO in the vendor's
-    own source about replacing that positional key."""
+    own source about replacing that positional key.
+
+    The keys are `hooks`, `timeout` and `statusMessage`, and they were `handlers`,
+    `timeout_ms` and `status_message` until this was read off the shipped binary rather
+    than off a document. Codex CLI 0.147.0 declares `ConfiguredHookMatcherGroup` with two
+    fields, `matcher` and `hooks`, and an `internally tagged enum HookHandlerConfig` whose
+    fields are `type`, `command`, `commandWindows`, `timeout`, `async`, `statusMessage` and
+    `additionalContextLimit`. The word `handlers` appears in that binary only as Rust
+    module paths. On a machine with Codex installed, every hook another tool had written
+    used the vendor spelling and only ours did not.
+
+    So this entry could not deserialise, and a guard that cannot deserialise is a guard
+    that never ran. It is still unproven: no denial has receipted on this surface, and
+    nothing here claims one has. What changed is that it can now be attempted."""
     data = read_json(path)
     groups = data.setdefault("hooks", {}).setdefault("PreToolUse", [])
     for group in groups:
@@ -201,12 +217,12 @@ def json_codex(path: Path) -> str:
             return f"already present at position {groups.index(group) + 1} of {len(groups)}"
     groups.append(
         {
-            "handlers": [
+            "hooks": [
                 {
                     "type": "command",
                     "command": command("PreToolUse"),
-                    "timeout_ms": 5000,
-                    "status_message": f"{MARK} guards",
+                    "timeout": 5,
+                    "statusMessage": f"{MARK} guards",
                     "async": False,
                 }
             ]
@@ -216,19 +232,39 @@ def json_codex(path: Path) -> str:
     return f"appended, position {len(groups)} of {len(groups)}"
 
 
+def opencode_source() -> str:
+    """The plugin exactly as it is installed, from one definition.
+
+    There were three: this writer, `uninstall`'s reconstruction, and a test's copy. They
+    agreed only by accident of platform, and the moment one was corrected the other two
+    disagreed — `uninstall` compares the installed bytes to its own reconstruction and
+    refuses the *whole* run when they differ, so a fix here removed nothing anywhere.
+
+    Two callers now, not the three an earlier draft of this line claimed: the writer below
+    and `uninstall._opencode_source`. The test still reconstructs independently, which is
+    what a test is for — it would agree with any defect it shared a definition with."""
+
+    source = (paths.surfaces() / "opencode.ts").read_text(encoding="utf-8")
+    for token, value in (
+        ('"__PYTHON__"', sys.executable),
+        ('"__CHAIN__"', str(paths.hooks() / "chain.py")),
+        ('"__BEAT__"', str(paths.home() / "cache" / "opencode-heartbeat")),
+    ):
+        # The quotes go too, and the value is written as a JSON string. Dropping a raw
+        # Windows path inside existing quotes made `C:\Users\me\...` into `C:Usersme...`
+        # — every backslash a TypeScript escape — so the plugin pointed at a path that never
+        # existed. It used to allow silently; once the plugin failed closed it denied
+        # everything instead.
+        source = source.replace(token, json.dumps(value))
+    return source
+
+
 def ts_opencode(path: Path) -> str:
     """One TypeScript file that shells out to the same dispatcher every other surface
     calls. Not weightless: the moment any local plugin exists OpenCode creates a
     lockfile and a ~61 MB node_modules, and the first run pays an install."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    source = (paths.surfaces() / "opencode.ts").read_text(encoding="utf-8")
-    for token, value in (
-        ("__PYTHON__", sys.executable),
-        ("__CHAIN__", str(paths.hooks() / "chain.py")),
-        ("__BEAT__", str(paths.home() / "cache" / "opencode-heartbeat")),
-    ):
-        source = source.replace(token, value)
-    path.write_text(source, encoding="utf-8")
+    path.write_text(opencode_source(), encoding="utf-8")
     return "plugin written"
 
 
@@ -331,6 +367,133 @@ def install_skills(surfaces: list[dict] | None = None) -> list[dict]:
     return written
 
 
+ROUTER = """---
+description: {description}
+---
+
+# {name} · {phase}
+
+{example}
+
+Use the `{name}` skill to handle this request. The canonical skill body lives in the shared
+skills root this framework installed; load it and follow it. Everything after the command
+name is the request, forwarded verbatim.
+
+$ARGUMENTS
+"""
+
+
+def phases() -> dict[str, str]:
+    """Which of the five phases each capability serves, read from the one file that lists
+    all fifteen. A second copy here would be a second answer within a week."""
+
+    try:
+        declared = tomllib.loads(paths.policy("capabilities.toml").read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    return {str(row["id"]): str(row.get("phase", "")) for row in declared.get("capabilities", [])}
+
+
+def example(skill: Path) -> str:
+    """One case the skill must take, in the words somebody would actually type.
+
+    Taken from the labelled corpus beside it rather than written here, so the example a
+    person reads on their surface is one the routing evaluation runs every time the gate
+    does. An example nothing checks is the sentence that goes stale first.
+    """
+
+    corpus = skill / "corpus.md"
+    if not corpus.is_file():
+        return ""
+    section = corpus.read_text(encoding="utf-8").partition("## Routes here")[2]
+    for line in section.partition("\n## ")[0].splitlines():
+        quoted = re.match(r'-\s+"([^"]+)"', line.strip())
+        if quoted:
+            return quoted.group(1)
+    return ""
+
+
+def router_body(name: str, description: str, phase: str = "", case: str = "") -> str:
+    """One router, generated from the skill it routes to.
+
+    A router is a convenience and not a second copy: it names the skill and forwards the
+    request, and every instruction still lives in one `SKILL.md`. A router that restated any
+    of it would be the second normative layer `EP-071` forbids, kept up to date by hand.
+
+    The phase and the example are not a restatement for the same reason the description is
+    not: every one of them is read from a file that already holds it — the manifest and the
+    labelled corpus — and written with a digest beside it. Without them a person meeting the
+    catalogue on their own surface got a wall of commands with no map, which is the thing
+    `EP-135` names, and the map was being printed only where the gate runs.
+    """
+
+    return ROUTER.format(
+        name=name,
+        description=description.strip().replace("\n", " "),
+        phase=phase or "phase not declared",
+        example=f"Say something like: “{case}”" if case else "",
+    )
+
+
+def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
+    """A `/ai-*` command per skill, into the surfaces that declare where those live.
+
+    Generated, hashed and recorded — those three together are what makes this an install
+    rather than a file drop. `how` carries the digest of exactly what was written, so
+    `doctor` can tell a router nobody touched from one somebody edited, and `uninstall` can
+    refuse to remove a file that is no longer the one we wrote.
+
+    Only surfaces with a `commands` root get one, and today that is one of eight. Writing a
+    router into a directory whose convention was guessed at is worse than not writing it:
+    the file lands somewhere a person did not expect, does nothing, and has to be found by
+    hand. The absence is reported by `doctor` rather than filled in by the installer.
+    """
+
+    rows = table()["surface"] if surfaces is None else surfaces
+    written: list[dict] = []
+    placed = phases()
+    for surface in rows:
+        root = surface.get("commands")
+        if not root:
+            continue
+        where = expand(root)
+        where.mkdir(parents=True, exist_ok=True)
+        for skill in sorted(paths.skills().glob("ai-*")):
+            body = router_body(
+                skill.name, _described(skill), placed.get(skill.name, ""), example(skill)
+            )
+            target = where / f"{skill.name}.md"
+            target.write_text(body, encoding="utf-8")
+            digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+            written.append({"path": str(target), "kind": "router", "how": f"generated {digest}"})
+    return written
+
+
+def _described(skill: Path) -> str:
+    """The skill's own description, so the router and the skill cannot disagree.
+
+    Folded, because every one of these is written `description: >-` with the text on the
+    lines below it. Reading only the first line answered with the fold marker and produced a
+    router describing itself by its own name — which is a description that tells a person
+    nothing they did not already have from the command they typed.
+    """
+
+    lines = (skill / "SKILL.md").read_text(encoding="utf-8").splitlines()
+    for index, line in enumerate(lines):
+        if not line.startswith("description:"):
+            continue
+        inline = line.removeprefix("description:").strip()
+        if inline and inline not in (">-", ">", "|", "|-"):
+            return inline
+        folded = []
+        for following in lines[index + 1 :]:
+            if not following.startswith("  "):
+                break
+            folded.append(following.strip())
+        return " ".join(folded) or skill.name
+    return skill.name
+
+
 def install_guards(surfaces: list[dict]) -> list[tuple[str, str, str]]:
     results = []
     for surface in surfaces:
@@ -356,13 +519,56 @@ def prior_hooks_path(root: Path) -> str:
     ).stdout.strip()
 
 
+def anchor_answers() -> subprocess.CompletedProcess[str]:
+    """Ask this interpreter whether it can run the product, and hand back what it said.
+
+    Its own function because it is the one part of wiring that depends on the environment
+    rather than on the repository, and a test about where files land should not turn on
+    whether the interpreter running it happens to have the package importable. It did:
+    inside the mutation harness's sandbox this probe fails, and it took a shipped test on
+    canonical homes down with it, so the mutation gate could not collect a baseline at all.
+
+    `-m` puts the working directory on `sys.path`, so without `PYTHONSAFEPATH` the module
+    that answers is whichever `ai_engineering/` the installer happened to be standing in.
+    A review planted one and watched it satisfy this check."""
+
+    return subprocess.run(
+        [sys.executable, "-m", "ai_engineering.cli", "--version"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+        env={**os.environ, "PYTHONSAFEPATH": "1"},
+    )
+
+
 def wire_git(root: Path) -> str:
     """Repository-scoped, absolute, expanded. A global core.hooksPath would impose our
     commit convention on every foreign clone on the machine, forks included.
 
     ai.eng records which CLI wrote these hooks. `command -v ai-eng` proves a binary exists
     and never that it is this one: an older install on the PATH has no `accept` verb, so
-    pre-push refused every push in the repository it had just been installed into."""
+    pre-push refused every push in the repository it had just been installed into.
+
+    And the anchor is executed before it is written down. A live interpreter with a dead
+    `ai_engineering.cli` — an editable install whose `.pth` points at a deleted worktree,
+    which is the state this machine was actually found in — persists an anchor that looks
+    configured and answers nothing. Every hook that resolves the CLI through it then fails
+    on a repository somebody just installed into. So the command runs first, and none of
+    the three keys is written unless it did."""
+
+    try:
+        proved = anchor_answers()
+    except (OSError, subprocess.SubprocessError) as why:
+        raise Unreadable(
+            f"the CLI this install would record could not be executed: {why.__class__.__name__}"
+        ) from why
+    if proved.returncode != 0 or "ai-engineering" not in proved.stdout:
+        raise Unreadable(
+            "the CLI this install would record did not answer `--version`, so the git anchor "
+            "would name an interpreter that cannot run it"
+        )
+
     rows = (
         ("core.hooksPath", str(paths.git_hooks())),
         ("ai.managed", "true"),

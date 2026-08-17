@@ -1,76 +1,294 @@
-"""A named person accepted this finding until date D, for reason R, against spec S.
+"""An accountable role accepted this finding until date D, for reason R, against spec S.
 
-That artifact is what an engineering lead hands an auditor, and it is the line between
-this product and a bundle of prompts. It expires. Assertion 16 and the pre-push hook
-both read it, so a repository with no CI still expires on push, and two renewals is the
-ceiling — after that the finding gets fixed or the answer changes.
+That artifact is what an engineering lead hands an auditor, and it is the line between this
+product and a bundle of prompts. It expires. Assertion 16 and the pre-push hook both read
+it, so a repository with no CI still expires on push, and two renewals is the ceiling —
+after that the finding gets fixed or the answer changes.
+
+The record is published, never edited in. Earlier versions appended YAML by rewriting the
+whole `spec.md`, and no supported system can rewrite a file conditionally on it still
+holding what you read: Linux `renameat2` has no expected-destination predicate, Apple's
+exclusive rename refuses an existing destination rather than comparing it, and Windows
+`ReplaceFileW` replaces whatever is at the name. So every acceptance is one immutable
+directory published by an exclusive no-replace rename, `spec.md` is never opened for write,
+and a colliding writer loses the race without losing its bytes.
+
+What this command proves and what it does not: it proves that the exact bytes displayed
+were the bytes bound, and that the record became visible atomically at a name nothing
+else held. It does not prove who answered, that the sources stayed current in the
+unobservable window after the last read, that the record survives power loss, or that
+anything stops a repository owner from editing the file afterwards. Git review remains the
+durable history.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
-from datetime import date
-from pathlib import Path
+import stat
+import unicodedata
+from datetime import UTC, date, datetime
+from hashlib import sha256
+from pathlib import Path, PurePosixPath
 
-from ai_engineering import paths, spec, text
+from ai_engineering import (
+    acceptance,
+    acceptance_privacy,
+    outcome,
+    paths,
+    spec,
+    spec_transaction,
+)
 
 MAX_RENEWALS = 2
-SECTION = "## Accepted risks"
+_MAX_EVIDENCE_BYTES = 100_000
+# A role, never a person. Every one of these is somebody nobody can be held to, and an
+# acceptance whose owner cannot be held to anything is a note.
+_DENIED_ROLE_TOKENS = frozenset(
+    {
+        "agent",
+        "assistant",
+        "ai",
+        "bot",
+        "model",
+        "reviewer",
+        "self",
+        "myself",
+        "unknown",
+        "unassigned",
+        "unspecified",
+        "someone",
+        "somebody",
+        "tbd",
+        "todo",
+    }
+)
 
 
-def blocks(root: Path) -> list[tuple[Path, dict]]:
-    """Raises ValueError naming the file when a block cannot be read. Every caller either
-    handles that or lets it become could-not-evaluate — none of them may treat it as
-    nothing found, which is what made a malformed acceptance invisible to the expiry
-    check while the gate reported green over it."""
-    out = []
-    for where in sorted((root / "specs").glob("*/spec.md")) if (root / "specs").exists() else []:
-        name = str(where.relative_to(root)) if where.is_relative_to(root) else str(where)
-        for block in text.yaml_blocks(where.read_text(errors="replace"), name):
-            if "expires" in block and "finding" in block:
-                out.append((where, block))
-    return out
+class _EvidenceProblem(ValueError):
+    pass
 
 
-def renewals_of(block: dict) -> int:
-    """Hand-written blocks are allowed, so the counter can be missing or not a number."""
+def _required(label: str):
+    def parse(value: str) -> str:
+        if not value.strip() or value != value.strip() or any(ord(char) < 0x20 for char in value):
+            raise argparse.ArgumentTypeError(f"{label} must be one explicit value")
+        return value
+
+    return parse
+
+
+def _date(value: str) -> str:
     try:
-        return int(block.get("renewals", 0))
-    except (TypeError, ValueError):
-        return 0
+        if date.fromisoformat(value).isoformat() != value:
+            raise ValueError
+    except (OverflowError, ValueError):
+        raise argparse.ArgumentTypeError("expiry must be one ISO date") from None
+    return value
+
+
+def _evidence_path(value: str) -> str:
+    parts = value.split("/")
+    if (
+        not value
+        or "\\" in value
+        or value.startswith("/")
+        or any(ord(char) < 0x20 for char in value)
+        or any(part in {"", ".", ".."} for part in parts)
+    ):
+        raise argparse.ArgumentTypeError("evidence must be one repository-relative path")
+    return value
 
 
 def expired(root: Path) -> list[dict]:
-    """A renewal retires what it renews. Without this, renewing a finding in a later spec
-    left the expired original in the record as an independent result, so the push gate and
-    assertion 16 both stayed red on it and no renewal ever recorded had retired anything.
-    The highest renewal per finding is the live one; the blocks it replaced are history."""
-    today = date.today().isoformat()
-    live: dict[str, dict] = {}
-    for _, block in blocks(root):
-        seen = live.get(block["finding"])
-        if seen is None or renewals_of(block) >= renewals_of(seen):
-            live[block["finding"]] = block
-    return [block for block in live.values() if str(block.get("expires", "")) < today]
+    """The acceptances past their date, read through the one register there is.
+
+    This used to hold its own YAML parser. Two parsers of the same bytes drift, and the
+    thing they would eventually disagree about is which risks are live — which is what the
+    push gate and assertion 16 block on. `acceptance` is now the only reader; this is the
+    shape those two callers already speak, and the refusal they already handle.
+
+    A renewal retires what it renews, so only the unique head of each chain is judged. An
+    undecidable register raises rather than reporting nothing found, because nothing found
+    is indistinguishable from nothing wrong.
+    """
+
+    register = acceptance.expired(root)
+    if register.outcome != "PASS":
+        raise ValueError(register.reason)
+    return [
+        {
+            "id": entry.id or "?",
+            "finding": entry.finding,
+            "expires": entry.expires,
+            "home": entry.home,
+            "provenance": entry.provenance,
+        }
+        for entry in register.entries
+    ]
 
 
-def add(where: Path, fields: dict) -> None:
-    body = where.read_text(encoding="utf-8")
-    if SECTION not in body:
-        body += f"\n{SECTION}\n"
-    head, tail = body.split(SECTION, 1)
-    with where.open("w", encoding="utf-8") as stream:
-        stream.write(f"{head}{SECTION}\n\n{text.render(fields)}{tail.lstrip()}")
+def denied_role(role: str) -> bool:
+    """Compare the way an attacker would spell it, not the way a policy wishes it were
+    spelled. Compatibility-normalize, case-fold, split on everything that is not a letter or
+    a digit, and reject if any token is one of the denied words."""
+
+    folded = unicodedata.normalize("NFKC", role).casefold()
+    tokens = {token for token in re.split(r"[^0-9a-z]+", folded) if token}
+    return bool(tokens & _DENIED_ROLE_TOKENS)
 
 
-def main(argv: list[str]) -> int:
+# `--non-interactive` lands here rather than in the renderer, because what it changes is
+# consent and not appearance. It is set once by the dispatcher, and every asker reads it.
+NON_INTERACTIVE = False
+DECISION_REQUIRED = "DECISION_REQUIRED: this run was told not to ask, and nothing answered"
+
+
+def _open_terminal():
+    """The controlling-terminal boundary, in one place so it can be seen not to be crossed."""
+
+    return open("CONIN$" if os.name == "nt" else "/dev/tty", encoding="utf-8")
+
+
+def controlling_terminal_response(expected: str) -> bool:
+    """Read one line from the OS controlling terminal and compare it to the exact challenge.
+
+    `isatty`, a flag, an environment value and piped standard input are all things a script
+    can supply, so none of them are read here. What this observes is that matching bytes
+    arrived through the controlling-terminal boundary — not that a particular human was
+    present, and not that they were entitled to the role they claimed. P0 has no proof of
+    either, and no outcome this module returns says otherwise.
+
+    Under `--non-interactive` the answer is no, and the device is never opened. A mode that
+    promises not to ask has to be observable as not asking.
+    """
+
+    if NON_INTERACTIVE:
+        return False
+    try:
+        with _open_terminal() as terminal:
+            answer = terminal.readline()
+    except OSError:
+        # The device name is deliberately not reported: it names a machine.
+        return False
+    return answer.rstrip("\r\n") == expected
+
+
+def _digest_of(root: Path, relative: str, maximum: int) -> str:
+    """The digest of one bounded, anchored read."""
+
+    return "sha256:" + sha256(_anchored_bytes(root, relative, maximum)).hexdigest()
+
+
+def _anchored_bytes(root: Path, relative: str, maximum: int) -> bytes:
+    """One bounded, anchored read of a repository-relative regular file.
+
+    Every read this command performs goes through here. A read that skips it is a read of
+    whatever the path resolves to now, which is not the same thing as a read of a file this
+    repository holds.
+    """
+
+    target = root.joinpath(*PurePosixPath(relative).parts)
+    try:
+        component = root
+        for part in PurePosixPath(relative).parts:
+            component /= part
+            if component.is_symlink():
+                raise _EvidenceProblem("an anchored path component is a symbolic link")
+        value = target.lstat()
+        if not stat.S_ISREG(value.st_mode) or value.st_nlink != 1:
+            raise _EvidenceProblem("an anchored path is not one singly linked regular file")
+        if value.st_dev != root.lstat().st_dev:
+            raise _EvidenceProblem("an anchored path crosses a filesystem boundary")
+        if not 0 < value.st_size <= maximum:
+            raise _EvidenceProblem("an anchored file is empty or exceeds its bound")
+        body = target.read_bytes()
+    except OSError as error:
+        # A path this command cannot even read is a refusal, never a traceback: an
+        # unreadable source has to leave the tree untouched and say so.
+        raise _EvidenceProblem("an anchored file could not be read") from error
+    if len(body) != value.st_size:
+        raise _EvidenceProblem("an anchored file changed while it was read")
+    return body
+
+
+def publish(root: Path, slug: str, record: dict) -> str:
+    """Stage one canonical record and commit it with the native exclusive rename.
+
+    The rename is the only commit point. Once it reports success the record exists and this
+    is a `PASS`; there is no later check that can downgrade that, because a check that could
+    would make a retry overwrite a published decision.
+    """
+
+    body = acceptance.canonical_bytes(record)
+    # Validated against the schema before anything is staged. A record that only the reader
+    # would refuse is worse than one that is never written: it is published, immutable, and
+    # permanently unreadable.
+    acceptance.validate_record(body, f"specs/{slug}/{record['id']}", acceptance.schema())
+    final = "acceptance-" + record["id"].lower()
+    # The lock is the repository's authority file, the same one `spec new` holds, and not
+    # the spec being cited. An authority inside the transaction home would see its own
+    # staging change the directory it lives in and refuse every publication.
+    with spec_transaction.writer(root, ".ai/intent.md", f"specs/{slug}") as writer:
+        inventory = writer.inventory()
+        if final in inventory.names:
+            raise spec_transaction.Collision("that acceptance name is already published")
+        pending = writer.stage(inventory, f"pending-{record['id'].lower()}", "record.json", body)
+        try:
+            # The scanner is a subprocess, so it is handed a pathname and resolves it from
+            # scratch. That is the one read in this command not made through a proved
+            # descriptor: a writer that swaps the home for a link during the scan and swaps
+            # it back gets a clean scan of other bytes. `publish` still re-proves the staged
+            # entry through the home descriptor before committing, so the window ends in a
+            # refusal rather than a wrong record — but it is a window, and it is named here
+            # rather than papered over.
+            scanned = acceptance_privacy.gitleaks_v1(root / "specs" / slug / pending.name)
+            if scanned.outcome != "PASS":
+                raise _Refused(scanned.outcome, scanned.reason)
+            writer.publish(pending, final)
+        except BaseException as failure:
+            # Every way this can fail before the commit point leaves the staged entry
+            # behind, and a leftover `pending-` wedges that ordinal for good: the next
+            # attempt allocates the same name and cannot create it. One exit, one cleanup.
+            try:
+                writer.discard(pending)
+            except spec_transaction.TransactionError as leftover:
+                raise spec_transaction.Unsafe(
+                    f"{failure}; the staged entry {pending.name} could not be removed"
+                ) from leftover
+            raise
+    return f"specs/{slug}/{final}/record.json"
+
+
+class _Refused(Exception):
+    """A privacy check decided against the candidate before anything was published."""
+
+    def __init__(self, verdict: str, reason: str) -> None:
+        self.verdict, self.reason = verdict, reason
+        super().__init__(reason)
+
+
+def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     parser = argparse.ArgumentParser("ai-eng accept")
-    parser.add_argument("--finding", help="the finding id being accepted")
+    parser.add_argument(
+        "--finding", type=_required("finding"), help="the finding id being accepted"
+    )
     parser.add_argument("--severity", default="medium")
-    parser.add_argument("--expires", help="ISO date. After it, pre-push and doctor fail.")
-    parser.add_argument("--by", default="", help="the person accepting it, by name or address")
-    parser.add_argument("--justification", default="", help="why this is acceptable, in one line")
+    parser.add_argument(
+        "--expires", type=_date, help="ISO date. After it, pre-push and doctor fail."
+    )
+    parser.add_argument("--by", type=_required("owner"), help="the accountable person or role")
+    parser.add_argument(
+        "--justification",
+        type=_required("reason"),
+        help="why this is acceptable, in one line",
+    )
+    parser.add_argument(
+        "--evidence",
+        type=_evidence_path,
+        help="repository-relative evidence file; its content digest is recorded",
+    )
     parser.add_argument("--follow-up", default="")
     parser.add_argument(
         "--spec", default="", help="which spec it belongs to; needed when more than one is open"
@@ -78,80 +296,224 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--expired", action="store_true", help="list acceptances past their date")
     args = parser.parse_args(argv)
 
+    if not args.expired and not (
+        args.finding and args.expires and args.by and args.justification and args.evidence
+    ):
+        parser.error(
+            "--finding, --expires, --by, --justification and --evidence are all required; "
+            "a risk acceptance needs an owner, expiry, reason and actual local evidence"
+        )
+
     root = paths.repo_root()
     if root is None:
         print("not inside a repository")
-        return 1
+        return outcome.result("INCOMPLETE")
 
     if args.expired:
         try:
             stale = expired(root)
-        except ValueError as why:
+        except (OSError, ValueError) as why:
             print(f"  UNDECIDABLE  {why}")
             print("  A record block nobody can read is not a record, and it is not a pass.")
-            return 1
+            return outcome.result("INCOMPLETE")
         for block in stale:
             print(
-                f"  EXPIRED  {block.get('id', '?')}  {block['finding']}  "
-                f"expired {block['expires']}  accepted by {block.get('accepted_by', '?')}"
+                f"  EXPIRED  {block['id']}  {block['finding']}  "
+                f"expired {block['expires']}  recorded in {block['home']} ({block['provenance']})"
             )
         if stale:
             print(
                 "  An acceptance that ran out is not an acceptance. Fix it or renew it "
                 "with a reason, up to twice."
             )
-        return 1 if stale else 0
+        return outcome.result("FAIL" if stale else "PASS")
 
-    if not (args.finding and args.expires and args.by and args.justification):
+    if denied_role(args.by):
         print(
-            "  --finding, --expires, --by and --justification are all required: an "
-            "acceptance with no end date, no name against it and no reason is not one."
+            "  INCOMPLETE  risk needs one accountable human role; agents, models, reviewers "
+            "and placeholders cannot accept it."
         )
-        return 2
+        return outcome.result("INCOMPLETE")
+    if args.expires < _utc_today():
+        print("  INCOMPLETE  an acceptance cannot already be expired. Use a current date.")
+        return outcome.result("INCOMPLETE")
     try:
         where = spec.target(root, args.spec)
-    except LookupError as why:
+        slug = where.parent.name
+        owner = acceptance.owner_of(slug)
+    except (LookupError, OSError, acceptance.Refusal) as why:
         print(f"  {why}")
         print("  A risk with no context is a note, not a decision.")
-        return 1
+        return outcome.result("INCOMPLETE")
+
+    proposed = acceptance.plan(root, args.finding, owner)
+    if proposed.outcome == "FAIL":
+        print(f"  FAIL  {proposed.reason}. That is the ceiling: fix it, or change the answer.")
+        return outcome.result("FAIL")
+    if proposed.outcome != "PASS":
+        print(f"  INCOMPLETE  {proposed.reason}. Nothing was written.")
+        return outcome.result("INCOMPLETE")
+
+    # Every candidate against both checks, and then the rule: a conclusive `FAIL` outranks
+    # an `INCOMPLETE`. Returning whichever refusal came first would report text known to
+    # carry a machine path as merely undecidable, depending on the order of the flags.
+    verdicts = [
+        check(candidate)
+        for candidate in (args.finding, args.by, args.justification, args.follow_up)
+        for check in (
+            acceptance_privacy.acceptance_pii_v1,
+            acceptance_privacy.acceptance_machine_path_v1,
+        )
+    ]
+    for label in ("FAIL", "INCOMPLETE"):
+        blocking = next((verdict for verdict in verdicts if verdict.outcome == label), None)
+        if blocking is not None:
+            print(f"  {blocking.outcome}  {blocking.reason}. Nothing was written.")
+            return outcome.result(blocking.outcome)
+
     try:
-        recorded = blocks(root)
-    except ValueError as why:
-        # Without this the verb tracebacks on a neighbour somebody typed wrong, and the
-        # answer to "the record is unreadable" is not "so is this command".
-        print(f"  {why}")
-        print(
-            "  Nothing was written: a new acceptance cannot be numbered against a "
-            "record that cannot be read. Fix that block first."
-        )
-        return 1
-    existing = [b for _, b in recorded if b.get("finding") == args.finding]
-    renewals = max((renewals_of(b) for b in existing), default=-1) + 1
-    if renewals > MAX_RENEWALS:
-        print(
-            f"  {args.finding} has already been renewed {MAX_RENEWALS} times. "
-            f"That is the ceiling: fix it, or change the answer."
-        )
-        return 1
-    # The nth risk of this spec, which is what the number is supposed to read as. Counting
-    # every block in the repository made the first risk recorded against a spec number eight.
-    number = sum(1 for at, _ in recorded if at == where) + 1
-    add(
-        where,
-        {
-            "id": f"R-{re.sub(r'[^0-9]', '', where.parent.name)[:3]}-{number:02d}",
-            "finding": args.finding,
-            "severity": args.severity,
-            "accepted_by": args.by,
-            "accepted": date.today().isoformat(),
-            "expires": args.expires,
-            "renewals": renewals,
-            "justification": args.justification,
-            "follow_up": args.follow_up,
-        },
+        bindings = _bindings(root, slug, args.evidence)
+    except _EvidenceProblem as why:
+        print(f"  INCOMPLETE  {why}. Nothing was written.")
+        return outcome.result("INCOMPLETE")
+
+    register = acceptance.read(root)
+    head = (
+        acceptance.head_of(register.entries, args.finding) if register.outcome == "PASS" else None
     )
-    print(
-        f"  ✓ recorded in {where.relative_to(root)} — it expires {args.expires}, and both "
-        f"pre-push and doctor read that date."
+    # The stale-binding result is part of the challenge. Renewing a record without being
+    # told what about it went stale is signing for a change nobody described.
+    binding = acceptance.current(root) if proposed.renews else None
+    _display(proposed, args, bindings, slug, head if proposed.renews else None, binding)
+    if not controlling_terminal_response(f"ACCEPT {proposed.id} AS {args.by}"):
+        print("  INCOMPLETE  no exact confirmation arrived from the controlling terminal.")
+        return outcome.result("INCOMPLETE")
+
+    # Everything below re-establishes what was displayed. The date is taken again because a
+    # prompt can be answered after midnight, and every source is read again because the
+    # answer must bind the bytes the person actually saw.
+    accepted = _utc_today()
+    if args.expires < accepted:
+        print("  INCOMPLETE  the expiry passed while this was being confirmed.")
+        return outcome.result("INCOMPLETE")
+    try:
+        if _bindings(root, slug, args.evidence) != bindings:
+            raise _EvidenceProblem("a displayed source changed before it could be bound")
+    except _EvidenceProblem as why:
+        print(f"  INCOMPLETE  {why}. Nothing was written.")
+        return outcome.result("INCOMPLETE")
+    if acceptance.plan(root, args.finding, owner) != proposed:
+        print("  INCOMPLETE  the register changed while this was being confirmed.")
+        return outcome.result("INCOMPLETE")
+
+    record = {
+        "schema": "urn:ai-engineering:risk-acceptance:1",
+        "schema_version": "1",
+        "id": proposed.id,
+        "spec": owner,
+        "spec_digest": bindings["spec"],
+        "finding": args.finding,
+        "severity": args.severity,
+        "authority_role": args.by,
+        "accepted": accepted,
+        "expires": args.expires,
+        "renewals": proposed.renewals,
+        "renews": proposed.renews,
+        "renews_digest": proposed.renews_digest,
+        "justification": args.justification,
+        "evidence": {"path": args.evidence, "content_digest": bindings["evidence"]},
+        "follow_up": args.follow_up,
+    }
+    record["record_digest"] = acceptance.record_digest(record)
+    try:
+        published = publish(root, slug, record)
+    except _Refused as refused:
+        print(f"  {refused.verdict}  {refused.reason}. Nothing was published.")
+        return outcome.result(refused.verdict)
+    except (spec_transaction.TransactionError, acceptance.Refusal) as why:
+        print(f"  INCOMPLETE  {why}. Nothing was published.")
+        return outcome.result("INCOMPLETE")
+
+    print(f"  ✓ published {published} — it expires {args.expires}, and the push gate reads it.")
+    print("  This records the bytes you confirmed. It does not claim who confirmed them.")
+    return outcome.execution(
+        outcome.result("PASS"),
+        summary=f"Published risk acceptance {proposed.id}",
+        changes=[
+            outcome.fact(
+                "risk-acceptance", "APPLIED", f"Published risk acceptance {proposed.id}", published
+            )
+        ],
     )
-    return 0
+
+
+def _utc_today() -> str:
+    return datetime.now(UTC).date().isoformat()
+
+
+def _predecessor_bytes(head) -> str:
+    """What the person is being asked to renew.
+
+    A canonical record is shown whole, because its bytes are short and exact. A legacy block
+    is shown as its home and digest: it is displayed with derived provenance and never
+    rewritten, so quoting it back would suggest an edit that is not going to happen.
+    """
+
+    if head.provenance != acceptance.CANONICAL_RECORD:
+        return f"stored at {head.home}, digest {head.digest}"
+    root = paths.repo_root()
+    if root is None:
+        return f"stored at {head.home}, digest {head.digest}"
+    try:
+        # Through the same anchored, bounded read as every other source. Displaying bytes
+        # fetched by a second, looser path would show the human one file and bind another.
+        return _anchored_bytes(root, head.home, acceptance.MAX_RECORD_BYTES).decode("utf-8")
+    except (_EvidenceProblem, UnicodeDecodeError):
+        return f"unreadable at {head.home}, digest {head.digest}"
+
+
+def _bindings(root: Path, slug: str, evidence: str) -> dict[str, str]:
+    """One bounded anchored read of every source the record will bind."""
+
+    return {
+        "spec": _digest_of(root, f"specs/{slug}/spec.md", acceptance.MAX_SPEC_BYTES),
+        "evidence": _digest_of(root, evidence, _MAX_EVIDENCE_BYTES),
+    }
+
+
+def _display(proposed, args, bindings: dict[str, str], slug: str, head=None, binding=None) -> None:
+    """The challenge. Everything the record will hold, shown before it is bound, so the
+    exact response confirms bytes a person actually read.
+
+    A renewal shows more, not less: the predecessor's complete stored bytes beside the newly
+    observed spec and evidence. Renewing a record whose old contents were never displayed is
+    signing for something nobody read.
+    """
+
+    print(f"  id            {proposed.id}")
+    print(f"  finding       {args.finding}")
+    print(f"  severity      {args.severity}")
+    print(f"  role          {args.by}")
+    print(f"  expires       {args.expires}")
+    print(f"  justification {args.justification}")
+    print(f"  follow-up     {args.follow_up or '(none)'}")
+    print(f"  spec          specs/{slug}/spec.md {bindings['spec']}")
+    print(f"  evidence      {args.evidence} {bindings['evidence']}")
+    if proposed.renews:
+        print(f"  renews        {proposed.renews} {proposed.renews_digest}")
+        print(f"  renewal       {proposed.renewals} of {MAX_RENEWALS}")
+        if binding is not None:
+            print(
+                "  binding       "
+                + (
+                    "current"
+                    if binding.outcome == "PASS"
+                    else f"{binding.outcome} — {binding.reason}"
+                )
+            )
+        if head is not None:
+            print(f"  predecessor   {head.home} ({head.provenance})")
+            for line in _predecessor_bytes(head).splitlines():
+                print(f"    {line}")
+    print(f"  Type exactly: ACCEPT {proposed.id} AS {args.by}")
+    print("  The controlling terminal is the only channel this reads.")

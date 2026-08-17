@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-engineering:outcome:1",
+  "title": "ai-engineering terminal outcome v1",
+  "description": "One closed terminal result. RUNNING is a phase and is never valid here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "outcome",
+    "exit_code",
+    "reason",
+    "next_action"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "urn:ai-engineering:outcome:1"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "READY",
+        "PASS",
+        "WARN",
+        "FAIL",
+        "INCOMPLETE",
+        "CANCELLED",
+        "WOULD_CHANGE"
+      ]
+    },
+    "exit_code": {
+      "type": "integer",
+      "enum": [
+        0,
+        1,
+        130
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "next_action": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "outcome": {
+          "const": "READY"
+        },
+        "exit_code": {
+          "const": 0
+        },
+        "reason": {
+          "const": "Preconditions are freshly proven; no requested mutation ran"
+        },
+        "next_action": {
+          "const": "begin only the stated permitted operation"
+        }
+      }
+    },
+    {
+      "properties": {
+        "outcome": {
+          "const": "PASS"
+        },
+        "exit_code": {
+          "const": 0
+        },
+        "reason": {
+          "const": "The requested operation and all applicable checks completed"
+        },
+        "next_action": {
+          "const": "continue to the next governed stage"
+        }
+      }
+    },
+    {
+      "properties": {
+        "outcome": {
+          "const": "WARN"
+        },
+        "exit_code": {
+          "const": 0
+        },
+        "reason": {
+          "const": "Work completed with a non-blocking bounded condition"
+        },
+        "next_action": {
+          "const": "inspect the warning, then continue or remediate"
+        }
+      }
+    },
+    {
+      "properties": {
+        "outcome": {
+          "const": "FAIL"
+        },
+        "exit_code": {
+          "const": 1
+        },
+        "reason": {
+          "const": "An executed check conclusively found a violation"
+        },
+        "next_action": {
+          "const": "remediate the violation and rerun"
+        }
+      }
+    },
+    {
+      "properties": {
+        "outcome": {
+          "const": "INCOMPLETE"
+        },
+        "exit_code": {
+          "const": 1
+        },
+        "reason": {
+          "const": "The framework cannot decide or prove the claim"
+        },
+        "next_action": {
+          "const": "obtain/repair authority, capability or evidence and rerun"
+        }
+      }
+    },
+    {
+      "properties": {
+        "outcome": {
+          "const": "CANCELLED"
+        },
+        "exit_code": {
+          "const": 130
+        },
+        "reason": {
+          "const": "Explicit cancellation stopped work before a decision"
+        },
+        "next_action": {
+          "const": "confirm intent, then restart as a new operation"
+        }
+      }
+    },
+    {
+      "properties": {
+        "outcome": {
+          "const": "WOULD_CHANGE"
+        },
+        "exit_code": {
+          "const": 0
+        },
+        "reason": {
+          "const": "A complete dry run derived exact changes and made none"
+        },
+        "next_action": {
+          "const": "review the proposed changes, then run without dry-run"
+        }
+      }
+    }
+  ],
+  "x-outcome-policy": {
+    "phase_only": [
+      "RUNNING"
+    ],
+    "invalid_cli_exit": 2,
+    "unknown_normalizes_to": "INCOMPLETE",
+    "dry_run_undecidable": "INCOMPLETE",
+    "ordered_outcomes": [
+      "READY",
+      "PASS",
+      "WARN",
+      "FAIL",
+      "INCOMPLETE",
+      "CANCELLED",
+      "WOULD_CHANGE"
+    ]
+  }
+}

@@ -18,7 +18,64 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            native-controls: >-
+              test_native_spec_transaction_is_locked_staged_noreplace_and_alias_safe
+              test_native_publish_collision_preserves_foreign_final_and_owned_pending
+              test_posix_root_and_pending_aliases_are_never_write_targets
+            acceptance-controls: >-
+              test_risk_acceptance_v1_schema_is_closed_and_exact
+              test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases
+              test_acceptance_pii_v1_is_deterministic_and_fails_closed
+              test_acceptance_machine_path_v1_rejects_posix_windows_and_unc_paths
+              test_gitleaks_gate_requires_exact_version_and_three_clean_results
+              test_unified_reader_separates_integrity_from_binding_freshness
+              test_unified_reader_reads_frozen_legacy_history_without_rewriting_it
+              test_unified_reader_refuses_rather_than_returning_a_partial_register
+              test_the_register_refuses_every_way_it_was_shown_to_go_quiet
+              test_ordinals_and_renewal_chains_span_legacy_noncanonical_and_derived_ids
+              test_id_less_legacy_blocks_receive_stable_derived_identities
+              test_renewal_chains_refuse_forks_cycles_and_a_third_renewal
+              test_the_expiry_view_judges_only_the_unique_head
+          - os: macos-latest
+            native-controls: >-
+              test_native_spec_transaction_is_locked_staged_noreplace_and_alias_safe
+              test_native_publish_collision_preserves_foreign_final_and_owned_pending
+              test_posix_root_and_pending_aliases_are_never_write_targets
+              test_posix_walk_rejects_case_alias_spelling_when_filesystem_resolves_it
+            acceptance-controls: >-
+              test_risk_acceptance_v1_schema_is_closed_and_exact
+              test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases
+              test_acceptance_pii_v1_is_deterministic_and_fails_closed
+              test_acceptance_machine_path_v1_rejects_posix_windows_and_unc_paths
+              test_gitleaks_gate_requires_exact_version_and_three_clean_results
+              test_unified_reader_separates_integrity_from_binding_freshness
+              test_unified_reader_reads_frozen_legacy_history_without_rewriting_it
+              test_unified_reader_refuses_rather_than_returning_a_partial_register
+              test_the_register_refuses_every_way_it_was_shown_to_go_quiet
+              test_ordinals_and_renewal_chains_span_legacy_noncanonical_and_derived_ids
+              test_id_less_legacy_blocks_receive_stable_derived_identities
+              test_renewal_chains_refuse_forks_cycles_and_a_third_renewal
+              test_the_expiry_view_judges_only_the_unique_head
+          - os: windows-latest
+            native-controls: >-
+              test_native_spec_transaction_is_locked_staged_noreplace_and_alias_safe
+              test_native_publish_collision_preserves_foreign_final_and_owned_pending
+              test_windows_publish_closes_child_consumes_pending_and_rejects_junction
+            acceptance-controls: >-
+              test_risk_acceptance_v1_schema_is_closed_and_exact
+              test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases
+              test_acceptance_pii_v1_is_deterministic_and_fails_closed
+              test_acceptance_machine_path_v1_rejects_posix_windows_and_unc_paths
+              test_gitleaks_gate_requires_exact_version_and_three_clean_results
+              test_unified_reader_separates_integrity_from_binding_freshness
+              test_unified_reader_reads_frozen_legacy_history_without_rewriting_it
+              test_ordinals_and_renewal_chains_span_legacy_noncanonical_and_derived_ids
+              test_id_less_legacy_blocks_receive_stable_derived_identities
+              test_renewal_chains_refuse_forks_cycles_and_a_third_renewal
+              test_the_expiry_view_judges_only_the_unique_head
+              test_a_junction_under_specs_is_refused_rather_than_followed
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
@@ -40,6 +97,281 @@ jobs:
         run: uv tool install --force dist/*.whl
         shell: bash
 
+      # The checkout supplies the tests, never the implementation. A separate environment
+      # installs the one wheel this job just built, and byte-for-byte provenance prevents a
+      # passing checkout import from impersonating that wheel. Platform-specific nodes keep
+      # an inapplicable skip out of each leg; the inline plugin makes every nonpass red.
+      - name: native transaction comes only from the installed wheel
+        shell: bash
+        env:
+          NATIVE_CONTROLS: ${{ matrix.native-controls }}
+        run: |
+          set -euo pipefail
+          wheels=("$GITHUB_WORKSPACE"/dist/*.whl)
+          test "${#wheels[@]}" = "1" || { echo "expected exactly one wheel"; exit 1; }
+          wheel="${wheels[0]}"
+          test -f "$wheel" || { echo "built wheel is missing"; exit 1; }
+
+          run="$RUNNER_TEMP/native-spec-transaction"
+          venv="$run/venv"
+          rm -rf "$run"
+          mkdir -p "$run"
+          uv venv --python 3.12 "$venv"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            python="$venv/Scripts/python.exe"
+          else
+            python="$venv/bin/python"
+          fi
+          test -x "$python" || { echo "isolated Python is missing"; exit 1; }
+          uv pip install --python "$python" "$wheel" pytest==9.1.1
+
+          test_source="$GITHUB_WORKSPACE/tests/test_spec_transaction.py"
+          test -f "$test_source" || { echo "native transaction fixture is missing"; exit 1; }
+          cp "$test_source" "$run/test_spec_transaction.py"
+          export WHEEL="$wheel"
+          export WORKSPACE="$GITHUB_WORKSPACE"
+          export NATIVE_TEST="$run/test_spec_transaction.py"
+          cd "$run"
+          # Split into an array rather than left unquoted. The variable carries several
+          # test names and has to become several arguments, which bare `$VAR` does by
+          # accident and shellcheck reports as SC2086 — a rule that is right about the
+          # hazard even when the splitting is wanted. The array says it is wanted.
+          read -ra controls <<< "$NATIVE_CONTROLS"
+          "$python" - "${controls[@]}" <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          import pytest
+          from ai_engineering import spec_transaction as transaction
+
+          module = Path(transaction.__file__).resolve()
+          workspace = Path(os.environ["WORKSPACE"]).resolve()
+          environment = Path(sys.prefix).resolve()
+          try:
+              module.relative_to(workspace)
+          except ValueError:
+              pass
+          else:
+              raise SystemExit("native transaction imported from the checkout")
+          try:
+              module.relative_to(environment)
+          except ValueError as error:
+              raise SystemExit("native transaction is outside the isolated environment") from error
+          with ZipFile(os.environ["WHEEL"]) as archive:
+              packaged = archive.read("ai_engineering/spec_transaction.py")
+          source = workspace / "src" / "ai_engineering" / "spec_transaction.py"
+          if not source.is_file():
+              raise SystemExit("checkout native transaction source is missing")
+          if source.read_bytes() != packaged:
+              raise SystemExit("built wheel native transaction differs from checkout")
+          if module.read_bytes() != packaged:
+              raise SystemExit("installed native transaction differs from the built wheel")
+          print(f"installed native transaction: {module}")
+
+          test_file = Path(os.environ["NATIVE_TEST"]).resolve()
+          if not test_file.is_file():
+              raise SystemExit("native transaction fixture is missing")
+          names = sys.argv[1:]
+          if not names:
+              raise SystemExit("native transaction controls are missing")
+          selected = [f"{test_file}::{name}" for name in names]
+
+          class NoSelectedNonpass:
+              def __init__(self):
+                  self.rejected = []
+
+              def pytest_runtest_logreport(self, report):
+                  if report.skipped:
+                      self.rejected.append(report.nodeid)
+                  if hasattr(report, "wasxfail"):
+                      self.rejected.append(report.nodeid)
+
+          observer = NoSelectedNonpass()
+          result = pytest.main(
+              ["-q", "--rootdir", os.getcwd(), *selected],
+              plugins=[observer],
+          )
+          if observer.rejected:
+              print("selected native controls did not pass:", *observer.rejected, sep="\n")
+              raise SystemExit(1)
+          if result != pytest.ExitCode.OK:
+              raise SystemExit(int(result))
+          PY
+
+      # The same shape for the acceptance register, and for the same reason: an immutable
+      # risk record is only worth what the installed artifact does with it. The schema and
+      # the corpus travel with the checkout, so both are proved byte-identical to the wheel
+      # before anything runs; the layout under the run directory is what the fixture's own
+      # relative paths expect. A skip is a failure here — a control that did not execute is
+      # not a control that passed.
+      - name: acceptance publication comes only from the installed wheel
+        shell: bash
+        env:
+          ACCEPTANCE_CONTROLS: ${{ matrix.acceptance-controls }}
+        run: |
+          set -euo pipefail
+          wheels=("$GITHUB_WORKSPACE"/dist/*.whl)
+          test "${#wheels[@]}" = "1" || { echo "expected exactly one wheel"; exit 1; }
+          wheel="${wheels[0]}"
+          test -f "$wheel" || { echo "built wheel is missing"; exit 1; }
+
+          run="$RUNNER_TEMP/acceptance-register"
+          venv="$run/venv"
+          rm -rf "$run"
+          mkdir -p "$run/tests/fixtures" "$run/policy"
+          uv venv --python 3.12 "$venv"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            python="$venv/Scripts/python.exe"
+          else
+            python="$venv/bin/python"
+          fi
+          test -x "$python" || { echo "isolated Python is missing"; exit 1; }
+          uv pip install --python "$python" "$wheel" pytest==9.1.1
+
+          for relative in tests/test_acceptance.py tests/fixtures/risk-acceptance-v1.json \
+                          policy/risk-acceptance-v1.schema.json; do
+            test -f "$GITHUB_WORKSPACE/$relative" || {
+              echo "acceptance fixture is missing: $relative"; exit 1; }
+            cp "$GITHUB_WORKSPACE/$relative" "$run/$relative"
+          done
+          export WHEEL="$wheel"
+          export WORKSPACE="$GITHUB_WORKSPACE"
+          export ACCEPTANCE_TEST="$run/tests/test_acceptance.py"
+          cd "$run"
+          read -ra controls <<< "$ACCEPTANCE_CONTROLS"
+          "$python" - "${controls[@]}" <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          import pytest
+          from ai_engineering import acceptance
+
+          module = Path(acceptance.__file__).resolve()
+          workspace = Path(os.environ["WORKSPACE"]).resolve()
+          environment = Path(sys.prefix).resolve()
+          try:
+              module.relative_to(workspace)
+          except ValueError:
+              pass
+          else:
+              raise SystemExit("acceptance register imported from the checkout")
+          try:
+              module.relative_to(environment)
+          except ValueError as error:
+              raise SystemExit("acceptance register is outside the isolated environment") from error
+          shipped = {
+              "ai_engineering/acceptance.py": "src/ai_engineering/acceptance.py",
+              "ai_engineering/acceptance_privacy.py": "src/ai_engineering/acceptance_privacy.py",
+              "ai_engineering/accept.py": "src/ai_engineering/accept.py",
+              "ai_engineering/policy/risk-acceptance-v1.schema.json": (
+                  "policy/risk-acceptance-v1.schema.json"
+              ),
+          }
+          with ZipFile(os.environ["WHEEL"]) as archive:
+              for member, relative in shipped.items():
+                  packaged = archive.read(member)
+                  source = workspace / relative
+                  if not source.is_file():
+                      raise SystemExit(f"checkout source is missing: {relative}")
+                  if source.read_bytes() != packaged:
+                      raise SystemExit(f"built wheel differs from checkout: {relative}")
+                  print(f"wheel matches checkout: {relative}")
+              if module.read_bytes() != archive.read("ai_engineering/acceptance.py"):
+                  raise SystemExit("installed acceptance register differs from the built wheel")
+          print(f"installed acceptance register: {module}")
+
+          test_file = Path(os.environ["ACCEPTANCE_TEST"]).resolve()
+          if not test_file.is_file():
+              raise SystemExit("acceptance fixture is missing")
+          names = sys.argv[1:]
+          if not names:
+              raise SystemExit("acceptance controls are missing")
+          selected = [f"{test_file}::{name}" for name in names]
+
+          class NoSelectedNonpass:
+              def __init__(self):
+                  self.rejected = []
+
+              def pytest_runtest_logreport(self, report):
+                  if report.skipped:
+                      self.rejected.append(report.nodeid)
+                  if hasattr(report, "wasxfail"):
+                      self.rejected.append(report.nodeid)
+
+          observer = NoSelectedNonpass()
+          result = pytest.main(
+              ["-q", "--rootdir", os.getcwd(), *selected],
+              plugins=[observer],
+          )
+          if observer.rejected:
+              print("selected acceptance controls did not pass:", *observer.rejected, sep="\n")
+              raise SystemExit(1)
+          if result != pytest.ExitCode.OK:
+              raise SystemExit(int(result))
+          PY
+
+      # The surface a stranger types, proved from the artifact they installed. Every
+      # rename in this wave was a hard one — no alias, no shim — and a hard rename is only
+      # hard if the old spelling is gone from the thing that ships. The checkout can say
+      # anything; this asks the wheel.
+      - name: the ten verbs, the hard renames and one JSON object
+        shell: bash
+        run: |
+          set -euo pipefail
+          run="$RUNNER_TEMP/installed-surface"
+          rm -rf "$run"
+          mkdir -p "$run"
+          cd "$run"
+          git init -b main . >/dev/null
+
+          # The inventory. Exactly ten, and the ones the specification names.
+          help=$(ai-eng --help)
+          for verb in init doctor update spec decide accept audit report exception uninstall; do
+            printf '%s' "$help" | grep -qE "^  $verb " || { echo "no verb: $verb"; exit 1; }
+          done
+          # Any description, not only one that starts with a capital. Two of the ten open
+          # with their own subcommands — `spec new | spec list | spec show` and `audit
+          # verify …` — so this counted eight and called the wheel wrong. The check is about
+          # how many verbs the surface lists; the case of the sentence beside each one is
+          # not evidence of anything, and making it evidence made the check wrong about a
+          # wheel that was right.
+          listed=$(printf '%s' "$help" | grep -cE '^  [a-z]+ +[^ ]')
+          test "$listed" = "10" || { echo "the surface lists $listed verbs, not ten"; exit 1; }
+
+          # The hard renames, from the side that matters: the old spelling must refuse.
+          ! ai-eng plan --skip x >/dev/null 2>&1 || { echo "the plan verb still answers"; exit 1; }
+          ! ai-eng digest >/dev/null 2>&1 || { echo "the digest verb still answers"; exit 1; }
+          ! ai-eng decide --adr x >/dev/null 2>&1 || { echo "--adr still answers"; exit 1; }
+          ai-eng exception --help >/dev/null
+          ai-eng report --help >/dev/null
+          ai-eng decide --help | grep -q -- --madr
+
+          # One JSON object on stdout, nothing on stderr, for a verb that refuses.
+          out=$(ai-eng --json audit verify 2>err.txt || true)
+          test ! -s err.txt || { echo "json mode wrote to stderr"; cat err.txt; exit 1; }
+          test -n "$out" || { echo "json mode wrote nothing"; exit 1; }
+          test "$(printf '%s' "$out" | wc -l)" -eq 0 || { echo "more than one line"; exit 1; }
+          printf '%s' "$out" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['command']=='audit'; assert d['outcome']; assert d['schema_version']=='1'"
+
+          # The renamed guard, asked of the wheel that is installed rather than of a report
+          # that never mentions a guard filename. Grepping doctor's JSON for the old name
+          # was true for a wheel still shipping it, and true for a wheel shipping nothing.
+          # Asked of the artifact with the standard library and no import: the wheel is
+          # installed into an isolated environment, so this runner's bare python3 cannot
+          # import the package it just installed — a probe written that way replaces a
+          # check that could never fail with one that could never pass.
+          python3 -c "import sys,zipfile; n=zipfile.ZipFile(sys.argv[1]).namelist(); sys.exit('the old guard name survives in the wheel' if any(x.endswith('hooks/design_gate.py') for x in n) else 'the renamed guard is not in the wheel' if not any(x.endswith('hooks/change_scope_guard.py') for x in n) else 0)" "$(printf '%s\n' "$GITHUB_WORKSPACE"/dist/*.whl | head -1)"
+          ai-eng exception --help | grep -q change_scope_guard
+
+          ai-eng --json doctor >doctor.json 2>err2.txt || true
+          test ! -s err2.txt || { echo "json doctor wrote to stderr"; cat err2.txt; exit 1; }
+          test -s doctor.json || { echo "json doctor wrote nothing"; exit 1; }
+          python3 -c "import json,sys; d=json.load(open('doctor.json')); assert d['command']=='doctor'; assert d['outcome']"
+
       - name: zero to a green doctor, in a repository it has never seen
         shell: bash
         run: |
@@ -57,7 +389,13 @@ jobs:
           for skill in "$GITHUB_WORKSPACE"/.agents/skills/ai-*; do
             mkdir -p "$HOME/.claude/skills/$(basename "$skill")"
           done
-          ai-eng init --global --project . -y 2>&1 | tee init.log
+          # `|| true`, and the reason is the same one two lines below about doctor: a
+          # repository with no Intent is not a governed repository, and this verb says
+          # INCOMPLETE over one rather than PASS. Every file it promised is asserted
+          # underneath, and the outcome word is asserted after the log — so a crash, a
+          # missing file or a PASS over an ungoverned repository all still fail here.
+          ai-eng init --global --project . -y 2>&1 | tee init.log || true
+          grep -q "INCOMPLETE" init.log || { echo "init did not report its outcome"; exit 1; }
           test -f .ai/config.toml || { echo "the pin was never written"; exit 1; }
           test -f CONSTITUTION.md || { echo "identity was never written"; exit 1; }
           grep -q chain.py "$HOME/.claude/settings.json" || { echo "no guard entry"; exit 1; }
@@ -75,8 +413,22 @@ jobs:
           ai-eng doctor --fix 2>&1 | tee fix.log || true
           grep -q chain.py "$HOME/.claude/settings.json" || { echo "--fix did not rewire"; exit 1; }
           ai-eng doctor --paths
-          ai-eng spec new first-thing
-          ai-eng audit verify
+          # A spec is a decision inside a Solution Intent, and this machine has none: `init`
+          # does not write one because it is the user's to write. So the refusal is the
+          # documented path, and what this asserts is that it names the missing Intent —
+          # the verb used to answer "filesystem resolved a missing or differently spelled
+          # entry", which is true about a path and useless about a decision.
+          ai-eng spec new first-thing 2>&1 | tee spec.log || true
+          grep -q "no Solution Intent here yet" spec.log \
+            || { echo "spec new did not name the missing Intent"; exit 1; }
+          test ! -d specs/001-first-thing || { echo "a spec was published without an Intent"; exit 1; }
+          # A stranger's machine has one commit that was made before this tool existed, so
+          # nothing is anchored and nothing can be proved about it. INCOMPLETE is the true
+          # answer and this asserts it: exit zero here would have meant the verifier said
+          # PASS over a chain with no anchors, which is the false green this product exists
+          # to refuse. What must not happen is a crash, or the word PASS.
+          verdict=$(ai-eng --json audit verify 2>/dev/null || true)
+          printf '%s' "$verdict" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['outcome']=='INCOMPLETE', d['outcome']"
 
       # No guard has ever been executed from the built wheel. The matrix proved the CLI
       # half and `release.yml` proves the dispatcher shipped inside the zip, which says the
@@ -109,18 +461,121 @@ jobs:
             *) echo "exit 2 came from something other than the guard"; exit 1 ;;
           esac
 
+          # A denial executed. Until now it fed nothing: the coverage line read UNPROVEN
+          # for claude-code while this job proved, on three operating systems, that the
+          # packaged guard denies. Over-claiming on a flag was replaced by under-claiming
+          # despite real evidence, which makes the honest path harder than the dishonest
+          # one. So the thing that ran writes the receipt for what it ran.
+          #
+          # What this proves, exactly: the packaged dispatcher denies on claude-code's
+          # documented payload — the JSON contract that editor sends, on stdin, honoured by
+          # exit 2. What it does not prove is the editor itself invoking the hook and
+          # honouring that exit. That half needs the editor, and nothing here runs it, so
+          # the receipt is the strongest thing available and it is not everything.
+          #
+          # Written after the proof and never before it, and kept by nobody: no artifact
+          # upload, no commit. A receipt that outlives its job is a claim about a machine
+          # that no longer exists, and the proof here is that the product read it back.
+          stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          # Not `shasum`, which is a Perl script this repository has never exercised on
+          # windows-latest — and not bare `python3` either. The first version of this said
+          # bare python3 "already runs three times in this same job", which is true of the
+          # file and false of any runner: those three calls landed today on this branch and
+          # this workflow has never run on it. That is the same unproven-tool trade with a
+          # confident sentence attached. `uv run --python 3.12` is the interpreter the step
+          # above already uses and it has run green on windows-latest from `main`.
+          sha() { uv run --no-project --python 3.12 python -c "import hashlib,sys;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())"; }
+          digest=$(printf '%s' "$payload" | sha)
+          mkdir -p .ai/receipts/surface
+          cat > .ai/receipts/surface/claude-code.enforcement.json <<RECEIPT
+          {
+            "schema": "urn:ai-engineering:check-evidence:1",
+            "schema_version": "1",
+            "kind": "automated",
+            "id": "claude-code.enforcement",
+            "applicability": "applicable",
+            "command": "uv run --no-project --python 3.12 python \$guards/chain.py PreToolUse",
+            "tool_version": "$(ai-eng --version)",
+            "input_digest": "sha256:$digest",
+            "artifact_digest": "sha256:$(printf '%s' "$said" | sha)",
+            "started_at": "$stamp",
+            "finished_at": "$stamp",
+            "max_age_seconds": 86400,
+            "outcome": "PASS"
+          }
+          RECEIPT
+
+          # Read back through the product's own reader, not through this file's opinion of
+          # what it just wrote. If `report surfaces` cannot see it, the loop is not closed.
+          #
+          # `|| true`, and it is not hiding anything: `report surfaces` returns the worst of
+          # twenty-four rows, twenty-one of which are legitimately unproven on a fresh
+          # machine, so under `set -eo pipefail` this line aborted the step and every
+          # assertion below it — the whole payload of this task and the next — became
+          # unreachable code. The same idiom two steps above says why: a fresh machine is
+          # red on purpose. If `report` actually dies, surfaces.txt is empty and the greps
+          # below fail anyway, which is the check that matters.
+          # `|| rc=$?` and not `; rc=$(...)`: a semicolon does not protect a failing
+          # pipeline from `set -e`, so the first attempt at this fix died on the pipeline
+          # itself and never reached the assignment — the same blocker, one line lower,
+          # found by running it. The `||` is what makes the failure non-fatal, and the
+          # status is still read rather than discarded.
+          rc=0
+          ai-eng report surfaces | tee surfaces.txt || rc=$?
+          # 0 or 1 are the reader's two honest answers here — everything proved, or
+          # something unproven. Anything else is the reader falling over, and swallowing it
+          # would let the greps below run against whatever happened to be in the file.
+          case "$rc" in
+            0|1) ;;
+            *) echo "report surfaces exited $rc, which is neither answer"; exit 1 ;;
+          esac
+          grep -q "claude-code .*enforcement .*SURFACE_PROVEN " surfaces.txt || {
+            echo "the denial was receipted and the product could not read it back"; exit 1; }
+
+          # And the other two states did not follow it. Nothing here runs Claude Code: we
+          # can place the skills where it looks and watch our own guard deny, and we cannot
+          # watch the editor list a skill or invoke one. A receipt for "the files are where
+          # they should be" would be a receipt for a weaker thing wearing a stronger name,
+          # which is the substitution this wave exists to refuse — so those two stay
+          # unproven, and the job proves they stayed unproven rather than borrowing this
+          # one's answer.
+          grep -q "claude-code .*discovery .*SURFACE_RECEIPT_MISSING" surfaces.txt || {
+            echo "discovery is not proved here and something claimed it was"; exit 1; }
+          grep -q "claude-code .*invocation .*SURFACE_RECEIPT_MISSING" surfaces.txt || {
+            echo "invocation is not proved here and something claimed it was"; exit 1; }
+
       - name: the pin holds — install one version, pin another, and it must say so
         shell: bash
         run: |
           cd "$RUNNER_TEMP/stranger"
           sed -i.bak 's/^version = .*/version = "0.0.1"/' .ai/config.toml
           if ai-eng doctor --ci; then echo "doctor went green on a mismatched pin"; exit 1; fi
+          # Put it back. The pin is a file the receipt records, and `uninstall` refuses to
+          # remove a recorded target whose bytes somebody changed — correctly, and it said
+          # so: "a receipted target no longer matches the exact bytes or entries owned".
+          # This step mutated it to prove the pin holds, so this step undoes it; the next
+          # one is about removal and must not inherit a machine this one edited.
+          mv .ai/config.toml.bak .ai/config.toml
+          ai-eng doctor --ci || true
 
       - name: uninstall leaves the record behind
         shell: bash
         run: |
           cd "$RUNNER_TEMP/stranger"
-          ai-eng uninstall --project -y
+          # A runner has no controlling terminal, and this verb requires one: `-y` does not
+          # substitute for a keyboard, which is a decision `test_uninstall_is_explicit` owns.
+          # So the removal runs under a pty where one can be made, and the refusal is what is
+          # asserted where one cannot — rather than a step that could never pass on any of
+          # the three, which is what this was.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            ai-eng uninstall --project -y 2>&1 | tee uninstall.log || true
+            grep -q "requires a person at a keyboard" uninstall.log \
+              || { echo "uninstall did not name its own gate"; exit 1; }
+            grep -q chain.py "$HOME/.claude/settings.json" \
+              || { echo "a refused uninstall removed the guard entry anyway"; exit 1; }
+            exit 0
+          fi
+          python3 -c "import pty,sys; sys.exit(pty.spawn(['ai-eng','uninstall','--project','-y']))"
           test -d specs || { echo "uninstall deleted the user's specs"; exit 1; }
           # "specs/ survived" is equally true of a run that removed nothing and said so. The
           # copies this job forced `link` to make are the branch R-008-01 named as unproven,

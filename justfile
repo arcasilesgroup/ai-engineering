@@ -6,8 +6,18 @@
 ruff := "ruff==0.16.2"
 pytest := "pytest==9.1.1"
 semgrep := "semgrep==1.172.0"
+# The two engines that are not installed by `uv run --with`, and therefore the two that
+# could be any version the machine happens to carry. CI downloads exactly these releases;
+# `security` below asks each one what it is before it trusts what it says, because a
+# scanner whose version we did not test is a scanner whose answer we cannot read — a local
+# green from an older engine, or a local red CI cannot reproduce. A test holds these equal
+# to the workflow's own pins, so drift on either side turns the build red naming the engine.
+gitleaks_version := "8.30.1"
+trivy_version := "0.73.0"
 coverage := "coverage==7.15.4"
 mutmut := "mutmut==3.7.0"
+# The same pin the workflow carries, and a test holds the two equal.
+mypy := "mypy==2.3.0"
 
 build:
     uv build
@@ -25,16 +35,36 @@ lint:
 # pinned at its call site. The modules land at the root and never under surfaces/, because
 # `surfaces` is force-included into the wheel and a node_modules there would ship to PyPI.
 typecheck:
+    # Python first, and here rather than only in CI. `AGENTS.md` says this file is what CI
+    # runs; for the whole life of this branch it was not, because mypy existed in the
+    # workflow alone — so the local gate went green over 45 type errors and the first
+    # anybody could know was the first time the branch reached CI, 253 commits in.
+    uv run --no-project --python 3.11 --with {{mypy}} \
+        --with "rich>=13.0,<16.0" --with "questionary>=2.0,<3.0" mypy src hooks
     npm install --silent --no-audit --no-fund
     npm exec -- tsc --noEmit
+    # Compiling it proves it parses. This runs it: the plugin's own deny path, driven the
+    # way OpenCode drives it, once with a working dispatcher and once with none. The second
+    # is the case spec 010 wrote down twice and left open — a guard that allows because it
+    # could not run.
+    #
+    # Here rather than in `test`, because this is the recipe that owns the TypeScript
+    # surface and the one place node is guaranteed. AI_ENG_REQUIRE_NODE turns that suite's
+    # skip into a failure: a runner whose node cannot strip types would otherwise skip
+    # silently, and a proof that stops running without saying so is worth less than no
+    # proof, because it still reads green.
+    AI_ENG_REQUIRE_NODE=1 uv run --with {{pytest}} pytest -q tests/test_opencode_plugin.py
 
 test:
     uv run --with {{pytest}} pytest -q
 
 security:
-    gitleaks dir . --redact --no-banner --exit-code 1
-    uv run --with {{semgrep}} semgrep scan --config policy/semgrep.yml --error --quiet
-    trivy fs --scanners vuln,license,misconfig --exit-code 1 --severity CRITICAL,HIGH,MEDIUM .
+    @test "$(gitleaks version)" = "{{gitleaks_version}}" || { echo "gitleaks is $(gitleaks version) and this gate is written for {{gitleaks_version}}. An untested scanner's answer is not evidence."; exit 1; }
+    @trivy --version | head -1 | grep -qx "Version: {{trivy_version}}" || { echo "trivy is not {{trivy_version}}. An untested scanner's answer is not evidence."; exit 1; }
+    # Through the lane contract rather than as three bare commands: a missing engine, missing
+    # rules, a crash, a timeout or zero inputs each read as INCOMPLETE, and INCOMPLETE fails
+    # this gate exactly as a finding does. Three bare commands could not tell those apart.
+    uv run --with {{semgrep}} python -c "import sys; from pathlib import Path; from ai_engineering import scan; sys.exit(scan.baseline(Path('.')))"
 
 # Its own recipe, and not folded into `test`: instrumenting the interpreter adds startup
 # cost to every subprocess, and the dispatcher latency assertion is a security property
@@ -109,6 +139,13 @@ mutate *paths:
         before="$(cksum $watched 2>/dev/null || true)"
         export UV_CACHE_DIR="${UV_CACHE_DIR:-$(uv cache dir)}"
         export HOME="$house" USERPROFILE="$house" AI_ENGINEERING_HOME="$house/.ai-engineering"
+        # One test spawns child processes that import the package. Inside the sandbox that
+        # import resolves to the instrumented copy, whose shim then looks for mutmut's
+        # config relative to the child's working directory — a throwaway repository that
+        # has none — and the baseline died there, so the whole gate collected nothing.
+        # The children read the real tree instead. It costs that one test its reach over
+        # mutants in spec.py, which is a trade worth making against a gate that is dead.
+        export AI_ENG_REAL_SRC="$here/src"
         export XDG_CONFIG_HOME="$house/.config" XDG_DATA_HOME="$house/.local/share"
         rsync -a --exclude=.git --exclude=.venv --exclude=dist --exclude=mutants \
               --exclude=.pytest_cache --exclude=.ruff_cache ./ "$away/"
@@ -117,6 +154,15 @@ mutate *paths:
         uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut run $globs
         set +f
         uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut export-cicd-stats
+        # Out of the sandbox before the trap deletes it. Without this the run reports a
+        # score and destroys the only record of which mutants lived, so "which ones
+        # survived" costs another full run to ask — measured, it cost several.
+        cp mutants/mutmut-cicd-stats.json "$here/mutants-stats.json" 2>/dev/null || true
+        # The score says how much is unproven; only the names say what. The stats file
+        # carries counts alone, so the list comes out beside it or the next person pays
+        # another full run to learn which defects nobody would notice.
+        uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut results \
+            > "$here/mutants-survivors.txt" 2>/dev/null || true
         # Before the score, never after it: an escape has to be reported even on the
         # run that was going to fail for its own reasons.
         if [ "$before" != "$(cksum $watched 2>/dev/null || true)" ]; then
@@ -182,7 +228,7 @@ mutate *paths:
 changed:
     #!/usr/bin/env bash
     set -euo pipefail
-    # The same three questions hooks/design_gate.py asks, in the same order and with the
+    # The same three questions hooks/change_scope_guard.py asks, in the same order and with the
     # same fallbacks: the branch against its merge base, the dirty tree, the untracked
     # files. Two controls that disagree about what a change is are one control and a bug.
     ref="$(git symbolic-ref --quiet refs/remotes/origin/HEAD || true)"
@@ -240,9 +286,23 @@ counts:
     @echo "RAN lint=$(uv run --with {{ruff}} ruff format --check . | grep -oE '^[0-9]+')"
     @echo "RAN tests=$(uv run --with {{pytest}} pytest -q --collect-only 2>/dev/null | grep -cE '::')"
 
+# The thirteen indicators and the fourteen prohibitions, read out of `policy/` and printed
+# with every row that has no instrument named. Inside `check` and not beside it: the reader
+# refuses a P5 completion claim, and a refusal nobody runs is a refusal that never happens.
+register:
+    @uv run python tests/pilot_register.py
+
+# The routing evaluation over the skill corpus. `ai-reliability-eval` was absorbed with the
+# instruction to become a CI harness, because an evaluation that always decides the same way
+# is code and not a prompt — and until this recipe existed, `check` evaluated a skill's
+# format and nothing about what it routes. It prints what it did not measure, because a
+# green from something named evaluation reads as an evaluation of the writing.
+skilleval:
+    @uv run python tests/skill_eval.py
+
 # Where things stand, from the tree, with no model doing the arithmetic. Not in `check`:
 # it asserts nothing and a report inside a gate is a report people read as a gate.
 stats:
     @uv run python tests/stats.py
 
-check: build lint typecheck test cover security counts
+check: build lint typecheck test cover security register skilleval counts

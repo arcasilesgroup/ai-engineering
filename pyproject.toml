@@ -64,9 +64,9 @@ source_paths = ["src/ai_engineering"]
 # The sandbox holds only source and tests, and this suite reads files: the skills, the
 # wiring table, the git hooks, the doctrine. Without these the baseline run is red and
 # mutmut reports nothing rather than reporting a survivor.
-also_copy = [".agents", ".github", "docs", "git-hooks", "hooks", "migrations", "policy",
-             "specs", "surfaces", "AGENTS.md", "CLAUDE.md", "CONSTITUTION.md", "LICENSE",
-             "NOTICE", "README.md", "SECURITY.md", "justfile"]
+also_copy = [".agents", ".ai", ".github", "docs", "git-hooks", "hooks", "migrations", "policy",
+             "specs", "surfaces", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md", "CONSTITUTION.md",
+             "LICENSE", "NOTICE", "README.md", "SECURITY.md", "justfile"]
 # test_contracts.py is left out on purpose and not because it is inconvenient: it asserts
 # the repository's own shape — the line ceiling, the doctrine's length, the skill contract
 # — which no mutant of the product can change, and it counts lines with `git ls-files`,
@@ -76,6 +76,20 @@ also_copy = [".agents", ".github", "docs", "git-hooks", "hooks", "migrations", "
 # between them, and the score did not move by one point until this line stopped naming
 # names. A gate configured by enumeration reports the state of the enumeration.
 pytest_add_cli_args_test_selection = ["tests", "--ignore=tests/test_contracts.py"]
+
+[tool.pytest.ini_options]
+# Both halves of the product on the path. The guards are deliberately not importable as
+# part of the package — they are standard library Python executed by path, because on the
+# hot path `import ai_engineering` costs about 110 ms — so the suite reaches them the way
+# the dispatcher does. `conftest.py` used to do this with `sys.path.insert` and then import
+# the package underneath, which is `E402`, and it carried an inline exemption comment to
+# say so. AGENTS.md rule 3 is never to silence a linter; pytest has had this since 7.0.
+# `tests` joins them for the same reason and by the same ruling: `tests/anti_theatre.py`
+# and `tests/pilot_register.py` are readers this suite has to import, and reaching them
+# with `sys.path.insert` plus an import underneath is E402 again. I wrote that exemption
+# into `tests/test_anti_theatre.py` and the process audit found it two hours later, in the
+# repository whose rule 3 is never to silence a linter.
+pythonpath = ["src", "hooks", "tests"]
 
 [tool.coverage.run]
 # The guards run by path in a subprocess, so without patch the suite that fires every one

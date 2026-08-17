@@ -14,6 +14,7 @@ HOME, and nothing may touch this checkout.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -22,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering import __version__, doctor, paths, wiring
+from ai_engineering import __version__, doctor, outcome, paths, wiring
 
 emit = paths.load("_emit")
 
@@ -130,19 +131,19 @@ def test_the_codex_handler_is_appended_whole_after_a_stranger_and_never_written_
     field, or inserting above somebody else's group, silently invalidates their trust —
     and a second copy of our own group is a blocking guard firing twice."""
     path = tmp_path / "hooks.json"
-    stranger = {"handlers": [{"command": "somebody else's hook"}]}
+    stranger = {"hooks": [{"command": "somebody else's hook"}]}
     path.write_text(json.dumps({"hooks": {"PreToolUse": [stranger]}}), encoding="utf-8")
 
     assert wiring.json_codex(path) == "appended, position 2 of 2"
     groups = json.loads(path.read_text())["hooks"]["PreToolUse"]
     assert groups[0] == stranger
     assert groups[1] == {
-        "handlers": [
+        "hooks": [
             {
                 "type": "command",
                 "command": wiring.command("PreToolUse"),
-                "timeout_ms": 5000,
-                "status_message": "ai-engineering guards",
+                "timeout": 5,
+                "statusMessage": "ai-engineering guards",
                 "async": False,
             }
         ]
@@ -167,13 +168,27 @@ def test_the_opencode_plugin_is_the_shipped_source_with_this_machine_filled_in(m
     assert wiring.ts_opencode(path) == "plugin written"
     want = (paths.surfaces() / "opencode.ts").read_text(encoding="utf-8")
     for token, value in (
-        ("__PYTHON__", sys.executable),
-        ("__CHAIN__", str(paths.hooks() / "chain.py")),
-        ("__BEAT__", str(paths.home() / "cache" / "opencode-heartbeat")),
+        ('"__PYTHON__"', sys.executable),
+        ('"__CHAIN__"', str(paths.hooks() / "chain.py")),
+        ('"__BEAT__"', str(paths.home() / "cache" / "opencode-heartbeat")),
     ):
-        want = want.replace(token, value)
+        want = want.replace(token, json.dumps(value))
     assert path.read_text(encoding="utf-8") == want
     assert wiring.ts_opencode(path) == "plugin written"
+
+
+def test_a_windows_interpreter_path_is_escaped_rather_than_pasted(machine, tmp_path, monkeypatch):
+    """Every path on the machine that runs this suite is POSIX, so pasting one straight
+    into a TypeScript string and escaping it first produce byte-identical files — the test
+    above passes either way and agreed with the defect for as long as it existed. A Windows
+    path tells them apart: `C:\\Users\\me` pasted raw yields `\\U`, an invalid escape, and the
+    plugin fails to parse. To the operator that reads as OpenCode quietly running without a
+    guard, which is the exact failure this whole surface exists to prevent."""
+
+    monkeypatch.setattr(sys, "executable", r"C:\Users\me\python.exe")
+    path = tmp_path / "ai-engineering.ts"
+    assert wiring.ts_opencode(path) == "plugin written"
+    assert r'"C:\\Users\\me\\python.exe"' in path.read_text(encoding="utf-8")
 
 
 # ------------------------------------------------------------------ who gets written to
@@ -400,7 +415,7 @@ def test_a_receipt_that_is_absent_is_the_one_case_telemetry_may_create(machine):
     }
 
 
-def test_every_verb_stops_on_a_file_it_cannot_parse_and_names_it(machine, capsys):
+def test_every_verb_stops_on_a_file_it_cannot_parse_and_names_it(machine, capsys, monkeypatch):
     """One branch in `cli.main`, because every verb that writes reads first. Without it the
     refusal reaches a person as a traceback, which reads as a crash rather than as a file
     they have to look at."""
@@ -408,10 +423,11 @@ def test_every_verb_stops_on_a_file_it_cannot_parse_and_names_it(machine, capsys
 
     wiring.record([{"path": "/repo/justfile", "kind": "project", "how": "written"}])
     wiring.receipt_path().write_text("{ torn")
-    assert cli.main(["uninstall", "-y"]) == 2
-    text = capsys.readouterr().err
-    assert "machine.json is not readable as JSON" in text
-    assert "Nothing was written." in text
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    assert cli.main(["uninstall", "-y"]) == 1
+    text = capsys.readouterr().out
+    assert "install receipt is missing, partial, corrupt or ambiguous" in text
+    assert "Nothing removed." in text
     assert wiring.receipt_path().read_text() == "{ torn"
 
 
@@ -542,7 +558,9 @@ def test_the_coverage_line_says_exactly_what_each_surface_does_on_this_machine(
     )
 
     want = [
-        ("T2", "claude-code", "BLOCKS", "a denial has executed here"),
+        # UNPROVEN, and it is the point of the wave: the word is earned from an
+        # enforcement receipt now, and this repository has never written one.
+        ("T2", "claude-code", "UNPROVEN", "installed and wired, but no denial has ever run here"),
         (
             "T2",
             "opencode",
@@ -631,7 +649,8 @@ def test_paths_prints_the_record_of_the_repository_doctor_actually_found(
     subprocess.run(["git", "init", "-b", "main", str(root)], check=True, capture_output=True)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
 
-    assert doctor.main(["--paths"]) == 0
+    result = doctor.main(["--paths"])
+    assert type(result) is outcome.Result and result.outcome == "PASS"
     out = capsys.readouterr().out
     assert f"  record        {emit.chain_path(root)}" in out
     assert str(emit.chain_path(None)) not in out
@@ -656,10 +675,18 @@ def test_the_report_prints_one_line_per_state_and_hands_every_check_the_reposito
             (5, "The outside", "fifth", True, lambda root: "the server said no"),
         ],
     )
-    monkeypatch.setattr(doctor, "coverage", lambda root: [f"  surfaces for {root}"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: [f"  surfaces for {root}"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: here)
 
-    assert doctor.main([]) == 1
+    result = doctor.main([])
+    assert type(result) is outcome.Execution and result.outcome == "FAIL"
+    assert [fact.status for fact in result.checks[:5]] == [
+        "INCOMPLETE",
+        "INCOMPLETE",
+        "PASS",
+        "FAIL",
+        "FAIL",
+    ]
     out = capsys.readouterr().out
     assert out.count("\nThe pin\n") == 1
     assert out.count("\nThe record\n") == 1
@@ -698,10 +725,12 @@ def test_ci_leaves_the_local_only_checks_unrun_and_still_runs_everything_else(mo
             (3, "The wiring", "a runner can answer this", True, lambda root: None),
         ],
     )
-    monkeypatch.setattr(doctor, "coverage", lambda root: ["  stubbed"])
+    monkeypatch.setattr(doctor, "coverage", lambda root, **_: ["  stubbed"])
     monkeypatch.setattr(paths, "repo_root", lambda start=None: None)
 
-    assert doctor.main(["--ci"]) == 0
+    result = doctor.main(["--ci"])
+    assert type(result) is outcome.Execution and result.outcome == "INCOMPLETE"
+    assert [fact.status for fact in result.checks[:3]] == ["SKIPPED", "SKIPPED", "PASS"]
     out = capsys.readouterr().out
     assert "   1  SKIPPED  needs a working copy — needs a real working copy" in out
     assert "   3  ok       a runner can answer this" in out
@@ -734,3 +763,100 @@ def test_a_suite_that_never_ran_here_is_named_as_unevaluated_rather_than_passed(
     with pytest.raises(doctor.Undecidable) as why:
         doctor.suite_result()
     assert str(why.value) == "the adversarial suite has never written a result here"
+
+
+def test_a_router_is_generated_hashed_and_recorded_for_the_surface_that_declares_a_root(
+    machine, tmp_path, monkeypatch
+):
+    """EP-014, EP-017, EP-205, EP-212. Spec 011 asks for generated `/ai-*` routers with a
+    receipt, a hash, a doctor check and an uninstall path — and nothing generated a router at
+    all. Four properties, and the receipt with the digest in it is what makes this an install
+    rather than a file drop: without it, nothing downstream can tell a router nobody touched
+    from one somebody rewrote, and `uninstall` would delete either.
+
+    Generated, so the router carries the skill's own description: a router that restated any
+    of the skill body would be the second normative layer EP-071 forbids, kept in step by
+    hand."""
+
+    commands = tmp_path / "commands"
+    surface = {"id": "invented", "commands": str(commands), "skills": ""}
+
+    written = wiring.install_routers([surface])
+
+    assert written, "no router was written for a surface that declares a command root"
+    for row in written:
+        assert row["kind"] == "router"
+        target = Path(row["path"])
+        assert target.is_file() and target.parent == commands
+        marker, _, digest = row["how"].partition(" ")
+        assert marker == "generated" and len(digest) == 64
+        body = target.read_text(encoding="utf-8")
+        assert hashlib.sha256(body.encode("utf-8")).hexdigest() == digest
+        # The router names its skill and forwards the request, and nothing else.
+        assert f"Use the `{target.stem}` skill" in body
+        assert "$ARGUMENTS" in body
+
+    names = {Path(row["path"]).stem for row in written}
+    assert names == {skill.name for skill in paths.skills().glob("ai-*")}
+
+
+def test_a_surface_with_no_command_root_gets_no_router_and_no_invented_path(machine, tmp_path):
+    """Seven of the eight surfaces declare no command root, and the installer writes nothing
+    for them rather than guessing. A router in a directory whose convention we invented lands
+    where a person does not expect it, does nothing, and has to be found by hand — which is
+    worse than the absence, and the absence is what `doctor` reports."""
+
+    assert wiring.install_routers([{"id": "invented", "commands": "", "skills": ""}]) == []
+    assert wiring.install_routers([{"id": "invented", "skills": ""}]) == []
+
+
+def test_uninstall_removes_a_router_it_wrote_and_leaves_one_somebody_edited(machine, tmp_path):
+    """The half that makes a hash worth recording. A generated router is ours only while it
+    is still the bytes we generated: a file somebody edited is theirs now — they wanted
+    something we did not write — and removing it would be this installer deciding that its
+    own version of a person's file is the real one.
+
+    Both directions in one fixture, because the interesting failure is the asymmetric one:
+    a rule that removes everything and a rule that removes nothing both look tidy in a test
+    that only asserts one case."""
+
+    from ai_engineering import uninstall
+
+    commands = tmp_path / "commands"
+    written = wiring.install_routers([{"id": "invented", "commands": str(commands), "skills": ""}])
+    ours, theirs = written[0], written[1]
+
+    edited = Path(theirs["path"])
+    edited.write_text("I wanted something else here\n", encoding="utf-8")
+
+    assert uninstall._owned(ours, None) is True
+    assert uninstall._owned(theirs, None) is False
+    # And gone already is the state uninstall was trying to reach, not a refusal.
+    Path(ours["path"]).unlink()
+    assert uninstall._owned(ours, None) is True
+
+
+def test_a_receipt_row_naming_a_router_outside_a_declared_command_root_is_refused(machine):
+    """`canonical` is a closed allow-list of what this installer may remove, and it derives
+    the path rather than trusting the row. Without that, a receipt saying `router` over an
+    arbitrary path turns uninstall into an unlink of anything on the machine."""
+
+    from ai_engineering import uninstall
+
+    real = wiring.expand("~/.claude/commands") / "ai-spec.md"
+    digest = "0" * 64
+    assert uninstall.canonical(
+        {"path": str(real), "kind": "router", "how": f"generated {digest}"}, None
+    ) == {"path": str(real), "kind": "router", "how": f"generated {digest}"}
+
+    for row in (
+        {"path": "/etc/passwd", "kind": "router", "how": f"generated {digest}"},
+        {"path": str(real), "kind": "router", "how": "generated not-a-digest"},
+        {"path": str(real), "kind": "router", "how": "copied " + digest},
+        {
+            "path": str(real.parent / "not-a-skill.md"),
+            "kind": "router",
+            "how": f"generated {digest}",
+        },
+    ):
+        assert uninstall.canonical(row, None) is None, row

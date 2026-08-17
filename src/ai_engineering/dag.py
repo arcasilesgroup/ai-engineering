@@ -1,0 +1,174 @@
+"""Which claims can run at the same time, decided the same way on every machine.
+
+Two agents that both derive the plan have to derive the same plan, so nothing here depends
+on dictionary order, set iteration or who was listed first. Where the direction of an edge
+is genuinely arbitrary — two tasks that touch the same file, and neither has to be first —
+it is taken by work item, which is arbitrary and identical everywhere.
+
+Three sources of edge, and no fourth invented: two claims over the same path; a claim over
+a file that another claim's file imports; and the resources that cannot be shared at all,
+where two tasks rewriting one lockfile is a conflict their paths never showed.
+"""
+
+from __future__ import annotations
+
+import ast
+from collections import defaultdict
+from pathlib import Path
+
+from ai_engineering import outcome
+
+# One writer at a time, whatever the paths say. A lockfile is regenerated wholesale, a
+# migration is ordered by its position in a sequence, and a schema is the contract two
+# tasks would each be editing a different copy of in their heads.
+EXCLUSIVE = ("uv.lock", "package-lock.json", "poetry.lock", "Cargo.lock", "pnpm-lock.yaml")
+EXCLUSIVE_PREFIXES = ("migrations/",)
+EXCLUSIVE_SUFFIXES = (".schema.json",)
+
+
+def _exclusive(path: str) -> str | None:
+    """The resource a path belongs to, or None when it belongs to none."""
+
+    name = path.rsplit("/", 1)[-1]
+    if name in EXCLUSIVE:
+        return name
+    for prefix in EXCLUSIVE_PREFIXES:
+        if path.startswith(prefix):
+            return prefix
+    for suffix in EXCLUSIVE_SUFFIXES:
+        if path.endswith(suffix):
+            return suffix
+    return None
+
+
+def _module(path: str) -> str:
+    """`src/a/b.py` as `src.a.b`, which is what an import of it looks like."""
+
+    return path.removesuffix(".py").replace("/", ".")
+
+
+class Unreadable(Exception):
+    """A file whose edges cannot be worked out. Unknown is not none: scheduling two tasks
+    in parallel on the strength of a file nobody could read is the fail-open direction."""
+
+
+def _imports(root: Path, path: str) -> set[str]:
+    if not path.endswith(".py"):
+        return set()
+    where = root / path
+    if not where.is_file():
+        return set()
+    try:
+        tree = ast.parse(where.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, UnicodeDecodeError, ValueError) as why:
+        raise Unreadable(path) from why
+    named: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            named.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            named.add(node.module)
+    return named
+
+
+def edges(root: Path, tasks: list[dict]) -> list[tuple[str, str]]:
+    """Every edge, sorted, with each pair oriented once. Raises `Unreadable` when a claimed
+    file exists and cannot be parsed."""
+
+    owner: dict[str, str] = {}
+    for one in sorted(tasks, key=lambda task: str(task["item"])):
+        for path in one["paths"]:
+            owner.setdefault(path, str(one["item"]))
+
+    found: set[tuple[str, str]] = set()
+    shared: dict[str, list[str]] = defaultdict(list)
+    for one in sorted(tasks, key=lambda task: str(task["item"])):
+        item = str(one["item"])
+        for path in sorted(one["paths"]):
+            shared[path].append(item)
+            resource = _exclusive(path)
+            if resource:
+                shared[f"resource:{resource}"].append(item)
+            for imported in sorted(_imports(root, path)):
+                for other in sorted(tasks, key=lambda task: str(task["item"])):
+                    if str(other["item"]) == item:
+                        continue
+                    if any(_module(each) == imported for each in other["paths"]):
+                        found.add((str(other["item"]), item))
+
+    # Two claims on one thing: neither has to be first, and both machines have to agree
+    # anyway, so the work item decides and the choice is recorded rather than hidden.
+    for holders in shared.values():
+        ordered = sorted(set(holders))
+        for first, second in zip(ordered, ordered[1:], strict=False):
+            found.add((first, second))
+    return sorted(found)
+
+
+def sequence(result: outcome.Execution) -> list[str]:
+    """The order out of the result, for a caller that wants the list rather than the facts."""
+
+    for fact in result.checks:
+        if fact.id == "dag-order" and fact.detail:
+            return [item for item in fact.detail.split(", ") if item]
+    return []
+
+
+def order(root: Path, tasks: list[dict]) -> outcome.Execution:
+    """A stable topological order, or INCOMPLETE naming what stopped it."""
+
+    items = sorted({str(one["item"]) for one in tasks})
+    try:
+        links = edges(root, tasks)
+    except Unreadable as why:
+        message = f"the edges of {why} cannot be worked out, so no order can be trusted"
+        return outcome.execution(
+            outcome.result("INCOMPLETE"),
+            summary=message,
+            execution_error=outcome.error(
+                "DAG_UNREADABLE", message, False, "fix or exclude the file and derive again"
+            ),
+        )
+
+    after: dict[str, set[str]] = {item: set() for item in items}
+    for first, second in links:
+        after.setdefault(second, set()).add(first)
+        after.setdefault(first, set())
+
+    placed: list[str] = []
+    remaining = dict(after)
+    while remaining:
+        # Sorted, not "any ready node": the tie-break is where a topological sort stops
+        # being reproducible, and reproducible is the requirement.
+        ready = sorted(item for item, needs in remaining.items() if not needs)
+        if not ready:
+            stuck = ", ".join(sorted(remaining))
+            message = f"these claims depend on each other and cannot all be first: {stuck}"
+            return outcome.execution(
+                outcome.result("INCOMPLETE"),
+                summary=message,
+                execution_error=outcome.error(
+                    "DAG_CYCLE", message, False, "split or merge the claims in the cycle"
+                ),
+            )
+        taken = ready[0]
+        placed.append(taken)
+        remaining.pop(taken)
+        for needs in remaining.values():
+            needs.discard(taken)
+
+    return outcome.execution(
+        outcome.result("PASS"),
+        summary=f"{len(placed)} claim(s) in a stable order with {len(links)} edge(s)",
+        checks=[
+            outcome.fact(
+                "dag-order", "OBSERVED", "The order these claims run in", ", ".join(placed)
+            ),
+            outcome.fact(
+                "dag-edges",
+                "OBSERVED",
+                "Why that order",
+                "; ".join(f"{first} before {second}" for first, second in links) or "no edges",
+            ),
+        ],
+    )

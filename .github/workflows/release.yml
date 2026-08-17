@@ -1,8 +1,15 @@
 name: release
 
 # Releases are signed by the workflow that built them, not by a long-lived token on
-# somebody's laptop. Attestations ship with the wheel so `ai-eng doctor` can verify that
-# the running wheel is the one this tag produced.
+# somebody's laptop. Attestations ship with the wheel, and a consumer verifies one with
+# `gh attestation verify dist/*.whl --repo <owner>/<repo>`, which needs the network.
+#
+# This used to say `ai-eng doctor` verifies it. No verb reads an attestation — the
+# sentence described a capability that had never existed, in a header comment, which is
+# where a claim hides longest: no test reads one and no reviewer diffs it twice. The
+# verifier, an SBOM naming the same digest, and the doctor-side check are specs/014's
+# work; until they land the honest statement is the command above. A test now binds the
+# two, so the claim can only return with the code.
 
 on:
   push:
@@ -23,12 +30,30 @@ jobs:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Full history, because the check below asks whether the default branch already
+          # contains this commit, and a shallow clone cannot answer that.
+          fetch-depth: 0
           persist-credentials: false
       # No tool cache on the job that builds what gets published: a poisoned cache entry
       # would end up inside the wheel this workflow then signs.
       - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
         with:
           enable-cache: false
+
+      # A tag can be pushed from any commit on any branch, including one nobody reviewed.
+      # Publishing from it puts code on PyPI that the default branch never held, and the
+      # only record afterwards is a version number. So the tag has to name something main
+      # already contains, and this asks git rather than trusting the person who tagged.
+      - name: the tag must name a commit the default branch already holds
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main || {
+            echo "this tag names a commit origin/main does not contain, so publishing it"
+            echo "would ship code the default branch never held"
+            exit 1
+          }
+          echo "the tagged commit is contained in origin/main"
 
       - name: the tag and the package must agree
         id: version
@@ -46,7 +71,13 @@ jobs:
           import zipfile, glob
           names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
           need = ["ai_engineering/hooks/chain.py", "ai_engineering/policy/iocs.yml",
-                  "ai_engineering/git-hooks/pre-push", "ai_engineering/skills/ai-spec/SKILL.md"]
+                  "ai_engineering/git-hooks/pre-push", "ai_engineering/skills/ai-spec/SKILL.md",
+                  "ai_engineering/hooks/change_scope_guard.py",
+                  "ai_engineering/policy/risk-acceptance-v1.schema.json",
+                  "ai_engineering/acceptance.py", "ai_engineering/acceptance_privacy.py"]
+          gone = [n for n in names if n.endswith(("hooks/design_gate.py", "/plan.py", "/digest.py"))]
+          if gone:
+              raise SystemExit(f"the wheel still carries a hard-renamed file: {gone}")
           missing = [n for n in need if n not in names]
           if missing:
               raise SystemExit(f"the wheel is missing {missing}")

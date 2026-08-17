@@ -5,7 +5,10 @@
 #
 # tier   T2 = can deny a tool call · T3 = instructions and skills only
 # writer json_claude · json_cursor · json_copilot · json_codex · ts_opencode · none
-# proven true only when a denial has actually executed on that surface
+# There is no `proven` column. There was, and it was a thing we typed: OpenCode's row
+# said true with no denial ever executed there, and a flag we set cannot contradict
+# us. Whether a denial has executed is read from that surface's enforcement receipt,
+# and this file has no way to say it.
 
 [[surface]]
 id = "claude-code"
@@ -15,7 +18,12 @@ detect = "~/.claude"
 settings = "~/.claude/settings.json"
 writer = "json_claude"
 skills = "~/.claude/skills"
-proven = true
+# The only row with a command root, and the absence elsewhere is the finding rather than an
+# omission. A router is a file written into somebody's home, and writing one into a
+# directory whose convention we guessed at is a worse outcome than not writing it: seven
+# surfaces have no declared root here because nobody has evidenced where theirs goes, and
+# `ai-eng doctor` says so rather than the installer inventing a path.
+commands = "~/.claude/commands"
 note = "Exit code 2 denies, even under bypassPermissions."
 
 [[surface]]
@@ -26,7 +34,6 @@ detect = "~/.config/opencode"
 settings = "~/.config/opencode/plugins/ai-engineering.ts"
 writer = "ts_opencode"
 skills = "~/.config/opencode/skills"
-proven = true
 heartbeat = true
 note = "A throw in tool.execute.before kills the call. A malformed plugin is dropped silently, so the guard writes a load heartbeat and doctor asserts it. Only tool.execute.before is wired, so PostToolUse containment does not exist here and tool results are unscanned."
 
@@ -38,7 +45,6 @@ detect = "~/.codex"
 settings = "~/.codex/hooks.json"
 writer = "json_codex"
 skills = "~/.agents/skills"
-proven = false
 append_only = true
 trust_required = true
 note = "Trust is a hash of the whole handler plus its position. Append only, never reorder. An untrusted hook is skipped silently; only a human can approve it with /hooks."
@@ -51,7 +57,6 @@ detect = "~/.cursor"
 settings = "~/.cursor/hooks.json"
 writer = "json_cursor"
 skills = "~/.agents/skills"
-proven = false
 note = "Deny is real but fails OPEN unless failClosed is true. Reply fields are snake_case."
 
 [[surface]]
@@ -62,7 +67,6 @@ detect = "~/.copilot"
 settings = "~/.copilot/hooks/ai-eng.json"
 writer = "json_copilot"
 skills = "~/.agents/skills"
-proven = false
 note = "preToolUse of the command kind. Merged with five other sources, never replacing them. Fail-closed on a crash, fail-open on a timeout."
 
 [[surface]]
@@ -73,7 +77,6 @@ detect = ""
 settings = "~/.claude/settings.json"
 writer = "none"
 skills = "~/.agents/skills"
-proven = false
 note = "Reads the same settings file as Claude Code, so it needs zero wiring. Detected by nothing: its old detect path was that settings file, which our own Claude Code writer creates, so wiring Claude Code made this row report itself installed. VS Code's own user directory is not one path across platforms, so this row is wired by name — `--harness vscode-copilot` — or not at all. Preview: it parses matchers then ignores them, and sends camelCase payload keys. The dispatcher normalises both."
 
 [[surface]]
@@ -84,7 +87,6 @@ detect = "~/.pi"
 settings = ""
 writer = "none"
 skills = "~/.pi/agent/skills"
-proven = false
 note = "Has a hook API. Not measured this round, so it claims nothing."
 
 [[surface]]
@@ -95,12 +97,22 @@ detect = "~/.config/zed"
 settings = ""
 writer = "none"
 skills = "~/.agents/skills"
-proven = false
 note = "Free by convention, zero lines. Detected by its own settings directory and not by ~/.agents, which is the shared skills root four other rows are linked into: wiring Cursor created it, and this row then reported Zed installed on a machine that has never had Zed. On Windows Zed keeps that directory elsewhere, so there it is wired by name."
 
 # Anything else that reads AGENTS.md gets the doctrine and the skills through
 # ~/.agents/skills and enforces nothing above the git layer. That is T3, and it is
 # the honest label.
+
+# Surfaces this framework deliberately does not claim, and why. A refusal that lives only
+# in a specification's non-goals is a refusal no command can read, and the next person to
+# add a row has nothing to argue with — so the argument lives here, beside the rows it is
+# an argument about. `tests/test_surface_adapter.py` reads this: an id may not appear both
+# here and above, and a row with no reason is an error rather than a preference.
+[[refused]]
+id = "codex-app"
+name = "Codex, the hosted application"
+reason = "It runs somebody else's machine. Nothing here can place a skill on it, register a guard in it, or read a receipt back out of it, so every state this framework reports would be a claim about a surface it cannot reach. The CLI of the same name is a different program and has its own row above."
+reopen_when = "the hosted application exposes a settings file or an API this framework can write a guard entry into, and read a denial receipt back from"
 
 [protect]
 # self_protect denies writes against these, and against every settings file and skills

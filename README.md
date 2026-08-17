@@ -12,7 +12,7 @@ The second command asks before it touches anything, and every default destroys n
 
 ## What it is
 
-Eight written procedures, five guards, and a command-line tool with ten verbs. `init`
+Twelve written procedures, six guards, and a command-line tool with ten verbs. `init`
 places the procedures and registers the guards in the settings file each agent surface
 already reads, so they are present in every project on your machine without a single file
 landing in any of them. The package carries the record: it writes specs, plans, decisions
@@ -41,7 +41,11 @@ from the settings file each surface already reads.
 `ai-eng doctor` ends with one line per surface, and it is derived from the receipt, the
 pin and the settings files on disk — never from a probe or a billed session.
 
-- **Claude Code** and **OpenCode** block. A denial has executed on both.
+- **No surface reads as blocking.** Not one has a receipted denial, so every surface
+  that can deny reads **unproven** — including Claude Code, which is perfectly able
+  to. CI does execute the dispatcher's deny path from the installed wheel, but nothing
+  has yet executed one *through* a surface and written the receipt, and the distinction
+  is the whole point. What is missing is the evidence, not the ability.
 - **Codex CLI** installs and then sits **inert** until a human types `/hooks` to approve
   it. It is skipped silently until then, and nothing but a person can change that.
 - **Cursor**, **VS Code Copilot** and **Copilot CLI** document a working deny, and none of

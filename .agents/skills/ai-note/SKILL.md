@@ -43,6 +43,11 @@ disable-model-invocation: true
    act on it.
 7. When a note is no longer true, delete it in a commit that says why. A wrong note is
    worse than no note, because it is trusted.
+8. Persistence beyond this repository is not this skill's work and not this framework's.
+   The note is committed markdown in the user's own repository, which is where it can be
+   reviewed, dated and deleted; whatever memory system the host provides keeps its own copy
+   on its own terms. A learning store inside the framework would be a second source of
+   truth for something git already versions, and the second one is always the stale one.
 
 ## Done when
 

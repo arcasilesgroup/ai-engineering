@@ -11,14 +11,233 @@ decision in spec 006, and a decision nothing asserts is a decision that drifts b
 
 from __future__ import annotations
 
+import json
 import re
 import sys
+import uuid
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
 from rich.style import Style
 
-from ai_engineering import __version__, ui
+from ai_engineering import __version__, cli, outcome, ui
+
+
+def test_ui_plain_rich_json_noninteractive_and_a11y_parity(monkeypatch, capsys):
+    """One canonical Result has one reading order in every renderer. Colour may reinforce
+    the outcome, but a textual status and mark must survive without it; machine output is
+    exactly one object; and drawing a result can never ask an unattended caller anything."""
+    result = outcome.result("INCOMPLETE")
+    expected_lines = [
+        "? INCOMPLETE",
+        f"Reason: {result.reason}",
+        f"Next action: {result.next_action}",
+        "Exit code: 1",
+    ]
+
+    def prompt(*args, **kwargs):
+        raise AssertionError("the non-interactive renderer prompted")
+
+    monkeypatch.setattr("builtins.input", prompt)
+    monkeypatch.setitem(sys.modules, "questionary", SimpleNamespace(checkbox=prompt))
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    ui.reset()
+    assert not sys.stdout.isatty()
+    assert ui.render_result(result) == result.as_dict()
+    plain = capsys.readouterr()
+    assert plain.err == ""
+    assert "\x1b[" not in plain.out
+    assert plain.out.splitlines() == expected_lines
+
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    ui.reset()
+    assert ui.render_result(result) == result.as_dict()
+    rich = capsys.readouterr().out
+    assert "\x1b[" in rich
+    assert bare(rich) == plain.out
+
+    for switch in (("NO_COLOR", "1"), ("TERM", "dumb")):
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        monkeypatch.setenv("TERM", "xterm-256color")
+        monkeypatch.setenv(*switch)
+        ui.reset()
+        ui.render_result(result)
+        quiet = capsys.readouterr().out
+        assert quiet == plain.out
+        assert "\x1b[" not in quiet
+
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    ui.reset()
+    assert ui.render_result(result, json_mode=True) == result.as_dict()
+    machine = capsys.readouterr()
+    assert machine.err == "" and "\x1b[" not in machine.out
+    assert machine.out.count("\n") == 1
+    payload = json.loads(machine.out)
+    assert payload == result.as_dict()
+    assert [payload[key] for key in ("outcome", "reason", "next_action", "exit_code")] == [
+        result.outcome,
+        result.reason,
+        result.next_action,
+        result.exit_code,
+    ]
+
+
+def test_cli_noninteractive_json_is_one_object_and_never_null(monkeypatch, capsys):
+    """Global JSON is one dispatch mode, not prose with braces around it. Child output and
+    prompts cannot leak, canonical Result/Execution are the only success boundaries, and an
+    integer or exception stays non-green without exposing its private text."""
+    verbs = (
+        "init",
+        "doctor",
+        "update",
+        "spec",
+        "decide",
+        "accept",
+        "audit",
+        "report",
+        "exception",
+        "uninstall",
+    )
+    assert tuple(cli.VERBS) == verbs
+    assert "--adr" not in "\n".join(cli.VERBS.values())
+
+    invoked = []
+    behavior = {"main": None}
+
+    def import_module(name):
+        invoked.append(name)
+        return SimpleNamespace(main=behavior["main"])
+
+    events = []
+    monkeypatch.setattr(cli.importlib, "import_module", import_module)
+    monkeypatch.setattr(
+        cli.paths,
+        "load",
+        lambda name: SimpleNamespace(emit=lambda *args, **kwargs: events.append((args, kwargs))),
+    )
+
+    for argv, command in (
+        (["--json"], "ai-eng"),
+        (["plan", "--json"], "invalid"),
+        (["digest", "--json"], "invalid"),
+        (["decide", "--adr", "--json"], "invalid"),
+    ):
+        assert cli.main(argv) == 2
+        invalid = capsys.readouterr()
+        assert invalid.err == "" and invalid.out.count("\n") == 1
+        invalid_payload = json.loads(invalid.out)
+        assert invalid_payload["command"] == command
+        assert invalid_payload["error"]["code"] == "INVALID_CLI"
+    assert invoked == []
+
+    def successful(argv):
+        assert argv == [] and not sys.stdin.isatty()
+        print("child stdout must not leak")
+        sys.stderr.write("\x1b[31mchild stderr must not leak\x1b[0m\n")
+        return outcome.result("PASS")
+
+    behavior["main"] = successful
+    assert cli.main(["doctor", "--json"]) == 0
+    rendered = capsys.readouterr()
+    assert rendered.err == "" and rendered.out.count("\n") == 1
+    assert "child" not in rendered.out and "\x1b[" not in rendered.out
+    payload = json.loads(rendered.out)
+    # `schema` first, and it is new. The envelope carried a version number for a document
+    # nobody could find — `policy/` had eight schemas and none for the one object every verb
+    # prints — so a reader written against "version 1" had no way to check it was reading
+    # the right kind of thing. The order is asserted rather than the set, because the first
+    # field a human sees in a piped line should say what the line is.
+    assert list(payload) == [
+        "schema",
+        "schema_version",
+        "command",
+        "operation_id",
+        "started_at",
+        "finished_at",
+        "outcome",
+        "summary",
+        "changes",
+        "checks",
+        "remaining",
+        "next_actions",
+        "error",
+    ]
+    assert payload["schema"] == cli.ENVELOPE_SCHEMA
+    assert payload["schema_version"] == "1" and payload["command"] == "doctor"
+    assert uuid.UUID(payload["operation_id"]).version == 4
+    assert payload["outcome"] == "PASS" and payload["summary"] == outcome.result("PASS").reason
+    assert payload["changes"] == payload["checks"] == payload["remaining"] == []
+    assert payload["next_actions"] == [outcome.result("PASS").next_action]
+    assert payload["error"] is None
+    for field in ("started_at", "finished_at"):
+        assert payload[field].endswith("Z")
+        datetime.fromisoformat(payload[field].removesuffix("Z") + "+00:00")
+
+    behavior["main"] = lambda argv: outcome.result("FAIL")
+    assert cli.main(["--json", "audit"]) == 1
+    failed = json.loads(capsys.readouterr().out)
+    assert failed["outcome"] == "FAIL" and failed["remaining"] == []
+    assert failed["error"] == {
+        "code": "FAIL",
+        "message": outcome.result("FAIL").reason,
+        "retryable": True,
+        "cure": outcome.result("FAIL").next_action,
+    }
+
+    behavior["main"] = lambda argv: 0
+    assert cli.main(["spec", "--json"]) == 1
+    undecidable = json.loads(capsys.readouterr().out)
+    assert undecidable["outcome"] == "INCOMPLETE"
+    assert undecidable["error"]["code"] == "NONCANONICAL_RESULT"
+
+    def prompts(argv):
+        input("private prompt must not leak")
+
+    behavior["main"] = prompts
+    assert cli.main(["--json", "init"]) == 1
+    crashed = capsys.readouterr()
+    assert crashed.err == "" and "private prompt" not in crashed.out
+    unexpected = json.loads(crashed.out)
+    assert unexpected["outcome"] == "INCOMPLETE"
+    assert unexpected["error"]["code"] == "UNEXPECTED_ERROR"
+    assert all(value is not None for key, value in unexpected.items() if key != "error")
+    assert invoked == [
+        "ai_engineering.doctor",
+        "ai_engineering.audit",
+        "ai_engineering.spec",
+        "ai_engineering.init",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("status", "mark"),
+    [
+        ("READY", "◇"),
+        ("PASS", "✓"),
+        ("WARN", "⚠"),
+        ("FAIL", "✗"),
+        ("INCOMPLETE", "?"),
+        ("CANCELLED", "■"),
+        ("WOULD_CHANGE", "·"),
+    ],
+)
+def test_every_canonical_result_keeps_its_status_in_text_and_a_mark(status, mark, capsys):
+    """No terminal outcome may exist only as a colour. The closed vocabulary is written
+    here so deleting a mapping cannot also delete the only test that knew it existed."""
+    ui.render_result(outcome.result(status))
+    assert capsys.readouterr().out.splitlines()[0] == f"{mark} {status}"
+    assert set(ui.RESULT_MARKS) == {
+        "READY",
+        "PASS",
+        "WARN",
+        "FAIL",
+        "INCOMPLETE",
+        "CANCELLED",
+        "WOULD_CHANGE",
+    }
 
 
 def test_messaging_goes_to_stderr_and_data_goes_to_stdout(capsys):
@@ -182,7 +401,7 @@ def test_a_cure_is_indented_under_its_reason_and_says_so_when_there_is_none(comm
     """Six spaces, so it sits under the reason rather than under the title: it is the third
     thing read, after what failed and why. The empty string is not the absence of this line
     — a failure with nothing under it reads as a failure somebody forgot to finish."""
-    ui.cure(command)
+    ui.cure("FAIL", command)
     assert capsys.readouterr().out == line
 
 
@@ -319,8 +538,8 @@ def test_the_cure_dresses_the_command_and_refuses_to_dress_the_absence_of_one(co
     line. The command wears what verb names wear, because it is the part you are about to
     type; the sentence saying there is no command must not, because there is nothing there
     to copy."""
-    ui.cure("ai-eng init --global")
-    ui.cure("")
+    ui.cure("FAIL", "ai-eng init --global")
+    ui.cure("INCOMPLETE", "")
     caught = capsys.readouterr().out
     assert dressed("head", "fix: ") in caught
     assert dressed("cmd", "ai-eng init --global") in caught
@@ -447,3 +666,78 @@ def test_an_interrupted_picker_returns_none_rather_than_an_empty_choice(monkeypa
         SimpleNamespace(checkbox=lambda *a, **k: SimpleNamespace(ask=lambda: None), Choice=dict),
     )
     assert ui.pick("Which?", [("claude-code", "~/.claude")], set()) is None
+
+
+def test_ui_will_running_and_cure_contract_is_executable(capsys):
+    """The three lines a person needs from a command that changes something.
+
+    A will they can read before anything happens, a count that means what it says, and a
+    cure only under a result that actually blocked. Each of the three is a sentence this
+    repository already had in prose, and prose cannot fail — so each is a function that
+    raises instead.
+    """
+
+    ui.will(
+        "publish one immutable acceptance record",
+        reads=["specs/010-x/spec.md", "proof/risk.txt"],
+        writes=["specs/010-x/acceptance-r-010-01/record.json"],
+        network=[],
+    )
+    # On stderr, with everything else a person reads on the way past. Stdout carries the
+    # one JSON object and nothing else, so a will printed there would break that contract.
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    printed = captured.err
+    assert "will  publish one immutable acceptance record" in printed
+    assert "reads   specs/010-x/spec.md, proof/risk.txt" in printed
+    assert "writes  specs/010-x/acceptance-r-010-01/record.json" in printed
+    # Absence is stated, never omitted: a missing line reads as "unknown", not as "none".
+    assert "network none" in printed
+
+    for index, name in ((1, "read the anchored sources"), (2, "publish")):
+        ui.running(index, 2, name)
+    counted = capsys.readouterr()
+    assert counted.out == ""
+    counted = counted.err
+    assert "RUNNING 1/2  read the anchored sources" in counted
+    assert "RUNNING 2/2  publish" in counted
+
+    # A count that cannot be true is refused rather than printed.
+    for index, total in ((3, 2), (0, 2), (1, 0), (1, -1), (True, 2), (1, True)):
+        with pytest.raises(ValueError):
+            ui.running(index, total, "a step")
+
+    # A cure belongs under a result that blocked, and nowhere else.
+    ui.cure("FAIL", "ai-eng init --project")
+    ui.cure("INCOMPLETE", "")
+    assert "fix: ai-eng init --project" in capsys.readouterr().out
+    for status in ("PASS", "WARN", "READY", "CANCELLED", "WOULD_CHANGE", ""):
+        with pytest.raises(ValueError):
+            ui.cure(status, "ai-eng doctor --fix")
+
+    # And a cure may never be a way around the thing that blocked.
+    for bypass in (
+        "git commit --no-verify",
+        "ai-eng exception --skip 'it is fine'",
+        "git push --force",
+        "set the bypass",
+        "skip the guard",
+    ):
+        with pytest.raises(ValueError):
+            ui.cure("FAIL", bypass)
+
+
+def test_the_new_renderers_keep_their_parity_with_and_without_colour(coloured, capsys):
+    """39t's three renderers, driven through a terminal that asked for decoration.
+
+    Every other family in this file is checked both ways; these three were only ever seen
+    undecorated, so nothing said their words survive styling. The words are what a person
+    greps for and what this suite asserts, so they have to be the same words either way.
+    """
+
+    ui.will("do one thing", ["a"], ["b"], ["c"])
+    ui.running(1, 1, "the only stage")
+    decorated = capsys.readouterr().err
+    for fragment in ("will  do one thing", "reads   a", "writes  b", "network c"):
+        assert fragment in decorated, fragment
+    assert "RUNNING 1/1  the only stage" in decorated

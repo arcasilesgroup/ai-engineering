@@ -24,7 +24,26 @@ import uuid
 from _emit import chain_path, config, machine_id, repo_id
 
 KEEP = ("cls", "name", "seq", "ts", "session", "repo", "machine", "hash")
-KEEP_DATA = ("outcome", "phase", "verb", "exit", "guard", "fp", "archived", "ms", "id")
+# The four at the end are spec 011's field names and spec 014's export path: which surface
+# an event came from, which version of it, which adapter translated it, and how a denial was
+# expressed there. They are in clear because every one of them names software rather than a
+# person or a place — and outside this list they would leave as a sixteen-character hash,
+# which answers no question anybody exports observability to ask.
+KEEP_DATA = (
+    "outcome",
+    "phase",
+    "verb",
+    "exit",
+    "guard",
+    "fp",
+    "archived",
+    "ms",
+    "id",
+    "surface_id",
+    "surface_version",
+    "adapter_version",
+    "deny_protocol",
+)
 
 
 def opaque(value) -> dict:
@@ -33,15 +52,32 @@ def opaque(value) -> dict:
 
 
 def redact(event: dict, mode: str) -> dict:
+    """Everything outside the two allow-lists leaves as a hash and a length.
+
+    `command` keeps its first token and nothing else. It used to keep the first two,
+    written after the hashing pass so the prefix survived every mode including strict —
+    and the second token is the argument on any command that takes one:
+    `curl https://host/?token=…` is two tokens, and so is `psql --password=…`. The one
+    test guarding it used `git push <canary>`, where the canary is the third token and
+    falls outside the cut, so the suite agreed with the defect by choosing the input that
+    could not see it. The first token is the program, which is never an argument, and it
+    still answers the question the field was added for: what ran.
+
+    `mode` is read and ignored, and it stays in the signature only so a caller passing the
+    old value still redacts. `"none"` used to send every unlisted field verbatim and it was
+    a supported value in the pin: a configuration that disables a privacy control is a
+    control whoever runs the exporter can switch off, and nothing downstream could tell a
+    machine that had redacted from one that had been told not to. Deleted under spec 014
+    D-014-08, hard, with no shim — rule 4 — and an unrecognised value redacts like every
+    other, because the safe reading of a word nobody knows is the strict one."""
+
     out = {k: event[k] for k in KEEP if k in event}
     data = event.get("data") or {}
     kept = {k: v for k, v in data.items() if k in KEEP_DATA}
-    if mode != "none":
-        kept.update({k: opaque(v) for k, v in data.items() if k not in KEEP_DATA})
-    else:
-        kept.update({k: v for k, v in data.items() if k not in KEEP_DATA})
+    kept.update({k: opaque(v) for k, v in data.items() if k not in KEEP_DATA})
     if isinstance(data.get("command"), str):
-        kept["command"] = " ".join(data["command"].split()[:2])
+        kept["command"] = data["command"].split()[:1]
+        kept["command"] = kept["command"][0] if kept["command"] else ""
     out["data"] = kept
     return out
 
@@ -87,6 +123,21 @@ def post(signal: str, body: dict) -> tuple[int, int, str]:
     endpoint = str(settings.get("endpoint", "")).rstrip("/")
     if not endpoint:
         return 0, 0, "no endpoint configured"
+    # A destination with no stated retention gets nothing. This exporter can say exactly
+    # what leaves — two allow-lists, everything else a hash and a length — and it cannot say
+    # how long the far end keeps it, because that is the operator's system and not ours.
+    # What it can refuse to do is send personal-adjacent telemetry to somewhere nobody has
+    # written down a retention for. `retention_days` is a number the person configuring the
+    # endpoint puts beside it; it is not validated against the destination, and it is not
+    # meant to be. It is the decision, made deliberately, in the file where the endpoint is
+    # chosen — and no export happens until somebody has made it.
+    retention = settings.get("retention_days")
+    if not isinstance(retention, int) or isinstance(retention, bool) or retention <= 0:
+        return (
+            0,
+            0,
+            "no retention_days beside the endpoint: nobody has decided how long this is kept",
+        )
     headers = {"Content-Type": "application/json"}
     name, env = settings.get("auth_header"), settings.get("auth_env")
     if name and env:

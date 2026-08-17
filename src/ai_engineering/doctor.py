@@ -1,4 +1,4 @@
-"""Twenty assertions and one line.
+"""Twenty-three assertions and one line.
 
 These are not document sections: they are checks that fail. `--ci` runs the ones that
 make sense on a runner and says in its output which it skipped, because a doctor that
@@ -12,15 +12,23 @@ because a green nobody earned is the failure this whole product exists to cure.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from collections.abc import Callable
-from pathlib import Path
+from datetime import UTC, datetime
+from pathlib import Path, PurePosixPath
 
-from ai_engineering import __version__, audit, paths, ui, wiring
+from ai_engineering import __version__, audit, outcome, paths, readiness, ui, wiring
+
+# Aliased: three loops in this file already bind `surface` to a row of the wiring table,
+# and a module that shadows a local is a module somebody silently reads the wrong one of.
+from ai_engineering import surface as surfaces
 
 # A problem, or a problem and the cure that is not the one FIXES holds for this number.
 # One check needs the second form: a pin can be wrong two ways and they are two commands.
@@ -108,7 +116,16 @@ def families() -> list[str]:
 
 
 class Undecidable(Exception):
-    """Raised when a check could not be evaluated. Never counted as a pass."""
+    """Raised when a check could not be evaluated. Never counted as a pass.
+
+    It may carry a cure. Without one, "could not decide" and "could not decide, and here is
+    the command that would settle it" were the same state, so a check whose answer is one
+    command away had to be reported as a failure to say so — which is a red nobody earned.
+    """
+
+    def __init__(self, message: str, cure: str = "") -> None:
+        super().__init__(message)
+        self.cure = cure
 
 
 def check(number: int, family: str, title: str, in_ci: bool = True):
@@ -126,6 +143,44 @@ def git(root: Path, *args: str) -> str:
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return ""
+
+
+def tracked_files(root: Path) -> list[str]:
+    """The tracked repository inventory, or no answer rather than an empty inventory."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--cached", "-z"],
+            capture_output=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise Undecidable("git could not inventory tracked files") from error
+    if result.returncode:
+        raise Undecidable("git could not inventory tracked files")
+    try:
+        rendered = result.stdout.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise Undecidable("git could not inventory tracked files") from error
+    if not rendered:
+        return []
+    if not rendered.endswith("\0"):
+        raise Undecidable("git could not inventory tracked files")
+    files = rendered.removesuffix("\0").split("\0")
+    if any(not name for name in files):
+        raise Undecidable("git could not inventory tracked files")
+    return files
+
+
+def intent_homes(files: list[str]) -> list[str]:
+    """Tracked paths classified as Intent homes by the canonical repository contract."""
+    homes = []
+    for raw in files:
+        path = PurePosixPath(raw)
+        if not path.parts or path.parts[0].casefold() == "tests":
+            continue
+        if path.name.casefold().endswith("intent.md"):
+            homes.append(raw)
+    return homes
 
 
 def events(root: Path | None) -> list[dict]:
@@ -262,6 +317,118 @@ def git_hook_fires(root: Path | None) -> str | tuple[str, str] | None:
             f"install wires. Something lives there; none of it is ours.",
             "ai-eng init --project",
         )
+    return _anchor_answers(root)
+
+
+# The exact shape a live anchor has, and the only argument lists this check will run. Not a
+# shell, and not whatever `ai.eng` happens to hold: a configured value that is executed is a
+# configured value that can be anything, on a machine that may already be doing what an
+# injected instruction told it to.
+_ANCHOR_TAIL = ["-m", "ai_engineering.cli"]
+_ANCHOR_FOOTER = re.compile(r"^Ai-Eng-Anchor: \S+/\S+ seq=\d+ head=[0-9a-f]{12}$", re.M)
+_ANCHOR_CURE = "ai-eng init --project"
+
+
+def _interpreter_of(configured: str) -> str:
+    """The interpreter an `ai.eng` value names, or an empty string when it names none.
+
+    The value is always one interpreter followed by `-m ai_engineering.cli`, so the tail is
+    matched exactly and whatever precedes it is the interpreter — quoted or not, with spaces
+    or without. A tokeniser cannot do this: `shlex` in POSIX mode eats backslashes and in
+    Windows mode keeps the quotes, and either way a path with a space becomes two arguments.
+    """
+
+    suffix = " " + " ".join(_ANCHOR_TAIL)
+    if not configured.endswith(suffix):
+        return ""
+    return configured[: -len(suffix)].strip().strip('"')
+
+
+def _run_anchor(root: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run this interpreter's own CLI, in the repository being diagnosed, safely.
+
+    `PYTHONSAFEPATH` is the whole reason this helper exists. `-m` prepends the child's
+    working directory to `sys.path`, and the working directory here is somebody's
+    repository — so a repository holding a top-level `ai_engineering/` package had its own
+    `cli.py` executed by `ai-eng doctor`, and could print a well-formed footer to make this
+    assertion pass. A review planted exactly that and watched it work. The flag stops the
+    implicit path entry, so the module that answers is the installed one.
+    """
+
+    return subprocess.run(
+        [sys.executable, *_ANCHOR_TAIL, *arguments],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+        env={**os.environ, "PYTHONSAFEPATH": "1"},
+    )
+
+
+def _anchor_answers(root: Path) -> str | tuple[str, str] | None:
+    """Whether the CLI this repository's anchor names can actually answer.
+
+    The hooks resolve the CLI through `ai.eng`, and a persisted anchor proves only that
+    somebody wrote a string. This machine was found with a live interpreter and a dead
+    `ai_engineering.cli` — an editable install pointing at a deleted worktree — so the anchor
+    read as configured, `git config --get` returned it, and every hook that used it failed.
+
+    Liveness and anchorability are asked separately, because they have different answers. A
+    module that cannot run is a broken install and a failure. A module that runs and cannot
+    anchor is a chain that has not been established yet, which is true of every fresh
+    machine — reporting that as a broken install would make this assertion red by
+    construction, and a doctor that is red by construction is a doctor somebody silences.
+    """
+
+    configured = git(root, "config", "--get", "ai.eng")
+    if not configured:
+        raise Undecidable(
+            "ai.eng is not set here, so the hooks have no CLI to resolve", _ANCHOR_CURE
+        )
+    # Compared by shape rather than by tokenising. POSIX quoting eats a Windows path's
+    # backslashes and every splitter cuts `C:\Program Files\...` in two, so both spellings
+    # were permanently red — with a cure that rewrites the same unsplittable value, which
+    # is a loop and not a repair. The value has one exact shape, so it is read as one.
+    if _interpreter_of(configured) != sys.executable:
+        return (
+            "ai.eng does not name this interpreter and this module, so what the hooks run "
+            "is not what this install would run",
+            _ANCHOR_CURE,
+        )
+    try:
+        alive = _run_anchor(root, ["--version"])
+    except (OSError, subprocess.SubprocessError) as why:
+        raise Undecidable(
+            f"the CLI the anchor names could not be executed: {why.__class__.__name__}",
+            _ANCHOR_CURE,
+        ) from why
+    if alive.returncode != 0 or "ai-engineering" not in alive.stdout:
+        return (
+            "the CLI the anchor names is installed and does not run: the hooks resolve a "
+            "module that answers nothing",
+            _ANCHOR_CURE,
+        )
+    try:
+        footed = _run_anchor(root, ["audit", "--anchor"])
+    except (OSError, subprocess.SubprocessError) as why:
+        raise Undecidable(
+            f"the CLI the anchor names could not be executed: {why.__class__.__name__}",
+            _ANCHOR_CURE,
+        ) from why
+    if footed.returncode != 0:
+        raise Undecidable(
+            "the CLI the anchor names runs and cannot anchor a commit yet, so this "
+            "repository's chain is not in a state to sign one",
+            _ANCHOR_CURE,
+        )
+    footers = _ANCHOR_FOOTER.findall(footed.stdout)
+    if len(footers) != 1:
+        return (
+            f"the CLI the anchor names printed {len(footers)} anchor footers, and a commit "
+            f"carries exactly one",
+            _ANCHOR_CURE,
+        )
     return None
 
 
@@ -358,7 +525,172 @@ def chain_intact(root: Path | None) -> str | None:
         if event.get("prev") != prev:
             return f"link {index} does not extend the one before it"
         prev = event.get("hash", "")
-    return None
+    # And the seal, asked of the verifier rather than re-implemented. This walked `prev`
+    # and `hash` only, so a link sealed as `outcome: "edited"` — the literal tamper marker,
+    # whose hashes all match precisely because it was sealed truthfully — passed here while
+    # `ai-eng audit verify` refused the same file. Measured on the operator's machine:
+    # the verifier exits 1 on 22 broken links while this printed "the hash chain is intact
+    # and writable". Two readers of one file, two verdicts, and the greener one is the one
+    # on the summary screen. That direction is what makes it a defect.
+    broken = [why for kind, why in audit._chain_findings(audit.read(root)) if kind == "BROKEN"]
+    return broken[0] if broken else None
+
+
+# A session is minutes; a day is two orders of magnitude more. Anything older than this
+# waiting in the buffer is not a session in progress, it is a seal that stopped.
+SEAL_MAX_AGE = 86_400
+
+
+@check(22, "The record", "The buffer is being sealed into the chain")
+def buffer_sealed(root: Path | None) -> str | None:
+    """Half of "survives losing the laptop" is the seal, and nothing measured whether it
+    still runs. `flush()` has exactly one caller outside the suite, on `SessionEnd`/`Stop`;
+    if that path stops firing, every event since sits in a file inside the clone, outside
+    the hash chain, and no assertion says a word. Measured on this repository's own machine:
+    987 sealed links stopping on 2026-08-12 beside a buffer past 4,500 lines and growing.
+
+    A buffer is not a failure — it is where events live between seals. A buffer whose
+    oldest line has been waiting longer than any session lasts is a different statement."""
+
+    emit = paths.load("_emit")
+    buffer = emit.buffer_path(root)
+    if buffer is None or not buffer.exists():
+        return None
+    lines = [line for line in buffer.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if not lines:
+        return None
+    oldest = ""
+    for line in lines:
+        try:
+            stamp = json.loads(line).get("ts", "")
+        except ValueError:
+            continue
+        if isinstance(stamp, str) and stamp and (not oldest or stamp < oldest):
+            oldest = stamp
+    if not oldest:
+        return None
+    try:
+        waited = datetime.now(UTC) - datetime.fromisoformat(oldest)
+    except (TypeError, ValueError):
+        return None
+    if waited.total_seconds() <= SEAL_MAX_AGE:
+        return None
+    return (
+        f"{len(lines)} events unsealed, the oldest waiting since {oldest[:19]}: "
+        f"the session hook that seals the buffer has not run"
+    )
+
+
+@check(23, "The record", "Declared capabilities say whether anything enforces them")
+def capabilities_enforced(root: Path | None) -> str | None:
+    """`policy/capabilities.toml` declares fifteen capabilities with read roots, write
+    roots, exec allowlists, network hosts, secrets and human gates. `capability.preflight`
+    validates all of it and then returns `CAPABILITY_ENFORCEMENT_UNAVAILABLE`, because no
+    executor exists yet — which is the honest answer and is pinned by a test.
+
+    What was missing is anybody being told. Nothing in `doctor`, the README or any verb
+    mentioned it, so a reader of that file saw six governed fields per capability and had
+    no way to learn that none of them stops anything. A declaration nobody enforces and
+    nobody flags is the shape of a false green, and this repository's constitution says to
+    expose that rather than hide it.
+
+    Reported as undecidable and not as a failure, which is a correction. FAIL is what an
+    executed check says when it conclusively finds a violation; nothing executed here,
+    because the executor is what does not exist. The message is unchanged and still prints,
+    now under "Not evaluated", where the line beneath it reads "None of these is a pass."
+    That is the same warning without the wrong word on it — and the wrong word was load
+    bearing: it made `doctor` FAIL on every machine, forever, which is a red nobody can
+    clear and therefore a red everybody learns to ignore."""
+
+    from ai_engineering import capability
+
+    try:
+        declared = capability._validated(None)["capabilities"]
+    except Exception:  # the manifest has its own assertion; this one is about enforcement
+        return None
+    if not declared:
+        return None
+    # What is missing, named, because "no executor exists yet" is true and tells a reader
+    # nothing about whether the gap is ours or the surface's. Two things are absent and only
+    # one of them is in our hands: nothing here reads a running capability's identity out of
+    # a payload, and no receipt has ever shown a surface putting one there. Those are
+    # different claims — the first is a gap in this tree, the second is a measurement about
+    # somebody else's software that has never been taken. Saying "no surface sends it" would
+    # be asserting the second from the first.
+    raise Undecidable(
+        f"{len(declared)} capabilities are declared and nothing enforces them: preflight "
+        f"validates the declaration and then refuses. An executor needs the running "
+        f"capability's identity to arrive with the action, and nothing here reads one — nor "
+        f"has any receipt yet shown a surface sending one"
+    )
+
+
+@check(24, "The wiring", "Every generated router is still the one we generated")
+def routers_intact(root: Path | None) -> str | tuple[str, str] | None:
+    """A router is a file this installer wrote into somebody's home, so it owes the same
+    answer as every other file it wrote: is it there, and is it ours.
+
+    The digest travels in the receipt beside the path. A router that is gone was removed by
+    somebody and that is their business — it is reported, not repaired, because `--fix`
+    rewriting a file a person deleted is the installer overruling them. A router that is
+    there and different is the more interesting state: somebody wanted something else, and
+    `uninstall` will now leave it alone rather than deleting their work.
+    """
+
+    recorded = [row for row in wiring.receipt().get("wrote", []) if row.get("kind") == "router"]
+    if not recorded:
+        raise Undecidable("no router has been written here, so there is none to check")
+
+    # The path that gets opened is built here, from the surface table and a file name — the
+    # string recorded in the receipt is never used as a path at all. That is the difference
+    # between bounding a risk and removing it, and it took two attempts to see.
+    #
+    # The receipt is a file on disk, so a path inside it is only as trustworthy as that file,
+    # and this loop opens whatever it names. Checking the recorded string and then opening it
+    # left the shape intact: an entry redirected to any readable file would still be hashed,
+    # and the check would report whether the digest matched, which is an oracle. Somebody who
+    # can rewrite the receipt is already inside the framework's own home — and that is the
+    # argument that ends with a control nobody bounded.
+    #
+    # So the recorded row contributes a name and nothing else. A router lives in a directory
+    # the surface table declares, it is called `ai-<something>.md`, and it is a regular file
+    # rather than a link to one. A row that does not resolve to exactly that is reported and
+    # never opened, which is also the more useful answer for whoever is reading the report.
+    roots = [
+        wiring.expand(row["commands"]) for row in wiring.table()["surface"] if row.get("commands")
+    ]
+    missing, edited, astray = [], [], []
+    for row in recorded:
+        name = Path(str(row.get("path", ""))).name
+        rebuilt = [root / name for root in roots if (root / name).parent in roots]
+        if not (name.startswith("ai-") and name.endswith(".md")) or not rebuilt:
+            astray.append(name or "<unnamed>")
+            continue
+        target = next((one for one in rebuilt if one.exists()), rebuilt[0])
+        if target.is_symlink():
+            astray.append(name)
+            continue
+        _, _, digest = str(row.get("how", "")).partition(" ")
+        if not target.is_file():
+            missing.append(name)
+        elif hashlib.sha256(target.read_bytes()).hexdigest() != digest:
+            edited.append(name)
+    if not missing and not edited and not astray:
+        return None
+    said = []
+    if missing:
+        said.append(f"{len(missing)} removed ({', '.join(sorted(missing)[:3])})")
+    if edited:
+        said.append(f"{len(edited)} edited ({', '.join(sorted(edited)[:3])})")
+    if astray:
+        said.append(
+            f"{len(astray)} recorded outside any command root and not read "
+            f"({', '.join(sorted(astray)[:3])})"
+        )
+    return (
+        f"of {len(recorded)} routers, {' and '.join(said)}",
+        "`ai-eng init` writes them again; an edited one is left alone by `uninstall`",
+    )
 
 
 @check(10, "The record", "Continuity: this head extends the last archived one")
@@ -400,30 +732,71 @@ def acceptances_current(root: Path | None) -> str | None:
 def polarity(root: Path | None) -> str | None:
     if root is None:
         raise Undecidable("not inside a repository")
-    tracked = set(git(root, "ls-files", ".ai").splitlines())
-    allowed = {".ai/.gitignore", ".ai/config.toml"}
+    intent_home = ".ai/intent.md"
+    tracked = {name for name in tracked_files(root) if name.startswith(".ai/")}
+    allowed = {".ai/.gitignore", ".ai/config.toml", intent_home, readiness.DECLARATION}
+    problems = []
+    if intent_home not in tracked:
+        problems.append(f"Solution Intent is not tracked at {intent_home}")
+    # A receipt for one of the boxes, and not merely the folder they live in. That folder
+    # holds every check-evidence receipt this machine writes — the adversarial suite puts
+    # four of its own there — and keying on its existence made running that suite red this
+    # assertion in a class nothing can repair.
+    if (
+        any((root / readiness.RECEIPTS / f"{box.id}.json").exists() for box in readiness.BOXES)
+        and readiness.DECLARATION not in tracked
+    ):
+        # Receipts are this machine's, and are ignored. The requirement they are measured
+        # against is everybody's, and is reviewed — so a repository holding receipts whose
+        # declaration nobody has committed is one where the same hand wrote the question
+        # and the answer, which is the one thing the readiness verifier exists to prevent.
+        # With the remedy in it, because there is no verb that performs it: `.ai/.gitignore`
+        # is written once and never rewritten, so a repository set up by an earlier release
+        # has an ignore file that drops this declaration silently on `git add -A`.
+        problems.append(
+            f"receipts are here and {readiness.DECLARATION} is not committed — add "
+            f"!{PurePosixPath(readiness.DECLARATION).name} to .ai/.gitignore, then commit it"
+        )
     extra = tracked - allowed
     if extra:
-        return f"state slipped into git: {sorted(extra)[:3]}"
-    return None
+        problems.append(f"state slipped into git: {sorted(extra)[:3]}")
+    return None if not problems else "; ".join(problems)
 
 
 @check(18, "The record", "Your data is yours: every framework file has a declared home")
 def data_is_yours(root: Path | None) -> str | None:
+    from ai_engineering import intent
+
     if root is None:
         raise Undecidable("not inside a repository")
     homes = (".ai/", "specs/", "docs/adr/")
+    problems = []
+    tracked = tracked_files(root)
     strays = [
         name
-        for name in git(root, "ls-files").splitlines()
+        for name in tracked
         if name.startswith(".ai-engineering/") or name.endswith(".ai-eng.json")
     ]
     if strays:
-        return (
+        problems.append(
             f"{len(strays)} framework files are committed outside {', '.join(homes)} — "
             f"the first is {strays[0]}. That is the first step back toward 528 of them."
         )
-    return None
+    intent_home = ".ai/intent.md"
+    mirrors = [candidate for candidate in intent_homes(tracked) if candidate != intent_home]
+    if mirrors:
+        problems.append(f"Solution Intent is also tracked outside {intent_home}: {mirrors[0]}")
+    source = root / intent_home
+    if not source.is_file():
+        problems.append(f"Solution Intent is missing at {intent_home}")
+    else:
+        result = intent.validate(source, root)
+        if result.outcome != "PASS":
+            problems.append(
+                f"Solution Intent at {intent_home} is {result.outcome}: "
+                f"{result.code} — {result.reason}"
+            )
+    return None if not problems else "; ".join(problems)
 
 
 # ---------------------------------------------------------------- the controls
@@ -588,7 +961,14 @@ def destination_real(root: Path | None) -> str | None:
 # ---------------------------------------------------------------- coverage
 
 
-def standing(surface: dict, installed: set[str], inert: str, guarded: set[str]) -> tuple[str, str]:
+def standing(
+    surface: dict,
+    installed: set[str],
+    inert: str,
+    guarded: set[str],
+    *,
+    proved: frozenset[str] = frozenset(),
+) -> tuple[str, str]:
     """One surface's word, and the sentence that says what to do about it. The word carried
     the whole message before and the message did not fit in one word: `documented, unrun
     UNPROVEN` and `not installed UNPROVEN` are the same verdict for opposite reasons, and
@@ -599,9 +979,9 @@ def standing(surface: dict, installed: set[str], inert: str, guarded: set[str]) 
     policy/surfaces.toml, and never from the settings file — so on a machine `ai-eng
     uninstall` had just stripped, the block whose entire job is *where a call can actually
     be stopped* printed `claude-code BLOCKS a denial has executed here` and
-    `copilot-cli UNPROVEN installed and wired`, over zero entries. `proven` says a denial has
-    executed on this kind of surface at some point in this product's life; it can never say
-    there is anything here to execute one now."""
+    `copilot-cli UNPROVEN installed and wired`, over zero entries. A receipt says a denial
+    executed on this surface, on this machine; nothing here says there is one able to
+    execute another now, which is what the installed and wired branches above are for."""
     if surface["id"] not in installed:
         return "UNPROVEN", "not installed here, so nothing about it is proven"
     if surface["tier"] == "T3":
@@ -614,12 +994,29 @@ def standing(surface: dict, installed: set[str], inert: str, guarded: set[str]) 
         if surface.get("trust_required"):
             return "INERT", "installed and unapproved — type /hooks in Codex to approve it"
         return "INERT", "the plugin never reported loading; a malformed one is dropped in silence"
-    if surface["proven"]:
+    if surface["id"] in proved:
         return "BLOCKS", "a denial has executed here"
     return "UNPROVEN", "installed and wired, but no denial has ever run here"
 
 
-def coverage(root: Path | None) -> list[str]:
+def enforced(root: Path | None, *, now: datetime) -> frozenset[str]:
+    """The surfaces whose enforcement receipt proved, and no others.
+
+    This is the whole of the change: the coverage word used to come from a field in a
+    table, and OpenCode's row read BLOCKS on the strength of it with no denial ever
+    executed there. A flag we set cannot contradict us, so it could never turn the screen
+    red — and a report that cannot go red is a report nobody needs to read."""
+
+    if root is None:
+        return frozenset()
+    return frozenset(
+        row.surface
+        for row in surfaces.read(root, now=now).rows
+        if row.state == "enforcement" and row.outcome == "PASS" and row.code == surfaces.PROVEN
+    )
+
+
+def coverage(root: Path | None, *, now: datetime | None = None) -> list[str]:
     """The honesty layer, and it is derived: from the pin, the settings files on disk and
     the recorded trust state. No probes, no billed sessions. A surface that is not installed
     here reads UNPROVEN, not "covered".
@@ -647,16 +1044,122 @@ def coverage(root: Path | None) -> list[str]:
         s["id"] for s in wiring.table()["surface"] if s["writer"] == "none"
     }
     try:
-        inert = surfaces_alive(root) or ""
+        # The message only. `surfaces_alive` returns `(message, cure)` as soon as any
+        # surface has no entry of ours, and a tuple is not a string: `surface["name"] in
+        # inert` silently stops being a substring test and becomes an exact-element test
+        # that is never true. So the coverage block could not print INERT whenever any one
+        # surface was unwired, and the two surfaces that fail *silently* — Codex without
+        # its trust ceremony, OpenCode whose plugin was dropped with no error and no log —
+        # printed as `installed and wired` on a machine where assertion 21 was telling the
+        # person they were dead. That is the case the comment beside `INERT` says must
+        # never be reported as covered.
+        said = surfaces_alive(root)
+        inert = (said[0] if isinstance(said, tuple) else said) or ""
     except Undecidable:
         inert = ""  # nothing installed, so every row below already reads UNPROVEN
+    proved = enforced(root, now=now or datetime.now(UTC))
     for surface in wiring.table()["surface"]:
-        word, why = standing(surface, installed, inert, guarded)
+        word, why = standing(surface, installed, inert, guarded, proved=proved)
         lines.append(f"  {surface['tier']:<4} {surface['id']:<16} {word:<9} {why}")
     return [*lines, *OPEN]
 
 
-def main(argv: list[str]) -> int:
+def _terminal_result(
+    failed: list[int],
+    unanswered: list[tuple[int, str, str]],
+    coverage_lines: list[str],
+    coverage_unknown: bool,
+    readiness_failed: bool = False,
+    surface_failed: bool = False,
+    surface_warned: bool = False,
+) -> outcome.Result:
+    words = {word for line in coverage_lines for word in re.findall(r"[A-Z]+", line)}
+    if failed or readiness_failed or surface_failed or "MISMATCH" in words:
+        return outcome.result("FAIL")
+    if unanswered or coverage_unknown:
+        return outcome.result("INCOMPLETE")
+    if surface_warned or words & {"INERT", "UNPROVEN", "OPEN"}:
+        return outcome.result("WARN")
+    return outcome.result("PASS")
+
+
+# The three questions the coverage word used to answer at once, defined where somebody
+# running `doctor` will meet them. Each is read from its own receipt and speaks for nothing
+# else: a surface can list the skills and be unable to run them, and it can run them and
+# never be able to stop anything.
+STATE_LEGEND = (
+    "  discovery   the surface can see the skills · invocation somebody can run one",
+    "  enforcement a denial has executed here · not applicable a T3 surface cannot deny",
+)
+
+
+def surface_states(root: Path | None, *, now: datetime) -> list[outcome.Fact]:
+    """Discovery, invocation and enforcement for every surface, one fact each.
+
+    Every row is printed even when nothing has been receipted, because an omitted row
+    reads, to anything counting, like a question that was not worth asking. Unproven is the
+    honest answer and it is never a pass."""
+
+    if root is None:
+        return []
+    said = {
+        surfaces.PROVEN: "a denial has executed here",
+        surfaces.NOT_APPLICABLE: "a T3 surface cannot deny, so there is nothing to prove",
+        surfaces.RECEIPT_MISSING: "no receipt: unproven, which is not a pass",
+        surfaces.RECEIPT_STALE: "the receipt is older than a proof is allowed to be",
+        surfaces.RECEIPT_MISMATCH: "the receipt names another surface or another state",
+        surfaces.CANNOT_ENFORCE: "a denial receipt for a surface that cannot deny",
+        surfaces.WARNED: "it ran, it passed, and it had something to say",
+        surfaces.REFUSED_EXCUSE: "the receipt says the check did not apply, and here it does",
+    }
+    facts = []
+    for row in surfaces.read(root, now=now).rows:
+        detail = said.get(row.code, row.code)
+        aged = "" if row.age_seconds is None else f" · {row.age_seconds}s old"
+        facts.append(
+            outcome.fact(
+                f"surface-{row.surface}-{row.state}",
+                row.outcome,
+                f"{row.surface} · {row.state}",
+                detail + aged,
+            )
+        )
+    return facts
+
+
+def readiness_facts(root: Path | None, *, now: datetime) -> list[outcome.Fact]:
+    """What the production-ready boxes are proven to be, and how old the proof is.
+
+    Age is reported next to every verdict because a receipt has two ways of not meaning
+    anything, and only one of them shows up as a failure: it can say the wrong thing, or it
+    can say the right thing about a run from six months ago. The second is the one that
+    reads green in every summary that only counts outcomes.
+
+    No box is claimed here that a receipt did not carry, and a repository with nothing to
+    read reports that it has nothing to read."""
+
+    if root is None:
+        return [
+            outcome.fact(
+                "readiness",
+                "INCOMPLETE",
+                "Production-ready boxes",
+                "there is no repository here to read receipts from",
+            )
+        ]
+    report = readiness.read(root, now=now)
+    facts = [
+        outcome.fact("readiness", report.result.outcome, "Production-ready boxes", report.code)
+    ]
+    for box in report.boxes:
+        aged = "no receipt to age" if box.age_seconds is None else f"{box.age_seconds}s old"
+        facts.append(
+            outcome.fact(f"readiness-{box.id}", box.outcome, box.label, f"{box.code} · {aged}")
+        )
+    return facts
+
+
+def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     parser = argparse.ArgumentParser("ai-eng doctor")
     parser.add_argument("--ci", action="store_true", help="only the checks a runner can answer")
     parser.add_argument("--paths", action="store_true", help="print where every file class lives")
@@ -674,11 +1177,16 @@ def main(argv: list[str]) -> int:
             ("receipt", wiring.receipt_path()),
         ):
             ui.write(f"  {label:<14}{where}", data=True)
-        return 0
+        return outcome.result("PASS")
 
+    # One clock for the whole run. Two `datetime.now()` calls read the receipts at two
+    # different instants, and a receipt expiring between them makes the one-word block
+    # and the state block disagree about the same file.
+    observed = datetime.now(UTC)
     failed: list[int] = []
     unanswered: list[tuple[int, str, str]] = []
     cures: dict[int, str] = {}
+    check_facts: list[outcome.Fact] = []
     for family in families():
         ui.section(family, data=True)
         for number, group, title, in_ci, fn in sorted(CHECKS):
@@ -687,6 +1195,14 @@ def main(argv: list[str]) -> int:
             if args.ci and not in_ci:
                 ui.verdict(number, "skipped", f"{title} — needs a real working copy")
                 unanswered.append((number, title, "needs a real working copy"))
+                check_facts.append(
+                    outcome.fact(
+                        f"assertion-{number}",
+                        "SKIPPED",
+                        title,
+                        "needs a real working copy",
+                    )
+                )
                 continue
             try:
                 problem = fn(root)
@@ -695,15 +1211,25 @@ def main(argv: list[str]) -> int:
                 # this is the only reader of it that must not stop: a diagnosis that dies on
                 # one broken file tells you nothing about the other nineteen assertions.
                 ui.verdict(number, "unknown", title, f"could not evaluate: {why}")
+                offered = getattr(why, "cure", "")
+                if offered:
+                    ui.cure("INCOMPLETE", offered)
                 unanswered.append((number, title, str(why)))
+                check_facts.append(
+                    outcome.fact(f"assertion-{number}", "INCOMPLETE", title, str(why))
+                )
                 continue
             if not problem:
                 ui.verdict(number, "ok", title)
+                check_facts.append(outcome.fact(f"assertion-{number}", "PASS", title))
                 continue
             problem, cure = resolve(number, problem)
             ui.verdict(number, "fail", title, problem)
-            ui.cure(cure)
+            ui.cure("FAIL", cure)
             failed.append(number)
+            check_facts.append(
+                outcome.fact(f"assertion-{number}", "FAIL", title, problem, cure=cure)
+            )
             if unattended(cure):
                 cures[number] = cure
 
@@ -711,11 +1237,65 @@ def main(argv: list[str]) -> int:
     for line in LEGEND:
         ui.write(line, style="muted", data=True)
     ui.write(data=True)
-    for line in coverage(root):
+    coverage_unknown = False
+    try:
+        coverage_lines = coverage(root, now=observed)
+    except (Undecidable, wiring.Unreadable) as why:
+        coverage_unknown = True
+        coverage_lines = []
+        ui.write(f"  INCOMPLETE  could not evaluate coverage: {why}", style="warn", data=True)
+        check_facts.append(outcome.fact("coverage", "INCOMPLETE", "Surface coverage", str(why)))
+    for index, line in enumerate(coverage_lines, 1):
         # The words themselves are vocabulary — BLOCKS, INERT, UNPROVEN, ADVISES mean
         # something and do not move. Only the colour is added, and it is chosen by the word
         # rather than recomputed here, so this can never disagree with what the line says.
         ui.write(line, style=tint(line), data=True)
+        coverage_status = (
+            "FAIL"
+            if "MISMATCH" in line
+            else "WARN"
+            if any(word in line for word in ("INERT", "UNPROVEN", "OPEN"))
+            else "PASS"
+            if any(word in line for word in ("BLOCKS", "OK"))
+            else "OBSERVED"
+        )
+        check_facts.append(
+            outcome.fact(f"coverage-{index}", coverage_status, "Surface coverage", line)
+        )
+
+    ui.section("Surfaces — three questions, and one receipt for each of them", data=True)
+    for line in STATE_LEGEND:
+        ui.write(line, style="muted", data=True)
+    states = surface_states(root, now=observed)
+    for entry in states:
+        ui.write(f"  {entry.status:<11} {entry.summary} — {entry.detail}", data=True)
+        check_facts.append(entry)
+    # A state whose own check ran and failed is decided, so it counts — the same argument
+    # the production-ready block already makes, wired the same way. It printed FAIL into
+    # the JSON envelope and returned PASS with exit 0, which is a gate result this code
+    # did not observe.
+    surface_failed = any(entry.status == "FAIL" for entry in states)
+    # A warning is not a failure and it is not nothing. It joins the same branch the
+    # coverage vocabulary already routes INERT and UNPROVEN to, rather than being invented
+    # as a status that appears in the envelope and changes no verdict — which is blocker
+    # two's shape one severity down.
+    surface_warned = any(entry.status == "WARN" for entry in states)
+
+    ui.section("Production-ready — a box is ticked by a receipt that ran, or not at all", data=True)
+    boxes = readiness_facts(root, now=observed)
+    for entry in boxes:
+        ui.write(f"  {entry.status:<11} {entry.summary} — {entry.detail}", data=True)
+        check_facts.append(entry)
+    # Unproven is reported and not folded into the verdict: whether anything is allowed a
+    # URL is a decision this verb observes and does not make, and a doctor that went red on
+    # every repository with no receipts yet would be turned off by everybody who has one.
+    # A box whose own check ran and failed is a different answer, and it is decided, so it
+    # counts — reporting a decided fault as something to look at later is the same lie as a
+    # green nobody earned, told slowly.
+    # The aggregate fact restates the worst box, so it is not counted beside it: one
+    # fault named twice reads as two.
+    failed_boxes = [entry for entry in boxes if entry.status == "FAIL" and entry.id != "readiness"]
+    readiness_failed = bool(failed_boxes)
 
     if unanswered:
         ui.section(
@@ -732,12 +1312,34 @@ def main(argv: list[str]) -> int:
             "  None of these is a pass. Not evaluated is never green.", style="warn", data=True
         )
 
-    verdict_panel(failed, len(unanswered), cures)
+    result = _terminal_result(
+        failed,
+        unanswered,
+        coverage_lines,
+        coverage_unknown,
+        readiness_failed,
+        surface_failed,
+        surface_warned,
+    )
+    verdict_panel(result, failed, len(unanswered), cures, len(failed_boxes))
     if args.fix and cures:
         return repair(cures, argv)
     if args.fix:
         ui.write("\n  Nothing that failed here has a command --fix runs for you.", data=True)
-    return 1 if failed else 0
+    remaining = [
+        *(f"assertion {number} failed" for number in failed),
+        *(f"{entry.summary} failed its own check" for entry in failed_boxes),
+        *(f"{entry.summary} failed" for entry in states if entry.status == "FAIL"),
+        *(f"assertion {number} could not be evaluated" for number, _, _ in unanswered),
+        *(["surface coverage could not be evaluated"] if coverage_unknown else []),
+    ]
+    actions = sorted(set(cures.values())) or [result.next_action]
+    return outcome.execution(
+        result,
+        checks=check_facts,
+        remaining=remaining,
+        next_actions=actions,
+    )
 
 
 def resolve(number: int, problem: str | tuple[str, str]) -> tuple[str, str]:
@@ -762,13 +1364,21 @@ def tint(line: str) -> str:
     return next((style for word, style in COLOURS.items() if word in line), "")
 
 
-def verdict_panel(failed: list[int], unanswered: int, cures: dict[int, str]) -> None:
+def verdict_panel(
+    result: outcome.Result,
+    failed: list[int],
+    unanswered: int,
+    cures: dict[int, str],
+    boxes_failed: int,
+) -> None:
     """Whether it passed, and if not, how much of it a command can put right. This was one
     unframed line under the coverage block, in the same weight as the rows above it, and it
     was read as more of the table.
 
     The failures arrive as their numbers and not as a count beside a list of them: two
-    arguments that have to agree are two arguments that can stop agreeing."""
+    arguments that have to agree are two arguments that can stop agreeing. The title comes
+    from the same terminal result the caller returns, so a warning or an unknown answer can
+    never acquire a green label from an empty failures list."""
     rows = [
         (
             "",
@@ -778,15 +1388,33 @@ def verdict_panel(failed: list[int], unanswered: int, cures: dict[int, str]) -> 
     ]
     if cures:
         rows.append(("fixable now", f"{len(cures)}   ai-eng doctor --fix"))
+    if boxes_failed:
+        # Counted on its own line rather than folded into the failures above, which are
+        # numbered assertions. Without it the banner read FAILED over "0 failed", and a
+        # verdict whose own counters contradict it is a verdict nobody reads twice.
+        #
+        # The label is short because the column that holds it is sixteen wide and pads to
+        # exactly that: `production-ready` filled it and printed hard against its own
+        # count, in the one row this exists to make legible.
+        word = "box" if boxes_failed == 1 else "boxes"
+        rows.append(
+            ("not ready", f"{boxes_failed}   production-ready {word} failed a check that ran")
+        )
     people = sorted(number for number in failed if number not in cures)
     if people:
         listed = ", ".join(str(number) for number in people)
         word = "assertion" if len(people) == 1 else "assertions"
         rows.append(("needs a person", f"{len(people)}   {word} {listed}"))
-    ui.summary("FAILED" if failed else "OK", rows, "red" if failed else ui.BRAND)
+    title, style = {
+        "PASS": ("OK", ui.BRAND),
+        "WARN": ("WARN", "yellow"),
+        "FAIL": ("FAILED", "red"),
+        "INCOMPLETE": ("INCOMPLETE", "yellow"),
+    }[result.outcome]
+    ui.summary(title, rows, style)
 
 
-def repair(cures: dict[int, str], argv: list[str]) -> int:
+def repair(cures: dict[int, str], argv: list[str]) -> outcome.Result | outcome.Execution:
     """Runs what the failures themselves named, each command once, and then asks the whole
     question again. In this process rather than through a shell: `ai-eng` is on the PATH of
     the person who typed it and not necessarily of whatever would run it here, and a repair
@@ -797,8 +1425,8 @@ def repair(cures: dict[int, str], argv: list[str]) -> int:
     with nothing ticked — and it does not touch the pin, because `init` only writes that
     when it is absent and `ai-eng update` is the verb that changes it.
 
-    The second pass has no --fix in it, so this recurses exactly once, and its exit code is
-    the answer: two of the cures cannot reach every shape of their failure — a Codex entry
+    The second pass has no --fix in it, so this recurses exactly once, and its terminal
+    result is the answer: two of the cures cannot reach every shape of their failure — a Codex entry
     is appended and never rewritten, and a skill root belonging to a surface that is gone is
     linked by nothing — so a repair that changed nothing has to say so rather than invite a
     second run of the same command."""
@@ -815,13 +1443,13 @@ def repair(cures: dict[int, str], argv: list[str]) -> int:
         code = cli.main(run)
         if code:
             ui.write(f"  it exited {code}. The rest is not attempted.", style="fail", data=True)
-            return code
-    code = main([flag for flag in argv if flag != "--fix"])
-    if code:
+            return outcome.result("INCOMPLETE")
+    result = main([flag for flag in argv if flag != "--fix"])
+    if result.exit_code:
         ui.write(
             "\n  Still failing. What is left above is not something these commands reach, "
             "and running --fix again will run the same ones.",
             style="warn",
             data=True,
         )
-    return code
+    return result

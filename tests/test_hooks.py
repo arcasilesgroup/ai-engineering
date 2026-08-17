@@ -11,11 +11,16 @@ Every test here writes inside tmp_path. Nothing reads the real home or the real 
 
 from __future__ import annotations
 
+import ast
 import io
 import json
+import os
 import sys
+import threading
 import time
 import tomllib
+import uuid
+from pathlib import Path
 
 import _emit
 import _otlp
@@ -131,7 +136,7 @@ def test_a_guard_that_returns_a_reason_denies_with_that_reason(repo, capsys):
         ("injection_guard", False),
         ("no_verify_guard", False),
         ("self_protect", False),
-        ("design_gate", True),
+        ("change_scope_guard", True),
         ("loop_guard", True),
     ],
 )
@@ -220,7 +225,7 @@ def test_a_bypass_is_single_use_and_only_for_the_guard_it_names(repo):
     consent would silently become a standing exemption."""
     house = _emit.home()
     grant(house, "loop_guard")
-    assert _wrap.take_bypass("design_gate") is None  # not this guard's grant
+    assert _wrap.take_bypass("change_scope_guard") is None  # not this guard's grant
     assert _wrap.take_bypass("loop_guard") == "why"
     assert _wrap.take_bypass("loop_guard") is None  # consumed
     grant(house, "loop_guard", seconds=-1)
@@ -232,7 +237,8 @@ def test_a_bypass_is_single_use_and_only_for_the_guard_it_names(repo):
 
 
 @pytest.mark.parametrize(
-    ("name", "denies"), [("loop_guard", False), ("design_gate", False), ("injection_guard", True)]
+    ("name", "denies"),
+    [("loop_guard", False), ("change_scope_guard", False), ("injection_guard", True)],
 )
 def test_a_bypass_cannot_be_forged_for_a_security_guard(repo, name, denies):
     """A grant file naming a security guard must do nothing. If it worked, writing one file
@@ -256,6 +262,181 @@ def test_a_bypass_cannot_be_forged_for_a_security_guard(repo, name, denies):
 
 
 # --- the record ---------------------------------------------------------------------
+
+
+def test_emit_is_stdlib_only_and_assigns_opaque_operation_and_trace_ids(repo):
+    """The hot path cannot pay for a package import, and correlation identifiers cannot
+    encode the person, machine or clone that produced them. Each emitted record therefore
+    carries two newly generated UUIDs, and its on-disk JSON has one canonical spelling."""
+    source = _emit.Path(_emit.__file__).read_text()
+    imports = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            imports.update(alias.name.partition(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and not node.level:
+            imports.add((node.module or "").partition(".")[0])
+    assert imports <= sys.stdlib_module_names
+
+    _emit.emit("loop_guard", "blocked", reason="first")
+    _emit.emit("loop_guard", "blocked", reason="second")
+    raw = [line for line in _emit.chain_path().read_text().splitlines() if line]
+    events = [json.loads(line) for line in raw]
+    identifiers = [event[field] for event in events for field in ("operation_id", "trace_id")]
+
+    assert len(set(identifiers)) == 4
+    assert all(uuid.UUID(identifier).version == 4 for identifier in identifiers)
+    assert raw == [json.dumps(event, sort_keys=True, separators=(",", ":")) for event in events]
+
+
+def test_id_generation_failure_never_becomes_authority(repo, monkeypatch, capsys):
+    """Randomness is telemetry infrastructure too. If the OS cannot mint an ID, a guard
+    must still reach its already-decided allow or deny result rather than acquire a new
+    blocking opinion from the observer that tried to describe it."""
+
+    def unavailable():
+        raise OSError("randomness unavailable")
+
+    monkeypatch.setattr(_emit.uuid, "uuid4", unavailable)
+    assert _emit.emit("loop_guard", "blocked", reason="record only") is None
+    assert not _emit.chain_path().exists()
+    assert "could not record loop_guard/blocked" in capsys.readouterr().err
+
+
+def test_append_rejects_chain_gaps_but_emit_remains_fail_open(repo, capsys):
+    """A corrupt predecessor is not an empty chain: accepting that fallback silently
+    restarts numbering and turns an observable gap into a genuine-looking branch. The
+    integrity boundary refuses the append, while emit still cannot decide the caller's
+    action and so reports its own failure without raising or changing the corrupt file."""
+    path = _emit.chain_path()
+    _emit.append(path, [{"cls": "session", "name": "first"}])
+    first = links()[0]
+    gap = {**first, "seq": 3, "prev": first["hash"]}
+    gap["hash"] = _emit.digest(gap)
+    path.write_text("\n".join(json.dumps(event) for event in (first, gap)) + "\n")
+    before = path.read_bytes()
+
+    with pytest.raises(ValueError, match="sequence"):
+        _emit.append(path, [{"cls": "session", "name": "third"}])
+    assert path.read_bytes() == before
+    assert _emit.emit("session", "error", error="record only") is None
+    assert path.read_bytes() == before
+    assert "could not record session/error" in capsys.readouterr().err
+
+
+def test_concurrent_appends_have_one_unbroken_sequence(repo):
+    """Separate hook processes can finish together. Reading the head before opening the
+    append handle lets all of them claim the same next sequence, so the writer must hold
+    one inter-process lock across both operations rather than repair duplicates later."""
+    writers = 16
+    start = threading.Barrier(writers)
+    failures = []
+
+    def write(index):
+        try:
+            start.wait()
+            _emit.append(_emit.chain_path(), [{"cls": "session", "index": index}])
+        except BaseException as exc:
+            failures.append(exc)
+
+    threads = [threading.Thread(target=write, args=(index,)) for index in range(writers)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert failures == []
+    assert [event["seq"] for event in links()] == list(range(1, writers + 1))
+    assert _emit.head(_emit.chain_path())[0] == writers
+
+
+def test_append_never_follows_a_chain_symlink(repo):
+    """The append boundary owns one exact file. Following a replacement symlink would
+    turn telemetry into an arbitrary file write and validate one target before appending
+    to another, so the target must remain byte-for-byte untouched."""
+    path = _emit.chain_path()
+    path.parent.mkdir(parents=True)
+    target = repo.parent / "not-the-chain.jsonl"
+    target.write_text("")
+    try:
+        path.symlink_to(target)
+    except OSError:
+        pytest.skip("this filesystem cannot create symlinks")
+
+    with pytest.raises(OSError):
+        _emit.append(path, [{"cls": "session"}])
+    assert target.read_text() == ""
+
+
+def test_a_failed_flush_keeps_a_partial_chain_and_its_sealed_buffer(repo):
+    """Invalid durable JSON is an integrity failure, not an empty predecessor. Refusing
+    it must also leave the already stamped in-clone buffer in place for diagnosis or a
+    later repair; truncating either side would destroy the only observable evidence."""
+    (repo / ".ai").mkdir()
+    (repo / ".ai" / "config.toml").write_text("[pin]\nversion='1'\n")
+    _emit.emit("loop_guard", "blocked", reason="keep me")
+    buffer = _emit.buffer_path(repo)
+    buffered_before = buffer.read_bytes()
+    path = _emit.chain_path(repo)
+    path.parent.mkdir(parents=True)
+    path.write_text('{"seq":1')
+
+    with pytest.raises(ValueError, match="invalid JSON"):
+        _emit.flush(repo)
+    assert path.read_text() == '{"seq":1'
+    assert buffer.read_bytes() == buffered_before
+
+
+def test_a_line_from_another_machine_is_sealed_as_foreign_and_never_as_tampering(repo):
+    """The failure this closes was found on the operator's own machine, not imagined.
+
+    `stamp()` keys off `home()/buffer.key`, which `AI_ENGINEERING_HOME` redirects, while
+    `buffer_path()` is repository-local and it does not. So any process with its own home —
+    every test in this suite that isolates one — writes into the operator's real buffer with
+    a key their machine cannot verify, and the next honest flush seals those lines as
+    `outcome: "edited"`, which is the literal tamper marker.
+
+    Measured consequence: 22 permanently BROKEN links, `ai-eng audit verify` failing for
+    good, and `audit --anchor` refusing a footer, so no commit on that machine can ever be
+    anchored again. The chain accused itself of an edit it never suffered.
+
+    A line naming another machine cannot be stamped by this one's key and that is not
+    evidence of tampering — it is evidence that somebody else's record arrived here. It is
+    sealed as exactly that, and the chain still holds."""
+
+    (repo / ".ai").mkdir()
+    (repo / ".ai" / "config.toml").write_text("[pin]\n version='1'\n")
+    _emit.emit("loop_guard", "blocked", reason="ours")
+    buffer = _emit.buffer_path(repo)
+
+    # What a differently-homed process leaves behind: a well-formed event naming its own
+    # machine, stamped with a key this one has never seen.
+    theirs = {
+        "ts": _emit.now(),
+        "cls": "error",
+        "name": "uninstall",
+        "session": "ffffffffffff",
+        "repo": _emit.repo_id(repo),
+        "machine": "8b19b2341ada",
+        "operation_id": "x",
+        "trace_id": "y",
+        "data": {"verb": "uninstall", "exit": 2},
+        "stamp": "00" * 32,
+    }
+    with buffer.open("a", encoding="utf-8") as fh:
+        fh.write(_emit.stable_json(theirs) + "\n")
+
+    _emit.flush(repo)
+    sealed = [json.loads(line) for line in _emit.chain_path(repo).read_text().splitlines()]
+    assert len(sealed) == 2, sealed
+    assert sealed[0]["data"]["reason"] == "ours"
+    outcome = sealed[1]["data"]["outcome"]
+    assert outcome == "foreign", f"a line from another machine was sealed as {outcome!r}"
+    assert sealed[1]["data"]["machine"] == "8b19b2341ada"
+
+    # And the chain still verifies: nothing here is an edit, so nothing may report one.
+    from ai_engineering import audit
+
+    assert not [why for kind, why in audit._chain_findings(sealed) if kind == "BROKEN"]
 
 
 def test_the_digest_covers_the_body_and_only_the_body():
@@ -379,7 +560,10 @@ def test_an_edited_buffer_is_sealed_as_the_error_that_says_it_was_edited(repo):
 # --- the payload every surface is read through ---------------------------------------
 
 
-@pytest.mark.parametrize(("camel", "snake"), sorted(chain.ALIASES.items()))
+# Read from the same function the dispatcher reads, so a spelling declared in an adapter
+# is covered by this the day it is declared — and a spelling deleted from the floor is
+# not quietly dropped from the parametrisation with it.
+@pytest.mark.parametrize(("camel", "snake"), sorted(chain.adapter_aliases().items()))
 def test_both_spellings_of_every_alias_arrive_in_one_shape(camel, snake):
     """VS Code and Cursor send camelCase where Claude Code sends snake_case. A guard that
     reads only one spelling sees an empty payload on the other surface and allows
@@ -423,7 +607,11 @@ def test_normalise_survives_every_shape_a_surface_sends(raw, expected):
         ("PreToolUse", "Bash", ["self_protect", "no_verify_guard", "loop_guard"]),
         ("PreToolUse", "BashOutput", ["loop_guard"]),
         ("PreToolUse", "", ["loop_guard"]),
-        ("PreToolUse", "NotebookEdit", ["self_protect", "loop_guard", "design_gate"]),
+        (
+            "PreToolUse",
+            "NotebookEdit",
+            ["self_protect", "loop_guard", "change_scope_guard", "claim_scope_guard"],
+        ),
         ("PostToolUse", "mcp__linear__issue", ["injection_guard", "loop_guard"]),
         ("PostToolUse", "WebFetchExtra", ["loop_guard"]),
         ("SessionStart", "", ["session"]),
@@ -803,7 +991,24 @@ def test_a_field_nobody_thought_of_still_leaves_as_a_hash(repo, field):
     assert _otlp.opaque(canary)["sha256"] in text
 
 
-IN_THE_CLEAR = ("outcome", "phase", "verb", "exit", "guard", "fp", "archived", "ms", "id")
+# The last four are EP-277's: which surface an event came from, which version of it, which
+# adapter translated it, and how a denial was expressed there. Written out here for the same
+# reason as the rest — a list read from the module lets a deleted field delete its own test.
+IN_THE_CLEAR = (
+    "outcome",
+    "phase",
+    "verb",
+    "exit",
+    "guard",
+    "fp",
+    "archived",
+    "ms",
+    "id",
+    "surface_id",
+    "surface_version",
+    "adapter_version",
+    "deny_protocol",
+)
 
 
 @pytest.mark.parametrize("field", IN_THE_CLEAR)
@@ -817,20 +1022,35 @@ def test_the_allow_list_is_exactly_what_passes_through_in_the_clear(field):
     assert out["data"][field] == "plain"
 
 
+def test_no_field_that_names_a_person_or_a_place_is_in_the_clear():
+    """The allow-list grew, and the reason it may is that every name on it is software. A
+    field naming a person, a host or a path would leave verbatim from every machine that
+    exports, which is the one mistake this list cannot survive making once."""
+    for named in ("user", "host", "hostname", "path", "email", "ip", "client", "repo_name"):
+        assert named not in _otlp.KEEP_DATA, named
+
+
 def test_only_the_first_two_words_of_a_command_leave():
     """A command line is where the secrets are: a token in an argument, a private path, a
     branch name that names a customer. The verb and its subcommand are enough to read the
     record by."""
     out = _otlp.redact({"data": {"command": "git push origin secret-customer-branch"}}, "strict")
-    assert out["data"]["command"] == "git push"
+    assert out["data"]["command"] == "git"
 
 
-def test_turning_redaction_off_is_the_only_way_free_text_leaves():
-    """The escape hatch exists and is configured, so it is pinned here: if `strict` ever
-    started behaving like `none`, this test and the one above would have to disagree."""
+def test_redaction_cannot_be_turned_off_by_configuration():
+    """`redact = "none"` sent every unlisted field verbatim, and it was a supported value in
+    the pin. A configuration that disables a privacy control is a control whoever runs the
+    exporter can switch off, and nothing downstream could tell a machine that had redacted
+    from one that had been told not to.
+
+    This pinned the escape hatch before spec 014 D-014-08 approved deleting it. Rule 4: hard
+    delete, no shim — an unknown value redacts like every other, because the safe reading of
+    a word nobody recognises is the strict one."""
+
     event = {"cls": "blocked", "data": {"reason": "plain"}}
-    assert _otlp.redact(event, "none")["data"]["reason"] == "plain"
-    assert _otlp.redact(event, "strict")["data"]["reason"] != "plain"
+    for mode in ("none", "off", "strict", "", "anything at all"):
+        assert _otlp.redact(event, mode)["data"]["reason"] != "plain", mode
 
 
 def test_an_event_carries_its_severity_and_its_five_attributes(repo):
@@ -881,7 +1101,7 @@ def test_a_two_hundred_is_not_a_delivery(repo, monkeypatch, payload, delivered):
     response. Read only the status code and the doctor reports a working destination while
     everything sent is being dropped — observability nobody has."""
     (_emit.home() / "config.toml").write_text(
-        '[observability]\nendpoint = "http://collector.invalid:4318/"\n'
+        '[observability]\nendpoint = "http://collector.invalid:4318/"\nretention_days = 30\n'
     )
     monkeypatch.setattr(_otlp.urllib.request, "urlopen", lambda r, timeout=0: Reply(200, payload))
     assert _otlp.probe()[0] is delivered
@@ -966,3 +1186,393 @@ def test_the_formatter_runs_on_the_file_it_was_handed_and_on_nothing_else(repo, 
     autoformat.run({"tool_input": {"file_path": str(repo / "notes.txt")}})  # no formatter
     autoformat.run({"tool_input": {"file_path": str(repo / "gone.py")}})  # never written
     assert len(ran) == 1
+
+
+def test_change_scope_guard_is_hard_rename_of_design_gate():
+    """The old name is gone from the product, not aliased beside the new one.
+
+    A rename that leaves the previous spelling working is two names for one control, and the
+    day they disagree is the day somebody bypasses the one that is not wired. So the check is
+    not that the new name exists — it is that the old one exists nowhere the product can
+    reach, including the dispatcher table, the wrapper's flow set, the verb that grants a
+    bypass, and the report that names bypassed guards.
+    """
+
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    hooks = root / "hooks"
+    assert (hooks / "change_scope_guard.py").is_file()
+    assert not (hooks / "design_gate.py").exists()
+
+    # Not a name the dispatcher, the wrapper or any verb still answers to.
+    reachable = [*hooks.glob("*.py"), *(root / "src" / "ai_engineering").glob("*.py")]
+    named = [path.name for path in reachable if "design_gate" in path.read_text(encoding="utf-8")]
+    assert named == [], named
+
+    # Registered under the new name, on the events that can block, and as a guard.
+    registered = {name for rows in chain.TABLE.values() for name, _ in rows}
+    assert "change_scope_guard" in registered and "design_gate" not in registered
+    module = __import__("change_scope_guard")
+    assert getattr(module.run, "hook_class", None) == "guard"
+
+    # And the grant it reads is its own: a bypass minted for the old name buys nothing.
+    assert "change_scope_guard" in _wrap.FLOW and "design_gate" not in _wrap.FLOW
+
+
+def test_dispatcher_table_marks_blocking_hooks_as_guards_and_rejects_gaps(repo, monkeypatch):
+    """The dispatcher reads the class, and reads it at dispatch time.
+
+    A contract test can prove every hook in the tree declares itself. It cannot prove the
+    dispatcher would refuse one that stopped declaring — a decorator lost in a refactor, a
+    module swapped on disk between install and call. On an event where a call can be
+    stopped, undeclared is refused; on telemetry it is skipped and recorded, because
+    telemetry that fails closed would block Git.
+    """
+
+    import chain
+
+    blocking = {"PreToolUse", "PostToolUse"}
+    for event, rows in chain.TABLE.items():
+        for name, _pattern in rows:
+            module = __import__(name)
+            declared = getattr(module.run, "hook_class", None)
+            assert declared in ("guard", "telemetry"), name
+            if event in blocking and name not in chain.TELEMETRY:
+                assert declared == "guard", name
+            # Both directions. The dispatcher now skips a hook whose name is in TELEMETRY,
+            # so a guard added to that set would stop running instead of being refused.
+            assert (name in chain.TELEMETRY) == (declared == "telemetry"), name
+
+    class Undeclared:
+        @staticmethod
+        def run(payload):
+            raise AssertionError("a hook with no class must never be run")
+
+    monkeypatch.setattr(chain, "TABLE", {"PreToolUse": [("undeclared", r".*")]})
+    monkeypatch.setattr(chain.importlib, "import_module", lambda name: Undeclared)
+    monkeypatch.setattr(
+        chain.sys, "stdin", io.StringIO(json.dumps({"tool_name": "Bash", "command": "ls"}))
+    )
+    monkeypatch.setattr(chain.sys, "argv", ["chain.py", "PreToolUse"])
+    with pytest.raises(SystemExit) as blocked:
+        chain.main()
+    assert blocked.value.code != 0
+
+    # A remembered verdict that is not exactly one well-formed verdict is not a verdict.
+    # `{"deny": "no"}` used to read as "not a denial", which is how a malformed cache line
+    # let a call past every guard in the table.
+    for forged in ({"deny": "no"}, {"deny": None}, ["deny"], {}, {"deny": True}, 17):
+        path = chain.cache_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"abc": forged}), encoding="utf-8")
+        assert chain.cached("abc") is None, forged
+    path.write_text(
+        json.dumps({"abc": {"deny": True, "by": "loop_guard", "message": "BLOCKED: enough"}}),
+        encoding="utf-8",
+    )
+    assert chain.cached("abc")["by"] == "loop_guard"
+    path.write_text(json.dumps({"abc": {"deny": False}}), encoding="utf-8")
+    assert chain.cached("abc") == {"deny": False}
+
+
+def test_wrap_cures_plan_exception_naming_and_preserves_fail_closed_guard(
+    repo, monkeypatch, capsys
+):
+    """Two things the wrapper owes, and the second is the one that had rotted.
+
+    A flow guard's denial offers a person a way to grant one bypass. That line named
+    `ai-eng plan`, a verb hard-renamed to `exception` — so the remedy printed under every
+    flow denial was a command the product refuses. A remedy nobody can run is worse than
+    none: they type it, it fails, and the next thing they look for is the way around.
+
+    And the grant is now read the way it is written: one component at a time, nothing
+    linked. A guard that honours a redirected grant passes where it should block, which is
+    the failure contract this file exists to keep.
+    """
+
+    import _wrap
+
+    # The recipe names the verb that exists, and no line anywhere still names the old one.
+    with pytest.raises(SystemExit):
+        _wrap.deny("loop_guard", "BLOCKED: enough")
+    offered = capsys.readouterr().err
+    assert 'ai-eng exception --skip "<reason>" --guard loop_guard' in offered
+    assert "ai-eng plan" not in offered
+    wrapper = Path(__file__).resolve().parents[1] / "hooks" / "_wrap.py"
+    assert "ai-eng plan" not in wrapper.read_text(encoding="utf-8")
+
+    # A security guard is still offered nothing at all.
+    with pytest.raises(SystemExit):
+        _wrap.deny("injection_guard", "BLOCKED: no")
+    assert "can grant one bypass" not in capsys.readouterr().err
+
+    # The grant, written and then read back through the same rules.
+    store = _wrap.home() / "cache" / "bypass.json"
+    store.parent.mkdir(parents=True, exist_ok=True)
+    grant = {"guard": "loop_guard", "reason": "a person said so", "expires": time.time() + 900}
+    store.write_text(json.dumps(grant), encoding="utf-8")
+    assert _wrap.take_bypass("loop_guard") == "a person said so"
+    assert not store.exists()  # consumed, so it is one bypass and not a standing one
+
+    # Redirected at the leaf: nothing is honoured, and the file it pointed at is untouched.
+    elsewhere = _wrap.home() / "somebody-elses-grant.json"
+    elsewhere.write_text(json.dumps(grant), encoding="utf-8")
+    store.symlink_to(elsewhere)
+    assert _wrap.take_bypass("loop_guard") is None
+    assert json.loads(elsewhere.read_text(encoding="utf-8")) == grant
+    store.unlink()
+
+    # Redirected at the directory above it: the same answer.
+    outside = _wrap.home() / "somebody-elses-cache"
+    outside.mkdir()
+    (outside / "bypass.json").write_text(json.dumps(grant), encoding="utf-8")
+    store.parent.rmdir()
+    store.parent.symlink_to(outside, target_is_directory=True)
+    assert _wrap.take_bypass("loop_guard") is None
+    assert (outside / "bypass.json").exists()
+
+    # And the two failure contracts are unchanged: a crashing guard denies, a crashing
+    # telemetry hook does not.
+    @_wrap.guard("crasher")
+    def crashes(payload):
+        raise RuntimeError("boom")
+
+    @_wrap.telemetry("watcher")
+    def watches(payload):
+        raise RuntimeError("boom")
+
+    assert crashes.hook_class == "guard" and watches.hook_class == "telemetry"
+    with pytest.raises(SystemExit) as denied:
+        crashes({})
+    assert denied.value.code != 0
+    assert watches({}) is None
+
+
+def test_an_export_the_collector_rejected_is_recorded_and_not_treated_as_delivery(
+    repo, monkeypatch
+):
+    """`_otlp.probe` already decides the hard part: a 2xx carrying rejected records is not
+    a delivery, and it says so in its own return value. `session.py` called `send_tail` and
+    threw the tuple away, so the one place that actually exports never read the answer.
+
+    Silent partial loss is the worst shape this can take: the collector says 200, the
+    operator's dashboard is missing events, and nothing anywhere in the record says a
+    single line failed to land. Telemetry may not decide, and it may not stay quiet about
+    its own failure either — that is what the `error` class is for."""
+
+    import session as session_hook
+
+    (repo / ".ai").mkdir(exist_ok=True)
+    (repo / ".ai" / "config.toml").write_text("[pin]\nversion='1'\n")
+    _emit.emit("loop_guard", "blocked", reason="something to send")
+
+    monkeypatch.setattr(
+        session_hook, "config", lambda root=None: {"observability": {"endpoint": "http://x"}}
+    )
+    otlp = paths_load_otlp()
+    monkeypatch.setattr(otlp, "send_tail", lambda count: (200, 3, "3 rejected"))
+
+    session_hook.run({"hook_event_name": "SessionEnd"})
+
+    # In the buffer, not the chain: `flush` has already run, so the event describing the
+    # export cannot be inside the batch it describes. It seals with the next session, which
+    # is why the operator is also told now, on stderr.
+    buffered = [
+        json.loads(line)
+        for line in _emit.buffer_path(repo).read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    rejected = [row for row in buffered if row.get("data", {}).get("rejected")]
+    assert rejected, "an export the collector rejected left no trace in the record"
+    assert rejected[-1]["cls"] == "error", rejected[-1]
+
+
+def paths_load_otlp():
+    import _otlp
+
+    return _otlp
+
+
+def test_a_spelling_declared_only_in_an_adapter_reaches_the_guards(tmp_path, monkeypatch):
+    """EP-081. `policy/adapters/*.json` described a translation table that nothing in the
+    product read: the tests read it, the dispatcher normalised from its own hardcoded dict,
+    and the two were free to disagree for as long as nobody looked. A contract with no
+    consumer is a document, and a document is not a control.
+
+    Planted first, then found — the shape every scan in this repository owes. A spelling
+    that exists only in a data file has to arrive in the shape the guards read, or the file
+    is decoration."""
+
+    adapters = tmp_path / "adapters"
+    adapters.mkdir()
+    (adapters / "invented.adapter.json").write_text(
+        json.dumps(
+            {
+                "schema": "urn:ai-engineering:surface-adapter:1",
+                "schema_version": "1",
+                "surface_id": "invented",
+                "adapter_version": "1",
+                # Our canonical name is the key and the surface's spelling is the value,
+                # which is what the schema declares and what `adapter_aliases` inverts. This
+                # fixture had it the other way round and passed, because the only adapter
+                # shipping at the time mapped every name to itself.
+                "translations": {"payload_field": {"tool_name": "toolNameInSomeOtherDialect"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(chain, "ADAPTERS", adapters)
+
+    assert chain.normalise({"toolNameInSomeOtherDialect": "Bash"})["tool_name"] == "Bash"
+    # And the floor survives beside it: an adapter adds spellings and can never remove one.
+    assert chain.normalise({"toolName": "Edit"})["tool_name"] == "Edit"
+
+
+def test_an_adapter_nobody_can_parse_costs_its_own_surface_and_no_other(tmp_path, monkeypatch):
+    """The one thing normalisation must never do is fail. A guard that crashes is a guard
+    that denies, and denying every call is how a whole surface is disabled by installing on
+    it — so a broken data file loses its own spellings and nothing else."""
+
+    adapters = tmp_path / "adapters"
+    adapters.mkdir()
+    (adapters / "broken.adapter.json").write_text("{not json", encoding="utf-8")
+    (adapters / "fine.adapter.json").write_text(
+        json.dumps({"translations": {"payload_field": {"tool_name": "aDialect"}}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(chain, "ADAPTERS", adapters)
+
+    assert chain.normalise({"aDialect": "Bash"})["tool_name"] == "Bash"
+    assert chain.normalise({"toolName": "Edit"})["tool_name"] == "Edit"
+
+    monkeypatch.setattr(chain, "ADAPTERS", tmp_path / "not-here")
+    assert chain.normalise({"toolName": "Edit"})["tool_name"] == "Edit"
+
+
+def test_every_event_says_which_surface_it_came_through_or_that_it_could_not_tell(monkeypatch):
+    """EP-084 and D-016-03. The event body carried no surface and no adapter, while
+    `_otlp.KEEP_DATA` kept `surface_id`, `surface_version`, `adapter_version` and
+    `deny_protocol` in the clear — an export allow-list for four fields nothing produced.
+    Every event in the chain was silent about where the decision was taken.
+
+    `undetermined` is a value and not an absent key. A missing field reads as "this build is
+    older"; this reads as "this run could not say", and the second is the true one on every
+    surface that does not identify itself in what it sends."""
+
+    monkeypatch.delenv("AI_ENG_SURFACE", raising=False)
+    monkeypatch.delenv("AI_ENG_ADAPTER", raising=False)
+    assert _emit.surface() == _emit.UNDETERMINED
+    assert _emit.adapter() == _emit.UNDETERMINED
+
+    monkeypatch.setenv("AI_ENG_SURFACE", "claude-code")
+    monkeypatch.setenv("AI_ENG_ADAPTER", "1")
+    assert _emit.surface() == "claude-code"
+    assert _emit.adapter() == "1"
+
+
+def test_the_adapter_version_is_read_from_the_file_that_did_the_translating():
+    """One directory, two readers. An adapter that translates a payload and an adapter that
+    stamps the record have to be the same file, or the record names a version that
+    translated nothing."""
+
+    assert chain.adapter_version("claude-code") == "1"
+    assert chain.adapter_version("a-surface-with-no-adapter") == "undetermined"
+
+
+def test_only_a_surface_that_identifies_itself_is_named_in_the_record(monkeypatch, tmp_path):
+    """`policy/surfaces.toml` detects by an install path, which says a surface exists on this
+    machine and not that this call came through it. `transcript_path` is the one thing a
+    surface sends about itself, so it is the only thing allowed to name one — anything more
+    would be a guess written into the chain as a fact, and the chain is the artefact that has
+    to be trustworthy when everything else is in doubt."""
+
+    monkeypatch.delenv("AI_ENG_SURFACE", raising=False)
+    monkeypatch.setenv("AI_ENG_SESSION", "fixed")
+    monkeypatch.setattr(chain.sys, "argv", ["chain.py", "PreToolUse"])
+    monkeypatch.setattr(chain.sys, "stdin", io.StringIO(json.dumps({"toolName": "Read"})))
+    monkeypatch.setattr(chain, "selected", lambda event, tool: [])
+    chain.main()
+    assert os.environ.get("AI_ENG_SURFACE") is None
+
+    monkeypatch.setattr(
+        chain.sys,
+        "stdin",
+        io.StringIO(json.dumps({"tool_name": "Read", "transcript_path": "/somewhere"})),
+    )
+    chain.main()
+    assert os.environ["AI_ENG_SURFACE"] == "claude-code"
+    assert os.environ["AI_ENG_ADAPTER"] == "1"
+
+
+def test_an_endpoint_with_no_stated_retention_receives_nothing(tmp_path, monkeypatch):
+    """EP-048's remaining half, and the shape it had to take.
+
+    This exporter can say exactly what leaves — two allow-lists, and everything else a hash
+    and a length. It cannot say how long the far end keeps it, because that is somebody
+    else's system. What it can refuse is to send anything at all to a destination nobody has
+    written a retention down for: the decision is made deliberately, in the file where the
+    endpoint is chosen, and until it is made nothing is exported.
+
+    `retention_days` is not validated against the destination and is not meant to be. It is
+    the record that a person decided, which is the thing that was missing — `retention`
+    appeared in no file in this repository."""
+
+    home = tmp_path / "home"
+    (home / ".ai").mkdir(parents=True)
+    monkeypatch.setenv("AI_ENGINEERING_HOME", str(home / ".ai-engineering"))
+    (home / ".ai-engineering").mkdir(parents=True, exist_ok=True)
+
+    def configured(body: str) -> None:
+        (home / ".ai-engineering" / "config.toml").write_text(body, encoding="utf-8")
+
+    monkeypatch.setattr(
+        _otlp,
+        "config",
+        lambda: __import__("tomllib").loads(
+            (home / ".ai-engineering" / "config.toml").read_text(encoding="utf-8")
+        ),
+    )
+
+    configured('[observability]\nendpoint = "http://collector.invalid:4318"\n')
+    status, rejected, detail = _otlp.post("logs", {})
+    assert (status, rejected) == (0, 0)
+    assert "nobody has decided how long this is kept" in detail
+
+    for bad in ("0", "-1", "true", '"thirty"'):
+        configured(
+            f'[observability]\nendpoint = "http://collector.invalid:4318"\nretention_days = {bad}\n'
+        )
+        assert "nobody has decided" in _otlp.post("logs", {})[2], bad
+
+    # And with the decision made it gets past this gate and fails on the network instead,
+    # which is the honest next answer for a host that does not exist.
+    configured('[observability]\nendpoint = "http://collector.invalid:4318"\nretention_days = 30\n')
+    assert "nobody has decided" not in _otlp.post("logs", {})[2]
+
+
+def test_the_plan_gate_says_which_of_the_two_questions_it_asked():
+    """EP-324. Rule 1 says "no code before an approved plan". This guard reads whether a
+    plan exists on the branch, which is the weaker of the two, and its refusal said "has no
+    plan" — true about what it checked and easy to read as the stronger claim.
+
+    Approval here is an MADR naming an exact digest and no plan in this repository has one,
+    so a guard demanding it would deny every write on every branch including the one writing
+    the plan. That is recorded in the register with what would change it. What this asserts
+    is the honesty of the sentence a person actually sees when they are denied."""
+
+    import tomllib
+
+    source = (Path(__file__).resolve().parents[1] / "hooks" / "change_scope_guard.py").read_text(
+        encoding="utf-8"
+    )
+    assert "not that anybody approved it" in source
+    assert "Existence, and never approval" in source
+
+    register = tomllib.loads(
+        (Path(__file__).resolve().parents[1] / "policy" / "pilot-register.toml").read_text(
+            encoding="utf-8"
+        )
+    )
+    excused = {str(row["id"]): row for row in register["ungated"]}
+    assert "EP-324" in excused, "the gap is in the guard and nowhere a reader would find it"
+    assert excused["EP-324"]["reopen_when"].strip()

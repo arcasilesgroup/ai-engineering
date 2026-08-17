@@ -14,12 +14,14 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
 
-from ai_engineering import __version__, paths, skeletons, ui, wiring
+from ai_engineering import __version__, capability, intent, outcome, paths, skeletons, ui, wiring
 
 # Each body is asked for with the repository root, because two of the five depend on what
 # is in it: the justfile on which stacks were detected, and the workflow on the version
@@ -53,8 +55,17 @@ banner = ui.banner  # one drawing of the product's face, and it lives with the r
 
 
 def ask(question: str, default: bool, args) -> bool:
+    from ai_engineering import accept
+
     if args.yes:
         return default
+    if accept.NON_INTERACTIVE:
+        # Not the default, and not the safe-looking one either: the question goes
+        # unanswered and the run stops. A mode that answers for you is a mode that sets a
+        # machine up on nobody's word, and this question's default is yes.
+        out(f"   {accept.DECISION_REQUIRED}: {question}")
+        out("   Pass the flag that decides it, or -y, or run without --non-interactive.")
+        return False
     if not sys.stdin.isatty():
         return default
     reply = input(f"◆ {question} ({'Y/n' if default else 'y/N'}) › ").strip().lower()
@@ -122,14 +133,14 @@ def already(data: dict) -> None:
     )
 
 
-def global_step(args) -> None:
+def global_step(args) -> outcome.Result:
     if args.skip_global or (global_ready() and not args.do_global):
         # Whether there is anything to report is the same question the block reports on, so
         # it is asked of the disk too. It used to be "is the receipt non-empty", which is how
         # a stripped machine got the block and a wired one with a lost receipt got silence.
         if wiring.wired()[0] or wiring.linked():
             already(wiring.receipt())
-        return
+        return outcome.result("READY")
 
     only = [s for s in args.harness.split(",") if s] or None
     found = wiring.detect(only)
@@ -146,43 +157,65 @@ def global_step(args) -> None:
             mark, style = "wired by name only", "warn"
         rows.append((surface["name"], surface["detect"] or "—", mark, style))
     ui.survey(rows)
+    # Counted from what this wheel carries, not written into the sentence. `already` below
+    # says the same thing about the line it replaced; these two were the same literal, in
+    # the same file, four lines apart.
+    shipped = len(list(paths.skills().glob("ai-*")))
     out(
-        f"\n   Writes 8 skills into {paths.home() / 'skills'}, symlinks from the roots above,\n"
+        f"\n   Writes {shipped} skills into {paths.home() / 'skills'}, symlinks from the "
+        f"roots above,\n"
         f"   and one guard entry in each found surface's own settings file.\n"
         f"   Nothing else is touched. Undo: `ai-eng uninstall`.\n"
     )
 
     if args.dry:
         out("   → skipped.")
-        return
+        return outcome.dry_run(exact_changes=True)
     if only or args.yes or not sys.stdin.isatty():
         # Named, unattended, or piped: the flags already said which surfaces, and a widget
         # with nobody in front of it is a hang.
         if not ask("Set up this machine?", True, args):
             out("   → skipped.")
-            return
+            return outcome.result("CANCELLED")
     else:
         found = surfaces_picked(found)
         if not found:
             out("   → skipped.")
-            return
+            return outcome.result("CANCELLED")
 
     written = wiring.install_skills(found)
-    ui.step("ok", "8 skills  ", f"→ {paths.home() / 'skills'}/ai-*/")
+    # Counted off the store after the copy, so this row reports what landed rather than what
+    # was intended. The line above counts the wheel; a receipt that reads the same number as
+    # the plan cannot contradict it, and contradicting it is the only reason to print one.
+    landed = len(list((paths.home() / "skills").glob("ai-*")))
+    ui.step("ok", f"{landed} skills".ljust(10), f"→ {paths.home() / 'skills'}/ai-*/")
     for row in written[1:]:
         ui.step("ok", f"{row['how']:<8}", f"→ {row['path']}")
+    # The routers, and the count of surfaces that could not have one. A surface with no
+    # declared command root is not a failure and is not silence either: it is the reason
+    # `/ai-spec` works on one surface and not on the next, and a person deciding whether
+    # they are set up deserves the number rather than the discovery.
+    routers = wiring.install_routers(found)
+    written.extend(routers)
+    without = [s["id"] for s in found if not s.get("commands")]
+    if routers:
+        ui.step("ok", f"{len(routers)} routers".ljust(10), f"→ /{'ai-*'} on 1 surface")
+    if without:
+        ui.step("would", "routers".ljust(10), f"no command root declared: {', '.join(without)}")
+    pending_approval = False
     for name, target, detail in wiring.install_guards(found):
         # Appended and not merged means a person has to approve it before it runs, which
         # is a warning and not a tick: the difference between installed and running is the
         # whole subject of assertion 21.
         pending = "append" in detail
+        pending_approval = pending_approval or pending
         ui.step("warn" if pending else "ok", "guards    ", f"→ {target or name} ({detail})")
         if pending:
             ui.note(
                 "Codex will not run it until you approve it: type /hooks in Codex.\n"
                 "`doctor` reports it as INERT until then."
             )
-    wiring.record(
+    _record(
         written
         + [
             {"path": s["settings"], "kind": "guard", "how": s["writer"]}
@@ -191,6 +224,7 @@ def global_step(args) -> None:
         ]
     )
     ui.step("ok", "receipt   ", f"→ {wiring.receipt_path()}")
+    return outcome.result("WARN" if pending_approval else "PASS")
 
 
 def surfaces_picked(found: list[dict]) -> list[dict]:
@@ -352,11 +386,200 @@ def stacks(root: Path) -> list[str]:
     return sorted({name for marker, name in markers.items() if any(root.glob(marker))})
 
 
-def project_step(args) -> int:
+def _lexical_path(path: Path) -> Path:
+    return Path(os.path.abspath(path))
+
+
+def _safe_path(path: Path, kind: str | None = None) -> bool:
+    """Reject aliases and special files before a bounded install can follow them."""
+    try:
+        lexical = _lexical_path(path)
+        if lexical.resolve(strict=False) != lexical:
+            return False
+        if not os.path.lexists(lexical):
+            return True
+        info = lexical.lstat()
+        if stat.S_ISLNK(info.st_mode):
+            return False
+        if kind == "directory" and not stat.S_ISDIR(info.st_mode):
+            return False
+        if kind == "file" and not stat.S_ISREG(info.st_mode):
+            return False
+        required = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+        if not info.st_mode & required:
+            return False
+        if stat.S_ISDIR(info.st_mode):
+            searchable = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+            return bool(info.st_mode & searchable)
+        if stat.S_ISREG(info.st_mode):
+            with lexical.open("rb") as stream:
+                stream.read(1)
+            return True
+        return kind is None
+    except OSError:
+        return False
+
+
+def _receipt_state() -> dict | None:
+    try:
+        data = wiring.receipt()
+        rows = data.get("wrote", [])
+        if not isinstance(rows, list):
+            return None
+        legacy = data.get("version") not in {None, __version__}
+        identities = []
+        for row in rows:
+            if (
+                not isinstance(row, dict)
+                or not all(isinstance(row.get(field), str) for field in ("path", "kind"))
+                or (not legacy and not isinstance(row.get("how"), str))
+            ):
+                return None
+            identities.append((row["path"], row["kind"]))
+        if len(identities) != len(set(identities)):
+            return None
+        return data
+    except (AttributeError, wiring.Unreadable):
+        return None
+
+
+def _record(entries: list[dict]) -> None:
+    """Hard-migrate incomplete legacy ownership before recording current writes."""
+    data = wiring.receipt()
+    if data.get("version") not in {None, __version__}:
+        replaced = {(row["path"], row["kind"]) for row in entries}
+        kept = [
+            row
+            for row in data.get("wrote", [])
+            if (row["path"], row["kind"]) in replaced or isinstance(row.get("how"), str)
+        ]
+        if len(kept) != len(data.get("wrote", [])):
+            data["wrote"] = kept
+            wiring.write_json(wiring.receipt_path(), data)
+    wiring.record(entries)
+
+
+def _project_paths_safe(root: Path) -> bool:
+    directories = {
+        root,
+        root / ".ai",
+        root / ".ai" / "backups",
+        root / ".github",
+        root / ".github" / "workflows",
+        root / "specs",
+    }
+    files = {
+        *managed_paths(root),
+        *(root / name for name in PROTECTED),
+        root / ".ai" / "intent.md",
+        root / ".git" / "config",
+    }
+    if not all(_safe_path(path, "directory") for path in directories):
+        return False
+    if not all(_safe_path(path, "file") for path in files):
+        return False
+    receipt = wiring.receipt_path()
+    if not _safe_path(receipt.parent, "directory") or not _safe_path(receipt, "file"):
+        return False
+    return _receipt_state() is not None
+
+
+def _global_paths_safe(args) -> bool:
+    only = [surface for surface in args.harness.split(",") if surface] or None
+    try:
+        receipt = wiring.receipt_path()
+        if not _safe_path(receipt.parent, "directory") or not _safe_path(receipt, "file"):
+            return False
+        installed = _receipt_state()
+        if installed is None:
+            return False
+        found = wiring.detect(only)
+        store = paths.home() / "skills"
+        if not _safe_path(paths.home(), "directory") or not _safe_path(store, "directory"):
+            return False
+        store_owned = any(
+            row.get("path") == str(store)
+            and row.get("kind") == "skills"
+            and row.get("how") == "wheel"
+            for row in installed.get("wrote", [])
+        )
+        if not store_owned and any(store.glob("ai-*")):
+            return False
+        copied = {
+            row["path"]
+            for row in installed.get("wrote", [])
+            if row.get("kind") == "link" and row.get("how") == "copy"
+        }
+        for surface in found:
+            settings = wiring.expand(surface["settings"]) if surface.get("settings") else None
+            if settings is not None:
+                if not _safe_path(settings.parent, "directory") or not _safe_path(settings, "file"):
+                    return False
+                if settings.exists() and surface["writer"].startswith("json_"):
+                    wiring.read_json(settings)
+                if (
+                    settings.exists()
+                    and surface["writer"] == "ts_opencode"
+                    and wiring.SIGNATURE not in settings.read_text(encoding="utf-8")
+                ):
+                    return False
+            if not surface.get("skills"):
+                continue
+            skills_root = wiring.expand(surface["skills"])
+            if not _safe_path(skills_root, "directory"):
+                return False
+            for source in paths.skills().glob("ai-*"):
+                target = skills_root / source.name
+                if not os.path.lexists(target):
+                    continue
+                # Ours if it points at the source, or at the store this verb installs into.
+                # Only the second is reachable after a successful run: `init` copies the
+                # skills to `home()/skills` and links every surface root at *that*, so a
+                # check that recognised the source alone declared its own finished work
+                # unsafe. Every second `init` on every machine returned False here and
+                # printed INCOMPLETE with no surface table, no reason and no cure — a guard
+                # failing closed for the wrong reason, in the only verb that installs one.
+                if target.is_symlink() and target.resolve() in (
+                    source.resolve(),
+                    (store / source.name).resolve(),
+                ):
+                    continue
+                if target.is_dir() and str(skills_root) in copied:
+                    continue
+                # An empty directory of ours by name has nothing in it to lose, and it is
+                # the state a skills root is in the first time a surface creates one — which
+                # the install matrix reproduces on purpose to force the copy path. Refusing
+                # it meant a fresh machine whose editor had made the folder could never be
+                # initialised at all. A directory with something in it that this install did
+                # not write is a different thing and is still refused.
+                if target.is_dir() and not any(target.iterdir()):
+                    continue
+                return False
+    except (KeyError, OSError, UnicodeError, wiring.Unreadable):
+        return False
+    return True
+
+
+def _project_preflight(args) -> tuple[Path | None, intent.Validation | None] | None:
     if args.skip_project:
-        return 0
-    where = Path(args.project or ".").resolve()
+        return None, None
+    where = _lexical_path(Path(args.project or "."))
+    if not _safe_path(where, "directory"):
+        return None
     root = paths.repo_root(where)
+    if root is None:
+        return None, None
+    root = _lexical_path(root)
+    if not _safe_path(root, "directory") or not _project_paths_safe(root):
+        return None
+    return root, intent.validate(root / ".ai" / "intent.md", root)
+
+
+def project_step(args, prepared_root: Path | None = None) -> outcome.Result:
+    if args.skip_project:
+        return outcome.result("READY")
+    where = _lexical_path(Path(args.project or "."))
+    root = prepared_root or paths.repo_root(where)
     if root is None:
         ui.section(f"◇ Project   {where}   not a git repository")
         # A literal False, and not sys.stdin.isatty(): `ask` returns the default under -y,
@@ -364,22 +587,26 @@ def project_step(args) -> int:
         # repository in whatever directory the person happened to be standing in.
         if args.dry or not where.is_dir() or not ask("Run `git init` here?", False, args):
             out("   → skipped. There is nothing to set up outside a repository.")
-            return 0
+            status = "INCOMPLETE" if args.project is not None or args.dry else "READY"
+            return outcome.result(status)
         subprocess.run(["git", "-C", str(where), "init", "-b", "main"], check=True, timeout=10)
         ui.step("ok", "git init  ", f"→ {where}")
         root = where  # git init put .git directly here, so there is nothing to walk up to
+    root = _lexical_path(root)
+    if not _safe_path(root, "directory") or not _project_paths_safe(root):
+        return outcome.result("INCOMPLETE")
     pinned = root / ".ai" / "config.toml"
     if pinned.exists() and args.project is None:
         out(
             f"  Project ready — {pinned.relative_to(root)}, spec chain wired\n\n  Nothing to do. "
             f"`ai-eng doctor` for the full check."
         )
-        return 0
+        return outcome.result("READY")
 
     ui.section(f"◇ Project   {root}   git repository, not set up")
     if not (args.project is not None or ask("Set up this project too?", sys.stdin.isatty(), args)):
         out("   → skipped. Nothing was written.")
-        return 0
+        return outcome.result("READY")
 
     state, verb = marks(args)
     # Written when they are absent, and never rewritten. `.ai/config.toml` is the pin: it
@@ -394,13 +621,18 @@ def project_step(args) -> int:
         ".ai/.gitignore": skeletons.AI_GITIGNORE,
     }
     fresh = {name: body for name, body in pins.items() if not (root / name).exists()}
+    keep = root / "specs" / ".gitkeep"
+    keep_is_fresh = not keep.exists()
     if not args.dry:
         pinned.parent.mkdir(parents=True, exist_ok=True)
         for name, body in fresh.items():
             (root / name).write_text(body, encoding="utf-8")
         (root / "specs").mkdir(exist_ok=True)
-        (root / "specs" / ".gitkeep").touch()
-    ui.step(state, " · ".join([*fresh, "specs/"]))
+        if keep_is_fresh:
+            keep.touch()
+    framework_changes = [*fresh, *(["specs/.gitkeep"] if keep_is_fresh else [])]
+    if framework_changes:
+        ui.step(state, " · ".join(framework_changes))
     if len(fresh) != len(pins):
         ui.note(
             f"{', '.join(name for name in pins if name not in fresh)} was already here and "
@@ -414,7 +646,12 @@ def project_step(args) -> int:
     # very thing it was asked to remove. Same rule spec 007 applied to the pin, one row over
     # — the first write is the one that knows what was there.
     kept = next(
-        (row["how"] for row in wiring.receipt().get("wrote", []) if row["path"] == str(root)), None
+        (
+            row["how"]
+            for row in wiring.receipt().get("wrote", [])
+            if row.get("path") == str(root) and isinstance(row.get("how"), str)
+        ),
+        None,
     )
     before = kept if kept is not None else ("" if args.dry else wiring.prior_hooks_path(root))
     hooks = str(paths.git_hooks()) if args.dry else wiring.wire_git(root)
@@ -438,8 +675,8 @@ def project_step(args) -> int:
     # answers yes for every file this run had just created, and the same screen that
     # reported writing them offers to overwrite them.
     rows = existing(root)
-    files = len(fresh) + 1
-    wrote = [*fresh, "specs/.gitkeep"]
+    files = len(fresh) + int(keep_is_fresh)
+    wrote = [*fresh, *(["specs/.gitkeep"] if keep_is_fresh else [])]
     for name in OFFERS:
         if not (root / name).exists():
             write_offer(root, name, args)
@@ -456,7 +693,7 @@ def project_step(args) -> int:
     # that we had ever written them, so a project instruction file somebody wrote by hand
     # was removed by the verb whose whole pitch is that it is safe.
     if not args.dry:
-        wiring.record(
+        _record(
             [
                 {"path": str(root / name), "kind": "project", "how": "written"}
                 for name in wrote
@@ -464,6 +701,7 @@ def project_step(args) -> int:
             ]
             + [{"path": str(root), "kind": "repo", "how": before}]
         )
+    ui.step(state, "receipt   ", f"→ {wiring.receipt_path()}")
     left = [name for name, _, _ in rows if name not in picked]
     if left:
         out(
@@ -479,7 +717,9 @@ def project_step(args) -> int:
             f"and build commands; it installs none of the binaries they need."
         )
     report(files, waiting, args)
-    return 0
+    if args.dry:
+        return outcome.dry_run(exact_changes=True)
+    return outcome.result("WARN" if waiting else "PASS")
 
 
 def opened(guards: int) -> tuple[str, str]:
@@ -534,8 +774,90 @@ def report(files: int, waiting: list[str], args) -> None:
     )
 
 
-def main(argv: list[str]) -> int:
+def _terminal(*results: outcome.Result) -> outcome.Result:
+    statuses = [result.outcome for result in results]
+    if "INCOMPLETE" in statuses or (
+        "CANCELLED" in statuses and any(status not in {"READY", "CANCELLED"} for status in statuses)
+    ):
+        return outcome.result("INCOMPLETE")
+    for status in ("CANCELLED", "FAIL", "WARN", "WOULD_CHANGE", "PASS", "READY"):
+        if status in statuses:
+            return outcome.result(status)
+    return outcome.result("INCOMPLETE")
+
+
+def _refused(why: str, cure: str) -> outcome.Result:
+    """An INCOMPLETE that says which one it is.
+
+    Three refusals in `main` printed nothing at all: the will, the four stage lines and
+    then INCOMPLETE with no surface table, no reason and no cure. A person meeting that has
+    no move, and it is the first verb anybody runs. Measured on a CI runner, where a skills
+    root already held directories with our names and this verb refused every install on that
+    machine in silence."""
+
+    out(f"\n   INCOMPLETE: {why}")
+    out(f"   {cure}")
+    return outcome.result("INCOMPLETE")
+
+
+def main(argv: list[str]) -> outcome.Result:
     args = parse(argv)
-    banner()
-    global_step(args)
-    return project_step(args)
+    # Invocation authorizes this verb's deterministic install scope. The manifest check
+    # proves only that the declarations we install are canonical; metadata grants nothing.
+    declared = capability.validate()
+    if declared.outcome != "PASS":
+        return _refused(
+            f"the capability manifest this wheel ships is not canonical: {declared.code}",
+            "reinstall the wheel; this is a defect in the package rather than in your machine",
+        )
+
+    try:
+        prepared = _project_preflight(args)
+        if prepared is None:
+            return _refused(
+                "this repository's path cannot be followed safely",
+                "check that no directory in the path is a symlink, and that it is readable",
+            )
+        root, intent_state = prepared
+        if not args.skip_global and not _global_paths_safe(args):
+            return _refused(
+                "something in this machine's install paths is not this installer's to write",
+                "run `ai-eng doctor` to see which surface, or move that file aside",
+            )
+
+        banner()
+        machine = global_step(args)
+        if machine.outcome == "CANCELLED":
+            return machine
+        project = project_step(args, root)
+
+        project_ran = args.project is not None or project.outcome in {
+            "PASS",
+            "WARN",
+            "WOULD_CHANGE",
+            "INCOMPLETE",
+        }
+        if project_ran and intent_state is None:
+            active_root = paths.repo_root(_lexical_path(Path(args.project or ".")))
+            if active_root is not None:
+                active_root = _lexical_path(active_root)
+                intent_state = intent.validate(active_root / ".ai" / "intent.md", active_root)
+        # INCOMPLETE while the Intent is missing or unreadable, which is a decision this
+        # repository already took and `test_init_keeps_missing_or_invalid_intent_incomplete`
+        # holds: a repository without its canonical Intent is not a governed one, and the
+        # honest word for "I cannot prove this is governed" is not PASS.
+        #
+        # What changed is what the person is told. `intent.validate` reported
+        # INTENT_SCHEMA_INVALID over a file nobody had written, which sends a reader looking
+        # for a mistake in a document that does not exist; a missing Intent says
+        # INTENT_MISSING now, and the two states stop being one answer.
+        if project_ran and (intent_state is None or intent_state.outcome != "PASS"):
+            project = outcome.result("INCOMPLETE")
+        return _terminal(machine, project)
+    except KeyboardInterrupt:
+        return outcome.result("CANCELLED")
+    except (OSError, subprocess.SubprocessError, wiring.Unreadable) as why:
+        # Said, not swallowed. The anchor check exists to name a broken install, and a
+        # generic "cannot decide" tells the person nothing they can act on.
+        print(f"  INCOMPLETE  {why}")
+        return outcome.result("INCOMPLETE")

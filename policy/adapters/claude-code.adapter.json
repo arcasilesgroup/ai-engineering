@@ -1,0 +1,39 @@
+{
+  "schema": "urn:ai-engineering:surface-adapter:1",
+  "schema_version": "1",
+  "surface_id": "claude-code",
+  "adapter_version": "1",
+  "detection": {
+    "signal": "~/.claude, created by Claude Code itself on first run",
+    "written_by_us": false
+  },
+  "translations": {
+    "payload_field": {
+      "tool_name": "tool_name",
+      "tool_input": "tool_input",
+      "tool_response": "tool_response",
+      "tool_use_id": "tool_use_id"
+    },
+    "lifecycle_event": {
+      "PreToolUse": "PreToolUse",
+      "PostToolUse": "PostToolUse",
+      "Stop": "Stop",
+      "SessionStart": "SessionStart"
+    },
+    "exit_meaning": {
+      "0": "allow",
+      "2": "deny"
+    },
+    "reply": {
+      "allow": "hookSpecificOutput.permissionDecision = allow",
+      "deny": "hookSpecificOutput.permissionDecision = deny",
+      "error": "stderr, and the call proceeds"
+    }
+  },
+  "proof": {
+    "receipt_id": "claude-code.enforcement"
+  },
+  "trust": {
+    "required": false
+  }
+}

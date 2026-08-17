@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-engineering:check-evidence:1",
+  "title": "ai-engineering check evidence v1",
+  "description": "Closed evidence for one automated, human or independent external check.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "kind",
+    "id",
+    "applicability",
+    "command",
+    "tool_version",
+    "input_digest",
+    "artifact_digest",
+    "started_at",
+    "finished_at",
+    "max_age_seconds",
+    "outcome"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "urn:ai-engineering:check-evidence:1"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "automated",
+        "human",
+        "external"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]*$"
+    },
+    "applicability": {
+      "type": "string",
+      "enum": [
+        "applicable",
+        "not_applicable"
+      ]
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tool_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "artifact_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "started_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "finished_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "max_age_seconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "WARN",
+        "FAIL"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "test_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]*$"
+    },
+    "owner_role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]*$"
+    },
+    "protocol_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "environment_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]*$"
+    },
+    "environment_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observation_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "receipt_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "independent_path": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]*$"
+    },
+    "limits": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "applicability": {
+            "const": "not_applicable"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "reason"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "reason"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "automated"
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "test_id"
+              ]
+            },
+            {
+              "required": [
+                "owner_role"
+              ]
+            },
+            {
+              "required": [
+                "protocol_id"
+              ]
+            },
+            {
+              "required": [
+                "protocol_version"
+              ]
+            },
+            {
+              "required": [
+                "environment_id"
+              ]
+            },
+            {
+              "required": [
+                "environment_version"
+              ]
+            },
+            {
+              "required": [
+                "observation_date"
+              ]
+            },
+            {
+              "required": [
+                "receipt_digest"
+              ]
+            },
+            {
+              "required": [
+                "independent_path"
+              ]
+            },
+            {
+              "required": [
+                "limits"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "human",
+              "external"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "test_id",
+          "owner_role",
+          "protocol_id",
+          "protocol_version",
+          "environment_id",
+          "environment_version",
+          "observation_date",
+          "receipt_digest"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "external"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "independent_path",
+          "limits"
+        ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "independent_path"
+              ]
+            },
+            {
+              "required": [
+                "limits"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "x-evidence-policy": {
+    "freshness_field": "max_age_seconds",
+    "missing": "INCOMPLETE",
+    "stale": "INCOMPLETE",
+    "malformed": "INCOMPLETE",
+    "digest_mismatch": "INCOMPLETE",
+    "executed_fail": "FAIL",
+    "metadata_is_proof": false,
+    "not_applicable_covers_applicable": false,
+    "independent_kind": "external"
+  }
+}

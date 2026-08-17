@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-engineering:madr:1",
+  "title": "MADR frontmatter v1",
+  "description": "Closed contract for MADR frontmatter and its local decision graph.",
+  "x-canonical-home": "docs/adr/",
+  "x-owner-field": "authority_role",
+  "x-body-sections": {
+    "required": [
+      "Context and problem statement",
+      "Considered options",
+      "Decision outcome",
+      "Consequences"
+    ],
+    "alternatives": "Considered options",
+    "rejection_reason": "Decision outcome",
+    "consequences": "Consequences"
+  },
+  "x-status-transitions": {
+    "initial": "proposed",
+    "allowed": [
+      {
+        "from": "proposed",
+        "to": "accepted"
+      },
+      {
+        "from": "proposed",
+        "to": "rejected"
+      },
+      {
+        "from": "accepted",
+        "to": "superseded"
+      }
+    ],
+    "terminal": [
+      "rejected",
+      "superseded"
+    ]
+  },
+  "x-decision-graph": {
+    "node_id_field": "id",
+    "node_ids_unique": true,
+    "spec_edge": {
+      "field": "spec",
+      "target_home": "specs/",
+      "cardinality": "exactly_one",
+      "existing": true,
+      "local": true
+    },
+    "supersession_edge": {
+      "field": "supersedes",
+      "target_home": "docs/adr/",
+      "empty_allowed": true,
+      "existing_if_present": true,
+      "local": true,
+      "self_links_allowed": false,
+      "acyclic": true
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "type",
+    "id",
+    "title",
+    "date",
+    "spec",
+    "status",
+    "supersedes"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "urn:ai-engineering:madr:1"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "type": {
+      "type": "string",
+      "const": "adr"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9]{4}$"
+    },
+    "title": {
+      "$ref": "#/$defs/non_empty_string"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "spec": {
+      "type": "string",
+      "pattern": "^[0-9]{3}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "proposed",
+        "accepted",
+        "rejected",
+        "superseded"
+      ]
+    },
+    "supersedes": {
+      "type": "string",
+      "oneOf": [
+        {
+          "const": ""
+        },
+        {
+          "pattern": "^[0-9]{4}$"
+        }
+      ]
+    },
+    "authority_role": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*",
+      "not": {
+        "pattern": "(^|[^A-Za-z0-9])([Aa][Gg][Ee][Nn][Tt]|[Rr][Ee][Vv][Ii][Ee][Ww][Ee][Rr])([^A-Za-z0-9]|$)"
+      },
+      "description": "Accountable human role or role named by an approved policy; never an agent or reviewer."
+    },
+    "approval_ref": {
+      "$ref": "#/$defs/non_empty_string"
+    },
+    "approved_at": {
+      "$ref": "#/$defs/utc_timestamp"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "proposed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "authority_role"
+              ]
+            },
+            {
+              "required": [
+                "approval_ref"
+              ]
+            },
+            {
+              "required": [
+                "approved_at"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "accepted",
+              "rejected",
+              "superseded"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "authority_role",
+          "approval_ref",
+          "approved_at"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "utc_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]+)?Z$"
+    }
+  }
+}

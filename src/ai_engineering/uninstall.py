@@ -8,17 +8,302 @@ behaviour this product was built to argue against.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
 
+from ai_engineering import __version__, outcome, paths, wiring
 from ai_engineering import init as installer
-from ai_engineering import paths, wiring
 
 KEEPS = ("specs/", "CONSTITUTION.md", "AGENTS.md", "docs/adr/")
+GLOBAL_KINDS = ("guard", "link", "skills", "router")
+
+
+def receipt_state() -> tuple[dict, list[dict]] | None:
+    """One current, complete receipt whose rows cannot expand uninstall's authority."""
+    target = wiring.receipt_path()
+    try:
+        parent = target.parent.lstat()
+        if not stat.S_ISDIR(parent.st_mode):
+            return None
+        info = target.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            return None
+        data = wiring.receipt()
+    except (OSError, wiring.Unreadable):
+        return None
+    if (
+        not isinstance(data, dict)
+        or data.get("version") != __version__
+        or not all(
+            isinstance(data.get(key), str) and data[key]
+            for key in ("machine_id", "python", "hooks")
+        )
+        or not isinstance(data.get("wrote"), list)
+    ):
+        return None
+    rows = data["wrote"]
+    if any(
+        not isinstance(row, dict)
+        or set(row) != {"path", "kind", "how"}
+        or not all(isinstance(row.get(key), str) for key in ("path", "kind", "how"))
+        for row in rows
+    ):
+        return None
+    identities = [(row["path"], row["kind"]) for row in rows]
+    if len(identities) != len(set(identities)):
+        return None
+
+    repository_roots = [
+        Path(row["path"])
+        for row in rows
+        if row["kind"] == "repo"
+        and Path(row["path"]).is_absolute()
+        and canonical(row, Path(row["path"])) is not None
+    ]
+    safe: list[dict] = []
+    for row in rows:
+        if row["kind"] in GLOBAL_KINDS:
+            normalized = canonical(row, None)
+        elif row["kind"] == "repo":
+            root = Path(row["path"])
+            normalized = canonical(row, root) if root in repository_roots else None
+        elif row["kind"] == "project":
+            candidates = [root for root in repository_roots if canonical(row, root) is not None]
+            normalized = canonical(row, candidates[0]) if len(candidates) == 1 else None
+        else:
+            normalized = None
+        if normalized is None:
+            return None
+        safe.append(normalized)
+    return data, safe
+
+
+def _tree(path: Path) -> dict[str, bytes] | None:
+    """Regular bytes below one directory, or None when aliases/special files make it blind."""
+    try:
+        if path.is_symlink() or not path.is_dir():
+            return None
+        files: dict[str, bytes] = {}
+        for item in path.rglob("*"):
+            if item.is_symlink():
+                return None
+            if item.is_file():
+                files[item.relative_to(path).as_posix()] = item.read_bytes()
+            elif not item.is_dir():
+                return None
+        return files
+    except OSError:
+        return None
+
+
+def _expected_skill_names() -> tuple[str, ...] | None:
+    source = paths.skills()
+    try:
+        info = source.lstat()
+        if not stat.S_ISDIR(info.st_mode):
+            return None
+        skills = [path for path in source.glob("ai-*")]
+        if not skills or any(path.is_symlink() or not path.is_dir() for path in skills):
+            return None
+    except OSError:
+        return None
+    return tuple(sorted(path.name for path in skills))
+
+
+def _skills_owned(root: Path, how: str) -> bool:
+    """Every canonical skill still present is byte-identical to the installed source."""
+    if root.is_symlink() or (root.exists() and not root.is_dir()):
+        return False
+    names = _expected_skill_names()
+    if names is None:
+        return False
+    store = paths.home() / "skills"
+    for name in names:
+        target = root / name
+        if not os.path.lexists(target):
+            continue
+        if how == "symlink":
+            if not target.is_symlink():
+                return False
+            landing = Path(os.readlink(target))
+            landing = landing if landing.is_absolute() else target.parent / landing
+            if landing.resolve(strict=False) != (store / name).resolve(strict=False):
+                return False
+        elif how in ("copy", "wheel"):
+            if _tree(target) != _tree(paths.skills() / name):
+                return False
+        else:
+            return False
+    return True
+
+
+def _opencode_source() -> str:
+    """What the installer would write, asked of the installer.
+
+    This was a second copy of the substitution, and `_guard_owned` compares the installed
+    bytes to it. When the writer was corrected and this was not, they disagreed — and a
+    mismatch here aborts the entire uninstall, not the plugin row: skills, git config and
+    every other surface stay put, reported as "nothing removed". A reconstruction that can
+    drift from the thing it reconstructs is not a check, it is a second bug waiting."""
+
+    return wiring.opencode_source()
+
+
+def _json_guard_owned(data: dict, how: str) -> bool:
+    # Entries of ours found anywhere in the settings tree. `dict` and not `object`: every
+    # one of them is rendered as JSON below, and a list that could hold anything is a list
+    # whose renderer has to guess.
+    own: list[dict] = []
+
+    def collect(node) -> None:
+        if isinstance(node, list):
+            own.extend(item for item in node if wiring.ours(item))
+            for item in node:
+                collect(item)
+        elif isinstance(node, dict):
+            for value in node.values():
+                collect(value)
+
+    collect(data)
+
+    def same(expected: list[dict]) -> bool:
+        def render(item: dict) -> str:
+            return json.dumps(item, sort_keys=True, separators=(",", ":"))
+
+        return sorted(map(render, own)) == sorted(map(render, expected))
+
+    if how == "json_claude":
+        expected: list[dict] = []
+        for event in wiring.EVENTS:
+            hook = {"type": "command", "command": wiring.command(event)}
+            expected.extend(({"matcher": "*", "hooks": [hook]}, hook))
+        return same(expected)
+    if how == "json_cursor":
+        expected = [
+            {"command": wiring.command("PreToolUse")},
+            {"command": wiring.command("PreToolUse")},
+        ]
+        return data.get("failClosed") is True and same(expected)
+    if how == "json_codex":
+        # Named apart from the list above: `expected` there is what a settings file should
+        # hold, and this is one handler plus the object that wraps it. One name for both was
+        # two shapes under one word, which is how a reader and a type checker both lose it.
+        handler = {
+            "type": "command",
+            "command": wiring.command("PreToolUse"),
+            "timeout": 5,
+            "statusMessage": f"{wiring.MARK} guards",
+            "async": False,
+        }
+        return same([{"hooks": [handler]}, handler])
+    if how == "json_copilot":
+        return data == {
+            "hooks": {"preToolUse": [{"type": "command", "command": wiring.command("PreToolUse")}]}
+        }
+    return False
+
+
+def _guard_owned(row: dict) -> bool:
+    target = wiring.expand(row["path"])
+    if not os.path.lexists(target):
+        return True
+    try:
+        info = target.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            return False
+        if row["how"] == "ts_opencode":
+            return target.read_text(encoding="utf-8") == _opencode_source()
+        data = json.loads(target.read_text(encoding="utf-8"))
+        return isinstance(data, dict) and _json_guard_owned(data, row["how"])
+    except (OSError, UnicodeError, ValueError):
+        return False
+
+
+def _project_body(path: Path, root: Path) -> str | None:
+    name = path.relative_to(root).as_posix()
+    if name in installer.OFFERS and name not in installer.PROTECTED:
+        return installer.OFFERS[name][1](root)
+    return {
+        ".ai/config.toml": installer.skeletons.CONFIG_TOML.format(version=__version__),
+        ".ai/.gitignore": installer.skeletons.AI_GITIGNORE,
+        "specs/.gitkeep": "",
+    }.get(name)
+
+
+def _git_value(root: Path, key: str) -> str | None:
+    try:
+        read = subprocess.run(
+            ["git", "-C", str(root), "config", "--local", "--get", key],
+            timeout=10,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if read.returncode not in (0, 1):
+        return None
+    return read.stdout.strip() if read.returncode == 0 else ""
+
+
+def _router_owned(row: dict) -> bool:
+    """A generated router is ours only while it is still the bytes we generated.
+
+    The digest travels in `how` rather than as a fifth key, because the receipt's four-field
+    shape is validated on read and an optional key is how a contract rots. A file somebody
+    edited is theirs now: they wanted something we did not write, and removing it would be
+    this installer deciding that its own version of a person's file is the real one.
+    """
+
+    target = Path(row["path"])
+    _, _, recorded = row["how"].partition(" ")
+    if not recorded:
+        return False
+    if not target.is_file():
+        return True  # already gone is the state uninstall was trying to reach
+    body = target.read_bytes()
+    return hashlib.sha256(body).hexdigest() == recorded
+
+
+def _owned(row: dict, root: Path | None) -> bool:
+    kind = row["kind"]
+    if kind == "guard":
+        return _guard_owned(row)
+    if kind == "link":
+        return _skills_owned(Path(row["path"]), row["how"])
+    if kind == "skills":
+        return _skills_owned(Path(row["path"]), "wheel")
+    if kind == "router":
+        return _router_owned(row)
+    if root is None:
+        return False
+    if kind == "project":
+        target = Path(row["path"])
+        if not os.path.lexists(target):
+            return True
+        expected = _project_body(target, root)
+        try:
+            info = target.lstat()
+            return (
+                expected is not None
+                and stat.S_ISREG(info.st_mode)
+                and info.st_nlink == 1
+                and target.read_text(encoding="utf-8") == expected
+            )
+        except (OSError, UnicodeError):
+            return False
+    if kind == "repo":
+        return (
+            _git_value(root, "core.hooksPath") == str(paths.git_hooks())
+            and _git_value(root, "ai.managed") == "true"
+            and _git_value(root, "ai.eng") == f"{sys.executable} -m ai_engineering.cli"
+        )
+    return False
 
 
 def remove_plugin(path: Path) -> bool:
@@ -84,6 +369,10 @@ def inside(path: str, root: Path) -> bool:
     return Path(path) == root or root in Path(path).parents
 
 
+def _hex(value: str) -> bool:
+    return all(character in "0123456789abcdef" for character in value)
+
+
 def canonical(row: dict, root: Path | None) -> dict | None:
     """Return the trusted form of a destination this installer is capable of owning.
 
@@ -108,6 +397,22 @@ def canonical(row: dict, root: Path | None) -> dict | None:
         target = paths.home() / "skills"
         if path == str(target) and how == "wheel":
             return {"path": str(target), "kind": "skills", "how": "wheel"}
+    if kind == "router":
+        # Derived, never trusted. The path has to be one this installer could have written —
+        # a command root the table declares, holding a file named after a skill in the wheel
+        # — and `how` has to be a generation stamp of the right shape. A receipt saying
+        # `router` over an arbitrary path would otherwise be an unlink of anything.
+        for surface in wiring.table()["surface"]:
+            declared = surface.get("commands")
+            if not declared:
+                continue
+            marker, _, recorded = how.partition(" ")
+            if marker != "generated" or len(recorded) != 64 or not _hex(recorded):
+                continue
+            for skill in sorted(paths.skills().glob("ai-*")):
+                target = wiring.expand(declared) / f"{skill.name}.md"
+                if path == str(target):
+                    return {"path": str(target), "kind": "router", "how": how}
     if root is None:
         return None
     if kind == "project":
@@ -158,7 +463,67 @@ def git(root: Path, key: list[str]) -> None:
     instead of ten is not a behaviour anybody can assert. Spec 006 met the same thing in
     `soft_wrap=True` and took the same way out — the argument stops being repeated, so the
     mutants stop existing rather than being waived."""
-    subprocess.run(["git", "-C", str(root), *key], timeout=10, capture_output=True)
+    subprocess.run(["git", "-C", str(root), *key], timeout=10, capture_output=True, check=True)
+
+
+# A fate beginning with this word is not a decision to keep the row; it is the run saying
+# it could not decide, and `main` turns it into INCOMPLETE rather than exiting zero.
+UNDECIDED = "undecided —"
+
+
+def anchors(kind: str, root: Path | None) -> tuple[Path, ...]:
+    """Where a row of this kind is allowed to live.
+
+    The application home is not necessarily under the user's home — `AI_ENGINEERING_HOME`
+    moves it, and the first version of this check assumed otherwise. Every row under a home
+    that check did not know about came back "a link on the way" with no link anywhere, the
+    row was kept, and the run still exited zero with the guards still wired: a refusal that
+    reads as success is worse than the redirection it was meant to catch.
+    """
+
+    if kind in ("project", "repo"):
+        return (root,) if root is not None else ()
+    # The widest first, and that ordering is the whole point. `redirection` walks under the
+    # first anchor that contains the path, and on a default install the application home
+    # sits *inside* the user's home — so putting it first made `.ai-engineering` itself an
+    # unchecked component, and a symlink there would have been trusted and then rmtree'd
+    # through. Falling back to it second still covers an AI_ENGINEERING_HOME set elsewhere,
+    # which is the case this pair was introduced for.
+    return (Path.home(), paths.home())
+
+
+def redirection(path: Path, allowed: tuple[Path, ...]) -> str:
+    """`""` when every component below one of `allowed` is what it says it is, `redirected`
+    when a link was observed, and `undecided` when this code could not tell.
+
+    Those three are different answers and only one of them is safe to act on. Collapsing
+    them into a boolean is how "I could not look" became "I looked and it was fine" —
+    or, in the first version of this function, how it became "I saw a link", which was a
+    false statement printed to a person.
+
+    Nothing at or above an anchor is inspected. On a real machine the path to a home
+    crosses links nobody controls (`/var` is one on macOS), so claiming to have proved that
+    part would be exactly the false green this file is full of comments about.
+    """
+
+    for anchor in allowed:
+        try:
+            relative = path.relative_to(anchor)
+        except ValueError:
+            continue
+        walked = anchor
+        for part in relative.parts:
+            walked = walked / part
+            try:
+                value = walked.lstat()
+            except FileNotFoundError:
+                return ""
+            except OSError:
+                return "undecided"
+            if stat.S_ISLNK(value.st_mode) or getattr(value, "st_reparse_tag", False):
+                return "redirected"
+        return ""
+    return "undecided"
 
 
 def fate(row: dict, root: Path | None) -> str:
@@ -181,6 +546,14 @@ def fate(row: dict, root: Path | None) -> str:
         return f"kept — not this repository ({root})"
     if not owned(row, root):
         return "kept — receipt target is not one this installer can own"
+    where = redirection(wiring.expand(str(path)), anchors(str(kind), root))
+    if where == "redirected":
+        # Not a keep either. A row this run did not undo is a row still in the receipt and a
+        # guard still wired; reporting that as success is the failure this verb exists to
+        # argue against, and "kept" with a zero exit is exactly how it would read.
+        return f"{UNDECIDED} a link on the way means this name is not that place"
+    if where == "undecided":
+        return f"{UNDECIDED} this destination could not be placed under a home we own"
     return ""
 
 
@@ -197,15 +570,19 @@ def strip_links(root: Path, how: str) -> int:
     by the time this is reached. A symlink counts as ours when it resolves into our store."""
     mine = paths.home() / "skills"
     removed = 0
-    for skill in sorted(paths.skills().glob("ai-*")):
-        target = root / skill.name
+    names = _expected_skill_names()
+    if names is None:
+        raise wiring.Unreadable("the installed skill catalogue could not be read")
+    for name in names:
+        target = root / name
         if target.is_symlink():
             landing = Path(os.readlink(target))
-            if landing == mine / skill.name or landing.is_relative_to(mine):
+            landing = landing if landing.is_absolute() else target.parent / landing
+            if landing.resolve(strict=False) == (mine / name).resolve(strict=False):
                 target.unlink()
                 removed += 1
         elif how == "copy" and target.is_dir():
-            shutil.rmtree(target, ignore_errors=True)
+            shutil.rmtree(target)
             removed += 1
     return removed
 
@@ -216,21 +593,86 @@ def strip_skills(path: Path) -> bool:
     every uninstall and `init` counted them off the disk and called the machine ready."""
     if not path.is_dir():
         return False
-    for skill in path.glob("ai-*"):
-        shutil.rmtree(skill, ignore_errors=True)
-    return True
+    removed = False
+    names = _expected_skill_names()
+    if names is None:
+        raise wiring.Unreadable("the installed skill catalogue could not be read")
+    for name in names:
+        skill = path / name
+        if skill.is_dir() and not skill.is_symlink():
+            shutil.rmtree(skill)
+            removed = True
+    return removed
 
 
-def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser("ai-eng uninstall")
+def _removed(row: dict, root: Path | None) -> bool:
+    kind, target = row["kind"], Path(row["path"])
+    if kind == "guard":
+        actual = wiring.expand(row["path"])
+        if not os.path.lexists(actual):
+            return True
+        if row["how"] == "ts_opencode":
+            return False
+        try:
+            return wiring.SIGNATURE not in actual.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            return False
+    if kind in ("link", "skills"):
+        names = _expected_skill_names()
+        return names is not None and not any(os.path.lexists(target / name) for name in names)
+    if kind == "project":
+        return not os.path.lexists(target)
+    if kind == "repo" and root is not None:
+        return (
+            _git_value(root, "core.hooksPath") == row["how"]
+            and _git_value(root, "ai.managed") == ""
+            and _git_value(root, "ai.eng") == ""
+        )
+    return False
+
+
+def main(argv: list[str]) -> outcome.Result:
+    parser = argparse.ArgumentParser(prog="ai-eng uninstall")
     parser.add_argument("--project", action="store_true", help="also unwire this repository")
     parser.add_argument("-y", "--yes", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
-    rows = wiring.receipt().get("wrote", [])
+    # A terminal, and `-y` does not substitute for one: `test_uninstall_is_explicit` pins
+    # exactly that, and it is the decision this repository already took. I moved this line
+    # to let the install matrix run and put it back when the test that owns it said no —
+    # the matrix is what changed instead, because a step that can never pass is a step that
+    # proves nothing either way.
+    if not sys.stdin.isatty():
+        print("  INCOMPLETE: uninstall requires a person at a keyboard. Nothing removed.")
+        return outcome.result("INCOMPLETE")
+    installed = receipt_state()
+    if installed is None:
+        print("  INCOMPLETE: the install receipt is missing, partial, corrupt or ambiguous.")
+        print("  Nothing removed. Repair or migrate the receipt, then run uninstall again.")
+        return outcome.result("INCOMPLETE")
+    receipt, rows = installed
     root = paths.repo_root() if args.project else None
+    if args.project and root is None:
+        print("  INCOMPLETE: --project requires the repository that will be unwired.")
+        print("  Nothing removed. Run this from inside the intended repository.")
+        return outcome.result("INCOMPLETE")
     plan = [(row, fate(row, root), canonical(row, root)) for row in rows]
-    going = [safe for _, kept, safe in plan if not kept and safe]
+    undecided = [(row, kept) for row, kept, _ in plan if kept.startswith(UNDECIDED)]
+    if undecided:
+        print(f"  INCOMPLETE: {len(undecided)} recorded targets could not be undone:")
+        for row, why in undecided:
+            print(f"    {row['kind']:<8} {row['path']}  ·  {why.removeprefix(UNDECIDED).strip()}")
+        print("  Nothing removed. A destination this run cannot place is not one it may touch.")
+        return outcome.result("INCOMPLETE")
+    going = [safe for _, kept, safe in plan if not kept and safe is not None]
+
+    if any(not _owned(row, root if row["kind"] in ("project", "repo") else None) for row in going):
+        print(
+            "  INCOMPLETE: a receipted target no longer matches the exact bytes or entries owned."
+        )
+        print("  Nothing removed. Restore the owned target or remove the ambiguous receipt row.")
+        return outcome.result("INCOMPLETE")
 
     print(f"  {len(rows)} things are recorded here, and {len(going)} of them will be removed:")
     for row, kept, _ in plan:
@@ -241,13 +683,24 @@ def main(argv: list[str]) -> int:
         print(f"  Not entered: {other} — `cd {other} && ai-eng uninstall --project`")
     if not going:
         print("  Nothing to remove.")
-        return 0
+        return outcome.result("READY")
+    if args.dry_run:
+        print("  Dry run: the exact receipted removals above were derived; nothing was removed.")
+        return outcome.dry_run(exact_changes=True)
     if not (
         args.yes
         or (sys.stdin.isatty() and input("\n◆ Remove them? (y/N) › ").lower().startswith("y"))
     ):
         print("  nothing removed.")
-        return 1
+        return outcome.result("CANCELLED")
+    current = receipt_state()
+    if current is None or current[0] != receipt or current[1] != rows:
+        print("  INCOMPLETE: the receipt changed while consent was being requested.")
+        print("  Nothing removed. Review the current receipt, then run uninstall again.")
+        return outcome.result("INCOMPLETE")
+    if any(not _owned(row, root if row["kind"] in ("project", "repo") else None) for row in going):
+        print("  INCOMPLETE: ownership changed while consent was being requested. Nothing removed.")
+        return outcome.result("INCOMPLETE")
 
     gone, stuck = [], []
     for row in going:
@@ -285,19 +738,26 @@ def main(argv: list[str]) -> int:
             continue
         gone.append(row)
 
-    if root is not None:
-        unwire(root, going)
-        print(f"  ✓ {root} unwired. specs/, CONSTITUTION.md and AGENTS.md are untouched.")
-        gone += [row for row in going if row["kind"] in ("project", "repo")]
-    # Our own cache, and the OpenCode plugin's only proof that it ever loaded. It is fresh
-    # for a day, so left behind it kept the coverage block reading BLOCKS for twenty-four
-    # hours after the file it attests to was deleted. Cleared whenever the machine half runs
-    # at all: after this, no plugin of ours is loaded anywhere, whatever the rows said.
-    (paths.home() / "cache" / "opencode-heartbeat").unlink(missing_ok=True)
+    project_rows = [row for row in going if row["kind"] in ("project", "repo")]
+    if root is not None and project_rows:
+        try:
+            unwire(root, project_rows)
+        except (OSError, subprocess.SubprocessError) as why:
+            print(f"  ✗ repository could not be unwired: {why}")
+            stuck += project_rows
+        else:
+            print(f"  ✓ {root} unwired. specs/, CONSTITUTION.md and AGENTS.md are untouched.")
+            gone += project_rows
+    if any(row["kind"] == "guard" and row["how"] == "ts_opencode" for row in gone):
+        (paths.home() / "cache" / "opencode-heartbeat").unlink(missing_ok=True)
     # The record stops claiming what is no longer here. Without this the next `init` reads
     # the log, counts four guards and four links that were removed a second ago, prints
     # "Global ready", and refuses to rewire the machine it has just been asked to install.
-    wiring.forget(gone)
+    try:
+        wiring.forget(gone)
+    except (OSError, wiring.Unreadable) as why:
+        print(f"  INCOMPLETE: the receipt could not be updated after removal: {why}")
+        return outcome.result("INCOMPLETE")
     print(
         f"\n  The record is still at {paths.home() / 'state'}. Delete that folder yourself "
         f"if you want it gone: it is proof of what happened, and not ours to throw away."
@@ -307,5 +767,17 @@ def main(argv: list[str]) -> int:
             f"  {len(stuck)} of them are still wired and are still in the record. "
             f"Fix the files named above and run this again."
         )
-        return 1
-    return 0
+        return outcome.result("INCOMPLETE")
+    after = receipt_state()
+    removed = {(row["path"], row["kind"]) for row in gone}
+    expected = [row for row in receipt["wrote"] if (row["path"], row["kind"]) not in removed]
+    if (
+        after is None
+        or after[0]["wrote"] != expected
+        or any(
+            not _removed(row, root if row["kind"] in ("project", "repo") else None) for row in gone
+        )
+    ):
+        print("  INCOMPLETE: uninstall could not prove its removal and receipt postconditions.")
+        return outcome.result("INCOMPLETE")
+    return outcome.result("PASS")

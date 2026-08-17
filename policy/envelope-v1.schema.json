@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-engineering:envelope:1",
+  "title": "ai-engineering machine envelope v1",
+  "description": "The one object every verb prints on stdout under --json. Closed: a field that is not here cannot appear, and a reader written against this cannot be surprised by a field somebody added on a Thursday. The prose a person reads goes to stderr and is not described here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "command",
+    "operation_id",
+    "started_at",
+    "finished_at",
+    "outcome",
+    "summary",
+    "changes",
+    "checks",
+    "remaining",
+    "next_actions",
+    "error"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "urn:ai-engineering:envelope:1"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "The verb this envelope reports, as the dispatcher named it."
+    },
+    "operation_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "One run, so two envelopes from two runs are never confused for one."
+    },
+    "started_at": { "$ref": "#/$defs/instant" },
+    "finished_at": { "$ref": "#/$defs/instant" },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "READY",
+        "PASS",
+        "WARN",
+        "FAIL",
+        "INCOMPLETE",
+        "CANCELLED",
+        "WOULD_CHANGE"
+      ],
+      "description": "The terminal word. RUNNING is a phase and never reaches here."
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "changes": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "$ref": "#/$defs/fact" },
+      "description": "What this run altered. Empty is an answer, not an omission."
+    },
+    "checks": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "$ref": "#/$defs/fact" },
+      "description": "What this run asserted, one fact per assertion, including the ones it could not answer."
+    },
+    "remaining": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "type": "string", "maxLength": 500 },
+      "description": "What is still not done, in the words a person would use about it."
+    },
+    "next_actions": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "type": "string", "maxLength": 500 }
+    },
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message", "retryable", "cure"],
+          "properties": {
+            "code": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "message": { "type": "string", "maxLength": 2000 },
+            "retryable": { "type": "boolean" },
+            "cure": { "type": "string", "maxLength": 500 }
+          },
+          "description": "Four fields and no fifth. A traceback is not one of them: it carries an absolute path, a username and the shape of somebody's filesystem onto a screen about to be pasted into an issue."
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "instant": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$",
+      "description": "UTC, milliseconds, and a Z. One spelling, so two envelopes sort."
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "summary", "detail", "cure"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "FAIL",
+            "INCOMPLETE",
+            "WARN",
+            "SKIPPED",
+            "OBSERVED",
+            "APPLIED",
+            "WOULD_CHANGE"
+          ]
+        },
+        "summary": { "type": "string", "maxLength": 500 },
+        "detail": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "maxLength": 2000 }]
+        },
+        "cure": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "maxLength": 500 }]
+        }
+      }
+    }
+  },
+  "x-envelope-policy": {
+    "stream": "stdout carries this object and nothing else; every word a person reads goes to stderr",
+    "one_line": "exactly one newline, so a shell that reads a line gets the whole thing",
+    "no_escape_sequences": "never decorated, whatever the terminal says it can do",
+    "unknown_outcome_normalizes_to": "INCOMPLETE"
+  }
+}

@@ -9,25 +9,84 @@ goes red the moment it does. Nothing here touches the real home or the real repo
 from __future__ import annotations
 
 import builtins
+import hashlib
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 import time
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from ai_engineering import accept, audit, cli, contract, decide, digest, paths, plan, spec, text
+from ai_engineering import (
+    accept,
+    acceptance,
+    acceptance_privacy,
+    audit,
+    cli,
+    contract,
+    decide,
+    exception,
+    outcome,
+    paths,
+    report,
+    spec,
+    spec_transaction,
+    text,
+)
 
 TODAY = date.today().isoformat()
+# The record stores a UTC date; local midnight is not the same instant.
 YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
 TOMORROW = (date.today() + timedelta(days=1)).isoformat()
-SIGNED = ["--by", "Ada", "--justification", "it is fenced off"]
+SIGNED = [
+    "--by",
+    "Ada",
+    "--justification",
+    "it is fenced off",
+    "--evidence",
+    "proof.txt",
+]
 A_WEEK_AGO = (date.today() - timedelta(days=7)).isoformat()
+
+
+def utc_today() -> str:
+    """Read at the moment of the assertion, never at import.
+
+    A module-level constant is the date the suite started, and a run that straddles UTC
+    midnight then compares two different days and fails for no reason anybody can act on.
+    This suite hit exactly that twice.
+    """
+
+    return datetime.now(UTC).date().isoformat()
+
+
+def _fixture_spec(root: Path, slug: str, ref: str = "") -> Path:
+    home = root / "specs"
+    home.mkdir(exist_ok=True)
+    identifiers = [
+        int(folder.name[:3])
+        for folder in home.iterdir()
+        if spec._CANONICAL_SPEC.fullmatch(folder.name)
+    ]
+    number = f"{max(identifiers, default=0) + 1:03d}"
+    target = home / f"{number}-{slug}" / "spec.md"
+    target.parent.mkdir()
+    target.write_bytes(spec._render(number, slug, ref))
+    return target
+
+
+def completed(execution):
+    assert type(execution) is outcome.Execution
+    assert execution.result == outcome.result("PASS")
+    assert execution.changes and execution.changes[0].status == "APPLIED"
+    return execution
 
 
 @pytest.fixture
@@ -45,8 +104,30 @@ def repo(tmp_path, monkeypatch):
     """A throwaway repository root, so no verb can find the one we are working in."""
     root = tmp_path / "repo"
     (root / "specs").mkdir(parents=True)
+    (root / ".ai").mkdir()
+    # The authority file every record writer locks, exactly as `spec new` does.
+    (root / ".ai" / "intent.md").write_bytes(b'{"authority":"local"}\n')
+    (root / "proof.txt").write_bytes(b"local evidence\n")
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     return root
+
+
+def _confirmed(monkeypatch) -> None:
+    """The controlling terminal and the pinned scanner, the two boundaries a test process
+    cannot own. Both are proved for real elsewhere: the terminal by the refusal tests, the
+    scanner by the installed matrix."""
+
+    monkeypatch.setattr(accept, "controlling_terminal_response", lambda expected: True)
+    monkeypatch.setattr(
+        accept.acceptance_privacy, "gitleaks_v1", lambda directory: acceptance_privacy.CLEAN
+    )
+
+
+def _records(repo: Path, slug: str) -> list[dict]:
+    return [
+        json.loads(path.read_text(encoding="utf-8"))
+        for path in sorted((repo / "specs" / slug).glob("acceptance-r-*/record.json"))
+    ]
 
 
 # ------------------------------------------------------------------ text
@@ -156,8 +237,10 @@ def test_an_acceptance_expires_the_day_after_its_date_not_on_it(repo, capsys):
         encoding="utf-8",
     )
     assert [b["finding"] for b in accept.expired(repo)] == ["F-past"]
-    assert len(accept.blocks(repo)) == 3
-    assert accept.main(["--expired"]) == 1, "an expired acceptance has to fail the build"
+    assert len(acceptance.read(repo).entries) == 3
+    assert accept.main(["--expired"]) == outcome.result("FAIL"), (
+        "an expired acceptance has to fail the build"
+    )
     assert "EXPIRED" in capsys.readouterr().out
 
 
@@ -177,7 +260,7 @@ def test_a_renewal_retires_the_block_it_renews_wherever_it_sits(repo, order):
         written[order[0]] + written[order[1]] + _acceptance("F-untouched", YESTERDAY),
         encoding="utf-8",
     )
-    assert len(accept.blocks(repo)) == 3
+    assert len(acceptance.read(repo).entries) == 3
     assert [b["finding"] for b in accept.expired(repo)] == ["F-untouched"]
 
 
@@ -193,39 +276,63 @@ def test_a_block_whose_renewal_counter_is_not_a_number_counts_as_none(repo):
     assert accept.expired(repo) == []
 
 
-def test_the_first_risk_of_a_spec_is_numbered_one_whatever_the_repository_holds(repo, capsys):
+def test_the_first_risk_of_a_spec_is_numbered_one_whatever_the_repository_holds(
+    repo, capsys, monkeypatch
+):
     """The identifier is supposed to read as the nth risk of its spec. It was minted by
     counting every block in the repository, so the first risk recorded against a new spec
     came out numbered eight — which reads as the eighth risk of that spec and is not a fact
     about anything."""
+    _confirmed(monkeypatch)
     (repo / "specs" / "001-old").mkdir()
-    (repo / "specs" / "001-old" / "spec.md").write_text(
-        _acceptance("F-a", TOMORROW) + _acceptance("F-b", TOMORROW), encoding="utf-8"
-    )
+    (repo / "specs" / "001-old" / "spec.md").write_text("# old\n", encoding="utf-8")
     (repo / "specs" / "002-new").mkdir()
     (repo / "specs" / "002-new" / "spec.md").write_text("# new\n", encoding="utf-8")
-    assert accept.main(["--finding", "F-c", "--expires", TOMORROW, "--spec", "002", *SIGNED]) == 0
+    for finding in ("F-a", "F-b"):
+        completed(
+            accept.main(["--finding", finding, "--expires", TOMORROW, "--spec", "001", *SIGNED])
+        )
+    completed(accept.main(["--finding", "F-c", "--expires", TOMORROW, "--spec", "002", *SIGNED]))
     capsys.readouterr()
-    written = [b for _, b in accept.blocks(repo) if b["finding"] == "F-c"]
-    assert written[0]["id"] == "R-002-01"
+    assert [record["id"] for record in _records(repo, "001-old")] == ["R-001-01", "R-001-02"]
+    assert [record["id"] for record in _records(repo, "002-new")] == ["R-002-01"]
 
 
-def test_a_rationale_of_any_length_survives_being_written_and_read_back(repo, capsys):
-    """The renderer wrote a value of any length onto one physical line, which is why a
-    four-hundred-character rationale was invisible in a diff — and a governance record
-    nobody can read in a diff is a record nobody reviews. It is folded onto indented
-    continuation lines, which the reader already joins back with a single space, so the
-    check is a round trip rather than a look."""
+def test_a_rationale_of_any_length_survives_being_written_and_read_back(repo, capsys, monkeypatch):
+    """A four-hundred-character rationale has to come back exactly as it was typed.
+
+    It used to have to survive a YAML renderer that folded it onto continuation lines so a
+    diff could show it; canonical JSON keeps the string whole, so what is left to prove is
+    the round trip itself and the schema's byte bound.
+    """
+    _confirmed(monkeypatch)
     reason = " ".join(f"clause number {n} of the argument" for n in range(14))
-    assert len(reason) > 400
+    assert 400 < len(reason.encode("utf-8")) <= 2000
     (repo / "specs" / "001-a").mkdir()
     (repo / "specs" / "001-a" / "spec.md").write_text("# a\n", encoding="utf-8")
-    args = ["--finding", "F-1", "--expires", TOMORROW, "--by", "Ada", "--justification", reason]
-    assert accept.main(args) == 0
+    args = [
+        "--finding",
+        "F-1",
+        "--expires",
+        TOMORROW,
+        "--by",
+        "Ada",
+        "--justification",
+        reason,
+        "--evidence",
+        "proof.txt",
+    ]
+    completed(accept.main(args))
     capsys.readouterr()
-    body = (repo / "specs" / "001-a" / "spec.md").read_text()
-    assert max(len(line) for line in body.splitlines()) <= text.WIDTH
-    assert accept.blocks(repo)[0][1]["justification"] == reason
+    assert _records(repo, "001-a")[0]["justification"] == reason
+
+    # Over the schema's byte bound it is refused before anything is staged, rather than
+    # published into a record the register would then refuse to read forever.
+    oversized = list(args)
+    oversized[1], oversized[7] = "F-2", "x" * 2001
+    assert accept.main(oversized) == outcome.result("INCOMPLETE")
+    assert len(_records(repo, "001-a")) == 1
+    assert not list((repo / "specs" / "001-a").glob("pending-*"))
 
 
 def test_a_malformed_block_stops_the_gate_rather_than_disappearing_from_it(repo, capsys):
@@ -237,56 +344,80 @@ def test_a_malformed_block_stops_the_gate_rather_than_disappearing_from_it(repo,
     (repo / "specs" / "001-a" / "spec.md").write_text(
         "```yaml\n  broken\n```\n" + _acceptance("F-past", YESTERDAY), encoding="utf-8"
     )
-    assert accept.main(["--expired"]) == 1
+    assert accept.main(["--expired"]) == outcome.result("INCOMPLETE")
     assert "UNDECIDABLE" in capsys.readouterr().out
-    assert accept.main(["--finding", "F-2", "--expires", TOMORROW, *SIGNED]) == 1
+    assert accept.main(["--finding", "F-2", "--expires", TOMORROW, *SIGNED]) == outcome.result(
+        "INCOMPLETE"
+    )
     assert "Nothing was written" in capsys.readouterr().out
 
 
 def test_an_acceptance_with_no_end_date_is_refused(repo, capsys):
     """An acceptance with no expiry is not an acceptance, it is a permanent exception
     written in the language of a temporary one."""
-    assert accept.main(["--finding", "F-1"]) == 2
-    assert "is not one" in capsys.readouterr().out
-    assert accept.blocks(repo) == []
+    with pytest.raises(SystemExit) as invalid_cli:
+        accept.main(["--finding", "F-1", *SIGNED])
+    assert invalid_cli.value.code == outcome.invalid_cli_exit()
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "--finding, --expires, --by, --justification and --evidence are all required" in (
+        captured.err
+    )
+    assert acceptance.read(repo).entries == ()
 
 
-def test_the_third_renewal_is_refused_and_writes_nothing(repo, capsys):
+def test_the_third_renewal_is_refused_and_writes_nothing(repo, capsys, monkeypatch):
     """Two renewals is the ceiling: after that the finding gets fixed or the answer
     changes. If the counter did not hold, a risk could be rolled forward forever."""
-    (repo / "specs" / "1234-big").mkdir()
-    (repo / "specs" / "1234-big" / "spec.md").write_text("# big\n", encoding="utf-8")
+    _confirmed(monkeypatch)
+    (repo / "specs" / "123-big").mkdir()
+    (repo / "specs" / "123-big" / "spec.md").write_text("# big\n", encoding="utf-8")
     for expected in range(accept.MAX_RENEWALS + 1):
-        assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 0
-        assert int(accept.blocks(repo)[0][1]["renewals"]) == expected
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 1
-    assert len(accept.blocks(repo)) == accept.MAX_RENEWALS + 1
+        completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
+        assert _records(repo, "123-big")[-1]["renewals"] == expected
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
+        "FAIL"
+    )
+    published = _records(repo, "123-big")
+    assert len(published) == accept.MAX_RENEWALS + 1
     assert "That is the ceiling" in capsys.readouterr().out
-    assert [b["id"] for _, b in accept.blocks(repo)] == ["R-123-03", "R-123-02", "R-123-01"]
+    assert [record["id"] for record in published] == ["R-123-01", "R-123-02", "R-123-03"]
+    # A refused renewal writes nothing at all, final or temporary.
+    assert not list((repo / "specs" / "123-big").glob("pending-*"))
+    assert (repo / "specs" / "123-big" / "spec.md").read_bytes() == b"# big\n"
 
 
-def test_writing_an_acceptance_does_not_eat_the_text_under_its_heading(repo):
-    """The block goes under '## Accepted risks'. An insert that split on the heading and
-    dropped the tail would silently delete whatever a person had written below it."""
+def test_publishing_an_acceptance_never_opens_the_spec_for_write(repo, monkeypatch):
+    """This replaces the test that checked where a block landed inside `spec.md`.
+
+    Nothing lands inside it any more. The whole point of publishing beside the spec is that
+    no supported system can rewrite a file conditionally on it still holding what you read,
+    so the safe move is to never make somebody else's prose a write target at all.
+    """
+    _confirmed(monkeypatch)
     folder = repo / "specs" / "001-a"
     folder.mkdir()
     body = (
         "# title\n\n## Accepted risks\n\nprose a person wrote\n\n## Production-ready\n\n- [ ] CI\n"
     )
     (folder / "spec.md").write_text(body, encoding="utf-8")
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 0
-    after = (folder / "spec.md").read_text()
-    assert "prose a person wrote" in after and "## Production-ready" in after
-    assert after.index("finding: F-1") > after.index("## Accepted risks")
-    assert after.index("finding: F-1") < after.index("prose a person wrote")
-    block = accept.blocks(repo)[0][1]
-    assert block["accepted_by"] == "Ada" and block["accepted"] == TODAY
-    assert block["justification"] == "it is fenced off"
+    before = (folder / "spec.md").read_bytes()
+    stamped = utc_today()
+    completed(accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]))
+    assert (folder / "spec.md").read_bytes() == before
+    record = _records(repo, "001-a")[0]
+    assert record["authority_role"] == "Ada"
+    assert record["accepted"] in {stamped, utc_today()}
+    assert record["justification"] == "it is fenced off"
+    # And the record is bound to the exact bytes that were displayed, not to a re-reading.
+    assert record["spec_digest"] == "sha256:" + hashlib.sha256(before).hexdigest()
 
 
 def test_an_acceptance_with_no_spec_is_refused(repo, capsys):
     """A risk with no context is a note, not a decision, so there is nowhere to put it."""
-    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == 1
+    assert accept.main(["--finding", "F-1", "--expires", TOMORROW, *SIGNED]) == outcome.result(
+        "INCOMPLETE"
+    )
     assert "no spec to record this against" in capsys.readouterr().out
 
 
@@ -349,29 +480,41 @@ def test_each_way_of_breaking_the_chain_is_reported_as_itself(home, mutate, reha
         assert expected in problems[0]
 
 
-def test_a_whole_chain_verifies_and_the_command_says_how_many(home, capsys):
+def test_a_whole_chain_verifies_and_the_command_says_how_many(home, tmp_path, monkeypatch, capsys):
     """`audit verify` reporting success on an empty or unreadable chain is a green nobody
     earned; it must count the links it actually walked."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    monkeypatch.setattr(home, "repo_id", lambda root=None: "no-repo")
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+    monkeypatch.setattr(audit, "verify_intent", lambda repository: [])
     _write(home, _links(home, 4))
-    assert audit.main(["verify"]) == 0
+    assert audit.main(["verify"]) == outcome.result("PASS")
     assert "4 links, intact" in capsys.readouterr().out
     _write(home, _links(home, 2)[:1] + [dict(_links(home, 2)[1], prev="x")])
-    assert audit.main(["verify"]) == 1
+    assert audit.main(["verify"]) == outcome.result("FAIL")
     assert "BROKEN" in capsys.readouterr().out
 
 
-def test_replay_filters_to_one_session(home, capsys):
+def test_replay_filters_to_one_session(home, tmp_path, monkeypatch, capsys):
     """Replay is what somebody reads when asked what happened in a session. If the filter
     were ignored, they would be handed every session on the machine instead."""
     events = _links(home, 2)
     events[0]["session"] = "aaa"
+    events[0]["hash"] = home.digest(events[0])
     events[1]["session"] = "bbb"
     events[1]["data"] = {"reason": "the reason"}
+    events[1]["prev"] = events[0]["hash"]
+    events[1]["hash"] = home.digest(events[1])
+    root = tmp_path / "repo"
+    root.mkdir()
+    monkeypatch.setattr(home, "repo_id", lambda root=None: "no-repo")
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     _write(home, events)
     assert len(audit.replay(None, "")) == 2
     rows = audit.replay(None, "bbb")
     assert len(rows) == 1 and "the reason" in rows[0]
-    assert audit.main(["replay", "--session", "nobody"]) == 0
+    assert audit.main(["replay", "--session", "nobody"]) == outcome.result("PASS")
     assert "nothing recorded" in capsys.readouterr().out
 
 
@@ -388,6 +531,277 @@ def test_the_anchor_written_into_a_commit_is_one_the_verifier_can_read_back(home
     assert found.group(3) == "2" and found.group(4) == events[-1]["hash"][:12]
 
 
+# Not `SIGNED`: this module already binds that name to an acceptance argument list, and
+# rebinding it at import time would have replaced it for every test in the file.
+COAUTHOR = "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+FOOTER = "Ai-Eng-Anchor: testrepo/abcdef012345 seq=2 head=deadbeefcafe"
+
+
+def _commit_msg(
+    tmp_path,
+    *,
+    holds=True,
+    body="body.\n",
+    shim="",
+    config=(),
+    trailer=True,
+    subject="test(x): a probe",
+    engine=None,
+    config_engine=False,
+):
+    """Run the real hook over one message and report what it did.
+
+    The stub populates both streams the way the real verb does — progress on stderr, and
+    on stdout the footer *plus* the rendered verdict — so a test can tell "took the footer"
+    from "took whatever was on stdout"."""
+
+    repo = tmp_path / "clone"
+    repo.mkdir()
+    for argv in (["init", "-q"], ["config", "ai.managed", "true"], *config):
+        subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
+
+    stub = tmp_path / "stub-eng"
+    stub.write_text(
+        "#!/bin/sh\n"
+        'echo "  RUNNING 1/4  load the verb" >&2\n'
+        + (
+            f"printf '\\n{FOOTER}\\n'\nprintf '\\u2713 PASS\\nExit code: 0\\n'\n"
+            if holds
+            else "printf '\\u2717 FAIL\\nReason: a violation\\nExit code: 1\\n'\n"
+        ),
+        encoding="utf-8",
+    )
+    stub.chmod(0o755)
+
+    if config_engine:
+        # The path a real commit takes: no override in the environment, the CLI named by
+        # `git config --get ai.eng`.
+        subprocess.run(
+            ["git", "config", "ai.eng", str(stub)], cwd=repo, check=True, capture_output=True
+        )
+    environment = {k: v for k, v in os.environ.items() if k != "AI_ENG"}
+    if engine is not False:
+        environment["AI_ENG"] = engine if engine is not None else str(stub)
+    if shim:
+        # A `git` that fails the way a real one can. Everything the hook asks of git before
+        # this point still has to work, so it delegates the rest to the real one.
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        real = shlex.quote(shutil.which("git"))
+        (bin_dir / "git").write_text(
+            f'#!/bin/sh\ncase "$1" in\n  {shim}\nesac\nexec {real} "$@"\n',
+            encoding="utf-8",
+        )
+        (bin_dir / "git").chmod(0o755)
+        environment["PATH"] = f"{bin_dir}{os.pathsep}{environment.get('PATH', '')}"
+
+    # Both shapes, because this repository writes both in roughly equal numbers. A message
+    # that already carries a trailer is the one an anchor appended after a blank line
+    # orphans — it starts a second trailer block, and `--parse` then returns the anchor
+    # alone without the `Co-Authored-By` GitHub reads for attribution. A message with no
+    # trailer cannot show that defect, which is exactly why the first version of this test
+    # passed against it. Fixing that by only ever testing the trailer shape would swap one
+    # blind spot for the other, so `trailer=False` keeps the other half covered.
+    original = f"{subject}\n\n{body}" + (f"\n{COAUTHOR}\n" if trailer else "")
+    message = tmp_path / "COMMIT_EDITMSG"
+    message.write_text(original, encoding="utf-8")
+    hook = Path(__file__).resolve().parents[1] / "git-hooks" / "commit-msg"
+    done = subprocess.run(
+        ["bash", str(hook), str(message)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    return done, message.read_text(encoding="utf-8"), original, repo
+
+
+def _trailers(repo, message: str, *, divider: bool = True) -> list[str]:
+    parsed = subprocess.run(
+        ["git", "interpret-trailers", *([] if divider else ["--no-divider"]), "--parse"],
+        cwd=repo,
+        input=message,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return parsed.stdout.splitlines()
+
+
+@pytest.mark.parametrize("holds", [True, False])
+def test_the_commit_msg_hook_appends_the_footer_and_never_the_verdict(tmp_path, holds):
+    """The hook itself, executed. Its format was tested and its behaviour never was, and
+    every failure that hid in the gap was in the behaviour.
+
+    `audit --anchor` puts its progress on stderr and its verdict on stdout, because the
+    verdict is the data every other verb produces. The hook appended stdout wholesale, so a
+    chain that does not hold wrote `✗ FAIL / Reason: ... / Exit code: 1` into the commit
+    message — and the call ends in `|| true`, so nothing would have said so."""
+
+    done, written, original, repo = _commit_msg(tmp_path, holds=holds)
+
+    # Never a gate, in either direction: a hook that refuses commits is a hook people
+    # delete, and the escape they reach for is the one rule 3 forbids.
+    assert done.returncode == 0, done.stderr
+    assert "Exit code" not in written, written
+    assert "PASS" not in written and "FAIL" not in written, written
+    if holds:
+        assert written.endswith(f"{FOOTER}\n"), written
+        # Git has to see it as a trailer, and see the one that was already there. Asserting
+        # only that the anchor parses is what let the append that deletes its neighbour go
+        # green.
+        assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
+    else:
+        assert written == original
+        assert "not anchored" in done.stderr, done.stderr
+
+
+def test_a_divider_in_the_body_does_not_orphan_the_trailer_beside_the_anchor(tmp_path):
+    """Git stops reading a commit message at a bare `---`. Without `--no-divider` the
+    anchor lands above it, mid-body, and `--parse` returns the anchor alone — the exact
+    defect the placement fix was written to close, reappearing on a different input. No
+    commit here carries a divider today, which is why only an attacker of the fix would
+    have found it.
+
+    Asserted on the bytes, not through `--parse`: git's default reading stops at the
+    divider and finds no trailer block at all, with or without the anchor, so a parse-based
+    assertion would be measuring git's divider rule rather than where the hook put the
+    line. What has to hold is that the anchor joins the trailer already at the end."""
+
+    done, written, _, repo = _commit_msg(tmp_path, body="Some prose.\n\n---\n\nMore prose.\n")
+    assert done.returncode == 0, done.stderr
+    assert written.splitlines()[-2:] == [COAUTHOR, FOOTER], written
+    assert _trailers(repo, written, divider=False) == [COAUTHOR, FOOTER], written
+
+
+@pytest.mark.parametrize(
+    ("how", "kwargs"),
+    [
+        # A git that does not know one of the options — what an older git is.
+        ("unknown option", {"shim": "interpret-trailers) exit 129 ;;"}),
+        # And a config git parses only when it is asked to. This route is the one an earlier
+        # version of this test called unreachable, on the reasoning that the hook's fifth
+        # line asks git for `ai.managed` and exits 0 when that fails. `config --get` does
+        # not validate keys nobody asked for, so it answers `true` and the anchor block runs
+        # anyway. The claim was written in the commit whose subject was unmeasured claims,
+        # and the test that "proved" it used the shim — the one input that cannot see it.
+        ("bad config", {"config": (["config", "core.abbrev", "notanumber"],)}),
+    ],
+)
+def test_a_git_that_cannot_place_the_anchor_leaves_the_commit_standing(tmp_path, how, kwargs):
+    """The footer is not a gate, and the placement fix quietly made it one: under
+    `set -euo pipefail` a bare `git interpret-trailers` hands its exit status to the hook,
+    and git then refuses the commit. Not hypothetical — a message file in a directory git
+    cannot write its temporary file into exits 128, and both routes below exit non-zero
+    here. The person's escape from a hook that refuses commits is `--no-verify`, which rule
+    3 forbids and a guard blocks: the hook whose bug forces its own bypass."""
+
+    done, written, original, _ = _commit_msg(tmp_path, **kwargs)
+    assert done.returncode == 0, f"the hook refused the commit ({how}): {done.stderr}"
+    assert written == original, written
+    assert "could not be placed" in done.stderr, done.stderr
+
+
+def test_a_subject_git_wrote_itself_is_still_anchored(tmp_path):
+    """The exemption at the top of the hook is for the subject rule. It used to `exit 0`
+    and take the anchor with it, so every merge left the record with nothing written and
+    nothing said. A subject git chose is not a reason to leave the commit unrecorded.
+
+    Asserted through `--parse`, not by looking for the line: the first version of this test
+    checked the string was somewhere in the file, which the round-three orphaning defect
+    passes. The merge path is the only path this test owns, so a weak assertion here is a
+    blind spot nothing else covers.
+
+    One subject, not one per keyword: `Merge`, `Revert` and `fixup!` are alternations of a
+    single `grep -Eq` and nothing downstream reads the subject, so three parameters were
+    three copies of one case running three times."""
+
+    done, written, _, repo = _commit_msg(tmp_path, subject="Merge branch 'feature'")
+    assert done.returncode == 0, done.stderr
+    assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
+
+
+def test_the_cli_is_resolved_from_ai_eng_when_the_environment_names_none(tmp_path):
+    """`AI_ENG` is the override; `git config --get ai.eng` is what a real commit uses. Every
+    other test in this file sets the environment variable, so the resolution path that
+    actually runs on a person's machine had no coverage at all — and a misconfigured
+    `ai.eng` is one of the two candidate causes Block R exists to account for. The one
+    branch a whole section of the plan is about was the one branch nothing executed."""
+
+    done, written, _, repo = _commit_msg(tmp_path, engine=False, config_engine=True)
+    assert done.returncode == 0, done.stderr
+    assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
+
+
+def test_a_cli_the_hook_cannot_even_run_is_reported_rather_than_skipped(tmp_path):
+    """`command -v` finding nothing used to mean the hook did nothing and said nothing.
+    Every other test supplies a resolvable stub, so not one of them could reach it, and a
+    hook that is quiet when it cannot record is how a run of unanchored commits passed
+    under a green gate. How long a run is not stated here: two figures were written into
+    these files across three rounds and neither was measured."""
+
+    done, written, original, _ = _commit_msg(tmp_path, engine="/nonexistent/ai-eng")
+    assert done.returncode == 0, done.stderr
+    assert written == original, written
+    assert "not on this machine" in done.stderr, done.stderr
+
+
+def test_a_message_with_no_trailer_of_its_own_still_gets_the_anchor(tmp_path):
+    """The other half of this repository's commits. Every assertion about placement was
+    written on the shape that carries a trailer, because that is the shape the orphaning
+    defect needed — and testing only that swaps one blind spot for the other. Here the
+    anchor is the whole trailer block, and it still has to be one git can read."""
+
+    done, written, _, repo = _commit_msg(tmp_path, trailer=False)
+    assert done.returncode == 0, done.stderr
+    assert _trailers(repo, written) == [FOOTER], written
+
+
+def test_a_break_that_has_been_accounted_for_is_recorded_and_never_erased(home, monkeypatch):
+    """The chain had no way back. One poisoned link and `audit verify` fails for good,
+    `anchor_line` raises, and no commit on that machine can ever be anchored again — a
+    ratchet with no recovery path, measured on the operator's own machine at 22 links.
+
+    Erasing the links is the one thing that must not happen: it is the act the chain exists
+    to detect. So the account is a *new* link. Verification reports the break and the
+    account together, the old links keep saying what they always said, and the anchor works
+    again because the break has been answered rather than hidden.
+
+    It is not a way out from under a real edit. The account itself is a link, so adding one
+    later moves the head, and the head is what the anchors in git commits pin — replicated
+    and immutable, unlike this file."""
+
+    monkeypatch.setattr(home, "repo_id", lambda root=None: "testrepo")
+    events = _links(home, 3)
+    events[1]["data"] = {"outcome": "edited", "error": home.EDITED, "claimed": {}}
+    events[1]["hash"] = home.digest(events[1])
+    events[2]["prev"] = events[1]["hash"]
+    events[2]["hash"] = home.digest(events[2])
+    _write(home, events)
+
+    assert audit.verify(None, False), "a poisoned link must be reported before it is accounted"
+    with pytest.raises(ValueError):
+        audit.anchor_line(None)
+
+    accounted = audit.account(
+        None, first=2, last=2, why="written by a test with its own home", by="Ada"
+    )
+    assert accounted == outcome.result("PASS"), accounted
+
+    # The old link is untouched: the account is an addition, never a rewrite.
+    after = [json.loads(line) for line in home.chain_path().read_text().splitlines()]
+    assert after[1] == events[1]
+    assert len(after) == len(events) + 1
+
+    # Still reported, and reported as answered rather than as an open break. Erasing it is
+    # the act this file exists to catch, so the line stays and the word changes.
+    kinds = dict((why.split(":")[0], kind) for kind, why in audit._chain_findings(after))
+    assert kinds.get("link 2") == "ACCOUNTED", kinds
+    assert "BROKEN" not in kinds.values(), kinds
+    # And the anchor works again, which is the whole point of being able to do this.
+    assert "Ai-Eng-Anchor: " in audit.anchor_line(None)
+
+
 @pytest.mark.parametrize("head", ["known", "aaaaaaaaaaaa"])
 def test_a_commit_anchoring_a_link_this_chain_has_lost_is_reported(home, monkeypatch, head):
     """Git history is replicated and immutable; the chain on this laptop is neither. If
@@ -398,11 +812,20 @@ def test_a_commit_anchoring_a_link_this_chain_has_lost_is_reported(home, monkeyp
     _write(home, events)
     anchored = events[-1]["hash"][:12] if head == "known" else head
     log = f"Ai-Eng-Anchor: testrepo/{home.machine_id()} seq=2 head={anchored}\n\x00"
-    monkeypatch.setattr(audit.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout=log))
+    monkeypatch.setattr(
+        audit.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(returncode=0, stdout=log),
+    )
     problems = audit.verify(Path("/nowhere"), True)
-    assert bool(problems) is (head != "known"), problems
-    if problems:
-        assert "the record was truncated or replaced" in problems[0]
+    assert problems[-1] == (
+        "Solution Intent at .ai/intent.md is INCOMPLETE: INTENT_HOME_MISSING — "
+        "Solution Intent is missing at .ai/intent.md"
+    )
+    chain_problems = problems[:-1]
+    assert bool(chain_problems) is (head != "known"), problems
+    if chain_problems:
+        assert "the record was truncated or replaced" in chain_problems[0]
 
 
 def test_a_truncated_line_is_reported_as_broken_not_as_a_crash(home, capsys):
@@ -413,7 +836,8 @@ def test_a_truncated_line_is_reported_as_broken_not_as_a_crash(home, capsys):
         fh.write('{"ts": "t", "cls": "allo\n')
     problems = audit.verify(None, False)
     assert len(problems) == 1 and "link 3" in problems[0]
-    assert audit.main(["verify"]) == 1 and "intact" not in capsys.readouterr().out
+    assert audit.main(["verify"]) == outcome.result("FAIL")
+    assert "intact" not in capsys.readouterr().out
 
 
 # ------------------------------------------------------------------ spec
@@ -426,31 +850,35 @@ def test_a_truncated_line_is_reported_as_broken_not_as_a_crash(home, capsys):
         (("001-a",), "002"),
         (("001-a", "007-b"), "008"),
         (("001-a", "002-b", "003-c"), "004"),
-        (("999-z",), "1000"),
+        (("001-a", "pending-007-b"), "008"),
         (("notes", "README"), "001"),
     ],
 )
-def test_a_spec_number_is_never_handed_out_twice(tmp_path, existing, expected):
+def test_a_spec_number_is_never_handed_out_twice(existing, expected):
     """Numbering off the highest, not off the count: delete spec 002 and the next spec
     must still be 003, or two different specs end up sharing a number in the record."""
-    (tmp_path / "specs").mkdir()
-    for name in existing:
-        (tmp_path / "specs" / name).mkdir()
-    assert spec.next_number(tmp_path) == expected
+    generation = spec_transaction.Generation("specs", (1, 2), 0, 0, 0)
+    inventory = spec_transaction.Inventory(
+        tuple(existing),
+        tuple(name for name in existing if name.startswith("pending-")),
+        generation,
+        object(),
+    )
+    assert spec._number(inventory) == expected
 
 
-def test_a_folder_that_is_not_a_spec_does_not_stop_numbering(tmp_path):
-    """One hand-made folder under specs/ is ignored, and does not turn the next spec into a
-    traceback for everybody who works in that repository afterwards."""
-    (tmp_path / "specs" / "001-a").mkdir(parents=True)
-    (tmp_path / "specs" / "1st-attempt").mkdir()
-    assert spec.next_number(tmp_path) == "002"
+@pytest.mark.parametrize("names", [("999-z",), ("001-a", "001-b"), ("1st-attempt",)])
+def test_an_exhausted_or_ambiguous_spec_namespace_refuses(names):
+    generation = spec_transaction.Generation("specs", (1, 2), 0, 0, 0)
+    inventory = spec_transaction.Inventory(tuple(names), (), generation, object())
+    with pytest.raises(spec_transaction.Unsafe):
+        spec._number(inventory)
 
 
 def test_a_new_spec_carries_all_eight_production_ready_boxes_unticked(tmp_path):
     """Rule 11 is these eight boxes. A template that shipped seven, or shipped one already
     ticked, is a checklist that says a thing was verified when nobody verified it."""
-    first = spec.create(tmp_path, "a-thing", "")
+    first = _fixture_spec(tmp_path, "a-thing")
     body = first.read_text()
     assert first == tmp_path / "specs" / "001-a-thing" / "spec.md"
     assert [line for line in body.splitlines() if line.startswith("- [ ]")] == [
@@ -468,13 +896,13 @@ def test_a_new_spec_carries_all_eight_production_ready_boxes_unticked(tmp_path):
         "supersedes": "",
     }
     assert "# A thing" in body
-    assert spec.create(tmp_path, "next", "").parent.name == "002-next"
+    assert _fixture_spec(tmp_path, "next").parent.name == "002-next"
 
 
 def test_a_work_item_is_recorded_in_the_frontmatter_and_nothing_else(tmp_path):
     """--ref records where the work came from and prefills nothing. The heading stays the
     slug and the problem stays a TODO, because the section is the author's to write."""
-    body = spec.create(tmp_path, "a-thing", "owner/repo#45").read_text()
+    body = _fixture_spec(tmp_path, "a-thing", "owner/repo#45").read_text()
     assert 'ref: "owner/repo#45"' in body
     assert "# A thing" in body
     assert "TODO: what is true today" in body
@@ -483,8 +911,8 @@ def test_a_work_item_is_recorded_in_the_frontmatter_and_nothing_else(tmp_path):
 def test_a_superseded_spec_is_hidden_from_the_listing_unless_asked_for(tmp_path):
     """The listing is the index. If a superseded spec kept showing, somebody would read a
     decision that has already been overturned and act on it."""
-    spec.create(tmp_path, "old", "")
-    spec.create(tmp_path, "new", "")
+    _fixture_spec(tmp_path, "old")
+    _fixture_spec(tmp_path, "new")
     old = tmp_path / "specs" / "001-old" / "spec.md"
     old.write_text(old.read_text().replace("status: draft", "status: superseded"), encoding="utf-8")
     assert [row.split()[0] for row in spec.listing(tmp_path, False)] == ["002-new"]
@@ -495,12 +923,18 @@ def test_a_superseded_spec_is_hidden_from_the_listing_unless_asked_for(tmp_path)
 def test_spec_show_matches_by_prefix_and_says_so_when_it_cannot(repo, capsys):
     """`spec show 002` has to find 002-whatever. Falling back to printing some other spec
     is worse than printing nothing."""
-    spec.create(repo, "only", "")
-    assert spec.main(["show", "001"]) == 0
+    _fixture_spec(repo, "only")
+    result = spec.main(["show", "001"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert "# Only" in capsys.readouterr().out
-    assert spec.main(["show", "404"]) == 1
+    result = spec.main(["show", "404"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert "no spec matches" in capsys.readouterr().out
-    assert spec.main(["list"]) == 0
+    result = spec.main(["list"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
 
 
 # ------------------------------------------------------------------ decide
@@ -515,21 +949,21 @@ def test_an_adr_number_follows_the_highest_on_disk(tmp_path):
     assert decide.next_number(tmp_path) == "0008"
 
 
-def test_promoting_a_decision_supersedes_the_old_one_and_points_the_spec_at_it(tmp_path):
-    """A promoted decision has to leave a pointer in its spec and flip the ADR it replaced,
-    or the repository holds two live ADRs that contradict each other."""
-    spec.create(tmp_path, "a-thing", "")
-    first = decide.promote(tmp_path, "Use one queue", "", spec.target(tmp_path))
+def test_proposing_a_supersession_preserves_the_old_madr_and_the_spec(tmp_path):
+    """A proposal records its predecessor but cannot grant its own transition authority."""
+    _fixture_spec(tmp_path, "a-thing")
+    target = spec.target(tmp_path)
+    spec_before = target.read_bytes()
+    first = decide.promote(tmp_path, "Use one queue", "", target)
     assert first.name == "0001-use-one-queue.md"
-    second = decide.promote(tmp_path, "Use two queues", "0001", spec.target(tmp_path))
+    first_before = first.read_bytes()
+    second = decide.promote(tmp_path, "Use two queues", "0001", target)
     assert second.name == "0002-use-two-queues.md"
-    assert "status: superseded by 0002" in first.read_text()
+    assert first.read_bytes() == first_before
     header = text.flat_yaml(second.read_text().split("---\n", 1)[1].split("---\n", 1)[0])
-    assert header["spec"] == "001-a-thing" and header["supersedes"] == "0001"
+    assert header["spec"] == "001" and header["supersedes"] == "0001"
     assert header["status"] == "proposed" and header["date"] == TODAY
-    body = (tmp_path / "specs" / "001-a-thing" / "spec.md").read_text()
-    assert "adr: 0002" in body and body.index("## Decisions") < body.index("adr: 0002")
-    assert "## Accepted risks" in body, "the sections below Decisions were eaten"
+    assert target.read_bytes() == spec_before
     assert [row.split()[0] for row in decide.listing(tmp_path)] == [
         "0001-use-one-queue",
         "0002-use-two-queues",
@@ -542,20 +976,28 @@ def test_a_decision_recorded_against_a_spec_with_no_decisions_heading_still_land
     folder = repo / "specs" / "001-a"
     folder.mkdir()
     (folder / "spec.md").write_text("# a\n", encoding="utf-8")
-    assert decide.main(["A choice", "--why", "because"]) == 0
+    result = decide.main(["A choice", "--why", "because"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     body = (folder / "spec.md").read_text()
     assert "## Decisions" in body and "decision: A choice" in body and "rationale: because" in body
-    assert decide.main([]) == 2
-    assert "a decision needs a title" in capsys.readouterr().out
+    with pytest.raises(SystemExit) as stopped:
+        decide.main([])
+    assert stopped.value.code == outcome.invalid_cli_exit()
+    assert "a decision needs a title" in capsys.readouterr().err
 
 
 def test_a_decision_with_no_spec_is_refused(repo, capsys):
     """Without a spec there is no context to review the decision in, so it is not written
     somewhere convenient — it is not written at all."""
-    assert decide.main(["A choice"]) == 1
+    result = decide.main(["A choice"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert "no spec to record this against" in capsys.readouterr().out
-    assert decide.main(["--list"]) == 0
-    assert "no ADRs yet" in capsys.readouterr().out
+    result = decide.main(["--list"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
+    assert "no MADRs yet" in capsys.readouterr().out
 
 
 # ------------------------------------------------------------------ digest
@@ -575,8 +1017,8 @@ def test_only_events_inside_the_window_are_counted(tmp_path):
         _event("edge", "blocked", ts=A_WEEK_AGO),
         _event("b", "blocked"),
     ]
-    assert [e["name"] for e in digest.within(events, 7)] == ["edge", "b"]
-    assert len(digest.within(events, 60)) == 3
+    assert [e["name"] for e in report.within(events, 7)] == ["edge", "b"]
+    assert len(report.within(events, 60)) == 3
 
 
 @pytest.mark.parametrize(("count", "rows"), [(1, 0), (2, 0), (3, 1), (7, 1)])
@@ -584,7 +1026,7 @@ def test_the_same_verdict_three_times_is_flagged_as_owed_a_script(count, rows):
     """Rule 12's trigger, measured rather than felt. Two is a coincidence; three is a
     judgement that always comes out the same, which means it should be code."""
     events = [_event("loop_guard", "blocked", "same reason") for _ in range(count)]
-    found = digest.repeats(events)
+    found = report.repeats(events)
     assert len(found) == rows
     if rows:
         assert f"{count}× same verdict each time" in found[0]
@@ -593,21 +1035,21 @@ def test_the_same_verdict_three_times_is_flagged_as_owed_a_script(count, rows):
 def test_a_bypassed_guard_is_named_in_the_report_a_person_reads(home, monkeypatch, capsys):
     """This report is where a bypass becomes visible to somebody other than the person who
     took it. If a bypass could be recorded and never surface here, the record is decorative."""
-    monkeypatch.setattr(digest.doctor, "coverage", lambda root: [])
+    monkeypatch.setattr(report.doctor, "coverage", lambda root: [])
     _write(
         home,
         [
-            dict(_event("design_gate", "bypassed", "shipping late"), seq=1),
-            dict(_event("design_gate", "bypassed", "shipping late"), seq=2),
-            dict(_event("design_gate", "bypassed", "shipping late"), seq=3),
+            dict(_event("change_scope_guard", "bypassed", "shipping late"), seq=1),
+            dict(_event("change_scope_guard", "bypassed", "shipping late"), seq=2),
+            dict(_event("change_scope_guard", "bypassed", "shipping late"), seq=3),
             dict(_event("injection_guard", "blocked", "a payload"), seq=4),
             dict(_event("cli", "error", ""), seq=5),
         ],
     )
-    assert digest.main([]) == 0
+    completed(report.main(["digest"]))
     out = capsys.readouterr().out
     assert "Bypassed 3 times." in out
-    assert "3× design_gate — shipping late" in out
+    assert "3× change_scope_guard — shipping late" in out
     assert "A guard you bypass three times is a guard to fix or to delete." in out
     assert "Blocked 1 times" in out and "injection_guard — a payload" in out
     assert "loop_guard" in out and "injection_guard" not in out.split("Quiet controls")[1]
@@ -619,8 +1061,8 @@ def test_a_quiet_week_says_so_instead_of_reporting_a_clean_bill(home, monkeypatc
     """Zero blocks is either a quiet week or a control that has stopped working, and the
     report must not let a reader assume the first one. A week means seven days: a default
     window quietly widened to a month reports a month under a heading that says week."""
-    monkeypatch.setattr(digest.doctor, "coverage", lambda root: [])
-    assert digest.main([]) == 0
+    monkeypatch.setattr(report.doctor, "coverage", lambda root: [])
+    completed(report.main(["digest"]))
     out = capsys.readouterr().out
     assert f"Week of {A_WEEK_AGO}" in out
     assert "a control that is no longer firing" in out
@@ -633,11 +1075,22 @@ def test_a_quiet_week_says_so_instead_of_reporting_a_clean_bill(home, monkeypatc
 VALID_HEADER = "name: ai-thing\ndescription: Does one thing. Not for two — use /ai-other.\n"
 
 
-def _skill(root: Path, header: str = VALID_HEADER, body: str = "A body.\n") -> Path:
+def _skill(
+    root: Path, header: str = VALID_HEADER, body: str = "A body.\n", corpus: bool = True
+) -> Path:
     folder = root / "ai-thing"
     folder.mkdir(exist_ok=True)
     path = folder / "SKILL.md"
     path.write_text(f"---\n{header}---\n\n{body}", encoding="utf-8")
+    if corpus:
+        # Every fixture carries one, because the contract requires one of every skill and a
+        # fixture that skips it would be testing a different contract from the one that
+        # ships. The `corpus=False` leg is how the requirement itself is tested.
+        (folder / "corpus.md").write_text(
+            "# Corpus: ai-thing\n\n## Routes here\n\n- do the one thing — it is the one "
+            "thing\n\n## Refuses\n\n- do the other thing — use `/ai-other`\n",
+            encoding="utf-8",
+        )
     return path
 
 
@@ -736,32 +1189,41 @@ def test_the_line_count_leaves_out_the_record_and_counts_everything_else(tmp_pat
     assert contract.repo_lines(tmp_path) == 7
 
 
-# ------------------------------------------------------------------ plan
+# ------------------------------------------------------------------ exception
 
 
 def test_an_agent_cannot_grant_itself_a_bypass(home, capsys):
     """The whole design gate is that a bypass needs a real keyboard. With no terminal
     attached, nothing may be granted — this is the one that stops a loop self-approving."""
-    assert plan.main(["--skip", "in a hurry"]) == 1
+    result = exception.main(["--skip", "in a hurry"])
+    assert type(result) is outcome.Result
+    assert result.outcome == "INCOMPLETE"
     assert "there is no keyboard here" in capsys.readouterr().out
     assert not (paths.home() / "cache" / "bypass.json").exists()
 
 
-@pytest.mark.parametrize(("typed", "code"), [("yes", 0), ("YES ", 0), ("y", 1), ("", 1)])
+@pytest.mark.parametrize(
+    ("typed", "status"),
+    [("yes", "PASS"), ("YES ", "PASS"), ("y", "CANCELLED"), ("", "CANCELLED")],
+)
 def test_a_bypass_is_granted_only_on_the_whole_word_and_is_recorded(
-    home, monkeypatch, capsys, typed, code
+    home, monkeypatch, capsys, typed, status
 ):
     """Anything short of typing the word is not consent. When it is granted, the grant is
     time boxed and an event says who took it — a silent bypass is the failure being cured.
     The box is the one the person was shown: a grant that outlives the minutes printed on
     the prompt is consent taken for longer than it was given."""
-    monkeypatch.setattr(plan.sys, "stdin", type("T", (), {"isatty": staticmethod(lambda: True)})())
+    monkeypatch.setattr(
+        exception.sys, "stdin", type("T", (), {"isatty": staticmethod(lambda: True)})()
+    )
     monkeypatch.setattr(builtins, "input", lambda prompt="": typed)
-    assert plan.main(["--skip", "in a hurry", "--guard", "loop_guard"]) == code
+    result = exception.main(["--skip", "in a hurry", "--guard", "loop_guard"])
+    assert type(result) is outcome.Result
+    assert result.outcome == status
     promised = int(re.search(r"for (\d+) minutes", capsys.readouterr().out).group(1)) * 60
     grant = paths.home() / "cache" / "bypass.json"
-    assert grant.exists() is (code == 0)
-    if code == 0:
+    assert grant.exists() is (status == "PASS")
+    if status == "PASS":
         data = json.loads(grant.read_text())
         assert data["guard"] == "loop_guard" and data["reason"] == "in a hurry"
         assert 0 < data["expires"] - time.time() <= promised
@@ -772,8 +1234,9 @@ def test_a_bypass_is_granted_only_on_the_whole_word_and_is_recorded(
 def test_a_bypass_can_only_name_a_guard_that_exists(home):
     """Granting a bypass of a guard nobody has heard of writes a grant that unblocks
     nothing and reads, in the record, as if a control had been waived."""
-    with pytest.raises(SystemExit):
-        plan.main(["--skip", "x", "--guard", "not_a_guard"])
+    with pytest.raises(SystemExit) as invalid:
+        exception.main(["--skip", "x", "--guard", "not_a_guard"])
+    assert invalid.value.code == outcome.invalid_cli_exit()
 
 
 # ------------------------------------------------------------------ cli
@@ -798,14 +1261,50 @@ def test_asking_for_help_lists_every_verb_and_exits_zero(argv, capsys):
     assert all(verb in out for verb in cli.VERBS)
 
 
-def test_a_stream_that_cannot_spell_a_tick_gets_a_line_rather_than_a_traceback(tmp_path):
+def test_a_stream_that_cannot_spell_a_tick_gets_a_line_rather_than_a_traceback(
+    tmp_path, monkeypatch
+):
     """Windows hands a bare print() a cp1252 stream, and `ai-eng spec new` writes a tick in
     its success line. The first time the install matrix ever ran, that ended the Windows leg
     in a UnicodeEncodeError with the spec already on disk — so the verb had done its work
     and reported a crash. Rich's path was never affected, which is why nothing local saw it."""
     import io
 
-    (tmp_path / "specs").mkdir()
+    authority = tmp_path / "specs" / "000-authority" / "spec.md"
+    authority.parent.mkdir(parents=True)
+    authority_bytes = b'---\nid: "000"\nstatus: superseded\n---\n\n# Authority\n'
+    authority.write_bytes(authority_bytes)
+    record = json.loads(
+        (Path(__file__).parent / "fixtures" / "intent-v1.json").read_text(encoding="utf-8")
+    )["base"]["intent"]
+    record["relations"] = [
+        {
+            "kind": "spec",
+            "id": "000",
+            "path": "specs/000-authority/spec.md",
+            "target_digest": f"sha256:{hashlib.sha256(authority_bytes).hexdigest()}",
+        }
+    ]
+    record["lifecycle"] = {
+        "status": "active",
+        "transitions": [
+            {
+                "from": "draft",
+                "to": "active",
+                "changed_at": "2026-08-14T10:00:00Z",
+                "authority_role": "repository maintainer",
+                "approval_ref": "change-request-17",
+            }
+        ],
+        "approval": {
+            "authority_role": "repository maintainer",
+            "approval_ref": "change-request-17",
+            "approved_at": "2026-08-14T10:00:00Z",
+        },
+    }
+    intent_home = tmp_path / ".ai" / "intent.md"
+    intent_home.parent.mkdir()
+    intent_home.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     subprocess.run(["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True)
     narrow = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict")
     stdout, cwd = sys.stdout, Path.cwd()
@@ -834,28 +1333,38 @@ def test_an_unknown_verb_exits_non_zero_and_says_so_on_stderr(capsys):
 def test_a_verb_that_runs_is_recorded_with_its_exit_code(home, monkeypatch, capsys):
     """The table records that it ran. Without that event the digest cannot tell a week
     when nothing was blocked from a week when nothing was used."""
-    monkeypatch.setattr(digest.doctor, "coverage", lambda root: [])
-    assert cli.main(["digest"]) == 0
+    monkeypatch.setattr(report.doctor, "coverage", lambda root: [])
+    assert cli.main(["report", "digest"]) == 0
     capsys.readouterr()
     events = [json.loads(line) for line in home.chain_path(None).read_text().splitlines()]
     assert [e["cls"] for e in events] == ["command"]
-    assert events[0]["data"]["verb"] == "digest" and events[0]["data"]["exit"] == 0
+    assert events[0]["data"]["verb"] == "report" and events[0]["data"]["exit"] == 0
     assert events[0]["data"]["ms"] >= 0
 
 
-def test_a_verb_that_blows_up_is_recorded_before_the_traceback_reaches_the_user(home, monkeypatch):
+def test_a_verb_that_blows_up_is_recorded_before_the_person_is_told(home, monkeypatch, capsys):
     """A crash is the event most worth having and the easiest to lose: the process is on
-    its way out. If it were emitted after the re-raise it would never be written."""
+    its way out. If it were emitted after the report it would never be written.
+
+    What the person is told changed in P2 and what is recorded did not. The record keeps
+    the exception's repr, because that is the half a maintainer reads; the screen gets the
+    four bounded fields, because that is the half that ends up pasted into an issue."""
 
     def boom(argv):
         raise RuntimeError("nothing was written")
 
-    monkeypatch.setattr(plan, "main", boom)
-    with pytest.raises(RuntimeError):
-        cli.main(["plan"])
+    monkeypatch.setattr(exception, "main", boom)
+    assert cli.main(["exception"]) == 1
+    printed = capsys.readouterr().err
+    assert "UNEXPECTED_ERROR" in printed and "Traceback" not in printed
+    assert "RuntimeError" not in printed
     events = [json.loads(line) for line in home.chain_path(None).read_text().splitlines()]
-    assert events[-1]["cls"] == "error"
-    assert "nothing was written" in events[-1]["data"]["error"]
+    assert [event["cls"] for event in events] == ["error", "command"]
+    assert "nothing was written" in events[0]["data"]["error"]
+    assert events[1]["data"]["exit"] == 1
+
+    with pytest.raises(RuntimeError):
+        cli.main(["--debug", "exception"])
 
 
 def test_an_interrupt_is_a_clean_exit_and_not_an_error(home, monkeypatch, capsys):
@@ -865,8 +1374,94 @@ def test_an_interrupt_is_a_clean_exit_and_not_an_error(home, monkeypatch, capsys
     def stop(argv):
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(plan, "main", stop)
-    assert cli.main(["plan"]) == 130
+    monkeypatch.setattr(exception, "main", stop)
+    assert cli.main(["exception"]) == 130
     assert "nothing was written" in capsys.readouterr().err
     events = [json.loads(line) for line in home.chain_path(None).read_text().splitlines()]
     assert [e["cls"] for e in events] == ["command"]
+
+
+def test_the_approval_digests_in_the_plan_are_read_by_something():
+    """PO-24, which the audit measured as the fifth process failure: spec 010's plan names an
+    approved specification digest and an invalidated plan digest, and nothing in `src/`,
+    `tests/` or `hooks/` read either — so the activation gate was prose, and editing either
+    file changed nothing anybody would notice.
+
+    This reads them. The plan says the specification was approved at one digest and now
+    hashes to another, and both halves have to be true: the approved digest must be the one
+    the plan records, and the current digest must be the file's. An edit to `spec.md` that
+    does not move the second number turns this red, which is the whole of what an activation
+    gate can honestly do while the approval itself belongs to a person.
+    """
+
+    import hashlib
+
+    root = Path(__file__).resolve().parents[1]
+    folder = root / "specs" / "010-governed-agentic-engineering-foundation"
+    # Whitespace-normalised: a sentence in a markdown paragraph wraps wherever the line
+    # ended, and a containment check that did not know this would fail on the formatting.
+    plan = " ".join((folder / "plan.md").read_text(encoding="utf-8").split())
+    approved = "6afc0721df6d3eb13589efeaefa94391ca62eaa71c0b1f2bc653fe3d34117759"
+    invalidated = "742e8ffd0483f57c03fe4dca860ff01f222021c1ae655ef732f76d5d28590b09"
+
+    assert approved in plan, "the plan no longer records what was approved"
+    assert invalidated in plan, "the plan no longer records which plan digest was invalidated"
+
+    current = hashlib.sha256((folder / "spec.md").read_bytes()).hexdigest()
+    assert current in plan, (
+        f"spec.md hashes to {current} and the plan does not say so. "
+        "Record the new digest beside the approved one; do not overwrite the approved one."
+    )
+    if current != approved:
+        assert "covers these bytes no longer" in plan, (
+            "the specification has changed since approval and the plan implies it has not"
+        )
+
+    # And the approval that followed, which lives outside the file it approves: a paragraph
+    # in `plan.md` naming that plan's digest changes it by existing, so the number in the
+    # file would never be the number anybody agreed to.
+    record = " ".join(
+        (root / "docs" / "adr" / "0009-the-current-spec-010-digests-are-approved.md")
+        .read_text(encoding="utf-8")
+        .split()
+    )
+    for named in ("spec.md", "plan.md"):
+        digest = hashlib.sha256((folder / named).read_bytes()).hexdigest()
+        assert digest in record, (
+            f"{named} hashes to {digest} and MADR 0009 approves something else. "
+            "An edit after an approval needs a new approval, not a new number in the record."
+        )
+    assert "docs/adr/0009" in plan, "the plan does not point at the approval that covers it"
+
+
+def test_a_broken_link_is_printed_with_the_command_that_answers_it():
+    """The warning that ran for five days with its remedy in no output anywhere.
+
+    A break holds this machine's anchor open until a person answers for it. The report
+    listed the links and stopped, so every commit printed "this commit is not anchored" and
+    nothing anywhere said what to do about it — a warning with no reachable cure, which is
+    the shape everybody learns to ignore. Measured here on 2026-08-17: twenty-two links from
+    a single day, in five runs, unanswered since 2026-08-12.
+
+    The runs are computed rather than listed, because somebody answering for twenty-two
+    links should not have to derive five contiguous ranges from a list by eye.
+    """
+    from ai_engineering import audit
+
+    findings = [
+        ("BROKEN", "link 918: it arrived edited before it was sealed"),
+        ("BROKEN", "link 919: it arrived edited before it was sealed"),
+        ("BROKEN", "link 933: it arrived edited before it was sealed"),
+        ("WARN", "something else entirely"),
+    ]
+    said = "\n".join(audit._cure(findings))
+
+    assert "3 broken link(s) in 2 run(s): 918-919 933" in said
+    assert "ai-eng audit account --range FIRST-LAST" in said
+    assert "never erased" in said
+    # And it names the likeliest innocent cause without deciding it is the cause.
+    assert "AI_ENGINEERING_HOME" in said and "before you decide which it was" in said
+
+    # A chain with nothing broken says nothing. A cure printed under a clean report is
+    # noise, and noise is how the next real one gets skipped.
+    assert audit._cure([("WARN", "nothing to see")]) == []

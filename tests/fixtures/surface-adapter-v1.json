@@ -1,0 +1,708 @@
+{
+  "valid": [
+    {
+      "why": "the minimum an adapter can be and still say something",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "a T3 surface that cannot be detected says so instead of claiming presence",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "zed",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "none",
+          "written_by_us": false,
+          "undetectable_reason": "no native hook exists in 0.x"
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "zed.enforcement"
+        }
+      }
+    },
+    {
+      "why": "a surface that requires a trust ceremony names it",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "codex-cli",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": true,
+          "ceremony": "the person types /hooks"
+        },
+        "proof": {
+          "receipt_id": "codex-cli.enforcement"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "why": "a ninth surface",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "windsurf",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "windsurf.enforcement"
+        }
+      }
+    },
+    {
+      "why": "detection this product wrote itself",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": true
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "detection with no signal at all",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "a blank detection signal",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "   ",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "a payload field nobody declared, which is the hole a default fills",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "invented": "x"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "a lifecycle event outside the closed set",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "WheneverReally": "PreToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "an exit code that means something other than allow or deny",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "maybe"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "an exit code nobody named",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny",
+            "7": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "a reply shape outside allow, deny and error",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "a",
+            "sometimes": "b"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "a translation table missing entirely, which is INCOMPLETE and not a default",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse"
+          },
+          "reply": {
+            "allow": "a"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "trust with no answer about whether it is required",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "ceremony": "the person types /hooks"
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "an adapter with no version",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "another schema wearing this one's shape",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:2",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "a field this contract has no room for",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "notes": "handy",
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "an adapter that declares it is loaded, which is the deleted flag under a longer name",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "heartbeat": {
+          "installed": true,
+          "loaded": true
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        }
+      }
+    },
+    {
+      "why": "an adapter whose proof requirement is blank, which requires nothing of a receipt",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": ""
+        }
+      }
+    }
+  ]
+}

