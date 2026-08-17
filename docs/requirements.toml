@@ -279,10 +279,10 @@ note = "proven as a local checkpoint verdict, not at a real gate"
 
 [[requirement]]
 id = "EP-040"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "race, stale-SHA and claim-overlap conditions have adversarial coverage"
-evidence = "grep -n 'def outside_the_claim|def control_claim_scope' tests/adversarial/run.py"
-note = "one coordination case and one control are in the adversarial suite; the other three fixtures live in pytest"
+evidence = "python tests/adversarial/run.py"
+note = "the race and the moved base are attacks in the adversarial suite now, driven through `ai-eng spec claim` rather than the function the unit suite calls. The third condition, claim overlap, was written as an attack and failed — correctly: `EP-194` records that a hard path lease is refused until a real collision exists, so two claims over one path are allowed by design and `dag.order` is what serialises them. It stays as the control that would notice if that decision were ever quietly reversed"
 
 [[requirement]]
 id = "EP-041"
@@ -417,7 +417,7 @@ id = "EP-060"
 verdict = "INCOMPLETE"
 subject = "every attacked guard has a clean control, in the adversarial suite and in each gate recipe"
 evidence = "python tests/adversarial/run.py; pytest tests/test_quality_gate.py -k every_recipe"
-note = "21 of 21 adversarial, ten guards controlled; of the gate's own recipes, six are controlled and two carry a written reason"
+note = "25 of 25 adversarial, eleven guards controlled; of the gate's own recipes, six are controlled and two carry a written reason"
 
 [[requirement]]
 id = "EP-061"

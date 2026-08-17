@@ -496,6 +496,127 @@ def control_no_verify(tmp: Path) -> bool:
     )
 
 
+def shared(tmp: Path) -> tuple[Path, Path, str]:
+    """One bare remote and two clones of it, with the base they both fetched.
+
+    Coordination is the one part of this product whose failure needs two writers, so the
+    guard cases above — one payload, one dispatcher — cannot reach it. `EP-040` asked for
+    the race, the moved base and the overlap to be here rather than only in the unit suite,
+    and it asked for a reason: what an agent meets is `ai-eng spec claim`, not
+    `claim.take()`, and only this file drives the verb.
+
+    The seed commit runs with no hooks. This repository's own pre-commit is on the path
+    these clones would otherwise inherit, and a fixture that trips the product's gate is a
+    fixture measuring the gate instead of the claim.
+    """
+
+    remote = tmp / "coord.git"
+    subprocess.run(["git", "init", "--bare", "-b", "main", str(remote)], capture_output=True)
+    clones = []
+    for name in ("one", "two"):
+        where = tmp / name
+        subprocess.run(["git", "clone", str(remote), str(where)], capture_output=True)
+        for key, value in (("user.email", "suite@example.com"), ("user.name", "suite")):
+            subprocess.run(["git", "-C", str(where), "config", key, value], capture_output=True)
+        clones.append(where)
+        if name == "one":
+            (where / "seed.txt").write_text("seed\n")
+            subprocess.run(["git", "-C", str(where), "add", "-A"], capture_output=True)
+            subprocess.run(
+                ["git", "-C", str(where), "-c", "core.hooksPath=", "commit", "-m", "chore: seed"],
+                capture_output=True,
+            )
+            subprocess.run(["git", "-C", str(where), "push", "origin", "main"], capture_output=True)
+    subprocess.run(["git", "-C", str(clones[1]), "fetch", "origin"], capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(clones[1]), "reset", "--hard", "origin/main"], capture_output=True
+    )
+    return clones[0], clones[1], git(clones[0], "rev-parse", "HEAD").stdout.strip()
+
+
+def claim(where: Path, item: str, base: str, path: str, role: str) -> int:
+    """The verb, run the way somebody runs it. Not the function the unit suite calls."""
+
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ai_engineering.cli",
+            "spec",
+            "claim",
+            item,
+            "--base",
+            base,
+            "--path",
+            path,
+            "--role",
+            role,
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(where),
+    ).returncode
+
+
+@case("two writers, one work item", "claim")
+def two_writers_one_item(tmp: Path) -> bool:
+    """The race, through the verb. Exactly one may win, and the loser is refused by the
+    remote rather than by a check on our side — which is the only version of it that holds
+    when the two writers are on different machines."""
+
+    one, two, base = shared(tmp)
+    outcomes = [
+        claim(one, "work-42", base, "src/thing.py", "writer-one"),
+        claim(two, "work-42", base, "src/thing.py", "writer-two"),
+    ]
+    return sorted(outcomes) == [0, 1]
+
+
+@case("a claim against a base that moved", "claim")
+def stale_base(tmp: Path) -> bool:
+    """The compare-and-swap half. The base a writer fetched has moved under it, and the
+    answer is a refusal: not a rebase, not a retry, not a warning it can ignore."""
+
+    one, two, base = shared(tmp)
+    (one / "moved.txt").write_text("moved\n")
+    git(one, "add", "-A")
+    git(one, "-c", "core.hooksPath=", "commit", "-m", "feat: move main on")
+    git(one, "push", "origin", "main")
+
+    return claim(two, "work-43", base, "src/thing.py", "writer-two") != 0
+
+
+@case("control · two claims over one path", "none", controls="claim")
+def overlapping_paths(tmp: Path) -> bool:
+    """Two work items reaching for the same file, and both are allowed. That is the design
+    and not a gap.
+
+    This was written as an attack and it failed, which is the useful half: `EP-194` records
+    that a hard path lease is refused until a real collision is on record, so refusing the
+    second claim here is exactly what this product decided not to do. What orders them is
+    `dag.order`, and what confines each writer afterwards is `claim_scope_guard`, which the
+    case above already attacks.
+
+    So it stays, as a control. A coordination mechanism that started refusing overlapping
+    claims would be a lease nobody decided to build, and this is the case that would notice.
+    """
+
+    one, two, base = shared(tmp)
+    first = claim(one, "work-44", base, "src/shared.py", "writer-one")
+    second = claim(two, "work-45", base, "src/shared.py", "writer-two")
+    return first == 0 and second == 0
+
+
+@case("control · claim", "none", controls="claim")
+def control_claim(tmp: Path) -> bool:
+    """One writer, an item nobody holds, the base they actually fetched. This is what every
+    claim looks like in a repository with one person in it, and a coordination mechanism
+    that refused here would be worse than none: nobody would take a claim at all."""
+
+    one, _, base = shared(tmp)
+    return claim(one, "work-46", base, "src/mine.py", "writer-one") == 0
+
+
 @case("control · self_protect", "none", controls="self_protect")
 def control_self_protect(tmp: Path) -> bool:
     """A file that is not ours, whose path merely looks like one. The guard protects hooks

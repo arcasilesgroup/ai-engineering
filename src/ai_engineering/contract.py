@@ -2053,7 +2053,24 @@ DESCRIPTION_MAX = 1000
 # instruction, and pinning prose to close it is the exact move this day was spent undoing.
 #
 # 185 of 385, and 15 of 26.
-REPO_CEILING = 64_077
+#
+# 64,077 to 64,215 for `EP-040`, and for the attack that failed inside it.
+#
+# The race and the moved base now live in the adversarial suite, driven through
+# `ai-eng spec claim` rather than the function the unit suite calls — which is the whole ask:
+# coordination fails only with two writers, so one payload through one dispatcher cannot
+# reach it, and what an agent meets is the verb.
+#
+# The third condition was written as an attack and it failed, which is the half worth the
+# comment. Two work items claiming the same path are both accepted, and that is the design:
+# `EP-194` records that a hard path lease is refused until a real collision exists, so
+# `dag.order` serialises them and `claim_scope_guard` confines each writer afterwards. The
+# case stays, as the control that would notice if that decision were ever quietly reversed.
+# An attack that fails because the product decided otherwise is a control wearing the wrong
+# label, not a defect — but only if you go and read which of the two it is.
+#
+# The suite is 25 of 25 now. 186 of 385, and 15 of 26.
+REPO_CEILING = 64_215
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
