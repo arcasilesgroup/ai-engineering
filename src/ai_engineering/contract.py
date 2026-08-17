@@ -1818,7 +1818,14 @@ DESCRIPTION_MAX = 1000
 # The path in assertion 24 is now built from the surface table and a file name, so the string
 # in the receipt is never used as a path at all. Bounding the recorded string left the shape
 # intact; this removes it.
-REPO_CEILING = 59_712
+#
+# 59,712 to 59,724 so the one red left on this branch explains itself. The platform registers
+# a workflow only once it is on the default branch, so `mutation nightly` does not exist on
+# the server yet and the run that would satisfy the check above cannot happen until the
+# branch carrying it merges. The message says that, and says it is a one-time admin merge
+# rather than a standing exemption. A blocker whose cure is "merge this to learn the cure"
+# is a blocker somebody rediscovers at midnight.
+REPO_CEILING = 59_724
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -343,8 +343,13 @@ jobs:
           if not finished:
               sys.exit(
                   "this diff is too wide for the scoped lane and no whole-tree run has "
-                  "completed, so nothing has measured it. Run the nightly workflow, or "
-                  "split the change."
+                  "completed, so nothing has measured it.\n"
+                  "Run `mutation nightly` from the Actions tab, or split the change.\n"
+                  "If that workflow is not listed there, this is the bootstrap case: the "
+                  "platform only registers a workflow once it is on the default branch, so "
+                  "the run that would satisfy this check cannot happen until the branch "
+                  "carrying it merges. That is a one-time admin merge, not a standing "
+                  "exemption, and every branch after it is covered normally."
               )
           age = (datetime.now(UTC) - datetime.fromisoformat(finished)).total_seconds() / 3600
           if age > WHOLE_TREE_MAX_AGE_HOURS:
