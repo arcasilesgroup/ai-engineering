@@ -1800,7 +1800,25 @@ DESCRIPTION_MAX = 1000
 # is `ai-<something>.md` and it is a regular file, neither of which editing the receipt alone
 # can satisfy — and anything else is reported instead of opened, which is also the more useful
 # answer.
-REPO_CEILING = 59_599
+#
+# 59,599 to 59,712 for the mutation lane, which stopped being a red nobody could clear.
+#
+# It refused when a branch changed more modules than it can measure in thirty minutes, and
+# refusing meant failing — so on a branch this wide it was red on every commit and no commit
+# could make it green. A red nobody can clear is a red everybody learns to ignore, which
+# costs more than the measurement it was protecting. It hands the question to the whole-tree
+# run now and says so, and the step below then *requires* a nightly receipt inside its
+# window: "we did not measure this diff" honestly implies something else measured the tree,
+# never that nothing needs to.
+#
+# And the nightly opens its own issue when it fails, reopening one rather than filing
+# fourteen. It blocks nothing by design, so the only way its answer ever reaches a person is
+# if it goes and finds one — which was the operator's suggestion and is obviously right.
+#
+# The path in assertion 24 is now built from the surface table and a file name, so the string
+# in the receipt is never used as a path at all. Bounding the recorded string left the shape
+# intact; this removes it.
+REPO_CEILING = 59_712
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
