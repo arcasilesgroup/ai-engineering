@@ -2614,7 +2614,17 @@ DESCRIPTION_MAX = 1000
 # of the source as a call — reporting a file called `...` as missing from the wheel. A tool
 # that cannot tell a call from prose about a call is the same defect one level up, and it took
 # ten minutes to arrive.
-REPO_CEILING = 71_865
+# 71,865 to 71,946 for the envelope a created spec returns.
+#
+# Forty-five of `spec._new`'s survivors are the envelope rather than the write. The file
+# lands and its bytes are checked elsewhere; what nothing looked at is what the verb *says*
+# about the write — the summary, the one change, the three checks it claims, the next action
+# and the line it prints. Those are what a person and a machine both read to decide whether
+# a governed record exists, and the three checks are three distinct claims: the Intent is
+# approved, its authority did not move under the write, publication used no-replace
+# semantics. A title drifting onto another check's meaning is an envelope vouching for the
+# wrong thing.
+REPO_CEILING = 71_946
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

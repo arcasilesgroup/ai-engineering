@@ -1133,3 +1133,74 @@ def test_the_two_subcommands_that_reach_a_remote_default_to_origin(tmp_path, mon
 
     spec.main(["checkpoint", "--remote", "upstream"])
     assert seen["checkpoint"] == "upstream"
+
+
+def test_the_whole_envelope_a_created_spec_returns(approved_repo, capsys):
+    """Forty-five mutants of `_new` survived, and they are the envelope rather than the write.
+
+    The file lands and its bytes are checked elsewhere. What nothing looked at is what the
+    verb *says* about the write: the summary, the one change, the three checks it claims, the
+    next action and the line it prints. Those are what a person and a machine both read to
+    decide whether a governed record exists, and each of the three checks is a distinct
+    claim — that the Intent is approved, that its authority did not move under the write, and
+    that publication used no-replace semantics. A check whose title drifted onto another
+    check's meaning would be an envelope that vouches for the wrong thing.
+    """
+    from ai_engineering import spec
+
+    result = spec.main(["new", "a-real-slug"])
+    printed = [one for one in capsys.readouterr().out.splitlines() if one.strip()]
+
+    assert result.result.outcome == "PASS"
+    assert result.summary == "Created governed spec 001-a-real-slug"
+    assert printed == ["  ✓ specs/001-a-real-slug/spec.md"]
+
+    assert [(one.id, one.status, one.summary, one.detail) for one in result.changes] == [
+        ("spec-created", "APPLIED", "Created governed spec", "specs/001-a-real-slug/spec.md")
+    ]
+    assert [(one.id, one.status, one.summary) for one in result.checks] == [
+        (
+            "intent-authority",
+            "PASS",
+            "Solution Intent is actively approved by its accountable role",
+        ),
+        ("authority-snapshot", "PASS", "Authority files and parent generations remained unchanged"),
+        ("spec-publication", "PASS", "Published the spec with native no-replace semantics"),
+    ]
+    assert result.checks[2].detail == "specs/001-a-real-slug/spec.md"
+    assert list(result.remaining) == []
+    assert list(result.next_actions) == ["edit and review specs/001-a-real-slug/spec.md"]
+
+    # And the file is really there, or the envelope above is a description of nothing.
+    assert (approved_repo / "specs" / "001-a-real-slug" / "spec.md").is_file()
+
+
+def test_a_repository_with_no_intent_refuses_and_says_which_file_to_write(repo, capsys):
+    """The first refusal in the verb, and the one an ordinary repository meets on day one.
+
+    It used to say "filesystem resolved a missing or differently spelled entry" — true about
+    a path and useless about a decision, in the command `init` closes by recommending. So
+    what is pinned is the code, that it is not retryable, and that the sentence names the
+    file to write and the skill that walks somebody through it.
+    """
+    from ai_engineering import spec
+
+    result = spec.main(["new", "a-slug"])
+
+    assert result.result.outcome == "INCOMPLETE"
+    assert [one.id for one in result.changes] == []
+    assert list(result.remaining) == ["No canonical spec was published"]
+    assert list(result.next_actions) == [
+        "restore one stable approved Intent snapshot and run spec new again"
+    ]
+
+    # The sentence a person reads, printed whole. It used to say "filesystem resolved a
+    # missing or differently spelled entry", which is true about a path and useless about a
+    # decision — so what is pinned is that it names the file to write and the skill that
+    # walks somebody through writing it.
+    printed = [one for one in capsys.readouterr().out.splitlines() if one.strip()]
+    assert printed == [
+        "  INCOMPLETE  there is no Solution Intent here yet, and a spec is a decision inside "
+        "one. Write `.ai/intent.md` first — `/ai-spec` walks through it — and run this again"
+    ]
+    assert not (repo / "specs" / "001-a-slug").exists(), "a refused spec left a directory"
