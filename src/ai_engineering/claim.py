@@ -54,7 +54,13 @@ def base(root: Path, remote: str = "origin", branch: str = "main") -> str:
     """Fetch, then the exact SHA a claim will name. Fetch first, always: a base read out of
     a stale clone is a base that was true this morning."""
 
-    _git(root, "fetch", remote, branch)
+    # The fetch's answer is read, and it was not. `rev-parse` below resolves the *local*
+    # tracking ref, which survives a fetch that never reached anybody — so a writer whose
+    # network was down claimed against a base that was true this morning, exactly the thing
+    # the line above promises not to do, and the push then failed with `CLAIM_LOST`. Two
+    # people were then told somebody else holds their work when nobody did.
+    if _git(root, "fetch", remote, branch).returncode != 0:
+        return ""
     found = _git(root, "rev-parse", f"{remote}/{branch}")
     return found.stdout.strip() if found.returncode == 0 else ""
 

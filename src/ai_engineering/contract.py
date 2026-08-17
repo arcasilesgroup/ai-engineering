@@ -2259,7 +2259,22 @@ DESCRIPTION_MAX = 1000
 #
 # And the half that keeps the security refusal honest: a vulnerability *not* asked to go public
 # is drafted like any other. Without that, this control reads as a ban on reporting them.
-REPO_CEILING = 66_164
+#
+# 66,164 to 66,276 for `claim.py` at 80%, and for the defect the tests found on the way — the
+# fourth this session where a comment states a property the code does not enforce.
+#
+# `claim.base` opens with "Fetch, then the exact SHA a claim will name. Fetch first, always: a
+# base read out of a stale clone is a base that was true this morning." The fetch's return code
+# was ignored, and the `rev-parse` under it resolves the *local* tracking ref — which survives
+# a fetch that never reached anybody. So a writer whose network was down claimed against a base
+# that was true this morning, precisely what the line promises not to do, and the push then
+# failed with `CLAIM_LOST`: two people told somebody else holds their work when nobody did.
+#
+# Found by writing the test for `CLAIM_BASE_UNAVAILABLE` and getting `CLAIM_LOST` instead. The
+# five refusals are pinned whole now — code, sentence and cure — because the fixtures had
+# asserted the codes and never the words, and the words are what send somebody to their network
+# rather than to a colleague who does not exist.
+REPO_CEILING = 66_276
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
