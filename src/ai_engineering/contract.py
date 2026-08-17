@@ -2274,7 +2274,29 @@ DESCRIPTION_MAX = 1000
 # five refusals are pinned whole now — code, sentence and cure — because the fixtures had
 # asserted the codes and never the words, and the words are what send somebody to their network
 # rather than to a colleague who does not exist.
-REPO_CEILING = 66_276
+#
+# 66,276 to 66,632 for the chain's own reader, which had no test at all — not directly and not
+# through a fixture. It is this framework's tamper-evident record and the only way anything
+# reads it, and eighty-one mutants of `read` plus fifty-five of `_chain_bytes` had survived,
+# which is almost every line of both.
+#
+# The distinction those two keep is the one this product is named after. A chain that is empty,
+# one that is not UTF-8, a line repeating a JSON key, a line cut mid-write — none is a chain
+# with nothing wrong in it, and all four would look like exactly that to a reader returning an
+# empty list in silence. Each is named now, and the name is asserted: "the chain contains no
+# evidence to audit" and "the chain is not UTF-8 JSON Lines" send a person to different places.
+#
+# Two details worth the lines. An unreadable link is kept in place rather than dropped, because
+# dropping it renumbers every link after it and this is a numbered chain. And a cut final line
+# that also failed to parse produces one finding, not two: the missing terminator and the
+# broken line are the same byte.
+#
+# And the fifth defect this session of the same shape. `read`'s `except` has listed
+# `ImportError` since it was written, and the `paths.load` that raises it sat one line above
+# the `try` — so a half-removed install raised out of the function instead of answering
+# CHAIN_UNREADABLE. Every caller treats a raise as a crash and a problem string as an answer,
+# so the one case the handler existed for was the one it could not reach.
+REPO_CEILING = 66_632
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

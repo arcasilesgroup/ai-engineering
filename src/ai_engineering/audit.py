@@ -131,8 +131,13 @@ def _chain_bytes(path: Path) -> tuple[bytes, str]:
 
 
 def read(root: Path | None) -> list[dict]:
-    emit = paths.load("_emit")
+    # Inside the `try`, and the `except` below has listed `ImportError` since it was written.
+    # The load was one line above it, so an emitter that cannot be imported — a half-removed
+    # install, a machine whose home moved — raised straight out of this function instead of
+    # answering CHAIN_UNREADABLE. Every caller here treats a raise as a crash and a problem
+    # string as an answer, so the one case the handler was written for was the one it missed.
     try:
+        emit = paths.load("_emit")
         raw, problem = _chain_bytes(emit.chain_path(root))
     except (ImportError, OSError, RuntimeError, TypeError, ValueError):
         return _ChainRead([], "CHAIN_UNREADABLE — the chain location cannot be derived")
