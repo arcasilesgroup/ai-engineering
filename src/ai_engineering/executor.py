@@ -32,7 +32,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from ai_engineering import capability, intent
+from ai_engineering import capability, imagery, intent
 
 # Which action kinds a declared gate covers. `before_publish` is two kinds rather than one:
 # publishing is a network call carrying a secret, and gating only the connection would let
@@ -136,10 +136,21 @@ class Sandbox:
             raise self._refuse(capability.Action.read(relative), NOT_A_REGULAR_FILE) from error
 
     def write(self, relative: str, payload: bytes) -> Path:
-        """Write one file, never through a symlink and never outside the root."""
+        """Write one file, never through a symlink, never outside the root, and — when the
+        bytes are an image — without the metadata that travelled beside the picture.
+
+        `EP-254` asks that imagery output lose its metadata and be sanitised when it is
+        vector. Doing it here rather than in the caller is the difference between a control
+        and an instruction: a skill file telling somebody to strip EXIF is a control that
+        runs when they remember, and this one runs because there is no other way to write.
+
+        `imagery.stripped` returns anything it cannot read unchanged, so a text file, a
+        JSON payload or a format nobody taught it about passes through untouched.
+        """
 
         action = capability.Action.write(relative)
         where = self._decide(action)
+        payload = imagery.stripped(payload)
         try:
             where.parent.mkdir(parents=True, exist_ok=True)
             flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC

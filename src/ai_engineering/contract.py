@@ -2341,7 +2341,21 @@ DESCRIPTION_MAX = 1000
 # answer chosen by a surface's search order. Assertion 25 walks the tracked inventory,
 # excludes the canonical tree by path rather than by name, and finds a handler by what it
 # calls itself.
-REPO_CEILING = 67_868
+#
+# 67,868 to 68,341 for EP-254, which the fourth pass named and left because closing it by
+# pinning prose would have been the move that day was spent undoing.
+#
+# `imagery.py` reads three formats and says which limit it has rather than hiding it. A PNG
+# keeps an allowlist of chunks — the ones that say how to render, not the ones that say who
+# made it and where they stood. A JPEG loses every application segment from APP1 up, and the
+# comment, and keeps JFIF, because density is nobody's name. An SVG is a document a browser
+# executes, so sanitising it means no script, no event handler and no outbound reference: an
+# embedded `data:` image survives and a tracking pixel does not.
+#
+# Bytes it cannot read come back untouched and are reported as unscanned, which is the
+# distinction the whole ledger is about. The caller is `executor.Sandbox.write`, so this is
+# a control rather than a module nobody meets.
+REPO_CEILING = 68_341
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -1200,10 +1200,10 @@ note = "the four triggers are named in prose; nothing detects any of them to pro
 
 [[requirement]]
 id = "EP-179"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "snapshot, checkpoint freshness and final-combination correctness as three checkable things"
-evidence = "pytest tests/test_checkpoint.py -k snapshot"
-note = "all three halves are real. The snapshot is called `base` here, which is why an audit grepping for the word found nothing: it is threaded through `staged`, `_diff_args`, `_privacy` and `_inside`, so every receipt is computed relative to it. What was missing was anybody exercising it — none of the eight fixtures beside these two passed it, and a parameter deciding which diff gets scanned that nothing exercises can stop working in the worst available shape: a checkpoint over the wrong range, reporting clean. Both directions are asserted now, and an unresolvable base is held to not reading as an empty one"
+evidence = "pytest tests/test_checkpoint.py"
+note = "all three are exercised by name: the snapshot in the two cases that change what a checkpoint sees and refuse an unresolvable base, freshness in the fresh-versus-stale and failed-versus-absent pair, and the final combination in the case where a failing receipt is not masked by a passing one that sorts after it"
 
 [[requirement]]
 id = "EP-180"
@@ -1469,10 +1469,10 @@ evidence = "python -c \"from ai_engineering import ui; ui.will('x', reads='y', w
 
 [[requirement]]
 id = "EP-220"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "a real counted stage during long operations, with no invented percentage"
-evidence = "python -c \"from ai_engineering import ui; ui.running(6,5,'x')\""
-note = "the counter refuses to lie about a step outside its run; whether any real long operation calls it was not confirmed"
+evidence = "pytest tests/test_cli_migration.py -k states_its_will_before_mutating_and_counts_its_steps"
+note = "the caller was found rather than assumed: cli dispatches every verb through four counted stages, and the index printed at the end is where the run reached rather than the length of the list, so an interrupted run does not print 4/4 over three"
 
 [[requirement]]
 id = "EP-221"
@@ -1683,10 +1683,10 @@ evidence = "pytest tests/test_contracts.py -k 'EP-253'"
 
 [[requirement]]
 id = "EP-254"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "imagery output loses its metadata, passes a scan, and is sanitised when it is vector"
-evidence = "grep -n 'loses EXIF' .agents/skills/ai-design/SKILL.md"
-note = "prose only: no code strips metadata, scans or sanitises"
+evidence = "pytest tests/test_imagery.py"
+note = "the caller is `executor.Sandbox.write`, so an image that leaves through a governed capability has already lost what travelled beside it — the three clauses are code rather than an instruction somebody remembers"
 
 [[requirement]]
 id = "EP-255"
