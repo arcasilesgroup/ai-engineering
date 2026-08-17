@@ -2448,7 +2448,18 @@ DESCRIPTION_MAX = 1000
 # right answer is not an exemption. Assertion 26 reads the floor on the machine the wheel was
 # installed on and refuses a criterion that is neither checked nor argued — so the floor is
 # something the shipped tool states, not only something the gate checks.
-REPO_CEILING = 69_801
+# 69,801 to 69,941 for EP-293, which needed an exception to exist before it could have an age.
+#
+# The row said the mechanism was fine and nothing had ever been recorded to age. The
+# accessibility floor landed five recorded exceptions an hour earlier, so each argued
+# criterion now carries the date it was last read and `doctor` reports one that has gone a
+# year without. It reports rather than fails: nothing broke, and a check returning nothing
+# would be silence over a paragraph nobody has read in a year.
+#
+# The ageing branch is exercised against an old date rather than the shipped file, which is
+# dated today and could never reach it — the same un-reachable-rule shape found in the
+# adapter version binding this morning.
+REPO_CEILING = 69_941
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

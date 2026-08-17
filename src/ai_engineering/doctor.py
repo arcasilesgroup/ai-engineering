@@ -957,6 +957,13 @@ def skills_contract(root: Path | None) -> str | None:
     return None if not problems else f"{len(problems)} problems, first: {problems[0]}"
 
 
+# A year. An argued criterion is held by a sentence rather than by a test, and a sentence
+# about a product that ships every few weeks goes stale without anybody noticing — which is
+# the whole reason `EP-293` asked for the age of one. Long enough that re-reading five
+# paragraphs is not a chore, short enough that nobody inherits an argument nobody made.
+ACCESSIBILITY_MAX_AGE = 365
+
+
 @check(26, "The context", "Every accessibility criterion is checked or argued, never neither")
 def accessibility_floor(root: Path | None) -> str | None:
     """`policy/accessibility.toml` names the release floor, and this is what stops it being
@@ -999,6 +1006,28 @@ def accessibility_floor(root: Path | None) -> str | None:
         return f"the floor claims {level} and nothing in it executes"
     if not journeys:
         return "no critical journey is enumerated, so coverage over them is a share of nothing"
+
+    # `EP-293` asked for the age of an accessibility exception, and the answer used to be
+    # that none had ever been recorded, so there was nothing to age. There are five now, and
+    # this is what makes the date mean something: a criterion that executes is re-read by its
+    # test on every run, and one held by a sentence is re-read only when somebody decides to.
+    # A year without is not a failure — nothing broke — but it is worth a person's attention,
+    # so it says so and does not block.
+    stale = []
+    for row in criteria:
+        if row.get("checked"):
+            continue
+        try:
+            when = datetime.strptime(str(row.get("reviewed", "")), "%Y-%m-%d").replace(tzinfo=UTC)
+        except ValueError:
+            return f"criterion {row.get('id', '?')} is argued and carries no date it was read"
+        if (datetime.now(UTC) - when).days > ACCESSIBILITY_MAX_AGE:
+            stale.append(f"{row.get('id', '?')} ({when.date()})")
+    if stale:
+        raise Undecidable(
+            f"{len(stale)} accessibility exceptions have gone a year without being re-read: "
+            f"{', '.join(stale)}. Nothing broke; a sentence held them and nobody has looked"
+        )
     return None
 
 

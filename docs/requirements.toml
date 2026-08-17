@@ -1938,10 +1938,10 @@ note = "seven journeys enumerated with the command that walks each, which is wha
 
 [[requirement]]
 id = "EP-293"
-verdict = "NO-EVIDENCE"
+verdict = "PROVEN"
 subject = "the age of an accessibility exception"
-evidence = "grep -A4 aaa_exception_age policy/pilot-register.toml"
-note = "none has ever been recorded, so there is nothing aged"
+evidence = "pytest tests/test_accessibility.py -k year_without or age_is_reported"
+note = "five exceptions are recorded and dated in policy/accessibility.toml, and doctor reports one that has gone 365 days without being re-read. The ageing branch is exercised against an old date rather than against the shipped file, which is all dated today and could never reach it"
 
 [[requirement]]
 id = "EP-294"

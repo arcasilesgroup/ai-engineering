@@ -77,11 +77,20 @@ Two states share a colour today — INCOMPLETE and WARN are both yellow, CANCELL
 WOULD_CHANGE are both dim — so colour alone cannot tell them apart and never could."""
 how = "tests/test_accessibility.py::test_no_state_is_told_by_colour_alone"
 
+# `reviewed` is on every argued criterion and on none of the checked ones, and the asymmetry
+# is the point. A criterion that executes is re-read by its test on every run. A criterion
+# held by a sentence is re-read only when somebody decides to, so the date says when that
+# last happened and `ai-eng doctor` reports one that has gone a year without.
+#
+# `EP-293` asked for the age of an accessibility exception and the answer was that none had
+# ever been recorded, so there was nothing to age. These are the recorded ones.
+
 [[criterion]]
 id = "1.4.3"
 name = "Contrast (minimum)"
 level = "AA"
 checked = false
+reviewed = "2026-08-17"
 reason = """The colours are the terminal's, not ours. This program names eight styles and \
 the emulator decides what each one looks like against a background we never chose, so a \
 contrast ratio measured here would be a number about this machine's colour scheme. What is \
@@ -92,6 +101,7 @@ id = "1.4.12"
 name = "Text spacing"
 level = "AA"
 checked = false
+reviewed = "2026-08-17"
 reason = "A terminal renders monospaced text at a size and spacing the person chose."
 
 [[criterion]]
@@ -137,6 +147,7 @@ id = "1.1.1"
 name = "Non-text content"
 level = "A"
 checked = false
+reviewed = "2026-08-17"
 reason = """There is no non-text content. The glyphs are decoration on top of a word that \
 carries the same state, which is 1.4.1's job and is checked there; the plain output path \
 drops them entirely and loses nothing."""
@@ -146,6 +157,7 @@ id = "2.4.3"
 name = "Focus order"
 level = "A"
 checked = false
+reviewed = "2026-08-17"
 reason = "There is no focus. Output is a stream and the terminal owns the cursor."
 
 [[criterion]]
@@ -153,6 +165,7 @@ id = "1.4.10"
 name = "Reflow"
 level = "AA"
 checked = false
+reviewed = "2026-08-17"
 reason = """Deliberately not met, and recorded rather than hidden: `ui.write` never wraps, \
 because a path that folds at column 80 is a path nobody can copy. A person on a narrow \
 terminal gets their emulator's own wrapping. Reopen this if somebody reports it."""
