@@ -417,10 +417,10 @@ note = "thirteen indicators exist and none of them is any of these six"
 
 [[requirement]]
 id = "EP-057"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "a stated prohibition plus a numeric threshold for the same rule"
-evidence = "pytest tests/test_pilot_register.py"
-note = "fourteen prohibitions are read and enforced; none carries a paired numeric threshold"
+evidence = "python tests/pilot_register.py | grep threshold; pytest tests/test_pilot_register.py -k drift"
+note = "two rules carry a stated prohibition and a number for the same rule, declared beside each other in the register and bound to the constant that enforces them. A register whose number has moved away from the code's is refused rather than printed, which is the only thing that makes a declared threshold more than a number in a document. The fourteen prohibitions still carry none and that remains true of them"
 
 [[requirement]]
 id = "EP-058"
@@ -1081,8 +1081,8 @@ note = "measuring the saving means running a model twice; the register records w
 id = "EP-161"
 verdict = "INCOMPLETE"
 subject = "a judgement resolving the same way three times becomes a script"
-evidence = "python -c \"from pathlib import Path; from ai_engineering import contract; print(contract.audit_one(Path('/tmp/ai-y/SKILL.md')))\""
-note = "the length ceiling half is real and falsifiable; the three-times threshold has no instrument by design"
+evidence = "python tests/pilot_register.py | grep owed-a-script; pytest tests/test_record.py -k repeats"
+note = "the note said the three-times threshold had no instrument by design and that was wrong: `report.repeats` counts identical verdicts over the digest window and prints them under rule 12's own words, and the number is declared in the register and bound to the code. What is still absent is the second half of the rule — nothing turns the judgement into a script, and nothing can: writing one is a person's work"
 
 [[requirement]]
 id = "EP-162"
@@ -1182,8 +1182,8 @@ note = "one half is executed code; the self-challenge is prose"
 id = "EP-176"
 verdict = "INCOMPLETE"
 subject = "self-grant refused, and publication, secrets and deploy stay gated"
-evidence = "pytest tests/test_record.py::test_an_agent_cannot_grant_itself_a_bypass"
-note = "self-grant and publication are real; there is no deploy or secrets verb to gate"
+evidence = "pytest tests/test_record.py::test_an_agent_cannot_grant_itself_a_bypass; pytest tests/test_executor.py -k secret"
+note = "self-grant and publication were already real, and the note saying there was no secrets gate is now stale: `executor.Sandbox.secret` hands over only a declared secret, under a human gate for the modes that publish, and never puts its value in a refusal or a record. Deploy is what remains, and there is still no deploy verb to gate"
 
 [[requirement]]
 id = "EP-177"

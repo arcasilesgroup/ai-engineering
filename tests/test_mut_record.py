@@ -264,7 +264,13 @@ def test_two_repeated_judgements_are_two_separate_rows(report):
         _event("change_scope_guard", "bypassed", reason="shipping late")
     ] * 3
     printed = report.run()
-    assert "  Rule 12 — the same judgement, three times or more:" in printed
+    # The number in the heading is the constant that decides the rows under it, not a word
+    # typed beside it. It read "three times or more" while `OWED_A_SCRIPT` decided the
+    # threshold, so the sentence and the rule could have drifted apart in either direction
+    # and this assertion would have gone on passing.
+    assert f"  Rule 12 — the same judgement, {report_command.OWED_A_SCRIPT} times or more:" in (
+        printed
+    )
     assert "    loop_guard · a loop 3× same verdict each time → owed a script" in printed
     assert (
         "    change_scope_guard · shipping late 3× same verdict each time → owed a script"

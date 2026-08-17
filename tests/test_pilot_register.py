@@ -225,3 +225,48 @@ def test_a_requirement_nobody_will_gate_says_what_would_change_that():
     body = (ROOT / "tests" / "test_contracts.py").read_text(encoding="utf-8")
     for name in ids:
         assert f'("{name}", "ai-' not in body, f"{name} is excused here and pinned there"
+
+
+def test_a_declared_threshold_and_the_code_that_enforces_it_cannot_drift(tmp_path, monkeypatch):
+    """`EP-057`: a stated prohibition and a numeric threshold for the same rule.
+
+    Fourteen prohibitions are stated and none of them carries a number — that was the
+    finding, and it is still true of those fourteen. Two rules in this framework do carry
+    one, and both were bare literals in the middle of a function, which is how a threshold
+    changes without anybody arguing for it.
+
+    The pairing is what the requirement asks for, so the pairing is what is checked: the
+    register names the constant, the runner reads it off the module, and a register whose
+    number has moved away from the code's is refused rather than printed. Neither half can
+    move without the other going red, which is the only thing that makes a declared number
+    more than a number in a document.
+    """
+
+    import tomllib
+
+    from ai_engineering import report
+
+    declared = tomllib.loads((ROOT / "policy" / "pilot-register.toml").read_text(encoding="utf-8"))[
+        "threshold"
+    ]
+
+    assert [row["id"] for row in declared] == ["owed-a-script", "bypasses-worth-a-look"]
+    for row in declared:
+        constant = row["enforced_by"].split(",")[0].rsplit(".", 1)[-1]
+        assert getattr(report, constant) == row["threshold"], row["id"]
+        assert row["never"].strip(), f"{row['id']} states no prohibition"
+        assert row["stated_in"].strip(), f"{row['id']} says nowhere it is written down"
+        assert row["unit"].strip(), f"{row['id']} counts nothing in particular"
+
+    # And the drift is caught rather than printed. A register that says four while the code
+    # says three is the exact failure this pairing exists to prevent, and it cannot be
+    # produced from this tree — so it is produced here.
+    drifted = tmp_path / "register.toml"
+    body = (ROOT / "policy" / "pilot-register.toml").read_text(encoding="utf-8")
+    body = body.replace("threshold = 3", "threshold = 4", 1)
+    drifted.write_text(body, encoding="utf-8")
+
+    import pilot_register
+
+    monkeypatch.setattr(pilot_register, "REGISTER", drifted)
+    assert pilot_register.main() == 1, "a threshold that had drifted from the code was printed"

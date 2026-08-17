@@ -184,6 +184,33 @@ never = "claiming certification, compliance or total security from a score or a 
 reason = """there is no compliance verb to make the claim with. `ai-security` refuses it in \
 its corpus, and refusing is the only thing a skill can do about a sentence somebody types."""
 
+# ── prohibitions that carry a number ────────────────────────────────────────────────
+#
+# `EP-057` asks for a stated prohibition and a numeric threshold for the same rule. The
+# fourteen above are stated and none of them carries a number, which was the finding — and
+# two rules in this framework do carry one. Both were bare literals inside a function, which
+# is how a threshold changes without anybody arguing for it.
+#
+# The number lives beside the sentence it enforces, and `tests/test_pilot_register.py`
+# refuses a register whose number and the code's have drifted apart. That is the pairing the
+# requirement asks for: neither half can move without the other going red.
+
+[[threshold]]
+id = "owed-a-script"
+never = "a judgement that always comes out the same way staying a prompt"
+threshold = 3
+unit = "identical verdicts, in one report window"
+stated_in = "AGENTS.md rule 12 — the third time the same judgement resolves the same way it becomes a script"
+enforced_by = "ai_engineering.report.OWED_A_SCRIPT, printed by `ai-eng report digest`"
+
+[[threshold]]
+id = "bypasses-worth-a-look"
+never = "a guard being walked past as a habit"
+threshold = 3
+unit = "bypasses of any guard, in one report window"
+stated_in = "src/ai_engineering/report.py — a guard you bypass three times is a guard to fix or to delete"
+enforced_by = "ai_engineering.report.BYPASSES_WORTH_A_LOOK, printed by `ai-eng report digest`"
+
 # ── the ungated ─────────────────────────────────────────────────────────────────────
 #
 # Requirements this framework will not gate, and why. Rule 12 is explicit: a judgement that

@@ -2482,7 +2482,18 @@ DESCRIPTION_MAX = 1000
 # been handed the twelve, and the runner reads the same function. An empty phase is shown and
 # an unrecognised one is appended: five phases is a claim about how the work is arranged, and
 # a map that quietly showed four would change that claim without anybody deciding to.
-REPO_CEILING = 70_377
+# 70,377 to 70,533 for a prohibition that carries a number, and two notes that were wrong.
+#
+# EP-057 asks for a stated prohibition and a numeric threshold for the same rule. Fourteen
+# prohibitions carry none, which was the finding and is still true of them; two rules here do
+# carry one, and both were bare literals inside a function. They are declared beside the
+# sentence each enforces and bound to the constant that enforces them, so a register whose
+# number has drifted from the code's is refused rather than printed.
+#
+# EP-161's note said the three-times threshold had no instrument by design, and `report.
+# repeats` has been counting it for a wave. EP-176's said there was no secrets verb to gate,
+# and the executor gated secrets eight hours earlier. Neither verdict moves; both notes did.
+REPO_CEILING = 70_533
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

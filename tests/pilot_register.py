@@ -147,6 +147,24 @@ def main() -> int:
     for name in argued:
         print(f"    reason_only    {name}")
 
+    # `EP-057`: a stated prohibition and a numeric threshold for the same rule. Fourteen
+    # prohibitions carry no number, which was the finding; these are the two rules that do,
+    # and the number is checked against the code that enforces it rather than printed on
+    # trust — a declared threshold nothing binds is a number in a document.
+    from ai_engineering import report as report_module
+
+    for row in register.get("threshold", []):
+        constant = str(row["enforced_by"]).split(",")[0].rsplit(".", 1)[-1]
+        actual = getattr(report_module, constant, None)
+        if actual != row["threshold"]:
+            print(
+                f"  {row['id']} declares {row['threshold']} and {constant} is {actual}: a "
+                "prohibition and its number have drifted apart",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"    threshold      {row['id']} = {row['threshold']} {row['unit']}")
+
     ungated = [str(row["id"]) for row in register.get("ungated", [])]
     if ungated:
         print(f"  {len(ungated)} requirements are held by a written reason and no gate:")

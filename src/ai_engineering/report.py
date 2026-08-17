@@ -31,6 +31,24 @@ def by_reason(events: list[dict], kind: str) -> Counter:
     )
 
 
+# The two numbers this file decides anything with, named rather than typed twice.
+#
+# `EP-057` asks for a stated prohibition and a numeric threshold for the same rule, and the
+# audit found fourteen prohibitions carrying no number. These two carry one, and both were
+# bare literals in the middle of a function — which is how a threshold changes without
+# anybody arguing for it. `policy/pilot-register.toml` declares them beside the sentence each
+# enforces, and `tests/test_pilot_register.py` refuses a register whose number and this
+# file's have drifted apart.
+#
+# Rule 12's three: "The third time the same judgement resolves the same way it becomes a
+# script." Three is the smallest count that is a pattern rather than a coincidence.
+OWED_A_SCRIPT = 3
+# And the bypass count, which is a different sentence about the same shape: a guard walked
+# past three times is a guard to fix or to delete, because the fourth walk-past is somebody
+# deciding the rule does not apply to them and being right.
+BYPASSES_WORTH_A_LOOK = 3
+
+
 def by_guard(events: list[dict], kind: str) -> Counter:
     """The same denials, counted per guard rather than per guard-and-reason.
 
@@ -58,7 +76,7 @@ def repeats(events: list[dict]) -> list[str]:
     return [
         f"    {label} {count}× same verdict each time → owed a script"
         for label, count in seen.most_common()
-        if count >= 3
+        if count >= OWED_A_SCRIPT
     ]
 
 
@@ -283,7 +301,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
                 f"{count}× {label}",
             )
         )
-    if sum(bypassed.values()) >= 3:
+    if sum(bypassed.values()) >= BYPASSES_WORTH_A_LOOK:
         print("    A guard you bypass three times is a guard to fix or to delete.")
 
     quiet = [
@@ -317,7 +335,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
 
     rows = repeats(events)
     if rows:
-        print("\n  Rule 12 — the same judgement, three times or more:")
+        print(f"\n  Rule 12 — the same judgement, {OWED_A_SCRIPT} times or more:")
         print("\n".join(rows))
 
     settings = paths.load("_emit").config(root).get("observability", {})
