@@ -2156,7 +2156,27 @@ DESCRIPTION_MAX = 1000
 #
 # The tooling permits this and warns nobody — `decide --accept` even prints "commit it on its
 # own", which reads like the only requirement. That is a defect and it is in the ledger.
-REPO_CEILING = 64_541
+#
+# 64,541 to 65,077 for `scan.py` going from 67% of deliberate defects caught to 80%, which is
+# the owner's answer to a floor nothing was meeting: keep the 89 and make the tests better.
+#
+# What the survivors were is the lesson. Almost none of them were logic — they were the
+# sentences a person reads when a security lane refuses. Every fixture asserted the machine
+# code (`"LANE_NO_INPUTS" in fact.detail`) and none asserted the words, so fifty mutants of
+# `run` lived by rewriting a cure into nonsense. The code is for a machine; the sentence and
+# the cure are the whole of what a consumer gets, and they decide whether a refusal is acted
+# on or worked around.
+#
+# So the refusals are pinned whole — exact detail, exact cure, exact status — and `baseline`'s
+# entire output is compared as one block of lines rather than by fragments. Fragments left the
+# column widths, the wording and the order free, which is where thirty-eight of its mutants
+# were hiding. A block also makes the next rewording a diff somebody has to read.
+#
+# One fixture bug found on the way and worth the line: `engine()` always writes `engine.py`,
+# so building several engines in one `tmp_path` left every lane pointing at whichever was
+# written last. The sleeping engine became an immediate exit and the timeout branch reported
+# PASS. Each engine has its own directory now.
+REPO_CEILING = 65_077
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
