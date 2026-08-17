@@ -1894,7 +1894,15 @@ DESCRIPTION_MAX = 1000
 # no specification it names may read anything but `draft`. All five do today, so it lands
 # green — and the day one of them claims approval on the strength of a record that grants
 # nothing, it turns red naming the specification.
-REPO_CEILING = 60_055
+#
+# 60,055 to 60,066 for a help line that promised more than its verb does. `ai-eng report`
+# read "Produce the local governed report" and the bare verb returns INCOMPLETE — planned
+# for P2 and not implemented — so the summary sent a stranger straight to a refusal. It names
+# the three subcommands that work today instead.
+#
+# Found by running `ai-eng --help` and then the verb, which is the fifth finding today from
+# using a verb and the fifth that was on no list.
+REPO_CEILING = 60_066
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

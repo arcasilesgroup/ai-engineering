@@ -30,7 +30,10 @@ VERBS: dict[str, str] = {
     "decide": "Add a decision to the spec, or promote it to an MADR with --madr.",
     "accept": "Accept a finding until a date, with a named owner and a reason.",
     "audit": "audit verify walks the whole chain; audit replay walks a session.",
-    "report": "Produce the local governed report.",
+    # What it does, not what it was going to do. The bare verb returns INCOMPLETE — "planned
+    # for P2 and is not implemented" — so a line promising "the local governed report" sent a
+    # stranger to a refusal. Three subcommands work today and the summary names them.
+    "report": "report digest | report issue | report surfaces — what this install can show.",
     "exception": "Record a governed design exception, at a keyboard.",
     "uninstall": "Undo everything the receipt lists. The no-lock-in promise, as a command.",
 }
