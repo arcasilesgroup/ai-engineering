@@ -523,3 +523,73 @@ def test_every_capability_says_which_phase_it_serves():
     # nothing, which is the other half of the defect this file is about. The reader is
     # proven where it runs — `test_skill_eval.py` drives the command and reads every
     # capability off its phase line — and not asserted a second time here.
+
+
+def test_every_shape_of_secret_this_classifier_knows_is_named_and_the_rest_are_not():
+    """Thirty-three mutants lived in the one function that decides whether a path is a secret.
+
+    It is a classifier, and a classifier's mutants are all of the same kind: drop a name from a
+    set, drop a suffix from a tuple, invert a prefix test. Every one of those is a real file
+    that stops being recognised — an `id_ed25519` read as an ordinary file, a `.pem` read as
+    text — and none of them changes any behaviour a test that checked one example would see.
+
+    So every member of every set is asserted, both that it is recognised and which of the three
+    classes it belongs to. And a near-miss beside each, because "endswith" and "equals" fail
+    differently: `notes.env.md` is not a `.env`, and `mykey` is not a key.
+    """
+    from ai_engineering import capability
+
+    for name in (".env", ".env.local", ".env.production", ".ENV", ".Env.Test"):
+        assert capability._secret_path(name) == "repository.env", name
+        assert capability._secret_path(f"deep/nested/{name}") == "repository.env", name
+
+    for name in (".git-credentials", ".npmrc", ".pypirc", "credentials"):
+        assert capability._secret_path(name) == "repository.credentials", name
+        assert capability._secret_path(name.upper()) == "repository.credentials", name
+
+    for name in ("id_dsa", "id_ecdsa", "id_ed25519", "id_rsa"):
+        assert capability._secret_path(name) == "repository.private-key", name
+    for suffix in (".key", ".pem", ".p12", ".pfx"):
+        assert capability._secret_path(f"anything{suffix}") == "repository.private-key", suffix
+        assert capability._secret_path(f"ANYTHING{suffix.upper()}") == "repository.private-key"
+
+    # And the near-misses. Each of these is a file somebody really has, and calling one a
+    # secret would refuse a read the capability was allowed to make.
+    for ordinary in (
+        "notes.env.md",
+        "environment.py",
+        "credentials.md",
+        "my.npmrc.backup",
+        "id_rsa.md",
+        "mykey",
+        "keychain",
+        "README.md",
+        "",
+    ):
+        assert capability._secret_path(ordinary) == "", ordinary
+
+
+def test_a_declared_read_of_a_secret_needs_that_secret_declared_too():
+    """The classifier's whole purpose, one function up. A path inside the declared roots is not
+    enough if it is a secret: the mode has to name that class of secret as well, which is what
+    stops a capability with `read_roots = ["."]` from reading everybody's private keys.
+    """
+    from ai_engineering import capability
+
+    inside = {"read_roots": ["."], "secrets": [], "enforcement": ["preflight.read"]}
+    allowed = {
+        "read_roots": ["."],
+        "secrets": ["repository.env"],
+        "enforcement": ["preflight.read"],
+    }
+
+    ordinary = capability.Action.read("src/thing.py")
+    assert capability._declared_action(inside, ordinary)
+
+    secret = capability.Action.read("src/.env")
+    assert not capability._declared_action(inside, secret), "a secret was read on roots alone"
+    assert capability._declared_action(allowed, secret)
+
+    # And declaring one class does not declare another.
+    key = capability.Action.read("src/server.pem")
+    assert not capability._declared_action(allowed, key)

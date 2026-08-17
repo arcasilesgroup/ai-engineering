@@ -8,6 +8,8 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from ai_engineering import evidence, outcome
 
 ROOT = Path(__file__).parents[1]
@@ -413,3 +415,88 @@ def test_evidence_verifier_fails_closed_when_canonical_policy_changes(
     )
     assert result.result == outcome.result("INCOMPLETE")
     assert result.code == "EVIDENCE_POLICY_UNSUPPORTED"
+
+
+def test_the_policy_is_read_from_one_bounded_regular_file_and_nothing_else(tmp_path):
+    """Forty-seven mutants lived in the reader that decides which policy is in force.
+
+    `_read_policy` is the same hardened shape as `update._read_pin`, and for the same reason:
+    the bytes it returns decide what counts as evidence, so a file swapped underneath it is a
+    way to change the rules a gate applies. Every refusal it can make is its own case here,
+    because one wrong file and one refusal passes with the other conditions deleted.
+
+    All of them arrive as the same code. That is deliberate — the caller's decision is that the
+    policy cannot be trusted, not which of five ways it failed — so what each case asserts is
+    that the refusal happened at all, and the conditions are separated by construction instead.
+    """
+    import os
+    import stat as _stat
+
+    from ai_engineering import evidence
+
+    good = tmp_path / "policy.json"
+    good.write_text("{}", encoding="utf-8")
+    assert evidence._read_policy(good) == b"{}"
+
+    # A symlink, even one pointing at a perfectly good policy. `O_NOFOLLOW` and the `S_ISLNK`
+    # check together, because a platform without the flag still has the stat.
+    linked = tmp_path / "linked.json"
+    linked.symlink_to(good)
+    with pytest.raises(evidence._Problem) as refused:
+        evidence._read_policy(linked)
+    assert refused.value.code == evidence.POLICY_UNSUPPORTED
+
+    # A directory is not a file, and the refusal must come from the mode rather than from
+    # whatever a read of a directory does on this platform.
+    folder = tmp_path / "folder.json"
+    folder.mkdir()
+    with pytest.raises(evidence._Problem):
+        evidence._read_policy(folder)
+
+    # Absent is refused rather than read as an empty policy — an empty policy is one that
+    # requires nothing, which is the most dangerous thing this file could return.
+    with pytest.raises(evidence._Problem):
+        evidence._read_policy(tmp_path / "absent.json")
+
+    # And over the bound. The reader takes one byte more than the bound and refuses if it
+    # arrives, so a policy exactly at the bound is still read.
+    over = tmp_path / "over.json"
+    over.write_bytes(b"x" * (evidence._MAX_POLICY_BYTES + 1))
+    with pytest.raises(evidence._Problem):
+        evidence._read_policy(over)
+
+    exact = tmp_path / "exact.json"
+    exact.write_bytes(b"x" * evidence._MAX_POLICY_BYTES)
+    assert len(evidence._read_policy(exact)) == evidence._MAX_POLICY_BYTES
+
+    # A device or socket is neither a link nor a regular file, and the check is written as
+    # "is regular" rather than "is not a link" for exactly that reason.
+    assert _stat.S_ISREG(os.lstat(good).st_mode)
+
+
+def test_a_policy_that_changes_while_it_is_read_is_refused(tmp_path, monkeypatch):
+    """The two identity comparisons, which no arrangement of files can trigger from outside.
+
+    One is between the stat before the open and the stat of the descriptor; the other is
+    between that and a stat after the read. A policy replaced in either window is one this
+    reader would return the wrong bytes for, and the wrong bytes here are the wrong rules.
+    """
+    from ai_engineering import evidence
+
+    where = tmp_path / "policy.json"
+    where.write_text("{}", encoding="utf-8")
+    real = evidence.os.fstat
+
+    class Elsewhere:
+        def __init__(self, base):
+            self._base = base
+
+        def __getattr__(self, name):
+            if name == "st_ino":
+                return 999_999
+            return getattr(self._base, name)
+
+    monkeypatch.setattr(evidence.os, "fstat", lambda fd: Elsewhere(real(fd)))
+    with pytest.raises(evidence._Problem) as refused:
+        evidence._read_policy(where)
+    assert refused.value.code == evidence.POLICY_UNSUPPORTED

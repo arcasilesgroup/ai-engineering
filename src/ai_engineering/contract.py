@@ -2224,7 +2224,23 @@ DESCRIPTION_MAX = 1000
 # 65,758 to 65,770 for writing the decision down where the number lives. The floor stayed at 89
 # and the tests came up to meet it, which was the owner's call and is quoted in the justfile
 # beside it. A comment that only carries a number invites the next person to move the number.
-REPO_CEILING = 65_770
+#
+# 65,770 to 65,943 for two more readers of the same shape, and one classifier.
+#
+# `evidence._read_policy` decides which policy is in force, which means the bytes it returns
+# decide what counts as evidence at all — the same hardened boundary as the pin, and nothing
+# had exercised any of its refusals either. A symlink, a directory, an absent file, a size over
+# the bound and a swap mid-read now have a case each.
+#
+# `capability._secret_path` is a classifier, and a classifier's survivors are all one kind:
+# drop a name from a set, drop a suffix from a tuple. Each is a real file that stops being
+# recognised — an `id_ed25519` read as an ordinary file, a `.pem` read as text — and none of it
+# is visible to a test that checked one example. Every member of every set is asserted now,
+# with a near-miss beside it, because `endswith` and `==` fail differently: `notes.env.md` is
+# not a `.env` and `mykey` is not a key. And one function up, that a path inside the declared
+# roots is still refused unless the mode names that class of secret too, which is what stops a
+# capability declaring `read_roots = ["."]` from reading everybody's private keys.
+REPO_CEILING = 65_943
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
