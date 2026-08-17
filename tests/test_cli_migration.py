@@ -1640,6 +1640,113 @@ def test_a_preview_needs_no_keyboard_and_a_removal_still_does(
     assert "keyboard" in capsys.readouterr().out, "-y from a script was not stopped"
 
 
+def test_every_refusal_this_verb_can_print_says_what_and_says_nothing_was_removed(
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """One hundred and thirty mutants of `uninstall.main` survived the last measurement, and
+    almost every one is a sentence in this list.
+
+    A verb that deletes files owes two things in every refusal: what stopped it, and that
+    nothing was removed. The second is the load-bearing half — a message naming a cause and
+    leaving somebody unsure whether half their configuration is gone is worse than no message
+    — and it is exactly the half a test asserting only `outcome == "INCOMPLETE"` cannot see.
+
+    Each block is compared whole and in order. `in` would let a message keep its keyword and
+    lose its meaning, which is how a refusal becomes a string nobody can act on.
+    """
+
+    def piped(answer: bool) -> None:
+        monkeypatch.setattr(
+            uninstall.sys,
+            "stdin",
+            type("Pipe", (), {"isatty": staticmethod(lambda: answer)})(),
+        )
+
+    def lines() -> list[str]:
+        return [one for one in capsys.readouterr().out.splitlines() if one.strip()]
+
+    # No keyboard, and this is not a dry run.
+    piped(False)
+    assert uninstall.main(["-y"]).outcome == "INCOMPLETE"
+    assert lines() == ["  INCOMPLETE: uninstall requires a person at a keyboard. Nothing removed."]
+
+    # A receipt that is not there at all. `isolated_home` has never been installed into.
+    piped(True)
+    assert uninstall.main([]).outcome == "INCOMPLETE"
+    assert lines() == [
+        "  INCOMPLETE: the install receipt is missing, partial, corrupt or ambiguous.",
+        "  Nothing removed. Repair or migrate the receipt, then run uninstall again.",
+    ]
+
+    # A receipt that is present and unreadable answers with the same two lines, because from
+    # here the two are one fact: nothing here can say what was installed.
+    receipt = wiring.receipt_path()
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    receipt.write_text("{not json", encoding="utf-8")
+    assert uninstall.main([]).outcome == "INCOMPLETE"
+    assert lines()[0] == (
+        "  INCOMPLETE: the install receipt is missing, partial, corrupt or ambiguous."
+    )
+
+    # `--project` outside a repository. A different refusal, with a different cure, and the
+    # difference matters: this one is repairable by walking into the right directory.
+    receipt.write_text(json.dumps({"version": "0", "wrote": []}), encoding="utf-8")
+    monkeypatch.setattr(uninstall.paths, "repo_root", lambda: None)
+    monkeypatch.setattr(uninstall, "receipt_state", lambda: ({"version": "x"}, []))
+    assert uninstall.main(["--project"]).outcome == "INCOMPLETE"
+    assert lines() == [
+        "  INCOMPLETE: --project requires the repository that will be unwired.",
+        "  Nothing removed. Run this from inside the intended repository.",
+    ]
+
+    # And with a receipt naming nothing, there is nothing to remove — which is READY and not
+    # a refusal. A verb that reported INCOMPLETE over an empty receipt would be calling a
+    # clean machine a broken one.
+    assert uninstall.main([]).outcome == "READY"
+    assert lines() == [
+        "  0 things are recorded here, and 0 of them will be removed:",
+        f"  Kept, always: {', '.join(uninstall.KEEPS)}",
+        "  Nothing to remove.",
+    ]
+
+
+def test_a_recorded_target_this_run_cannot_place_stops_everything(
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The undecided branch, which is the most dangerous one in the verb.
+
+    A receipt row whose destination cannot be resolved is not a row to skip: skipping it
+    would mean removing everything around it and leaving one thing behind with nothing
+    recording that it stayed. So the whole run stops, and the message names each row rather
+    than counting them — a person has to know which target to look at.
+    """
+
+    monkeypatch.setattr(
+        uninstall.sys, "stdin", type("Tty", (), {"isatty": staticmethod(lambda: True)})()
+    )
+    row = {"kind": "guard", "path": "~/.somewhere/settings.json", "how": "json"}
+    monkeypatch.setattr(uninstall, "receipt_state", lambda: ({"version": "x"}, [row]))
+    monkeypatch.setattr(
+        uninstall, "fate", lambda one, root: f"{uninstall.UNDECIDED} it cannot be placed"
+    )
+    monkeypatch.setattr(uninstall, "canonical", lambda one, root: None)
+
+    result = uninstall.main([])
+    said = [one for one in capsys.readouterr().out.splitlines() if one.strip()]
+
+    assert result.outcome == "INCOMPLETE"
+    assert said[0] == "  INCOMPLETE: 1 recorded targets could not be undone:"
+    assert said[1] == "    guard    ~/.somewhere/settings.json  ·  it cannot be placed"
+    assert said[2] == (
+        "  Nothing removed. A destination this run cannot place is not one it may touch."
+    )
+    assert len(said) == 3
+
+
 def test_uninstall_is_explicit_and_returns_receipted_outcome(
     tmp_path: Path,
     isolated_home: Path,

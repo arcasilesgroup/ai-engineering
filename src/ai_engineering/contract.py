@@ -2415,7 +2415,20 @@ DESCRIPTION_MAX = 1000
 # well as on a push and a pull request, because a release is the moment the claim stops being
 # about a branch and starts being about something a stranger will install. It stays
 # INCOMPLETE — the trigger exists and no release has fired it.
-REPO_CEILING = 69_009
+#
+# 69,009 to 69,338 for the second instalment of "raise the tests, not the floor".
+#
+# `update` and `uninstall` are the two modules the justfile names as dragging the package
+# average down, and measured together they were at 75%. Of 566 survivors, 242 lived in the
+# two `main` functions — the sentences a person reads when the verb refuses, which nothing
+# asserted because every fixture checked the outcome word and not the words.
+#
+# Nine cases later they are at 78%. `update.main` went from 112 survivors to 77 and
+# `uninstall.main` from 130 to 103, and the technique is the one that worked on the guards:
+# compare the whole printed block, line for line and in order, rather than looking for a
+# keyword in it. A refusal that keeps its keyword and loses its meaning is a refusal nobody
+# can act on, and `in` cannot tell the two apart.
+REPO_CEILING = 69_338
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

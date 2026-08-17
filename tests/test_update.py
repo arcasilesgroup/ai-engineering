@@ -272,3 +272,212 @@ def test_inside_a_repository_with_no_pin_the_verb_names_the_command_that_fixes_i
     (tmp_path / ".ai" / "config.toml").symlink_to(tmp_path / "nowhere.toml")
     assert update.main([]).outcome == "INCOMPLETE"
     assert "not set up" not in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------- what the verb says
+
+# One hundred and twelve mutants of `main` survived the pass that added this file, and the
+# reason is the one the justfile already records: almost every one of them is a sentence a
+# person reads when the verb refuses. The cases below assert whole printed blocks, line for
+# line, because a fixture that checks the outcome word and not the words lets every message
+# in this verb be rewritten into nonsense without a single test moving.
+
+
+def repository(tmp_path, version: str = "1.0.0"):
+    """A repository this verb will act on: a git tree with a pin in it."""
+
+    import subprocess
+
+    root = tmp_path / "repo"
+    (root / ".ai").mkdir(parents=True)
+    # `[framework] version`, which is the shape `_render_pin` reads. A bare `version = ...`
+    # at the top level parses and is refused, which is itself worth knowing: the pin has one
+    # canonical spelling and anything else is undecidable rather than assumed.
+    (root / ".ai" / "config.toml").write_text(
+        f'[framework]\nversion = "{version}"\n', encoding="utf-8"
+    )
+    subprocess.run(["git", "init", "-b", "main", str(root)], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(root), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-m",
+            "start",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return root
+
+
+def said(capsys) -> list[str]:
+    return [line for line in capsys.readouterr().out.splitlines() if line.strip()]
+
+
+def test_a_repository_already_on_the_target_version_says_so_and_passes(
+    tmp_path, monkeypatch, capsys
+):
+    """The success path that changes nothing, and the distinction inside it that took a
+    defect to find: `--dry-run` may not report PASS. A dry run that says "completed" for a
+    run which deliberately did nothing is the false green this product exists to remove, so
+    the word is WOULD_CHANGE — "a complete derivation that found no changes", where the empty
+    set is an exact set."""
+    from ai_engineering import update
+
+    root = repository(tmp_path, "1.0.0")
+    monkeypatch.setattr(update.paths, "repo_root", lambda: root)
+
+    result = update.main(["--to", "1.0.0"])
+
+    assert said(capsys) == [
+        "  1.0.0 → 1.0.0",
+        f"  would rewrite pin: {root / '.ai' / 'config.toml'}",
+        "  already pinned to that version. Nothing changed.",
+    ]
+    assert result.outcome == "PASS"
+
+    dry = update.main(["--to", "1.0.0", "--dry-run"])
+    assert dry.outcome == "WOULD_CHANGE", "a dry run reported the work as done"
+
+
+def test_uncommitted_framework_files_are_refused_and_force_only_prints(
+    tmp_path, monkeypatch, capsys
+):
+    """The refusal that protects somebody's unsaved work, in the words it uses.
+
+    `--force` is the interesting half: it does not overwrite. It prints exactly what it
+    would discard and still refuses, which is why the sentence promising that has to be
+    pinned — a flag whose help says "prints what would be discarded" and whose code discards
+    is the worst possible disagreement between the two.
+    """
+    from ai_engineering import update
+
+    root = repository(tmp_path, "1.0.0")
+    monkeypatch.setattr(update.paths, "repo_root", lambda: root)
+    (root / ".ai" / "config.toml").write_text(
+        '[framework]\nversion = "1.0.0"\n# edited\n', encoding="utf-8"
+    )
+
+    refused = update.main(["--to", "2.0.0"])
+    lines = said(capsys)
+
+    assert refused.outcome == "INCOMPLETE"
+    assert lines[2].startswith("  REFUSED — these are framework-owned and have uncommitted")
+    assert ".ai/config.toml" in lines[2]
+    assert lines[3] == (
+        "  Commit or discard them first. --force prints exactly what it would discard;"
+        " it never overwrites silently."
+    )
+    assert len(lines) == 4, lines
+
+    forced = update.main(["--to", "2.0.0", "--force"])
+    forced_lines = said(capsys)
+
+    assert forced.outcome == "INCOMPLETE", "--force overwrote instead of printing"
+    assert forced_lines[-1].startswith("  --force would discard: ")
+    assert ".ai/config.toml" in forced_lines[-1]
+    # And the file is exactly as the person left it.
+    assert "# edited" in (root / ".ai" / "config.toml").read_text(encoding="utf-8")
+
+
+def test_a_dry_run_that_changes_a_version_prints_the_plan_and_writes_nothing(
+    tmp_path, monkeypatch, capsys
+):
+    """Every line of the plan, in order. The count of migrations, the guard entry, and the
+    closing sentence are three separate claims about what would happen, and a person decides
+    whether to proceed by reading them."""
+    from ai_engineering import update
+
+    root = repository(tmp_path, "1.0.0")
+    monkeypatch.setattr(update.paths, "repo_root", lambda: root)
+    monkeypatch.setattr(update, "migrations", lambda pinned, target: [])
+    monkeypatch.setattr(update, "_guard_plan", lambda: ([], []))
+
+    result = update.main(["--to", "2.0.0", "--dry-run"])
+
+    assert said(capsys) == [
+        "  1.0.0 → 2.0.0",
+        f"  would rewrite pin: {root / '.ai' / 'config.toml'}",
+        "  0 migration(s) to run: none",
+        "  → no guard entry of ours is recorded here. `ai-eng init --global` wires one.",
+        "  dry run complete. Nothing changed.",
+    ]
+    assert result.outcome != "PASS"
+    assert '"1.0.0"' in (root / ".ai" / "config.toml").read_text(encoding="utf-8")
+
+
+def test_a_dry_run_over_migration_scripts_will_not_claim_exact_changes(
+    tmp_path, monkeypatch, capsys
+):
+    """The honest limit, stated. A migration script is arbitrary code, so a dry run cannot
+    say what it would write — and saying "dry run complete" over one would be a claim about
+    changes nobody derived."""
+    from ai_engineering import update
+
+    root = repository(tmp_path, "1.0.0")
+    monkeypatch.setattr(update.paths, "repo_root", lambda: root)
+    monkeypatch.setattr(update, "migrations", lambda pinned, target: [Path("m") / "one.py"])
+    monkeypatch.setattr(update, "_guard_plan", lambda: ([], []))
+
+    result = update.main(["--to", "2.0.0", "--dry-run"])
+    lines = said(capsys)
+
+    assert lines[2] == "  1 migration(s) to run: m/one.py"
+    assert lines[-1] == (
+        "  INCOMPLETE — migration scripts do not expose exact file changes. Nothing changed."
+    )
+    assert result.outcome != "PASS"
+
+
+def test_with_no_keyboard_the_update_refuses_rather_than_deciding_for_somebody(
+    tmp_path, monkeypatch, capsys
+):
+    """The verb rewrites files a person owns, so it asks. With no terminal there is nobody to
+    ask, and proceeding would be this framework taking a decision on somebody's behalf — the
+    exact thing its constitution forbids it."""
+    from ai_engineering import update
+
+    root = repository(tmp_path, "1.0.0")
+    monkeypatch.setattr(update.paths, "repo_root", lambda: root)
+    monkeypatch.setattr(update, "migrations", lambda pinned, target: [])
+    monkeypatch.setattr(update, "_guard_plan", lambda: ([], []))
+    monkeypatch.setattr(update.sys.stdin, "isatty", lambda: False)
+
+    result = update.main(["--to", "2.0.0"])
+
+    assert said(capsys)[-1] == (
+        "  an update is a person's decision and there is no keyboard here. Nothing changed."
+    )
+    assert result.outcome == "INCOMPLETE"
+    assert '"1.0.0"' in (root / ".ai" / "config.toml").read_text(encoding="utf-8")
+
+
+def test_anything_undecidable_stops_the_verb_with_the_reason_and_the_same_promise(
+    tmp_path, monkeypatch, capsys
+):
+    """Three places raise `Undecidable` and all three print the same shape: the reason, then
+    "Nothing changed." The promise is the load-bearing half — a refusal that named a cause
+    and left the tree half-written would be worse than no refusal at all."""
+    from ai_engineering import update
+
+    root = repository(tmp_path, "1.0.0")
+    monkeypatch.setattr(update.paths, "repo_root", lambda: root)
+
+    def undecidable(*_args, **_kwargs):
+        raise update.Undecidable("the reason somebody reads")
+
+    for attribute in ("_observe_pin", "dirty"):
+        with monkeypatch.context() as scoped:
+            scoped.setattr(update, attribute, undecidable)
+            result = update.main(["--to", "2.0.0"])
+            assert result.outcome == "INCOMPLETE", attribute
+            assert said(capsys)[-1] == (
+                "  INCOMPLETE — the reason somebody reads. Nothing changed."
+            ), attribute
