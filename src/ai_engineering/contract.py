@@ -2598,7 +2598,23 @@ DESCRIPTION_MAX = 1000
 # `--remote`'s default. A verdict word tells a person nothing — INCOMPLETE over "not inside a
 # repository" and INCOMPLETE over "specs could not be read safely" are the same word for a
 # mistake and a fault, and only the sentence separates them.
-REPO_CEILING = 71_769
+# 71,769 to 71,842 for a packaging requirement that is derived rather than typed.
+#
+# The release job checks the built wheel against eight paths written by hand in an earlier
+# wave, and nothing keeps that list in step with what the product reads. Two policy files
+# landed today and neither is in it — so if packaging ever stopped shipping
+# `policy/accessibility.toml`, assertion 26 would report "cannot be read here" on every
+# installed machine and the release that shipped it would have said nothing.
+#
+# The list comes out of the source now, parsed with `ast` rather than matched: every call
+# site, plus the adapters directory the dispatcher globs. Shown biting by removing the policy
+# directory from `pyproject.toml` and watching nine files come back named.
+#
+# The first version used a regular expression and read the sentence in this very comment out
+# of the source as a call — reporting a file called `...` as missing from the wheel. A tool
+# that cannot tell a call from prose about a call is the same defect one level up, and it took
+# ten minutes to arrive.
+REPO_CEILING = 71_865
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
