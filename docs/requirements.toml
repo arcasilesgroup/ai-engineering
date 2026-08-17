@@ -145,10 +145,10 @@ evidence = "find . -iname openai.yaml"
 
 [[requirement]]
 id = "EP-016"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "an enforcement receipt is bound to the adapter version and the denial protocol"
 evidence = "pytest tests/test_surface_adapter.py::test_an_adapter_past_its_first_version_carries_that_version_in_its_receipt_id"
-note = "the mechanism exists and the test cannot currently fail, because no adapter has ever been bumped past version 1"
+note = "the rule moved out of the loop that could not reach it and into `surface.receipt_binds_version`, so the seven shapes this tree does not have are exercised today rather than on the day somebody bumps an adapter"
 
 [[requirement]]
 id = "EP-017"

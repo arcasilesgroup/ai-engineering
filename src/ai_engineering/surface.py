@@ -160,6 +160,36 @@ def adapter_proof(surface: str) -> str:
         return ""
 
 
+def receipt_binds_version(declared: dict) -> str:
+    """Whether this adapter's receipt id moves when its denial protocol does.
+
+    The schema decided how an enforcement receipt is bound to the adapter version and the
+    denial protocol, and it chose not to add two fields — a second source of truth beside
+    `receipt_id` is the EP-300 defect arriving again. It made the id itself move: "when a
+    superseding version of this adapter changes what a denial looks like, this id moves with
+    it and every receipt written under the old one stops proving anything."
+
+    That was a sentence in a description and nothing read it. An adapter could go to version
+    2, keep `claude-code.enforcement`, and every receipt earned against version 1's denial
+    would carry on vouching for a protocol that had changed underneath it.
+
+    Version 1 needs nothing in the id, because there is no earlier protocol for a receipt to
+    have been earned against. Every version after it does. Returns the problem, or "" when
+    there is none, so the caller decides what a problem costs.
+    """
+
+    version = str(declared.get("adapter_version", "")).strip()
+    receipt_id = str((declared.get("proof") or {}).get("receipt_id", "")).strip()
+    if not version or not receipt_id:
+        return "the adapter declares no version or no receipt id, so nothing binds them"
+    if version == "1" or version in receipt_id:
+        return ""
+    return (
+        f"adapter version {version} keeps receipt id {receipt_id!r}: every receipt earned "
+        f"under the previous denial protocol still proves this one"
+    )
+
+
 def _standing(root: Path, surface: str, state: str, now: datetime) -> Standing:
     def answer(status: str, code: str, age: int | None = None) -> Standing:
         return Standing(surface, state, status, code, age)

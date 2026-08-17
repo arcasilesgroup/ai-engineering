@@ -891,25 +891,42 @@ def test_an_adapter_past_its_first_version_carries_that_version_in_its_receipt_i
     exact day it has to.
     """
 
-    from ai_engineering import paths
+    from ai_engineering import paths, surface
 
     adapters = sorted((paths.policy("adapters")).glob("*.adapter.json"))
     assert adapters, "there are no adapters, so this proves nothing"
 
     for found in adapters:
         declared = json.loads(found.read_text(encoding="utf-8"))
-        version = str(declared["adapter_version"])
-        receipt_id = str(declared["proof"]["receipt_id"])
-        if version != "1":
-            assert version in receipt_id, (
-                f"{found.name} is at adapter version {version} and its receipt id is "
-                f"{receipt_id!r}: every receipt earned under the previous denial protocol "
-                f"still proves this one"
-            )
+        assert surface.receipt_binds_version(declared) == "", found.name
 
-    # And the rule is shown biting, on an adapter that does what the schema warns about.
-    moved = {"adapter_version": "2", "proof": {"receipt_id": "claude-code.enforcement"}}
-    assert str(moved["adapter_version"]) not in str(moved["proof"]["receipt_id"])
+    # Every adapter shipped here is at version 1, so the loop above cannot fail today. It was
+    # the whole test, and the two lines that stood here in its place asserted a hand-written
+    # dictionary against itself — `"2" not in "claude-code.enforcement"` is arithmetic about
+    # a literal, and it would have gone on passing with the rule deleted.
+    #
+    # The rule lives in `surface.py` now, so it can be handed the shapes the tree does not
+    # have. Six of them: the version that needs nothing, the version that needs something and
+    # has it, three ways of having nothing, and the version that needs something and does not.
+    for declared, expect in (
+        ({"adapter_version": "1", "proof": {"receipt_id": "claude-code.enforcement"}}, ""),
+        ({"adapter_version": "2", "proof": {"receipt_id": "claude-code.enforcement.v2"}}, ""),
+        ({"adapter_version": "10", "proof": {"receipt_id": "cursor.enforcement.v10"}}, ""),
+        ({"adapter_version": "2", "proof": {"receipt_id": "claude-code.enforcement"}}, "problem"),
+        ({"adapter_version": "3", "proof": {"receipt_id": "opencode.enforcement.v2"}}, "problem"),
+        ({"adapter_version": "2", "proof": {}}, "problem"),
+        ({"proof": {"receipt_id": "claude-code.enforcement"}}, "problem"),
+    ):
+        answer = surface.receipt_binds_version(declared)
+        assert bool(answer) == bool(expect), f"{declared} answered {answer!r}"
+
+    # The refusal names the version and the id, because whoever reads it has to decide which
+    # of the two to change and cannot do that from "invalid adapter".
+    said = surface.receipt_binds_version(
+        {"adapter_version": "2", "proof": {"receipt_id": "claude-code.enforcement"}}
+    )
+    assert "version 2" in said and "claude-code.enforcement" in said
+    assert "still proves this one" in said
 
 
 def test_the_adapter_table_is_read_in_the_direction_its_schema_declares():

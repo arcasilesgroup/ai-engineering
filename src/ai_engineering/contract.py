@@ -2372,7 +2372,17 @@ DESCRIPTION_MAX = 1000
 # code did not enforce, which is this repository's most-found defect class, and it lasted one
 # commit. No component between the root and the file may be a link now, whichever way it
 # points.
-REPO_CEILING = 68_803
+#
+# 68,803 to 68,886 for EP-016, a rule whose test could not reach it.
+#
+# The schema bound an enforcement receipt to the adapter version by making the receipt id
+# move with the denial protocol. The test looped the shipped adapters and skipped its
+# assertion on every one, because all of them are at version 1 — and the two lines standing
+# in for the missing case asserted that "2" is not a substring of "claude-code.enforcement",
+# which is arithmetic about a literal and would pass with the rule deleted.
+#
+# `surface.receipt_binds_version` can be handed the shapes this tree does not have, and is.
+REPO_CEILING = 68_886
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
