@@ -1795,3 +1795,54 @@ def test_a_record_superseded_by_another_is_named_even_when_it_does_not_say_so(
     here = {line.split()[0][:4]: line for line in decide.listing(ROOT)}
     assert "← superseded by 0005, which says so" in here["0004"]
     assert "←" not in here["0002"]
+
+
+def test_accepting_a_pre_schema_record_is_refused_for_the_reason_it_is_refused_for(
+    tmp_path, monkeypatch, capsys
+):
+    """Two refusals that used to be one sentence, and the sentence was false.
+
+    `decide --accept` compared the status against the *quoted* literal, so the three records
+    written before the MADR schema — which carry a bare `status: proposed` — were told they
+    "had already left `proposed`". They had not. The operator read that five times about
+    records they were entitled to look at, and a message stating something the code did not
+    establish is this repository's most common defect.
+
+    Widening it to accept both spellings was the obvious repair and it was wrong, which is
+    why this case exists rather than a wider parser. Those records have no v1 frontmatter, so
+    accepting one writes authority fields into a header the schema does not describe — and
+    `madr.validate` then rejects the whole set. Measured on the real tree: PASS to
+    MADR_SCHEMA_INVALID on the first acceptance. A verb that produces an invalid record is
+    worse than one that refuses.
+    """
+    from ai_engineering import decide
+
+    records = tmp_path / "docs" / "adr"
+    records.mkdir(parents=True)
+    (tmp_path / ".ai").mkdir()
+    monkeypatch.setattr(decide.paths, "repo_root", lambda: tmp_path)
+
+    (records / "0001-old.md").write_text(
+        '---\nstatus: proposed\ndate: 2026-08-08\nspec: 005\nsupersedes: ""\n---\n\n# 0001. Old\n',
+        encoding="utf-8",
+    )
+    assert decide.main(["--accept", "0001"]).outcome == "INCOMPLETE"
+    said = capsys.readouterr().out
+    assert "predates the MADR schema" in said
+    assert "Migrate its frontmatter first" in said
+    assert "already left" not in said, "the refusal still says the thing that was not true"
+    # And nothing was written: the record is exactly as it was.
+    assert "authority_role" not in (records / "0001-old.md").read_text(encoding="utf-8")
+
+    # A record that really has left `proposed` gets the other message, and it names the
+    # state it found rather than a state it assumed.
+    (records / "0014-done.md").write_text(
+        '---\nschema: "urn:ai-engineering:madr:1"\nschema_version: "1"\ntype: "adr"\n'
+        'id: "0014"\ntitle: "Done"\ndate: "2026-08-17"\nspec: "010"\nstatus: "accepted"\n'
+        'supersedes: ""\n---\n\n# 0014. Done\n',
+        encoding="utf-8",
+    )
+    assert decide.main(["--accept", "0014"]).outcome == "INCOMPLETE"
+    later = capsys.readouterr().out
+    assert 'reads `status: "accepted"`' in later
+    assert "predates" not in later

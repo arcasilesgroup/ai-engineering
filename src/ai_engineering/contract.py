@@ -2528,7 +2528,20 @@ DESCRIPTION_MAX = 1000
 #
 # A control whose refusal a person cannot act on is the defect this repository is named
 # after, and it was sitting in the recovery path for a broken chain.
-REPO_CEILING = 70_852
+# 70,852 to 70,944 for a refusal that named the wrong reason, and for the repair that was
+# obvious and wrong.
+#
+# `decide --accept` compared the status against the quoted literal, so the three records
+# written before the MADR schema — bare `status: proposed` — were told they "had already left
+# proposed". They had not. The operator read that five times about records they were entitled
+# to look at.
+#
+# Widening it to accept both spellings passed immediately and broke the graph: those records
+# have no v1 frontmatter, so the acceptance wrote authority fields into a header the schema
+# does not describe and `madr.validate` went from PASS to MADR_SCHEMA_INVALID. Reverted. A
+# verb that produces an invalid record is worse than one that refuses, so the refusal stands
+# and now says which of the two reasons it is.
+REPO_CEILING = 70_944
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
