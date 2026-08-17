@@ -376,10 +376,10 @@ evidence = "pytest tests/test_scan.py -k 'missing_engine or missing_rules or a_c
 
 [[requirement]]
 id = "EP-051"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "a versioned tamper fixture flips one byte of a security artefact and forces a non-green result"
-evidence = "pytest tests/test_scan.py -k flipped_byte tests/test_sbom.py -k describing_a_different_wheel"
-note = "two artefacts covered now: one flipped byte of the scanner rules, and an SBOM that is valid in every way and describes a different wheel. No tamper fixture exists for a scanner binary or for the wheel itself, and the second of those needs a published release"
+evidence = "pytest tests/test_scan.py -k flipped_byte; pytest tests/test_sbom.py -k describing_a_different_wheel; pytest tests/test_acceptance.py -k canary"
+note = "three artefacts now. One flipped byte of the scanner rules. An SBOM valid in every way that describes a different wheel. And the scanner itself, at the one place where flipping a byte proves nothing — a binary either runs or it does not, so what is tampered with is its answer: a scanner that reports the pinned version and then fails to find a secret planted in front of it makes the run INCOMPLETE instead of clean. The wheel's own tamper fixture needs a published release and is EP-280"
 
 [[requirement]]
 id = "EP-052"

@@ -192,8 +192,18 @@ def pinned_scanner(monkeypatch):
     def scanner(argv, cwd):
         if argv[1] == "version":
             return SimpleNamespace(returncode=0, stdout=acceptance_privacy.GITLEAKS_VERSION)
-        seen = "".join(p.read_text(encoding="utf-8") for p in Path(cwd).rglob("*.json"))
-        return SimpleNamespace(returncode=1 if "AKIA" in seen else 0, stdout="")
+        # Every file, not only the payload. The scan is asked twice now — once about the
+        # directory and once about a secret the product plants in a temporary directory to
+        # check the scanner still finds one — and a stand-in that only ever read `*.json`
+        # answered the second call clean, which is exactly the tampered scanner the canary
+        # exists to catch. A fixture standing in for a working scanner has to behave like one.
+        seen = "".join(
+            one.read_text(encoding="utf-8", errors="replace")
+            for one in Path(cwd).rglob("*")
+            if one.is_file()
+        )
+        found = "AKIA" in seen or acceptance_privacy._CANARY_VALUE in seen
+        return SimpleNamespace(returncode=1 if found else 0, stdout="")
 
     monkeypatch.setattr(acceptance_privacy, "_run", scanner)
 

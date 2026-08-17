@@ -2504,7 +2504,21 @@ DESCRIPTION_MAX = 1000
 # is now a remote fact. PO-01, PO-06 and PO-13 keep their verdicts and lose a stale clause —
 # what remains is whether a freeze held and a reviewer was independent, and no artefact here
 # records waiting.
-REPO_CEILING = 70_579
+# 70,579 to 70,784 for a canary on the secret scanner: EP-051 at the one artefact where
+# flipping a byte proves nothing.
+#
+# A binary either runs or it does not, and one that does not is already caught. What has to be
+# tampered with is the answer. The version pin catches the wrong build; it cannot catch a
+# scanner that reports the right version and finds nothing — a wrapper on PATH, a config that
+# disabled every rule, an ignore file added upstream — and from inside this process those look
+# exactly like a clean tree.
+#
+# So clean is believed only after the same scanner found a secret planted where one certainly
+# is. The first canary used AWS's published example key and came back False: the scanner
+# allowlists it, and a canary it is entitled to ignore would have made every clean run refuse
+# forever. It also caught two test fixtures that modelled a scanner by answering clean to
+# everything, which is the tampered scanner this exists to refuse.
+REPO_CEILING = 70_784
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
