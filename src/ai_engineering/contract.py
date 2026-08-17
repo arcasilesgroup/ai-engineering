@@ -2382,7 +2382,16 @@ DESCRIPTION_MAX = 1000
 # which is arithmetic about a literal and would pass with the rule deleted.
 #
 # `surface.receipt_binds_version` can be handed the shapes this tree does not have, and is.
-REPO_CEILING = 68_886
+#
+# 68,886 to 68,903 for a flake CI caught that this machine could not.
+#
+# `test_submit_without_the_typed_confirmation_sends_nothing` rebuilt the payload to compare
+# digests, and `created_at` is `datetime.now()` — so the two payloads differ whenever the
+# clock ticks between the verb's build and the test's. It had been latent for a wave; routing
+# the draft through the executor made the first half slower and CI found it on the next run.
+# The fix reads the payload back off disk, which is also the stronger claim: the phrase has
+# to match the bytes a person was actually shown.
+REPO_CEILING = 68_903
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

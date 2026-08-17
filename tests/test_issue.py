@@ -281,9 +281,17 @@ def test_submit_without_the_typed_confirmation_sends_nothing(tmp_path, monkeypat
 
     assert result.outcome == "INCOMPLETE"
     assert len(asked) == 1
-    built = issue.build(**CLEAN)
-    assert issue.confirmation(built)[:20] in asked[0]
-    assert issue.digest(built)[:16] in asked[0]
+
+    # The payload that was drafted, read back off disk — not a second `build` of the same
+    # arguments. `created_at` is `datetime.now()`, so rebuilding it here produces a different
+    # payload whenever the clock ticks between the two calls, and the digest in the phrase is
+    # of the first one. That flake sat latent until a slower draft path widened the window
+    # and CI caught it; asserting against the bytes a person was actually shown is both the
+    # fix and the stronger claim, because the phrase has to match *that* payload.
+    drafted = json.loads(issue.draft_path(root).read_text(encoding="utf-8"))
+    assert issue.confirmation(drafted)[:20] in asked[0]
+    assert issue.digest(drafted)[:16] in asked[0]
+    assert drafted["kind"] == "bug" and drafted["title"] == CLEAN["title"]
 
 
 def test_a_confirmed_submit_stops_at_the_destination_that_does_not_exist(
