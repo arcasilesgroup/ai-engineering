@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="Propuesta clara para acelerar ai-engineering: commits por Task, revisión y gate por bloques de capacidad, y revisión final de integración.">
+  <title>ai-engineering | Implementar por bloques</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --bg: #f4f2eb;
+      --surface: #fcfbf7;
+      --surface-2: #e9e6dc;
+      --ink: #17201d;
+      --muted: #56625c;
+      --line: #cac7bc;
+      --line-strong: #989c96;
+      --green: #166e52;
+      --green-strong: #0d4b38;
+      --green-soft: #dcebe4;
+      --amber: #89570f;
+      --amber-soft: #f2e5cc;
+      --red: #913b35;
+      --red-soft: #f1dfdc;
+      --blue: #315e7d;
+      --blue-soft: #dce8ef;
+      --shadow: 0 20px 54px rgba(22, 31, 27, .09);
+      --radius: 14px;
+      --max: 1260px;
+      --sans: "Avenir Next", Avenir, "Segoe UI", Inter, system-ui, sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    html[data-theme="dark"] {
+      --bg: #0d1412;
+      --surface: #151e1b;
+      --surface-2: #1e2a26;
+      --ink: #eaf0ec;
+      --muted: #a7b3ad;
+      --line: #2d3b36;
+      --line-strong: #52635c;
+      --green: #70d0aa;
+      --green-strong: #a6e8ce;
+      --green-soft: #17382d;
+      --amber: #efb869;
+      --amber-soft: #3a2d19;
+      --red: #f0958c;
+      --red-soft: #3a2422;
+      --blue: #8bc1e3;
+      --blue-soft: #1b3040;
+      --shadow: 0 24px 60px rgba(0, 0, 0, .28);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 78px; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 17px;
+      line-height: 1.62;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--green-strong); text-underline-offset: 3px; }
+    a:hover { text-decoration-thickness: 2px; }
+    button { font: inherit; }
+    code, pre, .mono { font-family: var(--mono); }
+    code {
+      border-radius: 5px;
+      padding: .1em .32em;
+      background: var(--surface-2);
+      font-size: .88em;
+    }
+    :focus-visible { outline: 3px solid var(--green); outline-offset: 3px; }
+
+    .skip-link {
+      position: fixed;
+      z-index: 100;
+      top: 10px;
+      left: 10px;
+      padding: 9px 13px;
+      border-radius: 8px;
+      background: var(--ink);
+      color: var(--bg);
+      transform: translateY(-180%);
+    }
+    .skip-link:focus { transform: translateY(0); }
+
+    .topbar {
+      position: sticky;
+      z-index: 40;
+      top: 0;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--bg) 92%, transparent);
+      backdrop-filter: blur(14px);
+    }
+    .topbar-inner {
+      width: min(calc(100% - 32px), var(--max));
+      min-height: 62px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-width: 0;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .brand-mark {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      color: var(--green-strong);
+      font: 800 .68rem/1 var(--mono);
+    }
+    .brand-copy { display: grid; min-width: 0; line-height: 1.2; }
+    .brand-copy strong { font-size: .82rem; letter-spacing: .08em; text-transform: uppercase; }
+    .brand-copy small { overflow: hidden; color: var(--muted); font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
+    .top-actions { display: flex; gap: 8px; }
+    .top-actions button {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 7px 11px;
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .top-actions button:hover { border-color: var(--green); }
+
+    main { width: min(calc(100% - 32px), var(--max)); margin: 0 auto; padding-bottom: 100px; }
+    section { scroll-margin-top: 78px; }
+    .hero {
+      min-height: min(780px, calc(100vh - 62px));
+      display: grid;
+      align-content: center;
+      padding: clamp(72px, 10vw, 136px) 0 76px;
+    }
+    h1, h2, h3 { margin-top: 0; text-wrap: balance; }
+    h1 {
+      max-width: 1040px;
+      margin-bottom: 30px;
+      font-size: clamp(3.2rem, 8vw, 6rem);
+      font-weight: 760;
+      letter-spacing: -.04em;
+      line-height: .98;
+    }
+    h1 em { color: var(--green); font-style: normal; }
+    .hero-lead {
+      max-width: 870px;
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(1.18rem, 2.1vw, 1.56rem);
+      line-height: 1.48;
+    }
+    .offer {
+      max-width: 920px;
+      margin-top: 38px;
+      padding: 24px 0;
+      border-top: 1px solid var(--line-strong);
+      border-bottom: 1px solid var(--line-strong);
+    }
+    .offer strong { display: block; margin-bottom: 8px; color: var(--green-strong); }
+    .offer p { margin: 0; font-size: 1.12rem; }
+    .status {
+      display: inline-block;
+      margin-top: 24px;
+      border-radius: 999px;
+      padding: 6px 11px;
+      background: var(--amber-soft);
+      color: var(--amber);
+      font: 800 .68rem/1.2 var(--mono);
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .section { padding: 86px 0; border-top: 1px solid var(--line); }
+    .section > header { max-width: 880px; margin-bottom: 42px; }
+    h2 {
+      margin-bottom: 16px;
+      font-size: clamp(2.2rem, 4.5vw, 4.35rem);
+      letter-spacing: -.04em;
+      line-height: 1;
+    }
+    .section > header p { margin: 0; color: var(--muted); font-size: 1.08rem; }
+    h3 { margin-bottom: 10px; font-size: 1.3rem; letter-spacing: -.02em; line-height: 1.18; }
+    p { margin: 0 0 1em; }
+    p:last-child { margin-bottom: 0; }
+    ul, ol { padding-left: 1.25rem; }
+    li + li { margin-top: .42rem; }
+    .cite { font: 800 .68rem/1 var(--mono); text-decoration: none; white-space: nowrap; }
+    .unsourced { color: var(--amber); font: 800 .68rem/1 var(--mono); }
+
+    .decision-table {
+      overflow-x: auto;
+      border-top: 1px solid var(--line-strong);
+      border-bottom: 1px solid var(--line-strong);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 18px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font: 800 .68rem/1.35 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+    tr.recommended { background: var(--green-soft); }
+    .verdict { font-weight: 800; white-space: nowrap; }
+    .verdict.good { color: var(--green-strong); }
+    .verdict.bad { color: var(--red); }
+
+    .plain-answer {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+    .statement {
+      min-height: 390px;
+      display: grid;
+      align-content: space-between;
+      gap: 40px;
+      border-radius: var(--radius);
+      padding: clamp(28px, 4vw, 46px);
+      background: var(--ink);
+      color: var(--bg);
+      box-shadow: var(--shadow);
+    }
+    html[data-theme="dark"] .statement { background: #e6ede9; color: #111916; }
+    .statement p { font-size: clamp(1.7rem, 3vw, 2.8rem); font-weight: 700; letter-spacing: -.035em; line-height: 1.12; }
+    .statement small { max-width: 650px; font-size: .84rem; opacity: .72; }
+    .explain { padding: 12px 0; }
+    .explain ol { margin-bottom: 0; color: var(--muted); }
+    .explain strong { color: var(--ink); }
+
+    .flow { display: grid; gap: 0; counter-reset: flow; }
+    .flow-row {
+      display: grid;
+      grid-template-columns: 76px minmax(190px, .4fr) minmax(0, .6fr);
+      gap: 24px;
+      align-items: baseline;
+      padding: 24px 0;
+      border-top: 1px solid var(--line);
+      counter-increment: flow;
+    }
+    .flow-row:last-child { border-bottom: 1px solid var(--line); }
+    .flow-row::before { color: var(--green-strong); font: 800 1.65rem/1 var(--mono); content: "0" counter(flow); }
+    .flow-row strong { font-size: 1.12rem; }
+    .flow-row p { color: var(--muted); }
+    .flow-row.close { background: linear-gradient(90deg, var(--green-soft), transparent); }
+
+    .change-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+    .change-list { border-top: 4px solid var(--green); padding-top: 22px; }
+    .change-list.remove { border-top-color: var(--red); }
+    .change-list ul { margin-bottom: 0; color: var(--muted); }
+    .change-list strong { color: var(--ink); }
+
+    .commit-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .commit {
+      min-height: 116px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px;
+      background: var(--surface);
+    }
+    .commit strong { display: block; margin-bottom: 8px; font-size: .82rem; }
+    .commit span { color: var(--muted); font-size: .74rem; line-height: 1.4; }
+    .review-band {
+      padding: 26px 0;
+      border-top: 1px solid var(--green);
+      border-bottom: 1px solid var(--green);
+      background: var(--green-soft);
+    }
+    .review-band > * { margin-inline: 26px; }
+    .review-band strong { display: block; margin-bottom: 9px; color: var(--green-strong); }
+    .review-band p { max-width: 880px; }
+
+    .minimum { display: grid; grid-template-columns: .8fr 1.2fr; gap: 34px; }
+    .minimum-copy p { color: var(--muted); }
+    .checklist { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+    .checklist li {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 12px;
+      margin: 0;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .checklist li::before { color: var(--green-strong); font: 900 .8rem/1.5 var(--mono); content: "PASS"; transform: translateX(-6px); }
+    .checklist strong { display: block; }
+    .checklist span { color: var(--muted); font-size: .85rem; }
+
+    .blocks { display: grid; gap: 12px; }
+    .block {
+      display: grid;
+      grid-template-columns: 130px 180px minmax(0, 1fr) 140px;
+      gap: 18px;
+      align-items: center;
+      border-top: 1px solid var(--line);
+      padding: 19px 0;
+    }
+    .block:last-child { border-bottom: 1px solid var(--line); }
+    .block-name { font-weight: 800; }
+    .block-tasks { color: var(--green-strong); font: 800 .75rem/1.3 var(--mono); }
+    .block p { color: var(--muted); font-size: .88rem; }
+    .block-output { justify-self: end; color: var(--blue); font-size: .76rem; font-weight: 800; text-align: right; }
+
+    .cut-rule {
+      display: grid;
+      grid-template-columns: .7fr 1.3fr;
+      gap: 32px;
+      margin-top: 34px;
+      padding: clamp(28px, 4vw, 42px) 0;
+      border-top: 1px solid var(--red);
+      border-bottom: 1px solid var(--red);
+      background: var(--red-soft);
+    }
+    .cut-rule > *:first-child { margin-left: clamp(24px, 3vw, 36px); }
+    .cut-rule > *:last-child { margin-right: clamp(24px, 3vw, 36px); }
+    .cut-rule h3 { color: var(--red); }
+    .cut-rule ul { margin: 0; }
+
+    .final-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px; }
+    .final-grid article { border-top: 1px solid var(--line-strong); padding-top: 22px; }
+    .final-grid p, .final-grid li { color: var(--muted); }
+
+    .council {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .council article { border-top: 1px solid var(--line-strong); padding: 22px 0 0; }
+    .council strong { display: block; margin-bottom: 9px; color: var(--green-strong); }
+    .council p { color: var(--muted); font-size: .86rem; }
+    .consensus {
+      margin-top: 18px;
+      border-top: 1px solid var(--line-strong);
+      border-bottom: 1px solid var(--line-strong);
+      padding: 22px 0;
+      font-size: 1.12rem;
+    }
+
+    .governance {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      padding: clamp(28px, 4vw, 44px) 0;
+      border-top: 1px solid var(--amber);
+      border-bottom: 1px solid var(--amber);
+      background: var(--amber-soft);
+    }
+    .governance > *:first-child { margin-left: clamp(24px, 3vw, 36px); }
+    .governance > *:last-child { margin-right: clamp(24px, 3vw, 36px); }
+    .governance h3 { color: var(--amber); }
+    .governance ol { margin-bottom: 0; }
+
+    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); }
+    .metric { padding: 24px; border-right: 1px solid var(--line); }
+    .metric:last-child { border-right: 0; }
+    .metric strong { display: block; margin-bottom: 7px; color: var(--green-strong); font-size: clamp(2.2rem, 5vw, 4.2rem); letter-spacing: -.04em; line-height: 1; }
+    .metric span { color: var(--muted); font-size: .8rem; }
+
+    .sources { margin: 0; padding: 0; list-style: none; counter-reset: source; }
+    .sources li {
+      display: grid;
+      grid-template-columns: 45px minmax(0, 1fr);
+      gap: 12px;
+      margin: 0;
+      padding: 14px 0;
+      border-top: 1px solid var(--line);
+      counter-increment: source;
+    }
+    .sources li::before { color: var(--green-strong); font: 800 .72rem/1.5 var(--mono); content: "[" counter(source) "]"; }
+    .sources strong { display: block; margin-bottom: 3px; }
+    .sources span { color: var(--muted); font-size: .82rem; }
+    .footer-note { margin-top: 34px; color: var(--muted); font: 700 .7rem/1.5 var(--mono); }
+
+    @media (max-width: 980px) {
+      .commit-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .block { grid-template-columns: 110px 150px minmax(0, 1fr); }
+      .block-output { grid-column: 3; justify-self: start; text-align: left; }
+      .council { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .metric:nth-child(2) { border-right: 0; }
+      .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    }
+
+    @media (max-width: 720px) {
+      body { font-size: 15px; }
+      .brand-copy small, .print { display: none; }
+      .hero { min-height: auto; padding: 80px 0 64px; }
+      h1 { font-size: clamp(3rem, 15vw, 4.6rem); }
+      .section { padding: 66px 0; }
+      .plain-answer, .change-grid, .minimum, .cut-rule, .final-grid, .governance { grid-template-columns: 1fr; }
+      .cut-rule > *:first-child, .cut-rule > *:last-child,
+      .governance > *:first-child, .governance > *:last-child { margin-inline: 22px; }
+      .flow-row { grid-template-columns: 50px minmax(0, 1fr); gap: 12px; }
+      .flow-row p { grid-column: 2; }
+      .commit-strip { grid-template-columns: 1fr 1fr; }
+      .block { grid-template-columns: 1fr; gap: 7px; }
+      .block-output { grid-column: auto; }
+      .metrics { grid-template-columns: 1fr; }
+      .metric, .metric:nth-child(2) { border-right: 0; border-bottom: 1px solid var(--line); }
+      .metric:last-child { border-bottom: 0; }
+      th, td { padding: 13px 10px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+    @media print {
+      :root, html[data-theme="dark"] {
+        --bg: #fff; --surface: #fff; --surface-2: #eee; --ink: #111; --muted: #444;
+        --line: #bbb; --line-strong: #777; --green: #155d46; --green-strong: #124735;
+        --green-soft: #e6f0eb; --amber: #714806; --amber-soft: #f5ecd9;
+        --red: #7e302b; --red-soft: #f4e4e2; --blue: #315e7d; --blue-soft: #e4eef4;
+      }
+      .topbar { display: none; }
+      main { width: 100%; }
+      .hero { min-height: auto; padding: 18mm 0; }
+      .section { padding: 12mm 0; break-inside: avoid; }
+      a { color: inherit; text-decoration: none; }
+      a[href^="http"]::after { color: #555; font-size: 7pt; content: " (" attr(href) ")"; overflow-wrap: anywhere; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#inicio" aria-label="Volver al inicio">
+        <span class="brand-mark">ai·e</span>
+        <span class="brand-copy">
+          <strong>ai-engineering</strong>
+          <small>Propuesta de cadencia · LLM Council · 13 agosto 2026</small>
+        </span>
+      </a>
+      <div class="top-actions">
+        <button class="print" type="button" id="printButton">Imprimir</button>
+        <button type="button" id="themeButton" aria-label="Cambiar tema">Tema</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <section class="hero" id="inicio">
+      <h1>Implementamos por bloques.<br><em>Revisamos antes de depender.</em></h1>
+      <p class="hero-lead">Sí: tu idea de dejar de esperar un reviewer después de cada Task es la mejora principal. No recomiendo esperar hasta el final de todo P0; recomiendo una revisión profunda al cerrar cada bloque de capacidad y una revisión final de integración.</p>
+      <div class="offer">
+        <strong>Qué te ofrezco exactamente</strong>
+        <p>Cambiar el Plan 010 de 37 revisiones restantes —una por Task— a aproximadamente <strong>4 revisiones de bloque + 1 revisión final</strong>. Cada Task conserva su commit y su test focal, pero el writer continúa sin esperar hasta cerrar el bloque.</p>
+      </div>
+      <span class="status">Propuesta · todavía no activa</span>
+    </section>
+
+    <section class="section" id="decision">
+      <header>
+        <h2>La decisión</h2>
+        <p>El council comparó las tres opciones. Los tres miembros llegaron al mismo punto: agrupar el feedback reduce la espera; dejar todo el feedback para Task 53 acumula demasiado riesgo.</p>
+      </header>
+
+      <div class="decision-table">
+        <table>
+          <thead><tr><th>Opción</th><th>Velocidad de escritura</th><th>Riesgo de retrabajo</th><th>Veredicto</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Review después de cada Task</strong></td><td>Baja: writer y reviewer se esperan continuamente.</td><td>Bajo por Task, pero muchos ciclos y gates.</td><td class="verdict bad">Eliminar como norma</td></tr>
+            <tr><td><strong>Primera review al final de todo P0</strong></td><td>Muy alta al principio.</td><td>Muy alto: 37 Tasks restantes pueden depender de una base defectuosa.</td><td class="verdict bad">No recomendado</td></tr>
+            <tr class="recommended"><td><strong>Review por bloques + final</strong></td><td>Alta: varias Tasks avanzan sin handoff.</td><td>Acotado: cada capacidad se revisa antes de que otras dependan de ella.</td><td class="verdict good">Recomendado</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="plain-answer" style="margin-top:42px">
+        <article class="statement">
+          <p>Commit pequeño y probado. Review profunda por capacidad. Review final del sistema.</p>
+          <small>La review final deja de ser la primera búsqueda de defectos. Se concentra en integración, gobernanza, evidencia y release.</small>
+        </article>
+        <article class="explain">
+          <h3>Explicado sin proceso interno</h3>
+          <ol>
+            <li><strong>Fabricamos varias piezas relacionadas.</strong> Cada pieza se prueba al crearla.</li>
+            <li><strong>No esperamos al inspector entre piezas.</strong> El writer mantiene el contexto y continúa.</li>
+            <li><strong>Montamos el módulo pequeño.</strong> Entonces un reviewer inspecciona las piezas y cómo trabajan juntas.</li>
+            <li><strong>Corregimos todo el módulo de una vez.</strong> Ejecutamos el gate completo una vez.</li>
+            <li><strong>Antes de terminar la máquina,</strong> hacemos una review final de integración.</li>
+          </ol>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="flujo">
+      <header>
+        <h2>Cómo queda el proceso</h2>
+        <p>El ahorro viene de quitar esperas y gates completos entre Tasks. No viene de quitar TDD, commits atómicos, reviewer independiente, fail-closed ni el gate final.</p>
+      </header>
+
+      <div class="flow">
+        <div class="flow-row"><strong>Implementar una Task</strong><p>Un writer, scope aprobado, rojo primero, implementación mínima y focal verde.</p></div>
+        <div class="flow-row"><strong>Crear checkpoint</strong><p>Commit atómico y revertible. Se marca <strong>UNREVIEWED</strong>: no está aprobado, terminado, mergeable ni publicable.</p></div>
+        <div class="flow-row"><strong>Continuar el bloque</strong><p>El writer implementa la siguiente Task relacionada sin esperar reviewer ni ejecutar <code>just check</code> completo.</p></div>
+        <div class="flow-row"><strong>Cerrar la capacidad</strong><p>Se ejecuta la suite relacionada y se congela el bloque. Nada posterior depende del bloque hasta revisarlo.</p></div>
+        <div class="flow-row"><strong>Review consolidada</strong><p>Un reviewer independiente inspecciona cada commit y el diff acumulado: scope, arquitectura, integración, seguridad, tests y rollback.</p></div>
+        <div class="flow-row"><strong>Corregir una vez</strong><p>El writer recibe un ledger completo, corrige todos los findings y pasa una re-review acotada.</p></div>
+        <div class="flow-row close"><strong>Gate del bloque</strong><p><code>just check</code> una vez; dos solo si el primero falla y se modifica el código. El bloque queda aprobado y puede alimentar al siguiente.</p></div>
+        <div class="flow-row close"><strong>Review final</strong><p>Al terminar P0: integración entre bloques, autoridad, hard renames, completeness, readiness, receipts y gate exacto del HEAD final.</p></div>
+      </div>
+
+      <div class="change-grid" style="margin-top:42px">
+        <article class="change-list remove">
+          <h3>Lo que eliminamos</h3>
+          <ul>
+            <li>Reviewer después de cada Task.</li>
+            <li>Espera writer → reviewer → writer por cada microcorrección.</li>
+            <li><code>just check</code> después de cada Task y finding.</li>
+            <li>Reabrir una exploración completa por cada arreglo pequeño.</li>
+            <li><code>task-check</code>, dashboards y telemetría como solución inmediata.</li>
+          </ul>
+        </article>
+        <article class="change-list">
+          <h3>Lo que conservamos</h3>
+          <ul>
+            <li>TDD rojo primero y focal exacto.</li>
+            <li>Un commit atómico y rollback por Task.</li>
+            <li>Un solo writer antes de P3.</li>
+            <li>Reviewer independiente por bloque.</li>
+            <li>Fail-closed, adversarial, scanners y <code>just check</code>.</li>
+            <li>Hashes, autoridad humana, sin aliases, shims ni suppressions.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="commits">
+      <header>
+        <h2>Qué hacemos en cada commit</h2>
+        <p>No basta con comprobar secretos. Eso evitaría una fuga, pero todavía permitiría un commit que rompe su función, escribe fuera del repositorio, concede autoridad inexistente o no puede revertirse.</p>
+      </header>
+
+      <div class="minimum">
+        <article class="minimum-copy">
+          <h3>Control mínimo y barato</h3>
+          <p>No hay review semántica ni gate completo. Solo las pruebas deterministas necesarias para que el commit sea un checkpoint seguro y comprensible.</p>
+          <p><strong>Importante:</strong> el commit intermedio no se llama “done” ni “PASS”. Es trabajo probado localmente, pero todavía no revisado.</p>
+        </article>
+        <ul class="checklist">
+          <li><div><strong>Scope autorizado</strong><span>Exactamente una Task, un primary home y tests/fixtures permitidos.</span></div></li>
+          <li><div><strong>Focal rojo → verde</strong><span>El test exacto del plan falla antes del cambio y pasa después.</span></div></li>
+          <li><div><strong>Suite inmediata</strong><span>Tests baratos del módulo cuando existan; no el gate completo.</span></div></li>
+          <li><div><strong>Diff limpio</strong><span><code>git diff --check</code> y commit revertible con <code>git revert</code>.</span></div></li>
+          <li><div><strong>Higiene y privacidad</strong><span>Sin secretos, PII, rutas de máquina, suppressions ni <code>--no-verify</code>.</span></div></li>
+          <li><div><strong>Sin autoridad inventada</strong><span>Nada de publicar, instalar, aceptar riesgo o declarar el bloque aprobado.</span></div></li>
+        </ul>
+      </div>
+
+      <div style="margin-top:46px">
+        <div class="commit-strip" aria-label="Ejemplo de checkpoints de un bloque">
+          <div class="commit"><strong>Task N</strong><span>focal green<br>checkpoint<br>UNREVIEWED</span></div>
+          <div class="commit"><strong>Task N+1</strong><span>focal green<br>checkpoint<br>UNREVIEWED</span></div>
+          <div class="commit"><strong>Task N+2</strong><span>focal green<br>checkpoint<br>UNREVIEWED</span></div>
+          <div class="commit"><strong>Task N+3</strong><span>focal green<br>checkpoint<br>UNREVIEWED</span></div>
+          <div class="commit"><strong>Task N+4</strong><span>focal green<br>checkpoint<br>UNREVIEWED</span></div>
+        </div>
+        <div class="review-band">
+          <strong>Una review + una re-review + un <code>just check</code></strong>
+          <p>El reviewer lee cada commit contra su padre para comprobar atomicidad y también el rango completo para entender arquitectura e integración. Así conservamos cambios pequeños sin pagar el handoff completo cinco veces.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="bloques">
+      <header>
+        <h2>Los bloques restantes</h2>
+        <p>El council propone cuatro bloques de implementación y una revisión final. Son una primera partición para que la diferencia sea concreta; la spec/plan debe fijar el corte exacto antes de aplicarla.</p>
+      </header>
+
+      <div class="blocks">
+        <div class="block"><span class="block-name">Bloque A</span><span class="block-tasks">Tasks 17–26</span><p>MADRs, capabilities, outcomes y evidence foundation.</p><span class="block-output">Contrato gobernado completo</span></div>
+        <div class="block"><span class="block-name">Bloque B</span><span class="block-tasks">Tasks 27–39</span><p>Emission, UI, JSON y migración de los diez verbos.</p><span class="block-output">CLI integrada</span></div>
+        <div class="block"><span class="block-name">Bloque C</span><span class="block-tasks">Tasks 40–44</span><p>Guards, dispatcher, wiring y liveness del git anchor.</p><span class="block-output">Enforcement observado</span></div>
+        <div class="block"><span class="block-name">Bloque D</span><span class="block-tasks">Tasks 45–52</span><p>CI, install matrix, provenance, readiness, adversarial y completeness.</p><span class="block-output">Candidate evidence</span></div>
+        <div class="block"><span class="block-name">Cierre final</span><span class="block-tasks">Task 53</span><p>Transición atómica, review transversal y receipts exactos del HEAD final.</p><span class="block-output">P0 listo o INCOMPLETE</span></div>
+      </div>
+
+      <div class="cut-rule">
+        <div>
+          <h3>Cuándo cerrar antes</h3>
+          <p>Un bloque no se mide solo por número de Tasks. Se cierra cuando aparece una frontera que otras Tasks van a consumir.</p>
+        </div>
+        <ul>
+          <li>Autoridad, aceptación de riesgo o outcome terminal.</li>
+          <li>Guard fail-closed, telemetry o dispatcher blocking.</li>
+          <li>Parser de input no confiable, Git history o filesystem.</li>
+          <li>Symlinks, concurrencia, transacciones o rollback.</li>
+          <li>Mutación global, uninstall, red, publishing o release.</li>
+          <li>CI, evidence, provenance o los propios gates.</li>
+        </ul>
+      </div>
+
+      <p class="footer-note">El punto no es revisar “por calendario”. Es revisar antes de construir dependencias encima de una frontera todavía no inspeccionada.</p>
+    </section>
+
+    <section class="section" id="final">
+      <header>
+        <h2>Qué revisamos en el bloque y qué dejamos para el final</h2>
+        <p>La review final sí aporta valor, pero como review de sistema. No debe ser la primera vez que alguien intenta encontrar un escape de path o un fallo de autoridad en miles de líneas.</p>
+      </header>
+
+      <div class="final-grid">
+        <article>
+          <h3>Al cerrar cada bloque</h3>
+          <ul>
+            <li>Cada commit cumple su Task, scope y rollback.</li>
+            <li>El resultado integrado de la capacidad.</li>
+            <li>Fail-closed, autoridad y datos no confiables.</li>
+            <li>Filesystem, Git, concurrencia y transacciones aplicables.</li>
+            <li>KISS, DRY, YAGNI, SOLID y Clean Architecture.</li>
+            <li>Tests, adversariales cercanos y falsos positivos.</li>
+            <li>Ledger consolidado de findings y re-review.</li>
+          </ul>
+        </article>
+        <article>
+          <h3>En la review final de P0</h3>
+          <ul>
+            <li>Trazabilidad Spec 010 → bloques → implementación → tests.</li>
+            <li>Contratos y dependencias entre capacidades.</li>
+            <li>Hard renames y ausencia de homes/aliases antiguos.</li>
+            <li>Flujos completos de autoridad, outcomes y evidence.</li>
+            <li>Wheel instalado y surfaces.</li>
+            <li>CI, install matrix, readiness y release evidence.</li>
+            <li>Presupuesto exacto y receipts del mismo HEAD.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="council">
+      <header>
+        <h2>Qué dijo el LLM Council</h2>
+        <p>Tres análisis independientes evaluaron la propuesta desde seguridad/gobernanza, delivery flow y el mejor caso posible de “review solo al final”.</p>
+      </header>
+
+      <div class="council">
+        <article>
+          <strong>Seguridad y gobernanza</strong>
+          <p>Recomienda bloques de capacidad. Solo secretos no basta; el mínimo incluye focal, scope, privacidad, suppressions y rollback. Las fronteras de autoridad y fail-closed se revisan antes de ser consumidas.</p>
+        </article>
+        <article>
+          <strong>Delivery y arquitectura</strong>
+          <p>Recomienda commit por Task y review/gate por bloque. Reduce los costes fijos de handoff alrededor de 70–85% según el número de bloques, manteniendo diffs pequeños y reversibles. <span class="unsourced">[estimación, no medición]</span></p>
+        </article>
+        <article>
+          <strong>Abogado del final-only</strong>
+          <p>Acepta que final-only maximiza continuidad del writer, pero lo rechaza para 37 Tasks y hasta 20.000 líneas previstas: los fallos fundacionales contaminarían consumidores y la review perdería profundidad.</p>
+        </article>
+      </div>
+      <p class="consensus"><strong>Consenso:</strong> tu mecanismo principal es correcto —batching—, pero el punto seguro no es Task 53. Es el cierre de cada capacidad, más una review final transversal.</p>
+    </section>
+
+    <section class="section" id="gobernanza">
+      <header>
+        <h2>Qué hace falta para activarlo</h2>
+        <p>No puedo presentar esta cadencia como si ya estuviera autorizada. El plan vigente exige un reviewer fresco para cada diff y está aprobado por hashes exactos.</p>
+      </header>
+
+      <div class="governance">
+        <article>
+          <h3>El conflicto actual</h3>
+          <p><code>plan.md</code> establece que cada implementación y cada review se delega, que un reviewer fresco revisa cada diff y que cada Task es un commit atómico. Cambiar la cadencia sin tocar el plan doblaría el contrato.</p>
+          <p>La Task 17 ya está en el árbol como trabajo no relacionado. Esta propuesta no la modifica ni reescribe su commit.</p>
+        </article>
+        <article>
+          <h3>Secuencia de activación</h3>
+          <ol>
+            <li>Terminar o preservar aparte la Task 17 actual.</li>
+            <li>Modificar el plan para definir bloques, checkpoints <code>UNREVIEWED</code>, controles mínimos y cierres.</li>
+            <li>Recalcular hashes de spec/plan.</li>
+            <li>Obtener aprobación humana explícita de esos hashes.</li>
+            <li>Empezar la nueva cadencia solo después de la aprobación.</li>
+          </ol>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="impacto">
+      <header>
+        <h2>Qué ahorro esperamos</h2>
+        <p>El ahorro de handoffs es aritmético; el ahorro de tiempo real debe medirse. No prometemos que toda Task sensible sea más corta ni usamos el reloj para aprobar.</p>
+      </header>
+
+      <div class="metrics">
+        <div class="metric"><strong>37 → 5</strong><span>inicios de review restantes, con la partición propuesta</span></div>
+        <div class="metric"><strong>~86%</strong><span>menos arranques de review <span class="unsourced">[aritmética, no lead time]</span></span></div>
+        <div class="metric"><strong>1–2</strong><span><code>just check</code> por bloque, no por Task</span></div>
+        <div class="metric"><strong>0</strong><span>controles finales eliminados</span></div>
+      </div>
+
+      <p class="footer-note">Task 15/16 seguirían mereciendo cortes tempranos por parser, Git, filesystem y TOCTOU. El mayor ahorro proviene de agrupar documentación, declarations, migrations repetitivas y trabajo de integración de bajo acoplamiento de riesgo.</p>
+    </section>
+
+    <section class="section" id="fuentes">
+      <header>
+        <h2>Fuentes y evidencia</h2>
+        <p>Investigación actualizada el 2026-08-13. Se priorizó evidencia local y documentación primaria. Las estimaciones se marcan como tales.</p>
+      </header>
+
+      <ol class="sources">
+        <li><div><strong><a href="../../../specs/010-governed-agentic-engineering-foundation/plan.md">Plan vigente de Spec 010</a></strong><span>Autoridad local: hashes, un writer, reviewer fresco por diff, commits atómicos, focales exactos y Tasks 17–53.</span></div></li>
+        <li><div><strong>Git local · Tasks 12–16</strong><span><code>git log</code> y <code>git show</code>: Task 15 duró 123m34s y añadió 1.594 líneas; Task 16 duró 50m30s.</span></div></li>
+        <li><div><strong>Engram local · cronología Task 15/16</strong><span>Observaciones #2052–#2126: primer verde, cinco revisiones en Task 15 y TOCTOU encontrado en re-review de Task 16.</span></div></li>
+        <li><div><strong><a href="https://doi.org/10.6028/NIST.SP.800-218">NIST SSDF v1.1</a></strong><span>PW.2, PW.7 y PW.8: revisión de diseño/riesgo, review y análisis según etapa, checklists, triage y tests de seguridad.</span></div></li>
+        <li><div><strong><a href="https://google.github.io/eng-practices/review/developer/small-cls.html">Google Engineering Practices · Small CLs</a></strong><span>Los cambios pequeños son más fáciles de revisar, razonar y revertir; los cambios grandes pierden profundidad y aumentan desperdicio.</span></div></li>
+        <li><div><strong><a href="https://google.github.io/eng-practices/review/reviewer/navigate.html">Google Engineering Practices · Navigating a CL</a></strong><span>Revisar primero diseño y partes principales; después recorrer todo el cambio en una secuencia clara.</span></div></li>
+        <li><div><strong><a href="https://dora.dev/capabilities/working-in-small-batches/">DORA · Working in small batches</a></strong><span>Los lotes pequeños mejoran feedback; reagrupar demasiado retrasa la detección, especialmente con carga cognitiva de código generado por IA.</span></div></li>
+        <li><div><strong><a href="../../../justfile">Gate local</a></strong><span><code>just check</code> conserva build, lint, typecheck, tests, coverage, adversarial, gitleaks, semgrep, trivy y counts.</span></div></li>
+      </ol>
+
+      <p class="footer-note">ARTEFACTO DE PROPUESTA · No es spec, plan, aprobación, PASS ni aceptación de riesgo. No cambia el producto.</p>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const stored = localStorage.getItem('ai-eng-block-review-theme');
+      if (stored === 'light' || stored === 'dark') root.dataset.theme = stored;
+      document.getElementById('themeButton').addEventListener('click', () => {
+        root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('ai-eng-block-review-theme', root.dataset.theme);
+      });
+      document.getElementById('printButton').addEventListener('click', () => window.print());
+    })();
+  </script>
+</body>
+</html>

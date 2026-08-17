@@ -2125,7 +2125,23 @@ DESCRIPTION_MAX = 1000
 # Both directions are asserted now, because one of them passes with `base` ignored, and an
 # unresolvable base is held to not reading as an empty range. Verified by making `staged`
 # discard the argument and watching the pair go red.
-REPO_CEILING = 64_471
+#
+# 64,471 to 64,507 for the two research documents entering the tree, which cost twenty lines
+# rather than 4,293 because `.ai/reports/` joins `specs/` and `docs/adr/` as not the product.
+#
+# The owner accepted the recommendation to commit them. Until now the whole of spec 010 was
+# judged against two files the repository ignored, so `docs/requirements.toml` — 411 rows, each
+# naming the command that decides it — was the only in-tree record of what they asked, and
+# nobody but the machine that wrote it could check the copy. A ledger whose source its readers
+# cannot open is a ledger they take on trust, which is the one thing refused everywhere else
+# here.
+#
+# They are excluded from the count rather than paid for: counting them would put the tree over
+# its bound for bringing its own source of truth into view, and raising the bound by their size
+# would say the ceiling is negotiable by adding files. `.ai/` stays disposable and this is the
+# exception that proves it — these two are inputs the work is judged against, not state the
+# work produces.
+REPO_CEILING = 64_507
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
@@ -2236,7 +2252,13 @@ def _corpus_problems(folder: Path, name: str) -> list[str]:
 # Not the product, so not counted, and these two reasons are the only ones that qualify:
 # the record grows by design every time a decision is written down, and nobody here wrote
 # the licence or can shorten it. Everything we chose to write, documentation included, counts.
-NOT_THE_PRODUCT = ("specs/", "docs/adr/", "LICENSE", "NOTICE")
+# What the ceiling does not count, and the rule is one sentence: this is the record and the
+# inputs, not the thing that ships. `.ai/reports/` joins them because those two documents are
+# what the whole of spec 010 is judged against — 4,293 lines of research nobody wrote here and
+# nobody may edit to fit. Counting them would put the tree over its bound for having brought
+# its own source of truth into view, and raising the bound by their size would say the ceiling
+# is negotiable by adding files. Neither is the answer; they are simply not the product.
+NOT_THE_PRODUCT = ("specs/", "docs/adr/", ".ai/reports/", "LICENSE", "NOTICE")
 
 
 def tracked(root: Path) -> list[str]:

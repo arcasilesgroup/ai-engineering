@@ -1,0 +1,3532 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Plan definitivo propuesto para evolucionar ai-engineering como control plane de ingeniería agéntica gobernada.">
+  <title>ai-engineering | Plan definitivo propuesto</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --bg: #f4f7f5;
+      --bg-raised: #fbfdfc;
+      --bg-muted: #e9efec;
+      --ink: #15201d;
+      --ink-soft: #394741;
+      --ink-faint: #3d4b46;
+      --line: #cbd5d1;
+      --line-strong: #9dada6;
+      --accent: #1f795b;
+      --accent-strong: #11533d;
+      --accent-soft: #d7ebe2;
+      --warn: #5b3b08;
+      --warn-soft: #f3e8cf;
+      --risk: #5f271f;
+      --risk-soft: #f4dedb;
+      --code: #101917;
+      --code-ink: #dce8e3;
+      --shadow: 0 20px 50px rgba(32, 55, 46, 0.08);
+      --radius: 14px;
+      --max: 1480px;
+      --header: 68px;
+      --sans: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    html[data-theme="dark"] {
+      --bg: #0f1714;
+      --bg-raised: #15201c;
+      --bg-muted: #1b2924;
+      --ink: #edf4f1;
+      --ink-soft: #b4c2bd;
+      --ink-faint: #b4c2bd;
+      --line: #30443c;
+      --line-strong: #536d62;
+      --accent: #64c49f;
+      --accent-strong: #a4e3c9;
+      --accent-soft: #15352a;
+      --warn: #f0cb82;
+      --warn-soft: #3e321c;
+      --risk: #f4bbb4;
+      --risk-soft: #422a27;
+      --code: #0a100e;
+      --code-ink: #dce8e3;
+      --shadow: 0 24px 56px rgba(0, 0, 0, 0.26);
+    }
+
+    html[data-theme="dark"] .button,
+    html[data-theme="dark"] .filter[aria-pressed="true"] {
+      color: #102019;
+    }
+
+    html[data-theme="dark"] .button.secondary {
+      color: var(--ink);
+    }
+
+    html[data-theme="dark"] .button.secondary.capability-more {
+      background: var(--accent-strong);
+      color: #102019;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: calc(var(--header) + 24px);
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    a {
+      color: var(--accent-strong);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+
+    a:hover {
+      text-decoration-thickness: 2px;
+    }
+
+    :focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 100;
+      top: 12px;
+      left: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: var(--ink);
+      color: var(--bg);
+      transform: translateY(-180%);
+      transition: transform 160ms ease;
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .topbar {
+      position: sticky;
+      z-index: 40;
+      top: 0;
+      height: var(--header);
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: blur(16px);
+    }
+
+    .topbar-inner {
+      width: min(100% - 32px, var(--max));
+      height: 100%;
+      margin-inline: auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      min-height: 44px;
+      align-items: center;
+      gap: 12px;
+      color: var(--ink);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      color: var(--accent-strong);
+      font: 700 13px/1 var(--mono);
+      letter-spacing: -0.05em;
+    }
+
+    .brand-copy {
+      display: grid;
+      gap: 1px;
+      line-height: 1.2;
+    }
+
+    .brand-copy strong {
+      font-size: 14px;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-copy span {
+      color: var(--ink-faint);
+      font: 11px/1.2 var(--mono);
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .utility {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg-raised);
+      color: var(--ink);
+      cursor: pointer;
+      transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+    }
+
+    .utility:hover {
+      border-color: var(--line-strong);
+      background: var(--bg-muted);
+    }
+
+    .utility:active {
+      transform: translateY(1px);
+    }
+
+    .report-shell {
+      width: min(100% - 32px, var(--max));
+      margin-inline: auto;
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: clamp(28px, 4vw, 64px);
+    }
+
+    .toc {
+      position: sticky;
+      top: calc(var(--header) + 24px);
+      align-self: start;
+      max-height: calc(100dvh - var(--header) - 48px);
+      padding: 18px 0;
+      overflow: auto;
+    }
+
+    .toc-title {
+      margin: 0 0 10px;
+      color: var(--ink-faint);
+      font: 700 10px/1.2 var(--mono);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .toc nav {
+      display: grid;
+      gap: 2px;
+    }
+
+    .toc a {
+      padding: 7px 10px;
+      border-left: 2px solid transparent;
+      color: var(--ink-soft);
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    .toc a:hover,
+    .toc a[aria-current="true"] {
+      border-left-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+    }
+
+    .toc-meta {
+      margin-top: 20px;
+      padding: 14px 10px 0;
+      border-top: 1px solid var(--line);
+      color: var(--ink-faint);
+      font: 11px/1.55 var(--mono);
+    }
+
+    main {
+      min-width: 0;
+      padding-bottom: 100px;
+    }
+
+    .mobile-jump {
+      display: none;
+      position: sticky;
+      z-index: 30;
+      top: var(--header);
+      padding: 10px 0;
+      background: var(--bg);
+    }
+
+    .mobile-jump select {
+      width: 100%;
+      min-height: 44px;
+      padding: 8px 38px 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg-raised);
+      color: var(--ink);
+    }
+
+    .hero {
+      min-height: calc(100dvh - var(--header));
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+      gap: clamp(38px, 6vw, 90px);
+      align-items: center;
+      padding: clamp(64px, 9vh, 100px) 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-copy {
+      max-width: 810px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      margin-bottom: 22px;
+      padding: 7px 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      color: var(--accent-strong);
+      font: 700 11px/1 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      max-width: 15ch;
+      margin-bottom: 26px;
+      font-size: clamp(48px, 7vw, 96px);
+      font-weight: 650;
+      line-height: 0.95;
+      letter-spacing: -0.06em;
+    }
+
+    .hero-lede {
+      max-width: 720px;
+      margin-bottom: 32px;
+      color: var(--ink-soft);
+      font-size: clamp(18px, 2vw, 23px);
+      line-height: 1.45;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 46px;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      border: 1px solid var(--accent-strong);
+      border-radius: 10px;
+      background: var(--accent-strong);
+      color: #f7fbf9;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform 160ms ease, filter 160ms ease;
+      white-space: nowrap;
+    }
+
+    .button:hover {
+      filter: brightness(1.08);
+      text-decoration: none;
+    }
+
+    .button:active {
+      transform: translateY(1px);
+    }
+
+    .button.secondary {
+      border-color: var(--line-strong);
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .snapshot {
+      padding: clamp(24px, 3vw, 38px);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: var(--bg-raised);
+      box-shadow: var(--shadow);
+    }
+
+    .snapshot-head {
+      margin-bottom: 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .snapshot-head strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 18px;
+    }
+
+    .snapshot-head span {
+      color: var(--ink-faint);
+      font: 12px/1.5 var(--mono);
+    }
+
+    .metric-list {
+      display: grid;
+      gap: 0;
+      margin: 0;
+    }
+
+    .metric {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: baseline;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .metric:last-child {
+      border-bottom: 0;
+    }
+
+    .metric dt {
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .metric dd {
+      margin: 0;
+      color: var(--ink);
+      font: 700 19px/1 var(--mono);
+      letter-spacing: -0.04em;
+    }
+
+    .snapshot-note {
+      margin: 20px 0 0;
+      padding: 14px;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .section {
+      padding: clamp(74px, 9vw, 124px) 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head {
+      max-width: 870px;
+      margin-bottom: clamp(34px, 5vw, 62px);
+    }
+
+    .section-head h2 {
+      margin-bottom: 18px;
+      font-size: clamp(36px, 5vw, 66px);
+      font-weight: 630;
+      line-height: 1;
+      letter-spacing: -0.055em;
+    }
+
+    .section-head p {
+      max-width: 72ch;
+      margin-bottom: 0;
+      color: var(--ink-soft);
+      font-size: clamp(17px, 1.6vw, 20px);
+    }
+
+    .thesis-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+      gap: 22px;
+    }
+
+    .thesis-main,
+    .thesis-side {
+      padding: clamp(24px, 4vw, 44px);
+      border-radius: var(--radius);
+    }
+
+    .thesis-main {
+      background: var(--ink);
+      color: var(--bg);
+    }
+
+    .thesis-side {
+      border: 1px solid var(--line);
+      background: var(--bg-raised);
+    }
+
+    .thesis-main h3,
+    .thesis-side h3 {
+      margin-bottom: 22px;
+      font-size: clamp(25px, 3vw, 38px);
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+    }
+
+    .thesis-main p {
+      color: color-mix(in srgb, var(--bg) 74%, transparent);
+    }
+
+    .thesis-main strong {
+      color: var(--bg);
+    }
+
+    .principle-list {
+      display: grid;
+      gap: 0;
+      margin: 24px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .principle-list li {
+      padding: 13px 0;
+      border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+    }
+
+    .principle-list strong {
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .comparison-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--bg-raised);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      padding: 17px 18px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--ink-soft);
+      font: 700 11px/1.4 var(--mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td:first-child {
+      min-width: 180px;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    td:not(:first-child) {
+      min-width: 230px;
+      color: var(--ink-soft);
+    }
+
+    .mono {
+      font-family: var(--mono);
+      letter-spacing: -0.02em;
+    }
+
+    .fact {
+      color: var(--ink);
+      font-family: var(--mono);
+      font-weight: 700;
+    }
+
+    .callout {
+      margin-top: 24px;
+      padding: 20px 22px;
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+    }
+
+    .callout strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .legacy-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .legacy-card {
+      grid-column: span 4;
+      min-height: 245px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--bg-raised);
+    }
+
+    .legacy-card:nth-child(1),
+    .legacy-card:nth-child(6) {
+      grid-column: span 7;
+    }
+
+    .legacy-card:nth-child(2),
+    .legacy-card:nth-child(7) {
+      grid-column: span 5;
+    }
+
+    .legacy-card h3 {
+      margin-bottom: 12px;
+      font-size: 22px;
+      line-height: 1.15;
+      letter-spacing: -0.035em;
+    }
+
+    .legacy-card p {
+      margin-bottom: 16px;
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .legacy-card .source {
+      color: var(--ink-faint);
+      font: 11px/1.5 var(--mono);
+    }
+
+    .legacy-card.emphasis {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .lesson-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .lesson {
+      padding: 14px;
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--bg-raised) 82%, transparent);
+    }
+
+    .lesson span {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink-faint);
+      font: 700 10px/1.2 var(--mono);
+      text-transform: uppercase;
+    }
+
+    .lesson strong {
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .capability-toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .search {
+      min-height: 48px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg-raised);
+      color: var(--ink);
+    }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .filter {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--ink-soft);
+      cursor: pointer;
+    }
+
+    .filter[aria-pressed="true"] {
+      border-color: var(--accent-strong);
+      background: var(--accent-strong);
+      color: #f7fbf9;
+    }
+
+    .capability-summary {
+      margin-bottom: 14px;
+      color: var(--ink-faint);
+      font: 12px/1.5 var(--mono);
+    }
+
+    .capability-more {
+      margin: 16px 0 0;
+    }
+
+    .capability-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .capability {
+      display: grid;
+      grid-template-columns: minmax(150px, 0.7fr) minmax(140px, 0.55fr) minmax(0, 1.75fr);
+      gap: 18px;
+      align-items: start;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--bg-raised);
+    }
+
+    .capability[hidden] {
+      display: none;
+    }
+
+    .capability-name {
+      font: 700 14px/1.4 var(--mono);
+      color: var(--ink);
+    }
+
+    .capability-domain {
+      margin-top: 4px;
+      color: var(--ink-faint);
+      font-size: 12px;
+    }
+
+    .status {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      padding: 5px 8px;
+      border: 1px solid currentColor;
+      border-radius: 7px;
+      font: 700 10px/1.2 var(--mono);
+      text-transform: uppercase;
+    }
+
+    .status.keep,
+    .status.restore {
+      color: var(--accent-strong);
+      background: var(--accent-soft);
+    }
+
+    .status.absorb,
+    .status.later {
+      color: var(--warn);
+      background: var(--warn-soft);
+    }
+
+    .status.out {
+      color: var(--risk);
+      background: var(--risk-soft);
+    }
+
+    .capability-copy {
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .capability-copy strong {
+      color: var(--ink);
+    }
+
+    .target-count {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 22px;
+      align-items: center;
+      margin-top: 28px;
+      padding: 24px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: var(--bg-muted);
+    }
+
+    .target-count .number {
+      min-width: 112px;
+      color: var(--accent-strong);
+      font: 750 clamp(56px, 8vw, 92px)/0.9 var(--mono);
+      letter-spacing: -0.08em;
+    }
+
+    .target-count h3 {
+      margin-bottom: 8px;
+      font-size: 24px;
+      letter-spacing: -0.035em;
+    }
+
+    .target-count p {
+      margin-bottom: 0;
+      color: var(--ink-soft);
+    }
+
+    .skill-suite {
+      display: grid;
+      gap: 28px;
+    }
+
+    .skill-group {
+      display: grid;
+      grid-template-columns: minmax(130px, 0.24fr) minmax(0, 1fr);
+      gap: 22px;
+      align-items: start;
+    }
+
+    .skill-group-title {
+      position: sticky;
+      top: calc(var(--header) + 18px);
+      padding-top: 4px;
+    }
+
+    .skill-group-title span {
+      display: block;
+      color: var(--accent-strong);
+      font: 700 11px/1.4 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .skill-group-title p {
+      margin: 8px 0 0;
+      color: var(--ink-faint);
+      font-size: 13px;
+    }
+
+    .skill-cards {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .skill-card {
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--bg-raised);
+    }
+
+    .skill-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .skill-head h3 {
+      margin: 0;
+      font: 750 18px/1.3 var(--mono);
+      letter-spacing: -0.035em;
+    }
+
+    .skill-number {
+      color: var(--ink-faint);
+      font: 700 11px/1.4 var(--mono);
+    }
+
+    .skill-card dl {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 8px 12px;
+      margin: 0;
+    }
+
+    .skill-card dt {
+      color: var(--ink-faint);
+      font: 700 10px/1.5 var(--mono);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .skill-card dd {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 13px;
+    }
+
+    .skill-policy {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px;
+      margin-top: 28px;
+    }
+
+    .skill-policy > article {
+      padding: 22px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: var(--bg-muted);
+    }
+
+    .skill-policy h3 {
+      margin-bottom: 8px;
+      font-size: 20px;
+    }
+
+    .skill-policy p {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .verb-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin: 16px 0 0;
+    }
+
+    .verb-strip code {
+      padding: 6px 9px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--bg);
+      color: var(--ink);
+      font: 700 11px/1.2 var(--mono);
+    }
+
+    .json-contract {
+      margin: 16px 0 0;
+      padding: 16px;
+      overflow: auto;
+      border-radius: 10px;
+      background: var(--code);
+      color: var(--code-ink);
+      font: 11px/1.6 var(--mono);
+      white-space: pre;
+    }
+
+    .architecture {
+      display: grid;
+      gap: 14px;
+      padding: clamp(20px, 4vw, 42px);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: var(--code);
+      color: var(--code-ink);
+      overflow: hidden;
+    }
+
+    .arch-row {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .arch-label {
+      display: flex;
+      align-items: center;
+      color: #96aaa2;
+      font: 700 11px/1.4 var(--mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .arch-cells {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+    }
+
+    .arch-cell {
+      min-height: 76px;
+      padding: 14px;
+      border: 1px solid #355047;
+      border-radius: 10px;
+      background: #15231e;
+    }
+
+    .arch-cell strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #eff8f4;
+      font-size: 13px;
+    }
+
+    .arch-cell span {
+      color: #9fb3ab;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .arch-cell.accent {
+      border-color: #64c49f;
+      background: #17352a;
+    }
+
+    .arch-cell.accent span {
+      color: #c9d5d0;
+    }
+
+    .arch-arrow {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 18px;
+      color: #64c49f;
+    }
+
+    .arch-arrow div:last-child {
+      padding-left: 16px;
+      font: 700 18px/1 var(--mono);
+    }
+
+    .architecture-notes {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+      margin-top: 22px;
+    }
+
+    .arch-note {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--bg-raised);
+    }
+
+    .arch-note h3 {
+      margin-bottom: 10px;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .arch-note p,
+    .arch-note li {
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .flow {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+      margin-top: 26px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .flow-step {
+      flex: 1 0 150px;
+      min-height: 120px;
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg-raised);
+    }
+
+    .flow-step strong {
+      display: block;
+      margin-bottom: 9px;
+      font: 700 13px/1.3 var(--mono);
+      color: var(--accent-strong);
+    }
+
+    .flow-step span {
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .flow-join {
+      display: grid;
+      flex: 0 0 18px;
+      place-items: center;
+      color: var(--accent);
+      font: 700 18px/1 var(--mono);
+    }
+
+    .surface-overview {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .surface-contract {
+      padding: 26px;
+      border-radius: var(--radius);
+      background: var(--ink);
+      color: var(--bg);
+    }
+
+    .surface-contract h3 {
+      margin-bottom: 12px;
+      font-size: 24px;
+      letter-spacing: -0.035em;
+    }
+
+    .surface-contract p {
+      color: color-mix(in srgb, var(--bg) 72%, transparent);
+      font-size: 14px;
+    }
+
+    .contract-chain {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 18px;
+    }
+
+    .contract-chain span {
+      padding: 6px 8px;
+      border: 1px solid color-mix(in srgb, var(--bg) 30%, transparent);
+      border-radius: 7px;
+      font: 11px/1.2 var(--mono);
+    }
+
+    .surface-legend {
+      display: grid;
+      gap: 10px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--bg-raised);
+    }
+
+    .surface-legend div {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: baseline;
+    }
+
+    .surface-legend strong {
+      color: var(--accent-strong);
+      font: 700 12px/1 var(--mono);
+    }
+
+    .surface-legend span {
+      color: var(--ink-soft);
+      font-size: 13px;
+    }
+
+    .surface-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .surface {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--bg-raised);
+    }
+
+    .surface summary {
+      display: grid;
+      grid-template-columns: minmax(170px, 0.8fr) 90px 120px minmax(190px, 1.3fr);
+      gap: 14px;
+      align-items: center;
+      min-height: 72px;
+      padding: 14px 18px;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .surface summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .surface summary::after {
+      content: "+";
+      justify-self: end;
+      color: var(--accent-strong);
+      font: 700 18px/1 var(--mono);
+    }
+
+    .surface[open] summary::after {
+      content: "−";
+    }
+
+    .surface-name strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .surface-name span {
+      color: var(--ink-faint);
+      font: 11px/1.4 var(--mono);
+    }
+
+    .tier,
+    .proof {
+      width: fit-content;
+      padding: 5px 7px;
+      border-radius: 6px;
+      font: 700 10px/1.2 var(--mono);
+    }
+
+    .tier {
+      border: 1px solid var(--line-strong);
+      color: var(--ink-soft);
+    }
+
+    .proof.proven {
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+    }
+
+    .proof.unproven,
+    .proof.inert {
+      background: var(--warn-soft);
+      color: var(--warn);
+    }
+
+    .surface-goal {
+      color: var(--ink-soft);
+      font-size: 13px;
+    }
+
+    .surface-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      padding: 0 18px 20px;
+      border-top: 1px solid var(--line);
+    }
+
+    .surface-body div {
+      padding-top: 17px;
+    }
+
+    .surface-body strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+
+    .surface-body p {
+      margin-bottom: 0;
+      color: var(--ink);
+      font-size: 13px;
+    }
+
+    .experience-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+      gap: 18px;
+    }
+
+    .experience-column {
+      display: grid;
+      align-content: start;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .experience-card {
+      min-width: 0;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--bg-raised);
+    }
+
+    .experience-card.large {
+      padding: 24px;
+      background: var(--accent-soft);
+    }
+
+    .experience-card h3 {
+      margin-bottom: 10px;
+      font-size: 22px;
+      letter-spacing: -0.035em;
+    }
+
+    .experience-card p,
+    .experience-card li {
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .experience-card ul {
+      margin: 16px 0 0;
+      padding-left: 18px;
+    }
+
+    .screen-contract {
+      display: grid;
+      gap: 0;
+      margin-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+
+    .screen-contract div {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .screen-contract strong {
+      font: 700 11px/1.4 var(--mono);
+      color: var(--accent-strong);
+    }
+
+    .screen-contract span {
+      color: var(--ink-soft);
+      font-size: 13px;
+    }
+
+    .pillars {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+      gap: 18px;
+    }
+
+    .pillar-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .pillar {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 22px;
+      padding: 22px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .pillar:last-child {
+      border-bottom: 0;
+    }
+
+    .pillar h3 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.025em;
+    }
+
+    .pillar p {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .control-ledger {
+      padding: 26px;
+      border-radius: var(--radius);
+      background: var(--code);
+      color: var(--code-ink);
+    }
+
+    .control-ledger h3 {
+      margin-bottom: 18px;
+      font-size: 21px;
+      letter-spacing: -0.03em;
+    }
+
+    .control-ledger dl {
+      margin: 0;
+    }
+
+    .control-ledger div {
+      padding: 13px 0;
+      border-top: 1px solid #30453d;
+    }
+
+    .control-ledger dt {
+      color: #64c49f;
+      font: 700 11px/1.4 var(--mono);
+    }
+
+    .control-ledger dd {
+      margin: 4px 0 0;
+      color: #afc2ba;
+      font-size: 13px;
+    }
+
+    .roadmap {
+      position: relative;
+      display: grid;
+      min-width: 0;
+      gap: 16px;
+    }
+
+    .wave {
+      display: grid;
+      min-width: 0;
+      width: 100%;
+      grid-template-columns: 150px minmax(0, 1fr) minmax(250px, 0.58fr);
+      gap: 24px;
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--bg-raised);
+    }
+
+    .wave > *,
+    .wave p,
+    .wave li,
+    .wave code {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .wave-window {
+      color: var(--accent-strong);
+      font: 700 12px/1.5 var(--mono);
+    }
+
+    .wave-window span {
+      display: block;
+      margin-top: 5px;
+      color: var(--ink-faint);
+      font-weight: 500;
+    }
+
+    .wave h3 {
+      margin-bottom: 10px;
+      font-size: 24px;
+      letter-spacing: -0.04em;
+    }
+
+    .wave p {
+      margin-bottom: 12px;
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .wave ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--ink-soft);
+      font-size: 13px;
+    }
+
+    .wave-proof {
+      padding-left: 22px;
+      border-left: 1px solid var(--line);
+    }
+
+    .wave-proof strong {
+      display: block;
+      margin-bottom: 8px;
+      font: 700 11px/1.4 var(--mono);
+      color: var(--ink);
+      text-transform: uppercase;
+    }
+
+    .wave-proof code {
+      display: block;
+      margin-top: 8px;
+      padding: 9px 10px;
+      border-radius: 7px;
+      background: var(--code);
+      color: var(--code-ink);
+      font: 11px/1.45 var(--mono);
+      white-space: normal;
+    }
+
+    .decision-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+      gap: 18px;
+    }
+
+    .decision-list,
+    .non-goals {
+      padding: 28px;
+      border-radius: var(--radius);
+    }
+
+    .decision-list {
+      border: 1px solid var(--line);
+      background: var(--bg-raised);
+    }
+
+    .non-goals {
+      background: var(--risk-soft);
+    }
+
+    .decision-list h3,
+    .non-goals h3 {
+      margin-bottom: 18px;
+      font-size: 23px;
+      letter-spacing: -0.035em;
+    }
+
+    .decision-item {
+      padding: 16px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .decision-item strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .decision-item p {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 13px;
+    }
+
+    .non-goals ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .non-goals li {
+      margin-bottom: 12px;
+      color: color-mix(in srgb, var(--risk) 82%, var(--ink));
+    }
+
+    .evidence-intro {
+      display: grid;
+      grid-template-columns: 0.8fr 1.2fr;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .evidence-rule {
+      padding: 24px;
+      border-radius: var(--radius);
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+    }
+
+    .evidence-rule strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .evidence-rule p {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .evidence-meta {
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--bg-raised);
+    }
+
+    .evidence-meta dl {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 7px 14px;
+      margin: 0;
+      font-size: 13px;
+    }
+
+    .evidence-meta dt {
+      color: var(--ink-faint);
+      font-family: var(--mono);
+    }
+
+    .evidence-meta dd {
+      margin: 0;
+      color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+
+    .evidence-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .evidence {
+      display: grid;
+      grid-template-columns: 110px minmax(0, 0.8fr) minmax(0, 1.2fr);
+      gap: 18px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg-raised);
+    }
+
+    .evidence-type {
+      color: var(--accent-strong);
+      font: 700 10px/1.4 var(--mono);
+      text-transform: uppercase;
+    }
+
+    .evidence strong {
+      font-size: 14px;
+    }
+
+    .evidence code {
+      color: var(--ink-soft);
+      font: 11px/1.55 var(--mono);
+      overflow-wrap: anywhere;
+    }
+
+    .evidence code a {
+      display: flex;
+      min-height: 44px;
+      align-items: center;
+      color: inherit;
+    }
+
+    .final-recommendation {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+      gap: 30px;
+      align-items: end;
+      padding: clamp(34px, 6vw, 68px);
+      border-radius: var(--radius);
+      background: var(--ink);
+      color: var(--bg);
+    }
+
+    .final-recommendation h2 {
+      max-width: 15ch;
+      margin-bottom: 18px;
+      font-size: clamp(38px, 5vw, 68px);
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+    }
+
+    .final-recommendation p {
+      max-width: 68ch;
+      margin-bottom: 0;
+      color: color-mix(in srgb, var(--bg) 72%, transparent);
+    }
+
+    .final-conditions {
+      display: grid;
+      gap: 8px;
+    }
+
+    .final-conditions div {
+      padding: 11px 0;
+      border-top: 1px solid color-mix(in srgb, var(--bg) 22%, transparent);
+      font: 12px/1.45 var(--mono);
+    }
+
+    footer {
+      width: min(100% - 32px, var(--max));
+      margin-inline: auto;
+      padding: 32px 0 54px;
+      color: var(--ink-faint);
+      font: 11px/1.6 var(--mono);
+    }
+
+    .empty-state {
+      padding: 28px;
+      border: 1px dashed var(--line-strong);
+      border-radius: 10px;
+      color: var(--ink-soft);
+      text-align: center;
+    }
+
+    @media (max-width: 1120px) {
+      .report-shell {
+        grid-template-columns: 180px minmax(0, 1fr);
+        gap: 28px;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+
+      .snapshot {
+        max-width: 720px;
+      }
+
+      .legacy-card {
+        grid-column: span 6;
+      }
+
+      .legacy-card:nth-child(1),
+      .legacy-card:nth-child(2),
+      .legacy-card:nth-child(6),
+      .legacy-card:nth-child(7) {
+        grid-column: span 6;
+      }
+
+      .surface summary {
+        grid-template-columns: minmax(160px, 1fr) 70px 105px;
+      }
+
+      .surface-goal {
+        grid-column: 1 / -1;
+      }
+
+      .wave {
+        grid-template-columns: 120px 1fr;
+      }
+
+      .wave-proof {
+        grid-column: 2;
+        padding: 18px 0 0;
+        border-top: 1px solid var(--line);
+        border-left: 0;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .topbar-inner {
+        width: min(100% - 24px, var(--max));
+      }
+
+      .brand-copy span,
+      .utility .label {
+        display: none;
+      }
+
+      .report-shell {
+        width: min(100% - 24px, var(--max));
+        display: block;
+      }
+
+      .toc {
+        display: none;
+      }
+
+      .mobile-jump {
+        display: block;
+      }
+
+      .hero {
+        padding-top: 54px;
+      }
+
+      .thesis-grid,
+      .architecture-notes,
+      .surface-overview,
+      .experience-grid,
+      .skill-policy,
+      .pillars,
+      .decision-grid,
+      .evidence-intro,
+      .final-recommendation {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .legacy-card,
+      .legacy-card:nth-child(1),
+      .legacy-card:nth-child(2),
+      .legacy-card:nth-child(6),
+      .legacy-card:nth-child(7) {
+        grid-column: span 12;
+      }
+
+      .capability-toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .filter-row {
+        justify-content: flex-start;
+      }
+
+      .capability {
+        grid-template-columns: 1fr auto;
+      }
+
+      .skill-group {
+        grid-template-columns: 1fr;
+      }
+
+      .skill-group-title {
+        position: static;
+      }
+
+      .capability-copy {
+        grid-column: 1 / -1;
+      }
+
+      .arch-row,
+      .arch-arrow {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .arch-arrow div:first-child {
+        display: none;
+      }
+
+      .arch-arrow div:last-child {
+        padding-left: 0;
+      }
+
+      .surface-body {
+        grid-template-columns: 1fr;
+      }
+
+      .pillar {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .evidence {
+        grid-template-columns: 100px 1fr;
+      }
+
+      .evidence code {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: clamp(43px, 14vw, 62px);
+      }
+
+      .hero-actions {
+        display: grid;
+      }
+
+      .button {
+        width: 100%;
+      }
+
+      .metric {
+        grid-template-columns: 1fr;
+        gap: 7px;
+      }
+
+      .target-count {
+        grid-template-columns: 1fr;
+      }
+
+      .skill-cards {
+        grid-template-columns: 1fr;
+      }
+
+      .wave {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .wave-proof {
+        grid-column: 1;
+      }
+
+      .lesson-pair,
+      .evidence {
+        grid-template-columns: 1fr;
+      }
+
+      .evidence code {
+        grid-column: 1;
+      }
+
+      .mobile-jump .toc-title {
+        display: inline-flex;
+        min-height: 44px;
+        align-items: center;
+      }
+
+      .arch-cells {
+        grid-template-columns: 1fr;
+      }
+
+      .surface summary {
+        grid-template-columns: 1fr auto;
+      }
+
+      .surface summary .tier,
+      .surface summary .proof {
+        grid-row: 2;
+      }
+
+      .surface-goal {
+        grid-column: 1 / -1;
+      }
+
+      .wave {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+
+      .wave-proof {
+        grid-column: 1;
+      }
+
+      .screen-contract div {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+
+      .evidence-meta dl {
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+
+      .evidence-meta dd {
+        margin-bottom: 8px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      *,
+      *::before,
+      *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+
+    @media print {
+      :root {
+        --bg: #ffffff;
+        --bg-raised: #ffffff;
+        --bg-muted: #f2f5f3;
+        --ink: #101815;
+        --ink-soft: #384641;
+        --ink-faint: #5c6964;
+        --line: #c3ccc8;
+        --line-strong: #899891;
+        --accent: #1f795b;
+        --accent-strong: #11533d;
+        --accent-soft: #e4f1eb;
+        --code: #15201d;
+        --code-ink: #ffffff;
+      }
+
+      body {
+        font-size: 11pt;
+      }
+
+      .topbar,
+      .toc,
+      .mobile-jump,
+      .hero-actions,
+      .capability-toolbar {
+        display: none !important;
+      }
+
+      .report-shell {
+        width: 100%;
+        display: block;
+      }
+
+      .hero {
+        min-height: 0;
+        padding: 30px 0 50px;
+      }
+
+      .section {
+        padding: 44px 0;
+      }
+
+      .capability[hidden] {
+        display: grid;
+      }
+
+      .surface:not([open]) .surface-body {
+        display: grid;
+      }
+
+      .legacy-card,
+      .experience-card,
+      .wave,
+      .evidence,
+      .capability,
+      .snapshot {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#inicio" aria-label="Volver al inicio del informe">
+        <span class="brand-mark">{ai}</span>
+        <span class="brand-copy">
+          <strong>ai-engineering</strong>
+          <span>definitive plan proposed</span>
+        </span>
+      </a>
+      <div class="top-actions">
+        <button class="utility" id="theme-toggle" type="button" aria-label="Cambiar tema">
+          <span aria-hidden="true">◐</span> <span class="label">Tema</span>
+        </button>
+        <button class="utility" id="print-report" type="button" aria-label="Imprimir o guardar como PDF">
+          <span aria-hidden="true">▤</span> <span class="label">Imprimir</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="report-shell">
+    <aside class="toc" aria-label="Índice del informe">
+      <p class="toc-title">Contenido</p>
+      <nav>
+        <a href="#tesis">Tesis</a>
+        <a href="#radiografia">Radiografía</a>
+        <a href="#legado">Lo mejor legacy</a>
+        <a href="#capacidades">54 capacidades</a>
+        <a href="#skills-v1">15 skills v1</a>
+        <a href="#arquitectura">Arquitectura</a>
+        <a href="#spec-flow">ai-spec agentic-first</a>
+        <a href="#orquestacion">Multiagente</a>
+        <a href="#surfaces">Surfaces</a>
+        <a href="#experiencia">DX y diseño</a>
+        <a href="#controles">Calidad y seguridad</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="#decisiones">Límites</a>
+        <a href="#evidencia">Evidencia</a>
+      </nav>
+      <div class="toc-meta">
+        Snapshot actual<br>
+        226cf58f<br><br>
+        Snapshot legacy<br>
+        611a7bce
+      </div>
+    </aside>
+
+    <main id="contenido">
+      <div class="mobile-jump">
+        <span id="jump-label" class="toc-title">Ir a sección</span>
+        <select id="section-jump" aria-labelledby="jump-label">
+          <option value="#inicio">Inicio</option>
+          <option value="#tesis">Tesis</option>
+          <option value="#radiografia">Radiografía</option>
+          <option value="#legado">Lo mejor legacy</option>
+          <option value="#capacidades">54 capacidades</option>
+          <option value="#skills-v1">15 skills v1</option>
+          <option value="#arquitectura">Arquitectura</option>
+          <option value="#spec-flow">ai-spec agentic-first</option>
+          <option value="#orquestacion">Multiagente</option>
+          <option value="#surfaces">Surfaces</option>
+          <option value="#experiencia">DX y diseño</option>
+          <option value="#controles">Calidad y seguridad</option>
+          <option value="#roadmap">Roadmap</option>
+          <option value="#decisiones">Límites</option>
+          <option value="#evidencia">Evidencia</option>
+        </select>
+      </div>
+
+      <section class="hero" id="inicio" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <span class="eyebrow">Plan definitivo revisado tras council y feedback</span>
+          <h1 id="hero-title">Gobernar la ingeniería humana y autónoma.</h1>
+          <p class="hero-lede">
+            ai-engineering debe ayudar a empresas, startups y desarrolladores a crear y evolucionar software con una persona en su IDE o mediante loops, graphs y orquestadores, sin convertir autonomía en autoridad ilimitada ni llamar verde a lo que no observó.
+          </p>
+          <div class="hero-actions">
+            <a class="button" href="#tesis">Ver recomendación</a>
+            <a class="button secondary" href="#roadmap">Abrir roadmap</a>
+          </div>
+        </div>
+
+        <aside class="snapshot" aria-label="Resumen cuantitativo">
+          <div class="snapshot-head">
+            <strong>Un control plane, un flujo</strong>
+            <span>agentic-first; la persona entra donde cambia la decisión</span>
+          </div>
+          <dl class="metric-list">
+            <div class="metric">
+              <dt>Archivos legacy en el source tree</dt>
+              <dd>2.640</dd>
+            </div>
+            <div class="metric">
+              <dt>Archivos actuales trackeados</dt>
+              <dd>114</dd>
+            </div>
+            <div class="metric">
+              <dt>Capacidades legacy / skills actuales</dt>
+              <dd>54 / 8</dd>
+            </div>
+            <div class="metric">
+              <dt>Surfaces actuales probadas</dt>
+              <dd>2 / 8</dd>
+            </div>
+            <div class="metric">
+              <dt>Casos de test / ataques</dt>
+              <dd>817 / 14</dd>
+            </div>
+          </dl>
+          <p class="snapshot-note">
+            La métrica central no es cuántas funciones regresan. Es cuántos pasos están trazados desde la intención hasta una evidencia que puede ponerse roja.
+          </p>
+        </aside>
+      </section>
+
+      <section class="section" id="tesis" aria-labelledby="tesis-title">
+        <div class="section-head">
+          <h2 id="tesis-title">La respuesta corta</h2>
+          <p>
+            No conviene portar la versión anterior. Conviene ampliar la columna vertebral de v1 hasta convertirla en un control plane de ingeniería agéntica gobernada, con un solo hogar por dato, progressive disclosure y una evidencia ejecutada por promesa.
+          </p>
+        </div>
+
+        <div class="thesis-grid">
+          <article class="thesis-main">
+            <h3>Misión corregida</h3>
+            <p>
+              ai-engineering es un framework abierto de ingeniería agéntica gobernada para empresas, incluidas las reguladas, startups y desarrolladores. Permite crear y evolucionar software con una persona en su IDE o mediante loops, graphs y orquestadores autónomos, sin convertir autonomía en autoridad ilimitada. Desde el Solution Intent hasta producción, establece controles, guardrails, harnesses y evidencia trazable para descubrir, especificar, decidir, planificar, implementar, revisar, verificar, validar y auditar.
+            </p>
+            <ul class="principle-list">
+              <li>
+                <strong>Dos planos, una verdad</strong>
+                Los comandos prueban hechos. El juicio LLM propone, investiga y revisa, pero no puede convertir un gate rojo o incompleto en verde.
+              </li>
+              <li>
+                <strong>Comportamiento y construcción</strong>
+                BDD define el comportamiento observable. TDD guía la implementación. KISS, YAGNI, DRY, SOLID, Clean Architecture y Clean Code se auditan con rúbricas hasta que un juicio repetible pueda convertirse en código.
+              </li>
+              <li>
+                <strong>Sin falso cumplimiento</strong>
+                El framework hace el cumplimiento comprobable y bloquea cuando falta evidencia requerida. No promete certificación regulatoria ni garantía absoluta.
+              </li>
+            </ul>
+          </article>
+
+          <article class="thesis-side">
+            <h3>Espina de intención a evidencia</h3>
+            <p>
+              Cada cambio conserva relaciones tipadas, no copias de prosa, entre estos artefactos.
+            </p>
+            <ul class="principle-list">
+              <li><strong>Identidad</strong> CONSTITUTION breve y SOUL como cuatro valores, nunca otra capa normativa.</li>
+              <li><strong>Intención</strong> Solution Intent vivo separa conocimiento fijo, variable, actual e intencionado.</li>
+              <li><strong>Cambio</strong> Discovery, spec con ejemplos BDD, Structured MADR cuando la decisión condiciona el futuro, y plan aprobado.</li>
+              <li><strong>Ejecución</strong> TDD, reviews por lens, verify determinista y validación contra intención y BDD.</li>
+              <li><strong>Prueba</strong> Audit y ship enlazan evidencias, riesgos, commits y versión de cada surface.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="radiografia" aria-labelledby="radiografia-title">
+        <div class="section-head">
+          <h2 id="radiografia-title">Radiografía comparativa</h2>
+          <p>
+            Legacy era rica en capacidades y pobre en verdad operacional. V1 es fuerte en verdad operacional y todavía estrecha en experiencia especializada. El objetivo es mover la frontera sin romper el contrato de honestidad.
+          </p>
+        </div>
+
+        <section class="comparison-wrap" aria-label="Comparativa entre legacy, v1 y propuesta" tabindex="0">
+          <table>
+            <thead>
+              <tr>
+                <th>Dimensión</th>
+                <th>Legacy 0.13.0</th>
+                <th>V1 actual</th>
+                <th>Propuesta</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Identidad</td>
+                <td>Gobernanza para equipos regulados, plano determinista y probabilístico, CONSTITUTION y SOUL.</td>
+                <td>Misión más precisa: una persona, muchos repos, daño silencioso y falso verde como enemigos.</td>
+                <td>Control plane para empresas, startups y desarrolladores, con humano+IDE o autonomía gobernada. Conservar “nunca verde sin evidencia” y recuperar SOUL solo como valores breves.</td>
+              </tr>
+              <tr>
+                <td>Distribución</td>
+                <td><span class="fact">2.640 archivos</span> en el source tree y espejos por surface dentro del repo consumidor.</td>
+                <td><span class="fact">114 archivos</span> trackeados. Skills y guards viven en el wheel y se enlazan globalmente.</td>
+                <td>Cero mirrors nuevos. Un payload canónico, adapters por surface y pruebas de instalación desde wheel.</td>
+              </tr>
+              <tr>
+                <td>Skills y agentes</td>
+                <td><span class="fact">54 skills, 9 agentes y 10 revisores internos</span>. Cobertura funcional enorme, alta colisión y mantenimiento.</td>
+                <td><span class="fact">8 skills</span>, todos cortos, con una misión clara y techo de 80 líneas.</td>
+                <td>Roadmap inicial de 15 skills: los 8 actuales y 7 recuperaciones justificadas. Sin un techo arbitrario: cada alta exige trigger, corpus, negativa, rollback y surface probada.</td>
+              </tr>
+              <tr>
+                <td>CLI</td>
+                <td>Typer, Rich, Questionary, JSON global, unas 20 entradas visibles y muchos grupos internos.</td>
+                <td><span class="fact">10 verbos</span>, Rich y Questionary recuperados, salidas humanas claras y contratos más simples.</td>
+                <td>UX/UI first y global. Cada ejecución anticipa su alcance, muestra etapa real, declara outcome, evidencia y siguiente acción, y solo enseña una resolución cuando existe un bloqueo. JSON v1 conserva exactamente el mismo significado.</td>
+              </tr>
+              <tr>
+                <td>Reporte de errores</td>
+                <td>ai-engineering-issue leía specs, eventos y archivos incluidos antes de redactar.</td>
+                <td>SECURITY.md ofrece disclosure privado, pero no existe reporter y la creación pública de Issues está restringida hoy.</td>
+                <td>Nuevo ai-report sobre ai-eng report. Draft local por defecto, schema allow-list, doble scan de secretos/PII, preview exacta y consentimiento. Vulnerabilidades nunca van a un issue público.</td>
+              </tr>
+              <tr>
+                <td>Surfaces</td>
+                <td>Seis surfaces con mirrors. La paridad de contenido era fuerte, la paridad de enforcement no.</td>
+                <td>Ocho rows declaradas. Solo Claude Code y OpenCode están marcadas como probadas; Codex puede quedar inerte sin confianza humana.</td>
+                <td>Contrato de adapter con prueba negativa real por versión. Ninguna surface sube de nivel por documentación.</td>
+              </tr>
+              <tr>
+                <td>Seguridad</td>
+                <td>Secret scanning, Semgrep, pip-audit, SBOM, Scorecard, hooks de inyección, no-verify y spend caps.</td>
+                <td>Cinco guards fail-closed, git hooks, Semgrep, gitleaks, Trivy, pip-audit, Snyk y provenance de release.</td>
+                <td>Recuperar ai-security ahora con baseline propio: threat model, contrato de permisos, scanner nativo de skills, adapters a scanners maduros, review semántico con challenge, SBOM y attestations. NVIDIA y Claude inspiran criterios o aportan evidencia opcional; no son dependencias. PASS, FAIL o INCOMPLETE.</td>
+              </tr>
+              <tr>
+                <td>Calidad</td>
+                <td>Especialistas, pass@k para skills, quality loop y matrices amplias, pero también mucha ceremonia y xfails decorativos.</td>
+                <td>Branch coverage, mutación, adversarial suite, anti-theatre y quality gate remoto verificado contra policy local.</td>
+                <td>Mantener gates v1. Añadir evals solo a nuevos skills probabilísticos y cross-model replay como advisory antes de bloquear.</td>
+              </tr>
+              <tr>
+                <td>Observabilidad</td>
+                <td>46.625 eventos, pero 43.003 decían solo que un hook corrió. Mucho volumen, poca decisión.</td>
+                <td>Seis clases cerradas, hash chain, anchors, digest, OTLP con redacción y data age.</td>
+                <td>Más atribución, no más ruido: surface, adapter, latencia y resultado de export. Nunca “hook ran” como evento.</td>
+              </tr>
+              <tr>
+                <td>Diseño y docs</td>
+                <td>ai-design, ai-animation, frontend reviewer, brand tokens, diagramas como código y sitio documentado.</td>
+                <td>CLI visual recuperada, pero no existe todavía un skill de diseño ni un lens frontend en review.</td>
+                <td>Recuperar ai-design y ai-animation ahora. Lens frontend accessibility-first y mobile-first: WCAG 2.2 AAA como objetivo, AA como suelo de release, semántica, teclado, foco, assistive technology, input, reflow, errores, motion, media y estados completos.</td>
+              </tr>
+              <tr>
+                <td>Gobernanza</td>
+                <td>Spec FSM, decision store, risk TTL, issue sync, ownership map y files-only doctrine.</td>
+                <td>Specs, planes, ADR, riesgos con owner y expiry, receipt, pin y audit verify con anchors.</td>
+                <td>Solution Intent, spec, Structured MADR, plan y evidencia enlazados. Origin, ramas, worktrees, draft PR, CI y merge queue coordinan múltiples writers sin recuperar el FSM completo.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <div class="callout">
+          <strong>La brecha principal</strong>
+          V1 ya supera a legacy en verdad, seguridad por defecto y gobernanza del propio framework. Lo que falta no es otra arquitectura. Falta especialidad usable encima de esa arquitectura.
+        </div>
+      </section>
+
+      <section class="section" id="legado" aria-labelledby="legado-title">
+        <div class="section-head">
+          <h2 id="legado-title">Lo mejor que sí merece volver</h2>
+          <p>
+            Estas piezas generaban valor real o expresaban una idea correcta. La columna “forma nueva” evita traer de vuelta la misma deuda.
+          </p>
+        </div>
+
+        <div class="legacy-grid">
+          <article class="legacy-card emphasis">
+            <h3>Flujo canónico de entrega</h3>
+            <p>Brainstorm, plan, build y PR convertían una petición ambigua en una secuencia entendible con puntos de aprobación.</p>
+            <div class="lesson-pair">
+              <div class="lesson"><span>Valor legacy</span><strong>Orientación de extremo a extremo.</strong></div>
+              <div class="lesson"><span>Forma nueva</span><strong>ai-spec ejecuta siempre el mismo Discovery agentic-first. Usa respuestas humanas cuando existen, decide lo reversible cuando no y escala solo lo que realmente necesita otra autoridad.</strong></div>
+            </div>
+            <span class="source">legacy README.md:60-68</span>
+          </article>
+
+          <article class="legacy-card">
+            <h3>Especialistas reales</h3>
+            <p>Seguridad, frontend, testing, performance y compatibilidad no se trataban como el mismo tipo de review.</p>
+            <div class="lesson-pair">
+              <div class="lesson"><span>Valor legacy</span><strong>Criterios propios por dominio.</strong></div>
+              <div class="lesson"><span>Forma nueva</span><strong>Skills solo para dominios de alto riesgo y references dentro de ai-review.</strong></div>
+            </div>
+            <span class="source">legacy .agents/agents/internal/</span>
+          </article>
+
+          <article class="legacy-card">
+            <h3>CLI pensada para humanos y agentes</h3>
+            <p>Tema visual, picker, ayuda primero, salida JSON y separación entre mensajes y datos.</p>
+            <div class="lesson-pair">
+              <div class="lesson"><span>Valor legacy</span><strong>La terminal explicaba el sistema.</strong></div>
+              <div class="lesson"><span>Forma nueva</span><strong>Conservar Rich y Questionary. Añadir JSON con schema, no con strings ad hoc.</strong></div>
+            </div>
+            <span class="source">legacy src/ai_engineering/cli_factory.py:413-695</span>
+          </article>
+
+          <article class="legacy-card">
+            <h3>Diseño como disciplina de ingeniería</h3>
+            <p>ai-design, ai-animation, frontend review y tokens visuales elevaban el resultado más allá de “funciona”.</p>
+            <div class="lesson-pair">
+              <div class="lesson"><span>Valor legacy</span><strong>Estados, motion, a11y y coherencia visual.</strong></div>
+              <div class="lesson"><span>Forma nueva</span><strong>ai-design y ai-animation first-class ahora, guiados por craft probado, mobile-first, accesibilidad funcional end-to-end y evidencia renderizada más pruebas de interacción.</strong></div>
+            </div>
+            <span class="source">legacy .agents/skills/ai-design/ y ai-animation/</span>
+          </article>
+
+          <article class="legacy-card">
+            <h3>Persistencia explícita</h3>
+            <p>La doctrina files-only distinguía evento, record estructurado, narrativa y cache derivada.</p>
+            <div class="lesson-pair">
+              <div class="lesson"><span>Valor legacy</span><strong>Un hogar por datum.</strong></div>
+              <div class="lesson"><span>Forma nueva</span><strong>Machine home, .ai, specs y docs/adr; Structured MADR en la carpeta existente y coordinación local solo como cache.</strong></div>
+            </div>
+            <span class="source">legacy docs/persistence-doctrine.md:8-27</span>
+          </article>
+
+          <article class="legacy-card emphasis">
+            <h3>Evals para activos probabilísticos</h3>
+            <p>La calidad de un skill se trataba como algo que se puede medir con corpus y pass@k, no solo revisar por estilo.</p>
+            <div class="lesson-pair">
+              <div class="lesson"><span>Valor legacy</span><strong>Un prompt también puede sufrir regresiones.</strong></div>
+              <div class="lesson"><span>Forma nueva</span><strong>Golden cases pequeños, cross-model advisory y bloqueo solo tras una baseline estable.</strong></div>
+            </div>
+            <span class="source">legacy README.md:112 y skill-evals.yml</span>
+          </article>
+
+          <article class="legacy-card">
+            <h3>Seguridad de supply chain</h3>
+            <p>Acciones fijadas, scanners múltiples, SBOM, provenance y Scorecard trataban el propio framework como parte del riesgo.</p>
+            <div class="lesson-pair">
+              <div class="lesson"><span>Valor legacy</span><strong>El guardrail también se audita.</strong></div>
+              <div class="lesson"><span>Forma nueva</span><strong>Conservar provenance actual. Recuperar SBOM en release, sin crear once workflows.</strong></div>
+            </div>
+            <span class="source">legacy docs/supply-chain-control-matrix.md</span>
+          </article>
+
+          <article class="legacy-card">
+            <h3>Salida para stakeholders</h3>
+            <p>El proyecto investigó BLUF, valor, riesgo y lenguaje por audiencia, aunque no terminó de llevarlo al flujo principal.</p>
+            <div class="lesson-pair">
+              <div class="lesson"><span>Valor legacy</span><strong>Explicar por qué importa.</strong></div>
+              <div class="lesson"><span>Forma nueva</span><strong>Una sección breve en spec y ship, sin un nuevo skill de prosa.</strong></div>
+            </div>
+            <span class="source">legacy drafts/client-value-comms-lens-brief.md</span>
+          </article>
+
+          <article class="legacy-card">
+            <h3>Autonomía con límites</h3>
+            <p>Autopilot, DAG y caps buscaban paralelismo controlado, escalación y coste visible.</p>
+            <div class="lesson-pair">
+              <div class="lesson"><span>Valor legacy</span><strong>Concurrencia explícita y stop conditions.</strong></div>
+              <div class="lesson"><span>Forma nueva</span><strong>DAG determinista, branch/worktree por task, permisos ya existentes, checkpoints limpios y merge queue. Sin subsystem de authority envelope hasta que un orquestador real demuestre necesitarlo.</strong></div>
+            </div>
+            <span class="source">legacy ai-autopilot y spec-201</span>
+          </article>
+
+          <article class="legacy-card">
+            <h3>Values layer</h3>
+            <p>SOUL diferenciaba valores de colaborador y límites duros. Evitaba convertir cada decisión de tono en una regla.</p>
+            <div class="lesson-pair">
+              <div class="lesson"><span>Valor legacy</span><strong>Pragmatismo, candor, colaboración y aprendizaje.</strong></div>
+              <div class="lesson"><span>Forma nueva</span><strong>Cuatro líneas en un único hogar, sin mirrors ni skill de mantenimiento.</strong></div>
+            </div>
+            <span class="source">legacy SOUL.md:10-40</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="capacidades" aria-labelledby="capacidades-title">
+        <div class="section-head">
+          <h2 id="capacidades-title">Destino de las 54 capacidades legacy</h2>
+          <p>
+            Inventario completo, no una selección cómoda. Filtra por decisión. “Absorber” significa conservar la conducta dentro de otro skill, un verbo o un gate. “Fuera del core” no significa que la capacidad sea mala, solo que no pertenece a la misión del wheel.
+          </p>
+        </div>
+
+        <div class="capability-toolbar">
+          <label>
+            <span class="toc-title">Buscar capacidad</span>
+            <input class="search" id="capability-search" type="search" placeholder="Ejemplo: security, design, docs" autocomplete="off">
+          </label>
+          <div class="filter-row" role="group" aria-label="Filtrar por decisión">
+            <button class="filter" type="button" data-filter="all" aria-pressed="true">Todas</button>
+            <button class="filter" type="button" data-filter="keep" aria-pressed="false">V1</button>
+            <button class="filter" type="button" data-filter="restore" aria-pressed="false">Recuperar</button>
+            <button class="filter" type="button" data-filter="absorb" aria-pressed="false">Absorber</button>
+            <button class="filter" type="button" data-filter="later" aria-pressed="false">Más tarde</button>
+            <button class="filter" type="button" data-filter="out" aria-pressed="false">Fuera del core</button>
+          </div>
+        </div>
+
+        <p class="capability-summary" id="capability-summary" aria-live="polite"></p>
+        <div class="capability-list" id="capability-list"></div>
+        <button class="button secondary capability-more" id="capability-more" type="button">Mostrar inventario completo</button>
+
+        <div class="target-count">
+          <div class="number">15</div>
+          <div>
+            <h3>Roadmap inicial, no techo del producto</h3>
+            <p>
+              Los ocho actuales más ai-build, ai-design, ai-animation, ai-security, ai-test, ai-verify y ai-report. Brainstorm vive como fase visible de ai-spec, no como segunda puerta. Cada alta paga su coste con corpus, trigger sin colisiones, rollback, caso negativo y una surface probada.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="skills-v1" aria-labelledby="skills-v1-title">
+        <div class="section-head">
+          <h2 id="skills-v1-title">Las 15 skills de v1, sin solapes silenciosos</h2>
+          <p>
+            Este es el catálogo explícito. Una skill entra porque tiene un trigger distinguible, un artefacto propio, un caso en el que debe negarse y una evaluación de routing. No existe una skill por cada verbo del CLI: las skills guían juicio y workflow; el CLI conserva hechos, policy y evidencia determinista.
+          </p>
+        </div>
+
+        <div class="skill-suite">
+          <section class="skill-group" aria-labelledby="skill-understand">
+            <div class="skill-group-title">
+              <span>01 · Entender</span>
+              <p id="skill-understand">Hacer visible lo que ya existe y lo que el repositorio no puede responder.</p>
+            </div>
+            <div class="skill-cards">
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-explore</h3><span class="status keep">V1 actual · 01</span></div>
+                <dl><dt>Úsala</dt><dd>Para localizar una capacidad, recorrer un área desconocida o explicar cómo funciona el repositorio.</dd><dt>Entrega</dt><dd>Respuesta o mapa anclado a <span class="mono">file:line</span>, con huecos marcados como no verificados.</dd><dt>No hace</dt><dd>No navega la web, no diagnostica un fallo y no juzga un diff.</dd></dl>
+              </article>
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-research</h3><span class="status keep">V1 actual · 02</span></div>
+                <dl><dt>Úsala</dt><dd>Cuando una decisión necesita evidencia externa, vigente o especializada.</dd><dt>Entrega</dt><dd>Claims con fuentes primarias, fecha y versión; lo no respaldado queda <span class="mono">[unsourced]</span>.</dd><dt>No hace</dt><dd>No decide producto ni envía código, prompts o datos del cliente a un proveedor.</dd></dl>
+              </article>
+            </div>
+          </section>
+
+          <section class="skill-group" aria-labelledby="skill-decide">
+            <div class="skill-group-title">
+              <span>02 · Decidir</span>
+              <p id="skill-decide">Convertir intención y evidencia en un contrato aprobable antes del código.</p>
+            </div>
+            <div class="skill-cards">
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-spec</h3><span class="status keep">V1 actual · 03</span></div>
+                <dl><dt>Úsala</dt><dd>Ante una idea, cambio de comportamiento o decisión que todavía no tiene contrato.</dd><dt>Entrega</dt><dd>Discovery agentic-first, al menos dos opciones, recomendación retada, assumptions, ejemplos BDD, riesgos y MADR solo si la decisión condiciona el futuro.</dd><dt>No hace</dt><dd>No crea tareas ni código. Pregunta a la persona solo unknowns que cambian la decisión; una revisión fresca aparece solo ante riesgo alto, contradicción o irreversibilidad, no como council permanente.</dd></dl>
+              </article>
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-plan</h3><span class="status keep">V1 actual · 04</span></div>
+                <dl><dt>Úsala</dt><dd>Cuando una spec está aprobada o su scope ha cambiado.</dd><dt>Entrega</dt><dd>Plan numerado: un cambio lógico por tarea, paths reclamados, primer check rojo, rollback, done y base SHA.</dd><dt>No hace</dt><dd>No rediseña la spec ni ejecuta el plan; devuelve el control a ai-spec si el contrato ya no sostiene el trabajo.</dd></dl>
+              </article>
+            </div>
+          </section>
+
+          <section class="skill-group" aria-labelledby="skill-build">
+            <div class="skill-group-title">
+              <span>03 · Construir</span>
+              <p id="skill-build">Cambiar una cosa dentro del scope aprobado y demostrar su comportamiento.</p>
+            </div>
+            <div class="skill-cards">
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-build</h3><span class="status restore">Recuperar · 05</span></div>
+                <dl><dt>Úsala</dt><dd>Para ejecutar una tarea de un plan aprobado.</dd><dt>Entrega</dt><dd>Código, tests y plan actualizado mediante red → green → refactor, un cambio lógico y un checkpoint limpio.</dd><dt>No hace</dt><dd>No amplía scope, no se autoaprueba, no publica ni despliega; escala cuando el plan deja de ser verdad.</dd></dl>
+              </article>
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-debug</h3><span class="status keep">V1 actual · 06</span></div>
+                <dl><dt>Úsala</dt><dd>Ante comportamiento roto, CI fallida o conflicto de merge.</dd><dt>Entrega</dt><dd>Causa raíz en <span class="mono">file:line</span>, reproducción roja antes del cambio y reparación acotada con salida roja/verde.</dd><dt>No hace</dt><dd>No diseña features ni resuelve conflictos eligiendo una rama completa sobre la otra.</dd></dl>
+              </article>
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-test</h3><span class="status restore">Recuperar · 07</span></div>
+                <dl><dt>Úsala</dt><dd>Para diseñar evidencia transversal ante conducta nueva, huecos de prueba o una estrategia de riesgo.</dd><dt>Entrega</dt><dd>Matriz riesgo → BDD/TDD → unit/integration/e2e/negative y tests o fixtures que primero fallan.</dd><dt>No hace</dt><dd>No cambia producción; si un test exige hacerlo, lo entrega a ai-build. No infla coverage de código muerto. Sobrevive solo si su eval demuestra valor distinto de ai-build.</dd></dl>
+              </article>
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-design</h3><span class="status restore">Recuperar · 08</span></div>
+                <dl><dt>Úsala</dt><dd>Para crear, extender o rediseñar una experiencia web, móvil, nativa o CLI.</dd><dt>Entrega</dt><dd>Brief, dirección, sistema/tokens, componentes y estados, implementación responsive/mobile-first y evidencia renderizada de accesibilidad e interacción.</dd><dt>No hace</dt><dd>No impone un estilo, no obliga imagegen y no posee el detalle de motion ni el juicio merge-ready de ai-review.</dd></dl>
+              </article>
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-animation</h3><span class="status restore">Recuperar · 09</span></div>
+                <dl><dt>Úsala</dt><dd>Solo cuando la petición o el diff contiene movimiento, gesto o transición real.</dd><dt>Entrega</dt><dd>Propósito, motion spec, implementación interruptible, alternativa reduced-motion, filmstrip/journey y presupuesto de rendimiento.</dd><dt>No hace</dt><dd>No se activa por “hazlo bonito”, no usa red ni imagegen y no repara layout estático. Se absorbe en ai-design si el corpus no demuestra routing propio.</dd></dl>
+              </article>
+            </div>
+          </section>
+
+          <section class="skill-group" aria-labelledby="skill-prove">
+            <div class="skill-group-title">
+              <span>04 · Juzgar y probar</span>
+              <p id="skill-prove">Separar hallazgos semánticos de resultados mecánicos y nunca inventar verde.</p>
+            </div>
+            <div class="skill-cards">
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-security</h3><span class="status restore">Recuperar · 10</span></div>
+                <dl><dt>Úsala</dt><dd>Ante trust boundaries, auth, datos, dependencias, skills, supply chain o auditoría explícita.</dd><dt>Entrega</dt><dd>Threat/data model, scanners deterministas por stack, review semántico retado y evidence pack con PASS, FAIL o INCOMPLETE.</dd><dt>No hace</dt><dd>No reemplaza guards/CI, no acepta riesgo y no declara compliance. Claude Security y SkillSpector son referencias o cross-checks opcionales.</dd></dl>
+              </article>
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-review</h3><span class="status keep">V1 actual · 11</span></div>
+                <dl><dt>Úsala</dt><dd>Cuando un diff o PR necesita juicio staff antes de integrarse.</dd><dt>Entrega</dt><dd>Findings accionables en <span class="mono">file:line</span> por lenses aplicables; frontend y motion se cargan solo cuando el diff los toca.</dd><dt>No hace</dt><dd>No ejecuta ni afirma gates, no rediseña y no implementa la corrección.</dd></dl>
+              </article>
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-verify</h3><span class="status restore">Recuperar · 12</span></div>
+                <dl><dt>Úsala</dt><dd>Ante un claim de completitud, validación de spec o release candidate.</dd><dt>Entrega</dt><dd>Manifest spec → criterio → comando → versión → exit → digest → PASS/FAIL/INCOMPLETE/N/A justificado.</dd><dt>No hace</dt><dd>No corrige ni hace review semántico; ejecuta allowlists sin <span class="mono">--fix</span> y devuelve a debug/build cuando falla.</dd></dl>
+              </article>
+            </div>
+          </section>
+
+          <section class="skill-group" aria-labelledby="skill-deliver">
+            <div class="skill-group-title">
+              <span>05 · Aprender y entregar</span>
+              <p id="skill-deliver">Conservar conocimiento costoso, reportar sin exfiltrar y aterrizar trabajo ya probado.</p>
+            </div>
+            <div class="skill-cards">
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-note</h3><span class="status keep">V1 actual · 13</span></div>
+                <dl><dt>Úsala</dt><dd>Cuando un hallazgo no obvio costó tiempo y volverá a importar.</dd><dt>Entrega</dt><dd>Nota versionada, scoped por patrones relativos y estampada con el commit que describe.</dd><dt>No hace</dt><dd>No guarda memoria trivial, decisiones ni documentación general; un scan bloquea PII, secretos y machine paths.</dd></dl>
+              </article>
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-report</h3><span class="status restore">Recuperar · 14</span></div>
+                <dl><dt>Úsala</dt><dd>Cuando aparece un error reproducible del propio framework.</dd><dt>Entrega</dt><dd>Descubre <span class="mono">ai-eng report issue</span>: draft local allow-list, doble scan, preview exacta y receipt de destino solo tras autoridad explícita.</dd><dt>No hace</dt><dd>No recopila libremente repo, logs, diffs, prompts, paths, PII o secretos; una vulnerabilidad nunca termina en issue público.</dd></dl>
+              </article>
+              <article class="skill-card">
+                <div class="skill-head"><h3>ai-ship</h3><span class="status keep">V1 actual · 15</span></div>
+                <dl><dt>Úsala</dt><dd>Cuando el trabajo ya fue revisado y verificado.</dd><dt>Entrega</dt><dd>Commits intencionales, changelog, push seguro, PR trazable, cierre y limpieza con HEAD/base SHA y checks observados.</dd><dt>No hace</dt><dd>No revisa, no corrige en silencio, no hace force push ni despliega sin una autoridad separada.</dd></dl>
+              </article>
+            </div>
+          </section>
+        </div>
+
+        <div class="skill-policy">
+          <article>
+            <h3>El catálogo no es una pared de comandos</h3>
+            <p>Las surfaces muestran las skills por estas cinco fases y con “úsala / no para / ejemplo”. Los handlers y lenses internos permanecen ocultos. <span class="mono">init</span> confirma qué instaló y <span class="mono">doctor</span> distingue discovered, invocable, enforced y proven.</p>
+          </article>
+          <article>
+            <h3>Permisos ejecutables, no promesas</h3>
+            <p>Cada skill y modo declara read roots, write roots, exec allowlist, network, secrets y human gate. El host o guard los comprueba; una surface que no pueda demostrarlo queda INCOMPLETE. Metadata descriptiva o <span class="mono">disable-model-invocation</span> no son un sandbox.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="arquitectura" aria-labelledby="arquitectura-title">
+        <div class="section-head">
+          <h2 id="arquitectura-title">Arquitectura objetivo</h2>
+          <p>
+            La evolución no crea un segundo framework. Añade especialidad arriba, evidencia abajo y un contrato de adaptación en los bordes.
+          </p>
+        </div>
+
+        <div class="architecture" role="img" aria-label="Diagrama de arquitectura objetivo en seis capas">
+          <div class="arch-row">
+            <div class="arch-label">Surfaces</div>
+            <div class="arch-cells">
+              <div class="arch-cell"><strong>Claude Code</strong><span>denial probado</span></div>
+              <div class="arch-cell"><strong>OpenCode</strong><span>throw y heartbeat</span></div>
+              <div class="arch-cell"><strong>Codex</strong><span>trust explícito</span></div>
+              <div class="arch-cell"><strong>Copilot y Cursor</strong><span>protocolos propios</span></div>
+              <div class="arch-cell"><strong>pi y Zed</strong><span>instrucción hasta prueba</span></div>
+            </div>
+          </div>
+          <div class="arch-arrow"><div></div><div>↓ adapter contract</div></div>
+          <div class="arch-row">
+            <div class="arch-label">Experiencia</div>
+            <div class="arch-cells">
+              <div class="arch-cell accent"><strong>15 skills iniciales</strong><span>sin ceiling arbitrario, cada una con eval</span></div>
+              <div class="arch-cell"><strong>CLI orientado a outcomes</strong><span>alcance, etapa, evidencia, siguiente y resolución</span></div>
+              <div class="arch-cell"><strong>Rich y JSON v1</strong><span>humanos y agentes, un mismo significado</span></div>
+            </div>
+          </div>
+          <div class="arch-arrow"><div></div><div>↓ una llamada</div></div>
+          <div class="arch-row">
+            <div class="arch-label">Hot path</div>
+            <div class="arch-cells">
+              <div class="arch-cell accent"><strong>chain.py</strong><span>normaliza payload, cachea verdict y despacha</span></div>
+              <div class="arch-cell"><strong>5 guards</strong><span>fail-closed, sin importar el package</span></div>
+              <div class="arch-cell"><strong>2 telemetry</strong><span>fail-open, nunca opinan</span></div>
+            </div>
+          </div>
+          <div class="arch-arrow"><div></div><div>↓ eventos con decisión</div></div>
+          <div class="arch-row">
+            <div class="arch-label">Evidencia</div>
+            <div class="arch-cells">
+              <div class="arch-cell"><strong>Hash chain</strong><span>por repo y máquina, anchor en git</span></div>
+              <div class="arch-cell"><strong>Intent, specs y MADR</strong><span>relaciones tipadas, riesgos con fecha</span></div>
+              <div class="arch-cell"><strong>OTLP redacted</strong><span>export opcional, rechazo comprobable</span></div>
+              <div class="arch-cell"><strong>Proof receipts</strong><span>surface, versión, denial y frescura</span></div>
+            </div>
+          </div>
+          <div class="arch-arrow"><div></div><div>↓ gates que demuestran ejecución</div></div>
+          <div class="arch-row">
+            <div class="arch-label">Entrega</div>
+            <div class="arch-cells">
+              <div class="arch-cell"><strong>just check</strong><span>build, lint, types, test, cover y security</span></div>
+              <div class="arch-cell"><strong>Mutation</strong><span>defectos plantados deben morir</span></div>
+              <div class="arch-cell"><strong>Install matrix</strong><span>wheel real en Linux, macOS y Windows</span></div>
+              <div class="arch-cell"><strong>Release</strong><span>provenance, PyPI trusted publishing, SBOM propuesto</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="architecture-notes">
+          <article class="arch-note">
+            <h3>Contrato de un adapter</h3>
+            <ul>
+              <li>Una row canónica en <span class="mono">policy/surfaces.toml</span>.</li>
+              <li>Detección que el propio instalador no pueda fabricar por accidente.</li>
+              <li>Writer que preserve configuración ajena y falle ante JSON ilegible.</li>
+              <li>Traducción explícita de payload, evento, exit code y reply schema.</li>
+              <li>Heartbeat o trust state cuando la surface pueda omitir el hook en silencio.</li>
+              <li>Una prueba negativa ejecutada desde el wheel, con versión y fecha.</li>
+            </ul>
+          </article>
+          <article class="arch-note">
+            <h3>Contrato de una capacidad</h3>
+            <ul>
+              <li>Un trigger y una responsabilidad.</li>
+              <li>Menos de 80 líneas en SKILL.md.</li>
+              <li>Handlers solo cuando evitan carga de contexto.</li>
+              <li>El juicio queda en el skill; lo repetible migra a código.</li>
+              <li>Corpus mínimo y un caso donde debe negarse a actuar.</li>
+              <li>Salida que una persona no técnica puede seguir.</li>
+            </ul>
+          </article>
+        </div>
+
+        <section class="flow" aria-label="Flujo propuesto de entrega" tabindex="0">
+          <div class="flow-step"><strong>Solution Intent</strong><span>Estado actual e intencionado, conocimiento fijo y variable.</span></div>
+          <div class="flow-join" aria-hidden="true">→</div>
+          <div class="flow-step"><strong>/ai-spec</strong><span>Un Discovery agentic-first: evidencia, opciones, self-challenge acotado, ejemplos BDD, riesgos y decisión.</span></div>
+          <div class="flow-join" aria-hidden="true">→</div>
+          <div class="flow-step"><strong>Structured MADR</strong><span>Solo cuando la decisión condiciona trabajo futuro.</span></div>
+          <div class="flow-join" aria-hidden="true">→</div>
+          <div class="flow-step"><strong>Plan + build</strong><span>DAG, ownership, primer check rojo y TDD.</span></div>
+          <div class="flow-join" aria-hidden="true">→</div>
+          <div class="flow-step"><strong>Review + verify + validate</strong><span>Lenses frescos, comandos y trazabilidad contra BDD e intención.</span></div>
+          <div class="flow-join" aria-hidden="true">→</div>
+          <div class="flow-step"><strong>Audit + ship</strong><span>Checkpoint limpio, PR, CI, merge queue y evidence pack.</span></div>
+        </section>
+      </section>
+
+      <section class="section" id="spec-flow" aria-labelledby="spec-flow-title">
+        <div class="section-head">
+          <h2 id="spec-flow-title">ai-spec: un solo flujo agentic-first</h2>
+          <p>
+            No hacen falta dos handlers, dos máquinas de estado ni un council permanente. El mismo agente descubre, investiga, contrasta opciones, reta una vez su recomendación y escribe la spec. La persona, cuando está, es una fuente de intención y autoridad dentro de ese flujo, no otro modo del producto.
+          </p>
+        </div>
+
+        <div class="thesis-grid">
+          <article class="thesis-main">
+            <h3>Default pequeño y útil</h3>
+            <ul class="principle-list">
+              <li><strong>Research antes de preguntar</strong> Resolver con repo y fuentes lo que no necesita intención humana.</li>
+              <li><strong>Una salida</strong> Problema, dos opciones reales, recomendación, self-challenge, assumptions, riesgos y ejemplos BDD en la misma spec.</li>
+              <li><strong>Humano inline</strong> Si hay canal interactivo, preguntar solo unknowns que cambian la decisión. La respuesta gana a la inferencia.</li>
+              <li><strong>Sin humano</strong> Elegir la opción reversible de menor alcance dentro de los permisos de la sesión y dejar assumptions explícitos.</li>
+            </ul>
+          </article>
+          <article class="thesis-side">
+            <h3>Escalar solo cuando paga su coste</h3>
+            <ul class="principle-list">
+              <li><strong>Reviewer fresco opcional</strong> Solo ante decisión irreversible, riesgo alto, evidencia contradictoria o impacto transversal.</li>
+              <li><strong>No council por defecto</strong> Un segundo modelo debe encontrar un gap medible, no fabricar consenso.</li>
+              <li><strong>Autoridad existente</strong> Riesgo aceptado, bypass, publicación, secretos y despliegue siguen los permisos y gates del entorno.</li>
+              <li><strong>YAGNI explícito</strong> Authority envelope, votación y roles múltiples se posponen hasta que exista un orquestador autónomo consumidor y una prueba que el flujo simple no pueda pasar.</li>
+            </ul>
+          </article>
+        </div>
+
+        <section class="comparison-wrap" aria-label="Matriz de decisión de ai-spec" tabindex="0">
+          <table>
+            <thead><tr><th>Decisión</th><th>Código</th><th>Agente ai-spec</th><th>Humano o policy</th><th>Fallo</th></tr></thead>
+            <tbody>
+              <tr><td>Schema, enlaces, estado y ejecución de gates</td><td>Decide</td><td>No anula</td><td>Puede cambiar policy mediante una decisión</td><td>Bloquea</td></tr>
+              <tr><td>Opción técnica reversible y dentro del scope</td><td>Valida forma y evidencia</td><td>Investiga, elige y self-challenge</td><td>Puede corregir la intención</td><td>UNKNOWN explícito</td></tr>
+              <tr><td>Riesgo, bypass, publicación, secretos o despliegue</td><td>Comprueba permiso y registra</td><td>No se autoautoriza</td><td>Autoridad final o policy previa concreta</td><td>Bloquea</td></tr>
+              <tr><td>Tests, scanners, coverage y provenance</td><td>Veredicto canónico</td><td>Explica y encuentra gaps</td><td>No convierte rojo en verde</td><td>FAIL o INCOMPLETE</td></tr>
+              <tr><td>Decisión irreversible, transversal o contradictoria</td><td>Detecta triggers</td><td>Pide revisión fresca solo si aplica</td><td>Resuelve si el entorno lo exige</td><td>Spec provisional</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </section>
+
+      <section class="section" id="orquestacion" aria-labelledby="orquestacion-title">
+        <div class="section-head">
+          <h2 id="orquestacion-title">Orquestación multiagente origin-first</h2>
+          <p>
+            “Siempre sincronizado” es una promesa incorrecta: todo agente trabaja sobre un snapshot. El contrato correcto separa visibilidad de checkpoints, frescura en puntos de control y corrección de la combinación final.
+          </p>
+        </div>
+
+        <div class="architecture" role="img" aria-label="Control plane multiagente con Git y CI">
+          <div class="arch-row"><div class="arch-label">Intención</div><div class="arch-cells"><div class="arch-cell accent"><strong>Spec + plan + MADR</strong><span>tasks, claimed paths, deps, base SHA y rol</span></div><div class="arch-cell"><strong>Solution Intent</strong><span>contexto durable, no coordinación runtime</span></div></div></div>
+          <div class="arch-arrow"><div></div><div>↓ claim atómico</div></div>
+          <div class="arch-row"><div class="arch-label">Trabajo</div><div class="arch-cells"><div class="arch-cell"><strong>1 task</strong><span>un work item opaco</span></div><div class="arch-cell"><strong>1 remote branch</strong><span>lease CAS y SHA esperado</span></div><div class="arch-cell"><strong>1 worktree</strong><span>aislamiento local</span></div><div class="arch-cell"><strong>1 writer</strong><span>reviewers múltiples</span></div></div></div>
+          <div class="arch-arrow"><div></div><div>↓ checkpoints limpios</div></div>
+          <div class="arch-row"><div class="arch-label">Integración</div><div class="arch-cells"><div class="arch-cell"><strong>Draft PR</strong><span>visibilidad sin declarar readiness</span></div><div class="arch-cell"><strong>CI</strong><span>claims, DAG, just check y evidence</span></div><div class="arch-cell accent"><strong>Merge queue</strong><span>prueba la combinación final</span></div></div></div>
+        </div>
+
+        <div class="architecture-notes">
+          <article class="arch-note">
+            <h3>Qué se automatiza</h3>
+            <ul>
+              <li>Fetch antes de claim, aprobación del plan, PR-ready, merge queue y merge.</li>
+              <li>DAG determinista por overlaps, imports, lockfiles, migrations, schemas y recursos exclusivos.</li>
+              <li>Guard de escritura fuera de claimed_paths y CI contra claims duplicados.</li>
+              <li>Checkpoint remoto solo tras scan de secretos/PII/rutas, validación del scope y checks afectados.</li>
+              <li>Push fast-forward o compare-and-swap contra un SHA exacto. Nunca force desnudo.</li>
+            </ul>
+          </article>
+          <article class="arch-note">
+            <h3>Qué no se recupera</h3>
+            <ul>
+              <li>No background rebase ni publicación de cada commit local.</li>
+              <li>No DB de ownership, heartbeat ni robo automático por TTL.</li>
+              <li>No prompts, reasoning, cliente, usuario, hostname, paths absolutos o payloads del provider en coordinación.</li>
+              <li>La branch CAS posee el work item; claimed_paths y DAG previenen solapes. Un hard path lease llega solo tras colisión real entre orquestadores.</li>
+              <li>Los ciclos los resuelve o bloquea el código. Un conflicto semántico puede pedir reviewer fresco; council solo tras evidencia de que mejora el resultado.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="surfaces" aria-labelledby="surfaces-title">
+        <div class="section-head">
+          <h2 id="surfaces-title">Plan para las surfaces que trabajamos</h2>
+          <p>
+            La paridad correcta no es “el archivo existe”. Es “la misma operación maliciosa fue negada por el protocolo real de esa surface”. La tabla actual ya expresa la verdad; el roadmap debe cerrar cada hueco sin subir etiquetas antes de tiempo.
+          </p>
+        </div>
+
+        <div class="surface-overview">
+          <article class="surface-contract">
+            <h3>Definition of proven</h3>
+            <p>
+              Un denial ejecutado en una versión identificada, desde el artefacto instalado, con el mensaje del guard correcto, sin depender de un fixture que cambie la forma del payload.
+            </p>
+            <div class="contract-chain" role="group" aria-label="Pasos para probar una surface">
+              <span>detect</span><span>install</span><span>load</span><span>invoke</span><span>deny</span><span>record</span><span>doctor</span>
+            </div>
+          </article>
+          <aside class="surface-legend" aria-label="Leyenda de niveles y pruebas de surfaces">
+            <div><strong>T2</strong><span>Puede negar una llamada de herramienta.</span></div>
+            <div><strong>T3</strong><span>Instrucciones y skills. El floor real es git y CI.</span></div>
+            <div><strong>PROVEN</strong><span>Un denial real ya ocurrió.</span></div>
+            <div><strong>UNPROVEN</strong><span>La configuración parece correcta, pero no se ha observado el denial.</span></div>
+            <div><strong>INERT</strong><span>El hook existe y la surface lo omite por falta de confianza.</span></div>
+          </aside>
+        </div>
+
+        <section class="comparison-wrap" aria-label="Invocación de skills por surface" tabindex="0">
+          <table>
+            <thead><tr><th>Surface</th><th>Discovery</th><th>Invocación humana</th><th>Decisión</th></tr></thead>
+            <tbody>
+              <tr><td>OpenCode 1.x</td><td>skill tool desde ~/.config/opencode/skills</td><td>/ai-*</td><td>Generar routers globales mínimos en commands. Receipt, hash, doctor y uninstall. No copian el body.</td></tr>
+              <tr><td>Codex CLI / IDE</td><td>/skills</td><td>$ai-spec o selector</td><td>No command mirrors. ~/.agents/skills es correcto; agents/openai.yaml mejora nombre, descripción e icono.</td></tr>
+              <tr><td>Codex app</td><td>Skills sidebar / catálogo</td><td>selector o @skill según surface</td><td>Validación visual, sin wrappers adicionales.</td></tr>
+              <tr><td>Claude, Cursor, Copilot, VS Code y Zed</td><td>skill roots nativos</td><td>/ai-* cuando la surface lo ofrece</td><td>No mirrors. Probar discovery, invocation y enforcement por separado.</td></tr>
+              <tr><td>pi</td><td>skill roots</td><td>/skill:ai-spec</td><td>Documentar la sintaxis real. Alias solo después de una prueba y si uniformidad es requisito.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <div class="callout">
+          <strong>Hallazgo local de esta ronda</strong>
+          Codex 0.147.0 soporta /skills y $skill, pero las ocho skills de ai-engineering no están hoy en ~/.agents/skills en esta máquina. doctor lo detecta y prescribe ai-eng init --global --no-project. El problema observado es instalación/liveness, no falta de custom slash commands.
+        </div>
+
+        <div class="surface-list" id="surface-list"></div>
+      </section>
+
+      <section class="section" id="experiencia" aria-labelledby="experiencia-title">
+        <div class="section-head">
+          <h2 id="experiencia-title">Una CLI que orienta y un ai-design que no impone gusto</h2>
+          <p>
+            El council rechaza el contrato rígido “Completed / In progress / Next / How to fix” de la captura. Era fácil de recordar, pero mezclaba progreso, resultado y reparación aunque una ejecución no necesitara los cuatro. La forma final adapta la pantalla al estado sin perder un schema común.
+          </p>
+        </div>
+
+        <div class="experience-grid">
+          <div class="experience-column">
+            <article class="experience-card large">
+              <h3>CLI: cinco preguntas, no cuatro cajas</h3>
+              <p>La interfaz humana responde solo a lo que aplica y siempre en el mismo orden. Los tokens de estado son globales; la explicación es lenguaje natural y puede localizarse sin cambiar el contrato de máquina.</p>
+              <div class="screen-contract">
+                <div><strong>1 · Will</strong><span>Antes de mutar: qué operación hará, qué leerá, qué escribirá y si usará red. Un dry-run declara WOULD_CHANGE, nunca PASS.</span></div>
+                <div><strong>2 · Running</strong><span>Durante operaciones largas: etapa real y contada, por ejemplo RUNNING · 2/5 · validating surfaces. Sin porcentaje inventado ni spinner como única señal.</span></div>
+                <div><strong>3 · Outcome</strong><span>READY, PASS, WARN, FAIL, INCOMPLETE o CANCELLED. UNKNOWN en un gate se normaliza a INCOMPLETE y bloquea.</span></div>
+                <div><strong>4 · Evidence</strong><span>Qué cambió, qué checks corrieron, qué observaron y qué sigue pendiente. El resultado del comando manda sobre la prosa.</span></div>
+                <div><strong>5 · Act</strong><span>La siguiente acción permitida. “How to resolve” aparece solo ante bloqueo, con comando copiable o “human decision required”; nunca ofrece un bypass.</span></div>
+              </div>
+            </article>
+
+            <article class="experience-card">
+              <h3>Diez verbos con una arquitectura más clara</h3>
+              <p>El CLI conserva diez entradas deterministas. Dos hard renames corrigen nombres engañosos: <span class="mono">plan</span>, que hoy registra una excepción, pasa a <span class="mono">exception</span>; <span class="mono">digest</span> se integra en la familia <span class="mono">report</span>. No hay verbos build/design/security/verify porque serían prompts disfrazados de comandos.</p>
+              <div class="verb-strip" role="group" aria-label="Diez verbos propuestos">
+                <code>init</code><code>doctor</code><code>update</code><code>spec</code><code>decide</code><code>accept</code><code>audit</code><code>report</code><code>exception</code><code>uninstall</code>
+              </div>
+              <p><span class="mono">report digest</span> produce el resumen gobernado; <span class="mono">report issue</span> construye y, con consentimiento válido, transmite el reporte seguro que descubre ai-report.</p>
+            </article>
+
+            <article class="experience-card">
+              <h3>JSON v1: un solo significado</h3>
+              <p><span class="mono">--json</span> emite un objeto en stdout, sin chrome, prompts ni ANSI. JSONL espera hasta que exista una operación larga con un consumidor real.</p>
+              <pre class="json-contract" tabindex="0">{
+  "schema_version": "1",
+  "command": "doctor",
+  "operation_id": "opaque-id",
+  "started_at": "…", "finished_at": "…",
+  "outcome": "INCOMPLETE",
+  "summary": "…",
+  "changes": [],
+  "checks": [{"id":"…", "outcome":"…", "evidence":[], "cure":null}],
+  "remaining": [], "next_actions": [],
+  "error": null
+}</pre>
+              <p>Los errores añaden code estable, mensaje humano, retryable y cure. Traceback solo con <span class="mono">--debug</span>. Exit codes y outcomes son los mismos en Rich, plain/no-TTY y JSON.</p>
+            </article>
+
+            <article class="experience-card">
+              <h3>Accesibilidad de terminal, no solo color</h3>
+              <p>Orden estable para screen readers, texto que acompaña cada marca, NO_COLOR y TERM=dumb, líneas sin reescritura fuera de TTY, prompts completos por teclado, cancelación segura y progreso sin depender de animación. <span class="mono">--non-interactive</span> falla si falta una decisión; nunca adivina consentimiento.</p>
+            </article>
+          </div>
+
+          <div class="experience-column">
+            <article class="experience-card large">
+              <h3>ai-design: gateway pequeño, craft bajo demanda</h3>
+              <p>La arquitectura toma de Impeccable la carga progresiva, “brief wins”, preservar antes de reemplazar y separar checks mecánicos del juicio visual; no importa sus 23 comandos, live mode, agentes ni control plane. Un único ai-design clasifica el trabajo y carga solo una ruta.</p>
+              <div class="screen-contract">
+                <div><strong>shape</strong><span>Lee spec, Solution Intent, audiencia, stack y sistema existente; clasifica extend/redesign/greenfield y persuade/operate/read/experience. Dos direcciones reales solo cuando hay una decisión visual material.</span></div>
+                <div><strong>system-build</strong><span>Tokens, componentes, estados, contenido verdadero e implementación web/native/CLI. Mobile-first, i18n y dependencias nuevas solo si el stack actual no resuelve la necesidad.</span></div>
+                <div><strong>imagery</strong><span>Brandkit, comps o image-first son opt-in y solo cuando reducen incertidumbre. Nunca una imagen obligatoria por sección ni assets reales enviados sin policy.</span></div>
+                <div><strong>verify</strong><span>Mide el resultado renderizado, no el CSS declarado: geometría, contraste sobre fondos reales, overflow, colisiones, tipografía, estados y journeys. Desktop+móvil en un lote y máximo dos rondas automáticas.</span></div>
+              </div>
+            </article>
+
+            <article class="experience-card">
+              <h3>Qué se absorbe y qué se rechaza</h3>
+              <ul>
+                <li><strong>Absorber:</strong> Impeccable, design-taste-frontend v2, redesign-existing-projects y ai-design-audit aportan contexto, preservación, diagnóstico medido y verificación acotada.</li>
+                <li><strong>Opcional:</strong> brandkit, image-to-code e imagegen web/mobile solo para identidad o comps; pick-ui-library comprueba primero lo instalado.</li>
+                <li><strong>Estilos, no defaults:</strong> minimalismo e industrial-brutalist solo si el brief los pide.</li>
+                <li><strong>Rechazar:</strong> diales fijos, randomización, AIDA/GSAP obligatorios, “agency look”, movimiento perpetuo, doble bezel, pills o cualquier color/tipografía/layout universal.</li>
+                <li><strong>Fuera de ai-design:</strong> full-output-enforcement es disciplina global. Ningún DESIGN.md paralelo sustituye spec, MADR o Solution Intent.</li>
+              </ul>
+            </article>
+
+            <article class="experience-card">
+              <h3>Accesibilidad funcional: AAA target, AA floor</h3>
+              <p>La definición de done cubre semántica y name/role/value/state; teclado completo, foco visible/no oculto y retorno de dialogs; touch target y pointer cancel; alternativa a drag/gestos; orientación, 320 px, 400% zoom y 200% text; forced colors; errores corregibles y prevención crítica; auth compatible con paste/password managers; announcements; reduced motion, flashes y alternativas de media. Un criterio AAA no viable conserva razón, owner, expiry y evidencia AA. Axe y contraste son filtros, nunca una declaración de conformidad.</p>
+            </article>
+
+            <article class="experience-card">
+              <h3>ai-animation y ai-review tienen fronteras</h3>
+              <p>ai-design decide qué interacción existe y qué comunica. ai-animation posee curvas, duración, gestures, interruptibilidad, reduced motion y performance, y solo se carga cuando hay motion real. ai-review añade lenses frontend/motion al diff aplicable, juzga fidelidad y evidencia, pero no rediseña ni corrige. Si ai-animation no demuestra mejor routing que una reference, se absorbe sin shim.</p>
+            </article>
+
+            <article class="experience-card">
+              <h3>Imagegen bajo clasificación y consentimiento</h3>
+              <p>Screenshots, EXIF y texto embebido pueden contener PII o IP; OCR es dato no confiable, nunca instrucción. Un provider externo requiere clasificación, residencia/retención aprobadas y consentimiento. El resultado pierde EXIF, pasa scan de tipo/malware y, si es SVG, sanitización; su asset card conserva provider/model, prompt digest, fuentes y licencia. Una imagen nunca prueba alt text, contraste, trademark, copyright ni accesibilidad.</p>
+            </article>
+
+            <article class="experience-card">
+              <h3>Renombrar lo que confunde</h3>
+              <p>El guard actual <span class="mono">design_gate</span> solo comprueba si un cambio amplio tiene plan; no comprueba diseño. Una spec futura debe hacer hard rename a <span class="mono">plan_guard</span> o <span class="mono">change_scope_guard</span>, con changelog y sin alias.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="controles" aria-labelledby="controles-title">
+        <div class="section-head">
+          <h2 id="controles-title">Calidad, seguridad, gobernanza y observabilidad</h2>
+          <p>
+            Aquí la versión actual ya es la referencia. La propuesta añade cobertura y legibilidad, no sustituye los gates que acaban de demostrar su valor.
+          </p>
+        </div>
+
+        <div class="pillars">
+          <div class="pillar-stack">
+            <article class="pillar">
+              <h3>Calidad</h3>
+              <p>
+                Mantener branch coverage, mutación, adversarial suite, anti-theatre, typecheck y CI Result. Cada cambio de comportamiento nace como ejemplos BDD y cada implementación como un check TDD rojo. Los principios KISS, YAGNI, DRY, SOLID, Clean Architecture y Clean Code tienen rúbrica, findings file:line y evidence ID, no una caja marcada por el mismo autor.
+              </p>
+            </article>
+            <article class="pillar">
+              <h3>Seguridad</h3>
+              <p>
+                ai-security contiene el método, el schema de findings y el baseline portable. Incluye threat model/data classification, permisos y sandbox, guards, y un scanner determinista de skills para instrucciones ocultas, Unicode invisible, código ejecutable, egress, permisos excesivos, paths/symlinks, descargas, dependencias sin pin y diferencias entre capacidades declaradas y observadas. Después orquesta gitleaks, SAST, SCA, IaC y containers por stack y ejecuta una revisión semántica de data-flow, auth y business logic con challenge fresco. Un lane ausente produce INCOMPLETE.
+              </p>
+            </article>
+            <article class="pillar">
+              <h3>Gobernanza</h3>
+              <p>
+                Solution Intent, spec, Structured MADR y plan siguen siendo markdown humano con metadata parseable y relaciones verificadas. Structured MADR vive en docs/adr/, usa type: adr como exige el formato y la UI dice MADR. Hard rename --adr a --madr, sin shim. Riesgos: accountable role, reason, evidence y expiry.
+              </p>
+            </article>
+            <article class="pillar">
+              <h3>Reporte seguro</h3>
+              <p>
+                ai-report descubre <span class="mono">ai-eng report issue</span>. Draft local y gitignored por defecto; submit es una acción posterior. Payload de schema cerrado, doble scan, preview de bytes exactos y SHA-256. Una persona confirma cada envío. Un proceso autónomo solo puede invocar submit si policy organizativa versionada preautoriza ese tipo de incidente y ese destino; en perfil regulado no existe auto-submit. Nunca logs, diff, source, specs, chain, env, rutas, host, usuario, email, IP, remotes o datos de cliente. Hallazgos de seguridad se desvían a disclosure privado.
+              </p>
+            </article>
+            <article class="pillar">
+              <h3>Observabilidad</h3>
+              <p>
+                Conservar seis clases cerradas y OTLP con redacción. Añadir surface_id, surface_version, adapter_version y deny_protocol. Medir latencia p95, edad del último proof, rejections OTLP y huecos de anchors. No registrar “se ejecutó un hook”.
+              </p>
+            </article>
+            <article class="pillar">
+              <h3>Supply chain</h3>
+              <p>
+                La release actual ya usa trusted publishing y build provenance. Añadir CycloneDX o SPDX SBOM ligado al mismo digest, verificación del consumidor y skill cards con propósito, permisos, egress y riesgos. Firma, scan y eval prueban propiedades distintas. SkillSpector y Claude Security se usan como referencias y, si una organización los habilita, como validadores extra; ai-security debe seguir funcionando y producir evidencia útil sin ninguno de ellos.
+              </p>
+            </article>
+          </div>
+
+          <aside class="control-ledger" aria-label="Indicadores que deciden">
+            <h3>Indicadores que sí deciden</h3>
+            <dl>
+              <div><dt>surface_proof_age</dt><dd>Rojo cuando la negación observada supera siete días.</dd></div>
+              <div><dt>guard_p95_ms</dt><dd>Hot path bajo 50 ms por dispatcher en las surfaces que continúan tras timeout.</dd></div>
+              <div><dt>mutation_score</dt><dd>Floor actual 89% para package y matriz explícita para guards.</dd></div>
+              <div><dt>adversarial_control</dt><dd>Cada ataque tiene un control limpio que no debe disparar.</dd></div>
+              <div><dt>otlp_rejected</dt><dd>Un HTTP 2xx con records rechazados no cuenta como entrega.</dd></div>
+              <div><dt>spec_evidence</dt><dd>Cada box de production-ready nombra un comando o dice no aplicable.</dd></div>
+              <div><dt>skill_eval_delta</dt><dd>Advisory primero. Bloqueo solo con baseline y corpus aprobados.</dd></div>
+              <div><dt>repo_files_written</dt><dd>El framework no amplía su hogar dentro del repo consumidor.</dd></div>
+              <div><dt>intent_trace_coverage</dt><dd>Cada criterio BDD enlaza spec, test, commit y evidencia ejecutada.</dd></div>
+              <div><dt>a11y_critical_journey</dt><dd>Cada journey crítico pasa teclado, focus, name/role/state, reflow y screen-reader smoke; contraste solo no basta.</dd></div>
+              <div><dt>aaa_exception_age</dt><dd>Todo criterio AAA aplicable no alcanzado conserva reason, owner, expiry y evidencia AA.</dd></div>
+              <div><dt>coordination_overlap</dt><dd>Cero writers concurrentes sobre el mismo work item o path reclamado.</dd></div>
+              <div><dt>report_payload_unknown</dt><dd>Cualquier campo fuera de allow-list bloquea el envío.</dd></div>
+            </dl>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section" id="roadmap" aria-labelledby="roadmap-title">
+        <div class="section-head">
+          <h2 id="roadmap-title">Roadmap por pruebas, no por features</h2>
+          <p>
+            Las waves están ordenadas por dependencia. Cada una tiene un criterio observable de salida. Una wave que no puede demostrar su resultado no abre la siguiente.
+          </p>
+        </div>
+
+        <div class="roadmap">
+          <article class="wave">
+            <div class="wave-window">P0 Fundamento<span>0-2 semanas</span></div>
+            <div>
+              <h3>Corregir la identidad y el contrato documental</h3>
+              <p>Este feedback cambia decisiones vigentes. La historia no se edita: se supersede de forma explícita antes del código.</p>
+              <ul>
+                <li>Nueva spec de misión que sustituye “una persona, muchos repos” por ingeniería humana y autónoma gobernada.</li>
+                <li>Superseder specs/004 y docs/adr/0004 para admitir un Solution Intent nativo, mínimo y user-owned, sin copiar el mould de otro repositorio.</li>
+                <li>Structured MADR v1 en docs/adr/, schema fijado y hard rename --adr a --madr.</li>
+                <li>Un único ai-spec agentic-first: research, dos opciones, self-challenge y spec. Preguntas humanas inline, no otro handler.</li>
+                <li>Trace IDs y contrato CLI outcome-first: alcance, etapa contada, outcome, cambios/evidencia, pendientes, siguiente acción y resolución solo si bloquea.</li>
+                <li>Hard rename de plan a exception y digest a report digest; report issue comparte la misma familia determinista.</li>
+              </ul>
+            </div>
+            <div class="wave-proof">
+              <strong>Sale cuando</strong>
+              <p>Las nuevas decisiones están aprobadas, sus relaciones resuelven y una fixture inválida de Intent o MADR hace fallar el gate local. ai-spec produce el mismo schema con y sin respuesta humana.</p>
+              <code>ai-eng audit verify</code>
+              <code>just check</code>
+            </div>
+          </article>
+
+          <article class="wave">
+            <div class="wave-window">P1 Surfaces<span>2-4 semanas</span></div>
+            <div>
+              <h3>Separar discovery, invocation y enforcement</h3>
+              <p>Antes de prometer paridad, probar cada capa desde el wheel instalado.</p>
+              <ul>
+                <li>Ampliar surfaces.toml con native_slash, skill_selector, command_adapter e invocation.</li>
+                <li>OpenCode 1.x: routers globales mínimos /ai-* generados, receipt, hash, doctor y uninstall.</li>
+                <li>Codex: restaurar links en ~/.agents/skills, validar /skills y $ai-*, añadir agents/openai.yaml.</li>
+                <li>Proof receipt con surface/version, load, invoke, denial, protocolo y fecha.</li>
+              </ul>
+            </div>
+            <div class="wave-proof">
+              <strong>Sale cuando</strong>
+              <p>OpenCode ofrece /ai-* sin body duplicado; Codex lista e invoca las ocho skills; doctor distingue visible, invocable y capaz de negar.</p>
+              <code>ai-eng doctor --ci</code>
+              <code>surface proof --id &lt;surface&gt;</code>
+            </div>
+          </article>
+
+          <article class="wave">
+            <div class="wave-window">P2 Craft y UX<span>4-7 semanas</span></div>
+            <div>
+              <h3>Recuperar siete capacidades con prueba</h3>
+              <p>Una capacidad por cambio, corpus antes del body final y una experiencia terminal que orienta.</p>
+              <ul>
+                <li>ai-design, ai-animation y frontend lens mobile-first, WCAG 2.2 AAA target y AA release floor.</li>
+                <li>ai-security, ai-test, ai-verify y ai-build con límites frente a guards y ai-review.</li>
+                <li>ai-report + ai-eng report con schema cerrado, draft local y disclosure privado.</li>
+                <li>Rich y JSON v1 con outcomes idénticos; progreso real y cure accionable.</li>
+              </ul>
+            </div>
+            <div class="wave-proof">
+              <strong>Sale cuando</strong>
+              <p>Las siete skills tienen corpus positivo/negativo y no colisionan. El reporte rechaza fixtures con path, PII y secreto. UI pasa render, keyboard journey, focus, reflow/zoom, screen-reader smoke, estados críticos y contraste text/non-text.</p>
+              <code>skill eval: approved corpus</code>
+              <code>ai-eng report draft --fixture unsafe</code>
+            </div>
+          </article>
+
+          <article class="wave">
+            <div class="wave-window">P3 Coordinación<span>6-10 semanas</span></div>
+            <div>
+              <h3>Coordinar writers con Git, no con otra plataforma</h3>
+              <p>El flujo simple de ai-spec ya existe. Esta wave resuelve solo concurrencia real con origin y CI.</p>
+              <ul>
+                <li>Un task, remote branch, worktree y writer; draft PR al reclamar.</li>
+                <li>DAG determinista, claimed_paths, overlap guard y checkpoints limpios.</li>
+                <li>CI sobre merge_group y merge queue para la combinación final.</li>
+                <li>Reviewer fresco opcional solo para conflicto semántico o decisión irreversible.</li>
+                <li>Authority envelope, roles de council y budget/TTL siguen fuera hasta que un consumidor independiente los necesite.</li>
+              </ul>
+            </div>
+            <div class="wave-proof">
+              <strong>Sale cuando</strong>
+              <p>Una carrera de claim tiene un ganador; un writer fuera de scope es negado; dos tasks disjuntos integran sin conflicto y un overlap llega visible al merge gate.</p>
+              <code>orchestration adversarial suite</code>
+              <code>merge_group: just check</code>
+            </div>
+          </article>
+
+          <article class="wave">
+            <div class="wave-window">P4 Security<span>8-12 semanas</span></div>
+            <div>
+              <h3>Completar el evidence pack regulado</h3>
+              <p>ai-security es la capacidad canónica. Toma patrones públicos útiles sin depender de productos o runtimes externos.</p>
+              <ul>
+                <li>Threat model y stack manifest con lanes requeridos y cobertura explícita.</li>
+                <li>Scanner nativo y stdlib-first para skills/policy, con JSON/SARIF y fixtures adversariales propias.</li>
+                <li>Review semántico provider-neutral con data-flow, business logic, challenge y evidencia file:line; nunca auto-accept.</li>
+                <li>Gitleaks, Semgrep, OSV/pip-audit y Trivy siguen como engines especializados pinneados; no reimplementar sus parsers ni bases CVE.</li>
+                <li>SkillSpector o Claude Security pueden cross-checkear, pero su ausencia nunca impide ejecutar el baseline.</li>
+                <li>SBOM ligado al wheel, provenance y verificación de consumidor.</li>
+                <li>Redacción de OTLP y chain local revisada para evitar seudónimos y argumentos sensibles.</li>
+              </ul>
+            </div>
+            <div class="wave-proof">
+              <strong>Sale cuando</strong>
+              <p>El release publica wheel, provenance y SBOM del mismo contenido; un lane ausente queda INCOMPLETE; un artefacto alterado no verifica.</p>
+              <code>gh attestation verify dist/*</code>
+              <code>cyclonedx validate sbom.json</code>
+            </div>
+          </article>
+
+          <article class="wave">
+            <div class="wave-window">P5 Pilotar<span>12-16 semanas</span></div>
+            <div>
+              <h3>Probar el sistema completo antes de escalar</h3>
+              <p>Más agentes, reglas o scanners no implican mejor resultado. La expansión se gana con un corpus y usuarios externos.</p>
+              <ul>
+                <li>Pilotar el mismo ai-spec agentic-first con respuestas humanas disponibles y sin ellas.</li>
+                <li>Comparar single-agent self-challenge con reviewer fresco; adoptar council solo si reduce defectos de forma material.</li>
+                <li>Medir defectos, coste, espera, conflictos, escalaciones y falsas verdes.</li>
+                <li>Reabrir hard path leases o control plane adicional solo si colisiones reales vencen Git+CI.</li>
+                <li>Una organización ajena debe sobrevivir un cambio de versión del Intent/MADR sin drift silencioso.</li>
+              </ul>
+            </div>
+            <div class="wave-proof">
+              <strong>Sale cuando</strong>
+              <p>El paralelo mejora tiempo sin empeorar defectos, coste, privacidad o conflictos, y cada gate demuestra un control negativo.</p>
+              <code>benchmark: sequential vs parallel</code>
+              <code>no silent retry, no shared writes, no unknown green</code>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="decisiones" aria-labelledby="decisiones-title">
+        <div class="section-head">
+          <h2 id="decisiones-title">Límites de la propuesta</h2>
+          <p>
+            La forma más rápida de repetir legacy sería llamar “detalle” a cada idea buena y meterla en el wheel. Estos límites hacen que la propuesta siga siendo v1.
+          </p>
+        </div>
+
+        <div class="decision-grid">
+          <article class="decision-list">
+            <h3>Gates de admisión</h3>
+            <div class="decision-item">
+              <strong>KISS</strong>
+              <p>Una capacidad nueva entra por el camino más corto que conserva su valor: reference, modo, skill y solo al final verb.</p>
+            </div>
+            <div class="decision-item">
+              <strong>YAGNI</strong>
+              <p>Una necesidad hipotética no mueve el line ceiling. Se exige un trigger observado o un consumidor real.</p>
+            </div>
+            <div class="decision-item">
+              <strong>DRY</strong>
+              <p>Cero mirrors manuales. Un dato de surface, un schema, un renderer y un proof record.</p>
+            </div>
+            <div class="decision-item">
+              <strong>SOLID</strong>
+              <p>El adapter traduce protocolo; el guard decide; la telemetría observa; el skill guía juicio.</p>
+            </div>
+            <div class="decision-item">
+              <strong>TDD</strong>
+              <p>La prueba de denial, parse o regression se pone roja antes de cambiar el producto.</p>
+            </div>
+            <div class="decision-item">
+              <strong>BDD</strong>
+              <p>Discovery formula ejemplos de comportamiento observable antes de automatizarlos. Gherkin solo cuando aporta precisión; N/A requiere razón verificable.</p>
+            </div>
+            <div class="decision-item">
+              <strong>Clean Architecture</strong>
+              <p>Hooks no importan el package. La presentación es leaf. La policy sigue siendo datos.</p>
+            </div>
+            <div class="decision-item">
+              <strong>Clean Code</strong>
+              <p>Nombres expresan intención, errores conservan causa y cure, y las instrucciones obsoletas se eliminan en vez de acumular excepciones.</p>
+            </div>
+            <div class="decision-item">
+              <strong>Rent rule</strong>
+              <p>Una skill, job, hook o agent que no detecta ni evita nada en la ventana acordada se simplifica o se elimina.</p>
+            </div>
+          </article>
+
+          <aside class="non-goals" aria-label="Capacidades excluidas del core">
+            <h3>No vuelve al core</h3>
+            <ul>
+              <li>Mirrors por IDE o copias del framework dentro de repos consumidores.</li>
+              <li>Los 54 skills como objetivo de inventario.</li>
+              <li>Fundraising, marketing, media, vídeo, slides o soporte como misión del wheel.</li>
+              <li>Una DB/FSM de coordinación, heartbeat o takeover por TTL antes de que Git+CI fallen en colisiones reales.</li>
+              <li>Un agente por lens de review.</li>
+              <li>Eventos que solo prueban que un hook arrancó.</li>
+              <li>Dos modos de ai-spec, council obligatorio, mayoría simple de modelos o un authority-envelope subsystem sin consumidor real.</li>
+              <li>Un ceiling artificial de verbos o skills que empeore la arquitectura de información.</li>
+              <li>Una surface marcada proven por leer documentación o generar un fichero.</li>
+              <li>Un portal de documentación que el core deba mantener para funcionar.</li>
+              <li>Publicar cada commit local, hacer background rebase o usar force push sin SHA esperado.</li>
+              <li>Publicar logs o texto libre del usuario para reportar errores.</li>
+              <li>Declarar accesibilidad o AAA desde contraste, axe o cualquier scanner automático sin interacción manual.</li>
+              <li>Afirmar certificación, cumplimiento o seguridad total desde un score o un LLM.</li>
+            </ul>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section" id="evidencia" aria-labelledby="evidencia-title">
+        <div class="section-head">
+          <h2 id="evidencia-title">Ledger de evidencia</h2>
+          <p>
+            El informe separa medición, contrato actual e inferencia. Las recomendaciones son decisiones propuestas, no estado del producto.
+          </p>
+        </div>
+
+        <div class="evidence-intro">
+          <article class="evidence-rule">
+            <strong>Cómo leer una afirmación</strong>
+            <p>
+              “Medido” sale de git o de un comando. “Contrato” sale de un archivo que gobierna el sistema. “Legacy” se leyó desde el tag preservado. “Propuesta” es una inferencia explícita.
+            </p>
+          </article>
+          <article class="evidence-meta">
+            <dl>
+              <dt>Current commit</dt><dd>226cf58f78e370d50e0ecc522891d9393bb87546</dd>
+              <dt>Legacy tag</dt><dd>legacy-main-before-v1.0.0</dd>
+              <dt>Legacy commit</dt><dd>611a7bcedf9e7e08edbc97a2ce9a29a589ed77b9</dd>
+              <dt>Fecha</dt><dd>2026-08-13</dd>
+              <dt>Método</dt><dd>git, source review, CLI real, doctor, tres consejeros adversariales, auditoría del corpus local de diseño y fuentes primarias</dd>
+              <dt>NotebookLM</dt><dd><a href="https://notebook.google.com/notebook/5404b555-481e-46e6-9a21-af2b4bf5c6b0" target="_blank" rel="noreferrer">notebook proporcionado</a>: doctor y catálogo OK; la consulta focal no devolvió respuesta utilizable, por lo que no respalda ninguna conclusión</dd>
+            </dl>
+          </article>
+        </div>
+
+        <div class="evidence-list">
+          <article class="evidence">
+            <span class="evidence-type">Medido</span>
+            <strong>Tamaño legacy y ruido operacional</strong>
+            <code>specs/001-v1-from-scratch/spec.md:14-20</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Medido</span>
+            <strong>114 archivos, 8 skills, 473 funciones de test, 817 casos y 14 ataques</strong>
+            <code>git ls-files; uv run python tests/stats.py; just check</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Contrato</span>
+            <strong>Misión, vocabulario, límites y phase actual</strong>
+            <code>CONSTITUTION.md:5-52</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Contrato</span>
+            <strong>Doce reglas, homes de archivo y gate local</strong>
+            <code>AGENTS.md:10-82</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Contrato</span>
+            <strong>Ocho surfaces, estado proven y protocolo</strong>
+            <code>policy/surfaces.toml:1-113</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Código</span>
+            <strong>Guard fail-closed y telemetry fail-open</strong>
+            <code>hooks/_wrap.py:1-140; hooks/chain.py:1-190</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Código</span>
+            <strong>OTLP, redacción y rechazo dentro de 2xx</strong>
+            <code>hooks/_otlp.py:1-145</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">CI</span>
+            <strong>Gate, mutation, Sonar policy y anti-theatre</strong>
+            <code>.github/workflows/check.yml:31-308; justfile:12-248</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">CI</span>
+            <strong>Wheel real en tres OS y packaged guard denial</strong>
+            <code>.github/workflows/install-matrix.yml:16-153</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">CI</span>
+            <strong>Trusted publishing y provenance actual</strong>
+            <code>.github/workflows/release.yml:1-81</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Decisión</span>
+            <strong>La presentación valiosa de legacy ya se recuperó adaptada</strong>
+            <code>specs/006-the-cli-that-was-better/spec.md:13-169</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Decisión</span>
+            <strong>Doctor repara solo invocando verbos consentidos</strong>
+            <code>docs/adr/0003-a-diagnostic-may-run-the-consented-verb-that-cures-what-it-f.md</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Legacy</span>
+            <strong>54 skills, 9 agents, seis surfaces y canonical chain</strong>
+            <code>legacy-main-before-v1.0.0:README.md:23-112</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Legacy</span>
+            <strong>Plano determinista, supply chain y límites regulados</strong>
+            <code>legacy-main-before-v1.0.0:CONSTITUTION.md:18-172</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Legacy</span>
+            <strong>Persistencia files-only y un hogar por datum</strong>
+            <code>legacy-main-before-v1.0.0:docs/persistence-doctrine.md:8-223</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Legacy</span>
+            <strong>Calidad less-is-more y rent rule</strong>
+            <code>legacy-main-before-v1.0.0:.ai-engineering/specs/archive/spec-140-less-is-more-quality-engine/spec.md:20-61</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Legacy</span>
+            <strong>Observabilidad con atribución y smoke de hooks</strong>
+            <code>legacy-main-before-v1.0.0:.ai-engineering/specs/archive/spec-190-observability-integrity/spec.md:9-166</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Propuesta</span>
+            <strong>Roadmap inicial de 15 skills y seis fases por prueba</strong>
+            <code>Council inicial + simplificación posterior del usuario. Requiere specs aprobadas antes de código.</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Council</span>
+            <strong>Misión y no falso cumplimiento; envelope propuesto, ahora deferido por YAGNI</strong>
+            <code>Mission → challenge → feedback del usuario → flujo agentic-first único</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Council</span>
+            <strong>Safe reporting, security layers y privacidad de coordinación</strong>
+            <code>Security → challenge a Mission y Surfaces → resolución</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Council</span>
+            <strong>Invocación por surface, Structured MADR y origin-first</strong>
+            <code>Surfaces → challenge a Mission y Security → resolución</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">[1] Anthropic</span>
+            <strong>Interfaces, progressive disclosure y menos reglas redundantes</strong>
+            <code><a href="https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models" target="_blank" rel="noreferrer">claude.com · context engineering</a></code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">[2] OpenAI</span>
+            <strong>Codex usa /skills y $skill; ~/.agents/skills y symlinks están soportados</strong>
+            <code><a href="https://developers.openai.com/codex/skills/" target="_blank" rel="noreferrer">developers.openai.com · Codex skills</a></code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">[3] OpenCode</span>
+            <strong>Skills y commands son contratos distintos; commands globales viven en ~/.config/opencode/commands</strong>
+            <code><a href="https://opencode.ai/docs/skills" target="_blank" rel="noreferrer">OpenCode skills</a> · <a href="https://opencode.ai/docs/commands/" target="_blank" rel="noreferrer">commands</a></code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">[4] Structured MADR</span>
+            <strong>YAML parseable, riesgos, relaciones, audit trail y validación estricta en CI</strong>
+            <code><a href="https://smadr.dev/" target="_blank" rel="noreferrer">smadr.dev</a> · <a href="https://smadr.dev/guides/ci-validation/" target="_blank" rel="noreferrer">CI</a> · <a href="https://smadr.dev/guides/ai-integration/" target="_blank" rel="noreferrer">AI</a></code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">[5] NVIDIA</span>
+            <strong>Sus categorías de riesgo informan el scanner nativo; SkillSpector no es dependencia</strong>
+            <code><a href="https://docs.nvidia.com/skills/scanning-agent-skills" target="_blank" rel="noreferrer">NVIDIA · scanning agent skills</a></code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">[6] Anthropic</span>
+            <strong>Data-flow, challenge independiente y patch review se incorporan al método, no al vendor</strong>
+            <code><a href="https://claude.com/product/claude-security" target="_blank" rel="noreferrer">claude.com · Claude Security</a></code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">[7] Emil Kowalski</span>
+            <strong>Craft de animación, review, oportunidades, vocabulario y diseño físico</strong>
+            <code><a href="https://github.com/emilkowalski/skills" target="_blank" rel="noreferrer">github.com/emilkowalski/skills</a></code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">[8] Impeccable</span>
+            <strong>Brief antes de craft, progressive disclosure, checks mecánicos separados del juicio y verificación acotada</strong>
+            <code><a href="https://impeccable.style/" target="_blank" rel="noreferrer">impeccable.style</a> · <a href="https://github.com/pbakaus/impeccable" target="_blank" rel="noreferrer">pbakaus/impeccable</a></code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">Corpus local</span>
+            <strong>20 skills auditadas como inputs, no como dependencias ni defaults de gusto</strong>
+            <code>brandkit; design-taste; image-to-code; imagegen; redesign; motion; UI libraries; visual styles</code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">[9] GitHub</span>
+            <strong>Issues del repositorio existen, pero la creación pública está restringida en esta fecha</strong>
+            <code><a href="https://github.com/arcasilesgroup/ai-engineering/issues" target="_blank" rel="noreferrer">arcasilesgroup/ai-engineering · Issues</a></code>
+          </article>
+          <article class="evidence">
+            <span class="evidence-type">[10] W3C</span>
+            <strong>WCAG 2.2 cubre percepción, operación, comprensión y robustez; contraste es solo una parte</strong>
+            <code><a href="https://www.w3.org/TR/WCAG22/" target="_blank" rel="noreferrer">W3C · WCAG 2.2</a> · <a href="https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/" target="_blank" rel="noreferrer">nuevos criterios 2.2</a></code>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="cierre-title">
+        <div class="final-recommendation">
+          <div>
+            <h2 id="cierre-title">La versión correcta es v1 con un flujo simple y evidencia explícita.</h2>
+            <p>
+              Mantener su columna vertebral mínima y honesta, pero ampliar su misión: gobernar desde la intención hasta la evidencia. ai-spec es agentic-first y usa a la persona inline cuando está disponible; no necesita una arquitectura dual. Las 15 skills tienen fronteras explícitas, el CLI conserva diez verbos deterministas y ai-design carga craft bajo demanda. Recuperar seguridad nativa, accesibilidad funcional, pruebas, reporting y coordinación sin mirrors, dependencia de un vendor, falso consenso ni otra fuente de verdad.
+            </p>
+          </div>
+          <div class="final-conditions">
+            <div>Primero: misión, Solution Intent, MADR y ai-spec agentic-first.</div>
+            <div>Después: invocation real, CLI outcome-first y siete skills recuperadas con eval.</div>
+            <div>Luego: DAG, checkpoints y merge queue; council solo si un benchmark lo justifica.</div>
+            <div>Al final: ai-security portable, evidence pack regulado y piloto externo.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    Artefacto local y standalone. No carga recursos externos ni modifica el producto. Es el plan definitivo revisado tras council y feedback de simplificación, todavía sujeto a aprobación antes de código. Snapshots 226cf58f y 611a7bce.
+  </footer>
+
+  <script>
+    (function () {
+      if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+
+      var capabilities = [
+        {name:"ai-advise",domain:"Arquitectura",status:"absorb",label:"Absorber",copy:"Mover heurísticas valiosas a ai-review y ai-spec. Un advisor separado duplica juicio y salida."},
+        {name:"ai-animation",domain:"Diseño",status:"restore",label:"Recuperar",copy:"First-class ahora. Progressive disclosure, criterios de Emil Kowalski, reduced motion, propiedades baratas y evidence renderizada. Se activa solo cuando hay interacción o motion."},
+        {name:"ai-autopilot",domain:"Autonomía",status:"later",label:"Más tarde",copy:"El control plane multiagente entra ahora como código, Git y CI. La skill autopilot solo vuelve si un benchmark demuestra un output independiente que esa capa no cubre."},
+        {name:"ai-board",domain:"Project management",status:"out",label:"Fuera del core",copy:"Los boards pertenecen al tracker. El core puede conservar referencias en specs sin administrar otro estado."},
+        {name:"ai-brainstorm",domain:"Producto",status:"absorb",label:"Absorber",copy:"Fase visible del único ai-spec agentic-first: research, opciones, self-challenge y spec. Pregunta unknowns al humano si está disponible; si no, decide solo lo reversible y de menor scope. Council no es default."},
+        {name:"ai-branch-cleanup",domain:"Git",status:"out",label:"Fuera del core",copy:"Una decisión repetible de ramas es CLI o script, nunca un prompt. Git y ai-ship cubren el flujo."},
+        {name:"ai-build",domain:"Entrega",status:"restore",label:"Recuperar",copy:"Ejecutor de planes con TDD, un task por contexto y stop tras dos bloqueos. No contiene un orquestador paralelo."},
+        {name:"ai-code",domain:"Implementación",status:"out",label:"Fuera del core",copy:"Demasiado genérico. El agente ya escribe código; ai-build añade el contrato que sí falta."},
+        {name:"ai-commit",domain:"Git",status:"absorb",label:"Absorber",copy:"Convenciones y scope viven en ai-ship y commit-msg hook. No necesita un skill propio."},
+        {name:"ai-constitution",domain:"Gobernanza",status:"absorb",label:"Absorber",copy:"Las enmiendas son decisiones humanas y Structured MADR. ai-spec ayuda a redactar y superseder; ninguna skill posee la identidad ni puede ampliarse autoridad."},
+        {name:"ai-debug",domain:"Calidad",status:"keep",label:"Ya en v1",copy:"Mantener. Prueba roja por la causa antes de tocar código y diagnóstico file:line."},
+        {name:"ai-design",domain:"Diseño",status:"restore",label:"Recuperar",copy:"Brief, sistema, estados, mobile-first y accesibilidad funcional. WCAG 2.2 AAA target, AA floor; semántica, teclado, foco, AT, input, reflow, errores, motion, media y evidencia manual más automática."},
+        {name:"ai-docs",domain:"Documentación",status:"absorb",label:"Absorber",copy:"Añadir lens de docs a ai-review y tareas de docs a ai-ship. Un skill nuevo solo si el corpus demuestra especialidad distinta."},
+        {name:"ai-engineering-issue",domain:"Mantenimiento",status:"restore",label:"Recuperar como ai-report",copy:"No restaurar el body legacy. ai-report descubre ai-eng report: draft local, allow-list, doble scan, preview y consentimiento. Security findings van a disclosure privado."},
+        {name:"ai-explain",domain:"Comprensión",status:"absorb",label:"Absorber",copy:"ai-explore ya cubre tour y explicación. Añadir audiencia no técnica como modo de salida."},
+        {name:"ai-explore",domain:"Comprensión",status:"keep",label:"Ya en v1",copy:"Mantener. Mapea el repo con rutas y sigue un flujo real de extremo a extremo."},
+        {name:"ai-fundraising",domain:"Negocio",status:"out",label:"Fuera del core",copy:"Valiosa para otro producto, no para un wheel de gobernanza de agentes que escriben código."},
+        {name:"ai-governance",domain:"Gobernanza",status:"absorb",label:"Absorber",copy:"Solution Intent, spec, Structured MADR, plan, permisos existentes, doctor y audit forman el plano. No añadir authority envelope hasta que un orquestador consumidor demuestre necesitarlo."},
+        {name:"ai-ide-audit",domain:"Surfaces",status:"absorb",label:"Absorber",copy:"Convertirlo en proof harness y assertions de doctor. Una auditoría que siempre decide igual debe ser código."},
+        {name:"ai-issue",domain:"Tracker",status:"out",label:"Fuera del core",copy:"Mantener spec ref y cierre desde ai-ship. No administrar issues como segunda fuente de verdad."},
+        {name:"ai-learn",domain:"Memoria",status:"absorb",label:"Absorber",copy:"ai-note ya guarda hallazgos no obvios. Engram o el sistema de memoria resuelve persistencia fuera del wheel."},
+        {name:"ai-marketing",domain:"Negocio",status:"out",label:"Fuera del core",copy:"No pertenece a la misión. Puede vivir en un paquete especializado independiente."},
+        {name:"ai-mcp-audit",domain:"Seguridad",status:"absorb",label:"Absorber",copy:"Hacerlo un modo o reference de ai-security cuando el repo declare MCPs. Evita otro trigger global."},
+        {name:"ai-media",domain:"Contenido",status:"out",label:"Fuera del core",copy:"Generación de medios no es gobernanza de software."},
+        {name:"ai-note",domain:"Conocimiento",status:"keep",label:"Ya en v1",copy:"Mantener. Convierte un hallazgo costoso en markdown ligado al commit y a patrones de archivo."},
+        {name:"ai-onboard",domain:"DX",status:"absorb",label:"Absorber",copy:"Extender ai-explore para tours. Init y doctor deben enseñar adopción sin otro skill de router."},
+        {name:"ai-pipeline",domain:"CI/CD",status:"absorb",label:"Absorber",copy:"Las decisiones estables de pipeline viven en justfile, skeletons y workflows. Review puede juzgar el diff."},
+        {name:"ai-plan",domain:"Entrega",status:"keep",label:"Ya en v1",copy:"Mantener. Cada tarea nombra archivo, check rojo, rollback y criterio de cierre."},
+        {name:"ai-postmortem",domain:"Reliability",status:"later",label:"Más tarde",copy:"Útil cuando exista un corpus de incidentes. Puede ser template de spec antes que skill."},
+        {name:"ai-pr",domain:"Entrega",status:"absorb",label:"Absorber",copy:"ai-ship es su sucesor pequeño: commit, push, PR, changelog y gates observados."},
+        {name:"ai-prompt-tune",domain:"Prompts",status:"out",label:"Fuera del core",copy:"Capacidad meta de propósito amplio. Los skills del core se mejoran con evals y revisión local."},
+        {name:"ai-prose",domain:"Comunicación",status:"out",label:"Fuera del core",copy:"El core necesita salidas claras, no una herramienta general de redacción. Llevar BLUF a spec y ship."},
+        {name:"ai-reliability-eval",domain:"Evals",status:"absorb",label:"Absorber",copy:"Convertirlo en harness de CI para skills. Una evaluación repetible es código, no skill."},
+        {name:"ai-research",domain:"Investigación",status:"keep",label:"Ya en v1",copy:"Mantener. Evidencia externa con citas y claims no soportados marcados."},
+        {name:"ai-resolve-conflicts",domain:"Git",status:"absorb",label:"Absorber",copy:"La resolución por intención pertenece a ai-ship y ai-debug. No necesita superficie propia."},
+        {name:"ai-review",domain:"Calidad",status:"keep",label:"Ya en v1",copy:"Mantener y añadir frontend como reference bajo demanda. No recuperar una plantilla por revisor."},
+        {name:"ai-scaffold",domain:"Mantenimiento",status:"out",label:"Fuera del core",copy:"Scaffolding de skills y agentes es maintainer tooling. Si se repite, un script dentro del repo."},
+        {name:"ai-schema",domain:"Datos",status:"later",label:"Más tarde",copy:"Especialidad útil, pero puede empezar como reference de ai-review y ai-security antes de ser skill."},
+        {name:"ai-security",domain:"Seguridad",status:"restore",label:"Recuperar",copy:"Baseline propio: threat model, permisos, guards, scanner nativo de skills/policy, adapters a engines maduros, review semántico provider-neutral con challenge, SBOM y evidence pack. NVIDIA y Claude son referencias o cross-checks opcionales."},
+        {name:"ai-session-watch",domain:"Autonomía",status:"out",label:"Fuera del core",copy:"Polling y reparación autónoma no deben vivir como prompt general. El CI y el host gestionan espera."},
+        {name:"ai-session-watch-sweep",domain:"Autonomía",status:"out",label:"Fuera del core",copy:"Variante duplicada. Si una sweep siempre decide igual, es scheduler o script."},
+        {name:"ai-simplify",domain:"Calidad",status:"absorb",label:"Absorber",copy:"Deletion-first ya es regla del proyecto. Añadir un lens de simplificación a ai-review."},
+        {name:"ai-simplify-sweep",domain:"Calidad",status:"out",label:"Fuera del core",copy:"No duplicar el skill con una variante batch. El scheduling queda fuera del wheel."},
+        {name:"ai-skill-improve",domain:"Mantenimiento",status:"out",label:"Fuera del core",copy:"Herramienta interna. Evals, line ceiling y review son el camino de mejora del corpus propio."},
+        {name:"ai-slides",domain:"Contenido",status:"out",label:"Fuera del core",copy:"Presentaciones son una capability externa, no parte del contrato de gobernanza."},
+        {name:"ai-spec-draft",domain:"Producto",status:"absorb",label:"Absorber",copy:"ai-spec ya escribe la decisión antes del código. Mantener un solo on-ramp."},
+        {name:"ai-sprint",domain:"Project management",status:"out",label:"Fuera del core",copy:"Los sprints pertenecen al sistema de trabajo del equipo, no al framework global."},
+        {name:"ai-standup",domain:"Project management",status:"out",label:"Fuera del core",copy:"Los standups son contexto organizativo y una mala fuente canónica para estado técnico."},
+        {name:"ai-start",domain:"DX",status:"absorb",label:"Absorber",copy:"Init, doctor y el listado de skills ya orientan. Evitar un router que cargue todo el framework."},
+        {name:"ai-support",domain:"Negocio",status:"out",label:"Fuera del core",copy:"Soporte de producto no pertenece a un guardrail wheel general."},
+        {name:"ai-test",domain:"Calidad",status:"restore",label:"Recuperar",copy:"Estrategia de pruebas, TDD, integration y e2e con riesgo. Separa test design de review del diff."},
+        {name:"ai-verify",domain:"Evidencia",status:"restore",label:"Recuperar",copy:"Ejecuta checks, captura salida y distingue pass, fail, unknown y not-applicable. Nunca inventa un gate."},
+        {name:"ai-video-editing",domain:"Contenido",status:"out",label:"Fuera del core",copy:"Edición de vídeo pertenece a un paquete de medios independiente."},
+        {name:"ai-visual",domain:"Diseño",status:"absorb",label:"Absorber",copy:"La creación visual específica puede ser handler de ai-design o una tool externa, no otro skill core."}
+      ];
+
+      var surfaces = [
+        {name:"Claude Code",id:"claude-code",tier:"T2",proof:"PROVEN",proofClass:"proven",goal:"Conservar como referencia de exit 2.",current:"Exit 2 niega incluso bajo bypassPermissions. Tiene PreToolUse, PostToolUse y eventos de sesión.",next:"Renovar proof desde wheel por release y medir p95. Añadir version al receipt de prueba."},
+        {name:"OpenCode",id:"opencode",tier:"T2",proof:"PROVEN",proofClass:"proven",goal:"Añadir invocación /ai-* sin mirrors.",current:"Un throw en tool.execute.before mata la llamada. Heartbeat detecta plugin omitido. Skills y commands son APIs distintas en OpenCode 1.x.",next:"Generar routers globales mínimos desde catálogo canónico, con receipt/hash/uninstall; mantener el hueco post-tool honestamente."},
+        {name:"Codex CLI",id:"codex-cli",tier:"T2",proof:"INERT",proofClass:"inert",goal:"Restaurar discovery y probar trust/denial.",current:"Codex 0.147.0 soporta /skills, $skill y symlinks bajo ~/.agents/skills. Esta máquina no contiene hoy las ocho skills del wheel en ese root y doctor lo marca FAIL.",next:"Init global, validar /skills y $ai-spec, añadir openai.yaml; después ejecutar ceremonia de trust y denial. No custom command mirror."},
+        {name:"Cursor",id:"cursor",tier:"T2",proof:"UNPROVEN",proofClass:"unproven",goal:"Ejecutar deny con failClosed.",current:"El protocolo existe, pero falla abierto si failClosed no está activo. La respuesta usa snake_case.",next:"Prueba real sobre versión fijada, incluyendo crash del guard, reply schema y preservación de settings ajenos."},
+        {name:"Copilot CLI",id:"copilot-cli",tier:"T2",proof:"UNPROVEN",proofClass:"unproven",goal:"Probar merge, timeout y command kind.",current:"Lee preToolUse de command. Mezcla varias fuentes. Falla cerrado en crash y abierto en timeout.",next:"Separar proof de deny, crash y timeout. Doctor debe decir qué semántica está activa, no solo wired."},
+        {name:"VS Code Copilot",id:"vscode-copilot",tier:"T2",proof:"UNPROVEN",proofClass:"unproven",goal:"Probar payload camelCase en preview.",current:"Comparte settings con Claude, ignora matchers y usa camelCase. No tiene detect path portable.",next:"Wired por nombre, versión fijada y denial con matcher evaluado por el dispatcher. No fabricar detección."},
+        {name:"pi",id:"pi",tier:"T3",proof:"UNPROVEN",proofClass:"unproven",goal:"Mostrar la sintaxis real y mantener T3.",current:"Descubre skills bajo su root y la invocación humana es /skill:ai-spec, no /ai-spec.",next:"Documentar en doctor. Alias mínimo solo si la uniformidad se convierte en requisito y una prueba real lo soporta."},
+        {name:"Zed",id:"zed",tier:"T3",proof:"UNPROVEN",proofClass:"unproven",goal:"Conservar instruction-only.",current:"Skills compartidos por convención. Detección automática no es portable y puede ser fabricada por otros writers.",next:"Mantener T3. Reabrir enforcement solo con hook estable y una señal de detección que el framework no escriba."}
+      ];
+
+      var capabilityList = document.getElementById("capability-list");
+      var capabilitySummary = document.getElementById("capability-summary");
+      var capabilityMore = document.getElementById("capability-more");
+      var search = document.getElementById("capability-search");
+      var filters = Array.prototype.slice.call(document.querySelectorAll(".filter"));
+      var activeFilter = "all";
+      var showAllCapabilities = false;
+
+      function capabilityMarkup(item) {
+        return '<article class="capability" data-status="' + item.status + '" data-search="' +
+          (item.name + " " + item.domain + " " + item.copy).toLowerCase().replace(/"/g, "&quot;") + '">' +
+          '<div><div class="capability-name">' + item.name + '</div><div class="capability-domain">' + item.domain + '</div></div>' +
+          '<span class="status ' + item.status + '">' + item.label + '</span>' +
+          '<div class="capability-copy">' + item.copy + '</div></article>';
+      }
+
+      capabilityList.innerHTML = capabilities.map(capabilityMarkup).join("");
+
+      function applyCapabilityFilters() {
+        var query = search.value.trim().toLowerCase();
+        var cards = Array.prototype.slice.call(capabilityList.querySelectorAll(".capability"));
+        var visible = 0;
+        var matched = 0;
+        var compact = activeFilter === "all" && !query && !showAllCapabilities;
+        cards.forEach(function (card) {
+          var statusMatch = activeFilter === "all" || card.getAttribute("data-status") === activeFilter;
+          var searchMatch = !query || card.getAttribute("data-search").indexOf(query) !== -1;
+          var matches = statusMatch && searchMatch;
+          if (matches) matched += 1;
+          card.hidden = !matches || (compact && matched > 12);
+          if (!card.hidden) visible += 1;
+        });
+        capabilitySummary.textContent = visible + " visibles de " + matched + " coincidentes, " + capabilities.length + " inventariadas";
+        capabilityMore.hidden = activeFilter !== "all" || Boolean(query);
+        capabilityMore.textContent = showAllCapabilities ? "Mostrar resumen" : "Mostrar inventario completo";
+        var existing = capabilityList.querySelector(".empty-state");
+        if (existing) existing.remove();
+        if (visible === 0) {
+          var empty = document.createElement("div");
+          empty.className = "empty-state";
+          empty.textContent = "No hay capacidades que coincidan con este filtro.";
+          capabilityList.appendChild(empty);
+        }
+      }
+
+      filters.forEach(function (button) {
+        button.addEventListener("click", function () {
+          activeFilter = button.getAttribute("data-filter");
+          filters.forEach(function (candidate) {
+            candidate.setAttribute("aria-pressed", String(candidate === button));
+          });
+          applyCapabilityFilters();
+        });
+      });
+
+      search.addEventListener("input", applyCapabilityFilters);
+      capabilityMore.addEventListener("click", function () {
+        showAllCapabilities = !showAllCapabilities;
+        applyCapabilityFilters();
+      });
+      applyCapabilityFilters();
+
+      var surfaceList = document.getElementById("surface-list");
+      function surfaceMarkup(surface, index) {
+        return '<details class="surface"' + (index < 2 ? ' open' : '') + '>' +
+          '<summary>' +
+          '<div class="surface-name"><strong>' + surface.name + '</strong><span>' + surface.id + '</span></div>' +
+          '<span class="tier">' + surface.tier + '</span>' +
+          '<span class="proof ' + surface.proofClass + '">' + surface.proof + '</span>' +
+          '<span class="surface-goal">' + surface.goal + '</span>' +
+          '</summary>' +
+          '<div class="surface-body">' +
+          '<div><strong>Estado observado</strong><p>' + surface.current + '</p></div>' +
+          '<div><strong>Siguiente prueba</strong><p>' + surface.next + '</p></div>' +
+          '</div></details>';
+      }
+      surfaceList.innerHTML = surfaces.map(surfaceMarkup).join("");
+
+      var themeToggle = document.getElementById("theme-toggle");
+      themeToggle.addEventListener("click", function () {
+        var root = document.documentElement;
+        root.setAttribute("data-theme", root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+      });
+
+      document.getElementById("print-report").addEventListener("click", function () {
+        window.print();
+      });
+
+      document.getElementById("section-jump").addEventListener("change", function (event) {
+        var target = document.querySelector(event.target.value);
+        if (target) target.scrollIntoView({behavior:"smooth", block:"start"});
+      });
+
+      var tocLinks = Array.prototype.slice.call(document.querySelectorAll(".toc nav a"));
+      var observedSections = tocLinks.map(function (link) {
+        return document.querySelector(link.getAttribute("href"));
+      }).filter(Boolean);
+
+      if ("IntersectionObserver" in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          var visible = entries.filter(function (entry) { return entry.isIntersecting; })
+            .sort(function (a, b) { return b.intersectionRatio - a.intersectionRatio; })[0];
+          if (!visible) return;
+          tocLinks.forEach(function (link) {
+            link.setAttribute("aria-current", String(link.getAttribute("href") === "#" + visible.target.id));
+          });
+        }, {rootMargin:"-18% 0px -64% 0px", threshold:[0.01, 0.2, 0.5]});
+        observedSections.forEach(function (section) { observer.observe(section); });
+      }
+    }());
+  </script>
+</body>
+</html>

@@ -3,3 +3,17 @@
 !config.toml
 !intent.md
 !readiness.json
+# The two research documents the whole of spec 010 is measured against. They were ignored
+# with everything else here, so `docs/requirements.toml` — 411 rows, one per requirement,
+# each naming the command that decides it — was the only in-tree record of what they asked
+# and nobody but the machine that wrote it could check the copy. A ledger whose source is
+# unavailable to its readers is a ledger they have to take on trust, which is the one thing
+# this repository refuses everywhere else.
+#
+# `.ai/` stays disposable and this is the exception that proves it: these two are inputs the
+# work is judged against, not state the work produces.
+!reports/
+!reports/evolution-proposal/
+!reports/evolution-proposal/index.html
+!reports/process-optimization-research/
+!reports/process-optimization-research/index.html
