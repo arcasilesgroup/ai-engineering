@@ -2391,7 +2391,19 @@ DESCRIPTION_MAX = 1000
 # the draft through the executor made the first half slower and CI found it on the next run.
 # The fix reads the payload back off disk, which is also the stronger claim: the phrase has
 # to match the bytes a person was actually shown.
-REPO_CEILING = 68_903
+#
+# 68,903 to 68,966 for the whole-tree mutation number, which now exists.
+#
+# 21,960 mutants, 72% caught, against a floor of 89 — published by the scheduled run of
+# 2026-08-17 after three local attempts were each killed by the environment. EP-285 asks that
+# a score exist and be measured against the floor, and both now happen; that the floor is
+# unmet is recorded loudly rather than folded into the verdict.
+#
+# The run published the number and threw away the names. `just mutate` writes
+# `mutants-survivors.txt` beside the tree precisely because the score says how much is
+# unproven and only the names say what, so the nightly keeps both files as an artefact now —
+# on every run, including the failing ones, which are the runs whose names are worth having.
+REPO_CEILING = 68_966
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

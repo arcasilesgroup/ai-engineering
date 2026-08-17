@@ -58,17 +58,31 @@ with no such check is not done.
 - [x] T-10 `just check` green and shown: 1,454 tests, lint 181, skilleval 254, adversarial
   21 of 21.
 
-- [ ] T-11 The whole-tree mutation lane, run to a number. **Not done, and not for want of
-  trying.** Three local runs reached the baseline and past it — 82%, 37% and 82% of 21,772
-  mutants — and every one was killed by the environment rather than failing. What is measured
-  is the scoped lane over the five modules this branch changes: 3,212 killed, 1,117 survived,
-  **74%**, against a floor of 89. That floor is the whole *package* average, and the justfile
-  records that the average is that low because `update` and `uninstall` drag it down while
-  everything else sits between 93% and 98%. This branch changes `uninstall`. So a bar that
-  reads "this change is well tested" means "this change did not touch the two weak modules",
-  and no branch touching either can pass it. Lowering it to go green is the defect this
-  repository is named after, so it is a decision and not a repair: it is written up for the
-  owner with three options and a recommendation, and nothing here acts on it.
+- [x] T-11 The whole-tree mutation lane, run to a number. **Done, on 2026-08-17.** It took
+  four attempts: three local runs reached the baseline and past it — 82%, 37% and 82% of
+  21,772 mutants — and every one was killed by the environment rather than failing. The
+  answer was to stop running it on a developer machine. The scheduled nightly finished
+  uncancelled on the branch and published it: **21,960 mutants, 72% caught, against a floor
+  of 89** (run 32043131651). Roughly 3,700 mutants short.
+
+  The floor stays at 89, and that is now a decision on the record rather than an open
+  question. The owner's words on 2026-08-17: the tests get better, the number does not come
+  down. The first instalment is in this branch — `imagery` and `executor` went from 77% to
+  86% across twenty-six new cases, and one of those cases found a real defect in a docstring
+  that claimed a property the code did not enforce.
+
+  What the run did *not* publish was the names. `just mutate` writes `mutants-survivors.txt`
+  beside the tree precisely because "the score says how much is unproven; only the names say
+  what", and the nightly threw it away — so 72% arrived with nothing to act on and learning
+  which defects nobody would notice would have cost another hour and forty-six minutes. The
+  job keeps both files as an artefact now, on every run including the failing ones, which are
+  the runs whose names are worth having.
+
+  The original note stands and is why the scoped lane exists: 89 is the whole *package*
+  average, `update` and `uninstall` drag it down while everything else sits between 93% and
+  98%, so a scoped bar reading "this change is well tested" can mean "this change did not
+  touch the two weak modules". That is a property of the bar, not of the branch.
+
 
 ## Green gate
 

@@ -7,9 +7,13 @@
 # on a clock instead, and the pull request runs over its own diff against this run's receipt.
 #
 # This job blocks nothing. It is not in `CI Result`'s needs and it is not a required check,
-# and that is deliberate: the standing whole-tree score is 71% against a floor of 89, so
-# making it blocking would mean nothing merges until roughly 3,700 more mutants are killed.
-# What it owes is a number, published on a schedule, that somebody can act on.
+# and that is deliberate: measured on 2026-08-17 over 21,960 mutants, the whole-tree score is
+# 72% against a floor of 89, so making it blocking would mean nothing merges until roughly
+# 3,700 more mutants are killed. What it owes is a number, published on a schedule, that
+# somebody can act on — and, since that run, the names behind the number as well.
+#
+# The floor stays at 89. That was decided by the owner on 2026-08-17 in those words: the
+# tests get better, the number does not come down.
 name: mutation nightly
 
 on:
@@ -71,6 +75,26 @@ jobs:
       - name: say the score out loud
         run: |
           grep -E "killed=|RAN mutants=" "$RUNNER_TEMP/mutate.log" | tail -2 >> "$GITHUB_STEP_SUMMARY"
+
+      # The score says how much is unproven; only the names say what. The justfile makes this
+      # argument for the local recipe and writes both files out beside the tree — and then
+      # this job threw them away, so the 21,960-mutant run of 2026-08-17 published "72%" and
+      # nothing at all about which defects nobody would notice. Learning that cost another
+      # full run, which is one hour and forty-six minutes of somebody's day.
+      #
+      # `if: always()`, because the run that fails its floor is exactly the run whose names
+      # are worth having, and `if-no-files-found: warn` so a run that died before mutmut
+      # wrote anything says so instead of failing a second time for a missing file.
+      - name: keep the names, not only the number
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: mutation-survivors
+          path: |
+            mutants-survivors.txt
+            mutants-stats.json
+          if-no-files-found: warn
+          retention-days: 30
 
       # A nightly that fails at 03:20 is a nightly nobody reads. This is the whole reason the
       # run exists — it blocks nothing, so the only way its answer reaches a person is if it

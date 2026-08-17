@@ -1884,10 +1884,10 @@ note = "declared as having no instrument rather than claiming a percentile it do
 
 [[requirement]]
 id = "EP-285"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "a whole-tree mutation score exists and is measured against the floor"
-evidence = "just mutate src/ai_engineering/<module>.py; .github/workflows/mutation-nightly.yml"
-note = "the mechanism is wired and scheduled and the floor is unmet. The owner's decision on 2026-08-17 was to keep 89 and raise the tests rather than lower the number, and the first pass of that is measured: scan 67 to 80, spec 67 to 74, uninstall 78 to 81, update 60 to 63 — the last of which had no test file at all. Almost every survivor was a sentence a person reads rather than a branch, so the fixtures now pin refusals whole and compare whole output blocks. The whole-tree figure after this is being measured by the nightly and is not claimed here"
+evidence = "gh run view 32043131651 --log | grep 'deliberate defects'"
+note = "the score exists and the comparison executes: 21,960 mutants, 72% caught, against a floor of 89, published by the scheduled run on 2026-08-17. The requirement asks that it be measured against the floor and it is; that the floor is unmet is a separate fact, recorded in specs/018 plan T-11 and in the nightly's own header, and the owner's decision that day was to raise the tests rather than lower the number"
 
 [[requirement]]
 id = "EP-286"
