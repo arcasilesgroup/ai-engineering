@@ -2091,7 +2091,25 @@ DESCRIPTION_MAX = 1000
 # undecidable where it is not. Absence is not agreement. On any machine but this one the
 # check says so out loud rather than passing in silence, which is the whole difference
 # between a skip and a green.
-REPO_CEILING = 64_296
+#
+# 64,296 to 64,398 for a tamper fixture at the artefact this repository gained this morning,
+# and for taking a comparison out of a workflow where nothing could run it.
+#
+# `EP-051` asks for a versioned fixture that flips one byte of a security artefact and forces
+# a non-green result. It covered the scanner rules and nothing else. The SBOM is the more
+# interesting target and it exists now: a corrupted document is caught by anything that parses
+# it, but a *valid* one — every field present, a real sha256 — describing a different wheel is
+# caught only by comparing the two.
+#
+# That comparison was eight lines of Python inline in the release job. The job runs on a tag,
+# so the one check standing between a swapped document and a published release had never
+# executed and could not be made to. It is `sbom.matches` now, with fixtures for the swap, for
+# a single edited character, and for four unreadable shapes — each refused, none of them a
+# traceback out of a release.
+#
+# `EP-051` stays INCOMPLETE and the row says why: no fixture exists for a scanner binary, and
+# the one for the wheel itself needs a published release. Two of four is not four.
+REPO_CEILING = 64_398
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -100,15 +100,19 @@ jobs:
       - name: describe what was built, beside what was built
         run: |
           uv run python -m ai_engineering.sbom dist/*.whl
+          # `sbom.matches`, and not the comparison written out again here. Inline, this was
+          # the one check standing between a swapped document and a published release, in a
+          # job that runs only on a tag — so it had never executed and nothing could make it.
+          # As a function it has fixtures: a valid document describing another wheel, a
+          # single edited character, and four unreadable shapes, each refused.
           uv run python - <<'PY'
-          import glob, hashlib, json, pathlib
+          import glob, pathlib, sys
+          from ai_engineering import sbom
           wheel = pathlib.Path(glob.glob("dist/*.whl")[0])
-          bom = json.loads(pathlib.Path(glob.glob("dist/*.cdx.json")[0]).read_text("utf-8"))
-          named = bom["metadata"]["component"]["hashes"][0]["content"]
-          built = hashlib.sha256(wheel.read_bytes()).hexdigest()
-          if named != built:
-              raise SystemExit(f"the SBOM names {named} and the wheel hashes to {built}")
-          print(f"the SBOM names the wheel that was built: {built}")
+          bom = pathlib.Path(glob.glob("dist/*.cdx.json")[0])
+          if not sbom.matches(wheel, bom):
+              sys.exit(f"{bom.name} does not describe the wheel this job built")
+          print(f"the SBOM describes the wheel that was built: {wheel.name}")
           PY
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

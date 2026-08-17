@@ -135,3 +135,61 @@ def test_naming_no_wheel_is_incomplete_and_writes_nothing(tmp_path, capsys):
 
     assert sbom.main([]) == 1
     assert "INCOMPLETE" in capsys.readouterr().out
+
+
+def test_a_document_describing_a_different_wheel_is_refused(tmp_path):
+    """`EP-051`'s tamper fixture, at the artefact this repository gained today.
+
+    The rules file already had one; the SBOM did not, and it is the more interesting target.
+    A corrupted document is caught by anything that parses it. What this refuses is a *valid*
+    one — every field present, a real sha256, the whole thing well formed — that describes a
+    different wheel from the one it travels with. Only comparing the two tells them apart,
+    and until now that comparison lived inline in a job that runs on a tag and had therefore
+    never executed once.
+    """
+    from ai_engineering import sbom
+
+    built = wheel(tmp_path)
+    honest = sbom.write(built)
+    assert sbom.matches(built, honest)
+
+    # The swap: a document for a wheel that was never built here, valid in every other way.
+    (tmp_path / "elsewhere").mkdir(exist_ok=True)
+    other = wheel(tmp_path / "elsewhere", version="9.9.9")
+    swapped = tmp_path / "swapped.cdx.json"
+    swapped.write_text(json.dumps(sbom.document(other), indent=2), encoding="utf-8")
+    assert json.loads(swapped.read_text("utf-8"))["specVersion"] == sbom.SPEC_VERSION
+    assert not sbom.matches(built, swapped), "a document about another wheel was accepted"
+
+    # And one byte. The narrowest version of the same attack: the digest is edited and
+    # nothing else, so every structural check still passes.
+    flipped = json.loads(honest.read_text("utf-8"))
+    digest = flipped["metadata"]["component"]["hashes"][0]["content"]
+    flipped["metadata"]["component"]["hashes"][0]["content"] = (
+        "0" if digest[0] != "0" else "1"
+    ) + digest[1:]
+    edited = tmp_path / "edited.cdx.json"
+    edited.write_text(json.dumps(flipped), encoding="utf-8")
+    assert not sbom.matches(built, edited), "one edited character was not noticed"
+
+
+def test_a_document_that_is_missing_or_unreadable_is_refused_and_never_raises(tmp_path):
+    """The other half of a fail-closed comparison. A missing file, a truncated one, a valid
+    JSON document with no hashes, and one naming an algorithm we do not use: each is a
+    refusal and none of them is a traceback out of a release job."""
+    from ai_engineering import sbom
+
+    built = wheel(tmp_path)
+    for name, body in (
+        ("absent.cdx.json", None),
+        ("truncated.cdx.json", '{"metadata": '),
+        ("empty.cdx.json", "{}"),
+        (
+            "wrong-alg.cdx.json",
+            json.dumps({"metadata": {"component": {"hashes": [{"alg": "MD5", "content": "x"}]}}}),
+        ),
+    ):
+        where = tmp_path / name
+        if body is not None:
+            where.write_text(body, encoding="utf-8")
+        assert not sbom.matches(built, where), f"{name} was accepted"

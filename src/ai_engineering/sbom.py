@@ -120,6 +120,28 @@ def write(wheel: Path, into: Path | None = None) -> Path:
     return where
 
 
+def matches(wheel: Path, bom: Path) -> bool:
+    """Does this document describe those bytes?
+
+    The comparison the release job makes, extracted so something can drive it. Inline in a
+    workflow it was a claim nobody could exercise: the job runs only on a tag, so the one
+    check standing between a swapped SBOM and a published release had never executed and
+    could not be made to.
+
+    The attack it answers is not a corrupted file — it is a *valid* document describing a
+    different wheel. Every field parses, the digest is a real sha256, and only comparing it
+    to the artefact it claims to be about tells the two apart.
+    """
+
+    try:
+        named = json.loads(bom.read_text("utf-8"))["metadata"]["component"]["hashes"][0]
+    except (OSError, ValueError, KeyError, IndexError, TypeError):
+        return False
+    if named.get("alg") != "SHA-256":
+        return False
+    return named.get("content") == hashlib.sha256(wheel.read_bytes()).hexdigest()
+
+
 def main(argv: list[str]) -> int:
     """`python -m ai_engineering.sbom dist/*.whl`, one BOM per wheel named."""
 
