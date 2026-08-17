@@ -62,6 +62,15 @@ typecheck:
     # silently, and a proof that stops running without saying so is worth less than no
     # proof, because it still reads green.
     AI_ENG_REQUIRE_NODE=1 uv run --with {{pytest}} pytest -q tests/test_opencode_plugin.py
+    # And the receipt, because the suite above proves the behaviour and cannot prove that a
+    # denial happened on *this* machine. Until this line, the only executed denial receipt in
+    # the tree came out of `install-matrix.yml`, so the one surface `report surfaces` could
+    # read as proven was the one CI happened to prove — every other row read unproven whether
+    # or not it was provable. This one is, and its adapter is a plugin we ship.
+    #
+    # It refuses rather than writing when the plugin does not deny or does not name the guard
+    # that decided, so a green here is a denial and not a file.
+    uv run python tests/surface_receipt.py opencode
 
 test:
     uv run --with {{pytest}} pytest -q

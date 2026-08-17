@@ -209,3 +209,60 @@ def test_the_plugin_denies_when_it_cannot_run_its_own_guard(tmp_path, monkeypatc
         assert sent["tool_name"] == "Bash", sent
         assert sent["session_id"].startswith("probe-"), sent
         assert sent["tool_input"], f"the guard was asked about a call with no arguments: {sent}"
+
+
+def test_the_receipt_runner_refuses_rather_than_writing_when_nothing_denied(tmp_path, monkeypatch):
+    """`EP-210`'s runner, and the only property that makes its output evidence.
+
+    `tests/surface_receipt.py` writes `.ai/receipts/surface/opencode.enforcement.json`, which
+    `report surfaces` then reads as a proven surface. So the interesting cases are the ones
+    where it must write nothing: a plugin that allowed the call, and a plugin that denied
+    without saying which guard decided.
+
+    The second is not pedantry. A denial nobody can attribute is evidence that something said
+    no, and the receipt claims something narrower — that *this framework's* control ran. A
+    runner that accepted any refusal would turn a crash into a proof.
+    """
+
+    import surface_receipt
+
+    receipt = surface_receipt.RECEIPTS / "opencode.enforcement.json"
+    before = receipt.read_bytes() if receipt.exists() else None
+    monkeypatch.setattr(surface_receipt.shutil, "which", lambda name: "/usr/bin/node")
+
+    try:
+        for answer, expected, why in (
+            ((False, "it went through"), 1, "allowed"),
+            ((True, "something refused and said nothing about itself"), 1, "unattributed"),
+            ((True, "[no_verify_guard] BLOCKED: ..."), 0, "attributed"),
+        ):
+            monkeypatch.setattr(surface_receipt, "drive", lambda area, _a=answer: _a)
+            if expected:
+                receipt.unlink(missing_ok=True)
+            assert surface_receipt.main(["opencode"]) == expected, why
+            assert receipt.exists() is (expected == 0), why
+    finally:
+        if before is None:
+            receipt.unlink(missing_ok=True)
+        else:
+            receipt.write_bytes(before)
+
+
+def test_a_machine_without_node_says_so_and_does_not_write_a_receipt(monkeypatch):
+    """Absence is not a pass, and it is not a failure either. A machine with no node has
+    proved nothing about this surface — the run says so, exits zero because nothing is
+    broken, and leaves `report surfaces` reading the row as unproven, which it is."""
+
+    import surface_receipt
+
+    receipt = surface_receipt.RECEIPTS / "opencode.enforcement.json"
+    before = receipt.read_bytes() if receipt.exists() else None
+    receipt.unlink(missing_ok=True)
+    monkeypatch.setattr(surface_receipt.shutil, "which", lambda name: None)
+
+    try:
+        assert surface_receipt.main(["opencode"]) == 0
+        assert not receipt.exists(), "a machine with no node wrote a receipt anyway"
+    finally:
+        if before is not None:
+            receipt.write_bytes(before)

@@ -2459,7 +2459,19 @@ DESCRIPTION_MAX = 1000
 # The ageing branch is exercised against an old date rather than the shipped file, which is
 # dated today and could never reach it — the same un-reachable-rule shape found in the
 # adapter version binding this morning.
-REPO_CEILING = 69_941
+# 69,941 to 70,247 for a second surface that proves its own denial.
+#
+# EP-210's note said it and nobody acted on it: buildable rather than blocked, because
+# OpenCode's adapter is a plugin this repository ships. Until now the only executed denial
+# receipt in the tree came out of install-matrix.yml, so the one surface `report surfaces`
+# could read as proven was the one CI happened to prove.
+#
+# `tests/surface_receipt.py` drives the plugin under node the way OpenCode does, in a home
+# the run owns, hands it a `--no-verify` commit, and writes the receipt its own adapter
+# requires. It refuses to write when nothing denied, and when the denial named no guard — a
+# denial nobody can attribute is evidence that something said no, which is a narrower claim
+# than the receipt makes.
+REPO_CEILING = 70_247
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

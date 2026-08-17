@@ -1379,8 +1379,8 @@ note = "one of eight surfaces declares a commands root today, so the mechanism i
 id = "EP-206"
 verdict = "INCOMPLETE"
 subject = "every one of eight surfaces has an executed, pinned-version denial"
-evidence = "pytest tests/test_surface_adapter.py::test_the_matrix_receipts_the_denial_it_already_executes; ls policy/adapters/"
-note = "one surface has an executed receipt; two of eight have an adapter at all"
+evidence = "python tests/surface_receipt.py opencode; ls policy/adapters/"
+note = "two of eight now have an executed denial rather than one — claude-code from a wheel in CI and opencode from the plugin this repository ships. Six have no adapter at all and four of those need somebody else's editor running, which is what keeps this row open"
 
 [[requirement]]
 id = "EP-207"
@@ -1403,10 +1403,10 @@ note = "needs that editor actually running and invoking the call"
 
 [[requirement]]
 id = "EP-210"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "a per-surface pinned version and an executed denial, for one surface"
-evidence = "ls policy/adapters/; ai-eng report surfaces"
-note = "buildable rather than blocked: this surface is not one of the ones that needs a live editor"
+evidence = "python tests/surface_receipt.py opencode; python -c \"import sys;sys.path.insert(0,'src');from datetime import datetime,UTC;from pathlib import Path;from ai_engineering import surface;print(surface.read(Path('.'),now=datetime.now(UTC)).state('opencode','enforcement'))\""
+note = "opencode: the plugin is driven under node the way OpenCode drives it, refuses `--no-verify`, names no_verify_guard as the guard that decided, and the run writes the receipt its own adapter requires. `report surfaces` then reads the row PASS with SURFACE_PROVEN and an age in seconds. The runner refuses to write when nothing denied or when the denial named no guard"
 
 [[requirement]]
 id = "EP-211"
