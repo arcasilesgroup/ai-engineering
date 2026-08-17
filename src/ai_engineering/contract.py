@@ -1852,7 +1852,18 @@ DESCRIPTION_MAX = 1000
 # that finding this out took reading the source. A control that is right and illegible gets
 # worked around instead of fixed, which is the failure one layer up from the one this project
 # is named after.
-REPO_CEILING = 59_836
+#
+# 59,836 to 59,888 for the day's movement, written down where the number lives rather than
+# left in seven commit messages. Seven requirements closed with a check that executes, taking
+# the measured total to 266 of 385 — stated as bookkeeping between passes, because a total is
+# what a full pass produces and this is not one.
+#
+# And the three things the day found that were on no list: a verb that could not run at all
+# in this repository and said so illegibly, an adapter that landed without the denial its own
+# precedent requires, and a gate that was red on every commit with no commit able to clear
+# it. None of the three came from the requirement list. All three came from trying to use
+# the thing.
+REPO_CEILING = 59_888
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
