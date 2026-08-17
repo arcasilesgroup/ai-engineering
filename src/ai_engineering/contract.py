@@ -2428,7 +2428,27 @@ DESCRIPTION_MAX = 1000
 # compare the whole printed block, line for line and in order, rather than looking for a
 # keyword in it. A refusal that keeps its keyword and loses its meaning is a refusal nobody
 # can act on, and `in` cannot tell the two apart.
-REPO_CEILING = 69_338
+#
+# 69,338 to 69,746 for an accessibility floor that executes.
+#
+# Three rows asked for the same thing from different angles: AA as the release floor, a gate
+# that blocks on it, and coverage over enumerated critical journeys — over a list nobody had
+# written, which makes any coverage figure a hundred per cent of nothing.
+#
+# `policy/accessibility.toml` is smaller than the standard on purpose. WCAG is written for
+# pages and this is a command-line tool, so every criterion says either how it is checked or
+# why it cannot be, and a test refuses a third state. Six execute; four are argued. 1.4.1 is
+# checked against every state this CLI can print, because two pairs share a colour and one of
+# each pair blocked somebody while the other did not.
+# 69,746 to 69,801, because the repository caught this file's own new policy table.
+#
+# `test_every_policy_file_is_read_by_something_that_is_not_a_test` turned red on the commit
+# that added `policy/accessibility.toml`: a policy file only a test reads is a file that
+# governs the tests, and the check exists because this repository has found that twice. The
+# right answer is not an exemption. Assertion 26 reads the floor on the machine the wheel was
+# installed on and refuses a criterion that is neither checked nor argued — so the floor is
+# something the shipped tool states, not only something the gate checks.
+REPO_CEILING = 69_801
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

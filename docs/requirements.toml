@@ -186,8 +186,8 @@ evidence = "python -c \"from pathlib import Path; from ai_engineering import con
 id = "EP-022"
 verdict = "INCOMPLETE"
 subject = "WCAG 2.2 AAA as the target, AA as the release floor"
-evidence = "grep -n 'WCAG 2.2 AA is the release floor' .agents/skills/ai-design/SKILL.md"
-note = "AA is stated as text and pinned by substring; no gate blocks on any numbered criterion"
+evidence = "pytest tests/test_accessibility.py; grep -n AAA policy/accessibility.toml"
+note = "AA is now a floor that executes rather than a substring, over the criteria a program with no viewport can be held to — and each one that cannot be held says why. AAA remains the recorded direction and nothing measures it, which is the half that keeps this row open"
 
 [[requirement]]
 id = "EP-023"
@@ -601,10 +601,10 @@ evidence = "pytest tests/test_hooks.py::test_every_event_says_which_surface_it_c
 
 [[requirement]]
 id = "EP-085"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "AA is the release floor a gate blocks on; AAA is recorded rather than gated"
-evidence = "grep -n 'AA is the floor' .agents/skills/ai-review/references/frontend.md"
-note = "the decision is written; nothing executes it"
+evidence = "pytest tests/test_accessibility.py"
+note = "the floor is the set of criteria marked checked in policy/accessibility.toml, six of them execute in the gate, and AAA is recorded as the direction with nothing claiming it"
 
 [[requirement]]
 id = "EP-086"
@@ -1931,10 +1931,10 @@ note = "no such criterion exists here, so coverage over them is undefined"
 
 [[requirement]]
 id = "EP-292"
-verdict = "NO-EVIDENCE"
+verdict = "PROVEN"
 subject = "accessibility coverage over enumerated critical journeys"
-evidence = "grep -A4 a11y_critical_journey policy/pilot-register.toml"
-note = "no journey is enumerated, and a coverage figure over an empty list is a hundred per cent"
+evidence = "pytest tests/test_accessibility.py::test_the_critical_journeys_are_enumerated_and_each_names_a_command"
+note = "seven journeys enumerated with the command that walks each, which is what the row was filed for: a coverage figure over an unenumerated list is a hundred per cent of nothing"
 
 [[requirement]]
 id = "EP-293"

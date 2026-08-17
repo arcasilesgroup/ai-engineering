@@ -1,4 +1,4 @@
-"""Twenty-four assertions and one line.
+"""Twenty-five assertions and one line.
 
 These are not document sections: they are checks that fail. `--ci` runs the ones that
 make sense on a runner and says in its output which it skipped, because a doctor that
@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tomllib
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -954,6 +955,51 @@ def skills_contract(root: Path | None) -> str | None:
 
     problems = contract.audit(paths.skills())
     return None if not problems else f"{len(problems)} problems, first: {problems[0]}"
+
+
+@check(26, "The context", "Every accessibility criterion is checked or argued, never neither")
+def accessibility_floor(root: Path | None) -> str | None:
+    """`policy/accessibility.toml` names the release floor, and this is what stops it being
+    a level named in a document.
+
+    The file is deliberately smaller than WCAG, because WCAG is written for pages and this is
+    a command-line tool — so each criterion says either how it is checked or why it cannot
+    be. What it must never say is neither. A criterion with no check and no reason is a claim
+    about accessibility nobody made and nobody can refuse, which is the shape of every false
+    green this repository exists to remove.
+
+    Read here rather than only in the suite, and that is the whole reason this function
+    exists. A policy file only a test reads is a file that governs the tests — the repository
+    has its own check for exactly that, and it caught this one on the commit that added it.
+    The floor ships in the wheel, so the machine it was installed on is where it is asked.
+    """
+
+    from ai_engineering import paths as _paths
+
+    try:
+        policy = tomllib.loads(_paths.policy("accessibility.toml").read_text(encoding="utf-8"))
+        criteria = policy["criterion"]
+        journeys = policy["journey"]
+        level = policy["floor"]["level"]
+    except (OSError, KeyError, tomllib.TOMLDecodeError) as broken:
+        raise Undecidable("the accessibility floor cannot be read here") from broken
+
+    silent = [
+        row.get("id", "?")
+        for row in criteria
+        if not row.get("checked") and len(str(row.get("reason", "")).strip()) < 30
+    ]
+    if silent:
+        return (
+            f"{len(silent)} criteria are neither checked nor argued for: {', '.join(silent)}. "
+            "A criterion with no check and no reason is a claim nobody made"
+        )
+    executed = [row for row in criteria if row.get("checked")]
+    if not executed:
+        return f"the floor claims {level} and nothing in it executes"
+    if not journeys:
+        return "no critical journey is enumerated, so coverage over them is a share of nothing"
+    return None
 
 
 @check(4, "The context", "The doctrine is short, present and filled in")
