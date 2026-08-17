@@ -2331,3 +2331,57 @@ def test_nothing_installed_leaves_every_row_unproven_rather_than_undecided(tmp_p
 
     assert len(lines) > 1, "an undecidable liveness check emptied the table"
     assert any("UNPROVEN" in one for one in lines), lines
+
+
+def test_a_production_ready_box_carries_its_age_beside_its_verdict(tmp_path, monkeypatch):
+    """Eleven mutants of `readiness_facts` survived, and the age is the whole reason this
+    function reports more than a verdict.
+
+    A receipt has two ways of meaning nothing and only one shows up as a failure: it can say
+    the wrong thing, or it can say the right thing about a run from six months ago. The
+    second reads green in every summary that only counts outcomes, which is why the age sits
+    beside the verdict on every row rather than in a separate report nobody opens.
+
+    A box with no receipt at all says "no receipt to age" rather than showing a zero. Zero is
+    a number, and a number here means somebody measured something.
+    """
+    from datetime import UTC, datetime
+
+    from ai_engineering import doctor as under
+    from ai_engineering import readiness
+
+    monkeypatch.setattr(
+        readiness,
+        "read",
+        lambda root, *, now: SimpleNamespace(
+            result=SimpleNamespace(outcome="INCOMPLETE"),
+            code="READINESS_UNPROVEN",
+            boxes=[
+                SimpleNamespace(
+                    id="ci", label="CI/CD", outcome="PASS", code="PROVEN", age_seconds=90
+                ),
+                SimpleNamespace(
+                    id="logs",
+                    label="Logs",
+                    outcome="INCOMPLETE",
+                    code="NO_RECEIPT",
+                    age_seconds=None,
+                ),
+            ],
+        ),
+    )
+
+    facts = under.readiness_facts(tmp_path, now=datetime.now(UTC))
+
+    assert [one.id for one in facts] == ["readiness", "readiness-ci", "readiness-logs"]
+    assert facts[0].status == "INCOMPLETE"
+    assert facts[0].detail == "READINESS_UNPROVEN"
+    assert facts[1].detail == "PROVEN · 90s old"
+    assert facts[2].detail == "NO_RECEIPT · no receipt to age"
+    assert facts[1].summary == "CI/CD", "the label a person reads was replaced by the id"
+
+    # Outside a repository there is one honest row and not eight unproven ones: there are no
+    # receipts to be missing, which is a different answer from receipts that say nothing.
+    (alone,) = under.readiness_facts(None, now=datetime.now(UTC))
+    assert alone.status == "INCOMPLETE"
+    assert alone.detail == "there is no repository here to read receipts from"

@@ -2767,7 +2767,17 @@ DESCRIPTION_MAX = 1000
 # telling the person they were dead. And an undecidable liveness check leaves the rows
 # reading UNPROVEN rather than emptying the table, because silence is not the honest word
 # for a machine this framework has never been wired into.
-REPO_CEILING = 72_992
+# 72,992 to 73,056 for the age beside every production-ready verdict.
+#
+# A receipt has two ways of meaning nothing and only one shows up as a failure: it can say
+# the wrong thing, or it can say the right thing about a run from six months ago. The second
+# reads green in every summary that only counts outcomes, which is why the age sits beside
+# the verdict on every row rather than in a report nobody opens — and why eleven mutants of
+# `readiness_facts` living in exactly that detail string mattered.
+#
+# A box with no receipt says "no receipt to age" rather than showing a zero, because zero is
+# a number and a number here means somebody measured something.
+REPO_CEILING = 73_056
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
