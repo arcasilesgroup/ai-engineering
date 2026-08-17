@@ -152,10 +152,15 @@ asset = "the wheel a stranger installs"
 controlled_by = "the release pipeline and the index it publishes to"
 harm = "a package that is not the one we built is a guard written by somebody else"
 control = ".github/workflows/release.yml"
-check = "tests/test_quality_gate.py"
-reason = """provenance is attested and the SBOM is not: `EP-047` and `EP-280` need a \
-published release, which is why the release rows in the pilot register carry no instrument. \
-The control here is real and its second half is not built."""
+check = "tests/test_sbom.py"
+reason = """the wheel is attested and described, and neither fact is verified where a \
+stranger stands. `src/ai_engineering/sbom.py` writes a CycloneDX document naming the exact \
+sha256 `uv build` produced, `just sbom` runs inside `just check`, and the release job \
+attests `dist/*` as one subject list so the document is attested with the wheel. What is \
+still missing is the half `EP-047` and `EP-280` name that no local work can reach: nobody \
+has fetched a published artefact from the index and checked it against either. The \
+conformance claim is bounded too — `sbom.REQUIRED` is a named subset of CycloneDX 1.6, not \
+the whole schema, and the check is the subset."""
 
 [[boundary]]
 id = "filesystem-race"

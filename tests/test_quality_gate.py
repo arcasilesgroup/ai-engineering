@@ -729,6 +729,9 @@ GATE_CONTROLS = {
     "cover": "a run under the floor needs a full coverage pass; the floor itself is "
     "asserted by tests/test_contracts.py",
     "security": "one fixture per INCOMPLETE code, plus the rules-tamper fixture",
+    "sbom": "tests/test_sbom.py builds a wheel, hashes it, and asserts the document names "
+    "that digest — plus the release job re-checks the same equality against what `uv build` "
+    "wrote, so the recipe failing here and the release failing there are one fact",
     "register": "tests/test_pilot_register.py mutates the register and asserts each refusal",
     "skilleval": "tests/test_skill_eval.py mutates the corpus once per routing rule and "
     "asserts the harness refuses each one",

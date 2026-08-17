@@ -22,6 +22,14 @@ mypy := "mypy==2.3.0"
 build:
     uv build
 
+# The SBOM beside the wheel, from the wheel. `EP-047` and `EP-280` were filed under "no
+# local work can move this" because they name a published release — and the published half
+# does. This is the other half: a document exists, it is well formed, and it names the same
+# bytes `uv build` just wrote. It runs inside `just check` because an emitter nothing runs
+# is the defect this repository is named after, and it costs nothing: `build` ran already.
+sbom: build
+    uv run python -m ai_engineering.sbom dist/*.whl
+
 lint:
     uv run --with {{ruff}} ruff check .
     uv run --with {{ruff}} ruff format --check .
@@ -305,4 +313,4 @@ skilleval:
 stats:
     @uv run python tests/stats.py
 
-check: build lint typecheck test cover security register skilleval counts
+check: build sbom lint typecheck test cover security register skilleval counts

@@ -1948,7 +1948,24 @@ DESCRIPTION_MAX = 1000
 # file that grants authority here, had its accountable role changed by an agent on a verbal
 # instruction with nothing in the tree recording who gave it; `docs/adr/0012` is that
 # receipt, proposed, and it is the owner's to accept or refuse.
-REPO_CEILING = 60_508
+#
+# 60,508 to 60,834 for the half of `EP-047` and `EP-280` that no release was ever needed
+# for. The audit filed both under "no local work can move this" because they name a
+# published artefact — and the published half does. The other half is "an SBOM exists, it
+# is well formed, and it names the bytes that were built", and that is a command. It is the
+# same shape as `EP-044` four moves up: half a requirement filed as none of it, and the
+# half that was reachable sitting there for weeks because the other half was not.
+#
+# Hand-written on the standard library rather than a generator pulled from an index, and
+# that is the argument rather than an economy: this document describes the `supply-chain`
+# boundary, whose harm is "a package that is not the one we built", and a tool fetched at
+# release time is one more thing that can be swapped on the machine that builds what gets
+# published. `release.yml` already refuses a tool cache on that job for the same reason.
+#
+# The conformance claim is bounded and says so: `sbom.REQUIRED` is a named subset of
+# CycloneDX 1.6, not the whole schema, and the check is the subset. A tool claiming
+# conformance it has not checked is this repository's own defect wearing a standard's name.
+REPO_CEILING = 60_834
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
