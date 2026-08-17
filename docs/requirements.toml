@@ -228,9 +228,10 @@ evidence = "pytest tests/test_contracts.py -k contract"
 
 [[requirement]]
 id = "EP-029"
-verdict = "NO-EVIDENCE"
+verdict = "INCOMPLETE"
 subject = "a skill evaluation against an approved corpus, with a named approver, format, location and command"
-evidence = "grep -rn 'approved corpus' src/ai_engineering/ policy/"
+evidence = "python tests/skill_eval.py; grep -n 'baseline' policy/pilot-register.toml"
+note = "four of the five exist: the corpus is the labelled cases beside every skill, the format is the two headings the admission gate demands, the location is `corpus.md` in each skill directory, and the command is `python tests/skill_eval.py` with a lower bound of 254 it is compared against. The approver is the fifth and is the same gap as EP-289 — a name nobody typed"
 
 [[requirement]]
 id = "EP-030"

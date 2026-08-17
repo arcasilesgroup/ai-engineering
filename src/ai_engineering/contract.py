@@ -2668,7 +2668,18 @@ DESCRIPTION_MAX = 1000
 # The finding worth keeping: the technique does not transfer. Pinning help blocks moved
 # `update` three points and `spec` almost nothing. What transfers is the shape underneath —
 # every survivor worth killing is a sentence somebody reads or a decision nobody watched.
-REPO_CEILING = 72_269
+# 72,269 to 72,319 because the pilot register had gone stale in this session's favour.
+#
+# It is P5's honesty record: thirteen indicators, each carrying a bound and a command or a
+# written reason it has none. Three of those reasons stopped being true today — no critical
+# journey is enumerated (seven are), no AAA criterion has ever been recorded (five are, each
+# dated), and the skill evaluation has no baseline (254, margin zero). A stale "we cannot
+# measure this" flatters nobody and still misinforms.
+#
+# Ten of thirteen have a command now. The three that do not are honest: a p95 that is a
+# median over five samples, a rejected-record count nothing prints, and coverage over
+# behavioural criteria that do not exist here.
+REPO_CEILING = 72_319
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

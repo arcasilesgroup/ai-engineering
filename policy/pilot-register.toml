@@ -61,12 +61,16 @@ wave = "P0"
 
 [[indicator]]
 id = "skill_eval_delta"
-no_instrument = """two of the three absences this row used to record are gone: `just \
-skilleval` is an evaluation runner inside the gate, and the 160 labelled cases beside the \
-skills are a corpus it runs on. What is still missing is what a delta needs — a baseline \
-recorded at a commit, a margin, and a named approver for the corpus — so there is a score \
-and nothing to take a delta of. Specification 012 refuses to invent the comparison, and a \
-first run that blocks is not a baseline."""
+# The third absence this row recorded is gone. `just skilleval` is an evaluation runner
+# inside the gate, the labelled cases sit beside every skill, and there is a baseline now:
+# 254, margin zero, delta printed on every run. A register with no baseline is refused rather
+# than passed.
+#
+# What is still missing is the named approver, which `EP-289` asks for and which nobody can
+# supply but a person. The row is instrumented and the requirement is not closed, and those
+# are different facts.
+bound = "the labelled corpus does not move from its baseline without the baseline moving too"
+command = "uv run python tests/skill_eval.py"
 wave = "P2"
 
 [[indicator]]
@@ -83,14 +87,23 @@ wave = "P2"
 
 [[indicator]]
 id = "a11y_critical_journey"
-no_instrument = """no critical journey is enumerated anywhere, and a coverage figure over \
-an empty list is 100%. The skill states the method; nothing has run it."""
+# Was `no_instrument = "no critical journey is enumerated anywhere, and a coverage figure
+# over an empty list is 100%"`. True when it was written and false since `policy/
+# accessibility.toml` landed: seven journeys are named with the command that walks each, and
+# the criteria that cover them are six that execute and four that say why they cannot.
+bound = "seven critical journeys enumerated, and every criterion either checked or argued"
+command = "uv run --with pytest==9.1.1 pytest -q tests/test_accessibility.py"
 wave = "P2"
 
 [[indicator]]
 id = "aaa_exception_age"
-no_instrument = """`ai-eng accept` already ages an acceptance with owner and expiry, and no \
-AAA criterion has ever been recorded, so there is nothing aged."""
+# Was `no_instrument = "no AAA criterion has ever been recorded, so there is nothing aged"`.
+# Five are recorded now — the four a command-line tool cannot be held to, and the one it
+# deliberately does not meet — each carrying the date it was last read. `ai-eng doctor`
+# reports one that has gone a year without, and reports rather than fails: nothing broke, and
+# a stale argument is still an argument.
+bound = "no argued accessibility criterion goes 365 days without being re-read"
+command = "uv run --with pytest==9.1.1 pytest -q tests/test_accessibility.py -k year_without"
 wave = "P2"
 
 [[indicator]]
