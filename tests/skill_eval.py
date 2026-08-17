@@ -236,7 +236,95 @@ def problems(found: dict[str, dict], known_verbs: set[str] | None = None) -> lis
     return broken
 
 
+# The receipt this run owes, and the third of the three `EP-281` asks for. The scan half has
+# had one since the adversarial suite got its two; the attestation half needs a published
+# release. This is the evaluation half, and it was missing for the same reason the others
+# were not: nothing had asked the evaluation to leave a record another command can read.
+#
+# The same schema, the same bound and the same shape as `tests/adversarial/run.py`, because
+# two spellings of a receipt is two receipts. A day: an evaluation that ran last week says
+# nothing about the corpus as it is now.
+RECEIPT_SCHEMA = "urn:ai-engineering:check-evidence:1"
+RECEIPT_MAX_AGE = 86_400
+
+
+def _corpus_digest() -> str:
+    """What was evaluated: every skill body and every corpus beside it.
+
+    Two runs over the same corpus agree; one line changed in any skill does not. Without it
+    the receipt would say a run happened and nothing about what it ran over, which is the
+    difference between a record and a timestamp.
+    """
+
+    import hashlib
+
+    listing = {}
+    for found in sorted((ROOT / ".agents" / "skills").rglob("*.md")):
+        listing[found.relative_to(ROOT).as_posix()] = hashlib.sha256(found.read_bytes()).hexdigest()
+    listing[".self"] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    body = "\n".join(f"{name} {digest}" for name, digest in sorted(listing.items()))
+    return "sha256:" + hashlib.sha256(body.encode()).hexdigest()
+
+
+def _receipt(measured: int, started: str, result: object) -> None:
+    """Write what this run evaluated, or say why it could not and change nothing else.
+
+    A failure to write is not a failure of the evaluation — the verdict is the exit code and
+    it has already been decided. So this never raises: a receipt that could take the run down
+    with it would make a record of a check into a way to fail the check.
+    """
+
+    import hashlib
+    import json
+    from datetime import UTC, datetime
+
+    where = ROOT / ".ai" / "receipts" / "skill-evaluation.json"
+    # What this run produced, not an empty string. The first version wrote `""` and the
+    # schema requires a `sha256:` digest — so the receipt was invalid and the run printed
+    # its path anyway, which is a record of a check that no reader would accept. The artefact
+    # of an evaluation is its result, so that is what is hashed.
+    artifact = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(result, sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest()
+    )
+    finished = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    try:
+        where.parent.mkdir(parents=True, exist_ok=True)
+        where.write_text(
+            json.dumps(
+                {
+                    "schema": RECEIPT_SCHEMA,
+                    "schema_version": "1",
+                    "kind": "automated",
+                    "id": "skill-evaluation",
+                    "applicability": "applicable",
+                    "command": "python tests/skill_eval.py",
+                    "tool_version": f"skill-eval over {measured} cases",
+                    "input_digest": _corpus_digest(),
+                    "artifact_digest": artifact,
+                    "started_at": started,
+                    "finished_at": finished,
+                    "max_age_seconds": RECEIPT_MAX_AGE,
+                    "outcome": "PASS",
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    except OSError as why:
+        print(f"  the evaluation ran and its receipt could not be written: {why}")
+        return
+    print(f"  receipt: {where.relative_to(ROOT)}")
+
+
 def main() -> int:
+    from datetime import UTC, datetime
+
+    started = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
         found = corpus()
     except OSError as why:  # pragma: no cover - a corpus that cannot be read
@@ -301,7 +389,9 @@ def main() -> int:
         print(f"    {phase:<14} {', '.join(names) or '—'}")
 
     print("  Nothing here evaluates whether a skill's instructions are any good.")
-    print(f"RAN skilleval={claims + len(refusals) + takes + sends}")
+    measured = claims + len(refusals) + takes + sends
+    _receipt(measured, started, {"measured": measured, "phases": grouped})
+    print(f"RAN skilleval={measured}")
     return 0
 
 

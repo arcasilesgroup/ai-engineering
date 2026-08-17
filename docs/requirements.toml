@@ -1857,9 +1857,10 @@ note = "the local half is proven and re-checked in the release job; the publishe
 
 [[requirement]]
 id = "EP-281"
-verdict = "NO-EVIDENCE"
+verdict = "INCOMPLETE"
 subject = "attestation, scan and evaluation receipts are three separate records"
-evidence = "grep -rn 'attestation|scan.*receipt|eval.*receipt' src/ai_engineering/"
+evidence = "ls .ai/receipts/; pytest tests/test_skill_eval.py -k leaves_a_receipt"
+note = "two of the three are separate records that the product's own reader accepts: the scan half has had one since the adversarial suite got its two, and the evaluation half has one now — verified through `evidence.verify` rather than by checking that some keys are present, which is how the first version of it passed while writing an empty artifact digest the schema forbids. The attestation half is written in the release workflow and no tag has ever run it"
 
 [[requirement]]
 id = "EP-282"

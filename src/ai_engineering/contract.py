@@ -2541,7 +2541,18 @@ DESCRIPTION_MAX = 1000
 # does not describe and `madr.validate` went from PASS to MADR_SCHEMA_INVALID. Reverted. A
 # verb that produces an invalid record is worse than one that refuses, so the refusal stands
 # and now says which of the two reasons it is.
-REPO_CEILING = 70_944
+# 70,944 to 71,153 for the evaluation's missing record, and for the invalid one it got first.
+#
+# EP-281 asks for attestation, scan and evaluation as three separate records. The scan half
+# has had one since the adversarial suite got its two; the attestation half needs a tag. The
+# evaluation half had none, so "the corpus was evaluated" was a line in CI output.
+#
+# The first receipt written for it was invalid and the run reported it anyway: an empty
+# `artifact_digest` against a schema that requires a sha256 value, path printed, exit zero. A
+# record of a check that no reader would accept, produced by the file whose subject is checks
+# that only look like they ran. Verifying through `evidence.verify` rather than asserting that
+# keys exist is what found it, and is what the test does now.
+REPO_CEILING = 71_153
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

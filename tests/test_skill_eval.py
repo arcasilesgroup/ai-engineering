@@ -284,3 +284,88 @@ def test_a_corpus_row_that_is_not_a_quoted_case_is_skipped_and_not_guessed_at(tm
     # admission gate in `contract.audit_one` is what refuses that, and two checks refusing
     # the same thing in different words is one of them going stale.
     assert skill_eval.cases(tmp_path / "nothing-here") == {"takes": [], "sends": []}
+
+
+def test_the_evaluation_leaves_a_receipt_the_product_itself_will_accept():
+    """`EP-281` asks for attestation, scan and evaluation as three separate records.
+
+    The scan half has had one since the adversarial suite got its two. The attestation half
+    needs a published release. The evaluation half had none — nothing had asked this run to
+    leave a record another command can read, so "the corpus was evaluated" was a line in CI
+    output and nothing else.
+
+    It is verified through `evidence.verify`, which is the product's own reader, rather than
+    by checking that some keys are present. The first version of this receipt wrote an empty
+    `artifact_digest`, the schema requires a `sha256:` value, and the run printed the
+    receipt's path anyway — a record of a check that no reader would accept, written by the
+    file whose subject is checks that only look like they ran.
+    """
+    import json
+    import subprocess
+    import sys
+    from datetime import UTC, datetime
+
+    from ai_engineering import evidence
+
+    where = ROOT / ".ai" / "receipts" / "skill-evaluation.json"
+    where.unlink(missing_ok=True)
+
+    done = subprocess.run(
+        [sys.executable, str(ROOT / "tests" / "skill_eval.py")],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        timeout=300,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout[-2000:]
+    assert where.is_file(), "the evaluation ran and left no record"
+
+    written = json.loads(where.read_text(encoding="utf-8"))
+    verdict = evidence.verify(
+        where.read_bytes(),
+        expected=evidence.Expectation(
+            kind="automated",
+            id="skill-evaluation",
+            applicability="applicable",
+            command="python tests/skill_eval.py",
+            tool_version=written["tool_version"],
+            input_digest=written["input_digest"],
+            artifact_digest=written["artifact_digest"],
+            max_age_seconds=86_400,
+        ),
+        now=datetime.now(UTC),
+    )
+    assert verdict.result.outcome == "PASS", verdict
+
+    # The digests say what was evaluated and what came out, or the receipt is a timestamp.
+    assert written["input_digest"].startswith("sha256:")
+    assert written["artifact_digest"].startswith("sha256:")
+    assert written["input_digest"] != written["artifact_digest"]
+
+    # And the input digest moves when a skill does. Without that the receipt would vouch for
+    # whatever the corpus is now rather than for what this run read.
+    first = written["input_digest"]
+    skill = ROOT / ".agents" / "skills" / "ai-spec" / "SKILL.md"
+    original = skill.read_bytes()
+    try:
+        skill.write_bytes(original + b"\n<!-- moved -->\n")
+        subprocess.run(
+            [sys.executable, str(ROOT / "tests" / "skill_eval.py")],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            timeout=300,
+            check=False,
+        )
+        assert json.loads(where.read_text(encoding="utf-8"))["input_digest"] != first
+    finally:
+        skill.write_bytes(original)
+        subprocess.run(
+            [sys.executable, str(ROOT / "tests" / "skill_eval.py")],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            timeout=300,
+            check=False,
+        )
