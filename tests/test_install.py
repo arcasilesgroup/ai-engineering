@@ -1616,12 +1616,20 @@ def test_the_wheel_carries_every_policy_file_the_product_opens(tmp_path):
     import sys
     import zipfile
 
-    root = Path(__file__).resolve().parents[1]
+    from conftest import repository
 
-    # Parsed, not matched. The first version of this used a regular expression and read the
-    # sentence `paths.policy("...")` out of a comment written the same hour — reporting a
-    # file called `...` as missing from the wheel. A tool that cannot tell a call from prose
-    # about a call is the same defect this test exists to catch, one level up.
+    # The *real* repository, not the tree this file happens to be in. `just mutate` runs the
+    # suite out of mutmut's copy, where every string in the product has been rewritten — so
+    # reading the source there found `XXcapabilities.tomlXX` and `CAPABILITIES.TOML` as policy
+    # files the product opens, reported them missing from the wheel, and took the whole-tree
+    # baseline down on a statement that was true about a tree nobody ships. That is the fourth
+    # time this exact judgement has resolved the same way, which is why `repository()` exists.
+    root = repository()
+
+    # Parsed, not matched. The first version of this used a regular expression and read a
+    # sentence out of a comment written the same hour — reporting a file called `...` as
+    # missing from the wheel. A tool that cannot tell a call from prose about a call is the
+    # same defect this test exists to catch, one level up.
     opened = set()
     for source in [*(root / "src").rglob("*.py"), *(root / "hooks").rglob("*.py")]:
         try:

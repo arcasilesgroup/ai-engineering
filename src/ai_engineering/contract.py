@@ -2634,7 +2634,18 @@ DESCRIPTION_MAX = 1000
 # Three refusals with it, each a different thing being wrong: a name that starts where a spec
 # starts and matches neither pattern is ambiguous, two directories claiming one identity is a
 # duplicate, and 999 is the end of a three-digit range. All three raise rather than guessing.
-REPO_CEILING = 72_024
+# 72,024 to 72,043, because the derived packaging check read the mutated tree.
+#
+# `just mutate` runs the suite out of mutmut's copy, where every string in the product has
+# been rewritten. Reading the source there found `XXcapabilities.tomlXX` and
+# `CAPABILITIES.TOML` as policy files the product opens, reported them missing from the
+# wheel, and took the whole-tree baseline down on a statement that is true about a tree
+# nobody ships.
+#
+# Fourth time this judgement has resolved the same way, which is why `conftest.repository()`
+# exists — and the reason it is worth the two lines here is that the first three each cost a
+# whole-tree run to find.
+REPO_CEILING = 72_043
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
