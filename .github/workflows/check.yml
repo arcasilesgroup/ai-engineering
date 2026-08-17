@@ -272,10 +272,22 @@ jobs:
           # wide wants splitting anyway.
           count=$(printf '%s' "$paths" | wc -w | tr -d ' ')
           if [ "$count" -gt 6 ]; then
+            # Too wide to measure here, and that is a fact about this branch rather than a
+            # defect in it. Failing was the wrong answer: it made a red nobody could clear
+            # from inside the branch, and a red nobody can clear is a red everybody learns
+            # to ignore — which costs more than the measurement it was protecting.
+            #
+            # So it hands the question to the whole-tree run and says so out loud. The
+            # `wide` output is what the step below reads to decide whether a nightly receipt
+            # has to be there: the honest reading of "we did not measure this diff" is that
+            # something else must have measured the tree, not that nothing needs to.
             echo "this branch changes ${count} product modules and this lane measures six." >&2
-            echo "A diff that wide is a whole-tree run, which the scheduled workflow does." >&2
-            exit 1
+            echo "Handed to the whole-tree run; a fresh receipt from it is required below." >&2
+            echo "wide=true" >> "$GITHUB_OUTPUT"
+            echo "paths=" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "wide=false" >> "$GITHUB_OUTPUT"
           echo "paths=${paths}" >> "$GITHUB_OUTPUT"
           echo "changed: ${paths:-<none>} (${count} of at most 6)"
 
@@ -309,12 +321,43 @@ jobs:
           uv run python tests/anti_theatre.py "$RUNNER_TEMP/mutate.log" . mutants \
             "$RUNNER_TEMP/nightly.json"
 
+      # A branch too wide to measure here is covered by the whole-tree run or it is covered by
+      # nothing, and "covered by nothing" must not read like a pass. So the receipt is
+      # required in exactly that case: a nightly that completed inside its window. Absent or
+      # stale, this fails and says which — which is a red somebody can clear, unlike the
+      # refusal it replaced.
+      - name: the whole-tree run has to have covered it
+        if: steps.changed.outputs.wide == 'true'
+        run: |
+          uv run python - "$RUNNER_TEMP/nightly.json" <<'PY'
+          import json, sys
+          from datetime import UTC, datetime
+
+          from tests.anti_theatre import WHOLE_TREE_MAX_AGE_HOURS
+
+          try:
+              run = json.loads(open(sys.argv[1], encoding="utf-8").read())
+          except (OSError, ValueError):
+              run = {}
+          finished = run.get("completed_at")
+          if not finished:
+              sys.exit(
+                  "this diff is too wide for the scoped lane and no whole-tree run has "
+                  "completed, so nothing has measured it. Run the nightly workflow, or "
+                  "split the change."
+              )
+          age = (datetime.now(UTC) - datetime.fromisoformat(finished)).total_seconds() / 3600
+          if age > WHOLE_TREE_MAX_AGE_HOURS:
+              sys.exit(f"the whole-tree run is {age:.0f}h old, past {WHOLE_TREE_MAX_AGE_HOURS}h")
+          print(f"the whole tree was measured {age:.0f}h ago: {run.get('conclusion')}")
+          PY
+
       # A branch that changes no product file has nothing to mutate, and saying so is not the
       # same as passing. It is the answer the claim gate already gives one job below: not
       # applicable, out loud, because a quiet pass and a real one look identical in a log six
       # weeks later. The scheduled run still measures the whole tree either way.
       - name: not applicable
-        if: steps.changed.outputs.paths == ''
+        if: steps.changed.outputs.paths == '' && steps.changed.outputs.wide != 'true'
         run: echo "no product file changed on this branch, so there is nothing to mutate"
 
   # Blocking on both halves, and no baseline file. A type error in `hooks/` is a guard

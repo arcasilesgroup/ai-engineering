@@ -1598,7 +1598,9 @@ def test_the_anchor_check_runs_the_installed_module_and_never_the_repository_it_
     )
 
 
-def test_a_router_somebody_edited_or_removed_is_reported_and_never_repaired(home, repo, tmp_path):
+def test_a_router_somebody_edited_or_removed_is_reported_and_never_repaired(
+    home, repo, tmp_path, monkeypatch
+):
     """Assertion 24. A router is a file this installer wrote into somebody's home, so it owes
     the same answer as everything else it wrote: is it there, and is it ours.
 
@@ -1609,7 +1611,12 @@ def test_a_router_somebody_edited_or_removed_is_reported_and_never_repaired(home
     from ai_engineering import wiring
 
     commands = tmp_path / "commands"
-    written = wiring.install_routers([{"id": "invented", "commands": str(commands), "skills": ""}])
+    surface = {"id": "invented", "commands": str(commands), "skills": ""}
+    # Declared in the table, because the check builds the path it opens from the table and
+    # takes only a file name from the receipt. A surface nobody declared has no router root,
+    # which is the point: the recorded string is never used as a path.
+    monkeypatch.setattr(wiring, "table", lambda: {"surface": [surface]})
+    written = wiring.install_routers([surface])
     wiring.record(written)
 
     assert doctor.routers_intact(repo) is None
@@ -1632,7 +1639,9 @@ def test_a_machine_with_no_router_says_it_could_not_evaluate_rather_than_ok(home
         doctor.routers_intact(repo)
 
 
-def test_a_receipt_pointing_somewhere_else_is_reported_and_never_opened(home, repo, tmp_path):
+def test_a_receipt_pointing_somewhere_else_is_reported_and_never_opened(
+    home, repo, tmp_path, monkeypatch
+):
     """The path SonarCloud called a BLOCKER, bounded rather than argued away.
 
     Assertion 24 reads a path out of the machine receipt and hashes whatever it finds there.
@@ -1646,7 +1655,9 @@ def test_a_receipt_pointing_somewhere_else_is_reported_and_never_opened(home, re
     from ai_engineering import wiring
 
     commands = tmp_path / "commands"
-    written = wiring.install_routers([{"id": "invented", "commands": str(commands), "skills": ""}])
+    surface = {"id": "invented", "commands": str(commands), "skills": ""}
+    monkeypatch.setattr(wiring, "table", lambda: {"surface": [surface]})
+    written = wiring.install_routers([surface])
     wiring.record(written)
     assert doctor.routers_intact(repo) is None
 

@@ -6,7 +6,10 @@ id: "0011"
 title: "Requirement-closure work is a block like any other"
 date: "2026-08-16"
 spec: "010"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-17T01:27:45Z"
 supersedes: ""
 ---
 
@@ -82,9 +85,8 @@ first block run under this rule cost one reviewer and a repair pass over five co
 were all green. Two of those repairs were live defects, so the price was paid back on the
 first use; that will not be true every time, and this decision accepts blocks where it is not.
 
-Also worse: `specs/010/plan.md` is approved by digest and this proposal does not amend it. It
+Also worse: `specs/010/plan.md` is approved by digest and this record does not amend it. It
 cannot: amending an approved plan invalidates its approval, and no agent may re-approve a plan
-under the authority this project grants it. So this record is a proposal and grants nothing —
-the cadence it describes governs only once an accountable person accepts it with
-`ai-eng decide --accept 0011`, and until then the work continues under the rule the plan
-already carries.
+under the authority this project grants it. Accepted on 2026-08-17 by the repository owner,
+so the cadence governs from here — and it governs beside the plan rather than inside it,
+which is a seam somebody should close the next time the plan is opened for another reason.

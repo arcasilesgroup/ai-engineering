@@ -49,7 +49,16 @@ SHA-256 of `spec.md` at the moment of approval:
 | `specs/012-seven-capabilities-with-proof` | P2 | `6a0396bc8efd8a2a` |
 | `specs/013-origin-first-coordination` | P3 | `41d79c4acfbdbc90` |
 | `specs/014-security-baseline-no-false-pass` | P4 | `d19fbeffb619e02f` |
-| `specs/015-pilot-without-instruments` | P5 | `01f955976d0fe09a` |
+| `specs/015-pilot-without-instruments` | P5 | `c875c351a96c6872` |
+
+P5's digest moved once, on 2026-08-17, and the move is here rather than in a commit message
+because a digest that changes without a record is the whole thing this decision exists to
+prevent. `D-015-08` said eleven of the fourteen prohibitions are decidable by absence and
+three are not. `tests/pilot_register.py` was then made to print that split on every run, and
+it printed seven and seven. The specification was wrong and the register was right, so the
+sentence was corrected to what the reader measures — and it now names the seven, so the
+number cannot drift again without something saying so. Re-approved by the repository owner
+on the same date, on the corrected text and nothing else.
 
 The authority is the repository owner, recorded in `.ai/intent.md` as
 `lifecycle.approval.authority_role`. The approval covers the specifications as written and

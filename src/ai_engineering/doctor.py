@@ -641,29 +641,40 @@ def routers_intact(root: Path | None) -> str | tuple[str, str] | None:
     if not recorded:
         raise Undecidable("no router has been written here, so there is none to check")
 
-    # Bounded before anything is opened. The receipt is a file on disk, so a path inside it
-    # is only as trustworthy as that file, and this loop opens whatever it names. Somebody
-    # who can rewrite the receipt already has write access to the framework's own home — but
-    # "the attacker is already inside" is the argument that ends with a check nobody bounded,
-    # and this one would hash any file on the machine and report whether the digest matched,
-    # which is an oracle.
+    # The path that gets opened is built here, from the surface table and a file name — the
+    # string recorded in the receipt is never used as a path at all. That is the difference
+    # between bounding a risk and removing it, and it took two attempts to see.
     #
-    # Two conditions, and between them they leave only what the installer's own naming can
-    # produce: a router is `ai-<something>.md`, and it is a regular file rather than a link
-    # to one. Rewriting the receipt cannot rename somebody else's file, so a redirected entry
-    # now has to point at something that already looks like a router. Anything else is
-    # reported and never read, which is also the more useful answer.
+    # The receipt is a file on disk, so a path inside it is only as trustworthy as that file,
+    # and this loop opens whatever it names. Checking the recorded string and then opening it
+    # left the shape intact: an entry redirected to any readable file would still be hashed,
+    # and the check would report whether the digest matched, which is an oracle. Somebody who
+    # can rewrite the receipt is already inside the framework's own home — and that is the
+    # argument that ends with a control nobody bounded.
+    #
+    # So the recorded row contributes a name and nothing else. A router lives in a directory
+    # the surface table declares, it is called `ai-<something>.md`, and it is a regular file
+    # rather than a link to one. A row that does not resolve to exactly that is reported and
+    # never opened, which is also the more useful answer for whoever is reading the report.
+    roots = [
+        wiring.expand(row["commands"]) for row in wiring.table()["surface"] if row.get("commands")
+    ]
     missing, edited, astray = [], [], []
     for row in recorded:
-        target = Path(row["path"])
-        if not (target.name.startswith("ai-") and target.suffix == ".md") or target.is_symlink():
-            astray.append(target.name)
+        name = Path(str(row.get("path", ""))).name
+        rebuilt = [root / name for root in roots if (root / name).parent in roots]
+        if not (name.startswith("ai-") and name.endswith(".md")) or not rebuilt:
+            astray.append(name or "<unnamed>")
+            continue
+        target = next((one for one in rebuilt if one.exists()), rebuilt[0])
+        if target.is_symlink():
+            astray.append(name)
             continue
         _, _, digest = str(row.get("how", "")).partition(" ")
         if not target.is_file():
-            missing.append(target.name)
+            missing.append(name)
         elif hashlib.sha256(target.read_bytes()).hexdigest() != digest:
-            edited.append(target.name)
+            edited.append(name)
     if not missing and not edited and not astray:
         return None
     said = []

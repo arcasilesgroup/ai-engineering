@@ -21,6 +21,10 @@ on:
 
 permissions:
   contents: read
+  # Only so a failing run can open the issue that says so. A nightly that fails at 03:20 and
+  # blocks nothing is a nightly nobody reads, and the narrowest way to fix that is to let it
+  # go and find a person. Nothing else here writes.
+  issues: write
 
 concurrency:
   # Never cancel-in-progress. This job is two hours long and its whole purpose is to finish;
@@ -67,3 +71,29 @@ jobs:
       - name: say the score out loud
         run: |
           grep -E "killed=|RAN mutants=" "$RUNNER_TEMP/mutate.log" | tail -2 >> "$GITHUB_STEP_SUMMARY"
+
+      # A nightly that fails at 03:20 is a nightly nobody reads. This is the whole reason the
+      # run exists — it blocks nothing, so the only way its answer reaches a person is if it
+      # goes and finds one. One issue, reopened rather than duplicated, so a fortnight of
+      # failures is one conversation and not fourteen.
+      - name: if this run failed, open the issue that says so
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="The whole-tree mutation run is failing"
+          existing=$(gh issue list --state all --label mutation --json number --jq ".[0].number" \
+            2>/dev/null || true)
+          body="The scheduled whole-tree mutation run did not complete.
+          ${RUN_URL}
+          The scoped lane inside a pull request stands on this run: when a diff is too wide
+          to measure inside the pull request, check.yml requires a whole-tree receipt no
+          older than four days. While this is failing, a wide change cannot merge. That is
+          the intended behaviour and it is worth fixing rather than waiting out."
+          if [ -n "$existing" ]; then
+            gh issue reopen "$existing" 2>/dev/null || true
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --label mutation --body "$body"
+          fi

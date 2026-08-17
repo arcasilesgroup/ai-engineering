@@ -290,9 +290,13 @@ organisation, and no synthetic repository substitutes for one.
 **D-015-08 — the fourteen prohibitions become register rows; the three no script can decide
 stay prompts with the reason recorded.**
 **Rationale:** rule 12 says a judgement that always resolves the same way becomes a script,
-and one that cannot fail closed stays a prompt with its reason written down. Eleven are
-decidable by absence today. EP-314, EP-319 and EP-320 are not, and a gate that cannot go red
-is worse than no gate.
+and one that cannot fail closed stays a prompt with its reason written down. Seven are
+decidable by absence today. The other seven — inventory-target, agent-per-lens,
+council-and-envelope, artificial-ceiling, documentation-portal, scanner-accessibility and
+score-compliance — are not, and a gate that cannot go red is worse than no gate. This
+sentence said eleven and three until 2026-08-17, when `tests/pilot_register.py` was made to
+print the split on every run and the register turned out to ship seven of each. The reader
+names them now, so the number cannot drift again without something saying so.
 
 ## Accepted risks
 
