@@ -2141,7 +2141,22 @@ DESCRIPTION_MAX = 1000
 # would say the ceiling is negotiable by adding files. `.ai/` stays disposable and this is the
 # exception that proves it — these two are inputs the work is judged against, not state the
 # work produces.
-REPO_CEILING = 64_507
+#
+# 64,507 to 64,541 for rebuilding this branch onto a history the record validator accepts.
+#
+# `decide --madr` and `decide --accept` ran back to back before either was committed, so
+# `0013`'s first appearance in history was already accepted — an edge refused on purpose,
+# because a decision nobody proposed is a decision nobody could have objected to. History
+# cannot be repaired forward either: a record that disappears is refused too. So the branch
+# was replayed commit by commit onto a fresh one, introducing the record as a proposal and
+# accepting it the commit after, which is the shape the rule was asking for all along.
+#
+# Nothing was amended and nothing was force-pushed. The old branch is untouched on the
+# remote; this is a different branch with the same work and a history that validates.
+#
+# The tooling permits this and warns nobody — `decide --accept` even prints "commit it on its
+# own", which reads like the only requirement. That is a defect and it is in the ledger.
+REPO_CEILING = 64_541
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
