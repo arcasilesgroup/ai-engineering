@@ -38,8 +38,25 @@ VERDICTS = ("PROVEN", "INCOMPLETE", "NO-EVIDENCE", "CONTRADICTED", "BLOCKED", "U
 TOTAL = 385
 
 
+COMMITMENTS = 26
+
+
+def _ledger() -> dict:
+    return tomllib.loads(LEDGER.read_text(encoding="utf-8"))
+
+
 def rows() -> list[dict[str, str]]:
-    return tomllib.loads(LEDGER.read_text(encoding="utf-8"))["requirement"]
+    return _ledger()["requirement"]
+
+
+def commitments() -> list[dict[str, str]]:
+    """The process commitments, held to exactly what the product requirements are held to.
+
+    They are a separate array because they answer a different question — the requirements are
+    about what the wheel does and these are about how work happens here — and one array of
+    two kinds of thing is how a reader ends up counting the wrong total."""
+
+    return _ledger()["commitment"]
 
 
 def test_every_requirement_appears_exactly_once_and_none_is_missing():
@@ -146,3 +163,33 @@ def test_no_verdict_in_the_vocabulary_is_dead_wood(verdict: str):
         f"nothing is graded {verdict}: either remove it from the vocabulary or say why it "
         "is reserved"
     )
+
+
+def test_every_process_commitment_appears_exactly_once_and_none_is_missing():
+    """The second research document the goal names. Its status lived only in prose until
+    this file, which is precisely the shape that let 86 product requirements be published as
+    proven without evidence — so it gets the same treatment rather than a softer one."""
+
+    ids = [row["id"] for row in commitments()]
+
+    assert len(ids) == COMMITMENTS, f"the ledger carries {len(ids)} commitments, not {COMMITMENTS}"
+    assert ids == [f"PO-{n:02d}" for n in range(1, COMMITMENTS + 1)], f"missing or unordered: {ids}"
+
+
+def test_every_commitment_carries_a_verdict_a_command_and_a_reason_when_it_owes_one():
+    """The same three rules, and the third is the one that bites hardest here: seven of the
+    twenty-six are graded not-proven and every one of them has to say which half is missing.
+
+    Two of those reasons are corrections to claims this repository made hours before the row
+    was written — that is what an independent reader is for, and softening them here would be
+    the defect the whole ledger exists to undo."""
+
+    owed = ("INCOMPLETE", "BLOCKED", "CONTRADICTED", "UNFALSIFIABLE", "NO-EVIDENCE")
+    for row in commitments():
+        assert row["verdict"] in VERDICTS, f"{row['id']}: {row['verdict']!r} is not a verdict"
+        assert len(row.get("evidence", "").strip()) >= 8, f"{row['id']} names no command"
+        assert len(row.get("subject", "").strip()) > 12, f"{row['id']} states no subject"
+        if row["verdict"] in owed:
+            assert len(row.get("note", "").strip()) >= 12, (
+                f"{row['id']} is graded {row['verdict']} and does not say why"
+            )

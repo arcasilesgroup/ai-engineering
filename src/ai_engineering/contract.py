@@ -2021,7 +2021,25 @@ DESCRIPTION_MAX = 1000
 # This is the line ceiling working as intended rather than an exception to it. The number rises
 # because a document that could not be reconstructed became one that can, and the commit that
 # raises it is the conversation about whether that was worth 2,753 lines. It was.
-REPO_CEILING = 63_747
+#
+# 63,747 to 64,031 for the other research document. The goal names two, the ledger covered one,
+# and the twenty-six process commitments still had their status in prose — which is precisely
+# the shape that let eighty-six product requirements be published as proven without evidence.
+# Fourteen of twenty-six are proven.
+#
+# Four of the rows are corrections to claims this repository made earlier the same day, which
+# is the entire reason the pass was run by somebody who was not this session. `PO-01`, `PO-06`
+# and `PO-13` were written up here as closed; the reader graded them INCOMPLETE on an argument
+# the write-up itself concedes and then walks past — `gh run list` for this branch returns zero
+# rows, so the freeze holding and the gate being green are this record's own prose about
+# itself. And one execution is not "governs".
+#
+# `PO-16` is CONTRADICTED, and it is about these commits. One primary home per commit, and the
+# widest here touches twenty-one files. The argument available — that a block repair pass is
+# one logical change — is one the recorded exception does not make, so it is not made here. A
+# session that writes its own exemption into the record judging it has learned nothing from the
+# eighty-six.
+REPO_CEILING = 64_031
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

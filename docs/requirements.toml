@@ -2512,3 +2512,186 @@ id = "EP-385"
 verdict = "PROVEN"
 subject = "an absorbed visual capability left asset-card guidance in the design skill"
 evidence = "pytest tests/test_contracts.py -k 'EP-385'"
+
+# ─────────────────────────────────────────────────────────────────────────────────────────
+# The 26 process commitments from `.ai/reports/process-optimization-research/index.html`.
+#
+# The product requirements above are about what the wheel does. These are about how work
+# happens here — the cadence, the review discipline, what a commit may claim. Their status
+# lived only in prose in `docs/audit-2026-08-16.md` until now, which is exactly the shape
+# that let 86 product requirements be published as proven without evidence.
+#
+# Measured on 2026-08-17 by one independent read-only auditor, under the same rule: a verdict
+# comes from something executed, and a test whose name matches a commitment is not evidence
+# until you break it and watch it go red. It graded this session's own work, and two of its
+# findings are corrections to claims made in this repository hours earlier. Those are in the
+# rows, not softened around them.
+# ─────────────────────────────────────────────────────────────────────────────────────────
+
+[[commitment]]
+id = "PO-01"
+verdict = "INCOMPLETE"
+subject = "a block closes and freezes, and nothing later depends on it until an independent reviewer has cleared it"
+evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate"
+note = "the rule exists and is accepted, one block ran under it, and the reader bites — verified by blanking a hand-off's gate cell. But `gh run list --branch fix/mutation-lane-green-on-main` returns zero rows: no CI has ever run on this branch, so the freeze holding is this record's own prose. One execution is not yet governs, and this repository claimed it closed hours before this row was written"
+
+[[commitment]]
+id = "PO-02"
+verdict = "PROVEN"
+subject = "review by capability block plus one final review, not a reviewer after every task"
+evidence = "grep -n '## Block checkpoint and review protocol' specs/010-governed-agentic-engineering-foundation/plan.md"
+
+[[commitment]]
+id = "PO-03"
+verdict = "PROVEN"
+subject = "each task still gets its own atomic commit and its own named focal test"
+evidence = "sed -n '161,164p' specs/010-governed-agentic-engineering-foundation/plan.md"
+
+[[commitment]]
+id = "PO-04"
+verdict = "INCOMPLETE"
+subject = "the per-task checkpoint commit is atomic and revertible, and is labelled unreviewed"
+evidence = "git log --oneline --all --grep=UNREVIEWED"
+note = "the rule is written and revertibility is structurally true of every task entry. The label appears once in the whole history, on an audit-doc commit, and never on a task checkpoint — so it marks nothing it was meant to mark"
+
+[[commitment]]
+id = "PO-05"
+verdict = "UNFALSIFIABLE"
+subject = "the writer continues to the next related task without waiting for a reviewer or the full gate"
+evidence = "git log --format='%h %ad %s' --date=iso-strict -- specs/010-governed-agentic-engineering-foundation/plan.md"
+note = "git records commit times, not reviewer-availability windows, so nothing distinguishes a writer who continued immediately from one who waited and continued anyway"
+
+[[commitment]]
+id = "PO-06"
+verdict = "INCOMPLETE"
+subject = "an independent read-only reviewer inspects every commit in a closed block and the accumulated diff"
+evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate; gh run list --branch fix/mutation-lane-green-on-main"
+note = "the reader bites on a blank reviewer field. Whether the reviewer was independent and read the whole range is prose, with zero CI runs on this branch to corroborate it"
+
+[[commitment]]
+id = "PO-07"
+verdict = "INCOMPLETE"
+subject = "the gate runs once per block, and a second time only if the first failed and code changed"
+evidence = "grep -n 'Re-run `just check` only when' specs/010-governed-agentic-engineering-foundation/plan.md"
+note = "the rule is hash-approved plan text. Adherence is unauditable: the receipts are gitignored and no workflow triggers on this branch, so how many times the gate ran is prose"
+
+[[commitment]]
+id = "PO-08"
+verdict = "PROVEN"
+subject = "a final review at the wave's close covers integration, authority, renames, readiness and an exact gate run"
+evidence = "grep -n 'The final review covers Spec 010 traceability' specs/010-governed-agentic-engineering-foundation/plan.md"
+
+[[commitment]]
+id = "PO-09"
+verdict = "INCOMPLETE"
+subject = "the specification stays draft until a candidate proves its own exact-HEAD receipts"
+evidence = "grep -n '^status:' specs/010-governed-agentic-engineering-foundation/spec.md; gh run list --branch fix/mutation-lane-green-on-main"
+note = "draft is confirmed, which is the half that is met. Which lanes are red and why is a remote fact this branch cannot show: it has no pull request and no workflow run"
+
+[[commitment]]
+id = "PO-10"
+verdict = "NO-EVIDENCE"
+subject = "the removed practices stay removed: per-task review, per-fix waiting, the gate after every task"
+evidence = "git log --format=%H main..HEAD | while read c; do git show --stat $c; done"
+note = "not reached in this pass. Gate runs leave no trace in git — ephemeral execution, gitignored receipts, no CI on the relevant history — so neither the removal nor the audit's own counter-finding can be re-run here"
+
+[[commitment]]
+id = "PO-11"
+verdict = "PROVEN"
+subject = "an intermediate commit is never called done or a pass"
+evidence = "git log --oneline main..HEAD --format='%s' | grep -iE '\\bdone\\b|\\bPASS\\b|approved'"
+
+[[commitment]]
+id = "PO-12"
+verdict = "NO-EVIDENCE"
+subject = "every commit's named focal test fails before the change and passes after it"
+evidence = "git checkout <task-parent> && pytest <the focal test the plan names for that task>"
+note = "not reached in this pass. Confirming red-then-green would need two checkouts and a targeted run per task, up to fifty-three times"
+
+[[commitment]]
+id = "PO-13"
+verdict = "INCOMPLETE"
+subject = "one bounded re-review: one consolidated ledger, one repair pass, one bounded second read"
+evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate"
+note = "the reader bites on a blank repair field. Whether the re-review was bounded to one pass is prose, with no independent record on this branch to check it against"
+
+[[commitment]]
+id = "PO-14"
+verdict = "NO-EVIDENCE"
+subject = "every commit runs the module's cheap immediate suite instead of the full gate"
+evidence = "git log --format=%H main..HEAD, then the module suite the plan names for each"
+note = "not reached in this pass: no receipt of which tests ran at commit time survives in the tree"
+
+[[commitment]]
+id = "PO-15"
+verdict = "PROVEN"
+subject = "hashes, human authority, and no aliases, shims or suppressions"
+evidence = "git grep -cE 'noqa|ts-ignore|nosec' -- src hooks tests"
+
+[[commitment]]
+id = "PO-16"
+verdict = "CONTRADICTED"
+subject = "one primary home per commit, and the recorded exception covers only a commit moving a count another check forces it to move"
+evidence = "git log --format='%H %s' main..HEAD, then git show --stat per commit"
+note = "the widest commit on this branch touches twenty-one files: four source modules, nine test files, two workflows, a policy table, a skill and a new spec. That is not a commit moving a count, which is the entire exception on record. The rule says one home and the practice here is twenty-one, exception included. Recorded rather than argued: this is the audit grading the session that commissioned it"
+
+[[commitment]]
+id = "PO-17"
+verdict = "INCOMPLETE"
+subject = "every commit passes a whitespace-and-conflict check and is revertible"
+evidence = "grep -rF 'diff --check' . --include='*.py' --include='*.yml' --include='*.sh' --include=justfile"
+note = "zero hits in code, hooks or the justfile: the check exists only as prose in the plan, with nothing running or recording it. Revertibility is a property of the commit graph, not evidence the check ran"
+
+[[commitment]]
+id = "PO-18"
+verdict = "PROVEN"
+subject = "no commit may claim authority it does not have"
+evidence = "sed -n '142p' specs/010-governed-agentic-engineering-foundation/plan.md"
+
+[[commitment]]
+id = "PO-19"
+verdict = "PROVEN"
+subject = "the reviewer reads each commit against its parent and the whole accumulated range"
+evidence = "sed -n '138,139p' specs/010-governed-agentic-engineering-foundation/plan.md"
+
+[[commitment]]
+id = "PO-20"
+verdict = "PROVEN"
+subject = "every commit is free of secrets, personal data, machine paths, suppressions and bypass flags"
+evidence = "git grep -cE 'noqa|ts-ignore|nosec' -- src hooks tests; pytest tests/test_hooks.py -k no_verify_guard"
+
+[[commitment]]
+id = "PO-21"
+verdict = "PROVEN"
+subject = "a block closes early whenever a boundary appears that later tasks will consume"
+evidence = "sed -n '144p' specs/010-governed-agentic-engineering-foundation/plan.md"
+
+[[commitment]]
+id = "PO-22"
+verdict = "PROVEN"
+subject = "what the reviewer checks at a block's close, enumerated"
+evidence = "sed -n '139p' specs/010-governed-agentic-engineering-foundation/plan.md"
+
+[[commitment]]
+id = "PO-23"
+verdict = "PROVEN"
+subject = "what the final review checks, enumerated, against receipts of the same HEAD"
+evidence = "grep -n 'The final review covers Spec 010 traceability' specs/010-governed-agentic-engineering-foundation/plan.md"
+
+[[commitment]]
+id = "PO-24"
+verdict = "PROVEN"
+subject = "the spec and plan hashes are recalculated and approved by a person at those exact bytes"
+evidence = "pytest tests/test_record.py::test_the_approval_digests_in_the_plan_are_read_by_something"
+
+[[commitment]]
+id = "PO-25"
+verdict = "PROVEN"
+subject = "a new cadence cannot be presented as already authorised; it needs an amended plan and re-approved hashes"
+evidence = "git log --format='%h %ad %s' --date=iso-strict -- specs/010-governed-agentic-engineering-foundation/plan.md"
+
+[[commitment]]
+id = "PO-26"
+verdict = "PROVEN"
+subject = "the projected saving is handoff arithmetic, not a measured time saving, and the clock never approves"
+evidence = "grep -rn 'lead time|elapsed.*approv|duration.*approv' src/ hooks/ tests/ specs/"
