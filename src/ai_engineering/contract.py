@@ -2586,7 +2586,19 @@ DESCRIPTION_MAX = 1000
 # `scan.report` is driven through a stub that writes SARIF where the lane's own flags say it
 # will be written — so a row with no locations, no artefact, no region, no message, and one
 # four kilobytes long each arrive as a finding whose seven fields are asserted.
-REPO_CEILING = 71_637
+# 71,637 to 71,769, and the interesting part is what did not work.
+#
+# The help-block pins added to `spec` killed almost nothing: 395 survivors to 389, and
+# `spec.main` did not move at all. The pins bite — mutating a help string reds them — so
+# those mutants were already dying through other cases, and the technique that worked on
+# `update` and `uninstall` had already been spent here.
+#
+# Where `spec.main`'s ninety-one actually live is the body: five sentences it prints when it
+# decides not to act, the `--all` flag reaching the listing, the prefix match `show` uses, and
+# `--remote`'s default. A verdict word tells a person nothing — INCOMPLETE over "not inside a
+# repository" and INCOMPLETE over "specs could not be read safely" are the same word for a
+# mistake and a fault, and only the sentence separates them.
+REPO_CEILING = 71_769
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

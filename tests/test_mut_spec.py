@@ -1013,3 +1013,123 @@ def test_an_unknown_subcommand_exits_the_way_cli_misuse_exits(monkeypatch, capsy
         spec.main(["claim", "item", "--path", "x", "--role", "y"])
     assert missing.value.code == outcome.invalid_cli_exit()
     assert "--base" in capsys.readouterr().err
+
+
+def test_every_line_this_verb_prints_when_it_cannot_act(tmp_path, monkeypatch, capsys):
+    """The body of `main`, which is where its surviving mutants actually live.
+
+    Pinning the help blocks killed almost nothing, and that is worth writing down rather than
+    repeating: the help was already reachable through other cases. What nothing reached is
+    the five sentences this verb prints when it decides not to do the thing, and each of them
+    is the entire output of a run somebody is standing in front of.
+
+    A verdict word tells that person nothing. `INCOMPLETE` over "not inside a repository" and
+    `INCOMPLETE` over "specs could not be read safely" are the same word for a mistake and a
+    fault, and only the sentence separates them.
+    """
+    from ai_engineering import spec
+
+    def said() -> list[str]:
+        return [one for one in capsys.readouterr().out.splitlines() if one.strip()]
+
+    monkeypatch.setattr(spec.paths, "repo_root", lambda: None)
+    assert spec.main(["list"]).outcome == "INCOMPLETE"
+    assert said() == ["not inside a repository"]
+
+    # And it is the first thing checked, before any subcommand: every one of the five gets
+    # the same sentence rather than its own way of failing.
+    for argv in (["show", "1"], ["new", "a-slug"], ["checkpoint"]):
+        assert spec.main(argv).outcome == "INCOMPLETE"
+        assert said() == ["not inside a repository"], argv
+
+    monkeypatch.setattr(spec.paths, "repo_root", lambda: tmp_path)
+
+    # An empty repository listing is not a failure. It is a state with a next step in it, and
+    # the next step is the whole of what makes it useful.
+    monkeypatch.setattr(spec, "listing", lambda root, everything: [])
+    assert spec.main(["list"]).outcome == "PASS"
+    assert said() == ["  no specs yet — `ai-eng spec new <slug>`"]
+
+    # A listing that raises is a different answer, and it carries the reason rather than
+    # swallowing it: a directory nobody can read and an empty one are not the same repository.
+    def unreadable(root, everything):
+        raise OSError("permission denied")
+
+    monkeypatch.setattr(spec, "listing", unreadable)
+    assert spec.main(["list"]).outcome == "INCOMPLETE"
+    assert said() == ["  INCOMPLETE  specs could not be listed: permission denied"]
+
+    # `--all` reaches the listing rather than being accepted and dropped, which is the shape
+    # a flag takes when it stops working and nobody notices.
+    seen = []
+    monkeypatch.setattr(spec, "listing", lambda root, everything: seen.append(everything) or [])
+    spec.main(["list"])
+    spec.main(["list", "--all"])
+    assert seen == [False, True]
+
+
+def test_show_finds_a_spec_by_prefix_and_says_so_when_it_cannot(tmp_path, monkeypatch, capsys):
+    """`show` matches on the start of a directory name, so `show 7` finds `007-something`.
+
+    Both halves are asserted because the prefix rule is the useful behaviour and the refusal
+    is what a person sees when they mistype. The refusal quotes what they asked for — without
+    it the message is about no spec in particular.
+    """
+    from ai_engineering import spec
+
+    monkeypatch.setattr(spec.paths, "repo_root", lambda: tmp_path)
+    found = tmp_path / "specs" / "007-a-real-one"
+    found.mkdir(parents=True)
+    (found / "spec.md").write_text("---\nstatus: draft\n---\n\n# 007\n", encoding="utf-8")
+    monkeypatch.setattr(spec, "_canonical_specs", lambda root: [found / "spec.md"])
+
+    assert spec.main(["show", "007"]).outcome in ("PASS", "INCOMPLETE")
+    capsys.readouterr()
+
+    assert spec.main(["show", "999"]).outcome == "INCOMPLETE"
+    assert [one for one in capsys.readouterr().out.splitlines() if one.strip()] == [
+        "  no spec matches '999'"
+    ]
+
+    def unreadable(root):
+        raise OSError("gone")
+
+    monkeypatch.setattr(spec, "_canonical_specs", unreadable)
+    assert spec.main(["show", "007"]).outcome == "INCOMPLETE"
+    assert [one for one in capsys.readouterr().out.splitlines() if one.strip()] == [
+        "  INCOMPLETE  specs could not be read safely"
+    ]
+
+
+def test_the_two_subcommands_that_reach_a_remote_default_to_origin(tmp_path, monkeypatch):
+    """`--remote` has a default, and a default is a decision nobody types.
+
+    Both `claim` and `checkpoint` talk to another machine, so the name they use when nobody
+    said one is the difference between a claim two agents can both read and one written where
+    the other will never look.
+    """
+    from ai_engineering import spec
+
+    monkeypatch.setattr(spec.paths, "repo_root", lambda: tmp_path)
+    seen: dict[str, object] = {}
+
+    import ai_engineering.checkpoint as checkpoint_module
+    import ai_engineering.claim as claim_module
+
+    monkeypatch.setattr(
+        claim_module,
+        "take",
+        lambda root, item, base, paths_, role, remote: seen.update(claim=remote) or "taken",
+    )
+    monkeypatch.setattr(
+        checkpoint_module,
+        "verify",
+        lambda root, *, base, item, remote: seen.update(checkpoint=remote) or "verified",
+    )
+
+    spec.main(["claim", "owner/repo#1", "--base", "a" * 40, "--path", "src", "--role", "writer"])
+    spec.main(["checkpoint"])
+    assert seen == {"claim": "origin", "checkpoint": "origin"}
+
+    spec.main(["checkpoint", "--remote", "upstream"])
+    assert seen["checkpoint"] == "upstream"
