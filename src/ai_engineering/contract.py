@@ -2220,7 +2220,11 @@ DESCRIPTION_MAX = 1000
 # whether the file holds nothing else. An editor's settings file is shared. What refuses is a
 # second copy of one of ours — nine entries where eight were written, and it cannot tell which
 # of the two duplicates is its own.
-REPO_CEILING = 65_758
+#
+# 65,758 to 65,770 for writing the decision down where the number lives. The floor stayed at 89
+# and the tests came up to meet it, which was the owner's call and is quoted in the justfile
+# beside it. A comment that only carries a number invites the next person to move the number.
+REPO_CEILING = 65_770
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

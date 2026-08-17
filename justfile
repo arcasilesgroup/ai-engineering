@@ -182,6 +182,14 @@ mutate *paths:
         # strips one level, and anything deeper reaches python as an IndentationError.
         uv run --no-project python - "$scoped" <<'PY'
     import json, sys
+    # Raised rather than lowered, on 2026-08-17, and by the owner: "es importante que los tests
+    # sean buenos, si vemos que no pasan entonces tenemos que mejorar los tests". First pass
+    # measured — scan 67 to 80, spec 67 to 74, uninstall 78 to 81, update 60 to 63, the last of
+    # which had no test file at all. Almost every survivor was a sentence a person reads when
+    # something refuses, not a branch: the fixtures asserted the machine code and never the
+    # words, so a cure could be rewritten into nonsense and nothing noticed. Refusals are pinned
+    # whole now and whole output blocks are compared.
+    #
     # 89 is a target and not a measurement, and this comment used to say the opposite. It
     # read "89 is what landed, closed at the measurement with no margin... every other module
     # is between 93% and 98%", and `.github/workflows/mutation-nightly.yml` says in its own
