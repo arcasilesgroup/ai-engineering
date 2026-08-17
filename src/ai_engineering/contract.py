@@ -2658,7 +2658,17 @@ DESCRIPTION_MAX = 1000
 # INCOMPLETE and WARN from a lane, an unreadable threat model, a cross-check that is present
 # and cannot answer, a manifest the engine read no file for — against the two that must not:
 # an absent scanner, and a repository declining a threat model rather than failing one.
-REPO_CEILING = 72_226
+# 72,226 to 72,269 for the arithmetic of four mutation instalments, published.
+#
+# imagery+executor 77 to 86, update+uninstall 75 to 78, scan+spec 76 to 80, whole tree 72.
+# "We improved the tests" is the kind of sentence this document exists to replace with a
+# number, and the gap is about 3,700 mutants — which is not one session's work, and saying so
+# is more useful than a plan that assumes otherwise.
+#
+# The finding worth keeping: the technique does not transfer. Pinning help blocks moved
+# `update` three points and `spec` almost nothing. What transfers is the shape underneath —
+# every survivor worth killing is a sentence somebody reads or a decision nobody watched.
+REPO_CEILING = 72_269
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
