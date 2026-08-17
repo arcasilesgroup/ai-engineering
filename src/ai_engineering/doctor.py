@@ -1,4 +1,4 @@
-"""Twenty-three assertions and one line.
+"""Twenty-four assertions and one line.
 
 These are not document sections: they are checks that fail. `--ci` runs the ones that
 make sense on a runner and says in its output which it skipped, because a doctor that
@@ -833,6 +833,67 @@ def data_is_yours(root: Path | None) -> str | None:
                 f"{result.code} — {result.reason}"
             )
     return None if not problems else "; ".join(problems)
+
+
+@check(25, "The record", "No declared capability has a second handler in this repository")
+def one_handler_each(root: Path | None) -> str | None:
+    """`EP-164` asks that `ai-spec` be pinned to one mode and that nothing be able to stand
+    up a second handler elsewhere. The first half was pinned by a test reading the manifest's
+    own content, which proves the manifest says what it says and nothing about elsewhere.
+
+    Elsewhere is where it matters. A capability is a name a surface routes on, so a second
+    `SKILL.md` calling itself `ai-spec` — in `.claude/skills/`, in a vendored copy, anywhere
+    a surface reads — is a second answer to the same request, and which one runs depends on
+    the surface's own search order rather than on anything declared here. That is the exact
+    shape of an ungoverned handler: it looks installed, it answers, and no record of this
+    framework mentions it.
+
+    Only tracked files are considered. An untracked scratch copy is somebody's working
+    directory and not this check's business, and reading the whole tree would also mean
+    reading `node_modules`.
+
+    The framework's own tree is the one legitimate home and is excluded by path, not by
+    name. Excluding by name would mean any file that declared itself canonical was.
+    """
+
+    if root is None:
+        raise Undecidable("not inside a repository")
+    from ai_engineering import capability
+
+    try:
+        declared = {entry["id"] for entry in capability._validated(None)["capabilities"]}
+    except Exception as broken:  # the manifest has its own assertion; this one is about homes
+        raise Undecidable("the capability manifest could not be read here") from broken
+
+    canonical = paths.skills().resolve()
+    found: dict[str, list[str]] = {}
+    for name in tracked_files(root):
+        if not name.endswith("SKILL.md"):
+            continue
+        where = (root / name).resolve()
+        if where == canonical or canonical in where.parents:
+            continue
+        # The declared name, from the frontmatter, and not from the directory. A handler is
+        # found by what it calls itself: a surface reads the name, so a directory renamed to
+        # hide a duplicate would still route.
+        try:
+            head = (root / name).read_text(encoding="utf-8", errors="replace")[:4000]
+        except OSError:
+            continue
+        for line in head.splitlines():
+            if line.startswith("name:"):
+                claimed = line.split(":", 1)[1].strip()
+                if claimed in declared:
+                    found.setdefault(claimed, []).append(name)
+                break
+
+    if not found:
+        return None
+    detail = "; ".join(f"{one}: {', '.join(sorted(where))}" for one, where in sorted(found.items()))
+    return (
+        f"{len(found)} declared capabilities have a second handler committed here — {detail}. "
+        "Which one answers is the surface's search order, not a decision anything recorded."
+    )
 
 
 # ---------------------------------------------------------------- the controls

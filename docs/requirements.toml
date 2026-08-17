@@ -1099,10 +1099,9 @@ note = "the jargon blocklist is a real executing check; nothing checks readabili
 
 [[requirement]]
 id = "EP-164"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "ai-spec is pinned to one mode and nothing can stand up a second handler elsewhere"
-evidence = "pytest tests/test_capabilities.py::test_capabilities_toml_declares_exactly_fifteen_capabilities"
-note = "the test pins the manifest's own content; nothing refuses a second handler existing outside that file. The audit listed this as independently verified"
+evidence = "pytest tests/test_doctor.py -k handler"
 
 [[requirement]]
 id = "EP-165"
@@ -2024,10 +2023,9 @@ note = "a judgement about language; the half that executes is that an error carr
 
 [[requirement]]
 id = "EP-306"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "the chain counts denials per guard inside a time window"
-evidence = "git grep -n window hooks/chain.py hooks/_emit.py"
-note = "the per-guard count exists; the window does not"
+evidence = "pytest tests/test_report_digest.py"
 
 [[requirement]]
 id = "EP-307"

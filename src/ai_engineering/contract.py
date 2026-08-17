@@ -2326,7 +2326,22 @@ DESCRIPTION_MAX = 1000
 # lines went: the module, thirteen cases that each perform the action rather than reading a
 # verdict, the first real caller in `issue.draft`, and the audit section recording that four
 # of the five moved and EP-078 deliberately did not.
-REPO_CEILING = 67_559
+#
+# 67,559 to 67,868 for two requirements that were each half-built, and for the halves.
+#
+# EP-306 asked for denials counted per guard inside a time window. The window was already
+# there and the ledger's note saying otherwise was wrong; what was missing is that
+# `by_reason` keys on guard *and* reason, so one busy guard prints as five quiet ones in the
+# report a person opens to ask whether a control still fires. `by_guard` counts the same
+# events over the same window and both are printed.
+#
+# EP-164 asked that nothing be able to stand up a second handler for a declared capability.
+# The pin was a test reading the manifest's own content, which says nothing about elsewhere,
+# and elsewhere is the requirement: a second `SKILL.md` calling itself `ai-spec` is a second
+# answer chosen by a surface's search order. Assertion 25 walks the tracked inventory,
+# excludes the canonical tree by path rather than by name, and finds a handler by what it
+# calls itself.
+REPO_CEILING = 67_868
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

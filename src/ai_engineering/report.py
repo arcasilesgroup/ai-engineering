@@ -31,6 +31,21 @@ def by_reason(events: list[dict], kind: str) -> Counter:
     )
 
 
+def by_guard(events: list[dict], kind: str) -> Counter:
+    """The same denials, counted per guard rather than per guard-and-reason.
+
+    `by_reason` groups on the pair, which is the right key for "what keeps getting stopped"
+    and the wrong one for "which control is doing the work". A guard that denied five calls
+    for five different reasons appears there as five rows of one, and reads as five quiet
+    controls rather than one busy one — the opposite of what happened.
+
+    Both are printed, over the same window, because the two questions have different
+    answers and a reader who only sees the pair cannot recover this from it.
+    """
+
+    return Counter(str(e["name"])[:64] for e in events if e.get("cls") == kind)
+
+
 def repeats(events: list[dict]) -> list[str]:
     """Rule 12's trigger, measured rather than felt: the same judgement resolving the
     same way three times or more is owed a script, and the prompt that made it goes away
@@ -246,6 +261,16 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     if not blocked:
         print("    nothing. Either a quiet week, or a control that is no longer firing —")
         print("    assertion 7 is what tells the two apart.")
+
+    # Per guard, over the same window. The list above is keyed on guard-and-reason, so a
+    # guard that stopped five different things shows there as five rows of one.
+    per_guard = by_guard(events, "blocked")
+    if per_guard:
+        detail = "  ".join(f"{name} {count}" for name, count in per_guard.most_common())
+        print(f"\n  Per guard, in the {7 * args.weeks} days since {since}: {detail}")
+        check_facts.append(
+            outcome.fact("blocked-per-guard", "OBSERVED", "Denials per guard", detail)
+        )
 
     print(f"\n  Bypassed {sum(bypassed.values())} times.")
     for label, count in bypassed.most_common(4):

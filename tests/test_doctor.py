@@ -88,7 +88,7 @@ def test_every_assertion_has_a_unique_number_a_family_and_a_sentence():
     # 5 is retired, not renumbered: the numbers are cited in prose all over this repository
     # and moving them would silently repoint every one of those citations. It was the line
     # ceiling, and the test plane owns that assertion now.
-    assert sorted(numbers) == [n for n in range(1, 25) if n != 5]
+    assert sorted(numbers) == [n for n in range(1, 26) if n != 5]
     for number, family, title, in_ci, fn in doctor.CHECKS:
         assert family and title and callable(fn) and isinstance(in_ci, bool), number
 
@@ -1698,3 +1698,68 @@ def test_a_receipt_pointing_somewhere_else_is_reported_and_never_opened(
     assert isinstance(hardened, tuple)
     assert "ai-oracle.md" in hardened[0]
     assert "edited" not in hardened[0], "a hard link was hashed instead of being refused"
+
+
+def test_a_second_handler_for_a_declared_capability_is_named_and_a_clean_repository_is_not(repo):
+    """`EP-164`: `ai-spec` pinned to one mode was pinned by a test reading the manifest's own
+    content, which says nothing about elsewhere — and elsewhere is where a second handler
+    lives.
+
+    A capability is a name a surface routes on, so a second `SKILL.md` calling itself
+    `ai-spec` is a second answer to the same request, chosen by the surface's search order
+    rather than by anything this framework recorded.
+
+    Four cases, and the clean one first, because a check that failed on every repository
+    would look identical from the outside to one that works.
+    """
+
+    (repo / "README.md").write_text("a repository\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    got, _ = verdict(doctor.one_handler_each, repo)
+    assert got == "ok", "a repository with no second handler was reported as having one"
+
+    # Untracked is somebody's working directory and not this check's business.
+    rogue = repo / ".claude" / "skills" / "ai-spec"
+    rogue.mkdir(parents=True)
+    (rogue / "SKILL.md").write_text("---\nname: ai-spec\n---\n", encoding="utf-8")
+    assert verdict(doctor.one_handler_each, repo)[0] == "ok"
+
+    # Committed, and it is now a handler this repository ships.
+    git(repo, "add", "-A")
+    got, detail = verdict(doctor.one_handler_each, repo)
+    assert got == "fail"
+    assert "ai-spec" in detail and ".claude/skills/ai-spec/SKILL.md" in detail
+    assert "search order" in detail
+
+    # Found by the name it calls itself, not by the directory it sits in: a directory renamed
+    # to hide a duplicate still routes, because the surface reads the frontmatter.
+    hidden = repo / "vendor" / "notes"
+    hidden.mkdir(parents=True)
+    (hidden / "SKILL.md").write_text("---\nname: ai-review\n---\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    detail = verdict(doctor.one_handler_each, repo)[1]
+    assert "ai-review" in detail and "vendor/notes/SKILL.md" in detail
+
+    # And a skill that is nobody's declared capability is somebody's own work, left alone.
+    (hidden / "SKILL.md").write_text("---\nname: their-own-skill\n---\n", encoding="utf-8")
+    (rogue / "SKILL.md").unlink()
+    git(repo, "add", "-A")
+    assert verdict(doctor.one_handler_each, repo)[0] == "ok"
+
+
+def test_the_second_handler_check_answers_nothing_rather_than_guessing(monkeypatch):
+    """Outside a repository there is no inventory, and a manifest that cannot be read is not
+    a manifest declaring nothing. Both are undecidable, and the second is the one that would
+    otherwise pass loudly: an empty set of declared ids matches no handler at all."""
+
+    from ai_engineering import capability
+
+    assert verdict(doctor.one_handler_each, None)[0] == "undecidable"
+
+    def broken(_source):
+        raise ValueError("unreadable")
+
+    monkeypatch.setattr(capability, "_validated", broken)
+    got, detail = verdict(doctor.one_handler_each, Path.cwd())
+    assert got == "undecidable"
+    assert "could not be read" in detail
