@@ -1991,7 +1991,37 @@ DESCRIPTION_MAX = 1000
 # the exception covers a commit moving a count another check forces it to move, and these
 # repair commits touch eighteen and nine files. Recorded as open, with the argument that a
 # repair pass is one change deliberately not made on its behalf.
-REPO_CEILING = 60_994
+#
+# 60,994 to 63,747 — 2,753 lines, the largest single move this file has ever recorded, and
+# what it buys is the answer to a question this repository could not answer about itself.
+#
+# `docs/audit-2026-08-16.md` published "266 of 385 proven" and could not say which 266. Its
+# second and third passes re-measured 196 requirements in bulk and named only the notable
+# movements, so from the second pass onward the totals were real and the membership was
+# recorded nowhere. That is invisible until somebody tries to use it: asked which requirements
+# remain, the document produces a number and cannot produce a list.
+#
+# Measured a fourth time by four independent read-only auditors, one per range: **180 of 385**,
+# against 266 published. The gap is 86 and almost all of it is one habit — the first pass wrote
+# its PROVEN set as compressed ranges, and roughly sixty ids inside them have no description in
+# the audit, no test naming them, no spec row and no command anywhere in the tree. Two auditors
+# on different ranges, unable to see each other's work, reported it in nearly the same words and
+# both refused to inherit the verdict. And `EP-147` inside `EP-141–EP-150` was worse than
+# unevidenced: `deny_protocol` has no producer, the receipt schema carries none of the fields,
+# and specification 011's own table says INCOMPLETE. A false PROVEN, published, for weeks.
+#
+# So the 2,722 lines are `docs/requirements.toml`: one row per requirement, its verdict, and the
+# command that decides it — the command and not its output, because a pasted result goes stale
+# the day after it is pasted and a reader who doubts a row wants to re-run it. Plus
+# `tests/test_requirements_ledger.py`, which refuses a row naming no command, refuses a verdict
+# outside six words, refuses a PROVEN on a requirement whose text nobody could locate, and binds
+# the audit's published total to the ledger's own count. That last one is exactly the check that
+# would have caught this, and nothing in this repository had it.
+#
+# This is the line ceiling working as intended rather than an exception to it. The number rises
+# because a document that could not be reconstructed became one that can, and the commit that
+# raises it is the conversation about whether that was worth 2,753 lines. It was.
+REPO_CEILING = 63_747
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

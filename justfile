@@ -182,10 +182,23 @@ mutate *paths:
         # strips one level, and anything deeper reaches python as an IndentationError.
         uv run --no-project python - "$scoped" <<'PY'
     import json, sys
-    # 89 is what landed, closed at the measurement with no margin, as with the line ceiling.
-    # The target is 95 and the payer is named: `update` and `uninstall` have no suite of
-    # their own, and their 197 survivors are almost exactly the six points missing. Every
-    # other module is between 93% and 98%. Raise this in the commit that writes that file.
+    # 89 is a target and not a measurement, and this comment used to say the opposite. It
+    # read "89 is what landed, closed at the measurement with no margin... every other module
+    # is between 93% and 98%", and `.github/workflows/mutation-nightly.yml` says in its own
+    # header that "the standing whole-tree score is 71% against a floor of 89" and names
+    # roughly 3,700 mutants as the distance. Two files of ours, one number, and they
+    # disagreed. Measured on 2026-08-17 to settle it: `scan.py` alone scores 67%, `spec.py`
+    # 67%, and the five modules one branch changed 74% together — consistent with 71 across
+    # the tree and not with 93-98 a module. The nightly's number is the true one.
+    #
+    # What that means for this floor, said out loud because the arithmetic is not obvious:
+    # nothing has met it. A scoped run of any real diff fails here, a diff too wide for the
+    # scoped lane defers to a whole-tree receipt that only has to have *finished*, and the
+    # nightly is deliberately not a required check. So a branch touching seven modules is
+    # waved through and a branch touching six is refused — which is the shape `check.yml`'s
+    # own comment calls "a gate you can escape by touching more files". Recorded here rather
+    # than repaired by lowering the number: what the floor should be for a subset is a
+    # decision, and lowering a floor to go green is the defect this repository is named for.
     #
     # The published guidance is 70-80% in general and 80%+ on the core, so 89 across the
     # package is already past both. The core here is not a layer of this package at all —
