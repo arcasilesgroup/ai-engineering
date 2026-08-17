@@ -1901,7 +1901,7 @@ id = "EP-290"
 verdict = "INCOMPLETE"
 subject = "the framework writes only into the homes it declares, and the count is published"
 evidence = "ai-eng doctor"
-note = "the refusal executes; the count itself is unpublished"
+note = "the refusal executes and assertion 18 fails by name on a stray. The count is not a small omission: `doctor`'s check contract is `None` for a pass and a string for the problem, so there is no channel for a passing observation at all. Publishing one changes the decorator, the renderer and the JSON envelope, which is a design decision with its own specification and not a line somebody forgot"
 
 [[requirement]]
 id = "EP-291"
