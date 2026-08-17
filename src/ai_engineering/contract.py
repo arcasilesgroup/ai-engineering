@@ -2563,7 +2563,19 @@ DESCRIPTION_MAX = 1000
 # number would be a tolerance for variance that does not exist, and what it would hide is
 # deleted cases. The baseline moves the way this ceiling moves — in a commit that says why.
 # The approver is empty on purpose rather than a name nobody typed.
-REPO_CEILING = 71_318
+# 71,318 to 71,377 for a runner that stopped being a command and nothing local could tell.
+#
+# Binding the register's declared thresholds to the code that enforces them added an import
+# of the product to `tests/pilot_register.py`. It runs as a command — `just register` uses a
+# bare interpreter and the mutation harness runs it from a copied tree — and neither has the
+# package installed, so both died with ModuleNotFoundError while the local gate stayed green,
+# because `uv run` happens to put the product on the path here.
+#
+# The path is inserted the way `surface_receipt.py` already does it, an import that still
+# fails says so instead of crashing, and the test now runs it in a subprocess with no
+# inherited environment: the only arrangement that tells a runner that works from a runner
+# that works *here*.
+REPO_CEILING = 71_377
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

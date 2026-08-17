@@ -270,3 +270,36 @@ def test_a_declared_threshold_and_the_code_that_enforces_it_cannot_drift(tmp_pat
 
     monkeypatch.setattr(pilot_register, "REGISTER", drifted)
     assert pilot_register.main() == 1, "a threshold that had drifted from the code was printed"
+
+
+def test_the_runner_still_works_with_nothing_but_an_interpreter():
+    """It is a command before it is a test, and it stopped being one for an hour.
+
+    `just register` invokes this with a bare interpreter and the mutation harness runs it
+    from a copied tree. Neither has the package installed. Binding the declared thresholds to
+    the code that enforces them added `from ai_engineering import report`, and the runner
+    died with `ModuleNotFoundError` in both — while the local gate stayed green, because
+    `uv run` happens to put the product on the path there.
+
+    So this runs it the way those two run it: a subprocess with no inherited environment,
+    which is the only arrangement that can tell a runner that works from a runner that works
+    *here*.
+    """
+    import os
+    import subprocess
+    import sys
+
+    done = subprocess.run(
+        [sys.executable, str(ROOT / "tests" / "pilot_register.py")],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        timeout=300,
+        env={"PATH": "/usr/bin:/bin", "HOME": os.environ.get("HOME", "/tmp")},
+        check=False,
+    )
+
+    assert done.returncode == 0, done.stdout[-1500:] + done.stderr[-1500:]
+    assert "RAN register=" in done.stdout
+    assert "threshold      owed-a-script" in done.stdout
+    assert "ModuleNotFoundError" not in done.stderr

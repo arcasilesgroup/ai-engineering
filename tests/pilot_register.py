@@ -22,6 +22,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REGISTER = ROOT / "policy" / "pilot-register.toml"
 
+# This runs as a command, not only under pytest: `just register` invokes it with a bare
+# interpreter, and the mutation harness runs it from a copied tree. Neither has the package
+# installed, so the threshold check below imported `ai_engineering` and died with
+# `ModuleNotFoundError` — a runner that works only when something else happens to have put
+# the product on the path. `uv run` provides it locally, which is exactly why the local gate
+# was green and the mutation run was not.
+sys.path.insert(0, str(ROOT / "src"))
+
 INDICATORS = 13
 PROHIBITIONS = 14
 
@@ -151,7 +159,13 @@ def main() -> int:
     # prohibitions carry no number, which was the finding; these are the two rules that do,
     # and the number is checked against the code that enforces it rather than printed on
     # trust — a declared threshold nothing binds is a number in a document.
-    from ai_engineering import report as report_module
+    try:
+        from ai_engineering import report as report_module
+    except ImportError as why:
+        # Undecidable, not clean. The thresholds are declared and this run could not read the
+        # code that enforces them, which is a different answer from "they agree".
+        print(f"  the declared thresholds could not be checked against the code: {why}")
+        return 1
 
     for row in register.get("threshold", []):
         constant = str(row["enforced_by"]).split(",")[0].rsplit(".", 1)[-1]
