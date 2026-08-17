@@ -1965,7 +1965,20 @@ DESCRIPTION_MAX = 1000
 # The conformance claim is bounded and says so: `sbom.REQUIRED` is a named subset of
 # CycloneDX 1.6, not the whole schema, and the check is the subset. A tool claiming
 # conformance it has not checked is this repository's own defect wearing a standard's name.
-REPO_CEILING = 60_834
+#
+# 60,834 to 60,885 for what writing the SBOM falsified without anybody touching it, and for
+# a header comment that had become the thing it warns about. `release.yml` opened by saying
+# an SBOM naming the same digest was another wave's work — true when written, false as of the
+# commit above, and sitting in a header comment, which the same paragraph calls the place a
+# claim hides longest. Three audit rows (`EP-052`, `EP-094`, `EP-151`) now carry reasons that
+# no longer describe the tree.
+#
+# None of the three is moved to PROVEN, and that is the point of the lines rather than an
+# omission: a falsified reason is not a met requirement, and upgrading a verdict from one is
+# exactly the move that put `EP-044` into the published total on pins guarding other
+# sentences. `specs/014` still calls the SBOM future work and is deliberately not edited —
+# MADR `0008` pins its digest, so amending it would invalidate the approval it carries.
+REPO_CEILING = 60_885
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
