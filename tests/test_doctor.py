@@ -2079,3 +2079,88 @@ def test_the_diagnosis_exits_non_zero_whenever_it_did_not_pass():
         )
         assert got.outcome == word
         assert (got.exit_code != 0) == bool(expected), (word, got.exit_code)
+
+
+def test_the_fix_flag_runs_what_the_failures_named_and_never_invents_a_cure(monkeypatch, capsys):
+    """ADR 0003 decided this shape and eighteen of its mutants survived: **a check reports and
+    never writes; a check that knows the cure carries the command; `--fix` may invoke that
+    command and may not reimplement it.**
+
+    So what is asserted is that every command it runs came out of a cure, that each distinct
+    one runs exactly once however many checks named it, and that they run in this process
+    through `cli.main` rather than through a shell — `ai-eng` is on the PATH of the person who
+    typed it and not necessarily of whatever would run it here, and a repair that fails
+    because it could not find itself is worse than no repair.
+    """
+    from ai_engineering import cli
+    from ai_engineering import doctor as under
+
+    ran: list[list[str]] = []
+    monkeypatch.setattr(cli, "main", lambda argv: ran.append(argv) or 0)
+    monkeypatch.setattr(under, "main", lambda argv: outcome.result("PASS"))
+
+    # Two checks naming one cure, and a third naming another: two runs, not three.
+    under.repair({1: "ai-eng init", 4: "ai-eng init", 7: "ai-eng update"}, ["--fix"])
+    assert ran == [["init", "-y"], ["update"]]
+
+    # `-y` is added for `init` and for nothing else, because that is the one verb whose
+    # defaults destroy nothing — the picker arrives with nothing ticked.
+    assert under.UNATTENDED == {"init": ["-y"]}
+
+    # No cures is no commands. A `--fix` over a clean diagnosis must not run anything.
+    ran.clear()
+    under.repair({}, ["--fix"])
+    assert ran == []
+
+
+def test_a_cure_that_fails_stops_the_rest_and_says_so(monkeypatch, capsys):
+    """The order matters and so does stopping. A second cure run after the first failed is a
+    repair operating on a machine whose state nobody knows, and the honest answer is
+    INCOMPLETE with the exit code in it rather than carrying on."""
+    from ai_engineering import cli
+    from ai_engineering import doctor as under
+
+    ran: list[list[str]] = []
+    monkeypatch.setattr(
+        cli, "main", lambda argv: ran.append(argv) or (2 if argv[0] == "init" else 0)
+    )
+    monkeypatch.setattr(under, "main", lambda argv: outcome.result("PASS"))
+
+    result = under.repair({1: "ai-eng init", 2: "ai-eng update"}, ["--fix"])
+
+    assert result.outcome == "INCOMPLETE"
+    assert ran == [["init", "-y"]], "the rest was attempted after a cure failed"
+    assert "it exited 2. The rest is not attempted." in capsys.readouterr().out
+
+
+def test_the_second_pass_carries_no_fix_and_a_repair_that_changed_nothing_says_so(
+    monkeypatch, capsys
+):
+    """Two properties that keep `--fix` from being a loop.
+
+    The second pass has no `--fix` in it, so this recurses exactly once. And when the answer
+    is still red, it says that what is left is not something these commands reach — because
+    two of the cures cannot reach every shape of their failure, and a repair that invited a
+    second run of the same command would be a person typing the same thing forever.
+    """
+    from ai_engineering import cli
+    from ai_engineering import doctor as under
+
+    seen: list[list[str]] = []
+    monkeypatch.setattr(cli, "main", lambda argv: 0)
+    monkeypatch.setattr(under, "main", lambda argv: seen.append(argv) or outcome.result("FAIL"))
+
+    result = under.repair({1: "ai-eng init"}, ["--fix", "--ci"])
+
+    assert seen == [["--ci"]], "the second pass carried --fix and would recurse"
+    assert result.outcome == "FAIL"
+    said = capsys.readouterr().out
+    assert "Still failing" in said
+    assert "running --fix again will run the same ones" in said
+
+    # And when it passes, it says nothing extra: a repair that worked does not need a warning.
+    seen.clear()
+    monkeypatch.setattr(under, "main", lambda argv: seen.append(argv) or outcome.result("PASS"))
+    capsys.readouterr()
+    assert under.repair({1: "ai-eng init"}, ["--fix"]).outcome == "PASS"
+    assert "Still failing" not in capsys.readouterr().out

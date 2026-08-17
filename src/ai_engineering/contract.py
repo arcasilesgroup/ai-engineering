@@ -2729,7 +2729,19 @@ DESCRIPTION_MAX = 1000
 # Twelve of its mutants survived. Each trigger is now asserted alone, each precedence pair is
 # asserted, and a verdict that printed FAIL and exited zero — the false green this product is
 # named after, in the command whose job is to say whether the system is healthy — has a case.
-REPO_CEILING = 72_702
+# 72,702 to 72,799 for the flag that writes on somebody else's machine.
+#
+# ADR 0003 decided the shape and was accepted today: a check reports and never writes; a
+# check that knows the cure carries the command; `--fix` may invoke that command and may not
+# reimplement it. Eighteen of `repair`'s mutants survived, which is a lot for the one path
+# here that changes a person's installation.
+#
+# So: every command run came out of a cure, each distinct one runs once however many checks
+# named it, `-y` is added for `init` and nothing else, a cure that fails stops the rest with
+# its exit code rather than operating on a machine whose state nobody knows, the second pass
+# carries no `--fix` so this recurses exactly once, and a repair that changed nothing says so
+# rather than inviting a person to type the same thing forever.
+REPO_CEILING = 72_799
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
