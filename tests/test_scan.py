@@ -1276,3 +1276,173 @@ def test_an_engine_that_cannot_run_reports_nothing_rather_than_raising(tmp_path,
         scan.subprocess, "run", lambda *a, **k: SimpleNamespace(returncode=1, stdout="", stderr="")
     )
     assert scan.report(lane, tmp_path, ["."]) == []
+
+
+def test_the_whole_security_report_and_the_code_it_exits_with(tmp_path, monkeypatch, capsys):
+    """Twenty-six mutants of `baseline` survived, and this function is the security gate.
+
+    What it prints is the report somebody reads to decide whether to ship, and what it
+    returns is whether the gate goes red. Both were unasserted as a whole: a line that
+    changed its status word, a lane that stopped setting `worst`, a threat model whose count
+    drifted — none of it was visible to a test that only checked the exit code of a clean
+    run.
+
+    The clean case first, whole and in order, because a report that says the right things in
+    the wrong order is a report a person misreads.
+    """
+    from ai_engineering import outcome, scan
+
+    def clean(lane, root, inputs):
+        return outcome.fact(lane.id, "PASS", lane.id, "it ran and found nothing")
+
+    monkeypatch.setattr(scan, "run", clean)
+    monkeypatch.setattr(
+        scan,
+        "cross_check",
+        lambda lane, root, inputs: outcome.fact(
+            lane.id, "SKIPPED", lane.id, f"{lane.id} is not installed here"
+        ),
+    )
+    monkeypatch.setattr(scan, "model", lambda root: [{"id": "a"}, {"id": "b", "reason": "why"}])
+    monkeypatch.setattr(scan, "stacks", lambda root: ["pyproject.toml"])
+    monkeypatch.setattr(scan, "unread", lambda root, lane=None: [])
+    (tmp_path / "policy").mkdir()
+    (tmp_path / "policy" / "threat-model.toml").write_text("", encoding="utf-8")
+
+    assert scan.baseline(tmp_path) == 0
+    assert [one for one in capsys.readouterr().out.splitlines() if one.strip()] == [
+        "  PASS        secrets       it ran and found nothing",
+        "  PASS        semantic      it ran and found nothing",
+        "  PASS        dependencies  it ran and found nothing",
+        "  OBSERVED    boundaries    2 declared, 1 with a control this tree holds whole",
+        "  SKIPPED     skillspector  skillspector is not installed here",
+        "  SKIPPED     claude-security claude-security is not installed here",
+        "  OBSERVED    manifests     pyproject.toml",
+        "  OBSERVED    coverage      the engine read a file for every manifest here",
+        "  SKIPPED     images        no container image here, so no container lane runs",
+    ]
+
+
+def test_every_way_this_gate_goes_red_and_the_one_way_it_does_not(tmp_path, monkeypatch, capsys):
+    """Four states that fail it and two that do not, each asserted on the exit code.
+
+    INCOMPLETE fails exactly as FAIL does, and that is the whole position of this module: a
+    lane whose answer nobody has is not a clean one. What must *not* fail it is a scanner
+    that is absent — SKIPPED passes, because demanding somebody else's tool would make this
+    lane an opinion — and a repository with no threat model, which is declining rather than
+    failing.
+    """
+    from ai_engineering import outcome, scan
+
+    monkeypatch.setattr(scan, "model", lambda root: None)
+    monkeypatch.setattr(scan, "stacks", lambda root: [])
+    monkeypatch.setattr(scan, "unread", lambda root, lane=None: [])
+    monkeypatch.setattr(
+        scan,
+        "cross_check",
+        lambda lane, root, inputs: outcome.fact(lane.id, "SKIPPED", lane.id, "absent"),
+    )
+
+    def lanes(status):
+        return lambda lane, root, inputs: outcome.fact(lane.id, status, lane.id, "detail")
+
+    # A lane that failed, and a lane that could not run: both red.
+    for status in ("FAIL", "INCOMPLETE", "WARN"):
+        monkeypatch.setattr(scan, "run", lanes(status))
+        monkeypatch.setattr(scan, "report", lambda lane, root, inputs: [])
+        assert scan.baseline(tmp_path) == 1, status
+        capsys.readouterr()
+
+    # Every lane clean, no threat model on disk: not red, and it says it declined.
+    monkeypatch.setattr(scan, "run", lanes("PASS"))
+    assert scan.baseline(tmp_path) == 0
+    said = capsys.readouterr().out
+    assert "SKIPPED     boundaries" in said
+    assert "declares no threat model" in said
+
+    # A threat model that is there and cannot be read is a control nobody can read, which is
+    # not a pass — and this is the line that separates it from the case above.
+    (tmp_path / "policy").mkdir(exist_ok=True)
+    (tmp_path / "policy" / "threat-model.toml").write_text("", encoding="utf-8")
+    assert scan.baseline(tmp_path) == 1
+    assert "INCOMPLETE  boundaries" in capsys.readouterr().out
+
+    # A cross-check that is present and cannot answer is red; absent is not.
+    monkeypatch.setattr(scan, "model", lambda root: [])
+    monkeypatch.setattr(
+        scan,
+        "cross_check",
+        lambda lane, root, inputs: outcome.fact(
+            lane.id, "INCOMPLETE", lane.id, "it is installed and could not answer"
+        ),
+    )
+    assert scan.baseline(tmp_path) == 1
+    capsys.readouterr()
+
+    # And a manifest the engine read no file for: the stack was not scanned, and a stack that
+    # was not scanned reports as a stack with nothing in it.
+    monkeypatch.setattr(
+        scan,
+        "cross_check",
+        lambda lane, root, inputs: outcome.fact(lane.id, "SKIPPED", lane.id, "absent"),
+    )
+    monkeypatch.setattr(scan, "stacks", lambda root: ["package.json"])
+    monkeypatch.setattr(scan, "unread", lambda root, lane=None: ["package.json"])
+    assert scan.baseline(tmp_path) == 1
+    unread_said = capsys.readouterr().out
+    assert "INCOMPLETE  coverage" in unread_said
+    assert "a stack it did not read reports as a stack with nothing in it" in unread_said
+
+
+def test_a_failing_lane_prints_every_finding_with_the_four_fields_nobody_answered(
+    tmp_path, monkeypatch, capsys
+):
+    """A scanner hit that reads as a completed finding is the green nobody earned with the
+    sign reversed. So each one arrives INCOMPLETE, names the engine and the file that decided
+    it, and lists the four questions no scanner can answer."""
+    from ai_engineering import outcome, scan
+
+    monkeypatch.setattr(
+        scan,
+        "run",
+        lambda lane, root, inputs: outcome.fact(
+            lane.id, "FAIL" if lane.id == "semantic" else "PASS", lane.id, "detail"
+        ),
+    )
+    monkeypatch.setattr(scan, "model", lambda root: [])
+    monkeypatch.setattr(scan, "stacks", lambda root: [])
+    monkeypatch.setattr(scan, "unread", lambda root, lane=None: [])
+    monkeypatch.setattr(
+        scan,
+        "cross_check",
+        lambda lane, root, inputs: outcome.fact(lane.id, "SKIPPED", lane.id, "absent"),
+    )
+    monkeypatch.setattr(
+        scan,
+        "report",
+        lambda lane, root, inputs: (
+            [
+                scan.Finding(
+                    boundary=scan.UNANSWERED,
+                    attacker_controls=scan.UNANSWERED,
+                    effect="a thing it saw",
+                    state="INCOMPLETE",
+                    decided_by="semgrep — src/a.py:4",
+                    refutation=scan.UNANSWERED,
+                    closed_by=scan.UNANSWERED,
+                )
+            ]
+            if lane.id == "semantic"
+            else []
+        ),
+    )
+
+    assert scan.baseline(tmp_path) == 1
+    printed = [one for one in capsys.readouterr().out.splitlines() if one.strip()]
+
+    assert "  INCOMPLETE  semantic      a thing it saw" in printed
+    assert any("decided by semgrep — src/a.py:4" in one for one in printed)
+    assert any(
+        "nobody has answered: boundary, attacker_controls, refutation, closed_by" in one
+        for one in printed
+    )

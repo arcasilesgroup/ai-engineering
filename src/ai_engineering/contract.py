@@ -2645,7 +2645,20 @@ DESCRIPTION_MAX = 1000
 # Fourth time this judgement has resolved the same way, which is why `conftest.repository()`
 # exists — and the reason it is worth the two lines here is that the first three each cost a
 # whole-tree run to find.
-REPO_CEILING = 72_043
+# 72,043 to 72,226 for the security gate's own report.
+#
+# `scan.baseline` had twenty-six survivors. What it prints is the report somebody reads to
+# decide whether to ship and what it returns is whether the gate goes red, and neither was
+# asserted whole: a line that changed its status word, a lane that stopped setting `worst`, a
+# boundary count that drifted — none of it visible to a test that checked the exit code of a
+# clean run.
+#
+# The clean report is pinned line for line and in order, because one that says the right
+# things in the wrong order is one a person misreads. Then every way it goes red — FAIL,
+# INCOMPLETE and WARN from a lane, an unreadable threat model, a cross-check that is present
+# and cannot answer, a manifest the engine read no file for — against the two that must not:
+# an absent scanner, and a repository declining a threat model rather than failing one.
+REPO_CEILING = 72_226
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
