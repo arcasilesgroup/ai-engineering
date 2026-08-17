@@ -2741,7 +2741,19 @@ DESCRIPTION_MAX = 1000
 # its exit code rather than operating on a machine whose state nobody knows, the second pass
 # carries no `--fix` so this recurses exactly once, and a repair that changed nothing says so
 # rather than inviting a person to type the same thing forever.
-REPO_CEILING = 72_799
+# 72,799 to 72,891 for twenty-four rows of the answer to "is this surface proved".
+#
+# `surface_states` had seventeen survivors, and eight codes map to eight sentences.
+# `SURFACE_RECEIPT_STALE` tells a person nothing; "the receipt is older than a proof is
+# allowed to be" tells them what to do. A code that lost its sentence falls back to the code
+# and the row still prints, which is the kind of degradation nothing notices — so all eight
+# are asserted to differ from their code and from each other.
+#
+# The age travels with the sentence, because a receipt is evidence about a moment and a row
+# that said something executed without saying when is a claim with no shelf life. An
+# unrecognised code still prints as itself rather than being dropped: to anything counting,
+# an omitted row reads like a question that was not worth asking.
+REPO_CEILING = 72_891
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

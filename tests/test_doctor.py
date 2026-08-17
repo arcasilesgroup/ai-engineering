@@ -2164,3 +2164,83 @@ def test_the_second_pass_carries_no_fix_and_a_repair_that_changed_nothing_says_s
     capsys.readouterr()
     assert under.repair({1: "ai-eng init"}, ["--fix"]).outcome == "PASS"
     assert "Still failing" not in capsys.readouterr().out
+
+
+def test_every_surface_state_arrives_as_a_sentence_and_never_as_a_code(tmp_path, monkeypatch):
+    """Seventeen mutants of `surface_states` survived, and this is twenty-four rows of the
+    output somebody reads to decide whether a surface is proved.
+
+    Eight codes, eight sentences, and the sentences are the point: `SURFACE_RECEIPT_STALE`
+    tells a person nothing, and "the receipt is older than a proof is allowed to be" tells
+    them what to do. A code that lost its sentence would fall back to the code and the row
+    would still print, which is exactly the kind of degradation nothing notices.
+
+    The age travels with it. A receipt is evidence about a moment, and a row that said
+    something executed without saying when is a claim with no shelf life.
+    """
+    from datetime import UTC, datetime
+
+    from ai_engineering import doctor as under
+    from ai_engineering import surface as surfaces
+
+    def rows(*items):
+        monkeypatch.setattr(
+            surfaces, "read", lambda root, *, now: SimpleNamespace(rows=list(items))
+        )
+
+    seen = []
+    for code in (
+        surfaces.PROVEN,
+        surfaces.NOT_APPLICABLE,
+        surfaces.RECEIPT_MISSING,
+        surfaces.RECEIPT_STALE,
+        surfaces.RECEIPT_MISMATCH,
+        surfaces.CANNOT_ENFORCE,
+        surfaces.WARNED,
+        surfaces.REFUSED_EXCUSE,
+    ):
+        rows(
+            SimpleNamespace(
+                surface="opencode", state="enforcement", outcome="PASS", code=code, age_seconds=None
+            )
+        )
+        (fact,) = under.surface_states(tmp_path, now=datetime.now(UTC))
+        seen.append(fact.detail)
+        assert fact.detail != code, f"{code} printed itself instead of a sentence"
+        assert fact.id == "surface-opencode-enforcement"
+        assert fact.summary == "opencode · enforcement"
+
+    assert len(set(seen)) == 8, "two codes share a sentence, so two states read the same"
+
+    # An age, when there is one. Evidence about a moment that does not say which moment is a
+    # claim with no shelf life.
+    rows(
+        SimpleNamespace(
+            surface="claude-code",
+            state="discovery",
+            outcome="PASS",
+            code=surfaces.PROVEN,
+            age_seconds=42,
+        )
+    )
+    (aged,) = under.surface_states(tmp_path, now=datetime.now(UTC))
+    assert aged.detail.endswith(" · 42s old")
+
+    # A code nobody wrote a sentence for still prints, as itself. Dropping the row would be
+    # an omission, and to anything counting an omitted row reads like a question that was not
+    # worth asking.
+    rows(
+        SimpleNamespace(
+            surface="zed",
+            state="invocation",
+            outcome="INCOMPLETE",
+            code="SURFACE_SOMETHING_NEW",
+            age_seconds=None,
+        )
+    )
+    (unknown,) = under.surface_states(tmp_path, now=datetime.now(UTC))
+    assert unknown.detail == "SURFACE_SOMETHING_NEW"
+
+    # And outside a repository there is nothing to read rather than twenty-four unproven
+    # rows: no receipts exist to be missing.
+    assert under.surface_states(None, now=datetime.now(UTC)) == []
