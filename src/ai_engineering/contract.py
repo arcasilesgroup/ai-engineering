@@ -2624,7 +2624,17 @@ DESCRIPTION_MAX = 1000
 # approved, its authority did not move under the write, publication used no-replace
 # semantics. A title drifting onto another check's meaning is an envelope vouching for the
 # wrong thing.
-REPO_CEILING = 71_946
+# 71,946 to 72,024 for the function that decides what every governed record is called.
+#
+# `spec._number` had seventeen surviving mutants and it mints identities: one past the
+# highest, never one past the count, because a repository whose 003 was archived has two
+# directories and its next spec is 004 — filling the gap mints a number a reference in
+# somebody else's commit message already points at.
+#
+# Three refusals with it, each a different thing being wrong: a name that starts where a spec
+# starts and matches neither pattern is ambiguous, two directories claiming one identity is a
+# duplicate, and 999 is the end of a three-digit range. All three raise rather than guessing.
+REPO_CEILING = 72_024
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

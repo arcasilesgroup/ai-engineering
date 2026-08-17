@@ -1204,3 +1204,71 @@ def test_a_repository_with_no_intent_refuses_and_says_which_file_to_write(repo, 
         "one. Write `.ai/intent.md` first — `/ai-spec` walks through it — and run this again"
     ]
     assert not (repo / "specs" / "001-a-slug").exists(), "a refused spec left a directory"
+
+
+def _inventory(*names: str):
+    """An inventory of the `specs/` directory, which is all `_number` reads."""
+    from types import SimpleNamespace
+
+    return SimpleNamespace(names=list(names), pending=(), generation=0, consumed=False)
+
+
+def test_the_next_spec_number_is_one_past_the_highest_and_never_a_gap(tmp_path):
+    """`_number` decides the identity of every governed record this project will ever write,
+    and seventeen of its mutants survived.
+
+    One past the highest, not one past the count. A repository whose 003 was archived has
+    two directories and its next spec is 004 — filling the gap would mint a number a
+    reference already points at, and the references live in other repositories' commit
+    messages where nothing here can update them.
+    """
+    from ai_engineering import spec
+
+    assert spec._number(_inventory()) == "001"
+    assert spec._number(_inventory(".gitkeep")) == "001"
+    assert spec._number(_inventory("001-a", "002-b")) == "003"
+    assert spec._number(_inventory("001-a", "003-c")) == "004", "a gap was filled"
+    assert spec._number(_inventory("009-x")) == "010"
+    assert spec._number(_inventory("099-x")) == "100"
+
+    # Zero-padded to three, always. `10-a` beside `009-a` sorts wrongly in every listing a
+    # person reads, and the pattern that finds them would stop matching.
+    assert spec._number(_inventory("001-a")) == "002"
+    assert len(spec._number(_inventory())) == 3
+
+    # A pending directory counts. It is a spec that has been staged and not yet published,
+    # and handing its number to a second writer is the collision this whole transaction
+    # exists to prevent.
+    assert spec._number(_inventory("pending-007-half-written")) == "008"
+    assert spec._number(_inventory("001-a", "pending-005-b")) == "006"
+
+
+def test_a_spec_namespace_this_cannot_read_stops_the_write(tmp_path):
+    """Three refusals, and each is a different thing being wrong.
+
+    A name that looks like a spec and is not one is ambiguous: `1-a` and `pending-x` both
+    start where a spec starts and match neither pattern, so this cannot say what number is
+    taken. A duplicate is two directories claiming one identity. And 999 is the end of the
+    range, which is a real edge rather than a theoretical one — a number past it would be
+    four digits and every pattern here expects three.
+
+    All three raise rather than guessing, because guessing here mints an identifier a
+    reference in another repository already points at.
+    """
+    import pytest as _pytest
+
+    from ai_engineering import spec, spec_transaction
+
+    for ambiguous in ("1-a", "42", "pending-x", "0001-a", "pending-1-a"):
+        with _pytest.raises(spec_transaction.Unsafe, match="ambiguous identifier"):
+            spec._number(_inventory(ambiguous))
+
+    with _pytest.raises(spec_transaction.Unsafe, match="duplicate identifier"):
+        spec._number(_inventory("001-a", "pending-001-b"))
+
+    with _pytest.raises(spec_transaction.Unsafe, match="range is exhausted"):
+        spec._number(_inventory("999-the-last-one"))
+
+    # And an ordinary name that is not a spec at all is skipped rather than refused: a
+    # `README.md` beside the specs is somebody's file, not an ambiguous identifier.
+    assert spec._number(_inventory("README.md", "notes", "001-a")) == "002"
