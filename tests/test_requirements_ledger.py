@@ -193,3 +193,39 @@ def test_every_commitment_carries_a_verdict_a_command_and_a_reason_when_it_owes_
             assert len(row.get("note", "").strip()) >= 12, (
                 f"{row['id']} is graded {row['verdict']} and does not say why"
             )
+
+
+REPORTS = {
+    "evolution_proposal": ".ai/reports/evolution-proposal/index.html",
+    "process_optimization": ".ai/reports/process-optimization-research/index.html",
+}
+
+
+def test_the_ledger_names_the_exact_bytes_it_was_measured_against():
+    """Provenance, because coverage cannot be checked and this can.
+
+    Neither numbering appears in the source documents — `EP-nnn` and `PO-nn` are this audit's
+    own index, assigned by reading prose in order — so no command can confirm that 385 and 26
+    are the right totals. They are a reading. What a command *can* confirm is that the reading
+    was taken against these bytes and that nobody has edited a report underneath it since.
+
+    Absence is not a pass. `.ai/.gitignore` begins with `*`, so neither report is in the
+    repository and a fresh clone or a CI runner has neither file. That case says it cannot
+    decide, which is a different answer from agreeing, and it is the honest one: on any
+    machine but the one that measured them, the ledger's provenance is unverifiable and this
+    test's silence would otherwise imply the opposite.
+    """
+
+    import hashlib
+
+    pinned = _ledger()["sources"]
+    for key, where in REPORTS.items():
+        source = ROOT / where
+        if not source.is_file():
+            pytest.skip(f"{where} is not in this tree, so its digest cannot be checked here")
+        actual = hashlib.sha256(source.read_bytes()).hexdigest()
+        assert actual == pinned[key], (
+            f"{where} has changed since the ledger was measured on {pinned['measured_at']}: "
+            f"pinned {pinned[key][:16]}, found {actual[:16]}. Every verdict below was taken "
+            "against the old bytes, so re-measure or restore the file — do not repin."
+        )

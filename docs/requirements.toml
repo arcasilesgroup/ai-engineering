@@ -23,6 +23,30 @@
 # Read `tests/test_requirements_ledger.py` before editing: it holds this file to one row per
 # id, a verdict from that vocabulary, and an evidence command on every row.
 
+# Where the two numberings come from, and what can and cannot be checked about them.
+#
+# Neither `EP-nnn` nor `PO-nn` appears in the source documents. Both are this audit's own
+# index, assigned by reading prose in document order. Measured on 2026-08-17: the evolution
+# proposal carries 32 evidence-type spans, 88 list items and 62 third-level headings, and the
+# process research carries 55 list items and 9 headings. Nothing in either counts to 385 or to
+# 26. The two totals are a reading, not a count, and no command can re-derive them — which is
+# the likeliest explanation for the sixty ids the fourth pass found with no locatable text:
+# the numbering may simply have been finer than the prose.
+#
+# And the documents are not in this repository. `.ai/.gitignore` begins with `*`, so the whole
+# directory is disposable by design except the pin — which means nobody who clones this can
+# re-derive any of it, and the ledger below is the only in-tree record of what the two reports
+# asked for. That is a property of the tree's layout and not an accident, but it is worth
+# saying out loud beside the numbers it makes uncheckable.
+#
+# What is checkable is provenance: these are the exact bytes the ledger was measured against.
+# `tests/test_requirements_ledger.py` verifies them where the file is present and says it
+# cannot decide where it is not, rather than passing over an absence.
+[sources]
+evolution_proposal = "e2e667782c198ba8a5332be3d6968c3d368ed5965b61e161b8246a8644278f1f"
+process_optimization = "df21876709f9d9605ef45bd74d692e52d11a182bd7f6214d651140863315eda3"
+measured_at = "2026-08-17"
+
 [[requirement]]
 id = "EP-001"
 verdict = "PROVEN"

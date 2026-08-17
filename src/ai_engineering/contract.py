@@ -2070,7 +2070,28 @@ DESCRIPTION_MAX = 1000
 # label, not a defect — but only if you go and read which of the two it is.
 #
 # The suite is 25 of 25 now. 186 of 385, and 15 of 26.
-REPO_CEILING = 64_215
+#
+# 64,215 to 64,296 for the two things the ledger could not say about itself.
+#
+# Neither numbering exists in the source documents. `EP-nnn` and `PO-nn` were assigned by
+# reading prose in order, and measured on 2026-08-17 the evolution proposal carries 32
+# evidence-type spans, 88 list items and 62 headings while the process research carries 55 and
+# 9. Nothing in either counts to 385 or to 26. Those totals are a reading and no command can
+# re-derive them — which is the likeliest explanation for the sixty ids the fourth pass found
+# with no locatable text at all: the numbering may simply have been finer than the prose.
+#
+# And neither document is in this repository. `.ai/.gitignore` begins with `*`, so the whole
+# directory is disposable except the pin, and nobody who clones this can re-derive any of it.
+# That is the tree's layout working as designed and it is still worth saying beside the
+# numbers it makes uncheckable: the ledger is the only in-tree record of what the two reports
+# asked for.
+#
+# What is checkable is provenance, so that is what was built: the digests of the exact bytes
+# the ledger was measured against, verified where the file is present and reported as
+# undecidable where it is not. Absence is not agreement. On any machine but this one the
+# check says so out loud rather than passing in silence, which is the whole difference
+# between a skip and a green.
+REPO_CEILING = 64_296
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
