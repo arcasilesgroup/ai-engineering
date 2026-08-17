@@ -17,8 +17,14 @@ import tomllib
 from pathlib import Path
 
 import pytest
+from conftest import repository
 
-ROOT = Path(__file__).resolve().parents[1]
+# Every assertion in this file is about *this* repository — its boundaries, the files its
+# guards live in, which policy files something reads, what is committed. Two of them shell
+# out to git, and the mutation harness runs the suite from a tree with no `.git` under it:
+# `git grep` there found no readers at all and reported all twelve policy files as orphans,
+# which is a true statement about the wrong tree.
+ROOT = repository()
 MODEL = ROOT / "policy" / "threat-model.toml"
 
 FIELDS = ("id", "asset", "controlled_by", "harm", "control", "check")
@@ -292,6 +298,42 @@ def test_a_threat_model_shaped_wrongly_is_a_verdict_and_never_a_traceback(tmp_pa
     assert read is None or all(isinstance(row, dict) for row in read)
 
 
+def test_a_threat_model_that_is_not_utf_8_is_a_verdict_too(tmp_path):
+    """Every case above is valid UTF-8, and that is how this one survived a test named for
+    it. Bytes that are not decodable raise `UnicodeDecodeError`, which is a `ValueError` and
+    not an `OSError`, so the reader that catches `OSError` and `TOMLDecodeError` let it out
+    through `just security` as a traceback. Found by an independent reviewer feeding the
+    reader what its own parametrize list had no case for."""
+    from ai_engineering import scan
+
+    (tmp_path / "policy").mkdir()
+    (tmp_path / "policy" / "threat-model.toml").write_bytes(b'[[boundary]]\nid = "\xff\xfe"\n')
+
+    assert scan.model(tmp_path) is None
+    # 1, not 0: a threat model nobody can read fails the gate rather than passing it. The
+    # verdict this fixture is about is that there is one at all.
+    assert scan.baseline(tmp_path) == 1
+
+
+def test_a_directory_the_process_cannot_enter_is_answered_and_not_raised(tmp_path):
+    """`stacks()` stats a manifest inside every subdirectory, and a directory with no
+    permissions raises `PermissionError` from that stat. `baseline()` calls it, and
+    `baseline()` is `just security` — so one unreadable directory in a consumer's repository
+    crashed the security gate rather than answering it."""
+    import os
+
+    from ai_engineering import scan
+
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    (locked / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    os.chmod(locked, 0o000)
+    try:
+        assert scan.stacks(tmp_path) == []
+    finally:
+        os.chmod(locked, 0o755)  # or pytest cannot remove its own tmp_path
+
+
 # Rule 8 says no secrets, no personal data and no machine paths in committed files, and
 # nothing enforced it. A measurement of the process report found a real breach sitting in the
 # tree: a shipped specification carries a home directory with its owner's name in it, pasted
@@ -303,12 +345,24 @@ def test_a_threat_model_shaped_wrongly_is_a_verdict_and_never_a_traceback(tmp_pa
 # between "this is a fixture" and "this looks like a fixture".
 # Every one of these was chosen by somebody writing a fixture, and they are listed rather
 # than pattern-matched because "looks synthetic" is a judgement and a list is not.
-FIXTURE_NAMES = ("somebody", "someone", "My", "me", "user", "test", "skills", "victim", "…")
+# Only the names actually in the tree. `someone`, `user`, `test` and `victim` matched no
+# path anywhere and pre-excused three of the commonest real usernames — an allowance that
+# excuses nothing is an allowance waiting for the leak that fits it, which an independent
+# reviewer pointed out while proving the exemption beside it could grow. Regenerate with the
+# same regex over `git ls-files` when a fixture legitimately needs a new one.
+FIXTURE_NAMES = ("somebody", "My", "me", "skills", "…")
+# The exemption is a name *and* the names already in that file, because a file-level
+# exemption is a control that reads stronger than it is: an independent reviewer pasted two
+# brand-new home directories into the one exempted file and the suite stayed green, against
+# a comment promising "so it cannot grow". What is excused is what was found on the day it
+# was excused; anything else in the same file is refused like anywhere else.
 PATH_EXEMPT = {
-    "specs/008-the-receipt-that-only-grows/spec.md": "two lines pasted from a terminal in a "
-    "shipped specification. This project does not rewrite a record it has shipped, and the "
-    "name is the commit author of every commit on this branch, so it is a hygiene breach "
-    "rather than a disclosure. Named here so it cannot grow, and so the next one is refused",
+    "specs/008-the-receipt-that-only-grows/spec.md": (
+        ("soydachi",),
+        "two lines pasted from a terminal in a shipped specification. This project does not "
+        "rewrite a record it has shipped, and the name is the commit author of every commit "
+        "on this branch, so it is a hygiene breach rather than a disclosure",
+    ),
 }
 
 
@@ -342,14 +396,15 @@ def test_no_committed_file_carries_somebody_s_home_directory():
 
     found = []
     for name in tracked:
-        if name in PATH_EXEMPT or name.endswith((".lock", "-lock.json")):
+        if name.endswith((".lock", "-lock.json")):
             continue
+        excused, _ = PATH_EXEMPT.get(name, ((), ""))
         try:
             body = (ROOT / name).read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
         for _, who in home.findall(body):
-            if who not in FIXTURE_NAMES:
+            if who not in FIXTURE_NAMES and who not in excused:
                 found.append(f"{name}: a home directory belonging to {who!r}")
 
     assert not found, (
@@ -359,7 +414,45 @@ def test_no_committed_file_carries_somebody_s_home_directory():
     )
 
 
+def test_every_check_exercises_the_control_it_names():
+    """The file header says `check` names the test that proves the control can still say no.
+
+    Nothing held it to that. The only assertion on the pair was `is_file()` on each, so a row
+    could name any test in the tree and pass — and one did: `dispatcher-input` named the
+    adapter suite for a control in `self_protect.py`, a file that suite never mentions. The
+    row was not wrong about the danger; it was wrong about what proves the control, which is
+    the difference between a threat model and a list of worries.
+
+    A mention, not an import: these are hook files executed by path, so a test reaches them
+    through `runpy`, a subprocess or a fixture that writes their name.
+    """
+
+    orphans = []
+    for row in boundaries():
+        control = Path(row["control"]).name
+        body = (ROOT / row["check"]).read_text(encoding="utf-8", errors="replace")
+        if control not in body and control.removesuffix(".py") not in body:
+            orphans.append(f"{row['id']}: {row['check']} never names {row['control']}")
+
+    assert not orphans, "\n".join(orphans) + (
+        "\nA check that does not touch its control proves something else. Name the test that "
+        "exercises this control, or change the control to the one that test proves."
+    )
+
+
 def test_the_path_exemptions_are_real_files_and_carry_an_argument():
-    for name, why in PATH_EXEMPT.items():
+    """And that every excused name is still in the file it was excused for.
+
+    An excused name that has left the file is an exemption outliving what it excused, which
+    is how a list of exceptions becomes a list nobody rereads."""
+    import re
+
+    for name, (excused, why) in PATH_EXEMPT.items():
         assert (ROOT / name).is_file(), f"{name} is exempted and is not in the tree"
         assert len(why.split()) >= 20, f"{name}: the reason says too little to argue with"
+        assert excused, f"{name}: an exemption that names nobody excuses everybody"
+        body = (ROOT / name).read_text(encoding="utf-8")
+        for who in excused:
+            assert re.search(rf"[/\\]{re.escape(who)}\b", body), (
+                f"{name} no longer carries {who!r}: drop it from PATH_EXEMPT"
+            )

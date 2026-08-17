@@ -5,7 +5,9 @@ library Python executed by path, because on the hot path `import ai_engineering`
 about 110 ms. Tests reach them the same way the dispatcher does.
 """
 
+import os
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -80,3 +82,25 @@ def real_anchor(monkeypatch):
     from ai_engineering import wiring
 
     monkeypatch.setattr(wiring, "anchor_answers", _REAL_ANCHOR)
+
+
+def repository() -> Path:
+    """This repository, from a suite that is not always running inside it.
+
+    `just mutate` runs the suite out of mutmut's `mutants/` tree: it holds the package and
+    the tests, none of the repository's root files, and no `.git`. Assertions about *this
+    repository* — its manifests, its lock file, which policy files something reads — ask a
+    different tree there, and it answers wrongly rather than not at all. Three did, all
+    added on the same day, and each took the whole-tree lane down on a true statement: an
+    absent `package-lock.json`, an absent `package.json`, and a `git grep` with no
+    repository under it that reported every policy file as read by nothing.
+
+    The harness already exports the real `src/` for this exact reason, so the real root is
+    its parent. Unset, it is the tree this file is in, which is the ordinary case.
+
+    This lives here because it is the third time the same judgement resolved the same way,
+    which is when rule 12 says it stops being a judgement.
+    """
+
+    real = os.environ.get("AI_ENG_REAL_SRC")
+    return Path(real).resolve().parent if real else Path(__file__).resolve().parents[1]

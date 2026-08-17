@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from conftest import repository
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -245,19 +246,37 @@ def test_the_dependency_answer_names_the_stacks_it_was_about(tmp_path, capsys):
 
     from ai_engineering import scan
 
-    assert scan.stacks(ROOT) == ["package.json", "pyproject.toml"]
-    assert scan.images(ROOT) == []
+    # Two manifests side by side, because one is the case where "names the stack" and
+    # "names nothing" are indistinguishable. Asked here rather than only against ROOT:
+    # mutmut runs the suite from its own `mutants/` tree, which holds the package and the
+    # tests and none of the repository's root files, so a ROOT assertion answered a
+    # different question there and turned the whole-tree lane red on a true statement.
+    both = tmp_path / "both"
+    both.mkdir()
+    (both / "package.json").write_text("{}", encoding="utf-8")
+    (both / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    assert scan.stacks(both) == ["package.json", "pyproject.toml"]
+    assert scan.images(both) == []
+
+    # And once against this repository, which is the only tree where the answer can be
+    # checked against something a person can see.
+    assert scan.stacks(repository()) == ["package.json", "pyproject.toml"]
+    assert scan.images(repository()) == []
 
     # Shallow, and one level down. A manifest inside `node_modules` belongs to somebody
     # else's project, and walking the whole tree turns one answer into hundreds.
-    (tmp_path / "service").mkdir()
-    (tmp_path / "service" / "go.mod").write_text("module x\n", encoding="utf-8")
-    (tmp_path / "node_modules" / "left-pad").mkdir(parents=True)
-    (tmp_path / "node_modules" / "left-pad" / "package.json").write_text("{}", encoding="utf-8")
-    (tmp_path / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
+    # Its own subtree, because "one level down" means a sibling fixture in `tmp_path` is
+    # inside the answer: built directly under `tmp_path`, `both/` above put two more
+    # manifests into this list and the expectation stopped being about `service/` at all.
+    work = tmp_path / "work"
+    (work / "service").mkdir(parents=True)
+    (work / "service" / "go.mod").write_text("module x\n", encoding="utf-8")
+    (work / "node_modules" / "left-pad").mkdir(parents=True)
+    (work / "node_modules" / "left-pad" / "package.json").write_text("{}", encoding="utf-8")
+    (work / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
 
-    assert scan.stacks(tmp_path) == ["go.mod"]
-    assert scan.images(tmp_path) == ["Dockerfile"]
+    assert scan.stacks(work) == ["go.mod"]
+    assert scan.images(work) == ["Dockerfile"]
 
     # And a repository with neither says so rather than printing nothing.
     bare = tmp_path / "bare"
@@ -460,7 +479,7 @@ def test_the_dependency_lane_includes_the_packages_a_build_depends_on():
     lane = next(one for one in scan.BASELINE if one.id == "dependencies")
     assert "--include-dev-deps" in lane.extra
 
-    lock = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
+    lock = json.loads((repository() / "package-lock.json").read_text(encoding="utf-8"))
     packages = [row for name, row in lock["packages"].items() if name]
     assert packages, "the lock file names no packages, so this measured nothing"
     assert all(row.get("dev") for row in packages), (

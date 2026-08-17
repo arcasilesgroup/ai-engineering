@@ -33,7 +33,10 @@ Findings, each one at `file:line`, each with the smallest change that would reso
    directory is one of them: correctness, security, performance, testing, compatibility,
    architecture, simplification, docs, frontend and motion. Each is a separate pass; mixing them
    is how the security one gets skipped. Skip a lens the diff cannot touch and name the one
-   you skipped — a lens nothing routes to is a checklist nobody works.
+   you skipped — a lens nothing routes to is a checklist nobody works. Within each, follow
+   the data flow: where the value enters, what may change it, where it is read. Then read
+   the business rule the change encodes, not only the code — a lens applied to lines finds
+   what is wrong, and only the rule says what is wrong *here*.
 4. Never report what a tool already reports. Formatting, lint, secrets, dependency
    vulnerabilities — those ran in CI, and repeating them buries the findings only a person
    could have made. If the gate did not run, say that instead of standing in for it.
@@ -53,6 +56,8 @@ Findings, each one at `file:line`, each with the smallest change that would reso
 - Every finding has a location, a failure scenario and a smallest fix.
 - Nothing in the report claims a gate result that this skill did not see.
 - The blocking findings are separated from the ones you would merge without.
+- Nothing was accepted by this review. It reports; a person or a gate decides, and a review
+  that accepts its own findings is one reader agreeing with itself.
 
 ## What this is not
 

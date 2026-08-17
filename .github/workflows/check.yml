@@ -300,7 +300,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/mutation-nightly.yml/runs?per_page=1&status=completed" \
-            --jq '.workflow_runs[0] | {name, status, conclusion, completed_at}' \
+            --jq '.workflow_runs[0] | {name, status, conclusion, updated_at}' \
             > "$RUNNER_TEMP/nightly.json" || echo '{}' > "$RUNNER_TEMP/nightly.json"
           cat "$RUNNER_TEMP/nightly.json"
 
@@ -339,7 +339,13 @@ jobs:
               run = json.loads(open(sys.argv[1], encoding="utf-8").read())
           except (OSError, ValueError):
               run = {}
-          finished = run.get("completed_at")
+          # `updated_at`, and the field name is the whole finding. A workflow-run object has
+          # no `completed_at` — `gh api --jq` returns null for a key that is not there, so
+          # this read was always falsy and the branch below always taken. Every wide diff got
+          # "no whole-tree run has completed" no matter how many had, and the bootstrap
+          # paragraph underneath made a permanent red read like a one-time one. Proven with
+          # `--jq 'has("completed_at")'` against a run that had completed: false.
+          finished = run.get("updated_at")
           if not finished:
               sys.exit(
                   "this diff is too wide for the scoped lane and no whole-tree run has "

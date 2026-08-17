@@ -293,6 +293,15 @@ def unread(root: Path, lane: Lane | None = None) -> list[str]:
     ]
 
 
+def _readable(path: Path) -> bool:
+    """`is_file()` that answers rather than raises, whatever the filesystem says."""
+
+    try:
+        return path.is_file()
+    except OSError:
+        return False
+
+
 def stacks(root: Path) -> list[str]:
     """Every dependency manifest in this repository, by name and sorted.
 
@@ -300,10 +309,20 @@ def stacks(root: Path) -> list[str]:
     somebody else's project, and walking the whole tree turns one answer into hundreds.
     """
 
-    found = {name for name in MANIFESTS if (Path(root) / name).is_file()}
-    for entry in sorted(Path(root).iterdir()) if Path(root).is_dir() else []:
+    # Every stat through `_readable`. A directory the process cannot traverse raises
+    # `PermissionError` out of the `is_file()` inside it, and this function is called by
+    # `baseline()`, which is `just security` — so one unreadable subdirectory in a
+    # consumer's repository crashed the security gate instead of answering it. A manifest
+    # that cannot be stat'd is a manifest this scan did not find, which is what the caller
+    # is asking and is the answer it can act on.
+    found = {name for name in MANIFESTS if _readable(Path(root) / name)}
+    try:
+        entries = sorted(Path(root).iterdir()) if Path(root).is_dir() else []
+    except OSError:
+        return sorted(found)
+    for entry in entries:
         if entry.is_dir() and not entry.name.startswith((".", "node_modules")):
-            found.update(name for name in MANIFESTS if (entry / name).is_file())
+            found.update(name for name in MANIFESTS if _readable(entry / name))
     return sorted(found)
 
 
@@ -494,7 +513,12 @@ def model(root: Path) -> list[dict] | None:
     where = Path(root) / "policy" / "threat-model.toml"
     try:
         declared = tomllib.loads(where.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError):
+    # `ValueError` and not `TOMLDecodeError`, and the widening is the finding. A file that
+    # is not valid UTF-8 raises `UnicodeDecodeError`, which is a `ValueError` and not an
+    # `OSError`, so it went out through the security gate as a traceback — the third time
+    # this module has thrown where its own docstring promises a verdict. `TOMLDecodeError`
+    # is itself a `ValueError`, so nothing that was caught stops being caught.
+    except (OSError, ValueError):
         return None
     rows = declared.get("boundary", [])
     if not isinstance(rows, list):

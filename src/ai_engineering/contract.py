@@ -1902,7 +1902,44 @@ DESCRIPTION_MAX = 1000
 #
 # Found by running `ai-eng --help` and then the verb, which is the fifth finding today from
 # using a verb and the fifth that was on no list.
-REPO_CEILING = 60_066
+#
+# 60,066 to 60,468 for what an independent reviewer found in the twenty commits before it,
+# and the two worst were controls I had just written and announced. The whole-tree mutation
+# gate read `completed_at` off a workflow-run object, which has no such field, so `gh api`
+# answered null and every wide diff was told no whole-tree run had ever completed — a
+# permanent red wearing a paragraph about a one-time bootstrap. Its alarm could not fire
+# either: the issue step names a `mutation` label that did not exist, so the first real
+# failure ran that step, could not open the issue and left nobody told. Both proven with
+# `gh api`, both from the commit whose message says the lane stops being a red nobody can
+# clear.
+#
+# Then: `scan.model` let `UnicodeDecodeError` out through `just security` under a docstring
+# promising every wrong shape is caught, and `stacks()` let `PermissionError` out from one
+# unreadable directory; `_why_not_authority` had four branches for a five-condition guard
+# and told the fifth case a false reason; `PATH_EXEMPT` excused a file rather than the names
+# in it, so the reviewer pasted two fresh home directories into it and stayed green;
+# `dispatcher-input` named a check that never mentions its control, and nothing could catch
+# that because the only assertion was that both are files; `uninstall --dry-run` was behind
+# the keyboard gate, inert for every script, and its one test set `isatty` True first.
+#
+# And two published rows were wrong: `EP-113` was credited to this session and `git blame`
+# puts it twelve commits earlier, and `EP-044` was published on four pins of which two guard
+# other sentences, while the clauses it names — data flow, the business rule — were not in
+# the skill at all. They are now, and pinned. Corrected in `docs/audit-2026-08-16.md`.
+#
+# And one the repair pass produced itself: a control case in the adversarial suite printed
+# `MISSED control · self_protect` while the guard that actually denied was
+# `change_scope_guard`, correctly, because this branch had seventeen files changed and no
+# plan on it yet. The right refusal attributed to the wrong guard, and twenty minutes to
+# find out — so the denying guard's own line is now printed beside the result. The plan the
+# guard asked for is `specs/018`, and writing it is the rule working rather than the rule
+# being worked around.
+#
+# Three of the fixes above are the same defect as the sentence twelve moves up this file:
+# "The other sixteen homes hold their work, and that is measured rather than assumed" names
+# no command and nothing reads it. Nine of the nineteen absorptions have neither a home check
+# nor a phrase pin. The sentence should have said which, and this is that correction.
+REPO_CEILING = 60_468
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -29,7 +29,12 @@ asset = "which guards run, and the payload every one of them reads"
 controlled_by = "whoever can write a file into the installed package's policy directory"
 harm = "the dispatcher decides which guards a call reaches and rewrites the payload they read, from a directory of JSON nothing validates at load. One wrong reading of that data emptied `tool_name` on every surface at once, which skips every matcher but `.*` and leaves the rest reading a blank path — measured, in this repository, from a file that cannot fail to compile"
 control = "hooks/self_protect.py"
-check = "tests/test_surface_adapter.py"
+# `test_hooks.py`, which is the suite that exercises this row's control. It named the
+# adapter suite, which proves the other half of the reason below and never mentions
+# `self_protect` at all — and the only assertion on these two fields was that both are
+# files, so a row could name any test in the tree and stay green. An independent reviewer
+# found it; the relation is checked now, in `test_every_check_exercises_the_control_it_names`.
+check = "tests/test_hooks.py"
 reason = """`self_protect` refuses a write into `policy/` and the suite validates every \
 shipped adapter against its schema, so the file cannot change under a running install and \
 cannot be wrong in the tree. What no product code does is validate an adapter at load: the \

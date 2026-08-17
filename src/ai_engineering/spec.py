@@ -38,8 +38,8 @@ _MISSING_AUTHORITY = intent.Validation(
 )
 
 
-def _why_not_authority(status: str, role: str, owner: str, transition: dict) -> str:
-    """Which of the four conditions failed, in the values that failed it.
+def _why_not_authority(status: str, role: str, owner: str, transition: dict, approval: dict) -> str:
+    """Which of the five conditions failed, in the values that failed it.
 
     The one message covered four different situations and named none of them. Measured on
     this repository: the Intent was active and approved, and the verb refused because
@@ -47,7 +47,14 @@ def _why_not_authority(status: str, role: str, owner: str, transition: dict) -> 
     `repository maintainer` — two names for one person, and the check compares strings. The
     refusal was correct and unreadable, so it cost an afternoon and would have cost a
     stranger more. A control that is right and illegible gets worked around rather than
-    fixed."""
+    fixed.
+
+    Four branches for five conditions is the same defect one turn later, and an independent
+    reviewer proved it: an Intent differing only in `approval_ref` fell through every branch
+    and was told the role was one this framework refuses to read as an authority, about the
+    role it does accept. A wrong reason is worse than the one reason it replaced, because
+    the reader now has somewhere confident to go and it is the wrong place. The fall-through
+    is the last condition in the guard and nothing else may reach it."""
 
     if status != "active":
         return f"the Intent's lifecycle status is {status!r} and only 'active' grants this"
@@ -61,6 +68,12 @@ def _why_not_authority(status: str, role: str, owner: str, transition: dict) -> 
         return (
             f"the last transition was made by {transition.get('authority_role')!r} and the "
             f"approval is held by {role!r}"
+        )
+    if transition.get("approval_ref") != approval.get("approval_ref"):
+        return (
+            f"the last transition cites approval {transition.get('approval_ref')!r} and the "
+            f"approval on record is {approval.get('approval_ref')!r}. The Intent moved "
+            f"without the approval moving with it"
         )
     return f"the role {role!r} is one this framework refuses to read as an authority"
 
@@ -336,7 +349,7 @@ def _authority(snapshot: _Snapshot) -> intent.Validation:
         return intent.Validation(
             _MISSING_AUTHORITY.outcome,
             _MISSING_AUTHORITY.code,
-            _why_not_authority(lifecycle["status"], role, owner, transition),
+            _why_not_authority(lifecycle["status"], role, owner, transition, approval),
         )
     return intent.PASS
 

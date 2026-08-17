@@ -922,7 +922,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 60_066
+    assert contract.REPO_CEILING == 60_468
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1350,6 +1350,14 @@ SKILL_CONTENT = (
     # which is true and is a different sentence from these two, which now do.
     ("EP-044", "ai-review/SKILL.md", "try to kill it, and default to dismissing"),
     ("EP-044", "ai-review/SKILL.md", "A real bug you are\n   unsure of still blocks"),
+    # The two halves EP-044 asks for that this skill did not have, found by an independent
+    # reviewer reading the requirement instead of the pins: it wants data flow and the
+    # business rule traced, and it wants a review that never accepts itself. Four pins were
+    # published as closing EP-044 and two of them guard other sentences of ai-review — good
+    # pins, wrong requirement. These are the ones the requirement actually names.
+    ("EP-044", "ai-review/SKILL.md", "follow\n   the data flow"),
+    ("EP-044", "ai-review/SKILL.md", "the business rule the change encodes"),
+    ("EP-044", "ai-review/SKILL.md", "Nothing was accepted by this review"),
     ("EP-044", "ai-review/SKILL.md", "Never report what a tool already reports"),
     ("EP-044", "ai-review/SKILL.md", "A finding\n   without a failing scenario is an opinion"),
     ("EP-264", "ai-review/references/security.md", "the source, the sink"),
@@ -1572,3 +1580,23 @@ def test_the_template_gives_the_spec_every_section_the_skill_demands_of_it():
     assert headings.index("Decision") < headings.index("Challenged once")
     assert headings.index("Challenged once") < headings.index("Assumptions and unresolved risks")
     assert headings.index("Assumptions and unresolved risks") < headings.index(examples)
+
+
+def test_the_number_in_the_doctor_summary_is_the_number_of_assertions():
+    """`ai-eng --help` says how many assertions `doctor` makes, and nothing read it.
+
+    Hand-maintained since it was written — `git log -L` on that line shows five corrections,
+    20 to 21 to 22 to 23 — and a number a person keeps by hand is a number that is right
+    until the commit nobody remembered. It happens to be right today; an independent reviewer
+    pointed out that nothing would have said so. This is that reader.
+
+    The count and not the highest number: the assertions are numbered 1 to 24 with 5 absent,
+    because an assertion was removed and its slot was never reused. A reader is told how many
+    checks run, which is what the summary claims.
+    """
+    from ai_engineering import cli, doctor
+
+    said = cli.VERBS["doctor"]
+    assert f"The {len(doctor.CHECKS)} assertions" in said, (
+        f"the summary reads {said!r} while doctor makes {len(doctor.CHECKS)} assertions"
+    )

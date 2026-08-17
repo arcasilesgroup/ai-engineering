@@ -51,11 +51,21 @@ REQUIRED: tuple[tuple[str, str, list[str]], ...] = (
 )
 
 
+# Every guard that denied during the last case, in order. Read by the reporter so a MISSED
+# names the guard that actually said no instead of the guard the case is about.
+DENIED_BY: list[str] = []
+
+
 def call(
     event: str, payload: dict, hooks: Path = HOOKS, cwd: Path | None = None, session: str = ""
 ) -> int:
-    """The guards judge the working directory they are called in, so every case runs
-    inside its own throwaway repository and never inside this one."""
+    """The guards judge the working directory they are called in, so a case that is about
+    the working directory passes `cwd` and gets its own throwaway repository. The rest run
+    where the suite runs, which is this one — and that is not free. A control case here was
+    denied by `change_scope_guard`, because this branch had seventeen files changed and no
+    plan yet, and reported `MISSED control · self_protect`: the right refusal, attributed to
+    the wrong guard, and twenty minutes to find out. So the denying guard's own line is kept
+    and printed beside the result rather than thrown away with the rest of stderr."""
     env = {**os.environ, "AI_ENG_SESSION": session or f"suite-{time.time_ns()}"}
     done = subprocess.run(
         [sys.executable, str(hooks / "chain.py"), event],
@@ -65,6 +75,10 @@ def call(
         env=env,
         cwd=str(cwd) if cwd else None,
     )
+    for line in done.stderr.splitlines():
+        if line.startswith("[") and "]" in line:
+            DENIED_BY.append(line[1 : line.index("]")])
+            break
     return done.returncode
 
 
@@ -612,6 +626,7 @@ def main(root: Path = ROOT) -> int:
     guards: dict[str, bool] = {}
     unrunnable: list[str] = []
     for name, (guard, _controls, fn) in CASES.items():
+        DENIED_BY.clear()
         with tempfile.TemporaryDirectory() as raw:
             try:
                 caught, broke = bool(fn(Path(raw))), ""
@@ -629,7 +644,11 @@ def main(root: Path = ROOT) -> int:
         if guard != "none":
             guards[guard] = guards.get(guard, True) and caught
         word = "caught " if caught else ("NOT RUN" if broke else "MISSED ")
-        print(f"  {word} {name}{f'  ({broke})' if broke else ''}")
+        # A control that was denied names its denier. Without this a control case reads as
+        # a failure of the guard it is named after, whichever guard actually said no.
+        others = sorted({one for one in DENIED_BY if one != guard})
+        blame = f"  (denied by {', '.join(others)})" if not caught and not broke and others else ""
+        print(f"  {word} {name}{f'  ({broke})' if broke else blame}")
     if unrunnable:
         print(
             f"  NOT RUN {len(unrunnable)} of {len(CASES)} raised before reaching a verdict: "

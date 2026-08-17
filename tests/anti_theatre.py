@@ -95,7 +95,10 @@ def whole_tree_receipt(receipt: Path) -> str:
         state = record.get("status")
         die(f"the whole-tree run is {state!r}: it never finished, so PARTIAL stands for nothing")
     try:
-        finished = datetime.fromisoformat(str(record["completed_at"]).replace("Z", "+00:00"))
+        # `updated_at`: a workflow-run object carries no `completed_at`, so this raised
+        # KeyError on every real receipt and reported "the receipt names no time it
+        # finished" about a receipt that named one.
+        finished = datetime.fromisoformat(str(record["updated_at"]).replace("Z", "+00:00"))
     except (ValueError, KeyError, TypeError) as why:
         die(f"the receipt names no time it finished ({type(why).__name__}): PARTIAL proves nothing")
     age = (datetime.now(UTC) - finished).total_seconds() / 3600

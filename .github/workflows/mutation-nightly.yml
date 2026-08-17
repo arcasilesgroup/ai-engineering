@@ -83,14 +83,23 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           title="The whole-tree mutation run is failing"
+          # The label before anything that names it. `gh issue create --label mutation` fails
+          # outright when the label is absent, and it was: the first real failure of this
+          # workflow ran this step, could not open the issue, and left the run red with
+          # nobody told — the alarm silent in exactly the case it exists for. `--force` so a
+          # repository that already has it is untouched, and so a consumer's fresh clone gets
+          # one without a manual step.
+          gh label create mutation --color B60205 --force \
+            --description "the whole-tree mutation run needs a person" || true
           existing=$(gh issue list --state all --label mutation --json number --jq ".[0].number" \
             2>/dev/null || true)
           body="The scheduled whole-tree mutation run did not complete.
           ${RUN_URL}
           The scoped lane inside a pull request stands on this run: when a diff is too wide
           to measure inside the pull request, check.yml requires a whole-tree receipt no
-          older than four days. While this is failing, a wide change cannot merge. That is
-          the intended behaviour and it is worth fixing rather than waiting out."
+          older than four days. A receipt is a run that finished, passing or not, so this
+          failure does not by itself stop a merge — what stops one is nobody running the
+          whole tree at all. This issue is the part that asks for a person."
           if [ -n "$existing" ]; then
             gh issue reopen "$existing" 2>/dev/null || true
             gh issue comment "$existing" --body "$body"

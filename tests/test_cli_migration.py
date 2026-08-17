@@ -1612,6 +1612,34 @@ def test_exception_is_hard_rename_without_plan_alias(
     assert invalid_guard.value.code == outcome.invalid_cli_exit()
 
 
+def test_a_preview_needs_no_keyboard_and_a_removal_still_does(
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`--dry-run` removes nothing, so the keyboard gate had no business refusing it.
+
+    Behind that gate the flag was inert for every script, CI job and agent — most of what a
+    preview exists for — and the suite could not see it, because the one test that drives
+    `--dry-run` sets `isatty` to True before it runs. An independent reviewer found it by
+    running the verb from a pipe. What must not move with it is removal: `-y` arriving from
+    a script is exactly what the gate was put there to stop, so it is asked again lower down
+    and both halves are held here.
+    """
+
+    monkeypatch.setattr(
+        uninstall.sys, "stdin", type("Pipe", (), {"isatty": staticmethod(lambda: False)})()
+    )
+
+    uninstall.main(["--dry-run"])
+    said = capsys.readouterr().out
+    assert "keyboard" not in said, "a preview was refused for having no keyboard"
+
+    removal = uninstall.main(["-y"])
+    assert removal.outcome == "INCOMPLETE"
+    assert "keyboard" in capsys.readouterr().out, "-y from a script was not stopped"
+
+
 def test_uninstall_is_explicit_and_returns_receipted_outcome(
     tmp_path: Path,
     isolated_home: Path,

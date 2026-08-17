@@ -1646,7 +1646,12 @@ def test_an_approved_specification_still_hashes_to_what_was_approved():
     # status on a record that grants nothing, which is the shape this file exists to catch.
     import re as _re
 
-    proposed = 'status: "proposed"' in record.read_text("utf-8")
+    # The parser, not a substring of the whole file. `'status: "proposed"' in body` is true
+    # of a record that merely quotes the word in its prose and false of one that writes the
+    # field unquoted, so the check it guards would switch off silently on a reformat — a
+    # fail-open probe in front of a fail-closed assertion, which an independent reviewer
+    # named while this file was being repaired for a related reason.
+    proposed = madr._parse(record.read_bytes()).raw_fields.get("status") == '"proposed"'
     for named, _ in rows:
         header = (ROOT / named / "spec.md").read_text("utf-8")
         status = _re.search(r"^status: (\w+)", header, _re.M)

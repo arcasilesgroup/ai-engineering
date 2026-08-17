@@ -639,21 +639,46 @@ def test_the_refusal_names_which_two_values_disagree():
     from ai_engineering import spec
 
     transition = {"authority_role": "owner", "approval_ref": "abc"}
+    approval = {"approval_ref": "abc"}
 
-    asleep = spec._why_not_authority("draft", "owner", "owner", transition)
+    asleep = spec._why_not_authority("draft", "owner", "owner", transition, approval)
     assert "'draft'" in asleep and "active" in asleep
 
-    mismatched = spec._why_not_authority("active", "repository owner", "maintainer", transition)
+    mismatched = spec._why_not_authority(
+        "active", "repository owner", "maintainer", transition, approval
+    )
     assert "'repository owner'" in mismatched and "'maintainer'" in mismatched
     assert "the same words" in mismatched
 
     drifted = spec._why_not_authority(
-        "active", "owner", "owner", {"authority_role": "somebody else", "approval_ref": "abc"}
+        "active",
+        "owner",
+        "owner",
+        {"authority_role": "somebody else", "approval_ref": "abc"},
+        approval,
     )
     assert "'somebody else'" in drifted and "'owner'" in drifted
 
-    refused = spec._why_not_authority("active", "agent", "agent", {"authority_role": "agent"})
+    # The fifth, and it is here because it was missing: the guard tests five conditions and
+    # this helper had four branches, so an Intent differing only in `approval_ref` fell all
+    # the way through and was told its role was one the framework refuses — about the role
+    # it accepts. Found by an independent reviewer building that Intent and running the verb.
+    moved = spec._why_not_authority(
+        "active", "owner", "owner", {"authority_role": "owner", "approval_ref": "def"}, approval
+    )
+    assert "'def'" in moved and "'abc'" in moved
+    assert "refuses to read" not in moved, "the fall-through answered for a named condition"
+
+    refused = spec._why_not_authority("active", "agent", "agent", {"authority_role": "agent"}, {})
     assert "'agent'" in refused and "refuses to read" in refused
+
+    # And the count, so a sixth condition cannot be added to the guard without a branch
+    # here. The guard is one boolean expression; every `or` in it is a condition.
+    import inspect
+
+    guard = inspect.getsource(spec._authority)
+    condition = guard[guard.index("if (") : guard.index("):", guard.index("if ("))]
+    assert condition.count(" or ") + 1 == 5, "the guard grew a condition; give it a reason"
 
     # And every branch says something. A diagnostic that falls through to an empty string is
     # the original defect with an extra function in front of it.
