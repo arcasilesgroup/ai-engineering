@@ -3203,7 +3203,22 @@ DESCRIPTION_MAX = 1000
 # a `chmod` *during* the read rather than around it, because what the two `fstat` calls
 # bracket is the read itself, and it asserts the interference happened so it cannot quietly
 # prove nothing.
-REPO_CEILING = 78_510
+#
+# 78,510 to 78,706 for what `uninstall` is allowed to delete. `_owned`, `_skills_owned` and
+# `_removed` answer two questions about every receipt row and they are not the same one
+# twice. *Owned* decides whether this tool may delete a thing, re-established from the disk
+# because a receipt can be stale, hand-edited, or describing a file somebody has since
+# replaced with their own. *Removed* decides afterwards whether it went.
+#
+# The two fail in opposite directions on purpose. Ownership fails closed — a link where a
+# directory belongs is never ours whatever it points at, a copy that is not byte-identical
+# is their file now, and a `how` this version does not recognise was written by something
+# else. Removal is generous about absence, because an uninstall reporting failure for a
+# file it found already gone sends a person hunting for something nobody has. And a
+# settings file nobody can read is *not* removed, because claiming a guard is gone when
+# nobody could look is the false green, in the verb whose whole output is a list of what
+# went.
+REPO_CEILING = 78_706
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
