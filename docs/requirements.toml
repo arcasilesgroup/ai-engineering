@@ -1120,8 +1120,10 @@ pytest tests/test_executor.py -k 'lands_in_the_corpus or first_real_caller'
 id = "EP-163"
 verdict = "INCOMPLETE"
 subject = "a skill is readable by a non-technical reader, not only free of a jargon blocklist"
-evidence = "grep -n JARGON src/ai_engineering/contract.py"
-note = "the jargon blocklist is a real executing check; nothing checks readability by a non-technical reader"
+evidence = '''
+pytest tests/test_contracts.py -k 'read_than_the_hardest or reads_prose or no_prose'
+'''
+note = "the jargon blocklist and a Gunning fog ratchet both execute: no skill may become harder to read than the hardest one is now. A formula is not a reader, so the human half stays open until a non-technical person has said they followed it"
 
 [[requirement]]
 id = "EP-164"

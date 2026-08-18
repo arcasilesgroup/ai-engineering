@@ -9,6 +9,7 @@ per-surface rewrite layer, which is the machinery this product exists to delete.
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -2840,7 +2841,18 @@ DESCRIPTION_MAX = 1000
 # That is the third time a module has said the same thing: the shape of a killing test does
 # not transfer, and the cheap half of any module is killed first by definition. Writing it
 # here so the next person reads the curve before spending the afternoon.
-REPO_CEILING = 74_375
+#
+# 74,375 to 74,525 for the first thing in this tree that measures whether a skill can be
+# read. `EP-163` asks for a skill readable by somebody who does not code, and what executed
+# was a jargon blocklist — which catches the words somebody thought of in advance and has
+# nothing to say about a sixty-word sentence in which every word is plain. That sentence is
+# the commoner way a document stops being readable; nobody sets out to write jargon.
+#
+# `SKILL_FOG_CEILING` is that measure, and it is a ratchet with no headroom on this
+# ceiling's own contract. It is not a reader: a formula cannot tell whether anybody
+# understood, and the ledger row stays incomplete until a non-technical person says they
+# followed it.
+REPO_CEILING = 74_525
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
@@ -2995,3 +3007,73 @@ def test_ratio(root: Path) -> tuple[int, int]:
     if not product:
         raise ValueError(f"no product files under {root}, so this ratio measured nothing")
     return tests, product
+
+
+# The hardest any skill is to read today, measured rather than chosen: `ai-spec` scores
+# 11.03 and `ai-design` 11.02. The median is 7.1 and the easiest, `ai-debug`, is 6.1.
+#
+# `EP-163` asks that a skill be readable by a non-technical reader and not merely free of a
+# jargon blocklist, and the blocklist was the whole of what executed. A word list catches
+# the words somebody thought of in advance; it says nothing about a sentence that is sixty
+# words long and every one of them plain.
+#
+# So this is a ratchet with no headroom, on the same contract as `REPO_CEILING`: no skill
+# may become harder to read than the hardest one is now, and raising it takes a commit that
+# says why. That commit is the conversation about whether the new sentence was worth it.
+#
+# What this is not: a person. A formula cannot tell whether somebody understood, and the
+# ledger row stays incomplete until a non-technical reader has said so. What it removes is
+# the state where nothing at all measured the thing rule 9 asks for.
+SKILL_FOG_CEILING = 11.03
+
+
+def prose(body: str) -> str:
+    """A skill's sentences, with everything that is not a sentence taken out.
+
+    Code, tables and block quotes are not prose and score like nonsense in either
+    direction — a fenced shell command is one enormous word, a table row is a sentence with
+    no verb. Inline code becomes the word `code` rather than vanishing, because the
+    sentence around it still has to parse without it.
+    """
+
+    stripped = body.split("---", 2)[2] if body.startswith("---") else body
+    kept, fenced = [], False
+    for line in stripped.splitlines():
+        if re.match(r"^(```|~~~)", line.strip()):
+            fenced = not fenced
+            continue
+        if fenced or line.strip().startswith(("|", ">")):
+            continue
+        kept.append(re.sub(r"`[^`]*`", "code", line))
+    return "\n".join(kept)
+
+
+def _syllables(word: str) -> int:
+
+    groups = re.findall(r"[aeiouy]+", word.lower())
+    count_of = len(groups)
+    if word.lower().endswith("e") and count_of > 1:
+        count_of -= 1
+    return max(count_of, 1)
+
+
+def fog(body: str) -> float:
+    """Gunning fog over a skill's prose: how many years of schooling it assumes.
+
+    Two things make a sentence hard and this counts both — its length, and how much of it
+    is long words. Either alone is gameable in the direction that does not help anybody:
+    short words in a sixty-word sentence, or six words of jargon in a row.
+
+    Common inflections are not counted as long words. `governed` and `receipts` are three
+    syllables by the rule and one idea by any reader, and counting them would push every
+    document in this repository over the line for using the plural.
+    """
+
+    sentences = [one for one in re.split(r"[.!?]+(?:\s|$)", body) if one.strip()]
+    words = re.findall(r"[A-Za-z][A-Za-z'-]*", body)
+    if not sentences or not words:
+        raise ValueError("nothing here reads as prose, so no score can be taken from it")
+    hard = [
+        word for word in words if _syllables(word) >= 3 and not word.endswith(("es", "ed", "ing"))
+    ]
+    return 0.4 * (len(words) / len(sentences) + 100 * len(hard) / len(words))

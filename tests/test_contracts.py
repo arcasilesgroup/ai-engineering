@@ -924,7 +924,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 74_375
+    assert contract.REPO_CEILING == 74_525
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1665,3 +1665,69 @@ def test_a_phase_nobody_named_is_shown_rather_than_dropped(monkeypatch):
     assert [phase for phase, _ in grouped][:5] == list(wiring.PHASE_ORDER)
     assert ("discover", []) in grouped, "an empty phase was dropped from a map of five"
     assert ("afterwards", ["ai-new"]) in grouped, "a capability was filed under nothing visible"
+
+
+def test_no_skill_is_harder_to_read_than_the_hardest_one_is_today():
+    """`EP-163` asks that a skill be readable by somebody who does not code, and until now
+    the only thing executing was a jargon blocklist.
+
+    A word list catches the words somebody thought of in advance. It has nothing to say
+    about a sentence sixty words long in which every word is plain, and that sentence is the
+    more common way a document stops being readable — nobody sets out to write jargon.
+
+    Gunning fog counts both halves, sentence length and the share of long words, because
+    either alone is gameable in the direction that helps nobody. The bound is the hardest
+    skill in the tree at the moment it was taken, with no headroom, on exactly the contract
+    `REPO_CEILING` has: raising it takes a commit that says why, and that commit is the
+    conversation about whether the new sentence earned its length.
+
+    What this is not is a reader. A formula cannot tell whether anybody understood, and the
+    ledger row stays incomplete until a non-technical person has said so. What it ends is
+    the state where nothing measured the thing rule 9 asks for.
+    """
+
+    scored = {
+        skill.parent.name: contract.fog(contract.prose(skill.read_text(encoding="utf-8")))
+        for skill in sorted((ROOT / ".agents" / "skills").glob("*/SKILL.md"))
+    }
+
+    assert scored, "no skills were scored, so this assertion measured nothing"
+    over = {
+        name: round(score, 2)
+        for name, score in scored.items()
+        if score > contract.SKILL_FOG_CEILING
+    }
+    assert not over, (
+        f"{over} read harder than the ceiling of {contract.SKILL_FOG_CEILING}. Shorten the "
+        "sentences, or raise it in a commit that says which sentence was worth the point."
+    )
+
+
+def test_the_readability_score_reads_prose_and_not_the_code_around_it():
+    """A fenced shell command is one enormous word and a table row is a sentence with no
+    verb. Scoring either would make a skill look unreadable for showing somebody a command,
+    which is the opposite of what this is for — and it would make the number impossible to
+    act on, because the fix would be to delete the example."""
+
+    body = (
+        "---\nname: x\n---\n\n"
+        "This is a plain sentence.\n\n"
+        "```\nuv run --with pytest==9.1.1 pytest -q tests/test_contracts.py\n```\n\n"
+        "| a | b |\n> quoted\n"
+        "Here is `some --inline-code` in a sentence.\n"
+    )
+
+    kept = contract.prose(body)
+
+    assert "uv run" not in kept and "| a | b |" not in kept and "quoted" not in kept
+    assert "Here is code in a sentence." in kept
+    assert "This is a plain sentence." in kept
+
+
+def test_a_document_with_no_prose_in_it_says_so_rather_than_scoring_zero():
+    """Zero is a number and a number here means somebody measured something. A file that is
+    all fenced code has not been measured and must not read as the easiest document in the
+    tree."""
+
+    with pytest.raises(ValueError):
+        contract.fog(contract.prose("---\nname: x\n---\n\n```\ncode only\n```\n"))
