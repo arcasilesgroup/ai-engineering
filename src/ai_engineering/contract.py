@@ -3149,7 +3149,22 @@ DESCRIPTION_MAX = 1000
 # strings and only they know which. And an expiry is round-tripped rather than
 # pattern-matched: `2026-2-3` parses and is not the string that was typed, and a register
 # sorted by a date that is not the date sorts fine and expires the wrong things.
-REPO_CEILING = 77_945
+#
+# 77,945 to 78,098 for `submit`, the only place in this verb that could ever send anything. It
+# never does, and both refusals are INCOMPLETE rather than PASS or FAIL — the honest word
+# for work that did not happen and was not prevented by a fault.
+#
+# The first is consent, read from the controlling terminal: `isatty`, a flag, an environment
+# value and piped stdin are all things a script can supply, so none of them is what gets
+# read. The second is that there is nowhere to send. Confirmed consent with no destination
+# reported as PASS would be this product claiming a send it never made, in the verb whose
+# subject is honest reporting.
+#
+# The phrase carries the payload's digest because consent is to one payload and not to a
+# screen: if the draft changed between the preview and the typing, the phrase no longer
+# matches what was shown. And the comparison is exact — one that accepted `SEND` alone
+# would accept a confirmation of any payload at all.
+REPO_CEILING = 78_098
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

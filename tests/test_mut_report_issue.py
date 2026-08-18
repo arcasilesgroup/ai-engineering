@@ -148,3 +148,141 @@ def test_a_scan_finding_outranks_the_security_route_because_it_is_checked_first(
     assert done.result.outcome == "INCOMPLETE"
     assert issue.PRIVATE_ROUTE not in printed
     assert not _drafted(tmp_path)
+
+
+# --- submit: the two refusals, in that order -----------------------------------------
+#
+# `report.submit` carried 43 more survivors, and it is the only place in this verb that
+# could ever send anything. It never does, and the two refusals it returns are both
+# INCOMPLETE rather than PASS or FAIL — which is the honest word for work that did not
+# happen and was not prevented by a fault.
+#
+# The first refusal is consent, and it is read from the controlling terminal. `isatty`, a
+# flag, an environment value and piped stdin are all things a script can supply, so none of
+# them is what gets read. The second is that there is nowhere to send: no destination is
+# configured and this package ships no transport.
+#
+# The phrase carries the payload's digest because consent is to one payload and not to a
+# screen. If the draft changed between the preview and the typing, the phrase no longer
+# matches what was shown — which is the difference between confirming bytes and confirming
+# that something was displayed.
+
+
+def _payload() -> dict:
+    return issue.build(
+        kind="bug",
+        title="a title",
+        what_happened="what happened",
+        expected="what was expected",
+        steps=["one"],
+    )
+
+
+def test_the_phrase_carries_the_digest_of_this_exact_payload():
+    """Consent is to one payload and not to a screen. A phrase that was the same for every
+    report would confirm that somebody typed something, not which bytes they meant."""
+
+    one, other = (
+        _payload(),
+        issue.build(kind="bug", title="another", what_happened="w", expected="e", steps=["one"]),
+    )
+
+    assert issue.confirmation(one) != issue.confirmation(other)
+    assert issue.digest(one)[:16] in issue.confirmation(one)
+
+
+def test_without_the_typed_phrase_nothing_is_sent_and_the_draft_stays(tmp_path, monkeypatch):
+    """And it is INCOMPLETE, not FAIL. Nobody did anything wrong by declining; the work
+    simply did not happen, and the draft is still on disk to be sent another way."""
+
+    monkeypatch.setattr(report.accept, "controlling_terminal_response", lambda _phrase: False)
+
+    done = report.submit(_payload(), tmp_path / "draft.json")
+
+    assert done.result.outcome == "INCOMPLETE"
+    assert [fact.status for fact in done.checks if fact.id == "consent"] == ["INCOMPLETE"]
+    assert any("has not been sent" in line for line in done.remaining)
+
+
+def test_the_cure_tells_a_person_what_to_type_and_where(tmp_path, monkeypatch):
+    """`rerun and type X at a terminal`. A cure that said only "confirm it" would send
+    somebody back to a prompt they already saw and declined without knowing why it failed."""
+
+    monkeypatch.setattr(report.accept, "controlling_terminal_response", lambda _phrase: False)
+
+    done = report.submit(_payload(), tmp_path / "draft.json")
+    cures = [fact.cure for fact in done.checks if fact.id == "consent"]
+
+    assert cures and "at a terminal" in cures[0]
+    assert issue.digest(_payload())[:16] in cures[0]
+
+
+def test_confirming_still_sends_nothing_and_says_which_thing_is_missing(tmp_path, monkeypatch):
+    """The second refusal, and the one that must never become a PASS. Confirmed consent with
+    no destination is work that did not happen — reporting it as success would be this
+    product claiming a send it never made, in the verb whose subject is honest reporting."""
+
+    monkeypatch.setattr(report.accept, "controlling_terminal_response", lambda _phrase: True)
+
+    done = report.submit(_payload(), tmp_path / "draft.json")
+    named = {fact.id: fact.status for fact in done.checks}
+
+    assert done.result.outcome == "INCOMPLETE"
+    assert named == {"consent": "PASS", "destination": "INCOMPLETE"}
+    assert any("Nothing left this machine" in line for line in done.remaining)
+
+
+def test_the_confirmation_is_compared_to_the_exact_phrase(monkeypatch):
+    """Not a prefix, not case-folded, not stripped of its digest. A comparison that accepted
+    `SEND` alone would accept a confirmation of any payload at all."""
+
+    monkeypatch.setattr(report.accept, "NON_INTERACTIVE", False)
+    answers = iter(["SEND", "send bug 0000000000000000", issue.confirmation(_payload())])
+    monkeypatch.setattr(report.accept, "_open_terminal", lambda: _Line(next(answers)))
+
+    phrase = issue.confirmation(_payload())
+    assert report.accept.controlling_terminal_response(phrase) is False
+    assert report.accept.controlling_terminal_response(phrase) is False
+    assert report.accept.controlling_terminal_response(phrase) is True
+
+
+def test_a_mode_that_promises_not_to_ask_never_opens_the_device(monkeypatch):
+    """Observable as not asking, rather than asking and discarding the answer. Opening the
+    terminal under `--non-interactive` would block a pipeline on a prompt nobody sees."""
+
+    opened: list[int] = []
+    monkeypatch.setattr(report.accept, "NON_INTERACTIVE", True)
+    monkeypatch.setattr(
+        report.accept, "_open_terminal", lambda: opened.append(1) or _Line("anything")
+    )
+
+    assert report.accept.controlling_terminal_response("SEND bug abc") is False
+    assert opened == []
+
+
+def test_a_machine_with_no_controlling_terminal_answers_no(monkeypatch):
+    """And says nothing about the device, because the device name names a machine."""
+
+    def refuse():
+        raise OSError(6, "no such device or address")
+
+    monkeypatch.setattr(report.accept, "NON_INTERACTIVE", False)
+    monkeypatch.setattr(report.accept, "_open_terminal", refuse)
+
+    assert report.accept.controlling_terminal_response("SEND bug abc") is False
+
+
+class _Line:
+    """One readable line, shaped like the context manager the real opener returns."""
+
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    def __enter__(self) -> _Line:
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        return None
+
+    def readline(self) -> str:
+        return self._text + "\n"
