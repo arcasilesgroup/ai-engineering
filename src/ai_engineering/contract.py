@@ -3070,7 +3070,22 @@ DESCRIPTION_MAX = 1000
 # first publishes a spec that ends wherever the kernel felt like; and a second stage with
 # the same pending name is a `Collision` rather than an `Unsafe`, because somebody got
 # there first is a recoverable answer and unsafe is not.
-REPO_CEILING = 77_039
+#
+# 77,039 to 77,193 for which JSON Schema documents this repository is willing to enforce.
+# `intent._Schema` is deliberately small — a closed keyword set, four types, local `$ref`
+# only — and the smallness is the design. It enforces the Solution Intent, a file the user
+# owns and edits, against a schema this repository ships. A general validator would mean
+# importing one, and an unsupported keyword silently ignored by a validator is a rule the
+# document appears to state and nobody applies: the false green arriving through a
+# dependency.
+#
+# So the constructor refuses at load time rather than at check time. A schema carrying
+# `multipleOf` looks stricter than it is for as long as nobody writes the field it governs,
+# and the day somebody does, the rule has never been applied and nothing said so. The same
+# rules apply to every nested schema, because a closed set that stops at the top level is a
+# closed set with a hole in it — and the hole is exactly where a nested definition would put
+# the keyword nobody enforces.
+REPO_CEILING = 77_193
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
