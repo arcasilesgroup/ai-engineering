@@ -352,4 +352,13 @@ skilleval:
 stats:
     @uv run python tests/stats.py
 
-check: build sbom lint typecheck test cover security register skilleval counts
+# The last step, and the only one that leaves anything behind. Everything above is an
+# ephemeral process writing ignored receipts, which is why `PO-10` and `PO-14` — did the
+# removed practices stay removed, and did each commit run its module's suite — were both
+# graded on no evidence at all. A commit trailer is the one place a run can be recorded
+# where git will still have it a month later, and `commit-msg` writes it from this receipt
+# only when the content it names is the content being committed.
+ran suite="check":
+    @uv run python tests/ran_receipt.py record {{suite}}
+
+check: build sbom lint typecheck test cover security register skilleval counts ran

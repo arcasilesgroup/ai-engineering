@@ -2662,10 +2662,10 @@ note = "spec 010 is still draft, and the half that could not be shown now can: t
 
 [[commitment]]
 id = "PO-10"
-verdict = "NO-EVIDENCE"
+verdict = "INCOMPLETE"
 subject = "the removed practices stay removed: per-task review, per-fix waiting, the gate after every task"
-evidence = "git log --format=%H main..HEAD | while read c; do git show --stat $c; done"
-note = "not reached in this pass. Gate runs leave no trace in git — ephemeral execution, gitignored receipts, no CI on the relevant history — so neither the removal nor the audit's own counter-finding can be re-run here"
+evidence = "git log --format='%h %(trailers:key=Ai-Eng-Ran,valueonly)' main..HEAD"
+note = '''a commit now carries `Ai-Eng-Ran: <suite> content=<digest>` when, and only when, a suite is on record against exactly the bytes that commit ships. The trailer is absent by default and withdrawn by any edit after the run, so a commit without one means nobody ran anything — which is the reading this row wanted and had no way to take. What it still cannot say is whether a *removed* practice came back: the trailer records what ran, not what was skipped, and the history before this instrument existed carries none of them.'''
 
 [[commitment]]
 id = "PO-11"
@@ -2693,10 +2693,10 @@ note = "the reader bites on a blank repair field. Whether the re-review was boun
 
 [[commitment]]
 id = "PO-14"
-verdict = "NO-EVIDENCE"
+verdict = "INCOMPLETE"
 subject = "every commit runs the module's cheap immediate suite instead of the full gate"
-evidence = "git log --format=%H main..HEAD, then the module suite the plan names for each"
-note = "not reached in this pass: no receipt of which tests ran at commit time survives in the tree"
+evidence = "git log --format='%h %(trailers:key=Ai-Eng-Ran,valueonly)' main..HEAD; pytest tests/test_ran_receipt.py"
+note = '''the receipt that was missing exists: `just check` records the suite it ran against a digest of every tracked or about-to-be-tracked file, and `commit-msg` writes it into the commit only when that digest still matches. Eight cases hold it to refusing — no receipt, a receipt for other content, a file edited after the run, a file added after it, a receipt naming no suite, one that is not JSON, and two argument shapes. What is not yet true is the requirement's own word, *cheap*: only `just check` records, so every trailer so far names the whole gate, which is the practice this row says was removed.'''
 
 [[commitment]]
 id = "PO-15"

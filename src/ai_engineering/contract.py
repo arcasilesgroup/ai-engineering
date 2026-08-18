@@ -3330,7 +3330,7 @@ DESCRIPTION_MAX = 1000
 # while costing no lines at all.
 #
 # `acceptance` over the day: 533 survivors to 337.
-REPO_CEILING = 78_070
+REPO_CEILING = 78_377
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
