@@ -1074,7 +1074,11 @@ def test_doctor_reports_intent_home_and_incomplete_reasons(tmp_path: Path) -> No
         check=True,
         capture_output=True,
     )
-    assert doctor.data_is_yours(canonical) is None
+    # `Noted`, not None: `EP-290` asks the check to publish what it inventoried, and a pass
+    # that says nothing is indistinguishable from a pass that looked at nothing.
+    answered = doctor.data_is_yours(canonical)
+    assert isinstance(answered, doctor.Noted)
+    assert "tracked files inventoried" in answered
     assert doctor.polarity(canonical) is None
 
     duplicate = canonical / ".ai" / "nested" / "intent.md"
@@ -1152,7 +1156,7 @@ def test_doctor_rejects_tracked_intent_mirrors_only(tmp_path: Path) -> None:
         check=True,
         capture_output=True,
     )
-    assert doctor.data_is_yours(allowed) is None
+    assert isinstance(doctor.data_is_yours(allowed), doctor.Noted)
 
 
 def test_audit_recomputes_intent_relations_without_metadata_proof(

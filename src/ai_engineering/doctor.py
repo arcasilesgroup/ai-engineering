@@ -129,6 +129,24 @@ class Undecidable(Exception):
         self.cure = cure
 
 
+class Noted(str):
+    """A pass that has something to report, which until now had nowhere to report it.
+
+    `EP-290` asks that the framework write only into the homes it declares *and that the
+    count be published*. The refusal half executes — assertion 18 fails by name on a stray —
+    and the count half could not exist, because a check returns `None` for a pass and a
+    string for the problem. There was no channel at all for a passing observation, so a check
+    that had looked at nineteen files and found them all correctly homed could say only the
+    same nothing as a check that had looked at none.
+
+    That is this repository's own defect one level up: a green nobody can distinguish from a
+    green nobody earned. A `str` subclass is the whole of the fix. Every existing check keeps
+    working untouched — `None` is still a silent pass and a plain string is still a problem —
+    and a check with something to show returns it wrapped, which the runner reads as a pass
+    carrying a detail rather than as a failure.
+    """
+
+
 def check(number: int, family: str, title: str, in_ci: bool = True):
     def decorate(fn):
         CHECKS.append((number, family, title, in_ci, fn))
@@ -833,7 +851,15 @@ def data_is_yours(root: Path | None) -> str | None:
                 f"Solution Intent at {intent_home} is {result.outcome}: "
                 f"{result.code} — {result.reason}"
             )
-    return None if not problems else "; ".join(problems)
+    if problems:
+        return "; ".join(problems)
+    # The published count. Not a decoration: `EP-290` asks for it by name, and the reason it
+    # is worth publishing is that "no strays" and "nothing was inventoried" print the same
+    # word. A number beside the pass is the difference between the two.
+    return Noted(
+        f"{len(tracked)} tracked files inventoried, {len(intent_homes(tracked))} Intent home"
+        f"{'' if len(intent_homes(tracked)) == 1 else 's'}, none outside {', '.join(homes)}"
+    )
 
 
 @check(25, "The record", "No declared capability has a second handler in this repository")
@@ -1390,6 +1416,12 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
                 check_facts.append(
                     outcome.fact(f"assertion-{number}", "INCOMPLETE", title, str(why))
                 )
+                continue
+            # Before the falsy test, because a `Noted` is a non-empty string and would
+            # otherwise be read as the problem it is the opposite of.
+            if isinstance(problem, Noted):
+                ui.verdict(number, "ok", title, str(problem))
+                check_facts.append(outcome.fact(f"assertion-{number}", "PASS", title, str(problem)))
                 continue
             if not problem:
                 ui.verdict(number, "ok", title)

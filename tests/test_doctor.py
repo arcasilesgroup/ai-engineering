@@ -55,13 +55,22 @@ def git(root: Path, *args: str) -> None:
 
 
 def verdict(fn, root: Path | None) -> tuple[str, str]:
-    """The three states doctor prints, as a pair a table can be compared against."""
+    """The three states doctor prints, as a pair a table can be compared against.
+
+    A fourth answer arrived with `Noted`: a pass that publishes what it observed. It is a
+    non-empty string and would read as a failure here, exactly as it would in the runner —
+    which is why both places test for it before testing for truthiness, and why this helper
+    reports it as `ok` with its text rather than inventing a fourth word. A table comparing
+    against `("ok", "")` is asking whether the check passed, and it did.
+    """
     try:
         problem = fn(root)
     except doctor.Undecidable as why:
         return "undecidable", str(why)
     if isinstance(problem, tuple):
         problem = problem[0]  # a check that carries its own cure; the message is the first
+    if isinstance(problem, doctor.Noted):
+        return "ok", str(problem)
     return ("fail", problem) if problem else ("ok", "")
 
 
@@ -499,7 +508,12 @@ def test_assertions_17_and_18_the_record_is_committed_and_the_state_is_not(repo)
         target.write_text(file["content"])
     git(repo, "add", "-A")
     assert verdict(doctor.polarity, repo) == ("ok", "")
-    assert verdict(doctor.data_is_yours, repo) == ("ok", "")
+    passed, published = verdict(doctor.data_is_yours, repo)
+    # `EP-290` asks for the count and not only the refusal, so the pass is asserted to carry
+    # one. Before `Noted` there was no channel for it and this line could only read `("ok",
+    # "")` — the same silence a check that inventoried nothing would have produced.
+    assert passed == "ok"
+    assert "tracked files inventoried" in published
     (repo / ".ai" / "notes.md").write_text("scratch\n")
     (repo / ".ai-engineering").mkdir()
     (repo / ".ai-engineering" / "scripts.py").write_text("")
