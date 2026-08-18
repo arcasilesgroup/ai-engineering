@@ -324,6 +324,15 @@ counts:
     @echo "RAN lint=$(uv run --with {{ruff}} ruff format --check . | grep -oE '^[0-9]+')"
     @echo "RAN tests=$(uv run --with {{pytest}} pytest -q --collect-only 2>/dev/null | grep -cE '::')"
 
+# Close the line ceiling onto the tree, which is a fixed point and was being solved by hand.
+# The ceiling counts every committed line and is itself a committed line, so writing a value
+# changes what the value describes — measure, write, measure again, adjust. Fifty times in
+# one session, three or four calls each. This is that arithmetic, and it converges in two or
+# three passes. `--check` is the read-only half, for anybody who wants to know before they
+# find out from the suite.
+seal:
+    @uv run python tests/seal_ceiling.py
+
 # The thirteen indicators and the fourteen prohibitions, read out of `policy/` and printed
 # with every row that has no instrument named. Inside `check` and not beside it: the reader
 # refuses a P5 completion claim, and a refusal nobody runs is a refusal that never happens.

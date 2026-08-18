@@ -3287,7 +3287,17 @@ DESCRIPTION_MAX = 1000
 # forces every row through the same assertion, so rows that had asserted only the message
 # now assert the code as well. Thirteen copies of four lines each let thirteen assertions
 # drift apart; one table cannot.
-REPO_CEILING = 77_724
+#
+# `just seal` exists from here on, and it is the first finding of this session's own
+# efficiency audit turned into a command. This number is a fixed point: the ceiling counts
+# every committed line and is itself a committed line, so writing a value changes what the
+# value describes. Fifty commits in one day, each costing stage-measure-write-measure-adjust
+# by hand — rule 12 exactly, a judgement that resolved the same way fifty times.
+#
+# The script refuses rather than looping. A ceiling that will not settle in ten passes means
+# something else is writing to the tree, and a number taken during that is a number about
+# neither state.
+REPO_CEILING = 77_910
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

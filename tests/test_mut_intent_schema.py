@@ -38,54 +38,98 @@ def test_a_schema_this_module_can_enforce_is_accepted():
     assert intent._Schema({"type": "object", "properties": {"name": {"type": "string"}}})
 
 
-def test_a_keyword_outside_the_closed_set_is_refused_at_load_time():
-    """Not at check time. A schema carrying `multipleOf` looks stricter than it is for as
-    long as nobody writes the field it governs, and the day somebody does the rule has never
-    been applied and nothing ever said so."""
+@pytest.mark.parametrize(
+    ("schema", "says"),
+    [
+        # Not at check time. A schema carrying `multipleOf` looks stricter than it is for as
+        # long as nobody writes the field it governs, and the day somebody does the rule has
+        # never been applied and nothing said so.
+        pytest.param(
+            {"type": "integer", "multipleOf": 3}, "keyword", id="a keyword outside the set"
+        ),
+        # A closed set that stops at the top level is a closed set with a hole in it, and
+        # the hole is exactly where a nested definition would put the keyword nobody enforces.
+        *[
+            pytest.param(nest, "keyword", id=f"the same keyword under {where}")
+            for where, nest in (
+                ("properties", {"properties": {"a": {"multipleOf": 3}}}),
+                ("$defs", {"$defs": {"a": {"multipleOf": 3}}}),
+                ("allOf", {"allOf": [{"multipleOf": 3}]}),
+                ("oneOf", {"oneOf": [{"multipleOf": 3}]}),
+                ("items", {"items": {"multipleOf": 3}}),
+                ("if", {"if": {"multipleOf": 3}}),
+                ("then", {"then": {"multipleOf": 3}}),
+                ("else", {"else": {"multipleOf": 3}}),
+                ("not", {"not": {"multipleOf": 3}}),
+            )
+        ],
+        # `number`, `boolean` and `null` are missing from the type set on purpose: accepting
+        # a type name whose check is not written is how a document passes a validation nobody
+        # performed.
+        pytest.param({"type": "number"}, "type", id="a type this module does not implement"),
+        pytest.param({"type": "boolean"}, "type", id="another one"),
+        # No network and no file. A `$ref` to a URL turns validating a user's file into
+        # fetching somebody else's document; a broken local one is a rule with nothing behind it.
+        pytest.param({"$ref": "https://example.invalid/s.json"}, "local", id="a remote reference"),
+        pytest.param({"$ref": "other.json#/$defs/x"}, "local", id="a reference into another file"),
+        pytest.param(
+            {"$ref": "#/$defs/missing"}, "unknown", id="a local reference that resolves to nothing"
+        ),
+        pytest.param({"$ref": "#/$defs/"}, "unsupported", id="a reference naming nothing"),
+        pytest.param({"$ref": "#/$defs/a/b"}, "unsupported", id="a reference into a definition"),
+        pytest.param(
+            {"type": "string", "pattern": 7}, "pattern", id="a pattern that is not a string"
+        ),
+        # Distinct, because a repeated name is a schema somebody edited twice and the second
+        # edit may have meant something the first did not.
+        pytest.param({"required": "a"}, "required", id="required as a string"),
+        pytest.param({"required": [1]}, "required", id="required holding a number"),
+        pytest.param({"required": ["a", "a"]}, "required", id="required repeating a name"),
+        pytest.param({"enum": "one"}, "enum", id="an enum that is not a list"),
+        pytest.param({"uniqueItems": "true"}, "uniqueItems", id="uniqueItems as a string"),
+        pytest.param(
+            {"additionalProperties": "false"},
+            "additionalProperties",
+            id="a string where a bool goes",
+        ),
+        # `properties` as a list and `allOf` as an object both read as empty to a loop that
+        # does not check, so every rule inside them would be skipped in silence.
+        pytest.param({"properties": []}, "properties", id="properties as a list"),
+        pytest.param({"allOf": {"a": {"type": "string"}}}, "allOf", id="allOf as an object"),
+    ],
+)
+def test_a_schema_this_module_cannot_enforce_is_refused_at_load_time(schema, says):
+    """Twenty-three rows, one function. The constructor refuses when the schema is read,
+    not when a document is checked against it — because a rule nobody applies looks enforced
+    right up to the day it matters."""
 
-    assert "keyword" in _refused({"type": "integer", "multipleOf": 3})
+    assert says in _refused(schema)
 
 
 def test_a_schema_that_is_not_an_object_is_refused():
+    """A list, a number and a string are all valid JSON and none of them is a schema.
+    Separate from the table because there is no `_refused` message to compare."""
+
     for shape in (None, [], "object", 7):
         with pytest.raises(intent._UnsupportedSchema):
             intent._Schema(shape)  # type: ignore[arg-type]
 
 
-def test_only_the_four_types_this_module_implements_are_allowed():
-    """`number`, `boolean` and `null` are missing on purpose. Accepting a type name whose
-    check is not written is how a document passes a validation nobody performed."""
+def test_the_four_types_and_a_resolving_reference_are_accepted():
+    """The clean control. Without it every row above is satisfied by a constructor that
+    refuses everything, which is the passing test this repository exists to refuse."""
 
     for name in ("array", "integer", "object", "string"):
         assert intent._Schema({"type": name})
-    assert "type" in _refused({"type": "number"})
-    assert "type" in _refused({"type": "boolean"})
-
-
-def test_a_reference_has_to_be_local_and_has_to_resolve():
-    """No network and no file. A `$ref` to a URL turns validating a user's file into
-    fetching somebody else's document, and a broken local one is a rule with nothing behind
-    it."""
-
-    assert "local" in _refused({"$ref": "https://example.invalid/schema.json"})
-    assert "local" in _refused({"$ref": "other.json#/$defs/x"})
-    assert "unknown" in _refused({"$ref": "#/$defs/missing"})
-    assert "unsupported" in _refused({"$ref": "#/$defs/"})
-    assert "unsupported" in _refused({"$ref": "#/$defs/a/b"})
-
-
-def test_a_reference_that_resolves_is_accepted():
     assert intent._Schema({"$defs": {"name": {"type": "string"}}, "$ref": "#/$defs/name"})
 
 
-def test_a_pattern_is_compiled_at_load_time_rather_than_on_first_use():
+def test_an_invalid_pattern_is_compiled_here_rather_than_on_first_use():
     """An invalid expression discovered while checking a document is an exception in the
-    middle of a validation, and the person who typed the document did not write the
-    schema."""
+    middle of a validation, and the person who typed the document did not write the schema."""
 
     with pytest.raises(re.error):
         intent._Schema({"type": "string", "pattern": "([unclosed"})
-    assert "pattern" in _refused({"type": "string", "pattern": 7})
 
 
 @pytest.mark.parametrize("key", ["minItems", "maxItems", "minLength", "maxLength"])
