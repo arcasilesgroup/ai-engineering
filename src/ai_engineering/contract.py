@@ -2992,7 +2992,25 @@ DESCRIPTION_MAX = 1000
 # And `--non-interactive` is set as a fact about the process rather than passed down as an
 # argument, which is the difference between a confirmation prompt that never appears in a
 # pipeline and one that appears in it occasionally.
-REPO_CEILING = 76_365
+#
+# 76,365 to 76,494 for `_receipt_state`, which decides whether the machine's install record
+# can be believed at all. `init`, `uninstall` and `doctor` all read it, and it is a JSON
+# file in somebody's home directory — editable, truncatable by an interrupted write, and
+# sometimes written by a version that used a different shape.
+#
+# Its answer for all of that is `None`, and `None` means *undecidable* rather than *empty*.
+# That distinction is the whole function: an empty receipt is a claim, and an honest one —
+# this tool has installed nothing here. A receipt nobody can parse is not a claim at all,
+# and treating it as empty is how a machine's whole install record gets silently replaced
+# by the next `init`.
+#
+# Two rulings underneath it. A row missing `how` is fine from an older version and not from
+# this one, because demanding a field that arrived later would make every upgrade look like
+# corruption at the exact moment `uninstall` needs to be sure. And the row identity is the
+# path *and* the kind, because one path can legitimately be both a settings entry and a
+# guard registration — while two rows for the same pair is a receipt appended to twice for
+# one write, and which of them describes the file on disk is the question nobody can answer.
+REPO_CEILING = 76_494
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
