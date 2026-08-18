@@ -3175,7 +3175,22 @@ DESCRIPTION_MAX = 1000
 # fresh ground — it was not the tail of `acceptance` dragging the number down. The cheap
 # half of every module is gone, and what remains costs about one test per mutant wherever
 # it is.
-REPO_CEILING = 78_133
+#
+# 78,133 to 78,313 for materialising the Intent graph, and for two facts that only appeared by
+# running it. `pending.pop()` takes from the end, so the relations an Intent lists are
+# walked in reverse; and a child whose own relations cannot be parsed ends the walk with
+# `break` rather than skipping that child, so siblings still queued behind it are never
+# read.
+#
+# Together those mean that when one document is malformed, *which* of its siblings were
+# read depends on the order the Intent happened to list them. The snapshot is refused
+# either way and nothing downstream acts on a partial read — but a future change trying to
+# make this walk resilient has to start there, and now something says so.
+#
+# Two of the nine cases were written from a wrong model of this function and were replaced
+# by what it actually does. That is the second time today the test was wrong rather than
+# the code, which is worth as much as the times it was the other way round.
+REPO_CEILING = 78_313
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
