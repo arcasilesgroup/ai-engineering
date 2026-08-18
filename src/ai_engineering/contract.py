@@ -3102,7 +3102,23 @@ DESCRIPTION_MAX = 1000
 # with no `max_age_seconds` of its own defaults to zero, so it is fresh for exactly the
 # instant it finished and stale one second later — not "never fresh", which is what the
 # test claimed before it was run.
-REPO_CEILING = 77_386
+#
+# 77,386 to 77,605 for accepting a decision. `decide.accept` carried 54 survivors and three of
+# its comments are apologies for defects that shipped — and a comment explaining a bug is a
+# bug nothing is watching for, so each one now has a case.
+#
+# The path one: `--accept` takes text off the command line and this built a glob out of it,
+# and `..` is a legal glob segment. The message one: a record with a bare `status: proposed`
+# was refused with "has already left proposed", which is neither what the file says nor what
+# happened, and it cost the operator five attempts at records they were entitled to read.
+# The escaping one: the role and reference come from a file a person edits and were
+# interpolated between bare quotes, so a role holding a newline wrote its own frontmatter
+# into the record whose whole purpose is to be the thing that cannot be forged.
+#
+# Writing that last case found the test wrong rather than the code. An escaped newline is
+# still the characters `\` and `n` in the text, so `status:` appears twice as a substring
+# and once as a line — and a line is what a frontmatter parser reads.
+REPO_CEILING = 77_605
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
