@@ -422,7 +422,12 @@ def _safe_path(path: Path, kind: str | None = None) -> bool:
             with lexical.open("rb") as stream:
                 stream.read(1)
             return True
-        return kind is None
+        # Neither a directory nor a regular file: a socket, a device, a named pipe. This
+        # used to answer `kind is None`, so a caller that asked for no particular kind was
+        # told a named pipe was safe — while the line above this function says it rejects
+        # special files. Every caller in the product passes a kind, so nothing changes for
+        # anybody; what changes is that the sentence is now true.
+        return False
     except OSError:
         return False
 

@@ -2966,7 +2966,19 @@ DESCRIPTION_MAX = 1000
 # when something has already gone wrong. The real stderr is now held before the redirect.
 # That is this session's recurring defect in its purest form: a control that reads stronger
 # than it is, and the control is the flag whose only job is to show somebody what happened.
-REPO_CEILING = 75_997
+#
+# 75,997 to 76,163 for what `init` refuses to write into, and for a docstring that was
+# stronger than its code. `_safe_path` says it rejects aliases *and special files*, and
+# with no kind asked for it accepted a named pipe. Every caller in the product passes a
+# kind, so nothing changes for anybody — what changes is that the sentence is now true.
+#
+# The direction of failure there is not symmetric and both directions have hurt. Passing an
+# alias means an installer with a person's own permissions writes outside everything it was
+# scoped to. Refusing a path that is fine means `init` prints INCOMPLETE with no surface
+# table, no reason and no cure — which happened twice, on every second run, in the only
+# verb that installs a guard. Both apologies are in the source; the cases for them are now
+# beside the cases for the first kind.
+REPO_CEILING = 76_163
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
