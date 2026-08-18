@@ -57,9 +57,7 @@ evidence = "pytest tests/test_madr.py::test_a_record_superseded_by_another_is_na
 id = "EP-002"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description in the audit and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-002' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 note = "the audit swept it into a compressed PROVEN range; a prior verdict for a requirement whose text cannot be located is not inherited here"
 
 [[requirement]]
@@ -73,25 +71,19 @@ note = "the audit's concern that 0005 was still proposed is stale; it carries an
 id = "EP-004"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-004' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-005"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-005' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-006"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-006' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-007"
@@ -110,9 +102,7 @@ note = "relations resolve and four ADRs are accepted; spec 010, which the graph 
 id = "EP-009"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-009' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-010"
@@ -952,9 +942,7 @@ note = "the map moved out of the gate runner and into `wiring.phase_map`, `ai-en
 id = "EP-136"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-136' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 note = "declining to copy the bare prior classification: in this same compressed range EP-147 turned out to be a confirmed overclaim"
 
 [[requirement]]
@@ -975,9 +963,7 @@ pytest tests/test_executor.py -k 'crashes_is_a_refusal or gate_word_nobody_recog
 id = "EP-139"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-139' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-140"
@@ -990,25 +976,19 @@ note = "the requirement names no checkable property, which the audit itself reco
 id = "EP-141"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-141' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-142"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-142' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-143"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-143' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-144"
@@ -1023,17 +1003,13 @@ note = "a live, currently-open FAIL both commands agree on. Only a person runnin
 id = "EP-145"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-145' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-146"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-146' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-147"
@@ -1046,25 +1022,19 @@ note = "the compressed range EP-141-EP-150 marked this PROVEN in the first pass.
 id = "EP-148"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-148' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-149"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-149' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-150"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-150' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 note = "the neighbouring id in this same compressed range was a confirmed overclaim"
 
 [[requirement]]
@@ -1078,41 +1048,31 @@ note = "the local mechanism is real; the requirement also needs a published rele
 id = "EP-152"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-152' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-153"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-153' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-154"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-154' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-155"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-155' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-156"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-156' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-157"
@@ -1132,9 +1092,7 @@ note = "the checkable half executes; one trigger per skill stays ungated by desi
 id = "EP-159"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-159' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-160"
@@ -1237,9 +1195,7 @@ note = "the deferral is written with a reopening condition; spec 013 is still dr
 id = "EP-174"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-174' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-175"
@@ -1259,9 +1215,7 @@ note = "self-grant and publication were already real, and the note saying there 
 id = "EP-177"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
-evidence = '''
-git grep -n 'EP-177' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-178"
@@ -1396,18 +1350,14 @@ note = "there is no proven column at all; the state is read from the enforcement
 id = "EP-197"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description anywhere in the tree"
-evidence = '''
-git grep -n 'EP-197' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 note = "swept into a compressed PROVEN range with no test, file or command; the prior verdict is not inherited"
 
 [[requirement]]
 id = "EP-198"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description anywhere in the tree"
-evidence = '''
-git grep -n 'EP-198' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-199"
@@ -1420,9 +1370,7 @@ note = "the three states are reported separately; CI executes only enforcement, 
 id = "EP-200"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description anywhere in the tree"
-evidence = '''
-git grep -n 'EP-200' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-201"
@@ -1443,9 +1391,7 @@ evidence = '''
 id = "EP-203"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no description anywhere in the tree"
-evidence = '''
-git grep -n 'EP-203' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-204"
@@ -1598,9 +1544,7 @@ evidence = '''
 id = "EP-225"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no clause could be isolated and nothing in the tree cites it"
-evidence = '''
-git grep -n 'EP-225' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-226"
@@ -1626,9 +1570,7 @@ evidence = "grep -n add_parser src/ai_engineering/report.py"
 id = "EP-229"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no clause could be isolated and nothing in the tree cites it"
-evidence = '''
-git grep -n 'EP-229' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-230"
@@ -1701,9 +1643,7 @@ note = "the test's own comment says it checks that the guidance exists and never
 id = "EP-240"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no clause could be isolated and nothing in the tree cites it"
-evidence = '''
-git grep -n 'EP-240' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 note = "even the first pass's own PROVEN range excludes it, and no later pass names it"
 
 [[requirement]]
@@ -2336,26 +2276,20 @@ evidence = "pytest tests/test_capabilities.py::test_capabilities_toml_declares_e
 id = "EP-335"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-335' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 note = "inherited from the first pass's bulk PROVEN range. The suite is green, which says nothing about this id, so the verdict is not inherited"
 
 [[requirement]]
 id = "EP-336"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-336' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-337"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-337' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-338"
@@ -2368,33 +2302,25 @@ note = "enforcement of the declared capability is a separate, still-open matter"
 id = "EP-339"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-339' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-340"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-340' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-341"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-341' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-342"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-342' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-343"
@@ -2425,41 +2351,31 @@ evidence = "pytest tests/test_contracts.py -k 'EP-346'"
 id = "EP-347"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-347' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-348"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-348' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-349"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-349' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-350"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-350' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-351"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-351' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-352"
@@ -2471,9 +2387,7 @@ evidence = "pytest tests/test_contracts.py -k 'absorbed_capability_left_its_work
 id = "EP-353"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-353' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-354"
@@ -2485,17 +2399,13 @@ evidence = "pytest tests/test_contracts.py -k 'EP-354'; grep -n mcp hooks/chain.
 id = "EP-355"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-355' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-356"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-356' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-357"
@@ -2507,25 +2417,19 @@ evidence = "pytest tests/test_contracts.py -k 'EP-357'"
 id = "EP-358"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-358' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-359"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-359' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-360"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-360' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-361"
@@ -2537,17 +2441,13 @@ evidence = "pytest tests/test_contracts.py -k 'EP-361'"
 id = "EP-362"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-362' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-363"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-363' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-364"
@@ -2559,9 +2459,7 @@ evidence = "python tests/skill_eval.py; grep -n skilleval justfile"
 id = "EP-365"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-365' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-366"
@@ -2579,17 +2477,13 @@ evidence = "pytest tests/test_contracts.py::test_every_review_lens_is_named_by_t
 id = "EP-368"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-368' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-369"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-369' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-370"
@@ -2601,17 +2495,13 @@ evidence = "cat .agents/skills/ai-security/SKILL.md; just security"
 id = "EP-371"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-371' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-372"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-372' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-373"
@@ -2623,65 +2513,49 @@ evidence = "pytest tests/test_contracts.py -k 'absorbed_capability_left_its_work
 id = "EP-374"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-374' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-375"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-375' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-376"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-376' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-377"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-377' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-378"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-378' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-379"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-379' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-380"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-380' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-381"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-381' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-382"
@@ -2701,9 +2575,7 @@ note = "declared in the manifest, forbidden by a passing test. A recorded decisi
 id = "EP-384"
 verdict = "NO-EVIDENCE"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
-evidence = '''
-git grep -n 'EP-384' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
-'''
+evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-385"

@@ -2800,7 +2800,20 @@ DESCRIPTION_MAX = 1000
 # the tool that cannot tell what it is looking at from what it is looking through, pointed
 # at the audit rather than at the product. They now exclude the two documents that index
 # every requirement id, and a test refuses any future row that does not.
-REPO_CEILING = 73_526
+#
+# 73,526 down to 73,439, which is the first time this number has gone down. Sixty-four rows
+# said the requirement's own text could not be located in the source document and carried a
+# `git grep` for their own id anyway, because a test demanded a command of at least eight
+# characters and that was the shortest thing that satisfied it. Excluding the audit fixed
+# most of them; two survived on a comment discussing the range `EP-141-EP-150`, which is
+# where the technique ends — no search can tell a mention of a requirement from an
+# implementation of one.
+#
+# They now say, in one fixed phrase, that there is nothing to run, and the test refuses a
+# command on such a row rather than demanding one. A shape check satisfiable by theatre
+# produces theatre: this one produced sixty-six pieces of it and cost a hundred lines to
+# carry.
+REPO_CEILING = 73_439
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -78,20 +78,48 @@ def test_every_verdict_is_one_of_six_words():
     assert not wrong, f"verdicts outside the vocabulary: {wrong}"
 
 
+UNRECOVERABLE = "unrecoverable"
+
+# What an unrecoverable row is allowed to carry instead of a command, exactly. Not a free
+# sentence: a fixed word, so this stays a check rather than a reading.
+NOTHING_TO_RUN = "none — the requirement text could not be located"
+
+
 def test_every_row_names_the_command_that_decides_it():
     """A row without a command is a row nobody can check, which is where the 86 came from.
 
     Not the output: the command. A pasted result goes stale the day after it is pasted, and
     the reader who doubts a row wants to re-run it rather than read what somebody else saw.
+
+    The exception is the sixty-four rows whose subject begins `unrecoverable`. Those say the
+    requirement's own text could not be located in the source document, so there is nothing
+    to check and no command can exist. They were given a `git grep` for their own id to
+    satisfy this test, and it did what a search for an identifier always does: it found the
+    identifier. Excluding the ledger and the audit fixed sixty-four of them and left two
+    still passing on a comment that discusses the range `EP-141–EP-150` — which is the end
+    of the road, because no search can tell a mention of a requirement from an
+    implementation of one.
+
+    So a row with nothing to run says so in a fixed phrase, and this test refuses a command
+    on such a row rather than demanding one. A shape check that can be satisfied by theatre
+    produces theatre, and this one had produced sixty-six pieces of it.
     """
 
-    thin = {
-        row["id"]: row.get("evidence", "")
-        for row in rows()
-        if len(row.get("evidence", "").strip()) < 8
-    }
+    thin, staged = {}, {}
+    for row in [*rows(), *commitments()]:
+        evidence = row.get("evidence", "").strip()
+        if row["subject"].startswith(UNRECOVERABLE):
+            if evidence != NOTHING_TO_RUN:
+                staged[row["id"]] = evidence[:60]
+        elif len(evidence) < 8:
+            thin[row["id"]] = evidence
 
     assert not thin, f"rows naming no command, or too little of one: {thin}"
+    assert not staged, (
+        f"{len(staged)} rows say the requirement text could not be located and still carry a "
+        f"command: {', '.join(sorted(staged)[:8])}. There is nothing to run, and a search for "
+        f'the row\'s own id finds the row. Write exactly "{NOTHING_TO_RUN}".'
+    )
 
 
 def test_every_row_says_what_the_requirement_asks():
