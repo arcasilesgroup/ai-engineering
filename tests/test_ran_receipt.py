@@ -145,3 +145,26 @@ def test_the_script_refuses_an_argument_shape_it_does_not_know(repository: Path)
 
     assert _run("record", cwd=repository).returncode == 2
     assert _run("trailer", "extra", cwd=repository).returncode == 2
+
+
+def test_the_cheap_recipe_records_only_after_the_suite_passes():
+    """`PO-14` asks for the module's own suite, and `just quick` is the only thing that
+    records one. The order in that recipe is the whole safety property: a receipt written
+    after a red suite says these bytes were run and passed, which is a false green with a
+    digest on it — the exact shape this repository exists to prevent.
+
+    Read from the justfile rather than by running a failing suite, because the recipe's two
+    lines are what encodes it and a run would prove only that today's `just` honours them.
+    Both readings are worth having; this is the one a gate can afford."""
+
+    recipes = (ROOT / "justfile").read_text(encoding="utf-8").splitlines()
+    start = next(n for n, one in enumerate(recipes) if one.startswith("quick "))
+    body = [one.strip() for one in recipes[start + 1 :] if one.startswith(("    ", "\t"))]
+
+    assert len(body) == 2, f"the recipe is {len(body)} lines and the order below reads two"
+    assert "pytest" in body[0], "the suite does not run first, so nothing is being recorded"
+    assert "ran_receipt.py record" in body[1], "nothing records the pass"
+    assert "||" not in body[1] and body[1][:1] != "-", (
+        "the record line is written so it survives the line above failing, which makes the "
+        "receipt a claim about a suite that did not pass"
+    )

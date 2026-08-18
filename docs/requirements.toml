@@ -2695,8 +2695,8 @@ note = "the reader bites on a blank repair field. Whether the re-review was boun
 id = "PO-14"
 verdict = "INCOMPLETE"
 subject = "every commit runs the module's cheap immediate suite instead of the full gate"
-evidence = "git log --format='%h %(trailers:key=Ai-Eng-Ran,valueonly)' main..HEAD; pytest tests/test_ran_receipt.py"
-note = '''the receipt that was missing exists: `just check` records the suite it ran against a digest of every tracked or about-to-be-tracked file, and `commit-msg` writes it into the commit only when that digest still matches. Eight cases hold it to refusing — no receipt, a receipt for other content, a file edited after the run, a file added after it, a receipt naming no suite, one that is not JSON, and two argument shapes. What is not yet true is the requirement's own word, *cheap*: only `just check` records, so every trailer so far names the whole gate, which is the practice this row says was removed.'''
+evidence = "just quick ran_receipt; git log --format='%h %(trailers:key=Ai-Eng-Ran,valueonly)' main..HEAD"
+note = '''both halves exist now. `just quick <module>` runs one module's suite and records `quick:<module>` against a digest of the bytes it ran over; `commit-msg` writes that into the commit only while the digest still matches, so `git log` answers which suite ran per commit and answers nothing at all where none did. The record line runs after the suite and a control holds that order, because a receipt written after a red suite is a false green with a digest on it. What keeps this INCOMPLETE is the history: the requirement is about every commit, and every commit before this instrument existed carries no trailer and never will.'''
 
 [[commitment]]
 id = "PO-15"

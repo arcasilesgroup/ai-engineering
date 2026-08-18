@@ -361,4 +361,16 @@ stats:
 ran suite="check":
     @uv run python tests/ran_receipt.py record {{suite}}
 
+# The cheap half, and the one `PO-14` actually asks for. That row says every commit runs its
+# module's immediate suite *instead of* the whole gate, and until this recipe existed the
+# only thing that recorded anything was `check` — so every trailer named the gate, which is
+# the practice the row says was removed. One module, its own suite, its own receipt.
+#
+# It records only on a pass. `set -e` is not enough here: the recipe would still reach the
+# record line under a shell that continued, and a receipt written after a red suite is worse
+# than none, because the trailer then says a suite ran over these bytes and passed.
+quick module:
+    @uv run --with {{pytest}} pytest -q tests/test_{{module}}.py
+    @uv run python tests/ran_receipt.py record quick:{{module}}
+
 check: build sbom lint typecheck test cover security register skilleval counts ran
