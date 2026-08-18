@@ -237,3 +237,34 @@ def test_the_ledger_names_the_exact_bytes_it_was_measured_against():
             f"pinned {pinned[key][:16]}, found {actual[:16]}. Every verdict below was taken "
             "against the old bytes, so re-measure or restore the file — do not repin."
         )
+
+
+def test_no_row_proves_itself_by_finding_its_own_id_in_this_file():
+    """A search for `EP-350` across the tree finds `EP-350` in the ledger, every time.
+
+    Sixty-six rows carried exactly that command. All sixty-six passed, and all sixty-six meant
+    nothing: the file being searched is the file asking the question, so the answer was always
+    yes and was always about itself. The verdicts were honest — every one of those rows says
+    NO-EVIDENCE — but the command beside them was theatre, and a later reader running the
+    answer key over every row rather than only the proven ones would have flipped sixty-six
+    verdicts on a self-reference.
+
+    This is the same defect as a tool that cannot tell what it is looking at from what it is
+    looking through, pointed at the audit instead of at the product. So a command that hunts
+    for a requirement id has to exclude the two documents that index every requirement id.
+    """
+
+    searching = re.compile(r"\b(git grep|grep -r|grep -R|rg)\b")
+    guilty = []
+    for row in [*rows(), *commitments()]:
+        command = row.get("evidence", "")
+        if row["id"] not in command or not searching.search(command):
+            continue
+        if "':!docs/requirements.toml'" not in command or "':!docs/audit-" not in command:
+            guilty.append(row["id"])
+
+    assert not guilty, (
+        f"{len(guilty)} rows search the whole tree for their own id without excluding the "
+        f"ledger and the audit, so they find themselves and pass: {', '.join(guilty[:8])}. "
+        "Add ':!docs/requirements.toml' ':!docs/audit-*.md' to the pathspec."
+    )

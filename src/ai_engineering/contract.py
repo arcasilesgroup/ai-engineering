@@ -2792,7 +2792,15 @@ DESCRIPTION_MAX = 1000
 # None of that was visible from reading the ledger, and all of it was visible in the first
 # eleven minutes of running it. That is the whole argument for the line, and the reason it
 # is worth more than the two hundred and fifty-one lines it cost.
-REPO_CEILING = 73_355
+#
+# 73,355 to 73,526 for the ledger that stopped finding itself. Sixty-six rows carried a
+# command of the shape `git grep 'EP-350' -- .`, and every one of them passed, because the
+# file being searched is the file asking the question. The verdicts were honest — all
+# sixty-six say NO-EVIDENCE — but the command beside them answered about itself, which is
+# the tool that cannot tell what it is looking at from what it is looking through, pointed
+# at the audit rather than at the product. They now exclude the two documents that index
+# every requirement id, and a test refuses any future row that does not.
+REPO_CEILING = 73_526
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
