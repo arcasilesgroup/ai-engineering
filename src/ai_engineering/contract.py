@@ -3010,7 +3010,22 @@ DESCRIPTION_MAX = 1000
 # path *and* the kind, because one path can legitimately be both a settings entry and a
 # guard registration — while two rows for the same pair is a receipt appended to twice for
 # one write, and which of them describes the file on disk is the question nobody can answer.
-REPO_CEILING = 76_494
+#
+# 76,494 to 76,665 for how the chain is read. `audit._chain_bytes` is the read underneath
+# every claim this product makes about its own past, and it is paranoid in one specific
+# direction: not against a corrupted file — that fails the hash further down and says so —
+# but against reading a *different* file than the one it checked, or the same file at two
+# different moments. Either produces a verdict about something that was never there.
+#
+# Hence `lstat` before, `O_NOFOLLOW` on the open, `fstat` after, device and inode compared
+# across all three, and size and modification time compared again after the last chunk. The
+# link is refused by the open itself rather than by a check before it, because a check
+# leaves a window between deciding and opening and this is the file whose whole job is to be
+# the same file it was a moment ago.
+#
+# And every refusal returns a problem string rather than raising, because callers treat a
+# raise as a crash and a string as an answer — and "the chain cannot be read" is an answer.
+REPO_CEILING = 76_665
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
