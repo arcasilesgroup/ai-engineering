@@ -3274,7 +3274,20 @@ DESCRIPTION_MAX = 1000
 # only to check that a number printed in prose matched the same number in the ledger — a
 # gate whose whole reason to exist was that one fact had two homes. Removing the second
 # home removes the gate, which is the shape rule 12 asks for run backwards.
-REPO_CEILING = 77_718
+#
+# 77,718 to 77,724, and the number that matters is not the line count. The operator's
+# correction: the way to the mutation floor is not more tests, it is *fewer* tests that are
+# strong enough that a mutant cannot get past them. Measured on `acceptance.py`:
+#
+#   68 test functions, 87 cases  ->  383 survivors, 75%
+#   48 test functions, 88 cases  ->  353 survivors, 77%
+#
+# Thirty more mutants dead from consolidating two blocks of one-case functions into two
+# parametrised tables. The mechanism is not cosmetic and is worth writing down: a table
+# forces every row through the same assertion, so rows that had asserted only the message
+# now assert the code as well. Thirteen copies of four lines each let thirteen assertions
+# drift apart; one table cannot.
+REPO_CEILING = 77_724
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

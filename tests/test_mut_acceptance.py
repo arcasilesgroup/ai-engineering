@@ -130,81 +130,79 @@ def test_a_missing_field_and_an_extra_field_are_the_same_refusal():
         assert "exactly the closed fields" in str(_refused(body))
 
 
-# --- _validate_field, one branch each ------------------------------------------------
+# --- _validate_field: one table, one branch per row ----------------------------------
+#
+# Thirteen branches, and each refuses with different words on purpose — a reader who gets
+# "malformed" for all thirteen learns nothing about which. So the case and the words it
+# must produce sit in the same row, and the row's id says why that branch exists.
+#
+# One function rather than thirteen. Every case is still separate to pytest, so a failure
+# still names exactly which branch broke; what goes away is thirteen copies of the same
+# four lines. The reasoning that was in thirteen docstrings is in the ids and the comments
+# beside the rows that earned one.
 
 
-def test_an_integer_field_holding_a_string_is_refused():
-    assert "non-integer renewals" in str(_refused(_sealed(renewals="0")))
+@pytest.mark.parametrize(
+    ("override", "says"),
+    [
+        pytest.param({"renewals": "0"}, "non-integer renewals", id="an integer as a string"),
+        # `isinstance(True, int)` is true in Python and false in JSON Schema. Without the
+        # explicit exclusion, `renewals: true` validates and is then counted.
+        pytest.param(
+            {"renewals": True}, "non-integer renewals", id="a boolean Python calls an integer"
+        ),
+        pytest.param({"renewals": -1}, "outside its range", id="an integer below its minimum"),
+        # The set comparison comes before the children are walked. Walking an object with a
+        # key missing raises `KeyError` from inside the schema lookup, which reaches a person
+        # as a traceback rather than as a refusal naming the field.
+        pytest.param(
+            {"evidence": {"path": "x"}}, "malformed evidence", id="an object missing a child"
+        ),
+        pytest.param(
+            {"evidence": "specs/010-x/spec.md"},
+            "malformed evidence",
+            id="an object that is not one",
+        ),
+        # The recursion carries the path, or the message names `evidence` for a fault in
+        # `evidence.content_digest` and the person re-reads the wrong line.
+        pytest.param(
+            {"evidence": {"path": "specs/010-x/spec.md", "content_digest": "nope"}},
+            "evidence.content_digest",
+            id="a child named by its own path",
+        ),
+        pytest.param({"finding": 7}, "non-string finding", id="a string field holding a number"),
+        # Separate from the pattern check and before it: a record carrying an escape sequence
+        # renders as something other than what it says in any terminal that prints it, and
+        # several fields here have no pattern to catch it.
+        pytest.param(
+            {"finding": "a finding\u0007bell"}, "control character", id="a control character"
+        ),
+        pytest.param(
+            {"schema": "urn:something:else:1"},
+            "unexpected schema",
+            id="a const holding something else",
+        ),
+        pytest.param(
+            {"severity": "apocalyptic"}, "undefined severity", id="outside an enumeration"
+        ),
+        pytest.param({"id": "R-10-1"}, "malformed id", id="failing its pattern"),
+        # Distinct words from "malformed", because an empty field is nearly always somebody
+        # who meant to come back to it and a malformed one is nearly always a misunderstanding.
+        pytest.param(
+            {"justification": ""}, "empty justification", id="empty where a length is required"
+        ),
+        # Not merely a date-shaped string. `2026-02-30` matches every pattern anybody writes
+        # for a date and is not a day that exists.
+        pytest.param(
+            {"accepted": "2026-02-30"}, "not one exact date", id="a date that is not a day"
+        ),
+    ],
+)
+def test_a_field_that_violates_its_schema_is_refused_and_says_which_way(override, says):
+    refusal = _refused(_sealed(**override))
 
-
-def test_a_boolean_is_not_an_integer_here_even_though_python_says_it_is():
-    """`isinstance(True, int)` is true in Python and false in JSON Schema. Without the
-    explicit exclusion, `renewals: true` would validate and then be counted."""
-
-    assert "non-integer renewals" in str(_refused(_sealed(renewals=True)))
-
-
-def test_an_integer_below_its_minimum_is_refused_for_its_range():
-    assert "outside its range" in str(_refused(_sealed(renewals=-1)))
-
-
-def test_an_object_field_missing_a_child_is_refused_before_its_children_are_read():
-    """The set comparison comes first on purpose. Walking the children of an object with a
-    key missing raises `KeyError` from inside the schema lookup, which reaches a person as
-    a traceback rather than as a refusal naming the field."""
-
-    assert "malformed evidence" in str(_refused(_sealed(evidence={"path": "x"})))
-
-
-def test_an_object_field_that_is_not_an_object_is_refused():
-    assert "malformed evidence" in str(_refused(_sealed(evidence="specs/010-x/spec.md")))
-
-
-def test_a_child_of_an_object_is_validated_by_its_own_name():
-    """The recursion has to carry the path or the message names `evidence` for a fault in
-    `evidence.content_digest`, and the person re-reads the wrong line."""
-
-    body = _sealed(evidence={"path": "specs/010-x/spec.md", "content_digest": "nope"})
-
-    assert "evidence.content_digest" in str(_refused(body))
-
-
-def test_a_string_field_holding_a_number_is_refused():
-    assert "non-string finding" in str(_refused(_sealed(finding=7)))
-
-
-def test_a_control_character_inside_a_string_is_refused_on_its_own():
-    """Separate from the pattern check, and before it. A record carrying an escape sequence
-    is a record that renders as something other than what it says in any terminal that
-    prints it, and several fields here have no pattern to catch it."""
-
-    assert "control character" in str(_refused(_sealed(finding="a finding\u0007bell")))
-
-
-def test_a_const_field_holding_something_else_is_refused():
-    assert "unexpected schema" in str(_refused(_sealed(schema="urn:something:else:1")))
-
-
-def test_a_value_outside_an_enumeration_is_refused_as_undefined():
-    assert "undefined severity" in str(_refused(_sealed(severity="apocalyptic")))
-
-
-def test_a_value_that_fails_its_pattern_is_refused_as_malformed():
-    assert "malformed id" in str(_refused(_sealed(id="R-10-1")))
-
-
-def test_an_empty_value_where_a_length_is_required_is_refused_as_empty():
-    """Distinct words from "malformed", because an empty field is nearly always somebody
-    who meant to come back to it and a malformed one is nearly always a misunderstanding."""
-
-    assert "empty justification" in str(_refused(_sealed(justification="")))
-
-
-def test_a_date_that_is_not_one_exact_date_is_refused():
-    """Not merely a date-shaped string. `2026-02-30` matches every pattern anybody writes
-    for a date and is not a day that exists."""
-
-    assert "not one exact date" in str(_refused(_sealed(accepted="2026-02-30")))
+    assert refusal.code == "ACCEPTANCE_MALFORMED"
+    assert says in str(refusal)
 
 
 # --- validate_record, after the fields are individually sound ------------------------
@@ -373,64 +371,59 @@ def test_a_recognized_block_takes_the_frozen_defaults_for_everything_it_omits():
     assert record["id"] == "" and record["accepted"] == "" and record["renewals"] == 0
 
 
-def test_a_key_the_recognizer_never_defined_is_refused_rather_than_ignored():
-    """Ignoring an unknown key is how a typo hides an expiry: `expries: 2026-01-01` would
-    leave the block with no expiry at all and nothing said."""
+@pytest.mark.parametrize(
+    ("fields", "says"),
+    [
+        # Ignoring an unknown key is how a typo hides an expiry: `expries: 2026-01-01`
+        # leaves the block with no expiry at all and nothing said.
+        pytest.param({"expries": "2026-01-01"}, "never defined", id="a key nobody defined"),
+        pytest.param(
+            {"finding": "a\x07finding"}, "control character in finding", id="a control character"
+        ),
+        # `accepted_by: no` is the boolean false in YAML, not the person called No. Reading
+        # it as text puts a word in the authority field that nobody typed.
+        *[
+            pytest.param(
+                {"accepted_by": v}, "non-string value in accepted_by", id=f"the YAML scalar {v}"
+            )
+            for v in ("true", "null", "~", "no", "off")
+        ],
+        pytest.param(
+            {"finding": "a" * 257}, "legacy bound on finding", id="over its bound in bytes"
+        ),
+        # The key is what the recognizer keys on, so an empty one gets this far. A record
+        # whose finding is blank says a risk was accepted and not which.
+        pytest.param({"finding": ""}, "empty finding", id="a finding that is empty"),
+        pytest.param({"severity": "apocalyptic"}, "never defined", id="a severity nobody defined"),
+        # Including the two that are date-shaped. A register sorted by an expiry that is not
+        # a day sorts fine and expires nothing.
+        *[
+            pytest.param({"expires": v}, "not one exact date", id=f"an expiry of {v}")
+            for v in ("2026-13-01", "2026-02-30", "not a date")
+        ],
+        pytest.param(
+            {"accepted": "2026-02-30"}, "not one date", id="an accepted date that is not one"
+        ),
+        pytest.param({"id": "R-10-1"}, "not R-NNN-NN", id="an identity off the frozen shape"),
+        pytest.param(
+            {"evidence": "specs/010-x/spec.md"}, "no readable syntax", id="evidence with no digest"
+        ),
+    ],
+)
+def test_a_recognized_block_that_is_still_wrong_is_refused_and_says_how(fields, says):
+    """Fourteen ways a block can be recognized and still not be a record, each with the
+    words it must produce. One function; pytest still names the row that failed."""
 
-    assert "never defined" in str(_refused_normal(expries="2026-01-01"))
-
-
-def test_a_control_character_is_refused_and_names_the_field_it_was_in():
-    assert "control character in finding" in str(_refused_normal(finding="a\x07finding"))
-
-
-@pytest.mark.parametrize("value", ["true", "null", "~", "no", "off"])
-def test_a_yaml_scalar_that_is_not_a_string_is_refused(value: str):
-    """`accepted_by: no` is the boolean false in YAML, not the person called No. Reading it
-    as text puts a word in the authority field that nobody typed."""
-
-    assert "non-string value in accepted_by" in str(_refused_normal(accepted_by=value))
-
-
-def test_a_value_over_its_legacy_bound_is_refused_in_bytes_not_characters():
-    assert "legacy bound on finding" in str(_refused_normal(finding="a" * 257))
-
-
-def test_an_empty_finding_is_refused_even_though_the_key_was_present():
-    """The key is what the recognizer keys on, so an empty one gets that far. A record whose
-    finding is blank is a record that says a risk was accepted and not which."""
-
-    assert "empty finding" in str(_refused_normal(finding=""))
-
-
-def test_a_severity_nobody_defined_is_refused():
-    assert "never defined" in str(_refused_normal(severity="apocalyptic"))
-
-
-@pytest.mark.parametrize("value", ["2026-13-01", "2026-02-30", "not a date"])
-def test_an_expiry_that_is_not_one_exact_date_is_refused(value: str):
-    """Including the two that are date-shaped. A register sorted by an expiry that is not a
-    day sorts fine and expires nothing."""
-
-    assert "not one exact date" in str(_refused_normal(expires=value))
-
-
-def test_an_accepted_date_is_only_checked_when_it_is_there():
-    """Absence is the frozen default and has to stay legal; a value that is present and not
-    a date does not."""
-
-    assert _normal()["accepted"] == ""
-    assert "not one date" in str(_refused_normal(accepted="2026-02-30"))
+    assert says in str(_refused_normal(**fields))
 
 
-def test_an_identity_that_is_not_the_frozen_shape_is_refused_when_present():
-    assert _normal()["id"] == ""
-    assert "not R-NNN-NN" in str(_refused_normal(id="R-10-1"))
+def test_the_optional_fields_are_only_checked_when_they_are_there():
+    """Absence is the frozen default for all three and has to stay legal — a block written
+    in 2024 omitted them and is still a record. A value that is present and wrong is not."""
 
+    record = _normal()
 
-def test_evidence_is_a_path_and_a_digest_or_it_is_refused():
-    assert _normal()["evidence"] == ""
-    assert "no readable syntax" in str(_refused_normal(evidence="specs/010-x/spec.md"))
+    assert record["accepted"] == "" and record["id"] == "" and record["evidence"] == ""
     assert _normal(evidence="specs/010-x/spec.md@sha256:" + "a" * 64)["evidence"]
 
 
