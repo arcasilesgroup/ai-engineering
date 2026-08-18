@@ -2910,7 +2910,24 @@ DESCRIPTION_MAX = 1000
 # own digest first, because a case that did not would refuse on the digest before reaching
 # the field it set out to check — a green test measuring the order of the checks rather than
 # any of them.
-REPO_CEILING = 75_147
+#
+# 75,147 to 75,403 for the frozen legacy recognizer. `_parse_legacy` and
+# `_normalized_legacy` carried 102 more of `acceptance.py`'s survivors, and the word that
+# governs both is *frozen*: whatever they accepted before there was a schema, they accept
+# now.
+#
+# The stakes there are asymmetric, which is why forty cases is not too many. A reader that
+# refuses a real block reports one acceptance short and somebody notices. A reader that
+# accepts a block it should not — or reads a value as something other than what it says —
+# reports an expiry that is not the expiry, and a register whose dates are wrong is worse
+# than no register, because it is consulted.
+#
+# Two of those cases are the whole argument. `accepted_by: no` is the boolean false in
+# YAML and not the person called No, so reading it as text puts a word in the authority
+# field that nobody typed. And `renewals: true` claims a renewal, so reading it as zero
+# turns the block back into an original and lets the same finding be renewed twice more,
+# past a ceiling of two.
+REPO_CEILING = 75_403
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

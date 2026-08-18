@@ -238,3 +238,242 @@ def test_an_expiry_before_its_acceptance_is_refused():
     inside it and gets a consistent, meaningless no."""
 
     assert str(_refused(_sealed(accepted="2026-08-14", expires="2026-08-13")))
+
+
+# --- the frozen legacy recognizer -----------------------------------------------------
+#
+# `_parse_legacy` and `_normalized_legacy` carried 102 more of the surviving mutants. They
+# read the shape of risk acceptance this repository shipped before there was a schema, and
+# the word that governs both is *frozen*: whatever they accepted then, they accept now, and
+# whatever they refuse has to be refused for a reason somebody can act on.
+#
+# The stakes are asymmetric and that is why they are worth this many cases. A reader that
+# refuses a real block reports one acceptance short and somebody notices. A reader that
+# accepts a block it should not, or reads a value as something other than what it says,
+# reports an expiry that is not the expiry — and a register whose dates are wrong is worse
+# than no register, because it is consulted.
+
+
+def _block(**fields: str) -> str:
+    base = {"finding": "a finding", "expires": "2026-11-14"}
+    return "".join(f"{name}: {value}\n" for name, value in (base | fields).items())
+
+
+def _read(block: str) -> dict[str, str] | None:
+    return acceptance._parse_legacy(block, "the block")
+
+
+def _rejected(block: str) -> acceptance.Refusal:
+    with pytest.raises(acceptance.Refusal) as raised:
+        acceptance._parse_legacy(block, "the block")
+    return raised.value
+
+
+def test_a_block_without_a_finding_or_an_expiry_is_somebody_elses_yaml():
+    """The recognizer's whole boundary. A repository is full of fenced YAML that has nothing
+    to do with risk, and reading one of those as a malformed acceptance would make every
+    unrelated code block a reason to refuse the file."""
+
+    assert _read("name: something\nvalue: 3\n") is None
+    assert _read("finding: a finding\n") is None
+    assert _read("expires: 2026-11-14\n") is None
+    assert _read(_block()) == {"finding": "a finding", "expires": "2026-11-14"}
+
+
+def test_blank_lines_and_comments_are_not_content():
+    assert _read(f"# a comment\n\n{_block()}   \n") == {
+        "finding": "a finding",
+        "expires": "2026-11-14",
+    }
+
+
+def test_a_continued_value_is_joined_with_one_space_however_it_was_indented():
+    """A finding long enough to wrap is the common case, and the join has to be exactly one
+    space or the digest of the same text differs by how somebody laid it out."""
+
+    read = _read("finding: a finding\n    that continues\n\there\nexpires: 2026-11-14\n")
+
+    assert read is not None and read["finding"] == "a finding that continues here"
+
+
+def test_an_indented_line_before_any_key_is_refused_rather_than_dropped():
+    assert "indents a line with no key above" in str(_rejected("   orphan\n"))
+
+
+@pytest.mark.parametrize("opener", ["- one", "? one"])
+def test_an_indented_container_is_refused_because_this_reader_holds_no_lists(opener: str):
+    """A list under a key is valid YAML and is not something this recognizer can represent.
+    Flattening it would turn `- 2026-11-14` into the string `2026-11-14` and read a list of
+    dates as one date."""
+
+    block = f"finding: a finding\n  {opener}\nexpires: 2026-11-14\n"
+
+    assert "container where a value" in str(_rejected(block))
+
+
+@pytest.mark.parametrize("opener", ["[2026-11-14]", "{a: b}"])
+def test_an_inline_container_is_refused_for_the_same_reason(opener: str):
+    assert "container where a value" in str(_rejected(_block(expires=opener)))
+
+
+def test_a_line_that_is_not_a_key_is_refused():
+    assert "a line that is not a key" in str(_rejected("finding a finding\n"))
+
+
+def test_a_repeated_key_is_refused_rather_than_last_one_winning():
+    """Two expiry dates in one block is a block with two answers, and taking either is
+    choosing for somebody who has not been told there was a choice."""
+
+    block = "finding: a finding\nexpires: 2026-11-14\nexpires: 2036-11-14\n"
+
+    assert "repeats the key expires" in str(_rejected(block))
+
+
+@pytest.mark.parametrize("marker", [">", ">-", "|", "|-"])
+def test_a_fold_marker_alone_reads_as_empty_rather_than_as_its_own_symbol(marker: str):
+    """`finding: >` with the text on the lines below is ordinary YAML. Reading the marker as
+    the value gives a finding called ">" — a record that says nothing and looks filled in."""
+
+    read = _read(_block(**{"accepted_by": marker}))
+
+    assert read is not None and read["accepted_by"] == ""
+
+
+def test_surrounding_quotes_are_not_part_of_the_value():
+    read = _read(_block(**{"id": '"R-010-01"', "severity": "'high'"}))
+
+    assert read is not None and read["id"] == "R-010-01" and read["severity"] == "high"
+
+
+# --- _normalized_legacy: what a recognized block still has to be ----------------------
+
+
+def _normal(**fields: str) -> dict[str, Any]:
+    return acceptance._normalized_legacy(
+        {"finding": "a finding", "expires": "2026-11-14"} | fields, "the block"
+    )
+
+
+def _refused_normal(**fields: str) -> acceptance.Refusal:
+    with pytest.raises(acceptance.Refusal) as raised:
+        _normal(**fields)
+    return raised.value
+
+
+def test_a_recognized_block_takes_the_frozen_defaults_for_everything_it_omits():
+    """The defaults are the shipped behaviour and are not negotiable: a block that omits
+    severity was `medium` when it was written and has to stay `medium`, or every register
+    ever published changes meaning the day this code does."""
+
+    record = _normal()
+
+    assert record["severity"] == "medium"
+    assert record["accepted_by"] == "?"
+    assert record["id"] == "" and record["accepted"] == "" and record["renewals"] == 0
+
+
+def test_a_key_the_recognizer_never_defined_is_refused_rather_than_ignored():
+    """Ignoring an unknown key is how a typo hides an expiry: `expries: 2026-01-01` would
+    leave the block with no expiry at all and nothing said."""
+
+    assert "never defined" in str(_refused_normal(expries="2026-01-01"))
+
+
+def test_a_control_character_is_refused_and_names_the_field_it_was_in():
+    assert "control character in finding" in str(_refused_normal(finding="a\x07finding"))
+
+
+@pytest.mark.parametrize("value", ["true", "null", "~", "no", "off"])
+def test_a_yaml_scalar_that_is_not_a_string_is_refused(value: str):
+    """`accepted_by: no` is the boolean false in YAML, not the person called No. Reading it
+    as text puts a word in the authority field that nobody typed."""
+
+    assert "non-string value in accepted_by" in str(_refused_normal(accepted_by=value))
+
+
+def test_a_value_over_its_legacy_bound_is_refused_in_bytes_not_characters():
+    assert "legacy bound on finding" in str(_refused_normal(finding="a" * 257))
+
+
+def test_an_empty_finding_is_refused_even_though_the_key_was_present():
+    """The key is what the recognizer keys on, so an empty one gets that far. A record whose
+    finding is blank is a record that says a risk was accepted and not which."""
+
+    assert "empty finding" in str(_refused_normal(finding=""))
+
+
+def test_a_severity_nobody_defined_is_refused():
+    assert "never defined" in str(_refused_normal(severity="apocalyptic"))
+
+
+@pytest.mark.parametrize("value", ["2026-13-01", "2026-02-30", "not a date"])
+def test_an_expiry_that_is_not_one_exact_date_is_refused(value: str):
+    """Including the two that are date-shaped. A register sorted by an expiry that is not a
+    day sorts fine and expires nothing."""
+
+    assert "not one exact date" in str(_refused_normal(expires=value))
+
+
+def test_an_accepted_date_is_only_checked_when_it_is_there():
+    """Absence is the frozen default and has to stay legal; a value that is present and not
+    a date does not."""
+
+    assert _normal()["accepted"] == ""
+    assert "not one date" in str(_refused_normal(accepted="2026-02-30"))
+
+
+def test_an_identity_that_is_not_the_frozen_shape_is_refused_when_present():
+    assert _normal()["id"] == ""
+    assert "not R-NNN-NN" in str(_refused_normal(id="R-10-1"))
+
+
+def test_evidence_is_a_path_and_a_digest_or_it_is_refused():
+    assert _normal()["evidence"] == ""
+    assert "no readable syntax" in str(_refused_normal(evidence="specs/010-x/spec.md"))
+    assert _normal(evidence="specs/010-x/spec.md@sha256:" + "a" * 64)["evidence"]
+
+
+# --- _legacy_renewals: the counter that decides how many times a risk may come back ---
+
+
+def test_an_absent_or_wordy_renewal_counter_is_zero_because_it_always_was():
+    """The shipped behaviour, preserved exactly. `renewals: once` counted as zero when it
+    was written, and a register that suddenly reads it as one retires a live acceptance."""
+
+    assert acceptance._legacy_renewals(None, "x") == 0
+    assert acceptance._legacy_renewals("", "x") == 0
+    assert acceptance._legacy_renewals("once", "x") == 0
+
+
+def test_a_boolean_renewal_counter_is_refused_rather_than_read_as_zero():
+    """The one place the frozen leniency stops. `renewals: true` claims a renewal, and
+    reading it as zero turns it back into an original — which lets the same finding be
+    renewed twice more, past a ceiling of two."""
+
+    with pytest.raises(acceptance.Refusal) as raised:
+        acceptance._legacy_renewals("true", "x")
+
+    assert "not a value" in str(raised.value)
+
+
+def test_a_counter_holding_a_digit_and_something_else_is_refused():
+    """`1 time` has a digit in it, so the wordy path does not catch it, and it is not a
+    number. Rounding it to one would be this reader deciding what somebody meant."""
+
+    with pytest.raises(acceptance.Refusal) as raised:
+        acceptance._legacy_renewals("1 time", "x")
+
+    assert "not a number" in str(raised.value)
+
+
+@pytest.mark.parametrize("value", ["3", "9"])
+def test_a_counter_past_the_ceiling_of_two_is_refused(value: str):
+    with pytest.raises(acceptance.Refusal) as raised:
+        acceptance._legacy_renewals(value, "x")
+
+    assert "outside zero to two" in str(raised.value)
+
+
+@pytest.mark.parametrize("value", ["0", "1", "2"])
+def test_the_three_counts_inside_the_ceiling_are_read_as_themselves(value: str):
+    assert acceptance._legacy_renewals(value, "x") == int(value)
