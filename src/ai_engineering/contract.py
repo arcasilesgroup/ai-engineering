@@ -3132,7 +3132,24 @@ DESCRIPTION_MAX = 1000
 # *this way*, and it is checked before the draft exists — a control that asks first and
 # refuses second has already put the wrong route in front of somebody at the end of a long
 # day. When both apply the scan is reported, because it is the stronger statement.
-REPO_CEILING = 77_769
+#
+# 77,769 to 77,945 for the three argument types that guard a risk acceptance. `accept.main`
+# carried 107 survivors, the largest pool behind any single function left in the tree, and
+# most of it is argument handling — which runs before anything is decided and is therefore
+# the part a suite driven by valid inputs never reaches.
+#
+# What it guards earns the care. A risk acceptance is the one record here that makes a red
+# thing green, so every field is mandatory in the same breath: a record missing any one of
+# them says a risk was accepted and cannot say by whom, until when, why, or on what basis.
+# `--expired` is the only exception, and it is safe because listing what has run out asks
+# for nothing and accepts nothing.
+#
+# Two of the three types refuse what looks harmless. Surrounding space is refused rather
+# than stripped, because a value typed with a space and the value somebody meant are two
+# strings and only they know which. And an expiry is round-tripped rather than
+# pattern-matched: `2026-2-3` parses and is not the string that was typed, and a register
+# sorted by a date that is not the date sorts fine and expires the wrong things.
+REPO_CEILING = 77_945
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
