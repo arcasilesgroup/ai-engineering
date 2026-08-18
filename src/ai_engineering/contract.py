@@ -2852,7 +2852,13 @@ DESCRIPTION_MAX = 1000
 # ceiling's own contract. It is not a reader: a formula cannot tell whether anybody
 # understood, and the ledger row stays incomplete until a non-technical person says they
 # followed it.
-REPO_CEILING = 74_525
+#
+# 74,525 to 74,583 for the audit's fifth pass, which is the first one that ran anything.
+# The four before it measured the tree against two documents and wrote verdicts down; none
+# of them executed the commands beside those verdicts. The published total does not move —
+# 205 of 385, and not one of the twenty-four broken rows was wrong about the tree — but the
+# document can now be checked rather than read.
+REPO_CEILING = 74_583
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
