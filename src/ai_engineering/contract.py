@@ -3036,7 +3036,23 @@ DESCRIPTION_MAX = 1000
 # between them. That is not an argument for moving the floor — it is the number the
 # instruction "the tests get better, the number does not come down" deserves to be given
 # with. The full arithmetic is in docs/audit-2026-08-16.md.
-REPO_CEILING = 76_706
+#
+# 76,706 to 76,879 for the exclusive rename, the single point where a spec directory
+# becomes canonical. `os.rename` cannot be used there and the reason is the whole design:
+# POSIX rename replaces the destination silently, so two writers publishing spec 011 at the
+# same moment both succeed and one directory disappears with nothing raised anywhere.
+#
+# So the error numbers are not interchangeable and the three exceptions are not one
+# exception with three messages. `Collision` means somebody got there first — ordinary and
+# recoverable. `Unsupported` means this filesystem cannot make the promise, and the caller
+# takes another backend rather than proceeding. `Unsafe` means nobody enumerated this
+# failure, and the only honest thing to do with it is stop.
+#
+# The case worth the whole file is `set_errno(0)` before the call. errno is only meaningful
+# after a failure, and a leftover value from anything earlier in the process would make a
+# *successful* publish raise `Collision` — the one failure mode that looks exactly like
+# correct behaviour.
+REPO_CEILING = 76_879
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
