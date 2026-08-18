@@ -3085,7 +3085,24 @@ DESCRIPTION_MAX = 1000
 # rules apply to every nested schema, because a closed set that stops at the top level is a
 # closed set with a hole in it — and the hole is exactly where a nested definition would put
 # the keyword nobody enforces.
-REPO_CEILING = 77_193
+#
+# 77,193 to 77,386 for which receipt decides when several of them ran. The comment inside
+# `checkpoint._executed` records a defect worth a whole test file: it used to keep one
+# receipt, assigned in a loop over `sorted(...)`, so the winner was the *alphabetically
+# last* fresh receipt while the variable holding it was called `freshest`. With
+# `adversarial-attacks.json` reporting FAIL and `local-command-python.json` reporting PASS,
+# it returned PASS — a failing check masked by a passing one whose filename sorts later,
+# and nothing about that visible in the output.
+#
+# The rule is now that every fresh receipt is read and the worst decides, and the cases
+# hold it in both orderings, because a test using only the original arrangement would pass
+# against a fix that merely reversed the sort.
+#
+# The other half is age, and writing it found something subtler than expected. A receipt
+# with no `max_age_seconds` of its own defaults to zero, so it is fresh for exactly the
+# instant it finished and stale one second later — not "never fresh", which is what the
+# test claimed before it was run.
+REPO_CEILING = 77_386
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
