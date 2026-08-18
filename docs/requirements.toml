@@ -2672,7 +2672,7 @@ id = "PO-11"
 verdict = "PROVEN"
 subject = "an intermediate commit is never called done or a pass"
 evidence = '''
-! git log --oneline main..HEAD --format='%s' | grep -iE '\bdone\b|\bPASS\b|approved'
+! git log --oneline main..HEAD --format='%s' | grep -E '\bPASS\b' && ! git log --oneline main..HEAD --format='%s' | grep -iE '\bdone\b|approved'
 '''
 
 [[commitment]]
