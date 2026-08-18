@@ -26,7 +26,8 @@ from typing import Any
 
 import pytest
 
-from ai_engineering import cli, outcome, wiring
+from ai_engineering import cli, wiring
+from ai_engineering import outcome as outcome_module
 
 
 def _driven(returns: Any = None, raises: BaseException | None = None, **kwargs: Any) -> tuple:
@@ -53,7 +54,7 @@ def test_an_execution_handed_back_is_the_answer_unchanged(capsys):
     """The ordinary path, and the control the rest of this file needs. Without it every
     case below is satisfied by a boundary that reports a failure for everything."""
 
-    given = outcome.execution(outcome.result("PASS"), summary="all good")
+    given = outcome_module.execution(outcome_module.result("PASS"), summary="all good")
 
     exit_code = _driven(returns=given)
     payload = _payload(capsys)
@@ -67,11 +68,11 @@ def test_a_bare_result_is_wrapped_rather_than_refused(capsys):
     """Most verbs return a result and not an execution, and both are canonical. Refusing
     the simpler one would make every verb carry a wrapper for the boundary's convenience."""
 
-    exit_code = _driven(returns=outcome.result("FAIL"))
+    exit_code = _driven(returns=outcome_module.result("FAIL"))
     payload = _payload(capsys)
 
     assert payload["outcome"] == "FAIL"
-    assert exit_code == outcome.result("FAIL").exit_code
+    assert exit_code == outcome_module.result("FAIL").exit_code
 
 
 @pytest.mark.parametrize(
@@ -101,10 +102,10 @@ def test_a_type_that_merely_subclasses_the_result_is_not_the_result(capsys):
 
     import dataclasses
 
-    class Pretender(outcome.Result):  # type: ignore[misc]
+    class Pretender(outcome_module.Result):  # type: ignore[misc]
         pass
 
-    honest = outcome.result("PASS")
+    honest = outcome_module.result("PASS")
     pretender = Pretender(**{f.name: getattr(honest, f.name) for f in dataclasses.fields(honest)})
 
     _driven(returns=pretender)
@@ -112,73 +113,107 @@ def test_a_type_that_merely_subclasses_the_result_is_not_the_result(capsys):
     assert _payload(capsys)["error"]["code"] == "NONCANONICAL_RESULT"
 
 
-# --- the four ways a verb can stop rather than return --------------------------------
+# --- the five ways a verb can stop rather than return ---------------------------------
+#
+# One table, because the shape of the answer is the same every time and only the words
+# change: an outcome, a code, and a sentence a person can act on. Five separate functions
+# let five assertions drift apart; a table cannot, and the row that fails still names
+# itself.
 
 
-@pytest.mark.parametrize("code", [None, 0])
-def test_a_parser_printing_help_is_a_pass_and_exits_zero(code, capsys):
-    """`--help` reaches here as `SystemExit(0)`, which is not a failure and is not a
-    terminal result either. Reporting it as INCOMPLETE would make every help request look
-    like a broken command to whatever is reading the stream."""
+class _Sideways(BaseException):
+    """Outside the ordinary hierarchy, which is the point of the row that uses it."""
 
-    exit_code = _driven(raises=SystemExit(code))
+
+@pytest.mark.parametrize(
+    ("raises", "outcome", "code", "says", "exit_code"),
+    [
+        # `--help` reaches here as `SystemExit(0)`. Not a failure, and not a terminal result
+        # either — reporting it as INCOMPLETE makes every help request look like a broken
+        # command to whatever is reading the stream.
+        pytest.param(SystemExit(None), "PASS", None, "Help requested", 0, id="help, exit None"),
+        pytest.param(SystemExit(0), "PASS", None, "Help requested", 0, id="help, exit 0"),
+        # Its own code and its own status, because misuse of the command line is not an
+        # outcome of the operation — nothing was attempted.
+        pytest.param(
+            SystemExit(outcome_module.invalid_cli_exit()),
+            "INCOMPLETE",
+            "INVALID_CLI",
+            "Invalid arguments",
+            outcome_module.invalid_cli_exit(),
+            id="bad arguments",
+        ),
+        # Neither help nor misuse. A verb calling `sys.exit(3)` produced no terminal result,
+        # and inventing one from the exit code would be the boundary deciding an outcome.
+        pytest.param(
+            SystemExit(3),
+            "INCOMPLETE",
+            "UNEXPECTED_ERROR",
+            "stopped without a canonical terminal result",
+            None,
+            id="any other exit code",
+        ),
+        # A person pressing control-C did not find a defect. Recording it as one puts a false
+        # failure into every record that counts them.
+        pytest.param(KeyboardInterrupt(), "CANCELLED", None, None, None, id="an interrupt"),
+        # The case the whole boundary exists for: a traceback on stdout is not JSON, and a
+        # machine reading this stream gets nothing it can act on.
+        pytest.param(
+            RuntimeError("something deep"),
+            "INCOMPLETE",
+            "UNEXPECTED_ERROR",
+            "failed before producing bounded execution facts",
+            None,
+            id="a crash",
+        ),
+        # `BaseException` and not `Exception`. A subclass written outside the ordinary
+        # hierarchy would otherwise escape and print nothing at all, which is the one outcome
+        # this function may not have.
+        pytest.param(
+            _Sideways("out of band"),
+            "INCOMPLETE",
+            "UNEXPECTED_ERROR",
+            None,
+            None,
+            id="something that is not an Exception",
+        ),
+    ],
+)
+def test_a_verb_that_stops_still_leaves_one_well_formed_object(
+    raises, outcome, code, says, exit_code, capsys
+):
+    returned = _driven(raises=raises)
     payload = _payload(capsys)
 
-    assert exit_code == 0
-    assert payload["outcome"] == "PASS"
-    assert "Help requested" in payload["summary"]
+    assert payload["outcome"] == outcome
+    if code is not None:
+        assert payload["error"]["code"] == code
+    if says is not None:
+        assert says in json.dumps(payload)
+    if exit_code is not None:
+        assert returned == exit_code
 
 
-def test_bad_arguments_are_invalid_cli_and_carry_the_way_out(capsys):
-    """Its own code and its own exit status, because misuse of the command line is not an
-    outcome of the operation — nothing was attempted. And it carries a cure, because the
-    person who typed it wrong is one line away from typing it right."""
+def test_the_cure_for_bad_arguments_names_the_command_that_would_have_worked(capsys):
+    """Separate because it is the only row whose value is a whole sentence built from the
+    verb. The person who typed it wrong is one line away from typing it right."""
 
-    exit_code = _driven(raises=SystemExit(outcome.invalid_cli_exit()))
-    payload = _payload(capsys)
+    _driven(raises=SystemExit(outcome_module.invalid_cli_exit()))
 
-    assert exit_code == outcome.invalid_cli_exit()
-    assert payload["error"]["code"] == "INVALID_CLI"
-    assert payload["error"]["cure"] == "run ai-eng doctor --help"
+    assert _payload(capsys)["error"]["cure"] == "run ai-eng doctor --help"
 
 
-def test_an_exit_with_any_other_code_is_a_command_that_stopped(capsys):
-    """Neither help nor misuse. A verb calling `sys.exit(3)` produced no terminal result,
-    and inventing one from the exit code would be the boundary deciding an outcome."""
-
-    _driven(raises=SystemExit(3))
-    payload = _payload(capsys)
-
-    assert payload["outcome"] == "INCOMPLETE"
-    assert payload["error"]["code"] == "UNEXPECTED_ERROR"
-    assert "stopped without a canonical terminal result" in payload["summary"]
-
-
-def test_an_interrupt_is_cancelled_and_not_a_failure(capsys):
-    """A person pressing control-C did not find a defect. Recording it as one puts a false
-    failure into every record that counts them."""
-
-    _driven(raises=KeyboardInterrupt())
-    payload = _payload(capsys)
-
-    assert payload["outcome"] == "CANCELLED"
-
-
-def test_a_crash_still_produces_one_well_formed_object(capsys):
-    """The case the whole boundary exists for. A traceback on stdout is not JSON, and a
-    machine reading this stream gets nothing it can act on — including the fact that
-    something went wrong."""
+def test_a_crash_never_carries_its_own_words_into_the_object(capsys):
+    """The message a person sees is bounded and written here. An exception string can hold
+    an absolute path, a username and the shape of somebody's filesystem."""
 
     _driven(raises=RuntimeError("something deep"))
-    payload = _payload(capsys)
 
-    assert payload["outcome"] == "INCOMPLETE"
-    assert payload["error"]["code"] == "UNEXPECTED_ERROR"
-    assert "something deep" not in json.dumps(payload)
+    assert "something deep" not in json.dumps(_payload(capsys))
 
 
 def test_the_traceback_reaches_a_person_only_when_it_was_asked_for(capsys):
-    """A traceback is the fastest way to put an absolute path and a username on a screen
+    """A traceback is the fastest way to put an absolute path and a username onto a screen
     that is about to be pasted into an issue."""
 
     _driven(raises=RuntimeError("deep"), debug=False)
@@ -188,19 +223,6 @@ def test_the_traceback_reaches_a_person_only_when_it_was_asked_for(capsys):
 
     assert "Traceback" not in quiet.err
     assert "Traceback" in loud.err
-
-
-def test_an_exception_that_is_not_an_exception_is_still_caught(capsys):
-    """`BaseException` and not `Exception`. A `GeneratorExit` or a subclass somebody wrote
-    outside the ordinary hierarchy would otherwise escape the boundary and print nothing at
-    all, which is the one outcome this function may not have."""
-
-    class Sideways(BaseException):
-        pass
-
-    _driven(raises=Sideways("out of band"))
-
-    assert _payload(capsys)["outcome"] == "INCOMPLETE"
 
 
 # --- what the boundary does to the process it runs inside ----------------------------
@@ -216,7 +238,7 @@ def test_the_verb_reads_an_empty_stdin_rather_than_the_callers(capsys, monkeypat
         import sys as system
 
         seen.append(system.stdin.read())
-        return outcome.result("PASS")
+        return outcome_module.result("PASS")
 
     monkeypatch.setattr(importlib, "import_module", lambda _name: SimpleNamespace(main=main))
     cli._json_dispatch("doctor", [])
@@ -368,7 +390,9 @@ def test_a_global_flag_never_reaches_the_verb(flag: str, capsys, monkeypatch):
     monkeypatch.setattr(
         importlib,
         "import_module",
-        lambda _n: SimpleNamespace(main=lambda rest: seen.append(rest) or outcome.result("PASS")),
+        lambda _n: SimpleNamespace(
+            main=lambda rest: seen.append(rest) or outcome_module.result("PASS")
+        ),
     )
 
     cli.main(["doctor", flag, "--fix"])
@@ -388,7 +412,7 @@ def test_non_interactive_is_set_where_the_verb_that_asks_will_read_it(capsys, mo
     monkeypatch.setattr(
         importlib,
         "import_module",
-        lambda _n: SimpleNamespace(main=lambda _r: outcome.result("PASS")),
+        lambda _n: SimpleNamespace(main=lambda _r: outcome_module.result("PASS")),
     )
 
     cli.main(["doctor", "--non-interactive"])

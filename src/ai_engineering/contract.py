@@ -3297,7 +3297,7 @@ DESCRIPTION_MAX = 1000
 # The script refuses rather than looping. A ceiling that will not settle in ten passes means
 # something else is writing to the tree, and a number taken during that is a number about
 # neither state.
-REPO_CEILING = 77_910
+REPO_CEILING = 77_934
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
