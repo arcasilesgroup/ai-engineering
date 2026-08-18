@@ -2894,7 +2894,23 @@ DESCRIPTION_MAX = 1000
 # uninstall 244, intent 239, checkpoint 227, spec 226, accept 212, report 205, doctor 198.
 # Nothing above is a surprise and that is the point — the survivors are spread across every
 # module rather than pooled in one, so there is no single afternoon that closes this.
-REPO_CEILING = 74_891
+#
+# 74,891 to 75,147 for the two functions that decide whether a risk acceptance is a record
+# at all. `_validate_field` and `validate_record` carried 103 of the 533 mutants surviving
+# over `acceptance.py`, which is the largest single pool in the tree.
+#
+# Every branch in them refuses, and they refuse with different words deliberately: a record
+# that is not JSON, one that is JSON but not canonical, one whose fields are right and whose
+# digest is wrong, and one three bytes over a limit are four different conversations with
+# whoever wrote it, and a reader who gets "malformed" for all four learns nothing about
+# which. The existing suite reached both through a corpus of whole records, which proves the
+# shapes a real record takes and leaves a malformed one's to whatever the corpus contains.
+#
+# One line in there is the whole reason the file is worth its length: every case seals its
+# own digest first, because a case that did not would refuse on the digest before reaching
+# the field it set out to check — a green test measuring the order of the checks rather than
+# any of them.
+REPO_CEILING = 75_147
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
