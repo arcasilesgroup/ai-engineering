@@ -3218,7 +3218,21 @@ DESCRIPTION_MAX = 1000
 # settings file nobody can read is *not* removed, because claiming a guard is gone when
 # nobody could look is the false green, in the verb whose whole output is a list of what
 # went.
-REPO_CEILING = 78_706
+#
+# 78,706 to 78,744 for the closing measurement: 22,860 mutants, 17,516 killed, 5,185 survived
+# — 77%, against 75% this morning and 72% on 2026-08-17.
+#
+# The rate is the part worth keeping. Per module this session measured 1.15 killed per test
+# across nine modules; over the whole tree the same work reads 1.35 — 404 survivors killed
+# by 299 tests between the two whole-tree runs. That is not noise and neither figure is
+# wrong. A per-module run scopes the mutants to one file, so a test written for
+# `acceptance` that also kills three in `issue` never appears in `acceptance`'s number.
+# The per-module measurement is the pessimistic one and undercounts by about a fifth.
+#
+# At the whole-tree rate the gap is 2,829 mutants, roughly 2,100 more tests against a suite
+# of 2,045 — down from the 2,600 projected this morning, and still weeks rather than a
+# session.
+REPO_CEILING = 78_744
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
