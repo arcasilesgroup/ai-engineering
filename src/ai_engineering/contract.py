@@ -2829,7 +2829,18 @@ DESCRIPTION_MAX = 1000
 #
 # `madr` alone: 75% to 81%, `_worktree_files` from 103 survivors to 38 and `_parse` from
 # 91 to 26.
-REPO_CEILING = 74_068
+#
+# 74,068 to 74,375 for `_root`, `_git`, `_specs` and `_acyclic`, and for the first honest
+# measurement of what this technique costs when it stops working. Sixty-six tests over
+# `_parse` and `_worktree_files` bought six points. Twenty-eight more over four further
+# functions bought one. `_specs` and `_acyclic` went to zero survivors and the total moved
+# 288 to 268, because the mutants that remain are in `_history`, `_tree` and `_snapshot` —
+# git walking, where a test costs a repository with a shaped past rather than a dictionary.
+#
+# That is the third time a module has said the same thing: the shape of a killing test does
+# not transfer, and the cheap half of any module is killed first by definition. Writing it
+# here so the next person reads the curve before spending the afternoon.
+REPO_CEILING = 74_375
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

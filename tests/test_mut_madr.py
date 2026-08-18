@@ -401,3 +401,299 @@ def test_a_spec_file_at_the_wrong_depth_is_not_one_of_those_homes(tmp_path: Path
 
     assert "specs/spec.md" not in found
     assert "specs/010-x/deeper/spec.md" not in found
+
+
+# ── _root: the six ways a repository cannot prove its own history ────────────────────
+#
+# Every one of these ends in HISTORY_UNAVAILABLE rather than a pass, and the reason is the
+# same each time: the transition checks downstream read commits to decide whether a record
+# moved legitimately, and a repository that can hand back an edited or truncated past
+# answers those checks confidently and wrongly. Refusing to look is the only safe answer
+# when what you would be looking at can be arranged.
+
+
+def _commit(root: Path, message: str = "x") -> None:
+    _write(root, "seed.txt", message)
+    who = {
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.invalid",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.invalid",
+    }
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", message], cwd=root, check=True, env={**os.environ, **who}
+    )
+
+
+def test_a_path_that_is_not_a_directory_is_unreadable_rather_than_historyless(tmp_path: Path):
+    """The first of the two answers this function can give, and they are not the same. A
+    file where a repository was expected is a mistake in the caller; a repository whose past
+    cannot be trusted is a fact about the repository."""
+
+    plain = _write(tmp_path, "not-a-repo", "text\n")
+
+    with pytest.raises(madr._Problem) as refused:
+        madr._root(plain)
+    assert refused.value.result == madr.UNREADABLE
+
+
+def test_a_path_that_does_not_exist_is_unreadable(tmp_path: Path):
+    with pytest.raises(madr._Problem) as refused:
+        madr._root(tmp_path / "nowhere")
+    assert refused.value.result == madr.UNREADABLE
+
+
+def test_a_repository_with_no_commit_yet_cannot_prove_a_transition(tmp_path: Path):
+    with pytest.raises(madr._Problem) as refused:
+        madr._root(_repo(tmp_path / "fresh"))
+    assert refused.value.result == madr.HISTORY_UNAVAILABLE
+
+
+def test_a_subdirectory_of_a_repository_is_not_that_repository(tmp_path: Path):
+    """`git -C` answers happily from any depth, so this would otherwise silently validate a
+    subtree while reporting on the whole repository — and the file set and the history would
+    then be about two different things."""
+
+    root = _repo(tmp_path / "deep")
+    _commit(root)
+    inner = root / "docs"
+    inner.mkdir(exist_ok=True)
+
+    with pytest.raises(madr._Problem) as refused:
+        madr._root(inner)
+    assert refused.value.result == madr.HISTORY_UNAVAILABLE
+
+
+def test_a_shallow_clone_has_a_past_that_stops(tmp_path: Path):
+    """A shallow clone answers every history question without saying that its answers end
+    at the graft point. A record whose first appearance is older than the clone reads as
+    having no first appearance at all."""
+
+    origin = _repo(tmp_path / "origin")
+    _commit(origin, "one")
+    _commit(origin, "two")
+    clone = tmp_path / "shallow"
+    subprocess.run(
+        ["git", "clone", "-q", "--depth", "1", f"file://{origin}", str(clone)], check=True
+    )
+
+    with pytest.raises(madr._Problem) as refused:
+        madr._root(clone)
+    assert refused.value.result == madr.HISTORY_UNAVAILABLE
+
+
+def test_a_replace_ref_rewrites_the_past_without_rewriting_it(tmp_path: Path):
+    """`refs/replace` swaps one object for another at read time, so every command downstream
+    sees a history nobody committed. `_git` sets GIT_NO_REPLACE_OBJECTS for its own reads,
+    and this refuses the repository outright, because the two are different protections and
+    only the second covers a reader that is not this function."""
+
+    root = _repo(tmp_path / "replaced")
+    _commit(root, "one")
+    _commit(root, "two")
+    head = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    first = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD~1"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    subprocess.run(["git", "-C", str(root), "replace", "-f", head, first], check=True)
+
+    with pytest.raises(madr._Problem) as refused:
+        madr._root(root)
+    assert refused.value.result == madr.HISTORY_UNAVAILABLE
+
+
+def test_a_grafts_file_is_refused_even_though_git_itself_has_stopped_reading_it(
+    tmp_path: Path,
+):
+    """Deprecated is not gone. A `.git/info/grafts` present on disk is a stated intention to
+    rearrange the past, and the version of git on the machine decides whether it takes
+    effect — which makes the verdict depend on the reader rather than the repository."""
+
+    root = _repo(tmp_path / "grafted")
+    _commit(root)
+    graft = root / ".git" / "info" / "grafts"
+    graft.parent.mkdir(parents=True, exist_ok=True)
+    graft.write_text("\n")
+
+    with pytest.raises(madr._Problem) as refused:
+        madr._root(root)
+    assert refused.value.result == madr.HISTORY_UNAVAILABLE
+
+
+def test_a_repository_that_can_prove_its_past_comes_back_resolved(tmp_path: Path):
+    """The clean control. Without it every refusal above is satisfied by a function that
+    refuses everything, which is the shape of passing test this repository exists to
+    refuse."""
+
+    root = _repo(tmp_path / "good")
+    _commit(root)
+
+    assert madr._root(root) == root.resolve(strict=True)
+
+
+# ── _git: what it refuses to inherit, and what it calls a failure ────────────────────
+
+
+def test_a_git_command_that_fails_is_a_history_problem_not_an_empty_answer(tmp_path: Path):
+    root = _repo(tmp_path / "empty")
+
+    with pytest.raises(madr._Problem) as refused:
+        madr._git(root, "rev-parse", "--verify", "HEAD^{commit}")
+    assert refused.value.result == madr.HISTORY_UNAVAILABLE
+
+
+def test_no_git_variable_from_the_caller_s_environment_reaches_the_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A `GIT_DIR` or `GIT_INDEX_FILE` inherited from whatever invoked this points every
+    read at a different repository than the one named in the arguments, and the answers
+    come back looking perfectly ordinary."""
+
+    root = _repo(tmp_path / "clean")
+    _commit(root)
+    elsewhere = _repo(tmp_path / "elsewhere")
+    monkeypatch.setenv("GIT_DIR", str(elsewhere / ".git"))
+
+    top = madr._git(root, "rev-parse", "--show-toplevel").decode().strip()
+
+    assert Path(top).resolve() == root.resolve()
+
+
+def test_a_git_that_cannot_be_launched_at_all_is_the_same_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    def explode(*_args, **_kwargs):
+        raise OSError(2, "no git here")
+
+    monkeypatch.setattr(subprocess, "run", explode)
+
+    with pytest.raises(madr._Problem) as refused:
+        madr._git(tmp_path, "status")
+    assert refused.value.result == madr.HISTORY_UNAVAILABLE
+
+
+# ── _specs: which spec files count, and when two of them are one too many ────────────
+
+
+def _spec(identifier: str, **fields: str) -> bytes:
+    body = {"id": identifier, "status": "draft", "type": "spec", **fields}
+    lines = "".join(f'{key}: "{value}"\n' for key, value in body.items())
+    return f"---\n{lines}---\n\nbody\n".encode()
+
+
+def test_only_a_spec_at_the_one_shape_of_path_is_looked_at():
+    """`specs/<slug>/spec.md`, three parts exactly. Anything else is a file that happens to
+    be called spec.md, and reading it would let a directory nobody governs contribute an
+    identity to the graph."""
+
+    found = madr._specs(
+        {
+            "specs/010-a/spec.md": _spec("010"),
+            "specs/spec.md": _spec("011"),
+            "specs/012-c/deeper/spec.md": _spec("012"),
+            "docs/010-a/spec.md": _spec("013"),
+            "specs/014-e/plan.md": _spec("014"),
+        }
+    )
+
+    assert found == {"010": "specs/010-a/spec.md"}
+
+
+def test_two_spec_files_claiming_one_identity_are_ambiguous_even_when_both_are_valid():
+    """Not "the first one wins" and not "the valid one wins". Two files both saying they are
+    spec 010 is a repository with two answers to the same question, and picking either is
+    picking for a person who has not been told there was a choice."""
+
+    with pytest.raises(madr._Problem) as refused:
+        madr._specs({"specs/010-a/spec.md": _spec("010"), "specs/010-b/spec.md": _spec("010")})
+
+    assert refused.value.result == madr.AMBIGUOUS
+
+
+def test_a_duplicate_counts_even_when_neither_copy_would_have_been_valid():
+    """The ambiguity check reads every file that claims an identity, not only the ones that
+    passed. A second copy with a mismatched directory would otherwise be a way to hide a
+    duplicate from the check that exists to find duplicates."""
+
+    with pytest.raises(madr._Problem) as refused:
+        madr._specs({"specs/999-a/spec.md": _spec("010"), "specs/998-b/spec.md": _spec("010")})
+
+    assert refused.value.result == madr.AMBIGUOUS
+
+
+@pytest.mark.parametrize(
+    ("path", "fields", "why"),
+    [
+        pytest.param(
+            "specs/011-a/spec.md",
+            {},
+            "the directory does not start with the id",
+            id="directory and id disagree",
+        ),
+        pytest.param(
+            "specs/010-a/spec.md",
+            {"status": "parked"},
+            "status is not one of three",
+            id="a status nobody defined",
+        ),
+        pytest.param("specs/010-a/spec.md", {"type": "plan"}, "type is not spec", id="wrong type"),
+        pytest.param(
+            "specs/010-a/spec.md",
+            {"owner": "somebody"},
+            "a field nobody allows",
+            id="an extra field",
+        ),
+    ],
+)
+def test_a_spec_that_claims_an_identity_without_earning_it_is_seen_but_not_kept(
+    path: str, fields: dict, why: str
+):
+    """Seen, so a second copy of it still counts as a duplicate. Not kept, so nothing
+    downstream treats it as the spec that identity belongs to. The two halves are separate
+    on purpose and every one of these cases proves only the second."""
+
+    assert madr._specs({path: _spec("010", **fields)}) == {}, why
+
+
+def test_an_identifier_that_is_not_three_digits_is_not_an_identity_at_all():
+    assert madr._specs({"specs/10-a/spec.md": _spec("10")}) == {}
+    assert madr._specs({"specs/0010-a/spec.md": _spec("0010")}) == {}
+
+
+def test_a_spec_whose_frontmatter_cannot_be_parsed_breaks_the_graph_rather_than_the_file():
+    """`_parse` returns its problem in the result rather than raising, so the only way here
+    is a file that raises during parsing — and when one does, the answer is about the graph.
+    A spec that cannot be read is an edge that cannot be resolved, which is a different
+    complaint from a malformed document and goes to a different reader."""
+
+    with pytest.raises(madr._Problem) as refused:
+        madr._specs({"specs/010-a/spec.md": b"---\ntype: adr\r\x85id: x\n---\nb\n"})
+
+    assert refused.value.result == madr.GRAPH_INVALID
+
+
+# ── _acyclic: the supersession chain that eats itself ────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("edges", "expected"),
+    [
+        pytest.param({}, True, id="nothing at all"),
+        pytest.param({"a": "b"}, True, id="one edge to nowhere"),
+        pytest.param({"a": "b", "b": "c"}, True, id="a chain"),
+        pytest.param({"a": "a"}, False, id="a record superseding itself"),
+        pytest.param({"a": "b", "b": "a"}, False, id="two records superseding each other"),
+        pytest.param({"a": "b", "b": "c", "c": "a"}, False, id="a longer ring"),
+        pytest.param({"a": "b", "b": "c", "c": "b"}, False, id="a ring reached from outside"),
+        pytest.param({"a": "c", "b": "c", "c": "d"}, True, id="two records into one"),
+    ],
+)
+def test_a_supersession_chain_that_returns_to_itself_is_refused(edges: dict, expected: bool):
+    """Eight shapes, and the two that matter most are the last pair. A ring entered from
+    outside is the case a walk that only marks where it started would miss, and two edges
+    arriving at one node is the case an over-eager cycle check calls a cycle."""
+
+    assert madr._acyclic(edges) is expected
