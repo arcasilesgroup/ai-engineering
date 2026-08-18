@@ -3118,7 +3118,21 @@ DESCRIPTION_MAX = 1000
 # Writing that last case found the test wrong rather than the code. An escaped newline is
 # still the characters `\` and `n` in the text, so `status:` appears twice as a substring
 # and once as a line — and a line is what a frontmatter parser reads.
-REPO_CEILING = 77_605
+#
+# 77,605 to 77,769 for drafting a report, where the order of three steps is the whole control.
+# Build from the allow-list, scan the exact bytes that were built, write last. Build first
+# because a report assembled from whatever a caller passed can carry a field nobody
+# reviewed; scan the bytes rather than the arguments because the scan has to see what would
+# actually leave the machine; write last because the artefact a person can still send is
+# the one that matters, and a refusal that leaves a file behind has put the thing it
+# refused within reach.
+#
+# Two refusals sit either side of the write and they are not the same. A scan finding says
+# these bytes may not leave at all. A security kind asked to submit says they may not leave
+# *this way*, and it is checked before the draft exists — a control that asks first and
+# refuses second has already put the wrong route in front of somebody at the end of a long
+# day. When both apply the scan is reported, because it is the stronger statement.
+REPO_CEILING = 77_769
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
