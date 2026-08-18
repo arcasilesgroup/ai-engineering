@@ -3232,7 +3232,20 @@ DESCRIPTION_MAX = 1000
 # At the whole-tree rate the gap is 2,829 mutants, roughly 2,100 more tests against a suite
 # of 2,045 — down from the 2,600 projected this morning, and still weeks rather than a
 # session.
-REPO_CEILING = 78_744
+#
+# 78,744 to 78,903 for the two places this module refuses to trust what it already saw.
+# `_PosixWriter.read` checks its bound twice — once against the size the file claims before
+# anything is read and once against the bytes that arrived — because a file that grows in
+# between would otherwise be read whole, and a bound describing a moment that has passed is
+# not a bound.
+#
+# `_require_pending` re-opens a directory this transaction made moments ago and proves six
+# things about it: the directory's identity, the exact set of names inside, the file's
+# identity, its link count, its size, and its bytes. All six, because a staged entry becomes
+# canonical through a rename nobody can undo — this is the last moment anything can be
+# checked, and afterwards the only evidence left is what was checked here. A replacement
+# carrying identical bytes is still a file this transaction did not write.
+REPO_CEILING = 78_903
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

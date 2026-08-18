@@ -297,3 +297,149 @@ def test_an_inventory_taken_before_someone_else_wrote_cannot_be_used_to_stage(tm
         writer.stage(stale, "pending-one", "spec.md", b"one\n")
         with pytest.raises(transaction.Unsafe):
             writer.stage(stale, "pending-two", "spec.md", b"two\n")
+
+
+# --- read, and re-proving a pending entry that was already staged --------------------
+#
+# `_PosixWriter.read` carried 34 more survivors and `_require_pending` another 29. They are
+# the two places where this module refuses to trust something it already saw.
+#
+# `read` is bounded, and the bound is checked twice: once against the size the file claims
+# before anything is read, and once against the bytes that actually arrived. A file that
+# grows between the two would otherwise be read in full, and a bound that describes a moment
+# that has passed is not a bound.
+#
+# `_require_pending` re-opens a directory this transaction created moments ago and proves it
+# is still the same one: the directory's identity, the exact set of names inside it, the
+# file's identity, its link count, its size, and finally its bytes. All six, because a
+# staged entry becomes canonical with a rename that cannot be undone — this is the last
+# moment anything can be checked, and after it the only evidence left is what was checked
+# here.
+
+
+def test_a_read_bound_that_is_not_a_count_is_refused(tmp_path):
+    """A boolean is an integer in Python and is not a byte count anywhere. `maximum=True`
+    would read one byte and report the file as over its bound."""
+
+    root = _root(tmp_path)
+    with transaction.writer(root, ".ai/intent.md", "specs") as writer:
+        for bad in (-1, True, "100", 1.5, None):
+            with pytest.raises(transaction.Unsafe):
+                writer.read(".ai/intent.md", maximum=bad)
+
+
+def test_a_file_over_its_bound_is_refused_before_it_is_read(tmp_path):
+    root = _root(tmp_path)
+    (root / "specs" / "big.md").write_bytes(b"x" * 200)
+
+    with (
+        transaction.writer(root, ".ai/intent.md", "specs") as writer,
+        pytest.raises(transaction.Unsafe),
+    ):
+        writer.read("specs/big.md", maximum=100)
+
+
+def test_a_file_exactly_at_its_bound_is_read(tmp_path):
+    """The boundary itself, in the direction that matters. An off-by-one here refuses a file
+    somebody sized deliberately."""
+
+    root = _root(tmp_path)
+    (root / "specs" / "exact.md").write_bytes(b"x" * 100)
+
+    with transaction.writer(root, ".ai/intent.md", "specs") as writer:
+        assert writer.read("specs/exact.md", maximum=100).body == b"x" * 100
+
+
+def test_an_empty_file_reads_as_empty_rather_than_refusing(tmp_path):
+    root = _root(tmp_path)
+    (root / "specs" / "empty.md").write_bytes(b"")
+
+    with transaction.writer(root, ".ai/intent.md", "specs") as writer:
+        assert writer.read("specs/empty.md", maximum=100).body == b""
+
+
+def test_a_path_that_is_not_canonical_never_reaches_the_filesystem(tmp_path):
+    """The same `_parts` rules as everything else in this module, applied at the read. A
+    read is not a write and still cannot be allowed to walk out of the repository."""
+
+    root = _root(tmp_path)
+    with transaction.writer(root, ".ai/intent.md", "specs") as writer:
+        for bad in ("../outside.md", "/etc/passwd", "specs/../../x", "specs//a.md"):
+            with pytest.raises(transaction.Unsafe):
+                writer.read(bad, maximum=100)
+
+
+def test_a_pending_entry_is_re_proved_before_it_can_publish(tmp_path):
+    """The clean control for the six checks below: an untouched pending entry publishes."""
+
+    root = _root(tmp_path)
+    with transaction.writer(root, ".ai/intent.md", "specs") as writer:
+        pending = writer.stage(writer.inventory(), "pending-ok", "spec.md", b"body\n")
+        writer.publish(pending, "001-ok")
+
+    assert (root / "specs" / "001-ok" / "spec.md").read_bytes() == b"body\n"
+
+
+def test_a_pending_file_edited_after_staging_is_refused_at_publish(tmp_path):
+    """The bytes are re-read and compared, not trusted from the stage. Between staging and
+    publishing there is a window, and this is a directory inside the repository that
+    anything with the person's permissions can write to."""
+
+    root = _root(tmp_path)
+    with transaction.writer(root, ".ai/intent.md", "specs") as writer:
+        pending = writer.stage(writer.inventory(), "pending-edited", "spec.md", b"body\n")
+        (root / "specs" / "pending-edited" / "spec.md").write_bytes(b"other\n")
+
+        with pytest.raises(transaction.Unsafe):
+            writer.publish(pending, "001-edited")
+
+    assert not (root / "specs" / "001-edited").exists()
+
+
+def test_a_pending_file_replaced_with_a_different_file_is_refused(tmp_path):
+    """Same bytes, different inode. Identity is checked as well as content, because a
+    replacement carrying identical bytes is still a file this transaction did not write —
+    and the next thing that happens to it is a rename nobody can undo."""
+
+    root = _root(tmp_path)
+    with transaction.writer(root, ".ai/intent.md", "specs") as writer:
+        pending = writer.stage(writer.inventory(), "pending-swapped", "spec.md", b"body\n")
+        here = root / "specs" / "pending-swapped" / "spec.md"
+        replacement = root / "specs" / "pending-swapped" / "other"
+        replacement.write_bytes(b"body\n")
+        replacement.replace(here)
+
+        with pytest.raises(transaction.Unsafe):
+            writer.publish(pending, "001-swapped")
+
+
+def test_an_extra_file_appearing_beside_the_pending_one_is_refused(tmp_path):
+    """The name set is compared exactly, not searched for the expected one. A directory that
+    gained a file is a directory somebody wrote to, and publishing it would make whatever
+    they left part of the spec."""
+
+    root = _root(tmp_path)
+    with transaction.writer(root, ".ai/intent.md", "specs") as writer:
+        pending = writer.stage(writer.inventory(), "pending-extra", "spec.md", b"body\n")
+        (root / "specs" / "pending-extra" / "surprise.md").write_bytes(b"x\n")
+
+        with pytest.raises(transaction.Unsafe):
+            writer.publish(pending, "001-extra")
+
+
+def test_a_pending_directory_replaced_wholesale_is_refused(tmp_path):
+    """The directory's own identity, checked first. Recreating it with the right name and
+    the right file inside would pass every content check and still be a directory this
+    transaction never made."""
+
+    root = _root(tmp_path)
+    with transaction.writer(root, ".ai/intent.md", "specs") as writer:
+        pending = writer.stage(writer.inventory(), "pending-remade", "spec.md", b"body\n")
+        here = root / "specs" / "pending-remade"
+        (here / "spec.md").unlink()
+        here.rmdir()
+        here.mkdir()
+        (here / "spec.md").write_bytes(b"body\n")
+
+        with pytest.raises(transaction.Unsafe):
+            writer.publish(pending, "001-remade")
