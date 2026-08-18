@@ -66,6 +66,16 @@ jobs:
       # `|| true`, and the score is read from the log rather than from the exit code. The run
       # failing its floor is the expected state today and it still has to publish the number:
       # a job that exits before printing is exactly the shape this whole change is undoing.
+      # Before breaking the product on purpose, find out whether the document that says
+      # what the product proves is still true. `docs/requirements.toml` names a command
+      # beside every requirement it calls proven and the suite only ever checked that the
+      # command was long enough to be a command. This runs them. It belongs on the nightly
+      # rather than in `just check` because it is two hundred and twenty-two subprocesses,
+      # and it belongs before the mutation run because a false verdict in the answer key
+      # makes every number after it a measurement of the wrong tree.
+      - name: run the answer key
+        run: uv run python tests/ledger_run.py
+
       - name: break it on purpose, over everything
         run: just mutate | tee "$RUNNER_TEMP/mutate.log" || true
 

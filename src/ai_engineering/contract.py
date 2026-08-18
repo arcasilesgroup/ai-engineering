@@ -2777,7 +2777,22 @@ DESCRIPTION_MAX = 1000
 #
 # A box with no receipt says "no receipt to age" rather than showing a zero, because zero is
 # a number and a number here means somebody measured something.
-REPO_CEILING = 73_056
+# 73,056 to 73,355 for the runner that executes the answer key. 251 of those lines are
+# `tests/ledger_run.py`; the other 48 are the twenty-four ledger rows whose command moved
+# onto its own line so it could carry quotes it never had.
+#
+# `docs/requirements.toml` names a command beside every requirement it calls proven, and
+# for four days nothing ran any of them: the only check was that each row named a command
+# of at least eight characters, which is a check on the length of a sentence. Running them
+# found twenty-four rows that had never held — absence claims whose command exited non-zero
+# precisely when the absence was true, a `-k` argument the shell split into three, two
+# basic greps reading `|` as a literal pipe, a function renamed out from under its row, and
+# a heredoc with a prose parenthetical inside it that was never a command at all.
+#
+# None of that was visible from reading the ledger, and all of it was visible in the first
+# eleven minutes of running it. That is the whole argument for the line, and the reason it
+# is worth more than the two hundred and fifty-one lines it cost.
+REPO_CEILING = 73_355
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

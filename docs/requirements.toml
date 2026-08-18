@@ -114,7 +114,9 @@ evidence = "pytest tests/test_mut_spec.py::test_a_spec_written_with_answers_and_
 id = "EP-011"
 verdict = "PROVEN"
 subject = "audit verify and doctor's chain assertion agree on one verdict for the same break"
-evidence = "ai-eng audit verify; ai-eng doctor --ci"
+evidence = '''
+ai-eng audit verify 2>&1 | grep -q 918 && ai-eng doctor 2>&1 | grep -q 918
+'''
 note = "both name link 918 and both say FAIL. What is proven is that the two readers agree, not that the chain is intact"
 
 [[requirement]]
@@ -168,13 +170,17 @@ note = "needs an actual editor invoking a denial from a live session"
 id = "EP-019"
 verdict = "PROVEN"
 subject = "discovery, invocation and enforcement are three separate states per surface"
-evidence = "ai-eng report surfaces"
+evidence = '''
+ai-eng report surfaces | awk '/discovery/{d=1}/invocation/{i=1}/enforcement/{e=1}END{exit !(d&&i&&e)}'
+'''
 
 [[requirement]]
 id = "EP-020"
 verdict = "PROVEN"
 subject = "a command answers the surface coverage question per surface"
-evidence = "ai-eng report surfaces"
+evidence = '''
+ai-eng report surfaces | awk '/discovery/{d=1}/invocation/{i=1}/enforcement/{e=1}END{exit !(d&&i&&e)}'
+'''
 note = "the --id filter and a dedicated surface-proof verb stay refused per spec 011"
 
 [[requirement]]
@@ -515,7 +521,9 @@ evidence = "grep -n supersedes policy/madr-v1.schema.json"
 id = "EP-071"
 verdict = "PROVEN"
 subject = "no second normative values layer outside CONSTITUTION.md"
-evidence = "git ls-files | grep -ci soul"
+evidence = '''
+! git ls-files | grep -qi soul
+'''
 
 [[requirement]]
 id = "EP-072"
@@ -686,7 +694,9 @@ note = "three of the five exist; spec 013 is draft and no authority-envelope mod
 id = "EP-097"
 verdict = "PROVEN"
 subject = "the constitution carries the four value lines, with no second home for identity text"
-evidence = "git ls-files | grep -ci soul"
+evidence = '''
+! git ls-files | grep -qi soul
+'''
 
 [[requirement]]
 id = "EP-098"
@@ -814,7 +824,9 @@ note = "spec 012 states it cannot be made green as written: no baseline, no samp
 id = "EP-118"
 verdict = "PROVEN"
 subject = "ai-design is one gateway loading exactly four routes"
-evidence = "grep -n 'gateway|route' .agents/skills/ai-design/SKILL.md"
+evidence = '''
+grep -nE 'gateway|route' .agents/skills/ai-design/SKILL.md
+'''
 note = "evidence is a direct file read; no test enforces the count, so this row is weaker than most PROVEN here"
 
 [[requirement]]
@@ -939,7 +951,9 @@ evidence = "pytest tests/test_capabilities.py -k declares_exactly_fifteen; pytes
 id = "EP-138"
 verdict = "PROVEN"
 subject = "a capability that cannot prove its declared permissions is graded, not passed"
-evidence = "pytest tests/test_executor.py -k crashes_is_a_refusal or gate_word_nobody_recognises"
+evidence = '''
+pytest tests/test_executor.py -k 'crashes_is_a_refusal or gate_word_nobody_recognises'
+'''
 
 [[requirement]]
 id = "EP-139"
@@ -976,7 +990,9 @@ evidence = "grep -rn 'EP-143' ."
 id = "EP-144"
 verdict = "PROVEN"
 subject = "two independent readers give one consistent verdict about the same broken chain link"
-evidence = "ai-eng audit verify; ai-eng doctor --ci"
+evidence = '''
+ai-eng audit verify 2>&1 | grep -q 918 && ai-eng doctor 2>&1 | grep -q 918
+'''
 note = "a live, currently-open FAIL both commands agree on. Only a person running ai-eng audit account clears it"
 
 [[requirement]]
@@ -1092,7 +1108,9 @@ note = "the note said the three-times threshold had no instrument by design and 
 id = "EP-162"
 verdict = "PROVEN"
 subject = "deny-proof ids are declared per mode and backed by a corpus of captured denials"
-evidence = "pytest tests/test_executor.py -k lands_in_the_corpus or first_real_caller"
+evidence = '''
+pytest tests/test_executor.py -k 'lands_in_the_corpus or first_real_caller'
+'''
 
 [[requirement]]
 id = "EP-163"
@@ -1319,7 +1337,9 @@ note = "recorded as a deliberate non-goal with a written reopening trigger; no f
 id = "EP-196"
 verdict = "PROVEN"
 subject = "a surface's proven state is earned by an executed denial, never set by hand"
-evidence = "grep -n '^proven' policy/surfaces.toml"
+evidence = '''
+! grep -q '^proven' policy/surfaces.toml
+'''
 note = "there is no proven column at all; the state is read from the enforcement receipt"
 
 [[requirement]]
@@ -1359,7 +1379,9 @@ note = "an honest, tested disclosure of the limit; a server-side required check 
 id = "EP-202"
 verdict = "PROVEN"
 subject = "no surface carries a hand-set proven flag"
-evidence = "grep -n '^proven' policy/surfaces.toml"
+evidence = '''
+! grep -q '^proven' policy/surfaces.toml
+'''
 
 [[requirement]]
 id = "EP-203"
@@ -1397,7 +1419,9 @@ evidence = "sed -n '108,116p' policy/surfaces.toml"
 id = "EP-208"
 verdict = "PROVEN"
 subject = "discovery, invocation and enforcement reported as three states, not one collapsed word"
-evidence = "ai-eng report surfaces"
+evidence = '''
+ai-eng report surfaces | awk '/discovery/{d=1}/invocation/{i=1}/enforcement/{e=1}END{exit !(d&&i&&e)}'
+'''
 
 [[requirement]]
 id = "EP-209"
@@ -1458,7 +1482,9 @@ note = "both halves of the detection rule are proven; the version pin covers two
 id = "EP-217"
 verdict = "PROVEN"
 subject = "proven means a denial executed in an identified version, from the installed artefact, with the guard's real message"
-evidence = "grep -n 'def _surface_state' -A 25 src/ai_engineering/doctor.py"
+evidence = '''
+grep -n 'def surface_states' -A 25 src/ai_engineering/doctor.py
+'''
 note = "the id boundary is inferred from document order; no literal tag exists in the tree"
 
 [[requirement]]
@@ -1484,7 +1510,9 @@ note = "the caller was found rather than assumed: cli dispatches every verb thro
 id = "EP-221"
 verdict = "PROVEN"
 subject = "evidence: what changed, what checks ran, what they observed, what remains"
-evidence = "ai-eng --json doctor"
+evidence = '''
+ai-eng --json doctor | grep -q 'urn:ai-engineering:envelope:1'
+'''
 
 [[requirement]]
 id = "EP-222"
@@ -1496,13 +1524,17 @@ evidence = "ai-eng --json update --dry-run"
 id = "EP-223"
 verdict = "PROVEN"
 subject = "a cure never renders beside a non-blocking outcome"
-evidence = "python -c \"from ai_engineering import ui; ui.cure('PASS','x')\""
+evidence = '''
+! python -c "from ai_engineering import ui; ui.cure('PASS','x')"
+'''
 
 [[requirement]]
 id = "EP-224"
 verdict = "PROVEN"
 subject = "the next permitted action, with a copyable command or a human decision, and never a bypass"
-evidence = "ai-eng --json doctor; python -c \"from ai_engineering import ui; ui.cure('FAIL','git commit --no-verify')\""
+evidence = '''
+! python -c "from ai_engineering import ui; ui.cure('FAIL','git commit --no-verify')"
+'''
 
 [[requirement]]
 id = "EP-225"
@@ -1514,7 +1546,9 @@ evidence = "grep -rn 'EP-225' tests/ src/ specs/ docs/"
 id = "EP-226"
 verdict = "PROVEN"
 subject = "a cure never names a way around the thing that blocked"
-evidence = "python -c \"from ai_engineering import ui; ui.cure('FAIL','git commit --no-verify')\""
+evidence = '''
+! python -c "from ai_engineering import ui; ui.cure('FAIL','git commit --no-verify')"
+'''
 
 [[requirement]]
 id = "EP-227"
@@ -1558,7 +1592,9 @@ note = "every check carries a cure and there is no key named evidence. Before ad
 id = "EP-233"
 verdict = "PROVEN"
 subject = "a traceback reaches a person only through the debug flag; otherwise a stable code, message, retryable and cure"
-evidence = "python - <<'PY' (forcing a crash inside doctor.main with and without --debug) PY"
+evidence = '''
+pytest tests/test_cli_modes.py::test_a_traceback_is_bounded_into_four_fields_unless_debug_is_asked_for
+'''
 
 [[requirement]]
 id = "EP-234"
@@ -1776,7 +1812,9 @@ note = "spec 014 groups four ids as one row; all four share this evidence"
 id = "EP-267"
 verdict = "PROVEN"
 subject = "the record type is the one the format requires, and the old flag is hard-renamed with no shim"
-evidence = "ai-eng decide --adr x"
+evidence = '''
+! ai-eng decide --adr x
+'''
 
 [[requirement]]
 id = "EP-268"
@@ -1948,7 +1986,9 @@ note = "seven journeys enumerated with the command that walks each, which is wha
 id = "EP-293"
 verdict = "PROVEN"
 subject = "the age of an accessibility exception"
-evidence = "pytest tests/test_accessibility.py -k year_without or age_is_reported"
+evidence = '''
+pytest tests/test_accessibility.py -k 'year_without or age_is_reported'
+'''
 note = "five exceptions are recorded and dated in policy/accessibility.toml, and doctor reports one that has gone 365 days without being re-read. The ageing branch is exercised against an old date rather than against the shipped file, which is all dated today and could never reach it"
 
 [[requirement]]
@@ -1968,7 +2008,9 @@ evidence = "pytest tests/test_issue.py"
 id = "EP-296"
 verdict = "PROVEN"
 subject = "the roadmap order frozen by spec 010 is not silently changed"
-evidence = "git grep 'supersedes: \"010\"' specs/"
+evidence = '''
+! git grep -q 'supersedes: "010"' specs/
+'''
 
 [[requirement]]
 id = "EP-297"
@@ -2623,7 +2665,9 @@ note = "not reached in this pass. Gate runs leave no trace in git — ephemeral 
 id = "PO-11"
 verdict = "PROVEN"
 subject = "an intermediate commit is never called done or a pass"
-evidence = "git log --oneline main..HEAD --format='%s' | grep -iE '\\bdone\\b|\\bPASS\\b|approved'"
+evidence = '''
+! git log --oneline main..HEAD --format='%s' | grep -iE '\bdone\b|\bPASS\b|approved'
+'''
 
 [[commitment]]
 id = "PO-12"
@@ -2663,7 +2707,9 @@ note = "the widest commit on this branch touches twenty-one files: four source m
 id = "PO-17"
 verdict = "PROVEN"
 subject = "every commit passes a whitespace-and-conflict check and is revertible"
-evidence = "printf 'x   \n' > probe && git add -f probe && git diff --cached --check"
+evidence = '''
+d=$(mktemp -d) && git -C $d init -q && printf 'x   \n' > $d/probe && git -C $d add -f probe && ! git -C $d diff --cached --check; r=$?; rm -rf $d; exit $r
+'''
 
 [[commitment]]
 id = "PO-18"
@@ -2717,4 +2763,6 @@ evidence = "git log --format='%h %ad %s' --date=iso-strict -- specs/010-governed
 id = "PO-26"
 verdict = "PROVEN"
 subject = "the projected saving is handoff arithmetic, not a measured time saving, and the clock never approves"
-evidence = "grep -rn 'lead time|elapsed.*approv|duration.*approv' src/ hooks/ tests/ specs/"
+evidence = '''
+! grep -rnE 'lead time|elapsed.*approv|duration.*approv' src/ hooks/ tests/ specs/
+'''
