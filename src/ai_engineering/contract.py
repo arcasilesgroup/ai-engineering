@@ -3190,7 +3190,20 @@ DESCRIPTION_MAX = 1000
 # Two of the nine cases were written from a wrong model of this function and were replaced
 # by what it actually does. That is the second time today the test was wrong rather than
 # the code, which is worth as much as the times it was the other way round.
-REPO_CEILING = 78_313
+#
+# 78,313 to 78,510 for reading the pin — `.ai/config.toml`, the one file that says which
+# version of this framework governs a repository. `_read_pin` is written the way
+# `audit._chain_bytes` is and for the same reason: not against a corrupted pin, which fails
+# to parse further down and says so, but against reading a *different* file than the one it
+# checked, or the same file at two different moments.
+#
+# The case worth the file is the change time. A replacement that preserves mtime still
+# moves ctime, and preserving both takes more than an editor — so a check comparing only
+# mtime would let through exactly the substitution this guards against. The test stages
+# a `chmod` *during* the read rather than around it, because what the two `fstat` calls
+# bracket is the read itself, and it asserts the interference happened so it cannot quietly
+# prove nothing.
+REPO_CEILING = 78_510
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
