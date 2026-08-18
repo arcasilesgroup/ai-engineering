@@ -3052,7 +3052,25 @@ DESCRIPTION_MAX = 1000
 # after a failure, and a leftover value from anything earlier in the process would make a
 # *successful* publish raise `Collision` — the one failure mode that looks exactly like
 # correct behaviour.
-REPO_CEILING = 76_879
+#
+# 76,879 to 77,039 for the names, and for what a pending entry has to be before it can ever
+# be published. Every path this module touches goes through `_parts` and `_component`
+# first, which is why the rest of the file can use `dir_fd` and short names instead of
+# joining strings — a name that reaches `os.open` with a `..` in it walks out of the
+# transaction home, and no care downstream puts it back.
+#
+# The line worth reading twice is the one that checks the spelling *before* `PurePosixPath`
+# sees it. `a/./b` and `a//b` lose their dot and empty segments during parsing, so a check
+# written after the parse never sees the spelling it exists to refuse, and this module
+# would accept a name it believes it rejected.
+#
+# On the staging side: a body that is not bytes is refused before a directory is created,
+# so a rejected stage leaves nothing behind; the write loop advances a memoryview until it
+# is empty, because one `os.write` may take less than it was given and stopping after the
+# first publishes a spec that ends wherever the kernel felt like; and a second stage with
+# the same pending name is a `Collision` rather than an `Unsafe`, because somebody got
+# there first is a recoverable answer and unsafe is not.
+REPO_CEILING = 77_039
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
