@@ -26,7 +26,7 @@ from typing import Any
 
 import pytest
 
-from ai_engineering import cli, outcome
+from ai_engineering import cli, outcome, wiring
 
 
 def _driven(returns: Any = None, raises: BaseException | None = None, **kwargs: Any) -> tuple:
@@ -255,3 +255,191 @@ def test_a_failure_before_the_verb_runs_is_reported_at_the_outer_boundary(capsys
 
     assert payload["outcome"] == "INCOMPLETE"
     assert "before its execution boundary was available" in payload["summary"]
+
+
+# --- cli.main: what happens before a verb is reached, and after it stops --------------
+#
+# 89 more survivors. `main` is a router with two modes, and almost everything it does
+# happens either before a verb exists or after one has stopped — which is the same reason
+# `_json_dispatch` was full of them: a suite that runs verbs never runs the router's own
+# decisions.
+#
+# The two modes are not variations of each other. In JSON mode stdout carries exactly one
+# object and every complaint is inside it. In the plain mode a complaint goes to stderr and
+# the useful list stays on stdout, so a typo does not stop the verb list being pipeable.
+
+
+def _ran(argv: list[str], capsys) -> tuple[int, str, str]:
+    code = cli.main(argv)
+    captured = capsys.readouterr()
+    return code, captured.out, captured.err
+
+
+def test_the_version_line_is_plain_because_another_program_reads_it(capsys):
+    """The only output here that is not for a person. A banner, a colour or a leading glyph
+    turns a parseable line into something somebody has to strip first."""
+
+    from ai_engineering import __version__
+
+    code, out, _ = _ran(["--version"], capsys)
+
+    assert code == 0
+    assert out == f"ai-engineering {__version__}\n"
+
+
+def test_an_unknown_verb_complains_on_stderr_and_leaves_the_list_on_stdout(capsys):
+    """A typo is not a reason to stop the verb list being pipeable, and it is a reason for
+    the error itself not to be."""
+
+    code, out, err = _ran(["notaverb"], capsys)
+
+    assert code == 2
+    assert "there is no verb" in err and "notaverb" in err
+    assert "doctor" in out and "there is no verb" not in out
+
+
+def test_the_removed_flag_is_named_rather_than_treated_as_an_unknown_verb(capsys):
+    """`--adr` was hard-removed. Saying so is the difference between somebody updating a
+    script and somebody wondering why their command stopped working."""
+
+    code, _, err = _ran(["decide", "--adr", "x"], capsys)
+
+    assert code == 2
+    assert "--adr" in err
+
+
+def test_json_mode_may_be_asked_for_once(capsys):
+    """Twice is a mistake worth naming rather than absorbing, because a caller repeating a
+    global flag is usually a caller building a command line in two places."""
+
+    code, out, _ = _ran(["--json", "--json", "doctor"], capsys)
+    payload = json.loads(out.strip())
+
+    assert code != 0
+    assert payload["error"]["code"] == "INVALID_CLI"
+
+
+def test_json_mode_with_no_command_says_so_inside_the_json(capsys):
+    """The complaint has to be in the object. A machine that asked for JSON and got a line
+    of prose on stderr has to parse prose to find out it made a mistake."""
+
+    _, out, _ = _ran(["--json"], capsys)
+    payload = json.loads(out.strip())
+
+    assert payload["outcome"] == "INCOMPLETE"
+    assert payload["error"]["cure"] == "run ai-eng --json --help"
+
+
+def test_an_unknown_verb_in_json_mode_is_one_object_and_not_a_verb_list(capsys):
+    _, out, err = _ran(["--json", "notaverb"], capsys)
+    payload = json.loads(out.strip())
+
+    assert payload["error"]["code"] == "INVALID_CLI"
+    assert err == ""
+    assert len(out.strip().splitlines()) == 1
+
+
+@pytest.mark.parametrize("flag", ["-h", "--help", "help"])
+def test_help_in_json_mode_is_an_object_and_not_the_usage_text(flag: str, capsys):
+    _, out, _ = _ran(["--json", flag], capsys)
+
+    assert json.loads(out.strip())["command"] == "help"
+
+
+@pytest.mark.parametrize("flag", ["-V", "--version", "version"])
+def test_the_version_in_json_mode_is_an_object_and_not_the_plain_line(flag: str, capsys):
+    _, out, _ = _ran(["--json", flag], capsys)
+
+    assert json.loads(out.strip())["command"] == "version"
+
+
+@pytest.mark.parametrize("flag", ["--debug", "--non-interactive"])
+def test_a_global_flag_never_reaches_the_verb(flag: str, capsys, monkeypatch):
+    """Both are stripped here exactly as `--json` is. A verb that had to know about either
+    is a verb that can disagree with the next one about what it means."""
+
+    from ai_engineering import accept
+
+    # Restored by the fixture. `--non-interactive` is process state rather than an
+    # argument, so a test that set it and walked away would silence the confirmation
+    # widget for every test that ran afterwards — which is how one of these leaked.
+    monkeypatch.setattr(accept, "NON_INTERACTIVE", accept.NON_INTERACTIVE)
+    seen: list[list[str]] = []
+    monkeypatch.setattr(
+        importlib,
+        "import_module",
+        lambda _n: SimpleNamespace(main=lambda rest: seen.append(rest) or outcome.result("PASS")),
+    )
+
+    cli.main(["doctor", flag, "--fix"])
+    capsys.readouterr()
+
+    assert seen == [["--fix"]]
+
+
+def test_non_interactive_is_set_where_the_verb_that_asks_will_read_it(capsys, monkeypatch):
+    """It is not passed down as an argument; it is a fact about this process. A verb that
+    took it as a flag could be given it by one caller and not the next, and a confirmation
+    prompt would appear in a pipeline exactly once in a while."""
+
+    from ai_engineering import accept
+
+    monkeypatch.setattr(accept, "NON_INTERACTIVE", False)
+    monkeypatch.setattr(
+        importlib,
+        "import_module",
+        lambda _n: SimpleNamespace(main=lambda _r: outcome.result("PASS")),
+    )
+
+    cli.main(["doctor", "--non-interactive"])
+    capsys.readouterr()
+
+    assert accept.NON_INTERACTIVE is True
+
+
+def test_an_interrupt_in_plain_mode_is_a_hundred_and_thirty_and_not_a_crash(capsys, monkeypatch):
+    """The shell's own convention for a signal, so a script that checks the code learns what
+    happened rather than reading it as a failure of the work."""
+
+    def stopped(_rest: list[str]) -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(importlib, "import_module", lambda _n: SimpleNamespace(main=stopped))
+
+    assert cli.main(["doctor"]) == 130
+    capsys.readouterr()
+
+
+def test_an_unreadable_file_stops_the_run_and_says_nothing_was_written(capsys, monkeypatch):
+    """One place, because every verb that writes reads first. A file that cannot be parsed
+    is not an empty file, and the only safe thing to do with one is stop and name it — the
+    alternative, which this used to do, is treat it as empty and save over it."""
+
+    def unreadable(_rest: list[str]) -> None:
+        raise wiring.Unreadable("~/.claude/settings.json is not readable as JSON")
+
+    monkeypatch.setattr(importlib, "import_module", lambda _n: SimpleNamespace(main=unreadable))
+
+    code = cli.main(["doctor"])
+    err = capsys.readouterr().err
+
+    assert code == 2
+    assert "Nothing was written" in err
+    assert "settings.json" in err
+
+
+def test_a_crash_in_plain_mode_carries_four_fields_and_no_traceback(capsys, monkeypatch):
+    """A traceback is the fastest way to put an absolute path and a username onto a screen
+    that is about to be pasted into an issue. What a person gets instead is a code, a
+    message, whether it is worth retrying, and what to do next."""
+
+    def broken(_rest: list[str]) -> None:
+        raise RuntimeError("deep")
+
+    monkeypatch.setattr(importlib, "import_module", lambda _n: SimpleNamespace(main=broken))
+
+    cli.main(["doctor"])
+    err = capsys.readouterr().err
+
+    assert "Traceback" not in err
+    assert "Retryable:" in err and "Next action:" in err

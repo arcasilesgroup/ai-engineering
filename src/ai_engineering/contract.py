@@ -2978,7 +2978,21 @@ DESCRIPTION_MAX = 1000
 # table, no reason and no cure — which happened twice, on every second run, in the only
 # verb that installs a guard. Both apologies are in the source; the cases for them are now
 # beside the cases for the first kind.
-REPO_CEILING = 76_163
+#
+# 76,163 to 76,365 for `cli.main`, 89 survivors and the same cause as `_json_dispatch`:
+# almost everything a router does happens before a verb exists or after one has stopped, so
+# a suite that runs verbs never runs the router's own decisions.
+#
+# The two modes are not variations of each other and the cases say so. In JSON mode stdout
+# carries exactly one object and every complaint is inside it — a machine that asked for
+# JSON and got prose on stderr has to parse prose to learn it made a mistake. In the plain
+# mode the complaint goes to stderr and the verb list stays on stdout, because a typo is
+# not a reason to stop that list being pipeable.
+#
+# And `--non-interactive` is set as a fact about the process rather than passed down as an
+# argument, which is the difference between a confirmation prompt that never appears in a
+# pipeline and one that appears in it occasionally.
+REPO_CEILING = 76_365
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
