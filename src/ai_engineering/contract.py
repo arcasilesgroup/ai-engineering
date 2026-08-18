@@ -3311,7 +3311,26 @@ DESCRIPTION_MAX = 1000
 # functions. Consolidation is one way to force uniformity and it is worth doing for what it
 # buys in reading, but it is not a mutation lever on its own — and a rule stated from one
 # measurement would have sent the next person consolidating for a number that never moves.
-REPO_CEILING = 77_944
+#
+# And the third measurement, which is the one to keep. Eight assertions in `acceptance`'s
+# `_safe_stat` block checked either the refusal code or its words, never both — the same
+# inconsistency a table had repaired elsewhere in the same file. Making all eight check both
+# killed sixteen more mutants: 353 survivors to 337, 77%% to 78%%. No new test, no new
+# function, no new case, no new line of setup.
+#
+# The three efficiencies, measured on one module in one day:
+#
+#   adding a test                                    1.35 mutants per test
+#   consolidating, where assertions already agreed   0
+#   strengthening one assertion                      2.0 mutants per assertion
+#
+# So the lever is neither the count of tests nor the count of functions. It is whether an
+# assertion checks everything the code decided — and an assertion that checks the code *and*
+# the words it printed is worth about two of the tests somebody would have written instead,
+# while costing no lines at all.
+#
+# `acceptance` over the day: 533 survivors to 337.
+REPO_CEILING = 77_977
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

@@ -516,6 +516,7 @@ def test_a_path_that_is_not_there_is_unreadable_rather_than_unsafe(tmp_path: Pat
     refusal = _unsafe(tmp_path / "gone.md")
 
     assert refusal.code == "ACCEPTANCE_UNREADABLE"
+    assert "could not be read" in str(refusal)
 
 
 def test_a_symbolic_link_is_refused_even_when_it_points_at_a_real_file(tmp_path: Path):
@@ -544,7 +545,10 @@ def test_a_file_with_a_second_hard_link_is_refused(tmp_path: Path):
     target.write_text("x", encoding="utf-8")
     (tmp_path / "second.md").hardlink_to(target)
 
-    assert "more than one link" in str(_unsafe(target))
+    refusal = _unsafe(target)
+
+    assert refusal.code == "ACCEPTANCE_UNSAFE_PATH"
+    assert "more than one link" in str(refusal)
 
 
 def test_a_directory_offered_as_a_file_is_refused_and_the_reverse_too(tmp_path: Path):
@@ -554,8 +558,12 @@ def test_a_directory_offered_as_a_file_is_refused_and_the_reverse_too(tmp_path: 
     here = tmp_path / "spec.md"
     here.write_text("x", encoding="utf-8")
 
-    assert "not a regular file" in str(_unsafe(tmp_path, directory=False))
-    assert "not a directory" in str(_unsafe(here, directory=True))
+    for refusal, says in (
+        (_unsafe(tmp_path, directory=False), "not a regular file"),
+        (_unsafe(here, directory=True), "not a directory"),
+    ):
+        assert refusal.code == "ACCEPTANCE_UNSAFE_PATH"
+        assert says in str(refusal)
 
 
 def test_something_that_is_neither_a_file_nor_a_directory_is_refused(tmp_path: Path):
@@ -565,7 +573,10 @@ def test_something_that_is_neither_a_file_nor_a_directory_is_refused(tmp_path: P
     pipe = tmp_path / "pipe"
     os.mkfifo(pipe)
 
-    assert "not a regular file" in str(_unsafe(pipe))
+    refusal = _unsafe(pipe)
+
+    assert refusal.code == "ACCEPTANCE_UNSAFE_PATH"
+    assert "not a regular file" in str(refusal)
 
 
 def test_a_path_on_another_volume_is_refused(tmp_path: Path):
@@ -578,6 +589,7 @@ def test_a_path_on_another_volume_is_refused(tmp_path: Path):
     with pytest.raises(acceptance.Refusal) as raised:
         acceptance._safe_stat(here, _volume(here) + 1, directory=False)
 
+    assert raised.value.code == "ACCEPTANCE_UNSAFE_PATH"
     assert "crosses a filesystem boundary" in str(raised.value)
 
 
@@ -620,6 +632,7 @@ def test_a_file_that_grows_between_the_measurement_and_the_read_is_refused(tmp_p
         with pytest.raises(acceptance.Refusal) as raised:
             acceptance._read(here, 100, _volume(here), budget)
 
+    assert raised.value.code == "ACCEPTANCE_UNREADABLE"
     assert "changed while it was read" in str(raised.value)
 
 
@@ -630,6 +643,7 @@ def test_bytes_that_are_not_utf8_are_refused_as_such_and_not_replaced(tmp_path: 
     with pytest.raises(acceptance.Refusal) as raised:
         acceptance._text(b"\xff\xfe", "the record")
 
+    assert raised.value.code == "ACCEPTANCE_MALFORMED"
     assert "not valid UTF-8" in str(raised.value)
 
 
