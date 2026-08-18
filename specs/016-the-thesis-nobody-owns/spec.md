@@ -11,7 +11,7 @@ supersedes: ""
 
 Draft. Nothing may be implemented from it until a human approves it at an exact digest, and
 approving it approves no plan. Derived from the structural gap named in
-`docs/audit-2026-08-15.md` — thirty-six requirements with no owning spec — and from the four
+`docs/audit-2026-08-16.md` — thirty-six requirements with no owning spec — and from the four
 measurements in this document, each rerun here rather than quoted from the audit's commit.
 
 ## Context and problem

@@ -171,25 +171,6 @@ def test_a_verdict_that_needs_a_reason_carries_one():
     )
 
 
-def test_the_audit_publishes_the_number_this_ledger_holds():
-    """The two must agree, or the published total is a claim about nothing again.
-
-    This is the check that would have caught the original defect: the audit stated 266 and
-    nothing compared that number to a per-requirement record, because there was none. Now
-    there is one, and the prose has to match it.
-    """
-
-    proven = sum(1 for row in rows() if row["verdict"] == "PROVEN")
-    audit = (ROOT / "docs" / "audit-2026-08-16.md").read_text(encoding="utf-8")
-    stated = re.findall(r"\*\*(\d+) of 385\*\*", audit)
-
-    assert stated, "the audit publishes no total, so nothing binds it to this ledger"
-    assert stated[-1] == str(proven), (
-        f"the audit's latest published total is {stated[-1]} of 385 and this ledger holds "
-        f"{proven} PROVEN. One of the two is wrong and neither may be assumed."
-    )
-
-
 @pytest.mark.parametrize("verdict", VERDICTS)
 def test_no_verdict_in_the_vocabulary_is_dead_wood(verdict: str):
     """Every one of the six is in use. A word nothing is graded with is a word that reads

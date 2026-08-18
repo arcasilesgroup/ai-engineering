@@ -3259,7 +3259,22 @@ DESCRIPTION_MAX = 1000
 # and the subset this update may replace. An append-only surface is in the first and never
 # the second, because it keys its trust to the position of our entry and rewriting it
 # invalidates somebody else's.
-REPO_CEILING = 79_064
+#
+# 79,064 down to 77,718. The operator read `docs/` and asked the question this comment should
+# have asked weeks ago: if the specs already carry the requirement ids, what are two audit
+# narratives for? 228 of 385 requirements were already named inside spec files. The answer
+# was that the verdict data was duplicated and only the *corrections* were not.
+#
+# So `audit-2026-08-15.md` is gone and `-16` keeps five sections: what it withdrew, the
+# block hand-offs a test actually reads, the pass where the published number was 86 too
+# high, what the mutation floor cost, and the day the answer key was first run. 1,851 lines
+# to 509.
+#
+# The gate went with them. `test_the_audit_publishes_the_number_this_ledger_holds` existed
+# only to check that a number printed in prose matched the same number in the ledger — a
+# gate whose whole reason to exist was that one fact had two homes. Removing the second
+# home removes the gate, which is the shape rule 12 asks for run backwards.
+REPO_CEILING = 77_718
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
