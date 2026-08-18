@@ -2952,7 +2952,21 @@ DESCRIPTION_MAX = 1000
 # `legacy_spans` gets the CRLF case again, because that bug is the quietest way a register
 # can be wrong: the fence read as unclosed and the reader answered PASS over zero
 # acceptances in a file that held one.
-REPO_CEILING = 75_720
+#
+# 75,720 to 75,997 for the JSON boundary and for the flag it turned out was doing nothing.
+#
+# `cli._json_dispatch` carried 137 surviving mutants, the largest pool behind any single
+# function in the tree, and the reason is that almost all of it is error handling. Error
+# handling runs when something has already gone wrong, so a suite driven by things going
+# right never reaches it and every mutant there sits behind a branch nobody takes.
+#
+# Writing the cases found a real one. Both `--debug` tracebacks in that function were
+# inside `_silence()`, which redirects stdout *and* stderr to /dev/null — so
+# `ai-eng --json --debug` produced zero bytes on stderr, in the one place a person looks
+# when something has already gone wrong. The real stderr is now held before the redirect.
+# That is this session's recurring defect in its purest form: a control that reads stronger
+# than it is, and the control is the flag whose only job is to show somebody what happened.
+REPO_CEILING = 75_997
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

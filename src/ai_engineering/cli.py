@@ -286,6 +286,12 @@ def _json_dispatch(verb: str, rest: list[str], *, debug: bool = False) -> int:
     # built, and named apart from the module so that "not imported yet" and "the renderer"
     # are two things rather than one name meaning both.
     renderer: ModuleType | None = None
+    # The real stderr, held before `_silence` swaps it for /dev/null. Without this the
+    # `--debug` traceback below is written into the sink along with the child's prose, and
+    # the flag whose only job is to show a person what happened shows them nothing — a
+    # control that reads stronger than it is, in the one place a person looks when
+    # something has already gone wrong.
+    reachable = sys.stderr
     try:
         with _silence():
             from ai_engineering import ui
@@ -347,7 +353,7 @@ def _json_dispatch(verb: str, rest: list[str], *, debug: bool = False) -> int:
                 process_exit = execution.exit_code
             except BaseException:
                 if debug:
-                    traceback.print_exc()
+                    traceback.print_exc(file=reachable)
                 execution = outcome.execution(
                     outcome.result("INCOMPLETE"),
                     summary="The command failed before producing bounded execution facts",
