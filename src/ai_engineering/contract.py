@@ -3025,7 +3025,18 @@ DESCRIPTION_MAX = 1000
 #
 # And every refusal returns a problem string rather than raising, because callers treat a
 # raise as a crash and a string as an answer — and "the chain cannot be read" is an answer.
-REPO_CEILING = 76_665
+#
+# 76,665 to 76,706 for the price of the floor, measured rather than estimated. Over one
+# day, 144 tests written specifically to kill surviving mutants killed 177 of them: 1.23
+# per test, measured five times per module rather than projected. The gap from the
+# whole-tree run is 3,231, so the floor is roughly 2,600 more tests against a suite that
+# holds 1,901 today.
+#
+# The rate falls inside every module as the cheap half goes first and does not transfer
+# between them. That is not an argument for moving the floor — it is the number the
+# instruction "the tests get better, the number does not come down" deserves to be given
+# with. The full arithmetic is in docs/audit-2026-08-16.md.
+REPO_CEILING = 76_706
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
