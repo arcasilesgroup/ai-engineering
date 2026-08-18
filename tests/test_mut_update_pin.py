@@ -182,3 +182,150 @@ def test_a_pin_touched_without_its_bytes_changing_is_still_refused(tmp_path: Pat
         os.close(home_fd)
 
     assert touched["done"], "the interference never happened, so this proved nothing"
+
+
+# --- _guard_plan: which recorded guards this update may rewrite ----------------------
+#
+# 26 more survivors. `update` rewrites guard entries in other tools' settings files, and
+# this decides which ones it is allowed to touch. Ownership narrows that set; it never
+# widens it, and the comment in the source says why in one line worth repeating: ownership
+# does not grant permission and is never proof that an update ran or succeeded.
+#
+# Everything it cannot establish is `Undecidable` rather than an empty plan. An empty plan
+# means there is nothing to rewrite, which is a claim; a receipt nobody can parse is not a
+# claim at all, and rewriting nothing on the strength of one would leave a machine half
+# upgraded with a green line under it.
+
+
+def _planned(monkeypatch, receipt, surfaces):
+    monkeypatch.setattr(update.wiring, "receipt", lambda: receipt)
+    monkeypatch.setattr(update.wiring, "detect", lambda: surfaces)
+    return update._guard_plan()
+
+
+def test_only_surfaces_the_receipt_records_as_ours_are_in_the_plan(tmp_path, monkeypatch):
+    """A settings file this tool never wrote to is somebody else's file, whatever else is
+    true about it."""
+
+    ours = tmp_path / "ours.json"
+    ours.write_text("{}", encoding="utf-8")
+    theirs = tmp_path / "theirs.json"
+    theirs.write_text("{}", encoding="utf-8")
+
+    found, rewritten = _planned(
+        monkeypatch,
+        {"wrote": [{"path": str(ours), "kind": "guard", "how": "json_claude"}]},
+        [
+            {"settings": str(ours), "writer": "json_claude"},
+            {"settings": str(theirs), "writer": "json_claude"},
+        ],
+    )
+
+    assert [one["settings"] for one in found] == [str(ours)]
+    assert [one["settings"] for one in rewritten] == [str(ours)]
+
+
+def test_a_receipt_row_of_another_kind_does_not_put_a_surface_in_the_plan(tmp_path, monkeypatch):
+    """`kind == "guard"` and nothing else. A skills row naming the same path would otherwise
+    authorise a rewrite of a file recorded for a different reason entirely."""
+
+    here = tmp_path / "settings.json"
+    here.write_text("{}", encoding="utf-8")
+
+    found, _ = _planned(
+        monkeypatch,
+        {"wrote": [{"path": str(here), "kind": "skills", "how": "wheel"}]},
+        [{"settings": str(here), "writer": "json_claude"}],
+    )
+
+    assert found == []
+
+
+def test_an_append_only_surface_is_found_and_never_rewritten(tmp_path, monkeypatch):
+    """Two lists for two different questions. `found` is what we are recorded as owning;
+    `rewritten` is the subset this update may replace — and an append-only surface keys its
+    trust to the position of our entry, so rewriting it invalidates somebody else's."""
+
+    here = tmp_path / "settings.json"
+    here.write_text("{}", encoding="utf-8")
+
+    found, rewritten = _planned(
+        monkeypatch,
+        {"wrote": [{"path": str(here), "kind": "guard", "how": "json_codex"}]},
+        [{"settings": str(here), "writer": "json_codex", "append_only": True}],
+    )
+
+    assert [one["settings"] for one in found] == [str(here)]
+    assert rewritten == []
+
+
+@pytest.mark.parametrize(
+    "receipt",
+    [
+        pytest.param([], id="not an object"),
+        pytest.param({"wrote": {}}, id="rows are not a list"),
+        pytest.param({"wrote": ["a string"]}, id="a row is not an object"),
+        pytest.param({"wrote": [{"path": "x", "kind": "guard"}]}, id="a row has no how"),
+        pytest.param(
+            {"wrote": [{"path": 7, "kind": "guard", "how": "x"}]}, id="a path is a number"
+        ),
+    ],
+)
+def test_a_receipt_that_is_not_canonical_is_undecidable_rather_than_an_empty_plan(
+    receipt, monkeypatch
+):
+    """An empty plan means there is nothing to rewrite, which is a claim. A receipt nobody
+    can parse is not a claim at all, and rewriting nothing on the strength of one leaves a
+    machine half upgraded with a green line under it."""
+
+    monkeypatch.setattr(update.wiring, "detect", lambda: [])
+
+    with pytest.raises(update.Undecidable):
+        _planned(monkeypatch, receipt, [])
+
+
+def test_a_recorded_target_that_is_a_link_is_undecidable(tmp_path, monkeypatch):
+    """Before anything is written. A link where a settings file belongs would make this
+    update rewrite whatever is on the other end, with the person's own permissions."""
+
+    real = tmp_path / "real.json"
+    real.write_text("{}", encoding="utf-8")
+    link = tmp_path / "settings.json"
+    link.symlink_to(real)
+
+    with pytest.raises(update.Undecidable):
+        _planned(
+            monkeypatch,
+            {"wrote": [{"path": str(link), "kind": "guard", "how": "json_claude"}]},
+            [{"settings": str(link), "writer": "json_claude"}],
+        )
+
+
+def test_a_recorded_target_that_cannot_be_parsed_is_undecidable(tmp_path, monkeypatch):
+    """The file is read here, before the plan is returned, precisely so that the failure
+    happens before anything is rewritten rather than in the middle of it."""
+
+    here = tmp_path / "settings.json"
+    here.write_text("{ not json", encoding="utf-8")
+
+    with pytest.raises(update.Undecidable):
+        _planned(
+            monkeypatch,
+            {"wrote": [{"path": str(here), "kind": "guard", "how": "json_claude"}]},
+            [{"settings": str(here), "writer": "json_claude"}],
+        )
+
+
+def test_a_recorded_target_that_is_not_there_yet_is_still_planned(tmp_path, monkeypatch):
+    """Absence is not a reason to refuse. A surface whose settings file a person deleted is
+    exactly the machine an update should repair."""
+
+    missing = tmp_path / "gone.json"
+
+    found, rewritten = _planned(
+        monkeypatch,
+        {"wrote": [{"path": str(missing), "kind": "guard", "how": "json_claude"}]},
+        [{"settings": str(missing), "writer": "json_claude"}],
+    )
+
+    assert [one["settings"] for one in rewritten] == [str(missing)]

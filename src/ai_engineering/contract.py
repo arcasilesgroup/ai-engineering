@@ -3245,7 +3245,21 @@ DESCRIPTION_MAX = 1000
 # canonical through a rename nobody can undo — this is the last moment anything can be
 # checked, and afterwards the only evidence left is what was checked here. A replacement
 # carrying identical bytes is still a file this transaction did not write.
-REPO_CEILING = 78_903
+#
+# 78,903 to 79,064 for which recorded guards an update may rewrite. Ownership narrows that set
+# and never widens it, and the line in the source is worth repeating: ownership does not
+# grant permission and is never proof that an update ran or succeeded.
+#
+# Everything it cannot establish is `Undecidable` rather than an empty plan, and the
+# distinction is the function. An empty plan means there is nothing to rewrite, which is a
+# claim. A receipt nobody can parse is not a claim at all, and rewriting nothing on the
+# strength of one leaves a machine half upgraded with a green line under it.
+#
+# `found` and `rewritten` are two lists for two questions: what we are recorded as owning,
+# and the subset this update may replace. An append-only surface is in the first and never
+# the second, because it keys its trust to the position of our entry and rewriting it
+# invalidates somebody else's.
+REPO_CEILING = 79_064
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
