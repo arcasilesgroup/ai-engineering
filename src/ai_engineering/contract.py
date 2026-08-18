@@ -3164,7 +3164,18 @@ DESCRIPTION_MAX = 1000
 # screen: if the draft changed between the preview and the typing, the phrase no longer
 # matches what was shown. And the comparison is exact — one that accepted `SEND` alone
 # would accept a confirmation of any payload at all.
-REPO_CEILING = 78_098
+#
+# 78,098 to 78,133 for the same rate measured a second time, over five modules none of which
+# had been touched: 94 tests killed 97 mutants, 1.03 per test, against 1.23 over the first
+# four. Cumulatively 274 killed by 238 tests, 1.15 per test.
+#
+# The two agree to within a fifth of a mutant across nine modules, and that agreement is
+# what makes the projection worth stating: the gap to the floor is roughly 2,600 more tests
+# against a suite of 2,016. What the second pass adds is that the rate did not improve on
+# fresh ground — it was not the tail of `acceptance` dragging the number down. The cheap
+# half of every module is gone, and what remains costs about one test per mutant wherever
+# it is.
+REPO_CEILING = 78_133
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
