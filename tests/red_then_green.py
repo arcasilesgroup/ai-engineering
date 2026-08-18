@@ -23,6 +23,7 @@ hooks`, which is the shape of the question: this commit's tests, last commit's p
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import shutil
 import subprocess
@@ -39,11 +40,15 @@ PRODUCT = ("src", "hooks")
 
 ADDED_TEST = re.compile(r"^\+def (test_[A-Za-z0-9_]+)", re.MULTILINE)
 
-# A changed product line that is not behaviour. Comments are the bulk of this repository and
-# `REPO_CEILING` is bookkeeping about the tree's size — a commit that moves only those has
-# changed nothing a test could be red about, and demanding red from it would be demanding
-# that a test written to kill mutants fail against the code it was written to describe.
-BOOKKEEPING = re.compile(r"^\+\s*(#|REPO_CEILING = |\"\"\"|'''|$)")
+# The one piece of product state that is bookkeeping rather than behaviour.
+BOOKKEEPING = "REPO_CEILING"
+
+
+def _is_bookkeeping(statement: ast.stmt) -> bool:
+    return isinstance(statement, ast.Assign) and any(
+        isinstance(target, ast.Name) and target.id == BOOKKEEPING for target in statement.targets
+    )
+
 
 ENGINE = "pytest==9.1.1"
 
@@ -88,6 +93,38 @@ def added_tests(commit: str) -> dict[str, list[str]]:
     return found
 
 
+def _shape(source: str) -> str | None:
+    """A module's code with every docstring and every comment gone.
+
+    Read with `ast` rather than by matching lines, because the first version of this did
+    match lines and flagged a commit whose entire product diff was the second and later
+    lines of a docstring. A regex sees `#` at the start of a line; it cannot see that a
+    string literal is the first statement in a function, which is the only thing that makes
+    it a docstring. Comments never reach the tree at all, so nothing has to remove them.
+    """
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return None
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if not isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        first = body[0] if body else None
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            node.body = body[1:] or [ast.Pass()]
+    # And the ceiling, which is a number about the tree's size rather than about what the
+    # tree does. Every commit that adds a line moves it, so leaving it in would make every
+    # commit a behaviour change and this runner would demand red from all of them.
+    tree.body = [statement for statement in tree.body if not _is_bookkeeping(statement)]
+    return ast.dump(tree)
+
+
 def changed_behaviour(commit: str) -> bool:
     """Did this commit change what the product does, or only what it says about itself?
 
@@ -95,13 +132,28 @@ def changed_behaviour(commit: str) -> bool:
     code is a characterisation commit — its tests are *supposed* to pass at the parent, and
     what proves them is the mutation score, not this. Calling that "proved nothing" would be
     this runner telling the truth in words that mean the opposite.
+
+    In a repository where the comments outnumber the code, that distinction cannot be drawn
+    by reading the diff. It is drawn by parsing both versions of every product file the
+    commit touched and comparing what is left once the prose is gone.
     """
 
-    patch = git("diff", "-U0", f"{commit}^", commit, "--", *PRODUCT)
-    return any(
-        line.startswith("+") and not line.startswith("+++") and not BOOKKEEPING.match(line)
-        for line in patch.splitlines()
-    )
+    names = git("diff", "--name-only", f"{commit}^", commit, "--", *PRODUCT).split()
+    for name in names:
+        if not name.endswith(".py"):
+            return True
+        try:
+            after = git("show", f"{commit}:{name}")
+        except SystemExit:
+            return True  # deleted here, which is a change by any reading
+        try:
+            before = git("show", f"{commit}^:{name}")
+        except SystemExit:
+            return True  # new here
+        one, two = _shape(before), _shape(after)
+        if one is None or two is None or one != two:
+            return True
+    return False
 
 
 def examine(commit: str, area: Path) -> tuple[str, str]:

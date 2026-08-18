@@ -2872,7 +2872,19 @@ DESCRIPTION_MAX = 1000
 # score. So there are four states now and red is owed only where behaviour moved — with a
 # comment or a ceiling bump counting as no movement, because otherwise this runner would be
 # demanding that a mutation-killing test fail against the code it was written to describe.
-REPO_CEILING = 74_791
+#
+# 74,791 to 74,881 for what the runner found and for the reading it needed to find it.
+# Over 73 commits: 24 added no tests, 30 pin behaviour that did not change, 16 are red at
+# their parent, and 3 proved nothing. `09b15096` is the one worth naming — it introduced
+# assertion 26 and added nine tests with it, and all nine pass against the source from
+# before the commit, because all nine test the policy file and the `ui` behaviour that
+# already existed. The assertion's own tests arrived later.
+#
+# Drawing the line by reading the diff failed here for the reason this file is 200 kilobytes
+# long: where the comments outnumber the code, a commit whose entire product diff is the
+# second and later lines of a docstring looks like a change. It is drawn by parsing both
+# versions and comparing what is left once the prose and this constant are gone.
+REPO_CEILING = 74_881
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
