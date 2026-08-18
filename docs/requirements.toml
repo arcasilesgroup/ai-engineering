@@ -1971,7 +1971,7 @@ note = "two of the three exist and execute. The baseline is 254 in policy/pilot-
 id = "EP-290"
 verdict = "PROVEN"
 subject = "the framework writes only into the homes it declares, and the count is published"
-evidence = "ai-eng --json doctor"
+evidence = """ai-eng --json doctor | python -c "import json,sys; row=[c for c in json.load(sys.stdin)['checks'] if c['id']=='assertion-18'][0]; assert row['status']=='PASS', row; assert 'tracked files inventoried' in (row['detail'] or ''), row\""""
 note = '''both halves execute. The refusal fails by name on a stray, and the count is published: assertion 18 returns a `Noted`, a string subclass the runner reads as a pass carrying a detail, and prints how many files were inventoried and how many Intent homes were found. The channel is what was missing — a check returned `None` for a pass and a string for the problem, so one that inventoried 257 files and found every one correctly homed said exactly what one that inventoried nothing said. Four cases hold it to being a pass, including a control that a real stray still fails and is not wrapped.'''
 
 [[requirement]]
