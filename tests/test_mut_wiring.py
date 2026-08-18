@@ -860,3 +860,210 @@ def test_a_receipt_row_naming_a_router_outside_a_declared_command_root_is_refuse
         },
     ):
         assert uninstall.canonical(row, None) is None, row
+
+
+# ── the five functions that carried 79 of the surviving mutants ─────────────────────
+#
+# `_described`, `install_routers`, `wire_git`, `linked` and `wired`. What they have in
+# common is that each answers a question about the machine, and each has one answer that
+# looks like a smaller version of the truth: a description that is really a fold marker, a
+# link count that is really a row count, an anchor that names an interpreter which cannot
+# run the thing it is anchored to. None of those show up as a crash.
+
+
+@pytest.mark.parametrize(
+    ("frontmatter", "expected"),
+    [
+        pytest.param("description: on one line\n", "on one line", id="inline"),
+        pytest.param(
+            "description: >-\n  folded over\n  two lines\n",
+            "folded over two lines",
+            id="folded with >-",
+        ),
+        pytest.param("description: >\n  folded\n", "folded", id="folded with >"),
+        pytest.param("description: |\n  literal\n", "literal", id="literal with |"),
+        pytest.param("description: |-\n  literal\n", "literal", id="literal with |-"),
+    ],
+)
+def test_a_router_takes_the_skill_s_own_words_however_the_skill_folds_them(
+    tmp_path, frontmatter, expected
+):
+    """Five ways YAML lets somebody write the same sentence. Reading only the first line
+    answers `>-` for four of them, and a router that describes `/ai-plan` as ">-" is a
+    router that tells a person nothing the command they typed had not already told them."""
+
+    skill = tmp_path / "ai-thing"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(f"---\nname: ai-thing\n{frontmatter}---\n\n# body\n")
+
+    assert wiring._described(skill) == expected
+
+
+def test_a_skill_with_no_description_at_all_is_described_by_its_own_name(tmp_path):
+    """Not an empty string. A router whose description is blank renders a heading with
+    nothing under it, and the surface that loads it shows an empty row rather than a
+    missing one — which is the harder of the two to notice."""
+
+    skill = tmp_path / "ai-bare"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: ai-bare\n---\n\n# body\n")
+
+    assert wiring._described(skill) == "ai-bare"
+
+
+def test_a_fold_marker_with_nothing_indented_under_it_falls_back_to_the_name(tmp_path):
+    skill = tmp_path / "ai-empty"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: ai-empty\ndescription: >-\nlicense: x\n---\n")
+
+    assert wiring._described(skill) == "ai-empty"
+
+
+def test_a_surface_with_no_commands_root_gets_no_router_rather_than_a_guessed_one(
+    tmp_path, machine
+):
+    """Writing into a directory whose convention was guessed is worse than not writing: the
+    file lands somewhere nobody looks, does nothing, and has to be found by hand later."""
+
+    with_root = {"name": "A", "commands": str(tmp_path / "cmds"), "writer": "none"}
+    without = {"name": "B", "writer": "none"}
+
+    written = wiring.install_routers([with_root, without])
+
+    assert {row["path"] for row in written}
+    assert all(str(tmp_path / "cmds") in row["path"] for row in written)
+
+
+def test_every_router_records_the_digest_of_exactly_what_was_written(tmp_path, machine):
+    """`how` is what lets `doctor` tell a router nobody touched from one somebody edited,
+    and what lets `uninstall` refuse to delete a file that is no longer ours. A digest of
+    anything other than the bytes on disk makes both of those answer about a different
+    file."""
+
+    written = wiring.install_routers([{"name": "A", "commands": str(tmp_path / "c")}])
+
+    assert written
+    for row in written:
+        body = Path(row["path"]).read_bytes()
+        assert row["kind"] == "router"
+        assert row["how"] == f"generated {hashlib.sha256(body).hexdigest()}"
+
+
+def test_the_git_anchor_is_not_written_when_the_cli_it_would_name_cannot_answer(
+    tmp_path, monkeypatch
+):
+    """The state this machine was actually found in: an editable install whose `.pth` points
+    at a deleted worktree. The interpreter is alive, `ai_engineering.cli` is not, and an
+    anchor written from that names something that looks configured and answers nothing."""
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    monkeypatch.setattr(
+        wiring,
+        "anchor_answers",
+        lambda: subprocess.CompletedProcess([], 1, stdout="", stderr="No module named x"),
+    )
+
+    with pytest.raises(wiring.Unreadable) as refused:
+        wiring.wire_git(root)
+
+    assert "--version" in str(refused.value)
+    written = subprocess.run(
+        ["git", "-C", str(root), "config", "--get", "core.hooksPath"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert written.stdout.strip() == "", "the anchor was written after the proof failed"
+
+
+def test_an_answer_that_is_not_ours_is_refused_even_with_a_zero_exit(tmp_path, monkeypatch):
+    """`command -v ai-eng` proves a binary exists and never that it is this one. An older
+    install on the PATH exits zero and has no `accept` verb, and pre-push then refused every
+    push in the repository it had just been installed into."""
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    monkeypatch.setattr(
+        wiring,
+        "anchor_answers",
+        lambda: subprocess.CompletedProcess([], 0, stdout="somebody-elses-tool 9.9\n", stderr=""),
+    )
+
+    with pytest.raises(wiring.Unreadable):
+        wiring.wire_git(root)
+
+
+def test_a_cli_that_cannot_be_executed_at_all_is_a_refusal_and_not_a_traceback(
+    tmp_path, monkeypatch
+):
+    root = tmp_path / "repo"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+
+    def explode():
+        raise OSError(2, "no such file")
+
+    monkeypatch.setattr(wiring, "anchor_answers", explode)
+
+    with pytest.raises(wiring.Unreadable) as refused:
+        wiring.wire_git(root)
+    assert "FileNotFoundError" in str(refused.value)
+
+
+def test_a_settings_file_that_is_there_and_unreadable_does_not_read_as_absent(
+    tmp_path, monkeypatch
+):
+    """`wired` decides from the file rather than from the receipt, on purpose. Bytes that
+    are not valid UTF-8 are replaced rather than raising, because a settings file another
+    tool wrote in some other encoding is still a file whose contents can be searched for
+    our signature — and answering "not wired" for it would offer to wire it again."""
+
+    settings = tmp_path / "settings.json"
+    settings.write_bytes(b'{"hooks": "\xff\xfe"}')
+    monkeypatch.setattr(
+        wiring,
+        "detect",
+        lambda only=None: [{"name": "S", "writer": "json_claude", "settings": str(settings)}],
+    )
+
+    on, off = wiring.wired()
+
+    assert (on, [row["name"] for row in off]) == ([], ["S"])
+
+
+def test_five_surfaces_sharing_one_skills_root_are_one_link_and_not_five(
+    tmp_path, machine, monkeypatch
+):
+    """The same wrong number arriving from the other side. Walking the table row by row
+    reports five links over one directory, and `already()` printed exactly that."""
+
+    store = machine / ".ai-engineering" / "skills"
+    store.mkdir(parents=True, exist_ok=True)
+    (store / "ai-thing").mkdir()
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "ai-thing").symlink_to(store / "ai-thing")
+    monkeypatch.setattr(wiring, "table", lambda: {"surface": [{"skills": str(shared)}] * 5})
+
+    assert wiring.linked() == [shared]
+
+
+def test_a_directory_of_ours_counts_only_when_the_receipt_says_we_put_it_there(
+    tmp_path, machine, monkeypatch
+):
+    """The Windows case, where linking copies. A directory named `ai-something` sitting in
+    a skills root is not evidence on its own — anybody may write one — so the one question
+    the disk genuinely cannot answer is asked of the receipt instead."""
+
+    root = tmp_path / "copied"
+    (root / "ai-thing").mkdir(parents=True)
+    monkeypatch.setattr(wiring, "table", lambda: {"surface": [{"skills": str(root)}]})
+
+    monkeypatch.setattr(wiring, "receipt", lambda: {"wrote": []})
+    assert wiring.linked() == []
+
+    monkeypatch.setattr(wiring, "receipt", lambda: {"wrote": [{"path": str(root), "how": "copy"}]})
+    assert wiring.linked() == [root]

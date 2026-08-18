@@ -2813,7 +2813,23 @@ DESCRIPTION_MAX = 1000
 # command on such a row rather than demanding one. A shape check satisfiable by theatre
 # produces theatre: this one produced sixty-six pieces of it and cost a hundred lines to
 # carry.
-REPO_CEILING = 73_439
+#
+# 73,439 to 74,068 for the two functions that decide whether a file is a record at all.
+# `madr._parse` and `madr._worktree_files` carried 194 of the 571 mutants that survived
+# over `madr.py` and `wiring.py` — a third of the gap in two functions — and `wiring`'s
+# `_described`, `install_routers`, `wire_git`, `linked` and `wired` carried another 79.
+#
+# What the seven have in common is worth the lines: each answers *is this mine, and can I
+# read it* before anything downstream is allowed an opinion, and each has a wrong answer
+# that looks like a smaller version of the right one. A description that is really the YAML
+# fold marker. A link count that is really a row count. An anchor naming an interpreter
+# that cannot run the thing anchored to it. None of those crash, and every one of them was
+# reached by `validate` with whatever a plausible repository happened to contain — which
+# proves the paths a good record takes and leaves a bad one's to chance.
+#
+# `madr` alone: 75% to 81%, `_worktree_files` from 103 survivors to 38 and `_parse` from
+# 91 to 26.
+REPO_CEILING = 74_068
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
