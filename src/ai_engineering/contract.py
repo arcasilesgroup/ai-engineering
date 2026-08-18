@@ -3297,7 +3297,21 @@ DESCRIPTION_MAX = 1000
 # The script refuses rather than looping. A ceiling that will not settle in ten passes means
 # something else is writing to the tree, and a number taken during that is a number about
 # neither state.
-REPO_CEILING = 77_934
+#
+# A correction to the paragraph above, measured rather than argued. Consolidating
+# `checkpoint`'s ten test functions into four moved its mutation score by nothing at all:
+# 219 survivors and 61%% before, 219 and 61%% after, with every case preserved.
+#
+# So "fewer functions kill more" is false, and what actually happened in `acceptance` was
+# narrower. Those individual tests asserted *different things from one another* — some the
+# message, some the code — and the table forced every row through both. `checkpoint`'s
+# already asserted the same pair, so there was nothing for a table to repair.
+#
+# The lever is the strength and the uniformity of the assertion, not the count of
+# functions. Consolidation is one way to force uniformity and it is worth doing for what it
+# buys in reading, but it is not a mutation lever on its own — and a rule stated from one
+# measurement would have sent the next person consolidating for a number that never moves.
+REPO_CEILING = 77_944
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

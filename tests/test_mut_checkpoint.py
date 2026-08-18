@@ -23,6 +23,8 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from ai_engineering import checkpoint
 
 NOW = datetime(2026, 8, 18, 12, 0, 0, tzinfo=UTC)
@@ -44,76 +46,102 @@ def _decided(root: Path):
     return checkpoint._executed(root, now=NOW)
 
 
-def test_no_receipts_at_all_is_incomplete_rather_than_a_pass(tmp_path: Path):
-    """Nothing ran, so nothing is known. A pass here would be the product asserting a green
-    it never observed, which is the one thing it may not do."""
+# A row is the receipts on disk and the answer they must produce together. One table,
+# because "which receipt decides" is one question and ten copies of it let ten assertions
+# drift apart — which is how the defect above survived in the first place.
+#
+# Each receipt is (name, outcome, seconds of age, bound in seconds).
 
-    assert _decided(tmp_path).status == "INCOMPLETE"
+FRESH = 3600
 
 
-def test_one_fresh_passing_receipt_is_a_pass_and_names_itself(tmp_path: Path):
-    _receipt(tmp_path, "gate", "PASS")
+@pytest.mark.parametrize(
+    ("receipts", "status", "names"),
+    [
+        # Nothing ran, so nothing is known. A pass here would be the product asserting a
+        # green it never observed, which is the one thing it may not do.
+        pytest.param([], "INCOMPLETE", None, id="no receipts at all"),
+        pytest.param([("gate", "PASS", 0, FRESH)], "PASS", "gate", id="one fresh pass"),
+        # The defect this file exists for, in the exact arrangement that produced it.
+        # Keeping one receipt from a loop over `sorted(...)` returned PASS while the
+        # variable holding it was called `freshest`.
+        pytest.param(
+            [("adversarial-attacks", "FAIL", 0, FRESH), ("local-command-python", "PASS", 0, FRESH)],
+            "FAIL",
+            "adversarial-attacks",
+            id="a failure masked by a pass sorting later",
+        ),
+        # The same arrangement reversed, so a fix that merely inverted the sort would not
+        # pass this file.
+        pytest.param(
+            [("aaa-failing", "FAIL", 0, FRESH), ("zzz-passing", "PASS", 0, FRESH)],
+            "FAIL",
+            "aaa-failing",
+            id="and with the failure sorting first",
+        ),
+        # A gate that could not decide has not cleared this diff. Treating anything-but-FAIL
+        # as acceptable is how an undecidable result becomes a green one.
+        pytest.param(
+            [("one", "INCOMPLETE", 0, FRESH)], "FAIL", None, id="an outcome that is not PASS"
+        ),
+        # A gate that ran last week over different code proves nothing about this
+        # checkpoint, and reading it either way is a verdict about code that is gone.
+        pytest.param(
+            [("gate", "PASS", 7200, FRESH)], "INCOMPLETE", None, id="a pass past its bound"
+        ),
+        # The symmetry matters: keeping an expired FAIL blocks a diff on a finding nobody
+        # can reproduce, with a cure about code that has changed.
+        pytest.param(
+            [("old", "FAIL", 7200, FRESH), ("new", "PASS", 0, FRESH)],
+            "PASS",
+            "new",
+            id="a stale failure beside a fresh pass",
+        ),
+    ],
+)
+def test_every_fresh_receipt_is_read_and_the_worst_of_them_decides(
+    tmp_path: Path, receipts, status, names
+):
+    for name, said, age, bound in receipts:
+        _receipt(tmp_path, name, said, age=age, bound=bound)
 
     decided = _decided(tmp_path)
 
-    assert decided.status == "PASS"
-    assert "gate" in decided.detail
+    assert decided.status == status
+    if names is not None:
+        assert names in decided.detail
 
 
-def test_a_failing_receipt_is_not_masked_by_a_passing_one_that_sorts_later(tmp_path: Path):
-    """The defect this file exists for, in the exact arrangement that produced it.
-    `adversarial-attacks` reports FAIL and `local-command-python` reports PASS, and the
-    second sorts later — so keeping one receipt from a loop over `sorted(...)` returned
-    PASS while the variable was called `freshest`."""
+def test_a_receipt_that_cannot_be_read_is_skipped_and_the_rest_still_decide(tmp_path: Path):
+    """One corrupt file must not blind the check to the others — and if it was the only one,
+    the answer is INCOMPLETE, which is what no readable receipt means. Two states from one
+    fixture, so it is not a row."""
 
-    _receipt(tmp_path, "adversarial-attacks", "FAIL")
-    _receipt(tmp_path, "local-command-python", "PASS")
-
-    decided = _decided(tmp_path)
-
-    assert decided.status == "FAIL"
-    assert "adversarial-attacks" in decided.detail
-
-
-def test_the_same_arrangement_the_other_way_round_still_fails(tmp_path: Path):
-    """The order must not decide the verdict at all, so the failing name is made to sort
-    first as well. A test that only used the original arrangement would pass against a fix
-    that simply reversed the sort."""
-
-    _receipt(tmp_path, "aaa-failing", "FAIL")
-    _receipt(tmp_path, "zzz-passing", "PASS")
+    where = tmp_path / checkpoint.RECEIPTS
+    where.mkdir(parents=True, exist_ok=True)
+    (where / "broken.json").write_text("{not json", encoding="utf-8")
+    _receipt(tmp_path, "gate", "FAIL")
 
     assert _decided(tmp_path).status == "FAIL"
 
-
-def test_any_outcome_that_is_not_pass_counts_as_a_failure(tmp_path: Path):
-    """INCOMPLETE from a check that ran is not a pass. A gate that could not decide has not
-    cleared this diff, and treating anything-but-FAIL as acceptable is how an undecidable
-    result becomes a green one."""
-
-    _receipt(tmp_path, "one", "INCOMPLETE")
-
-    assert _decided(tmp_path).status == "FAIL"
-
-
-def test_a_receipt_older_than_its_own_bound_is_the_same_as_no_receipt(tmp_path: Path):
-    """Not a FAIL and not a PASS. A gate that ran last week over different code proves
-    nothing about this checkpoint, and reading it either way is a verdict about code that is
-    no longer there."""
-
-    _receipt(tmp_path, "gate", "PASS", age=7200, bound=3600)
-
+    (where / "gate.json").unlink()
     assert _decided(tmp_path).status == "INCOMPLETE"
 
 
-def test_a_stale_failure_is_also_ignored_rather_than_kept(tmp_path: Path):
-    """The symmetry matters. Keeping an expired FAIL would block a diff on a finding nobody
-    can reproduce, and the cure printed with it would be about code that has changed."""
+def test_a_receipt_with_an_unparseable_timestamp_is_skipped(tmp_path: Path):
+    """The format is exact on purpose. A timestamp this cannot parse is a receipt whose age
+    is unknown, and an unknown age is not a fresh one."""
 
-    _receipt(tmp_path, "old", "FAIL", age=7200, bound=3600)
-    _receipt(tmp_path, "new", "PASS")
+    where = tmp_path / checkpoint.RECEIPTS
+    where.mkdir(parents=True, exist_ok=True)
+    (where / "gate.json").write_text(
+        json.dumps(
+            {"id": "gate", "outcome": "PASS", "finished_at": "yesterday", "max_age_seconds": FRESH}
+        ),
+        encoding="utf-8",
+    )
 
-    assert _decided(tmp_path).status == "PASS"
+    assert _decided(tmp_path).status == "INCOMPLETE"
 
 
 def test_a_receipt_with_no_age_bound_of_its_own_expires_the_second_it_is_written(tmp_path: Path):
@@ -141,36 +169,4 @@ def test_a_receipt_with_no_age_bound_of_its_own_expires_the_second_it_is_written
     assert _decided(tmp_path).status == "PASS"
 
     unbounded(NOW - timedelta(seconds=1))
-    assert _decided(tmp_path).status == "INCOMPLETE"
-
-
-def test_a_receipt_that_cannot_be_read_is_skipped_and_the_rest_still_decide(tmp_path: Path):
-    """One corrupt file must not blind the check to the others. It is skipped rather than
-    fatal, and if it was the only one the answer is INCOMPLETE — which is what no readable
-    receipt means."""
-
-    where = tmp_path / checkpoint.RECEIPTS
-    where.mkdir(parents=True, exist_ok=True)
-    (where / "broken.json").write_text("{not json", encoding="utf-8")
-    _receipt(tmp_path, "gate", "FAIL")
-
-    assert _decided(tmp_path).status == "FAIL"
-
-    (where / "gate.json").unlink()
-    assert _decided(tmp_path).status == "INCOMPLETE"
-
-
-def test_a_receipt_with_an_unparseable_timestamp_is_skipped(tmp_path: Path):
-    """The format is exact on purpose. A timestamp this cannot parse is a receipt whose age
-    is unknown, and an unknown age is not a fresh one."""
-
-    where = tmp_path / checkpoint.RECEIPTS
-    where.mkdir(parents=True, exist_ok=True)
-    (where / "gate.json").write_text(
-        json.dumps(
-            {"id": "gate", "outcome": "PASS", "finished_at": "yesterday", "max_age_seconds": 3600}
-        ),
-        encoding="utf-8",
-    )
-
     assert _decided(tmp_path).status == "INCOMPLETE"
