@@ -2858,7 +2858,21 @@ DESCRIPTION_MAX = 1000
 # of them executed the commands beside those verdicts. The published total does not move —
 # 205 of 385, and not one of the twenty-four broken rows was wrong about the tree — but the
 # document can now be checked rather than read.
-REPO_CEILING = 74_583
+#
+# 74,583 to 74,791 for the only check that answers the question a green suite cannot: did
+# this test need the change? `PO-12` has asked since the first pass that a commit's focal
+# test fail before the change and pass after it, and the note explaining why nobody had
+# checked — two checkouts and a targeted run per task, fifty-three times — is a description
+# of a script.
+#
+# `tests/red_then_green.py` lays the parent's `src` and `hooks` under the commit's own new
+# tests. Its first run said three of today's seven commits proved nothing, and it was wrong
+# in a way worth keeping: a commit that adds tests over unchanged code is a characterisation
+# commit, its tests are supposed to pass at the parent, and what proves them is the mutation
+# score. So there are four states now and red is owed only where behaviour moved — with a
+# comment or a ceiling bump counting as no movement, because otherwise this runner would be
+# demanding that a mutation-killing test fail against the code it was written to describe.
+REPO_CEILING = 74_791
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

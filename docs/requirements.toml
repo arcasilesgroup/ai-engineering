@@ -2677,10 +2677,12 @@ evidence = '''
 
 [[commitment]]
 id = "PO-12"
-verdict = "NO-EVIDENCE"
+verdict = "INCOMPLETE"
 subject = "every commit's named focal test fails before the change and passes after it"
-evidence = "git checkout <task-parent> && pytest <the focal test the plan names for that task>"
-note = "not reached in this pass. Confirming red-then-green would need two checkouts and a targeted run per task, up to fifty-three times"
+evidence = '''
+python tests/red_then_green.py --since main
+'''
+note = "a runner walks every commit on the branch, lays the parent's `src` and `hooks` under that commit's new tests and reports four states. A commit that changed behaviour owes red; one that only added tests over unchanged code owes nothing and says PINS, because demanding red from a mutation-killing test is demanding that it fail against the code it was written to describe"
 
 [[commitment]]
 id = "PO-13"

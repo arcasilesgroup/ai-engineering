@@ -63,9 +63,6 @@ jobs:
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
           uv tool install "rust-just==${JUST_VERSION}"
 
-      # `|| true`, and the score is read from the log rather than from the exit code. The run
-      # failing its floor is the expected state today and it still has to publish the number:
-      # a job that exits before printing is exactly the shape this whole change is undoing.
       # Before breaking the product on purpose, find out whether the document that says
       # what the product proves is still true. `docs/requirements.toml` names a command
       # beside every requirement it calls proven and the suite only ever checked that the
@@ -76,6 +73,16 @@ jobs:
       - name: run the answer key
         run: uv run python tests/ledger_run.py
 
+      # `PO-12` asks that a commit's focal test fail before the change and pass after it.
+      # This is that, over the whole branch: the parent's product under the commit's own new
+      # tests. It does not block, because a branch cut from a shallow fetch has no parents to
+      # check out, and a job that reports nothing is worse than one that reports a skip.
+      - name: every new test, against the code from before it
+        run: uv run python tests/red_then_green.py --since origin/main || true
+
+      # `|| true`, and the score is read from the log rather than from the exit code. The run
+      # failing its floor is the expected state today and it still has to publish the number:
+      # a job that exits before printing is exactly the shape this whole change is undoing.
       - name: break it on purpose, over everything
         run: just mutate | tee "$RUNNER_TEMP/mutate.log" || true
 
