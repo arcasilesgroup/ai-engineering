@@ -2086,51 +2086,51 @@ evidence = "pytest tests/test_report_digest.py"
 [[requirement]]
 id = "EP-307"
 verdict = "INCOMPLETE"
-subject = "one of the fourteen prohibitions, held by a reason rather than a check"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
-note = "seven of fourteen fail closed and seven are argued. The register does not map its rows to these ids, so which row this is cannot be traced in the tree"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-308"
-verdict = "PROVEN"
-subject = "one of the fourteen prohibitions, backed by a real check"
-evidence = "python tests/pilot_register.py; pytest tests/test_coordination_shape.py"
-note = "same mapping caveat as EP-307: grouped by the register's own class, not pinned to one row"
+verdict = "INCOMPLETE"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
+evidence = "python tests/pilot_register.py"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-309"
-verdict = "PROVEN"
-subject = "one of the fourteen prohibitions, backed by a real check"
+verdict = "INCOMPLETE"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
-note = "same mapping caveat as EP-307"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-310"
-verdict = "PROVEN"
-subject = "one of the fourteen prohibitions, backed by a real check"
+verdict = "INCOMPLETE"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
-note = "same mapping caveat as EP-307"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-311"
 verdict = "INCOMPLETE"
-subject = "one of the fourteen prohibitions, held by a reason rather than a check"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
-note = "same mapping caveat as EP-307"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-312"
-verdict = "PROVEN"
-subject = "one of the fourteen prohibitions, backed by a real check"
+verdict = "INCOMPLETE"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
-note = "same mapping caveat as EP-307"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-313"
 verdict = "INCOMPLETE"
-subject = "one of the fourteen prohibitions, held by a reason rather than a check"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
-note = "same mapping caveat as EP-307"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-314"
@@ -2141,24 +2141,24 @@ note = "recorded as ungated in policy/pilot-register.toml, with the reason and t
 
 [[requirement]]
 id = "EP-315"
-verdict = "PROVEN"
-subject = "one of the fourteen prohibitions, backed by a real check"
+verdict = "INCOMPLETE"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
-note = "same mapping caveat as EP-307"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-316"
-verdict = "PROVEN"
-subject = "one of the fourteen prohibitions, backed by a real check"
+verdict = "INCOMPLETE"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
-note = "same mapping caveat as EP-307"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-317"
-verdict = "PROVEN"
-subject = "one of the fourteen prohibitions, backed by a real check"
+verdict = "INCOMPLETE"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
-note = "same mapping caveat as EP-307"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-318"
@@ -2195,10 +2195,10 @@ note = "nineteen distinct values, not four. A property of the source research do
 
 [[requirement]]
 id = "EP-323"
-verdict = "PROVEN"
-subject = "one of the fourteen prohibitions, backed by a real check"
+verdict = "INCOMPLETE"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
-note = "same mapping caveat as EP-307"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-324"
@@ -2223,10 +2223,10 @@ note = "two of the three gaps are closed; one skill has no body, deliberately, w
 
 [[requirement]]
 id = "EP-327"
-verdict = "PROVEN"
-subject = "one of the fourteen prohibitions, backed by a real check"
+verdict = "INCOMPLETE"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
-note = "same mapping caveat as EP-307"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-328"
@@ -2250,10 +2250,10 @@ note = "two of the three are closed; no pilot artefact exists, and that piece ne
 
 [[requirement]]
 id = "EP-331"
-verdict = "PROVEN"
-subject = "one of the fourteen prohibitions, backed by a real check"
+verdict = "INCOMPLETE"
+subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
-note = "same mapping caveat as EP-307"
+note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
 
 [[requirement]]
 id = "EP-332"

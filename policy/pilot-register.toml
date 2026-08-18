@@ -122,77 +122,105 @@ wave = "P2"
 
 [[prohibition]]
 id = "ide-mirrors"
+source_order = 1
+quote = "Mirrors por IDE o copias del framework dentro de repos consumidores."
 never = "per-IDE mirrors, or copies of the framework inside a consumer repository"
 check = "ai-eng doctor assertion 18 — every framework file has one declared home"
 
 [[prohibition]]
 id = "inventory-target"
+source_order = 2
+quote = "Los 54 skills como objetivo de inventario."
 never = "the fifty-four skills as an inventory target"
 reason = """an intention no check can read. What can be checked is the cost of each \
 addition, and `contract.audit_one` charges it: a corpus, a refusal case, a declared mode."""
 
 [[prohibition]]
 id = "wrong-mission"
+source_order = 3
+quote = "Fundraising, marketing, media, vídeo, slides o soporte como misión del wheel."
 never = "fundraising, marketing, media, video, slides or support as the wheel's mission"
 check = "tests/test_contracts.py — the constitution's mission and its Never list"
 
 [[prohibition]]
 id = "coordination-database"
+source_order = 4
+quote = "Una DB/FSM de coordinación, heartbeat o takeover por TTL antes de que Git+CI fallen en colisiones reales."
 never = "a coordination database, heartbeat or TTL takeover before Git and CI have failed"
 check = "tests/test_coordination_shape.py — no ownership store, heartbeat or takeover"
 
 [[prohibition]]
 id = "agent-per-lens"
+source_order = 5
+quote = "Un agente por lens de review."
 never = "one agent per review lens"
 reason = """no check can count agents that do not exist. The lenses are files under \
 `ai-review/references/`, loaded by the diff, and that is the shape that keeps it true."""
 
 [[prohibition]]
 id = "hook-ran-events"
+source_order = 6
+quote = "Eventos que solo prueban que un hook arrancó."
 never = "events that prove only that a hook started"
 check = "hooks/_emit.py — six closed classes, and a raise on anything else"
 
 [[prohibition]]
 id = "council-and-envelope"
+source_order = 7
+quote = "Dos modos de ai-spec, council obligatorio, mayoría simple de modelos o un authority-envelope subsystem sin consumidor real."
 never = "two ai-spec modes, a mandatory council, model majority, or an authority envelope"
 reason = """none of them exists to be found. The check that would matter is on the day \
 somebody adds one, and it is a review, not a grep: a council arrives as an argument."""
 
 [[prohibition]]
 id = "artificial-ceiling"
+source_order = 8
+quote = "Un ceiling artificial de verbos o skills que empeore la arquitectura de información."
 never = "an artificial ceiling of verbs or skills that worsens the information architecture"
 reason = """a judgement about architecture, which no gate holds. The ten verbs and the \
 skill count are both bound by tests, so a change to either is visible and argued for."""
 
 [[prohibition]]
 id = "documented-proven"
+source_order = 9
+quote = "Una surface marcada proven por leer documentación o generar un fichero."
 never = "a surface marked proven for reading documentation or writing a file"
 check = "tests/test_surface_adapter.py — the word is read from a receipt, never declared"
 
 [[prohibition]]
 id = "documentation-portal"
+source_order = 10
+quote = "Un portal de documentación que el core deba mantener para funcionar."
 never = "a documentation portal the core must maintain in order to work"
 reason = """nothing in `just check` reads a website. The site lives in another repository \
 by decision, and the check that keeps it there is that this one never imports it."""
 
 [[prohibition]]
 id = "publish-every-commit"
+source_order = 11
+quote = "Publicar cada commit local, hacer background rebase o usar force push sin SHA esperado."
 never = "publishing every local commit, rebasing in the background, or forcing without a SHA"
 check = "tests/test_coordination_shape.py — bare force, background rebase, per-commit push"
 
 [[prohibition]]
 id = "publish-user-text"
+source_order = 12
+quote = "Publicar logs o texto libre del usuario para reportar errores."
 never = "publishing a user's logs or free text in order to report an error"
 check = "tests/test_issue.py — a closed payload with no field for either"
 
 [[prohibition]]
 id = "scanner-accessibility"
+source_order = 13
+quote = "Declarar accesibilidad o AAA desde contraste, axe o cualquier scanner automático sin interacción manual."
 never = "declaring accessibility or AAA from contrast, axe or any scanner without a person"
 reason = """a scanner cannot tell you it did not look. The refusal is written as a corpus \
 case in `ai-design` — "axe passed, so we are accessible" — and no gate here claims AAA."""
 
 [[prohibition]]
 id = "score-compliance"
+source_order = 14
+quote = "Afirmar certificación, cumplimiento o seguridad total desde un score o un LLM."
 never = "claiming certification, compliance or total security from a score or a model"
 reason = """there is no compliance verb to make the claim with. `ai-security` refuses it in \
 its corpus, and refusing is the only thing a skill can do about a sentence somebody types."""

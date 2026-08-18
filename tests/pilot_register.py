@@ -117,7 +117,59 @@ def problems(register: dict) -> list[str]:
                 f"{name} names both a check and a reason, or neither: "
                 "one row says how it would be found, or why it cannot be"
             )
+        if not str(row.get("quote", "")).strip():
+            found.append(f"{name} does not quote the sentence in the report it answers")
+
+    # The place in the source list each row answers. Fourteen rows carried fourteen English
+    # sentences and the report carries fourteen Spanish ones, and nothing said which was
+    # which — so the audit graded fourteen requirements against a correspondence nobody had
+    # written down, and got eleven of them proven against seven rows that have a check.
+    # An ordering is checkable where a paraphrase is not: exactly 1..14, each once.
+    places = [row.get("source_order") for row in prohibitions]
+    if sorted(x for x in places if isinstance(x, int)) != list(range(1, PROHIBITIONS + 1)):
+        found.append(
+            f"the prohibitions place themselves at {places}, and the source list has "
+            f"{PROHIBITIONS} entries numbered 1..{PROHIBITIONS} — each row answers one of "
+            "them, exactly once"
+        )
     return found
+
+
+# The report the register is derived from. `.ai/` is ignored in its entirety, so a fresh
+# clone and every CI runner has neither report — which is why this is a separate function
+# that says it could not look, rather than a row in `problems()` that would fail the gate on
+# every machine but this one.
+REPORT = ROOT / ".ai" / "reports" / "evolution-proposal" / "index.html"
+
+
+def against_report(register: dict) -> tuple[bool, list[str]]:
+    """Is the register the report's own list, in the report's own order?
+
+    Returns whether the question could be answered at all, and what was wrong if it could.
+    The check is the quoted sentence and the offset it is found at: fourteen substrings, each
+    present, each later in the document than the one before it. That is the whole claim —
+    the register does not paraphrase the prohibitions, it indexes them.
+    """
+
+    try:
+        document = REPORT.read_text(encoding="utf-8")
+    except OSError:
+        return False, []
+
+    wrong, previous = [], -1
+    for row in sorted(register.get("prohibition", []), key=lambda one: one.get("source_order", 0)):
+        quote = str(row.get("quote", ""))
+        where = document.find(quote)
+        if where < 0:
+            wrong.append(f"{row['id']} quotes a sentence the report does not contain: {quote[:60]}")
+        elif where < previous:
+            wrong.append(
+                f"{row['id']} sits at place {row.get('source_order')} and its sentence comes "
+                "earlier in the report than the one before it"
+            )
+        else:
+            previous = where
+    return True, wrong
 
 
 def uninstrumented(register: dict) -> list[str]:
@@ -149,6 +201,19 @@ def main() -> int:
     # decide as a prompt with its reason written down, which is what those rows are; what
     # was missing is anybody being able to see how many there are without counting by hand.
     # The number is read from the register on every run now, so it cannot go stale again.
+    looked, wrong = against_report(register)
+    if wrong:
+        for line in wrong:
+            print(f"  {line}", file=sys.stderr)
+        return 1
+    if looked:
+        print(f"  the {PROHIBITIONS} prohibitions are the report's own list, in its own order.")
+    else:
+        print(
+            f"  the {PROHIBITIONS} prohibitions could not be checked against the report: "
+            f"{REPORT.relative_to(ROOT)} is not in this tree, so their order is unverified here."
+        )
+
     argued = [str(row["id"]) for row in register.get("prohibition", []) if not row.get("check")]
     decided = PROHIBITIONS - len(argued)
     print(f"  {decided} of {PROHIBITIONS} prohibitions fail closed; {len(argued)} are argued:")
