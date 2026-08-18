@@ -2927,7 +2927,20 @@ DESCRIPTION_MAX = 1000
 # field that nobody typed. And `renewals: true` claims a renewal, so reading it as zero
 # turns the block back into an original and lets the same finding be renewed twice more,
 # past a ceiling of two.
-REPO_CEILING = 75_403
+#
+# 75,403 to 75,577 for `_safe_stat` and `_read`, which are the highest-consequence
+# survivors in the file. Everything else in `acceptance.py` decides whether a record says
+# what it should; these decide whether the bytes being read are the bytes the repository
+# holds. A symbolic link, a second hard link, a named pipe or a path that walks onto
+# another volume all read perfectly, none of them is the file the path names, and every one
+# is a way somebody outside the repository puts content inside the register.
+#
+# The order matters as much as the checks, and two cases pin it. `lstat` and never `stat`,
+# because `stat` follows the link and reports on the target — the check would answer about
+# the file at the far end and pass. And the size is taken from the same call the read is
+# bounded by, so a file that grows in between is caught rather than read short, which is
+# what makes the bound describe now rather than a moment that has passed.
+REPO_CEILING = 75_577
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

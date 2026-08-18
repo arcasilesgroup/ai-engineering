@@ -18,6 +18,7 @@ schema document is the contract rather than a restatement of it.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -477,3 +478,163 @@ def test_a_counter_past_the_ceiling_of_two_is_refused(value: str):
 @pytest.mark.parametrize("value", ["0", "1", "2"])
 def test_the_three_counts_inside_the_ceiling_are_read_as_themselves(value: str):
     assert acceptance._legacy_renewals(value, "x") == int(value)
+
+
+# --- _safe_stat and _read: the path checks that run before anything is opened ---------
+#
+# 48 more survivors, and they are the highest-consequence ones in the file. Everything
+# above decides whether a record says what it should; this decides whether the bytes being
+# read are the bytes the repository holds. A symbolic link, a hard link, a device node or a
+# path that walks onto another volume all read perfectly and none of them is the file the
+# path names — and every one of them is a way somebody outside the repository puts content
+# inside the register.
+#
+# The order matters as much as the checks. `lstat` and never `stat`, because `stat` follows
+# the link and then reports on the target: the check would answer about the file at the far
+# end and pass. And the size is taken from the same `lstat` the read is bounded by, so a
+# file that grows between the two is caught rather than read short.
+
+
+def _volume(path: Path) -> int:
+    return path.lstat().st_dev
+
+
+def _unsafe(path: Path, *, directory: bool = False) -> acceptance.Refusal:
+    with pytest.raises(acceptance.Refusal) as raised:
+        acceptance._safe_stat(path, _volume(path.parent), directory=directory)
+    return raised.value
+
+
+def test_a_real_file_and_a_real_directory_on_this_volume_are_accepted(tmp_path: Path):
+    """The clean control, in both modes. Without it every refusal below is satisfied by a
+    function that refuses everything."""
+
+    here = tmp_path / "spec.md"
+    here.write_text("x", encoding="utf-8")
+
+    assert acceptance._safe_stat(here, _volume(tmp_path), directory=False) is None
+    assert acceptance._safe_stat(tmp_path, _volume(tmp_path.parent), directory=True) is None
+
+
+def test_a_path_that_is_not_there_is_unreadable_rather_than_unsafe(tmp_path: Path):
+    """Two different codes for two different conversations. Absent is a register that names
+    a file somebody deleted; unsafe is a register somebody is pointing somewhere else."""
+
+    refusal = _unsafe(tmp_path / "gone.md")
+
+    assert refusal.code == "ACCEPTANCE_UNREADABLE"
+
+
+def test_a_symbolic_link_is_refused_even_when_it_points_at_a_real_file(tmp_path: Path):
+    """The one this function exists for. A link inside the repository pointing at a file
+    outside it reads as a perfectly ordinary acceptance whose content nobody in the
+    repository controls — and `stat` rather than `lstat` would report on the target and
+    never see the link at all."""
+
+    target = tmp_path / "real.md"
+    target.write_text("x", encoding="utf-8")
+    link = tmp_path / "link.md"
+    link.symlink_to(target)
+
+    refusal = _unsafe(link)
+
+    assert refusal.code == "ACCEPTANCE_UNSAFE_PATH"
+    assert "symbolic link" in str(refusal)
+
+
+def test_a_file_with_a_second_hard_link_is_refused(tmp_path: Path):
+    """A hard link is not a link the filesystem will tell you about from the path. Both
+    names are the file, so a second one anywhere on the volume is a second way to change
+    what the register reads, with nothing at this path to show for it."""
+
+    target = tmp_path / "real.md"
+    target.write_text("x", encoding="utf-8")
+    (tmp_path / "second.md").hardlink_to(target)
+
+    assert "more than one link" in str(_unsafe(target))
+
+
+def test_a_directory_offered_as_a_file_is_refused_and_the_reverse_too(tmp_path: Path):
+    """Both directions, because the caller states which it expects and a check that only
+    looked one way would let the other through in whichever call site got it wrong."""
+
+    here = tmp_path / "spec.md"
+    here.write_text("x", encoding="utf-8")
+
+    assert "not a regular file" in str(_unsafe(tmp_path, directory=False))
+    assert "not a directory" in str(_unsafe(here, directory=True))
+
+
+def test_something_that_is_neither_a_file_nor_a_directory_is_refused(tmp_path: Path):
+    """A named pipe passes `exists()` and blocks forever on read. It is not a regular file,
+    which is the check that catches it before anything opens it."""
+
+    pipe = tmp_path / "pipe"
+    os.mkfifo(pipe)
+
+    assert "not a regular file" in str(_unsafe(pipe))
+
+
+def test_a_path_on_another_volume_is_refused(tmp_path: Path):
+    """Stated as the device the repository is on rather than discovered per path, so a
+    mount point inside the tree cannot vouch for itself."""
+
+    here = tmp_path / "spec.md"
+    here.write_text("x", encoding="utf-8")
+
+    with pytest.raises(acceptance.Refusal) as raised:
+        acceptance._safe_stat(here, _volume(here) + 1, directory=False)
+
+    assert "crosses a filesystem boundary" in str(raised.value)
+
+
+def test_a_file_over_its_bound_is_refused_before_it_is_read(tmp_path: Path):
+    """The bound is the point: a register that reads whatever it is pointed at is a register
+    somebody can make take as long as they like."""
+
+    here = tmp_path / "spec.md"
+    here.write_bytes(b"a" * 40)
+    budget = acceptance._Budget(1_000_000)
+
+    with pytest.raises(acceptance.Refusal) as raised:
+        acceptance._read(here, 20, _volume(here), budget)
+
+    assert raised.value.code == "ACCEPTANCE_OVER_BOUND"
+
+
+def test_a_file_within_its_bound_is_read_and_spends_its_size(tmp_path: Path):
+    here = tmp_path / "spec.md"
+    here.write_bytes(b"a" * 40)
+    budget = acceptance._Budget(1_000_000)
+
+    assert acceptance._read(here, 100, _volume(here), budget) == b"a" * 40
+
+
+def test_a_file_that_grows_between_the_measurement_and_the_read_is_refused(tmp_path: Path):
+    """The check that makes the bound mean anything. Without it a file measured small and
+    then replaced is read in full, and the bound describes a moment that has passed."""
+
+    here = tmp_path / "spec.md"
+    here.write_bytes(b"a" * 10)
+    budget = acceptance._Budget(1_000_000)
+    original = Path.read_bytes
+
+    def grown(self: Path) -> bytes:
+        return original(self) + b"more"
+
+    with pytest.MonkeyPatch.context() as patched:
+        patched.setattr(Path, "read_bytes", grown)
+        with pytest.raises(acceptance.Refusal) as raised:
+            acceptance._read(here, 100, _volume(here), budget)
+
+    assert "changed while it was read" in str(raised.value)
+
+
+def test_bytes_that_are_not_utf8_are_refused_as_such_and_not_replaced(tmp_path: Path):
+    """Decoding with replacement would turn an unreadable file into a readable record full
+    of question marks, which is the false green in miniature."""
+
+    with pytest.raises(acceptance.Refusal) as raised:
+        acceptance._text(b"\xff\xfe", "the record")
+
+    assert "not valid UTF-8" in str(raised.value)
