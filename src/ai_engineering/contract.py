@@ -2940,7 +2940,19 @@ DESCRIPTION_MAX = 1000
 # the file at the far end and pass. And the size is taken from the same call the read is
 # bounded by, so a file that grows in between is caught rather than read short, which is
 # what makes the bound describe now rather than a moment that has passed.
-REPO_CEILING = 75_577
+#
+# 75,577 to 75,721 for the walk. The ruling worth pinning inside `_spec_directories` is
+# that a link in the specs home is *refused* and a plain file is *skipped* — two things
+# that look like one leniency and are opposites. Skipping a link takes whatever it points
+# at out of the register with no trace in the file that names it. A plain file cannot hold
+# records at all, so passing over it hides nothing.
+#
+# `owner_of` gets the ASCII case: `str.isdigit()` is true for the Arabic-Indic digits, so
+# without the narrowing a directory could be owned by a number nobody can type. And
+# `legacy_spans` gets the CRLF case again, because that bug is the quietest way a register
+# can be wrong: the fence read as unclosed and the reader answered PASS over zero
+# acceptances in a file that held one.
+REPO_CEILING = 75_720
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

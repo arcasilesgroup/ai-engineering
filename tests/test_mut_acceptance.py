@@ -638,3 +638,134 @@ def test_bytes_that_are_not_utf8_are_refused_as_such_and_not_replaced(tmp_path: 
         acceptance._text(b"\xff\xfe", "the record")
 
     assert "not valid UTF-8" in str(raised.value)
+
+
+# --- _spec_directories, owner_of and legacy_spans: what the register walks -------------
+#
+# 31 more survivors in the walk, and the ruling inside it is the one worth pinning: a link
+# in the specs home is *refused*, and a plain file is *skipped*. Those look like the same
+# leniency and are opposites. Skipping a link takes whatever it points at out of the
+# register without saying so — which is a way to make an acceptance disappear with no trace
+# in the file that names it. A plain file cannot hold records at all, so passing over it
+# hides nothing.
+
+
+def _specs(root: Path) -> list[Path]:
+    return acceptance._spec_directories(root, root.lstat().st_dev)
+
+
+def test_a_repository_with_no_specs_home_yields_nothing_rather_than_refusing(tmp_path: Path):
+    """Absence is an answer. A repository that has never written a spec has no acceptances,
+    which is different from one whose specs cannot be read."""
+
+    assert _specs(tmp_path) == []
+
+
+def test_dot_directories_are_not_specs(tmp_path: Path):
+    (tmp_path / "specs" / ".cache").mkdir(parents=True)
+    (tmp_path / "specs" / "010-a").mkdir()
+
+    assert [one.name for one in _specs(tmp_path)] == ["010-a"]
+
+
+def test_a_link_in_the_specs_home_is_refused_and_a_plain_file_is_passed_over(tmp_path: Path):
+    """The two that look like one rule. Skipping a link takes whatever it points at out of
+    the register silently; a plain file cannot hold records, so skipping it hides nothing."""
+
+    home = tmp_path / "specs"
+    (home / "010-a").mkdir(parents=True)
+    (home / "README.md").write_text("x", encoding="utf-8")
+
+    assert [one.name for one in _specs(tmp_path)] == ["010-a"]
+
+    (home / "011-linked").symlink_to(home / "010-a")
+
+    with pytest.raises(acceptance.Refusal) as raised:
+        _specs(tmp_path)
+    assert raised.value.code == "ACCEPTANCE_UNSAFE_PATH"
+    assert "is a link" in str(raised.value)
+
+
+def test_more_spec_directories_than_the_bound_is_refused(tmp_path: Path, monkeypatch):
+    """A bound on the walk, not only on each file. Without it a directory of a million
+    empty entries is a way to make the register take as long as somebody likes."""
+
+    home = tmp_path / "specs"
+    home.mkdir(parents=True)
+    for index in range(4):
+        (home / f"{index:03d}-a").mkdir()
+    monkeypatch.setattr(acceptance, "MAX_SPEC_DIRECTORIES", 3)
+
+    with pytest.raises(acceptance.Refusal) as raised:
+        _specs(tmp_path)
+    assert raised.value.code == "ACCEPTANCE_OVER_BOUND"
+
+
+def test_the_specs_home_itself_being_a_link_is_refused(tmp_path: Path):
+    real = tmp_path / "elsewhere"
+    real.mkdir()
+    (tmp_path / "specs").symlink_to(real)
+
+    with pytest.raises(acceptance.Refusal) as raised:
+        _specs(tmp_path)
+    assert "symbolic link" in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    ("leaf", "owner"),
+    [
+        pytest.param("010-governed-foundation", "010", id="canonical"),
+        pytest.param("spec-010", "010", id="digits not at the front"),
+        pytest.param("0102-a", "010", id="more than three digits takes the first three"),
+        pytest.param("1-2-3-x", "123", id="digits scattered through the name"),
+    ],
+)
+def test_a_directory_names_its_owner_by_its_ascii_digits(leaf: str, owner: str):
+    """Pre-canonical names are preserved rather than renamed, so the owner has to be read
+    out of whatever somebody called the directory in 2024."""
+
+    assert acceptance.owner_of(leaf) == owner
+
+
+@pytest.mark.parametrize("leaf", ["ab", "01-x", "no-digits-at-all"])
+def test_a_directory_with_fewer_than_three_digits_is_undecidable_not_guessed(leaf: str):
+    """Its own code, because guessing puts records in a namespace that is not theirs — and
+    a register whose rows are filed under the wrong spec is wrong in the direction nobody
+    checks."""
+
+    with pytest.raises(acceptance.Refusal) as raised:
+        acceptance.owner_of(leaf)
+
+    assert raised.value.code == "ACCEPTANCE_UNDECIDABLE_OWNER"
+
+
+def test_the_digits_have_to_be_ascii(leaf: str = "٠١٢-arabic-indic"):
+    """`str.isdigit()` is true for the Arabic-Indic digits and for a superscript two, and
+    `int()` accepts some of them. A spec owned by `٠١٢` is a spec nobody can type."""
+
+    with pytest.raises(acceptance.Refusal):
+        acceptance.owner_of(leaf)
+
+
+def test_a_fenced_block_span_runs_from_the_first_backtick_to_the_last(tmp_path: Path):
+    """A renewal binds the span, so it is taken from the stored bytes rather than from a
+    re-rendering. An off-by-one at either fence binds a different document."""
+
+    body = b"before\n```yaml\nfinding: a\n```\nafter\n"
+
+    spans = acceptance.legacy_spans(body)
+
+    assert len(spans) == 1
+    start, end, block = spans[0]
+    assert body[start:end].startswith(b"```yaml") and body[start:end].endswith(b"```")
+    assert block.strip() == "finding: a"
+
+
+def test_a_block_written_on_windows_is_still_a_block(tmp_path: Path):
+    """The bug this reader was corrected for: with the carriage return unmatched the fence
+    read as unclosed, and the register answered PASS over zero acceptances in a file that
+    held one — the quietest way a register can be wrong."""
+
+    body = b"```yaml\r\nfinding: a\r\nexpires: 2026-11-14\r\n```\r\n"
+
+    assert len(acceptance.legacy_spans(body)) == 1
