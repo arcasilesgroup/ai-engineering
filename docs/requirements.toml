@@ -1434,7 +1434,7 @@ id = "EP-209"
 verdict = "BLOCKED"
 subject = "a per-surface pinned version and an executed denial, for one editor"
 evidence = "grep -n 'editors themselves invoking a denial' docs/audit-2026-08-16.md"
-note = "needs that editor actually running and invoking the call"
+note = "two of the three parts are proven here and the third cannot be. The settings entry each editor reads is pinned key by key in tests/test_mut_wiring.py, and the dispatcher it names is the same script whose denial claude-code executes in install-matrix.yml. What no local run can show is that this editor spawns it on that event and honours exit 2 — which is the whole of what a live session would add, and the reason no adapter file is written for it"
 
 [[requirement]]
 id = "EP-210"
@@ -1468,14 +1468,14 @@ id = "EP-214"
 verdict = "BLOCKED"
 subject = "a per-surface pinned version and an executed denial, for one editor"
 evidence = "grep -n 'editors themselves invoking a denial' docs/audit-2026-08-16.md"
-note = "needs that editor actually running and invoking the call"
+note = "two of the three parts are proven here and the third cannot be. The settings entry each editor reads is pinned key by key in tests/test_mut_wiring.py, and the dispatcher it names is the same script whose denial claude-code executes in install-matrix.yml. What no local run can show is that this editor spawns it on that event and honours exit 2 — which is the whole of what a live session would add, and the reason no adapter file is written for it"
 
 [[requirement]]
 id = "EP-215"
 verdict = "BLOCKED"
 subject = "a per-surface pinned version and an executed denial, for one editor"
 evidence = "grep -n 'editors themselves invoking a denial' docs/audit-2026-08-16.md"
-note = "needs that editor actually running and invoking the call"
+note = "two of the three parts are proven here and the third cannot be. The settings entry each editor reads is pinned key by key in tests/test_mut_wiring.py, and the dispatcher it names is the same script whose denial claude-code executes in install-matrix.yml. What no local run can show is that this editor spawns it on that event and honours exit 2 — which is the whole of what a live session would add, and the reason no adapter file is written for it"
 
 [[requirement]]
 id = "EP-216"
