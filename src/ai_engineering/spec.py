@@ -375,6 +375,54 @@ def _declared_width(offered: str) -> int:
     return asked if asked > 0 else 1
 
 
+def _width(
+    declared: int, ready: list[str], root: Path, facts: list[outcome.Fact]
+) -> outcome.Execution:
+    """The smallest of what was offered, what is ready, and one.
+
+    Its own function because every refusal above reaches it: a remote that did not
+    answer, a claim set with a cycle, a wave read cleanly. Each of those has a different
+    fact to add and the same arithmetic to run, and the first version reached the shared
+    half by raising an exception four lines up from the handler that caught it."""
+
+    widths = [declared, len(ready)]
+    try:
+        held = (root / ".ai" / "intent.md").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        # An Intent nobody can read is not an Intent that lifted the constraint.
+        held = ONE_WRITER
+    # Empty counts as unreadable. The first version guarded the deleted file and let an
+    # emptied one through, which is the likelier accident and the one that unclamped —
+    # `> .ai/intent.md` beats `rm .ai/intent.md`. Specification 013's stated exit is that
+    # the sentence "has been swapped for another sentence"; an empty file is neither the
+    # sentence nor another one, so the answer is unknown, and unknown here is one.
+    if ONE_WRITER in held or not held.strip():
+        widths.append(1)
+        facts.append(
+            outcome.fact(
+                "one-writer",
+                "OBSERVED",
+                "The constraint the Intent holds",
+                f".ai/intent.md still says {ONE_WRITER!r}, so the width is one",
+            )
+        )
+    width = max(1, min(widths))
+    facts.append(
+        outcome.fact(
+            "width",
+            "OBSERVED",
+            "How many writers this build could carry",
+            f"width: {width}",
+        )
+    )
+    return outcome.execution(
+        outcome.result("PASS"),
+        summary=f"width: {width}",
+        checks=facts,
+        remaining=[],
+    )
+
+
 def _wave(root: Path, offered: str, remote: str) -> outcome.Execution:
     """How many writers this build could carry, computed and never spent.
 
@@ -407,10 +455,19 @@ def _wave(root: Path, offered: str, remote: str) -> outcome.Execution:
     # rather than failing — so an unreachable remote comes back as an empty list and reads
     # as "nobody has claimed anything". The width would be right and the reason would be a
     # lie: nothing was measured. `base` is the one call that says whether the remote answered.
-    reachable = bool(claim.base(root, remote))
+    if not claim.base(root, remote):
+        facts.append(
+            outcome.fact(
+                "wave",
+                "INCOMPLETE",
+                "The claims that could start together",
+                f"{remote} did not answer, so no claim on it was read",
+                cure="check the remote is reachable, then ask again",
+            )
+        )
+        return _width(declared, ready, root, facts)
+
     try:
-        if not reachable:
-            raise ValueError(f"{remote} did not answer, so no claim on it was read")
         ready = dag.wave(root, claim.every(root, remote))
     except (OSError, ValueError, subprocess.SubprocessError) as refused:
         facts.append(
@@ -441,38 +498,7 @@ def _wave(root: Path, offered: str, remote: str) -> outcome.Execution:
                 ", ".join(ready) or "none are claimed on the remote",
             )
         )
-
-    widths = [declared, len(ready)] if ready else [1]
-    try:
-        held = (root / ".ai" / "intent.md").read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        # An Intent nobody can read is not an Intent that lifted the constraint.
-        held = ONE_WRITER
-    if ONE_WRITER in held:
-        widths.append(1)
-        facts.append(
-            outcome.fact(
-                "one-writer",
-                "OBSERVED",
-                "The constraint the Intent holds",
-                f".ai/intent.md still says {ONE_WRITER!r}, so the width is one",
-            )
-        )
-    width = max(1, min(widths))
-    facts.append(
-        outcome.fact(
-            "width",
-            "OBSERVED",
-            "How many writers this build could carry",
-            f"width: {width}",
-        )
-    )
-    return outcome.execution(
-        outcome.result("PASS"),
-        summary=f"width: {width}",
-        checks=facts,
-        remaining=[],
-    )
+    return _width(declared, ready, root, facts)
 
 
 def examples_section(text: str) -> str:

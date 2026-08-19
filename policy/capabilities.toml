@@ -60,6 +60,27 @@ human_gate = "before_write"
 enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
 proof_requirements = { allow = ["ai-spec.default.allow"], deny = ["ai-spec.default.deny"], installed_artifact = true }
 
+[[capabilities.modes]]
+id = "coordination"
+# `spec claim`, `spec checkpoint` and `spec wave` all reach the remote, and none of them was
+# declared: the `default` mode above says `network = []` while `claim` pushes a ref,
+# `checkpoint` reads the claims back and `wave` fetches to ask whether the remote answered.
+# The gap predates the third subcommand by two waves; it is written down here rather than
+# widened again in silence.
+#
+# The host is the git remote the repository already has, which no pattern in this schema can
+# name — `network_destination.host` takes a literal and a remote is whatever the operator
+# configured. So it is declared as the protocol and the purpose, and the honest ceiling is
+# that this row says which subcommands go out and not where to.
+read_roots = ["."]
+write_roots = [".ai"]
+exec_allowlist = [{ executable = "git", argument_pattern = "coordination.ref" }]
+network = [{ protocol = "https", host = "git.remote", purpose = "claim.coordinate" }]
+secrets = []
+human_gate = "before_network"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.network", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-spec.coordination.allow"], deny = ["ai-spec.coordination.deny"], installed_artifact = true }
+
 [[capabilities]]
 id = "ai-plan"
 phase = "plan"

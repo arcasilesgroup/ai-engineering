@@ -259,7 +259,7 @@ def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
     assert declared_modes == {
         "ai-explore": ["default"],
         "ai-research": ["local", "cited-web"],
-        "ai-spec": ["default"],
+        "ai-spec": ["default", "coordination"],
         "ai-plan": ["default"],
         "ai-build": ["default"],
         "ai-debug": ["default"],

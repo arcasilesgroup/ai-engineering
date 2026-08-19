@@ -139,3 +139,31 @@ def test_a_remote_that_cannot_be_read_is_one_and_says_so(coordinated):
     assert result.summary == "width: 1"
     assert "nowhere" in facts["wave"]
     assert next(one.status for one in result.checks if one.id == "wave") == "INCOMPLETE"
+
+
+def test_an_emptied_intent_is_unknown_and_unknown_is_one(coordinated):
+    """The likelier accident, and the one that used to unclamp.
+
+    The first version guarded a deleted Intent and let an emptied one through — `>` beats
+    `rm`. Specification 013's stated exit is that the sentence "has been swapped for another
+    sentence"; an empty file is neither the sentence nor another one, so the answer is
+    unknown, and every unknown here is one.
+    """
+
+    where = coordinated / ".ai" / "intent.md"
+
+    for contents in ("", "   \n\n  "):
+        where.write_text(contents, encoding="utf-8")
+        assert spec.main(["wave", "--surface-width", "4"]).summary == "width: 1", repr(contents)
+
+    where.unlink()
+    assert spec.main(["wave", "--surface-width", "4"]).summary == "width: 1"
+
+    # And a sentence that genuinely replaced it does lift the clamp, which is the exit
+    # specification 013 names. The authority lives in an approved plan, not in this string;
+    # what this does is stop being the thing that says no.
+    where.write_text(
+        json.dumps({"solution_intent": {"fixed_constraints": ["Guards fail closed."]}}),
+        encoding="utf-8",
+    )
+    assert spec.main(["wave", "--surface-width", "4"]).summary == "width: 2"
