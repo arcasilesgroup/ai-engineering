@@ -23,6 +23,29 @@
 # Read `tests/test_requirements_ledger.py` before editing: it holds this file to one row per
 # id, a verdict from that vocabulary, and an evidence command on every row.
 
+# `mover` — who can move a row that is not PROVEN, and it is data because the judgement kept
+# resolving the same way. Three separate sessions read this ledger and reported, in prose,
+# that what remained was not the repository's work. Prose cannot be counted, cannot be
+# checked and goes stale silently, which is the shape rule 12 exists to end: the third time a
+# judgement comes out the same it becomes a field with a closed vocabulary and a test.
+#
+# Five words, and every unproven row carries exactly one:
+#
+#   repository  buildable here. Nothing outside this tree is needed, and the row is open
+#               because the work has not been done — this is the only word that means that.
+#   owner       a person must decide, sign, configure or run something: a merge queue turned
+#               on, a release cut, an approver named, a pilot with a real organisation.
+#   machine     needs an environment this machine is not — a live editor session, a second
+#               host, a published artefact fetched over the network, a quiet box.
+#   decided     a recorded decision declines it or supersedes the form the sentence asks for,
+#               with its reopening condition where one exists. Not an omission.
+#   nobody      outside anyone's reach from here: text that could not be located in the
+#               source document, a requirement naming no observable, or evidence that would
+#               have to predate the instrument that could produce it.
+#
+# A PROVEN row carries no `mover`, because there is nothing left to move and a field naming a
+# person beside a closed row is how a closed row gets reopened by a reader in a hurry.
+
 # Where the two numberings come from, and what can and cannot be checked about them.
 #
 # Neither `EP-nnn` nor `PO-nn` appears in the source documents. Both are this audit's own
@@ -56,6 +79,7 @@ evidence = "pytest tests/test_madr.py::test_a_record_superseded_by_another_is_na
 [[requirement]]
 id = "EP-002"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description in the audit and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 note = "the audit swept it into a compressed PROVEN range; a prior verdict for a requirement whose text cannot be located is not inherited here"
@@ -70,18 +94,21 @@ note = "the audit's concern that 0005 was still proposed is stale; it carries an
 [[requirement]]
 id = "EP-004"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-005"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-006"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -94,6 +121,7 @@ evidence = "pytest tests/test_cli_migration.py -k 'exception_is_hard_rename or r
 [[requirement]]
 id = "EP-008"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "the record relation graph resolves and every decision it depends on is approved"
 evidence = "pytest tests/test_madr.py tests/test_own_head_receipts.py"
 note = '''relations resolve, `madr.validate` returns PASS over every record, and the reason this row stayed open — spec 010 being `draft` — rests on a condition that has been satisfiable for a day with nothing re-measuring it. The plan reserves the shipped transition until both workflows are complete and successful at exactly the candidate's own HEAD; `tests/own_head_receipts.py` asks GitHub and finds 44 commits on this branch that carry both. It decides nothing and says so: Task 53 needs a specific candidate commit that also closes the ceiling to zero slack, accepts three MADRs, refreshes the Intent and sets the status, and then separate push consent from a person. What was unknown and is now measured is only whether the live receipts are obtainable here at all. INCOMPLETE until that candidate exists and a person consents to it.'''
@@ -101,6 +129,7 @@ note = '''relations resolve, `madr.validate` returns PASS over every record, and
 [[requirement]]
 id = "EP-009"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -122,6 +151,7 @@ note = "both name link 918 and both say FAIL. What is proven is that the two rea
 [[requirement]]
 id = "EP-012"
 verdict = "INCOMPLETE"
+mover = "machine"
 subject = "every surface layer is proved from the installed wheel, not only from the CLI"
 evidence = "grep -n wheel .github/workflows/install-matrix.yml"
 note = "only claude-code is denied from a wheel-installed artefact; seven surfaces have no equivalent"
@@ -129,6 +159,7 @@ note = "only claude-code is denied from a wheel-installed artefact; seven surfac
 [[requirement]]
 id = "EP-013"
 verdict = "CONTRADICTED"
+mover = "decided"
 subject = "four earned adapter fields declared in policy/surfaces.toml"
 evidence = "grep -n 'REFUSED by D-011-02' specs/011-surface-adapter-contract/spec.md"
 note = '''regraded from INCOMPLETE, which was the wrong word for it. `specs/011` says "EP-013 — the four adapter fields in `policy/surfaces.toml`. REFUSED by D-011-02" in those capitals: the repository decided against the stated form and put earned three-state receipts in its place, which meets the intent and is not what the sentence asks for. INCOMPLETE means work remains; here a recorded decision says it never will be done this way, and grading it INCOMPLETE inflated the count of requirements somebody could still close. `EP-333` carries CONTRADICTED for exactly this shape — "a recorded decision, not an oversight" — and two rows recording the same kind of refusal under two different words is the ledger disagreeing with itself.'''
@@ -142,6 +173,7 @@ evidence = "pytest tests/test_mut_wiring.py -k router"
 [[requirement]]
 id = "EP-015"
 verdict = "NO-EVIDENCE"
+mover = "machine"
 subject = "Codex link restoration, /skills discovery, $ai-* invocation and agents/openai.yaml"
 evidence = "find . -iname openai.yaml"
 note = "no `agents/openai.yaml` is tracked anywhere in this repository, and the three executed halves — link restoration, `/skills` discovery and a `$ai-*` invocation — each need a live Codex session invoking them. Nothing that can be written here produces one"
@@ -162,6 +194,7 @@ evidence = "pytest tests/test_mut_wiring.py::test_a_router_is_generated_hashed_a
 [[requirement]]
 id = "EP-018"
 verdict = "BLOCKED"
+mover = "machine"
 subject = "a $ai-* invocation from a live Codex session is executed and receipted"
 evidence = "find . -iname openai.yaml"
 note = "needs an actual editor invoking a denial from a live session"
@@ -217,6 +250,7 @@ evidence = "pytest tests/test_cli_modes.py::test_the_three_renderings_of_one_run
 [[requirement]]
 id = "EP-026"
 verdict = "NO-EVIDENCE"
+mover = "owner"
 subject = "the capability skills' routing does not collide"
 evidence = "grep -rn 'routing collision' . --include=*.py --include=*.toml --include=*.md"
 note = "no threshold, no measurement and no prompt set: until somebody states what is counted and what number fails, this cannot go red"
@@ -236,6 +270,7 @@ evidence = "pytest tests/test_contracts.py -k contract"
 [[requirement]]
 id = "EP-029"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "a skill evaluation against an approved corpus, with a named approver, format, location and command"
 evidence = "python tests/skill_eval.py; grep -n 'baseline' policy/pilot-register.toml"
 note = "four of the five exist: the corpus is the labelled cases beside every skill, the format is the two headings the admission gate demands, the location is `corpus.md` in each skill directory, and the command is `python tests/skill_eval.py` with a lower bound of 275 it is compared against. The approver is the fifth and is the same gap as EP-289 — a name nobody typed"
@@ -243,6 +278,7 @@ note = "four of the five exist: the corpus is the labelled cases beside every sk
 [[requirement]]
 id = "EP-030"
 verdict = "INCOMPLETE"
+mover = "machine"
 subject = "real concurrency for a claimed work item, against an actual origin remote"
 evidence = "pytest tests/test_claim.py::test_exactly_one_of_two_writers_wins_the_same_work_item"
 note = "compare-and-swap is proven over git's file transport; the network half needs a second machine, and the fixture says so"
@@ -250,6 +286,7 @@ note = "compare-and-swap is proven over git's file transport; the network half n
 [[requirement]]
 id = "EP-031"
 verdict = "INCOMPLETE"
+mover = "machine"
 subject = "one remote branch and one worktree per claimed item, with a compare-and-swap lease"
 evidence = "pytest tests/test_claim.py -k stale_base"
 note = "the lease is proven; one worktree per item over a real remote is not"
@@ -263,6 +300,7 @@ evidence = "pytest tests/test_dag.py"
 [[requirement]]
 id = "EP-033"
 verdict = "BLOCKED"
+mover = "owner"
 subject = "a merge queue gates the combined result, not each branch alone"
 evidence = "gh api repos/arcasilesgroup/ai-engineering/rulesets"
 note = "the live ruleset carries no merge_queue rule; turning one on is an owner decision"
@@ -270,6 +308,7 @@ note = "the live ruleset carries no merge_queue rule; turning one on is an owner
 [[requirement]]
 id = "EP-034"
 verdict = "NO-EVIDENCE"
+mover = "decided"
 subject = "a semantic conflict triggers a fresh human reviewer"
 evidence = "grep -rn 'semantic conflict' src/ tests/ docs/adr/"
 note = "two auditors first graded this PROVEN on a digest-integrity test, which proves only that the document recording the refusal was not tampered with. Corrected: nothing implements it, and spec 013 records that as a deliberate non-goal"
@@ -277,6 +316,7 @@ note = "two auditors first graded this PROVEN on a digest-integrity test, which 
 [[requirement]]
 id = "EP-035"
 verdict = "NO-EVIDENCE"
+mover = "decided"
 subject = "no authority envelope, council roles or budget for coordination"
 evidence = "grep -rn 'authority envelope|council roles' src/ tests/"
 note = "same correction as EP-034: the digest test proves document integrity, not enforcement"
@@ -284,6 +324,7 @@ note = "same correction as EP-034: the digest test proves document integrity, no
 [[requirement]]
 id = "EP-036"
 verdict = "INCOMPLETE"
+mover = "machine"
 subject = "coordination correctness proven over a real network remote"
 evidence = "grep -n 'network transport' tests/test_claim.py"
 note = "the file-transport half is proven across three suites; the network half needs a second machine"
@@ -298,6 +339,7 @@ note = "closes a defect the audit found itself: the step had never once executed
 [[requirement]]
 id = "EP-038"
 verdict = "BLOCKED"
+mover = "owner"
 subject = "two disjoint claims integrate through the queue with no conflict"
 evidence = "pytest tests/test_merge_gate.py::test_two_disjoint_claims_both_pass_the_gate"
 note = "the logic is proven over a bare repository; nothing integrates it through a queue, because none is configured"
@@ -305,6 +347,7 @@ note = "the logic is proven over a bare repository; nothing integrates it throug
 [[requirement]]
 id = "EP-039"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "overlapping claims are blocked and visible at the merge gate"
 evidence = "pytest tests/test_merge_gate.py::test_a_branch_that_wanders_outside_its_claim_is_blocked_at_the_gate"
 note = "proven as a local checkpoint verdict, not at a real gate"
@@ -332,6 +375,7 @@ note = "a prior pass rejected this as an overclaim; it has since been built"
 [[requirement]]
 id = "EP-043"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "nine native stdlib-first detector classes with closed JSON and SARIF output"
 evidence = "grep -n 'BASELINE = |Lane(' src/ai_engineering/scan.py"
 note = "five lanes wrapping external engines, not nine native detectors. The SARIF-reading half exists; the scanner does not"
@@ -359,6 +403,7 @@ note = "was written and not wired; the loop calling it is the fix"
 [[requirement]]
 id = "EP-047"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "the release ships an SBOM beside the wheel"
 evidence = "pytest tests/test_sbom.py"
 note = "the local half is proven: an SBOM exists, is well formed, and names the bytes that were built. The published half needs a release"
@@ -372,6 +417,7 @@ evidence = "pytest tests/test_hooks.py::test_an_endpoint_with_no_stated_retentio
 [[requirement]]
 id = "EP-049"
 verdict = "BLOCKED"
+mover = "owner"
 subject = "the release publishes wheel, provenance and SBOM of the same digest, and a tampered artefact does not verify"
 evidence = ".github/workflows/release.yml, lines 96-111"
 note = "the in-job half is wired; no tag has ever run this workflow, so the verification has never run for real"
@@ -392,6 +438,7 @@ note = "three artefacts now. One flipped byte of the scanner rules. An SBOM vali
 [[requirement]]
 id = "EP-052"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "an SBOM exists, is well formed, and names the same bytes that were built"
 evidence = "pytest tests/test_sbom.py"
 note = "local generation and validation are proven; validating a published SBOM against a released artefact is blocked on a release"
@@ -399,6 +446,7 @@ note = "local generation and validation are proven; validating a published SBOM 
 [[requirement]]
 id = "EP-053"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "a P5 metric that is not one of the thirteen the register tracks"
 evidence = '''
 git grep -n 'EP-053' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
@@ -408,6 +456,7 @@ note = "the requirement text was not locatable in the source document"
 [[requirement]]
 id = "EP-054"
 verdict = "NO-EVIDENCE"
+mover = "owner"
 subject = "pilot the same flow with human answers available and without them"
 evidence = '''
 git grep -n 'EP-054' -- . ':!docs/requirements.toml' ':!docs/audit-*.md'
@@ -417,6 +466,7 @@ note = "spec 015 cites a fixture that answers EP-010's ask, not this one"
 [[requirement]]
 id = "EP-055"
 verdict = "NO-EVIDENCE"
+mover = "repository"
 subject = "a labelled defect corpus and a stated bar for it"
 evidence = "grep -rli 'defect.corpus|labelled.defect' src/ policy/ tests/"
 note = "two labelled corpora exist and neither is this one. The routing corpus beside every skill labels situations a skill must take or refuse; the adversarial suite labels attacks a guard must stop. A defect corpus labels defects a reviewer must find, and building one without a stated bar would be a sample whose author decides its own pass mark"
@@ -424,6 +474,7 @@ note = "two labelled corpora exist and neither is this one. The routing corpus b
 [[requirement]]
 id = "EP-056"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "measure defects, cost, wait, conflicts, escalations and false greens"
 evidence = "python tests/pilot_register.py; pytest tests/test_pilot_register.py"
 note = '''five of the six now have a row and the sixth always did. `EP-056` names defects, cost, wait, conflicts, escalations and false greens; the thirteen indicators were written from what this repository could already compute and not one of them was any of the six, so the register that exists to publish what has no instrument was silent about the six it was commissioned for. Conflicts was already tracked as `coordination_overlap` and got no second row, because two homes for one number is the defect this file was written to stop. False greens has a real command — the answer key, which has found three in two days. The other four say plainly that nothing computes them and why. INCOMPLETE and not PROVEN: four of six are declared rather than measured, and a declaration is not a measurement.'''
@@ -438,6 +489,7 @@ note = "two rules carry a stated prohibition and a number for the same rule, dec
 [[requirement]]
 id = "EP-058"
 verdict = "BLOCKED"
+mover = "owner"
 subject = "a named external organisation validates the process"
 evidence = "grep -rli 'external.organi|outside.organi' src/ policy/ tests/"
 note = "needs a real external organisation, which cannot be constructed locally"
@@ -445,6 +497,7 @@ note = "needs a real external organisation, which cannot be constructed locally"
 [[requirement]]
 id = "EP-059"
 verdict = "BLOCKED"
+mover = "owner"
 subject = "a sequential baseline recorded to compare a parallel run against"
 evidence = "grep -rli 'sequential.baseline' src/ policy/ tests/"
 note = "needs a real pilot with a sequential run recorded before a parallel one"
@@ -459,6 +512,7 @@ note = '''both halves execute and the count is now watched rather than remembere
 [[requirement]]
 id = "EP-061"
 verdict = "INCOMPLETE"
+mover = "decided"
 subject = "the pilot's exit commands: a sequential-versus-parallel benchmark and three no-silent-X checks"
 evidence = "grep -n benchmark src/ai_engineering/cli.py"
 note = "one of the three (no unknown green) has real evidence; no benchmark verb exists, deliberately"
@@ -466,6 +520,7 @@ note = "one of the three (no unknown green) has real evidence; no benchmark verb
 [[requirement]]
 id = "EP-062"
 verdict = "UNFALSIFIABLE"
+mover = "nobody"
 subject = "autonomy that never becomes unlimited authority"
 evidence = "grep -n 'id = \"EP-062\"' -A3 policy/pilot-register.toml"
 note = "an intent, not a thing to count; the register records why"
@@ -473,6 +528,7 @@ note = "an intent, not a thing to count; the register records why"
 [[requirement]]
 id = "EP-063"
 verdict = "UNFALSIFIABLE"
+mover = "nobody"
 subject = "the person enters exactly where the decision changes"
 evidence = "grep -n 'id = \"EP-063\"' -A3 policy/pilot-register.toml"
 note = "where a decision changes is exactly the judgement ai-spec exists to make, so nothing counts it"
@@ -480,6 +536,7 @@ note = "where a decision changes is exactly the judgement ai-spec exists to make
 [[requirement]]
 id = "EP-064"
 verdict = "UNFALSIFIABLE"
+mover = "nobody"
 subject = "how many steps are traced from an intent to an evidence that can go red"
 evidence = "grep -n 'id = \"EP-064\"' -A3 policy/pilot-register.toml"
 note = "until somebody says what a step is and what makes an evidence red-capable, there is nothing to count"
@@ -505,6 +562,7 @@ evidence = "python -c \"from ai_engineering import outcome; print(outcome.result
 [[requirement]]
 id = "EP-068"
 verdict = "UNFALSIFIABLE"
+mover = "decided"
 subject = "a rubric for the six quality principles"
 evidence = "grep -n 'id = \"EP-068\"' -A3 policy/pilot-register.toml"
 note = "the criteria are one line each in AGENTS.md; the rubric is unwritten on purpose"
@@ -538,6 +596,7 @@ evidence = "grep -n fixed_constraints policy/intent-v1.schema.json"
 [[requirement]]
 id = "EP-073"
 verdict = "UNFALSIFIABLE"
+mover = "decided"
 subject = "a decision is promoted to a record when it conditions the future"
 evidence = "grep -n 'id = \"EP-073\"' -A2 policy/pilot-register.toml"
 note = "recorded rather than abandoned: it reopens if the same shape is found conditioning the future three times"
@@ -545,6 +604,7 @@ note = "recorded rather than abandoned: it reopens if the same shape is found co
 [[requirement]]
 id = "EP-074"
 verdict = "INCOMPLETE"
+mover = "decided"
 subject = "ai-test and ai-verify exist as first-class skills"
 evidence = "test -f .agents/skills/ai-verify/SKILL.md && ! test -d .agents/skills/ai-test"
 note = '''one of the two ships and the other is absorbed by a recorded decision, so this row is half met and half refused rather than half built. `.agents/skills/ai-verify/SKILL.md` exists and `EP-383` already reads PROVEN for it — the note here still said it would ship under specification 019's sixth repair, which is a forward-looking sentence about something already past. `ai-test` has no directory and `D-012-04` records absorption as its exit condition, alongside `ai-animation`, whose own row reads CONTRADICTED for exactly that. Checked while here and clean: nothing in the suite forbids `ai-verify` from existing, so the hazard specification 019 names — a skill landing while the register still says it must not — did not happen; the reversal moved the skill and the row together.'''
@@ -552,6 +612,7 @@ note = '''one of the two ships and the other is absorbed by a recorded decision,
 [[requirement]]
 id = "EP-075"
 verdict = "INCOMPLETE"
+mover = "machine"
 subject = "per-surface adapter version and proof age, with evidence and risk links on export"
 evidence = "find policy/adapters -type f"
 note = "two adapters against eight declared surfaces"
@@ -565,6 +626,7 @@ evidence = "pytest tests/test_contracts.py::test_the_mission_names_every_verb_it
 [[requirement]]
 id = "EP-077"
 verdict = "INCOMPLETE"
+mover = "machine"
 subject = "one canonical payload, adapters per surface, wheel-installed proof"
 evidence = "find policy/adapters -type f"
 note = "two adapters against eight declared surfaces, and no wheel-installed proof for the other six"
@@ -572,6 +634,7 @@ note = "two adapters against eight declared surfaces, and no wheel-installed pro
 [[requirement]]
 id = "EP-078"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "the declared capabilities are enforced, not only declared"
 evidence = "pytest tests/test_executor.py tests/test_mut_capability_callers.py"
 note = '''the mechanism is real and the plural is now a number rather than a sentence. An action taken through `executor.Sandbox` is decided at the operation, against the resolved path and the real binary, and a refusal is recorded. One capability of fifteen has a caller — `ai-report`, through `issue.draft` — and that one is counted by reading the product with `ast` rather than by grepping, because a grep counts the string inside a docstring explaining why there are no callers, which is the exact shape this row is about. The case refuses the two ways the number could go wrong with nobody deciding: a caller vanishing, and a caller naming a capability the manifest does not declare, which would be enforcement against a policy nobody wrote. It does not red the build over one of fifteen, because a case that fails on a known gap is a case somebody deletes. INCOMPLETE, and the number says how incomplete.'''
@@ -604,6 +667,7 @@ evidence = "grep -n 'def baseline' -A 15 src/ai_engineering/scan.py"
 [[requirement]]
 id = "EP-083"
 verdict = "INCOMPLETE"
+mover = "decided"
 subject = "v1 gates stand, cross-model replay is advisory, blocking only after a stable baseline"
 evidence = "grep -n 'id = \"EP-083\"' -A2 policy/pilot-register.toml"
 note = "the v1-gates half is proven; cross-model replay is a recorded non-goal"
@@ -624,6 +688,7 @@ note = "the floor is the set of criteria marked checked in policy/accessibility.
 [[requirement]]
 id = "EP-086"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "origin, branches, worktrees, draft PR, CI and a merge queue coordinate multiple writers"
 evidence = "gh api repos/arcasilesgroup/ai-engineering/rulesets"
 note = "the claim, checkpoint and DAG halves are real and tested locally; the merge queue is absent from the live repository"
@@ -631,6 +696,7 @@ note = "the claim, checkpoint and DAG halves are real and tested locally; the me
 [[requirement]]
 id = "EP-087"
 verdict = "BLOCKED"
+mover = "machine"
 subject = "v1 already beats the legacy version in truth rather than in volume"
 evidence = "grep -n 'id = \"EP-087\"' -A2 policy/pilot-register.toml"
 note = "a comparison against a tree that is not in this repository"
@@ -657,6 +723,7 @@ note = "contradicts the audit's own withdrawal note; the schema exists and is ex
 [[requirement]]
 id = "EP-091"
 verdict = "CONTRADICTED"
+mover = "decided"
 subject = "ai-animation exists as a first-class skill with rendered evidence"
 evidence = "grep -n ai-animation policy/capabilities.toml; pytest tests/test_contracts.py -k absorption_candidates"
 note = "declared in the manifest, forbidden by a passing test. Deliberate absorption into the motion lens"
@@ -670,6 +737,7 @@ evidence = "ai-eng doctor | grep 'declared home'"
 [[requirement]]
 id = "EP-093"
 verdict = "UNFALSIFIABLE"
+mover = "nobody"
 subject = "evaluations block only after a stable baseline exists"
 evidence = "grep -rn 'stable baseline' specs/016-the-thesis-nobody-owns/spec.md"
 note = "stable baseline has no definition and no owner"
@@ -690,6 +758,7 @@ evidence = "pytest tests/test_contracts.py::test_the_first_thing_a_spec_says_is_
 [[requirement]]
 id = "EP-096"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "origin-first coordination: a DAG, one worktree per task, checkpoints, a queue and an authority envelope"
 evidence = "find src/ai_engineering -iname '*dag*' -o -iname '*checkpoint*' -o -iname '*claim*'"
 note = "three of the five exist; spec 013 is draft and no authority-envelope module was built"
@@ -820,6 +889,7 @@ evidence = "pytest tests/test_contracts.py -k 'EP-116'"
 [[requirement]]
 id = "EP-117"
 verdict = "NO-EVIDENCE"
+mover = "owner"
 subject = "the absorption is legitimate only if it shows distinct value by a defined comparison"
 evidence = "grep -rn 'baseline|margin' src/ai_engineering/contract.py"
 note = "spec 012 states it cannot be made green as written: no baseline, no sample, no margin"
@@ -836,6 +906,7 @@ note = "evidence is a direct file read; no test enforces the count, so this row 
 [[requirement]]
 id = "EP-119"
 verdict = "UNFALSIFIABLE"
+mover = "decided"
 subject = "ai-design imposes no style and no fixed aesthetic dials"
 evidence = "grep -n impose .agents/skills/ai-design/SKILL.md"
 note = "spec 012 says it plainly: a check for any of them would be a check on taste, and this product does not ship one"
@@ -855,6 +926,7 @@ evidence = "pytest tests/test_contracts.py -k 'absorption_candidates or every_re
 [[requirement]]
 id = "EP-122"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "the absorb-versus-ship decision was backed by a routing evaluation"
 evidence = "grep -n 'no baseline, no sample' tests/test_contracts.py"
 note = "the routing evaluation exists and runs in the gate, and it postdates the absorb-versus-ship decision by a wave. Nothing can retro-evidence a decision taken before its instrument existed, and claiming the instrument as its backing would be dating the evidence to suit the claim"
@@ -941,6 +1013,7 @@ note = "the map moved out of the gate runner and into `wiring.phase_map`, `ai-en
 [[requirement]]
 id = "EP-136"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 note = "declining to copy the bare prior classification: in this same compressed range EP-147 turned out to be a confirmed overclaim"
@@ -962,12 +1035,14 @@ pytest tests/test_executor.py -k 'crashes_is_a_refusal or gate_word_nobody_recog
 [[requirement]]
 id = "EP-139"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-140"
 verdict = "UNFALSIFIABLE"
+mover = "nobody"
 subject = "an architectural claim naming no observable"
 evidence = "grep -n 'EP-140' docs/audit-2026-08-16.md"
 note = "the requirement names no checkable property, which the audit itself recorded"
@@ -975,18 +1050,21 @@ note = "the requirement names no checkable property, which the audit itself reco
 [[requirement]]
 id = "EP-141"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-142"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-143"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -1002,18 +1080,21 @@ note = "a live, currently-open FAIL both commands agree on. Only a person runnin
 [[requirement]]
 id = "EP-145"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-146"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-147"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "a per-surface receipt carries surface id, surface version, adapter version and deny protocol together"
 evidence = "pytest tests/test_surface_adapter.py; grep -n deny_protocol policy/adapters/opencode.adapter.json"
 note = '''measured properly and the row's own diagnosis was wrong. It said the receipt schema has none of the four fields; `check-evidence-v1` has three of them — `environment_id`, `protocol_id`, `protocol_version` — and forbids every one when `kind` is `automated`, because they are the manual half of the schema: the person, the protocol they followed, the machine they used. Writing adapter facts there would make an automated run read as a human protocol record, which is the schema stopping the confusion it was closed to stop. That is a decision, not a gap, and it was found by writing the fields and watching the receipt turn MALFORMED. What is reachable is now built: the deny protocol has a name in the adapter rather than only a sentence in `translations.reply.deny`, the field is required and closed to an identifier with a fixture that breaks it, and `_standing` refuses an enforcement receipt whose `tool_version` does not name the adapter version the adapter declares — a receipt written under adapter 1 and read after the adapter moved to 2 is evidence about a protocol nobody runs. INCOMPLETE: surface version stays unobservable here, because the plugin is driven under node and node's version is not OpenCode's.'''
@@ -1021,18 +1102,21 @@ note = '''measured properly and the row's own diagnosis was wrong. It said the r
 [[requirement]]
 id = "EP-148"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-149"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-150"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 note = "the neighbouring id in this same compressed range was a confirmed overclaim"
@@ -1040,6 +1124,7 @@ note = "the neighbouring id in this same compressed range was a confirmed overcl
 [[requirement]]
 id = "EP-151"
 verdict = "BLOCKED"
+mover = "owner"
 subject = "the release publishes a wheel with a well-formed SBOM naming the same bytes"
 evidence = "grep -n '^sbom:' justfile; grep -n sbom .github/workflows/release.yml"
 note = "the local mechanism is real; the requirement also needs a published release fetched over the network"
@@ -1047,30 +1132,35 @@ note = "the local mechanism is real; the requirement also needs a published rele
 [[requirement]]
 id = "EP-152"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-153"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-154"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-155"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-156"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -1084,6 +1174,7 @@ note = "the row was BLOCKED on a sub-audit that grepped a single line and report
 [[requirement]]
 id = "EP-158"
 verdict = "INCOMPLETE"
+mover = "decided"
 subject = "each capability declares one trigger and one responsibility, and it is measured"
 evidence = "python -c \"from pathlib import Path; from ai_engineering import contract; print(contract.audit_one(Path('/tmp/ai-x/SKILL.md')))\""
 note = "the checkable half executes; one trigger per skill stays ungated by design, because a router with one phrase misroutes on paraphrase"
@@ -1091,12 +1182,14 @@ note = "the checkable half executes; one trigger per skill stays ungated by desi
 [[requirement]]
 id = "EP-159"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-160"
 verdict = "INCOMPLETE"
+mover = "machine"
 subject = "a skill saves context by shipping instructions rather than a handler, and the saving is measured"
 evidence = "pytest tests/test_contracts.py::test_a_skill_is_instructions_and_never_an_executable"
 note = "measuring the saving means running a model twice; the register records why there is no instrument"
@@ -1104,6 +1197,7 @@ note = "measuring the saving means running a model twice; the register records w
 [[requirement]]
 id = "EP-161"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "a judgement resolving the same way three times becomes a script"
 evidence = "python tests/pilot_register.py | grep owed-a-script; pytest tests/test_mut_report_issue.py -k rule_twelve"
 note = '''the instrument exists and is now visible on the runs where it finds nothing. `report.repeats` counts identical verdicts over the digest window, the threshold of three is declared in the register and bound to `report.OWED_A_SCRIPT`, and the digest prints how many judgements were counted and the highest repetition on every run — it used to print only when something had crossed, so an empty window and an absent check produced the same silence, which is worse for this rule than for any other because rule 12 is the one that turns repeated judgement into code. A key is the guard and its reason together, so two refusals for different reasons stay two judgements. What is still absent is the second half of the rule and nothing can supply it: turning the judgement into a script is a person's work.'''
@@ -1119,6 +1213,7 @@ pytest tests/test_executor.py -k 'lands_in_the_corpus or first_real_caller'
 [[requirement]]
 id = "EP-163"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "a skill is readable by a non-technical reader, not only free of a jargon blocklist"
 evidence = "pytest tests/test_contracts.py -k 'read_than_the_hardest or reads_prose or no_prose'"
 note = '''both halves execute and the register's excuse for the second was false. The jargon blocklist refuses six words across every skill body, and `contract.SKILL_FOG_CEILING` is a Gunning fog ratchet with no headroom: no skill may become harder to read than the hardest one is now, 11.03, and `contract.py` says in its own comment that this is the readability measure. The register listed this as ungatable because "a grade-level gate on prose is a check on style" — written before the ratchet existed and left on the page, with a reopening condition that had fired: "a readability measure exists that a person disagreeing with it can argue against" is Gunning fog exactly, a published formula anybody can dispute. Still INCOMPLETE, and this is the honest remainder: a formula is not a reader, and nothing here has ever asked a person who does not code whether they understood a skill.'''
@@ -1138,6 +1233,7 @@ evidence = "pytest tests/test_executor.py -k human_gate"
 [[requirement]]
 id = "EP-166"
 verdict = "INCOMPLETE"
+mover = "machine"
 subject = "ai-spec resolves what needs no human intention before asking"
 evidence = "pytest tests/test_contracts.py -k authority"
 note = "the clause is pinned and mutation-tested; nothing executes the behaviour in a running session"
@@ -1152,6 +1248,7 @@ note = "recorded INCOMPLETE by a prior pass; re-running the test shows it green"
 [[requirement]]
 id = "EP-168"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "a human answer outranks inference, and only decision-changing unknowns get asked"
 evidence = "pytest tests/test_mut_asked.py"
 note = '''the note was wrong twice over. Six modules detect an interactive channel, and counting them would still have been the wrong check: a guard repeated at nine call sites is nine chances to forget it. There is one door. `accept.controlling_terminal_response` reads the OS controlling terminal, and its own docstring names what it refuses to read because a script can supply each — `isatty`, a flag, an environment value, piped standard input. A human answer does not outrank inference here; inference is not available. Four cases hold the door: the reader consults none of the four, the mode that promises not to ask never opens the device, a machine with no terminal gets a refusal rather than a traceback out of a consent prompt, and the phrase must match exactly — not a prefix, not a yes. INCOMPLETE for the second clause, which is a judgement no command makes: whether only decision-changing unknowns get asked.'''
@@ -1159,6 +1256,7 @@ note = '''the note was wrong twice over. Six modules detect an interactive chann
 [[requirement]]
 id = "EP-169"
 verdict = "UNFALSIFIABLE"
+mover = "nobody"
 subject = "without a human, the least-scope reversible option within existing permissions"
 evidence = "grep -n 'reversible, least-scope' .agents/skills/ai-spec/SKILL.md"
 note = "stated as prose; no ranking rule exists in code and no pin targets this clause"
@@ -1166,6 +1264,7 @@ note = "stated as prose; no ranking rule exists in code and no pin targets this 
 [[requirement]]
 id = "EP-170"
 verdict = "UNFALSIFIABLE"
+mover = "nobody"
 subject = "four named triggers force an INCOMPLETE without authority"
 evidence = "grep -n 'irreversible' .agents/skills/ai-spec/SKILL.md"
 note = "the triggers are named in prose; nothing in code detects any of them"
@@ -1173,6 +1272,7 @@ note = "the triggers are named in prose; nothing in code detects any of them"
 [[requirement]]
 id = "EP-171"
 verdict = "UNFALSIFIABLE"
+mover = "nobody"
 subject = "more reviewers never substitute for the authority boundary"
 evidence = "grep -n 'More reviewers do not change' .agents/skills/ai-spec/SKILL.md"
 note = "prose only; there is no reviewer-count code to test against and no gap metric is defined"
@@ -1187,6 +1287,7 @@ note = "the recorded description (report issue exits INCOMPLETE) is stale; the v
 [[requirement]]
 id = "EP-173"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "no authority envelope, council or budget until an autonomous orchestrator needs one"
 evidence = "sed -n '203,209p' specs/013-origin-first-coordination/spec.md"
 note = "the deferral is written with a reopening condition; spec 013 is still draft and nothing enforces the trigger"
@@ -1194,12 +1295,14 @@ note = "the deferral is written with a reopening condition; spec 013 is still dr
 [[requirement]]
 id = "EP-174"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-175"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "one recommendation challenged once, and an unknown outcome normalising to INCOMPLETE"
 evidence = '''! grep -q UNKNOWN src/ai_engineering/outcome.py && grep -n unknown_normalizes_to src/ai_engineering/outcome.py'''
 note = '''the executed half is stronger than this row said and its command was broken. `grep -n UNKNOWN src/ai_engineering/outcome.py` returns nothing — the word is not there, and its absence is the point: the vocabulary has eight statuses and no UNKNOWN because an unknown outcome *is* INCOMPLETE. What executes is `outcome.py` refusing a policy whose `unknown_normalizes_to` is anything else, read from the schema rather than written in the module, so the rule and the code cannot drift apart. The self-challenge half is counted now rather than argued: three of nineteen specifications carry a challenge section with substance, which is the same shape as the behavioural examples and the same reason — the template demands it of new specifications and the sixteen older ones are frozen rather than repaired.'''
@@ -1214,12 +1317,14 @@ note = '''all four halves execute. Self-grant is refused and tested; `executor.S
 [[requirement]]
 id = "EP-177"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description and no tag anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-178"
 verdict = "UNFALSIFIABLE"
+mover = "nobody"
 subject = "irreversible, high-risk, contradictory or cross-cutting decisions return INCOMPLETE"
 evidence = "grep -n 'irreversible' .agents/skills/ai-spec/SKILL.md"
 note = "the four triggers are named in prose; nothing detects any of them to produce the refusal"
@@ -1234,6 +1339,7 @@ note = "all three are exercised by name: the snapshot in the two cases that chan
 [[requirement]]
 id = "EP-180"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "a plan, spec or record schema carries claimed paths, base sha, deps and a writer role"
 evidence = "git grep -n 'claimed_paths|base_sha' -- src/ai_engineering/ policy/"
 note = "the fields exist inside the claim module's own bookkeeping, not in the documents this names"
@@ -1247,6 +1353,7 @@ evidence = "pytest tests/test_coordination_shape.py::test_the_intent_schema_gain
 [[requirement]]
 id = "EP-182"
 verdict = "INCOMPLETE"
+mover = "machine"
 subject = "one task claims one remote branch with a compare-and-swap lease, over a real network remote"
 evidence = "pytest tests/test_claim.py"
 note = "the mechanism is tested against git's file transport; one worktree per item and two real machines are not"
@@ -1254,6 +1361,7 @@ note = "the mechanism is tested against git's file transport; one worktree per i
 [[requirement]]
 id = "EP-183"
 verdict = "NO-EVIDENCE"
+mover = "decided"
 subject = "taking a claim opens a draft pull request"
 evidence = "git grep -n 'pull request|gh pr' src/ai_engineering/claim.py src/ai_engineering/checkpoint.py"
 note = "`claim.take` writes a remote branch with a compare-and-swap lease and opens nothing. A draft pull request is a network call to somebody else's API, and the half that could be built locally — the payload — would be an unexercised path this repository has learned to distrust"
@@ -1268,6 +1376,7 @@ note = "an earlier characterisation said the DAG never executes there; checkpoin
 [[requirement]]
 id = "EP-185"
 verdict = "BLOCKED"
+mover = "owner"
 subject = "the combined result gates at a configured merge queue, over claims"
 evidence = "grep -n merge_group .github/workflows/check.yml; gh api repos/arcasilesgroup/ai-engineering/rulesets"
 note = "whether the platform's merge queue is on is a setting, not a file in the tree"
@@ -1275,6 +1384,7 @@ note = "whether the platform's merge queue is on is a setting, not a file in the
 [[requirement]]
 id = "EP-186"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "fetch-before-claim, approval, PR-ready, queueing and merge are all automated"
 evidence = "sed -n '136,175p' src/ai_engineering/claim.py"
 note = "fetch-before-claim is real and tested; nothing opens a PR, tracks approval, queues or merges"
@@ -1288,6 +1398,7 @@ evidence = "pytest tests/test_dag.py"
 [[requirement]]
 id = "EP-188"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "a write outside a claim is denied locally, and CI separately catches two writers claiming the same paths"
 evidence = "pytest tests/test_claim_scope.py"
 note = "the local half is proven and the test file says so itself. CI checks a branch against its own claim, which is a narrower question"
@@ -1326,6 +1437,7 @@ evidence = "pytest tests/test_claim.py::test_a_claim_record_carrying_a_machine_p
 [[requirement]]
 id = "EP-194"
 verdict = "INCOMPLETE"
+mover = "decided"
 subject = "a hard path lease, refused until a real collision is on record"
 evidence = "git grep -n 'path_lease|hard_lease|PathLease' -- src hooks"
 note = "the mechanism is refused by a recorded decision that points at the DAG instead, and the DAG half is itself unbuilt in the live gate"
@@ -1333,6 +1445,7 @@ note = "the mechanism is refused by a recorded decision that points at the DAG i
 [[requirement]]
 id = "EP-195"
 verdict = "NO-EVIDENCE"
+mover = "decided"
 subject = "a council or fresh reviewer, only after evidence it improves the result"
 evidence = "git grep -rn 'council|CouncilRole' -- src hooks"
 note = "recorded as a deliberate non-goal with a written reopening trigger; no fixture would fail if council code appeared"
@@ -1349,6 +1462,7 @@ note = "there is no proven column at all; the state is read from the enforcement
 [[requirement]]
 id = "EP-197"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 note = "swept into a compressed PROVEN range with no test, file or command; the prior verdict is not inherited"
@@ -1356,12 +1470,14 @@ note = "swept into a compressed PROVEN range with no test, file or command; the 
 [[requirement]]
 id = "EP-198"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-199"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "load and invoke are separate executed states in CI, not just install, deny and doctor"
 evidence = "python tests/surface_receipt.py opencode; ai-eng report surfaces"
 note = '''the three states are separate receipts now and one run writes all three, because one run had always answered all three and reported one. The driver imports the shipped plugin, which is discovery; the registration contract hands back the hook the surface would call, which is invocation; the hook refuses, which is enforcement. Each receipt carries the digest of the thing that proved it — the plugin bytes that resolved, the hook name the contract returned, what the guard said — and a case refuses three receipts sharing one artifact digest, because that is one proof counted three times. Writing only the last made two states that had genuinely executed read as unproven, which is the same false reading as claiming them with the sign reversed. INCOMPLETE for the reason that has not moved: this is one surface of eight, and the other seven have no executed run of any state.'''
@@ -1369,12 +1485,14 @@ note = '''the three states are separate receipts now and one run writes all thre
 [[requirement]]
 id = "EP-200"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-201"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "the real enforcement floor is git, and a bypass flag walks past it"
 evidence = "sed -n '72,90p' src/ai_engineering/doctor.py"
 note = "an honest, tested disclosure of the limit; a server-side required check is still unbuilt"
@@ -1390,6 +1508,7 @@ evidence = '''
 [[requirement]]
 id = "EP-203"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no description anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -1409,6 +1528,7 @@ note = "one of eight surfaces declares a commands root today, so the mechanism i
 [[requirement]]
 id = "EP-206"
 verdict = "INCOMPLETE"
+mover = "machine"
 subject = "every one of eight surfaces has an executed, pinned-version denial"
 evidence = "python tests/surface_receipt.py opencode; ls policy/adapters/"
 note = "two of eight now have an executed denial rather than one — claude-code from a wheel in CI and opencode from the plugin this repository ships. Six have no adapter at all and four of those need somebody else's editor running, which is what keeps this row open"
@@ -1430,6 +1550,7 @@ ai-eng report surfaces | awk '/discovery/{d=1}/invocation/{i=1}/enforcement/{e=1
 [[requirement]]
 id = "EP-209"
 verdict = "BLOCKED"
+mover = "machine"
 subject = "a per-surface pinned version and an executed denial, for one editor"
 evidence = "grep -n 'editors themselves invoking a denial' docs/audit-2026-08-16.md"
 note = "two of the three parts are proven here and the third cannot be. The settings entry each editor reads is pinned key by key in tests/test_mut_wiring.py, and the dispatcher it names is the same script whose denial claude-code executes in install-matrix.yml. What no local run can show is that this editor spawns it on that event and honours exit 2 — which is the whole of what a live session would add, and the reason no adapter file is written for it"
@@ -1444,6 +1565,7 @@ note = "opencode: the plugin is driven under node the way OpenCode drives it, re
 [[requirement]]
 id = "EP-211"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "the wheel denial executes per release, not only on push and pull request"
 evidence = "sed -n '1,22p' .github/workflows/install-matrix.yml"
 note = "the trigger exists now: `release: types: [published]` re-runs the three platforms on the tag's own tree, which is the code that was released. What is still absent is a run of it, because no release has been published since — and the published-artefact half, fetching the wheel back from PyPI, is EP-151 and EP-280 rather than this row"
@@ -1457,6 +1579,7 @@ evidence = "pytest tests/test_mut_wiring.py -k router"
 [[requirement]]
 id = "EP-213"
 verdict = "NO-EVIDENCE"
+mover = "machine"
 subject = "a Codex agent file, plus executed proof of discovery and invocation"
 evidence = "find . -iname 'openai.yaml'"
 note = "same as EP-015: no Codex agent file is tracked here, and executed proof of discovery and invocation needs that editor running. The two halves are one absence and one measurement nobody can take from this machine"
@@ -1464,6 +1587,7 @@ note = "same as EP-015: no Codex agent file is tracked here, and executed proof 
 [[requirement]]
 id = "EP-214"
 verdict = "BLOCKED"
+mover = "machine"
 subject = "a per-surface pinned version and an executed denial, for one editor"
 evidence = "grep -n 'editors themselves invoking a denial' docs/audit-2026-08-16.md"
 note = "two of the three parts are proven here and the third cannot be. The settings entry each editor reads is pinned key by key in tests/test_mut_wiring.py, and the dispatcher it names is the same script whose denial claude-code executes in install-matrix.yml. What no local run can show is that this editor spawns it on that event and honours exit 2 — which is the whole of what a live session would add, and the reason no adapter file is written for it"
@@ -1471,6 +1595,7 @@ note = "two of the three parts are proven here and the third cannot be. The sett
 [[requirement]]
 id = "EP-215"
 verdict = "BLOCKED"
+mover = "machine"
 subject = "a per-surface pinned version and an executed denial, for one editor"
 evidence = "grep -n 'editors themselves invoking a denial' docs/audit-2026-08-16.md"
 note = "two of the three parts are proven here and the third cannot be. The settings entry each editor reads is pinned key by key in tests/test_mut_wiring.py, and the dispatcher it names is the same script whose denial claude-code executes in install-matrix.yml. What no local run can show is that this editor spawns it on that event and honours exit 2 — which is the whole of what a live session would add, and the reason no adapter file is written for it"
@@ -1478,6 +1603,7 @@ note = "two of the three parts are proven here and the third cannot be. The sett
 [[requirement]]
 id = "EP-216"
 verdict = "INCOMPLETE"
+mover = "machine"
 subject = "a surface wired by name only where it has no detect path, with no fabricated detection and a version pin"
 evidence = "pytest tests/test_contracts.py -k no_surface_is_detected_by_a_path; pytest tests/test_mut_init.py -k wired"
 note = "both halves of the detection rule are proven; the version pin covers two of eight surfaces"
@@ -1543,6 +1669,7 @@ evidence = '''
 [[requirement]]
 id = "EP-225"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no clause could be isolated and nothing in the tree cites it"
 evidence = "none — the requirement text could not be located"
 
@@ -1569,6 +1696,7 @@ evidence = "grep -n add_parser src/ai_engineering/report.py"
 [[requirement]]
 id = "EP-229"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no clause could be isolated and nothing in the tree cites it"
 evidence = "none — the requirement text could not be located"
 
@@ -1581,6 +1709,7 @@ evidence = "NO_COLOR=1 ai-eng --json spec list | wc -l"
 [[requirement]]
 id = "EP-231"
 verdict = "NO-EVIDENCE"
+mover = "decided"
 subject = "streaming output stays unbuilt until a long operation has a real consumer"
 evidence = "grep -rn JSONL src/ai_engineering/"
 note = "a deliberate, recorded non-build. As stated it names nothing built, which is what NO-EVIDENCE means here"
@@ -1588,6 +1717,7 @@ note = "a deliberate, recorded non-build. As stated it names nothing built, whic
 [[requirement]]
 id = "EP-232"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "the envelope's check objects carry a cure and also carry evidence"
 evidence = "ai-eng --json doctor"
 note = '''every check carries a cure and there is no key named evidence, and now `detail` carries an observation on a *pass* as well as on a failure — assertion 18 publishes its inventory there. So the content half of this requirement is real in both directions and the naming half is unresolved, which is where it stays: the requirement's own text could not be quoted, so nothing can settle whether it asks for a key called evidence or for the evidence itself, and a duplicate field would be worse than the gap.'''
@@ -1621,6 +1751,7 @@ evidence = "pytest tests/test_cli_modes.py -k non_interactive"
 [[requirement]]
 id = "EP-237"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "the design verify route measures the rendered result, desktop and mobile in one batch"
 evidence = "grep -n 'measure the rendered result' .agents/skills/ai-design/SKILL.md"
 note = "fully specified in prose; nothing executes a render-and-measure pass"
@@ -1628,6 +1759,7 @@ note = "fully specified in prose; nothing executes a render-and-measure pass"
 [[requirement]]
 id = "EP-238"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "at most two automatic verify rounds; a third means the design is wrong"
 evidence = "grep -n 'two automatic rounds' .agents/skills/ai-design/SKILL.md"
 note = "stated as a rule; nothing counts or blocks a third round"
@@ -1635,6 +1767,7 @@ note = "stated as a rule; nothing counts or blocks a third round"
 [[requirement]]
 id = "EP-239"
 verdict = "UNFALSIFIABLE"
+mover = "decided"
 subject = "two design directions only where there is a material visual decision"
 evidence = "pytest tests/test_contracts.py -k guidance_a_requirement"
 note = "the test's own comment says it checks that the guidance exists and never that it was followed, because material is a judgement"
@@ -1642,6 +1775,7 @@ note = "the test's own comment says it checks that the guidance exists and never
 [[requirement]]
 id = "EP-240"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no clause could be isolated and nothing in the tree cites it"
 evidence = "none — the requirement text could not be located"
 note = "even the first pass's own PROVEN range excludes it, and no later pass names it"
@@ -1711,6 +1845,7 @@ evidence = "pytest tests/test_contracts.py -k 'EP-250'"
 [[requirement]]
 id = "EP-251"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "the motion lens loads only where the diff carries real motion"
 evidence = "python tests/review_lenses.py --base main; pytest tests/test_review_lenses.py"
 note = '''the rule is data and something reads it. `policy/review-lenses.toml` gives each of the ten lenses either `always` with a reason or a `when` rule, and `tests/review_lenses.py` computes over a real range which load and which do not — inside `just check`, because a table nothing validates drifts from the directory it describes on the first lens somebody adds. Motion is the only row with a content rule as well as a path rule, which is exactly what this requirement is about: a stylesheet is a frontend change whether or not it animates, and only the added lines say which. Three cases over one file hold it — static CSS routes to frontend and not motion, the same file with a transition routes to motion, and prose about "status transitions" routes to docs and not motion. INCOMPLETE for what no table can do: the reader is a person, and nothing checks that the lens they say they skipped is the lens this computed.'''
@@ -1762,6 +1897,7 @@ note = "the adversarial suite and the contract suite sample the named gate set; 
 [[requirement]]
 id = "EP-259"
 verdict = "NO-EVIDENCE"
+mover = "repository"
 subject = "each new detector ships with a malicious fixture proven red before the detector exists"
 evidence = "find specs/014-security-baseline-no-false-pass -type f"
 note = "spec 014 has no plan, and no new detector class has landed for such a fixture to be about"
@@ -1769,6 +1905,7 @@ note = "spec 014 has no plan, and no new detector class has landed for such a fi
 [[requirement]]
 id = "EP-260"
 verdict = "NO-EVIDENCE"
+mover = "decided"
 subject = "a rubric per quality principle with file:line findings and an evidence id"
 evidence = "grep -rln 'KISS|YAGNI' --include='*.py' --include='*.md' ."
 note = "the same decision as EP-068 seen from the other side: the six quality principles are one line each in AGENTS.md and the rubric is deliberately unwritten, because a rubric over `KISS` is a grade somebody assigns rather than a property something has. What executes instead is that a review finding carries file:line and that an error carries its cause and its cure"
@@ -1782,6 +1919,7 @@ evidence = "pytest tests/test_scan.py::test_a_finding_a_scanner_produced_is_seve
 [[requirement]]
 id = "EP-262"
 verdict = "NO-EVIDENCE"
+mover = "decided"
 subject = "nine classes of security detector written here as code"
 evidence = "grep -n 'id = \"EP-262\"' -A3 policy/pilot-register.toml"
 note = "a recorded decline with a reopening condition, not code"
@@ -1855,6 +1993,7 @@ evidence = "pytest tests/test_issue.py::test_the_draft_is_local_gitignored_and_t
 [[requirement]]
 id = "EP-273"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "autonomous submit only under a versioned policy naming incident type and destination"
 evidence = "grep -rn 'autonomous|auto.submit' src/ai_engineering/report.py src/ai_engineering/issue.py policy/"
 note = "only human-confirmed submit exists; no policy file or profile switch anywhere"
@@ -1887,6 +2026,7 @@ note = "spec 014 records this as no evidence; it was built since, and the spec's
 [[requirement]]
 id = "EP-278"
 verdict = "INCOMPLETE"
+mover = "machine"
 subject = "guard latency, denial-proof age and chain-anchor gaps are measured"
 evidence = "grep -A4 'id = \"guard_p95_ms\"' policy/pilot-register.toml"
 note = "the register says plainly that the check named after a percentile took the middle of five samples, which is a median. It measures a floor and says so"
@@ -1900,6 +2040,7 @@ evidence = "pytest tests/test_hooks.py -k redact"
 [[requirement]]
 id = "EP-280"
 verdict = "BLOCKED"
+mover = "owner"
 subject = "an SBOM produced at release, bound to the wheel's digest, with a consumer verification command"
 evidence = "pytest tests/test_sbom.py; grep -n sbom .github/workflows/release.yml"
 note = "the local half is proven and re-checked in the release job; the published half needs a real release and network access"
@@ -1907,6 +2048,7 @@ note = "the local half is proven and re-checked in the release job; the publishe
 [[requirement]]
 id = "EP-281"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "attestation, scan and evaluation receipts are three separate records"
 evidence = "ls .ai/receipts/; pytest tests/test_skill_eval.py -k leaves_a_receipt"
 note = "two of the three are separate records that the product's own reader accepts: the scan half has had one since the adversarial suite got its two, and the evaluation half has one now — verified through `evidence.verify` rather than by checking that some keys are present, which is how the first version of it passed while writing an empty artifact digest the schema forbids. The attestation half is written in the release workflow and no tag has ever run it"
@@ -1921,6 +2063,7 @@ note = "closes what the audit called the second-commonest finding in the whole r
 [[requirement]]
 id = "EP-283"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "a surface's proof goes red when an observed denial is older than a week"
 evidence = "python tests/pilot_register.py; pytest tests/test_pilot_register.py tests/test_surface_adapter.py -k 'stale or looser'"
 note = '''the week is now compared against every receipt that exists. It was declared in `policy/pilot-register.toml` as 604,800 seconds and enforced nowhere: `surface._standing` takes `min(the receipt's own window, 31 days)` and never reads the register, so a receipt could write itself thirty-one days and stay green at thirty while the register published seven. Two numbers for one promise with nothing comparing them — the defect this register exists to stop, sitting between the register and the product it describes. The reader now refuses any receipt looser than the published bound, naming the gap in days, and prints how many it compared so that zero and none-too-loose do not print the same word. INCOMPLETE because `.ai/` is ignored whole: on CI there are no receipts and the comparison passes over nothing, which the count makes visible and does not make true.'''
@@ -1928,6 +2071,7 @@ note = '''the week is now compared against every receipt that exists. It was dec
 [[requirement]]
 id = "EP-284"
 verdict = "INCOMPLETE"
+mover = "decided"
 subject = "the hot path stays under its budget per dispatcher on surfaces that continue past a timeout"
 evidence = "pytest tests/test_pilot_register.py::test_pilot_register_reads_clean"
 note = "declared as having no instrument rather than claiming a percentile it does not compute"
@@ -1961,6 +2105,7 @@ evidence = "pytest tests/test_pilot_register.py"
 [[requirement]]
 id = "EP-289"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "a skill-evaluation delta with a baseline, a margin and a named approver"
 evidence = "python tests/skill_eval.py | grep baseline; pytest tests/test_skill_eval.py -k baseline"
 note = "two of the three exist and execute. The baseline is 275 in policy/pilot-register.toml and the run prints its delta; the margin is zero, argued rather than assumed — the evaluation is deterministic, so a band around the number would be a tolerance for variance that does not exist and what it would hide is deleted cases. Before this the corpus could have fallen from 254 to 3 and the run would have exited zero. The third half is a named approver: the field is empty on purpose rather than carrying a name nobody typed, and the row reopens when somebody with authority puts theirs there"
@@ -1975,6 +2120,7 @@ note = '''both halves execute. The refusal fails by name on a stray, and the cou
 [[requirement]]
 id = "EP-291"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "coverage over enumerated behavioural criteria"
 evidence = "grep -A4 intent_trace_coverage policy/pilot-register.toml"
 note = "no such criterion exists here, so coverage over them is undefined"
@@ -2019,6 +2165,7 @@ evidence = '''
 [[requirement]]
 id = "EP-297"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "every wave gets its own admission gate, read mechanically rather than asserted"
 evidence = "pytest tests/test_wave.py; python tests/pilot_register.py"
 note = '''every wave has one now, and it was already written in every specification — the eight production-ready boxes under the sentence "nothing gets a URL until every box is ticked by observed evidence". Nothing read them. `tests/test_wave.py` reads the block out of each wave spec, refuses a wave carrying a different number of boxes than the others, and refuses any wave whose status claims it is finished while a box is unticked. It looks vacuous today because every wave is `draft` and claims nothing, which is exactly when it is worth writing: it fires on the first wave somebody marks shipped, the moment nobody is looking for an unticked box. Proved by marking spec 011 shipped and reading "0 of 8 boxes ticked". INCOMPLETE: this refuses a false claim of completion, and the P5 register does more — it refuses the claim and names every row nobody equipped. The other four waves have the refusal without the naming.'''
@@ -2058,6 +2205,7 @@ note = '''observable, and observed. The note said nothing can watch a test that 
 [[requirement]]
 id = "EP-303"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "a behavioural example exists and is real before code is written"
 evidence = "python tests/pilot_register.py; pytest tests/test_contracts.py -k spec_template"
 note = '''counted rather than argued, and the number is small. The template emits the section and pins its order, so a new specification without it is refused — but of the nineteen specifications in this tree, sixteen carry no such section at all, and of the three that do only two contain both a Then and a command in backticks. Whether an example is real was called a reading problem; two of nineteen is not a reading. The sixteen predate the template and are frozen by it rather than repaired, which is the honest state and also why the refusal on new specifications is the whole of what executes. Worth recording without mockery: `specs/019`, whose fifth repair is to make behavioural examples real and read, has no Then in its own examples section.'''
@@ -2071,6 +2219,7 @@ evidence = "pytest tests/test_contracts.py::test_no_hook_imports_anything_that_i
 [[requirement]]
 id = "EP-305"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "names express intention"
 evidence = "python tests/pilot_register.py"
 note = "a judgement about language; the half that executes is that an error carries its cause and its cure"
@@ -2084,6 +2233,7 @@ evidence = "pytest tests/test_report_digest.py"
 [[requirement]]
 id = "EP-307"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2091,6 +2241,7 @@ note = '''the fourteen prohibitions are now proved to be the report's own list, 
 [[requirement]]
 id = "EP-308"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2098,6 +2249,7 @@ note = '''the fourteen prohibitions are now proved to be the report's own list, 
 [[requirement]]
 id = "EP-309"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2105,6 +2257,7 @@ note = '''the fourteen prohibitions are now proved to be the report's own list, 
 [[requirement]]
 id = "EP-310"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2112,6 +2265,7 @@ note = '''the fourteen prohibitions are now proved to be the report's own list, 
 [[requirement]]
 id = "EP-311"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2119,6 +2273,7 @@ note = '''the fourteen prohibitions are now proved to be the report's own list, 
 [[requirement]]
 id = "EP-312"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2126,6 +2281,7 @@ note = '''the fourteen prohibitions are now proved to be the report's own list, 
 [[requirement]]
 id = "EP-313"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2133,6 +2289,7 @@ note = '''the fourteen prohibitions are now proved to be the report's own list, 
 [[requirement]]
 id = "EP-314"
 verdict = "NO-EVIDENCE"
+mover = "decided"
 subject = "a judgement no script can decide; it stays a prompt"
 evidence = "sed -n '178p' specs/015-pilot-without-instruments/spec.md"
 note = "recorded as ungated in policy/pilot-register.toml, with the reason and the condition that would reopen it. Rule 12 is explicit that a judgement which cannot fail closed stays a prompt with its reason written down"
@@ -2140,6 +2297,7 @@ note = "recorded as ungated in policy/pilot-register.toml, with the reason and t
 [[requirement]]
 id = "EP-315"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2147,6 +2305,7 @@ note = '''the fourteen prohibitions are now proved to be the report's own list, 
 [[requirement]]
 id = "EP-316"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2154,6 +2313,7 @@ note = '''the fourteen prohibitions are now proved to be the report's own list, 
 [[requirement]]
 id = "EP-317"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2167,6 +2327,7 @@ evidence = "pytest tests/test_contracts.py::test_nothing_free_text_leaves_the_ma
 [[requirement]]
 id = "EP-319"
 verdict = "NO-EVIDENCE"
+mover = "decided"
 subject = "a judgement no script can decide; it stays a prompt"
 evidence = "sed -n '178p' specs/015-pilot-without-instruments/spec.md"
 note = "as EP-314: ungated by a recorded decision rather than by omission"
@@ -2174,6 +2335,7 @@ note = "as EP-314: ungated by a recorded decision rather than by omission"
 [[requirement]]
 id = "EP-320"
 verdict = "NO-EVIDENCE"
+mover = "decided"
 subject = "a judgement no script can decide; it stays a prompt"
 evidence = "sed -n '178p' specs/015-pilot-without-instruments/spec.md"
 note = "as EP-314: ungated by a recorded decision rather than by omission"
@@ -2187,6 +2349,7 @@ evidence = "pytest tests/test_contracts.py::test_constitution_mission_identity_a
 [[requirement]]
 id = "EP-322"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "the evidence-type legend names four labels and the document is consistent with it"
 evidence = "python -c \"import re,pathlib; print(len(set(re.findall(r'evidence-type\\\">([^<]+)', pathlib.Path('.ai/reports/evolution-proposal/index.html').read_text('utf-8')))))\""
 note = "nineteen distinct values, not four. A property of the source research document, which nothing in this repository can change"
@@ -2194,6 +2357,7 @@ note = "nineteen distinct values, not four. A property of the source research do
 [[requirement]]
 id = "EP-323"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2208,6 +2372,7 @@ note = '''both halves execute and the row's claim that no plan here has an appro
 [[requirement]]
 id = "EP-325"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "the mission record is claimed and checked, and the intent-to-evidence span is measured"
 evidence = "pytest tests/test_p0_completeness.py"
 note = "the claim half executes; the span half names no observable"
@@ -2215,6 +2380,7 @@ note = "the claim half executes; the span half names no observable"
 [[requirement]]
 id = "EP-326"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "three named skills declared with bodies, plus accessibility and coordination in the tree"
 evidence = '''ls .agents/skills/ai-verify/SKILL.md && ! test -d .agents/skills/ai-test && ! test -d .agents/skills/ai-animation && ls src/ai_engineering/claim.py src/ai_engineering/dag.py src/ai_engineering/checkpoint.py'''
 note = '''counted, and the previous note claimed more progress than there is — the dangerous direction. The three skills `D-012-04` names are `ai-animation`, `ai-test` and `ai-verify`. **One of the three has a body**: `ai-verify`, 62 lines. The other two have no directory at all, both by that same recorded decision, and `ai-animation`'s own row reads CONTRADICTED for it. The note said two of three gaps closed; it is one. Accessibility and coordination are in the tree — `policy/accessibility.toml` with four AAA criteria since this evening, and `claim.py`, `dag.py` and `checkpoint.py` — so that half stands. A note overstating progress is worse than one understating it: nobody re-reads a row that says the work is nearly done.'''
@@ -2222,6 +2388,7 @@ note = '''counted, and the previous note claimed more progress than there is —
 [[requirement]]
 id = "EP-327"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2235,6 +2402,7 @@ evidence = "pytest tests/test_outcomes.py; grep -n '\"accept\"' src/ai_engineeri
 [[requirement]]
 id = "EP-329"
 verdict = "BLOCKED"
+mover = "owner"
 subject = "a DAG, a checkpoint and a merge queue combine at a real merge gate"
 evidence = "grep -c merge_group .github/workflows/check.yml"
 note = "the first two exist; no merge queue is configured on this repository"
@@ -2242,6 +2410,7 @@ note = "the first two exist; no merge queue is configured on this repository"
 [[requirement]]
 id = "EP-330"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "a security skill, an SBOM step in the release, and a pilot artefact"
 evidence = "ls .agents/skills/ai-security/; grep -n sbom .github/workflows/release.yml"
 note = "two of the three are closed; no pilot artefact exists, and that piece needs a real external pilot"
@@ -2249,6 +2418,7 @@ note = "two of the three are closed; no pilot artefact exists, and that piece ne
 [[requirement]]
 id = "EP-331"
 verdict = "INCOMPLETE"
+mover = "nobody"
 subject = "one of the fourteen prohibitions, and no evidence says which one"
 evidence = "python tests/pilot_register.py"
 note = '''the fourteen prohibitions are now proved to be the report's own list, quoted sentence for sentence and in the report's own order, and seven of them carry a check while seven carry a written reason. What no evidence supports is which of these ids names which bullet. The id order is not the report's order — EP-321 quotes bullet 3 and sits eleventh among the fourteen ids — so the one available reconstruction is disproved, and the earlier pass that graded ten of these PROVEN split thirteen ids ten-to-three against a register that splits seven-to-seven. A set-level proof cannot award an individual PROVEN when half the set does not qualify.'''
@@ -2262,6 +2432,7 @@ evidence = "pytest tests/test_contracts.py -k 'absorbed_capability_left_its_work
 [[requirement]]
 id = "EP-333"
 verdict = "CONTRADICTED"
+mover = "decided"
 subject = "ai-animation ships as a first-class skill"
 evidence = "ls .agents/skills/; pytest tests/test_contracts.py -k absorption_candidates"
 note = "the manifest declares it and a passing test asserts it must not exist. A recorded decision, not an oversight"
@@ -2275,6 +2446,7 @@ evidence = "pytest tests/test_capabilities.py::test_capabilities_toml_declares_e
 [[requirement]]
 id = "EP-335"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 note = "inherited from the first pass's bulk PROVEN range. The suite is green, which says nothing about this id, so the verdict is not inherited"
@@ -2282,12 +2454,14 @@ note = "inherited from the first pass's bulk PROVEN range. The suite is green, w
 [[requirement]]
 id = "EP-336"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-337"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -2301,24 +2475,28 @@ note = "enforcement of the declared capability is a separate, still-open matter"
 [[requirement]]
 id = "EP-339"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-340"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-341"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-342"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -2350,30 +2528,35 @@ evidence = "pytest tests/test_contracts.py -k 'EP-346'"
 [[requirement]]
 id = "EP-347"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-348"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-349"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-350"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-351"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -2386,6 +2569,7 @@ evidence = "pytest tests/test_contracts.py -k 'absorbed_capability_left_its_work
 [[requirement]]
 id = "EP-353"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -2398,12 +2582,14 @@ evidence = "pytest tests/test_contracts.py -k 'EP-354'; grep -n mcp hooks/chain.
 [[requirement]]
 id = "EP-355"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-356"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -2416,18 +2602,21 @@ evidence = "pytest tests/test_contracts.py -k 'EP-357'"
 [[requirement]]
 id = "EP-358"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-359"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-360"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -2440,12 +2629,14 @@ evidence = "pytest tests/test_contracts.py -k 'EP-361'"
 [[requirement]]
 id = "EP-362"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-363"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -2458,6 +2649,7 @@ evidence = "python tests/skill_eval.py; grep -n skilleval justfile"
 [[requirement]]
 id = "EP-365"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -2476,12 +2668,14 @@ evidence = "pytest tests/test_contracts.py::test_every_review_lens_is_named_by_t
 [[requirement]]
 id = "EP-368"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-369"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -2494,12 +2688,14 @@ evidence = "cat .agents/skills/ai-security/SKILL.md; just security"
 [[requirement]]
 id = "EP-371"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-372"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -2512,54 +2708,63 @@ evidence = "pytest tests/test_contracts.py -k 'absorbed_capability_left_its_work
 [[requirement]]
 id = "EP-374"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-375"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-376"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-377"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-378"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-379"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-380"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-381"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
 [[requirement]]
 id = "EP-382"
 verdict = "CONTRADICTED"
+mover = "decided"
 subject = "ai-test ships as a first-class skill"
 evidence = "ls .agents/skills/; pytest tests/test_contracts.py -k absorption_candidates"
 note = "declared in the manifest, forbidden by a passing test. A recorded decision"
@@ -2574,6 +2779,7 @@ note = "shipped under specification 019 repair 6, with the absorption row remove
 [[requirement]]
 id = "EP-384"
 verdict = "NO-EVIDENCE"
+mover = "nobody"
 subject = "unrecoverable: no individual anchor anywhere in the tree"
 evidence = "none — the requirement text could not be located"
 
@@ -2601,6 +2807,7 @@ evidence = "pytest tests/test_contracts.py -k 'EP-385'"
 [[commitment]]
 id = "PO-01"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "a block closes and freezes, and nothing later depends on it until an independent reviewer has cleared it"
 evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate"
 note = '''re-measured on 2026-08-19 and the reason this row carried was wrong. The audit said the workflow does not trigger on a push to this branch, so no CI had run on it at all; `check.yml` has run sixty-four times here since 2026-08-17 — 37 green, 22 red, 4 cancelled — the earliest the same day that sentence was written. The gap is real and its stated cause was not, which is worse than no explanation. Each hand-off now carries an `independent` row naming what a stranger can re-check, and for all three it is the same checkable fact: no run exists at that block's final HEAD, because they closed before the first one. The reader refuses a blank one. What keeps this open is unchanged and unreachable by any command: whether the freeze held while the reviewer read.'''
@@ -2620,6 +2827,7 @@ evidence = "sed -n '161,164p' specs/010-governed-agentic-engineering-foundation/
 [[commitment]]
 id = "PO-04"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "the per-task checkpoint commit is atomic and revertible, and is labelled unreviewed"
 evidence = "python tests/unreviewed.py; pytest tests/test_unreviewed.py"
 note = '''the label is derived and printed on every gate run, and the row's own measurement was looking where the approved plan forbids looking. `specs/010/plan.md` says it in as many words: "UNREVIEWED is derived from the absence of a clean block review and gate; a commit message, model statement, test label, or metadata field cannot turn it into approval." So counting occurrences of the word in commit messages was counting the one thing that cannot carry it, and writing a trailer would have satisfied this row by contradicting the document it answers to. `tests/unreviewed.py` reads the block hand-offs out of the audit, resolves each base..head range, and names every commit on the branch that no closed review covers. `just check` prints the number on every run as `unreviewed=N`, and this row does not repeat it — the version written this afternoon said "191 of 191" and the counter had moved seventeen times by the evening, which is the defect `docs/adr/0014` names, committed into a note about a counter that publishes the real number. What does not move: the three closed blocks reviewed commits that are on main, so nothing on this branch has been through one. It reports and never blocks, because unreviewed is the ordinary state of work in flight. INCOMPLETE for the half no derivation reaches: atomic and revertible is structurally true of every commit and nothing distinguishes a checkpoint from any other.'''
@@ -2627,6 +2835,7 @@ note = '''the label is derived and printed on every gate run, and the row's own 
 [[commitment]]
 id = "PO-05"
 verdict = "UNFALSIFIABLE"
+mover = "nobody"
 subject = "the writer continues to the next related task without waiting for a reviewer or the full gate"
 evidence = "git log --format='%h %ad %s' --date=iso-strict -- specs/010-governed-agentic-engineering-foundation/plan.md"
 note = "git records commit times, not reviewer-availability windows, so nothing distinguishes a writer who continued immediately from one who waited and continued anyway"
@@ -2634,6 +2843,7 @@ note = "git records commit times, not reviewer-availability windows, so nothing 
 [[commitment]]
 id = "PO-06"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "an independent read-only reviewer inspects every commit in a closed block and the accumulated diff"
 evidence = """pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate; test -n "$(gh run list --branch "$(git branch -r --contains HEAD --format='%(refname:lstrip=3)' | head -1)" --limit 1 --json databaseId --jq '.[].databaseId')\""""
 note = '''the reader bites on a blank reviewer field, and the clause that kept this open was measured against the wrong branch. It named `fix/mutation-lane-green-on-main`, which this work left and which has never had a single run — so "no CI has ever run on this branch" was true of a branch nobody was on. The command now resolves the branch that actually contains HEAD, and on it the gate has run and the last completed pair is green at 97cce08b. What stays prose is the part no command reaches: whether the reviewer was independent and read the whole range.'''
@@ -2661,6 +2871,7 @@ note = "spec 010 is still draft, and the half that could not be shown now can: t
 [[commitment]]
 id = "PO-10"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "the removed practices stay removed: per-task review, per-fix waiting, the gate after every task"
 evidence = "git log --format='%h %(trailers:key=Ai-Eng-Ran,valueonly)' main..HEAD"
 note = '''a commit now carries `Ai-Eng-Ran: <suite> content=<digest>` when, and only when, a suite is on record against exactly the bytes that commit ships. The trailer is absent by default and withdrawn by any edit after the run, so a commit without one means nobody ran anything — which is the reading this row wanted and had no way to take. What it still cannot say is whether a *removed* practice came back: the trailer records what ran, not what was skipped, and the history before this instrument existed carries none of them.'''
@@ -2676,6 +2887,7 @@ evidence = '''
 [[commitment]]
 id = "PO-12"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "every commit's named focal test fails before the change and passes after it"
 evidence = '''
 python tests/red_then_green.py --since main
@@ -2685,6 +2897,7 @@ note = "a runner walks every commit on the branch, lays the parent's `src` and `
 [[commitment]]
 id = "PO-13"
 verdict = "INCOMPLETE"
+mover = "owner"
 subject = "one bounded re-review: one consolidated ledger, one repair pass, one bounded second read"
 evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate"
 note = '''re-measured on 2026-08-19 and the reason this row carried was wrong. The audit said the workflow does not trigger on a push to this branch, so no CI had run on it at all; `check.yml` has run sixty-four times here since 2026-08-17 — 37 green, 22 red, 4 cancelled — the earliest the same day that sentence was written. The gap is real and its stated cause was not, which is worse than no explanation. Each hand-off now carries an `independent` row naming what a stranger can re-check, and for all three it is the same checkable fact: no run exists at that block's final HEAD, because they closed before the first one. The reader refuses a blank one. What keeps this open is unchanged and unreachable by any command: whether the freeze held while the reviewer read.'''
@@ -2692,6 +2905,7 @@ note = '''re-measured on 2026-08-19 and the reason this row carried was wrong. T
 [[commitment]]
 id = "PO-14"
 verdict = "INCOMPLETE"
+mover = "repository"
 subject = "every commit runs the module's cheap immediate suite instead of the full gate"
 evidence = "just quick ran_receipt; git log --format='%h %(trailers:key=Ai-Eng-Ran,valueonly)' main..HEAD"
 note = '''both halves exist now. `just quick <module>` runs one module's suite and records `quick:<module>` against a digest of the bytes it ran over; `commit-msg` writes that into the commit only while the digest still matches, so `git log` answers which suite ran per commit and answers nothing at all where none did. The record line runs after the suite and a control holds that order, because a receipt written after a red suite is a false green with a digest on it. What keeps this INCOMPLETE is the history: the requirement is about every commit, and every commit before this instrument existed carries no trailer and never will.'''
@@ -2705,6 +2919,7 @@ evidence = "git grep -cE 'noqa|ts-ignore|nosec' -- src hooks tests"
 [[commitment]]
 id = "PO-16"
 verdict = "CONTRADICTED"
+mover = "repository"
 subject = "one primary home per commit, and the recorded exception covers only a commit moving a count another check forces it to move"
 evidence = "python tests/one_home.py; pytest tests/test_one_home.py"
 note = '''still contradicted, and now measured every run instead of once. 194 commits on this branch, 26 touching one home and 168 touching more; the widest spans seven — `.agents`, `.github`, `docs`, `policy`, `specs`, `src`, `tests`. The rule says one home with a single recorded exception, a commit moving a count another check forces it to move, and 168 is not that. What the row could not say before is how far off the practice runs, because the evidence was one commit somebody looked at once and a sentence about it. `tests/one_home.py` reports and never blocks: the exception cannot be recognised mechanically — a count moved because a check forced it looks exactly like a count moved because somebody felt like it — and a gate failing here would assert a judgement it cannot make. This is the audit grading the sessions that commissioned it, including today's.'''

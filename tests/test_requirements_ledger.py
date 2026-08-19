@@ -314,3 +314,51 @@ def test_no_row_proves_itself_against_a_branch_it_names():
         "the name does not, so the command goes on answering about somewhere nobody is. "
         "Resolve the branch from HEAD instead."
     )
+
+
+# Five words, closed for the same reason the verdicts are: a sixth would be somebody inventing
+# a class to fit a row rather than reading what the row says.
+MOVERS = ("repository", "owner", "machine", "decided", "nobody")
+
+
+def test_every_unproven_row_names_who_can_move_it():
+    """The judgement that had been made in prose three times, made once as data.
+
+    Three sessions read this ledger and reported that what remained was not the repository's
+    work to do. Every one of them was making the same call row by row and writing down only
+    the total, which is the shape the audit's "266 of 385" had already failed in: a count
+    nobody can check, over a membership nobody wrote down.
+
+    So the call is a field now. What it buys is the one number the goal actually needs — how
+    much of this is still ours — and it buys it as something a reader can disagree with row
+    by row instead of a sentence they have to take on trust.
+    """
+
+    unproven = [r for r in [*rows(), *commitments()] if r["verdict"] != "PROVEN"]
+
+    silent = [r["id"] for r in unproven if not r.get("mover")]
+    assert not silent, f"{len(silent)} unproven rows do not say who can move them: {silent[:8]}"
+
+    wrong = {r["id"]: r["mover"] for r in unproven if r["mover"] not in MOVERS}
+    assert not wrong, f"movers outside the vocabulary: {wrong}"
+
+
+def test_a_proven_row_names_nobody_to_move_it():
+    """A closed row with a person's name beside it is a row that gets reopened by a reader in
+    a hurry, and the reader would be right to: the field means work remains."""
+
+    closed = [r for r in [*rows(), *commitments()] if r["verdict"] == "PROVEN"]
+    named = [r["id"] for r in closed if r.get("mover")]
+
+    assert not named, f"{len(named)} PROVEN rows name somebody to move them: {named[:8]}"
+
+
+@pytest.mark.parametrize("mover", MOVERS)
+def test_no_mover_in_the_vocabulary_is_dead_wood(mover: str):
+    """The same rule the verdicts get. A word nothing is classed with reads like a distinction
+    this ledger draws and does not."""
+
+    assert any(r.get("mover") == mover for r in [*rows(), *commitments()]), (
+        f"nothing is classed {mover}: either remove it from the vocabulary or say why it is "
+        "reserved"
+    )

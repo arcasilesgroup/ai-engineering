@@ -29,6 +29,7 @@ quietly turn a red row green.
 from __future__ import annotations
 
 import argparse
+import collections
 import concurrent.futures
 import hashlib
 import json
@@ -215,6 +216,19 @@ def main(argv: list[str]) -> int:
 
     passed = len(answers) - len(false_proven)
     print(f"  RAN rows={len(answers)}  held={passed}  false={len(false_proven)}")
+
+    # And the other half of the same question. The answer key says whether what is closed
+    # stayed closed; this says how much of what is open is still ours to close, which is the
+    # number every session so far has stated in prose and none has printed.
+    every = tomllib.loads(payload.decode("utf-8"))
+    open_rows = [
+        row for row in [*every["requirement"], *every["commitment"]] if row["verdict"] != "PROVEN"
+    ]
+    tally = collections.Counter(r.get("mover", "unclassed") for r in open_rows)
+    order = ("repository", "owner", "machine", "decided", "nobody", "unclassed")
+    shape = "  ".join(f"{word}={tally[word]}" for word in order if tally[word])
+    print(f"  OPEN rows={len(open_rows)}  {shape}")
+    print(f"  {tally['repository']} of them are work this repository can do without anybody else.")
 
     after = tree()
     if after != before:

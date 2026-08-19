@@ -3356,7 +3356,12 @@ DESCRIPTION_MAX = 1000
 # measures 86,044, which is 350 under. Nothing was authored to reach this number; it is the
 # arithmetic of putting two approved raises into one tree, and the surplus is what the halves
 # had in common. Nobody should read it as a third grant.
-REPO_CEILING = 86_044
+#
+# 86,326 is +282 for the `mover` field: one line on each of the 192 rows that are not PROVEN,
+# the vocabulary written down once in the ledger's header, and three tests holding the field
+# to it. It is rule 12 charging its usual price — the judgement "who can still move this" had
+# been made in prose three times and cost nothing, and making it checkable costs 278 lines.
+REPO_CEILING = 86_326
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
