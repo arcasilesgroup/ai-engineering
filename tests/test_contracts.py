@@ -1748,12 +1748,21 @@ def test_a_specification_carries_examples_somebody_can_check():
     assert not missing, f"these baselines name specifications that are not there: {sorted(missing)}"
 
     for name in homes:
-        body = (ROOT / "specs" / name / "spec.md").read_text(encoding="utf-8")
+        body = (ROOT / "specs" / name / "spec.md").read_text(encoding="utf-8", errors="replace")
         given, when, then, executable = spec.examples_facts(body)
         if name not in FROZEN_WITHOUT_EXAMPLES:
             assert given and when and then, (
                 f"{name} has no examples somebody can check: "
                 f"{given} given, {when} when, {then} then"
+            )
+            # The counts alone green on the template's own prompt: "Given / When / Then" is
+            # one Given and one When, and the sentences quoting `Then` are three more. So an
+            # unfilled section satisfies the structure rule while still saying TODO, and
+            # doctor's marker cannot help — it skips every specification that is not shipped,
+            # which is all nine drafts.
+            section = body.split(spec.EXAMPLES, 1)[1].split("\n## ", 1)[0]
+            assert "TODO:" not in section, (
+                f"{name} still carries the template's prompt in its examples section"
             )
         if name not in FROZEN_WITHOUT_EXECUTABLE_THEN:
             assert executable, (
