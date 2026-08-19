@@ -19,6 +19,7 @@ does with an exception it never expected.
 from __future__ import annotations
 
 import ast
+import subprocess
 from pathlib import Path
 
 from ai_engineering import accept
@@ -41,7 +42,19 @@ def _reader() -> ast.FunctionDef:
     catch that class.
     """
 
-    tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
+    # From git, not from disk. Under `mutmut` the file on disk holds every mutant of this
+    # function at once, so a variant that *does* read `isatty` would sit beside the one that
+    # does not and this case would fail on the unmutated baseline — the same defect the
+    # mutation lane found in `test_mut_capability_callers.py` an hour after it was written.
+    done = subprocess.run(
+        ["git", "show", "HEAD:src/ai_engineering/accept.py"],
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+        check=False,
+    )
+    assert done.returncode == 0, "git could not show accept.py, so this asked nothing"
+    tree = ast.parse(done.stdout)
     found = next(
         node
         for node in tree.body

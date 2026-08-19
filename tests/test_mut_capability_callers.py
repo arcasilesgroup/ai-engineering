@@ -18,6 +18,7 @@ enforcement against a policy nobody wrote.
 from __future__ import annotations
 
 import ast
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -31,6 +32,30 @@ def declared() -> dict[str, set[str]]:
     return {row["id"]: {mode["id"] for mode in row["modes"]} for row in rows}
 
 
+def _committed(name: str) -> str:
+    """A product file as git has it, never as the working tree has it.
+
+    Found by the mutation lane, which is what it is for. `mutmut` copies the tree and writes
+    *every* mutant into each file as a separate function, so a file on disk under `mutants/`
+    contains `Sandbox("ai-report", ...)` and a variant naming something else at the same time.
+    Reading disk made this case see a caller for a capability nobody declared, fail on the
+    unmutated baseline, and take the whole run's statistics with it — a check that cannot tell
+    the product from a rewritten copy of it.
+
+    So it asks git. An answer git cannot give is no answer, and the case says so rather than
+    reading the copy instead.
+    """
+
+    done = subprocess.run(
+        ["git", "show", f"HEAD:src/ai_engineering/{name}"],
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+        check=False,
+    )
+    return done.stdout if done.returncode == 0 else ""
+
+
 def callers() -> dict[str, str]:
     """Every `executor.Sandbox(...)` in the product, by the capability it names.
 
@@ -40,8 +65,11 @@ def callers() -> dict[str, str]:
 
     found: dict[str, str] = {}
     for source in sorted(PRODUCT.glob("*.py")):
+        body = _committed(source.name)
+        if not body:
+            continue
         try:
-            tree = ast.parse(source.read_text(encoding="utf-8"))
+            tree = ast.parse(body)
         except SyntaxError:  # pragma: no cover - the suite would be red for other reasons
             continue
         for node in ast.walk(tree):
