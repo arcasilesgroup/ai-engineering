@@ -1772,6 +1772,64 @@ def test_a_specification_carries_examples_somebody_can_check():
             )
 
 
+# Ten of the thirteen plans carry no numbered tasks at all — the shape the plan skill asks
+# for arrived with spec 010 and the nine before it use prose, checkboxes or block headings.
+# The constitution forbids retro-editing `specs/`, so they are frozen by name.
+PLANS_WITHOUT_NUMBERED_TASKS = (
+    "001-v1-from-scratch",
+    "002-quality-ecosystem-3-0",
+    "003-guards-that-never-fired",
+    "004-solution-intent-home",
+    "005-init-says-what-it-did",
+    "006-the-cli-that-was-better",
+    "007-the-install-a-stranger-can-follow",
+    "008-the-receipt-that-only-grows",
+    "009-the-branch-that-never-ran",
+    "018-controls-a-reviewer-proved-were-not-controls",
+)
+
+
+def test_a_plan_names_a_file_a_check_a_rollback_and_a_done_when():
+    """The plan skill has demanded these four since it was written, and nothing read them.
+
+    Every numbered step of the spec skill is pinned byte for byte by a closed contract in
+    this file. The half that decides how an agent is instructed was frozen; the half that
+    decides what an agent reads was unchecked, and across thirteen plans the task shape is
+    three different things and sometimes absent. That is why no executor can be handed a
+    task rather than the whole file — 74,216 bytes of plan beside a 53,831-byte
+    specification, re-read once per task.
+
+    A task carrying none of the four fields is skipped: plan 011's task 7 is titled
+    "Deferred." and has no work in it, and a deferral is a real thing a plan records. A task
+    carrying some of them is not skipped, because that is a task somebody stopped writing.
+    """
+
+    from ai_engineering import spec
+
+    homes = sorted(one.name for one in (ROOT / "specs").iterdir() if (one / "plan.md").is_file())
+    missing = set(PLANS_WITHOUT_NUMBERED_TASKS) - set(homes)
+    assert not missing, f"the baseline names plans that are not there: {sorted(missing)}"
+
+    for name in homes:
+        body = (ROOT / "specs" / name / "plan.md").read_text(encoding="utf-8", errors="replace")
+        tasks = spec.plan_tasks(body)
+        if name in PLANS_WITHOUT_NUMBERED_TASKS:
+            continue
+        assert tasks, f"{name} carries no numbered tasks a script can enumerate"
+        for task in tasks:
+            held = [field for field in spec.TASK_FIELDS if field in task]
+            if not held:
+                continue
+            assert len(held) == len(spec.TASK_FIELDS), (
+                f"{name} task {task['task']} carries {held} and not the other "
+                f"{[one for one in spec.TASK_FIELDS if one not in held]}"
+            )
+            # "A check is a command, never a judgement", says the skill that asks for it.
+            assert spec.runs_something(task["check"]), (
+                f"{name} task {task['task']} has a check nobody can run: {task['check'][:80]}"
+            )
+
+
 def test_the_number_in_the_doctor_summary_is_the_number_of_assertions():
     """`ai-eng --help` says how many assertions `doctor` makes, and nothing read it.
 

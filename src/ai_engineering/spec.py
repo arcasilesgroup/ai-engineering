@@ -230,6 +230,52 @@ RUNNABLE = ("ai-eng", "just", "uv", "pytest", "python3", "python", "git", "gh", 
 _SPAN = re.compile(r"`([^`]+)`")
 
 
+TASK_FIELDS = ("file", "check", "rollback", "done when")
+
+_TASK = re.compile(r"^\s*(\d+)\. \*\*(.+?)\*\*", re.M)
+_FIELD = re.compile(
+    r"\*\*(file|check|rollback|done when)\*\*:?(.*?)"
+    r"(?=\*\*(?:file|check|rollback|done when)\*\*|\n\n|\Z)",
+    re.S,
+)
+
+
+def plan_tasks(text: str) -> list[dict[str, str]]:
+    """Every numbered task of a plan, with the four fields the plan skill demands.
+
+    A plan is the one document in this repository nothing could read. Across thirteen of
+    them the task shape is three different things and sometimes absent, so an executor could
+    not be handed a task — only the whole file, which for the governing plan is 74,216 bytes
+    beside a 53,831-byte specification, re-read once per task. That is the second problem
+    the specification names and the one none of the first nine repairs touched.
+
+    A task is a numbered item whose title is bold, and its fields run to the next task or the
+    end. Returned as read, with no field invented: a task missing one comes back missing it,
+    because a parser that fills in blanks is a parser that hides them."""
+
+    found: list[dict[str, str]] = []
+    marks = list(_TASK.finditer(text))
+    for at, mark in enumerate(marks):
+        end = marks[at + 1].start() if at + 1 < len(marks) else len(text)
+        block = text[mark.start() : end]
+        task: dict[str, str] = {"task": mark.group(1), "title": " ".join(mark.group(2).split())}
+        for name, value in _FIELD.findall(block):
+            task.setdefault(name, " ".join(value.split()).lstrip(": ").rstrip("."))
+        found.append(task)
+    return found
+
+
+def runs_something(value: str) -> bool:
+    """Whether a check field names a command this repository can run.
+
+    The plan skill has asked for this since it was written — "a check is a command, never a
+    judgement, and 'looks right' is not a check" — and nothing read it. The same closed list
+    the examples clause uses, for the same reason: a backticked phrase that starts with a
+    word nobody can type at a prompt is prose wearing a command."""
+
+    return any((one.split() or [""])[0] in RUNNABLE for one in _SPAN.findall(value))
+
+
 def examples_section(text: str) -> str:
     """The body under the examples heading, or nothing.
 
