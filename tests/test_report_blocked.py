@@ -27,15 +27,96 @@ def _ran(repo: Path) -> list[dict]:
     return list(tomllib.loads((repo / blocked.LEDGER).read_text(encoding="utf-8"))["stop"])
 
 
-def test_a_stop_without_an_action_is_refused(repo):
-    """Three of the four are required at the command line and the fourth is the reason this
-    exists. A run that can say it stopped but not what would unstick it has recorded a
-    complaint, and the section this feeds refuses complaints."""
+WHOLE = {
+    "--what": "block H needs written authority",
+    "--why": "the header requires two digests and neither was named",
+    "--action": "apruebo 019 en cbba04d9",
+}
 
-    with pytest.raises(SystemExit):
-        report.main(["blocked", "--what", "block H", "--why", "no authority named"])
 
+@pytest.mark.parametrize("omitted", sorted(WHOLE))
+def test_a_stop_missing_any_of_the_three_is_refused_and_says_which(repo, capsys, omitted):
+    """Three required at the command line, and the refusal has to name the one that is
+    missing. A run that can say it stopped but not what would unstick it has recorded a
+    complaint, and the section this feeds refuses complaints.
+
+    The exit code is asserted rather than just `SystemExit`, because `SystemExit(0)` is a
+    successful exit and would satisfy a bare `raises`.
+    """
+
+    argv = ["blocked"]
+    for flag, value in WHOLE.items():
+        if flag != omitted:
+            argv += [flag, value]
+
+    with pytest.raises(SystemExit) as leaving:
+        report.main(argv)
+
+    assert leaving.value.code == 2, leaving.value.code
+    assert omitted in capsys.readouterr().err
     assert not (repo / blocked.LEDGER).exists(), "a refused call must not leave half a row"
+
+
+@pytest.mark.parametrize("useless", ["", "   ", "TODO", "ask the owner", "decide this"])
+def test_a_flag_that_says_nothing_is_refused_at_the_boundary(repo, useless):
+    """`required=True` checks presence, and presence is not content. Both of these were
+    present and produced a PASS over a row the collector then refused — a result claimed
+    that the code did not observe, arriving through the one field that exists to stop it."""
+
+    with pytest.raises(SystemExit) as leaving:
+        report.main(["blocked", *sum(([k, v] for k, v in WHOLE.items()), []), "--action", useless])
+
+    assert leaving.value.code == 2
+    assert not (repo / blocked.LEDGER).exists()
+
+
+def test_an_emoji_in_the_reason_does_not_brick_the_ledger(repo):
+    """The first serialiser reached for `json.dumps`, which is close enough to TOML to be
+    tempting and wrong in one place: with the default `ensure_ascii` an emoji becomes a
+    surrogate pair, `tomllib` refuses an escaped surrogate, and one halt made every later
+    read raise and every later write refuse — permanently, with no recovery but hand-editing
+    a governed file."""
+
+    ran = report.main(
+        [
+            "blocked",
+            "--what",
+            "block H needs written authority",
+            "--why",
+            'nobody named the digests \U0001f6ab and the tab\tand the "quote" stayed',
+            "--action",
+            "apruebo 019 en cbba04d9",
+        ]
+    )
+    assert ran.outcome == "PASS", ran
+
+    rows, dropped = blocked.stops(repo)
+    assert len(rows) == 1 and dropped == []
+    assert "\U0001f6ab" in rows[0].why
+    assert "\t" in rows[0].why
+    assert '"quote"' in rows[0].why
+
+
+def test_an_unrelated_halt_does_not_delete_a_row_the_reader_only_dropped(repo):
+    """`record` rewrites the whole file. Built from the parsed rows it would delete every row
+    the reader had refused, so an unrelated halt would destroy the half-written record that
+    the drop list existed to make visible."""
+
+    (repo / "docs" / "blocked.toml").write_text(
+        '[[stop]]\nid = "half-written"\nwhat = "something"\nsince = "2026-08-01"\n'
+        'why = "a reason"\naction = "TODO"\n',
+        encoding="utf-8",
+    )
+
+    report.main(
+        ["blocked", "--what", "an unrelated gate", "--why", "a reason", "--action", "run this"]
+    )
+
+    kept = (repo / "docs" / "blocked.toml").read_text(encoding="utf-8")
+    assert "half-written" in kept, "an unrelated write must not delete a dropped row"
+    rows, dropped = blocked.stops(repo)
+    assert [row.what for row in rows] == ["an unrelated gate"]
+    assert dropped == ["half-written"]
 
 
 def test_a_stop_is_recorded_and_recording_it_twice_updates_rather_than_grows(repo):

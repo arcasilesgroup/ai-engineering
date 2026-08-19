@@ -236,6 +236,21 @@ def report_issue(root: Path | None, args: argparse.Namespace) -> outcome.Result 
     )
 
 
+def _said(value: str) -> str:
+    """A flag that was given a value, and a value that says something.
+
+    `required=True` checks presence. `--action ""` and `--action TODO` are present, and both
+    produced a PASS over a row the collector then refused — a result claimed that the code
+    did not observe, from the one field that exists to prevent exactly that.
+    """
+
+    if not ledger._usable(value):
+        raise argparse.ArgumentTypeError(
+            f"{value!r} says nothing a reader could act on; write what would unstick it"
+        )
+    return value.strip()
+
+
 def record_stop(root: Path | None, args: argparse.Namespace) -> outcome.Result:
     """Write the halt down before halting.
 
@@ -251,13 +266,20 @@ def record_stop(root: Path | None, args: argparse.Namespace) -> outcome.Result:
         where = ledger.record(
             root, what=args.what, why=args.why, action=args.action, since=args.since
         )
-    except (OSError, ledger.Unreadable) as refused:
-        print(f"  INCOMPLETE  the stop could not be recorded: {refused}")
+    except (OSError, UnicodeEncodeError, ledger.Unreadable) as refused:
+        # The path is relative even here. This message is the one people paste into issues,
+        # and the PASS branch below already knew that.
+        print(f"  INCOMPLETE  {ledger.LEDGER.as_posix()} could not be written: {refused}")
         return outcome.result("INCOMPLETE")
     print(f"  recorded in {where.relative_to(root)}")
     print(f"    {args.what}")
     print(f"    since {args.since} — {args.why}")
     print(f"    {args.action}")
+    # Said here because the alternative is finding out from a red gate. The page carries a
+    # digest of every record it was built from, so a new row makes the committed page stale
+    # and `just check` fails on the next run — correctly, and for a reason nobody would guess
+    # from a halt they recorded an hour earlier.
+    print("  next: ai-eng report intent --html, so the page shows it")
     return outcome.result("PASS")
 
 
@@ -284,10 +306,9 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     # refuses complaints. `--since` defaults because a halt happening now is the ordinary
     # case and the field is only interesting when a record is being backfilled.
     halt = commands.add_parser("blocked")
-    halt.add_argument("--what", required=True)
-    halt.add_argument("--why", required=True)
-    halt.add_argument("--action", required=True)
-    halt.add_argument("--since", default=date.today().isoformat())
+    for flag in ("--what", "--why", "--action"):
+        halt.add_argument(flag, required=True, type=_said)
+    halt.add_argument("--since", default=date.today().isoformat(), type=_said)
     args = parser.parse_args(argv)
 
     if args.command == "blocked":
