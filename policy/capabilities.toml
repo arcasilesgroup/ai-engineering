@@ -75,7 +75,13 @@ id = "coordination"
 read_roots = ["."]
 write_roots = [".ai"]
 exec_allowlist = [{ executable = "git", argument_pattern = "coordination.ref" }]
-network = [{ protocol = "https", host = "git.remote", purpose = "claim.coordinate" }]
+# `git.invalid` is deliberate, not a placeholder anybody forgot. Every other host in this
+# file is a real destination, so a name shaped like one would be read as one by a person
+# and resolved by any preflight that ever resolves these. RFC 2606 reserves `.invalid` so
+# that it cannot be, which turns the row from a claim about a host into what it means: a
+# git remote, whose address this file is not the place that knows. Letting the schema say
+# "operator-configured" is the real fix and it moves _EXPECTED_SCHEMA_DIGEST.
+network = [{ protocol = "https", host = "git.invalid", purpose = "claim.coordinate" }]
 secrets = []
 human_gate = "before_network"
 enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.network", "preflight.human-gate"]

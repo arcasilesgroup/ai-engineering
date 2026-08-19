@@ -141,23 +141,42 @@ def test_a_remote_that_cannot_be_read_is_one_and_says_so(coordinated):
     assert next(one.status for one in result.checks if one.id == "wave") == "INCOMPLETE"
 
 
-def test_an_emptied_intent_is_unknown_and_unknown_is_one(coordinated):
-    """The likelier accident, and the one that used to unclamp.
+def test_an_intent_that_does_not_parse_is_unknown_and_unknown_is_one(coordinated):
+    """Three versions of this guard, each one shape narrower than the accident.
 
-    The first version guarded a deleted Intent and let an emptied one through — `>` beats
-    `rm`. Specification 013's stated exit is that the sentence "has been swapped for another
-    sentence"; an empty file is neither the sentence nor another one, so the answer is
-    unknown, and every unknown here is one.
+    First a deleted Intent, then an emptied one — `>` beats `rm`. Neither caught a
+    byte-order mark, undecodable bytes, or a file of NUL bytes, and none of those is
+    whitespace to `str.strip()`. Specification 013's stated exit is that the sentence "has
+    been swapped for another sentence"; anything that does not parse as an Intent is neither
+    the sentence nor another one, so the state is unknown, and every unknown here is one.
+
+    The reason is asserted as well as the number. A clamp that reports the sentence is still
+    there, over a file that was deleted, is a true width with a false reason — the same
+    defect the `claim.base` probe exists to remove.
     """
 
     where = coordinated / ".ai" / "intent.md"
 
-    for contents in ("", "   \n\n  "):
-        where.write_text(contents, encoding="utf-8")
-        assert spec.main(["wave", "--surface-width", "4"]).summary == "width: 1", repr(contents)
+    corrupt = {
+        "empty": b"",
+        "whitespace": b"   \n\n  ",
+        "byte order mark": b"\xef\xbb\xbf",
+        "undecodable": b"\xff\xfe\x00garbage",
+        "nul bytes": b"\x00\x00\x00",
+        "not json": b"one writer, probably",
+    }
+    for name, contents in corrupt.items():
+        where.write_bytes(contents)
+        ran = spec.main(["wave", "--surface-width", "4"])
+        assert ran.summary == "width: 1", name
+        said = next(f for f in ran.checks if f.id == "one-writer")
+        assert "could not be read" in said.detail, (name, said.detail)
+        assert "still says" not in said.detail, (name, said.detail)
 
     where.unlink()
-    assert spec.main(["wave", "--surface-width", "4"]).summary == "width: 1"
+    ran = spec.main(["wave", "--surface-width", "4"])
+    assert ran.summary == "width: 1"
+    assert "could not be read" in next(f for f in ran.checks if f.id == "one-writer").detail
 
     # And a sentence that genuinely replaced it does lift the clamp, which is the exit
     # specification 013 names. The authority lives in an approved plan, not in this string;

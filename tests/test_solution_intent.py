@@ -17,21 +17,23 @@ from ai_engineering import solution_intent
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_the_committed_page_is_the_page_this_tree_renders():
-    """The property, asserted without writing anything.
-
-    It used to write the real page and then ask about it, which is the same claim and a
-    worse test: the suite runs across workers, so two tests writing one file in the tree
-    they are both reading is a race, and it found it — a worker read the page mid-write and
-    reported that it carried no digest at all."""
-
-    fresh, why = solution_intent.staleness(ROOT)
-
-    assert fresh, why
-    assert "matches this tree" in why
-    assert (ROOT / solution_intent.PAGE).read_text(encoding="utf-8") == solution_intent.render(
-        solution_intent.read(ROOT)
-    )
+# `staleness(ROOT)` is asserted by `just intent-page`, not from here, and the reason is a
+# measurement rather than a preference. `read` opens live files in the working tree — every
+# `SKILL.md` among them — while `-n auto` runs two thousand tests over that same tree, and
+# at least one of them rewrites `.agents/skills/ai-build/SKILL.md` and puts it back within
+# a single test. Polling caught the edit in flight; a before-and-after digest around every
+# test never saw it. So a worker rendering the page while that file is briefly its other
+# shape computes a different tree, and the check reds for a reason that has nothing to do
+# with the page. A gate that fails on a coin flip is worse than no gate, because the first
+# repair anyone reaches for is to stop believing it.
+#
+# The property is not weakened by moving it: `just intent-page` runs `staleness` on a quiet
+# tree, alone, and `check` depends on it, so a stale page still fails the gate — that is the
+# run that produced "was built from 5b289a3b8584; this tree hashes to efd74d77fd34" an hour
+# ago. What is dropped is the second, concurrent copy of the same assertion.
+#
+# The test that edits a repository file transiently is its own defect and is recorded as
+# one; it was not hunted down here because the page gate should not depend on the answer.
 
 
 def test_a_record_that_changed_makes_the_page_stale():
@@ -52,9 +54,8 @@ def test_a_record_that_changed_makes_the_page_stale():
 
     assert solution_intent.render(moved) != page
     assert solution_intent.digest(moved) != solution_intent.digest(tree)
-    # And the tree as it stands still matches, so the difference is the change and not the
-    # comparison.
-    assert solution_intent.staleness(ROOT)[0]
+    # The tree as it stands matching is the other half of this claim, and it is asserted by
+    # `just intent-page` for the reason written above the first test in this file.
 
 
 def test_every_fact_the_page_renders_is_a_fact_the_digest_covers():

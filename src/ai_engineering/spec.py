@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import hashlib
+import json
 import re
 import stat
 import subprocess
@@ -386,17 +387,20 @@ def _width(
     half by raising an exception four lines up from the handler that caught it."""
 
     widths = [declared, len(ready)]
+    # The test is whether the file parses as an Intent, not whether it is non-blank. Two
+    # earlier versions guarded a narrower shape each time — first the deleted file, then the
+    # emptied one — and each left a way through: a byte-order mark, undecodable bytes and a
+    # file of NUL bytes are all untouched by `str.strip()` and none of them is an Intent.
+    # `solution_intent` already reads this file with `json.loads`, so parsing is the shape
+    # the repository has rather than a new one. Specification 013's stated exit is that the
+    # sentence "has been swapped for another sentence"; anything that does not parse is
+    # neither the sentence nor another one, so the state is unknown, and unknown here is one.
     try:
-        held = (root / ".ai" / "intent.md").read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        # An Intent nobody can read is not an Intent that lifted the constraint.
-        held = ONE_WRITER
-    # Empty counts as unreadable. The first version guarded the deleted file and let an
-    # emptied one through, which is the likelier accident and the one that unclamped —
-    # `> .ai/intent.md` beats `rm .ai/intent.md`. Specification 013's stated exit is that
-    # the sentence "has been swapped for another sentence"; an empty file is neither the
-    # sentence nor another one, so the answer is unknown, and unknown here is one.
-    if ONE_WRITER in held or not held.strip():
+        held = (root / ".ai" / "intent.md").read_text(encoding="utf-8")
+        json.loads(held)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        held = ""
+    if ONE_WRITER in held:
         widths.append(1)
         facts.append(
             outcome.fact(
@@ -404,6 +408,22 @@ def _width(
                 "OBSERVED",
                 "The constraint the Intent holds",
                 f".ai/intent.md still says {ONE_WRITER!r}, so the width is one",
+            )
+        )
+    elif not held:
+        # A separate fact because the width is the same and the reason is not. Reporting
+        # "still says" over a deleted or unparseable file is a true number with a false
+        # reason, which is the defect the `claim.base` probe four commits ago exists to
+        # remove; it should not be reintroduced here to save a branch.
+        widths.append(1)
+        facts.append(
+            outcome.fact(
+                "one-writer",
+                "INCOMPLETE",
+                "The constraint the Intent holds",
+                ".ai/intent.md could not be read as an Intent, so the constraint's state "
+                "is unknown and the width is one",
+                cure="restore .ai/intent.md, or say in it what replaced the one-writer sentence",
             )
         )
     width = max(1, min(widths))
@@ -461,7 +481,7 @@ def _wave(root: Path, offered: str, remote: str) -> outcome.Execution:
                 "wave",
                 "INCOMPLETE",
                 "The claims that could start together",
-                f"{remote} did not answer, so no claim on it was read",
+                f"no claim was read from {remote}, so nothing there is coordinated against",
                 cure="check the remote is reachable, then ask again",
             )
         )

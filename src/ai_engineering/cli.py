@@ -76,7 +76,8 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
         (
             "one new spec directory, on `spec new` only",
             "one claim ref, on `spec claim` only",
-            "the remote-tracking refs a fetch updates, on `spec checkpoint` and `spec wave`",
+            "the remote-tracking refs a fetch updates, on `spec claim`, `spec checkpoint` "
+            "and `spec wave`",
         ),
         # `spec claim` is the only subcommand that reaches a remote, and a will that named
         # no network for the verb that can take a claim would be the exact defect the
