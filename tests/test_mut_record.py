@@ -268,9 +268,14 @@ def test_two_repeated_judgements_are_two_separate_rows(report):
     # typed beside it. It read "three times or more" while `OWED_A_SCRIPT` decided the
     # threshold, so the sentence and the rule could have drifted apart in either direction
     # and this assertion would have gone on passing.
-    assert f"  Rule 12 — the same judgement, {report_command.OWED_A_SCRIPT} times or more:" in (
-        printed
-    )
+    # The heading now names what was measured as well as the threshold, because it prints on
+    # every run rather than only on the runs with something to say — an empty window and an
+    # absent check used to produce the same silence. Both numbers come from the run and the
+    # constant, so neither can drift into a sentence that stays true after the rule changes.
+    assert (
+        f"  Rule 12 — 2 judgement(s) counted in this window, the most repeated 3×, "
+        f"owed a script at {report_command.OWED_A_SCRIPT}×:"
+    ) in printed
     assert "    loop_guard · a loop 3× same verdict each time → owed a script" in printed
     assert (
         "    change_scope_guard · shipping late 3× same verdict each time → owed a script"

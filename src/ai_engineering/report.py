@@ -64,20 +64,39 @@ def by_guard(events: list[dict], kind: str) -> Counter:
     return Counter(str(e["name"])[:64] for e in events if e.get("cls") == kind)
 
 
-def repeats(events: list[dict]) -> list[str]:
-    """Rule 12's trigger, measured rather than felt: the same judgement resolving the
-    same way three times or more is owed a script, and the prompt that made it goes away
-    in the same commit."""
-    seen = Counter(
+def _verdict_counts(events: list[dict]) -> Counter:
+    """One key per judgement-and-reason, so two refusals for different reasons stay two."""
+
+    return Counter(
         f"{str(e['name'])[:64]} · {str((e.get('data') or {}).get('reason', ''))[:50]}"
         for e in events
         if e.get("cls") in ("blocked", "bypassed")
     )
+
+
+def repeats(events: list[dict]) -> list[str]:
+    """Rule 12's trigger, measured rather than felt: the same judgement resolving the
+    same way three times or more is owed a script, and the prompt that made it goes away
+    in the same commit."""
+    seen = _verdict_counts(events)
     return [
         f"    {label} {count}× same verdict each time → owed a script"
         for label, count in seen.most_common()
         if count >= OWED_A_SCRIPT
     ]
+
+
+def measured_repeats(events: list[dict]) -> tuple[list[str], int, int]:
+    """`repeats`, plus what it measured to get there.
+
+    The rows alone cannot say whether the window was empty, and an empty window is the
+    ordinary case — so the ordinary case looked exactly like the check not existing. Returning
+    the count and the highest repetition lets the caller print a rule that is running even on
+    the days it has nothing to say, which is most of them.
+    """
+
+    seen = _verdict_counts(events)
+    return repeats(events), len(seen), (seen.most_common(1)[0][1] if seen else 0)
 
 
 def surfaces(root: Path | None) -> outcome.Result:
@@ -333,10 +352,16 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         outcome.fact("errors", "WARN" if errors else "PASS", "Command errors", str(len(errors)))
     )
 
-    rows = repeats(events)
-    if rows:
-        print(f"\n  Rule 12 — the same judgement, {OWED_A_SCRIPT} times or more:")
-        print("\n".join(rows))
+    rows, counted, highest = measured_repeats(events)
+    # Printed on every run, including the runs with nothing to report. It used to print only
+    # when a judgement had crossed the threshold, so a reader could not tell rule 12 measured
+    # and found nothing from rule 12 never having been measured — the two produce identical
+    # silence, and one of them is a rule that is not running.
+    print(
+        f"\n  Rule 12 — {counted} judgement(s) counted in this window, "
+        f"the most repeated {highest}×, owed a script at {OWED_A_SCRIPT}×:"
+    )
+    print("\n".join(rows) if rows else "    none has crossed it")
 
     settings = paths.load("_emit").config(root).get("observability", {})
     if settings.get("endpoint"):

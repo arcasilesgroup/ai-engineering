@@ -1105,8 +1105,8 @@ note = "measuring the saving means running a model twice; the register records w
 id = "EP-161"
 verdict = "INCOMPLETE"
 subject = "a judgement resolving the same way three times becomes a script"
-evidence = "python tests/pilot_register.py | grep owed-a-script; pytest tests/test_record.py -k repeats"
-note = "the note said the three-times threshold had no instrument by design and that was wrong: `report.repeats` counts identical verdicts over the digest window and prints them under rule 12's own words, and the number is declared in the register and bound to the code. What is still absent is the second half of the rule — nothing turns the judgement into a script, and nothing can: writing one is a person's work"
+evidence = "python tests/pilot_register.py | grep owed-a-script; pytest tests/test_mut_report_issue.py -k rule_twelve"
+note = '''the instrument exists and is now visible on the runs where it finds nothing. `report.repeats` counts identical verdicts over the digest window, the threshold of three is declared in the register and bound to `report.OWED_A_SCRIPT`, and the digest prints how many judgements were counted and the highest repetition on every run — it used to print only when something had crossed, so an empty window and an absent check produced the same silence, which is worse for this rule than for any other because rule 12 is the one that turns repeated judgement into code. A key is the guard and its reason together, so two refusals for different reasons stay two judgements. What is still absent is the second half of the rule and nothing can supply it: turning the judgement into a script is a person's work.'''
 
 [[requirement]]
 id = "EP-162"
