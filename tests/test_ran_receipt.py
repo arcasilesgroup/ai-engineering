@@ -168,3 +168,32 @@ def test_the_cheap_recipe_records_only_after_the_suite_passes():
         "the record line is written so it survives the line above failing, which makes the "
         "receipt a claim about a suite that did not pass"
     )
+
+
+def test_the_digest_the_receipt_carries_comes_from_the_package(repository: Path):
+    """One home for the algorithm, because the checkpoint needs to read it too.
+
+    The digest lived in this script, which `commit-msg` and two build recipes run by path.
+    Nothing under `src/` can import a file in `tests/`, so a checkpoint that wanted to prefer
+    the one receipt bound to the tree's content had two options: copy the algorithm into a
+    second file, or go without. A hash computed in two places is a hash that drifts, and this
+    repository has a paragraph about every other pair of files that held one number.
+    """
+
+    import importlib.util
+
+    from ai_engineering import evidence
+
+    spec = importlib.util.spec_from_file_location("ran_receipt_probe", SCRIPT)
+    assert spec and spec.loader
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+
+    assert script.content_digest is evidence.content_digest
+
+    # And it still answers about the repository it is asked from, not the one it lives in.
+    (repository / "one.txt").write_text("one\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=str(repository), check=True)
+    before = evidence.content_digest(repository)
+    (repository / "one.txt").write_text("two\n", encoding="utf-8")
+    assert evidence.content_digest(repository) != before

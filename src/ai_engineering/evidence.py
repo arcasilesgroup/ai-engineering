@@ -11,6 +11,7 @@ import json
 import os
 import re
 import stat
+import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -371,3 +372,69 @@ def verify(
     if requirement["applicability"] == "not_applicable":
         return _verification("PASS", NOT_APPLICABLE)
     return _verification("PASS", VERIFIED)
+
+
+# ── what a check ran over ───────────────────────────────────────────────────────────────
+
+RECEIPT_PARTS = (".ai", "receipts", "ran.json")
+
+# Ignored files are excluded, so a build directory or a virtualenv cannot move the digest.
+# `--others` is what makes the set stable across `git add`: a file being added for the first
+# time is "other" before the add and "cached" after it, and it has to be in both readings or
+# every commit that adds a file would silently lose its trailer.
+LISTING = ("git", "ls-files", "--cached", "--others", "--exclude-standard", "-z")
+
+
+def toplevel(root: Path | None = None) -> Path:
+    """The repository this is being asked about, from where it is being asked.
+
+    Not the parent of this file. `commit-msg` invokes its caller by absolute path, and a
+    checkout that vendors it — or a test that builds a repository in a temporary directory —
+    would otherwise get a digest over *this* tree while committing to another one. A receipt
+    that answers about the wrong repository is worse than no receipt.
+    """
+
+    found = subprocess.run(
+        ("git", "rev-parse", "--show-toplevel"),
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=None if root is None else str(root),
+    )
+    return Path(found.stdout.strip())
+
+
+def content_digest(root: Path | None = None) -> str:
+    """One digest over the name and bytes of every file this commit could carry.
+
+    Read from disk rather than from the index on purpose. The index answers "what is staged",
+    and the question here is "what did the suite actually run over" — which is the working
+    tree. Editing a file after the gate and before the commit has to break this, and reading
+    the index would not notice.
+
+    It lives here rather than beside the script that writes the receipt because a second
+    reader needs it: `checkpoint` decides whether the executed-checks receipt is about this
+    code, and the only receipt in the tree bound to content is this one. Nothing under `src/`
+    can import a file in `tests/`, so the choice was one home or two copies of a hash.
+    """
+
+    where = toplevel(root)
+    listed = subprocess.run(LISTING, capture_output=True, cwd=str(where), check=True).stdout
+    running = sha256()
+    # The receipt is never part of what the receipt measures. `.ai/` is ignored in this
+    # repository so it fell out anyway, and that is exactly the accident worth removing: in a
+    # tree where it is not ignored, writing the receipt changes the digest the receipt just
+    # recorded, and the trailer can never appear. A tool that cannot tell what it is looking
+    # at from what it is looking through — the same defect, one level down.
+    mine = "/".join(RECEIPT_PARTS).encode()
+    for name in sorted(one for one in listed.split(b"\0") if one and one != mine):
+        path = where / name.decode("utf-8", "surrogateescape")
+        running.update(name)
+        try:
+            running.update(sha256(path.read_bytes()).digest())
+        except (OSError, ValueError):
+            # A symlink to nowhere, a directory left by a removed submodule, an unreadable
+            # file. Recorded as its own state rather than skipped: skipping would make two
+            # different trees digest the same.
+            running.update(b"\0unreadable")
+    return running.hexdigest()
