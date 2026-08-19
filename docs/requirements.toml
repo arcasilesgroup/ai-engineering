@@ -2216,8 +2216,8 @@ note = "the claim half executes; the span half names no observable"
 id = "EP-326"
 verdict = "INCOMPLETE"
 subject = "three named skills declared with bodies, plus accessibility and coordination in the tree"
-evidence = "ls .agents/skills/; ls src/ai_engineering/claim.py src/ai_engineering/dag.py src/ai_engineering/checkpoint.py"
-note = "two of the three gaps are closed; one skill has no body, deliberately, which is why three other ids read CONTRADICTED"
+evidence = '''ls .agents/skills/ai-verify/SKILL.md && ! test -d .agents/skills/ai-test && ! test -d .agents/skills/ai-animation && ls src/ai_engineering/claim.py src/ai_engineering/dag.py src/ai_engineering/checkpoint.py'''
+note = '''counted, and the previous note claimed more progress than there is — the dangerous direction. The three skills `D-012-04` names are `ai-animation`, `ai-test` and `ai-verify`. **One of the three has a body**: `ai-verify`, 62 lines. The other two have no directory at all, both by that same recorded decision, and `ai-animation`'s own row reads CONTRADICTED for it. The note said two of three gaps closed; it is one. Accessibility and coordination are in the tree — `policy/accessibility.toml` with four AAA criteria since this evening, and `claim.py`, `dag.py` and `checkpoint.py` — so that half stands. A note overstating progress is worse than one understating it: nobody re-reads a row that says the work is nearly done.'''
 
 [[requirement]]
 id = "EP-327"
