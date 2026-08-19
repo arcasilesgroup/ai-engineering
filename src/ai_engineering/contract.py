@@ -3348,7 +3348,7 @@ DESCRIPTION_MAX = 1000
 #
 # Worth keeping as a property of the sealer rather than as an anecdote: it measures the index
 # and the index is shared, so it is only trustworthy while one writer holds the tree.
-REPO_CEILING = 80_273
+REPO_CEILING = 81_552
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
