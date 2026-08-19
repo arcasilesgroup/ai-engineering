@@ -191,11 +191,14 @@ def _bound_to_this_tree(root: Path, folder: Path) -> outcome.Fact | None:
     `finished_at` and the handler that skips a malformed receipt swallowed the `KeyError`.
 
     Preferred when present, and only then: a rule that refused every aged receipt would leave
-    a fresh clone permanently incomplete, because `.ai/receipts/` is not committed.
+    a fresh clone permanently incomplete, because `.ai/receipts/` is not committed. And
+    preferred only over the aged receipts that PASSED — the first version of this returned
+    before the caller's failure scan, so a matching digest answered PASS over a fresh receipt
+    reporting FAIL, which is the shape the paragraph below was written to deny.
 
     It carries no outcome field, so presence means the suite passed — the writer records it
     after a green run and nowhere else. That is why this returns PASS or INCOMPLETE and never
-    FAIL: a failure leaves no receipt at all, which the aged reading below still catches.
+    FAIL: a failure leaves no receipt at all, and the aged reading is what catches that.
     """
 
     found = folder / "ran.json"
@@ -206,8 +209,17 @@ def _bound_to_this_tree(root: Path, folder: Path) -> outcome.Fact | None:
         return None
     try:
         measured = evidence.content_digest(root)
-    except (OSError, ValueError, subprocess.SubprocessError):
-        return None
+    except (OSError, ValueError, subprocess.SubprocessError) as refused:
+        # Not None. Dropping through to the aged reading is how a repository whose git is
+        # broken reads PASS off a week-old receipt, which is the fail-open this lane exists
+        # to replace and the one `_git` above already refuses twice.
+        return outcome.fact(
+            "checks-executed",
+            "INCOMPLETE",
+            "The checks this diff affects",
+            f"the receipt names bytes and this tree could not be read: {refused}",
+            cure="check the repository is readable, then check again",
+        )
     if recorded == measured:
         return outcome.fact(
             "checks-executed",
@@ -230,9 +242,6 @@ def _executed(root: Path, now: datetime | None = None) -> outcome.Fact:
 
     folder = root / RECEIPTS
     moment = now or datetime.now(UTC)
-    bound = _bound_to_this_tree(root, folder)
-    if bound is not None:
-        return bound
     # Every fresh receipt, and the worst of them decides. It used to keep one — assigned in a
     # loop over `sorted(...)`, so the winner was the alphabetically last fresh receipt while
     # the variable holding it was called `freshest`. With `adversarial-attacks.json` reporting
@@ -253,6 +262,13 @@ def _executed(root: Path, now: datetime | None = None) -> outcome.Fact:
         except (OSError, ValueError, KeyError, TypeError):
             continue
     failed = [row for row in fresh if row[0] != "PASS"]
+    # After the failure scan and not before it. A receipt bound to these bytes is the better
+    # evidence that something ran over this code; it is not evidence that nothing else
+    # reported a failure over the same code, and the first version of this returned above the
+    # scan and published PASS across a fresh FAIL.
+    bound = _bound_to_this_tree(root, folder)
+    if bound is not None and not failed:
+        return bound
     freshest = failed[0] if failed else (fresh[0] if fresh else None)
     if freshest is None:
         return outcome.fact(

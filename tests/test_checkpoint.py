@@ -380,3 +380,80 @@ def test_a_receipt_taken_before_the_staged_change_is_incomplete(working):
         encoding="utf-8",
     )
     assert checkpoint._executed(working).status == "INCOMPLETE"
+
+
+def test_a_matching_digest_receipt_never_masks_a_fresh_failure(working):
+    """The precedence the early return got wrong, and the sentence it contradicted.
+
+    `_bound_to_this_tree` returned before the "worst of them decides" scan, so a `ran.json`
+    whose digest matched answered PASS over a fresh receipt reporting FAIL. Both are true at
+    once and neither is stale: `just check` writes the first, and `python tests/adversarial/
+    run.py` — which the always-loaded doctrine tells people to run — writes the second on its
+    way to failing, with no file edited in between, so the digest still matches.
+
+    The function's own docstring said "a failure leaves no receipt at all, which the aged
+    reading below still catches". The early return was what stopped it being caught.
+    """
+
+    from ai_engineering import checkpoint, evidence
+
+    receipts = working / ".ai" / "receipts"
+    receipts.mkdir(parents=True, exist_ok=True)
+    stage(working, "src/thing.py", "VALUE = 2\n")
+
+    (receipts / "ran.json").write_text(
+        json.dumps({"suite": "check", "content": evidence.content_digest(working), "at": 0}),
+        encoding="utf-8",
+    )
+    assert checkpoint._executed(working).status == "PASS"
+
+    (receipts / "adversarial-attacks.json").write_text(
+        json.dumps(
+            {
+                "id": "adversarial-attacks",
+                "outcome": "FAIL",
+                "finished_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "max_age_seconds": 86400,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    answered = checkpoint._executed(working)
+    assert answered.status == "FAIL", answered
+    assert "adversarial-attacks" in (answered.detail or "")
+
+
+def test_a_git_that_cannot_answer_does_not_fall_back_to_the_aged_reading(working, monkeypatch):
+    """The same fail-open shape Task 5 closed twice in this file, in the lane Task 7 added.
+
+    The digest needs git. When git cannot answer, returning None dropped through to the aged
+    receipts — so a repository whose git is broken read PASS off a week-old receipt, which is
+    the reading the bound receipt exists to replace."""
+
+    from ai_engineering import checkpoint, evidence
+
+    receipts = working / ".ai" / "receipts"
+    receipts.mkdir(parents=True, exist_ok=True)
+    (receipts / "ran.json").write_text(
+        json.dumps({"suite": "check", "content": "0" * 64, "at": 0}), encoding="utf-8"
+    )
+    (receipts / "gate.json").write_text(
+        json.dumps(
+            {
+                "id": "gate",
+                "outcome": "PASS",
+                "finished_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "max_age_seconds": 604800,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def refuse(*_args, **_kwargs):
+        raise OSError("git is not here")
+
+    monkeypatch.setattr(evidence, "content_digest", refuse)
+
+    answered = checkpoint._executed(working)
+    assert answered.status == "INCOMPLETE", answered
