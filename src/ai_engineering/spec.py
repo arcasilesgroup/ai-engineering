@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import re
 import stat
 from collections.abc import Mapping
@@ -274,6 +275,58 @@ def runs_something(value: str) -> bool:
     word nobody can type at a prompt is prose wearing a command."""
 
     return any((one.split() or [""])[0] in RUNNABLE for one in _SPAN.findall(value))
+
+
+def _digest(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _envelope(home: Path, wanted: str, named: dict[str, str]) -> outcome.Result:
+    """One task, the two digests it was read under, and nothing else.
+
+    This is the answer to the second problem specification 019 names. An executor could not
+    be handed a task, only the document holding it: 74,216 bytes of plan beside a
+    53,831-byte specification, re-read once per task, because no plan had a shape a script
+    could enumerate. Task 15 gave plans that shape; this hands one task over.
+
+    Every unknown refuses rather than printing part of an envelope. A half-written one is
+    worse than none — it names a file and a check that may belong to a different task, and
+    the reader has no way to tell.
+    """
+
+    plan = home / "plan.md"
+    if not plan.is_file():
+        print(f"  no plan beside {home.name}, so there is no task to hand over")
+        return outcome.result("INCOMPLETE")
+    for what, path in (("spec", home / "spec.md"), ("plan", plan)):
+        asked = named.get(what)
+        if asked and asked != _digest(path):
+            # The caller said which bytes this is about and it is not these. Refusing is the
+            # whole reason an envelope can carry authority: a task extracted from a plan
+            # nobody approved is a task nobody approved.
+            print(f"  the {what} digest you named does not match {path.name} on disk")
+            return outcome.result("INCOMPLETE")
+    tasks = plan_tasks(plan.read_text(encoding="utf-8", errors="replace"))
+    if not tasks:
+        print(f"  {home.name} has a plan with no numbered tasks a script can enumerate")
+        return outcome.result("INCOMPLETE")
+    found = next((one for one in tasks if one["task"] == wanted), None)
+    if found is None:
+        print(
+            f"  no task {wanted} in {home.name}: it has {', '.join(one['task'] for one in tasks)}"
+        )
+        return outcome.result("INCOMPLETE")
+    missing = [field for field in TASK_FIELDS if field not in found]
+    if missing:
+        print(f"  task {wanted} of {home.name} carries no {', '.join(missing)}")
+        return outcome.result("INCOMPLETE")
+
+    print(f"  task: {found['task']}  {found['title']}")
+    print(f"  spec: {_digest(home / 'spec.md')}")
+    print(f"  plan: {_digest(plan)}")
+    for field in TASK_FIELDS:
+        print(f"  {field}: {found[field]}")
+    return outcome.result("PASS")
 
 
 def examples_section(text: str) -> str:
@@ -735,6 +788,11 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     )
     shown = sub.add_parser("show")
     shown.add_argument("id", type=_argument(re.compile(r"^[0-9]+$"), "spec id"))
+    # Options on `show` rather than a sixth subcommand: the verb's closed list of five is
+    # pinned in four places and the ten verbs are the product's shape, not a convenience.
+    shown.add_argument("--task", type=_argument(re.compile(r"^[0-9]+$"), "task number"))
+    shown.add_argument("--spec-digest", default="")
+    shown.add_argument("--plan-digest", default="")
     listed = sub.add_parser("list")
     listed.add_argument("--all", action="store_true", help="include superseded specs")
     # The one subcommand here that reaches a remote, and the reason `spec`'s declared scope
@@ -783,6 +841,15 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     if not matches:
         print(f"  no spec matches {args.id!r}")
         return outcome.result("INCOMPLETE")
+    if getattr(args, "task", None):
+        if len(matches) > 1:
+            print(f"  {args.id!r} matches {len(matches)} specs; name one of them exactly")
+            return outcome.result("INCOMPLETE")
+        return _envelope(
+            matches[0].parent,
+            args.task,
+            {"spec": args.spec_digest, "plan": args.plan_digest},
+        )
     # All of them, named. Printing the first and saying nothing about the rest is how
     # somebody reads one spec and acts as though it were the only one that matched.
     for match in matches:

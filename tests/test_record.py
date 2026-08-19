@@ -1600,3 +1600,91 @@ def test_show_says_nothing_about_examples_when_there_are_none(repo, capsys):
 
     assert spec.main(["show", "001"]).outcome == "PASS"
     assert "examples:" not in capsys.readouterr().out
+
+
+def _plan_with_tasks(where, how_many=2):
+    """A plan in the shape the plan skill asks for, beside an existing spec."""
+    tasks = "\n\n".join(
+        f"{n}. **Task {n}** — **file** `src/thing.py`.\n"
+        f"   **check**: `just quick thing`.\n"
+        f"   **rollback**: `git revert <commit>`. **done when**: thing {n} works."
+        for n in range(1, how_many + 1)
+    )
+    (where.parent / "plan.md").write_text(f"# Plan\n\n{tasks}\n", encoding="utf-8")
+
+
+def test_show_hands_over_one_task_as_an_envelope(repo, capsys):
+    """The whole point of specification 019's second problem.
+
+    An executor could not be handed a task, only the file it lives in — 74,216 bytes of
+    plan beside a 53,831-byte specification, re-read once per task, because no plan had a
+    structure a script could enumerate. This is the other end of that: one task, the two
+    digests it was read under, and nothing else."""
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-thing")
+    _plan_with_tasks(where)
+
+    assert spec.main(["show", "001", "--task", "2"]).outcome == "PASS"
+    out = capsys.readouterr().out
+
+    assert "task: 2" in out
+    assert "file: `src/thing.py`" in out
+    assert "check: `just quick thing`" in out
+    assert "rollback: `git revert <commit>`" in out
+    assert "done when: thing 2 works" in out
+    # The two digests it was read under, so a hand-off names the bytes it came from.
+    assert "spec: sha256:" in out and "plan: sha256:" in out
+    # And nothing else: the specification body is not printed beside it.
+    assert "## Production-ready" not in out
+    # Small enough to hand over. The cost this replaces is 128,047 bytes.
+    assert len(out.encode()) < 1024, len(out.encode())
+
+
+def test_an_envelope_refuses_rather_than_printing_half_of_one(repo, capsys):
+    """Each refusal leaves nothing on stdout a reader could act on. A partial envelope is
+    worse than none: it names a file and a check that may belong to another task."""
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-thing")
+
+    # A plan that is not there.
+    assert spec.main(["show", "001", "--task", "1"]).outcome == "INCOMPLETE"
+    assert "no plan" in capsys.readouterr().out
+
+    # A plan with no task a script can enumerate.
+    (where.parent / "plan.md").write_text("# Plan\n\nProse only.\n", encoding="utf-8")
+    assert spec.main(["show", "001", "--task", "1"]).outcome == "INCOMPLETE"
+    assert "no numbered tasks" in capsys.readouterr().out
+
+    # A task number nobody wrote.
+    _plan_with_tasks(where)
+    assert spec.main(["show", "001", "--task", "9"]).outcome == "INCOMPLETE"
+    assert "no task 9" in capsys.readouterr().out
+
+    # A digest the caller named that is not the bytes on disk. This is the one that makes
+    # the envelope an authority statement rather than a convenience.
+    assert (
+        spec.main(["show", "001", "--task", "1", "--plan-digest", "sha256:" + "0" * 64]).outcome
+        == "INCOMPLETE"
+    )
+    said = capsys.readouterr().out
+    assert "does not match" in said
+    assert "check:" not in said
+
+
+def test_an_envelope_is_the_same_bytes_the_digest_names(repo, capsys):
+    """Naming the right digest is not a refusal, and the envelope carries it back."""
+
+    import hashlib
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-thing")
+    _plan_with_tasks(where)
+    digest = "sha256:" + hashlib.sha256((where.parent / "plan.md").read_bytes()).hexdigest()
+
+    assert spec.main(["show", "001", "--task", "1", "--plan-digest", digest]).outcome == "PASS"
+    assert digest in capsys.readouterr().out
