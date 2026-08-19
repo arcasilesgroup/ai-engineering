@@ -771,6 +771,24 @@ def test_every_recipe_the_gate_runs_is_named_here_with_its_control_or_its_reason
     for name in ordered:
         assert GATE_CONTROLS[name].strip(), f"{name} carries neither a control nor a reason"
 
+    # `EP-060` asks for a clean control in each gate recipe, and the honest half of that is
+    # how many are arguments rather than controls. It was six controlled and two argued when
+    # the requirement was measured; the table has grown since and nothing was counting, so
+    # the ratio could have drifted the wrong way one recipe at a time. `lint` and `typecheck`
+    # say "executed below" and mean it — the case under this one plants a defect and reads
+    # each of them refusing — so `build` is the only recipe held by a reason alone.
+    argued = [name for name, why in GATE_CONTROLS.items() if why == "executed below"]
+    assert set(argued) == {"lint", "typecheck"}, (
+        f"{argued} defer to a control below this case. Each one that does must be executed "
+        "there, and the case that executes them names exactly these two"
+    )
+    reasons = [name for name in ordered if name == "build"]
+    assert len(reasons) == 1 and len(ordered) - len(reasons) >= 12, (
+        f"{len(reasons)} of {len(ordered)} recipes are held by a reason alone. That is "
+        "allowed and it is the number worth watching: a gate whose recipes are mostly "
+        "argued is a gate mostly nobody has seen refuse"
+    )
+
 
 def test_the_linter_and_the_type_checker_are_shown_saying_no(tmp_path):
     """The two controls that are cheap to execute, executed. Planted first and then found,

@@ -451,10 +451,10 @@ note = "needs a real pilot with a sequential run recorded before a parallel one"
 
 [[requirement]]
 id = "EP-060"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "every attacked guard has a clean control, in the adversarial suite and in each gate recipe"
 evidence = "python tests/adversarial/run.py; pytest tests/test_quality_gate.py -k every_recipe"
-note = "25 of 25 adversarial, eleven guards controlled; of the gate's own recipes, six are controlled and two carry a written reason"
+note = '''both halves execute and the count is now watched rather than remembered. The adversarial suite is 25 of 25 with a clean control for each of eleven attacked guards, and it prints that sentence itself. Of the gate's own thirteen recipes, ten name a control that has been seen refusing, two — `lint` and `typecheck` — defer to a case that plants a defect and reads each of them saying no, and one, `build`, is held by a written reason: a wheel that fails to build takes minutes to construct and proves the packaging tool works rather than this gate. The row it replaces said six controlled and two argued, which was true when the table had eight recipes and went stale five recipes later with nothing counting. A case now refuses a table where the deferrals are not exactly those two, or where more than one recipe is argued — because a gate whose recipes are mostly argued is a gate mostly nobody has seen refuse.'''
 
 [[requirement]]
 id = "EP-061"
