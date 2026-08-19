@@ -1679,6 +1679,10 @@ def test_the_template_gives_the_spec_every_section_the_skill_demands_of_it():
     assert "Given / When / Then" in body
     # Line-wrapped in the template, so the phrase is matched without the newline in it.
     assert "the undecidable path" in body, "the undecidable path is the forgotten one"
+    # And it asks for the half a script can re-run. Spec 002 refused a words-only rule
+    # because it greens on "Given a user, When they click, Then it works"; the command and
+    # its output are the part that cannot be satisfied by writing the three words.
+    assert "names the command in backticks and the exact output" in body
 
     # And the order is the order of the work: the challenge comes after the decision it
     # challenges, and the examples after the assumptions they rest on.

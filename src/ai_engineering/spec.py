@@ -136,7 +136,9 @@ spec stops being checkable, and `ai-eng accept` is the only thing that accepts a
 
 TODO: Given / When / Then for the important success, the denial and the case nobody can
 decide. Observable outcomes, not intentions — an example whose Then is "it works" is a
-sentence, and the undecidable path is the one that gets forgotten.
+sentence, and the undecidable path is the one that gets forgotten. At least one Then
+names the command in backticks and the exact output beside it, because that is the half
+of an example a script can re-run and the half a vague one cannot fake.
 
 ## Decisions
 
