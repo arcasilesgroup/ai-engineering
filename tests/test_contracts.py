@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -1424,8 +1425,13 @@ def test_the_guidance_a_requirement_asks_for_is_in_the_file_that_owes_it(
 # present, and the plan edit ordered again. A blocklist stops a revert; only a pin on the
 # sentence that does the forbidding stops a paraphrase.
 #
-# So the bans are three, and they are the revert tripwire — the exact strings the old file
-# carried. The requirements are four, and they are the load-bearing half.
+# So the bans are the revert tripwire — exact strings the old file carried, including the two
+# Done-when bullets, because a partial revert of just those two passed when only three were
+# banned. The requirements are the load-bearing half, and they are pinned on the shortest
+# substring that survives a reasonable reword: `editing the plan` rather than the whole
+# sentence, because somebody adding the word "approved" to make step 6 agree with the
+# description at line 9 is improving the file, and a check that reds on that is a check people
+# learn to route around.
 BUILD_MUST_NOT_SAY = (
     ("SKILL.md", "checkbox", "the approved plan is not edited by the act of executing it"),
     ("corpus.md", "checkbox", "the approved plan is not edited by the act of executing it"),
@@ -1434,17 +1440,27 @@ BUILD_MUST_NOT_SAY = (
         "Run the gate exactly as CI runs it",
         "the whole gate runs once at block close, not once per task",
     ),
+    (
+        "SKILL.md",
+        "the gate output is in the conversation",
+        "the Done-when list ordered the per-task gate too, and a partial revert restores it",
+    ),
+    (
+        "SKILL.md",
+        "The plan on disk says what happened",
+        "the Done-when list ordered the plan edit too, and a partial revert restores it",
+    ),
 )
 
 BUILD_MUST_SAY = (
     (
         "SKILL.md",
-        "never by editing the plan",
+        r"never by (editing|rewriting) the (approved )?plan",
         "the sentence that forbids the plan edit; without it a paraphrase restores it",
     ),
     (
         "SKILL.md",
-        "Not the whole gate",
+        r"Not the (whole|full) gate",
         "the sentence that forbids the per-task gate; without it a paraphrase restores it",
     ),
     ("SKILL.md", "UNREVIEWED", "a checkpoint nobody has reviewed has to say so"),
@@ -1455,13 +1471,13 @@ BUILD_MUST_SAY = (
     # the shape this repository refuses everywhere else.
     (
         "corpus.md",
-        "task's own check run and shown",
+        r"task's own check run and shown",
         "the corpus says which check runs, and it is not the gate",
     ),
     (
         "corpus.md",
-        "tick the task off in the plan",
-        "the refusal that replaces the deleted instruction; a hole is read as permission",
+        r'"tick the task off in the plan now that it is done" — refused',
+        "the verdict, not just the case: moving the bullet to Routes here kept the text intact",
     ),
 )
 
@@ -1482,10 +1498,13 @@ def test_the_build_skill_neither_edits_the_plan_nor_gates_each_task(where, phras
 
 @pytest.mark.parametrize(("where", "phrase", "why"), BUILD_MUST_SAY)
 def test_the_build_skill_says_what_replaced_them(where, phrase, why):
-    """Deleting an instruction leaves a hole, and a hole is read as permission."""
+    """Deleting an instruction leaves a hole, and a hole is read as permission.
+
+    Searched as a pattern, so a reword that keeps the prohibition passes and one that drops
+    it does not. The alternation is the whole point: it names what may vary."""
 
     body = (ROOT / ".agents" / "skills" / "ai-build" / where).read_text(encoding="utf-8")
-    assert phrase in body, f"ai-build/{where} does not say {phrase!r}: {why}"
+    assert re.search(phrase, body), f"ai-build/{where} does not say {phrase}: {why}"
 
 
 # The nine verbs the mission has to name, and the three words of the clause beside them.
