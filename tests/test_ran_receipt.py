@@ -244,7 +244,13 @@ def test_a_present_trailer_does_not_split_the_line_it_is_read_from():
         check=False,
     ).stdout
     rows = [line for line in listed.splitlines() if line.strip()]
-    assert rows, "no commit was listed, so this proved nothing"
+    if not rows:
+        # Cannot ask, again. Inside the mutant tree there is no repository, so `git log`
+        # returns nothing — and an empty answer is not a wrong one. This is the third case
+        # tonight to have needed this sentence and the second I wrote after writing the rule
+        # down, which is the lesson: a rule recorded does not retrofit itself onto the cases
+        # already written under the old habit.
+        pytest.skip("no commit was listed here, so the format could not be exercised")
     assert all(len(row.split("\x1f")) == 3 for row in rows), (
         "a row split into something other than sha, trailer and subject, which is how the "
         "commits that ran come to read as the broken ones"
