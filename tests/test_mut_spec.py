@@ -1272,3 +1272,66 @@ def test_a_spec_namespace_this_cannot_read_stops_the_write(tmp_path):
     # And an ordinary name that is not a spec at all is skipped rather than refused: a
     # `README.md` beside the specs is somebody's file, not an ambiguous identifier.
     assert spec._number(_inventory("README.md", "notes", "001-a")) == "002"
+
+
+SECTION = """## Examples somebody can check
+
+**The success path.** Given a tree, When the writer runs the task, Then the plan hashes to
+what it hashed to before — verified by running `git diff --stat -- specs/x/plan.md` and
+reading `0 files changed`.
+
+**The denial path.** Given a base that is not there, When the checkpoint runs, Then the
+receipt is INCOMPLETE.
+
+**The undecidable path.** Given a section with no command, When the gate reads it, Then it
+fails the executable clause and passes the structure one.
+
+## Decisions
+"""
+
+
+def test_the_examples_section_is_counted_by_what_it_holds():
+    """The reading half of the executable clause, and the only definition of it.
+
+    The gate over authored specifications calls this rather than parsing the section a
+    second time, because two definitions of "executable" is how the two disagree later.
+    """
+
+    from ai_engineering import spec
+
+    assert spec.examples_facts(SECTION) == (3, 3, 3, 1)
+
+    # No heading at all is zeroes, not a crash and not a pass.
+    assert spec.examples_facts("# A spec with no examples\n") == (0, 0, 0, 0)
+
+    # A Then with an output and no command is not executable: the command is the half a
+    # reader cannot reconstruct, and spec 018 is exactly this shape.
+    output_only = SECTION.replace(
+        "verified by running `git diff --stat -- specs/x/plan.md` and\nreading `0 files changed`",
+        "verified by reading `0 files changed`",
+    )
+    assert spec.examples_facts(output_only) == (3, 3, 3, 0)
+
+    # A command with nothing after it is not executable either: an expected output is what
+    # makes it a check rather than an instruction.
+    bare = SECTION.replace(
+        "`git diff --stat -- specs/x/plan.md` and\nreading `0 files changed`",
+        "`git diff --stat -- specs/x/plan.md`",
+    )
+    assert spec.examples_facts(bare) == (3, 3, 3, 0)
+
+    # And the verb list is closed. A Then naming something nobody can run is prose.
+    invented = SECTION.replace("`git diff --stat -- specs/x/plan.md`", "`frobnicate --all`")
+    assert spec.examples_facts(invented) == (3, 3, 3, 0)
+
+
+def test_the_template_own_examples_prompt_is_not_executable():
+    """The one collision worth pinning. Task 11 put a worked shape into the prompt, and if
+    its verb were on the closed list every `ai-eng spec new` output would satisfy the
+    executable clause on the day it is written — and the gate's intended red would never
+    fire for anybody."""
+
+    from ai_engineering import spec
+
+    prompt = spec.TEMPLATE.split("## Examples somebody can check", 1)[1].split("\n## ", 1)[0]
+    assert spec.examples_facts("## Examples somebody can check" + prompt)[3] == 0

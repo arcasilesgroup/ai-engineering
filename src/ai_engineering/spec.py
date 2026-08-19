@@ -217,6 +217,57 @@ def _canonical_specs(root: Path) -> list[Path]:
     return sorted(found)
 
 
+EXAMPLES = "## Examples somebody can check"
+
+# Closed on purpose. A Then that names something nobody in this repository can run is prose
+# wearing a command, and the whole point of the clause is that it cannot be satisfied by
+# writing three words. `git` is here because specification 019's own success example uses it
+# and 019 is the only specification the gate's executable rule does not freeze.
+# ponytail: closed verb list, widen it when a specification legitimately names a tool that
+# is not on it — and widen it in the commit that needs it, so the reason is beside the word.
+RUNNABLE = ("ai-eng", "just", "uv", "pytest", "python3", "python", "git", "gh", "npm", "node")
+
+_SPAN = re.compile(r"`([^`]+)`")
+
+
+def examples_facts(text: str) -> tuple[int, int, int, int]:
+    """(given, when, then, thens that name a command and the output beside it).
+
+    Counts, never a verdict: a caller decides what the numbers mean. The fourth is the one
+    that cannot be faked — spec 002 refused a rule that only asked for the three words,
+    because it goes green on "Given a user, When they click, Then it works".
+
+    A Then is executable when its paragraph carries a code span whose first word is on the
+    closed list above and at least one further span after it. Both halves are required: a
+    command with no expected output is an instruction, and an output with the command left
+    in prose is what the two specifications that have this section already carry."""
+
+    if EXAMPLES not in text:
+        return (0, 0, 0, 0)
+    body = text.split(EXAMPLES, 1)[1].split("\n## ", 1)[0]
+
+    given = when = then = executable = 0
+    for chunk in body.split("\n\n"):
+        flat = " ".join(chunk.split())
+        given += flat.count("Given ")
+        when += flat.count("When ")
+        then += flat.count("Then ")
+        if "Then " not in flat:
+            continue
+        spans = _SPAN.findall(flat.split("Then ", 1)[1])
+        named = next(
+            (
+                at
+                for at, span in enumerate(spans)
+                if span.split()[:1] and span.split()[0] in RUNNABLE
+            ),
+            None,
+        )
+        if named is not None and len(spans) > named + 1:
+            executable += 1
+    return (given, when, then, executable)
+
+
 def status_of(path: Path) -> str:
     head = path.read_text(errors="replace")[:600]
     found = re.search(r"^status:\s*(\S+)", head, re.M)
