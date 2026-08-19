@@ -70,6 +70,13 @@ def test_adapter_schema_is_closed_and_versioned():
         # Task 16's field. Required and not optional: an adapter that declares no proof
         # requirement is one whose receipts prove only that something ran.
         "proof",
+        # `EP-147`'s reachable half. The deny protocol had a sentence in
+        # `translations.reply.deny` and no name, so nothing could compare one receipt's
+        # protocol to another's — and the check-evidence schema's `protocol_id` slot is an
+        # identifier and is forbidden on an automated receipt anyway. Required rather than
+        # optional: an adapter that does not say how it denies is one whose denial nobody
+        # can attribute to a mechanism.
+        "deny_protocol",
     }
     assert schema["properties"]["surface_id"]["enum"] == list(SURFACES)
 
@@ -158,6 +165,7 @@ def test_every_invalid_adapter_fixture_is_refused():
         "adapter_version",
         "schema",
         "proof",
+        "deny_protocol",
     )
     reasons = " ".join(case["why"] for case in cases["invalid"]).lower()
     named = {
@@ -171,6 +179,7 @@ def test_every_invalid_adapter_fixture_is_refused():
         "adapter_version": "no version",
         "schema": "another schema",
         "proof": "proof requirement is blank",
+        "deny_protocol": "deny protocol written as the sentence",
     }
     for field in closed:
         assert named[field] in reasons, field
@@ -1038,3 +1047,36 @@ def test_the_precedent_this_check_reads_is_still_the_one_written_down():
     whatever it happened to be written against."""
     spec = (ROOT / "specs" / "011-surface-adapter-contract" / "spec.md").read_text(encoding="utf-8")
     assert "adapters land one at a time, each behind its own executed denial" in spec
+
+
+def test_a_receipt_written_under_a_superseded_adapter_version_is_not_this_adapter(tmp_path):
+    """`EP-147`, and the half of it that can exist.
+
+    The requirement asks a per-surface receipt to carry the surface id, the surface version,
+    the adapter version and the deny protocol. `check-evidence-v1` has slots called
+    `environment_id`, `protocol_id` and `protocol_version` and forbids all three when `kind`
+    is `automated`: they are the manual half of the schema — the person, the protocol they
+    followed, the machine they used — and adapter facts written there would make an automated
+    run read as a human protocol record. That refusal is the schema working, not a gap in it.
+
+    What is left is `tool_version`, which is free text and is where the adapter version lives.
+    A receipt written under adapter 1 and read after the adapter moved to 2 is evidence about
+    a protocol nobody is running any more, and until now nothing noticed.
+    """
+
+    from ai_engineering import surface as surfaces
+
+    surfaces.adapter_identity.cache_clear() if hasattr(
+        surfaces.adapter_identity, "cache_clear"
+    ) else None
+    declared = surfaces.adapter_identity("opencode")
+
+    assert declared["adapter_version"], "the adapter declares no version to compare against"
+    assert declared["deny_protocol"], (
+        "the adapter declares no deny protocol. `EP-147` asks a receipt to carry one, and the "
+        "reachable half of that is the adapter naming it rather than describing it in a "
+        "sentence nothing can compare"
+    )
+    assert declared["deny_protocol"].islower(), (
+        "the deny protocol is an identifier, not the prose in translations.reply.deny"
+    )

@@ -35,5 +35,6 @@
   },
   "trust": {
     "required": false
-  }
+  },
+  "deny_protocol": "hook-specific-output.permission-decision-deny"
 }

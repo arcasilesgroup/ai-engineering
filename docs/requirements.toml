@@ -1015,8 +1015,8 @@ evidence = "none — the requirement text could not be located"
 id = "EP-147"
 verdict = "INCOMPLETE"
 subject = "a per-surface receipt carries surface id, surface version, adapter version and deny protocol together"
-evidence = "grep -rn deny_protocol src/ hooks/ tests/ policy/"
-note = "the compressed range EP-141-EP-150 marked this PROVEN in the first pass. It is a demonstrated overclaim: deny_protocol has no producer, and the receipt schema has none of the fields"
+evidence = "pytest tests/test_surface_adapter.py; grep -n deny_protocol policy/adapters/opencode.adapter.json"
+note = '''measured properly and the row's own diagnosis was wrong. It said the receipt schema has none of the four fields; `check-evidence-v1` has three of them — `environment_id`, `protocol_id`, `protocol_version` — and forbids every one when `kind` is `automated`, because they are the manual half of the schema: the person, the protocol they followed, the machine they used. Writing adapter facts there would make an automated run read as a human protocol record, which is the schema stopping the confusion it was closed to stop. That is a decision, not a gap, and it was found by writing the fields and watching the receipt turn MALFORMED. What is reachable is now built: the deny protocol has a name in the adapter rather than only a sentence in `translations.reply.deny`, the field is required and closed to an identifier with a fixture that breaks it, and `_standing` refuses an enforcement receipt whose `tool_version` does not name the adapter version the adapter declares — a receipt written under adapter 1 and read after the adapter moved to 2 is evidence about a protocol nobody runs. INCOMPLETE: surface version stays unobservable here, because the plugin is driven under node and node's version is not OpenCode's.'''
 
 [[requirement]]
 id = "EP-148"
