@@ -200,8 +200,10 @@ def _measured(root: Path) -> tuple[int, int, int]:
 
     try:
         names = contract.tracked(root)
-        tests = contract.count(root, [n for n in names if n.startswith(contract.TESTS)])
-        product = contract.count(root, [n for n in names if n.startswith(contract.PRODUCT)])
+        # Through `test_ratio`, not a count of the same names, because the ratio gate stopped
+        # counting comment on either side and a page that kept counting it would print
+        # headroom the build does not have — which is the drift this docstring is about.
+        tests, product = contract.test_ratio(root)
         # The page is excluded from its own measurement, and only from this one. Counting it
         # makes the number a function of the file the number is printed in: a longer page
         # raises the count, which changes the page, which changes the count. `seal_ceiling`

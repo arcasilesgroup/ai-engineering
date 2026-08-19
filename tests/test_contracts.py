@@ -905,37 +905,41 @@ def test_an_entry_is_ours_by_the_dispatcher_it_runs_and_not_by_this_project_s_na
     assert "/" not in wiring.SIGNATURE
 
 
-def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
-    """The re-plan the acceptance wave measured its way into.
+def test_the_ceiling_is_closed_onto_the_tree_and_its_history_is_git():
+    """The ceiling is a number and a commit, and nothing else.
 
-    The final candidate closes the ceiling onto the tree it measured, so what this pins is
-    not the number on its own but the arithmetic beside it: every rate names the commits it
-    was measured from, the base is the tree at this commit's parent rather than a forecast,
-    and the forecast's own error is recorded rather than quietly dropped — because a budget
-    that rounds in its own favour is the thing this ceiling exists to prevent.
+    It used to be a number and 3,330 lines of hand-written prose narrating every raise it
+    had ever had — charged, by its own rule, against the total it was documenting, and
+    eighteen of those lines were a paragraph about that. This asserted the arithmetic inside
+    that prose, phrase by phrase, which made the comment load-bearing and the deletion
+    expensive: the record of a change to an integer cost more than every other constant in
+    the file put together.
+
+    What replaces it is what was always underneath: `git log -S REPO_CEILING` is the
+    changelog, `specs/` holds the arithmetic behind each spend, and the commit that raises
+    the number is the conversation. So this checks the two things a reader needs and the
+    prose could never guarantee — that the number is closed onto the tree it measures, and
+    that the file points at where its history actually lives.
     """
 
-    assert contract.REPO_CEILING == 86_326
+    total = contract.repo_lines(ROOT)
+    assert total <= contract.REPO_CEILING, f"{total} lines against {contract.REPO_CEILING}"
+    slack = contract.REPO_CEILING - total
+    assert slack <= 400, (
+        f"{slack} lines of unspent ceiling. A ceiling well above the tree is not a ceiling; "
+        "close it onto what was measured in the commit that measured it."
+    )
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
-    budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
-    # Each measured rate, with the range it came from. A rate with no commits behind it is
-    # a guess wearing a number's clothes.
-    assert "789 per commit" in budget_record and "0683cdec..75939c75" in budget_record
-    assert "304 per commit" in budget_record and "e4c118bd..d916e0ae" in budget_record
-    assert "284 per task" in budget_record and "393 per repair" in budget_record
-    assert "Measured base at this commit's parent: 38,534" in budget_record
-    assert "38,534 + 1,520 + 3,692 + 852 + 284 + 3,930 = 48,812" in budget_record
-    assert "17,807 + 38,000 = 55,807" in budget_record
-    # The close, and its own honesty about the forecast that preceded it.
-    assert "Measured at the close: 42,579" in budget_record
-    assert "6,233 under that forecast and 228 under" in budget_record
-    assert "the next line added anywhere in this repository fails the build" in budget_record
-    assert "42,807 are history only" in budget_record
-    # The promise the old ceiling made about its own end, now kept: the sentence that said
-    # the final transaction would close it is replaced by the sentence that says it did.
-    assert "Exceeding 55,807" not in budget_record
-    assert "closes the ceiling onto the tree it measured, with zero slack." in budget_record
+    assert "git log -S REPO_CEILING" in source, (
+        "the ceiling no longer says where its history is, so the history is nowhere a reader "
+        "will look"
+    )
+    comment = sum(1 for line in source.splitlines() if line.strip().startswith("#"))
+    assert comment < 200, (
+        f"{comment} comment lines in contract.py. The prose changelog is growing back, and it "
+        "is charged against the ceiling it describes."
+    )
 
 
 def test_the_line_ceiling_holds(tmp_path):
