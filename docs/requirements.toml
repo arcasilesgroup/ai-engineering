@@ -2059,8 +2059,8 @@ note = '''observable, and observed. The note said nothing can watch a test that 
 id = "EP-303"
 verdict = "INCOMPLETE"
 subject = "a behavioural example exists and is real before code is written"
-evidence = "python tests/pilot_register.py"
-note = "the template emits the section; whether the example inside it is real is a reading problem"
+evidence = "python tests/pilot_register.py; pytest tests/test_contracts.py -k spec_template"
+note = '''counted rather than argued, and the number is small. The template emits the section and pins its order, so a new specification without it is refused — but of the nineteen specifications in this tree, sixteen carry no such section at all, and of the three that do only two contain both a Then and a command in backticks. Whether an example is real was called a reading problem; two of nineteen is not a reading. The sixteen predate the template and are frozen by it rather than repaired, which is the honest state and also why the refusal on new specifications is the whole of what executes. Worth recording without mockery: `specs/019`, whose fifth repair is to make behavioural examples real and read, has no Then in its own examples section.'''
 
 [[requirement]]
 id = "EP-304"
