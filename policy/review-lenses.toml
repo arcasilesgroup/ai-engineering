@@ -1,0 +1,123 @@
+# Which lens a diff routes to, as data rather than as a sentence inside each lens.
+#
+# `EP-251` asks that the motion lens load only where the diff carries real motion. Two of the
+# ten lenses said so in their own first paragraph — motion and frontend — and the other eight
+# said nothing, so a reader could not tell a lens that is always worked from one that is
+# conditional, and nothing anywhere computed the difference. `ai-review` step 3 tells a
+# reviewer to skip a lens the diff cannot touch and to name the one they skipped; until this
+# table there was nothing to check that naming against.
+#
+# The reader is `tests/review_lenses.py` and it runs on a real range. A row is `always` or it
+# carries `when`, never both and never neither: a lens with no rule is a lens somebody has to
+# guess about, which is what this replaces.
+#
+# `paths` are matched against changed file names, `content` against the added lines. Content
+# matters for motion in particular: a stylesheet is a frontend change whether or not it
+# animates, and only the added lines say which.
+
+[[lens]]
+id = "correctness"
+file = "correctness.md"
+always = true
+why = "every diff claims to do something, and whether it does is never out of scope"
+
+[[lens]]
+id = "security"
+file = "security.md"
+always = true
+why = """the lens most often skipped and the one whose absence costs most. `ai-review` names \
+mixing passes as how this one gets skipped; making it conditional would automate the skip."""
+
+[[lens]]
+id = "testing"
+file = "testing.md"
+always = true
+why = "a change with no test is the finding, so a diff that touches no test still routes here"
+
+[[lens]]
+id = "simplification"
+file = "simplification.md"
+always = true
+why = "applies to any diff that adds lines, which is nearly all of them"
+
+[[lens]]
+id = "architecture"
+file = "architecture.md"
+always = true
+why = "asks whether the change should exist, which no file pattern can decide"
+
+[[lens]]
+id = "performance"
+file = "performance.md"
+when = { paths = [
+  ".py",
+  ".ts",
+  ".tsx",
+  ".js",
+  ".sql",
+], content = [
+  "for ",
+  "while ",
+  "SELECT",
+  "await ",
+] }
+why = "a loop, a query or an await is where cost lives; prose and policy tables have none"
+
+[[lens]]
+id = "compatibility"
+file = "compatibility.md"
+when = { paths = [
+  "src/",
+  "hooks/",
+  "policy/",
+  "migrations/",
+  "pyproject.toml",
+], content = [] }
+why = "only what ships can break somebody: the product halves, the policy data and the packaging"
+
+[[lens]]
+id = "docs"
+file = "docs.md"
+when = { paths = [
+  ".md",
+  "README",
+  "SKILL",
+  "docs/",
+], content = [] }
+why = "something a person reads that still says the old thing"
+
+[[lens]]
+id = "frontend"
+file = "frontend.md"
+when = { paths = [
+  ".html",
+  ".css",
+  ".tsx",
+  ".jsx",
+  ".vue",
+  ".svelte",
+], content = [] }
+why = "markup, styles or a component, which is what the lens's own first paragraph says"
+
+[[lens]]
+id = "motion"
+file = "motion.md"
+when = { paths = [
+  ".css",
+  ".tsx",
+  ".jsx",
+  ".vue",
+  ".svelte",
+  ".html",
+], content = [
+  "transition",
+  "animation",
+  "@keyframes",
+  "transform",
+  "motion.",
+  "useSpring",
+  "requestAnimationFrame",
+] }
+why = """real movement, a gesture or a transition — the lens's own words. A stylesheet is a \
+frontend change whether or not it animates, so this row needs the content half and the \
+frontend row does not: `EP-251` is specifically about not loading this one on a static diff."""

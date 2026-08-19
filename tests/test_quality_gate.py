@@ -736,6 +736,9 @@ GATE_CONTROLS = {
     "skilleval": "tests/test_skill_eval.py mutates the corpus once per routing rule and "
     "asserts the harness refuses each one",
     "counts": "test_the_counts_this_repository_states_about_itself_are_the_counts_it_has",
+    "lenses": "tests/test_review_lenses.py plants the case the requirement is about — a "
+    "stylesheet with no movement in it — and asserts it routes to frontend and not to motion, "
+    "plus the inverse, plus a lens file with no row and a row with two rules",
     "ran": "tests/test_ran_receipt.py is six refusals and one pass — no receipt, other "
     "content, a file edited after the run, a file added after it, a receipt naming no suite "
     "and one that is not JSON — because this recipe's whole value is when it writes nothing",

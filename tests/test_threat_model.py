@@ -153,6 +153,10 @@ POLICY_EXEMPT = {
     "policy/pilot-register.toml": "read by `tests/pilot_register.py`, which the `register` "
     "recipe runs as a step of `just check` rather than as a test — the reader lives under "
     "tests/ and runs as a gate, and `just register` is the command that prints it",
+    "policy/review-lenses.toml": "read by `tests/review_lenses.py`, which the `lenses` "
+    "recipe runs as a step of `just check`. The consumer that matters is not the product at "
+    "all: it is a person working `ai-review`, and the reader exists so their report can be "
+    "read against a routing somebody else can reproduce rather than against their memory",
     "policy/quality-gate.toml": "read by `tests/quality_gate.py`, in the same shape as the "
     "pilot register: a gate step whose reader happens to live beside the suite, and the "
     "workflow that consumes its verdict names the reader rather than the data",

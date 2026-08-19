@@ -373,4 +373,11 @@ quick module:
     @uv run --with {{pytest}} pytest -q tests/test_{{module}}.py
     @uv run python tests/ran_receipt.py record quick:{{module}}
 
-check: build sbom lint typecheck test cover security register skilleval counts ran
+# Which review lens this range routes to. In `check` because the table is only worth having
+# if something reads it — the reader refuses a lens file with no row, which is the state all
+# ten were in until `EP-251` was measured, and a table nothing validates drifts from the
+# directory it describes on the first lens somebody adds.
+lenses base="main":
+    @uv run python tests/review_lenses.py --base {{base}}
+
+check: build sbom lint typecheck test cover security register skilleval counts lenses ran

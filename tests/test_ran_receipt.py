@@ -56,8 +56,21 @@ def _receipt(where: Path) -> Path:
     return where / ".ai" / "receipts" / "ran.json"
 
 
-def test_no_receipt_means_no_trailer(repository: Path):
-    """The starting state of every clone, and the one the whole design rests on: silence."""
+@pytest.mark.parametrize("body", [None, "{not json", '{"suite": "check"}'])
+def test_a_receipt_that_cannot_be_used_produces_silence(repository: Path, body):
+    """Three ways to have no usable receipt, and one answer to all three: nothing written,
+    exit 1. No receipt at all is the starting state of every clone and the state the whole
+    design rests on. A malformed one is exactly as much evidence as none. One naming a suite
+    but no content digest cannot say which bytes were run, which is the only thing that makes
+    the trailer worth writing.
+
+    It runs on the commit path, so a crash here is somebody's commit — which is why the
+    malformed case is a refusal and not a traceback."""
+
+    if body is not None:
+        receipt = _receipt(repository)
+        receipt.parent.mkdir(parents=True, exist_ok=True)
+        receipt.write_text(body, encoding="utf-8")
 
     done = _run("trailer", cwd=repository)
 
@@ -125,20 +138,6 @@ def test_a_receipt_naming_no_suite_proves_nothing(repository: Path):
     assert _run("trailer", cwd=repository).returncode == 1
 
 
-def test_a_receipt_that_is_not_json_is_a_refusal_and_not_a_crash(repository: Path):
-    """It runs on the commit path, so its failure mode is somebody's commit. A malformed
-    receipt is exactly as much evidence as no receipt, and has to behave the same way."""
-
-    receipt = _receipt(repository)
-    receipt.parent.mkdir(parents=True, exist_ok=True)
-    receipt.write_text("{not json", encoding="utf-8")
-
-    done = _run("trailer", cwd=repository)
-
-    assert done.returncode == 1
-    assert done.stdout == ""
-
-
 def test_the_script_refuses_an_argument_shape_it_does_not_know(repository: Path):
     """Exit 2, distinct from the 1 that means "no trailer to write". A hook that cannot tell
     "nothing ran" from "you called me wrong" reports the second as the first forever."""
@@ -159,7 +158,15 @@ def test_the_cheap_recipe_records_only_after_the_suite_passes():
 
     recipes = (ROOT / "justfile").read_text(encoding="utf-8").splitlines()
     start = next(n for n, one in enumerate(recipes) if one.startswith("quick "))
-    body = [one.strip() for one in recipes[start + 1 :] if one.startswith(("    ", "\t"))]
+    body = []
+    for line in recipes[start + 1 :]:
+        # Stop at the first line that is not part of this recipe. The first version took
+        # every indented line in the rest of the file, so it read two only because `quick`
+        # happened to be last; adding one recipe below it made the same assertion fail with
+        # a number about a different recipe entirely.
+        if not line.startswith(("    ", "\t")):
+            break
+        body.append(line.strip())
 
     assert len(body) == 2, f"the recipe is {len(body)} lines and the order below reads two"
     assert "pytest" in body[0], "the suite does not run first, so nothing is being recorded"
