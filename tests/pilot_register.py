@@ -15,6 +15,7 @@ non-zero. What it will not do is convert an absence into a pass — the whole po
 
 from __future__ import annotations
 
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -30,7 +31,11 @@ REGISTER = ROOT / "policy" / "pilot-register.toml"
 # was green and the mutation run was not.
 sys.path.insert(0, str(ROOT / "src"))
 
-INDICATORS = 13
+# Eighteen since `EP-056`: the thirteen this repository could already compute, plus the six
+# it was commissioned to measure and had never listed. Five rows were added — conflicts was
+# already tracked as `coordination_overlap` and a second row for it would be two homes for
+# one number, which is the defect this file was written to stop.
+INDICATORS = 18
 PROHIBITIONS = 14
 
 
@@ -172,6 +177,28 @@ def against_report(register: dict) -> tuple[bool, list[str]]:
     return True, wrong
 
 
+def stale_claim(register: dict, missing: int) -> str:
+    """Does the reason the claim gives quote a number the register no longer has?
+
+    It did. The claim said "six indicators have no instrument" and five rows were added,
+    four of them uninstrumented — so the sentence a reader takes the state from was one
+    short and nothing noticed, because a sentence is data here and nothing read it as a
+    number. Two homes for one count, which is the defect this whole file was written for,
+    sitting in the file itself.
+
+    Only digits are checked, and only against this one count. A `why` that argues without
+    quoting a figure is fine; one that quotes the wrong figure is the failure.
+    """
+
+    said = re.findall(r"\d+", str(register.get("claim", {}).get("why", "")))
+    if said and str(missing) not in said:
+        return (
+            f"the claim says {', '.join(said)} where {missing} indicators have no instrument. "
+            "Write the number this run computed, or stop quoting one."
+        )
+    return ""
+
+
 def uninstrumented(register: dict) -> list[str]:
     return [str(row["id"]) for row in register.get("indicator", []) if row.get("no_instrument")]
 
@@ -190,6 +217,10 @@ def main() -> int:
         return 1
 
     missing = uninstrumented(register)
+    drifted = stale_claim(register, len(missing))
+    if drifted:
+        print(f"  {drifted}", file=sys.stderr)
+        return 1
     equipped = INDICATORS - len(missing)
     print(f"  {equipped} of {INDICATORS} indicators have a command; {len(missing)} have none:")
     for name in missing:

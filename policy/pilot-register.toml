@@ -11,7 +11,7 @@
 
 [claim]
 p5_complete = false
-why = "six indicators have no instrument and the pilot itself has not been run"
+why = "7 indicators have no instrument and the pilot itself has not been run"
 
 # ── the thirteen ────────────────────────────────────────────────────────────────────
 
@@ -111,6 +111,60 @@ id = "coordination_overlap"
 bound = "zero concurrent writers on one work item or one claimed path"
 command = "ai-eng spec checkpoint --base <ref> --item <work-item>"
 wave = "P3"
+
+# ── the six the pilot was commissioned to measure ───────────────────────────────
+#
+# `EP-056` names six: defects, cost, wait, conflicts, escalations and false greens. The
+# thirteen above were written from what this repository could already compute, and an audit
+# of the requirement found that not one of the thirteen is any of the six. That is not a
+# small mismatch — those six are the pilot's stated purpose, and the register that exists to
+# publish what has no instrument was silent about the six it was commissioned for.
+#
+# Silent is the part that gets fixed here. One of them has a real command, one was already
+# tracked under another name, and four have none — and four rows saying so is the honest
+# state, where their absence read as though the pilot measured everything it set out to.
+
+[[indicator]]
+id = "false_greens"
+bound = "no row graded proven may name a command that does not pass"
+# The answer key. It executes every command the ledger calls proof and refuses to write a
+# receipt if any row fails, so the count of false greens is a number something computes
+# rather than a claim somebody makes. It has found three in two days, one of them written
+# ten minutes before it ran.
+command = "python tests/ledger_run.py"
+wave = "P5"
+
+[[indicator]]
+id = "escalations"
+no_instrument = """an escalation is a person deciding that a gate's refusal needs somebody \
+above them, and nothing here can see that happen. What the tree holds is the refusals \
+themselves; who was asked afterwards is a conversation, and counting conversations from a \
+repository is how a metric gets invented rather than measured."""
+wave = "P5"
+
+[[indicator]]
+id = "defect_escape"
+no_instrument = """a defect that escaped is one the gate passed and a person later found, so \
+counting them needs the second half — a record of what was found after the fact, tied back \
+to the commit that shipped it. Nothing writes that record. The reviews on this branch found \
+nine defects in work already called done and none of them is countable from the tree."""
+wave = "P5"
+
+[[indicator]]
+id = "cycle_cost"
+no_instrument = """token and wall-clock cost per unit of work. Both are real and both are \
+measured outside this repository — in the session logs of whatever ran the work — so a \
+number here would be copied from somewhere nothing in `just check` can read, which is the \
+definition of a figure that goes stale without a test."""
+wave = "P5"
+
+[[indicator]]
+id = "review_wait"
+no_instrument = """the time between a block closing and a reviewer answering. Git records \
+commit times, not availability windows, so the same objection that makes `PO-05` \
+unfalsifiable applies here: nothing distinguishes a reviewer who answered immediately from \
+one who was asked late and answered at once."""
+wave = "P5"
 
 [[indicator]]
 id = "report_payload_unknown"

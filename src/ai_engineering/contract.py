@@ -3330,7 +3330,17 @@ DESCRIPTION_MAX = 1000
 # while costing no lines at all.
 #
 # `acceptance` over the day: 533 survivors to 337.
-REPO_CEILING = 78_541
+# 78,541 to 78,682, and closed by hand rather than by `just seal` for the first time since
+# the sealer existed. A second session had staged 809 lines of its own into this index while
+# this work was in flight, and `repo_lines` reads `git ls-files` — so the sealer measured
+# 79,481 and would have written another writer's unfinished work into this repository's own
+# ceiling, permanently and invisibly. The arithmetic here excludes their two files by name:
+# 78,682 is this tree without them, and it is +141 over the previous close, which is the
+# register's five new indicator rows, the stale-claim reader and its test.
+#
+# Worth keeping as a property of the sealer rather than as an anecdote: it measures the index
+# and the index is shared, so it is only trustworthy while one writer holds the tree.
+REPO_CEILING = 78_682
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

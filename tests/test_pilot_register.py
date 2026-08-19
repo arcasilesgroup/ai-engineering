@@ -37,7 +37,7 @@ def test_it_runs_as_a_command_and_names_every_row_that_has_no_instrument():
     )
     assert done.returncode == 0, done.stderr
     assert "no_instrument  guard_p95_ms" in done.stdout
-    assert "RAN register=27" in done.stdout
+    assert "RAN register=32" in done.stdout
 
     # The prohibitions split too, and until now nothing printed it: the only statement of
     # how many of them can fail closed was a sentence in `specs/015` — and that sentence
@@ -91,7 +91,7 @@ def test_a_prohibition_needs_either_a_check_or_a_reason_and_not_both():
 def test_a_missing_indicator_is_an_error_rather_than_a_shorter_register():
     broken = copy.deepcopy(register())
     broken["indicator"].pop()
-    assert any("12 indicators" in line for line in pilot_register.problems(broken))
+    assert any("17 indicators" in line for line in pilot_register.problems(broken))
 
 
 def test_a_completion_claim_cannot_stand_over_an_uninstrumented_row(tmp_path, monkeypatch):
@@ -114,10 +114,25 @@ def test_a_register_it_cannot_read_fails_closed(tmp_path, monkeypatch):
 
 
 def test_every_indicator_the_proposal_names_has_a_row():
-    """The thirteen are the proposal's own list, and a register missing one would be a
-    register that decided which indicators count."""
+    """The proposal's own list, and a register missing one would be a register that decided
+    which indicators count.
+
+    Thirteen of these came from what this repository could already compute. The last five
+    came from auditing `EP-056`, which names six the pilot was commissioned to measure —
+    defects, cost, wait, conflicts, escalations and false greens — and finding that not one
+    of the thirteen was any of them. Five rows, not six: conflicts was already tracked as
+    `coordination_overlap`, and a second row for it would be two homes for one number.
+
+    Four of the five have no instrument and say so. That is the point of them: their absence
+    read as though the pilot measured everything it set out to.
+    """
     named = {row["id"] for row in register()["indicator"]}
     assert named == {
+        "false_greens",
+        "escalations",
+        "defect_escape",
+        "cycle_cost",
+        "review_wait",
         "surface_proof_age",
         "guard_p95_ms",
         "mutation_score",
@@ -303,3 +318,34 @@ def test_the_runner_still_works_with_nothing_but_an_interpreter():
     assert "RAN register=" in done.stdout
     assert "threshold      owed-a-script" in done.stdout
     assert "ModuleNotFoundError" not in done.stderr
+
+
+def test_a_claim_quoting_a_number_the_register_does_not_have_is_refused(tmp_path):
+    """The sentence a reader takes the state from was one short, and nothing noticed.
+
+    `claim.why` said "six indicators have no instrument". Five rows were added for `EP-056`,
+    four of them uninstrumented, and the sentence stayed at six — because prose is data here
+    and nothing read it as a number. Two homes for one count, in the file written to stop
+    exactly that.
+
+    A `why` that argues without quoting a figure stays fine. One that quotes the wrong figure
+    is the failure, and it is the only thing this checks: the count of uninstrumented rows.
+    """
+
+    import pilot_register
+
+    register = {
+        "indicator": [
+            {"id": "one", "no_instrument": "nothing computes it", "wave": "P5"},
+            {"id": "two", "no_instrument": "nor this", "wave": "P5"},
+        ],
+        "claim": {"p5_complete": False, "why": "1 indicator has no instrument"},
+    }
+
+    refused = pilot_register.stale_claim(register, 2)
+
+    assert "says 1 where 2" in refused
+    assert not pilot_register.stale_claim({"claim": {"why": "the pilot has not been run"}}, 2), (
+        "a reason that quotes no number is an argument, not a stale count"
+    )
+    assert not pilot_register.stale_claim(register, 1), "the number it does have must pass"

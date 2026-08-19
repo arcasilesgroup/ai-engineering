@@ -423,10 +423,10 @@ note = "two labelled corpora exist and neither is this one. The routing corpus b
 
 [[requirement]]
 id = "EP-056"
-verdict = "NO-EVIDENCE"
+verdict = "INCOMPLETE"
 subject = "measure defects, cost, wait, conflicts, escalations and false greens"
-evidence = "grep -n escalat policy/pilot-register.toml"
-note = "thirteen indicators exist and none of them is any of these six"
+evidence = "python tests/pilot_register.py; pytest tests/test_pilot_register.py"
+note = '''five of the six now have a row and the sixth always did. `EP-056` names defects, cost, wait, conflicts, escalations and false greens; the thirteen indicators were written from what this repository could already compute and not one of them was any of the six, so the register that exists to publish what has no instrument was silent about the six it was commissioned for. Conflicts was already tracked as `coordination_overlap` and got no second row, because two homes for one number is the defect this file was written to stop. False greens has a real command — the answer key, which has found three in two days. The other four say plainly that nothing computes them and why. INCOMPLETE and not PROVEN: four of six are declared rather than measured, and a declaration is not a measurement.'''
 
 [[requirement]]
 id = "EP-057"
