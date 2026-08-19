@@ -20,4 +20,4 @@ observes and never accepts: incomplete is the answer to a box or an example with
 - "write the examples for me" — use `/ai-spec`, because an example is a decision about what would count as working and this reads them.
 - "fix the Then that turned out wrong" — use `/ai-spec`; rewriting an example here is the reader marking their own paper.
 - "open the pull request now the boxes are ticked" — use `/ai-ship`, because publishing is a separate authority and this accepts nothing.
-- "just mark it green, the gate passed locally" — refused: a box carries the command that ticked it, and assertion 19 reads what sits beside each tick.
+- "just mark it green, the gate passed locally" — refused: a box carries the command that ticked it, and on a draft nothing but the writer is checking, because assertion 19 only reads a shipped spec.

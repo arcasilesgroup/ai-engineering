@@ -29,14 +29,19 @@ that ticked it, and an acceptance table where every example carries its verdict.
    output it gave. A box with no command beside it is `INCOMPLETE`, and that is the answer,
    not a gap to fill in later.
 3. A box that does not apply says `not applicable` and why in the same line. Assertion 19
-   reads what sits beside each tick, so a tick with neither is a build that goes red.
+   reads what sits beside each tick **once the spec is shipped** — it skips a draft
+   entirely, which is every spec this skill is used on, so nothing catches a tick you have
+   not earned except you.
 4. Never tick a box on the strength of a run somebody described. `ai-eng spec checkpoint`
    reads receipts and says which of them is about this code; read its answer, not its age.
 
 ## Validate — the examples
 
 1. Read the spec's `## Examples somebody can check`. `ai-eng spec show NNN` prints how many
-   Given, When and Then lines it holds and how many name a command with its output.
+   Given, When and Then lines it holds and how many name a command with its output, and
+   prints nothing when there is no such section — which is itself the answer, for sixteen
+   of the nineteen specs here. The columns a row needs are in
+   `ai-review/references/testing.md`.
 2. Run each example's command. Mark it `PASS` when the output matches what the Then says,
    `FAIL` when it does not, and `INCOMPLETE` when the Then names no command — which is most
    of them, and saying so is the point.
