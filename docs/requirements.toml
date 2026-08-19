@@ -1155,8 +1155,8 @@ note = "recorded INCOMPLETE by a prior pass; re-running the test shows it green"
 id = "EP-168"
 verdict = "INCOMPLETE"
 subject = "a human answer outranks inference, and only decision-changing unknowns get asked"
-evidence = "pytest tests/test_contracts.py -k authority"
-note = "pinned in prose; no code detects an interactive channel or a present human"
+evidence = "pytest tests/test_mut_asked.py"
+note = '''the note was wrong twice over. Six modules detect an interactive channel, and counting them would still have been the wrong check: a guard repeated at nine call sites is nine chances to forget it. There is one door. `accept.controlling_terminal_response` reads the OS controlling terminal, and its own docstring names what it refuses to read because a script can supply each — `isatty`, a flag, an environment value, piped standard input. A human answer does not outrank inference here; inference is not available. Four cases hold the door: the reader consults none of the four, the mode that promises not to ask never opens the device, a machine with no terminal gets a refusal rather than a traceback out of a consent prompt, and the phrase must match exactly — not a prefix, not a yes. INCOMPLETE for the second clause, which is a judgement no command makes: whether only decision-changing unknowns get asked.'''
 
 [[requirement]]
 id = "EP-169"
