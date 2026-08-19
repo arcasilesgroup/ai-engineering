@@ -22,6 +22,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ai_engineering import blocked as blocked_ledger
 from ai_engineering import contract, readiness, spec
 
 
@@ -77,6 +78,12 @@ class Tree:
     boxes: list[tuple[str, str, str]] = field(default_factory=list)
     readiness_code: str = ""
     readiness_outcome: str = ""
+    # What is waiting for a person, and how many candidates were looked at to find it.
+    # A tuple because `Tree` is compared and replaced in tests, and both are in the
+    # digest, so a halt recorded after the page was written makes it stale on the next
+    # `just check` — which is the only thing that makes a recorded stop reach anybody.
+    blocked: tuple[blocked_ledger.Row, ...] = ()
+    considered: int = 0
 
 
 def _text(path: Path) -> str:
@@ -258,6 +265,10 @@ def read(root: Path, *, now: datetime | None = None) -> Tree:
         # which would then overwrite a correct page with an empty one. The check fails closed
         # and the write used to fail open.
         raise Unreadable("git listed no files here, so this would render a page about nothing")
+    # One call, and the denominator is the two lengths of it. There was a `considered()`
+    # beside `collect` that walked the tree a second time to count, which is how a
+    # section's "22 of 28" comes to be measured over a different tree than its rows.
+    waiting, unshown = blocked_ledger.collect(root)
     tests_lines, product_lines, whole = _measured(root)
     verdict, code, boxes = _readiness(root, now or datetime.now(UTC))
     intent_raw = _text(root / ".ai" / "intent.md")
@@ -285,6 +296,8 @@ def read(root: Path, *, now: datetime | None = None) -> Tree:
         boxes=boxes,
         readiness_code=code,
         readiness_outcome=verdict,
+        blocked=tuple(waiting),
+        considered=len(waiting) + len(unshown),
     )
 
 

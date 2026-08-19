@@ -12,7 +12,9 @@ from __future__ import annotations
 import dataclasses
 from pathlib import Path
 
-from ai_engineering import solution_intent
+import pytest
+
+from ai_engineering import blocked, solution_intent
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -142,3 +144,54 @@ def test_a_tree_git_cannot_list_refuses_rather_than_rendering_nothing(tmp_path):
         solution_intent.write(tmp_path)
 
     assert not (tmp_path / solution_intent.PAGE).exists()
+
+
+def test_a_row_that_changed_makes_the_page_stale(tmp_path):
+    """What is waiting for a person is in the digest, so a new halt cannot arrive quietly.
+
+    The page carries a hash of every record it was built from and `just check` recomputes it.
+    A row added, a reason reworded or an action changed all move that hash — which is the
+    point: a build that halts and records it makes the committed page stale, and the gate
+    says so on the next run rather than the person finding out never.
+    """
+
+    tree = solution_intent.read(ROOT)
+    payload = solution_intent.digested(tree)
+    assert "blocked" in payload and "considered" in payload
+
+    assert tree.blocked, "this tree has unapproved drafts and BLOCKED verdicts"
+    assert tree.considered >= len(tree.blocked)
+
+    import dataclasses
+
+    reworded = dataclasses.replace(
+        tree,
+        blocked=tuple(dataclasses.replace(row, action="something else") for row in tree.blocked),
+    )
+    assert solution_intent.digest(reworded) != solution_intent.digest(tree)
+    assert solution_intent.render(reworded) != solution_intent.render(tree)
+
+    # And the denominator moves on its own: a row dropped for saying nothing is invisible in
+    # the table and visible in the count, which is the whole reason the count is rendered.
+    fewer = dataclasses.replace(tree, considered=tree.considered + 1)
+    assert solution_intent.digest(fewer) != solution_intent.digest(tree)
+
+
+def test_an_unreadable_ledger_refuses_rather_than_rendering_nothing_is_stuck(monkeypatch):
+    """The fail-open this page already closed once for the tracked-file list. A ledger nobody
+    can parse, read as "nothing is waiting", renders a green section over a tree nobody
+    measured — and the operator's next move after a red gate is to regenerate the page, which
+    would then commit that green.
+
+    Driven through the collector rather than by writing a broken `docs/blocked.toml` into the
+    repository: the suite runs across workers over this one tree, and a test that corrupts a
+    governed file for the length of two calls is the defect that cost two gates a day ago.
+    """
+
+    def refuse(_root):
+        raise blocked.Unreadable("docs/blocked.toml could not be read")
+
+    monkeypatch.setattr(solution_intent.blocked_ledger, "collect", refuse)
+
+    with pytest.raises(blocked.Unreadable):
+        solution_intent.read(ROOT)
