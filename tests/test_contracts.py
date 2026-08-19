@@ -1759,8 +1759,9 @@ def test_a_specification_carries_examples_somebody_can_check():
             # one Given and one When, and the sentences quoting `Then` are three more. So an
             # unfilled section satisfies the structure rule while still saying TODO, and
             # doctor's marker cannot help — it skips every specification that is not shipped,
-            # which is all nine drafts.
-            section = body.split(spec.EXAMPLES, 1)[1].split("\n## ", 1)[0]
+            # which is all nine drafts. Sliced by the module that owns the slice: this gate
+            # cut its own section for one commit and the two definitions disagreed.
+            section = spec.examples_section(body)
             assert "TODO:" not in section, (
                 f"{name} still carries the template's prompt in its examples section"
             )

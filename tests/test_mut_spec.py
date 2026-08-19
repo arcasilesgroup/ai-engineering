@@ -1348,6 +1348,20 @@ def test_the_examples_section_is_counted_by_what_it_holds():
     quoted = "# S\n\nWe follow `" + spec.EXAMPLES + "` here.\n\n" + SECTION
     assert spec.examples_facts(quoted) == (3, 3, 3, 1)
 
+    # And a document with no section at all that quotes the heading beside an example is
+    # zeroes, not an example. A conditional guard here fell back to reading the whole
+    # document, which read that shape as a filled section — the fail-open a repair opened.
+    hazard = (
+        "---\nstatus: draft\n---\n\nGiven a reader, When they arrive, Then `git log` prints "
+        "`x`. We follow `" + spec.EXAMPLES + "` in every spec.\n"
+    )
+    assert spec.examples_facts(hazard) == (0, 0, 0, 0)
+
+    # One definition of where the section is. The gate over authored specifications cut its
+    # own for a commit, and after this function changed the two disagreed on that document.
+    assert spec.examples_section(hazard) == ""
+    assert spec.examples_section(SECTION).startswith("\n\n**The success path.**")
+
     # Carriage returns do not collapse the paragraphs into one.
     assert spec.examples_facts(SECTION.replace("\n", "\r\n")) == (3, 3, 3, 1)
 

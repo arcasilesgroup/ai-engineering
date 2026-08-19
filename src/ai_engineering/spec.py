@@ -230,6 +230,24 @@ RUNNABLE = ("ai-eng", "just", "uv", "pytest", "python3", "python", "git", "gh", 
 _SPAN = re.compile(r"`([^`]+)`")
 
 
+def examples_section(text: str) -> str:
+    """The body under the examples heading, or nothing.
+
+    One definition, because there were two and they disagreed. The gate over authored
+    specifications sliced the section itself while this module partitioned it, and after a
+    repair changed only one of them the two answered differently on a document that quotes
+    the heading in prose — which 019, a specification about this section, is one editing pass
+    from being.
+
+    The leading newline is prepended rather than tested for. A conditional fallback here
+    returned the whole document when the heading sat at position 0, so a specification with
+    no section at all — quoting the heading in prose beside an example — read as having one.
+    That is the fail-open direction, and it was introduced by the repair that added it.
+    """
+
+    return ("\n" + text).partition("\n" + EXAMPLES)[2].split("\n## ", 1)[0].replace("\r\n", "\n")
+
+
 def examples_facts(text: str) -> tuple[int, int, int, int]:
     """(given, when, then, thens that name a command and the output beside it).
 
@@ -242,13 +260,9 @@ def examples_facts(text: str) -> tuple[int, int, int, int]:
     command with no expected output is an instruction, and an output with the command left
     in prose is what the two specifications that have this section already carry."""
 
-    if EXAMPLES not in text:
+    body = examples_section(text)
+    if not body:
         return (0, 0, 0, 0)
-    # On the newline, because a specification that quotes this heading in prose before its
-    # own section would otherwise have the quote read as the section — and 019 is a
-    # specification about this section.
-    _, _, after = text.partition("\n" + EXAMPLES) if "\n" + EXAMPLES in text else ("", "", text)
-    body = after.split("\n## ", 1)[0].replace("\r\n", "\n")
 
     given = when = then = executable = 0
     for chunk in body.split("\n\n"):
