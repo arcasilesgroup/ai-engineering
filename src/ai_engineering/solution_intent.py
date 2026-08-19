@@ -527,6 +527,56 @@ def _tag(status: str) -> str:
     return f'<span class="tag {tone}">{html.escape(status or "—")}</span>'
 
 
+_KIND = {
+    "halt": ("una parada", "bad"),
+    "draft": ("una spec sin aprobar", "warn"),
+    "verdict": ("un requisito inalcanzable", "muted"),
+}
+
+
+def _waiting(rows: tuple[blocked_ledger.Row, ...], considered: int) -> str:
+    """The section a person opens this page for.
+
+    The two numbers are the collector's rather than recounted from the rows below, so a
+    renderer that silently drops one is caught by the count disagreeing with the table. And
+    the sentence beside them says what the difference is: a filter that hides itself is the
+    thing this section was built to remove, arriving one level up.
+
+    Nothing waiting renders a sentence, not an empty table. A table with a header and no body
+    reads as broken, and the answer to "what is waiting for me" being "nothing" is a sentence.
+    """
+
+    if not rows:
+        return (
+            '  <p class="note">Nada espera a una persona ahora mismo. Se miraron '
+            f"{considered} candidatos.</p>"
+        )
+    body = ""
+    for row in rows:
+        # `.get` with the kind itself as the label. A kind this renderer has not met yet is
+        # printed as it is rather than raising: the page's job is to show what is waiting, and
+        # refusing a row because its label is unknown would hide the row.
+        label, tone = _KIND.get(row.kind, (row.kind, "muted"))
+        body += (
+            "<tr>"
+            f'<td><span class="tag {tone}">{html.escape(label)}</span></td>'
+            f"<td>{html.escape(row.what)}</td>"
+            f'<td class="num">{html.escape(row.since)}</td>'
+            f"<td>{html.escape(row.why)}</td>"
+            f"<td><code>{html.escape(row.action)}</code></td>"
+            "</tr>"
+        )
+    return f"""  <p class="note"><b>{len(rows)} de {considered}</b> · los otros
+  {considered - len(rows)} esperan al build, no a ti: son borradores sin plan todavía, y
+  eso lo escribe un agente. Una fila sin un literal que puedas copiar no se pinta — por eso
+  el total está aquí y no sólo la tabla.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>qué es</th><th>qué espera</th><th class="num">desde</th><th>por qué paró</th>
+    <th>qué lo desbloquea</th></tr></thead>
+    <tbody>{body}</tbody>
+  </table></div>"""
+
+
 def _card(number: object, key: str, sub: str = "") -> str:
     tail = f'<span class="s">{html.escape(sub)}</span>' if sub else ""
     return (
@@ -702,6 +752,11 @@ estado está cada especificación y qué lo gobierna.">
         )
     }
   </div>
+</section>
+
+<section id="bloqueos">
+  <h2>Qué te está esperando</h2>
+{_waiting(tree.blocked, tree.considered)}
 </section>
 
 <section id="ciclo">

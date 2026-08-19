@@ -10,6 +10,7 @@ could drift while the check reported fresh.
 from __future__ import annotations
 
 import dataclasses
+import html
 from pathlib import Path
 
 import pytest
@@ -195,3 +196,52 @@ def test_an_unreadable_ledger_refuses_rather_than_rendering_nothing_is_stuck(mon
 
     with pytest.raises(blocked.Unreadable):
         solution_intent.read(ROOT)
+
+
+def test_a_row_with_no_action_is_absent_and_the_count_says_so():
+    """The filter has to be visible or it is the thing it was built to remove.
+
+    Twenty-two rows of twenty-eight candidates on this tree: the six missing are drafts with
+    no plan, waiting on the build rather than on a person. A section that showed twenty-two
+    and said nothing about the six would read as "this is everything", which is exactly how a
+    list stops being trusted the first time somebody finds something it did not mention.
+    """
+
+    tree = solution_intent.read(ROOT)
+    page = solution_intent.render(tree)
+
+    assert '<section id="bloqueos">' in page
+    # Immediately after the summary. It is the thing a person opens this page for, and a
+    # section below the fold is a section behind a scroll nobody makes.
+    assert page.index('id="bloqueos"') < page.index('id="ciclo"')
+    assert page.index('id="resumen"') < page.index('id="bloqueos"')
+
+    section = page.split('<section id="bloqueos">', 1)[1].split("</section>", 1)[0]
+
+    # Every row the collector returns, and none it dropped.
+    for row in tree.blocked:
+        assert html.escape(row.what) in section, row.id
+        assert html.escape(row.action) in section, row.id
+    assert section.count("<tr>") == len(tree.blocked) + 1, "one header row and one per item"
+
+    # The two numbers are the collector's, not recounted from the rendered rows. A renderer
+    # that silently drops one is caught by the count disagreeing with the table.
+    assert f"{len(tree.blocked)} de {tree.considered}" in section
+    assert str(tree.considered - len(tree.blocked)) in section
+
+
+def test_a_tree_with_nothing_waiting_says_so_in_a_sentence():
+    """Zero rows is not an empty table. A table with a header and no body reads as broken;
+    the answer to "what is waiting for me" being "nothing" is a sentence."""
+
+    import dataclasses
+
+    tree = dataclasses.replace(solution_intent.read(ROOT), blocked=(), considered=0)
+    section = (
+        solution_intent.render(tree)
+        .split('<section id="bloqueos">', 1)[1]
+        .split("</section>", 1)[0]
+    )
+
+    assert "<table>" not in section
+    assert "nada" in section.lower()
