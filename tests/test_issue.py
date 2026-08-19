@@ -422,8 +422,7 @@ def test_the_blocked_subcommand_requires_the_three_a_row_cannot_be_read_without(
     halt happening now is the ordinary case; the other three have no honest default, and a
     row missing any of them is refused by the collector rather than rendered half-blank."""
     assert _report_help(monkeypatch, capsys, "blocked") == [
-        "usage: ai-eng report blocked [-h] --what WHAT --why WHY --action ACTION "
-        "[--since SINCE]",
+        "usage: ai-eng report blocked [-h] --what WHAT --why WHY --action ACTION [--since SINCE]",
         "",
         "options:",
         "  -h, --help       show this help message and exit",
