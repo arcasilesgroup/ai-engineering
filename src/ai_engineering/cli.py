@@ -26,14 +26,14 @@ VERBS: dict[str, str] = {
     "init": "Set up this machine, and this repository if you say yes.",
     "doctor": "The 25 assertions and the coverage line. Is the system healthy now?",
     "update": "Rewrite the pin and run the forward migrations.",
-    "spec": "spec new | spec list | spec show — the record of what was decided.",
+    "spec": "spec new | list | show | claim | wave | checkpoint — the record and its coordination.",
     "decide": "Add a decision to the spec, or promote it to an MADR with --madr.",
     "accept": "Accept a finding until a date, with a named owner and a reason.",
     "audit": "audit verify walks the whole chain; audit replay walks a session.",
     # What it does, not what it was going to do. The bare verb returns INCOMPLETE — "planned
     # for P2 and is not implemented" — so a line promising "the local governed report" sent a
     # stranger to a refusal. Three subcommands work today and the summary names them.
-    "report": "report digest | report issue | report surfaces — what this install can show.",
+    "report": "report digest | issue | surfaces | intent — what this install can show.",
     "exception": "Record a governed design exception, at a keyboard.",
     "uninstall": "Undo everything the receipt lists. The no-lock-in promise, as a command.",
 }
@@ -73,12 +73,19 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
     "spec": (
         "record what was decided, or list what already is",
         ("the Intent", "every spec"),
-        ("one new spec directory, on `spec new` only", "one claim ref, on `spec claim` only"),
+        (
+            "one new spec directory, on `spec new` only",
+            "one claim ref, on `spec claim` only",
+            "the remote-tracking refs a fetch updates, on `spec checkpoint` and `spec wave`",
+        ),
         # `spec claim` is the only subcommand that reaches a remote, and a will that named
         # no network for the verb that can take a claim would be the exact defect the
         # comment above this table describes: a command that opens a connection while
         # printing that it will not.
-        ("the git remote a claim is taken against, on `spec claim` only",),
+        (
+            "the git remote a claim is taken against, and the one `spec checkpoint` and "
+            "`spec wave` read the claims back from",
+        ),
     ),
     "decide": (
         "add a decision to its spec, or promote it to an MADR",
@@ -101,7 +108,7 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
     "report": (
         "produce the local governed report",
         ("the events", "this repository's records"),
-        ("the local digest read receipt",),
+        ("the local digest read receipt", "the Solution Intent page under docs/"),
         ("the configured observability endpoint, when one is configured",),
     ),
     "exception": (

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -152,9 +153,13 @@ def test_no_surface_is_detected_by_a_path_another_surface_makes_us_write():
 # runner here. No evidence means the condition is not met, which is the fail-closed reading
 # and the only one this repository is allowed — so none of the three shipped, and the work
 # each was going to do has a home that exists.
+# Two, not three. `ai-verify` left this map when the skill was written: D-012-04 made
+# absorption its exit condition in the absence of a consumer for the thing it would verify,
+# and specification 019 repair 5 built that consumer — a specification's examples became a
+# section a command can parse. The register rows moved in the same commit, because a skill
+# shipping while the ledger says it must not is two records disagreeing.
 ABSORBED = {
     "ai-test": ".agents/skills/ai-build/SKILL.md",
-    "ai-verify": ".agents/skills/ai-review/references/testing.md",
     "ai-animation": ".agents/skills/ai-review/references/motion.md",
 }
 
@@ -190,11 +195,11 @@ def test_the_combined_result_gates_and_not_only_each_branch_alone():
     )
 
 
-def test_the_three_absorption_candidates_did_not_ship_and_their_work_has_a_home():
+def test_the_absorption_candidates_did_not_ship_and_their_work_has_a_home():
     """A capability that exists to occupy a name is what specification 012's non-goals
     forbid, and an absorbed one that quietly leaves its work nowhere is worse.
 
-    So this asserts both halves: the three directories do not exist, and the file that
+    So this asserts both halves: the two directories do not exist, and the file that
     absorbed each one does. Add `.agents/skills/ai-animation/` back without a routing
     evaluation and this goes red naming it."""
     for name, home in ABSORBED.items():
@@ -817,6 +822,7 @@ WORDS = {
     8: "eight",
     9: "nine",
     12: "twelve",
+    13: "thirteen",
     10: "ten",
     16: "sixteen",
     20: "twenty",
@@ -924,7 +930,7 @@ def test_the_final_candidate_closed_the_ceiling_onto_the_tree():
     that rounds in its own favour is the thing this ceiling exists to prevent.
     """
 
-    assert contract.REPO_CEILING == 79_477
+    assert contract.REPO_CEILING == 82_704
 
     source = (ROOT / "src/ai_engineering/contract.py").read_text()
     budget_record = source.rsplit("REPO_CEILING =", maxsplit=1)[0].rsplit("\n\n", maxsplit=1)[-1]
@@ -1262,6 +1268,11 @@ def test_changelog_names_all_p0_hard_renames_deletes_and_fail_closed_changes():
 # never that the guidance was followed. Those are two different sentences and only one of
 # them is checkable.
 SKILL_CONTENT = (
+    # D-014-11 rather than an EP number: the decision is a specification's, not a
+    # requirement row's, and inventing an id to hold it would put a fabricated provenance
+    # into the register the audit passes read as evidence.
+    ("D-014-11", "ai-security/SKILL.md", "no scanner pinned here touches a running target"),
+    ("D-014-11", "ai-security/corpus.md", "scan our deployed staging"),
     ("EP-239", "ai-design/SKILL.md", "material visual decision"),
     ("EP-241", "ai-design/SKILL.md", "reduces uncertainty about the thing being built"),
     ("EP-243", "ai-design/corpus.md", "absorbed here as the `verify` route"),
@@ -1416,6 +1427,96 @@ def test_the_guidance_a_requirement_asks_for_is_in_the_file_that_owes_it(
     assert phrase in body, f"{requirement}: {where} no longer carries it"
 
 
+# What `ai-build` may no longer say, and what it now has to. Two behaviours were repaired,
+# and both were written down in more than one place — so a ban on the two obvious sentences
+# would have left the skill ordering both in its description, its Done-when list and its
+# corpus. The first draft of this check banned eight phrases and required two, and a reviewer
+# defeated it by flipping six words in step 6: every ban still absent, both requirements still
+# present, and the plan edit ordered again. A blocklist stops a revert; only a pin on the
+# sentence that does the forbidding stops a paraphrase.
+#
+# So the bans are the revert tripwire — exact strings the old file carried, including the two
+# Done-when bullets, because a partial revert of just those two passed when only three were
+# banned. The requirements are the load-bearing half, and they are pinned on the shortest
+# substring that survives a reasonable reword: `editing the plan` rather than the whole
+# sentence, because somebody adding the word "approved" to make step 6 agree with the
+# description at line 9 is improving the file, and a check that reds on that is a check people
+# learn to route around.
+BUILD_MUST_NOT_SAY = (
+    ("SKILL.md", "checkbox", "the approved plan is not edited by the act of executing it"),
+    ("corpus.md", "checkbox", "the approved plan is not edited by the act of executing it"),
+    (
+        "SKILL.md",
+        "Run the gate exactly as CI runs it",
+        "the whole gate runs once at block close, not once per task",
+    ),
+    (
+        "SKILL.md",
+        "the gate output is in the conversation",
+        "the Done-when list ordered the per-task gate too, and a partial revert restores it",
+    ),
+    (
+        "SKILL.md",
+        "The plan on disk says what happened",
+        "the Done-when list ordered the plan edit too, and a partial revert restores it",
+    ),
+)
+
+BUILD_MUST_SAY = (
+    (
+        "SKILL.md",
+        r"never by (editing|rewriting) the (approved )?plan",
+        "the sentence that forbids the plan edit; without it a paraphrase restores it",
+    ),
+    (
+        "SKILL.md",
+        r"Not the (whole|full) gate",
+        "the sentence that forbids the per-task gate; without it a paraphrase restores it",
+    ),
+    ("SKILL.md", "UNREVIEWED", "a checkpoint nobody has reviewed has to say so"),
+    ("SKILL.md", "block close", "the whole gate has one home and this names it"),
+    # The corpus is what routes a question here, and it described the old behaviour in its
+    # own words. Pinning the skill alone left a variant that restores both defects by
+    # rewriting the summary line the corpus opens with — two records disagreeing, which is
+    # the shape this repository refuses everywhere else.
+    (
+        "corpus.md",
+        r"task's own check run and shown",
+        "the corpus says which check runs, and it is not the gate",
+    ),
+    (
+        "corpus.md",
+        r'"tick the task off in the plan now that it is done" — refused',
+        "the verdict, not just the case: moving the bullet to Routes here kept the text intact",
+    ),
+)
+
+
+@pytest.mark.parametrize(("where", "phrase", "why"), BUILD_MUST_NOT_SAY)
+def test_the_build_skill_neither_edits_the_plan_nor_gates_each_task(where, phrase, why):
+    """`specs/010`'s plan says any edit to its bytes invalidates the approval the work runs
+    under, and that a full gate does not run per task. This skill ordered both. Following it
+    broke the approval it was executing; not following it meant privately rewriting the skill,
+    which is the failure its own last step is about.
+
+    Phrases rather than a summary, because the two behaviours were spread across four places
+    in two files and the first draft of this check banned two of them."""
+
+    body = (ROOT / ".agents" / "skills" / "ai-build" / where).read_text(encoding="utf-8")
+    assert phrase not in body, f"ai-build/{where} still says {phrase!r}: {why}"
+
+
+@pytest.mark.parametrize(("where", "phrase", "why"), BUILD_MUST_SAY)
+def test_the_build_skill_says_what_replaced_them(where, phrase, why):
+    """Deleting an instruction leaves a hole, and a hole is read as permission.
+
+    Searched as a pattern, so a reword that keeps the prohibition passes and one that drops
+    it does not. The alternation is the whole point: it names what may vary."""
+
+    body = (ROOT / ".agents" / "skills" / "ai-build" / where).read_text(encoding="utf-8")
+    assert re.search(phrase, body), f"ai-build/{where} does not say {phrase}: {why}"
+
+
 # The nine verbs the mission has to name, and the three words of the clause beside them.
 # Stems rather than whole words, because "verify", "verified" and "verification" are the same
 # claim and a check that demanded one spelling would be a check on grammar.
@@ -1461,16 +1562,16 @@ def test_the_mission_names_every_verb_it_claims_to_govern():
 def test_every_declared_capability_has_a_skill_or_names_where_its_work_went():
     """The only contradiction in 385 requirements, and it was between two of our own files.
 
-    `policy/capabilities.toml` declares fifteen capabilities. `.agents/skills/` holds twelve.
-    The three that are declared and absent are exactly the three
-    `test_the_three_absorption_candidates_did_not_ship_and_their_work_has_a_home` asserts
+    `policy/capabilities.toml` declares fifteen capabilities. `.agents/skills/` holds thirteen.
+    The two that are declared and absent are exactly the two
+    `test_the_absorption_candidates_did_not_ship_and_their_work_has_a_home` asserts
     must not exist — so the manifest said this product has a capability while a passing gate
     said the skill must not be there. Two sources of truth about what this product is, and
     an independent audit found them disagreeing three times.
 
     They agree now, and by construction rather than by coincidence: a capability with no
     skill is legal only while the absorption map names where its work went. Adding a
-    fourteenth capability without a skill turns this red, and so does deleting an absorption
+    sixteenth capability without a skill turns this red, and so does deleting an absorption
     row while leaving the manifest alone. Neither file had to move — what was missing was
     anything reading both.
     """
@@ -1588,12 +1689,200 @@ def test_the_template_gives_the_spec_every_section_the_skill_demands_of_it():
     assert "Given / When / Then" in body
     # Line-wrapped in the template, so the phrase is matched without the newline in it.
     assert "the undecidable path" in body, "the undecidable path is the forgotten one"
+    # And it asks for the half a script can re-run. Spec 002 refused a words-only rule
+    # because it greens on "Given a user, When they click, Then it works"; the command and
+    # its output are the part that cannot be satisfied by writing the three words.
+    assert "names the command in backticks and the exact output" in body
 
     # And the order is the order of the work: the challenge comes after the decision it
     # challenges, and the examples after the assumptions they rest on.
     assert headings.index("Decision") < headings.index("Challenged once")
     assert headings.index("Challenged once") < headings.index("Assumptions and unresolved risks")
     assert headings.index("Assumptions and unresolved risks") < headings.index(examples)
+
+
+# Two baselines, because the two rules have different ones. The constitution forbids
+# retro-editing `specs/`, so a gate over files that already exist needs an explicit closed
+# list rather than a date or a count — and freezing them under one list would throw away a
+# real measurement: 017 and 018 do satisfy the structure rule today, and folding them into
+# one list means nothing would notice a future edit removing their section.
+FROZEN_WITHOUT_EXAMPLES = (
+    "001-v1-from-scratch",
+    "002-quality-ecosystem-3-0",
+    "003-guards-that-never-fired",
+    "004-solution-intent-home",
+    "005-init-says-what-it-did",
+    "006-the-cli-that-was-better",
+    "007-the-install-a-stranger-can-follow",
+    "008-the-receipt-that-only-grows",
+    "009-the-branch-that-never-ran",
+    "010-governed-agentic-engineering-foundation",
+    "011-surface-adapter-contract",
+    "012-seven-capabilities-with-proof",
+    "013-origin-first-coordination",
+    "014-security-baseline-no-false-pass",
+    "015-pilot-without-instruments",
+    "016-the-thesis-nobody-owns",
+)
+
+# The larger one. Neither specification that carries the section satisfies the executable
+# clause: 017's three Thens hold one code span between them and it is a status word, and
+# 018's success Then names its expected output in backticks with the command left in prose.
+# Freezing them for structure only would be claiming a gate result this code did not observe.
+FROZEN_WITHOUT_EXECUTABLE_THEN = (
+    *FROZEN_WITHOUT_EXAMPLES,
+    "017-decision-brief-as-an-artifact",
+    "018-controls-a-reviewer-proved-were-not-controls",
+)
+
+
+def test_a_specification_carries_examples_somebody_can_check():
+    """The section the template has always emitted, and nothing has ever read on disk.
+
+    The existing contract asserts the heading and its two phrases against `spec.TEMPLATE`
+    in memory; its own docstring says so. So sixteen of the nineteen specifications have no
+    such section and nothing noticed, and of the three that do, one satisfies the clause
+    that makes an example re-runnable.
+
+    A freshly created specification reds this gate until its author fills the section in.
+    That is the intended failure and not a bug in the check.
+    """
+
+    from ai_engineering import spec
+
+    homes = sorted(one.name for one in (ROOT / "specs").iterdir() if (one / "spec.md").is_file())
+
+    # A list that names a file nobody has is a gate that measured nothing, so a rename turns
+    # this red instead of quietly shrinking what is covered.
+    missing = (set(FROZEN_WITHOUT_EXAMPLES) | set(FROZEN_WITHOUT_EXECUTABLE_THEN)) - set(homes)
+    assert not missing, f"these baselines name specifications that are not there: {sorted(missing)}"
+
+    for name in homes:
+        body = (ROOT / "specs" / name / "spec.md").read_text(encoding="utf-8", errors="replace")
+        given, when, then, executable = spec.examples_facts(body)
+        if name not in FROZEN_WITHOUT_EXAMPLES:
+            assert given and when and then, (
+                f"{name} has no examples somebody can check: "
+                f"{given} given, {when} when, {then} then"
+            )
+            # The counts alone green on the template's own prompt: "Given / When / Then" is
+            # one Given and one When, and the sentences quoting `Then` are three more. So an
+            # unfilled section satisfies the structure rule while still saying TODO, and
+            # doctor's marker cannot help — it skips every specification that is not shipped,
+            # which is all nine drafts. Sliced by the module that owns the slice: this gate
+            # cut its own section for one commit and the two definitions disagreed.
+            section = spec.examples_section(body)
+            assert "TODO:" not in section, (
+                f"{name} still carries the template's prompt in its examples section"
+            )
+        if name not in FROZEN_WITHOUT_EXECUTABLE_THEN:
+            assert executable, (
+                f"{name} has {then} Then lines and none names a command with its expected "
+                "output, so nothing in it can be re-run"
+            )
+
+
+# Ten of the thirteen plans carry no numbered tasks at all — the shape the plan skill asks
+# for arrived with spec 010 and the nine before it use prose, checkboxes or block headings.
+# The constitution forbids retro-editing `specs/`, so they are frozen by name.
+PLANS_WITHOUT_NUMBERED_TASKS = (
+    "001-v1-from-scratch",
+    "002-quality-ecosystem-3-0",
+    "003-guards-that-never-fired",
+    "004-solution-intent-home",
+    "005-init-says-what-it-did",
+    "006-the-cli-that-was-better",
+    "007-the-install-a-stranger-can-follow",
+    "008-the-receipt-that-only-grows",
+    "009-the-branch-that-never-ran",
+    "018-controls-a-reviewer-proved-were-not-controls",
+)
+
+
+def test_a_plan_names_a_file_a_check_a_rollback_and_a_done_when():
+    """The plan skill has demanded these four since it was written, and nothing read them.
+
+    Every numbered step of the spec skill is pinned byte for byte by a closed contract in
+    this file. The half that decides how an agent is instructed was frozen; the half that
+    decides what an agent reads was unchecked, and across thirteen plans the task shape is
+    three different things and sometimes absent. That is why no executor can be handed a
+    task rather than the whole file — 74,216 bytes of plan beside a 53,831-byte
+    specification, re-read once per task.
+
+    A task carrying none of the four fields is skipped: plan 011's task 7 is titled
+    "Deferred." and has no work in it, and a deferral is a real thing a plan records. A task
+    carrying some of them is not skipped, because that is a task somebody stopped writing.
+    """
+
+    from ai_engineering import spec
+
+    homes = sorted(one.name for one in (ROOT / "specs").iterdir() if (one / "plan.md").is_file())
+    missing = set(PLANS_WITHOUT_NUMBERED_TASKS) - set(homes)
+    assert not missing, f"the baseline names plans that are not there: {sorted(missing)}"
+    # And it does not grow. Adding a name is how a red becomes green without the plan that
+    # caused it being written, so the count moves in a commit that says why.
+    assert len(PLANS_WITHOUT_NUMBERED_TASKS) == 10
+
+    for name in homes:
+        body = (ROOT / "specs" / name / "plan.md").read_text(encoding="utf-8", errors="replace")
+        tasks = spec.plan_tasks(body)
+        if name in PLANS_WITHOUT_NUMBERED_TASKS:
+            continue
+        assert tasks, f"{name} carries no numbered tasks a script can enumerate"
+        whole = 0
+        for task in tasks:
+            held = [field for field in spec.TASK_FIELDS if task.get(field)]
+            if not held:
+                continue
+            whole += 1
+            assert len(held) == len(spec.TASK_FIELDS), (
+                f"{name} task {task['task']} carries {held} and not the other "
+                f"{[one for one in spec.TASK_FIELDS if one not in held]}"
+            )
+            # "A check is a command, never a judgement", says the skill that asks for it.
+            assert spec.runs_something(task["check"]), (
+                f"{name} task {task['task']} has a check nobody can run: {task['check'][:80]}"
+            )
+        # Otherwise a plan of nothing but deferrals passes, and the rule reduces to "a
+        # numbered bold line exists somewhere". A deferral is a real thing a plan records;
+        # a plan that is only deferrals is a plan nobody wrote.
+        assert whole, f"{name} has {len(tasks)} numbered tasks and not one of them is written"
+
+
+def test_every_sentence_quoting_the_routing_baseline_quotes_the_one_in_force():
+    """Three sentences restate a number that lives in one place, and prose is not read by the
+    recipe that enforces it. Two said 254 while the register said 255, then 255 while it said
+    275 — stale twice in three blocks, both times the same way.
+
+    Rule 12: the third time a judgement resolves the same way it becomes a script. This is
+    the third time. Deleting the number from the notes would be smaller, and it was refused:
+    they are audit evidence somebody reads without opening the register, and a note that says
+    "see the register" answers a question the reader already had.
+
+    So it looks for the figure inside each note rather than inside a phrase. A rewording that
+    keeps the number passes; one that changes it does not."""
+
+    import tomllib
+
+    register = (ROOT / "policy" / "pilot-register.toml").read_text(encoding="utf-8")
+    agreed = next(
+        row for row in tomllib.loads(register)["baseline"] if row["id"] == "skill-routing"
+    )
+    said = str(agreed["measured"])
+
+    # The register's own prose, which drifted in Block B and is the site the first version of
+    # this test did not cover.
+    preamble = register.split("[[baseline]]", 1)[0]
+    assert said in preamble, f"the register's own comment does not say {said}"
+
+    # And the two requirement notes that restate it. Found by id, so the surrounding sentence
+    # is free to be rewritten.
+    notes = (ROOT / "docs" / "requirements.toml").read_text(encoding="utf-8")
+    for requirement in ("EP-029", "EP-289"):
+        block = notes.split(f'id = "{requirement}"', 1)[1].split("[[requirement]]", 1)[0]
+        if "skill_eval" not in block and "baseline" not in block:
+            continue
+        assert said in block, f"{requirement} restates the routing baseline and does not say {said}"
 
 
 def test_the_number_in_the_doctor_summary_is_the_number_of_assertions():
@@ -1625,7 +1914,7 @@ def test_the_phase_map_is_one_map_and_the_product_owns_it():
     CI, which is what the row was reopened with after the first pass called it closed.
 
     Three things hold it closed. The map lives in the product; `ai-eng init` prints it at the
-    moment that person exists, having just been handed the twelve; and the runner reads the
+    moment that person exists, having just been handed the thirteen; and the runner reads the
     same function rather than rebuilding it, because two copies of a map is two maps within a
     week.
     """

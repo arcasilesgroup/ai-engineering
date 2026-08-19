@@ -13,6 +13,8 @@ behind each answer. It accepts no risk, replaces no guard and declares no compli
 - "what data leaves this machine and who can read it" — where data rests, where it travels and what crosses the boundary.
 - "the supply chain for this release, end to end" — dependencies, provenance and what is unverifiable, each with its own outcome word.
 
+- "scan our deployed staging URL for vulnerabilities" — routes here and the answer today is INCOMPLETE: no scanner in this repository touches a running target, and the contract for one is a spec nobody has approved.
+
 ## Refuses
 
 - "accept this risk for now, we will fix it next quarter" — use `ai-eng accept`, because a risk needs a named person, a reason and an expiry date, and no skill can supply any of the three.

@@ -739,9 +739,13 @@ GATE_CONTROLS = {
     "lenses": "tests/test_review_lenses.py plants the case the requirement is about — a "
     "stylesheet with no movement in it — and asserts it routes to frontend and not to motion, "
     "plus the inverse, plus a lens file with no row and a row with two rules",
-    "ran": "tests/test_ran_receipt.py is six refusals and one pass — no receipt, other "
-    "content, a file edited after the run, a file added after it, a receipt naming no suite "
-    "and one that is not JSON — because this recipe's whole value is when it writes nothing",
+    "intent-page": "tests/test_solution_intent.py is five refusals and one pass — a page "
+    "somebody edited, a record that moved, a field rendered and not hashed, a number that "
+    "disagrees with the gate that enforces it, and a tree git cannot list — because this "
+    "recipe's whole value is the page it refuses to call fresh",
+    "ran": "tests/test_ran_receipt.py is a table of unusable receipts and four named "
+    "refusals — a file edited after the run, a file added after it, and two argument shapes "
+    "— because this recipe's whole value is when it writes nothing",
 }
 
 
@@ -797,3 +801,56 @@ def test_the_linter_and_the_type_checker_are_shown_saying_no(tmp_path):
     )
     assert types.returncode != 0, types.stdout
     assert "return-value" in types.stdout, types.stdout
+
+
+def test_the_mutation_runner_spends_the_cheap_suite_first() -> None:
+    """A mutant is killed when either half of the suite goes red, so the order of the two
+    halves cannot change a verdict — only the bill. The adversarial run is thirteen seconds
+    and pytest is sixty; running pytest first means every killed mutant pays the expensive
+    half before the cheap one has had a chance to answer.
+
+    Read out of the source and not out of the docstring. The docstring already promised this
+    behaviour while the code did the opposite — "the slow half only runs when the fast half
+    found nothing", above a line that ran pytest first — so an assertion a reworded comment
+    can satisfy is no assertion at all."""
+
+    import ast
+
+    source = (ROOT / "tests" / "mutation.py").read_text(encoding="utf-8")
+    run_suite = next(
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.FunctionDef) and node.name == "run_suite"
+    )
+    # Discovery order, which for these two calls is the order they are written in. The
+    # docstring is not read: it is not a call.
+    calls = [
+        ast.unparse(node)
+        for node in ast.walk(run_suite)
+        if isinstance(node, ast.Call) and ast.unparse(node.func) == "quiet"
+    ]
+    assert len(calls) == 2, calls
+    assert "adversarial" in calls[0], calls
+    assert "pytest" in calls[1], calls
+    # And the expensive half is inside the conjunction, not merely somewhere in the same
+    # function. Written first, this asserted only that an `and` existed, which a version
+    # binding both halves to names and joining them afterwards satisfies while spending both
+    # on every mutant — the saving gone and nothing red. A reviewer wrote that version out
+    # and it passed.
+    conjunction = next(
+        (
+            node
+            for node in ast.walk(run_suite)
+            if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And)
+        ),
+        None,
+    )
+    # With no default this raised `StopIteration` instead of failing, so a shape that
+    # short-circuits with an early return — correct, but carrying no `and` — reported a bare
+    # exception rather than a sentence. Found by the bounded re-review of this very repair.
+    assert conjunction is not None, (
+        "run_suite stopped being a conjunction, so the order is not free"
+    )
+    assert any(
+        isinstance(half, ast.Call) and "pytest" in ast.unparse(half) for half in conjunction.values
+    ), "the pytest half is outside the conjunction, so it runs whether or not the cheap half passed"

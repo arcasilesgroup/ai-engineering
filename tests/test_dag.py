@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -177,3 +179,92 @@ def test_the_recorded_order_is_a_fact_a_person_can_read(tmp_path):
     recorded = [fact for fact in result.checks if fact.id == "dag-order"]
 
     assert recorded and recorded[0].detail == "work-a, work-b"
+
+
+def test_a_package_import_puts_the_imported_file_first(tmp_path):
+    """The spelling this repository actually uses, which the edge reader could not see.
+
+    `_module` turned `src/ai_engineering/claim.py` into `src.ai_engineering.claim`, and the
+    syntax tree of `from ai_engineering import claim` yields the module `ai_engineering`.
+    Neither matched, so a src-layout package produced no import edges at all: over this
+    repository's own `dag.py`, `claim.py` and `checkpoint.py` — where the third imports the
+    other two — `edges` returned nothing, and a wave derived from it would have called them
+    independent. Unknown is not none, and this was worse: known and read as none.
+    """
+
+    from ai_engineering import dag
+
+    package = tmp_path / "src" / "pkg"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "base.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (package / "leaf.py").write_text("from pkg import base\n", encoding="utf-8")
+
+    tasks = [task("work-leaf", "src/pkg/leaf.py"), task("work-base", "src/pkg/base.py")]
+
+    assert ("work-base", "work-leaf") in dag.edges(tmp_path, tasks)
+    assert dag.sequence(dag.order(tmp_path, tasks)) == ["work-base", "work-leaf"]
+
+
+def test_the_wave_is_the_claims_with_nothing_in_front_of_them(tmp_path):
+    """`order` computes this set on every pass and keeps only its first element.
+
+    A caller that wants to know how many writers a plan could carry needs the set, not the
+    sequence — and the sequence is what the module returned. Three claims, two of them over
+    one path: the two sharing a path are ordered by work item, so the first of them is in
+    front of nothing and the second is behind it.
+    """
+
+    from ai_engineering import dag
+
+    (tmp_path / "src").mkdir()
+    for name in ("a.py", "b.py"):
+        (tmp_path / "src" / name).write_text("VALUE = 1\n", encoding="utf-8")
+
+    tasks = [
+        task("work-1", "src/a.py"),
+        task("work-2", "src/b.py"),
+        task("work-3", "src/a.py"),
+    ]
+
+    # work-3 shares a path with work-1 and is behind it; work-1 and work-2 have nothing in
+    # front of them and could start together.
+    assert dag.wave(tmp_path, tasks) == ["work-1", "work-2"]
+
+    # One claim on its own is a wave of one, and no claims is a wave of none.
+    assert dag.wave(tmp_path, [task("work-1", "src/a.py")]) == ["work-1"]
+    assert dag.wave(tmp_path, []) == []
+
+
+def test_a_wave_over_a_file_nobody_can_parse_refuses(tmp_path):
+    """The same fail-closed direction `edges` already takes: a file that cannot be read is
+    not a file with no edges."""
+
+    from ai_engineering import dag
+
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "broken.py").write_text("def (\n", encoding="utf-8")
+
+    with pytest.raises(dag.Unreadable):
+        dag.wave(tmp_path, [task("work-1", "src/broken.py"), task("work-2", "src/broken.py")])
+
+
+def test_a_wave_of_claims_that_depend_on_each_other_says_so_by_type(tmp_path):
+    """`order` gives a cycle its own code and its own cure — split or merge the claims,
+    rather than fix or exclude the file. `wave` raised the file exception for both, so a
+    caller could not pick the cure the module had already decided was different."""
+
+    from ai_engineering import dag
+
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "a.py").write_text("from src import b\n", encoding="utf-8")
+    (tmp_path / "src" / "b.py").write_text("from src import a\n", encoding="utf-8")
+
+    tasks = [task("work-a", "src/a.py"), task("work-b", "src/b.py")]
+
+    with pytest.raises(dag.Cycle) as refused:
+        dag.wave(tmp_path, tasks)
+    assert "work-a" in str(refused.value) and "work-b" in str(refused.value)
+
+    # And it is still caught by anything reading for an unreadable graph.
+    assert issubclass(dag.Cycle, dag.Unreadable)

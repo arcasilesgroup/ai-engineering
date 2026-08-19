@@ -302,13 +302,22 @@ def test_a_threat_model_shaped_wrongly_is_a_verdict_and_never_a_traceback(tmp_pa
     assert read is None or all(isinstance(row, dict) for row in read)
 
 
-def test_a_threat_model_that_is_not_utf_8_is_a_verdict_too(tmp_path):
+def test_a_threat_model_that_is_not_utf_8_is_a_verdict_too(tmp_path, monkeypatch):
     """Every case above is valid UTF-8, and that is how this one survived a test named for
     it. Bytes that are not decodable raise `UnicodeDecodeError`, which is a `ValueError` and
     not an `OSError`, so the reader that catches `OSError` and `TOMLDecodeError` let it out
     through `just security` as a traceback. Found by an independent reviewer feeding the
-    reader what its own parametrize list had no case for."""
+    reader what its own parametrize list had no case for.
+
+    The engines are emptied the way the boundary test above empties them. This case is about
+    a reader, and leaving them in spawned whichever of the three pinned scanners the machine
+    had installed over two lines of tmp_path — a cost with no ceiling, measured at twenty
+    seconds on a cold dependency database and under two on a warm one, and paid twice per
+    gate. The verdict is unaffected: the 1 comes from the unreadable-boundaries branch."""
     from ai_engineering import scan
+
+    monkeypatch.setattr(scan, "BASELINE", ())
+    monkeypatch.setattr(scan, "CROSS_CHECKS", ())
 
     (tmp_path / "policy").mkdir()
     (tmp_path / "policy" / "threat-model.toml").write_bytes(b'[[boundary]]\nid = "\xff\xfe"\n')

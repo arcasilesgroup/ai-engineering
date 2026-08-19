@@ -229,4 +229,25 @@ def test_p0_claims_nothing_that_belongs_to_a_later_wave():
     # P5 and this assertion is about `test` being in it, not about the order of the others.
     called = recipe.split("\ncheck:", 1)[1].splitlines()[0].split()
     assert "test" in called and "lint" in called and "security" in called, called
-    assert "\ntest:\n    uv run --with {{pytest}} pytest -q\n" in recipe
+    assert "\ntest:\n    uv run --with {{pytest}} --with {{xdist}} pytest -q -n auto\n" in recipe
+
+
+def test_the_gate_checks_the_page_is_about_this_tree():
+    """A generated document nothing verifies is a document that goes stale in a week.
+
+    The page under `docs/` is the one thing here written for a person rather than for a
+    machine, and the whole reason it can be trusted after nobody has looked at it for a
+    month is that the gate recomputes its digest. Which means the gate has to run it.
+
+    Before the receipt recipe, because that one writes last and a check after it would
+    record a run that had not finished."""
+
+    recipe = (ROOT / "justfile").read_text(encoding="utf-8")
+    called = recipe.split("\ncheck:", 1)[1].splitlines()[0].split()
+
+    assert "intent-page" in called, called
+    assert called.index("intent-page") < called.index("ran"), called
+    assert "\nintent-page:\n" in recipe
+    # And it is the module's own answer, not a second implementation of freshness.
+    body = recipe.split("\nintent-page:\n", 1)[1].split("\n\n", 1)[0]
+    assert "solution_intent" in body and "--check" in body

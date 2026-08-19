@@ -60,6 +60,27 @@ human_gate = "before_write"
 enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
 proof_requirements = { allow = ["ai-spec.default.allow"], deny = ["ai-spec.default.deny"], installed_artifact = true }
 
+[[capabilities.modes]]
+id = "coordination"
+# `spec claim`, `spec checkpoint` and `spec wave` all reach the remote, and none of them was
+# declared: the `default` mode above says `network = []` while `claim` pushes a ref,
+# `checkpoint` reads the claims back and `wave` fetches to ask whether the remote answered.
+# The gap predates the third subcommand by two waves; it is written down here rather than
+# widened again in silence.
+#
+# The host is the git remote the repository already has, which no pattern in this schema can
+# name — `network_destination.host` takes a literal and a remote is whatever the operator
+# configured. So it is declared as the protocol and the purpose, and the honest ceiling is
+# that this row says which subcommands go out and not where to.
+read_roots = ["."]
+write_roots = [".ai"]
+exec_allowlist = [{ executable = "git", argument_pattern = "coordination.ref" }]
+network = [{ protocol = "https", host = "git.remote", purpose = "claim.coordinate" }]
+secrets = []
+human_gate = "before_network"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.network", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-spec.coordination.allow"], deny = ["ai-spec.coordination.deny"], installed_artifact = true }
+
 [[capabilities]]
 id = "ai-plan"
 phase = "plan"
@@ -246,6 +267,26 @@ secrets = []
 human_gate = "before_write"
 enforcement = ["preflight.read", "preflight.write", "preflight.human-gate"]
 proof_requirements = { allow = ["ai-report.digest.allow"], deny = ["ai-report.digest.deny"], installed_artifact = true }
+
+[[capabilities.modes]]
+id = "intent"
+# It reads the records and writes one page from them. No network, no secrets, no keyboard:
+# the page asserts nothing a person has to agree to, and a human gate on a document
+# generated from committed files would be a ceremony that teaches people to click through.
+#
+# Its sibling `digest` gates before_write over `.ai/reports`, which is gitignored, while this
+# writes a committed file and does not. That reads backwards side by side, so the reason is
+# here rather than inferred: the gate on this one is `just check`, which compares the page to
+# what the tree renders on every run and fails closed. A keyboard confirms intent; a byte
+# comparison confirms the result, and the result is what a committed file is judged on.
+read_roots = ["."]
+write_roots = ["docs"]
+exec_allowlist = [{ executable = "git", argument_pattern = "repository.read" }]
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec"]
+proof_requirements = { allow = ["ai-report.intent.allow"], deny = ["ai-report.intent.deny"], installed_artifact = true }
 
 [[capabilities.modes]]
 id = "issue"

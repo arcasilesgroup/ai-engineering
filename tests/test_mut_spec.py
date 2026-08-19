@@ -711,9 +711,9 @@ def test_the_verb_declares_exactly_these_subcommands(monkeypatch, capsys):
     """
     lines = _help(monkeypatch, capsys)
 
-    assert lines[0] == "usage: ai-eng spec [-h] {new,show,list,claim,checkpoint} ..."
+    assert lines[0] == "usage: ai-eng spec [-h] {new,show,list,claim,wave,checkpoint} ..."
     assert "positional arguments:" in lines
-    assert "  {new,show,list,claim,checkpoint}" in lines
+    assert "  {new,show,list,claim,wave,checkpoint}" in lines
 
 
 def test_the_claim_subcommand_says_exactly_what_it_needs(monkeypatch, capsys):
@@ -942,10 +942,10 @@ def test_the_verb_and_its_five_subcommands_say_exactly_what_they_accept(monkeypa
         return capsys.readouterr().out.rstrip("\n").splitlines()
 
     assert block() == [
-        "usage: ai-eng spec [-h] {new,show,list,claim,checkpoint} ...",
+        "usage: ai-eng spec [-h] {new,show,list,claim,wave,checkpoint} ...",
         "",
         "positional arguments:",
-        "  {new,show,list,claim,checkpoint}",
+        "  {new,show,list,claim,wave,checkpoint}",
         "",
         "options:",
         "  -h, --help            show this help message and exit",
@@ -1272,3 +1272,107 @@ def test_a_spec_namespace_this_cannot_read_stops_the_write(tmp_path):
     # And an ordinary name that is not a spec at all is skipped rather than refused: a
     # `README.md` beside the specs is somebody's file, not an ambiguous identifier.
     assert spec._number(_inventory("README.md", "notes", "001-a")) == "002"
+
+
+SECTION = """## Examples somebody can check
+
+**The success path.** Given a tree, When the writer runs the task, Then the plan hashes to
+what it hashed to before — verified by running `git diff --stat -- specs/x/plan.md` and
+reading `0 files changed`.
+
+**The denial path.** Given a base that is not there, When the checkpoint runs, Then the
+receipt is INCOMPLETE.
+
+**The undecidable path.** Given a section with no command, When the gate reads it, Then it
+fails the executable clause and passes the structure one.
+
+## Decisions
+"""
+
+
+def test_the_examples_section_is_counted_by_what_it_holds():
+    """The reading half of the executable clause, and the only definition of it.
+
+    The gate over authored specifications calls this rather than parsing the section a
+    second time, because two definitions of "executable" is how the two disagree later.
+    """
+
+    from ai_engineering import spec
+
+    assert spec.examples_facts(SECTION) == (3, 3, 3, 1)
+
+    # No heading at all is zeroes, not a crash and not a pass.
+    assert spec.examples_facts("# A spec with no examples\n") == (0, 0, 0, 0)
+
+    # A Then with an output and no command is not executable: the command is the half a
+    # reader cannot reconstruct, and spec 018 is exactly this shape.
+    output_only = SECTION.replace(
+        "verified by running `git diff --stat -- specs/x/plan.md` and\nreading `0 files changed`",
+        "verified by reading `0 files changed`",
+    )
+    assert spec.examples_facts(output_only) == (3, 3, 3, 0)
+
+    # A command with nothing after it is not executable either: an expected output is what
+    # makes it a check rather than an instruction.
+    bare = SECTION.replace(
+        "`git diff --stat -- specs/x/plan.md` and\nreading `0 files changed`",
+        "`git diff --stat -- specs/x/plan.md`",
+    )
+    assert spec.examples_facts(bare) == (3, 3, 3, 0)
+
+    # And the verb list is closed. A Then naming something nobody can run is prose.
+    invented = SECTION.replace("`git diff --stat -- specs/x/plan.md`", "`frobnicate --all`")
+    assert spec.examples_facts(invented) == (3, 3, 3, 0)
+
+    # The canonical division of labour — the action in When, the observation in Then — is
+    # the shape a reader writes without being told, and reading only the tail after `Then`
+    # refused it.
+    canonical = (
+        "## Examples somebody can check\n\n"
+        "Given a repo, When `just check` runs, Then it prints `2101 passed`.\n"
+    )
+    assert spec.examples_facts(canonical) == (1, 1, 1, 1)
+
+    # The section ends at the next heading, and this pins it: an example below `## Decisions`
+    # is not in the section. Without this the boundary is a mutant nobody kills, because no
+    # specification in the tree writes Given/When/Then after that heading.
+    assert spec.examples_facts(SECTION + "\nGiven z, When z, Then `git log` prints `z`.\n") == (
+        3,
+        3,
+        3,
+        1,
+    )
+
+    # A heading quoted in prose is not the section starting. 019 is a specification about
+    # this section and is one editing pass from writing it.
+    quoted = "# S\n\nWe follow `" + spec.EXAMPLES + "` here.\n\n" + SECTION
+    assert spec.examples_facts(quoted) == (3, 3, 3, 1)
+
+    # And a document with no section at all that quotes the heading beside an example is
+    # zeroes, not an example. A conditional guard here fell back to reading the whole
+    # document, which read that shape as a filled section — the fail-open a repair opened.
+    hazard = (
+        "---\nstatus: draft\n---\n\nGiven a reader, When they arrive, Then `git log` prints "
+        "`x`. We follow `" + spec.EXAMPLES + "` in every spec.\n"
+    )
+    assert spec.examples_facts(hazard) == (0, 0, 0, 0)
+
+    # One definition of where the section is. The gate over authored specifications cut its
+    # own for a commit, and after this function changed the two disagreed on that document.
+    assert spec.examples_section(hazard) == ""
+    assert spec.examples_section(SECTION).startswith("\n\n**The success path.**")
+
+    # Carriage returns do not collapse the paragraphs into one.
+    assert spec.examples_facts(SECTION.replace("\n", "\r\n")) == (3, 3, 3, 1)
+
+
+def test_the_template_own_examples_prompt_is_not_executable():
+    """The one collision worth pinning. Task 11 put a worked shape into the prompt, and if
+    its verb were on the closed list every `ai-eng spec new` output would satisfy the
+    executable clause on the day it is written — and the gate's intended red would never
+    fire for anybody."""
+
+    from ai_engineering import spec
+
+    prompt = spec.TEMPLATE.split("## Examples somebody can check", 1)[1].split("\n## ", 1)[0]
+    assert spec.examples_facts("## Examples somebody can check" + prompt)[3] == 0

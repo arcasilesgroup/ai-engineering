@@ -52,7 +52,6 @@ def test_the_lens_a_change_routes_to_is_the_one_the_change_is_about(name, added,
         )
 
 
-
 def test_every_lens_that_always_loads_does_so_over_an_empty_diff():
     """Security is the lens `ai-review` names as the one that gets skipped, and a rule that
     could skip it automates the failure the skill warns about. Asserted over every always-row

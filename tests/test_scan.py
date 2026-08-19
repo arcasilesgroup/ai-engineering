@@ -1129,6 +1129,8 @@ def test_the_whole_security_report_is_this_exact_block_of_lines(tmp_path, monkey
         "poetry.lock, requirements.txt, uv.lock), or record a dated risk acceptance with "
         "`ai-eng accept`",
         "  SKIPPED     images        no container image here, so no container lane runs",
+        "  SKIPPED     dast          nothing here scanned a running target: that needs a URL "
+        "somebody authorised, and this gate never has one",
     ]
 
 
@@ -1320,6 +1322,8 @@ def test_the_whole_security_report_and_the_code_it_exits_with(tmp_path, monkeypa
         "  OBSERVED    manifests     pyproject.toml",
         "  OBSERVED    coverage      the engine read a file for every manifest here",
         "  SKIPPED     images        no container image here, so no container lane runs",
+        "  SKIPPED     dast          nothing here scanned a running target: that needs a URL "
+        "somebody authorised, and this gate never has one",
     ]
 
 
@@ -1446,3 +1450,39 @@ def test_a_failing_lane_prints_every_finding_with_the_four_fields_nobody_answere
         "nobody has answered: boundary, attacker_controls, refutation, closed_by" in one
         for one in printed
     )
+
+
+def test_a_tree_with_no_authorised_target_declines_the_dynamic_scan(tmp_path, capsys, monkeypatch):
+    """The lane this report does not have, said out loud instead of left silent.
+
+    Every engine pinned here reads files. None of them touches a running service, so a
+    repository with a deployed preview got exit zero and a report whose last line was about
+    container images — and `ai-security` step 3 tells the model to paste that output. A green
+    that means "nothing dynamic was looked at" reads identically to one that means "the
+    dynamic surface is clean", and this repository exists to tell those apart.
+
+    Declined, not passed, and not `N/A`: `outcome._FACT_STATUSES` has no such word, and
+    SKIPPED is already what this module says when it is refusing to answer rather than
+    answering. The decision on where a dynamic scan lives is D-014-11 and the security
+    research before it — inside `ai-security`, never a separate skill — and this line is the
+    part of it that is a script.
+    """
+
+    from ai_engineering import scan
+
+    # The engines are emptied because this is about a lane that is absent, not about the
+    # three that are present. Spawning them here would pay their cost twice per gate to
+    # prove nothing, which is the defect Task 2 removed from the threat-model suite.
+    monkeypatch.setattr(scan, "BASELINE", ())
+    monkeypatch.setattr(scan, "CROSS_CHECKS", ())
+
+    assert scan.baseline(tmp_path) == 0
+    said = capsys.readouterr().out
+    assert "SKIPPED     dast" in said
+    assert "running target" in said
+    # It is the last word, after the images line, because it is the lane furthest from what
+    # this gate can see.
+    lines = [one for one in said.splitlines() if one.strip()]
+    assert "dast" in lines[-1]
+    # And it touches nothing: a repository with no findings still exits zero.
+    assert scan.baseline(tmp_path) == 0

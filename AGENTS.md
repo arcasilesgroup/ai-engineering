@@ -31,7 +31,7 @@ once per session. `CLAUDE.md` is one line that imports this file.
 
 ## What this project is
 
-A wheel on PyPI that carries twelve skills, six guards and a ten-verb CLI. One command
+A wheel on PyPI that carries thirteen skills, six guards and a ten-verb CLI. One command
 places the skills and registers the guards in the settings file each surface already
 reads, so they are present in every project on a machine without a single file landing in
 any of them. It writes specs, plans, decisions and dated risk acceptances as plain text in

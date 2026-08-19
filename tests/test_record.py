@@ -1558,3 +1558,234 @@ def test_the_account_command_says_what_to_type_before_it_waits_for_it(home, monk
     audit.main(["account", "--range", "1-2", "--why", "why", "--by", "who"])
     assert seen == ["ACCOUNT 1-2 AS who"]
     assert "ACCOUNT 1-2 AS who" in capsys.readouterr().out
+
+
+def test_show_says_what_the_examples_section_holds(repo, capsys):
+    """The downstream reader the examples never had.
+
+    They were written into every specification by the template and read by nothing: a
+    repo-wide search for the heading found the template and the two files that filled it,
+    and no consumer. There is no verify verb to give them to, so the reader is the verb that
+    already opens the file — and it reports what it observed and decides nothing, which is
+    what keeps it from becoming a second gate."""
+
+    where = _fixture_spec(repo, "a-thing")
+    body = where.read_text()
+    head, _, tail = body.partition("## Examples somebody can check")
+    where.write_text(
+        head
+        + "## Examples somebody can check\n\n"
+        + "**The success path.** Given a tree, When it runs, Then `just check` prints "
+        + "`RAN tests=2128`.\n\n## "
+        + tail.split("\n## ", 1)[1],
+        encoding="utf-8",
+    )
+
+    assert spec.main(["show", "001"]).outcome == "PASS"
+    out = capsys.readouterr().out
+
+    assert "examples: 1 given, 1 when, 1 then" in out
+    assert "1 naming a command and its output" in out
+    # Never "N of them": `1 of` is the prefix of the multi-match heading a
+    # sibling test asserts is absent, and that guard should not depend on how
+    # many examples a fixture happens to carry.
+    assert "1 of" not in out
+    # No verdict word: this observes and the reader decides.
+    tail = out.split("examples:", 1)[1]
+    for word in ("PASS", "FAIL", "INCOMPLETE"):
+        assert word not in tail
+
+
+def test_show_says_nothing_about_examples_when_there_are_none(repo, capsys):
+    """Sixteen of the nineteen specifications have no such section, and a line reading
+    "0 given, 0 when, 0 then" under every one of them is noise standing where a fact should
+    be."""
+
+    where = _fixture_spec(repo, "a-thing")
+    body = where.read_text()
+    where.write_text(body.split("## Examples somebody can check", 1)[0], encoding="utf-8")
+
+    assert spec.main(["show", "001"]).outcome == "PASS"
+    assert "examples:" not in capsys.readouterr().out
+
+
+def _plan_with_tasks(where, how_many=2):
+    """A plan in the shape the plan skill asks for, beside an existing spec."""
+    tasks = "\n\n".join(
+        f"{n}. **Task {n}** — **file** `src/thing.py`.\n"
+        f"   **check**: `just quick thing`.\n"
+        f"   **rollback**: `git revert <commit>`. **done when**: thing {n} works."
+        for n in range(1, how_many + 1)
+    )
+    (where.parent / "plan.md").write_text(f"# Plan\n\n{tasks}\n", encoding="utf-8")
+
+
+def test_show_hands_over_one_task_as_an_envelope(repo, capsys):
+    """The whole point of specification 019's second problem.
+
+    An executor could not be handed a task, only the file it lives in — 74,216 bytes of
+    plan beside a 53,831-byte specification, re-read once per task, because no plan had a
+    structure a script could enumerate. This is the other end of that: one task, the two
+    digests it was read under, and nothing else."""
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-thing")
+    _plan_with_tasks(where)
+
+    assert spec.main(["show", "001", "--task", "2"]).outcome == "PASS"
+    out = capsys.readouterr().out
+
+    assert "task: 2" in out
+    assert "file: `src/thing.py`" in out
+    assert "check: `just quick thing`" in out
+    assert "rollback: `git revert <commit>`" in out
+    assert "done when: thing 2 works" in out
+    # The two digests it was read under, so a hand-off names the bytes it came from.
+    assert "spec: sha256:" in out and "plan: sha256:" in out
+    # And nothing else: the specification body is not printed beside it.
+    assert "## Production-ready" not in out
+    # Small enough to hand over — measured against the real tree, not this fixture. Task 16
+    # asked for "under one kilobyte" and the largest real envelope is 1,862 bytes, so the
+    # fixture assertion pinned nothing. Two kilobytes is the measured bound with slack; what
+    # matters is the ratio against the 128,047 bytes a task used to cost.
+    assert len(out.encode()) < 2048, len(out.encode())
+
+
+def test_an_envelope_refuses_rather_than_printing_half_of_one(repo, capsys):
+    """Each refusal leaves nothing on stdout a reader could act on. A partial envelope is
+    worse than none: it names a file and a check that may belong to another task."""
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-thing")
+
+    # A plan that is not there.
+    assert spec.main(["show", "001", "--task", "1"]).outcome == "INCOMPLETE"
+    assert "no plan" in capsys.readouterr().out
+
+    # A plan with no task a script can enumerate.
+    (where.parent / "plan.md").write_text("# Plan\n\nProse only.\n", encoding="utf-8")
+    assert spec.main(["show", "001", "--task", "1"]).outcome == "INCOMPLETE"
+    assert "no numbered tasks" in capsys.readouterr().out
+
+    # A task number nobody wrote.
+    _plan_with_tasks(where)
+    assert spec.main(["show", "001", "--task", "9"]).outcome == "INCOMPLETE"
+    assert "no task 9" in capsys.readouterr().out
+
+    # A prose list numbered like a task does not shadow the task. Taking the first match
+    # returned the prose item and refused a task that is right there and whole.
+    (where.parent / "plan.md").write_text(
+        "# Plan\n\n## Options considered\n\n1. **Build the subsystem.**\n\n"
+        "## Tasks\n\n1. **The real one** — **file** `src/thing.py`.\n"
+        "   **check**: `just quick thing`.\n"
+        "   **rollback**: `git revert <commit>`. **done when**: it works.\n",
+        encoding="utf-8",
+    )
+    assert spec.main(["show", "001", "--task", "1"]).outcome == "PASS"
+    assert "The real one" in capsys.readouterr().out
+
+    # A digest the caller named that is not the bytes on disk. This is the one that makes
+    # the envelope an authority statement rather than a convenience.
+    _plan_with_tasks(where)
+    assert (
+        spec.main(["show", "001", "--task", "1", "--plan-digest", "sha256:" + "0" * 64]).outcome
+        == "INCOMPLETE"
+    )
+    said = capsys.readouterr().out
+    assert "does not match" in said
+    assert "check:" not in said
+
+
+def test_an_envelope_is_the_same_bytes_the_digest_names(repo, capsys):
+    """Naming the right digest is not a refusal, and the envelope carries it back."""
+
+    import hashlib
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-thing")
+    _plan_with_tasks(where)
+    digest = "sha256:" + hashlib.sha256((where.parent / "plan.md").read_bytes()).hexdigest()
+
+    assert spec.main(["show", "001", "--task", "1", "--plan-digest", digest]).outcome == "PASS"
+    out = capsys.readouterr().out
+    assert digest in out
+    # And the envelope says which of the two happened. With no digest named the check
+    # proves nothing, and one silent about the difference is a hand-off nobody can audit.
+    assert f"plan: {digest} (verified)" in out
+    assert "(verified)" not in out.split("plan:", 1)[0]
+
+
+def test_no_envelope_in_this_tree_is_larger_than_two_kilobytes():
+    """The claim the fixture could not make. Specification 019 measures a task as costing
+    128,047 bytes to hand over — the governing specification plus its plan, re-read once
+    per task. This is what it costs now, over every task that actually exists."""
+
+    import contextlib
+    import io
+
+    from ai_engineering import spec
+
+    root = Path(__file__).resolve().parents[1]
+    largest, where = 0, ""
+    for plan in sorted((root / "specs").glob("*/plan.md")):
+        for task in spec.plan_tasks(plan.read_text(encoding="utf-8", errors="replace")):
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer):
+                spec._envelope(plan.parent, task["task"], {})
+            size = len(buffer.getvalue().encode())
+            if size > largest:
+                largest, where = size, f"{plan.parent.name} task {task['task']}"
+
+    assert largest, "no envelope was produced, so this measured nothing"
+    assert largest < 2048, f"{where} is {largest} bytes"
+
+
+def _a_real_repository(where) -> None:
+    """The page reads the git index, so a fixture that only looks like a repository is not
+    one. Staged rather than committed: `git ls-files` reads the index, which is what makes
+    the natural order — stage the spec, generate, commit both — work."""
+
+    subprocess.run(["git", "init", "-q", "-b", "main", str(where)], check=True)
+    subprocess.run(["git", "-C", str(where), "add", "-A"], check=True)
+
+
+def test_report_intent_writes_the_page_and_says_where(repo, capsys, monkeypatch):
+    """The command the staleness message promised, which argparse rejected.
+
+    A gate whose remedy is a command that does not exist is worse than no gate: the reader
+    runs it, gets `invalid choice`, and learns the check is broken rather than that the page
+    is."""
+
+    from ai_engineering import report, solution_intent
+
+    monkeypatch.chdir(repo)
+    _fixture_spec(repo, "a-thing")
+    _a_real_repository(repo)
+
+    result = report.main(["intent", "--html"])
+
+    assert result.outcome == "PASS"
+    assert (repo / solution_intent.PAGE).is_file()
+    assert str(solution_intent.PAGE) in capsys.readouterr().out
+    assert solution_intent.staleness(repo)[0]
+
+
+def test_the_command_the_staleness_message_names_is_one_that_runs(repo, monkeypatch):
+    """The two halves are written in different files, so they are held equal here rather
+    than by whoever remembers to change both."""
+
+    import shlex
+
+    from ai_engineering import report, solution_intent
+
+    monkeypatch.chdir(repo)
+    _fixture_spec(repo, "a-thing")
+    _a_real_repository(repo)
+    _, why = solution_intent.staleness(repo)
+    named = why.split("run `", 1)[1].split("`", 1)[0]
+
+    assert named.startswith("ai-eng report ")
+    assert report.main(shlex.split(named)[2:]).outcome == "PASS"

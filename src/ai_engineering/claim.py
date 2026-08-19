@@ -149,11 +149,34 @@ def take(
 ) -> outcome.Execution:
     """Claim one work item against one exact base, or be refused.
 
-    Three refusals, in this order, and each one leaves the remote untouched: the record
-    carries something no coordination record may carry; the base has moved; another writer
-    already holds the ref. The third is git's answer rather than ours, which is the only
-    version of it that holds when the two writers are on different machines.
+    Four refusals, in this order, and each one leaves the remote untouched: this tree already
+    holds a different claim; the record carries something no coordination record may carry;
+    the base has moved; another writer already holds the ref. The last is git's answer rather
+    than ours, which is the only version of it that holds when the two writers are on
+    different machines.
     """
+
+    # One working tree, one writer, as an exit code. The file below used to be written
+    # unconditionally — no lock, no check — so two writers in one tree over different items
+    # both won their own ref, because refs are named per item, and the second silently
+    # replaced the single local file `claim_scope_guard` reads. From then on the first writer
+    # was judged against the second's paths: denied with a message naming somebody else's
+    # work item when the two are disjoint, and allowed to write outside its own claim when
+    # the second's paths were a superset. Fail closed on an unreadable file too — a scope the
+    # guard cannot see is not a scope.
+    where = root / IN_FORCE
+    if where.is_file():
+        try:
+            standing = str(json.loads(where.read_text(encoding="utf-8"))["item"])
+        except (OSError, ValueError, KeyError, TypeError):
+            standing = ""
+        if standing != item:
+            return _refused(
+                "CLAIM_TREE_BUSY",
+                f"this working tree already holds {standing or 'a claim nobody can read'}",
+                f"delete .ai/claim.json when that work is finished, or take {item} "
+                "in its own `git worktree`",
+            )
 
     claimant = uuid.uuid4().hex
     body = record(item, expected_base, paths, role, claimant)
