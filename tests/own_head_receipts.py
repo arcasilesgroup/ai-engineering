@@ -88,14 +88,12 @@ def static() -> list[tuple[str, bool, str]]:
     """
 
     import hashlib
-    import json
     import re
 
     sys.path.insert(0, str(ROOT / "src"))
     from ai_engineering import contract
 
     spec = ROOT / "specs" / "010-governed-agentic-engineering-foundation" / "spec.md"
-    body = spec.read_text(encoding="utf-8")
     tree = contract.repo_lines(ROOT)
     slack = contract.REPO_CEILING - tree
 
