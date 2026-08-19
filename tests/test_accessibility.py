@@ -70,6 +70,19 @@ def test_every_criterion_says_how_it_is_checked_or_why_it_is_not():
     checked = [row["id"] for row in policy["criterion"] if row.get("checked")]
     assert len(checked) >= 5, "the floor is thinner than the level it claims"
 
+    # And the target is not allowed to be a word. `target = "AAA"` sat above ten criteria of
+    # which none was AAA, which is the file declaring a level nothing in it is about — the
+    # same shape as an indicator with no instrument, one document over.
+    aimed = [row for row in policy["criterion"] if row["level"] == policy["floor"]["target"]]
+    assert aimed, (
+        f"the target is {policy['floor']['target']} and no criterion is at that level, so "
+        "the target is a word. Name the ones this program can be held to, met or argued."
+    )
+    assert any(row.get("checked") for row in aimed), (
+        f"every {policy['floor']['target']} criterion here is argued and none is met, which "
+        "is a direction rather than a target"
+    )
+
 
 def test_the_critical_journeys_are_enumerated_and_each_names_a_command():
     """`EP-292` asked for coverage over enumerated critical journeys and there was no list.

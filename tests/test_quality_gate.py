@@ -736,13 +736,25 @@ GATE_CONTROLS = {
     "skilleval": "tests/test_skill_eval.py mutates the corpus once per routing rule and "
     "asserts the harness refuses each one",
     "counts": "test_the_counts_this_repository_states_about_itself_are_the_counts_it_has",
+    "homes": "tests/test_one_home.py plants the one way the classification could flatter — a "
+    "path outside every declared home folding into an existing one, which would make every "
+    "commit that touched the justfile read as narrower than it was",
+    "unreviewed": "tests/test_unreviewed.py plants the one way the derivation could be "
+    "generous — a range whose ends this clone cannot resolve, which would credit every commit "
+    "to a review nobody ran — plus a missing record, which must leave everything unreviewed",
+    "lenses": "tests/test_review_lenses.py plants the case the requirement is about — a "
+    "stylesheet with no movement in it — and asserts it routes to frontend and not to motion, "
+    "plus the inverse, plus a lens file with no row and a row with two rules",
     "intent-page": "tests/test_solution_intent.py is five refusals and one pass — a page "
     "somebody edited, a record that moved, a field rendered and not hashed, a number that "
     "disagrees with the gate that enforces it, and a tree git cannot list — because this "
     "recipe's whole value is the page it refuses to call fresh",
-    "ran": "tests/test_ran_receipt.py is six refusals and one pass — no receipt, other "
-    "content, a file edited after the run, a file added after it, a receipt naming no suite "
-    "and one that is not JSON — because this recipe's whole value is when it writes nothing",
+    "ran": "and its second half prints the commits carrying no receipt, with a case holding "
+    "the inversion that would have made that report exactly backwards — a present trailer "
+    "splitting its own line. tests/test_ran_receipt.py is a table of unusable receipts and four "
+    "named "
+    "refusals — a file edited after the run, a file added after it, and two argument shapes "
+    "— because this recipe's whole value is when it writes nothing",
 }
 
 
@@ -767,6 +779,24 @@ def test_every_recipe_the_gate_runs_is_named_here_with_its_control_or_its_reason
     )
     for name in ordered:
         assert GATE_CONTROLS[name].strip(), f"{name} carries neither a control nor a reason"
+
+    # `EP-060` asks for a clean control in each gate recipe, and the honest half of that is
+    # how many are arguments rather than controls. It was six controlled and two argued when
+    # the requirement was measured; the table has grown since and nothing was counting, so
+    # the ratio could have drifted the wrong way one recipe at a time. `lint` and `typecheck`
+    # say "executed below" and mean it — the case under this one plants a defect and reads
+    # each of them refusing — so `build` is the only recipe held by a reason alone.
+    argued = [name for name, why in GATE_CONTROLS.items() if why == "executed below"]
+    assert set(argued) == {"lint", "typecheck"}, (
+        f"{argued} defer to a control below this case. Each one that does must be executed "
+        "there, and the case that executes them names exactly these two"
+    )
+    reasons = [name for name in ordered if name == "build"]
+    assert len(reasons) == 1 and len(ordered) - len(reasons) >= 12, (
+        f"{len(reasons)} of {len(ordered)} recipes are held by a reason alone. That is "
+        "allowed and it is the number worth watching: a gate whose recipes are mostly "
+        "argued is a gate mostly nobody has seen refuse"
+    )
 
 
 def test_the_linter_and_the_type_checker_are_shown_saying_no(tmp_path):

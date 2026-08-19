@@ -378,8 +378,12 @@ stats:
 # graded on no evidence at all. A commit trailer is the one place a run can be recorded
 # where git will still have it a month later, and `commit-msg` writes it from this receipt
 # only when the content it names is the content being committed.
-ran suite="check":
+ran suite="check" base="main":
     @uv run python tests/ran_receipt.py record {{suite}}
+    # And the answer nobody was reading. The trailer's absence is the whole of its value, and
+    # on 2026-08-19 it correctly marked a commit pushed over a red gate while nothing printed
+    # it. A control whose answer nobody consumes is the same defect as one that cannot decide.
+    @uv run python tests/ran_receipt.py unrun {{base}}
 
 # The cheap half, and the one `PO-14` actually asks for. That row says every commit runs its
 # module's immediate suite *instead of* the whole gate, and until this recipe existed the
@@ -393,4 +397,26 @@ quick module:
     @uv run --with {{pytest}} pytest -q tests/test_{{module}}.py
     @uv run python tests/ran_receipt.py record quick:{{module}}
 
-check: build sbom lint typecheck test cover security register skilleval counts intent-page ran
+# Which review lens this range routes to. In `check` because the table is only worth having
+# if something reads it — the reader refuses a lens file with no row, which is the state all
+# ten were in until `EP-251` was measured, and a table nothing validates drifts from the
+# directory it describes on the first lens somebody adds.
+lenses base="main":
+    @uv run python tests/review_lenses.py --base {{base}}
+
+# Which commits no closed block review covers, derived rather than written — the approved
+# plan forbids a commit message or metadata field from carrying that word. It reports and
+# never blocks: unreviewed is the ordinary state of work in flight, and a gate that failed on
+# it would demand a review before the block it belongs to has closed, which is the
+# amplification the block cadence exists to remove.
+unreviewed base="main":
+    @uv run python tests/unreviewed.py --since {{base}}
+
+# How many primary homes each commit touches. `PO-16` says one, with one recorded exception,
+# and nothing measured it — so a sentence about one commit stood in for a hundred and ninety.
+# Reports and never blocks: the exception cannot be recognised mechanically, and a gate that
+# failed here would assert a judgement it cannot make.
+homes base="main":
+    @uv run python tests/one_home.py --since {{base}}
+
+check: build sbom lint typecheck test cover security register skilleval counts intent-page lenses unreviewed homes ran

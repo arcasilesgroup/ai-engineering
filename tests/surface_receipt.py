@@ -51,18 +51,27 @@ MAX_AGE = 86_400
 # rule 3 names, so a surface that lets it through has failed at the thing it is for.
 DENIED = "git commit --no-verify -m x"
 
+# One run, three answers. `EP-199` asks that load and invoke be executed states in CI and not
+# only install, deny and doctor — and this driver already did all three and reported one. The
+# module resolving and exporting is discovery; the registration contract handing back the hook
+# the surface would call is invocation; the hook refusing is enforcement. Reporting only the
+# last made two states that had genuinely executed read as unproven, which is the same false
+# reading as claiming them, with the sign reversed.
+HOOK = "tool.execute.before"
+
 DRIVER = """
 import { AiEngineering } from "PLUGIN_PATH";
 
 const hooks = await AiEngineering();
+const invoked = typeof hooks?.["tool.execute.before"] === "function";
 try {
   await hooks["tool.execute.before"](
     { tool: "Bash", sessionID: process.env.AI_ENG_ONCE },
     { args: { command: process.env.AI_ENG_COMMAND } },
   );
-  console.log(JSON.stringify({ denied: false, said: "" }));
+  console.log(JSON.stringify({ loaded: true, invoked, denied: false, said: "" }));
 } catch (why) {
-  console.log(JSON.stringify({ denied: true, said: String(why.message) }));
+  console.log(JSON.stringify({ loaded: true, invoked, denied: true, said: String(why.message) }));
 }
 """
 
@@ -75,7 +84,7 @@ def digest(payload: bytes) -> str:
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
-def drive(area: Path) -> tuple[bool, str]:
+def drive(area: Path) -> tuple[dict, str]:
     """Run the plugin the way OpenCode runs it, in a home this run owns.
 
     The plugin is materialised by the installer rather than by a copy of it: the shipped
@@ -102,8 +111,12 @@ def drive(area: Path) -> tuple[bool, str]:
     try:
         plugin = area / "opencode.ts"
         wiring.ts_opencode(plugin)
-        if str(house) not in plugin.read_text(encoding="utf-8"):
-            return False, "the plugin was written pointing at a home this run does not own"
+        body = plugin.read_text(encoding="utf-8")
+        if str(house) not in body:
+            return {}, "the plugin was written pointing at a home this run does not own"
+        # The bytes that resolved, taken here because the area is removed before the receipts
+        # are written and a digest of a file that no longer exists is a digest of nothing.
+        resolved = digest(body.encode())
         driver = area / "drive.mts"
         driver.write_text(DRIVER.replace("PLUGIN_PATH", f"./{plugin.name}"), encoding="utf-8")
         done = subprocess.run(  # the driver is written above, from a literal in this file
@@ -123,12 +136,13 @@ def drive(area: Path) -> tuple[bool, str]:
                 os.environ[key] = value
 
     if done.returncode != 0:
-        return False, f"this node cannot run the plugin as OpenCode does: {done.stderr[-200:]}"
+        return {}, f"this node cannot run the plugin as OpenCode does: {done.stderr[-200:]}"
     try:
         answer = json.loads(done.stdout.strip().splitlines()[-1])
     except (IndexError, ValueError):
-        return False, f"the driver printed nothing readable: {done.stdout.strip()[:200]}"
-    return bool(answer.get("denied")), str(answer.get("said", ""))
+        return {}, f"the driver printed nothing readable: {done.stdout.strip()[:200]}"
+    answer["plugin_digest"] = resolved
+    return answer, str(answer.get("said", ""))
 
 
 def main(argv: list[str]) -> int:
@@ -143,10 +157,10 @@ def main(argv: list[str]) -> int:
 
     started = stamp()
     with tempfile.TemporaryDirectory() as area:
-        denied, said = drive(Path(area))
+        answered, said = drive(Path(area))
     finished = stamp()
 
-    if not denied:
+    if not answered.get("denied"):
         print(f"  FAIL: the OpenCode plugin did not deny `{DENIED}`. It said: {said[:160]}")
         print("  No receipt written. A receipt over a run that did not deny is the artefact")
         print("  this product exists to prevent.")
@@ -158,36 +172,53 @@ def main(argv: list[str]) -> int:
         return 1
 
     RECEIPTS.mkdir(parents=True, exist_ok=True)
-    where = RECEIPTS / "opencode.enforcement.json"
-    where.write_text(
-        json.dumps(
-            {
-                "schema": SCHEMA,
-                "schema_version": "1",
-                "kind": "automated",
-                # Read from the adapter rather than written here, which is what makes this
-                # evidence rather than a self-report: the id is a requirement the receipt
-                # did not get to choose, and `surface.adapter_proof` compares the two.
-                "id": required,
-                "applicability": "applicable",
-                "command": "python tests/surface_receipt.py opencode",
-                "tool_version": f"opencode-adapter {version}",
-                "input_digest": digest(DENIED.encode()),
-                "artifact_digest": digest(said.encode()),
-                "started_at": started,
-                "finished_at": finished,
-                "max_age_seconds": MAX_AGE,
-                "outcome": "PASS",
-            },
-            indent=2,
-            sort_keys=True,
+
+    # Three receipts from one run, because one run answered three questions. Each carries the
+    # digest of the thing that actually proved it, so they are not three copies of one fact:
+    # discovery is the plugin bytes that resolved, invocation is the hook name the surface's
+    # own registration contract handed back, enforcement is what the guard said.
+    proved = {
+        "discovery": (answered["plugin_digest"], "the shipped plugin resolved and exported"),
+        "invocation": (digest(HOOK.encode()), f"the contract returned {HOOK}"),
+        "enforcement": (digest(said.encode()), "the guard denied and named itself"),
+    }
+    written = []
+    for state, (artifact, why) in proved.items():
+        where = RECEIPTS / f"opencode.{state}.json"
+        where.write_text(
+            json.dumps(
+                {
+                    "schema": SCHEMA,
+                    "schema_version": "1",
+                    "kind": "automated",
+                    # Read from the adapter rather than written here, which is what makes this
+                    # evidence rather than a self-report: the id is a requirement the receipt
+                    # did not get to choose, and `surface.adapter_proof` compares the two.
+                    # Only enforcement has one; the other two keep this module's convention,
+                    # and `surface.py` says which claim each of them is making.
+                    "id": required if state == "enforcement" else f"opencode.{state}",
+                    "applicability": "applicable",
+                    "command": "python tests/surface_receipt.py opencode",
+                    "tool_version": f"opencode-adapter {version}",
+                    "input_digest": digest(DENIED.encode()),
+                    "artifact_digest": artifact,
+                    "started_at": started,
+                    "finished_at": finished,
+                    "max_age_seconds": MAX_AGE,
+                    "outcome": "PASS",
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
         )
-        + "\n",
-        encoding="utf-8",
-    )
+        written.append((state, why, where))
+
     print(f"  RAN surfaces=1  opencode denied `{DENIED}`")
     print(f"  it named: {said.strip()[:100]}")
-    print(f"  receipt: {where.relative_to(ROOT)}")
+    for state, why, where in written:
+        print(f"    {state:12} {why} — {where.relative_to(ROOT)}")
     return 0
 
 

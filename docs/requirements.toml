@@ -95,8 +95,8 @@ evidence = "pytest tests/test_cli_migration.py -k 'exception_is_hard_rename or r
 id = "EP-008"
 verdict = "INCOMPLETE"
 subject = "the record relation graph resolves and every decision it depends on is approved"
-evidence = "python -c \"from pathlib import Path; from ai_engineering import madr; print(madr.validate(Path('.')))\""
-note = "relations resolve and four ADRs are accepted; spec 010, which the graph roots to, is still draft"
+evidence = "pytest tests/test_madr.py tests/test_own_head_receipts.py"
+note = '''relations resolve, `madr.validate` returns PASS over every record, and the reason this row stayed open — spec 010 being `draft` — rests on a condition that has been satisfiable for a day with nothing re-measuring it. The plan reserves the shipped transition until both workflows are complete and successful at exactly the candidate's own HEAD; `tests/own_head_receipts.py` asks GitHub and finds 44 commits on this branch that carry both. It decides nothing and says so: Task 53 needs a specific candidate commit that also closes the ceiling to zero slack, accepts three MADRs, refreshes the Intent and sets the status, and then separate push consent from a person. What was unknown and is now measured is only whether the live receipts are obtainable here at all. INCOMPLETE until that candidate exists and a person consents to it.'''
 
 [[requirement]]
 id = "EP-009"
@@ -128,10 +128,10 @@ note = "only claude-code is denied from a wheel-installed artefact; seven surfac
 
 [[requirement]]
 id = "EP-013"
-verdict = "INCOMPLETE"
+verdict = "CONTRADICTED"
 subject = "four earned adapter fields declared in policy/surfaces.toml"
-evidence = "grep -n 'native_slash|skill_selector|command_adapter|invocation' policy/surfaces.toml"
-note = "refused by D-011-02 in favour of earned three-state receipts: meets the intent, not the stated form"
+evidence = "grep -n 'REFUSED by D-011-02' specs/011-surface-adapter-contract/spec.md"
+note = '''regraded from INCOMPLETE, which was the wrong word for it. `specs/011` says "EP-013 — the four adapter fields in `policy/surfaces.toml`. REFUSED by D-011-02" in those capitals: the repository decided against the stated form and put earned three-state receipts in its place, which meets the intent and is not what the sentence asks for. INCOMPLETE means work remains; here a recorded decision says it never will be done this way, and grading it INCOMPLETE inflated the count of requirements somebody could still close. `EP-333` carries CONTRADICTED for exactly this shape — "a recorded decision, not an oversight" — and two rows recording the same kind of refusal under two different words is the ledger disagreeing with itself.'''
 
 [[requirement]]
 id = "EP-014"
@@ -191,10 +191,10 @@ evidence = "python -c \"from pathlib import Path; from ai_engineering import con
 
 [[requirement]]
 id = "EP-022"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "WCAG 2.2 AAA as the target, AA as the release floor"
-evidence = "pytest tests/test_accessibility.py; grep -n AAA policy/accessibility.toml"
-note = "AA is now a floor that executes rather than a substring, over the criteria a program with no viewport can be held to — and each one that cannot be held says why. AAA remains the recorded direction and nothing measures it, which is the half that keeps this row open"
+evidence = "pytest tests/test_accessibility.py"
+note = '''both halves execute now. AA is a floor that runs rather than a substring, over the criteria a program with no viewport can be held to, and each one that cannot be held says why with the date it was last read. The target was the open half and it was a word: `target = "AAA"` sat above ten criteria of which not one was AAA, which is a file declaring a level nothing in it is about. Four AAA criteria are named now — the four this program can be held to at all — two met and naming the test that proves each, two argued with a date. The rest of AAA is about rendering this program does not do, and forty rows saying "no viewport" forty times would bury the four that mean something. A case refuses a target with no criterion at its level and refuses one where every criterion is argued and none met, which is a direction rather than a target.'''
 
 [[requirement]]
 id = "EP-023"
@@ -451,10 +451,10 @@ note = "needs a real pilot with a sequential run recorded before a parallel one"
 
 [[requirement]]
 id = "EP-060"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "every attacked guard has a clean control, in the adversarial suite and in each gate recipe"
 evidence = "python tests/adversarial/run.py; pytest tests/test_quality_gate.py -k every_recipe"
-note = "25 of 25 adversarial, eleven guards controlled; of the gate's own recipes, six are controlled and two carry a written reason"
+note = '''both halves execute and the count is now watched rather than remembered. The adversarial suite is 25 of 25 with a clean control for each of eleven attacked guards, and it prints that sentence itself. Of the gate's own thirteen recipes, ten name a control that has been seen refusing, two — `lint` and `typecheck` — defer to a case that plants a defect and reads each of them saying no, and one, `build`, is held by a written reason: a wheel that fails to build takes minutes to construct and proves the packaging tool works rather than this gate. The row it replaces said six controlled and two argued, which was true when the table had eight recipes and went stale five recipes later with nothing counting. A case now refuses a table where the deferrals are not exactly those two, or where more than one recipe is argued — because a gate whose recipes are mostly argued is a gate mostly nobody has seen refuse.'''
 
 [[requirement]]
 id = "EP-061"
@@ -546,8 +546,8 @@ note = "recorded rather than abandoned: it reopens if the same shape is found co
 id = "EP-074"
 verdict = "INCOMPLETE"
 subject = "ai-test and ai-verify exist as first-class skills"
-evidence = "ls .agents/skills/ai-verify; pytest tests/test_contracts.py -k absorption_candidates"
-note = "half. ai-verify ships under specification 019 repair 6: D-012-04 made absorption its exit condition in the absence of a consumer for what it would verify, and repair 5 built that consumer — a spec's examples became a section a command can parse. ai-test stays absorbed and the test still forbids it"
+evidence = "test -f .agents/skills/ai-verify/SKILL.md && ! test -d .agents/skills/ai-test"
+note = '''one of the two ships and the other is absorbed by a recorded decision, so this row is half met and half refused rather than half built. `.agents/skills/ai-verify/SKILL.md` exists and `EP-383` already reads PROVEN for it — the note here still said it would ship under specification 019's sixth repair, which is a forward-looking sentence about something already past. `ai-test` has no directory and `D-012-04` records absorption as its exit condition, alongside `ai-animation`, whose own row reads CONTRADICTED for exactly that. Checked while here and clean: nothing in the suite forbids `ai-verify` from existing, so the hazard specification 019 names — a skill landing while the register still says it must not — did not happen; the reversal moved the skill and the row together.'''
 
 [[requirement]]
 id = "EP-075"
@@ -573,8 +573,8 @@ note = "two adapters against eight declared surfaces, and no wheel-installed pro
 id = "EP-078"
 verdict = "INCOMPLETE"
 subject = "the declared capabilities are enforced, not only declared"
-evidence = "pytest tests/test_executor.py; grep -rn 'executor.Sandbox' src/ai_engineering/"
-note = "the mechanism is real and no longer the blocker it was: an action taken through `executor.Sandbox` is decided at the operation, against the resolved path and the real binary, and a refusal is recorded. What is not true is the plural. One capability of fifteen has a caller — `ai-report issue`, through `issue.draft` — and an action a surface performs is still ungoverned, because nothing reads a running capability's identity out of somebody else's payload. Graded on the sentence as written rather than on the work done, which is the whole point of this column"
+evidence = "pytest tests/test_executor.py tests/test_mut_capability_callers.py"
+note = '''the mechanism is real and the plural is now a number rather than a sentence. An action taken through `executor.Sandbox` is decided at the operation, against the resolved path and the real binary, and a refusal is recorded. One capability of fifteen has a caller — `ai-report`, through `issue.draft` — and that one is counted by reading the product with `ast` rather than by grepping, because a grep counts the string inside a docstring explaining why there are no callers, which is the exact shape this row is about. The case refuses the two ways the number could go wrong with nobody deciding: a caller vanishing, and a caller naming a capability the manifest does not declare, which would be enforcement against a policy nobody wrote. It does not red the build over one of fifteen, because a case that fails on a known gap is a case somebody deletes. INCOMPLETE, and the number says how incomplete.'''
 
 [[requirement]]
 id = "EP-079"
@@ -1015,8 +1015,8 @@ evidence = "none — the requirement text could not be located"
 id = "EP-147"
 verdict = "INCOMPLETE"
 subject = "a per-surface receipt carries surface id, surface version, adapter version and deny protocol together"
-evidence = "grep -rn deny_protocol src/ hooks/ tests/ policy/"
-note = "the compressed range EP-141-EP-150 marked this PROVEN in the first pass. It is a demonstrated overclaim: deny_protocol has no producer, and the receipt schema has none of the fields"
+evidence = "pytest tests/test_surface_adapter.py; grep -n deny_protocol policy/adapters/opencode.adapter.json"
+note = '''measured properly and the row's own diagnosis was wrong. It said the receipt schema has none of the four fields; `check-evidence-v1` has three of them — `environment_id`, `protocol_id`, `protocol_version` — and forbids every one when `kind` is `automated`, because they are the manual half of the schema: the person, the protocol they followed, the machine they used. Writing adapter facts there would make an automated run read as a human protocol record, which is the schema stopping the confusion it was closed to stop. That is a decision, not a gap, and it was found by writing the fields and watching the receipt turn MALFORMED. What is reachable is now built: the deny protocol has a name in the adapter rather than only a sentence in `translations.reply.deny`, the field is required and closed to an identifier with a fixture that breaks it, and `_standing` refuses an enforcement receipt whose `tool_version` does not name the adapter version the adapter declares — a receipt written under adapter 1 and read after the adapter moved to 2 is evidence about a protocol nobody runs. INCOMPLETE: surface version stays unobservable here, because the plugin is driven under node and node's version is not OpenCode's.'''
 
 [[requirement]]
 id = "EP-148"
@@ -1105,8 +1105,8 @@ note = "measuring the saving means running a model twice; the register records w
 id = "EP-161"
 verdict = "INCOMPLETE"
 subject = "a judgement resolving the same way three times becomes a script"
-evidence = "python tests/pilot_register.py | grep owed-a-script; pytest tests/test_record.py -k repeats"
-note = "the note said the three-times threshold had no instrument by design and that was wrong: `report.repeats` counts identical verdicts over the digest window and prints them under rule 12's own words, and the number is declared in the register and bound to the code. What is still absent is the second half of the rule — nothing turns the judgement into a script, and nothing can: writing one is a person's work"
+evidence = "python tests/pilot_register.py | grep owed-a-script; pytest tests/test_mut_report_issue.py -k rule_twelve"
+note = '''the instrument exists and is now visible on the runs where it finds nothing. `report.repeats` counts identical verdicts over the digest window, the threshold of three is declared in the register and bound to `report.OWED_A_SCRIPT`, and the digest prints how many judgements were counted and the highest repetition on every run — it used to print only when something had crossed, so an empty window and an absent check produced the same silence, which is worse for this rule than for any other because rule 12 is the one that turns repeated judgement into code. A key is the guard and its reason together, so two refusals for different reasons stay two judgements. What is still absent is the second half of the rule and nothing can supply it: turning the judgement into a script is a person's work.'''
 
 [[requirement]]
 id = "EP-162"
@@ -1120,10 +1120,8 @@ pytest tests/test_executor.py -k 'lands_in_the_corpus or first_real_caller'
 id = "EP-163"
 verdict = "INCOMPLETE"
 subject = "a skill is readable by a non-technical reader, not only free of a jargon blocklist"
-evidence = '''
-pytest tests/test_contracts.py -k 'read_than_the_hardest or reads_prose or no_prose'
-'''
-note = "the jargon blocklist and a Gunning fog ratchet both execute: no skill may become harder to read than the hardest one is now. A formula is not a reader, so the human half stays open until a non-technical person has said they followed it"
+evidence = "pytest tests/test_contracts.py -k 'read_than_the_hardest or reads_prose or no_prose'"
+note = '''both halves execute and the register's excuse for the second was false. The jargon blocklist refuses six words across every skill body, and `contract.SKILL_FOG_CEILING` is a Gunning fog ratchet with no headroom: no skill may become harder to read than the hardest one is now, 11.03, and `contract.py` says in its own comment that this is the readability measure. The register listed this as ungatable because "a grade-level gate on prose is a check on style" — written before the ratchet existed and left on the page, with a reopening condition that had fired: "a readability measure exists that a person disagreeing with it can argue against" is Gunning fog exactly, a published formula anybody can dispute. Still INCOMPLETE, and this is the honest remainder: a formula is not a reader, and nothing here has ever asked a person who does not code whether they understood a skill.'''
 
 [[requirement]]
 id = "EP-164"
@@ -1155,8 +1153,8 @@ note = "recorded INCOMPLETE by a prior pass; re-running the test shows it green"
 id = "EP-168"
 verdict = "INCOMPLETE"
 subject = "a human answer outranks inference, and only decision-changing unknowns get asked"
-evidence = "pytest tests/test_contracts.py -k authority"
-note = "pinned in prose; no code detects an interactive channel or a present human"
+evidence = "pytest tests/test_mut_asked.py"
+note = '''the note was wrong twice over. Six modules detect an interactive channel, and counting them would still have been the wrong check: a guard repeated at nine call sites is nine chances to forget it. There is one door. `accept.controlling_terminal_response` reads the OS controlling terminal, and its own docstring names what it refuses to read because a script can supply each — `isatty`, a flag, an environment value, piped standard input. A human answer does not outrank inference here; inference is not available. Four cases hold the door: the reader consults none of the four, the mode that promises not to ask never opens the device, a machine with no terminal gets a refusal rather than a traceback out of a consent prompt, and the phrase must match exactly — not a prefix, not a yes. INCOMPLETE for the second clause, which is a judgement no command makes: whether only decision-changing unknowns get asked.'''
 
 [[requirement]]
 id = "EP-169"
@@ -1203,15 +1201,15 @@ evidence = "none — the requirement text could not be located"
 id = "EP-175"
 verdict = "INCOMPLETE"
 subject = "one recommendation challenged once, and an unknown outcome normalising to INCOMPLETE"
-evidence = "grep -n UNKNOWN src/ai_engineering/outcome.py"
-note = "one half is executed code; the self-challenge is prose"
+evidence = '''! grep -q UNKNOWN src/ai_engineering/outcome.py && grep -n unknown_normalizes_to src/ai_engineering/outcome.py'''
+note = '''the executed half is stronger than this row said and its command was broken. `grep -n UNKNOWN src/ai_engineering/outcome.py` returns nothing — the word is not there, and its absence is the point: the vocabulary has eight statuses and no UNKNOWN because an unknown outcome *is* INCOMPLETE. What executes is `outcome.py` refusing a policy whose `unknown_normalizes_to` is anything else, read from the schema rather than written in the module, so the rule and the code cannot drift apart. The self-challenge half is counted now rather than argued: three of nineteen specifications carry a challenge section with substance, which is the same shape as the behavioural examples and the same reason — the template demands it of new specifications and the sixteen older ones are frozen rather than repaired.'''
 
 [[requirement]]
 id = "EP-176"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "self-grant refused, and publication, secrets and deploy stay gated"
-evidence = "pytest tests/test_record.py::test_an_agent_cannot_grant_itself_a_bypass; pytest tests/test_executor.py -k secret"
-note = "self-grant and publication were already real, and the note saying there was no secrets gate is now stale: `executor.Sandbox.secret` hands over only a declared secret, under a human gate for the modes that publish, and never puts its value in a refusal or a record. Deploy is what remains, and there is still no deploy verb to gate"
+evidence = "pytest tests/test_record.py::test_an_agent_cannot_grant_itself_a_bypass tests/test_mut_outward.py; pytest tests/test_executor.py -k secret"
+note = '''all four halves execute. Self-grant is refused and tested; `executor.Sandbox.secret` hands over only a declared secret and never puts its value in a refusal or a record; every declared mode that carries a secret, names a destination or writes an outward purpose must declare a human gate other than `never`, and the case refuses to pass over an empty scan. Deploy is proven by absence, executed rather than asserted: nothing declares a deploy purpose today, and the case that says so fails the day one appears and tells whoever added it which requirement it answers to. An absence nothing watches is indistinguishable from a gap nobody has noticed yet, which is why the row could not close on the sentence it carried before.'''
 
 [[requirement]]
 id = "EP-177"
@@ -1365,8 +1363,8 @@ evidence = "none — the requirement text could not be located"
 id = "EP-199"
 verdict = "INCOMPLETE"
 subject = "load and invoke are separate executed states in CI, not just install, deny and doctor"
-evidence = "pytest tests/test_surface_adapter.py::test_the_matrix_proves_discovery_and_invocation_separately"
-note = "the three states are reported separately; CI executes only enforcement, and only for one surface"
+evidence = "python tests/surface_receipt.py opencode; ai-eng report surfaces"
+note = '''the three states are separate receipts now and one run writes all three, because one run had always answered all three and reported one. The driver imports the shipped plugin, which is discovery; the registration contract hands back the hook the surface would call, which is invocation; the hook refuses, which is enforcement. Each receipt carries the digest of the thing that proved it — the plugin bytes that resolved, the hook name the contract returned, what the guard said — and a case refuses three receipts sharing one artifact digest, because that is one proof counted three times. Writing only the last made two states that had genuinely executed read as unproven, which is the same false reading as claiming them with the sign reversed. INCOMPLETE for the reason that has not moved: this is one surface of eight, and the other seven have no executed run of any state.'''
 
 [[requirement]]
 id = "EP-200"
@@ -1714,8 +1712,8 @@ evidence = "pytest tests/test_contracts.py -k 'EP-250'"
 id = "EP-251"
 verdict = "INCOMPLETE"
 subject = "the motion lens loads only where the diff carries real motion"
-evidence = "grep -rn motion hooks/chain.py src/ai_engineering/"
-note = "the lens file exists and says so; no code conditionally loads or gates on motion being present"
+evidence = "python tests/review_lenses.py --base main; pytest tests/test_review_lenses.py"
+note = '''the rule is data and something reads it. `policy/review-lenses.toml` gives each of the ten lenses either `always` with a reason or a `when` rule, and `tests/review_lenses.py` computes over a real range which load and which do not — inside `just check`, because a table nothing validates drifts from the directory it describes on the first lens somebody adds. Motion is the only row with a content rule as well as a path rule, which is exactly what this requirement is about: a stylesheet is a frontend change whether or not it animates, and only the added lines say which. Three cases over one file hold it — static CSS routes to frontend and not motion, the same file with a transition routes to motion, and prose about "status transitions" routes to docs and not motion. INCOMPLETE for what no table can do: the reader is a person, and nothing checks that the lens they say they skipped is the lens this computed.'''
 
 [[requirement]]
 id = "EP-252"
@@ -1924,8 +1922,8 @@ note = "closes what the audit called the second-commonest finding in the whole r
 id = "EP-283"
 verdict = "INCOMPLETE"
 subject = "a surface's proof goes red when an observed denial is older than a week"
-evidence = "pytest tests/test_pilot_register.py -k surface_proof_age"
-note = "the bound is declared and internally consistent; no receipt exists yet to have an age measured against it"
+evidence = "python tests/pilot_register.py; pytest tests/test_pilot_register.py tests/test_surface_adapter.py -k 'stale or looser'"
+note = '''the week is now compared against every receipt that exists. It was declared in `policy/pilot-register.toml` as 604,800 seconds and enforced nowhere: `surface._standing` takes `min(the receipt's own window, 31 days)` and never reads the register, so a receipt could write itself thirty-one days and stay green at thirty while the register published seven. Two numbers for one promise with nothing comparing them — the defect this register exists to stop, sitting between the register and the product it describes. The reader now refuses any receipt looser than the published bound, naming the gap in days, and prints how many it compared so that zero and none-too-loose do not print the same word. INCOMPLETE because `.ai/` is ignored whole: on CI there are no receipts and the comparison passes over nothing, which the count makes visible and does not make true.'''
 
 [[requirement]]
 id = "EP-284"
@@ -2022,8 +2020,8 @@ evidence = '''
 id = "EP-297"
 verdict = "INCOMPLETE"
 subject = "every wave gets its own admission gate, read mechanically rather than asserted"
-evidence = "python tests/pilot_register.py"
-note = "the P5 instance is real and runs in the gate; no other wave has one, and spec 015 is still draft"
+evidence = "pytest tests/test_wave.py; python tests/pilot_register.py"
+note = '''every wave has one now, and it was already written in every specification — the eight production-ready boxes under the sentence "nothing gets a URL until every box is ticked by observed evidence". Nothing read them. `tests/test_wave.py` reads the block out of each wave spec, refuses a wave carrying a different number of boxes than the others, and refuses any wave whose status claims it is finished while a box is unticked. It looks vacuous today because every wave is `draft` and claims nothing, which is exactly when it is worth writing: it fires on the first wave somebody marks shipped, the moment nobody is looking for an unticked box. Proved by marking spec 011 shipped and reading "0 of 8 boxes ticked". INCOMPLETE: this refuses a false claim of completion, and the P5 register does more — it refuses the claim and names every row nobody equipped. The other four waves have the refusal without the naming.'''
 
 [[requirement]]
 id = "EP-298"
@@ -2052,17 +2050,17 @@ note = "spec 015's own closing table still lists this INCOMPLETE and disagrees w
 
 [[requirement]]
 id = "EP-302"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "a test was shown red before the fix that turned it green"
-evidence = "python tests/pilot_register.py"
-note = "recorded as a review criterion: nothing can observe a test that failed on somebody's machine before they wrote the fix"
+evidence = "python tests/red_then_green.py --since main --last 3"
+note = '''observable, and observed. The note said nothing can watch a test that failed on somebody's machine before they wrote the fix, and that is true and is not what can be checked. What can be checked is whether the test needed the change, and `tests/red_then_green.py` checks it: for each commit it lays the parent's `src` and `hooks` under that commit's newly added tests, in a throwaway worktree, and reports four states. RED is a test that measured behaviour. PINS is a commit that added tests over unchanged code, which owes no red and says so — demanding red from a mutation-killing test is demanding it fail against the code it was written to describe. PROVED NOTHING is the finding: a test that passes against the code from before its own commit is not evidence for that commit, and the runner exits non-zero on it. Behaviour change is decided by parsing both versions and comparing what is left once docstrings and the ceiling are gone, because in a repository where the comments outnumber the code a diff cannot tell prose from product.'''
 
 [[requirement]]
 id = "EP-303"
 verdict = "INCOMPLETE"
 subject = "a behavioural example exists and is real before code is written"
-evidence = "python tests/pilot_register.py"
-note = "the template emits the section; whether the example inside it is real is a reading problem"
+evidence = "python tests/pilot_register.py; pytest tests/test_contracts.py -k spec_template"
+note = '''counted rather than argued, and the number is small. The template emits the section and pins its order, so a new specification without it is refused — but of the nineteen specifications in this tree, sixteen carry no such section at all, and of the three that do only two contain both a Then and a command in backticks. Whether an example is real was called a reading problem; two of nineteen is not a reading. The sixteen predate the template and are frozen by it rather than repaired, which is the honest state and also why the refusal on new specifications is the whole of what executes. Worth recording without mockery: `specs/019`, whose fifth repair is to make behavioural examples real and read, has no Then in its own examples section.'''
 
 [[requirement]]
 id = "EP-304"
@@ -2202,10 +2200,10 @@ note = '''the fourteen prohibitions are now proved to be the report's own list, 
 
 [[requirement]]
 id = "EP-324"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "no code before an approved plan"
-evidence = "python tests/pilot_register.py; hooks/change_scope_guard.py"
-note = "the weaker half, that a plan exists on the branch, is a real guard. Approval here means a record naming an exact digest, and no plan in this repository has one"
+evidence = "pytest tests/test_record.py -k 'approval_record or approval_digests'; python tests/adversarial/run.py | grep -E 'no plan|control . change_scope_guard'"
+note = '''both halves execute and the row's claim that no plan here has an approved digest was wrong. `docs/adr/0009` has recorded the approved digest of `spec.md` and `plan.md` since 2026-08-17, outside the files it approves for the reason it states — an approval naming the digest of the file it is written in changes that digest by existing, so the number never settles. What was missing was a reader: the record had the same standing as the prose it replaced, true when written and unable to notice the day it stopped being true. It is read now, row by row, and both files still hash to what was approved. An edit to either turns the gate red naming which file moved and by how much, proved by appending one comment to the plan and reading the refusal. The weaker half — that a plan exists on the branch at all — remains `hooks/change_scope_guard.py`.'''
 
 [[requirement]]
 id = "EP-325"
@@ -2218,8 +2216,8 @@ note = "the claim half executes; the span half names no observable"
 id = "EP-326"
 verdict = "INCOMPLETE"
 subject = "three named skills declared with bodies, plus accessibility and coordination in the tree"
-evidence = "ls .agents/skills/; ls src/ai_engineering/claim.py src/ai_engineering/dag.py src/ai_engineering/checkpoint.py"
-note = "two of the three gaps are closed; one skill has no body, deliberately, which is why three other ids read CONTRADICTED"
+evidence = '''ls .agents/skills/ai-verify/SKILL.md && ! test -d .agents/skills/ai-test && ! test -d .agents/skills/ai-animation && ls src/ai_engineering/claim.py src/ai_engineering/dag.py src/ai_engineering/checkpoint.py'''
+note = '''counted, and the previous note claimed more progress than there is — the dangerous direction. The three skills `D-012-04` names are `ai-animation`, `ai-test` and `ai-verify`. **One of the three has a body**: `ai-verify`, 62 lines. The other two have no directory at all, both by that same recorded decision, and `ai-animation`'s own row reads CONTRADICTED for it. The note said two of three gaps closed; it is one. Accessibility and coordination are in the tree — `policy/accessibility.toml` with four AAA criteria since this evening, and `claim.py`, `dag.py` and `checkpoint.py` — so that half stands. A note overstating progress is worse than one understating it: nobody re-reads a row that says the work is nearly done.'''
 
 [[requirement]]
 id = "EP-327"
@@ -2605,7 +2603,7 @@ id = "PO-01"
 verdict = "INCOMPLETE"
 subject = "a block closes and freezes, and nothing later depends on it until an independent reviewer has cleared it"
 evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate"
-note = "the rule exists and is accepted, one block ran under it, and the reader bites — verified by blanking a hand-off's gate cell. But `gh run list --branch fix/mutation-lane-green-on-main` returns zero rows: no CI has ever run on this branch, so the freeze holding is this record's own prose. One execution is not yet governs, and this repository claimed it closed hours before this row was written. Re-measured on 2026-08-17 against `ledger-and-records`, which has 24 gate runs against 24 distinct heads: the corroboration the original note said was missing exists for this branch. What is still prose is the freeze itself — that nothing later depended on a block before a reviewer cleared it — because no artefact records the waiting"
+note = '''re-measured on 2026-08-19 and the reason this row carried was wrong. The audit said the workflow does not trigger on a push to this branch, so no CI had run on it at all; `check.yml` has run sixty-four times here since 2026-08-17 — 37 green, 22 red, 4 cancelled — the earliest the same day that sentence was written. The gap is real and its stated cause was not, which is worse than no explanation. Each hand-off now carries an `independent` row naming what a stranger can re-check, and for all three it is the same checkable fact: no run exists at that block's final HEAD, because they closed before the first one. The reader refuses a blank one. What keeps this open is unchanged and unreachable by any command: whether the freeze held while the reviewer read.'''
 
 [[commitment]]
 id = "PO-02"
@@ -2623,8 +2621,8 @@ evidence = "sed -n '161,164p' specs/010-governed-agentic-engineering-foundation/
 id = "PO-04"
 verdict = "INCOMPLETE"
 subject = "the per-task checkpoint commit is atomic and revertible, and is labelled unreviewed"
-evidence = "git log --oneline --all --grep=UNREVIEWED"
-note = "the rule is written and revertibility is structurally true of every task entry. The label appears once in the whole history, on an audit-doc commit, and never on a task checkpoint — so it marks nothing it was meant to mark"
+evidence = "python tests/unreviewed.py; pytest tests/test_unreviewed.py"
+note = '''the label is derived and printed on every gate run, and the row's own measurement was looking where the approved plan forbids looking. `specs/010/plan.md` says it in as many words: "UNREVIEWED is derived from the absence of a clean block review and gate; a commit message, model statement, test label, or metadata field cannot turn it into approval." So counting occurrences of the word in commit messages was counting the one thing that cannot carry it, and writing a trailer would have satisfied this row by contradicting the document it answers to. `tests/unreviewed.py` reads the block hand-offs out of the audit, resolves each base..head range, and names every commit on the branch that no closed review covers. `just check` prints the number on every run as `unreviewed=N`, and this row does not repeat it — the version written this afternoon said "191 of 191" and the counter had moved seventeen times by the evening, which is the defect `docs/adr/0014` names, committed into a note about a counter that publishes the real number. What does not move: the three closed blocks reviewed commits that are on main, so nothing on this branch has been through one. It reports and never blocks, because unreviewed is the ordinary state of work in flight. INCOMPLETE for the half no derivation reaches: atomic and revertible is structurally true of every commit and nothing distinguishes a checkpoint from any other.'''
 
 [[commitment]]
 id = "PO-05"
@@ -2637,14 +2635,14 @@ note = "git records commit times, not reviewer-availability windows, so nothing 
 id = "PO-06"
 verdict = "INCOMPLETE"
 subject = "an independent read-only reviewer inspects every commit in a closed block and the accumulated diff"
-evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate; gh run list --branch fix/mutation-lane-green-on-main"
-note = "the reader bites on a blank reviewer field. Whether the reviewer was independent and read the whole range is prose, with zero CI runs on this branch to corroborate it. Re-measured on 2026-08-17: the zero-CI-runs clause is no longer true of the branch this work sits on, so the reviewer's verdict can now be read beside a gate result on the same head. Independence and whether the whole range was read remain prose, which is the half that keeps this open"
+evidence = """pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate; test -n "$(gh run list --branch "$(git branch -r --contains HEAD --format='%(refname:lstrip=3)' | head -1)" --limit 1 --json databaseId --jq '.[].databaseId')\""""
+note = '''the reader bites on a blank reviewer field, and the clause that kept this open was measured against the wrong branch. It named `fix/mutation-lane-green-on-main`, which this work left and which has never had a single run — so "no CI has ever run on this branch" was true of a branch nobody was on. The command now resolves the branch that actually contains HEAD, and on it the gate has run and the last completed pair is green at 97cce08b. What stays prose is the part no command reaches: whether the reviewer was independent and read the whole range.'''
 
 [[commitment]]
 id = "PO-07"
 verdict = "PROVEN"
 subject = "the gate runs once per block, and a second time only if the first failed and code changed"
-evidence = "gh run list --branch ledger-and-records --workflow=check.yml --limit 100 --json headSha | jq -r '.[].headSha' | sort | uniq -d"
+evidence = """gh run list --branch "$(git branch -r --contains HEAD --format='%(refname:lstrip=3)' | head -1)" --workflow=check.yml --limit 100 --json headSha | jq -r '.[].headSha' | sort | uniq -d"""
 note = "measured remotely instead of asserted, because the branch it was graded against had never run CI at all. On this branch the gate ran 24 times over 24 distinct head commits and not one commit was gated twice — and a commit gated twice on the same tree is the only thing the rule forbids, since code changing produces a new sha. The command above prints nothing, which is the whole of the finding"
 
 [[commitment]]
@@ -2689,7 +2687,7 @@ id = "PO-13"
 verdict = "INCOMPLETE"
 subject = "one bounded re-review: one consolidated ledger, one repair pass, one bounded second read"
 evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate"
-note = "the reader bites on a blank repair field. Whether the re-review was bounded to one pass is prose, with no independent record on this branch to check it against. Re-measured on 2026-08-17: an independent record exists on this branch now, 24 gate runs deep. Whether the re-review was bounded to one pass is still prose"
+note = '''re-measured on 2026-08-19 and the reason this row carried was wrong. The audit said the workflow does not trigger on a push to this branch, so no CI had run on it at all; `check.yml` has run sixty-four times here since 2026-08-17 — 37 green, 22 red, 4 cancelled — the earliest the same day that sentence was written. The gap is real and its stated cause was not, which is worse than no explanation. Each hand-off now carries an `independent` row naming what a stranger can re-check, and for all three it is the same checkable fact: no run exists at that block's final HEAD, because they closed before the first one. The reader refuses a blank one. What keeps this open is unchanged and unreachable by any command: whether the freeze held while the reviewer read.'''
 
 [[commitment]]
 id = "PO-14"
@@ -2708,8 +2706,8 @@ evidence = "git grep -cE 'noqa|ts-ignore|nosec' -- src hooks tests"
 id = "PO-16"
 verdict = "CONTRADICTED"
 subject = "one primary home per commit, and the recorded exception covers only a commit moving a count another check forces it to move"
-evidence = "git log --format='%H %s' main..HEAD, then git show --stat per commit"
-note = "the widest commit on this branch touches twenty-one files: four source modules, nine test files, two workflows, a policy table, a skill and a new spec. That is not a commit moving a count, which is the entire exception on record. The rule says one home and the practice here is twenty-one, exception included. Recorded rather than argued: this is the audit grading the session that commissioned it"
+evidence = "python tests/one_home.py; pytest tests/test_one_home.py"
+note = '''still contradicted, and now measured every run instead of once. 194 commits on this branch, 26 touching one home and 168 touching more; the widest spans seven — `.agents`, `.github`, `docs`, `policy`, `specs`, `src`, `tests`. The rule says one home with a single recorded exception, a commit moving a count another check forces it to move, and 168 is not that. What the row could not say before is how far off the practice runs, because the evidence was one commit somebody looked at once and a sentence about it. `tests/one_home.py` reports and never blocks: the exception cannot be recognised mechanically — a count moved because a check forced it looks exactly like a count moved because somebody felt like it — and a gate failing here would assert a judgement it cannot make. This is the audit grading the sessions that commissioned it, including today's.'''
 
 [[commitment]]
 id = "PO-17"

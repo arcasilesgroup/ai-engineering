@@ -286,3 +286,48 @@ class _Line:
 
     def readline(self) -> str:
         return self._text + "\n"
+
+
+def test_rule_twelve_reports_the_window_it_measured_even_when_nothing_crossed():
+    """`EP-161`. The counter printed only when a judgement had crossed three, so an empty
+    window and an absent check produced the same output: nothing.
+
+    That is the shape this repository keeps finding in itself — a control whose ordinary
+    result is indistinguishable from the control not running — and it is worse here than
+    elsewhere, because rule 12 is the rule that turns repeated judgement into code. A rule
+    nobody can see running is a rule nobody will notice stopping.
+    """
+
+    from ai_engineering import report as report_module
+
+    quiet = [
+        {"cls": "blocked", "name": "loop_guard", "data": {"reason": "once"}},
+        {"cls": "blocked", "name": "loop_guard", "data": {"reason": "twice"}},
+    ]
+
+    rows, counted, highest = report_module.measured_repeats(quiet)
+
+    assert rows == [], "neither reason repeats, so nothing is owed a script"
+    assert counted == 2, "two distinct judgements were counted and the reader is told so"
+    assert highest == 1, "the most any of them repeated"
+
+
+def test_rule_twelve_counts_a_reason_and_not_only_a_guard():
+    """Two refusals from one guard for different reasons are two judgements, not one
+    resolving twice. Collapsing them would report a script owed for a decision that has
+    never been made the same way twice."""
+
+    from ai_engineering import report as report_module
+
+    events = [
+        {"cls": "blocked", "name": "loop_guard", "data": {"reason": "same"}},
+        {"cls": "blocked", "name": "loop_guard", "data": {"reason": "same"}},
+        {"cls": "bypassed", "name": "loop_guard", "data": {"reason": "same"}},
+        {"cls": "blocked", "name": "loop_guard", "data": {"reason": "different"}},
+    ]
+
+    rows, counted, highest = report_module.measured_repeats(events)
+
+    assert counted == 2, "one guard, two reasons, two judgements"
+    assert highest == 3, "blocked and bypassed are the same judgement resolving"
+    assert len(rows) == 1 and "3×" in rows[0]

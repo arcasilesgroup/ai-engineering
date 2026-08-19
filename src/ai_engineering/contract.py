@@ -3348,7 +3348,15 @@ DESCRIPTION_MAX = 1000
 #
 # Worth keeping as a property of the sealer rather than as an anecdote: it measures the index
 # and the index is shared, so it is only trustworthy while one writer holds the tree.
-REPO_CEILING = 83_590
+#
+# 86,044 is a merge, and it grants nothing that was not already granted. This branch had split
+# in two: 84,372 sealed on the line that carried the ledger and the register, 83,590 sealed on
+# the line that carried 020's blocked page, both raised from the same 81,568 at the fork. The
+# two raises are 2,804 and 2,022, so a tree holding both halves is entitled to 86,394 — and it
+# measures 86,044, which is 350 under. Nothing was authored to reach this number; it is the
+# arithmetic of putting two approved raises into one tree, and the surplus is what the halves
+# had in common. Nobody should read it as a third grant.
+REPO_CEILING = 86_044
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and

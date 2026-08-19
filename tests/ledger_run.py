@@ -121,10 +121,30 @@ def tree() -> str:
     return done.stdout
 
 
-def rows(payload: bytes) -> list[dict[str, str]]:
+NOTHING_TO_RUN = "none — the requirement text could not be located"
+
+
+def rows(payload: bytes, unproven: bool = False) -> list[dict[str, str]]:
     parsed = tomllib.loads(payload.decode("utf-8"))
     every = [*parsed.get("requirement", []), *parsed.get("commitment", [])]
-    return [row for row in every if row.get("verdict") == "PROVEN"]
+    if not unproven:
+        return [row for row in every if row.get("verdict") == "PROVEN"]
+    # The other direction, and the one nothing had ever taken. A row graded not-proven still
+    # names a command, and nobody had asked those commands what they say today — so a row
+    # whose gap closed as a side effect of other work stayed not-proven until somebody
+    # happened to re-read it. Three have already been found that way by hand, each after its
+    # own note had gone stale without anybody noticing.
+    #
+    # A pass here is a candidate and never a verdict. These commands were written to check
+    # the half that existed, so one passing means the half it checks still holds, not that
+    # the requirement is met. Promoting a row is a reading; this only says which rows are
+    # worth re-reading.
+    return [
+        row
+        for row in every
+        if row.get("verdict") != "PROVEN"
+        and row.get("evidence", "").strip() not in ("", NOTHING_TO_RUN)
+    ]
 
 
 def run_one(row: dict[str, str]) -> tuple[str, bool, str]:
@@ -151,10 +171,15 @@ def main(argv: list[str]) -> int:
     ask = argparse.ArgumentParser(description="Run every command the ledger calls proof.")
     ask.add_argument("--worktree", action="store_true", help="read the ledger from disk, not HEAD")
     ask.add_argument("--only", default="", help="run one id, for checking a single row")
+    ask.add_argument(
+        "--unproven",
+        action="store_true",
+        help="run the rows graded not-proven and list the ones whose command passes today",
+    )
     args = ask.parse_args(argv)
 
     payload = ledger(args.worktree)
-    todo = rows(payload)
+    todo = rows(payload, unproven=args.unproven)
     if args.only:
         todo = [row for row in todo if row["id"] == args.only]
         if not todo:
@@ -171,6 +196,18 @@ def main(argv: list[str]) -> int:
             print(mark, end="", flush=True)
     print()
     finished = stamp()
+
+    if args.unproven:
+        # Inverted on purpose: here a pass is the interesting answer, because it means a row
+        # graded not-proven names a command that holds today. It exits zero either way. This
+        # is a question, not a gate, and a question that fails a build teaches people to stop
+        # asking it.
+        moved = sorted(rid for rid, passed, _ in answers if passed)
+        print(f"  RAN unproven={len(answers)}  command holds={len(moved)}")
+        for rid in moved:
+            print(f"    RE-READ  {rid}")
+        print("  A command that passes proves the half it checks, not the requirement.")
+        return 0
 
     false_proven = [(rid, why) for rid, passed, why in answers if not passed]
     for rid, why in sorted(false_proven):

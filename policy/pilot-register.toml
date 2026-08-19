@@ -351,6 +351,12 @@ the approved bytes withdraws the approval the task is running under, and a delet
 instruction with nothing in its place is read as permission. The refusal is the sentence \
 that replaces it."""
 
+# `EP-302` left this list on 2026-08-19 because its own reopening condition had fired:
+# "the record carries a red run somebody else can read". `tests/red_then_green.py` writes one
+# for every commit on the branch, and the nightly lane runs it. A row whose reopening
+# condition has fired and which nobody removed is a refusal that has outlived its argument,
+# which is the second time this register has been caught holding one.
+#
 # ── the ungated ─────────────────────────────────────────────────────────────────────
 #
 # Requirements this framework will not gate, and why. Rule 12 is explicit: a judgement that
@@ -377,34 +383,10 @@ reason = "every description carries four to six trigger phrases on purpose: a ro
 reopen_when = "a routing evaluation shows the extra phrases cost more misroutes than they prevent"
 
 [[ungated]]
-id = "EP-163"
-asks = "the writing is readable by somebody who does not code"
-reason = "a grade-level gate on prose is a check on style. The jargon ban is the half that executes — six words refused across every skill body by `contract.audit_one`."
-reopen_when = "a readability measure exists that a person disagreeing with it can argue against"
-
-[[ungated]]
-id = "EP-179"
-asks = "a snapshot as a contract term separate from freshness"
-reason = "the checkpoint already carries freshness and the merge gate already carries final combination; a third word for the same two facts is vocabulary, not a control."
-reopen_when = "two writers need to agree on a state neither freshness nor combination describes"
-
-[[ungated]]
-id = "EP-302"
-asks = "a test was red before the fix"
-reason = "nothing can observe a test that failed on somebody's machine before they wrote the fix. It is the first thing `ai-build` requires and the first thing a reviewer asks for."
-reopen_when = "the record carries a red run somebody else can read, which needs a receipt this product does not write"
-
-[[ungated]]
 id = "EP-305"
 asks = "names express intention"
 reason = "a judgement about language. The half that executes is the other clause of the same requirement: an error carries its cause and its cure, asserted in `test_doctor.py` and `test_outcomes.py`."
 reopen_when = "a naming rule exists that is not a preference"
-
-[[ungated]]
-id = "EP-324"
-asks = "no code before an approved plan"
-reason = "`hooks/change_scope_guard.py` reads whether a plan exists on the branch, which is the weaker of the two questions and the only one a hook can answer inside its latency budget. Approval here is an MADR naming an exact digest; no plan in this repository has one, so a guard demanding it would deny every write on every branch including the one writing the plan."
-reopen_when = "a plan is approved by digest in an accepted MADR, so the guard has something to read that is not itself"
 
 [[ungated]]
 id = "EP-262"
@@ -421,7 +403,7 @@ reopen_when = "a skill ships whose output is probabilistic rather than a routing
 [[ungated]]
 id = "EP-117"
 asks = "small golden cases, cross-model advisory, and blocking only after a stable baseline"
-reason = "the golden cases exist and run — 160 labelled routing cases beside the skills, evaluated on every gate — and the same argument as EP-083 applies to the rest: no baseline is recorded because a deterministic check has nothing to take a delta of, and `skill_eval_delta` says so in this register rather than pretending to a number"
+reason = "the golden cases exist and run — one labelled corpus beside the skills, counted and evaluated by `just skilleval` on every gate, which prints the number rather than repeating it here — and the same argument as EP-083 applies to the rest: no baseline is recorded because a deterministic check has nothing to take a delta of, and `skill_eval_delta` says so in this register rather than pretending to a number"
 reopen_when = "the evaluation produces a score that can move for a reason other than a defect, which is the first moment a baseline and a margin mean anything"
 
 # ── the judgements no script settles, gathered ──────────────────────────────────────
@@ -477,7 +459,7 @@ reopen_when = "a replay harness exists that can run the same task with and witho
 [[ungated]]
 id = "EP-161"
 asks = "a judgement that repeats becomes a script"
-reason = "rule 12 itself, and the only coded part is the ceiling on a SKILL.md: over eighty lines is a procedure that should be a script. The threshold half — how often is repeated — is the judgement, and a number chosen here would be chosen by whoever wrote this line."
+reason = "rule 12 itself. Two parts are coded: the ceiling on a SKILL.md, and `report.repeats`, which counts identical verdicts over the digest window and prints how many judgements were counted and the highest repetition on every run. The threshold half — how often is repeated — is the judgement, and a number chosen here would be chosen by whoever wrote this line."
 reopen_when = "the same judgement is recorded resolving the same way three times, which is the threshold rule 12 already states in words"
 
 [[ungated]]
@@ -489,7 +471,12 @@ reopen_when = "a skill's output becomes an artefact a command can read, rather t
 [[ungated]]
 id = "EP-168"
 asks = "a human answer outranks an inference when a person is reachable"
-reason = "no code detects an interactive channel, and one that guessed would be wrong in both directions: a pipe is not proof nobody is there, and a terminal is not proof somebody is."
+reason = """the half that could be coded is coded and was already: every question goes \
+through `accept.controlling_terminal_response`, which reads the OS controlling terminal and \
+refuses `isatty`, a flag, an environment value and piped stdin because a script supplies each. \
+This row's earlier reason said no code detects an interactive channel, which was false when it \
+was written and stayed on the page. What remains ungatable is the clause about which unknowns \
+are worth asking, and that is a judgement about a question nobody has asked yet."""
 reopen_when = "a surface reports whether a person is present, rather than the process inferring it"
 
 [[ungated]]

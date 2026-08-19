@@ -39,6 +39,25 @@ ROOT = Path(__file__).resolve().parents[1]
 # one; it was not hunted down here because the page gate should not depend on the answer.
 
 
+def _tree():
+    """This tree as the page reads it, or a skip when it cannot be read at all.
+
+    Every case here that calls `read(ROOT)` assumes there is a repository to read. Under
+    `mutmut` there is not: the copied tree is not a git checkout, `read` raises `Unreadable`
+    exactly as it is designed to, and a case that meant to compare a page against a tree
+    fails because there was no tree. That is the product being right and the test being
+    two-state.
+
+    Cannot-read is the third state and it belongs here rather than in each case, because the
+    mutation lane found this file one case at a time.
+    """
+
+    try:
+        return solution_intent.read(ROOT)
+    except solution_intent.Unreadable as why:
+        pytest.skip(f"this tree cannot be read as a repository, so the page is unrenderable: {why}")
+
+
 def test_a_record_that_changed_makes_the_page_stale():
     """One change to anything the page reads, and the check says so — naming both digests,
     so a reader can tell a stale page from a page nobody generated.
@@ -52,7 +71,7 @@ def test_a_record_that_changed_makes_the_page_stale():
 
     page = (ROOT / solution_intent.PAGE).read_text(encoding="utf-8")
 
-    tree = solution_intent.read(ROOT)
+    tree = _tree()
     moved = dataclasses.replace(tree, decisions=tree.decisions[:-1])
 
     assert solution_intent.render(moved) != page
@@ -70,7 +89,7 @@ def test_every_fact_the_page_renders_is_a_fact_the_digest_covers():
     field added to `Tree` and rendered cannot escape the hash without this going red.
     """
 
-    covered = set(solution_intent.digested(solution_intent.read(ROOT)))
+    covered = set(solution_intent.digested(_tree()))
     every = {field.name for field in dataclasses.fields(solution_intent.Tree)}
 
     escaped = sorted(every - covered - set(solution_intent.NOT_HASHED))
@@ -88,7 +107,7 @@ def test_the_numbers_the_page_prints_are_the_numbers_the_gate_enforces():
 
     from ai_engineering import contract
 
-    tree = solution_intent.read(ROOT)
+    tree = _tree()
     tests, product = contract.test_ratio(ROOT)
 
     assert (tree.test_lines, tree.src_lines) == (tests, product)

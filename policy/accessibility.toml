@@ -169,3 +169,59 @@ reviewed = "2026-08-17"
 reason = """Deliberately not met, and recorded rather than hidden: `ui.write` never wraps, \
 because a path that folds at column 80 is a path nobody can copy. A person on a narrow \
 terminal gets their emulator's own wrapping. Reopen this if somebody reports it."""
+
+# ── the level this file calls its target ────────────────────────────────────────────
+#
+# `target = "AAA"` sat at the top of this file with not one AAA criterion under it. Ten rows,
+# all A and AA. So the target was a word, and the comment beside the floor already names what
+# that is: an indicator with no instrument. `EP-022` asks for AAA as the target and AA as the
+# release floor, and half of it was a sentence nobody could refuse.
+#
+# These four are the AAA criteria a program with no viewport can be held to at all. Two are
+# met and named the test that proves it; two are not, and say why. The rest of AAA — enhanced
+# contrast, visual presentation, images of text, low or no background audio — is about
+# rendering this program does not do, and listing forty rows to say "no viewport" forty times
+# would bury the four that mean something.
+
+[[criterion]]
+id = "2.1.3"
+name = "Keyboard (no exception)"
+level = "AAA"
+checked = true
+means_here = """Everything is reachable from the keyboard because there is nothing else, and \
+the inverse is what is worth checking: the two verbs that ask a person to type refuse from a \
+pipe rather than taking a flag in place of the person."""
+how = "tests/test_accessibility.py::test_every_decision_is_taken_at_a_keyboard"
+
+[[criterion]]
+id = "3.3.5"
+name = "Help"
+level = "AAA"
+checked = true
+means_here = """Context-sensitive help at the point of failure, which for a command-line \
+program is the only place help is ever wanted. Everything that blocks names the next action, \
+and the criterion is met by that rather than by a manual somebody has to go and find."""
+how = "tests/test_accessibility.py::test_anything_that_blocks_says_what_to_do_next"
+
+[[criterion]]
+id = "3.3.6"
+name = "Error prevention (all)"
+level = "AAA"
+checked = false
+reviewed = "2026-08-19"
+reason = """Met for the verbs that publish or delete — they confirm, and refuse a flag in \
+place of a person — and not met as AAA states it, which is every submission being reversible, \
+checked or confirmed. Most verbs here submit nothing; the ones that write to the record are \
+append-only rather than reversible. Recorded as the honest partial rather than claimed."""
+
+[[criterion]]
+id = "1.4.6"
+name = "Contrast (enhanced)"
+level = "AAA"
+checked = false
+reviewed = "2026-08-19"
+reason = """Cannot be met by this program and cannot be measured from it. The colours are the \
+terminal's: eight named styles, and the emulator decides what each one looks like against \
+what background. This is 1.4.3 one level up and it fails for the same reason — the ratio \
+belongs to somebody else's configuration. It stands in here for the whole of the AAA that a \
+program with no viewport cannot reach."""

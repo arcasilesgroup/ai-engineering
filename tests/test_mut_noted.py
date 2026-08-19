@@ -17,24 +17,18 @@ from __future__ import annotations
 from ai_engineering import doctor
 
 
-def test_a_noted_is_a_string_so_every_existing_reader_keeps_working():
-    """The reason it is a subclass and not a new type. Twenty-odd checks return `str | None`
-    and the renderer, the envelope and the tests all read it as text; a wrapper class would
-    have meant touching every one of them to publish one number."""
+def test_a_noted_is_a_string_and_still_distinguishable_from_a_problem():
+    """The whole contract in one case. It is a `str` subclass so the twenty-odd checks that
+    return `str | None`, the renderer and the envelope all keep working untouched; it is a
+    distinct type so the one thing that separates a published observation from a reported
+    failure is this being true. Both halves or neither — a wrapper class would have meant
+    touching every reader to publish one number, and a bare string would have been read as
+    the failure it is the opposite of."""
 
     noted = doctor.Noted("nineteen files")
 
-    assert isinstance(noted, str)
-    assert str(noted) == "nineteen files"
-    assert noted == "nineteen files"
-
-
-def test_a_noted_is_distinguishable_from_the_problem_it_is_the_opposite_of():
-    """The whole contract in one line. Both are non-empty strings and they mean opposite
-    things, so the only thing separating a published observation from a reported failure is
-    this test being true."""
-
-    assert isinstance(doctor.Noted("all homed"), doctor.Noted)
+    assert isinstance(noted, str) and noted == "nineteen files"
+    assert isinstance(noted, doctor.Noted)
     assert not isinstance("a stray in .ai-engineering/", doctor.Noted)
 
 

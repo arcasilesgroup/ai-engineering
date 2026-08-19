@@ -23,6 +23,14 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tests" / "ran_receipt.py"
 
 
+# `mutmut` copies the tree under a directory called `mutants` and installs an import shim, so
+# a child process started from a temporary directory that imports `ai_engineering` gets
+# mutmut's own error about not knowing where the code to mutate is — not a receipt, and not
+# anything about this script. Four mutation runs died on that tonight, each on a different
+# cause and none of them the code under measurement.
+UNDER_MUTATION = "mutants" in Path(__file__).resolve().parts
+
+
 def _run(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(SCRIPT), *args], capture_output=True, text=True, cwd=str(cwd)
@@ -38,6 +46,8 @@ def repository(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     the ignore behaviour untested and the test would pass on a script that hashed `.venv`.
     """
 
+    if UNDER_MUTATION:
+        pytest.skip("the mutant tree's import shim answers for the package, not this script")
     for command in (
         ("git", "init", "-q"),
         ("git", "config", "user.email", "t@example.invalid"),
@@ -56,8 +66,21 @@ def _receipt(where: Path) -> Path:
     return where / ".ai" / "receipts" / "ran.json"
 
 
-def test_no_receipt_means_no_trailer(repository: Path):
-    """The starting state of every clone, and the one the whole design rests on: silence."""
+@pytest.mark.parametrize("body", [None, "{not json", '{"suite": "check"}'])
+def test_a_receipt_that_cannot_be_used_produces_silence(repository: Path, body):
+    """Three ways to have no usable receipt, and one answer to all three: nothing written,
+    exit 1. No receipt at all is the starting state of every clone and the state the whole
+    design rests on. A malformed one is exactly as much evidence as none. One naming a suite
+    but no content digest cannot say which bytes were run, which is the only thing that makes
+    the trailer worth writing.
+
+    It runs on the commit path, so a crash here is somebody's commit — which is why the
+    malformed case is a refusal and not a traceback."""
+
+    if body is not None:
+        receipt = _receipt(repository)
+        receipt.parent.mkdir(parents=True, exist_ok=True)
+        receipt.write_text(body, encoding="utf-8")
 
     done = _run("trailer", cwd=repository)
 
@@ -125,20 +148,6 @@ def test_a_receipt_naming_no_suite_proves_nothing(repository: Path):
     assert _run("trailer", cwd=repository).returncode == 1
 
 
-def test_a_receipt_that_is_not_json_is_a_refusal_and_not_a_crash(repository: Path):
-    """It runs on the commit path, so its failure mode is somebody's commit. A malformed
-    receipt is exactly as much evidence as no receipt, and has to behave the same way."""
-
-    receipt = _receipt(repository)
-    receipt.parent.mkdir(parents=True, exist_ok=True)
-    receipt.write_text("{not json", encoding="utf-8")
-
-    done = _run("trailer", cwd=repository)
-
-    assert done.returncode == 1
-    assert done.stdout == ""
-
-
 def test_the_script_refuses_an_argument_shape_it_does_not_know(repository: Path):
     """Exit 2, distinct from the 1 that means "no trailer to write". A hook that cannot tell
     "nothing ran" from "you called me wrong" reports the second as the first forever."""
@@ -159,7 +168,15 @@ def test_the_cheap_recipe_records_only_after_the_suite_passes():
 
     recipes = (ROOT / "justfile").read_text(encoding="utf-8").splitlines()
     start = next(n for n, one in enumerate(recipes) if one.startswith("quick "))
-    body = [one.strip() for one in recipes[start + 1 :] if one.startswith(("    ", "\t"))]
+    body = []
+    for line in recipes[start + 1 :]:
+        # Stop at the first line that is not part of this recipe. The first version took
+        # every indented line in the rest of the file, so it read two only because `quick`
+        # happened to be last; adding one recipe below it made the same assertion fail with
+        # a number about a different recipe entirely.
+        if not line.startswith(("    ", "\t")):
+            break
+        body.append(line.strip())
 
     assert len(body) == 2, f"the recipe is {len(body)} lines and the order below reads two"
     assert "pytest" in body[0], "the suite does not run first, so nothing is being recorded"
@@ -197,3 +214,44 @@ def test_the_digest_the_receipt_carries_comes_from_the_package(repository: Path)
     before = evidence.content_digest(repository)
     (repository / "one.txt").write_text("two\n", encoding="utf-8")
     assert evidence.content_digest(repository) != before
+
+
+def test_a_present_trailer_does_not_split_the_line_it_is_read_from():
+    """The inversion this shape invites, and it is silent.
+
+    `git log --format` expands `%(trailers:...)` with a trailing newline unless a separator is
+    given. Without one, every commit that *has* a receipt splits into two lines and parses as
+    malformed, while every commit that has none parses cleanly — so the report would name the
+    commits that ran and exonerate the ones that did not. Exactly backwards, and green.
+    """
+
+    import subprocess
+
+    body = (ROOT / "tests" / "ran_receipt.py").read_text(encoding="utf-8")
+
+    assert "separator=" in body, "the log format lets a present trailer break its own line"
+
+    listed = subprocess.run(
+        [
+            "git",
+            "log",
+            "--format=%H%x1f%(trailers:key=Ai-Eng-Ran,valueonly,separator=%x00)%x1f%s",
+            "-20",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+        check=False,
+    ).stdout
+    rows = [line for line in listed.splitlines() if line.strip()]
+    if not rows:
+        # Cannot ask, again. Inside the mutant tree there is no repository, so `git log`
+        # returns nothing — and an empty answer is not a wrong one. This is the third case
+        # tonight to have needed this sentence and the second I wrote after writing the rule
+        # down, which is the lesson: a rule recorded does not retrofit itself onto the cases
+        # already written under the old habit.
+        pytest.skip("no commit was listed here, so the format could not be exercised")
+    assert all(len(row.split("\x1f")) == 3 for row in rows), (
+        "a row split into something other than sha, trailer and subject, which is how the "
+        "commits that ran come to read as the broken ones"
+    )

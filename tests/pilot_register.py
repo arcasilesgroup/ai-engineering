@@ -15,6 +15,7 @@ non-zero. What it will not do is convert an absence into a pass — the whole po
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 import tomllib
@@ -199,6 +200,55 @@ def stale_claim(register: dict, missing: int) -> str:
     return ""
 
 
+SURFACE_RECEIPTS = ROOT / ".ai" / "receipts" / "surface"
+SURFACE_AGE = "surface_proof_age"
+
+
+def looser_than_declared(register: dict) -> list[str]:
+    """Does any receipt in this tree give itself longer than the register promises?
+
+    `EP-283` asks that a surface's proof go red when its observed denial is older than a
+    week. The register declares that week — `surface_proof_age`, 604,800 seconds — and
+    `surface._standing` enforces `min(the receipt's own window, 31 days)`. It never reads the
+    register. So a receipt is free to write `max_age_seconds` of thirty-one days and stay
+    green at thirty, while this file publishes seven to anyone who asks.
+
+    Two numbers for one promise and nothing comparing them, which is the defect this whole
+    register was written to stop, sitting between the register and the product it describes.
+
+    Checked here rather than in `surface.py` on purpose: making the product import a policy
+    table would tie the code that decides to the document that describes it, and then the
+    document could never be wrong. The point is that it can be, and that something says so.
+    """
+
+    row = next((one for one in register.get("indicator", []) if one.get("id") == SURFACE_AGE), None)
+    bound = (row or {}).get("bound_seconds")
+    if not isinstance(bound, int) or isinstance(bound, bool):
+        return []  # already reported by problems(); one complaint per defect
+
+    loose, compared = [], 0
+    for receipt in sorted(SURFACE_RECEIPTS.glob("*.json")):
+        compared += 1
+        try:
+            window = json.loads(receipt.read_text(encoding="utf-8")).get("max_age_seconds")
+        except (OSError, ValueError):
+            # Unreadable is `surface.py`'s answer to give, and it gives it. Saying so twice
+            # in two vocabularies is how a reader learns to ignore one of them.
+            continue
+        if isinstance(window, int) and not isinstance(window, bool) and window > bound:
+            loose.append(
+                f"{receipt.stem} declares {window}s where {SURFACE_AGE} bounds at {bound}s: "
+                f"it stays proven for {(window - bound) // 86_400} days past what this "
+                "register publishes"
+            )
+    # How many were compared, because zero and none-too-loose print the same word otherwise.
+    # `.ai/` is ignored whole, so a fresh clone and every CI runner has no receipts at all
+    # and this check passes over nothing — which is a different answer from agreeing, and
+    # the count is the only thing that tells them apart.
+    print(f"  {compared} surface receipt(s) compared against the {bound}s {SURFACE_AGE} bound")
+    return loose
+
+
 def uninstrumented(register: dict) -> list[str]:
     return [str(row["id"]) for row in register.get("indicator", []) if row.get("no_instrument")]
 
@@ -213,6 +263,12 @@ def main() -> int:
     broken = problems(register)
     if broken:
         for line in broken:
+            print(f"  {line}", file=sys.stderr)
+        return 1
+
+    loose = looser_than_declared(register)
+    if loose:
+        for line in loose:
             print(f"  {line}", file=sys.stderr)
         return 1
 

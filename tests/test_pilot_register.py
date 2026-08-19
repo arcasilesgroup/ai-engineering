@@ -7,6 +7,7 @@ tested only on the register that already passes is a reader nobody has seen say 
 from __future__ import annotations
 
 import copy
+import json
 import subprocess
 import sys
 import tomllib
@@ -349,3 +350,166 @@ def test_a_claim_quoting_a_number_the_register_does_not_have_is_refused(tmp_path
         "a reason that quotes no number is an argument, not a stale count"
     )
     assert not pilot_register.stale_claim(register, 1), "the number it does have must pass"
+
+
+def test_a_receipt_may_not_give_itself_longer_than_the_register_publishes(tmp_path, monkeypatch):
+    """Two numbers for one promise, with nothing comparing them.
+
+    `EP-283` asks that a surface's proof go red once its denial is older than a week. The
+    register declares that week and `surface._standing` enforces `min(the receipt's own
+    window, 31 days)` — it never reads the register. So a receipt could write itself
+    thirty-one days and stay green at thirty while this file published seven.
+
+    The refusal names the gap in days rather than in seconds, because the number a reader
+    acts on is "this stayed proven for 24 days longer than we said it would".
+    """
+
+    import pilot_register
+
+    receipts = tmp_path / "surface"
+    receipts.mkdir()
+    (receipts / "opencode.enforcement.json").write_text(
+        json.dumps({"max_age_seconds": 2_678_400}), encoding="utf-8"
+    )
+    (receipts / "tight.enforcement.json").write_text(
+        json.dumps({"max_age_seconds": 3_600}), encoding="utf-8"
+    )
+    (receipts / "unreadable.json").write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(pilot_register, "SURFACE_RECEIPTS", receipts)
+
+    register = {"indicator": [{"id": "surface_proof_age", "bound_seconds": 604_800}]}
+    loose = pilot_register.looser_than_declared(register)
+
+    assert len(loose) == 1, loose
+    assert "opencode.enforcement declares 2678400s" in loose[0]
+    assert "24 days past" in loose[0]
+
+
+def test_a_bound_the_register_does_not_state_is_reported_once_and_not_twice(tmp_path, monkeypatch):
+    """`problems()` already refuses a `bound_seconds` that is not a positive number. Saying
+    so again here in a second vocabulary is how a reader learns to ignore one of them."""
+
+    import pilot_register
+
+    monkeypatch.setattr(pilot_register, "SURFACE_RECEIPTS", tmp_path)
+
+    assert pilot_register.looser_than_declared({"indicator": []}) == []
+    assert (
+        pilot_register.looser_than_declared(
+            {"indicator": [{"id": "surface_proof_age", "bound_seconds": "a week"}]}
+        )
+        == []
+    )
+
+
+def test_no_ungated_row_is_held_by_a_condition_that_has_already_fired():
+    """A refusal that has outlived its own argument.
+
+    Every ungated row carries `reopen_when`: the thing that would make it gatable. The row is
+    only honest while that thing has not happened, and nothing was checking. `EP-302` said it
+    would reopen when "the record carries a red run somebody else can read"; the runner that
+    writes exactly that has been in the tree and in the nightly lane for two days, and the row
+    sat there refusing anyway.
+
+    This cannot decide in general whether a condition has fired — that is a reading, and the
+    register is right to keep it one. What it can do is refuse the specific shape that caught
+    us twice: a row naming a file or a command that now exists. A reopening condition that
+    points at something in the tree has, by its own words, already happened.
+    """
+
+    import re
+
+    named = re.compile(r"`([a-z0-9_./-]+\.(?:py|toml|json|md|yml))`")
+    fired = []
+    for row in register().get("ungated", []):
+        for candidate in named.findall(str(row.get("reopen_when", ""))):
+            if (ROOT / candidate).exists():
+                fired.append(f"{row['id']} reopens when {candidate} exists, and it does")
+
+    # The shape this cannot see, said once so nobody reads its silence as coverage. `EP-163`
+    # reopened when "a readability measure exists that a person disagreeing with it can argue
+    # against" — Gunning fog, which had been in `contract.py` for days and is named in no
+    # backtick. A condition can point at a thing rather than a file, and no pattern finds a
+    # thing. The record for that is `docs/adr/0014`, and the reader for it is a person.
+
+    assert not fired, (
+        "; ".join(fired) + ". A refusal whose reopening condition has fired is a refusal "
+        "nobody re-read. Remove the row and grade the requirement, or say why the condition "
+        "means something narrower than the file existing."
+    )
+
+
+def test_nothing_the_ledger_proves_is_listed_here_as_ungatable():
+    """Two documents about the same requirements, and nothing compared them.
+
+    `ungated` says a requirement is held by a written reason because no gate can hold it.
+    `docs/requirements.toml` says PROVEN when a command decides it. Both cannot be true of one
+    id, and both were: `EP-179` and `EP-324` sat in this list while the ledger proved them —
+    `EP-324` still carried a reason explaining that only the weaker of its two questions was
+    checkable, written before the reader for the stronger one existed.
+
+    That is the same shape as a reopening condition nobody re-read, one document over. A
+    refusal is only honest while nothing has answered it, and the answer arrives in the other
+    file.
+    """
+
+    import tomllib
+
+    ledger = tomllib.loads((ROOT / "docs" / "requirements.toml").read_text(encoding="utf-8"))
+    graded = {row["id"]: row["verdict"] for row in ledger["requirement"]}
+
+    contradicted = [
+        row["id"] for row in register().get("ungated", []) if graded.get(row["id"]) == "PROVEN"
+    ]
+
+    assert not contradicted, (
+        f"{contradicted} are listed here as held by a reason because no gate can hold them, "
+        "and the ledger proves each with a command. Remove the row, or regrade the "
+        "requirement — an ungated list that carries proven requirements is a refusal nobody "
+        "re-read after somebody answered it."
+    )
+
+
+# Quantities the gate already computes, and the words a row would quote them with. Adding one
+# is a line: the name it is written by, and the command that prints the real number.
+COUNTED = {
+    "labelled": ("python tests/skill_eval.py", r"(\d+)\s+labelled"),
+}
+
+
+def test_no_reason_quotes_a_count_the_gate_computes():
+    """`AGENTS.md` already states this rule about itself — "this file names the home and never
+    the value, because a doctrine that quotes a number is a doctrine that goes stale without a
+    test" — and the register did not follow it.
+
+    `EP-117`'s reason said the golden cases were 160 labelled routing cases. The corpus is 174
+    and `just skilleval` has printed the real number on every gate run since the day it was
+    written. Nobody recomputed the sentence, because a sentence does not fail.
+
+    So a reason names where the number lives rather than the number. This checks the one
+    quantity that has already gone stale, and the table above is how the next is added.
+    """
+
+    import re
+    import subprocess
+
+    prose = " ".join(
+        f"{row.get('reason', '')} {row.get('no_instrument', '')} {row.get('asks', '')}"
+        for kind in ("ungated", "indicator", "prohibition")
+        for row in register().get(kind, [])
+    )
+
+    for word, (command, pattern) in COUNTED.items():
+        quoted = re.findall(pattern, prose)
+        if not quoted:
+            continue
+        done = subprocess.run(
+            command.split(), capture_output=True, text=True, cwd=str(ROOT), check=False
+        )
+        real = re.search(pattern, done.stdout)
+        assert real, f"{command} no longer prints a {word} count, so this cannot check one"
+        assert all(one == real.group(1) for one in quoted), (
+            f"the register quotes {quoted} {word} cases and {command} prints {real.group(1)}. "
+            "Name where the number lives rather than the number — AGENTS.md says exactly this "
+            "about itself and this file was not following it."
+        )

@@ -30,5 +30,6 @@
   },
   "trust": {
     "required": false
-  }
+  },
+  "deny_protocol": "throw-in-tool-execute-before"
 }

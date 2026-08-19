@@ -1,22 +1,67 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "non_empty": {
+      "minLength": 1,
+      "pattern": "\\S",
+      "type": "string"
+    },
+    "timestamp": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    }
+  },
   "$id": "urn:ai-engineering:surface-adapter:1",
-  "title": "One surface adapter, closed on both sides",
-  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "required": [
-    "schema",
-    "schema_version",
-    "surface_id",
-    "adapter_version",
-    "detection",
-    "translations",
-    "trust",
-    "proof"
-  ],
   "properties": {
-    "schema": { "const": "urn:ai-engineering:surface-adapter:1" },
-    "schema_version": { "const": "1" },
+    "adapter_version": {
+      "$ref": "#/$defs/non_empty"
+    },
+    "deny_protocol": {
+      "description": "How this surface is made to deny, as an identifier a receipt can carry. The prose form is translations.reply.deny; this is the name of it, because EP-147 asks a receipt to carry the deny protocol and check-evidence's protocol_id slot is an identifier, not a sentence.",
+      "pattern": "^[a-z][a-z0-9._-]*$",
+      "type": "string"
+    },
+    "detection": {
+      "additionalProperties": false,
+      "properties": {
+        "signal": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "undetectable_reason": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "written_by_us": {
+          "const": false
+        }
+      },
+      "required": [
+        "signal",
+        "written_by_us"
+      ],
+      "title": "detection",
+      "type": "object"
+    },
+    "proof": {
+      "additionalProperties": false,
+      "description": "What an enforcement receipt must carry to count as a proof of this adapter. A machine-independent requirement on purpose: a command carries an absolute path, a payload digest carries whitespace, and neither can be compared between two machines. The receipt id can. When a superseding version of this adapter changes what a denial looks like, this id moves with it and every receipt written under the old one stops proving anything \u2014 which is the point, and is why a version bump beyond 1 must appear in the id.",
+      "properties": {
+        "receipt_id": {
+          "$ref": "#/$defs/non_empty"
+        }
+      },
+      "required": [
+        "receipt_id"
+      ],
+      "title": "proof",
+      "type": "object"
+    },
+    "schema": {
+      "const": "urn:ai-engineering:surface-adapter:1"
+    },
+    "schema_version": {
+      "const": "1"
+    },
     "surface_id": {
       "enum": [
         "claude-code",
@@ -29,104 +74,135 @@
         "zed"
       ]
     },
-    "adapter_version": { "$ref": "#/$defs/non_empty" },
-    "detection": {
-      "title": "detection",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["signal", "written_by_us"],
-      "properties": {
-        "signal": { "$ref": "#/$defs/non_empty" },
-        "written_by_us": { "const": false },
-        "undetectable_reason": { "$ref": "#/$defs/non_empty" }
-      }
-    },
     "translations": {
-      "title": "translations",
-      "type": "object",
       "additionalProperties": false,
-      "required": ["payload_field", "lifecycle_event", "exit_meaning", "reply"],
       "properties": {
-        "payload_field": {
-          "title": "payload_field",
-          "type": "object",
+        "exit_meaning": {
           "additionalProperties": false,
           "properties": {
-            "tool_name": { "$ref": "#/$defs/non_empty" },
-            "tool_input": { "$ref": "#/$defs/non_empty" },
-            "tool_response": { "$ref": "#/$defs/non_empty" },
-            "tool_use_id": { "$ref": "#/$defs/non_empty" }
-          }
+            "0": {
+              "enum": [
+                "allow",
+                "observed"
+              ]
+            },
+            "2": {
+              "enum": [
+                "deny"
+              ]
+            }
+          },
+          "title": "exit_meaning",
+          "type": "object"
         },
         "lifecycle_event": {
+          "additionalProperties": false,
+          "properties": {
+            "PostToolUse": {
+              "$ref": "#/$defs/non_empty"
+            },
+            "PreToolUse": {
+              "$ref": "#/$defs/non_empty"
+            },
+            "SessionStart": {
+              "$ref": "#/$defs/non_empty"
+            },
+            "Stop": {
+              "$ref": "#/$defs/non_empty"
+            }
+          },
           "title": "lifecycle_event",
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "PreToolUse": { "$ref": "#/$defs/non_empty" },
-            "PostToolUse": { "$ref": "#/$defs/non_empty" },
-            "Stop": { "$ref": "#/$defs/non_empty" },
-            "SessionStart": { "$ref": "#/$defs/non_empty" }
-          }
+          "type": "object"
         },
-        "exit_meaning": {
-          "title": "exit_meaning",
-          "type": "object",
+        "payload_field": {
           "additionalProperties": false,
           "properties": {
-            "0": { "enum": ["allow", "observed"] },
-            "2": { "enum": ["deny"] }
-          }
+            "tool_input": {
+              "$ref": "#/$defs/non_empty"
+            },
+            "tool_name": {
+              "$ref": "#/$defs/non_empty"
+            },
+            "tool_response": {
+              "$ref": "#/$defs/non_empty"
+            },
+            "tool_use_id": {
+              "$ref": "#/$defs/non_empty"
+            }
+          },
+          "title": "payload_field",
+          "type": "object"
         },
         "reply": {
-          "title": "reply",
-          "type": "object",
           "additionalProperties": false,
           "properties": {
-            "allow": { "$ref": "#/$defs/non_empty" },
-            "deny": { "$ref": "#/$defs/non_empty" },
-            "error": { "$ref": "#/$defs/non_empty" }
-          }
+            "allow": {
+              "$ref": "#/$defs/non_empty"
+            },
+            "deny": {
+              "$ref": "#/$defs/non_empty"
+            },
+            "error": {
+              "$ref": "#/$defs/non_empty"
+            }
+          },
+          "title": "reply",
+          "type": "object"
         }
-      }
-    },
-    "proof": {
-      "title": "proof",
-      "description": "What an enforcement receipt must carry to count as a proof of this adapter. A machine-independent requirement on purpose: a command carries an absolute path, a payload digest carries whitespace, and neither can be compared between two machines. The receipt id can. When a superseding version of this adapter changes what a denial looks like, this id moves with it and every receipt written under the old one stops proving anything — which is the point, and is why a version bump beyond 1 must appear in the id.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["receipt_id"],
-      "properties": {
-        "receipt_id": {
-          "$ref": "#/$defs/non_empty"
-        }
-      }
+      },
+      "required": [
+        "payload_field",
+        "lifecycle_event",
+        "exit_meaning",
+        "reply"
+      ],
+      "title": "translations",
+      "type": "object"
     },
     "trust": {
-      "title": "trust",
-      "type": "object",
       "additionalProperties": false,
-      "required": ["required"],
       "properties": {
-        "required": { "enum": [true, false] },
-        "ceremony": { "$ref": "#/$defs/non_empty" }
-      }
+        "ceremony": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "required": {
+          "enum": [
+            true,
+            false
+          ]
+        }
+      },
+      "required": [
+        "required"
+      ],
+      "title": "trust",
+      "type": "object"
     }
   },
-  "$defs": {
-    "non_empty": { "type": "string", "minLength": 1, "pattern": "\\S" },
-    "timestamp": {
-      "type": "string",
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
-    }
-  },
+  "required": [
+    "schema",
+    "schema_version",
+    "surface_id",
+    "adapter_version",
+    "detection",
+    "translations",
+    "trust",
+    "proof",
+    "deny_protocol"
+  ],
+  "title": "One surface adapter, closed on both sides",
+  "type": "object",
   "x-adapter-policy": {
     "heartbeat_is_not_declared": "installed, loaded and observed_at are read from the surface's discovery and invocation receipts. An adapter that could declare them would be the deleted `proven` flag under a longer name.",
-    "unknown_value": "deny",
     "missing_translation": "INCOMPLETE",
-    "undetectable_is_absent": false,
-    "states": ["discovery", "invocation", "enforcement"],
     "state_never_implies_another": true,
-    "t3_enforcement": "not_applicable"
+    "states": [
+      "discovery",
+      "invocation",
+      "enforcement"
+    ],
+    "t3_enforcement": "not_applicable",
+    "undetectable_is_absent": false,
+    "unknown_value": "deny"
   }
 }

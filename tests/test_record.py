@@ -1479,10 +1479,17 @@ def test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate():
     happened from a block that was described: who reviewed it and what they found, what was
     repaired, and what the gate said afterwards.
 
-    Deliberately not checked here: that the gate output is independent. It is not — the
-    receipts are gitignored and no workflow runs on this branch — and the record says so in
-    its own words. A test asserting a green nobody can produce would be the defect this
-    repository is named after.
+    Independence is not asserted here and is no longer excused in one sentence for all three.
+    Each hand-off carries its own `independent` row saying what a stranger can re-check, and
+    for all three that is the same fact: `gh run list` returns no run at that block's final
+    HEAD, because they closed before the first run on this branch.
+
+    The sentence this docstring used to carry — that no workflow runs on this branch — was
+    wrong, and measurably wrong the day it was written: sixty-four runs of `check.yml` have
+    happened here since 2026-08-17. The gap was real and its stated cause was not, which is
+    worse than no explanation, because a cause nobody re-measures outlives the condition it
+    describes. So the field is per block, where it can be checked against one sha, rather
+    than a property claimed of the branch.
     """
 
     import re
@@ -1498,12 +1505,12 @@ def test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate():
     for name in blocks:
         where = section.index(f"### Block {name}")
         table = section[where : section.find("###", where + 5) or len(section)]
-        for field in ("reviewer disposition", "repair commit", "gate"):
+        for field in ("reviewer disposition", "repair commit", "gate", "independent"):
             assert field in table, f"Block {name}'s hand-off names no {field}"
         # A field with no value is a field nobody filled. The table is one row per line, so
         # what is asserted is that something follows the name inside its own row.
         for line in table.splitlines():
-            if line.startswith("| reviewer disposition") or line.startswith("| gate"):
+            if line.startswith(("| reviewer disposition", "| gate", "| independent")):
                 cells = [one.strip() for one in line.strip("|").split("|")]
                 assert len(cells) == 2 and cells[1], f"Block {name}: {cells[0]!r} is empty"
 
@@ -1782,3 +1789,52 @@ def test_the_command_the_staleness_message_names_is_one_that_runs(repo, monkeypa
 
     assert named.startswith("ai-eng report ")
     assert report.main(shlex.split(named)[2:]).outcome == "PASS"
+
+
+def test_the_approval_record_still_names_the_bytes_that_are_there():
+    """`EP-324`: no code before an approved plan, where approval means a record naming an
+    exact digest.
+
+    The row said no plan in this repository has one. It has had one since 2026-08-17:
+    `docs/adr/0009` records the approved digest of both `spec.md` and `plan.md`, and it lives
+    outside the files it approves for the reason it states — an approval naming the digest of
+    the file it is written in changes that digest by existing, so the number can never settle.
+
+    What was missing is a reader. `test_the_approval_digests_in_the_plan_are_read_by_something`
+    reads the specification's digest out of the plan's own prose; nothing read the record. So
+    the approval was a document with the same standing as the prose it replaced: true when
+    written, and unable to notice the day it stopped being true.
+
+    This reads it. Every row of the record's table names a file and a digest, and each has to
+    be the digest that file has now. An edit to either without a fresh approval turns this red
+    and names which file moved — which is the whole of what an activation gate can do while
+    the approval itself belongs to a person.
+    """
+
+    import hashlib
+    import re
+
+    root = Path(__file__).resolve().parents[1]
+    record = root / "docs" / "adr" / "0009-the-current-spec-010-digests-are-approved.md"
+    body = record.read_text(encoding="utf-8")
+
+    rows = re.findall(r"^\|\s*`([^`]+)`\s*\|\s*`([0-9a-f]{64})`\s*\|", body, re.M)
+    assert len(rows) >= 2, (
+        f"{record.name} names {len(rows)} approved digests and it approved two files. An "
+        "approval record nobody can read row by row is prose with a table in it"
+    )
+
+    moved = []
+    for name, approved in rows:
+        target = root / name
+        assert target.is_file(), f"{record.name} approves {name}, which is not in this tree"
+        now = hashlib.sha256(target.read_bytes()).hexdigest()
+        if now != approved:
+            moved.append(f"{name}: approved {approved[:12]}, now {now[:12]}")
+
+    assert not moved, (
+        "the approved bytes are not the bytes that are there: "
+        + "; ".join(moved)
+        + ". Either restore them or record a fresh approval — an approval that survives an "
+        "edit to what it approved is a signature on a blank page."
+    )
