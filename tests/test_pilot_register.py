@@ -400,3 +400,34 @@ def test_a_bound_the_register_does_not_state_is_reported_once_and_not_twice(tmp_
         )
         == []
     )
+
+
+def test_no_ungated_row_is_held_by_a_condition_that_has_already_fired():
+    """A refusal that has outlived its own argument.
+
+    Every ungated row carries `reopen_when`: the thing that would make it gatable. The row is
+    only honest while that thing has not happened, and nothing was checking. `EP-302` said it
+    would reopen when "the record carries a red run somebody else can read"; the runner that
+    writes exactly that has been in the tree and in the nightly lane for two days, and the row
+    sat there refusing anyway.
+
+    This cannot decide in general whether a condition has fired — that is a reading, and the
+    register is right to keep it one. What it can do is refuse the specific shape that caught
+    us twice: a row naming a file or a command that now exists. A reopening condition that
+    points at something in the tree has, by its own words, already happened.
+    """
+
+    import re
+
+    named = re.compile(r"`([a-z0-9_./-]+\.(?:py|toml|json|md|yml))`")
+    fired = []
+    for row in register().get("ungated", []):
+        for candidate in named.findall(str(row.get("reopen_when", ""))):
+            if (ROOT / candidate).exists():
+                fired.append(f"{row['id']} reopens when {candidate} exists, and it does")
+
+    assert not fired, (
+        "; ".join(fired) + ". A refusal whose reopening condition has fired is a refusal "
+        "nobody re-read. Remove the row and grade the requirement, or say why the condition "
+        "means something narrower than the file existing."
+    )

@@ -351,6 +351,12 @@ the approved bytes withdraws the approval the task is running under, and a delet
 instruction with nothing in its place is read as permission. The refusal is the sentence \
 that replaces it."""
 
+# `EP-302` left this list on 2026-08-19 because its own reopening condition had fired:
+# "the record carries a red run somebody else can read". `tests/red_then_green.py` writes one
+# for every commit on the branch, and the nightly lane runs it. A row whose reopening
+# condition has fired and which nobody removed is a refusal that has outlived its argument,
+# which is the second time this register has been caught holding one.
+#
 # ── the ungated ─────────────────────────────────────────────────────────────────────
 #
 # Requirements this framework will not gate, and why. Rule 12 is explicit: a judgement that
@@ -387,12 +393,6 @@ id = "EP-179"
 asks = "a snapshot as a contract term separate from freshness"
 reason = "the checkpoint already carries freshness and the merge gate already carries final combination; a third word for the same two facts is vocabulary, not a control."
 reopen_when = "two writers need to agree on a state neither freshness nor combination describes"
-
-[[ungated]]
-id = "EP-302"
-asks = "a test was red before the fix"
-reason = "nothing can observe a test that failed on somebody's machine before they wrote the fix. It is the first thing `ai-build` requires and the first thing a reviewer asks for."
-reopen_when = "the record carries a red run somebody else can read, which needs a receipt this product does not write"
 
 [[ungated]]
 id = "EP-305"

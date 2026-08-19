@@ -2052,10 +2052,10 @@ note = "spec 015's own closing table still lists this INCOMPLETE and disagrees w
 
 [[requirement]]
 id = "EP-302"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "a test was shown red before the fix that turned it green"
-evidence = "python tests/pilot_register.py"
-note = "recorded as a review criterion: nothing can observe a test that failed on somebody's machine before they wrote the fix"
+evidence = "python tests/red_then_green.py --since main --last 3"
+note = '''observable, and observed. The note said nothing can watch a test that failed on somebody's machine before they wrote the fix, and that is true and is not what can be checked. What can be checked is whether the test needed the change, and `tests/red_then_green.py` checks it: for each commit it lays the parent's `src` and `hooks` under that commit's newly added tests, in a throwaway worktree, and reports four states. RED is a test that measured behaviour. PINS is a commit that added tests over unchanged code, which owes no red and says so — demanding red from a mutation-killing test is demanding it fail against the code it was written to describe. PROVED NOTHING is the finding: a test that passes against the code from before its own commit is not evidence for that commit, and the runner exits non-zero on it. Behaviour change is decided by parsing both versions and comparing what is left once docstrings and the ceiling are gone, because in a repository where the comments outnumber the code a diff cannot tell prose from product.'''
 
 [[requirement]]
 id = "EP-303"
