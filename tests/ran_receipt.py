@@ -18,11 +18,13 @@ Two modes, both cheap enough to sit on the commit path:
 
     record <suite>   after a suite passes, note it against the current content
     trailer          print the trailer for that content, or nothing and exit 1
+    unrun            list the commits on this branch that carry no run receipt
 """
 
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import time
 
@@ -64,11 +66,62 @@ def trailer() -> int:
     return 0
 
 
+def unrun(base: str) -> int:
+    """Which commits on this branch nobody ran anything over.
+
+    Written the evening this instrument caught its own author. `5cca6b9e` was pushed over a
+    red gate — I joined the gate and the commit with `;` rather than `&&`, so the commit did
+    not depend on the gate passing, and `EXIT=1` printed directly above the push. The trailer
+    was correctly absent from that commit and present on every neighbour, and nobody looked.
+
+    A control whose answer nobody consumes is the same defect as a control that cannot
+    decide, arriving from the other side. So the answer is printed, on every gate run, beside
+    the other two numbers that were prose this morning.
+
+    It reports and never blocks. A commit with no receipt is not a defect — a merge, a revert,
+    a commit made before this instrument existed, and every commit on `main` all have none.
+    What it is, is the one thing nobody could see.
+    """
+
+    listed = subprocess.run(
+        # `separator=` matters: without it a present trailer carries a newline and every
+        # commit that has one splits into two lines, so the commits that ran read as
+        # malformed and the ones that did not read as fine. The inversion is the whole risk.
+        [
+            "git",
+            "log",
+            "--format=%H%x1f%(trailers:key=Ai-Eng-Ran,valueonly,separator=%x00)%x1f%s",
+            f"{base}..HEAD",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(toplevel()),
+        check=False,
+    ).stdout
+    rows = [line.split("\x1f") for line in listed.splitlines() if line.strip()]
+    if not rows:
+        print(f"  no commit differs from {base}, so nothing was measured.")
+        return 0
+    missing = [(sha, subject) for sha, trailer, subject in rows if not trailer.strip()]
+    print(
+        f"  {len(rows)} commit(s) since {base}, {len(rows) - len(missing)} carrying a run receipt"
+    )
+    print(f"  {len(missing)} carry none, which means nothing was run over exactly those bytes:")
+    for sha, subject in missing[:8]:
+        print(f"    {sha[:8]}  {subject[:76]}")
+    if len(missing) > 8:
+        print(f"    … and {len(missing) - 8} more")
+    print(f"RAN unrun={len(missing)}")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     if len(argv) == 2 and argv[0] == "record":
         return record(argv[1])
     if argv == ["trailer"]:
         return trailer()
+    if argv and argv[0] == "unrun":
+        return unrun(argv[1] if len(argv) > 1 else "main")
     print(__doc__.strip().rsplit("\n\n", 1)[-1], file=sys.stderr)
     return 2
 

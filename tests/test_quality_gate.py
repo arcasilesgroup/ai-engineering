@@ -749,7 +749,10 @@ GATE_CONTROLS = {
     "somebody edited, a record that moved, a field rendered and not hashed, a number that "
     "disagrees with the gate that enforces it, and a tree git cannot list — because this "
     "recipe's whole value is the page it refuses to call fresh",
-    "ran": "tests/test_ran_receipt.py is a table of unusable receipts and four named "
+    "ran": "and its second half prints the commits carrying no receipt, with a case holding "
+    "the inversion that would have made that report exactly backwards — a present trailer "
+    "splitting its own line. tests/test_ran_receipt.py is a table of unusable receipts and four "
+    "named "
     "refusals — a file edited after the run, a file added after it, and two argument shapes "
     "— because this recipe's whole value is when it writes nothing",
 }

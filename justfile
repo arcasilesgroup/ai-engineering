@@ -378,8 +378,12 @@ stats:
 # graded on no evidence at all. A commit trailer is the one place a run can be recorded
 # where git will still have it a month later, and `commit-msg` writes it from this receipt
 # only when the content it names is the content being committed.
-ran suite="check":
+ran suite="check" base="main":
     @uv run python tests/ran_receipt.py record {{suite}}
+    # And the answer nobody was reading. The trailer's absence is the whole of its value, and
+    # on 2026-08-19 it correctly marked a commit pushed over a red gate while nothing printed
+    # it. A control whose answer nobody consumes is the same defect as one that cannot decide.
+    @uv run python tests/ran_receipt.py unrun {{base}}
 
 # The cheap half, and the one `PO-14` actually asks for. That row says every commit runs its
 # module's immediate suite *instead of* the whole gate, and until this recipe existed the

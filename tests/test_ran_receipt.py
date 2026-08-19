@@ -204,3 +204,38 @@ def test_the_digest_the_receipt_carries_comes_from_the_package(repository: Path)
     before = evidence.content_digest(repository)
     (repository / "one.txt").write_text("two\n", encoding="utf-8")
     assert evidence.content_digest(repository) != before
+
+
+def test_a_present_trailer_does_not_split_the_line_it_is_read_from():
+    """The inversion this shape invites, and it is silent.
+
+    `git log --format` expands `%(trailers:...)` with a trailing newline unless a separator is
+    given. Without one, every commit that *has* a receipt splits into two lines and parses as
+    malformed, while every commit that has none parses cleanly — so the report would name the
+    commits that ran and exonerate the ones that did not. Exactly backwards, and green.
+    """
+
+    import subprocess
+
+    body = (ROOT / "tests" / "ran_receipt.py").read_text(encoding="utf-8")
+
+    assert "separator=" in body, "the log format lets a present trailer break its own line"
+
+    listed = subprocess.run(
+        [
+            "git",
+            "log",
+            "--format=%H%x1f%(trailers:key=Ai-Eng-Ran,valueonly,separator=%x00)%x1f%s",
+            "-20",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+        check=False,
+    ).stdout
+    rows = [line for line in listed.splitlines() if line.strip()]
+    assert rows, "no commit was listed, so this proved nothing"
+    assert all(len(row.split("\x1f")) == 3 for row in rows), (
+        "a row split into something other than sha, trailer and subject, which is how the "
+        "commits that ran come to read as the broken ones"
+    )
