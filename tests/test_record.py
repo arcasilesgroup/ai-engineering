@@ -1551,3 +1551,48 @@ def test_the_account_command_says_what_to_type_before_it_waits_for_it(home, monk
     audit.main(["account", "--range", "1-2", "--why", "why", "--by", "who"])
     assert seen == ["ACCOUNT 1-2 AS who"]
     assert "ACCOUNT 1-2 AS who" in capsys.readouterr().out
+
+
+def test_show_says_what_the_examples_section_holds(repo, capsys):
+    """The downstream reader the examples never had.
+
+    They were written into every specification by the template and read by nothing: a
+    repo-wide search for the heading found the template and the two files that filled it,
+    and no consumer. There is no verify verb to give them to, so the reader is the verb that
+    already opens the file — and it reports what it observed and decides nothing, which is
+    what keeps it from becoming a second gate."""
+
+    where = _fixture_spec(repo, "a-thing")
+    body = where.read_text()
+    head, _, tail = body.partition("## Examples somebody can check")
+    where.write_text(
+        head
+        + "## Examples somebody can check\n\n"
+        + "**The success path.** Given a tree, When it runs, Then `just check` prints "
+        + "`RAN tests=2128`.\n\n## "
+        + tail.split("\n## ", 1)[1],
+        encoding="utf-8",
+    )
+
+    assert spec.main(["show", "001"]).outcome == "PASS"
+    out = capsys.readouterr().out
+
+    assert "examples: 1 given, 1 when, 1 then" in out
+    assert "1 of them naming a command and its output" in out
+    # No verdict word: this observes and the reader decides.
+    tail = out.split("examples:", 1)[1]
+    for word in ("PASS", "FAIL", "INCOMPLETE"):
+        assert word not in tail
+
+
+def test_show_says_nothing_about_examples_when_there_are_none(repo, capsys):
+    """Sixteen of the nineteen specifications have no such section, and a line reading
+    "0 given, 0 when, 0 then" under every one of them is noise standing where a fact should
+    be."""
+
+    where = _fixture_spec(repo, "a-thing")
+    body = where.read_text()
+    where.write_text(body.split("## Examples somebody can check", 1)[0], encoding="utf-8")
+
+    assert spec.main(["show", "001"]).outcome == "PASS"
+    assert "examples:" not in capsys.readouterr().out

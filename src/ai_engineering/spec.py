@@ -728,8 +728,21 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         if len(matches) > 1:
             print(f"── {match.parent.name} ── {matches.index(match) + 1} of {len(matches)}")
         try:
-            print(match.read_text())
+            body = match.read_text()
         except OSError as why:
             print(f"  INCOMPLETE  {match.parent.name} could not be read: {why}")
             return outcome.result("INCOMPLETE")
+        print(body)
+        # What the examples section holds, for the specifications that have one. An
+        # observation and not a verdict — no status word, no exit code — because the
+        # examples were written into every specification by the template and read by nothing,
+        # and the honest first reader is the verb that already opens the file. Silent when
+        # there is no section: sixteen of the nineteen have none, and a row of zeroes under
+        # each of them is noise standing where a fact should be.
+        given, when, then, executable = examples_facts(body)
+        if given or when or then:
+            print(
+                f"  examples: {given} given, {when} when, {then} then, "
+                f"{executable} of them naming a command and its output"
+            )
     return outcome.result("PASS")
