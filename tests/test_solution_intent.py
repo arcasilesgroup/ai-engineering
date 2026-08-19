@@ -27,24 +27,27 @@ def test_the_page_it_just_wrote_is_about_this_tree():
     assert "matches this tree" in why
 
 
-def test_a_specification_that_changed_makes_the_page_stale(tmp_path):
-    """One edit anywhere the page reads, and the check says so — naming both digests, so a
-    reader can tell a stale page from a page nobody generated."""
+def test_a_record_that_changed_makes_the_page_stale():
+    """One change to anything the page reads, and the check says so — naming both digests,
+    so a reader can tell a stale page from a page nobody generated.
+
+    Driven through the record rather than by editing a file in the tree: the property is
+    that a different tree renders a different page, and mutating a governed document to
+    assert it would be the test writing where it is only supposed to read.
+    """
+
+    import dataclasses
 
     solution_intent.write(ROOT)
-    home = ROOT / "specs" / "019-the-four-days-two-specs-cost" / "spec.md"
-    before = home.read_text(encoding="utf-8")
-    try:
-        home.write_text(before.replace("status: draft", "status: shipped", 1), encoding="utf-8")
-        fresh, why = solution_intent.staleness(ROOT)
-    finally:
-        home.write_text(before, encoding="utf-8")
+    page = (ROOT / solution_intent.PAGE).read_text(encoding="utf-8")
 
-    assert not fresh
-    assert "was built from" in why and "this tree hashes to" in why
+    tree = solution_intent.read(ROOT)
+    moved = dataclasses.replace(tree, decisions=tree.decisions[:-1])
 
-    # And it comes back. A check that stays red after the cause is gone teaches people to
-    # ignore it.
+    assert solution_intent.render(moved) != page
+    assert solution_intent.digest(moved) != solution_intent.digest(tree)
+    # And the tree as it stands still matches, so the difference is the change and not the
+    # comparison.
     assert solution_intent.staleness(ROOT)[0]
 
 
@@ -65,7 +68,7 @@ def test_every_fact_the_page_renders_is_a_fact_the_digest_covers():
         f"these fields are rendered and not hashed: {escaped}"
     )
     # And the one exclusion is argued rather than assumed.
-    assert solution_intent.NOT_HASHED == ("head",)
+    assert solution_intent.NOT_HASHED == ()
 
 
 def test_the_numbers_the_page_prints_are_the_numbers_the_gate_enforces():
@@ -81,3 +84,31 @@ def test_the_numbers_the_page_prints_are_the_numbers_the_gate_enforces():
     assert (tree.test_lines, tree.src_lines) == (tests, product)
     assert tree.ceiling == contract.REPO_CEILING
     assert tree.ratio_max == contract.TEST_RATIO_MAX
+
+
+def test_a_page_somebody_edited_is_not_a_page_this_tree_renders():
+    """The defect this control shipped with, as a test.
+
+    It compared a digest of the inputs to an attribute in the file and never asked whether
+    the file rendered them. A reviewer flipped nine readiness boxes to PASS and the skill
+    count to 99, left the attribute alone, and the gate said PASS — a page claiming
+    production readiness it does not have, and the only control that exists calling it fine.
+
+    A hand edit is the unlikely path. A badly resolved merge conflict in a generated file of
+    two hundred lines is the likely one, and it looks exactly the same to the gate.
+    """
+
+    solution_intent.write(ROOT)
+    page = ROOT / solution_intent.PAGE
+    before = page.read_text(encoding="utf-8")
+    try:
+        page.write_text(
+            before.replace("INCOMPLETE", "PASS").replace(">13<", ">99<"), encoding="utf-8"
+        )
+        fresh, why = solution_intent.staleness(ROOT)
+    finally:
+        page.write_text(before, encoding="utf-8")
+
+    assert not fresh
+    assert "edited the page rather than the records" in why
+    assert solution_intent.staleness(ROOT)[0]

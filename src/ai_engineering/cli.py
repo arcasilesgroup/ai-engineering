@@ -101,7 +101,7 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
     "report": (
         "produce the local governed report",
         ("the events", "this repository's records"),
-        ("the local digest read receipt",),
+        ("the local digest read receipt", "the Solution Intent page under docs/"),
         ("the configured observability endpoint, when one is configured",),
     ),
     "exception": (

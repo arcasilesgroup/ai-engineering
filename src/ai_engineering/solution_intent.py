@@ -22,7 +22,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from ai_engineering import contract, readiness
+from ai_engineering import contract, readiness, spec
 
 PAGE = Path("docs") / "solution-intent.html"
 DIGEST_MARK = "data-inputs-digest="
@@ -39,7 +39,6 @@ class Spec:
     status: str
     date: str
     supersedes: str
-    ref: str
     has_plan: bool
     done: int
     total: int
@@ -73,7 +72,6 @@ class Tree:
     boxes: list[tuple[str, str, str]] = field(default_factory=list)
     readiness_code: str = ""
     readiness_outcome: str = ""
-    head: str = ""
 
 
 def _text(path: Path) -> str:
@@ -97,11 +95,14 @@ def _title(body: str) -> str:
     return ""
 
 
-def _specs(root: Path) -> list[Spec]:
+def _specs(root: Path, tracked: set[str]) -> list[Spec]:
     rows: list[Spec] = []
     for folder in sorted((root / "specs").glob("*/")):
         spec_file = folder / "spec.md"
-        if not spec_file.is_file():
+        # Tracked only. This page is committed, so an untracked or ignored directory under
+        # `specs/` would be published into it — and the writer holding one would get a red
+        # gate telling them to regenerate, which commits it.
+        if not spec_file.is_file() or spec_file.relative_to(root).as_posix() not in tracked:
             continue
         body = _text(spec_file)
         front = _frontmatter(body)
@@ -115,14 +116,13 @@ def _specs(root: Path) -> list[Spec]:
                 status=front.get("status", "unknown"),
                 date=front.get("date", ""),
                 supersedes=front.get("supersedes", ""),
-                ref=front.get("ref", ""),
                 has_plan=bool(plan_body),
                 done=len(re.findall(r"^\s*[-*]\s*\[x\]", plan_body, re.M | re.I)),
                 total=len(re.findall(r"^\s*[-*]\s*\[[ x]\]", plan_body, re.M | re.I)),
-                # The other shape a plan's tasks come in, and the one the plan skill actually
-                # asks for: a numbered task carrying the command that fails today. Counting
-                # only checkboxes read a plan with seventeen enumerable tasks as having none.
-                checks=len(re.findall(r"^\s*\*\*check\*\*:", plan_body, re.M)),
+                # Counted by the module that owns the definition. Reading it here with a
+                # third regex made this page say eleven where `plan_tasks` says fifteen —
+                # and two of the last three blocks closed a two-definitions defect by name.
+                checks=sum(1 for one in spec.plan_tasks(plan_body) if one.get("check")),
                 bytes_spec=len(body.encode("utf-8")),
                 bytes_plan=len(plan_body.encode("utf-8")),
             )
@@ -130,15 +130,20 @@ def _specs(root: Path) -> list[Spec]:
     return rows
 
 
-def _decisions(root: Path) -> list[Decision]:
+def _decisions(root: Path, tracked: set[str]) -> list[Decision]:
     rows: list[Decision] = []
     for found in sorted((root / "docs" / "adr").glob("*.md")):
+        if found.relative_to(root).as_posix() not in tracked:
+            continue
         body = _text(found)
         status = ""
         for line in body.splitlines():
             stripped = line.strip().lstrip("*- ").rstrip("*")
             if stripped.lower().startswith("status:"):
-                status = stripped.split(":", 1)[1].strip()
+                # Quoted in eight of the thirteen, so `"accepted"` rendered grey with the
+                # quote marks showing — a reader learning the opposite of the truth about
+                # which decisions are settled.
+                status = stripped.split(":", 1)[1].strip().strip('"').strip()
                 break
         number = found.name.split("-", 1)[0]
         rows.append(
@@ -226,21 +231,14 @@ def _readiness(root: Path, now: datetime) -> tuple[str, str, list[tuple[str, str
     return state.result.outcome, state.code, rows
 
 
-def _head(root: Path) -> str:
-    done = subprocess.run(
-        ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
-    )
-    return done.stdout.strip() if done.returncode == 0 else ""
-
-
 def read(root: Path, *, now: datetime | None = None) -> Tree:
     """Every fact the page shows, and nothing that is not already in the tree."""
 
     guards, telemetry = _hook_classes(root)
+    try:
+        names = set(contract.tracked(root))
+    except (OSError, ValueError, subprocess.SubprocessError):
+        names = set()
     tests_lines, product_lines, whole = _measured(root)
     verdict, code, boxes = _readiness(root, now or datetime.now(UTC))
     intent_raw = _text(root / ".ai" / "intent.md")
@@ -249,12 +247,13 @@ def read(root: Path, *, now: datetime | None = None) -> Tree:
     except json.JSONDecodeError:
         intent = {}
     return Tree(
-        specs=_specs(root),
-        decisions=_decisions(root),
+        specs=_specs(root, names),
+        decisions=_decisions(root, names),
         intent=intent,
         skills=sorted(
             (found.parent.name, len(_text(found).splitlines()))
             for found in (root / ".agents" / "skills").glob("*/SKILL.md")
+            if found.relative_to(root).as_posix() in names
         ),
         guards=guards,
         telemetry=telemetry,
@@ -267,11 +266,14 @@ def read(root: Path, *, now: datetime | None = None) -> Tree:
         boxes=boxes,
         readiness_code=code,
         readiness_outcome=verdict,
-        head=_head(root),
     )
 
 
-NOT_HASHED = ("head",)
+# Nothing. It held `head`, which the page printed and the digest refused to cover so that a
+# commit changing nothing visible would not red the gate — and that gap is precisely what
+# stopped `staleness` comparing the page itself. The stamp went instead of the exclusion:
+# provenance is the digest, and when the page was written is what `git log` is for.
+NOT_HASHED: tuple[str, ...] = ()
 
 
 def digested(tree: Tree) -> dict:
@@ -297,22 +299,44 @@ def digest(tree: Tree) -> str:
 
 
 def staleness(root: Path, *, now: datetime | None = None) -> tuple[bool, str]:
-    """(fresh, reason). Fresh means the page on disk was built from this tree."""
+    """(fresh, reason). Fresh means the page on disk is the page this tree renders.
+
+    The first version compared a digest of the inputs to an attribute in the file, and never
+    asked whether the file rendered them. A reviewer flipped nine readiness boxes to PASS and
+    the skill count to 99, left the attribute alone, and the gate said PASS — a page claiming
+    production readiness it does not have, and the one control that exists calling it fine.
+    A hand edit is the unlikely path; a badly resolved merge conflict in a 204-line generated
+    file is the likely one.
+
+    So the comparison is the bytes. That is only possible because the page is now a pure
+    function of what the digest covers: the commit it was built at and the moment it was
+    written are no longer printed, because neither could be hashed without reddening the gate
+    on every commit.
+
+    The digest attribute stays, and it is what makes a failure readable — it says which tree
+    the page was built from rather than only that it differs.
+    """
 
     page = root / PAGE
     if not page.is_file():
         return False, f"{PAGE} does not exist; run `ai-eng report intent --html`"
-    want = digest(read(root, now=now))
-    found = re.search(rf'{DIGEST_MARK}"([0-9a-f]{{64}})"', _text(page))
-    if not found:
+    on_disk = _text(page)
+    tree = read(root, now=now)
+    if on_disk == render(tree):
+        return True, f"{PAGE} matches this tree at {digest(tree)[:12]}"
+    found = re.search(rf'{DIGEST_MARK}"([0-9a-f]{{64}})"', on_disk)
+    if found is None:
         return False, (
             f"{PAGE} carries no {DIGEST_MARK} attribute; it was not generated by this code"
         )
-    if found.group(1) != want:
+    if found.group(1) != digest(tree):
         return False, (
-            f"{PAGE} was built from {found.group(1)[:12]}; this tree hashes to {want[:12]}"
+            f"{PAGE} was built from {found.group(1)[:12]}; this tree hashes to {digest(tree)[:12]}"
         )
-    return True, f"{PAGE} matches this tree at {want[:12]}"
+    return False, (
+        f"{PAGE} names this tree at {found.group(1)[:12]} and is not what it renders; "
+        "something edited the page rather than the records"
+    )
 
 
 # --- the page -------------------------------------------------------------------------
@@ -478,10 +502,9 @@ def _card(number: object, key: str, sub: str = "") -> str:
 def render(tree: Tree, *, now: datetime | None = None) -> str:
     """The page. Every number in it came out of `read`; none of it is written by hand."""
 
-    moment = (now or datetime.now(UTC)).strftime("%Y-%m-%d")
     counts: dict[str, int] = {}
-    for spec in tree.specs:
-        counts[spec.status] = counts.get(spec.status, 0) + 1
+    for row in tree.specs:
+        counts[row.status] = counts.get(row.status, 0) + 1
     tasks_done = sum(s.done for s in tree.specs)
     tasks_total = sum(s.total for s in tree.specs)
     solution = tree.intent.get("solution_intent", {})
@@ -507,40 +530,38 @@ def render(tree: Tree, *, now: datetime | None = None) -> str:
     }
 
     rows = []
-    for spec in tree.specs:
+    for row in tree.specs:
         progress = ""
-        if spec.total:
-            pct = round(100 * spec.done / spec.total)
-            progress = (
-                f'{spec.done}/{spec.total}<div class="bar"><i style="width:{pct}%"></i></div>'
-            )
-        elif spec.checks:
-            progress = f'<span class="tag good">{spec.checks} tareas con check</span>'
-        elif spec.has_plan:
+        if row.total:
+            pct = round(100 * row.done / row.total)
+            progress = f'{row.done}/{row.total}<div class="bar"><i style="width:{pct}%"></i></div>'
+        elif row.checks:
+            progress = f'<span class="tag good">{row.checks} tareas con check</span>'
+        elif row.has_plan:
             # Not a formatting preference. A plan whose tasks a script cannot enumerate is a
             # plan no envelope can be extracted from, which is why the executor has to read
             # all of it every time.
             progress = '<span class="tag warn">plan sin tareas legibles por máquina</span>'
         else:
             progress = '<span class="tag muted">sin plan</span>'
-        supersedes = f"sustituye {html.escape(spec.supersedes)}" if spec.supersedes else ""
+        supersedes = f"sustituye {html.escape(row.supersedes)}" if row.supersedes else ""
         rows.append(
             "<tr>"
-            f'<td class="num">{html.escape(spec.ident)}</td>'
-            f"<td>{html.escape(spec.title)}<br>"
+            f'<td class="num">{html.escape(row.ident)}</td>'
+            f"<td>{html.escape(row.title)}<br>"
             f'<span class="mono" style="color:var(--muted)">'
-            f"specs/{html.escape(spec.slug)}/</span></td>"
-            f"<td>{_tag(spec.status)}"
+            f"specs/{html.escape(row.slug)}/</span></td>"
+            f"<td>{_tag(row.status)}"
             + (
                 f'<br><span class="mono" style="font-size:.78em;'
                 f'color:var(--muted)">{supersedes}</span>'
                 if supersedes
                 else ""
             )
-            + f'</td><td class="num">{html.escape(spec.date)}</td>'
+            + f'</td><td class="num">{html.escape(row.date)}</td>'
             f'<td class="num">{progress}</td>'
-            f'<td class="num">{spec.bytes_spec // 1024} KB'
-            + (f" + {spec.bytes_plan // 1024} KB" if spec.bytes_plan else "")
+            f'<td class="num">{row.bytes_spec // 1024} KB'
+            + (f" + {row.bytes_plan // 1024} KB" if row.bytes_plan else "")
             + "</td></tr>"
         )
 
@@ -592,10 +613,9 @@ estado está cada especificación y qué lo gobierna.">
   a medias, qué lo decide y qué todavía no tiene prueba. La genera un comando a partir de los
   ficheros del repositorio, así que no puede envejecer sin que el gate lo diga.</p>
   <div class="stamp">
-    <span>generada {moment}</span>
-    <span>HEAD {html.escape(tree.head or "sin git")}</span>
     <span>estado del Intent: {html.escape(lifecycle.get("status", "desconocido"))}</span>
     <span>{DIGEST_MARK[5:-1]} {digest(tree)[:16]}…</span>
+    <span>sin fecha ni HEAD: lo que no se puede firmar no se imprime</span>
   </div>
 </header>
 

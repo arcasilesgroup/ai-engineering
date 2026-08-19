@@ -248,6 +248,20 @@ enforcement = ["preflight.read", "preflight.write", "preflight.human-gate"]
 proof_requirements = { allow = ["ai-report.digest.allow"], deny = ["ai-report.digest.deny"], installed_artifact = true }
 
 [[capabilities.modes]]
+id = "intent"
+# It reads the records and writes one page from them. No network, no secrets, no keyboard:
+# the page asserts nothing a person has to agree to, and a human gate on a document
+# generated from committed files would be a ceremony that teaches people to click through.
+read_roots = ["."]
+write_roots = ["docs"]
+exec_allowlist = [{ executable = "git", argument_pattern = "repository.read" }]
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec"]
+proof_requirements = { allow = ["ai-report.intent.allow"], deny = ["ai-report.intent.deny"], installed_artifact = true }
+
+[[capabilities.modes]]
 id = "issue"
 read_roots = [".ai/reports"]
 write_roots = [".ai/issue"]

@@ -270,7 +270,7 @@ def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
         "ai-review": ["default"],
         "ai-verify": ["default"],
         "ai-note": ["default"],
-        "ai-report": ["digest", "issue"],
+        "ai-report": ["digest", "intent", "issue"],
         "ai-ship": ["commit", "pull-request"],
     }
 
@@ -291,14 +291,20 @@ def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
             assert proof["installed_artifact"] is True
             assert proof["allow"] and proof["deny"]
 
-    by_id = {capability["id"]: capability["modes"] for capability in capabilities}
-    assert by_id["ai-explore"][0]["write_roots"] == []
-    assert by_id["ai-review"][0]["write_roots"] == []
-    assert by_id["ai-research"][0]["network"] == []
-    assert by_id["ai-research"][1]["human_gate"] == "before_network"
-    assert by_id["ai-report"][0]["network"] == []
-    assert by_id["ai-report"][1]["human_gate"] == "before_publish"
-    assert by_id["ai-ship"][1]["human_gate"] == "before_publish"
+    # By mode id, not by position. Indexing `[1]` meant a mode inserted in alphabetical
+    # order silently moved which mode each assertion was about, and the failure named a
+    # human gate rather than the ordering that caused it.
+    by_id = {
+        capability["id"]: {mode["id"]: mode for mode in capability["modes"]}
+        for capability in capabilities
+    }
+    assert by_id["ai-explore"]["default"]["write_roots"] == []
+    assert by_id["ai-review"]["default"]["write_roots"] == []
+    assert by_id["ai-research"]["local"]["network"] == []
+    assert by_id["ai-research"]["cited-web"]["human_gate"] == "before_network"
+    assert by_id["ai-report"]["digest"]["network"] == []
+    assert by_id["ai-report"]["issue"]["human_gate"] == "before_publish"
+    assert by_id["ai-ship"]["pull-request"]["human_gate"] == "before_publish"
 
 
 def test_capability_manifest_rejects_modes_that_only_reorder_set_like_permissions() -> None:
