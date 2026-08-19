@@ -246,9 +246,15 @@ def test_discovery_invocation_and_enforcement_are_separate_receipts(tmp_path):
     # visibility never proves invocation, and invocation never proves denial.
     write("claude-code.discovery", _receipt("claude-code", "discovery", finished=fresh))
     seen = surface.read(root, now=now)
+    # Both halves of each verdict. A status with no code beside it leaves the reason free to
+    # be anything, and the reason is what tells a proved surface from an unproven one — the
+    # measured lever here is 2.0 mutants for each assertion made whole, and no new case.
     assert seen.state("claude-code", "discovery").outcome == "PASS"
+    assert seen.state("claude-code", "discovery").code == surface.PROVEN
     assert seen.state("claude-code", "invocation").outcome == "INCOMPLETE"
+    assert seen.state("claude-code", "invocation").code == surface.RECEIPT_MISSING
     assert seen.state("claude-code", "enforcement").outcome == "INCOMPLETE"
+    assert seen.state("claude-code", "enforcement").code == surface.RECEIPT_MISSING
 
     # A receipt that names another surface's state does not tick this one.
     write("opencode.invocation", _receipt("claude-code", "invocation", finished=fresh))
@@ -264,6 +270,7 @@ def test_discovery_invocation_and_enforcement_are_separate_receipts(tmp_path):
     )
     failed = surface.read(root, now=now)
     assert failed.state("cursor", "enforcement").outcome == "FAIL"
+    assert failed.state("cursor", "enforcement").code == surface.EXECUTED_FAIL
     assert failed.result.outcome == "FAIL"
 
     # A stale receipt is unproven, not passed: a denial that executed a year ago says
@@ -814,6 +821,7 @@ def test_a_receipt_that_names_no_adapter_proves_nothing(tmp_path, monkeypatch):
     write(required)
     proved = surface.read(root, now=now).state("claude-code", "enforcement")
     assert proved.outcome == "PASS", proved
+    assert proved.code == surface.PROVEN, proved
 
     # The same receipt under the id a superseded adapter version would have required.
     write("claude-code.enforcement.v0")
