@@ -1690,7 +1690,12 @@ def test_an_envelope_is_the_same_bytes_the_digest_names(repo, capsys):
     digest = "sha256:" + hashlib.sha256((where.parent / "plan.md").read_bytes()).hexdigest()
 
     assert spec.main(["show", "001", "--task", "1", "--plan-digest", digest]).outcome == "PASS"
-    assert digest in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert digest in out
+    # And the envelope says which of the two happened. With no digest named the check
+    # proves nothing, and one silent about the difference is a hand-off nobody can audit.
+    assert f"plan: {digest} (verified)" in out
+    assert "(verified)" not in out.split("plan:", 1)[0]
 
 
 def test_no_envelope_in_this_tree_is_larger_than_two_kilobytes():
