@@ -844,13 +844,13 @@ note = "spec 012 says it plainly: a check for any of them would be a check on ta
 id = "EP-120"
 verdict = "PROVEN"
 subject = "ai-animation is absorbed rather than shipped, loaded only where motion is real"
-evidence = "pytest tests/test_contracts.py::test_the_three_absorption_candidates_did_not_ship_and_their_work_has_a_home"
+evidence = "pytest tests/test_contracts.py::test_the_absorption_candidates_did_not_ship_and_their_work_has_a_home"
 
 [[requirement]]
 id = "EP-121"
 verdict = "PROVEN"
 subject = "the motion work is absorbed into ai-review's motion lens"
-evidence = "pytest tests/test_contracts.py -k 'three_absorption_candidates or every_review_lens'"
+evidence = "pytest tests/test_contracts.py -k 'absorption_candidates or every_review_lens'"
 
 [[requirement]]
 id = "EP-122"
@@ -1721,7 +1721,7 @@ note = "the lens file exists and says so; no code conditionally loads or gates o
 id = "EP-252"
 verdict = "PROVEN"
 subject = "the absorption is written as an exit condition, not a caveat"
-evidence = "pytest tests/test_contracts.py::test_the_three_absorption_candidates_did_not_ship_and_their_work_has_a_home"
+evidence = "pytest tests/test_contracts.py::test_the_absorption_candidates_did_not_ship_and_their_work_has_a_home"
 
 [[requirement]]
 id = "EP-253"

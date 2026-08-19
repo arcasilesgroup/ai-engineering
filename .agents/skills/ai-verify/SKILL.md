@@ -30,8 +30,8 @@ that ticked it, and an acceptance table where every example carries its verdict.
    not a gap to fill in later.
 3. A box that does not apply says `not applicable` and why in the same line. Assertion 19
    reads what sits beside each tick **once the spec is shipped** — it skips a draft
-   entirely, which is every spec this skill is used on, so nothing catches a tick you have
-   not earned except you.
+   entirely, which is every spec before it ships, so nothing catches a tick you have not
+   earned except you.
 4. Never tick a box on the strength of a run somebody described. `ai-eng spec checkpoint`
    reads receipts and says which of them is about this code; read its answer, not its age.
 

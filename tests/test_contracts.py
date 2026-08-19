@@ -1849,26 +1849,40 @@ def test_a_plan_names_a_file_a_check_a_rollback_and_a_done_when():
         assert whole, f"{name} has {len(tasks)} numbered tasks and not one of them is written"
 
 
-def test_the_register_notes_state_the_baseline_the_register_holds():
-    """Two rows of `docs/requirements.toml` restate the routing baseline in prose, and prose
-    is not read by the recipe that enforces it. They said 254 while the register said 255,
-    and 255 while it said 275 — stale twice in three blocks, both times for the same reason.
+def test_every_sentence_quoting_the_routing_baseline_quotes_the_one_in_force():
+    """Three sentences restate a number that lives in one place, and prose is not read by the
+    recipe that enforces it. Two said 254 while the register said 255, then 255 while it said
+    275 — stale twice in three blocks, both times the same way.
 
     Rule 12: the third time a judgement resolves the same way it becomes a script. This is
-    the third time. The number lives in one place and every sentence quoting it agrees with
-    that place, or the build says which sentence does not."""
+    the third time. Deleting the number from the notes would be smaller, and it was refused:
+    they are audit evidence somebody reads without opening the register, and a note that says
+    "see the register" answers a question the reader already had.
+
+    So it looks for the figure inside each note rather than inside a phrase. A rewording that
+    keeps the number passes; one that changes it does not."""
 
     import tomllib
 
-    register = tomllib.loads((ROOT / "policy" / "pilot-register.toml").read_text(encoding="utf-8"))
-    agreed = next(row for row in register["baseline"] if row["id"] == "skill-routing")
+    register = (ROOT / "policy" / "pilot-register.toml").read_text(encoding="utf-8")
+    agreed = next(
+        row for row in tomllib.loads(register)["baseline"] if row["id"] == "skill-routing"
+    )
     said = str(agreed["measured"])
 
+    # The register's own prose, which drifted in Block B and is the site the first version of
+    # this test did not cover.
+    preamble = register.split("[[baseline]]", 1)[0]
+    assert said in preamble, f"the register's own comment does not say {said}"
+
+    # And the two requirement notes that restate it. Found by id, so the surrounding sentence
+    # is free to be rewritten.
     notes = (ROOT / "docs" / "requirements.toml").read_text(encoding="utf-8")
-    for phrase in ("a lower bound of {} it is compared against", "The baseline is {} in"):
-        assert phrase.format(said) in notes, (
-            f"a register note does not say {said}: {phrase.format(said)!r} is not there"
-        )
+    for requirement in ("EP-029", "EP-289"):
+        block = notes.split(f'id = "{requirement}"', 1)[1].split("[[requirement]]", 1)[0]
+        if "skill_eval" not in block and "baseline" not in block:
+            continue
+        assert said in block, f"{requirement} restates the routing baseline and does not say {said}"
 
 
 def test_the_number_in_the_doctor_summary_is_the_number_of_assertions():
@@ -1900,7 +1914,7 @@ def test_the_phase_map_is_one_map_and_the_product_owns_it():
     CI, which is what the row was reopened with after the first pass called it closed.
 
     Three things hold it closed. The map lives in the product; `ai-eng init` prints it at the
-    moment that person exists, having just been handed the twelve; and the runner reads the
+    moment that person exists, having just been handed the thirteen; and the runner reads the
     same function rather than rebuilding it, because two copies of a map is two maps within a
     week.
     """
