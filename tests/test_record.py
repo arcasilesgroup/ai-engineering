@@ -1578,7 +1578,11 @@ def test_show_says_what_the_examples_section_holds(repo, capsys):
     out = capsys.readouterr().out
 
     assert "examples: 1 given, 1 when, 1 then" in out
-    assert "1 of them naming a command and its output" in out
+    assert "1 naming a command and its output" in out
+    # Never "N of them": `1 of` is the prefix of the multi-match heading a
+    # sibling test asserts is absent, and that guard should not depend on how
+    # many examples a fixture happens to carry.
+    assert "1 of" not in out
     # No verdict word: this observes and the reader decides.
     tail = out.split("examples:", 1)[1]
     for word in ("PASS", "FAIL", "INCOMPLETE"):

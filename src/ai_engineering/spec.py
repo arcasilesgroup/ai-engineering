@@ -742,8 +742,13 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         # each of them is noise standing where a fact should be.
         given, when, then, executable = examples_facts(body)
         if given or when or then:
+            # "N of them" would put `1 of` in this line, and `tests/test_mut_spec.py`
+            # asserts that substring is absent from `show` output — it is the prefix of the
+            # `1 of 2` multi-match heading. It passes today only because the template's
+            # worked shape deliberately scores zero, so the guard would have been protected
+            # by another task's word choice rather than by anything structural.
             print(
                 f"  examples: {given} given, {when} when, {then} then, "
-                f"{executable} of them naming a command and its output"
+                f"{executable} naming a command and its output"
             )
     return outcome.result("PASS")
