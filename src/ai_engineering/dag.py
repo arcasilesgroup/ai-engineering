@@ -136,7 +136,14 @@ def wave(root: Path, tasks: list[dict]) -> list[str]:
     the fail-open direction this module already names."""
 
     blocked = {second for _, second in edges(root, tasks)}
-    return sorted({str(one["item"]) for one in tasks} - blocked)
+    items = {str(one["item"]) for one in tasks}
+    ready = sorted(items - blocked)
+    if items and not ready:
+        # A cycle. Returning the empty set would make it indistinguishable from "no claims",
+        # and a caller sizing a build on the length of this cannot tell a broken set from an
+        # absent one. `order` reports the same state loudly; so does this.
+        raise Unreadable(f"these claims depend on each other: {', '.join(sorted(items))}")
+    return ready
 
 
 def sequence(result: outcome.Execution) -> list[str]:
