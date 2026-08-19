@@ -1809,6 +1809,9 @@ def test_a_plan_names_a_file_a_check_a_rollback_and_a_done_when():
     homes = sorted(one.name for one in (ROOT / "specs").iterdir() if (one / "plan.md").is_file())
     missing = set(PLANS_WITHOUT_NUMBERED_TASKS) - set(homes)
     assert not missing, f"the baseline names plans that are not there: {sorted(missing)}"
+    # And it does not grow. Adding a name is how a red becomes green without the plan that
+    # caused it being written, so the count moves in a commit that says why.
+    assert len(PLANS_WITHOUT_NUMBERED_TASKS) == 10
 
     for name in homes:
         body = (ROOT / "specs" / name / "plan.md").read_text(encoding="utf-8", errors="replace")
@@ -1816,10 +1819,12 @@ def test_a_plan_names_a_file_a_check_a_rollback_and_a_done_when():
         if name in PLANS_WITHOUT_NUMBERED_TASKS:
             continue
         assert tasks, f"{name} carries no numbered tasks a script can enumerate"
+        whole = 0
         for task in tasks:
-            held = [field for field in spec.TASK_FIELDS if field in task]
+            held = [field for field in spec.TASK_FIELDS if task.get(field)]
             if not held:
                 continue
+            whole += 1
             assert len(held) == len(spec.TASK_FIELDS), (
                 f"{name} task {task['task']} carries {held} and not the other "
                 f"{[one for one in spec.TASK_FIELDS if one not in held]}"
@@ -1828,6 +1833,10 @@ def test_a_plan_names_a_file_a_check_a_rollback_and_a_done_when():
             assert spec.runs_something(task["check"]), (
                 f"{name} task {task['task']} has a check nobody can run: {task['check'][:80]}"
             )
+        # Otherwise a plan of nothing but deferrals passes, and the rule reduces to "a
+        # numbered bold line exists somewhere". A deferral is a real thing a plan records;
+        # a plan that is only deferrals is a plan nobody wrote.
+        assert whole, f"{name} has {len(tasks)} numbered tasks and not one of them is written"
 
 
 def test_the_number_in_the_doctor_summary_is_the_number_of_assertions():
