@@ -403,7 +403,7 @@ reopen_when = "a skill ships whose output is probabilistic rather than a routing
 [[ungated]]
 id = "EP-117"
 asks = "small golden cases, cross-model advisory, and blocking only after a stable baseline"
-reason = "the golden cases exist and run — 160 labelled routing cases beside the skills, evaluated on every gate — and the same argument as EP-083 applies to the rest: no baseline is recorded because a deterministic check has nothing to take a delta of, and `skill_eval_delta` says so in this register rather than pretending to a number"
+reason = "the golden cases exist and run — one labelled corpus beside the skills, counted and evaluated by `just skilleval` on every gate, which prints the number rather than repeating it here — and the same argument as EP-083 applies to the rest: no baseline is recorded because a deterministic check has nothing to take a delta of, and `skill_eval_delta` says so in this register rather than pretending to a number"
 reopen_when = "the evaluation produces a score that can move for a reason other than a defect, which is the first moment a baseline and a margin mean anything"
 
 # ── the judgements no script settles, gathered ──────────────────────────────────────
@@ -459,7 +459,7 @@ reopen_when = "a replay harness exists that can run the same task with and witho
 [[ungated]]
 id = "EP-161"
 asks = "a judgement that repeats becomes a script"
-reason = "rule 12 itself, and the only coded part is the ceiling on a SKILL.md: over eighty lines is a procedure that should be a script. The threshold half — how often is repeated — is the judgement, and a number chosen here would be chosen by whoever wrote this line."
+reason = "rule 12 itself. Two parts are coded: the ceiling on a SKILL.md, and `report.repeats`, which counts identical verdicts over the digest window and prints how many judgements were counted and the highest repetition on every run. The threshold half — how often is repeated — is the judgement, and a number chosen here would be chosen by whoever wrote this line."
 reopen_when = "the same judgement is recorded resolving the same way three times, which is the threshold rule 12 already states in words"
 
 [[ungated]]

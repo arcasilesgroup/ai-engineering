@@ -468,3 +468,48 @@ def test_nothing_the_ledger_proves_is_listed_here_as_ungatable():
         "requirement — an ungated list that carries proven requirements is a refusal nobody "
         "re-read after somebody answered it."
     )
+
+
+# Quantities the gate already computes, and the words a row would quote them with. Adding one
+# is a line: the name it is written by, and the command that prints the real number.
+COUNTED = {
+    "labelled": ("python tests/skill_eval.py", r"(\d+)\s+labelled"),
+}
+
+
+def test_no_reason_quotes_a_count_the_gate_computes():
+    """`AGENTS.md` already states this rule about itself — "this file names the home and never
+    the value, because a doctrine that quotes a number is a doctrine that goes stale without a
+    test" — and the register did not follow it.
+
+    `EP-117`'s reason said the golden cases were 160 labelled routing cases. The corpus is 174
+    and `just skilleval` has printed the real number on every gate run since the day it was
+    written. Nobody recomputed the sentence, because a sentence does not fail.
+
+    So a reason names where the number lives rather than the number. This checks the one
+    quantity that has already gone stale, and the table above is how the next is added.
+    """
+
+    import re
+    import subprocess
+
+    prose = " ".join(
+        f"{row.get('reason', '')} {row.get('no_instrument', '')} {row.get('asks', '')}"
+        for kind in ("ungated", "indicator", "prohibition")
+        for row in register().get(kind, [])
+    )
+
+    for word, (command, pattern) in COUNTED.items():
+        quoted = re.findall(pattern, prose)
+        if not quoted:
+            continue
+        done = subprocess.run(
+            command.split(), capture_output=True, text=True, cwd=str(ROOT), check=False
+        )
+        real = re.search(pattern, done.stdout)
+        assert real, f"{command} no longer prints a {word} count, so this cannot check one"
+        assert all(one == real.group(1) for one in quoted), (
+            f"the register quotes {quoted} {word} cases and {command} prints {real.group(1)}. "
+            "Name where the number lives rather than the number — AGENTS.md says exactly this "
+            "about itself and this file was not following it."
+        )
