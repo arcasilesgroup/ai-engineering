@@ -523,7 +523,7 @@ def test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renam
     # one, which is the whole reason it is here.
     surface = _named_step(lines, "the ten verbs, the hard renames and one JSON object")
     assert _raw_digest(surface) == (
-        "f74e3be06ea3867c412cd3dc9d90236b0b8b947f1ac8df9f8ad691dd47bdbfd1"
+        "051dbde82c58acb8cb7e6adb924856d4a72351d6d75ede449b4fcc5ce53e9ac4"
     )
     body = "\n".join(surface)
 
@@ -546,7 +546,14 @@ def test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renam
     # Every hard rename, proved from the side that matters: the old spelling must refuse.
     for gone in ("ai-eng plan --skip x", "ai-eng digest", "ai-eng decide --adr x"):
         assert f"! {gone}" in body, gone
-    assert "design_gate" in body and "the old guard name survives" in body
+    # The tombstone list, not one name: `design_gate` was renamed and the guard it was
+    # renamed to has since been deleted, so what the wheel must prove is that no spelling of
+    # a removed guard survives in it — and that the guards which remain are actually there,
+    # which is the half a probe asking only about absence can never answer.
+    for gone in ("design_gate", "change_scope_guard", "claim_scope_guard"):
+        assert gone in body, gone
+    assert "a deleted guard survives in the wheel" in body
+    assert "the guards are not in the wheel" in body
 
     # One object, nothing on stderr, and it has to parse.
     assert "json mode wrote to stderr" in body

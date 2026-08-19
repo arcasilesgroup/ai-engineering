@@ -240,6 +240,32 @@ def test_two_skills_taking_one_case_is_a_fork_the_descriptions_cannot_show():
     assert any("both take the case" in line for line in found), found
 
 
+def test_one_labelled_case_contained_in_another_is_the_same_fork_a_word_longer():
+    """The asymmetry this closes, which was in the harness rather than in any corpus.
+
+    A skill's claims are compared to its neighbours' twice — once for the same phrase, and
+    once for a phrase that contains theirs, because "review this diff" and "review this diff
+    for security" are one fork with the ambiguity spelled out a word longer. The labelled
+    cases beside the skills were compared only the first way, so the sample the evaluation
+    actually runs on was held to a weaker rule than the descriptions above it.
+
+    Nothing in the corpus this repository ships trips it today. That is the reason to add it
+    now rather than after a case slips through: a rule written while the tree is clean is a
+    rule nobody had to argue with a red build about.
+    """
+
+    broken = copy.deepcopy(corpus())
+    borrowed = broken["ai-report"]["takes"][0]
+    broken["ai-debug"]["takes"].append(f"{borrowed} right now")
+    found = skill_eval.problems(broken)
+    # Named against the labelled case and not only against the shared wording: the claims
+    # rule ends in the same sentence, so a test that matched the tail alone would go green
+    # the day this rule was deleted and a description collided instead.
+    assert any("takes the case" in line and "one contains the other" in line for line in found), (
+        found
+    )
+
+
 def test_a_case_both_skills_refuse_leaves_the_person_who_wrote_it_nowhere():
     """The one this exists to catch. `ai-report` sends "this is failing, work out why" to
     `/ai-debug`; if `ai-debug` also refused it, each file would still read correctly on its

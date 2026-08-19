@@ -172,13 +172,26 @@ def problems(found: dict[str, dict], known_verbs: set[str] | None = None) -> lis
     # other descriptions; this evaluates the sample somebody wrote down as what the skill
     # must take and what it must send away — and a routing evaluation with no sample is a
     # self-consistency check wearing an evaluation's name.
+    # Held to the same rule as the claims above, and it was not. A description was compared
+    # to its neighbours twice — same phrase, and phrase containing theirs — while the cases
+    # beside the skills were compared only the first way. So the sample the evaluation
+    # actually runs on was judged more leniently than the descriptions it exists to check,
+    # and "review this diff" beside "review this diff for security" would have read as two
+    # cases when it is one fork with the ambiguity spelled out a word longer. Nothing in the
+    # corpus here trips it, which is when a rule costs least to add.
     for name, skill in found.items():
         for case in skill.get("takes", []):
             for other, rival in found.items():
                 if other <= name:
                     continue
-                if case in rival.get("takes", []):
-                    broken.append(f'{name} and {other} both take the case "{case}"')
+                for theirs in rival.get("takes", []):
+                    if case == theirs:
+                        broken.append(f'{name} and {other} both take the case "{case}"')
+                    elif case in theirs or theirs in case:
+                        broken.append(
+                            f'{name} takes the case "{case}" and {other} takes "{theirs}"; '
+                            "one contains the other and nothing decides between them"
+                        )
         for case, target in skill.get("sends", []):
             if case in skill.get("takes", []):
                 broken.append(f'{name} both takes and refuses the case "{case}"')
