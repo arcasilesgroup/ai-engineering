@@ -573,8 +573,8 @@ note = "two adapters against eight declared surfaces, and no wheel-installed pro
 id = "EP-078"
 verdict = "INCOMPLETE"
 subject = "the declared capabilities are enforced, not only declared"
-evidence = "pytest tests/test_executor.py; grep -rn 'executor.Sandbox' src/ai_engineering/"
-note = "the mechanism is real and no longer the blocker it was: an action taken through `executor.Sandbox` is decided at the operation, against the resolved path and the real binary, and a refusal is recorded. What is not true is the plural. One capability of fifteen has a caller — `ai-report issue`, through `issue.draft` — and an action a surface performs is still ungoverned, because nothing reads a running capability's identity out of somebody else's payload. Graded on the sentence as written rather than on the work done, which is the whole point of this column"
+evidence = "pytest tests/test_executor.py tests/test_mut_capability_callers.py"
+note = '''the mechanism is real and the plural is now a number rather than a sentence. An action taken through `executor.Sandbox` is decided at the operation, against the resolved path and the real binary, and a refusal is recorded. One capability of fifteen has a caller — `ai-report`, through `issue.draft` — and that one is counted by reading the product with `ast` rather than by grepping, because a grep counts the string inside a docstring explaining why there are no callers, which is the exact shape this row is about. The case refuses the two ways the number could go wrong with nobody deciding: a caller vanishing, and a caller naming a capability the manifest does not declare, which would be enforcement against a policy nobody wrote. It does not red the build over one of fifteen, because a case that fails on a known gap is a case somebody deletes. INCOMPLETE, and the number says how incomplete.'''
 
 [[requirement]]
 id = "EP-079"

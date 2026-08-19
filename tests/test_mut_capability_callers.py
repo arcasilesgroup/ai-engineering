@@ -1,0 +1,91 @@
+"""How many declared capabilities anything actually goes through, counted rather than said.
+
+`EP-078` asks that the declared capabilities be enforced and not only declared. The mechanism
+is real: an action taken through `executor.Sandbox` is decided at the operation, against the
+resolved path and the real binary, and a refusal is recorded. What the row could not say was
+the plural — one capability of fifteen has a caller, and that sentence sat in a note.
+
+A sentence is how the gate-recipe count came to read "six controlled and two argued" five
+recipes after it stopped being true. So this counts, and it fails when the count drops. It
+does not fail on one, because one is the honest state today and a case that reds the build
+over a known gap is a case somebody deletes.
+
+What it refuses is the two ways the number could go wrong without anybody deciding: a caller
+disappearing, and a caller naming a capability the manifest does not declare — which would be
+enforcement against a policy nobody wrote.
+"""
+
+from __future__ import annotations
+
+import ast
+import tomllib
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+PRODUCT = ROOT / "src" / "ai_engineering"
+CAPABILITIES = ROOT / "policy" / "capabilities.toml"
+
+
+def declared() -> dict[str, set[str]]:
+    rows = tomllib.loads(CAPABILITIES.read_text(encoding="utf-8"))["capabilities"]
+    return {row["id"]: {mode["id"] for mode in row["modes"]} for row in rows}
+
+
+def callers() -> dict[str, str]:
+    """Every `executor.Sandbox(...)` in the product, by the capability it names.
+
+    Read with `ast` rather than by matching text: a grep counts the string in a docstring
+    explaining why there are no callers, which is exactly the shape this file is about.
+    """
+
+    found: dict[str, str] = {}
+    for source in sorted(PRODUCT.glob("*.py")):
+        try:
+            tree = ast.parse(source.read_text(encoding="utf-8"))
+        except SyntaxError:  # pragma: no cover - the suite would be red for other reasons
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            name = getattr(node.func, "attr", None) or getattr(node.func, "id", None)
+            if name != "Sandbox" or not node.args:
+                continue
+            first = node.args[0]
+            if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                found[first.value] = source.name
+    return found
+
+
+def test_every_caller_names_a_capability_the_manifest_declares():
+    """Enforcement against a policy nobody wrote is worse than no enforcement: it reads as
+    governed and resolves against nothing."""
+
+    known = declared()
+
+    for capability_id, where in callers().items():
+        assert capability_id in known, (
+            f"{where} takes actions through capability {capability_id!r}, which "
+            f"policy/capabilities.toml does not declare"
+        )
+
+
+def test_the_count_of_capabilities_with_a_caller_is_published_and_does_not_drop():
+    """`EP-078`'s plural, as a number rather than a sentence.
+
+    One of fifteen today, through `ai-report issue`. That gap is real and this does not
+    pretend otherwise — what it stops is the gap widening while the note still says one, or
+    narrowing without anybody noticing they had closed it.
+    """
+
+    known, taken = declared(), callers()
+
+    assert len(known) == 15, f"{len(known)} capabilities are declared and the audit measured 15"
+    assert taken, (
+        "no capability has a caller at all. The manifest would then be fifteen declarations "
+        "and nothing that resolves against them, which is the state EP-078 was filed for"
+    )
+    assert len(taken) >= 1, len(taken)
+    assert "ai-report" in taken, (
+        f"the one capability with a caller was ai-report, through issue.draft; now it is "
+        f"{sorted(taken)}. If that is a deliberate move, say so here and change the number"
+    )
