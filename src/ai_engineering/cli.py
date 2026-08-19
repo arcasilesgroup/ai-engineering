@@ -33,7 +33,7 @@ VERBS: dict[str, str] = {
     # What it does, not what it was going to do. The bare verb returns INCOMPLETE — "planned
     # for P2 and is not implemented" — so a line promising "the local governed report" sent a
     # stranger to a refusal. Three subcommands work today and the summary names them.
-    "report": "report digest | report issue | report surfaces — what this install can show.",
+    "report": "report digest | issue | surfaces | intent — what this install can show.",
     "exception": "Record a governed design exception, at a keyboard.",
     "uninstall": "Undo everything the receipt lists. The no-lock-in promise, as a command.",
 }

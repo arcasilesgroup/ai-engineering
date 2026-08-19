@@ -1734,3 +1734,39 @@ def test_no_envelope_in_this_tree_is_larger_than_two_kilobytes():
 
     assert largest, "no envelope was produced, so this measured nothing"
     assert largest < 2048, f"{where} is {largest} bytes"
+
+
+def test_report_intent_writes_the_page_and_says_where(repo, capsys, monkeypatch):
+    """The command the staleness message promised, which argparse rejected.
+
+    A gate whose remedy is a command that does not exist is worse than no gate: the reader
+    runs it, gets `invalid choice`, and learns the check is broken rather than that the page
+    is."""
+
+    from ai_engineering import report, solution_intent
+
+    monkeypatch.chdir(repo)
+    _fixture_spec(repo, "a-thing")
+
+    result = report.main(["intent", "--html"])
+
+    assert result.outcome == "PASS"
+    assert (repo / solution_intent.PAGE).is_file()
+    assert str(solution_intent.PAGE) in capsys.readouterr().out
+    assert solution_intent.staleness(repo)[0]
+
+
+def test_the_command_the_staleness_message_names_is_one_that_runs(repo, monkeypatch):
+    """The two halves are written in different files, so they are held equal here rather
+    than by whoever remembers to change both."""
+
+    import shlex
+
+    from ai_engineering import report, solution_intent
+
+    monkeypatch.chdir(repo)
+    _, why = solution_intent.staleness(repo)
+    named = why.split("run `", 1)[1].split("`", 1)[0]
+
+    assert named.startswith("ai-eng report ")
+    assert report.main(shlex.split(named)[2:]).outcome == "PASS"

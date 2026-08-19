@@ -15,7 +15,7 @@ from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
-from ai_engineering import accept, doctor, issue, outcome, paths, surface
+from ai_engineering import accept, doctor, issue, outcome, paths, solution_intent, surface
 
 
 def within(events: list[dict], days: int) -> list[dict]:
@@ -238,10 +238,20 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     report.add_argument("--step", action="append", default=[], required=True)
     report.add_argument("--submit", action="store_true")
     commands.add_parser("surfaces")
+    # `--html` is required rather than defaulted, because the only thing this writes is an
+    # HTML page and a bare `report intent` that silently wrote one would be a verb doing
+    # something the caller did not name.
+    page = commands.add_parser("intent")
+    page.add_argument("--html", action="store_true", required=True)
     args = parser.parse_args(argv)
 
     if args.command == "surfaces":
         return surfaces(paths.repo_root())
+    if args.command == "intent":
+        root = paths.repo_root()
+        written = solution_intent.write(root)
+        print(f"  wrote {written.relative_to(root)}")
+        return outcome.result("PASS")
     if args.command is None:
         print(
             "INCOMPLETE: bare report is planned for P2 and is not implemented; "
