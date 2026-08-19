@@ -16,6 +16,12 @@ gitleaks_version := "8.30.1"
 trivy_version := "0.73.0"
 coverage := "coverage==7.15.4"
 mutmut := "mutmut==3.7.0"
+# The suite runs across the machine's cores. Measured on this tree: 158.89 s serial against
+# 61.72 s at the detected count, the same passed/skipped/failed counts, and a coverage total
+# that does not move. Never a literal above the core count — sixteen workers on eight cores
+# produced two failures nobody could name, and buying ten seconds with a gate people learn to
+# rerun is the trade this repository already refused once for the latency bound.
+xdist := "pytest-xdist==3.8.0"
 # The same pin the workflow carries, and a test holds the two equal.
 mypy := "mypy==2.3.0"
 
@@ -73,7 +79,7 @@ typecheck:
     uv run python tests/surface_receipt.py opencode
 
 test:
-    uv run --with {{pytest}} pytest -q
+    uv run --with {{pytest}} --with {{xdist}} pytest -q -n auto
 
 security:
     @test "$(gitleaks version)" = "{{gitleaks_version}}" || { echo "gitleaks is $(gitleaks version) and this gate is written for {{gitleaks_version}}. An untested scanner's answer is not evidence."; exit 1; }
@@ -96,7 +102,7 @@ cover:
     set -euo pipefail
     export COVERAGE_FILE="$PWD/.coverage"
     rm -f "$COVERAGE_FILE"*
-    uv run --with {{coverage}} --with {{pytest}} coverage run --parallel -m pytest -q -k "not fast_enough"
+    uv run --with {{coverage}} --with {{pytest}} --with {{xdist}} coverage run --parallel -m pytest -q -n auto -k "not fast_enough"
     uv run --with {{coverage}} coverage run --parallel tests/adversarial/run.py
     uv run --with {{coverage}} coverage combine
     uv run --with {{coverage}} coverage report --fail-under=80

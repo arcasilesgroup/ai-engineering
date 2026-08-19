@@ -229,4 +229,4 @@ def test_p0_claims_nothing_that_belongs_to_a_later_wave():
     # P5 and this assertion is about `test` being in it, not about the order of the others.
     called = recipe.split("\ncheck:", 1)[1].splitlines()[0].split()
     assert "test" in called and "lint" in called and "security" in called, called
-    assert "\ntest:\n    uv run --with {{pytest}} pytest -q\n" in recipe
+    assert "\ntest:\n    uv run --with {{pytest}} --with {{xdist}} pytest -q -n auto\n" in recipe
