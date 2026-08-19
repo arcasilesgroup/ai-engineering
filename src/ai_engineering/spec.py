@@ -233,7 +233,8 @@ _SPAN = re.compile(r"`([^`]+)`")
 
 TASK_FIELDS = ("file", "check", "rollback", "done when")
 
-_TASK = re.compile(r"^\s*(\d+)\. \*\*(.+?)\*\*", re.M)
+_TASK = re.compile(r"^\s*(\d+[a-z]*)\. \*\*(.+?)\*\*", re.M)
+_HEADING = re.compile(r"^#{1,6} ", re.M)
 _FIELD = re.compile(
     r"\*\*(file|check|rollback|done when)\*\*:?(.*?)"
     r"(?=\*\*(?:file|check|rollback|done when)\*\*|\n\n|\Z)",
@@ -250,15 +251,28 @@ def plan_tasks(text: str) -> list[dict[str, str]]:
     beside a 53,831-byte specification, re-read once per task. That is the second problem
     the specification names and the one none of the first nine repairs touched.
 
-    A task is a numbered item whose title is bold, and its fields run to the next task or the
-    end. Returned as read, with no field invented: a task missing one comes back missing it,
-    because a parser that fills in blanks is a parser that hides them."""
+    A task is a numbered item whose title is bold — and the number may carry a letter, because
+    twenty-six of the tasks in this tree do: `39a` through `39u` and `52a` through `52c` in
+    spec 010, `6a` and `6b` in 011. Reading integers only found 90 of 116 and reported the
+    other twenty-six as absent rather than as unchecked, which is a gate describing its own
+    enumeration.
+
+    Its fields run to the next task or to the next heading, whichever comes first. Returned
+    as read, with no field invented: a task missing one comes back missing it, because a
+    parser that fills in blanks is a parser that hides them."""
 
     found: list[dict[str, str]] = []
     marks = list(_TASK.finditer(text))
     for at, mark in enumerate(marks):
         end = marks[at + 1].start() if at + 1 < len(marks) else len(text)
         block = text[mark.start() : end]
+        # And it stops at a heading too. A task's block ran to the next numbered item, so an
+        # amendment section or a block heading between two tasks sat inside the first one —
+        # and a `**file**` written in that prose was read as the task's file. No plan donates
+        # a field today; 011 carries four amendment sections and is one authoring pass away.
+        heading = _HEADING.search(block)
+        if heading:
+            block = block[: heading.start()]
         task: dict[str, str] = {"task": mark.group(1), "title": " ".join(mark.group(2).split())}
         for name, value in _FIELD.findall(block):
             task.setdefault(name, " ".join(value.split()).lstrip(": ").rstrip("."))
@@ -316,14 +330,22 @@ def _envelope(home: Path, wanted: str, named: dict[str, str]) -> outcome.Result:
             f"  no task {wanted} in {home.name}: it has {', '.join(one['task'] for one in tasks)}"
         )
         return outcome.result("INCOMPLETE")
-    missing = [field for field in TASK_FIELDS if field not in found]
+    # `.get`, not `in`. A bolded field marker with no value after it parses to an empty
+    # string, and testing for the key printed an envelope with blank lines where the file
+    # and the rollback should be — a partial envelope, which the paragraph above forbids.
+    missing = [field for field in TASK_FIELDS if not found.get(field)]
     if missing:
         print(f"  task {wanted} of {home.name} carries no {', '.join(missing)}")
         return outcome.result("INCOMPLETE")
 
+    # Verified only when the caller named the digest. With no digest named this check
+    # proves nothing, and an envelope silent about the difference is one nobody can audit —
+    # so it says which of the two happened rather than refusing the ordinary case, where a
+    # person reading their own plan has no digest to hand.
     print(f"  task: {found['task']}  {found['title']}")
-    print(f"  spec: {_digest(home / 'spec.md')}")
-    print(f"  plan: {_digest(plan)}")
+    for what, path in (("spec", home / "spec.md"), ("plan", plan)):
+        seal = " (verified)" if named.get(what) else ""
+        print(f"  {what}: {_digest(path)}{seal}")
     for field in TASK_FIELDS:
         print(f"  {field}: {found[field]}")
     return outcome.result("PASS")
@@ -790,7 +812,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     shown.add_argument("id", type=_argument(re.compile(r"^[0-9]+$"), "spec id"))
     # Options on `show` rather than a sixth subcommand: the verb's closed list of five is
     # pinned in four places and the ten verbs are the product's shape, not a convenience.
-    shown.add_argument("--task", type=_argument(re.compile(r"^[0-9]+$"), "task number"))
+    shown.add_argument("--task", type=_argument(re.compile(r"^[0-9]+[a-z]*$"), "task number"))
     shown.add_argument("--spec-digest", default="")
     shown.add_argument("--plan-digest", default="")
     listed = sub.add_parser("list")
