@@ -15,7 +15,23 @@ rules:
     # file count is the proof-of-work `just counts` prints.
     pattern-regex: '#\s*(noqa|nosec|type:\s*ignore|fmt:\s*off|pragma:\s*no\s*cover)|//\s*(@ts-ignore|nolint|NOSONAR|eslint-disable|swiftlint:disable)|@SuppressWarnings|#pragma\s+warning\s+disable|#\s*rubocop:disable|//\s*phpcs:ignore'
     paths:
-      exclude: ["policy/semgrep.yml"]  # a rule cannot be scanned by itself
+      # `generic` is deliberate — a rule that forbids something in every language and is
+      # declared for one scans zero targets elsewhere. The cost of `generic` is that it
+      # matches inside prose as readily as inside code, and this repository's prose is
+      # largely *about* suppressions: a specification arguing why `# type: ignore` is
+      # refused failed the security gate for containing the phrase it was refusing. A
+      # suppression is only a suppression where a linter reads it, so the documentation
+      # homes are out of scope. Excluding them narrows where the rule looks and never what
+      # it forbids; no source file is excluded here.
+      exclude:
+        - "policy/semgrep.yml"  # a rule cannot be scanned by itself
+        - "specs/"
+        - "docs/"
+        - "CHANGELOG.md"
+        - "AGENTS.md"
+        - "CONSTITUTION.md"
+        - "README.md"
+        - ".ai/"
 
   - id: shell-with-user-string
     languages: [python]

@@ -156,7 +156,7 @@ BASELINE = (
         rules=Path("policy/semgrep.yml"),
         # Moved deliberately when the rules change, and a test says so with the command that
         # prints the new value. A pin nobody has to update is a pin nobody notices missing.
-        rules_digest="81adf3bdbd24ca883bbc75d659e9a44ba0967ef4c4445628bb78f63f85a26c2a",
+        rules_digest="5eb15f234e3989727a933e6689f0fc03e7397c7880e4db6b23e60a863987e223",
         extra=("--config", "policy/semgrep.yml", "--error", "--quiet"),
         sarif=("--sarif-output", "{}"),
     ),
