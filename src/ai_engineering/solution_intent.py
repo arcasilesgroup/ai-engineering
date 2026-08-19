@@ -816,7 +816,11 @@ def main(argv: list[str]) -> int:
     return 0 if fresh else 1
 
 
-if __name__ == "__main__":  # pragma: no cover - the entry point, exercised by the gate
+# No coverage pragma here. Every other entry point in this repository carries one and
+# they all live under `tests/`, which the semantic lane does not scan; `src/` is held to
+# rule 3, and the lane found this the moment it shipped. Three uncovered lines against
+# eight points of slack under the floor is cheaper than a suppression comment.
+if __name__ == "__main__":
     import sys
 
     raise SystemExit(main(sys.argv[1:]))
