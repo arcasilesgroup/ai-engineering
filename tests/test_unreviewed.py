@@ -31,8 +31,9 @@ def test_the_hand_offs_are_read_from_the_record_and_not_written_here():
     found = unreviewed.blocks()
 
     assert len(found) >= 3, f"{found} — three blocks have closed and each names both ends"
-    for name, base, head in found:
+    for name, base, head, looked in found:
         assert name and base and head, (name, base, head)
+        assert looked, f"Block {name}'s hand-off names no reviewer"
 
 
 def test_a_range_this_clone_cannot_resolve_credits_nothing(monkeypatch):
@@ -40,7 +41,7 @@ def test_a_range_this_clone_cannot_resolve_credits_nothing(monkeypatch):
     the whole history — a report that credits every commit to a review nobody ran is worse
     than no report, because it is confident."""
 
-    monkeypatch.setattr(unreviewed, "blocks", lambda: [("Ghost", "0" * 40, "0" * 40)])
+    monkeypatch.setattr(unreviewed, "blocks", lambda: [("Ghost", "0" * 40, "0" * 40, True)])
 
     assert unreviewed.reviewed() == set()
 
@@ -53,3 +54,31 @@ def test_a_missing_audit_leaves_every_commit_unreviewed(monkeypatch, tmp_path):
 
     assert unreviewed.blocks() == []
     assert unreviewed.reviewed() == set()
+
+
+def test_a_hand_off_that_names_no_reviewer_credits_nothing(monkeypatch, capsys):
+    """The loophole this opened and had to close in the same commit.
+
+    Writing a hand-off is typing a table. If the derivation credited every table, anybody
+    could clear this whole report by adding one — a range would read as reviewed because a
+    document said a block closed there, which is the exact substitution of a record for the
+    thing it records that this repository keeps finding.
+
+    So the reviewer's own row decides. "none", "pending" and an empty cell are all somebody
+    saying nobody looked, and a block is credited only where the disposition says a person
+    found something or found nothing.
+    """
+
+    real = unreviewed.blocks()[0]
+    monkeypatch.setattr(unreviewed, "blocks", lambda: [(real[0], real[1], real[2], False)])
+
+    assert unreviewed.reviewed() == set()
+    assert "names no reviewer" in capsys.readouterr().out
+
+
+def test_the_words_for_nobody_having_looked_include_the_empty_cell():
+    """An empty cell is the most likely way this arrives: a table copied from another block
+    with the row left to fill in. It must read as nobody, not as an answer nobody parsed."""
+
+    assert "" in unreviewed.NOBODY
+    assert "none" in unreviewed.NOBODY and "pending" in unreviewed.NOBODY

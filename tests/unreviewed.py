@@ -39,6 +39,14 @@ AUDIT = ROOT / "docs" / "audit-2026-08-16.md"
 # place for them to disagree.
 FIELD = re.compile(r"^\|\s*(base|final HEAD)\s*\|\s*`([^`]+)`\s*\|", re.M)
 
+# The reviewer's own row, read as free text because that is what it is. A hand-off can be
+# written for a range nobody reviewed — the table would be complete and every field filled —
+# and crediting it would let anybody clear this report by typing one table. So a block counts
+# only where the disposition says a person found something or found nothing, and these are the
+# words for having looked at all.
+DISPOSITION = re.compile(r"^\|\s*reviewer disposition\s*\|\s*([^|]*)\|", re.M)
+NOBODY = ("none", "not reviewed", "no review", "pending", "n/a", "-", "")
+
 
 def git(*args: str) -> str:
     done = subprocess.run(
@@ -47,8 +55,8 @@ def git(*args: str) -> str:
     return done.stdout if done.returncode == 0 else ""
 
 
-def blocks() -> list[tuple[str, str, str]]:
-    """Every closed block, as (name, base, final HEAD)."""
+def blocks() -> list[tuple[str, str, str, bool]]:
+    """Every hand-off on record, as (name, base, final HEAD, somebody looked)."""
 
     try:
         body = AUDIT.read_text(encoding="utf-8")
@@ -58,8 +66,10 @@ def blocks() -> list[tuple[str, str, str]]:
     for chunk in body.split("### Block ")[1:]:
         name = chunk.split("\n", 1)[0].split("—")[0].strip()
         fields = dict(FIELD.findall(chunk))
+        said = DISPOSITION.search(chunk)
+        looked = said is not None and said.group(1).strip().casefold() not in NOBODY
         if "base" in fields and "final HEAD" in fields:
-            found.append((name, fields["base"], fields["final HEAD"]))
+            found.append((name, fields["base"], fields["final HEAD"], looked))
     return found
 
 
@@ -72,7 +82,13 @@ def reviewed() -> set[str]:
     """
 
     covered: set[str] = set()
-    for _, base, head in blocks():
+    for name, base, head, looked in blocks():
+        if not looked:
+            # A hand-off whose reviewer row says nobody did is a record of a block that
+            # closed, not of a block that was reviewed. Counting it would make this report
+            # clearable by typing a table, which is the shape it exists to refuse.
+            print(f"    not credited  Block {name}: its hand-off names no reviewer")
+            continue
         span = git("rev-list", f"{base}..{head}").split()
         if span:
             covered.update(span)
@@ -93,7 +109,11 @@ def main(argv: list[str]) -> int:
     covered = reviewed()
     unreviewed = [one for one in on_branch if one not in covered]
 
-    print(f"  {len(blocks())} closed block(s) on record, covering {len(covered)} commit(s)")
+    reviewed_blocks = [one for one in blocks() if one[3]]
+    print(
+        f"  {len(blocks())} hand-off(s) on record, {len(reviewed_blocks)} naming a reviewer, "
+        f"covering {len(covered)} commit(s)"
+    )
     print(f"  {len(on_branch)} commit(s) on this branch, of which {len(unreviewed)} are")
     print("  UNREVIEWED — derived from the absence of a closed review, never written into one:")
     for one in unreviewed[:12]:
