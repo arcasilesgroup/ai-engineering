@@ -1324,6 +1324,33 @@ def test_the_examples_section_is_counted_by_what_it_holds():
     invented = SECTION.replace("`git diff --stat -- specs/x/plan.md`", "`frobnicate --all`")
     assert spec.examples_facts(invented) == (3, 3, 3, 0)
 
+    # The canonical division of labour — the action in When, the observation in Then — is
+    # the shape a reader writes without being told, and reading only the tail after `Then`
+    # refused it.
+    canonical = (
+        "## Examples somebody can check\n\n"
+        "Given a repo, When `just check` runs, Then it prints `2101 passed`.\n"
+    )
+    assert spec.examples_facts(canonical) == (1, 1, 1, 1)
+
+    # The section ends at the next heading, and this pins it: an example below `## Decisions`
+    # is not in the section. Without this the boundary is a mutant nobody kills, because no
+    # specification in the tree writes Given/When/Then after that heading.
+    assert spec.examples_facts(SECTION + "\nGiven z, When z, Then `git log` prints `z`.\n") == (
+        3,
+        3,
+        3,
+        1,
+    )
+
+    # A heading quoted in prose is not the section starting. 019 is a specification about
+    # this section and is one editing pass from writing it.
+    quoted = "# S\n\nWe follow `" + spec.EXAMPLES + "` here.\n\n" + SECTION
+    assert spec.examples_facts(quoted) == (3, 3, 3, 1)
+
+    # Carriage returns do not collapse the paragraphs into one.
+    assert spec.examples_facts(SECTION.replace("\n", "\r\n")) == (3, 3, 3, 1)
+
 
 def test_the_template_own_examples_prompt_is_not_executable():
     """The one collision worth pinning. Task 11 put a worked shape into the prompt, and if

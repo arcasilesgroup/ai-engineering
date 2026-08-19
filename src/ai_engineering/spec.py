@@ -244,7 +244,11 @@ def examples_facts(text: str) -> tuple[int, int, int, int]:
 
     if EXAMPLES not in text:
         return (0, 0, 0, 0)
-    body = text.split(EXAMPLES, 1)[1].split("\n## ", 1)[0]
+    # On the newline, because a specification that quotes this heading in prose before its
+    # own section would otherwise have the quote read as the section — and 019 is a
+    # specification about this section.
+    _, _, after = text.partition("\n" + EXAMPLES) if "\n" + EXAMPLES in text else ("", "", text)
+    body = after.split("\n## ", 1)[0].replace("\r\n", "\n")
 
     given = when = then = executable = 0
     for chunk in body.split("\n\n"):
@@ -254,16 +258,13 @@ def examples_facts(text: str) -> tuple[int, int, int, int]:
         then += flat.count("Then ")
         if "Then " not in flat:
             continue
-        spans = _SPAN.findall(flat.split("Then ", 1)[1])
-        named = next(
-            (
-                at
-                for at, span in enumerate(spans)
-                if span.split()[:1] and span.split()[0] in RUNNABLE
-            ),
-            None,
-        )
-        if named is not None and len(spans) > named + 1:
+        # The whole paragraph, not the tail after `Then`. The canonical division of labour
+        # puts the action in When and the observation in Then — "When `just check` runs, Then
+        # it prints `2101 passed`" — and reading only the tail refused it. What is required is
+        # a runnable command with at least one span after it, wherever the two sit.
+        spans = _SPAN.findall(flat)
+        heads = [(one.split() or [""])[0] for one in spans]
+        if any(head in RUNNABLE for head in heads[:-1]):
             executable += 1
     return (given, when, then, executable)
 
