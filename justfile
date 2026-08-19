@@ -17,11 +17,18 @@ trivy_version := "0.73.0"
 coverage := "coverage==7.15.4"
 mutmut := "mutmut==3.7.0"
 # The suite runs across the machine's cores. Measured on this tree: 158.89 s serial against
-# 61.72 s at the detected count, the same passed/skipped/failed counts, and a coverage total
-# that does not move. Never a literal above the core count — sixteen workers on eight cores
-# produced two failures nobody could name, and buying ten seconds with a gate people learn to
-# rerun is the trade this repository already refused once for the latency bound.
-xdist := "pytest-xdist==3.8.0"
+# 61.80-66.05 s at the detected count over three runs, the same passed/skipped/failed counts,
+# and a coverage total that does not move. Never a literal above the core count — sixteen
+# workers on eight cores produced two failures nobody could name, and buying ten seconds with
+# a gate people learn to rerun is the trade this repository already refused once for the
+# latency bound.
+#
+# The `psutil` extra is what makes that rule true rather than intended. Without it `auto`
+# counts logical CPUs, so on any machine with SMT it starts exactly the sixteen-on-eight
+# configuration the sentence above says produced failures nobody could name — and the machine
+# that measured this has no SMT, so it could never have noticed. A reviewer found it by
+# reading xdist's own resolver instead of our comment.
+xdist := "pytest-xdist[psutil]==3.8.0"
 # The same pin the workflow carries, and a test holds the two equal.
 mypy := "mypy==2.3.0"
 
@@ -93,8 +100,8 @@ security:
 # cost to every subprocess, and the dispatcher latency assertion is a security property
 # measured in milliseconds. Deselecting it here is the only relaxation allowed — moving
 # the floor down instead is the thing this recipe exists to make impossible.
-# The floor is 80, which is the number the operator asked for. Measured today is 95, so
-# there are fifteen points of slack and that is deliberate: this gate answers "did we keep
+# The floor is 80, which is the number the operator asked for. Measured today is 86, so
+# there are six points of slack and that is deliberate: this gate answers "did we keep
 # the promise", and a floor pinned to today's measurement answers "did anything move",
 # which is the ceiling's job and not this one.
 cover:
