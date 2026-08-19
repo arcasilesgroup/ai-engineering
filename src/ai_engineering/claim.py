@@ -174,7 +174,8 @@ def take(
             return _refused(
                 "CLAIM_TREE_BUSY",
                 f"this working tree already holds {standing or 'a claim nobody can read'}",
-                f"release it, or take {item} in its own `git worktree`",
+                f"delete .ai/claim.json when that work is finished, or take {item} "
+                "in its own `git worktree`",
             )
 
     claimant = uuid.uuid4().hex

@@ -279,6 +279,7 @@ def test_a_second_claim_in_one_working_tree_is_refused(tmp_path, remote):
     assert refused.error.code == "CLAIM_TREE_BUSY"
     assert "work-alpha" in refused.error.message
     assert "worktree" in refused.error.cure
+    assert ".ai/claim.json" in refused.error.cure
 
     # The refusal changed nothing: the file still names the first claim, and the second item
     # was never published, so somebody can still take it somewhere else.
