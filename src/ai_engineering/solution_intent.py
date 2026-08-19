@@ -23,10 +23,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ai_engineering import blocked as blocked_ledger
-from ai_engineering import contract, readiness, spec
+from ai_engineering import contract, outcome, readiness, spec
 
 
-class Unreadable(Exception):
+class Unreadable(outcome.Unreadable):
     """The tree could not be read, so there is nothing honest to render."""
 
 
@@ -549,14 +549,15 @@ def _waiting(rows: tuple[blocked_ledger.Row, ...], considered: int) -> str:
     if not rows:
         # Two sentences, because "nothing is waiting" and "nothing that was looked at said
         # enough" are different facts and only one of them is good news. The first version
-        # printed the first over the second, so a tree where twenty-eight candidates were all
-        # refused — several of which really do wait on a person — read as clear.
+        # printed the first over the second, so a tree where every candidate was refused —
+        # several of which really do wait on a person — read as clear.
         if not considered:
             return '  <p class="note">Nada espera a una persona ahora mismo.</p>'
+        one = "candidato" if considered == 1 else "candidatos"
         return (
-            f'  <p class="note">Ninguno de los {considered} candidatos que se miraron nombra '
-            "un literal que puedas copiar, así que no se pinta ninguno. Eso no quiere decir "
-            "que no haya nada esperando: quiere decir que nada dice qué hacer.</p>"
+            f'  <p class="note">Se miraron {considered} {one} y ninguno dice las cuatro '
+            "cosas, así que no se pinta ninguno. Eso no quiere decir que no haya nada "
+            "esperando: quiere decir que nada dice qué hacer.</p>"
         )
     body = ""
     for row in rows:
@@ -578,17 +579,19 @@ def _waiting(rows: tuple[blocked_ledger.Row, ...], considered: int) -> str:
             f"<td><code>{html.escape(row.action)}</code></td>"
             "</tr>"
         )
-    # The clause says the one thing true of every drop by construction. It used to say the
-    # other six "esperan al build, no a ti: son borradores sin plan todavía", which is the
-    # commonest reason and not the only one — a verdict with no note, a spec.md whose
-    # frontmatter nobody can read, and a recorded halt whose action was refused all land here
-    # too. The halt is the inversion that mattered: the section built so a stop reaches a
-    # person was telling the reader that the run's own halt is the build's problem. A true
-    # number with a false reason is the defect this repository has shipped four times.
+    # The clause states the invariant the collector actually enforces, which took three tries.
+    # It said the others "esperan al build: son borradores sin plan" — the commonest reason
+    # and not the only one. Then it said they "no nombran un literal que puedas copiar" — the
+    # fourth field, when `_rows` drops on any of the four: a draft with a plan and no `date`
+    # in its frontmatter has a perfect action and no `since`, and the page called it actionless.
+    #
+    # Both were the same mistake and it is the one this section exists to stop: a true number
+    # with a false reason. Five times now, by the count kept in `blocked.py` — twice inside
+    # the section written to prevent it.
     return f"""  <p class="note"><b>{len(rows)} de {considered}</b> · los otros
-  {considered - len(rows)} no nombran un literal que puedas copiar, así que no se pintan.
-  Casi siempre son borradores sin plan, que espera al build y no a ti; pero no siempre, y
-  por eso el total está aquí y no sólo la tabla.</p>
+  {considered - len(rows)} no dicen las cuatro cosas — qué espera, desde cuándo, por qué y
+  qué hacer — así que no se pintan. Casi siempre son borradores sin plan, que esperan al
+  build y no a ti; pero no siempre, y por eso el total está aquí y no sólo la tabla.</p>
   <div class="scroll"><table>
     <thead><tr><th>qué es</th><th>qué espera</th><th class="num">desde</th><th>por qué paró</th>
     <th>qué lo desbloquea</th></tr></thead>

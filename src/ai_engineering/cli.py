@@ -20,7 +20,7 @@ import uuid
 from datetime import UTC, datetime
 from types import ModuleType
 
-from ai_engineering import __version__, blocked, outcome, paths, solution_intent, wiring
+from ai_engineering import __version__, outcome, paths
 
 VERBS: dict[str, str] = {
     "init": "Set up this machine, and this repository if you say yes.",
@@ -507,15 +507,16 @@ def main(argv: list[str] | None = None) -> int:
         # be followed by two more lines of bookkeeping.
         interrupted = True
         code = 130
-    except (wiring.Unreadable, blocked.Unreadable, solution_intent.Unreadable) as why:
+    except outcome.Unreadable as why:
         # One place, because every verb that writes reads first. A file we cannot parse is
         # not an empty file, and the only safe thing to do with one is to stop and name it:
         # the alternative, which this used to do, is to treat it as empty and save over it.
         #
-        # Three classes, not one. The two added here are the same condition in two more
-        # readers, and reaching the handler below instead printed UNEXPECTED_ERROR over a
-        # refusal the code named on purpose — "rerun with --debug for the trace" for a file
-        # the operator has to go and fix.
+        # The base, not each module's own. Five readers had each named this condition for
+        # themselves and only `wiring`'s reached here, so a corrupt `docs/blocked.toml`
+        # printed UNEXPECTED_ERROR and "rerun with --debug for the trace" over a refusal the
+        # code named on purpose. Catching all five by listing them meant importing all five,
+        # which put twenty milliseconds on every verb including `--version`.
         sys.stderr.write(f"\n{why}\n")
         sys.stderr.write("Nothing was written. Fix that file, or move it aside and re-run.\n")
         paths.load("_emit").emit(verb, "error", error=repr(why))

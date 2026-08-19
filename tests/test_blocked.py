@@ -147,7 +147,7 @@ def test_a_verdict_says_since_when_or_the_whole_class_refuses(tmp_path):
 
     Refusing when the header stops saying it is deliberate. Dropped quietly, the count line
     would report seventeen items as waiting on the build when they are waiting on a person —
-    a true number with a false reason, which is the defect this repository has shipped four
+    a true number with a false reason, which is the defect this repository has shipped five
     times and the one `_rows` exists to stop.
     """
 

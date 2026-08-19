@@ -62,7 +62,7 @@ def _modules(path: str) -> set[str]:
     return {one for one in spellings if one}
 
 
-class Unreadable(Exception):
+class Unreadable(outcome.Unreadable):
     """A file whose edges cannot be worked out. Unknown is not none: scheduling two tasks
     in parallel on the strength of a file nobody could read is the fail-open direction."""
 

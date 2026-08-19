@@ -238,26 +238,47 @@ def test_a_row_with_no_action_is_absent_and_the_count_says_so():
     # And the clause, not the bare digit. `str(considered - len(blocked))` is "6" on this
     # tree, and every date cell in the table contains "2026" — so deleting the entire
     # disclosure paragraph left that assertion passing on a substring of a date.
-    assert f"{tree.considered - len(tree.blocked)} no nombran un literal" in " ".join(
+    assert f"{tree.considered - len(tree.blocked)} no dicen las cuatro cosas" in " ".join(
         section.split()
     )
 
 
 def test_a_tree_with_nothing_waiting_says_so_in_a_sentence():
-    """Zero rows is not an empty table. A table with a header and no body reads as broken;
-    the answer to "what is waiting for me" being "nothing" is a sentence."""
+    """Zero rows is not an empty table, and two different zeros are not the same sentence.
+
+    Nothing looked at is good news. Twenty-eight looked at and every one refused is not: some
+    of those really do wait on a person, and a page that answered both with "nada espera a una
+    persona" would be asserting the headline over a tree it had just failed to read.
+
+    Both branches are asserted on their distinguishing words. The first version tested only
+    the first and looked for "nada", which is a substring of the second sentence too — so
+    deleting one branch entirely left the suite green.
+    """
 
     import dataclasses
 
-    tree = dataclasses.replace(solution_intent.read(ROOT), blocked=(), considered=0)
-    section = (
-        solution_intent.render(tree)
-        .split('<section id="bloqueos">', 1)[1]
-        .split("</section>", 1)[0]
-    )
+    def section(considered: int) -> str:
+        tree = dataclasses.replace(solution_intent.read(ROOT), blocked=(), considered=considered)
+        return (
+            solution_intent.render(tree)
+            .split('<section id="bloqueos">', 1)[1]
+            .split("</section>", 1)[0]
+        )
 
-    assert "<table>" not in section
-    assert "nada" in section.lower()
+    clear = section(0)
+    assert "<table>" not in clear
+    assert "Nada espera a una persona ahora mismo." in clear
+    assert "cuatro cosas" not in clear
+
+    refused = section(28)
+    assert "<table>" not in refused
+    assert "Se miraron 28 candidatos" in refused
+    assert "ninguno dice las cuatro cosas" in refused
+    assert "no quiere decir que no haya nada esperando" in refused
+
+    # One candidate is one candidato. A count line that cannot count to one reads as
+    # generated, and this one is the first thing a person sees on the page.
+    assert "1 candidato y" in section(1)
 
 
 def test_a_hostile_row_cannot_reach_the_page_unescaped():
@@ -287,10 +308,14 @@ def test_a_hostile_row_cannot_reach_the_page_unescaped():
         .split("</section>", 1)[0]
     )
 
+    # Every cell, not the three a hand-written assertion happened to name. Removing
+    # `html.escape` one cell at a time, the first version caught `id`, `why` and `action` and
+    # missed `what` and `since` — and `what` is the one that comes straight from argv.
+    for cell in (hostile.id, hostile.what, hostile.since, hostile.why, hostile.action):
+        assert cell not in section, cell
     assert "<script>" not in section
     assert "<img" not in section
     assert "&lt;script&gt;alert(document.domain)&lt;/script&gt;" in section
-    assert "&amp; more" in section
 
 
 def test_every_kind_the_collector_can_return_has_a_label():

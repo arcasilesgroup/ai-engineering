@@ -23,7 +23,7 @@ RECEIPTS = Path(".ai") / "receipts"
 MAX_STAGED_BYTES = 400_000
 
 
-class Unreadable(Exception):
+class Unreadable(outcome.Unreadable):
     """Git was asked something and did not answer it."""
 
 

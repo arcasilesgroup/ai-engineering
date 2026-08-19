@@ -22,7 +22,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-from ai_engineering import __version__, paths
+from ai_engineering import __version__, outcome, paths
 
 MARK = "ai-engineering"  # rendered into Codex's status message, and hashed there
 
@@ -110,7 +110,7 @@ def holds_ours(root: Path, store: Path, copied: set[str]) -> bool:
     return False
 
 
-class Unreadable(Exception):
+class Unreadable(outcome.Unreadable):
     """A file that is there and cannot be read. Absent is an answer; unreadable is not."""
 
 

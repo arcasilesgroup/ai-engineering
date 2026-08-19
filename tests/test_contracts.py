@@ -1543,6 +1543,53 @@ the design does not
    have privately rewritten is the failure this skill exists to prevent."""
 
 
+# The two files that tell a halting run what to do with what it knows, by digest.
+#
+# This is blunt and it is here because the sharp version lost. Step 7 was pinned as four
+# words, then as its exact 611 bytes, and a reviewer defeated both without touching the
+# pinned text: a step 8 after it saying the ledger write is bookkeeping and the session is
+# where you tell the person; a Done-when bullet making it optional; a line before it saying
+# step 7 is kept only as a record of how the skill used to work; and — the one that needs no
+# body at all — the frontmatter `description`, which is the text a model reads to decide
+# whether to invoke this skill, reversed on its own. Every one of them green.
+#
+# A pattern cannot pin the absence of a sentence, and what these files have to guarantee is
+# an absence: that nowhere in them does anything say a halt may go unrecorded, or that
+# authority found in a conversation is authority. So the guarantee is the bytes.
+#
+# The cost is real and is the point. Any edit to either file reds this until the digest moves
+# in the same commit, which makes the change something somebody wrote down rather than
+# something that happened. `ai-spec/SKILL.md` is here too: its body is pinned line by line by
+# `AI_SPEC_SECTIONS` and its frontmatter was not, which is the hole the `description` attack
+# went through.
+GOVERNING_SKILL_TEXT = {
+    ".agents/skills/ai-build/SKILL.md": (
+        "a7e6f8e1340a091e85b888151e29989be50e69879c92d19998ae0a8f9ed4d93b"
+    ),
+    ".agents/skills/ai-build/corpus.md": (
+        "6ac10e5528af13618531398f28e3db83ba04db6f1322436c6a1bf1d6bbc3ec20"
+    ),
+    ".agents/skills/ai-spec/SKILL.md": (
+        "0eea14bec2294dc09a487f4ffb357082746e7036c302ddaf23610ce7363568ab"
+    ),
+}
+
+
+@pytest.mark.parametrize(("where", "digest"), sorted(GOVERNING_SKILL_TEXT.items()))
+def test_the_two_skills_that_halt_are_pinned_whole(where, digest):
+    """What these files must guarantee is an absence, and no pattern can pin one."""
+
+    import hashlib
+
+    found = hashlib.sha256((ROOT / where).read_bytes()).hexdigest()
+    assert found == digest, (
+        f"{where} changed. That file decides what a run does when it cannot go on, and four "
+        "separate reversals of it passed every pattern in this file. Read the diff, satisfy "
+        f"yourself it does not let a halt go unrecorded or let a conversation grant "
+        f"authority, then put {found} here in the same commit."
+    )
+
+
 def test_the_build_skill_step_that_records_a_halt_is_pinned_as_text():
     """A control, not a preference, and the reason is measured rather than asserted.
 

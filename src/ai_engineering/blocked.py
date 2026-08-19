@@ -24,6 +24,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from ai_engineering import outcome
+
 # The four, named once. Read by the collector, by the renderer and by the subcommand that
 # writes a stop, so a fifth field cannot be added to one of them and forgotten in the others.
 FIELDS = ("what", "since", "why", "action")
@@ -103,7 +105,7 @@ _ESCAPES = {
 }
 
 
-class Unreadable(Exception):
+class Unreadable(outcome.Unreadable):
     """The record of what is stuck could not be read, so nothing about it is known."""
 
 
@@ -244,7 +246,7 @@ def _verdicts(root: Path) -> tuple[list[Row], list[str]]:
     A header that stops saying when it was measured refuses rather than dropping seventeen
     rows quietly. Dropped, the count line would report them as waiting on the build when they
     are waiting on a person — a true number with a false reason, which is the bug this
-    repository has now shipped four times.
+    repository has now shipped five times.
     """
 
     where = root / "docs" / "requirements.toml"
