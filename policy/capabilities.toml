@@ -295,6 +295,31 @@ enforcement = ["preflight.read", "preflight.write", "preflight.exec"]
 proof_requirements = { allow = ["ai-report.intent.allow"], deny = ["ai-report.intent.deny"], installed_artifact = true }
 
 [[capabilities.modes]]
+id = "blocked"
+# One row appended to one committed file, written by a run that is about to stop. No network,
+# no secrets, and no keyboard — which is the whole point rather than an oversight: a human
+# gate on the record that says a human is needed would have to be cleared by the person who
+# has not seen it yet, and the run cannot wait for them. That is the deadlock specification
+# 020 exists to remove, so gating this would reintroduce it in the one place it must not be.
+#
+# It grants nothing. A row states a gate that was reached and what is missing; nothing here
+# can record that the missing thing arrived, so a run cannot write itself an approval.
+#
+# `docs`, not `.`, and the manifest is what found it: two modes of one capability may not
+# carry the same permissions, and the first draft of this row was a copy of `intent`'s. The
+# schema was right. `intent` renders the whole tree and needs to read all of it; this reads
+# one file and writes it back, so declaring the tree would have been a permission taken for
+# symmetry rather than for a use.
+read_roots = ["docs"]
+write_roots = ["docs"]
+exec_allowlist = [{ executable = "git", argument_pattern = "repository.read" }]
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec"]
+proof_requirements = { allow = ["ai-report.blocked.allow"], deny = ["ai-report.blocked.deny"], installed_artifact = true }
+
+[[capabilities.modes]]
 id = "issue"
 read_roots = [".ai/reports"]
 write_roots = [".ai/issue"]

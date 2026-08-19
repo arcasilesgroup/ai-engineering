@@ -15,7 +15,18 @@ from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
-from ai_engineering import accept, doctor, issue, outcome, paths, solution_intent, surface
+from ai_engineering import (
+    accept,
+    doctor,
+    issue,
+    outcome,
+    paths,
+    solution_intent,
+    surface,
+)
+from ai_engineering import (
+    blocked as ledger,
+)
 
 
 def within(events: list[dict], days: int) -> list[dict]:
@@ -225,6 +236,31 @@ def report_issue(root: Path | None, args: argparse.Namespace) -> outcome.Result 
     )
 
 
+def record_stop(root: Path | None, args: argparse.Namespace) -> outcome.Result:
+    """Write the halt down before halting.
+
+    Every refusal here returns rather than raises. This runs when a build is already failing,
+    and a recorder that throws while recording a stop turns a halt into a crash — the crash
+    being what the person then reads instead of the record.
+    """
+
+    if root is None:
+        print("  INCOMPLETE  this is not a git repository, so there is nowhere to record it")
+        return outcome.result("INCOMPLETE")
+    try:
+        where = ledger.record(
+            root, what=args.what, why=args.why, action=args.action, since=args.since
+        )
+    except (OSError, ledger.Unreadable) as refused:
+        print(f"  INCOMPLETE  the stop could not be recorded: {refused}")
+        return outcome.result("INCOMPLETE")
+    print(f"  recorded in {where.relative_to(root)}")
+    print(f"    {args.what}")
+    print(f"    since {args.since} — {args.why}")
+    print(f"    {args.action}")
+    return outcome.result("PASS")
+
+
 def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     parser = argparse.ArgumentParser(prog="ai-eng report")
     commands = parser.add_subparsers(dest="command")
@@ -243,7 +279,19 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     # something the caller did not name.
     page = commands.add_parser("intent")
     page.add_argument("--html", action="store_true", required=True)
+    # Three required, and the third is the reason this exists. A run that can say it stopped
+    # but not what would unstick it has recorded a complaint, and the section this feeds
+    # refuses complaints. `--since` defaults because a halt happening now is the ordinary
+    # case and the field is only interesting when a record is being backfilled.
+    halt = commands.add_parser("blocked")
+    halt.add_argument("--what", required=True)
+    halt.add_argument("--why", required=True)
+    halt.add_argument("--action", required=True)
+    halt.add_argument("--since", default=date.today().isoformat())
     args = parser.parse_args(argv)
+
+    if args.command == "blocked":
+        return record_stop(paths.repo_root(), args)
 
     if args.command == "surfaces":
         return surfaces(paths.repo_root())
@@ -271,28 +319,30 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     root = paths.repo_root()
     events = within(doctor.events(root), 7 * args.weeks)
     sessions = {e.get("session") for e in events}
-    blocked = by_reason(events, "blocked")
+    # Not `blocked`: this module now imports the ledger of the same name, and a local
+    # binding anywhere in this function would shadow it everywhere in this function.
+    blocked_calls = by_reason(events, "blocked")
     bypassed = by_reason(events, "bypassed")
     seen_commands = Counter(e["name"] for e in events if e.get("cls") == "command")
     errors = [e for e in events if e.get("cls") == "error"]
     check_facts = [
         outcome.fact("sessions", "OBSERVED", "Sessions observed", str(len(sessions))),
-        outcome.fact("blocked", "OBSERVED", "Calls blocked", str(sum(blocked.values()))),
+        outcome.fact("blocked", "OBSERVED", "Calls blocked", str(sum(blocked_calls.values()))),
         outcome.fact("bypassed", "OBSERVED", "Guard bypasses", str(sum(bypassed.values()))),
     ]
 
     since = (date.today() - timedelta(days=7 * args.weeks)).isoformat()
     print(f"\nWeek of {since}{'':>30}{len(sessions)} sessions\n")
 
-    print(f"  Blocked {sum(blocked.values())} times:")
-    for label, count in blocked.most_common(6):
+    print(f"  Blocked {sum(blocked_calls.values())} times:")
+    for label, count in blocked_calls.most_common(6):
         print(f"    {count}× {label}")
         check_facts.append(
             outcome.fact(
                 f"blocked-{len(check_facts)}", "OBSERVED", "Blocked call", f"{count}× {label}"
             )
         )
-    if not blocked:
+    if not blocked_calls:
         print("    nothing. Either a quiet week, or a control that is no longer firing —")
         print("    assertion 7 is what tells the two apart.")
 
@@ -391,8 +441,9 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     return outcome.execution(
         outcome.result("PASS"),
         summary=(
-            f"Digest since {since}: {len(sessions)} sessions, {sum(blocked.values())} blocked, "
-            f"{sum(bypassed.values())} bypassed and {len(errors)} errors"
+            f"Digest since {since}: {len(sessions)} sessions, "
+            f"{sum(blocked_calls.values())} blocked, {sum(bypassed.values())} bypassed "
+            f"and {len(errors)} errors"
         ),
         changes=[
             outcome.fact("digest-read-receipt", "APPLIED", "Updated the local digest read receipt")

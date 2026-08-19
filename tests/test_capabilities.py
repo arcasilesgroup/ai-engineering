@@ -270,7 +270,7 @@ def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
         "ai-review": ["default"],
         "ai-verify": ["default"],
         "ai-note": ["default"],
-        "ai-report": ["digest", "intent", "issue"],
+        "ai-report": ["digest", "intent", "blocked", "issue"],
         "ai-ship": ["commit", "pull-request"],
     }
 

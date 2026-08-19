@@ -18,6 +18,7 @@ never records that the missing thing arrived.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import tomllib
 from dataclasses import dataclass
@@ -28,6 +29,18 @@ from pathlib import Path
 FIELDS = ("what", "since", "why", "action")
 
 LEDGER = Path("docs") / "blocked.toml"
+
+HEADER = """# What is waiting for a person, written by the run that stopped.
+#
+# Each row states a gate that was reached and what is missing. Nothing here records that the
+# missing thing arrived: a model reading approval out of a conversation is what the
+# constitution forbids, and a ledger that could clear itself would be worse than none.
+#
+# Written by `ai-eng report blocked`. Rendered by the section at the top of
+# `docs/solution-intent.html`. Rows are keyed by what is waiting, so the same gate reached
+# twice is one row with a newer reason and the date of the first halt.
+
+"""
 
 
 class Unreadable(Exception):
@@ -203,3 +216,43 @@ def considered(root: Path) -> int:
 
     shown, dropped = collect(root)
     return len(shown) + len(dropped)
+
+
+def record(root: Path, *, what: str, why: str, action: str, since: str) -> Path:
+    """Write one halt into the ledger, or refresh the one already there.
+
+    The identity is what is waiting. A build that halts twice at the same gate is one row
+    with a newer reason, because two rows would make the section count one stop as two — and
+    the date stays the date of the first halt, since "since when" is the question the column
+    asks and refreshing it on every retry would make a week-old block look new.
+
+    Serialised here rather than through a library because the shape is four strings and a
+    name, and a dependency for that is a dependency to keep pinned, audit and explain.
+    """
+
+    where = root / LEDGER
+    held, _ = stops(root)
+    already = next((row for row in held if row.what == what), None)
+    entry = Row(
+        kind="halt",
+        id=already.id if already else _name(what),
+        what=what,
+        since=already.since if already else since,
+        why=why,
+        action=action,
+    )
+    kept = [row for row in held if row.what != what]
+    body = "".join(
+        "[[stop]]\n"
+        + "".join(f"{field} = {json.dumps(getattr(row, field))}\n" for field in ("id", *FIELDS))
+        + "\n"
+        for row in [*kept, entry]
+    )
+    where.write_text(HEADER + body, encoding="utf-8")
+    return where
+
+
+def _name(what: str) -> str:
+    """A stable id from the thing that is waiting, so the same gate reached twice collides."""
+
+    return re.sub(r"[^a-z0-9]+", "-", what.lower()).strip("-")[:48] or "stop"
