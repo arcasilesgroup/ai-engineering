@@ -389,22 +389,10 @@ reason = "a grade-level gate on prose is a check on style. The jargon ban is the
 reopen_when = "a readability measure exists that a person disagreeing with it can argue against"
 
 [[ungated]]
-id = "EP-179"
-asks = "a snapshot as a contract term separate from freshness"
-reason = "the checkpoint already carries freshness and the merge gate already carries final combination; a third word for the same two facts is vocabulary, not a control."
-reopen_when = "two writers need to agree on a state neither freshness nor combination describes"
-
-[[ungated]]
 id = "EP-305"
 asks = "names express intention"
 reason = "a judgement about language. The half that executes is the other clause of the same requirement: an error carries its cause and its cure, asserted in `test_doctor.py` and `test_outcomes.py`."
 reopen_when = "a naming rule exists that is not a preference"
-
-[[ungated]]
-id = "EP-324"
-asks = "no code before an approved plan"
-reason = "`hooks/change_scope_guard.py` reads whether a plan exists on the branch, which is the weaker of the two questions and the only one a hook can answer inside its latency budget. Approval here is an MADR naming an exact digest; no plan in this repository has one, so a guard demanding it would deny every write on every branch including the one writing the plan."
-reopen_when = "a plan is approved by digest in an accepted MADR, so the guard has something to read that is not itself"
 
 [[ungated]]
 id = "EP-262"
@@ -489,7 +477,12 @@ reopen_when = "a skill's output becomes an artefact a command can read, rather t
 [[ungated]]
 id = "EP-168"
 asks = "a human answer outranks an inference when a person is reachable"
-reason = "no code detects an interactive channel, and one that guessed would be wrong in both directions: a pipe is not proof nobody is there, and a terminal is not proof somebody is."
+reason = """the half that could be coded is coded and was already: every question goes \
+through `accept.controlling_terminal_response`, which reads the OS controlling terminal and \
+refuses `isatty`, a flag, an environment value and piped stdin because a script supplies each. \
+This row's earlier reason said no code detects an interactive channel, which was false when it \
+was written and stayed on the page. What remains ungatable is the clause about which unknowns \
+are worth asking, and that is a judgement about a question nobody has asked yet."""
 reopen_when = "a surface reports whether a person is present, rather than the process inferring it"
 
 [[ungated]]

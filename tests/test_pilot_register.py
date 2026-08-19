@@ -431,3 +431,34 @@ def test_no_ungated_row_is_held_by_a_condition_that_has_already_fired():
         "nobody re-read. Remove the row and grade the requirement, or say why the condition "
         "means something narrower than the file existing."
     )
+
+
+def test_nothing_the_ledger_proves_is_listed_here_as_ungatable():
+    """Two documents about the same requirements, and nothing compared them.
+
+    `ungated` says a requirement is held by a written reason because no gate can hold it.
+    `docs/requirements.toml` says PROVEN when a command decides it. Both cannot be true of one
+    id, and both were: `EP-179` and `EP-324` sat in this list while the ledger proved them —
+    `EP-324` still carried a reason explaining that only the weaker of its two questions was
+    checkable, written before the reader for the stronger one existed.
+
+    That is the same shape as a reopening condition nobody re-read, one document over. A
+    refusal is only honest while nothing has answered it, and the answer arrives in the other
+    file.
+    """
+
+    import tomllib
+
+    ledger = tomllib.loads((ROOT / "docs" / "requirements.toml").read_text(encoding="utf-8"))
+    graded = {row["id"]: row["verdict"] for row in ledger["requirement"]}
+
+    contradicted = [
+        row["id"] for row in register().get("ungated", []) if graded.get(row["id"]) == "PROVEN"
+    ]
+
+    assert not contradicted, (
+        f"{contradicted} are listed here as held by a reason because no gate can hold them, "
+        "and the ledger proves each with a command. Remove the row, or regrade the "
+        "requirement — an ungated list that carries proven requirements is a refusal nobody "
+        "re-read after somebody answered it."
+    )
