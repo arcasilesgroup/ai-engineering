@@ -2020,8 +2020,8 @@ evidence = '''
 id = "EP-297"
 verdict = "INCOMPLETE"
 subject = "every wave gets its own admission gate, read mechanically rather than asserted"
-evidence = "python tests/pilot_register.py"
-note = "the P5 instance is real and runs in the gate; no other wave has one, and spec 015 is still draft"
+evidence = "pytest tests/test_wave.py; python tests/pilot_register.py"
+note = '''every wave has one now, and it was already written in every specification — the eight production-ready boxes under the sentence "nothing gets a URL until every box is ticked by observed evidence". Nothing read them. `tests/test_wave.py` reads the block out of each wave spec, refuses a wave carrying a different number of boxes than the others, and refuses any wave whose status claims it is finished while a box is unticked. It looks vacuous today because every wave is `draft` and claims nothing, which is exactly when it is worth writing: it fires on the first wave somebody marks shipped, the moment nobody is looking for an unticked box. Proved by marking spec 011 shipped and reading "0 of 8 boxes ticked". INCOMPLETE: this refuses a false claim of completion, and the P5 register does more — it refuses the claim and names every row nobody equipped. The other four waves have the refusal without the naming.'''
 
 [[requirement]]
 id = "EP-298"

@@ -167,3 +167,65 @@ def test_an_emptied_intent_is_unknown_and_unknown_is_one(coordinated):
         encoding="utf-8",
     )
     assert spec.main(["wave", "--surface-width", "4"]).summary == "width: 2"
+
+
+# The eight boxes every wave specification carries, and the statuses that claim a wave is
+# finished. `draft` and `proposed` claim nothing; the rest do.
+BOXES = 8
+CLAIMS_DONE = ("shipped", "accepted", "active", "done")
+
+
+def _waves():
+    """Every wave specification with its status and how many boxes it has ticked."""
+
+    import re
+
+    root = Path(__file__).resolve().parents[1]
+    for folder in sorted((root / "specs").glob("0*/")):
+        spec = folder / "spec.md"
+        if not spec.is_file():
+            continue
+        body = spec.read_text(encoding="utf-8")
+        if "## Production-ready" not in body:
+            continue
+        status = re.search(r"(?m)^status:\s*(\S+)", body)
+        block = body.split("## Production-ready", 1)[1].split("\n## ", 1)[0]
+        ticked = len(re.findall(r"(?m)^- \[x\]", block))
+        total = len(re.findall(r"(?m)^- \[[ x]\]", block))
+        yield folder.name, (status.group(1) if status else "?"), ticked, total
+
+
+def test_every_wave_carries_the_same_eight_boxes():
+    """`EP-297` asks that every wave get its own admission gate, read mechanically rather
+    than asserted. The boxes are that gate in data form, and until now nothing read them —
+    the P5 register was the only wave with a claim anything could refuse.
+
+    Read here rather than declared, so a wave that quietly ships seven boxes instead of eight
+    is a wave whose gate got smaller without anybody deciding it should."""
+
+    found = list(_waves())
+
+    assert found, "no specification carries a production-ready block, so this read nothing"
+    thin = [(name, total) for name, _, _, total in found if total != BOXES]
+    assert not thin, f"these waves carry a different number of boxes: {thin}"
+
+
+def test_no_wave_claims_to_be_finished_over_an_unticked_box():
+    """The refusal, and the reason it looks vacuous today: every wave is `draft`, so every
+    one of them claims nothing and passes. That is the honest state and it is exactly when
+    this is worth writing — the case fires on the first wave somebody marks shipped, which is
+    the moment nobody is looking for an unticked box.
+
+    `Nothing gets a URL until every box is ticked by observed evidence` is the sentence each
+    specification opens that block with. This is that sentence, executed."""
+
+    claimed = [
+        f"{name} is {status} with {ticked} of {total} boxes ticked"
+        for name, status, ticked, total in _waves()
+        if status in CLAIMS_DONE and ticked < total
+    ]
+
+    assert not claimed, (
+        "; ".join(claimed) + ". Every specification says nothing gets a URL until every box "
+        "is ticked by observed evidence. Tick them, or say the wave is not finished."
+    )
