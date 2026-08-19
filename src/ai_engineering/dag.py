@@ -41,10 +41,25 @@ def _exclusive(path: str) -> str | None:
     return None
 
 
-def _module(path: str) -> str:
-    """`src/a/b.py` as `src.a.b`, which is what an import of it looks like."""
+def _modules(path: str) -> set[str]:
+    """Every spelling an import of this file can have.
 
-    return path.removesuffix(".py").replace("/", ".")
+    It used to return one — `src/a/b.py` as `src.a.b` — and that is the spelling a flat
+    layout uses. This repository is a src layout, so its own imports read
+    `from ai_engineering import claim`, whose module is `ai_engineering`, and nothing
+    matched: `edges` over `dag.py`, `claim.py` and `checkpoint.py` returned nothing at all
+    while the third imports the other two. The only spelling that worked was the one the
+    fixture happened to use.
+
+    So: the path with its separators as dots, the same with the source root stripped, and for
+    `from <package> import <name>` the package on its own — because that node names the
+    package and the module is the alias beside it.
+    """
+
+    stem = path.removesuffix(".py").removesuffix("/__init__")
+    dotted = stem.replace("/", ".")
+    spellings = {dotted, dotted.removeprefix("src.")}
+    return {one for one in spellings if one}
 
 
 class Unreadable(Exception):
@@ -68,6 +83,9 @@ def _imports(root: Path, path: str) -> set[str]:
             named.update(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
             named.add(node.module)
+            # `from pkg import mod` names the package, and the module is the alias. Both
+            # readings are kept because either can be the file another task owns.
+            named.update(f"{node.module}.{alias.name}" for alias in node.names)
     return named
 
 
@@ -93,7 +111,7 @@ def edges(root: Path, tasks: list[dict]) -> list[tuple[str, str]]:
                 for other in sorted(tasks, key=lambda task: str(task["item"])):
                     if str(other["item"]) == item:
                         continue
-                    if any(_module(each) == imported for each in other["paths"]):
+                    if any(imported in _modules(each) for each in other["paths"]):
                         found.add((str(other["item"]), item))
 
     # Two claims on one thing: neither has to be first, and both machines have to agree

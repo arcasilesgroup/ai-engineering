@@ -177,3 +177,28 @@ def test_the_recorded_order_is_a_fact_a_person_can_read(tmp_path):
     recorded = [fact for fact in result.checks if fact.id == "dag-order"]
 
     assert recorded and recorded[0].detail == "work-a, work-b"
+
+
+def test_a_package_import_puts_the_imported_file_first(tmp_path):
+    """The spelling this repository actually uses, which the edge reader could not see.
+
+    `_module` turned `src/ai_engineering/claim.py` into `src.ai_engineering.claim`, and the
+    syntax tree of `from ai_engineering import claim` yields the module `ai_engineering`.
+    Neither matched, so a src-layout package produced no import edges at all: over this
+    repository's own `dag.py`, `claim.py` and `checkpoint.py` — where the third imports the
+    other two — `edges` returned nothing, and a wave derived from it would have called them
+    independent. Unknown is not none, and this was worse: known and read as none.
+    """
+
+    from ai_engineering import dag
+
+    package = tmp_path / "src" / "pkg"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "base.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (package / "leaf.py").write_text("from pkg import base\n", encoding="utf-8")
+
+    tasks = [task("work-leaf", "src/pkg/leaf.py"), task("work-base", "src/pkg/base.py")]
+
+    assert ("work-base", "work-leaf") in dag.edges(tmp_path, tasks)
+    assert dag.sequence(dag.order(tmp_path, tasks)) == ["work-base", "work-leaf"]
