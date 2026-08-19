@@ -736,6 +736,10 @@ GATE_CONTROLS = {
     "skilleval": "tests/test_skill_eval.py mutates the corpus once per routing rule and "
     "asserts the harness refuses each one",
     "counts": "test_the_counts_this_repository_states_about_itself_are_the_counts_it_has",
+    "intent-page": "tests/test_solution_intent.py is five refusals and one pass — a page "
+    "somebody edited, a record that moved, a field rendered and not hashed, a number that "
+    "disagrees with the gate that enforces it, and a tree git cannot list — because this "
+    "recipe's whole value is the page it refuses to call fresh",
     "ran": "tests/test_ran_receipt.py is six refusals and one pass — no receipt, other "
     "content, a file edited after the run, a file added after it, a receipt naming no suite "
     "and one that is not JSON — because this recipe's whole value is when it writes nothing",
