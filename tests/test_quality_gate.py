@@ -736,6 +736,9 @@ GATE_CONTROLS = {
     "skilleval": "tests/test_skill_eval.py mutates the corpus once per routing rule and "
     "asserts the harness refuses each one",
     "counts": "test_the_counts_this_repository_states_about_itself_are_the_counts_it_has",
+    "unreviewed": "tests/test_unreviewed.py plants the one way the derivation could be "
+    "generous — a range whose ends this clone cannot resolve, which would credit every commit "
+    "to a review nobody ran — plus a missing record, which must leave everything unreviewed",
     "lenses": "tests/test_review_lenses.py plants the case the requirement is about — a "
     "stylesheet with no movement in it — and asserts it routes to frontend and not to motion, "
     "plus the inverse, plus a lens file with no row and a row with two rules",

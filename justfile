@@ -400,4 +400,12 @@ quick module:
 lenses base="main":
     @uv run python tests/review_lenses.py --base {{base}}
 
-check: build sbom lint typecheck test cover security register skilleval counts intent-page lenses ran
+# Which commits no closed block review covers, derived rather than written — the approved
+# plan forbids a commit message or metadata field from carrying that word. It reports and
+# never blocks: unreviewed is the ordinary state of work in flight, and a gate that failed on
+# it would demand a review before the block it belongs to has closed, which is the
+# amplification the block cadence exists to remove.
+unreviewed base="main":
+    @uv run python tests/unreviewed.py --since {{base}}
+
+check: build sbom lint typecheck test cover security register skilleval counts intent-page lenses unreviewed ran
