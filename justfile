@@ -337,6 +337,13 @@ counts:
     @echo "RAN lint=$(uv run --with {{ruff}} ruff format --check . | grep -oE '^[0-9]+')"
     @echo "RAN tests=$(uv run --with {{pytest}} pytest -q --collect-only 2>/dev/null | grep -cE '::')"
 
+# The page a person reads, and the one control that keeps it worth reading. It reports and
+# writes nothing: a gate that regenerated the document it was about to check would find it
+# fresh every time and assert nothing at all. Before `ran`, because that recipe writes the
+# receipt last and a check after it would record a run that had not finished.
+intent-page:
+    @uv run python -m ai_engineering.solution_intent --check
+
 # Close the line ceiling onto the tree, which is a fixed point and was being solved by hand.
 # The ceiling counts every committed line and is itself a committed line, so writing a value
 # changes what the value describes — measure, write, measure again, adjust. Fifty times in
@@ -386,4 +393,4 @@ quick module:
     @uv run --with {{pytest}} pytest -q tests/test_{{module}}.py
     @uv run python tests/ran_receipt.py record quick:{{module}}
 
-check: build sbom lint typecheck test cover security register skilleval counts ran
+check: build sbom lint typecheck test cover security register skilleval counts intent-page ran

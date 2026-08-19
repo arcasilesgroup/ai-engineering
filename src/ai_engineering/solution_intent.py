@@ -752,11 +752,27 @@ def write(root: Path, *, now: datetime | None = None) -> Path:
     return page
 
 
-if __name__ == "__main__":  # pragma: no cover - the one runnable check
-    import sys
+def main(argv: list[str]) -> int:
+    """`--check` reports and writes nothing; without it, regenerate.
 
-    here = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
+    Two modes and not one, because the gate must not repair what it is checking. A gate that
+    rewrites the page and then finds it fresh has asserted nothing at all, which is the shape
+    this whole repository is named for."""
+
+    here = Path(".")
+    if "--check" in argv:
+        fresh, why = staleness(here)
+        print(f"  {'PASS' if fresh else 'FAIL'}  {why}")
+        if not fresh:
+            print("  Next action: run `ai-eng report intent --html`, then read the diff.")
+        return 0 if fresh else 1
     written = write(here)
     fresh, why = staleness(here)
-    assert fresh, why
-    print(f"{written} — {why}")
+    print(f"  RAN intent-page={written}")
+    return 0 if fresh else 1
+
+
+if __name__ == "__main__":  # pragma: no cover - the entry point, exercised by the gate
+    import sys
+
+    raise SystemExit(main(sys.argv[1:]))
