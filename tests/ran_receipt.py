@@ -27,11 +27,24 @@ import json
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 # One home for the algorithm, and it is not this file. `checkpoint` has to decide whether the
 # executed-checks receipt is about the code in front of it, and the only receipt in this tree
 # bound to content is the one written here — but nothing under `src/` can import a file in
 # `tests/`, so leaving the digest here meant a second copy of a hash in a second file.
+# This runs as a command, not only under pytest: `commit-msg` invokes it with whatever
+# interpreter is to hand, and the mutation harness runs it from a copied tree that is not a
+# project at all. Neither has the package installed, so the import below died with
+# `ModuleNotFoundError` and the script exited non-zero — which `commit-msg` reads as "no
+# receipt" and writes no trailer for.
+#
+# That failure mode is the worst available: the instrument's breakage is indistinguishable
+# from its negative answer. A tree where the package cannot be imported would report that
+# nothing was ever run over anything, quietly and forever. `tests/pilot_register.py` carries
+# the same line for the same reason, and this one was written without it.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
 from ai_engineering.evidence import LISTING, RECEIPT_PARTS, content_digest, toplevel
 
 __all__ = ["LISTING", "RECEIPT_PARTS", "content_digest", "toplevel"]
