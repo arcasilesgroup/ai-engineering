@@ -1208,10 +1208,10 @@ note = "one half is executed code; the self-challenge is prose"
 
 [[requirement]]
 id = "EP-176"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "self-grant refused, and publication, secrets and deploy stay gated"
-evidence = "pytest tests/test_record.py::test_an_agent_cannot_grant_itself_a_bypass; pytest tests/test_executor.py -k secret"
-note = "self-grant and publication were already real, and the note saying there was no secrets gate is now stale: `executor.Sandbox.secret` hands over only a declared secret, under a human gate for the modes that publish, and never puts its value in a refusal or a record. Deploy is what remains, and there is still no deploy verb to gate"
+evidence = "pytest tests/test_record.py::test_an_agent_cannot_grant_itself_a_bypass tests/test_mut_outward.py; pytest tests/test_executor.py -k secret"
+note = '''all four halves execute. Self-grant is refused and tested; `executor.Sandbox.secret` hands over only a declared secret and never puts its value in a refusal or a record; every declared mode that carries a secret, names a destination or writes an outward purpose must declare a human gate other than `never`, and the case refuses to pass over an empty scan. Deploy is proven by absence, executed rather than asserted: nothing declares a deploy purpose today, and the case that says so fails the day one appears and tells whoever added it which requirement it answers to. An absence nothing watches is indistinguishable from a gap nobody has noticed yet, which is why the row could not close on the sentence it carried before.'''
 
 [[requirement]]
 id = "EP-177"
