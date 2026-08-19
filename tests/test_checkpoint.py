@@ -299,8 +299,39 @@ def test_a_snapshot_that_names_nothing_is_not_read_as_a_clean_range(working):
     stage(working, "src/thing.py", "VALUE = 2\n")
 
     unresolvable = "0" * 40
-    assert checkpoint.staged(working, unresolvable) == []
+    with pytest.raises(checkpoint.Unreadable) as refused:
+        checkpoint.staged(working, unresolvable)
+    assert "diff" in str(refused.value)
 
-    # And the staged file is still there to be found, which is the proof that the empty
-    # answer above came from the unreadable range and not from an empty tree.
+    # And the staged file is still there to be found, which is the proof that the refusal
+    # above came from the unreadable range and not from an empty tree.
     assert checkpoint.staged(working) == ["src/thing.py"]
+
+
+def test_a_checkpoint_over_a_base_that_does_not_exist_is_not_a_pass(working):
+    """The receipts a git failure used to produce, and what they said.
+
+    `_git` returned standard output and dropped the exit code, so an unreadable range gave
+    an empty file list: claimed-paths reported PASS over zero files, staged-privacy reported
+    SKIPPED because there was nothing to scan, and the aggregate treated SKIPPED as neither
+    a failure nor an incompletion. A checkpoint whose git call broke published green.
+
+    One command away from reachable: `ai-eng spec verify --base <ref that is not there>`.
+    """
+    from ai_engineering import checkpoint
+
+    stage(working, "src/thing.py", "VALUE = 2\n")
+    (working / ".ai").mkdir(exist_ok=True)
+    (working / ".ai" / "claim.json").write_text(
+        json.dumps({"item": "work-1", "paths": ["src"]}), encoding="utf-8"
+    )
+
+    answered = checkpoint.verify(working, base="0" * 40)
+
+    assert answered.outcome != "PASS", answered.summary
+    by_name = {fact.id: fact for fact in answered.checks}
+    assert by_name["claimed-paths"].status == "INCOMPLETE", by_name["claimed-paths"]
+    assert by_name["staged-privacy"].status == "INCOMPLETE", by_name["staged-privacy"]
+    # The message names the call that failed, because "something went wrong" sends a reader
+    # to the wrong file.
+    assert "diff" in by_name["claimed-paths"].detail

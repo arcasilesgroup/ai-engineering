@@ -23,10 +23,28 @@ RECEIPTS = Path(".ai") / "receipts"
 MAX_STAGED_BYTES = 400_000
 
 
+class Unreadable(Exception):
+    """Git was asked something and did not answer it."""
+
+
 def _git(root: Path, *args: str) -> str:
+    """Standard output, or a refusal. Never an empty string standing in for both.
+
+    It used to drop the exit code and return `done.stdout`, which for a failed call is the
+    empty string — so `staged` answered "nothing changed", `_compare` found nothing outside
+    the claim and reported PASS over zero files, `_privacy` had nothing to scan and reported
+    SKIPPED, and `verify` treats SKIPPED as neither a failure nor an incompletion. A
+    checkpoint published green because git broke. `ai-eng spec verify --base <ref that is
+    not there>` is the whole reproduction."""
+
     done = subprocess.run(
         ["git", "-C", str(root), *args], capture_output=True, text=True, timeout=60, check=False
     )
+    if done.returncode:
+        said = done.stderr.strip().splitlines()
+        raise Unreadable(
+            f"git {' '.join(args)} exited {done.returncode}" + (f": {said[0]}" if said else "")
+        )
     return done.stdout
 
 
@@ -52,9 +70,19 @@ def _privacy(root: Path, base: str = "") -> outcome.Fact:
     # call that an absolute path — so scanning the whole diff reported on git's punctuation
     # rather than on anything a person wrote. Removals are not scanned either: a line being
     # deleted was already in history, and this receipt is about what is being published.
+    try:
+        diff = _git(root, *_diff_args(base))
+    except Unreadable as refused:
+        return outcome.fact(
+            "staged-privacy",
+            "INCOMPLETE",
+            "The staged content",
+            str(refused),
+            cure="give a base this repository has, then check again",
+        )
     added = [
         line[1:]
-        for line in _git(root, *_diff_args(base)).splitlines()
+        for line in diff.splitlines()
         if line.startswith("+") and not line.startswith("+++")
     ]
     body = "\n".join(added)[:MAX_STAGED_BYTES]
@@ -124,9 +152,19 @@ def _compare(root: Path, base: str, claimed: list[str], named: str) -> outcome.F
     # and every path inside the claim read as outside it — a gate that failed the writer who
     # had done exactly what they claimed.
     claimed = [str(one).rstrip("/") for one in claimed]
+    try:
+        changed = staged(root, base)
+    except Unreadable as refused:
+        return outcome.fact(
+            "claimed-paths",
+            "INCOMPLETE",
+            "The claim in force",
+            str(refused),
+            cure="give a base this repository has, then check again",
+        )
     outside = [
         name
-        for name in staged(root, base)
+        for name in changed
         if not any(name == one or name.startswith(f"{one}/") for one in claimed)
     ]
     if outside:
