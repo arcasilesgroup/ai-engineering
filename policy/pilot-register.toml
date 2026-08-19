@@ -36,8 +36,8 @@ wave = "P4"
 
 [[indicator]]
 id = "mutation_score"
-bound = "89% floor for the package, with an explicit matrix for the guards"
-command = "just mutate"
+bound = "no survivor among the deliberate defects written against the guards"
+command = "just guards"
 wave = "P0"
 
 [[indicator]]

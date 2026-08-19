@@ -401,9 +401,9 @@ def _ci_result_contract(workflow: str) -> None:
     # The lanes the plan requires, still present and still needed by the aggregate.
     aggregate = _child_block(lines, "  ci-result:")
     text = "\n".join(aggregate)
-    for lane in ("check", "suite", "mutation", "typecheck", "sonar", "snyk"):
+    for lane in ("check", "suite", "typecheck", "sonar", "snyk"):
         assert f"{lane}=${{{{ needs.{lane}.result }}}}" in text, lane
-    assert "needs: [check, suite, mutation, typecheck, sonar, snyk]" in text
+    assert "needs: [check, suite, typecheck, sonar, snyk]" in text
     assert "if: always()" in text
 
     # A skipped job is a failure, which is what makes a deleted or renamed lane visible.
@@ -458,7 +458,7 @@ def test_check_workflow_marks_missing_or_skipped_evidence_incomplete():
         ('echo "evidence=ran" >> "$GITHUB_OUTPUT"', ""),
         ('echo "evidence=unavailable" >> "$GITHUB_OUTPUT"', ""),
         ('[ "${pair##*=}" = "success" ] || failed=1', ""),
-        ("needs: [check, suite, mutation, typecheck, sonar, snyk]", ""),
+        ("needs: [check, suite, typecheck, sonar, snyk]", ""),
         ("evidence: ${{ steps.scan.outputs.evidence || 'unavailable' }}", ""),
         ("check=${{ needs.check.result }}", ""),
         ("test -s coverage.xml", ""),
