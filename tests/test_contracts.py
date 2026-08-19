@@ -1416,6 +1416,73 @@ def test_the_guidance_a_requirement_asks_for_is_in_the_file_that_owes_it(
     assert phrase in body, f"{requirement}: {where} no longer carries it"
 
 
+# What `ai-build` may no longer say, and what it now has to. Two behaviours were repaired,
+# and each of them was written down in more than one place — so a ban on the two obvious
+# sentences would have left the skill still ordering both, in its description, in its
+# Done-when list and in its corpus. Every phrase below was in the file when this was written.
+BUILD_MUST_NOT_SAY = (
+    ("SKILL.md", "checkbox", "the approved plan is not edited by the act of executing it"),
+    ("corpus.md", "checkbox", "the approved plan is not edited by the act of executing it"),
+    (
+        "SKILL.md",
+        "Run the gate exactly as CI runs it",
+        "the whole gate runs once at block close, not once per task",
+    ),
+    (
+        "SKILL.md",
+        "the gate run before anything is called done",
+        "the description ordered the per-task gate too",
+    ),
+    (
+        "SKILL.md",
+        "the gate output is in the conversation",
+        "the Done-when list ordered the per-task gate too",
+    ),
+    (
+        "SKILL.md",
+        "The plan on disk says what happened",
+        "the Done-when list ordered the plan edit too",
+    ),
+    (
+        "corpus.md",
+        "the plan updated to what actually happened",
+        "the corpus ordered the plan edit too",
+    ),
+    (
+        "corpus.md",
+        "running the gate and showing its output is part of done",
+        "the corpus ordered the per-task gate too",
+    ),
+)
+
+BUILD_MUST_SAY = (
+    ("SKILL.md", "UNREVIEWED", "a checkpoint nobody has reviewed has to say so"),
+    ("SKILL.md", "block close", "the whole gate has one home and this names it"),
+)
+
+
+@pytest.mark.parametrize(("where", "phrase", "why"), BUILD_MUST_NOT_SAY)
+def test_the_build_skill_neither_edits_the_plan_nor_gates_each_task(where, phrase, why):
+    """`specs/010`'s plan says any edit to its bytes invalidates the approval the work runs
+    under, and that a full gate does not run per task. This skill ordered both. Following it
+    broke the approval it was executing; not following it meant privately rewriting the skill,
+    which is the failure its own last step is about.
+
+    Phrases rather than a summary, because the two behaviours were spread across four places
+    in two files and the first draft of this check banned two of them."""
+
+    body = (ROOT / ".agents" / "skills" / "ai-build" / where).read_text(encoding="utf-8")
+    assert phrase not in body, f"ai-build/{where} still says {phrase!r}: {why}"
+
+
+@pytest.mark.parametrize(("where", "phrase", "why"), BUILD_MUST_SAY)
+def test_the_build_skill_says_what_replaced_them(where, phrase, why):
+    """Deleting an instruction leaves a hole, and a hole is read as permission."""
+
+    body = (ROOT / ".agents" / "skills" / "ai-build" / where).read_text(encoding="utf-8")
+    assert phrase in body, f"ai-build/{where} does not say {phrase!r}: {why}"
+
+
 # The nine verbs the mission has to name, and the three words of the clause beside them.
 # Stems rather than whole words, because "verify", "verified" and "verification" are the same
 # claim and a check that demanded one spelling would be a check on grammar.

@@ -327,14 +327,20 @@ enforced_by = "ai_engineering.report.BYPASSES_WORTH_A_LOOK, printed by `ai-eng r
 
 [[baseline]]
 id = "skill-routing"
-measured = 254
+measured = 255
 margin = 0
 command = "python tests/skill_eval.py"
 approved_by = ""
 reopen_when = "somebody with authority names themselves here, which closes EP-289's third half"
 why = """The count is claims plus refusals plus the labelled cases on both sides. Falling \
 means a skill stopped declaring what it routes or a corpus lost cases; rising means the \
-opposite. Both are worth a sentence, and neither should happen without one."""
+opposite. Both are worth a sentence, and neither should happen without one.
+
+254 to 255: `ai-build`'s corpus took one more refusal — asking it to tick the task off in \
+the plan. Specification 019 repair 1 deletes that instruction from the skill because editing \
+the approved bytes withdraws the approval the task is running under, and a deleted \
+instruction with nothing in its place is read as permission. The refusal is the sentence \
+that replaces it."""
 
 # ── the ungated ─────────────────────────────────────────────────────────────────────
 #
