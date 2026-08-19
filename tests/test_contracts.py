@@ -1268,6 +1268,11 @@ def test_changelog_names_all_p0_hard_renames_deletes_and_fail_closed_changes():
 # never that the guidance was followed. Those are two different sentences and only one of
 # them is checkable.
 SKILL_CONTENT = (
+    # D-014-11 rather than an EP number: the decision is a specification's, not a
+    # requirement row's, and inventing an id to hold it would put a fabricated provenance
+    # into the register the audit passes read as evidence.
+    ("D-014-11", "ai-security/SKILL.md", "no scanner pinned here touches a running target"),
+    ("D-014-11", "ai-security/corpus.md", "scan our deployed staging"),
     ("EP-239", "ai-design/SKILL.md", "material visual decision"),
     ("EP-241", "ai-design/SKILL.md", "reduces uncertainty about the thing being built"),
     ("EP-243", "ai-design/corpus.md", "absorbed here as the `verify` route"),

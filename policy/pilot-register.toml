@@ -63,7 +63,7 @@ wave = "P0"
 id = "skill_eval_delta"
 # The third absence this row recorded is gone. `just skilleval` is an evaluation runner
 # inside the gate, the labelled cases sit beside every skill, and there is a baseline now:
-# 274, margin zero, delta printed on every run. A register with no baseline is refused rather
+# 275, margin zero, delta printed on every run. A register with no baseline is refused rather
 # than passed.
 #
 # What is still missing is the named approver, which `EP-289` asks for and which nobody can
@@ -327,7 +327,7 @@ enforced_by = "ai_engineering.report.BYPASSES_WORTH_A_LOOK, printed by `ai-eng r
 
 [[baseline]]
 id = "skill-routing"
-measured = 274
+measured = 275
 margin = 0
 command = "python tests/skill_eval.py"
 approved_by = ""
@@ -335,6 +335,10 @@ reopen_when = "somebody with authority names themselves here, which closes EP-28
 why = """The count is claims plus refusals plus the labelled cases on both sides. Falling \
 means a skill stopped declaring what it routes or a corpus lost cases; rising means the \
 opposite. Both are worth a sentence, and neither should happen without one.
+
+274 to 275: `ai-security` takes the deployed-target question and answers it INCOMPLETE, \
+which is repair 7 — the decision on where a dynamic scan lives was made twice already and \
+had no trace in the tree.
 
 255 to 274: `ai-verify` ships as a skill under specification 019 repair 6, bringing six \
 claims and six refusals of its own plus the labelled cases beside them. D-012-04 made \
