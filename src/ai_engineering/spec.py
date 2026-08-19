@@ -14,6 +14,7 @@ import contextlib
 import hashlib
 import re
 import stat
+import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
@@ -357,6 +358,121 @@ def _envelope(home: Path, wanted: str, named: dict[str, str]) -> outcome.Result:
     for field in TASK_FIELDS:
         print(f"  {field}: {found[field]}")
     return outcome.result("PASS")
+
+
+ONE_WRITER = "one writer owns repository changes"
+
+
+def _declared_width(offered: str) -> int:
+    """A positive integer, or one. Absent, unparseable, zero and negative are all the same
+    answer, because a scheduler that guesses wide on a number it could not read is the
+    fail-open direction and this one has no other direction."""
+
+    try:
+        asked = int(offered)
+    except (TypeError, ValueError):
+        return 1
+    return asked if asked > 0 else 1
+
+
+def _wave(root: Path, offered: str, remote: str) -> outcome.Execution:
+    """How many writers this build could carry, computed and never spent.
+
+    The Intent says one writer owns repository changes until a separately approved
+    coordination plan proves otherwise, and specification 013 records that nothing
+    executable ever read that sentence — "whatever replaces the one-writer sentence arrives
+    with a check that fails, or the sentence has been swapped for another sentence". This is
+    the check. While the sentence is there the answer is one whatever anybody offers, and the
+    file that decided it is named, because a clamp nobody can trace is just a number.
+
+    The width is the smallest of three: what the surface says it can run, how many claims
+    have nothing in front of them, and one for every unknown. It grants nothing — the
+    writers still claim through the compare-and-swap on the remote, are still confined by
+    `claim_scope_guard`, and are still re-checked from the remote at the merge gate.
+    """
+
+    from ai_engineering import claim, dag
+
+    declared = _declared_width(offered)
+    ready: list[str] = []
+    facts = [
+        outcome.fact(
+            "declared-width",
+            "OBSERVED",
+            "What the surface said it can run",
+            f"{declared} from {offered or 'nothing offered'}",
+        )
+    ]
+    # Asked before the claims are read, because `claim.every` skips a ref it cannot read
+    # rather than failing — so an unreachable remote comes back as an empty list and reads
+    # as "nobody has claimed anything". The width would be right and the reason would be a
+    # lie: nothing was measured. `base` is the one call that says whether the remote answered.
+    reachable = bool(claim.base(root, remote))
+    try:
+        if not reachable:
+            raise ValueError(f"{remote} did not answer, so no claim on it was read")
+        ready = dag.wave(root, claim.every(root, remote))
+    except (OSError, ValueError, subprocess.SubprocessError) as refused:
+        facts.append(
+            outcome.fact(
+                "wave",
+                "INCOMPLETE",
+                "The claims that could start together",
+                f"{remote} could not be read: {refused}",
+                cure="check the remote is reachable, then ask again",
+            )
+        )
+    except dag.Unreadable as refused:
+        facts.append(
+            outcome.fact(
+                "wave",
+                "INCOMPLETE",
+                "The claims that could start together",
+                str(refused),
+                cure="split or merge the claims, or fix the file nobody can parse",
+            )
+        )
+    else:
+        facts.append(
+            outcome.fact(
+                "wave",
+                "OBSERVED",
+                "The claims that could start together",
+                ", ".join(ready) or "none are claimed on the remote",
+            )
+        )
+
+    widths = [declared, len(ready)] if ready else [1]
+    try:
+        held = (root / ".ai" / "intent.md").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        # An Intent nobody can read is not an Intent that lifted the constraint.
+        held = ONE_WRITER
+    if ONE_WRITER in held:
+        widths.append(1)
+        facts.append(
+            outcome.fact(
+                "one-writer",
+                "OBSERVED",
+                "The constraint the Intent holds",
+                f".ai/intent.md still says {ONE_WRITER!r}, so the width is one",
+            )
+        )
+    width = max(1, min(widths))
+    facts.append(
+        outcome.fact(
+            "width",
+            "OBSERVED",
+            "How many writers this build could carry",
+            f"width: {width}",
+        )
+    )
+    return outcome.execution(
+        outcome.result("PASS"),
+        summary=f"width: {width}",
+        checks=facts,
+        remaining=[],
+    )
 
 
 def examples_section(text: str) -> str:
@@ -835,6 +951,9 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     taken.add_argument("--path", action="append", default=[], required=True)
     taken.add_argument("--role", required=True)
     taken.add_argument("--remote", default="origin")
+    width = sub.add_parser("wave")
+    width.add_argument("--surface-width", dest="surface_width", default="")
+    width.add_argument("--remote", default="origin")
     checked = sub.add_parser("checkpoint")
     checked.add_argument("--base", default="", help="verify this branch against that SHA or ref")
     checked.add_argument("--item", default="", help="read the claim from the remote, not here")
@@ -845,6 +964,8 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     if root is None:
         print("not inside a repository")
         return outcome.result("INCOMPLETE")
+    if args.action == "wave":
+        return _wave(root, args.surface_width, args.remote)
     if args.action == "checkpoint":
         from ai_engineering import checkpoint
 

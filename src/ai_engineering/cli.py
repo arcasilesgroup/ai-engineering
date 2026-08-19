@@ -26,7 +26,7 @@ VERBS: dict[str, str] = {
     "init": "Set up this machine, and this repository if you say yes.",
     "doctor": "The 25 assertions and the coverage line. Is the system healthy now?",
     "update": "Rewrite the pin and run the forward migrations.",
-    "spec": "spec new | spec list | spec show — the record of what was decided.",
+    "spec": "spec new | list | show | claim | wave | checkpoint — the record and its coordination.",
     "decide": "Add a decision to the spec, or promote it to an MADR with --madr.",
     "accept": "Accept a finding until a date, with a named owner and a reason.",
     "audit": "audit verify walks the whole chain; audit replay walks a session.",
@@ -78,7 +78,10 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
         # no network for the verb that can take a claim would be the exact defect the
         # comment above this table describes: a command that opens a connection while
         # printing that it will not.
-        ("the git remote a claim is taken against, on `spec claim` only",),
+        (
+            "the git remote a claim is taken against, and the one `spec checkpoint` and "
+            "`spec wave` read the claims back from",
+        ),
     ),
     "decide": (
         "add a decision to its spec, or promote it to an MADR",

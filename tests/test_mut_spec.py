@@ -711,9 +711,9 @@ def test_the_verb_declares_exactly_these_subcommands(monkeypatch, capsys):
     """
     lines = _help(monkeypatch, capsys)
 
-    assert lines[0] == "usage: ai-eng spec [-h] {new,show,list,claim,checkpoint} ..."
+    assert lines[0] == "usage: ai-eng spec [-h] {new,show,list,claim,wave,checkpoint} ..."
     assert "positional arguments:" in lines
-    assert "  {new,show,list,claim,checkpoint}" in lines
+    assert "  {new,show,list,claim,wave,checkpoint}" in lines
 
 
 def test_the_claim_subcommand_says_exactly_what_it_needs(monkeypatch, capsys):
@@ -942,10 +942,10 @@ def test_the_verb_and_its_five_subcommands_say_exactly_what_they_accept(monkeypa
         return capsys.readouterr().out.rstrip("\n").splitlines()
 
     assert block() == [
-        "usage: ai-eng spec [-h] {new,show,list,claim,checkpoint} ...",
+        "usage: ai-eng spec [-h] {new,show,list,claim,wave,checkpoint} ...",
         "",
         "positional arguments:",
-        "  {new,show,list,claim,checkpoint}",
+        "  {new,show,list,claim,wave,checkpoint}",
         "",
         "options:",
         "  -h, --help            show this help message and exit",
