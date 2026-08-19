@@ -390,7 +390,7 @@ def _report_help(monkeypatch, capsys, *argv: str) -> list[str]:
     return capsys.readouterr().out.rstrip("\n").splitlines()
 
 
-def test_the_report_verb_declares_exactly_these_four_subcommands(monkeypatch, capsys):
+def test_the_report_verb_declares_exactly_these_five_subcommands(monkeypatch, capsys):
     """Two hundred and fifty-two mutants lived in this verb, more than any other in the tree,
     and its declared surface is most of them.
 
@@ -399,15 +399,38 @@ def test_the_report_verb_declares_exactly_these_four_subcommands(monkeypatch, ca
     five required ones are what stop a report being sent half-written. A default moved or a
     choice list widened is invisible to a test that passes valid arguments and reads the
     outcome, which is what every fixture here did.
+
+    Five since specification 020. `blocked` writes one committed file and sends nothing, and
+    it is here rather than under its own verb because what it records is a report about this
+    run — the one report whose reader is a person who is not at the keyboard.
     """
     assert _report_help(monkeypatch, capsys) == [
-        "usage: ai-eng report [-h] {digest,issue,surfaces,intent} ...",
+        "usage: ai-eng report [-h] {digest,issue,surfaces,intent,blocked} ...",
         "",
         "positional arguments:",
-        "  {digest,issue,surfaces,intent}",
+        "  {digest,issue,surfaces,intent,blocked}",
         "",
         "options:",
         "  -h, --help            show this help message and exit",
+    ]
+
+
+def test_the_blocked_subcommand_requires_the_three_a_row_cannot_be_read_without(
+    monkeypatch, capsys
+):
+    """Its declared surface, pinned like the others. `--since` defaults to today because a
+    halt happening now is the ordinary case; the other three have no honest default, and a
+    row missing any of them is refused by the collector rather than rendered half-blank."""
+    assert _report_help(monkeypatch, capsys, "blocked") == [
+        "usage: ai-eng report blocked [-h] --what WHAT --why WHY --action ACTION "
+        "[--since SINCE]",
+        "",
+        "options:",
+        "  -h, --help       show this help message and exit",
+        "  --what WHAT",
+        "  --why WHY",
+        "  --action ACTION",
+        "  --since SINCE",
     ]
 
 
