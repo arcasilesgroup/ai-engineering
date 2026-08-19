@@ -17,14 +17,21 @@ from ai_engineering import solution_intent
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_the_page_it_just_wrote_is_about_this_tree():
-    """Write, then ask. Anything else is a timestamp wearing a proof."""
+def test_the_committed_page_is_the_page_this_tree_renders():
+    """The property, asserted without writing anything.
 
-    solution_intent.write(ROOT)
+    It used to write the real page and then ask about it, which is the same claim and a
+    worse test: the suite runs across workers, so two tests writing one file in the tree
+    they are both reading is a race, and it found it — a worker read the page mid-write and
+    reported that it carried no digest at all."""
+
     fresh, why = solution_intent.staleness(ROOT)
 
     assert fresh, why
     assert "matches this tree" in why
+    assert (ROOT / solution_intent.PAGE).read_text(encoding="utf-8") == solution_intent.render(
+        solution_intent.read(ROOT)
+    )
 
 
 def test_a_record_that_changed_makes_the_page_stale():
@@ -38,7 +45,6 @@ def test_a_record_that_changed_makes_the_page_stale():
 
     import dataclasses
 
-    solution_intent.write(ROOT)
     page = (ROOT / solution_intent.PAGE).read_text(encoding="utf-8")
 
     tree = solution_intent.read(ROOT)
@@ -86,7 +92,7 @@ def test_the_numbers_the_page_prints_are_the_numbers_the_gate_enforces():
     assert tree.ratio_max == contract.TEST_RATIO_MAX
 
 
-def test_a_page_somebody_edited_is_not_a_page_this_tree_renders():
+def test_a_page_somebody_edited_is_not_a_page_this_tree_renders(tmp_path):
     """The defect this control shipped with, as a test.
 
     It compared a digest of the inputs to an attribute in the file and never asked whether
@@ -98,20 +104,22 @@ def test_a_page_somebody_edited_is_not_a_page_this_tree_renders():
     two hundred lines is the likely one, and it looks exactly the same to the gate.
     """
 
-    solution_intent.write(ROOT)
-    page = ROOT / solution_intent.PAGE
-    before = page.read_text(encoding="utf-8")
-    try:
-        page.write_text(
-            before.replace("INCOMPLETE", "PASS").replace(">13<", ">99<"), encoding="utf-8"
-        )
-        fresh, why = solution_intent.staleness(ROOT)
-    finally:
-        page.write_text(before, encoding="utf-8")
+    solution_intent.write(tmp_path)
+    page = tmp_path / solution_intent.PAGE
+    honest = page.read_text(encoding="utf-8")
+    assert solution_intent.staleness(tmp_path)[0]
+
+    # The digest attribute is left exactly as it was; only what a reader sees changes.
+    page.write_text(honest.replace("INCOMPLETE", "PASS").replace(">0<", ">99<"), encoding="utf-8")
+    fresh, why = solution_intent.staleness(tmp_path)
 
     assert not fresh
     assert "edited the page rather than the records" in why
-    assert solution_intent.staleness(ROOT)[0]
+
+    # In its own directory, because the suite runs across workers and a test that edits the
+    # page in the tree it is reading is a race with every other test that reads it.
+    page.write_text(honest, encoding="utf-8")
+    assert solution_intent.staleness(tmp_path)[0]
 
 
 def test_a_tree_git_cannot_list_refuses_rather_than_rendering_nothing(tmp_path):
