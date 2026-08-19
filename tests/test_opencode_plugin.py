@@ -226,26 +226,39 @@ def test_the_receipt_runner_refuses_rather_than_writing_when_nothing_denied(tmp_
 
     import surface_receipt
 
-    receipt = surface_receipt.RECEIPTS / "opencode.enforcement.json"
-    before = receipt.read_bytes() if receipt.exists() else None
+    # Three receipts since `EP-199`, and the refusal has to cover all three: a run that wrote
+    # discovery and invocation and then declined to write enforcement would leave two thirds
+    # of a proven surface behind, which reads better than the nothing it earned.
+    states = ("discovery", "invocation", "enforcement")
+    receipts = {one: surface_receipt.RECEIPTS / f"opencode.{one}.json" for one in states}
+    before = {one: (path.read_bytes() if path.exists() else None) for one, path in receipts.items()}
     monkeypatch.setattr(surface_receipt.shutil, "which", lambda name: "/usr/bin/node")
 
+    def answered(said: str, denied: bool) -> dict:
+        return {"loaded": True, "invoked": True, "denied": denied, "plugin_digest": "sha256:x"}
+
     try:
-        for answer, expected, why in (
-            ((False, "it went through"), 1, "allowed"),
-            ((True, "something refused and said nothing about itself"), 1, "unattributed"),
-            ((True, "[no_verify_guard] BLOCKED: ..."), 0, "attributed"),
+        for said, denied, expected, why in (
+            ("it went through", False, 1, "allowed"),
+            ("something refused and said nothing about itself", True, 1, "unattributed"),
+            ("[no_verify_guard] BLOCKED: ...", True, 0, "attributed"),
         ):
-            monkeypatch.setattr(surface_receipt, "drive", lambda area, _a=answer: _a)
-            if expected:
-                receipt.unlink(missing_ok=True)
+            monkeypatch.setattr(
+                surface_receipt,
+                "drive",
+                lambda area, _s=said, _d=denied: (answered(_s, _d), _s),
+            )
+            for path in receipts.values():
+                path.unlink(missing_ok=True)
             assert surface_receipt.main(["opencode"]) == expected, why
-            assert receipt.exists() is (expected == 0), why
+            for one, path in receipts.items():
+                assert path.exists() is (expected == 0), f"{why}: {one}"
     finally:
-        if before is None:
-            receipt.unlink(missing_ok=True)
-        else:
-            receipt.write_bytes(before)
+        for one, path in receipts.items():
+            if before[one] is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.write_bytes(before[one])
 
 
 def test_a_machine_without_node_says_so_and_does_not_write_a_receipt(monkeypatch):

@@ -17,20 +17,32 @@ from ai_engineering import solution_intent
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_the_committed_page_is_the_page_this_tree_renders():
-    """The property, asserted without writing anything.
+def test_the_committed_page_is_the_page_one_reading_of_this_tree_renders():
+    """The property, asserted without writing anything and over a single reading.
 
     It used to write the real page and then ask about it, which is the same claim and a
     worse test: the suite runs across workers, so two tests writing one file in the tree
     they are both reading is a race, and it found it — a worker read the page mid-write and
-    reported that it carried no digest at all."""
+    reported that it carried no digest at all.
 
-    fresh, why = solution_intent.staleness(ROOT)
+    The second race is the one this shape fixes. `staleness` reads the tree, then the byte
+    comparison read it again, and between the two another worker's write can move a record —
+    so the page was compared against a tree that never existed at any single instant. It
+    failed exactly that way once the surface receipts started proving three states, and the
+    failure said the page was stale when the page was correct.
 
-    assert fresh, why
-    assert "matches this tree" in why
-    assert (ROOT / solution_intent.PAGE).read_text(encoding="utf-8") == solution_intent.render(
-        solution_intent.read(ROOT)
+    One read, used for both halves. The gate's own `intent-page` step makes the same
+    comparison in a single process at a defined moment, and that is the one a person should
+    believe; this case exists to keep the mechanism honest, not to re-run the gate.
+    """
+
+    tree = solution_intent.read(ROOT)
+    page = (ROOT / solution_intent.PAGE).read_text(encoding="utf-8")
+
+    assert page == solution_intent.render(tree)
+    assert solution_intent.digest(tree) in page, (
+        "the page does not carry the digest of the tree it renders, so nothing later can "
+        "tell a stale page from a page nobody generated"
     )
 
 

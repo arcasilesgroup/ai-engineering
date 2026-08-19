@@ -1080,3 +1080,45 @@ def test_a_receipt_written_under_a_superseded_adapter_version_is_not_this_adapte
     assert declared["deny_protocol"].islower(), (
         "the deny protocol is an identifier, not the prose in translations.reply.deny"
     )
+
+
+def test_one_run_answers_three_states_and_says_which_proved_each():
+    """`EP-199`: load and invoke are executed states in CI, not just install, deny and doctor.
+
+    The driver already did all three and reported one. Importing the module and getting an
+    export is discovery; the registration contract handing back the hook the surface would
+    call is invocation; the hook refusing is enforcement. Writing only the last made two
+    states that had genuinely executed read as unproven — the same false reading as claiming
+    them, with the sign reversed, and this repository is about not doing either.
+
+    What this holds is that the three are not three copies of one fact. Each carries the
+    digest of the thing that proved it: the plugin bytes that resolved, the hook name the
+    contract returned, and what the guard said. Three receipts with one artifact digest
+    between them would be one proof wearing three hats.
+    """
+
+    import json
+
+    import pytest
+
+    receipts = ROOT / ".ai" / "receipts" / "surface"
+    states = ("discovery", "invocation", "enforcement")
+    found = {
+        state: receipts / f"opencode.{state}.json"
+        for state in states
+        if (receipts / f"opencode.{state}.json").is_file()
+    }
+    if len(found) < len(states):
+        pytest.skip("no surface receipts in this tree, so there is nothing to read")
+
+    digests = {}
+    for state, path in found.items():
+        record = json.loads(path.read_text(encoding="utf-8"))
+        assert record["outcome"] == "PASS", state
+        assert record["kind"] == "automated", state
+        digests[state] = record["artifact_digest"]
+
+    assert len(set(digests.values())) == len(states), (
+        f"the three states share an artifact digest: {digests}. Three receipts over one "
+        "artefact are one proof counted three times"
+    )

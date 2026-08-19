@@ -1365,8 +1365,8 @@ evidence = "none — the requirement text could not be located"
 id = "EP-199"
 verdict = "INCOMPLETE"
 subject = "load and invoke are separate executed states in CI, not just install, deny and doctor"
-evidence = "pytest tests/test_surface_adapter.py::test_the_matrix_proves_discovery_and_invocation_separately"
-note = "the three states are reported separately; CI executes only enforcement, and only for one surface"
+evidence = "python tests/surface_receipt.py opencode; ai-eng report surfaces"
+note = '''the three states are separate receipts now and one run writes all three, because one run had always answered all three and reported one. The driver imports the shipped plugin, which is discovery; the registration contract hands back the hook the surface would call, which is invocation; the hook refuses, which is enforcement. Each receipt carries the digest of the thing that proved it — the plugin bytes that resolved, the hook name the contract returned, what the guard said — and a case refuses three receipts sharing one artifact digest, because that is one proof counted three times. Writing only the last made two states that had genuinely executed read as unproven, which is the same false reading as claiming them with the sign reversed. INCOMPLETE for the reason that has not moved: this is one surface of eight, and the other seven have no executed run of any state.'''
 
 [[requirement]]
 id = "EP-200"
