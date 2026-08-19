@@ -249,6 +249,12 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         return surfaces(paths.repo_root())
     if args.command == "intent":
         root = paths.repo_root()
+        if root is None:
+            # Not a repository, so there are no records to render and nothing to render
+            # them about. The page is a reading of a tree; without one it would be a file
+            # asserting things about nothing.
+            print("  INCOMPLETE  this is not a git repository, so there is no tree to read")
+            return outcome.result("INCOMPLETE")
         written = solution_intent.write(root)
         print(f"  wrote {written.relative_to(root)}")
         return outcome.result("PASS")
