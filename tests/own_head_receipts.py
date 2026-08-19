@@ -26,6 +26,9 @@ import json
 import shutil
 import subprocess
 import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
 
 # The two the plan names. Read here rather than discovered, because a workflow that stopped
 # running would otherwise make this report cleaner rather than emptier.
@@ -76,6 +79,51 @@ def proven(rows: list[dict]) -> dict[str, set[str]]:
     return {sha: names for sha, names in found.items() if names >= set(REQUIRED)}
 
 
+def static() -> list[tuple[str, bool, str]]:
+    """The conditions Task 53 names that do not need the network, each measured.
+
+    Written because the answer surprised me: every one of them is met except the status word
+    itself. A reader who had been told "P0 is blocked" would have gone looking for work, and
+    the work is one transition and one person's consent.
+    """
+
+    import hashlib
+    import json
+    import re
+
+    sys.path.insert(0, str(ROOT / "src"))
+    from ai_engineering import contract
+
+    spec = ROOT / "specs" / "010-governed-agentic-engineering-foundation" / "spec.md"
+    body = spec.read_text(encoding="utf-8")
+    tree = contract.repo_lines(ROOT)
+    slack = contract.REPO_CEILING - tree
+
+    def status(path) -> str:
+        found = re.search(r'(?m)^status:\s*"?(\w+)', path.read_text(encoding="utf-8"))
+        return found.group(1) if found else "?"
+
+    madrs = [next((ROOT / "docs" / "adr").glob(f"{one}-*.md")) for one in ("0005", "0006", "0007")]
+    digest = hashlib.sha256(spec.read_bytes()).hexdigest()
+    intent = (ROOT / ".ai" / "intent.md").read_text(encoding="utf-8")
+
+    return [
+        ("ceiling closed to zero slack", slack == 0, f"{contract.REPO_CEILING:,} against {tree:,}"),
+        (
+            "MADRs 0005, 0006 and 0007 accepted",
+            all(status(one) == "accepted" for one in madrs),
+            ", ".join(f"{one.name[:4]} {status(one)}" for one in madrs),
+        ),
+        (
+            "spec 004 superseded",
+            status(ROOT / "specs" / "004-solution-intent-home" / "spec.md") == "superseded",
+            status(ROOT / "specs" / "004-solution-intent-home" / "spec.md"),
+        ),
+        ("the Intent names this spec digest", digest[:12] in intent, digest[:12]),
+        ("spec 010 status is not draft", status(spec) != "draft", status(spec)),
+    ]
+
+
 def main(argv: list[str]) -> int:
     ask = argparse.ArgumentParser(description="Exact-HEAD workflow receipts, per commit.")
     ask.add_argument("--branch", default="ledger-and-records")
@@ -99,7 +147,17 @@ def main(argv: list[str]) -> int:
         print(f"    {sha[:8]}")
     if not complete:
         print("    none — the live half of Task 53 cannot be satisfied from what is on record")
-    print(f"RAN own_head={len(complete)}")
+    print()
+    print("  Task 53's static conditions, which need no network:")
+    unmet = 0
+    for what, met, detail in static():
+        unmet += not met
+        print(f"    {'met    ' if met else 'NOT MET'}  {what:36} {detail}")
+    print(
+        f"  {unmet} unmet. This reports and decides nothing: the transition itself is a "
+        "person's, and so is the consent to push the commit that makes it."
+    )
+    print(f"RAN own_head={len(complete)} unmet={unmet}")
     return 0
 
 
