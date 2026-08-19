@@ -8,6 +8,7 @@ whole class of defect this repository exists to remove.
 from __future__ import annotations
 
 import copy
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -286,7 +287,7 @@ def test_a_corpus_row_that_is_not_a_quoted_case_is_skipped_and_not_guessed_at(tm
     assert skill_eval.cases(tmp_path / "nothing-here") == {"takes": [], "sends": []}
 
 
-def test_the_evaluation_leaves_a_receipt_the_product_itself_will_accept():
+def test_the_evaluation_leaves_a_receipt_the_product_itself_will_accept(tmp_path, monkeypatch):
     """`EP-281` asks for attestation, scan and evaluation as three separate records.
 
     The scan half has had one since the adversarial suite got its two. The attestation half
@@ -345,30 +346,25 @@ def test_the_evaluation_leaves_a_receipt_the_product_itself_will_accept():
 
     # And the input digest moves when a skill does. Without that the receipt would vouch for
     # whatever the corpus is now rather than for what this run read.
-    first = written["input_digest"]
-    skill = ROOT / ".agents" / "skills" / "ai-spec" / "SKILL.md"
-    original = skill.read_bytes()
-    try:
-        skill.write_bytes(original + b"\n<!-- moved -->\n")
-        subprocess.run(
-            [sys.executable, str(ROOT / "tests" / "skill_eval.py")],
-            capture_output=True,
-            text=True,
-            cwd=ROOT,
-            timeout=300,
-            check=False,
-        )
-        assert json.loads(where.read_text(encoding="utf-8"))["input_digest"] != first
-    finally:
-        skill.write_bytes(original)
-        subprocess.run(
-            [sys.executable, str(ROOT / "tests" / "skill_eval.py")],
-            capture_output=True,
-            text=True,
-            cwd=ROOT,
-            timeout=300,
-            check=False,
-        )
+    #
+    # Proved over a copy. This used to append a line to `.agents/skills/ai-spec/SKILL.md` in
+    # the repository itself and restore it in a `finally`, which is correct in isolation and
+    # wrong under `-n auto`: for the length of two subprocess runs the tree really did carry
+    # an extra line, and every other worker reading that tree saw it. It cost two gates. The
+    # page's freshness check reddened because `solution_intent.read` opens live files, and
+    # `test_spec_010_004_intent_and_ceiling_transition_atomically` reddened because
+    # `contract.repo_lines` counts them — both intermittently, both blaming the wrong thing.
+    # An audit hook on `open` finally named this line. A test may read the tree it runs in;
+    # it may not write it.
+    corpus_root = tmp_path / "corpus"
+    shutil.copytree(ROOT / ".agents" / "skills", corpus_root / ".agents" / "skills")
+    monkeypatch.setattr(skill_eval, "ROOT", corpus_root)
+
+    before = skill_eval._corpus_digest()
+    (corpus_root / ".agents" / "skills" / "ai-spec" / "SKILL.md").write_bytes(
+        (ROOT / ".agents" / "skills" / "ai-spec" / "SKILL.md").read_bytes() + b"\n<!-- moved -->\n"
+    )
+    assert skill_eval._corpus_digest() != before
 
 
 def test_a_corpus_that_shrinks_is_refused_against_the_baseline(tmp_path, monkeypatch):
