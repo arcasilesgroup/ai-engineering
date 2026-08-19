@@ -1924,8 +1924,8 @@ note = "closes what the audit called the second-commonest finding in the whole r
 id = "EP-283"
 verdict = "INCOMPLETE"
 subject = "a surface's proof goes red when an observed denial is older than a week"
-evidence = "pytest tests/test_pilot_register.py -k surface_proof_age"
-note = "the bound is declared and internally consistent; no receipt exists yet to have an age measured against it"
+evidence = "python tests/pilot_register.py; pytest tests/test_pilot_register.py tests/test_surface_adapter.py -k 'stale or looser'"
+note = '''the week is now compared against every receipt that exists. It was declared in `policy/pilot-register.toml` as 604,800 seconds and enforced nowhere: `surface._standing` takes `min(the receipt's own window, 31 days)` and never reads the register, so a receipt could write itself thirty-one days and stay green at thirty while the register published seven. Two numbers for one promise with nothing comparing them — the defect this register exists to stop, sitting between the register and the product it describes. The reader now refuses any receipt looser than the published bound, naming the gap in days, and prints how many it compared so that zero and none-too-loose do not print the same word. INCOMPLETE because `.ai/` is ignored whole: on CI there are no receipts and the comparison passes over nothing, which the count makes visible and does not make true.'''
 
 [[requirement]]
 id = "EP-284"

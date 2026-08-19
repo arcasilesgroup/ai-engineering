@@ -7,6 +7,7 @@ tested only on the register that already passes is a reader nobody has seen say 
 from __future__ import annotations
 
 import copy
+import json
 import subprocess
 import sys
 import tomllib
@@ -349,3 +350,53 @@ def test_a_claim_quoting_a_number_the_register_does_not_have_is_refused(tmp_path
         "a reason that quotes no number is an argument, not a stale count"
     )
     assert not pilot_register.stale_claim(register, 1), "the number it does have must pass"
+
+
+def test_a_receipt_may_not_give_itself_longer_than_the_register_publishes(tmp_path, monkeypatch):
+    """Two numbers for one promise, with nothing comparing them.
+
+    `EP-283` asks that a surface's proof go red once its denial is older than a week. The
+    register declares that week and `surface._standing` enforces `min(the receipt's own
+    window, 31 days)` — it never reads the register. So a receipt could write itself
+    thirty-one days and stay green at thirty while this file published seven.
+
+    The refusal names the gap in days rather than in seconds, because the number a reader
+    acts on is "this stayed proven for 24 days longer than we said it would".
+    """
+
+    import pilot_register
+
+    receipts = tmp_path / "surface"
+    receipts.mkdir()
+    (receipts / "opencode.enforcement.json").write_text(
+        json.dumps({"max_age_seconds": 2_678_400}), encoding="utf-8"
+    )
+    (receipts / "tight.enforcement.json").write_text(
+        json.dumps({"max_age_seconds": 3_600}), encoding="utf-8"
+    )
+    (receipts / "unreadable.json").write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(pilot_register, "SURFACE_RECEIPTS", receipts)
+
+    register = {"indicator": [{"id": "surface_proof_age", "bound_seconds": 604_800}]}
+    loose = pilot_register.looser_than_declared(register)
+
+    assert len(loose) == 1, loose
+    assert "opencode.enforcement declares 2678400s" in loose[0]
+    assert "24 days past" in loose[0]
+
+
+def test_a_bound_the_register_does_not_state_is_reported_once_and_not_twice(tmp_path, monkeypatch):
+    """`problems()` already refuses a `bound_seconds` that is not a positive number. Saying
+    so again here in a second vocabulary is how a reader learns to ignore one of them."""
+
+    import pilot_register
+
+    monkeypatch.setattr(pilot_register, "SURFACE_RECEIPTS", tmp_path)
+
+    assert pilot_register.looser_than_declared({"indicator": []}) == []
+    assert (
+        pilot_register.looser_than_declared(
+            {"indicator": [{"id": "surface_proof_age", "bound_seconds": "a week"}]}
+        )
+        == []
+    )
