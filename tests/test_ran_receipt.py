@@ -23,6 +23,14 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tests" / "ran_receipt.py"
 
 
+# `mutmut` copies the tree under a directory called `mutants` and installs an import shim, so
+# a child process started from a temporary directory that imports `ai_engineering` gets
+# mutmut's own error about not knowing where the code to mutate is — not a receipt, and not
+# anything about this script. Four mutation runs died on that tonight, each on a different
+# cause and none of them the code under measurement.
+UNDER_MUTATION = "mutants" in Path(__file__).resolve().parts
+
+
 def _run(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(SCRIPT), *args], capture_output=True, text=True, cwd=str(cwd)
@@ -38,6 +46,8 @@ def repository(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     the ignore behaviour untested and the test would pass on a script that hashed `.venv`.
     """
 
+    if UNDER_MUTATION:
+        pytest.skip("the mutant tree's import shim answers for the package, not this script")
     for command in (
         ("git", "init", "-q"),
         ("git", "config", "user.email", "t@example.invalid"),
