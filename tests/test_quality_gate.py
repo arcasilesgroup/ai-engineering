@@ -794,3 +794,42 @@ def test_the_linter_and_the_type_checker_are_shown_saying_no(tmp_path):
     )
     assert types.returncode != 0, types.stdout
     assert "return-value" in types.stdout, types.stdout
+
+
+def test_the_mutation_runner_spends_the_cheap_suite_first() -> None:
+    """A mutant is killed when either half of the suite goes red, so the order of the two
+    halves cannot change a verdict — only the bill. The adversarial run is thirteen seconds
+    and pytest is sixty; running pytest first means every killed mutant pays the expensive
+    half before the cheap one has had a chance to answer.
+
+    Read out of the source and not out of the docstring. The docstring already promised this
+    behaviour while the code did the opposite — "the slow half only runs when the fast half
+    found nothing", above a line that ran pytest first — so an assertion a reworded comment
+    can satisfy is no assertion at all."""
+
+    import ast
+
+    source = (ROOT / "tests" / "mutation.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    body = next(
+        node.body
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "run_suite"
+    )
+    # The docstring is dropped here on purpose: what is asserted is the order of the two
+    # calls the function actually makes.
+    calls = [
+        ast.unparse(node)
+        for node in ast.walk(ast.Module(body=body, type_ignores=[]))
+        if isinstance(node, ast.Call) and ast.unparse(node.func) == "quiet"
+    ]
+    assert len(calls) == 2, calls
+    assert "adversarial" in calls[0], calls
+    assert "pytest" in calls[1], calls
+    # And it stays a conjunction, because that is what makes the swap free: a mutant is
+    # killed when either half fails, so `not (a and b)` is the same answer whichever way the
+    # two are written, and only the second one is spared when the first already said no.
+    assert any(
+        isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And)
+        for node in ast.walk(ast.Module(body=body, type_ignores=[]))
+    ), "run_suite stopped being a conjunction, so the order is no longer free"

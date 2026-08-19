@@ -74,13 +74,19 @@ def quiet(*command: str) -> bool:
 
 
 def run_suite() -> bool:
-    """Both halves, in the order that costs least. pytest alone leaves every guard
-    threshold alive: the budgets and the windows are only ever crossed by the adversarial
-    suite, which pytest does not collect — the first run of this file said so, six
-    survivors in the two guards whose edges live over there. -x because one red is the
-    whole answer, and the slow half only runs when the fast half found nothing."""
-    fast = quiet(sys.executable, "-m", "pytest", "-qx", "--no-header", "-p", "no:cacheprovider")
-    return fast and quiet(sys.executable, str(ROOT / "tests" / "adversarial" / "run.py"))
+    """Both halves, in the order that costs least, and the cheap one is the adversarial run.
+    pytest alone leaves every guard threshold alive: the budgets and the windows are only
+    ever crossed by the adversarial suite, which pytest does not collect — the first run of
+    this file said so, six survivors in the two guards whose edges live over there.
+
+    A mutant is killed when either half goes red, so this is a conjunction and swapping its
+    two sides cannot change an answer, only the bill. It used to run pytest first, above a
+    docstring that already claimed the opposite; thirteen seconds now decide most rows
+    before sixty are spent on them. -x because one red is the whole answer."""
+    fast = quiet(sys.executable, str(ROOT / "tests" / "adversarial" / "run.py"))
+    return fast and quiet(
+        sys.executable, "-m", "pytest", "-qx", "--no-header", "-p", "no:cacheprovider"
+    )
 
 
 def main(only: str = "") -> int:
