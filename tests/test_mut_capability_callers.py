@@ -22,6 +22,8 @@ import subprocess
 import tomllib
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 PRODUCT = ROOT / "src" / "ai_engineering"
 CAPABILITIES = ROOT / "policy" / "capabilities.toml"
@@ -84,10 +86,24 @@ def callers() -> dict[str, str]:
     return found
 
 
+def _readable() -> bool:
+    """Whether the committed source can be read here at all.
+
+    Same answer as the case above needs and for the same reason: `mutmut` copies the tree
+    outside any repository, so nothing committed is reachable from inside it. A run that could
+    not look must not read as a run that looked and found nothing — that is the difference
+    between no callers and no answer, and this file exists because of it.
+    """
+
+    return bool(_committed("issue.py"))
+
+
 def test_every_caller_names_a_capability_the_manifest_declares():
     """Enforcement against a policy nobody wrote is worse than no enforcement: it reads as
     governed and resolves against nothing."""
 
+    if not _readable():
+        pytest.skip("this tree is not a git repository, so the committed source is unreadable")
     known = declared()
 
     for capability_id, where in callers().items():
@@ -105,6 +121,8 @@ def test_the_count_of_capabilities_with_a_caller_is_published_and_does_not_drop(
     narrowing without anybody noticing they had closed it.
     """
 
+    if not _readable():
+        pytest.skip("this tree is not a git repository, so the committed source is unreadable")
     known, taken = declared(), callers()
 
     assert len(known) == 15, f"{len(known)} capabilities are declared and the audit measured 15"

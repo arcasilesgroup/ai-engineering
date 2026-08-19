@@ -22,6 +22,8 @@ import ast
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from ai_engineering import accept
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,7 +55,13 @@ def _reader() -> ast.FunctionDef:
         cwd=str(ROOT),
         check=False,
     )
-    assert done.returncode == 0, "git could not show accept.py, so this asked nothing"
+    if done.returncode != 0:
+        # Cannot ask is not a failure, and turning it into one is the defect this whole file
+        # is about, committed while fixing it: under `mutmut` the copied tree is not a git
+        # repository at all, so `git show` exits 128 and the case that asserted zero failed
+        # the baseline exactly as reading disk had. Skipped, with the reason, so a run that
+        # could not look never reads as a run that looked and approved.
+        pytest.skip("this tree is not a git repository, so the committed source is unreadable")
     tree = ast.parse(done.stdout)
     found = next(
         node
