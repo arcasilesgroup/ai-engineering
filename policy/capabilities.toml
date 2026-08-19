@@ -317,14 +317,21 @@ id = "blocked"
 # `intent`, which does need it, and it dragged `preflight.exec` in behind it — an enforcement
 # point for an action that never happens.
 #
-# `human_gate = "never"` is argued rather than defaulted, and the argument is narrower than
-# the write root. Gating the record that says a human is needed on that same human is
-# circular, and it is the deadlock this specification exists to remove. But `docs` is the
-# finest grain the schema offers and this mode may therefore write any file under it, so the
-# compensating control is named here rather than implied: what this verb writes is refused
-# unless all four fields say something a reader can act on — placeholders included — and the
-# page that renders the file is byte-compared against the tree on every `just check`. The
-# refusal is in `blocked._usable`; the comparison is `solution_intent.staleness`.
+# `human_gate = "never"` is argued rather than defaulted. Gating the record that says a human
+# is needed on that same human is circular, and it is the deadlock this specification exists
+# to remove.
+#
+# The grant is wider than the use and this row says so rather than dressing it up. The verb
+# writes exactly one file, `docs/blocked.toml`; `docs` is the finest write root the schema
+# offers, so the declaration permits any file under it. The first version of this comment
+# named two compensating controls and a reviewer found that neither covers the grant:
+# `blocked.usable` validates four field values, not paths, and `solution_intent.staleness`
+# compares one page. What is true today is narrower and is what is claimed here — the code
+# writes one constant path, and the four fields of what it writes are refused unless each
+# says something a reader can act on.
+#
+# Narrowing the declaration to that one file needs a schema change behind
+# `_EXPECTED_SCHEMA_DIGEST`. Recorded, not done here.
 read_roots = ["docs"]
 write_roots = ["docs"]
 exec_allowlist = []

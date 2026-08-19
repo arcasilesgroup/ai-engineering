@@ -118,8 +118,11 @@ def test_the_collector_says_what_it_dropped():
     assert {row.kind for row in shown} == {"draft", "verdict"}, "this tree has no recorded halt"
     assert sum(1 for row in shown if row.kind == "verdict") >= 10
 
-    # Stops first, then drafts, then verdicts, read from the module rather than restated —
-    # the order was written down twice and only one copy was load-bearing.
+    # Both halves, because each alone is defeated. Restating the literal was a second copy
+    # of a constant; reading `blocked.ORDER` on both sides of a list `collect` built by
+    # iterating `blocked.ORDER` is a tautology that survives reversing it. So: the constant is
+    # pinned to the literal, and the rows are sorted by the constant.
+    assert blocked.ORDER == ("halt", "draft", "verdict")
     order = [row.kind for row in shown]
     assert order == sorted(order, key=blocked.ORDER.index)
 
@@ -269,3 +272,105 @@ def test_a_draft_with_no_plan_is_counted_and_not_shown(tmp_path):
 
     assert [row.id for row in shown] == ["030"]
     assert dropped == ["031"]
+
+
+def test_the_six_repairs_that_had_no_check(tmp_path):
+    """Six behaviours were repaired and then proved by nothing.
+
+    A bounded re-review sabotaged each one and the suite stayed green: the id lost its hash,
+    the nameless fallback went away, the directory stopped being created, the atomic rename
+    became a plain write. A fix whose whole justification is a case the suite cannot see is a
+    fix that will be undone by the next person who finds it untidy.
+    """
+
+    # `_name` carries a hash, because two gates whose first forty characters agree — and
+    # block headers phrased by the same skill routinely do — otherwise share one id.
+    long_one = "the block header requires written authority naming two digests and neither came"
+    long_two = "the block header requires written authority naming two SHA-256 digests"
+    assert blocked._name(long_one) != blocked._name(long_two)
+    assert blocked._name(long_one) == blocked._name(long_one)
+    assert len(blocked._name(long_one).rsplit("-", 1)[1]) == 8
+
+    # A drop is never nameless: an entry with no id gets a positional label, because a drop
+    # nobody can trace is the filter hiding itself.
+    _ledger(tmp_path, '[[stop]]\nwhat = "a gate"\n')
+    assert blocked.stops(tmp_path) == ([], ["halt[0]"])
+
+    # `docs/` is created. Most repositories installing the wheel do not have one, and without
+    # this the whole of repair 2 is inert for them.
+    fresh = tmp_path / "elsewhere"
+    fresh.mkdir()
+    blocked.record(fresh, what="a gate", why="a reason", action="run this", since="2026-08-19")
+    assert (fresh / blocked.LEDGER).is_file()
+
+    # The sibling the atomic write goes through is gone afterwards, whether or not the rename
+    # happened. It sits in a committed directory and nothing gitignores it.
+    assert not list((fresh / "docs").glob("*.writing"))
+
+
+def test_a_write_that_fails_leaves_no_half_file_behind(tmp_path, monkeypatch):
+    """The interrupted case, which is the reason the sibling exists at all. A lone surrogate
+    from a shell argument fails at encode time, after the sibling has been opened."""
+
+    (tmp_path / "docs").mkdir()
+    blocked.record(tmp_path, what="first", why="a reason", action="run this", since="2026-08-19")
+
+    with pytest.raises(UnicodeEncodeError):
+        blocked.record(tmp_path, what="second", why="\udcff", action="run this", since="2026-08-19")
+
+    assert not list((tmp_path / "docs").glob("*.writing"))
+    rows, _ = blocked.stops(tmp_path)
+    assert [row.what for row in rows] == ["first"], "the good file survived the failed write"
+
+
+def test_a_rewrite_keeps_what_it_does_not_understand(tmp_path):
+    """Two ways the rewrite was unfaithful. A key this version does not know was deleted by
+    an unrelated halt, and a non-string field was laundered through `str()` into a row that
+    read as whole — a dropped row promoted to a shown one carrying a Python repr."""
+
+    _ledger(
+        tmp_path,
+        '[[stop]]\nid = "kept"\nwhat = "another gate"\nsince = "2026-08-01"\n'
+        'why = "a reason"\naction = "run that"\nowner = "dachi"\nseverity = 3\n',
+    )
+
+    blocked.record(tmp_path, what="a gate", why="a reason", action="run this", since="2026-08-19")
+
+    body = (tmp_path / blocked.LEDGER).read_text(encoding="utf-8")
+    assert 'owner = "dachi"' in body, "a key this version does not know must survive"
+    assert "severity = 3" in body
+
+    # A shape this writer cannot reproduce refuses the whole write rather than laundering it.
+    _ledger(tmp_path, '[[stop]]\nid = "odd"\nwhat = "a gate"\naction = ["a"]\n')
+    with pytest.raises(blocked.Unreadable):
+        blocked.record(
+            tmp_path, what="new gate", why="a reason", action="run this", since="2026-08-19"
+        )
+
+
+def test_the_placeholder_check_reads_spanish_too(tmp_path):
+    """`pending` was refused and `pendiente` was not, in a repository whose approval literals
+    are Spanish. And four alternatives carried no word boundary, so `todo` matched "Todos los
+    gates" — which meant a halting run could not record its own stop."""
+
+    for useless in ("pendiente", "por decidir", "sin decidir", "?", "???", "-", "...", "WIP"):
+        assert blocked.usable(useless) == "", useless
+
+    for real in (
+        "apruebo 020 en 1a36b114",
+        "Todos los gates de 020 estan rojos",
+        "decide-gate --approve 020",
+        "figure-out.sh --run",
+        "ask-owner.sh --escalate",
+    ):
+        assert blocked.usable(real) == real, real
+
+
+def test_a_falsy_stop_key_is_unreadable_rather_than_empty(tmp_path):
+    """`stop = false` is valid TOML of the wrong shape. Coalesced to an empty list it
+    answered "nothing is stuck" over a ledger nobody could read."""
+
+    for shape in ("stop = false\n", "stop = 0\n", 'stop = ""\n'):
+        _ledger(tmp_path, shape)
+        with pytest.raises(blocked.Unreadable):
+            blocked.stops(tmp_path)

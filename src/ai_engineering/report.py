@@ -236,15 +236,28 @@ def report_issue(root: Path | None, args: argparse.Namespace) -> outcome.Result 
     )
 
 
-def _said(value: str) -> str:
-    """A flag that was given a value, and a value that says something.
+def _filled(value: str) -> str:
+    """A flag that was given a value rather than an empty one.
 
-    `required=True` checks presence. `--action ""` and `--action TODO` are present, and both
-    produced a PASS over a row the collector then refused — a result claimed that the code
-    did not observe, from the one field that exists to prevent exactly that.
+    `required=True` checks presence, and `--what ""` is present. It produced a PASS over a
+    row the collector then refused — a result claimed that the code did not observe.
     """
 
-    if not ledger._usable(value):
+    if not value.strip():
+        raise argparse.ArgumentTypeError("this cannot be blank")
+    return value.strip()
+
+
+def _said(value: str) -> str:
+    """The fourth field, held to the rule the specification wrote it for.
+
+    `--action TODO` is present and useless, and the placeholder check belongs here rather
+    than on all four flags: the rule is about what would unstick the halt, and applying it to
+    `--what` meant a run could not say "Todos los gates de 020 estan rojos" — ordinary
+    Spanish for "all" — so the recorder crashed on the halt it exists to record.
+    """
+
+    if not ledger.usable(value):
         raise argparse.ArgumentTypeError(
             f"{value!r} says nothing a reader could act on; write what would unstick it"
         )
@@ -269,7 +282,10 @@ def record_stop(root: Path | None, args: argparse.Namespace) -> outcome.Result:
     except (OSError, UnicodeEncodeError, ledger.Unreadable) as refused:
         # The path is relative even here. This message is the one people paste into issues,
         # and the PASS branch below already knew that.
-        print(f"  INCOMPLETE  {ledger.LEDGER.as_posix()} could not be written: {refused}")
+        # `strerror`, not the exception. An OSError renders with the absolute filename it
+        # failed on, and this message is the one people paste into issues.
+        why = getattr(refused, "strerror", None) or type(refused).__name__
+        print(f"  INCOMPLETE  {ledger.LEDGER.as_posix()} could not be written: {why}")
         return outcome.result("INCOMPLETE")
     print(f"  recorded in {where.relative_to(root)}")
     print(f"    {args.what}")
@@ -306,9 +322,10 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     # refuses complaints. `--since` defaults because a halt happening now is the ordinary
     # case and the field is only interesting when a record is being backfilled.
     halt = commands.add_parser("blocked")
-    for flag in ("--what", "--why", "--action"):
-        halt.add_argument(flag, required=True, type=_said)
-    halt.add_argument("--since", default=date.today().isoformat(), type=_said)
+    for flag in ("--what", "--why"):
+        halt.add_argument(flag, required=True, type=_filled)
+    halt.add_argument("--action", required=True, type=_said)
+    halt.add_argument("--since", default=date.today().isoformat(), type=_filled)
     args = parser.parse_args(argv)
 
     if args.command == "blocked":

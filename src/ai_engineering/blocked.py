@@ -37,7 +37,40 @@ ORDER = ("halt", "draft", "verdict")
 # refused and the first version only checked for whitespace, so `action = "TODO"` rendered as
 # though somebody could act on it. That is the bug-tracker failure specification 020 was
 # challenged with, arriving through the one field that was supposed to prevent it.
-REFUSED = re.compile(r"^\s*(todo|tbd|fixme|xxx|pending\b|n/?a\b|ask\b|decide\b|figure\b)", re.I)
+#
+# Every alternative carries a word boundary, and four of them did not. Without it `todo`
+# matched "Todos los gates de 020 estan rojos" — ordinary Spanish for "all" — so a halting
+# run could not record its own stop in the language this repository writes its approval
+# literals in. The recorder crashing on the halt it exists to record is the failure this
+# specification is about, reintroduced by the fix for the failure beside it.
+#
+# Both languages, because the reader and the writer are the same person and half this
+# repository is Spanish: `pending` was refused while `pendiente` was not.
+# Two lists, because two things are being refused and one pattern could not tell them apart.
+#
+# A marker stands for a decision nobody made: it is the whole field, or it introduces one with
+# a colon or a dash. Requiring that is what separates `TODO: name the digests` from "Todos
+# los gates de 020 estan rojos" — ordinary Spanish for "all", in a repository whose approval
+# literals are Spanish. The first pattern matched a marker followed by any whitespace, so a
+# halting run could not record its own stop in half the language it writes.
+#
+# An imperative tells the reader to go and decide, and it is refused when it opens the field
+# followed by a space. `ask the owner` and `decide this` are exactly what the specification
+# rules out; `decide-gate --approve 020`, `figure-out.sh --run` and `ask-owner.sh` are real
+# commands and are not, which is why the boundary is a space rather than a word break.
+_MARKERS = (
+    "todo|todos|tbd|tba|fixme|xxx|wip|pending|pendiente|por decidir|sin decidir"
+    r"|unknown|desconocido|later|luego|none|null|nada|n/?a|n\.a\.|see above|ver arriba"
+    r"|\?+|-+|\.+"
+)
+_IMPERATIVES = "ask|preguntar|decide|decidir|figure|averiguar"
+REFUSED = re.compile(
+    # The whole field is a marker, or a marker introduces it with a colon or a dash.
+    rf"^\s*({_MARKERS})\s*$|^\s*({_MARKERS})\s*[:—-]|"
+    # Or it opens with an imperative and a space.
+    rf"^\s*({_IMPERATIVES})\s",
+    re.I,
+)
 
 LEDGER = Path("docs") / "blocked.toml"
 
@@ -107,7 +140,7 @@ def _basic(value: str) -> str:
     return "".join(out)
 
 
-def _usable(value: object) -> str:
+def usable(value: object) -> str:
     """The field as a row may carry it, or the empty string when it may not.
 
     A string, non-blank, and not one of the placeholders that says a decision has not been
@@ -134,9 +167,9 @@ def _rows(entries: list[dict], kind: str) -> tuple[list[Row], list[str]]:
         # Never nameless. A drop with an empty id is a filter hiding itself, which is the
         # defect this whole module exists to remove, arriving one level down.
         name = str(entry.get("id") or "").strip() or f"{kind}[{at}]"
-        usable = {field: _usable(entry.get(field)) for field in FIELDS}
-        if all(usable.values()):
-            whole.append(Row(kind=kind, id=name, **usable))
+        said = {field: usable(entry.get(field)) for field in FIELDS}
+        if all(said.values()):
+            whole.append(Row(kind=kind, id=name, **said))
         else:
             dropped.append(name)
     return whole, dropped
@@ -157,12 +190,15 @@ def _entries(root: Path) -> list[dict]:
         loaded = tomllib.loads(where.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as refused:
         raise Unreadable(f"{LEDGER.as_posix()} could not be read: {refused}") from refused
-    listed = loaded.get("stop") or []
+    listed = loaded.get("stop", [])
     # `[stop]` instead of `[[stop]]` is the likeliest hand-edit typo and parses to a table
     # rather than a list of them, and `stop = ["a"]` parses to strings. Both are valid TOML
     # of the wrong shape, and the first version called `.get` on them and raised
     # `AttributeError` straight through every caller that promised to refuse rather than
     # raise — including the one that runs while a build is already failing.
+    # `.get("stop", [])`, never `or []`. `stop = false` and `stop = 0` are valid TOML of the
+    # wrong shape, and coalescing them to an empty list answered "nothing is stuck" over a
+    # ledger nobody could read — the exact direction the docstring below refuses.
     entries = [one for one in listed if isinstance(one, dict)] if isinstance(listed, list) else []
     if len(entries) != (len(listed) if isinstance(listed, list) else 1):
         raise Unreadable(
@@ -260,7 +296,7 @@ def _frontmatter(raw: str) -> dict[str, str] | None:
     return {
         key.strip(): value.strip().strip("\"'")
         for key, _, value in (line.partition(":") for line in block.splitlines())
-        if key.strip() and not key.startswith("#")
+        if key.strip() and not key.strip().startswith("#")
     }
 
 
@@ -338,6 +374,27 @@ def _name(what: str) -> str:
     return f"{slug}-{hashlib.sha256(what.encode('utf-8', 'surrogatepass')).hexdigest()[:8]}"
 
 
+def _literal(value: object) -> str:
+    """One TOML value, or nothing this writer can promise to preserve.
+
+    Only strings, integers, floats and booleans. A row holding a list or a table is a shape
+    this rewrite cannot reproduce faithfully, and the first version handled it by running
+    `str()` over it — which turned `action = ["a"]` into the string `"['a']"`, a row the
+    reader had dropped promoted into a row it shows, carrying a Python repr.
+    """
+
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return _basic(value)
+    if isinstance(value, (int, float)):
+        return repr(value)
+    raise Unreadable(
+        f"{LEDGER.as_posix()} holds a {type(value).__name__} this writer cannot preserve, "
+        "so rewriting the file would change rows it was not asked to touch"
+    )
+
+
 def record(root: Path, *, what: str, why: str, action: str, since: str) -> Path:
     """Write one halt into the ledger, or refresh the one already there.
 
@@ -347,30 +404,53 @@ def record(root: Path, *, what: str, why: str, action: str, since: str) -> Path:
     asks and refreshing it on every retry would make a week-old block look new.
 
     Rebuilt from the entries as written rather than from the parsed rows, so a row this
-    module drops is left where it is instead of being deleted by an unrelated halt. Written
-    to a sibling and renamed, so an interrupted write cannot leave a truncated governed file
-    that every later read refuses.
+    module drops is left where it is instead of being deleted by an unrelated halt. Every key
+    an untouched row carries is copied through, including ones this version does not know:
+    the first rewrite emitted a fixed tuple of five and silently deleted anything a future
+    version had written beside them.
+
+    Written to a sibling and renamed, so an interrupted write cannot leave a truncated
+    governed file that every later read refuses, and the sibling is removed on the way out
+    whether or not the rename happened.
     """
 
+    if not usable(what):
+        raise Unreadable(f"{what!r} does not say what is waiting, so there is nothing to record")
+
     held = _entries(root)
-    already = next((one for one in held if _usable(one.get("what")) == what.strip()), None)
-    fresh = {
-        "id": str(already.get("id")) if already else _name(what),
+    # `usable` on both sides. Comparing a normalised left against a raw right meant that a
+    # blank `what` matched the first row whose own `what` was unusable, so recording one halt
+    # overwrote an unrelated half-written row and adopted its date.
+    already = next((one for one in held if usable(one.get("what")) == usable(what)), None)
+    fresh: dict[str, object] = {
+        **(
+            {key: value for key, value in already.items() if key not in ("id", *FIELDS)}
+            if already
+            else {}
+        ),
+        # `or`, not a bare `.get`. A stored row missing `id` or `since` wrote the literal
+        # string "None" into a governed file, and a stored blank `since` wrote a row the
+        # reader then dropped while the command printed PASS — a result the code did not
+        # observe, which is the one thing this repository never does.
+        "id": str(already.get("id") or _name(what)) if already else _name(what),
         "what": what,
-        "since": str(already.get("since")) if already else since,
+        "since": str(already.get("since") or since) if already else since,
         "why": why,
         "action": action,
     }
     kept = [one for one in held if one is not already]
     body = "".join(
         "[[stop]]\n"
-        + "".join(f"{field} = {_basic(str(one.get(field, '')))}\n" for field in ("id", *FIELDS))
+        + "".join(f"{field} = {_literal(value)}\n" for field, value in one.items())
         + "\n"
         for one in [*kept, fresh]
     )
     where = root / LEDGER
     where.parent.mkdir(parents=True, exist_ok=True)
     beside = where.with_suffix(".toml.writing")
-    beside.write_text(HEADER + body, encoding="utf-8")
-    os.replace(beside, where)
+    try:
+        beside.write_text(HEADER + body, encoding="utf-8")
+        os.replace(beside, where)
+    finally:
+        beside.unlink(missing_ok=True)
     return where
