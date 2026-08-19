@@ -227,13 +227,20 @@ def test_p0_claims_nothing_that_belongs_to_a_later_wave():
     assert not (ROOT / "hooks" / "design_gate.py").exists()
 
     # And it is answered by the same command CI runs, rather than by a file somebody has to
-    # remember to run: `just check` calls `test`, and `test` runs the whole tests directory.
+    # remember to run. The whole tests directory still runs once per gate; it moved from
+    # `test` to `cover` when the gate stopped paying for it twice, and what `test` keeps is
+    # the half coverage instrumentation cannot measure — a latency bound, uninstrumented.
+    # Pinned as the pair rather than as one recipe's bytes, because the property is that
+    # every test runs, not which recipe happens to run it.
     recipe = (ROOT / "justfile").read_text(encoding="utf-8")
-    # The list is read rather than pinned as one string: `check` grew a `register` recipe in
-    # P5 and this assertion is about `test` being in it, not about the order of the others.
     called = recipe.split("\ncheck:", 1)[1].splitlines()[0].split()
-    assert "test" in called and "lint" in called and "security" in called, called
-    assert "\ntest:\n    uv run --with {{pytest}} --with {{xdist}} pytest -q -n auto\n" in recipe
+    for owed in ("test", "cover", "lint", "security"):
+        assert owed in called, (owed, called)
+    selections = re.findall(r"pytest -q -n auto -k \"([^\"]+)\"", recipe)
+    assert sorted(selections) == ["fast_enough", "not fast_enough"], (
+        f"the two halves of the suite no longer partition it: {selections}. Between them "
+        "they must run every test exactly once."
+    )
 
 
 def test_the_gate_checks_the_page_is_about_this_tree():
