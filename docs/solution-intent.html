@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Solution Intent de ai-engineering: qué es, en qué
+estado está cada especificación y qué lo gobierna.">
+<title>ai-engineering | Solution Intent</title>
+<style>
+:root{--bg:#f4f2eb;--surface:#fcfbf7;--surface-2:#e9e6dc;--ink:#17201d;--muted:#56625c;
+--line:#cac7bc;--line-strong:#989c96;--green:#166e52;--green-strong:#0d4b38;--green-soft:#dcebe4;
+--amber:#89570f;--amber-soft:#f2e5cc;--red:#913b35;--red-soft:#f1dfdc;
+--blue:#315e7d;--blue-soft:#dce8ef;
+--shadow:0 20px 54px rgba(22,31,27,.09);--radius:14px;--max:1180px;
+--sans:"Avenir Next",Avenir,"Segoe UI",Inter,system-ui,sans-serif;
+--mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1412;--surface:#151e1b;
+--surface-2:#1e2a26;--ink:#eaf0ec;--muted:#a7b3ad;--line:#2d3b36;
+--line-strong:#52635c;--green:#70d0aa;
+--green-strong:#a6e8ce;--green-soft:#17382d;--amber:#efb869;--amber-soft:#3a2d19;--red:#f0958c;
+--red-soft:#3a2422;--blue:#8bc1e3;--blue-soft:#1b3040;--shadow:0 24px 60px rgba(0,0,0,.28)}}
+:root[data-theme="dark"]{--bg:#0d1412;--surface:#151e1b;--surface-2:#1e2a26;
+--ink:#eaf0ec;--muted:#a7b3ad;
+--line:#2d3b36;--line-strong:#52635c;--green:#70d0aa;--green-strong:#a6e8ce;--green-soft:#17382d;
+--amber:#efb869;--amber-soft:#3a2d19;--red:#f0958c;--red-soft:#3a2422;
+--blue:#8bc1e3;--blue-soft:#1b3040;
+--shadow:0 24px 60px rgba(0,0,0,.28)}
+*{box-sizing:border-box}
+body{margin:0;min-width:320px;background:var(--bg);color:var(--ink);font-family:var(--sans);
+font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+a{color:var(--green-strong);text-underline-offset:3px}
+code,.mono{font-family:var(--mono);font-size:.88em}
+code{background:var(--surface-2);border-radius:5px;padding:.1em .34em}
+.wrap{width:min(100% - 40px,var(--max));margin:0 auto}
+header.hero{border-bottom:1px solid var(--line);padding:52px 0 34px;margin-bottom:34px}
+h1{font-size:clamp(30px,4.4vw,46px);line-height:1.12;margin:0 0 12px;letter-spacing:-.02em}
+.lead{font-size:1.12em;color:var(--muted);max-width:70ch;margin:0}
+.stamp{margin-top:20px;font-family:var(--mono);font-size:.8em;color:var(--muted);
+display:flex;flex-wrap:wrap;gap:6px 20px}
+section{margin:0 0 46px;scroll-margin-top:20px}
+h2{font-size:1.42em;margin:0 0 6px;letter-spacing:-.01em}
+h2+p.note{margin:0 0 18px;color:var(--muted);max-width:76ch}
+h3{font-size:1.02em;margin:26px 0 8px;text-transform:uppercase;
+letter-spacing:.07em;color:var(--muted)}
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+.card{border:1px solid var(--line);border-radius:var(--radius);
+background:var(--surface);padding:16px 18px}
+.card .n{font-size:1.85em;font-weight:600;line-height:1.1;letter-spacing:-.02em;display:block}
+.card .k{font-size:.82em;color:var(--muted);display:block;margin-top:3px}
+.card .s{font-size:.78em;color:var(--muted);display:block;margin-top:8px;font-family:var(--mono)}
+.scroll{overflow-x:auto;border:1px solid var(--line);
+border-radius:var(--radius);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.9em;min-width:640px}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.76em;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+background:var(--surface-2);position:sticky;top:0}
+tbody tr:last-child td{border-bottom:0}
+td.num,th.num{font-family:var(--mono);white-space:nowrap}
+.tag{display:inline-block;border-radius:999px;padding:1px 9px;font-size:.76em;font-weight:600;
+white-space:nowrap;border:1px solid transparent}
+.tag.good{background:var(--green-soft);color:var(--green);border-color:var(--green)}
+.tag.warn{background:var(--amber-soft);color:var(--amber);border-color:var(--amber)}
+.tag.bad{background:var(--red-soft);color:var(--red);border-color:var(--red)}
+.tag.muted{background:var(--surface-2);color:var(--muted);border-color:var(--line-strong)}
+.bar{height:5px;border-radius:3px;background:var(--surface-2);
+overflow:hidden;min-width:74px;margin-top:5px}
+.bar i{display:block;height:100%;background:var(--green)}
+ul.plain{margin:0;padding-left:1.15em}
+ul.plain li{margin:0 0 6px}
+.panel{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);
+padding:18px 20px;box-shadow:var(--shadow)}
+.panel.warn{border-color:var(--amber);background:var(--amber-soft)}
+.split{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+figure{margin:0}
+svg{max-width:100%;height:auto;display:block}
+footer{border-top:1px solid var(--line);margin-top:20px;padding:26px 0 60px;
+color:var(--muted);font-size:.88em}
+@media print{body{font-size:11pt}.scroll{overflow:visible}th{position:static}}
+</style>
+</head>
+<body data-inputs-digest="24a82e4d4be55b1368adadf91093bd6426b31d57488555f9c0a5b9d38231594e">
+<div class="wrap">
+<header class="hero">
+  <h1>Governed agentic engineering</h1>
+  <p class="lead">Esta página es el estado del proyecto para una persona: qué existe, qué está
+  a medias, qué lo decide y qué todavía no tiene prueba. La genera un comando a partir de los
+  ficheros del repositorio, así que no puede envejecer sin que el gate lo diga.</p>
+  <div class="stamp">
+    <span>generada 2026-08-19</span>
+    <span>HEAD e21c0d14</span>
+    <span>estado del Intent: active</span>
+    <span>inputs-digest 24a82e4d4be55b13…</span>
+  </div>
+</header>
+
+<section id="resumen">
+  <h2>De un vistazo</h2>
+  <p class="note">Cada número sale de un fichero del árbol. Ninguno está escrito a mano.</p>
+  <div class="cards">
+    <div class="card"><span class="n">19</span><span class="k">especificaciones</span><span class="s">10 draft · 8 shipped · 1 superseded</span></div>
+    <div class="card"><span class="n">18/18</span><span class="k">casillas de plan marcadas</span><span class="s">en 2 de 13 planes</span></div>
+    <div class="card"><span class="n">13</span><span class="k">decisiones registradas</span><span class="s">docs/adr/</span></div>
+    <div class="card"><span class="n">13</span><span class="k">skills</span><span class="s">techo de 80 líneas cada una</span></div>
+    <div class="card"><span class="n">6</span><span class="k">guards que fallan cerrados</span><span class="s">+2 de telemetría</span></div>
+    <div class="card"><span class="n">10</span><span class="k">verbos de CLI</span><span class="s">src/ai_engineering/cli.py</span></div>
+    <div class="card"><span class="n">80.273</span><span class="k">líneas contadas por el techo</span><span class="s">techo 80.273, esta página no se cuenta aquí</span></div>
+    <div class="card"><span class="n">1.98:1</span><span class="k">prueba frente a producto</span><span class="s">máximo 2.0:1 · 45.635 / 23.067</span></div>
+    <div class="card"><span class="n">0/8</span><span class="k">cajas de producción probadas</span><span class="s">READINESS_DECLARATION_MISSING</span></div>
+  </div>
+</section>
+
+<section id="ciclo">
+  <h2>El ciclo de vida, y dónde vive cada paso</h2>
+  <p class="note">Caja continua: el paso tiene una skill o un verbo que lo ejecuta. Caja
+  discontinua: todavía es una conversación. Sin casa: challenge, council.</p>
+  <figure class="panel"><svg viewBox="0 0 824 290" role="img" aria-label="Ciclo de vida: idea, research, spec, challenge, council, decide, plan, build, review, verify, security, audit, ship"><rect x="10" y="10" width="148" height="56" rx="10" fill="var(--green-soft)" stroke="var(--green)"/><text x="84.0" y="33" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">idea</text><text x="84.0" y="51" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">una petición</text><path d="M160 38.0 L171 38.0" stroke="var(--line-strong)" stroke-width="1.5" marker-end="url(#a)"/><rect x="174" y="10" width="148" height="56" rx="10" fill="var(--green-soft)" stroke="var(--green)"/><text x="248.0" y="33" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">research</text><text x="248.0" y="51" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">/ai-research</text><path d="M324 38.0 L335 38.0" stroke="var(--line-strong)" stroke-width="1.5" marker-end="url(#a)"/><rect x="338" y="10" width="148" height="56" rx="10" fill="var(--green-soft)" stroke="var(--green)"/><text x="412.0" y="33" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">spec</text><text x="412.0" y="51" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">/ai-spec</text><path d="M488 38.0 L499 38.0" stroke="var(--line-strong)" stroke-width="1.5" marker-end="url(#a)"/><rect x="502" y="10" width="148" height="56" rx="10" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-dasharray="5 4"/><text x="576.0" y="33" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">challenge</text><text x="576.0" y="51" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">/ai-challenge</text><path d="M652 38.0 L663 38.0" stroke="var(--line-strong)" stroke-width="1.5" marker-end="url(#a)"/><rect x="666" y="10" width="148" height="56" rx="10" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-dasharray="5 4"/><text x="740.0" y="33" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">council</text><text x="740.0" y="51" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">/ai-council</text><rect x="10" y="100" width="148" height="56" rx="10" fill="var(--green-soft)" stroke="var(--green)"/><text x="84.0" y="123" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">decide</text><text x="84.0" y="141" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">ai-eng decide</text><path d="M160 128.0 L171 128.0" stroke="var(--line-strong)" stroke-width="1.5" marker-end="url(#a)"/><rect x="174" y="100" width="148" height="56" rx="10" fill="var(--green-soft)" stroke="var(--green)"/><text x="248.0" y="123" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">plan</text><text x="248.0" y="141" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">/ai-plan</text><path d="M324 128.0 L335 128.0" stroke="var(--line-strong)" stroke-width="1.5" marker-end="url(#a)"/><rect x="338" y="100" width="148" height="56" rx="10" fill="var(--green-soft)" stroke="var(--green)"/><text x="412.0" y="123" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">build</text><text x="412.0" y="141" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">/ai-build</text><path d="M488 128.0 L499 128.0" stroke="var(--line-strong)" stroke-width="1.5" marker-end="url(#a)"/><rect x="502" y="100" width="148" height="56" rx="10" fill="var(--green-soft)" stroke="var(--green)"/><text x="576.0" y="123" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">review</text><text x="576.0" y="141" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">/ai-review</text><path d="M652 128.0 L663 128.0" stroke="var(--line-strong)" stroke-width="1.5" marker-end="url(#a)"/><rect x="666" y="100" width="148" height="56" rx="10" fill="var(--green-soft)" stroke="var(--green)"/><text x="740.0" y="123" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">verify</text><text x="740.0" y="141" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">/ai-verify</text><rect x="10" y="190" width="148" height="56" rx="10" fill="var(--green-soft)" stroke="var(--green)"/><text x="84.0" y="213" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">security</text><text x="84.0" y="231" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">/ai-security</text><path d="M160 218.0 L171 218.0" stroke="var(--line-strong)" stroke-width="1.5" marker-end="url(#a)"/><rect x="174" y="190" width="148" height="56" rx="10" fill="var(--green-soft)" stroke="var(--green)"/><text x="248.0" y="213" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">audit</text><text x="248.0" y="231" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">ai-eng audit</text><path d="M324 218.0 L335 218.0" stroke="var(--line-strong)" stroke-width="1.5" marker-end="url(#a)"/><rect x="338" y="190" width="148" height="56" rx="10" fill="var(--green-soft)" stroke="var(--green)"/><text x="412.0" y="213" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600" font-family="system-ui">ship</text><text x="412.0" y="231" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="monospace">/ai-ship</text><defs><marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="var(--line-strong)"/></marker></defs></svg></figure>
+</section>
+
+<section id="intent">
+  <h2>El Solution Intent que gobierna</h2>
+  <p class="note">Copiado literalmente de <code>.ai/intent.md</code>. Es el documento del
+  propietario del repositorio; nada de esta página puede contradecirlo.</p>
+  <div class="split">
+    <div class="panel"><h3>Restricciones fijas</h3>
+      <ul class="plain"><li>Guards fail closed; telemetry observes and never decides.</li><li>Models may investigate, propose and review; only a human or an approved versioned policy supplies authority.</li><li>Never record, publish or transmit secrets, personal data or private material.</li><li>Until a separately approved P3 plan proves safe coordination, one writer owns repository changes.</li></ul></div>
+    <div class="panel"><h3>Resultados buscados</h3>
+      <ul class="plain"><li>Govern human-led and bounded autonomous engineering from Solution Intent through executed evidence and production.</li><li>Expose missing authority, missing evidence and false-green results as blocking INCOMPLETE or FAIL outcomes.</li></ul></div>
+    <div class="panel warn"><h3>Hechos actuales</h3>
+      <ul class="plain"><li>Spec 010 is draft: its P0 wave landed and supersedes spec 004, and its own plan reserves shipped until a candidate proves exact-HEAD CI receipts, which do not exist.</li><li>P0 built the verifier for the eight production-ready boxes and earned no receipt for any of them, so every box is INCOMPLETE.</li><li>No P1-P5 wave, URL, deployment, pilot or compliance claim is proven by this record.</li></ul></div>
+    <div class="panel"><h3>Variables</h3>
+      <ul class="plain"><li>The reviewed implementation increment may change within the normative P0-P5 target.</li><li>Tools and agent surfaces may change only while their declared capability boundaries remain truthful.</li></ul></div>
+  </div>
+</section>
+
+<section id="specs">
+  <h2>Dónde está cada especificación</h2>
+  <p class="note">El estado sale del frontmatter de cada <code>spec.md</code>. El progreso
+  cuenta las casillas de su <code>plan.md</code>; una casilla no es una prueba, sólo dice qué
+  se marcó.</p>
+  <div class="scroll"><table>
+    <thead><tr><th class="num">id</th><th>título</th><th>estado</th><th class="num">fecha</th>
+    <th class="num">tareas</th><th class="num">tamaño</th></tr></thead>
+    <tbody><tr><td class="num">001</td><td>ai-engineering v1.0.0, from an empty folder<br><span class="mono" style="color:var(--muted)">specs/v1-from-scratch/</span></td><td><span class="tag good">shipped</span></td><td class="num">2026-08-08</td><td class="num"><span class="tag warn">plan sin tareas legibles por máquina</span></td><td class="num">25 KB + 2 KB</td></tr><tr><td class="num">002</td><td>What a quality model changes here, and what it does not<br><span class="mono" style="color:var(--muted)">specs/quality-ecosystem-3-0/</span></td><td><span class="tag good">shipped</span></td><td class="num">2026-08-08</td><td class="num"><span class="tag warn">plan sin tareas legibles por máquina</span></td><td class="num">21 KB + 10 KB</td></tr><tr><td class="num">003</td><td>The guards that never fired, and the install that was never ours<br><span class="mono" style="color:var(--muted)">specs/guards-that-never-fired/</span></td><td><span class="tag good">shipped</span></td><td class="num">2026-08-08</td><td class="num"><span class="tag warn">plan sin tareas legibles por máquina</span></td><td class="num">35 KB + 24 KB</td></tr><tr><td class="num">004</td><td>Where the Solution Intent work belongs, and what it would take to sell it<br><span class="mono" style="color:var(--muted)">specs/solution-intent-home/</span></td><td><span class="tag muted">superseded</span></td><td class="num">2026-08-08</td><td class="num"><span class="tag warn">plan sin tareas legibles por máquina</span></td><td class="num">17 KB + 7 KB</td></tr><tr><td class="num">005</td><td>What `init` says it did, and what it did<br><span class="mono" style="color:var(--muted)">specs/init-says-what-it-did/</span></td><td><span class="tag good">shipped</span></td><td class="num">2026-08-08</td><td class="num"><span class="tag warn">plan sin tareas legibles por máquina</span></td><td class="num">20 KB + 17 KB</td></tr><tr><td class="num">006</td><td>The CLI that was better, and the measurement of why<br><span class="mono" style="color:var(--muted)">specs/the-cli-that-was-better/</span></td><td><span class="tag good">shipped</span></td><td class="num">2026-08-09</td><td class="num"><span class="tag warn">plan sin tareas legibles por máquina</span></td><td class="num">14 KB + 12 KB</td></tr><tr><td class="num">007</td><td>The install a stranger can follow, and the diagnosis that says what to type<br><span class="mono" style="color:var(--muted)">specs/the-install-a-stranger-can-follow/</span></td><td><span class="tag good">shipped</span></td><td class="num">2026-08-09</td><td class="num">7/7<div class="bar"><i style="width:100%"></i></div></td><td class="num">12 KB + 10 KB</td></tr><tr><td class="num">008</td><td>The receipt that only grows, and the machine that says it is ready<br><span class="mono" style="color:var(--muted)">specs/the-receipt-that-only-grows/</span></td><td><span class="tag good">shipped</span></td><td class="num">2026-08-09</td><td class="num"><span class="tag warn">plan sin tareas legibles por máquina</span></td><td class="num">22 KB + 19 KB</td></tr><tr><td class="num">009</td><td>The branch that never ran, and the twenty-one things a survey found in it<br><span class="mono" style="color:var(--muted)">specs/the-branch-that-never-ran/</span></td><td><span class="tag good">shipped</span></td><td class="num">2026-08-10</td><td class="num"><span class="tag warn">plan sin tareas legibles por máquina</span></td><td class="num">12 KB + 9 KB</td></tr><tr><td class="num">010</td><td>Governed agentic engineering foundation<br><span class="mono" style="color:var(--muted)">specs/governed-agentic-engineering-foundation/</span></td><td><span class="tag warn">draft</span><br><span class="mono" style="font-size:.78em;color:var(--muted)">sustituye 004</span></td><td class="num">2026-08-13</td><td class="num"><span class="tag good">77 tareas con check</span></td><td class="num">52 KB + 72 KB</td></tr><tr><td class="num">011</td><td>The surface adapter contract<br><span class="mono" style="color:var(--muted)">specs/surface-adapter-contract/</span></td><td><span class="tag warn">draft</span></td><td class="num">2026-08-15</td><td class="num"><span class="tag good">11 tareas con check</span></td><td class="num">12 KB + 27 KB</td></tr><tr><td class="num">012</td><td>Seven capabilities, and the corpus that exists before each one<br><span class="mono" style="color:var(--muted)">specs/seven-capabilities-with-proof/</span></td><td><span class="tag warn">draft</span></td><td class="num">2026-08-15</td><td class="num"><span class="tag muted">sin plan</span></td><td class="num">22 KB</td></tr><tr><td class="num">013</td><td>Writers coordinated by Git, not by another platform<br><span class="mono" style="color:var(--muted)">specs/origin-first-coordination/</span></td><td><span class="tag warn">draft</span></td><td class="num">2026-08-15</td><td class="num"><span class="tag muted">sin plan</span></td><td class="num">20 KB</td></tr><tr><td class="num">014</td><td>The security baseline that cannot fake a pass<br><span class="mono" style="color:var(--muted)">specs/security-baseline-no-false-pass/</span></td><td><span class="tag warn">draft</span></td><td class="num">2026-08-15</td><td class="num"><span class="tag muted">sin plan</span></td><td class="num">27 KB</td></tr><tr><td class="num">015</td><td>The pilot without instruments<br><span class="mono" style="color:var(--muted)">specs/pilot-without-instruments/</span></td><td><span class="tag warn">draft</span></td><td class="num">2026-08-15</td><td class="num"><span class="tag muted">sin plan</span></td><td class="num">19 KB</td></tr><tr><td class="num">016</td><td>The thesis nobody owns<br><span class="mono" style="color:var(--muted)">specs/the-thesis-nobody-owns/</span></td><td><span class="tag warn">draft</span></td><td class="num">2026-08-15</td><td class="num"><span class="tag muted">sin plan</span></td><td class="num">21 KB</td></tr><tr><td class="num">017</td><td>Decision brief as an artifact<br><span class="mono" style="color:var(--muted)">specs/decision-brief-as-an-artifact/</span></td><td><span class="tag warn">draft</span></td><td class="num">2026-08-17</td><td class="num"><span class="tag muted">sin plan</span></td><td class="num">9 KB</td></tr><tr><td class="num">018</td><td>Controls a reviewer proved were not controls<br><span class="mono" style="color:var(--muted)">specs/controls-a-reviewer-proved-were-not-controls/</span></td><td><span class="tag warn">draft</span></td><td class="num">2026-08-17</td><td class="num">11/11<div class="bar"><i style="width:100%"></i></div></td><td class="num">7 KB + 4 KB</td></tr><tr><td class="num">019</td><td>The four days two specs cost<br><span class="mono" style="color:var(--muted)">specs/the-four-days-two-specs-cost/</span></td><td><span class="tag warn">draft</span></td><td class="num">2026-08-19</td><td class="num"><span class="tag good">23 tareas con check</span></td><td class="num">22 KB + 33 KB</td></tr></tbody>
+  </table></div>
+</section>
+
+<section id="decisiones">
+  <h2>Decisiones que atan al futuro</h2>
+  <p class="note">Un ADR es inmutable: se sustituye, no se reescribe.</p>
+  <div class="scroll"><table>
+    <thead><tr><th class="num">nº</th><th>decisión</th><th>estado</th></tr></thead>
+    <tbody><tr><td class="num">0001</td><td>0001. A surface is detected only by a path we never write<br><span class="mono" style="color:var(--muted)">docs/adr/0001-a-surface-is-detected-only-by-a-path-we-never-write.md</span></td><td><span class="tag warn">proposed</span></td></tr><tr><td class="num">0002</td><td>0002. Diagnostics never repair; a check names the command that fixes it<br><span class="mono" style="color:var(--muted)">docs/adr/0002-diagnostics-never-repair-a-check-names-the-command-that-fixe.md</span></td><td><span class="tag muted">superseded by 0003</span></td></tr><tr><td class="num">0003</td><td>0003. A diagnostic may run the consented verb that cures what it found<br><span class="mono" style="color:var(--muted)">docs/adr/0003-a-diagnostic-may-run-the-consented-verb-that-cures-what-it-f.md</span></td><td><span class="tag warn">proposed</span></td></tr><tr><td class="num">0004</td><td>0004. No document mould from another repository enters this framework<br><span class="mono" style="color:var(--muted)">docs/adr/0004-no-document-mould-from-another-repository-enters-this-framew.md</span></td><td><span class="tag warn">proposed</span></td></tr><tr><td class="num">0005</td><td>0005. Intent supersedes the boundary of ADR 0004<br><span class="mono" style="color:var(--muted)">docs/adr/0005-intent-supersedes-0004.md</span></td><td><span class="tag muted">&quot;accepted&quot;</span></td></tr><tr><td class="num">0006</td><td>0006. Govern engineering work from intent to evidence<br><span class="mono" style="color:var(--muted)">docs/adr/0006-governed-mission.md</span></td><td><span class="tag muted">&quot;accepted&quot;</span></td></tr><tr><td class="num">0007</td><td>0007. Make the CLI outcome-first and exact<br><span class="mono" style="color:var(--muted)">docs/adr/0007-cli-contract.md</span></td><td><span class="tag muted">&quot;accepted&quot;</span></td></tr><tr><td class="num">0008</td><td>0008. The five wave specifications are approved at exact digests<br><span class="mono" style="color:var(--muted)">docs/adr/0008-the-five-wave-specifications-are-approved-at-exact-digests.md</span></td><td><span class="tag muted">&quot;accepted&quot;</span></td></tr><tr><td class="num">0009</td><td>0009. The current spec 010 digests are approved<br><span class="mono" style="color:var(--muted)">docs/adr/0009-the-current-spec-010-digests-are-approved.md</span></td><td><span class="tag muted">&quot;accepted&quot;</span></td></tr><tr><td class="num">0010</td><td>0010. A scanner finding is answered in the scanner<br><span class="mono" style="color:var(--muted)">docs/adr/0010-a-scanner-finding-is-answered-in-the-scanner.md</span></td><td><span class="tag muted">&quot;proposed&quot;</span></td></tr><tr><td class="num">0011</td><td>0011. Requirement-closure work is a block like any other<br><span class="mono" style="color:var(--muted)">docs/adr/0011-requirement-closure-work-is-a-block-like-any-other.md</span></td><td><span class="tag muted">&quot;accepted&quot;</span></td></tr><tr><td class="num">0012</td><td>0012. The Intent&#x27;s accountable role was changed by an agent and needs a receipt<br><span class="mono" style="color:var(--muted)">docs/adr/0012-the-intent-s-accountable-role-was-changed-by-an-agent-and-ne.md</span></td><td><span class="tag muted">&quot;accepted&quot;</span></td></tr><tr><td class="num">0013</td><td>0013. Specifications 016, 017 and 018 are approved at exact digests<br><span class="mono" style="color:var(--muted)">docs/adr/0013-specifications-016-017-and-018-are-approved-at-exact-digests.md</span></td><td><span class="tag muted">&quot;accepted&quot;</span></td></tr></tbody>
+  </table></div>
+</section>
+
+<section id="produccion">
+  <h2>¿Está lista para producción?</h2>
+  <p class="note">Las ocho cajas que <code>src/ai_engineering/readiness.py</code> verifica
+  contra <code>.ai/readiness.json</code>. Veredicto agregado:
+  <span class="tag warn">INCOMPLETE</span> <code>READINESS_DECLARATION_MISSING</code>.
+  Ninguna caja se marca sin un recibo; una declaración ausente es INCOMPLETE, no un hueco.</p>
+  <div class="scroll"><table style="min-width:0">
+    <thead><tr><th>caja</th><th>resultado</th><th>código</th></tr></thead>
+    <tbody><tr><td>CI/CD</td><td><span class="tag warn">INCOMPLETE</span></td><td class="num">READINESS_DECLARATION_MISSING</td></tr><tr><td>Logs</td><td><span class="tag warn">INCOMPLETE</span></td><td class="num">READINESS_DECLARATION_MISSING</td></tr><tr><td>Traces</td><td><span class="tag warn">INCOMPLETE</span></td><td class="num">READINESS_DECLARATION_MISSING</td></tr><tr><td>Errors</td><td><span class="tag warn">INCOMPLETE</span></td><td class="num">READINESS_DECLARATION_MISSING</td></tr><tr><td>Health and data age</td><td><span class="tag warn">INCOMPLETE</span></td><td class="num">READINESS_DECLARATION_MISSING</td></tr><tr><td>External check</td><td><span class="tag warn">INCOMPLETE</span></td><td class="num">READINESS_DECLARATION_MISSING</td></tr><tr><td>Second path</td><td><span class="tag warn">INCOMPLETE</span></td><td class="num">READINESS_DECLARATION_MISSING</td></tr><tr><td>Security</td><td><span class="tag warn">INCOMPLETE</span></td><td class="num">READINESS_DECLARATION_MISSING</td></tr></tbody>
+  </table></div>
+</section>
+
+<section id="superficie">
+  <h2>Lo que el producto expone</h2>
+  <div class="split">
+    <div>
+      <h3>Verbos</h3>
+      <div class="scroll"><table style="min-width:0">
+        <thead><tr><th class="num">verbo</th><th>qué hace</th></tr></thead>
+        <tbody><tr><td class="num">ai-eng accept</td><td>Accept a finding until a date, with a named owner and a reason.</td></tr><tr><td class="num">ai-eng audit</td><td>audit verify walks the whole chain; audit replay walks a session.</td></tr><tr><td class="num">ai-eng decide</td><td>Add a decision to the spec, or promote it to an MADR with --madr.</td></tr><tr><td class="num">ai-eng doctor</td><td>The 25 assertions and the coverage line. Is the system healthy now?</td></tr><tr><td class="num">ai-eng exception</td><td>Record a governed design exception, at a keyboard.</td></tr><tr><td class="num">ai-eng init</td><td>Set up this machine, and this repository if you say yes.</td></tr><tr><td class="num">ai-eng report</td><td>report digest | report issue | report surfaces — what this install can show.</td></tr><tr><td class="num">ai-eng spec</td><td>spec new | spec list | spec show — the record of what was decided.</td></tr><tr><td class="num">ai-eng uninstall</td><td>Undo everything the receipt lists. The no-lock-in promise, as a command.</td></tr><tr><td class="num">ai-eng update</td><td>Rewrite the pin and run the forward migrations.</td></tr></tbody>
+      </table></div>
+    </div>
+    <div>
+      <h3>Skills</h3>
+      <div class="scroll"><table style="min-width:0">
+        <thead><tr><th class="num">skill</th><th class="num">tamaño</th><th></th></tr></thead>
+        <tbody><tr><td class="num">/ai-build</td><td class="num">51 líneas</td><td></td></tr><tr><td class="num">/ai-debug</td><td class="num">50 líneas</td><td></td></tr><tr><td class="num">/ai-design</td><td class="num">74 líneas</td><td></td></tr><tr><td class="num">/ai-explore</td><td class="num">59 líneas</td><td></td></tr><tr><td class="num">/ai-note</td><td class="num">56 líneas</td><td></td></tr><tr><td class="num">/ai-plan</td><td class="num">53 líneas</td><td></td></tr><tr><td class="num">/ai-report</td><td class="num">51 líneas</td><td></td></tr><tr><td class="num">/ai-research</td><td class="num">53 líneas</td><td></td></tr><tr><td class="num">/ai-review</td><td class="num">65 líneas</td><td></td></tr><tr><td class="num">/ai-security</td><td class="num">70 líneas</td><td></td></tr><tr><td class="num">/ai-ship</td><td class="num">57 líneas</td><td></td></tr><tr><td class="num">/ai-spec</td><td class="num">78 líneas</td><td></td></tr><tr><td class="num">/ai-verify</td><td class="num">62 líneas</td><td></td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+  <h3>Guards</h3>
+  <p>Fallan cerrados: <code>change_scope_guard.py, claim_scope_guard.py, injection_guard.py, loop_guard.py, no_verify_guard.py, self_protect.py</code>.
+  Telemetría, que observa y nunca decide:
+  <code>autoformat.py, session.py</code>.</p>
+</section>
+
+<footer class="wrap">
+  <p>Generada por <code>src/ai_engineering/solution_intent.py</code> a partir de
+  <code>specs/</code>, <code>docs/adr/</code>, <code>.ai/intent.md</code>, <code>hooks/</code>
+  y <code>src/ai_engineering/cli.py</code>. Para regenerarla, ejecuta el comando que la
+  escribe; para saber si está caducada, <code>solution_intent.staleness()</code> compara el
+  digest de arriba con el árbol actual.</p>
+  <p>Un estado en esta página es lo que el fichero dice, no una prueba de que algo funcione.
+  La prueba es un recibo de un check que se ejecutó.</p>
+</footer>
+</div>
+</body>
+</html>
