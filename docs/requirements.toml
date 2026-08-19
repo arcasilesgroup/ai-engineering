@@ -191,10 +191,10 @@ evidence = "python -c \"from pathlib import Path; from ai_engineering import con
 
 [[requirement]]
 id = "EP-022"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "WCAG 2.2 AAA as the target, AA as the release floor"
-evidence = "pytest tests/test_accessibility.py; grep -n AAA policy/accessibility.toml"
-note = "AA is now a floor that executes rather than a substring, over the criteria a program with no viewport can be held to — and each one that cannot be held says why. AAA remains the recorded direction and nothing measures it, which is the half that keeps this row open"
+evidence = "pytest tests/test_accessibility.py"
+note = '''both halves execute now. AA is a floor that runs rather than a substring, over the criteria a program with no viewport can be held to, and each one that cannot be held says why with the date it was last read. The target was the open half and it was a word: `target = "AAA"` sat above ten criteria of which not one was AAA, which is a file declaring a level nothing in it is about. Four AAA criteria are named now — the four this program can be held to at all — two met and naming the test that proves each, two argued with a date. The rest of AAA is about rendering this program does not do, and forty rows saying "no viewport" forty times would bury the four that mean something. A case refuses a target with no criterion at its level and refuses one where every criterion is argued and none met, which is a direction rather than a target.'''
 
 [[requirement]]
 id = "EP-023"
