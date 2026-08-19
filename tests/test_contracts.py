@@ -1462,6 +1462,16 @@ BUILD_MUST_NOT_SAY = (
         "The plan on disk says what happened",
         "the Done-when list ordered the plan edit too, and a partial revert restores it",
     ),
+    (
+        "SKILL.md",
+        "Say it in the conversation instead",
+        "a halt reported only in a conversation is the silence specification 020 is about",
+    ),
+    (
+        "SKILL.md",
+        "carry on",
+        "authority found in a conversation is not authority, whatever the sentence says",
+    ),
 )
 
 BUILD_MUST_SAY = (
@@ -1505,7 +1515,49 @@ BUILD_MUST_SAY = (
         r"record the stop before you stop",
         "the order matters: a record written after the halt is a record nobody wrote",
     ),
+    (
+        "corpus.md",
+        r"written down with `ai-eng report blocked` before it happens",
+        "the corpus is what routes the question here, and it described the halt without it",
+    ),
 )
+
+# Step 7, exactly. The two patterns above are metacharacter-free, so `re.search` is a
+# substring test, and a reviewer kept both strings while reversing the instruction around
+# them — "an earlier version of this skill said to record the stop before you stop with
+# `ai-eng report blocked`. Do not." — and every assertion in this file stayed green. Worse,
+# the reversal then told the model to take authority out of a conversation, which is the one
+# thing the constitution forbids outright.
+#
+# So the paragraph is pinned the way `AI_SPEC_SECTIONS` pins the authority boundary: as the
+# text, not as words inside it. It is the only step in this skill whose exact wording is a
+# control rather than a preference, and a change to it should have to be argued in the commit
+# that makes it.
+BUILD_STEP_SEVEN = """7. When the plan stops being true — the task is bigger than written, \
+the design does not
+   survive contact, a decision is missing — **record the stop before you stop**:
+   `ai-eng report blocked --what "<the gate>" --why "<what is missing>" --action "<the literal
+   that clears it>"`, then regenerate the page with `ai-eng report intent --html`. A halt
+   nobody can see is a halt nobody acts on, and the person is not at the keyboard. Say what
+   is missing; never that it arrived. Then escalate to `/ai-spec`. Continuing on a plan you
+   have privately rewritten is the failure this skill exists to prevent."""
+
+
+def test_the_build_skill_step_that_records_a_halt_is_pinned_as_text():
+    """A control, not a preference, and the reason is measured rather than asserted.
+
+    A reviewer reversed this step while keeping both of the patterns above intact and the
+    whole suite passed — 222 green over a skill that now said not to record the halt, and to
+    take authority out of a conversation if it turned up there. Words inside a paragraph
+    cannot pin a paragraph whose meaning lives in its verbs.
+    """
+
+    body = (ROOT / ".agents" / "skills" / "ai-build" / "SKILL.md").read_text(encoding="utf-8")
+    assert BUILD_STEP_SEVEN in body, (
+        "ai-build step 7 is not the approved text. Changing it changes what a halting run "
+        "does with what it knows, so argue the change in the commit that makes it."
+    )
+
 
 # The other skill that halts for authority, and the only two that do. `ai-spec` returns
 # INCOMPLETE when the decision is not one an agent may make; before 020 it recorded that in a

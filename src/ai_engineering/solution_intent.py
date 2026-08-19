@@ -547,9 +547,16 @@ def _waiting(rows: tuple[blocked_ledger.Row, ...], considered: int) -> str:
     """
 
     if not rows:
+        # Two sentences, because "nothing is waiting" and "nothing that was looked at said
+        # enough" are different facts and only one of them is good news. The first version
+        # printed the first over the second, so a tree where twenty-eight candidates were all
+        # refused — several of which really do wait on a person — read as clear.
+        if not considered:
+            return '  <p class="note">Nada espera a una persona ahora mismo.</p>'
         return (
-            '  <p class="note">Nada espera a una persona ahora mismo. Se miraron '
-            f"{considered} candidatos.</p>"
+            f'  <p class="note">Ninguno de los {considered} candidatos que se miraron nombra '
+            "un literal que puedas copiar, así que no se pinta ninguno. Eso no quiere decir "
+            "que no haya nada esperando: quiere decir que nada dice qué hacer.</p>"
         )
     body = ""
     for row in rows:
@@ -560,16 +567,28 @@ def _waiting(rows: tuple[blocked_ledger.Row, ...], considered: int) -> str:
         body += (
             "<tr>"
             f'<td><span class="tag {tone}">{html.escape(label)}</span></td>'
-            f"<td>{html.escape(row.what)}</td>"
+            # The id beside what is waiting. Three requirement rows on this tree phrase
+            # themselves identically, so without it the table shows what reads as one item
+            # three times and the reader cannot act on them separately.
+            f"<td>{html.escape(row.what)}<br>"
+            f'<span class="mono" style="font-size:.78em;color:var(--muted)">'
+            f"{html.escape(row.id)}</span></td>"
             f'<td class="num">{html.escape(row.since)}</td>'
             f"<td>{html.escape(row.why)}</td>"
             f"<td><code>{html.escape(row.action)}</code></td>"
             "</tr>"
         )
+    # The clause says the one thing true of every drop by construction. It used to say the
+    # other six "esperan al build, no a ti: son borradores sin plan todavía", which is the
+    # commonest reason and not the only one — a verdict with no note, a spec.md whose
+    # frontmatter nobody can read, and a recorded halt whose action was refused all land here
+    # too. The halt is the inversion that mattered: the section built so a stop reaches a
+    # person was telling the reader that the run's own halt is the build's problem. A true
+    # number with a false reason is the defect this repository has shipped four times.
     return f"""  <p class="note"><b>{len(rows)} de {considered}</b> · los otros
-  {considered - len(rows)} esperan al build, no a ti: son borradores sin plan todavía, y
-  eso lo escribe un agente. Una fila sin un literal que puedas copiar no se pinta — por eso
-  el total está aquí y no sólo la tabla.</p>
+  {considered - len(rows)} no nombran un literal que puedas copiar, así que no se pintan.
+  Casi siempre son borradores sin plan, que espera al build y no a ti; pero no siempre, y
+  por eso el total está aquí y no sólo la tabla.</p>
   <div class="scroll"><table>
     <thead><tr><th>qué es</th><th>qué espera</th><th class="num">desde</th><th>por qué paró</th>
     <th>qué lo desbloquea</th></tr></thead>
@@ -872,16 +891,24 @@ def main(argv: list[str]) -> int:
     this whole repository is named for."""
 
     here = Path(".")
-    if "--check" in argv:
+    try:
+        if "--check" in argv:
+            fresh, why = staleness(here)
+            print(f"  {'PASS' if fresh else 'FAIL'}  {why}")
+            if not fresh:
+                print("  Next action: run `ai-eng report intent --html`, then read the diff.")
+            return 0 if fresh else 1
+        written = write(here)
         fresh, why = staleness(here)
-        print(f"  {'PASS' if fresh else 'FAIL'}  {why}")
-        if not fresh:
-            print("  Next action: run `ai-eng report intent --html`, then read the diff.")
+        print(f"  RAN intent-page={written}")
         return 0 if fresh else 1
-    written = write(here)
-    fresh, why = staleness(here)
-    print(f"  RAN intent-page={written}")
-    return 0 if fresh else 1
+    except (Unreadable, blocked_ledger.Unreadable) as refused:
+        # The exit code was already 1, so the gate was already red. What was missing is the
+        # shape: a named refusal reaching the operator as a traceback full of absolute paths
+        # reads as a crash, and the first thing anybody does with a crash is re-run it.
+        print(f"  FAIL  {refused}")
+        print("  Next action: fix that file, or move it aside and re-run.")
+        return 1
 
 
 # No coverage pragma here. Every other entry point in this repository carries one and

@@ -12,7 +12,7 @@ rewriting it privately.
 - "write the code for the spec we approved yesterday" — an approved decision with a plan under it is exactly this skill's input.
 - "add the field and its test, one commit" — one logical change with a clean checkpoint.
 - "the gate is red on my branch, finish the task properly" — running the task's own check and showing its output is part of done, not a follow-up; the whole gate belongs to block close.
-- "task 5 turns out to need a decision nobody made" — routes here and then stops here: escalating to `/ai-spec` is a step of this skill, not an exception to it.
+- "task 5 turns out to need a decision nobody made" — routes here and then stops here: the halt is written down with `ai-eng report blocked` before it happens, and escalating to `/ai-spec` is a step of this skill, not an exception to it.
 
 ## Refuses
 

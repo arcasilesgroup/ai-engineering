@@ -224,10 +224,23 @@ def test_a_row_with_no_action_is_absent_and_the_count_says_so():
         assert html.escape(row.action) in section, row.id
     assert section.count("<tr>") == len(tree.blocked) + 1, "one header row and one per item"
 
-    # The two numbers are the collector's, not recounted from the rendered rows. A renderer
-    # that silently drops one is caught by the count disagreeing with the table.
+    # The denominator, recomputed here rather than read off the tree it is supposed to check.
+    # Asserting `considered >= len(blocked)` was the first version and it survives the
+    # sabotage that matters: `considered = len(waiting)` collapses the denominator to the
+    # numerator, the page reads "22 de 22", the six drops vanish, and the whole disclosure —
+    # which is the only answer specification 020 gave to its own strongest challenge — is
+    # gone with the suite green.
+    shown, dropped = blocked.collect(ROOT)
+    assert tree.considered == len(shown) + len(dropped)
+    assert tree.considered > len(tree.blocked), "this tree drops six drafts with no plan"
     assert f"{len(tree.blocked)} de {tree.considered}" in section
-    assert str(tree.considered - len(tree.blocked)) in section
+
+    # And the clause, not the bare digit. `str(considered - len(blocked))` is "6" on this
+    # tree, and every date cell in the table contains "2026" — so deleting the entire
+    # disclosure paragraph left that assertion passing on a substring of a date.
+    assert f"{tree.considered - len(tree.blocked)} no nombran un literal" in " ".join(
+        section.split()
+    )
 
 
 def test_a_tree_with_nothing_waiting_says_so_in_a_sentence():
@@ -245,3 +258,45 @@ def test_a_tree_with_nothing_waiting_says_so_in_a_sentence():
 
     assert "<table>" not in section
     assert "nada" in section.lower()
+
+
+def test_a_hostile_row_cannot_reach_the_page_unescaped():
+    """Every cell in this section is untrusted input. `what`, `why` and `action` arrive from
+    `docs/requirements.toml` and from argv through `ai-eng report blocked`, and they land in
+    a rendered document somebody opens in a browser.
+
+    Asserted over a synthetic row rather than over the tree's own data: the tree happens to
+    carry an apostrophe in two evidence commands, so removing `html.escape` from the action
+    cell fails today by luck. Luck is not a control.
+    """
+
+    import dataclasses
+
+    hostile = blocked.Row(
+        kind="halt",
+        id='<img src=x onerror="alert(1)">',
+        what="gate <b>one</b>",
+        since="2026-08-19 & later",
+        why='missing "authority" & more',
+        action="</code><script>alert(document.domain)</script><code>",
+    )
+    tree = dataclasses.replace(solution_intent.read(ROOT), blocked=(hostile,), considered=1)
+    section = (
+        solution_intent.render(tree)
+        .split('<section id="bloqueos">', 1)[1]
+        .split("</section>", 1)[0]
+    )
+
+    assert "<script>" not in section
+    assert "<img" not in section
+    assert "&lt;script&gt;alert(document.domain)&lt;/script&gt;" in section
+    assert "&amp; more" in section
+
+
+def test_every_kind_the_collector_can_return_has_a_label():
+    """`_KIND` restates `blocked.ORDER` and nothing held them equal. A fourth kind added in
+    the collector printed its raw English identifier in a Spanish column — the documented
+    fallback firing, which is correct behaviour for an unknown kind and wrong for a known
+    one nobody remembered to name here."""
+
+    assert set(solution_intent._KIND) == set(blocked.ORDER)
