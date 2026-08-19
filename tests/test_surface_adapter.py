@@ -1130,3 +1130,57 @@ def test_one_run_answers_three_states_and_says_which_proved_each():
         f"the three states share an artifact digest: {digests}. Three receipts over one "
         "artefact are one proof counted three times"
     )
+
+
+def test_the_two_refusals_nothing_had_ever_seen_say_no(tmp_path):
+    """Two of the eight codes `_standing` can return had no case at all.
+
+    `SURFACE_RECEIPT_UNREADABLE` is what a receipt file this process cannot read answers, and
+    `SURFACE_RECEIPT_FOREIGN` is the one added this afternoon for a receipt written under an
+    adapter version the adapter has since left. Both were built, neither had ever been seen
+    refusing — which is this repository's defining defect, in the function that decides
+    whether a surface reads as proven.
+
+    Found by the mutation lane rather than by reading: fifty-nine of ninety-two survivors sit
+    in this one function, and they are branches no case executes.
+    """
+
+    import json
+    from datetime import UTC, datetime
+
+    import pytest
+
+    from ai_engineering import surface as surfaces
+
+    root = tmp_path
+    receipts = root / ".ai" / "receipts" / "surface"
+    receipts.mkdir(parents=True)
+    now = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)
+    fresh = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # A directory where a file belongs: readable as a path, unreadable as a receipt, and the
+    # difference between "no receipt" and "a receipt nobody can read" is the whole code.
+    (receipts / "cursor.discovery.json").mkdir()
+    unreadable = surfaces.read(root, now=now).state("cursor", "discovery")
+    assert unreadable.outcome == "INCOMPLETE"
+    assert unreadable.code == surfaces.RECEIPT_UNREADABLE, unreadable
+
+    # And a receipt for the surface that has an adapter, written under a version it has left.
+    #
+    # The caches are read, never cleared. An earlier draft cleared them and turned this case
+    # green in isolation and red under `-n auto`: `adapter_proof` is memoised per process, and
+    # a case that empties it mid-file hands the next one in the same worker a cold cache built
+    # from whatever root that case had patched. Reading a module-level cache is free; resetting
+    # one is a write to state shared with every test after it.
+    required = surfaces.adapter_proof("opencode") or "opencode.enforcement"
+    declared = surfaces.adapter_identity("opencode")
+    if not declared.get("adapter_version"):  # pragma: no cover - the adapter always declares
+        pytest.skip("the opencode adapter declares no version to be foreign to")
+    stale_version = _receipt("opencode", "enforcement", finished=fresh)
+    stale_version["id"] = required
+    stale_version["tool_version"] = "opencode-adapter 99"
+    (receipts / "opencode.enforcement.json").write_text(json.dumps(stale_version), encoding="utf-8")
+
+    foreign = surfaces.read(root, now=now).state("opencode", "enforcement")
+    assert foreign.outcome == "INCOMPLETE"
+    assert foreign.code == surfaces.RECEIPT_FOREIGN, foreign
