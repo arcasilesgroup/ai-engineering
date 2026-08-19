@@ -810,26 +810,31 @@ def test_the_mutation_runner_spends_the_cheap_suite_first() -> None:
     import ast
 
     source = (ROOT / "tests" / "mutation.py").read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    body = next(
-        node.body
-        for node in ast.walk(tree)
+    run_suite = next(
+        node
+        for node in ast.walk(ast.parse(source))
         if isinstance(node, ast.FunctionDef) and node.name == "run_suite"
     )
-    # The docstring is dropped here on purpose: what is asserted is the order of the two
-    # calls the function actually makes.
+    # Discovery order, which for these two calls is the order they are written in. The
+    # docstring is not read: it is not a call.
     calls = [
         ast.unparse(node)
-        for node in ast.walk(ast.Module(body=body, type_ignores=[]))
+        for node in ast.walk(run_suite)
         if isinstance(node, ast.Call) and ast.unparse(node.func) == "quiet"
     ]
     assert len(calls) == 2, calls
     assert "adversarial" in calls[0], calls
     assert "pytest" in calls[1], calls
-    # And it stays a conjunction, because that is what makes the swap free: a mutant is
-    # killed when either half fails, so `not (a and b)` is the same answer whichever way the
-    # two are written, and only the second one is spared when the first already said no.
+    # And the expensive half is inside the conjunction, not merely somewhere in the same
+    # function. Written first, this asserted only that an `and` existed, which a version
+    # binding both halves to names and joining them afterwards satisfies while spending both
+    # on every mutant — the saving gone and nothing red. A reviewer wrote that version out
+    # and it passed.
+    conjunction = next(
+        node
+        for node in ast.walk(run_suite)
+        if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And)
+    )
     assert any(
-        isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And)
-        for node in ast.walk(ast.Module(body=body, type_ignores=[]))
-    ), "run_suite stopped being a conjunction, so the order is no longer free"
+        isinstance(half, ast.Call) and "pytest" in ast.unparse(half) for half in conjunction.values
+    ), "the pytest half is outside the conjunction, so it runs whether or not the cheap half passed"
