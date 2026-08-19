@@ -544,10 +544,10 @@ note = "recorded rather than abandoned: it reopens if the same shape is found co
 
 [[requirement]]
 id = "EP-074"
-verdict = "CONTRADICTED"
+verdict = "INCOMPLETE"
 subject = "ai-test and ai-verify exist as first-class skills"
-evidence = "grep -n ai-test policy/capabilities.toml; pytest tests/test_contracts.py -k three_absorption_candidates"
-note = "the manifest declares them and a passing test forbids them from existing. Deliberate, recorded as D-012-04"
+evidence = "ls .agents/skills/ai-verify; pytest tests/test_contracts.py -k three_absorption_candidates"
+note = "half. ai-verify ships under specification 019 repair 6: D-012-04 made absorption its exit condition in the absence of a consumer for what it would verify, and repair 5 built that consumer — a spec's examples became a section a command can parse. ai-test stays absorbed and the test still forbids it"
 
 [[requirement]]
 id = "EP-075"
@@ -2568,10 +2568,10 @@ note = "declared in the manifest, forbidden by a passing test. A recorded decisi
 
 [[requirement]]
 id = "EP-383"
-verdict = "CONTRADICTED"
+verdict = "PROVEN"
 subject = "ai-verify ships as a first-class skill"
-evidence = "ls .agents/skills/; pytest tests/test_contracts.py -k three_absorption_candidates"
-note = "declared in the manifest, forbidden by a passing test. A recorded decision"
+evidence = "ls .agents/skills/ai-verify; pytest tests/test_contracts.py -k every_declared_capability"
+note = "shipped under specification 019 repair 6, with the absorption row removed from the map in the same commit. What it proves is that the skill exists and routes; whether its two tables are any good is a reading nothing here measures"
 
 [[requirement]]
 id = "EP-384"

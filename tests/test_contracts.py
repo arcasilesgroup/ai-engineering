@@ -153,9 +153,13 @@ def test_no_surface_is_detected_by_a_path_another_surface_makes_us_write():
 # runner here. No evidence means the condition is not met, which is the fail-closed reading
 # and the only one this repository is allowed — so none of the three shipped, and the work
 # each was going to do has a home that exists.
+# Two, not three. `ai-verify` left this map when the skill was written: D-012-04 made
+# absorption its exit condition in the absence of a consumer for the thing it would verify,
+# and specification 019 repair 5 built that consumer — a specification's examples became a
+# section a command can parse. The register rows moved in the same commit, because a skill
+# shipping while the ledger says it must not is two records disagreeing.
 ABSORBED = {
     "ai-test": ".agents/skills/ai-build/SKILL.md",
-    "ai-verify": ".agents/skills/ai-review/references/testing.md",
     "ai-animation": ".agents/skills/ai-review/references/motion.md",
 }
 
@@ -818,6 +822,7 @@ WORDS = {
     8: "eight",
     9: "nine",
     12: "twelve",
+    13: "thirteen",
     10: "ten",
     16: "sixteen",
     20: "twenty",
