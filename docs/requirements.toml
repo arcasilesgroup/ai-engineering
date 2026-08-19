@@ -1201,8 +1201,8 @@ evidence = "none — the requirement text could not be located"
 id = "EP-175"
 verdict = "INCOMPLETE"
 subject = "one recommendation challenged once, and an unknown outcome normalising to INCOMPLETE"
-evidence = "grep -n UNKNOWN src/ai_engineering/outcome.py"
-note = "one half is executed code; the self-challenge is prose"
+evidence = '''! grep -q UNKNOWN src/ai_engineering/outcome.py && grep -n unknown_normalizes_to src/ai_engineering/outcome.py'''
+note = '''the executed half is stronger than this row said and its command was broken. `grep -n UNKNOWN src/ai_engineering/outcome.py` returns nothing — the word is not there, and its absence is the point: the vocabulary has eight statuses and no UNKNOWN because an unknown outcome *is* INCOMPLETE. What executes is `outcome.py` refusing a policy whose `unknown_normalizes_to` is anything else, read from the schema rather than written in the module, so the rule and the code cannot drift apart. The self-challenge half is counted now rather than argued: three of nineteen specifications carry a challenge section with substance, which is the same shape as the behavioural examples and the same reason — the template demands it of new specifications and the sixteen older ones are frozen rather than repaired.'''
 
 [[requirement]]
 id = "EP-176"
