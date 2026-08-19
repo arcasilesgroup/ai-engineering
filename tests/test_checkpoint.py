@@ -335,3 +335,48 @@ def test_a_checkpoint_over_a_base_that_does_not_exist_is_not_a_pass(working):
     # The message names the call that failed, because "something went wrong" sends a reader
     # to the wrong file.
     assert "diff" in by_name["claimed-paths"].detail
+
+
+def test_a_receipt_taken_before_the_staged_change_is_incomplete(working):
+    """The one receipt in the tree bound to content, and what reading it changes.
+
+    `ran.json` carries a digest over every tracked or about-to-be-tracked file, and the
+    commit-msg hook already refuses to write a trailer when it does not match. `_executed`
+    globbed the same directory and dropped it: no `finished_at`, `KeyError`, swallowed by the
+    handler that skips a malformed receipt. So the one receipt that could say "this ran over
+    exactly these bytes" was the one the checkpoint threw away, and what it kept instead was
+    chosen by age — up to a week, in the receipts on disk today.
+    """
+
+    from ai_engineering import checkpoint, evidence
+
+    receipts = working / ".ai" / "receipts"
+    receipts.mkdir(parents=True, exist_ok=True)
+    stage(working, "src/thing.py", "VALUE = 2\n")
+
+    matched = evidence.content_digest(working)
+    (receipts / "ran.json").write_text(
+        json.dumps({"suite": "quick:thing", "content": matched, "at": 0}), encoding="utf-8"
+    )
+    assert checkpoint._executed(working).status == "PASS"
+
+    # One edit after the run, and the receipt is about other bytes.
+    stage(working, "src/thing.py", "VALUE = 3\n")
+    stale = checkpoint._executed(working)
+    assert stale.status == "INCOMPLETE", stale
+    assert stale.cure and "quick" in stale.cure
+
+    # A digest receipt that is present and wrong outranks a fresh aged one that says PASS:
+    # the aged one proves a run happened somewhere, and this one proves it was not here.
+    (receipts / "local-command-python.json").write_text(
+        json.dumps(
+            {
+                "id": "local-command-python",
+                "outcome": "PASS",
+                "finished_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "max_age_seconds": 604800,
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert checkpoint._executed(working).status == "INCOMPLETE"

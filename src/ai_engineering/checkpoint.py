@@ -17,7 +17,7 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
-from ai_engineering import acceptance_privacy, claim, dag, outcome
+from ai_engineering import acceptance_privacy, claim, dag, evidence, outcome
 
 RECEIPTS = Path(".ai") / "receipts"
 MAX_STAGED_BYTES = 400_000
@@ -180,12 +180,59 @@ def _compare(root: Path, base: str, claimed: list[str], named: str) -> outcome.F
     )
 
 
+def _bound_to_this_tree(root: Path, folder: Path) -> outcome.Fact | None:
+    """The receipt that names the bytes it ran over, when there is one.
+
+    Everything else in this directory is chosen by age, and age is the weakest possible
+    reading: the windows on disk go up to a week, so a passing gate over entirely different
+    code publishes today's checkpoint. `ran.json` is the exception — `evidence.content_digest`
+    hashes every tracked and about-to-be-tracked file, and the commit-msg hook already refuses
+    a trailer when it does not match. `_executed` used to drop it, because it has no
+    `finished_at` and the handler that skips a malformed receipt swallowed the `KeyError`.
+
+    Preferred when present, and only then: a rule that refused every aged receipt would leave
+    a fresh clone permanently incomplete, because `.ai/receipts/` is not committed.
+
+    It carries no outcome field, so presence means the suite passed — the writer records it
+    after a green run and nowhere else. That is why this returns PASS or INCOMPLETE and never
+    FAIL: a failure leaves no receipt at all, which the aged reading below still catches.
+    """
+
+    found = folder / "ran.json"
+    try:
+        record = json.loads(found.read_text(encoding="utf-8"))
+        recorded, suite = str(record["content"]), str(record.get("suite", "a suite"))
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    try:
+        measured = evidence.content_digest(root)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    if recorded == measured:
+        return outcome.fact(
+            "checks-executed",
+            "PASS",
+            "The checks this diff affects",
+            f"{suite} ran over exactly these bytes",
+        )
+    return outcome.fact(
+        "checks-executed",
+        "INCOMPLETE",
+        "The checks this diff affects",
+        f"{suite} ran over {recorded[:12]} and this tree is {measured[:12]}",
+        cure=f"run `just {suite.replace(':', ' ')}` again, then check again",
+    )
+
+
 def _executed(root: Path, now: datetime | None = None) -> outcome.Fact:
     """Read, never assumed. A gate that ran last week over different code proves nothing
     about this checkpoint, so an expired receipt is the same answer as no receipt."""
 
     folder = root / RECEIPTS
     moment = now or datetime.now(UTC)
+    bound = _bound_to_this_tree(root, folder)
+    if bound is not None:
+        return bound
     # Every fresh receipt, and the worst of them decides. It used to keep one — assigned in a
     # loop over `sorted(...)`, so the winner was the alphabetically last fresh receipt while
     # the variable holding it was called `freshest`. With `adversarial-attacks.json` reporting
