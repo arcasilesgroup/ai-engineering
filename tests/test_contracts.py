@@ -1691,6 +1691,77 @@ def test_the_template_gives_the_spec_every_section_the_skill_demands_of_it():
     assert headings.index("Assumptions and unresolved risks") < headings.index(examples)
 
 
+# Two baselines, because the two rules have different ones. The constitution forbids
+# retro-editing `specs/`, so a gate over files that already exist needs an explicit closed
+# list rather than a date or a count — and freezing them under one list would throw away a
+# real measurement: 017 and 018 do satisfy the structure rule today, and folding them into
+# one list means nothing would notice a future edit removing their section.
+FROZEN_WITHOUT_EXAMPLES = (
+    "001-v1-from-scratch",
+    "002-quality-ecosystem-3-0",
+    "003-guards-that-never-fired",
+    "004-solution-intent-home",
+    "005-init-says-what-it-did",
+    "006-the-cli-that-was-better",
+    "007-the-install-a-stranger-can-follow",
+    "008-the-receipt-that-only-grows",
+    "009-the-branch-that-never-ran",
+    "010-governed-agentic-engineering-foundation",
+    "011-surface-adapter-contract",
+    "012-seven-capabilities-with-proof",
+    "013-origin-first-coordination",
+    "014-security-baseline-no-false-pass",
+    "015-pilot-without-instruments",
+    "016-the-thesis-nobody-owns",
+)
+
+# The larger one. Neither specification that carries the section satisfies the executable
+# clause: 017's three Thens hold one code span between them and it is a status word, and
+# 018's success Then names its expected output in backticks with the command left in prose.
+# Freezing them for structure only would be claiming a gate result this code did not observe.
+FROZEN_WITHOUT_EXECUTABLE_THEN = (
+    *FROZEN_WITHOUT_EXAMPLES,
+    "017-decision-brief-as-an-artifact",
+    "018-controls-a-reviewer-proved-were-not-controls",
+)
+
+
+def test_a_specification_carries_examples_somebody_can_check():
+    """The section the template has always emitted, and nothing has ever read on disk.
+
+    The existing contract asserts the heading and its two phrases against `spec.TEMPLATE`
+    in memory; its own docstring says so. So sixteen of the nineteen specifications have no
+    such section and nothing noticed, and of the three that do, one satisfies the clause
+    that makes an example re-runnable.
+
+    A freshly created specification reds this gate until its author fills the section in.
+    That is the intended failure and not a bug in the check.
+    """
+
+    from ai_engineering import spec
+
+    homes = sorted(one.name for one in (ROOT / "specs").iterdir() if (one / "spec.md").is_file())
+
+    # A list that names a file nobody has is a gate that measured nothing, so a rename turns
+    # this red instead of quietly shrinking what is covered.
+    missing = (set(FROZEN_WITHOUT_EXAMPLES) | set(FROZEN_WITHOUT_EXECUTABLE_THEN)) - set(homes)
+    assert not missing, f"these baselines name specifications that are not there: {sorted(missing)}"
+
+    for name in homes:
+        body = (ROOT / "specs" / name / "spec.md").read_text(encoding="utf-8")
+        given, when, then, executable = spec.examples_facts(body)
+        if name not in FROZEN_WITHOUT_EXAMPLES:
+            assert given and when and then, (
+                f"{name} has no examples somebody can check: "
+                f"{given} given, {when} when, {then} then"
+            )
+        if name not in FROZEN_WITHOUT_EXECUTABLE_THEN:
+            assert executable, (
+                f"{name} has {then} Then lines and none names a command with its expected "
+                "output, so nothing in it can be re-run"
+            )
+
+
 def test_the_number_in_the_doctor_summary_is_the_number_of_assertions():
     """`ai-eng --help` says how many assertions `doctor` makes, and nothing read it.
 
