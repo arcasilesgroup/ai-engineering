@@ -95,8 +95,8 @@ evidence = "pytest tests/test_cli_migration.py -k 'exception_is_hard_rename or r
 id = "EP-008"
 verdict = "INCOMPLETE"
 subject = "the record relation graph resolves and every decision it depends on is approved"
-evidence = "python -c \"from pathlib import Path; from ai_engineering import madr; print(madr.validate(Path('.')))\""
-note = "relations resolve and four ADRs are accepted; spec 010, which the graph roots to, is still draft"
+evidence = "pytest tests/test_madr.py tests/test_own_head_receipts.py"
+note = '''relations resolve, `madr.validate` returns PASS over every record, and the reason this row stayed open — spec 010 being `draft` — rests on a condition that has been satisfiable for a day with nothing re-measuring it. The plan reserves the shipped transition until both workflows are complete and successful at exactly the candidate's own HEAD; `tests/own_head_receipts.py` asks GitHub and finds 44 commits on this branch that carry both. It decides nothing and says so: Task 53 needs a specific candidate commit that also closes the ceiling to zero slack, accepts three MADRs, refreshes the Intent and sets the status, and then separate push consent from a person. What was unknown and is now measured is only whether the live receipts are obtainable here at all. INCOMPLETE until that candidate exists and a person consents to it.'''
 
 [[requirement]]
 id = "EP-009"
