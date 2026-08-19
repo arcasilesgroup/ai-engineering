@@ -636,4 +636,21 @@ def baseline(root: Path) -> int:
         if found
         else f"  {'SKIPPED':<11} {'images':<13} no container image here, so no container lane runs"
     )
+    # The lane this gate does not have, said rather than left silent. Every engine pinned
+    # here reads files; none of them touches a running service. So a repository with a
+    # deployed preview got exit zero and a report ending at container images, and
+    # `ai-security` tells the model to paste that output — a green meaning "nothing dynamic
+    # was looked at" reading identically to one meaning "the dynamic surface is clean".
+    #
+    # SKIPPED and not the research report's `N/A`: `outcome._FACT_STATUSES` has no such word,
+    # and SKIPPED is already what this module says when it declines rather than answers.
+    #
+    # No branch and no verdict. There is nothing here to get wrong, which is the point: the
+    # decision on where a dynamic scan lives is D-014-11 — a mode of `ai-security`, never a
+    # separate skill — and the judgement half of it, whether a target exists and who
+    # authorised it, is consent and stays in the skill.
+    print(
+        f"  {'SKIPPED':<11} {'dast':<13} nothing here scanned a running target: that needs a "
+        f"URL somebody authorised, and this gate never has one"
+    )
     return worst
