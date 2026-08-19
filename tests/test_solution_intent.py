@@ -112,3 +112,24 @@ def test_a_page_somebody_edited_is_not_a_page_this_tree_renders():
     assert not fresh
     assert "edited the page rather than the records" in why
     assert solution_intent.staleness(ROOT)[0]
+
+
+def test_a_tree_git_cannot_list_refuses_rather_than_rendering_nothing(tmp_path):
+    """The write used to fail open where the check fails closed.
+
+    With an empty index every collector comes back empty, so `staleness` compares an empty
+    page to the committed one and reds — correctly. And the operator's next move after a red
+    gate is the command the message names, which would have written that empty page over the
+    good one. The check and the write now fail the same way.
+    """
+
+    import pytest
+
+    (tmp_path / "specs").mkdir()
+
+    with pytest.raises(solution_intent.Unreadable):
+        solution_intent.read(tmp_path)
+    with pytest.raises(solution_intent.Unreadable):
+        solution_intent.write(tmp_path)
+
+    assert not (tmp_path / solution_intent.PAGE).exists()

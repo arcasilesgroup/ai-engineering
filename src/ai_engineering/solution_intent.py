@@ -24,6 +24,11 @@ from pathlib import Path
 
 from ai_engineering import contract, readiness, spec
 
+
+class Unreadable(Exception):
+    """The tree could not be read, so there is nothing honest to render."""
+
+
 PAGE = Path("docs") / "solution-intent.html"
 DIGEST_MARK = "data-inputs-digest="
 
@@ -216,6 +221,13 @@ def _readiness(root: Path, now: datetime) -> tuple[str, str, list[tuple[str, str
     the answer the record already gives in prose and the one this replaces with a computed
     one."""
 
+    # ponytail: time-dependent once a declaration exists. `readiness.read` ages receipts
+    # against `now`, so on a repository that has declared its boxes the page becomes a
+    # function of wall-clock time and the byte comparison will red the gate when a receipt
+    # crosses its window with nothing in the tree having changed. It cannot fire here — there
+    # is no declaration and all eight boxes read INCOMPLETE — and the first consumer to
+    # declare one will meet it. Render the age bucket rather than the verdict when that day
+    # comes, or exclude the boxes from the digest and say why.
     state = readiness.read(root, now=now)
     seen = {box.id: box for box in state.boxes}
     rows = []
@@ -239,6 +251,13 @@ def read(root: Path, *, now: datetime | None = None) -> Tree:
         names = set(contract.tracked(root))
     except (OSError, ValueError, subprocess.SubprocessError):
         names = set()
+    if not names and (root / "specs").is_dir():
+        # Refuse rather than render nothing. With an empty index every collector comes back
+        # empty, `staleness` compares an empty page to the committed one and reds — which is
+        # correct — and the operator's next move after a red gate is `report intent --html`,
+        # which would then overwrite a correct page with an empty one. The check fails closed
+        # and the write used to fail open.
+        raise Unreadable("git listed no files here, so this would render a page about nothing")
     tests_lines, product_lines, whole = _measured(root)
     verdict, code, boxes = _readiness(root, now or datetime.now(UTC))
     intent_raw = _text(root / ".ai" / "intent.md")
@@ -308,7 +327,11 @@ def staleness(root: Path, *, now: datetime | None = None) -> tuple[bool, str]:
     A hand edit is the unlikely path; a badly resolved merge conflict in a 204-line generated
     file is the likely one.
 
-    So the comparison is the bytes. That is only possible because the page is now a pure
+    So the comparison is the rendered page itself. It is text rather than bytes: `_text`
+    reads with universal newlines, so a checkout that stores CRLF compares equal to the
+    LF this renders. The content is identical either way and nothing false gets through;
+    reading bytes instead would red every Windows checkout for its line endings. That is
+    only possible because the page is now a pure
     function of what the digest covers: the commit it was built at and the moment it was
     written are no longer printed, because neither could be hashed without reddening the gate
     on every commit.
@@ -645,8 +668,8 @@ estado está cada especificación y qué lo gobierna.">
     {
         _card(
             f"{tree.repo_lines:,}".replace(",", "."),
-            "líneas contadas por el techo",
-            f"techo {tree.ceiling:,}".replace(",", ".") + ", esta página no se cuenta aquí",
+            "líneas del producto",
+            f"techo {tree.ceiling:,}".replace(",", ".") + " · esta página no entra en la cuenta",
         )
     }
     {
@@ -695,7 +718,8 @@ estado está cada especificación y qué lo gobierna.">
 
 <section id="specs">
   <h2>Dónde está cada especificación</h2>
-  <p class="note">El estado sale del frontmatter de cada <code>spec.md</code>. El progreso
+  <p class="note">Sólo las specs que están en git: una sin commitear no se publica en un
+  documento que sí lo está. El estado sale del frontmatter de cada <code>spec.md</code>. El progreso
   cuenta las casillas de su <code>plan.md</code>; una casilla no es una prueba, sólo dice qué
   se marcó.</p>
   <div class="scroll"><table>

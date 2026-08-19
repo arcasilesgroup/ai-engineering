@@ -1736,6 +1736,15 @@ def test_no_envelope_in_this_tree_is_larger_than_two_kilobytes():
     assert largest < 2048, f"{where} is {largest} bytes"
 
 
+def _a_real_repository(where) -> None:
+    """The page reads the git index, so a fixture that only looks like a repository is not
+    one. Staged rather than committed: `git ls-files` reads the index, which is what makes
+    the natural order — stage the spec, generate, commit both — work."""
+
+    subprocess.run(["git", "init", "-q", "-b", "main", str(where)], check=True)
+    subprocess.run(["git", "-C", str(where), "add", "-A"], check=True)
+
+
 def test_report_intent_writes_the_page_and_says_where(repo, capsys, monkeypatch):
     """The command the staleness message promised, which argparse rejected.
 
@@ -1747,6 +1756,7 @@ def test_report_intent_writes_the_page_and_says_where(repo, capsys, monkeypatch)
 
     monkeypatch.chdir(repo)
     _fixture_spec(repo, "a-thing")
+    _a_real_repository(repo)
 
     result = report.main(["intent", "--html"])
 
@@ -1765,6 +1775,8 @@ def test_the_command_the_staleness_message_names_is_one_that_runs(repo, monkeypa
     from ai_engineering import report, solution_intent
 
     monkeypatch.chdir(repo)
+    _fixture_spec(repo, "a-thing")
+    _a_real_repository(repo)
     _, why = solution_intent.staleness(repo)
     named = why.split("run `", 1)[1].split("`", 1)[0]
 
