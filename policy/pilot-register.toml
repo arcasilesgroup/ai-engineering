@@ -383,12 +383,6 @@ reason = "every description carries four to six trigger phrases on purpose: a ro
 reopen_when = "a routing evaluation shows the extra phrases cost more misroutes than they prevent"
 
 [[ungated]]
-id = "EP-163"
-asks = "the writing is readable by somebody who does not code"
-reason = "a grade-level gate on prose is a check on style. The jargon ban is the half that executes — six words refused across every skill body by `contract.audit_one`."
-reopen_when = "a readability measure exists that a person disagreeing with it can argue against"
-
-[[ungated]]
 id = "EP-305"
 asks = "names express intention"
 reason = "a judgement about language. The half that executes is the other clause of the same requirement: an error carries its cause and its cure, asserted in `test_doctor.py` and `test_outcomes.py`."

@@ -426,6 +426,12 @@ def test_no_ungated_row_is_held_by_a_condition_that_has_already_fired():
             if (ROOT / candidate).exists():
                 fired.append(f"{row['id']} reopens when {candidate} exists, and it does")
 
+    # The shape this cannot see, said once so nobody reads its silence as coverage. `EP-163`
+    # reopened when "a readability measure exists that a person disagreeing with it can argue
+    # against" — Gunning fog, which had been in `contract.py` for days and is named in no
+    # backtick. A condition can point at a thing rather than a file, and no pattern finds a
+    # thing. The record for that is `docs/adr/0014`, and the reader for it is a person.
+
     assert not fired, (
         "; ".join(fired) + ". A refusal whose reopening condition has fired is a refusal "
         "nobody re-read. Remove the row and grade the requirement, or say why the condition "
