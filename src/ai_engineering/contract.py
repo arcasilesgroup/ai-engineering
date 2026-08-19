@@ -673,15 +673,23 @@ DESCRIPTION_MAX = 1000
 # claim about an organisation. `ai-design` is one gateway with four routes, an AA floor and
 # evidence measured off the rendered result rather than the CSS somebody wrote.
 #
-# `ai-test`, `ai-verify` and `ai-animation` do not exist as files. Each was to survive only
-# if a routing evaluation showed it distinct; specification 012 already recorded that the
-# comparison has no baseline, no sample and no margin and that no evaluation runner exists
-# here. No evidence is not weak evidence — the condition is unmet, and fail-closed is the
-# only reading this repository allows itself. Their work has a home: test design is step 2
-# of `ai-build`, mechanical verification is the gate and `references/testing.md`, and motion
-# judgement is the new `references/motion.md` beside the new `references/frontend.md`, which
-# are EP-125 and EP-126. A test asserts both halves, so adding one of the three back without
-# an evaluation turns the build red naming it.
+# `ai-test`, `ai-verify` and `ai-animation` did not exist as files when this was written.
+# Each was to survive only if a routing evaluation showed it distinct; specification 012
+# already recorded that the comparison had no baseline, no sample and no margin and that no
+# evaluation runner existed here. No evidence is not weak evidence — the condition was
+# unmet, and fail-closed is the only reading this repository allows itself. Their work had a
+# home: test design is step 2 of `ai-build`, mechanical verification is the gate and
+# `references/testing.md`, and motion judgement is `references/motion.md` beside
+# `references/frontend.md`, which are EP-125 and EP-126. A test asserted both halves, so
+# adding one of the three back without an evaluation turned the build red naming it.
+#
+# `ai-verify` came back under specification 019 repair 6, and the condition this paragraph
+# says was unmet is the one that changed: `just skilleval` is the evaluation runner, with a
+# baseline of 275 in `policy/pilot-register.toml` and a margin of zero, and repair 5 gave a
+# verify route something to read by making a specification's examples a section a command
+# can parse. The absorption row left the map in the same commit as the skill, so the test
+# still asserts both halves — over two names now, and it did not go red, because the
+# condition was met rather than skipped. `ai-test` and `ai-animation` stay absorbed.
 #
 # Four of the lines are a fixture that stopped testing what it says. `test_install` planted
 # a skill "somebody else installed" and called it `ai-design`, so the day `ai-design`

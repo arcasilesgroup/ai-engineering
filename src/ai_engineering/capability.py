@@ -38,7 +38,7 @@ SCHEMA_PATH = paths.policy("capability-manifest.schema.json")
 MANIFEST_PATH = paths.policy("capabilities.toml")
 # Moved deliberately when the manifest gained `phase`, and moved a second time when an
 # independent review found the sentence explaining it counting the wrong things: it said
-# twelve commands, where the catalogue is fifteen capabilities, the skill tree is twelve
+# twelve commands, where the catalogue is fifteen capabilities, the skill tree is thirteen
 # directories and the CLI has ten verbs. The pin is what makes a change here a decision
 # somebody takes rather than a file that drifted, and a wrong number inside a governed file
 # is exactly what it exists to make expensive.

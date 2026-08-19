@@ -238,7 +238,7 @@ id = "EP-029"
 verdict = "INCOMPLETE"
 subject = "a skill evaluation against an approved corpus, with a named approver, format, location and command"
 evidence = "python tests/skill_eval.py; grep -n 'baseline' policy/pilot-register.toml"
-note = "four of the five exist: the corpus is the labelled cases beside every skill, the format is the two headings the admission gate demands, the location is `corpus.md` in each skill directory, and the command is `python tests/skill_eval.py` with a lower bound of 255 it is compared against. The approver is the fifth and is the same gap as EP-289 — a name nobody typed"
+note = "four of the five exist: the corpus is the labelled cases beside every skill, the format is the two headings the admission gate demands, the location is `corpus.md` in each skill directory, and the command is `python tests/skill_eval.py` with a lower bound of 275 it is compared against. The approver is the fifth and is the same gap as EP-289 — a name nobody typed"
 
 [[requirement]]
 id = "EP-030"
@@ -546,7 +546,7 @@ note = "recorded rather than abandoned: it reopens if the same shape is found co
 id = "EP-074"
 verdict = "INCOMPLETE"
 subject = "ai-test and ai-verify exist as first-class skills"
-evidence = "ls .agents/skills/ai-verify; pytest tests/test_contracts.py -k three_absorption_candidates"
+evidence = "ls .agents/skills/ai-verify; pytest tests/test_contracts.py -k absorption_candidates"
 note = "half. ai-verify ships under specification 019 repair 6: D-012-04 made absorption its exit condition in the absence of a consumer for what it would verify, and repair 5 built that consumer — a spec's examples became a section a command can parse. ai-test stays absorbed and the test still forbids it"
 
 [[requirement]]
@@ -658,7 +658,7 @@ note = "contradicts the audit's own withdrawal note; the schema exists and is ex
 id = "EP-091"
 verdict = "CONTRADICTED"
 subject = "ai-animation exists as a first-class skill with rendered evidence"
-evidence = "grep -n ai-animation policy/capabilities.toml; pytest tests/test_contracts.py -k three_absorption_candidates"
+evidence = "grep -n ai-animation policy/capabilities.toml; pytest tests/test_contracts.py -k absorption_candidates"
 note = "declared in the manifest, forbidden by a passing test. Deliberate absorption into the motion lens"
 
 [[requirement]]
@@ -875,13 +875,13 @@ evidence = "pytest tests/test_threat_model.py::test_the_security_skill_points_at
 id = "EP-125"
 verdict = "PROVEN"
 subject = "ai-review carries a frontend review lens"
-evidence = "pytest tests/test_contracts.py -k three_absorption_candidates"
+evidence = "pytest tests/test_contracts.py -k absorption_candidates"
 
 [[requirement]]
 id = "EP-126"
 verdict = "PROVEN"
 subject = "ai-review carries a motion review lens"
-evidence = "pytest tests/test_contracts.py -k three_absorption_candidates"
+evidence = "pytest tests/test_contracts.py -k absorption_candidates"
 
 [[requirement]]
 id = "EP-127"
@@ -936,7 +936,7 @@ id = "EP-135"
 verdict = "PROVEN"
 subject = "the surfaces show the skills by the five phases"
 evidence = "pytest tests/test_contracts.py -k phase_map; grep -n phase_map src/ai_engineering/init.py"
-note = "the map moved out of the gate runner and into `wiring.phase_map`, `ai-eng init` prints it to the person who has just been handed the twelve skills, and the runner reads the same function rather than rebuilding it. An empty phase is shown and an unrecognised one is appended, because five phases is a claim about how the work is arranged and a map that quietly showed four would change that claim without anybody deciding to"
+note = "the map moved out of the gate runner and into `wiring.phase_map`, `ai-eng init` prints it to the person who has just been handed the thirteen skills, and the runner reads the same function rather than rebuilding it. An empty phase is shown and an unrecognised one is appended, because five phases is a claim about how the work is arranged and a map that quietly showed four would change that claim without anybody deciding to"
 
 [[requirement]]
 id = "EP-136"
@@ -1965,7 +1965,7 @@ id = "EP-289"
 verdict = "INCOMPLETE"
 subject = "a skill-evaluation delta with a baseline, a margin and a named approver"
 evidence = "python tests/skill_eval.py | grep baseline; pytest tests/test_skill_eval.py -k baseline"
-note = "two of the three exist and execute. The baseline is 255 in policy/pilot-register.toml and the run prints its delta; the margin is zero, argued rather than assumed — the evaluation is deterministic, so a band around the number would be a tolerance for variance that does not exist and what it would hide is deleted cases. Before this the corpus could have fallen from 254 to 3 and the run would have exited zero. The third half is a named approver: the field is empty on purpose rather than carrying a name nobody typed, and the row reopens when somebody with authority puts theirs there"
+note = "two of the three exist and execute. The baseline is 275 in policy/pilot-register.toml and the run prints its delta; the margin is zero, argued rather than assumed — the evaluation is deterministic, so a band around the number would be a tolerance for variance that does not exist and what it would hide is deleted cases. Before this the corpus could have fallen from 254 to 3 and the run would have exited zero. The third half is a named approver: the field is empty on purpose rather than carrying a name nobody typed, and the row reopens when somebody with authority puts theirs there"
 
 [[requirement]]
 id = "EP-290"
@@ -2265,7 +2265,7 @@ evidence = "pytest tests/test_contracts.py -k 'absorbed_capability_left_its_work
 id = "EP-333"
 verdict = "CONTRADICTED"
 subject = "ai-animation ships as a first-class skill"
-evidence = "ls .agents/skills/; pytest tests/test_contracts.py -k three_absorption_candidates"
+evidence = "ls .agents/skills/; pytest tests/test_contracts.py -k absorption_candidates"
 note = "the manifest declares it and a passing test asserts it must not exist. A recorded decision, not an oversight"
 
 [[requirement]]
@@ -2563,7 +2563,7 @@ evidence = "none — the requirement text could not be located"
 id = "EP-382"
 verdict = "CONTRADICTED"
 subject = "ai-test ships as a first-class skill"
-evidence = "ls .agents/skills/; pytest tests/test_contracts.py -k three_absorption_candidates"
+evidence = "ls .agents/skills/; pytest tests/test_contracts.py -k absorption_candidates"
 note = "declared in the manifest, forbidden by a passing test. A recorded decision"
 
 [[requirement]]

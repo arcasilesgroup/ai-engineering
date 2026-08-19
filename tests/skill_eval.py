@@ -420,7 +420,7 @@ def main() -> int:
     # Read from the product rather than rebuilt here. This runner used to be the only place
     # the map existed, which is what `EP-135` was reopened for: a field declared for a person
     # meeting the catalogue, shown only to a developer watching CI. `ai-eng init` prints it
-    # now, to the person who has just been handed the twelve, and both call this.
+    # now, to the person who has just been handed the thirteen, and both call this.
     from ai_engineering import wiring
 
     grouped = wiring.phase_map()

@@ -195,11 +195,11 @@ def test_the_combined_result_gates_and_not_only_each_branch_alone():
     )
 
 
-def test_the_three_absorption_candidates_did_not_ship_and_their_work_has_a_home():
+def test_the_absorption_candidates_did_not_ship_and_their_work_has_a_home():
     """A capability that exists to occupy a name is what specification 012's non-goals
     forbid, and an absorbed one that quietly leaves its work nowhere is worse.
 
-    So this asserts both halves: the three directories do not exist, and the file that
+    So this asserts both halves: the two directories do not exist, and the file that
     absorbed each one does. Add `.agents/skills/ai-animation/` back without a routing
     evaluation and this goes red naming it."""
     for name, home in ABSORBED.items():
@@ -1562,16 +1562,16 @@ def test_the_mission_names_every_verb_it_claims_to_govern():
 def test_every_declared_capability_has_a_skill_or_names_where_its_work_went():
     """The only contradiction in 385 requirements, and it was between two of our own files.
 
-    `policy/capabilities.toml` declares fifteen capabilities. `.agents/skills/` holds twelve.
-    The three that are declared and absent are exactly the three
-    `test_the_three_absorption_candidates_did_not_ship_and_their_work_has_a_home` asserts
+    `policy/capabilities.toml` declares fifteen capabilities. `.agents/skills/` holds thirteen.
+    The two that are declared and absent are exactly the two
+    `test_the_absorption_candidates_did_not_ship_and_their_work_has_a_home` asserts
     must not exist — so the manifest said this product has a capability while a passing gate
     said the skill must not be there. Two sources of truth about what this product is, and
     an independent audit found them disagreeing three times.
 
     They agree now, and by construction rather than by coincidence: a capability with no
     skill is legal only while the absorption map names where its work went. Adding a
-    fourteenth capability without a skill turns this red, and so does deleting an absorption
+    sixteenth capability without a skill turns this red, and so does deleting an absorption
     row while leaving the manifest alone. Neither file had to move — what was missing was
     anything reading both.
     """
@@ -1847,6 +1847,28 @@ def test_a_plan_names_a_file_a_check_a_rollback_and_a_done_when():
         # numbered bold line exists somewhere". A deferral is a real thing a plan records;
         # a plan that is only deferrals is a plan nobody wrote.
         assert whole, f"{name} has {len(tasks)} numbered tasks and not one of them is written"
+
+
+def test_the_register_notes_state_the_baseline_the_register_holds():
+    """Two rows of `docs/requirements.toml` restate the routing baseline in prose, and prose
+    is not read by the recipe that enforces it. They said 254 while the register said 255,
+    and 255 while it said 275 — stale twice in three blocks, both times for the same reason.
+
+    Rule 12: the third time a judgement resolves the same way it becomes a script. This is
+    the third time. The number lives in one place and every sentence quoting it agrees with
+    that place, or the build says which sentence does not."""
+
+    import tomllib
+
+    register = tomllib.loads((ROOT / "policy" / "pilot-register.toml").read_text(encoding="utf-8"))
+    agreed = next(row for row in register["baseline"] if row["id"] == "skill-routing")
+    said = str(agreed["measured"])
+
+    notes = (ROOT / "docs" / "requirements.toml").read_text(encoding="utf-8")
+    for phrase in ("a lower bound of {} it is compared against", "The baseline is {} in"):
+        assert phrase.format(said) in notes, (
+            f"a register note does not say {said}: {phrase.format(said)!r} is not there"
+        )
 
 
 def test_the_number_in_the_doctor_summary_is_the_number_of_assertions():
