@@ -324,7 +324,15 @@ def _envelope(home: Path, wanted: str, named: dict[str, str]) -> outcome.Result:
     if not tasks:
         print(f"  {home.name} has a plan with no numbered tasks a script can enumerate")
         return outcome.result("INCOMPLETE")
-    found = next((one for one in tasks if one["task"] == wanted), None)
+    # A written task wins a collision. A plan whose "Options considered" list is numbered
+    # 1. and 2. parses those as tasks with no fields, and taking the first match returned
+    # the prose item and refused a task that exists and is whole. No plan in the tree has a
+    # duplicate id today; the refusal it produced was the wrong answer to the right question.
+    matching = [one for one in tasks if one["task"] == wanted]
+    found = next(
+        (one for one in matching if any(one.get(field) for field in TASK_FIELDS)),
+        matching[0] if matching else None,
+    )
     if found is None:
         print(
             f"  no task {wanted} in {home.name}: it has {', '.join(one['task'] for one in tasks)}"

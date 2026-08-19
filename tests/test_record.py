@@ -1667,8 +1667,21 @@ def test_an_envelope_refuses_rather_than_printing_half_of_one(repo, capsys):
     assert spec.main(["show", "001", "--task", "9"]).outcome == "INCOMPLETE"
     assert "no task 9" in capsys.readouterr().out
 
+    # A prose list numbered like a task does not shadow the task. Taking the first match
+    # returned the prose item and refused a task that is right there and whole.
+    (where.parent / "plan.md").write_text(
+        "# Plan\n\n## Options considered\n\n1. **Build the subsystem.**\n\n"
+        "## Tasks\n\n1. **The real one** — **file** `src/thing.py`.\n"
+        "   **check**: `just quick thing`.\n"
+        "   **rollback**: `git revert <commit>`. **done when**: it works.\n",
+        encoding="utf-8",
+    )
+    assert spec.main(["show", "001", "--task", "1"]).outcome == "PASS"
+    assert "The real one" in capsys.readouterr().out
+
     # A digest the caller named that is not the bytes on disk. This is the one that makes
     # the envelope an authority statement rather than a convenience.
+    _plan_with_tasks(where)
     assert (
         spec.main(["show", "001", "--task", "1", "--plan-digest", "sha256:" + "0" * 64]).outcome
         == "INCOMPLETE"
