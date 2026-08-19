@@ -128,10 +128,10 @@ note = "only claude-code is denied from a wheel-installed artefact; seven surfac
 
 [[requirement]]
 id = "EP-013"
-verdict = "INCOMPLETE"
+verdict = "CONTRADICTED"
 subject = "four earned adapter fields declared in policy/surfaces.toml"
-evidence = "grep -n 'native_slash|skill_selector|command_adapter|invocation' policy/surfaces.toml"
-note = "refused by D-011-02 in favour of earned three-state receipts: meets the intent, not the stated form"
+evidence = "grep -n 'REFUSED by D-011-02' specs/011-surface-adapter-contract/spec.md"
+note = '''regraded from INCOMPLETE, which was the wrong word for it. `specs/011` says "EP-013 — the four adapter fields in `policy/surfaces.toml`. REFUSED by D-011-02" in those capitals: the repository decided against the stated form and put earned three-state receipts in its place, which meets the intent and is not what the sentence asks for. INCOMPLETE means work remains; here a recorded decision says it never will be done this way, and grading it INCOMPLETE inflated the count of requirements somebody could still close. `EP-333` carries CONTRADICTED for exactly this shape — "a recorded decision, not an oversight" — and two rows recording the same kind of refusal under two different words is the ledger disagreeing with itself.'''
 
 [[requirement]]
 id = "EP-014"
