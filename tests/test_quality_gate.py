@@ -736,6 +736,9 @@ GATE_CONTROLS = {
     "skilleval": "tests/test_skill_eval.py mutates the corpus once per routing rule and "
     "asserts the harness refuses each one",
     "counts": "test_the_counts_this_repository_states_about_itself_are_the_counts_it_has",
+    "homes": "tests/test_one_home.py plants the one way the classification could flatter — a "
+    "path outside every declared home folding into an existing one, which would make every "
+    "commit that touched the justfile read as narrower than it was",
     "unreviewed": "tests/test_unreviewed.py plants the one way the derivation could be "
     "generous — a range whose ends this clone cannot resolve, which would credit every commit "
     "to a review nobody ran — plus a missing record, which must leave everything unreviewed",

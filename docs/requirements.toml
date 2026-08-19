@@ -2708,8 +2708,8 @@ evidence = "git grep -cE 'noqa|ts-ignore|nosec' -- src hooks tests"
 id = "PO-16"
 verdict = "CONTRADICTED"
 subject = "one primary home per commit, and the recorded exception covers only a commit moving a count another check forces it to move"
-evidence = "git log --format='%H %s' main..HEAD, then git show --stat per commit"
-note = "the widest commit on this branch touches twenty-one files: four source modules, nine test files, two workflows, a policy table, a skill and a new spec. That is not a commit moving a count, which is the entire exception on record. The rule says one home and the practice here is twenty-one, exception included. Recorded rather than argued: this is the audit grading the session that commissioned it"
+evidence = "python tests/one_home.py; pytest tests/test_one_home.py"
+note = '''still contradicted, and now measured every run instead of once. 194 commits on this branch, 26 touching one home and 168 touching more; the widest spans seven — `.agents`, `.github`, `docs`, `policy`, `specs`, `src`, `tests`. The rule says one home with a single recorded exception, a commit moving a count another check forces it to move, and 168 is not that. What the row could not say before is how far off the practice runs, because the evidence was one commit somebody looked at once and a sentence about it. `tests/one_home.py` reports and never blocks: the exception cannot be recognised mechanically — a count moved because a check forced it looks exactly like a count moved because somebody felt like it — and a gate failing here would assert a judgement it cannot make. This is the audit grading the sessions that commissioned it, including today's.'''
 
 [[commitment]]
 id = "PO-17"

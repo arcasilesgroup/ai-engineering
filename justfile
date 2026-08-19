@@ -408,4 +408,11 @@ lenses base="main":
 unreviewed base="main":
     @uv run python tests/unreviewed.py --since {{base}}
 
-check: build sbom lint typecheck test cover security register skilleval counts intent-page lenses unreviewed ran
+# How many primary homes each commit touches. `PO-16` says one, with one recorded exception,
+# and nothing measured it — so a sentence about one commit stood in for a hundred and ninety.
+# Reports and never blocks: the exception cannot be recognised mechanically, and a gate that
+# failed here would assert a judgement it cannot make.
+homes base="main":
+    @uv run python tests/one_home.py --since {{base}}
+
+check: build sbom lint typecheck test cover security register skilleval counts intent-page lenses unreviewed homes ran
