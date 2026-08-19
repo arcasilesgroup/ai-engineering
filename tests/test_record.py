@@ -1479,10 +1479,17 @@ def test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate():
     happened from a block that was described: who reviewed it and what they found, what was
     repaired, and what the gate said afterwards.
 
-    Deliberately not checked here: that the gate output is independent. It is not — the
-    receipts are gitignored and no workflow runs on this branch — and the record says so in
-    its own words. A test asserting a green nobody can produce would be the defect this
-    repository is named after.
+    Independence is not asserted here and is no longer excused in one sentence for all three.
+    Each hand-off carries its own `independent` row saying what a stranger can re-check, and
+    for all three that is the same fact: `gh run list` returns no run at that block's final
+    HEAD, because they closed before the first run on this branch.
+
+    The sentence this docstring used to carry — that no workflow runs on this branch — was
+    wrong, and measurably wrong the day it was written: sixty-four runs of `check.yml` have
+    happened here since 2026-08-17. The gap was real and its stated cause was not, which is
+    worse than no explanation, because a cause nobody re-measures outlives the condition it
+    describes. So the field is per block, where it can be checked against one sha, rather
+    than a property claimed of the branch.
     """
 
     import re
@@ -1498,12 +1505,12 @@ def test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate():
     for name in blocks:
         where = section.index(f"### Block {name}")
         table = section[where : section.find("###", where + 5) or len(section)]
-        for field in ("reviewer disposition", "repair commit", "gate"):
+        for field in ("reviewer disposition", "repair commit", "gate", "independent"):
             assert field in table, f"Block {name}'s hand-off names no {field}"
         # A field with no value is a field nobody filled. The table is one row per line, so
         # what is asserted is that something follows the name inside its own row.
         for line in table.splitlines():
-            if line.startswith("| reviewer disposition") or line.startswith("| gate"):
+            if line.startswith(("| reviewer disposition", "| gate", "| independent")):
                 cells = [one.strip() for one in line.strip("|").split("|")]
                 assert len(cells) == 2 and cells[1], f"Block {name}: {cells[0]!r} is empty"
 

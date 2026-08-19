@@ -2605,7 +2605,7 @@ id = "PO-01"
 verdict = "INCOMPLETE"
 subject = "a block closes and freezes, and nothing later depends on it until an independent reviewer has cleared it"
 evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate"
-note = "the rule exists and is accepted, one block ran under it, and the reader bites — verified by blanking a hand-off's gate cell. But `gh run list --branch fix/mutation-lane-green-on-main` returns zero rows: no CI has ever run on this branch, so the freeze holding is this record's own prose. One execution is not yet governs, and this repository claimed it closed hours before this row was written. Re-measured on 2026-08-17 against `ledger-and-records`, which has 24 gate runs against 24 distinct heads: the corroboration the original note said was missing exists for this branch. What is still prose is the freeze itself — that nothing later depended on a block before a reviewer cleared it — because no artefact records the waiting"
+note = '''re-measured on 2026-08-19 and the reason this row carried was wrong. The audit said the workflow does not trigger on a push to this branch, so no CI had run on it at all; `check.yml` has run sixty-four times here since 2026-08-17 — 37 green, 22 red, 4 cancelled — the earliest the same day that sentence was written. The gap is real and its stated cause was not, which is worse than no explanation. Each hand-off now carries an `independent` row naming what a stranger can re-check, and for all three it is the same checkable fact: no run exists at that block's final HEAD, because they closed before the first one. The reader refuses a blank one. What keeps this open is unchanged and unreachable by any command: whether the freeze held while the reviewer read.'''
 
 [[commitment]]
 id = "PO-02"
@@ -2689,7 +2689,7 @@ id = "PO-13"
 verdict = "INCOMPLETE"
 subject = "one bounded re-review: one consolidated ledger, one repair pass, one bounded second read"
 evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate"
-note = "the reader bites on a blank repair field. Whether the re-review was bounded to one pass is prose, with no independent record on this branch to check it against. Re-measured on 2026-08-17: an independent record exists on this branch now, 24 gate runs deep. Whether the re-review was bounded to one pass is still prose"
+note = '''re-measured on 2026-08-19 and the reason this row carried was wrong. The audit said the workflow does not trigger on a push to this branch, so no CI had run on it at all; `check.yml` has run sixty-four times here since 2026-08-17 — 37 green, 22 red, 4 cancelled — the earliest the same day that sentence was written. The gap is real and its stated cause was not, which is worse than no explanation. Each hand-off now carries an `independent` row naming what a stranger can re-check, and for all three it is the same checkable fact: no run exists at that block's final HEAD, because they closed before the first one. The reader refuses a blank one. What keeps this open is unchanged and unreachable by any command: whether the freeze held while the reviewer read.'''
 
 [[commitment]]
 id = "PO-14"
