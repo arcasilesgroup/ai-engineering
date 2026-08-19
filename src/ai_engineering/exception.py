@@ -168,9 +168,7 @@ def main(argv: list[str]) -> outcome.Result:
     parser.add_argument(
         "--skip", required=True, metavar="REASON", help="why this change does not need a plan"
     )
-    parser.add_argument(
-        "--guard", default="change_scope_guard", choices=["change_scope_guard", "loop_guard"]
-    )
+    parser.add_argument("--guard", default="loop_guard", choices=["loop_guard"])
     args = parser.parse_args(argv)
 
     if not sys.stdin.isatty():

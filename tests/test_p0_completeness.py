@@ -58,7 +58,7 @@ P0: dict[str, tuple[str, str, str]] = {
         "policy/risk-acceptance-v1.schema.json",
         "x-acceptance-policy",
     ),
-    "hard-renames": ("hard renames", "CHANGELOG.md", "hooks/change_scope_guard.py"),
+    "hard-renames": ("hard renames", "CHANGELOG.md", "hooks/no_verify_guard.py"),
     "report-digest": ("`report digest`", "src/ai_engineering/report.py", 'add_parser("digest")'),
     "invalid-fixtures-first": (
         "with invalid fixtures red before valid implementations",
@@ -70,11 +70,15 @@ P0: dict[str, tuple[str, str, str]] = {
         "specs/010-governed-agentic-engineering-foundation/spec.md",
         "### P5 —",
     ),
+    # The rename happened and is recorded; the guard it renamed has since been deleted for
+    # blocking three times against 670 bypasses. So the proof moves from the file to the
+    # record — which is where a hard rename's proof belonged anyway, because a file proves
+    # only the name it currently has and never the name somebody used to type.
     "guard-rename": (
         "P0 hard-renames `design_gate` to `change_scope_guard`, with no alias, because the "
         "guard enforces approved scope and plan presence rather than judging design.",
-        "hooks/change_scope_guard.py",
-        "change_scope_guard",
+        "CHANGELOG.md",
+        "design_gate",
     ),
     "release-lanes": (
         "P0 retains the current trusted-publishing, provenance, dependency-audit, "

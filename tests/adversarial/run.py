@@ -62,10 +62,10 @@ def call(
     """The guards judge the working directory they are called in, so a case that is about
     the working directory passes `cwd` and gets its own throwaway repository. The rest run
     where the suite runs, which is this one — and that is not free. A control case here was
-    denied by `change_scope_guard`, because this branch had seventeen files changed and no
-    plan yet, and reported `MISSED control · self_protect`: the right refusal, attributed to
-    the wrong guard, and twenty minutes to find out. So the denying guard's own line is kept
-    and printed beside the result rather than thrown away with the rest of stderr."""
+    once denied by a since-deleted scope guard and reported `MISSED control · self_protect`:
+    the right refusal, attributed to the wrong guard, and twenty minutes to find out. So the
+    denying guard's own line is kept and printed beside the result rather than thrown away
+    with the rest of stderr."""
     env = {**os.environ, "AI_ENG_SESSION": session or f"suite-{time.time_ns()}"}
     done = subprocess.run(
         [sys.executable, str(hooks / "chain.py"), event],
@@ -284,30 +284,6 @@ def guard_crashes(tmp: Path) -> bool:
     return pre("Read", {"file_path": str(tmp / "any.txt")}, hooks=broken) == 2
 
 
-@case("no plan", "change_scope_guard")
-def no_plan(tmp: Path) -> bool:
-    """A stale plan stays shut: file three passes, four denies, and the new plan can open it."""
-    work = repo(tmp)
-    (work / "specs" / "001-old").mkdir(parents=True)
-    (work / "specs" / "001-old" / "plan.md").write_text("# a plan for something else\n")
-    git(work, "add", "-A")
-    if git(work, "commit", "-m", "docs: a plan this branch does not touch").returncode != 0:
-        raise RuntimeError("the old plan never landed, so the stale case was never asked")
-    git(work, "checkout", "-b", "feature")
-    for name in "abc":
-        (work / f"{name}.py").write_text("x = 1\n")
-    git(work, "add", "-A")
-    if git(work, "commit", "-m", "feat: three files").returncode != 0:
-        raise RuntimeError("the three files never landed, so the gate was never asked")
-    if pre("Edit", {"file_path": str(work / "c.py")}, cwd=work) != 0:
-        return False  # three is the budget, and a guard that denies at three is a bug
-    (work / "d.py").write_text("x = 1\n")
-    blocked = pre("Edit", {"file_path": str(work / "d.py")}, cwd=work) == 2
-    plan = work / "specs/002-feature/plan.md"
-    plan_writable = pre("Write", {"file_path": str(plan)}, cwd=work) == 0
-    return blocked and plan_writable  # crossing the budget cannot make /ai-plan block itself
-
-
 @case("skipping the hooks", "no_verify_guard")
 def skipping_hooks(tmp: Path) -> bool:
     return pre("Bash", {"command": "git commit --no-verify -m 'feat: x'"}) == 2
@@ -441,49 +417,6 @@ def control_loop(tmp: Path) -> bool:
     return codes == [0, 0]
 
 
-@case("write outside the claim", "claim_scope_guard")
-def outside_the_claim(tmp: Path) -> bool:
-    """A claim is held over one path and the write goes to another. The denial has to come
-    from the dispatcher rather than from a function a test called directly, because that is
-    the only version of it an agent ever meets."""
-
-    work = repo(tmp)
-    (work / ".ai").mkdir(exist_ok=True)
-    (work / ".ai" / "claim.json").write_text(
-        json.dumps({"item": "work-42", "paths": ["src/thing.py"]})
-    )
-    (work / "src").mkdir(exist_ok=True)
-    inside = pre("Write", {"file_path": str(work / "src" / "thing.py")}, cwd=work)
-    outside = pre("Write", {"file_path": str(work / "src" / "other.py")}, cwd=work)
-    return inside == 0 and outside == 2
-
-
-@case("control · claim_scope_guard", "none", controls="claim_scope_guard")
-def control_claim_scope(tmp: Path) -> bool:
-    """No claim in force is every repository that has never coordinated, and the guard has
-    no opinion there. A control that only proved the claimed path is writable would have
-    said nothing about the case that is almost all of them."""
-
-    work = repo(tmp)
-    (work / "anything.py").write_text("x = 1\n")
-    return pre("Write", {"file_path": str(work / "anything.py")}, cwd=work) == 0
-
-
-@case("control · change_scope_guard", "none", controls="change_scope_guard")
-def control_change_scope(tmp: Path) -> bool:
-    """Three files on a branch with no plan is the budget, not a breach. The attack proves
-    the fourth is denied; this proves the first three are not, which is the half that
-    decides whether the guard is usable at all."""
-
-    work = repo(tmp)
-    git(work, "checkout", "-b", "quiet-scope")
-    for name in "abc":
-        (work / f"{name}.py").write_text("x = 1\n")
-        if pre("Edit", {"file_path": str(work / f"{name}.py")}, cwd=work) != 0:
-            return False
-    return True
-
-
 @case("control · no_verify_guard", "none", controls="no_verify_guard")
 def control_no_verify(tmp: Path) -> bool:
     """An ordinary commit, and a command that merely contains the word. The guard reads a
@@ -594,8 +527,8 @@ def overlapping_paths(tmp: Path) -> bool:
     This was written as an attack and it failed, which is the useful half: `EP-194` records
     that a hard path lease is refused until a real collision is on record, so refusing the
     second claim here is exactly what this product decided not to do. What orders them is
-    `dag.order`, and what confines each writer afterwards is `claim_scope_guard`, which the
-    case above already attacks.
+    `dag.order`, and what re-checks the claim afterwards is the merge gate, reading the
+    branch on the remote rather than a file on the machine doing the writing.
 
     So it stays, as a control. A coordination mechanism that started refusing overlapping
     claims would be a lease nobody decided to build, and this is the case that would notice.

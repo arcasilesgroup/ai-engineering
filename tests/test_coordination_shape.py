@@ -104,7 +104,6 @@ COORDINATION = (
     "src/ai_engineering/claim.py",
     "src/ai_engineering/checkpoint.py",
     "src/ai_engineering/dag.py",
-    "hooks/claim_scope_guard.py",
 )
 
 
@@ -112,7 +111,7 @@ def test_no_ownership_store_no_heartbeat_and_no_ttl_takeover():
     """EP-192. The branch on the remote is the only record of who holds a work item, and a
     claim is released by the writer rather than expired by a clock."""
     coordinating = [(name, (SOURCE / name).read_text(encoding="utf-8")) for name in COORDINATION]
-    assert len(coordinating) == 4, "the coordination surface moved and this list did not"
+    assert len(coordinating) == 3, "the coordination surface moved and this list did not"
     assert hits(OWNERSHIP_STORE, [("planted", "heartbeat = 30  # seconds")]) == ["planted"]
     assert hits(OWNERSHIP_STORE, coordinating) == []
 

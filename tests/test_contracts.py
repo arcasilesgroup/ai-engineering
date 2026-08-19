@@ -287,8 +287,8 @@ def test_a_skill_that_names_a_guard_names_one_that_can_deny():
     the names are real, so this reads every skill file for a `hooks/<name>.py` citation and
     requires it to be in the dispatcher table — and, where the citation sits in the corpus's
     refusal list, to be a guard on a blocking event rather than a telemetry hook that never
-    stopped anything. Delete `change_scope_guard.py` and the sentence in `ai-build` that
-    relies on it turns red here."""
+    stopped anything. Delete a guard a skill cites and the sentence in that skill turns red
+    here."""
     import re
 
     import chain
@@ -819,6 +819,7 @@ def test_constitution_contract_rejects_negated_or_moved_assertions(case):
 # states one. Each is derived on the left and read out of the file on the right, never
 # derived on both sides: a test that computes both halves the same way cannot fail.
 WORDS = {
+    4: "four",
     5: "five",
     6: "six",
     8: "eight",
@@ -1173,7 +1174,7 @@ def test_the_guards_start_fast_enough_to_be_guards():
 
 def test_a_denial_hands_back_the_bypass_that_unblocks_the_guard_that_denied(capsys):
     """Nothing asserted any denial message's content before this, which is how a wrong flag
-    shipped: a loop_guard denial handed back the command that unblocks change_scope_guard."""
+    shipped: a loop_guard denial handed back the command that unblocks a different guard."""
     import _wrap
 
     with pytest.raises(SystemExit):
@@ -1186,7 +1187,6 @@ def test_a_denial_hands_back_the_bypass_that_unblocks_the_guard_that_denied(caps
 # script can make — but every claim in it is checked against the tree, so an entry that
 # stops being true fails here instead of ageing quietly in a file nobody rereads.
 P0_BREAKING = (
-    ("hooks/design_gate.py", "hooks/change_scope_guard.py"),
     ("src/ai_engineering/plan.py", "src/ai_engineering/exception.py"),
     ("src/ai_engineering/digest.py", "src/ai_engineering/report.py"),
 )
@@ -1546,10 +1546,10 @@ the design does not
 # went through.
 GOVERNING_SKILL_TEXT = {
     ".agents/skills/ai-build/SKILL.md": (
-        "a7e6f8e1340a091e85b888151e29989be50e69879c92d19998ae0a8f9ed4d93b"
+        "52c37f2ad9180c6bbf21e3519ce4bae0ff78a38ee9c0bacae2bbcbe9b0dade69"
     ),
     ".agents/skills/ai-build/corpus.md": (
-        "6ac10e5528af13618531398f28e3db83ba04db6f1322436c6a1bf1d6bbc3ec20"
+        "a058272096e4a0d7ec48688a78d4967af715c30476dc7271b3324bbcf43b238b"
     ),
     ".agents/skills/ai-spec/SKILL.md": (
         "0eea14bec2294dc09a487f4ffb357082746e7036c302ddaf23610ce7363568ab"

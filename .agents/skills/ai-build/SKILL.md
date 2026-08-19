@@ -28,9 +28,8 @@ Code and tests for one task, and one commit nobody has reviewed yet.
    thing that would break, not on the shape around it.
 3. Make it green with the smallest change that works. Then refactor with the test still
    green, or leave it.
-4. One logical change per commit. `hooks/change_scope_guard.py` counts the files a change
-   touches and denies one that has outgrown its plan — that guard is not a suggestion and
-   working around it is out of scope for this skill.
+4. One logical change per commit. A change that has outgrown the task it belongs to is two
+   changes; split it and say so, rather than widening the commit around it.
 5. Run the task's own check and the test files the task names, by path. Not the whole gate:
    that runs once at block close, over every commit in the block at once. `--no-verify` is
    denied by `hooks/no_verify_guard.py` on the way past.

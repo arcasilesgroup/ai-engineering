@@ -524,8 +524,7 @@ def test_the_prompt_says_what_is_granted_for_how_long_and_against_whose_name(
     assert result.outcome == "CANCELLED"
     assert prompts == ["  Type yes to grant it › "]
     assert capsys.readouterr().out.splitlines() == [
-        "  This grants ONE bypass of change_scope_guard, for 15 minutes, "
-        "recorded against your name.",
+        "  This grants ONE bypass of loop_guard, for 15 minutes, recorded against your name.",
         "  Reason: in a hurry",
         "  nothing granted.",
     ]
@@ -538,19 +537,19 @@ def test_a_granted_bypass_is_one_file_one_event_and_says_who_took_it(home, monke
     somebody other than whoever took it. Taking a second one must not fail on the folder
     the first one created."""
     _keyboard(monkeypatch, "yes")
-    result = exception.main(["--skip", "in a hurry", "--guard", "change_scope_guard"])
+    result = exception.main(["--skip", "in a hurry", "--guard", "loop_guard"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     assert capsys.readouterr().out.splitlines()[-1] == (
-        "  ✓ granted. The next change_scope_guard block passes, once, and the record says why."
+        "  ✓ granted. The next loop_guard block passes, once, and the record says why."
     )
     names = sorted(path.name for path in paths.home().iterdir())
     assert "cache" in names and "CACHE" not in names
     assert [path.name for path in (paths.home() / "cache").iterdir()] == ["bypass.json"]
     grant = json.loads((paths.home() / "cache" / "bypass.json").read_text())
-    assert grant["guard"] == "change_scope_guard" and grant["reason"] == "in a hurry"
+    assert grant["guard"] == "loop_guard" and grant["reason"] == "in a hurry"
     event = json.loads(home.chain_path(None).read_text().splitlines()[-1])
-    assert event["name"] == "change_scope_guard" and event["cls"] == "bypassed"
+    assert event["name"] == "loop_guard" and event["cls"] == "bypassed"
     assert event["data"] == {"reason": "in a hurry", "granted": "by a person"}
     repeated = exception.main(["--skip", "once more", "--guard", "loop_guard"])
     assert type(repeated) is outcome.Result
@@ -576,7 +575,7 @@ def test_exception_help_names_the_command_and_documents_the_bypass_flags(wide, c
     for token in (
         "usage: ai-eng exception",
         "--skip REASON",
-        "--guard {change_scope_guard,loop_guard}",
+        "--guard {loop_guard}",
     ):
         assert token in out
     assert " why this change does not need a plan\n" in out

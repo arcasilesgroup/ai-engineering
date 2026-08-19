@@ -41,8 +41,6 @@ TABLE: dict[str, list[tuple[str, str]]] = {
         ("no_verify_guard", r"Bash"),
         ("injection_guard", r"Read|NotebookRead"),
         ("loop_guard", r".*"),
-        ("change_scope_guard", r"Edit|Write|MultiEdit|NotebookEdit"),
-        ("claim_scope_guard", r"Edit|Write|MultiEdit|NotebookEdit"),
     ],
     "PostToolUse": [
         ("injection_guard", r"WebFetch|Fetch|WebSearch|mcp__.*"),

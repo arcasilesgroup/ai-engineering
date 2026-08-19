@@ -81,7 +81,7 @@ jobs:
           names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
           need = ["ai_engineering/hooks/chain.py", "ai_engineering/policy/iocs.yml",
                   "ai_engineering/git-hooks/pre-push", "ai_engineering/skills/ai-spec/SKILL.md",
-                  "ai_engineering/hooks/change_scope_guard.py",
+                  "ai_engineering/hooks/self_protect.py",
                   "ai_engineering/policy/risk-acceptance-v1.schema.json",
                   "ai_engineering/acceptance.py", "ai_engineering/acceptance_privacy.py"]
           gone = [n for n in names if n.endswith(("hooks/design_gate.py", "/plan.py", "/digest.py"))]

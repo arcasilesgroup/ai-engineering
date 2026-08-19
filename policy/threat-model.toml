@@ -59,22 +59,6 @@ control = "hooks/no_verify_guard.py"
 check = "tests/test_hooks.py"
 
 [[boundary]]
-id = "scope-creep"
-asset = "the files one approved change is allowed to touch"
-controlled_by = "the agent, which is also the thing being bounded"
-harm = "a change that grows past its plan is a change nobody approved, arriving under an approval somebody gave for something else"
-control = "hooks/change_scope_guard.py"
-check = "tests/test_hooks.py"
-
-[[boundary]]
-id = "claimed-paths"
-asset = "files another writer is holding on a remote claim"
-controlled_by = "a second orchestrator, on another machine"
-harm = "two writers editing one file silently is the failure a coordination system exists to prevent"
-control = "hooks/claim_scope_guard.py"
-check = "tests/test_claim_scope.py"
-
-[[boundary]]
 id = "runaway-agent"
 asset = "the user's money, rate limit and patience, and everything a retry loop can touch"
 controlled_by = "the agent itself, which will keep trying the same thing with the arguments tweaked"

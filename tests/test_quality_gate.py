@@ -588,7 +588,7 @@ def test_release_workflow_retains_wheel_contents_provenance_and_head_sha_receipt
         "ai_engineering/policy/iocs.yml",
         "ai_engineering/git-hooks/pre-push",
         "ai_engineering/skills/ai-spec/SKILL.md",
-        "ai_engineering/hooks/change_scope_guard.py",
+        "ai_engineering/hooks/self_protect.py",
         "ai_engineering/policy/risk-acceptance-v1.schema.json",
         "ai_engineering/acceptance.py",
         "ai_engineering/acceptance_privacy.py",

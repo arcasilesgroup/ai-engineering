@@ -120,7 +120,7 @@ def test_a_claim_record_carrying_a_machine_path_never_reaches_the_remote(tmp_pat
 def test_a_winning_claim_leaves_the_file_the_guard_reads_and_a_losing_one_does_not(
     tmp_path, remote
 ):
-    """The two halves have to agree. `claim_scope_guard` denies a write outside the claim
+    """The two halves have to agree. the merge gate refuses a claim it cannot match
     in force, and it reads that from `.ai/claim.json` — so the writer who lost the race must
     not be left holding a file that says it owns the work."""
 

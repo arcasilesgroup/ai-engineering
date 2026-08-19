@@ -8,6 +8,26 @@ search for.
 
 ### Breaking changes
 
+- `hooks/change_scope_guard.py` and `hooks/claim_scope_guard.py` are hard-deleted, with no
+  replacement and no shim. `change_scope_guard` asked whether any `specs/**/plan.md` was in
+  the branch's changed set — existence, never approval, as its own docstring conceded — so
+  `touch specs/x/plan.md` satisfied it, and the event log reads 3 blocks against 670
+  bypasses. A control bypassed two hundred times for every time it fires is not a control;
+  it is a machine for teaching a person to click through the next one, which is the failure
+  the whole `@guard` split exists to avoid. `claim_scope_guard` was worse than useless: it
+  sat in neither `SECURITY` nor `FLOW`, so `_wrap.deny` printed
+  `ai-eng exception --skip ... --guard claim_scope_guard` while `take_bypass` only ever
+  consults `FLOW` — a remedy that could not be honoured, printed on a denial that fires on
+  an *unreadable* `.ai/claim.json` and therefore locks every edit in the repository
+  including the edit that would fix the file. What changes for you: **the fourth file on a
+  branch with no plan is no longer denied, and a write outside a held claim is no longer
+  denied at the keyboard.** The claim is still recorded and still re-checked from the remote
+  at the merge gate, which is where a second machine's claim was always going to be
+  authoritative. `hooks/no_verify_guard.py`, `hooks/self_protect.py`,
+  `hooks/injection_guard.py` and `hooks/loop_guard.py` are untouched. `ai-eng exception`
+  now accepts only `--guard loop_guard`, because that is the only guard left that a person
+  may bypass at all.
+
 - `redact` is gone from `[observability]` in `.ai/config.toml`, and the exporter always
   redacts. It accepted `"strict"` and `"none"`, and `"none"` sent every field outside the
   two allow-lists to the collector verbatim — free text, guard reasons, whatever a payload

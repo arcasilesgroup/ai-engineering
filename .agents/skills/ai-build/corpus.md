@@ -21,6 +21,6 @@ rewriting it privately.
 - "review the diff I just wrote" — use `/ai-review`, because the same hands that wrote a change do not approve it, and this skill's own "No hace" says so.
 - "open the pull request and deploy it" — use `/ai-ship`, because publishing and deploying are a separate authority; this skill commits and stops.
 - "just add --no-verify, the hook is slow today" — refused by `hooks/no_verify_guard.py` rather than by judgement, and rule 3 says never.
-- "while you are in there, refactor the other four modules too" — refused by `hooks/change_scope_guard.py`, which counts the files a change touches against the plan it belongs to.
+- "while you are in there, refactor the other four modules too" — refused: the task names its files, and a commit that touches more than the task named is a commit nobody approved.
 - "write the plan for this spec" — use `/ai-plan`, because a plan is a decomposition into tasks somebody can execute, and this skill executes one of them.
 - "tick the task off in the plan now that it is done" — refused: editing the approved bytes withdraws the approval this skill is running under, and what happened belongs in the commit message and the hand-off.
