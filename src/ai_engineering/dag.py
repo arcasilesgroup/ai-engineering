@@ -67,6 +67,14 @@ class Unreadable(Exception):
     in parallel on the strength of a file nobody could read is the fail-open direction."""
 
 
+class Cycle(Unreadable):
+    """Every claim is behind another one, so none of them can start.
+
+    Its own type because `order` already tells these two apart and gives them different
+    cures — a file that will not parse is fixed or excluded, and a cycle is split or merged.
+    A caller that catches only `Unreadable` still catches this; one that cares can pick."""
+
+
 def _imports(root: Path, path: str) -> set[str]:
     if not path.endswith(".py"):
         return set()
@@ -142,7 +150,7 @@ def wave(root: Path, tasks: list[dict]) -> list[str]:
         # A cycle. Returning the empty set would make it indistinguishable from "no claims",
         # and a caller sizing a build on the length of this cannot tell a broken set from an
         # absent one. `order` reports the same state loudly; so does this.
-        raise Unreadable(f"these claims depend on each other: {', '.join(sorted(items))}")
+        raise Cycle(f"these claims depend on each other: {', '.join(sorted(items))}")
     return ready
 
 

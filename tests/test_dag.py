@@ -247,3 +247,24 @@ def test_a_wave_over_a_file_nobody_can_parse_refuses(tmp_path):
 
     with pytest.raises(dag.Unreadable):
         dag.wave(tmp_path, [task("work-1", "src/broken.py"), task("work-2", "src/broken.py")])
+
+
+def test_a_wave_of_claims_that_depend_on_each_other_says_so_by_type(tmp_path):
+    """`order` gives a cycle its own code and its own cure — split or merge the claims,
+    rather than fix or exclude the file. `wave` raised the file exception for both, so a
+    caller could not pick the cure the module had already decided was different."""
+
+    from ai_engineering import dag
+
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "a.py").write_text("from src import b\n", encoding="utf-8")
+    (tmp_path / "src" / "b.py").write_text("from src import a\n", encoding="utf-8")
+
+    tasks = [task("work-a", "src/a.py"), task("work-b", "src/b.py")]
+
+    with pytest.raises(dag.Cycle) as refused:
+        dag.wave(tmp_path, tasks)
+    assert "work-a" in str(refused.value) and "work-b" in str(refused.value)
+
+    # And it is still caught by anything reading for an unreadable graph.
+    assert issubclass(dag.Cycle, dag.Unreadable)
