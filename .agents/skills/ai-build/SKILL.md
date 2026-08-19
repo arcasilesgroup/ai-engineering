@@ -40,8 +40,12 @@ Code and tests for one task, and one commit nobody has reviewed yet.
    record itself has withdrawn the permission it is running under. That is not a
    formatting preference; it is the loop this step exists to break.
 7. When the plan stops being true — the task is bigger than written, the design does not
-   survive contact, a decision is missing — stop and escalate to `/ai-spec`. Continuing on a
-   plan you have privately rewritten is the failure this skill exists to prevent.
+   survive contact, a decision is missing — **record the stop before you stop**:
+   `ai-eng report blocked --what "<the gate>" --why "<what is missing>" --action "<the literal
+   that clears it>"`, then regenerate the page with `ai-eng report intent --html`. A halt
+   nobody can see is a halt nobody acts on, and the person is not at the keyboard. Say what
+   is missing; never that it arrived. Then escalate to `/ai-spec`. Continuing on a plan you
+   have privately rewritten is the failure this skill exists to prevent.
 
 ## Done when
 

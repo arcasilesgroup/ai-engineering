@@ -57,7 +57,9 @@ publication boundary because the preferred option needs it.
 
 For an irreversible, high-risk, contradictory or cross-cutting decision without an
 accountable human decision or exact preapproved policy, return `INCOMPLETE`. Record what
-authority is missing and stop before plan, code, publication or risk acceptance.
+authority is missing with `ai-eng report blocked`, so the page in `docs/` shows it and the
+person who is not at the keyboard can see it — say what is missing, never that it arrived.
+Then stop before plan, code, publication or risk acceptance.
 
 A fresh reviewer may find defects or recommend escalation, but never grants authority,
 accepts risk or approves its own work. More reviewers do not change this boundary.

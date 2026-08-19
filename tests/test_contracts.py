@@ -566,7 +566,9 @@ AI_SPEC_SECTIONS = {
         "execution, network or publication boundary because the preferred option needs it.",
         "For an irreversible, high-risk, contradictory or cross-cutting decision without an "
         "accountable human decision or exact preapproved policy, return `INCOMPLETE`. Record "
-        "what authority is missing and stop before plan, code, publication or risk acceptance.",
+        "what authority is missing with `ai-eng report blocked`, so the page in `docs/` shows "
+        "it and the person who is not at the keyboard can see it — say what is missing, never "
+        "that it arrived. Then stop before plan, code, publication or risk acceptance.",
         "A fresh reviewer may find defects or recommend escalation, but never grants authority, "
         "accepts risk or approves its own work. More reviewers do not change this boundary.",
         "If `CONSTITUTION.md` is absent or incomplete, discovery may prepare it, but writing the "
@@ -703,8 +705,8 @@ def test_ai_spec_skill_requires_evidence_options_self_challenge_and_authority():
             "choose an irreversible option.",
         ),
         (
-            "authority is missing and stop before plan, code, publication or risk acceptance.",
-            "authority is missing and stop before plan, code, publication or risk acceptance. "
+            "Then stop before plan, code, publication or risk acceptance.",
+            "Then stop before plan, code, publication or risk acceptance. "
             "Continue after `INCOMPLETE` when a deadline is near.",
         ),
         ("2. State the problem", "8. State the problem"),
@@ -1489,6 +1491,34 @@ BUILD_MUST_SAY = (
         r'"tick the task off in the plan now that it is done" — refused',
         "the verdict, not just the case: moving the bullet to Routes here kept the text intact",
     ),
+    # Specification 020. Stopping was already ordered; recording the stop was not, so a halt
+    # left nothing on disk and the person who is not at the keyboard found out never. Pinned
+    # as a pattern for the same reason as the two above: the last time this file pinned a
+    # sentence as a substring, six words defeated it and every assertion stayed green.
+    (
+        "SKILL.md",
+        r"ai-eng report blocked",
+        "a halt has to leave a record, and this names the command that writes it",
+    ),
+    (
+        "SKILL.md",
+        r"record the stop before you stop",
+        "the order matters: a record written after the halt is a record nobody wrote",
+    ),
+)
+
+# The other skill that halts for authority, and the only two that do. `ai-spec` returns
+# INCOMPLETE when the decision is not one an agent may make; before 020 it recorded that in a
+# terminal and nowhere else.
+SPEC_MUST_SAY = (
+    (
+        r"ai-eng report blocked",
+        "the authority that is missing has to be written down, not just returned",
+    ),
+    (
+        r"say what is missing, never that it arrived",
+        "a surface that could clear itself is worse than no surface",
+    ),
 )
 
 
@@ -1515,6 +1545,18 @@ def test_the_build_skill_says_what_replaced_them(where, phrase, why):
 
     body = (ROOT / ".agents" / "skills" / "ai-build" / where).read_text(encoding="utf-8")
     assert re.search(phrase, body), f"ai-build/{where} does not say {phrase}: {why}"
+
+
+@pytest.mark.parametrize(("phrase", "why"), SPEC_MUST_SAY)
+def test_the_spec_skill_records_the_authority_it_is_missing(phrase, why):
+    """Returning INCOMPLETE tells the run. Nothing told the person.
+
+    Specification 020: the halt is the correct behaviour and the silence is the defect. This
+    skill's authority boundary already said to stop; it now says where the stop is written,
+    and that what is written says what is missing rather than that it arrived."""
+
+    body = (ROOT / ".agents" / "skills" / "ai-spec" / "SKILL.md").read_text(encoding="utf-8")
+    assert re.search(phrase, body), f"ai-spec/SKILL.md does not say {phrase}: {why}"
 
 
 # The nine verbs the mission has to name, and the three words of the clause beside them.
