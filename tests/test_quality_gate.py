@@ -831,9 +831,18 @@ def test_the_mutation_runner_spends_the_cheap_suite_first() -> None:
     # on every mutant — the saving gone and nothing red. A reviewer wrote that version out
     # and it passed.
     conjunction = next(
-        node
-        for node in ast.walk(run_suite)
-        if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And)
+        (
+            node
+            for node in ast.walk(run_suite)
+            if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And)
+        ),
+        None,
+    )
+    # With no default this raised `StopIteration` instead of failing, so a shape that
+    # short-circuits with an early return — correct, but carrying no `and` — reported a bare
+    # exception rather than a sentence. Found by the bounded re-review of this very repair.
+    assert conjunction is not None, (
+        "run_suite stopped being a conjunction, so the order is not free"
     )
     assert any(
         isinstance(half, ast.Call) and "pytest" in ast.unparse(half) for half in conjunction.values
