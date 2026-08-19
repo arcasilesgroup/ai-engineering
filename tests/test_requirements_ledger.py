@@ -277,3 +277,40 @@ def test_no_row_proves_itself_by_finding_its_own_id_in_this_file():
         f"ledger and the audit, so they find themselves and pass: {', '.join(guilty[:8])}. "
         "Add ':!docs/requirements.toml' ':!docs/audit-*.md' to the pathspec."
     )
+
+
+# The two forms that resolve the branch from where the command is run, rather than naming
+# one. Either is fine; a literal after `--branch` is not.
+RESOLVES = ("$(git ", "${GITHUB_REF")
+
+
+def test_no_row_proves_itself_against_a_branch_it_names():
+    """`PO-06` asked GitHub for the runs on `fix/mutation-lane-green-on-main` and concluded
+    from the empty answer that no CI had ever run on this branch. That was true — of a branch
+    the work had left months earlier and that never had a single run. The clause kept the row
+    open on a measurement of nothing.
+
+    A proof pinned to a branch is a proof with an expiry date nobody wrote down, and it expires
+    silently: the command keeps exiting the same way and the answer stops being about this
+    work. `PO-07` was one step from the same failure, naming the branch that happens to be
+    current and graded PROVEN on it.
+
+    So a command that asks about a branch has to resolve which branch from where it is run.
+    This cannot check that the resolution is correct — only that a literal is not standing
+    where a question should be.
+    """
+
+    guilty = []
+    for row in [*rows(), *commitments()]:
+        command = row.get("evidence", "")
+        if "--branch" not in command:
+            continue
+        after = command.split("--branch", 1)[1].lstrip()[:24]
+        if not any(form in after for form in RESOLVES):
+            guilty.append(f"{row['id']}: --branch {after.split()[0] if after.split() else '?'}")
+
+    assert not guilty, (
+        f"{len(guilty)} rows ask about a named branch: {'; '.join(guilty)}. The work moves and "
+        "the name does not, so the command goes on answering about somewhere nobody is. "
+        "Resolve the branch from HEAD instead."
+    )

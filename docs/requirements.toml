@@ -2637,14 +2637,14 @@ note = "git records commit times, not reviewer-availability windows, so nothing 
 id = "PO-06"
 verdict = "INCOMPLETE"
 subject = "an independent read-only reviewer inspects every commit in a closed block and the accumulated diff"
-evidence = "pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate; gh run list --branch fix/mutation-lane-green-on-main"
-note = "the reader bites on a blank reviewer field. Whether the reviewer was independent and read the whole range is prose, with zero CI runs on this branch to corroborate it. Re-measured on 2026-08-17: the zero-CI-runs clause is no longer true of the branch this work sits on, so the reviewer's verdict can now be read beside a gate result on the same head. Independence and whether the whole range was read remain prose, which is the half that keeps this open"
+evidence = """pytest tests/test_record.py::test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate; test -n "$(gh run list --branch "$(git branch -r --contains HEAD --format='%(refname:lstrip=3)' | head -1)" --limit 1 --json databaseId --jq '.[].databaseId')\""""
+note = '''the reader bites on a blank reviewer field, and the clause that kept this open was measured against the wrong branch. It named `fix/mutation-lane-green-on-main`, which this work left and which has never had a single run — so "no CI has ever run on this branch" was true of a branch nobody was on. The command now resolves the branch that actually contains HEAD, and on it the gate has run and the last completed pair is green at 97cce08b. What stays prose is the part no command reaches: whether the reviewer was independent and read the whole range.'''
 
 [[commitment]]
 id = "PO-07"
 verdict = "PROVEN"
 subject = "the gate runs once per block, and a second time only if the first failed and code changed"
-evidence = "gh run list --branch ledger-and-records --workflow=check.yml --limit 100 --json headSha | jq -r '.[].headSha' | sort | uniq -d"
+evidence = """gh run list --branch "$(git branch -r --contains HEAD --format='%(refname:lstrip=3)' | head -1)" --workflow=check.yml --limit 100 --json headSha | jq -r '.[].headSha' | sort | uniq -d"""
 note = "measured remotely instead of asserted, because the branch it was graded against had never run CI at all. On this branch the gate ran 24 times over 24 distinct head commits and not one commit was gated twice — and a commit gated twice on the same tree is the only thing the rule forbids, since code changing produces a new sha. The command above prints nothing, which is the whole of the finding"
 
 [[commitment]]
