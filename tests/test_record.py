@@ -1789,3 +1789,52 @@ def test_the_command_the_staleness_message_names_is_one_that_runs(repo, monkeypa
 
     assert named.startswith("ai-eng report ")
     assert report.main(shlex.split(named)[2:]).outcome == "PASS"
+
+
+def test_the_approval_record_still_names_the_bytes_that_are_there():
+    """`EP-324`: no code before an approved plan, where approval means a record naming an
+    exact digest.
+
+    The row said no plan in this repository has one. It has had one since 2026-08-17:
+    `docs/adr/0009` records the approved digest of both `spec.md` and `plan.md`, and it lives
+    outside the files it approves for the reason it states — an approval naming the digest of
+    the file it is written in changes that digest by existing, so the number can never settle.
+
+    What was missing is a reader. `test_the_approval_digests_in_the_plan_are_read_by_something`
+    reads the specification's digest out of the plan's own prose; nothing read the record. So
+    the approval was a document with the same standing as the prose it replaced: true when
+    written, and unable to notice the day it stopped being true.
+
+    This reads it. Every row of the record's table names a file and a digest, and each has to
+    be the digest that file has now. An edit to either without a fresh approval turns this red
+    and names which file moved — which is the whole of what an activation gate can do while
+    the approval itself belongs to a person.
+    """
+
+    import hashlib
+    import re
+
+    root = Path(__file__).resolve().parents[1]
+    record = root / "docs" / "adr" / "0009-the-current-spec-010-digests-are-approved.md"
+    body = record.read_text(encoding="utf-8")
+
+    rows = re.findall(r"^\|\s*`([^`]+)`\s*\|\s*`([0-9a-f]{64})`\s*\|", body, re.M)
+    assert len(rows) >= 2, (
+        f"{record.name} names {len(rows)} approved digests and it approved two files. An "
+        "approval record nobody can read row by row is prose with a table in it"
+    )
+
+    moved = []
+    for name, approved in rows:
+        target = root / name
+        assert target.is_file(), f"{record.name} approves {name}, which is not in this tree"
+        now = hashlib.sha256(target.read_bytes()).hexdigest()
+        if now != approved:
+            moved.append(f"{name}: approved {approved[:12]}, now {now[:12]}")
+
+    assert not moved, (
+        "the approved bytes are not the bytes that are there: "
+        + "; ".join(moved)
+        + ". Either restore them or record a fresh approval — an approval that survives an "
+        "edit to what it approved is a signature on a blank page."
+    )

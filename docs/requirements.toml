@@ -1714,8 +1714,8 @@ evidence = "pytest tests/test_contracts.py -k 'EP-250'"
 id = "EP-251"
 verdict = "INCOMPLETE"
 subject = "the motion lens loads only where the diff carries real motion"
-evidence = "grep -rn motion hooks/chain.py src/ai_engineering/"
-note = "the lens file exists and says so; no code conditionally loads or gates on motion being present"
+evidence = "python tests/review_lenses.py --base main; pytest tests/test_review_lenses.py"
+note = '''the rule is data and something reads it. `policy/review-lenses.toml` gives each of the ten lenses either `always` with a reason or a `when` rule, and `tests/review_lenses.py` computes over a real range which load and which do not — inside `just check`, because a table nothing validates drifts from the directory it describes on the first lens somebody adds. Motion is the only row with a content rule as well as a path rule, which is exactly what this requirement is about: a stylesheet is a frontend change whether or not it animates, and only the added lines say which. Three cases over one file hold it — static CSS routes to frontend and not motion, the same file with a transition routes to motion, and prose about "status transitions" routes to docs and not motion. INCOMPLETE for what no table can do: the reader is a person, and nothing checks that the lens they say they skipped is the lens this computed.'''
 
 [[requirement]]
 id = "EP-252"
@@ -2202,10 +2202,10 @@ note = '''the fourteen prohibitions are now proved to be the report's own list, 
 
 [[requirement]]
 id = "EP-324"
-verdict = "INCOMPLETE"
+verdict = "PROVEN"
 subject = "no code before an approved plan"
-evidence = "python tests/pilot_register.py; hooks/change_scope_guard.py"
-note = "the weaker half, that a plan exists on the branch, is a real guard. Approval here means a record naming an exact digest, and no plan in this repository has one"
+evidence = "pytest tests/test_record.py -k 'approval_record or approval_digests'; python tests/adversarial/run.py | grep -E 'no plan|control . change_scope_guard'"
+note = '''both halves execute and the row's claim that no plan here has an approved digest was wrong. `docs/adr/0009` has recorded the approved digest of `spec.md` and `plan.md` since 2026-08-17, outside the files it approves for the reason it states — an approval naming the digest of the file it is written in changes that digest by existing, so the number never settles. What was missing was a reader: the record had the same standing as the prose it replaced, true when written and unable to notice the day it stopped being true. It is read now, row by row, and both files still hash to what was approved. An edit to either turns the gate red naming which file moved and by how much, proved by appending one comment to the plan and reading the refusal. The weaker half — that a plan exists on the branch at all — remains `hooks/change_scope_guard.py`.'''
 
 [[requirement]]
 id = "EP-325"
