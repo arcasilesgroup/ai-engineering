@@ -399,6 +399,7 @@ def toplevel(root: Path | None = None) -> Path:
         capture_output=True,
         text=True,
         check=True,
+        timeout=60,
         cwd=None if root is None else str(root),
     )
     return Path(found.stdout.strip())
@@ -419,7 +420,11 @@ def content_digest(root: Path | None = None) -> str:
     """
 
     where = toplevel(root)
-    listed = subprocess.run(LISTING, capture_output=True, cwd=str(where), check=True).stdout
+    # Bounded, because this runs on the commit path now: `checkpoint` reads it on every
+    # `ai-eng spec checkpoint`, which `git-hooks/pre-commit` runs while a claim is held.
+    listed = subprocess.run(
+        LISTING, capture_output=True, cwd=str(where), check=True, timeout=60
+    ).stdout
     running = sha256()
     # The receipt is never part of what the receipt measures. `.ai/` is ignored in this
     # repository so it fell out anyway, and that is exactly the accident worth removing: in a
