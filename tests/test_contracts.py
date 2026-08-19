@@ -1417,9 +1417,15 @@ def test_the_guidance_a_requirement_asks_for_is_in_the_file_that_owes_it(
 
 
 # What `ai-build` may no longer say, and what it now has to. Two behaviours were repaired,
-# and each of them was written down in more than one place — so a ban on the two obvious
-# sentences would have left the skill still ordering both, in its description, in its
-# Done-when list and in its corpus. Every phrase below was in the file when this was written.
+# and both were written down in more than one place — so a ban on the two obvious sentences
+# would have left the skill ordering both in its description, its Done-when list and its
+# corpus. The first draft of this check banned eight phrases and required two, and a reviewer
+# defeated it by flipping six words in step 6: every ban still absent, both requirements still
+# present, and the plan edit ordered again. A blocklist stops a revert; only a pin on the
+# sentence that does the forbidding stops a paraphrase.
+#
+# So the bans are three, and they are the revert tripwire — the exact strings the old file
+# carried. The requirements are four, and they are the load-bearing half.
 BUILD_MUST_NOT_SAY = (
     ("SKILL.md", "checkbox", "the approved plan is not edited by the act of executing it"),
     ("corpus.md", "checkbox", "the approved plan is not edited by the act of executing it"),
@@ -1428,36 +1434,35 @@ BUILD_MUST_NOT_SAY = (
         "Run the gate exactly as CI runs it",
         "the whole gate runs once at block close, not once per task",
     ),
-    (
-        "SKILL.md",
-        "the gate run before anything is called done",
-        "the description ordered the per-task gate too",
-    ),
-    (
-        "SKILL.md",
-        "the gate output is in the conversation",
-        "the Done-when list ordered the per-task gate too",
-    ),
-    (
-        "SKILL.md",
-        "The plan on disk says what happened",
-        "the Done-when list ordered the plan edit too",
-    ),
-    (
-        "corpus.md",
-        "the plan updated to what actually happened",
-        "the corpus ordered the plan edit too",
-    ),
-    (
-        "corpus.md",
-        "running the gate and showing its output is part of done",
-        "the corpus ordered the per-task gate too",
-    ),
 )
 
 BUILD_MUST_SAY = (
+    (
+        "SKILL.md",
+        "never by editing the plan",
+        "the sentence that forbids the plan edit; without it a paraphrase restores it",
+    ),
+    (
+        "SKILL.md",
+        "Not the whole gate",
+        "the sentence that forbids the per-task gate; without it a paraphrase restores it",
+    ),
     ("SKILL.md", "UNREVIEWED", "a checkpoint nobody has reviewed has to say so"),
     ("SKILL.md", "block close", "the whole gate has one home and this names it"),
+    # The corpus is what routes a question here, and it described the old behaviour in its
+    # own words. Pinning the skill alone left a variant that restores both defects by
+    # rewriting the summary line the corpus opens with — two records disagreeing, which is
+    # the shape this repository refuses everywhere else.
+    (
+        "corpus.md",
+        "task's own check run and shown",
+        "the corpus says which check runs, and it is not the gate",
+    ),
+    (
+        "corpus.md",
+        "tick the task off in the plan",
+        "the refusal that replaces the deleted instruction; a hole is read as permission",
+    ),
 )
 
 
