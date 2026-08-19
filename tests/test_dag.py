@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -202,3 +204,46 @@ def test_a_package_import_puts_the_imported_file_first(tmp_path):
 
     assert ("work-base", "work-leaf") in dag.edges(tmp_path, tasks)
     assert dag.sequence(dag.order(tmp_path, tasks)) == ["work-base", "work-leaf"]
+
+
+def test_the_wave_is_the_claims_with_nothing_in_front_of_them(tmp_path):
+    """`order` computes this set on every pass and keeps only its first element.
+
+    A caller that wants to know how many writers a plan could carry needs the set, not the
+    sequence — and the sequence is what the module returned. Three claims, two of them over
+    one path: the two sharing a path are ordered by work item, so the first of them is in
+    front of nothing and the second is behind it.
+    """
+
+    from ai_engineering import dag
+
+    (tmp_path / "src").mkdir()
+    for name in ("a.py", "b.py"):
+        (tmp_path / "src" / name).write_text("VALUE = 1\n", encoding="utf-8")
+
+    tasks = [
+        task("work-1", "src/a.py"),
+        task("work-2", "src/b.py"),
+        task("work-3", "src/a.py"),
+    ]
+
+    # work-3 shares a path with work-1 and is behind it; work-1 and work-2 have nothing in
+    # front of them and could start together.
+    assert dag.wave(tmp_path, tasks) == ["work-1", "work-2"]
+
+    # One claim on its own is a wave of one, and no claims is a wave of none.
+    assert dag.wave(tmp_path, [task("work-1", "src/a.py")]) == ["work-1"]
+    assert dag.wave(tmp_path, []) == []
+
+
+def test_a_wave_over_a_file_nobody_can_parse_refuses(tmp_path):
+    """The same fail-closed direction `edges` already takes: a file that cannot be read is
+    not a file with no edges."""
+
+    from ai_engineering import dag
+
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "broken.py").write_text("def (\n", encoding="utf-8")
+
+    with pytest.raises(dag.Unreadable):
+        dag.wave(tmp_path, [task("work-1", "src/broken.py"), task("work-2", "src/broken.py")])

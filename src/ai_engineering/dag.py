@@ -123,6 +123,22 @@ def edges(root: Path, tasks: list[dict]) -> list[tuple[str, str]]:
     return sorted(found)
 
 
+def wave(root: Path, tasks: list[dict]) -> list[str]:
+    """The claims with nothing in front of them, which is how many writers could start now.
+
+    `order` computes exactly this set on every pass — `ready` at the top of its loop — and
+    keeps only its first element, so the one question a caller with more than one writer
+    wants answered was the one thing thrown away.
+
+    A claim sharing a path with another is not refused, it is ordered by work item, so the
+    first of the pair is in this set and the second is not. `Unreadable` propagates: a file
+    nobody could parse is not a file with no edges, and a wave built on that reading would be
+    the fail-open direction this module already names."""
+
+    blocked = {second for _, second in edges(root, tasks)}
+    return sorted({str(one["item"]) for one in tasks} - blocked)
+
+
 def sequence(result: outcome.Execution) -> list[str]:
     """The order out of the result, for a caller that wants the list rather than the facts."""
 
