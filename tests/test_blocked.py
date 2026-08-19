@@ -92,3 +92,67 @@ def test_a_tree_with_no_ledger_is_not_an_error(tmp_path):
 
     assert rows == []
     assert dropped == []
+
+
+def test_the_collector_says_what_it_dropped():
+    """Over this tree, with the numbers written down so a reader can re-derive them.
+
+    Measured while specification 020 was planned: `docs/requirements.toml` holds 385 rows, of
+    which 17 are BLOCKED or CONTRADICTED and all 17 carry both a note and an evidence command;
+    eleven specifications are at `status: draft` and four of them have a `plan.md`. So 21 rows
+    of 28 considered, and the seven dropped are drafts waiting on the build rather than on a
+    person.
+
+    The numbers are asserted as a relationship rather than as constants. A tree gains
+    specifications, and a test that pinned 21 would go red for the right reason on the wrong
+    day; what must hold is that everything considered is either shown or named as dropped, and
+    that nothing is both.
+    """
+
+    shown, dropped = blocked.collect(ROOT)
+
+    assert shown, "this tree has BLOCKED verdicts and unapproved drafts, so it is not empty"
+    assert len(shown) + len(dropped) == blocked.considered(ROOT)
+    assert not set(row.id for row in shown) & set(dropped)
+
+    kinds = {row.kind for row in shown}
+    assert kinds <= {"halt", "draft", "verdict"}, kinds
+
+    # Stops first, then drafts, then verdicts: the question the section answers is what
+    # unsticks the build, not what is worst.
+    order = [row.kind for row in shown]
+    assert order == sorted(order, key=["halt", "draft", "verdict"].index)
+
+    for row in shown:
+        for field in blocked.FIELDS:
+            assert getattr(row, field).strip(), (row.id, field)
+
+    # A draft's action names the digest of the file as it is on disk, so approving it cannot
+    # silently approve a later edit.
+    from hashlib import sha256
+
+    for row in (one for one in shown if one.kind == "draft"):
+        home = next((ROOT / "specs").glob(f"{row.id}-*"))
+        digest = sha256((home / "spec.md").read_bytes()).hexdigest()
+        assert digest[:12] in row.action, (row.id, row.action)
+
+
+def test_a_draft_with_no_plan_is_counted_and_not_shown(tmp_path):
+    """It is waiting on the build, not on a person, and a list of things the build owes
+    itself is the bug tracker specification 020 refused to become."""
+
+    (tmp_path / "docs").mkdir()
+    for name, plan in (("030-with-a-plan", True), ("031-without", False)):
+        home = tmp_path / "specs" / name
+        home.mkdir(parents=True)
+        (home / "spec.md").write_text(
+            f'---\nid: "{name[:3]}"\nstatus: draft\ndate: 2026-08-19\n---\n\n# {name}\n',
+            encoding="utf-8",
+        )
+        if plan:
+            (home / "plan.md").write_text("# plan\n\n1. **a task**\n", encoding="utf-8")
+
+    shown, dropped = blocked.collect(tmp_path)
+
+    assert [row.id for row in shown] == ["030"]
+    assert dropped == ["031"]
