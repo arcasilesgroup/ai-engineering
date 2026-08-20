@@ -22,6 +22,7 @@ Usage: python tests/mutation.py [-k <substring>]
 from __future__ import annotations
 
 import hashlib
+import re
 import signal
 import subprocess
 import sys
@@ -101,26 +102,38 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-# The two halves that can decide a row, cheapest first. Named, because a bare boolean
-# cannot say which one said no — and a floor of 100 is worth exactly what the attribution
-# behind each kill is worth.
+# The halves that can decide a row, cheapest first, and that order is the whole saving.
+# Measured on a clean tree, per row: `tests/test_hooks.py` answers in 1.6 s and settles nine
+# of the eleven guard rows; the adversarial run costs 12 s and settles one more; the whole
+# suite costs 16 s to 115 s and settles the rest. `-x` is why a kill is cheap at any level —
+# the expensive half only runs to the end for a mutant nothing catches, which is a red
+# anyway. So there is no rule here about which file needs which half. There was, keyed on
+# the `hooks/` prefix, and the measurement refused it: the adversarial suite kills three of
+# the eleven guard rows and not eight, and the half that does the work is the guards' own
+# test file. A list in cost order needs no such rule and cannot be wrong about a row.
 HALVES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "guard tests",
+        ("-m", "pytest", "-qx", "--no-header", "-p", "no:cacheprovider", "tests/test_hooks.py"),
+    ),
     ("adversarial", (str(ROOT / "tests" / "adversarial" / "run.py"),)),
-    ("pytest", ("-m", "pytest", "-qx", "--no-header", "-p", "no:cacheprovider")),
+    ("the suite", ("-m", "pytest", "-qx", "--no-header", "-p", "no:cacheprovider")),
 )
 
-# What a half's output looks like when it is the thing that said no. `tests/adversarial/run.py`
-# prints `MISSED` for a guard that did not fire and `NOT RUN` for a case that raised before
-# reaching a verdict; pytest prints `FAILED` and `E   `. Anything else falls back to the last
-# line, which is wrong less often than printing nothing.
-BLAME = ("MISSED", "NOT RUN", "FAILED", "E ", "ERROR")
+BLAME = ("MISSED", "NOT RUN", "FAILED", "E ", "ERROR", "INTERNALERROR", "!!!")
+# And the case none of those catch, which the first attributed run found. Killing the mutant
+# in `_wrap.py` means a `BaseException` reaching pytest, which reports it as a bare
+# `KeyboardInterrupt` between bangs — so the only lines left were the banner and the summary,
+# and the row printed "1 passed in 0.36s" as its reason for calling a mutant dead. A line
+# naming an exception is a reason. A pass count is the opposite of one.
+RAISED = re.compile(r"^[A-Za-z_][\w.]*(Error|Exception|Interrupt)\b")
 
 
 def why(output: str) -> str:
     """The shortest line that says what went red, out of output that was being discarded."""
-    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    lines = [line.strip(" !") for line in output.splitlines() if line.strip(" !")]
     for line in lines:
-        if line.startswith(BLAME):
+        if line.startswith(BLAME) or RAISED.match(line):
             return line[:100]
     return lines[-1][:100] if lines else "no output"
 
@@ -173,9 +186,18 @@ def touched() -> str:
     a file this run left changed that no row names. Snapshotted rather than asserted empty,
     because a developer with honest uncommitted work under `hooks/` or `src/` must not be
     told they broke the harness.
+
+    `status --porcelain` and not `diff`, and that is a finding rather than a preference. A
+    run killed mid-mutant left `e.expires <= day` staged in `acceptance.py` while the working
+    copy read correctly — the pre-commit gate had added the file while the mutant was live —
+    so `git diff` was clean over a mutant one commit away from shipping. Porcelain shows both
+    columns, which is the only view in which that state is visible at all.
     """
     done = subprocess.run(
-        ["git", "diff", "--", "hooks/", "src/"], cwd=ROOT, capture_output=True, text=True
+        ["git", "status", "--porcelain", "--", "hooks/", "src/"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
     )
     return done.stdout
 
@@ -193,12 +215,44 @@ def select(only: str) -> list[tuple[str, str, str, str]]:
     return [row for row in MUTANTS if not only or only in row[0] or only in row[3]]
 
 
+def pristine(rows: list[tuple[str, str, str, str]]) -> str:
+    """Empty when every selected row still names a real edit in a file no other run is inside.
+
+    Checked before the baseline rather than at each row's turn, because the answer costs
+    nothing and the alternative is two minutes of suite time before a refusal that was
+    knowable at the start. It also tells the two cases apart. A row whose text simply moved
+    is a row to fix; a file already holding this row's mutant is another run left inside this
+    tree, which is not a thing to fix here — it is a thing to restore, and it happened: three
+    guards and a record verb were found carrying live mutants from a run that had been killed,
+    with the guard that refuses an unreadable payload reading `if False`.
+    """
+    for name, old, new, _ in rows:
+        body = (ROOT / name).read_text(encoding="utf-8")
+        if body.count(old) == 1:
+            continue
+        if old not in body and new in body:
+            return (
+                f"{name} already holds this row's mutant, so another run is inside this tree "
+                f"or was killed in it. Restore it with `git checkout HEAD -- {name}` and read "
+                "`git status` before measuring anything."
+            )
+        return (
+            f"{name} does not hold {old!r} exactly once, so this row no longer names a real "
+            "edit. Fix the row, not the count."
+        )
+    return ""
+
+
 def main(only: str = "") -> int:
     for kill in (signal.SIGTERM, signal.SIGHUP):
         signal.signal(kill, unwind)
     rows = select(only)
     if not rows:
         sys.stderr.write(f"mutation: no row names {only!r}, so nothing would be measured.\n")
+        return 1
+    leftover = pristine(rows)
+    if leftover:
+        sys.stderr.write(f"mutation: {leftover}\n")
         return 1
     half, line = killer()
     if half:
@@ -208,12 +262,6 @@ def main(only: str = "") -> int:
     for name, old, new, what in rows:
         path = ROOT / name
         before, was = path.read_text(encoding="utf-8"), digest(path)
-        if before.count(old) != 1:
-            sys.stderr.write(
-                f"mutation: {name} does not hold {old!r} exactly once, so this row no "
-                f"longer names a real edit. Fix the row, not the count.\n"
-            )
-            return 1
         try:
             path.write_text(before.replace(old, new), encoding="utf-8")
             half, line = killer()

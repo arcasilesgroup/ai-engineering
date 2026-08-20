@@ -849,8 +849,10 @@ def test_the_mutation_runner_spends_the_cheap_suite_first() -> None:
 
     import mutation
 
-    assert [name for name, _ in mutation.HALVES] == ["adversarial", "pytest"], (
-        "the cheap half is no longer first, so every killed mutant pays the expensive one"
+    costs = [name for name, _ in mutation.HALVES]
+    assert costs == ["guard tests", "adversarial", "the suite"], (
+        f"the halves are no longer in cost order ({costs}), so a mutant the cheapest one "
+        "settles pays a dearer one first"
     )
 
     with tempfile.TemporaryDirectory() as tmp:
