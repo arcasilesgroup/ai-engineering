@@ -1820,3 +1820,67 @@ def test_self_protect_reads_an_empty_command_as_nothing_to_judge():
 
     for nothing in ("", "   ", "\t\n"):
         assert self_protect.writes(nothing) is None, repr(nothing)
+
+
+def test_which_half_of_a_settings_path_is_protected_is_decided_by_whose_file_it_is(
+    tmp_path, monkeypatch
+):
+    """The last two mutation sites on this surface, and both are real behaviour.
+
+    A settings file carrying our name sits in a directory we created, so the whole directory
+    is protected. A surface's own settings file is theirs, so only that file is — protecting
+    `~/.claude` outright would deny every write anywhere under it, including a person's own
+    notes, and a guard that denies ordinary work is how people learn to route around the
+    layer. Flipping the comparison swaps those two, which is not a smaller control: it is a
+    guard that protects the wrong thing and stops protecting the right one.
+    """
+
+    policy = tmp_path / "surfaces.toml"
+    policy.write_text(
+        "[protect]\npaths = []\n\n"
+        '[[surface]]\nid = "ours"\nsettings = "/home/x/.config/ai-eng-settings.json"\n\n'
+        '[[surface]]\nid = "theirs"\nsettings = "/home/x/.claude/settings.json"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(self_protect, "POLICY", policy)
+
+    got = self_protect.protected()
+    # Ours: the directory holding it.
+    assert "/home/x/.config" in got
+    assert "/home/x/.config/ai-eng-settings.json" not in got
+    # Theirs: that file and nothing above it.
+    assert "/home/x/.claude/settings.json" in got
+    assert "/home/x/.claude" not in got
+
+
+def test_a_working_copy_does_not_protect_the_files_it_exists_to_edit(tmp_path, monkeypatch):
+    """An installed wheel protects its own data as siblings of the guards. A working copy of
+    this project must not: `policy/`, `git-hooks/` and `surfaces/` are what somebody working
+    here edits all day, and protecting them denies every one of those edits.
+
+    The two layouts are told apart by a `pyproject.toml` beside the guards, which is exactly
+    what an editable install is. Forcing that branch either way was invisible to every test
+    until this one."""
+
+    policy = tmp_path / "surfaces.toml"
+    policy.write_text("surface = []\n\n[protect]\npaths = []\n", encoding="utf-8")
+    monkeypatch.setattr(self_protect, "POLICY", policy)
+
+    def protecting(layout) -> list[str]:
+        guards = layout / "hooks"
+        guards.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(self_protect, "__file__", str(guards / "self_protect.py"))
+        return self_protect.protected()
+
+    installed = protecting(tmp_path / "wheel")
+    assert str(tmp_path / "wheel" / "policy") in installed
+    assert str(tmp_path / "wheel" / "git-hooks") in installed
+
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    (checkout / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    working = protecting(checkout)
+    assert str(checkout / "policy") not in working
+    assert str(checkout / "git-hooks") not in working
+    # The guards themselves are protected in both, which is the half that never varies.
+    assert str(checkout / "hooks") in working
