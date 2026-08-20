@@ -587,6 +587,8 @@ def test_the_coverage_line_says_exactly_what_each_surface_does_on_this_machine(
         "  OPEN  --no-verify from your own shell walks past every row above, and so does",
         "        anything that never asks a surface. Only a required check on the server",
         "        (T0) stops those, and nothing on this machine can give you one.",
+        "  OPEN  self_protect matches shell commands as text: `cd hooks && rm x`,",
+        "        `xargs rm`, `env rm`, `patch` and a relative path all get through.",
     ]
 
 

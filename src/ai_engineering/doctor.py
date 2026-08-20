@@ -88,6 +88,8 @@ OPEN = (
     "  OPEN  --no-verify from your own shell walks past every row above, and so does",
     "        anything that never asks a surface. Only a required check on the server",
     "        (T0) stops those, and nothing on this machine can give you one.",
+    "  OPEN  self_protect matches shell commands as text: `cd hooks && rm x`,",
+    "        `xargs rm`, `env rm`, `patch` and a relative path all get through.",
 )
 
 # The cure for a failure, where a command is the cure. Sixteen of the twenty have none,
