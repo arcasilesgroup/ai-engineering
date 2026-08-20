@@ -188,7 +188,7 @@ VERDICTS = {
 
 
 def verdict(number: int, state: str, title: str, detail: str = "") -> None:
-    """One of doctor's twenty-three lines. The state carries the colour, so the failures in a run
+    """One of doctor's twenty-five lines. The state carries the colour, so the failures in a run
     stop being typographically identical to the passes — which is the whole reason a person
     runs the command."""
     word, style = VERDICTS[state]
@@ -278,7 +278,7 @@ def cure(status: str, command: str) -> None:
 def summary(title: str, rows: list[tuple[str, str]], style: str) -> None:
     """The verdict, in the same frame as `init`'s last screen. It was a bare line under the
     coverage block before, in the same weight as the eight rows above it, and it was read
-    as more of the table — a person who had just run twenty-three checks could not say
+    as more of the table — a person who had just run twenty-five checks could not say
     whether they had passed. A frame is not decoration when it is the answer."""
     body = Text()
     for index, (label, detail) in enumerate(rows):

@@ -1595,3 +1595,91 @@ def test_wire_git_executes_the_configured_module_before_persisting_it(
         ).returncode
         != 0
     )
+
+
+def test_the_wheel_carries_every_policy_file_the_product_opens(tmp_path):
+    """The release's own wheel check is eight paths written by hand, and nothing keeps that
+    list in step with what the product actually reads.
+
+    Two policy files landed today. Neither is in that list, so if packaging ever stopped
+    shipping `policy/accessibility.toml`, `ai-eng doctor`'s assertion 26 would report "cannot
+    be read here" on every installed machine and the release that shipped it would have said
+    nothing — a check whose list is a snapshot of the day it was written.
+
+    So the list is derived instead of typed: every `paths.policy("...")` call site in the
+    product, read out of the source, plus the adapters directory that `chain.py` globs. A
+    file added to the tree and opened by the product is in this list the moment the call
+    exists, which is the only version of this check that cannot go stale.
+    """
+    import ast
+    import subprocess
+    import sys
+    import zipfile
+
+    from conftest import repository
+
+    # The *real* repository, not the tree this file happens to be in. `just mutate` runs the
+    # suite out of mutmut's copy, where every string in the product has been rewritten — so
+    # reading the source there found `XXcapabilities.tomlXX` and `CAPABILITIES.TOML` as policy
+    # files the product opens, reported them missing from the wheel, and took the whole-tree
+    # baseline down on a statement that was true about a tree nobody ships. That is the fourth
+    # time this exact judgement has resolved the same way, which is why `repository()` exists.
+    root = repository()
+
+    # Parsed, not matched. The first version of this used a regular expression and read a
+    # sentence out of a comment written the same hour — reporting a file called `...` as
+    # missing from the wheel. A tool that cannot tell a call from prose about a call is the
+    # same defect this test exists to catch, one level up.
+    opened = set()
+    for source in [*(root / "src").rglob("*.py"), *(root / "hooks").rglob("*.py")]:
+        try:
+            tree = ast.parse(source.read_text("utf-8"))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not node.args:
+                continue
+            called = node.func
+            name = called.attr if isinstance(called, ast.Attribute) else getattr(called, "id", "")
+            first = node.args[0]
+            if (
+                name == "policy"
+                and isinstance(first, ast.Constant)
+                and isinstance(first.value, str)
+            ):
+                opened.add(first.value)
+
+    assert "accessibility.toml" in opened, "the reader this test was written for is gone"
+    assert len(opened) >= 9, f"only {len(opened)} policy files are opened, which is too few"
+
+    built = subprocess.run(
+        [sys.executable, "-m", "uv", "build", "--out-dir", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        cwd=root,
+        timeout=600,
+        check=False,
+    )
+    if built.returncode != 0:
+        built = subprocess.run(
+            ["uv", "build", "--out-dir", str(tmp_path)],
+            capture_output=True,
+            text=True,
+            cwd=root,
+            timeout=600,
+            check=False,
+        )
+    assert built.returncode == 0, built.stderr[-1500:]
+
+    wheel = sorted(tmp_path.glob("*.whl"))[-1]
+    names = set(zipfile.ZipFile(wheel).namelist())
+
+    missing = sorted(one for one in opened if f"ai_engineering/policy/{one}" not in names)
+    assert not missing, (
+        f"the product opens {missing} and the wheel does not carry them, so every check "
+        "that reads one is undecidable on an installed machine"
+    )
+
+    # And the adapters, which are globbed as a directory rather than named one at a time —
+    # an adapter is added by dropping a file in, and the wheel has to carry that shape too.
+    assert any(one.startswith("ai_engineering/policy/adapters/") for one in names)

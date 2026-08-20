@@ -15,12 +15,32 @@ semgrep := "semgrep==1.172.0"
 gitleaks_version := "8.30.1"
 trivy_version := "0.73.0"
 coverage := "coverage==7.15.4"
-mutmut := "mutmut==3.7.0"
+# The suite runs across the machine's cores. Measured on this tree: 158.89 s serial against
+# 61.80-66.05 s at the detected count over three runs, the same passed/skipped/failed counts,
+# and a coverage total that does not move. Never a literal above the core count — sixteen
+# workers on eight cores produced two failures nobody could name, and buying ten seconds with
+# a gate people learn to rerun is the trade this repository already refused once for the
+# latency bound.
+#
+# The `psutil` extra is what makes that rule true rather than intended. Without it `auto`
+# counts logical CPUs, so on any machine with SMT it starts exactly the sixteen-on-eight
+# configuration the sentence above says produced failures nobody could name — and the machine
+# that measured this has no SMT, so it could never have noticed. A reviewer found it by
+# reading xdist's own resolver instead of our comment.
+xdist := "pytest-xdist[psutil]==3.8.0"
 # The same pin the workflow carries, and a test holds the two equal.
 mypy := "mypy==2.3.0"
 
 build:
     uv build
+
+# The SBOM beside the wheel, from the wheel. `EP-047` and `EP-280` were filed under "no
+# local work can move this" because they name a published release — and the published half
+# does. This is the other half: a document exists, it is well formed, and it names the same
+# bytes `uv build` just wrote. It runs inside `just check` because an emitter nothing runs
+# is the defect this repository is named after, and it costs nothing: `build` ran already.
+sbom: build
+    uv run python -m ai_engineering.sbom dist/*.whl
 
 lint:
     uv run --with {{ruff}} ruff check .
@@ -54,9 +74,25 @@ typecheck:
     # silently, and a proof that stops running without saying so is worth less than no
     # proof, because it still reads green.
     AI_ENG_REQUIRE_NODE=1 uv run --with {{pytest}} pytest -q tests/test_opencode_plugin.py
+    # And the receipt, because the suite above proves the behaviour and cannot prove that a
+    # denial happened on *this* machine. Until this line, the only executed denial receipt in
+    # the tree came out of `install-matrix.yml`, so the one surface `report surfaces` could
+    # read as proven was the one CI happened to prove — every other row read unproven whether
+    # or not it was provable. This one is, and its adapter is a plugin we ship.
+    #
+    # It refuses rather than writing when the plugin does not deny or does not name the guard
+    # that decided, so a green here is a denial and not a file.
+    uv run python tests/surface_receipt.py opencode
 
+# The whole suite runs once, under coverage, in `cover`. What runs here is the part that
+# cannot: coverage instrumentation moves a latency measurement, so the guards' start-up
+# bound is deselected there and measured here, uninstrumented, which is the only way the
+# number means anything. Running the other 2,228 a second time bought a coverage total that
+# `cover` already prints, at about two minutes of every gate — and a gate people wait six
+# minutes for is a gate people learn to run less often, which is how a check stops being a
+# check without anybody deciding to remove it.
 test:
-    uv run --with {{pytest}} pytest -q
+    uv run --with {{pytest}} --with {{xdist}} pytest -q -n auto -k "fast_enough"
 
 security:
     @test "$(gitleaks version)" = "{{gitleaks_version}}" || { echo "gitleaks is $(gitleaks version) and this gate is written for {{gitleaks_version}}. An untested scanner's answer is not evidence."; exit 1; }
@@ -70,8 +106,8 @@ security:
 # cost to every subprocess, and the dispatcher latency assertion is a security property
 # measured in milliseconds. Deselecting it here is the only relaxation allowed — moving
 # the floor down instead is the thing this recipe exists to make impossible.
-# The floor is 80, which is the number the operator asked for. Measured today is 95, so
-# there are fifteen points of slack and that is deliberate: this gate answers "did we keep
+# The floor is 80, which is the number the operator asked for. Measured today is 86, so
+# there are six points of slack and that is deliberate: this gate answers "did we keep
 # the promise", and a floor pinned to today's measurement answers "did anything move",
 # which is the ceiling's job and not this one.
 cover:
@@ -79,7 +115,9 @@ cover:
     set -euo pipefail
     export COVERAGE_FILE="$PWD/.coverage"
     rm -f "$COVERAGE_FILE"*
-    uv run --with {{coverage}} --with {{pytest}} coverage run --parallel -m pytest -q -k "not fast_enough"
+    uv run --with {{coverage}} --with {{pytest}} --with {{xdist}} coverage run --parallel -m pytest -q -n auto -k "not fast_enough"
+    # The count this gate owes anti_theatre. `cover` is the only full pass now, so the line
+    # comes from the run that happened rather than from a second one bought to print it.
     uv run --with {{coverage}} coverage run --parallel tests/adversarial/run.py
     uv run --with {{coverage}} coverage combine
     uv run --with {{coverage}} coverage report --fail-under=80
@@ -89,195 +127,14 @@ cover:
 # never fired. So the number that means something is how many deliberate defects the suite
 # catches, and it is a number, so it is a script.
 #
-# `mutmut run` exits 0 whether or not a mutant lived — measured, 1,306 survivors and exit
-# zero — so the run is not the gate; the stats file is. Two halves because one tool cannot
-# reach both: mutmut mutates the package, tests/mutation.py mutates the guards, which
-# mutmut cannot import without making hooks/ a package.
-#
-# `just mutate` is everything and is what the pull request runs. `just mutate <file>...`
-# is the same two halves over the files you name, and that is the whole of the local
-# saving: one module is 12 seconds against ten minutes for the tree, measured today.
-mutate *paths:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    here="$PWD"
-    # A file is not a filter. mutmut names every mutant after the module path it imports
-    # under, so src/ai_engineering/accept.py is `ai_engineering.accept.*` — and the `.*`
-    # is not decoration, a bare prefix raises "nothing matches" and mutates nothing.
-    scoped=""; globs=""; guards=""
-    for p in {{paths}}; do
-        scoped=1
-        case "$p" in src/*.py) g="${p#src/}"; g="${g%.py}"; globs="$globs ${g//\//.}.*" ;; esac
-        # The guards half is hand-written rows, not an engine, so a file has mutants
-        # there only if a row names it — and handed a file no row names it prints
-        # "14 of 14 killed" over a run that mutated nothing. So ask the file itself.
-        grep -qF "\"$p\"" tests/mutation.py && guards="$guards $p" || true
-    done
-    if [ -z "$scoped" ] || [ -n "$globs" ]; then
-        # Outside the working copy, and this is not tidiness. mutmut puts its sandbox in
-        # ./mutants, which is inside the repository, so `repo_root()` walks up out of the
-        # sandbox and finds the real .git — and `init` then rewrites the developer's own
-        # justfile and leaves timestamped backups beside it. Measured: it happened three
-        # times in one run before this line existed. A test tool that can edit the tree it
-        # is judging is the failure this product exists to cure, wearing a lab coat.
-        # A disposable checkout is not isolation. A scoped run over init and wiring reached
-        # the global installer from inside a mutant and wrote Claude Code and Copilot hook
-        # entries naming this run's temporary interpreter and its temporary dispatcher. The
-        # sandbox was then deleted, and every Read, Edit and Bash call in the next session
-        # tried hooks at paths that no longer existed, printed a non-blocking error and ran
-        # no guard at all. So the worker gets a home of its own as well as a tree of its
-        # own, before Python imports anything, and the four watched files are hashed either
-        # side of the run: "the sandbox was temporary" is exactly what was believed the last
-        # time one escaped. uv's cache is read from the real home first and kept, or every
-        # run re-downloads an interpreter into a directory it is about to delete.
-        real="$HOME"
-        away="$(mktemp -d)"
-        house="$(mktemp -d)"
-        trap 'rm -rf "$away" "$house"' EXIT
-        watched="$real/.claude/settings.json $real/.copilot/hooks/ai-eng.json"
-        watched="$watched $real/.cursor/hooks.json $real/.codex/hooks.json"
-        before="$(cksum $watched 2>/dev/null || true)"
-        export UV_CACHE_DIR="${UV_CACHE_DIR:-$(uv cache dir)}"
-        export HOME="$house" USERPROFILE="$house" AI_ENGINEERING_HOME="$house/.ai-engineering"
-        # One test spawns child processes that import the package. Inside the sandbox that
-        # import resolves to the instrumented copy, whose shim then looks for mutmut's
-        # config relative to the child's working directory — a throwaway repository that
-        # has none — and the baseline died there, so the whole gate collected nothing.
-        # The children read the real tree instead. It costs that one test its reach over
-        # mutants in spec.py, which is a trade worth making against a gate that is dead.
-        export AI_ENG_REAL_SRC="$here/src"
-        export XDG_CONFIG_HOME="$house/.config" XDG_DATA_HOME="$house/.local/share"
-        rsync -a --exclude=.git --exclude=.venv --exclude=dist --exclude=mutants \
-              --exclude=.pytest_cache --exclude=.ruff_cache ./ "$away/"
-        cd "$away"
-        set -f  # $globs holds `module.*`; unset, the shell tries to expand it as a path
-        uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut run $globs
-        set +f
-        uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut export-cicd-stats
-        # Out of the sandbox before the trap deletes it. Without this the run reports a
-        # score and destroys the only record of which mutants lived, so "which ones
-        # survived" costs another full run to ask — measured, it cost several.
-        cp mutants/mutmut-cicd-stats.json "$here/mutants-stats.json" 2>/dev/null || true
-        # The score says how much is unproven; only the names say what. The stats file
-        # carries counts alone, so the list comes out beside it or the next person pays
-        # another full run to learn which defects nobody would notice.
-        uv run --no-project --with {{mutmut}} --with {{pytest}} mutmut results \
-            > "$here/mutants-survivors.txt" 2>/dev/null || true
-        # Before the score, never after it: an escape has to be reported even on the
-        # run that was going to fail for its own reasons.
-        if [ "$before" != "$(cksum $watched 2>/dev/null || true)" ]; then
-            echo "mutation: a mutant changed a real surface settings file. The run is not" >&2
-            echo "isolated, and every mutant it killed is beside the point." >&2
-            exit 1
-        fi
-        # The heredoc body sits at the recipe's indentation and not this block's: `just`
-        # strips one level, and anything deeper reaches python as an IndentationError.
-        uv run --no-project python - "$scoped" <<'PY'
-    import json, sys
-    # 89 is what landed, closed at the measurement with no margin, as with the line ceiling.
-    # The target is 95 and the payer is named: `update` and `uninstall` have no suite of
-    # their own, and their 197 survivors are almost exactly the six points missing. Every
-    # other module is between 93% and 98%. Raise this in the commit that writes that file.
-    #
-    # The published guidance is 70-80% in general and 80%+ on the core, so 89 across the
-    # package is already past both. The core here is not a layer of this package at all —
-    # it is hooks/, the five guards that decide whether an action is allowed — and mutmut
-    # cannot reach it, so its number comes from tests/mutation.py below. That number is a
-    # checklist of fourteen hand-written rows and not a score over every possible mutant,
-    # and calling it 100% would be the kind of green this product exists to refuse.
-    FLOOR = 89
-    scoped = bool(sys.argv[1])
-    s = json.load(open("mutants/mutmut-cicd-stats.json"))
-    # `total` counts every mutant in the tree even when you asked for one module —
-    # measured, 3,199 against the 276 that ran — so a scoped run divided by it scores
-    # 5% and fails for arithmetic reasons. The denominator is the mutants that ran.
-    ran = s["killed"] + s["survived"] if scoped else s["total"]
-    score = round(100 * s["killed"] / ran) if ran else 0
-    # RAN is the word tests/anti_theatre.py reads as proof a gate ran over everything.
-    # A partial run must not be able to write it, or one mutated file stands in for all.
-    # It gets its own line with nothing after the number: that reader anchors the pattern
-    # to the end of the line, so a count with detail trailing it matched nothing at all
-    # and the proof this recipe thought it was writing was never readable.
-    head = "PARTIAL" if scoped else "RAN"
-    print(f"  killed={s['killed']}  survived={s['survived']}  {score}%")
-    print(f"{head} mutants={ran}")
-    if score < FLOOR:
-        sys.exit(f"mutation: {score}% of deliberate defects caught, under {FLOOR}%.")
-    PY
-    fi
-    # The guards, back in the real tree, because their suite builds git repositories and
-    # the line-ceiling test counts with `git ls-files`, neither of which a copy can answer.
-    # This half edits the tree on purpose and restores each file in a finally, then checks
-    # the sha256 matches before moving on — that is the difference between the two halves.
-    cd "$here"
-    if [ -z "$scoped" ]; then
-        uv run --with {{pytest}} python tests/mutation.py
-    else
-        for p in $guards; do uv run --with {{pytest}} python tests/mutation.py -k "$p"; done
-    fi
-    [ -n "$scoped" ] && [ -z "$globs$guards" ] &&
-        echo "mutate: nothing in '{{paths}}' has mutants, so nothing was measured." >&2 || true
-
-# Locally, only what this session changed. On the pull request, everything: the workflow
-# runs `just check` and `just mutate` whole, and neither of them learned a flag here.
-#
-# Mutation is the only thing this makes cheaper, because it is the only expensive thing.
-# The suite stays whole: 540 tests in 6.3 seconds, measured. A changed-file-to-test map
-# would save four of those seconds and would be wrong the first time somebody renamed a
-# module — and a wrong map does not fail, it skips, quietly, which is the whole disease.
-changed:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # The same three questions hooks/change_scope_guard.py asks, in the same order and with the
-    # same fallbacks: the branch against its merge base, the dirty tree, the untracked
-    # files. Two controls that disagree about what a change is are one control and a bug.
-    ref="$(git symbolic-ref --quiet refs/remotes/origin/HEAD || true)"
-    head="${ref##*/}"; head="${head:-main}"
-    base="$(git merge-base HEAD "$head" 2>/dev/null || git merge-base HEAD "origin/$head" 2>/dev/null || true)"
-    files="$({ [ -n "$base" ] && git diff --name-only "$base" HEAD || true
-               git diff --name-only HEAD
-               git ls-files --others --exclude-standard; } | sort -u)"
-    [ -n "$files" ] || {
-        echo "changed: nothing differs from $head. That ran over zero files, which is not a pass." >&2
-        exit 1
-    }
-    # A changed test earns its mutants too: editing tests/test_mut_accept.py and mutating
-    # nothing proves the new test is green, never that it would notice anything. The modules
-    # are the ones the file imports, not the one its name spells: by name, five of the eleven
-    # suites resolved to a module that does not exist and were dropped without a word, so
-    # `update` and `uninstall` — the debt the mutation floor names — had no suite pointed at
-    # them at all. A hook is listed only where a row in tests/mutation.py names it, as in
-    # `mutate`; a suite naming none of ours says so on stderr rather than vanishing.
-    mutable="$(printf '%s\n' "$files" | while read -r f; do
-        case "$f" in
-            src/*.py) echo "$f"; continue ;;
-            tests/test_*.py) { sed -n 's/^ *from ai_engineering import //p' "$f" 2>/dev/null | tr ',' '\n'
-                               sed -n 's/^ *import //p' "$f" 2>/dev/null; } | tr -d ' ' | while read -r m; do
-                                 for c in "src/ai_engineering/$m.py" "hooks/$m.py"; do
-                                     case "$c" in hooks/*) grep -qF "\"$c\"" tests/mutation.py || continue ;; esac
-                                     [ -f "$c" ] && echo "$c" || true
-                                 done
-                             done | grep . || echo "  $f names no module of ours, so none was mutated" >&2
-                             continue ;;
-        esac
-        grep -qF "\"$f\"" tests/mutation.py && echo "$f" || true
-    done | sort -u)"
-    printf 'changed: %s files against %s\n' "$(printf '%s\n' "$files" | wc -l | tr -d ' ')" "$head"
-    printf '%s\n' "$files" | sed 's/^/      /'
-    echo "  will run: ruff over the whole tree, the whole suite, and the mutants of —"
-    printf '%s\n' "${mutable:-(nothing you touched has mutants)}" | sed 's/^/      /'
-    cat <<'LEDGER'
-      will NOT run, and is therefore not known to be true:
-          the mutants of every file this branch did not touch
-          coverage --fail-under=80, gitleaks, semgrep, trivy, the wheel build
-          what the pull request adds: sonar, snyk, pip-audit, mypy, actionlint, zizmor
-      `just check` is the gate, and this is not it.
-    LEDGER
-    uv run --with {{ruff}} ruff check .
-    uv run --with {{ruff}} ruff format --check .
-    uv run --with {{pytest}} pytest -q
-    [ -z "$mutable" ] || {{just_executable()}} mutate $mutable
-    echo "changed: green over the files named above, and silent about every file that is not."
+# It points at the guards and nowhere else. A floor of 89 across the whole tree was never
+# once met — the last recorded run read 78 — and its rows named no security guard at all,
+# so the most expensive instrument in the repository was aimed at the least dangerous code.
+# Every row here is a deliberate defect in a file that decides whether an action is
+# allowed, and a single survivor fails: the floor is 100 over a surface small enough to
+# mean it.
+guards *filter:
+    uv run --with {{pytest}} python tests/mutation.py {{ if filter != "" { "-k " + filter } else { "" } }}
 
 # The counts come from the tools themselves: a file list prints the same number whether
 # the linter ran or was replaced by `true`, which is the theatre this contract catches.
@@ -285,6 +142,22 @@ changed:
 counts:
     @echo "RAN lint=$(uv run --with {{ruff}} ruff format --check . | grep -oE '^[0-9]+')"
     @echo "RAN tests=$(uv run --with {{pytest}} pytest -q --collect-only 2>/dev/null | grep -cE '::')"
+
+# The page a person reads, and the one control that keeps it worth reading. It reports and
+# writes nothing: a gate that regenerated the document it was about to check would find it
+# fresh every time and assert nothing at all. Before `ran`, because that recipe writes the
+# receipt last and a check after it would record a run that had not finished.
+intent-page:
+    @uv run python -m ai_engineering.solution_intent --check
+
+# Close the line ceiling onto the tree, which is a fixed point and was being solved by hand.
+# The ceiling counts every committed line and is itself a committed line, so writing a value
+# changes what the value describes — measure, write, measure again, adjust. Fifty times in
+# one session, three or four calls each. This is that arithmetic, and it converges in two or
+# three passes. `--check` is the read-only half, for anybody who wants to know before they
+# find out from the suite.
+seal:
+    @uv run python tests/seal_ceiling.py
 
 # The thirteen indicators and the fourteen prohibitions, read out of `policy/` and printed
 # with every row that has no instrument named. Inside `check` and not beside it: the reader
@@ -305,4 +178,51 @@ skilleval:
 stats:
     @uv run python tests/stats.py
 
-check: build lint typecheck test cover security register skilleval counts
+# The last step, and the only one that leaves anything behind. Everything above is an
+# ephemeral process writing ignored receipts, which is why `PO-10` and `PO-14` — did the
+# removed practices stay removed, and did each commit run its module's suite — were both
+# graded on no evidence at all. A commit trailer is the one place a run can be recorded
+# where git will still have it a month later, and `commit-msg` writes it from this receipt
+# only when the content it names is the content being committed.
+ran suite="check" base="main":
+    @uv run python tests/ran_receipt.py record {{suite}}
+    # And the answer nobody was reading. The trailer's absence is the whole of its value, and
+    # on 2026-08-19 it correctly marked a commit pushed over a red gate while nothing printed
+    # it. A control whose answer nobody consumes is the same defect as one that cannot decide.
+    @uv run python tests/ran_receipt.py unrun {{base}}
+
+# The cheap half, and the one `PO-14` actually asks for. That row says every commit runs its
+# module's immediate suite *instead of* the whole gate, and until this recipe existed the
+# only thing that recorded anything was `check` — so every trailer named the gate, which is
+# the practice the row says was removed. One module, its own suite, its own receipt.
+#
+# It records only on a pass. `set -e` is not enough here: the recipe would still reach the
+# record line under a shell that continued, and a receipt written after a red suite is worse
+# than none, because the trailer then says a suite ran over these bytes and passed.
+quick module:
+    @uv run --with {{pytest}} pytest -q tests/test_{{module}}.py
+    @uv run python tests/ran_receipt.py record quick:{{module}}
+
+# Which review lens this range routes to. In `check` because the table is only worth having
+# if something reads it — the reader refuses a lens file with no row, which is the state all
+# ten were in until `EP-251` was measured, and a table nothing validates drifts from the
+# directory it describes on the first lens somebody adds.
+lenses base="main":
+    @uv run python tests/review_lenses.py --base {{base}}
+
+# Which commits no closed block review covers, derived rather than written — the approved
+# plan forbids a commit message or metadata field from carrying that word. It reports and
+# never blocks: unreviewed is the ordinary state of work in flight, and a gate that failed on
+# it would demand a review before the block it belongs to has closed, which is the
+# amplification the block cadence exists to remove.
+unreviewed base="main":
+    @uv run python tests/unreviewed.py --since {{base}}
+
+# How many primary homes each commit touches. `PO-16` says one, with one recorded exception,
+# and nothing measured it — so a sentence about one commit stood in for a hundred and ninety.
+# Reports and never blocks: the exception cannot be recognised mechanically, and a gate that
+# failed here would assert a judgement it cannot make.
+homes base="main":
+    @uv run python tests/one_home.py --since {{base}}
+
+check: build sbom lint typecheck test cover security register skilleval counts intent-page lenses ran

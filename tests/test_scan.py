@@ -11,11 +11,15 @@ the branches; it does not prove that a missing binary raises what the code catch
 
 from __future__ import annotations
 
+import json
 import os
+import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from conftest import repository
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -245,19 +249,37 @@ def test_the_dependency_answer_names_the_stacks_it_was_about(tmp_path, capsys):
 
     from ai_engineering import scan
 
-    assert scan.stacks(ROOT) == ["package.json", "pyproject.toml"]
-    assert scan.images(ROOT) == []
+    # Two manifests side by side, because one is the case where "names the stack" and
+    # "names nothing" are indistinguishable. Asked here rather than only against ROOT:
+    # mutmut runs the suite from its own `mutants/` tree, which holds the package and the
+    # tests and none of the repository's root files, so a ROOT assertion answered a
+    # different question there and turned the whole-tree lane red on a true statement.
+    both = tmp_path / "both"
+    both.mkdir()
+    (both / "package.json").write_text("{}", encoding="utf-8")
+    (both / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    assert scan.stacks(both) == ["package.json", "pyproject.toml"]
+    assert scan.images(both) == []
+
+    # And once against this repository, which is the only tree where the answer can be
+    # checked against something a person can see.
+    assert scan.stacks(repository()) == ["package.json", "pyproject.toml"]
+    assert scan.images(repository()) == []
 
     # Shallow, and one level down. A manifest inside `node_modules` belongs to somebody
     # else's project, and walking the whole tree turns one answer into hundreds.
-    (tmp_path / "service").mkdir()
-    (tmp_path / "service" / "go.mod").write_text("module x\n", encoding="utf-8")
-    (tmp_path / "node_modules" / "left-pad").mkdir(parents=True)
-    (tmp_path / "node_modules" / "left-pad" / "package.json").write_text("{}", encoding="utf-8")
-    (tmp_path / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
+    # Its own subtree, because "one level down" means a sibling fixture in `tmp_path` is
+    # inside the answer: built directly under `tmp_path`, `both/` above put two more
+    # manifests into this list and the expectation stopped being about `service/` at all.
+    work = tmp_path / "work"
+    (work / "service").mkdir(parents=True)
+    (work / "service" / "go.mod").write_text("module x\n", encoding="utf-8")
+    (work / "node_modules" / "left-pad").mkdir(parents=True)
+    (work / "node_modules" / "left-pad" / "package.json").write_text("{}", encoding="utf-8")
+    (work / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
 
-    assert scan.stacks(tmp_path) == ["go.mod"]
-    assert scan.images(tmp_path) == ["Dockerfile"]
+    assert scan.stacks(work) == ["go.mod"]
+    assert scan.images(work) == ["Dockerfile"]
 
     # And a repository with neither says so rather than printing nothing.
     bare = tmp_path / "bare"
@@ -460,7 +482,7 @@ def test_the_dependency_lane_includes_the_packages_a_build_depends_on():
     lane = next(one for one in scan.BASELINE if one.id == "dependencies")
     assert "--include-dev-deps" in lane.extra
 
-    lock = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
+    lock = json.loads((repository() / "package-lock.json").read_text(encoding="utf-8"))
     packages = [row for name, row in lock["packages"].items() if name]
     assert packages, "the lock file names no packages, so this measured nothing"
     assert all(row.get("dev") for row in packages), (
@@ -592,3 +614,875 @@ def test_the_gate_asks_the_cross_checks_and_does_not_only_declare_them(
     assert scan.baseline(tmp_path) == 1
     printed = capsys.readouterr().out
     assert "INCOMPLETE  second-opinion" in printed and "LANE_CRASHED" in printed
+
+
+def only_the_report(monkeypatch):
+    """Drive `baseline` with no engines, so what is asserted is what it says about the tree.
+
+    The three lanes and the two cross-checks are real subprocesses judged elsewhere in this
+    file. Emptying them here leaves the half nobody had held: the lines `just security` prints
+    about boundaries, manifests and coverage, which are the only part of this output a person
+    reads when every engine passes.
+    """
+    from ai_engineering import scan
+
+    monkeypatch.setattr(scan, "BASELINE", ())
+    monkeypatch.setattr(scan, "CROSS_CHECKS", ())
+    return scan
+
+
+def test_a_repository_with_no_threat_model_is_declining_and_not_failing(
+    tmp_path, monkeypatch, capsys
+):
+    """Absent is declined. Demanding a threat model from every consumer would make this lane
+    an opinion, and the exit code says so as loudly as the word does."""
+    scan = only_the_report(monkeypatch)
+
+    assert scan.baseline(tmp_path) == 0
+    printed = capsys.readouterr().out
+    assert "SKIPPED     boundaries    this repository declares no threat model" in printed
+    assert "SKIPPED     manifests     no dependency manifest here" in printed
+    assert "coverage" not in printed, "a tree with no manifest was told about coverage"
+
+
+def test_a_threat_model_that_cannot_be_read_fails_and_says_which_of_the_two_it_is(
+    tmp_path, monkeypatch, capsys
+):
+    """Present-and-unreadable is INCOMPLETE, which is the same rule this module applies to an
+    engine. The two states have to be distinguishable in the line, or a consumer cannot tell
+    "we never wrote one" from "ours is broken"."""
+    scan = only_the_report(monkeypatch)
+    (tmp_path / "policy").mkdir()
+    (tmp_path / "policy" / "threat-model.toml").write_text("[[boundary]\n", encoding="utf-8")
+
+    assert scan.baseline(tmp_path) == 1
+    printed = capsys.readouterr().out
+    assert "INCOMPLETE  boundaries    the threat model is there and could not be read" in printed
+    assert "declares no threat model" not in printed
+
+
+def test_the_boundaries_line_counts_the_whole_ones_separately(tmp_path, monkeypatch, capsys):
+    """Two numbers, and the second is the one that matters: a boundary whose row carries a
+    `reason` is a control this tree does not hold whole, and a count that folded them together
+    would report a threat model as complete on the strength of its own admissions."""
+    scan = only_the_report(monkeypatch)
+    (tmp_path / "policy").mkdir()
+    (tmp_path / "policy" / "threat-model.toml").write_text(
+        '[[boundary]]\nid = "a"\n\n[[boundary]]\nid = "b"\nreason = "half built"\n'
+        '\n[[boundary]]\nid = "c"\n',
+        encoding="utf-8",
+    )
+
+    assert scan.baseline(tmp_path) == 0
+    assert "OBSERVED    boundaries    3 declared, 2 with a control this tree holds whole" in (
+        capsys.readouterr().out
+    )
+
+
+def test_the_manifests_line_names_them_and_coverage_names_what_was_not_read(
+    tmp_path, monkeypatch, capsys
+):
+    """A manifest the engine read no file for is a stack that was not scanned, and the lane
+    above reports it as nothing found. So it fails, and the line carries the cure — because a
+    control that arrives with no way forward but rearranging the repository is a control people
+    learn to skip."""
+    scan = only_the_report(monkeypatch)
+    (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+
+    assert scan.baseline(tmp_path) == 1
+    printed = capsys.readouterr().out
+    assert "OBSERVED    manifests     package.json, pyproject.toml" in printed
+    assert "INCOMPLETE  coverage      the engine read no file for" in printed
+    assert "commit the file the engine reads for it" in printed
+    assert "a stack it did not read reports as a stack with nothing in it" in printed
+
+
+def test_every_refusal_says_the_whole_sentence_and_the_whole_cure(tmp_path):
+    """Eight branches, and until now the fixtures asserted the code and never the words.
+
+    `"LANE_NO_INPUTS" in fact.detail` passes with every human sentence in this module rewritten
+    to anything at all — measured: fifty mutants of `run` survived, and most of them were the
+    sentences a person actually reads when a security lane refuses. The code is for a machine;
+    the sentence and the cure are the whole of what a consumer gets, and they are the part that
+    decides whether the refusal is acted on or worked around.
+
+    So each branch is pinned whole: the exact detail, the exact cure, and the status beside
+    them. A rewrite is then a deliberate edit to this table rather than a silent one.
+    """
+    from ai_engineering import scan
+
+    # One directory per engine. `engine()` always writes `engine.py`, so building several in
+    # one `tmp_path` leaves every lane pointing at whichever script was written last — the
+    # sleeping one became an immediate exit and the timeout branch reported PASS.
+    def own(name: str, body: str) -> tuple[str, ...]:
+        where = tmp_path / name
+        where.mkdir()
+        return engine(where, body)
+
+    rules = tmp_path / "rules.yml"
+    rules.write_text("rules: []\n", encoding="utf-8")
+
+    cases = (
+        (
+            scan.Lane("empty", own("empty", "raise SystemExit(0)")),
+            [],
+            "INCOMPLETE",
+            "LANE_NO_INPUTS: there was nothing to scan, so nothing was scanned",
+            "point the lane at files that exist, or say why this stack has none",
+        ),
+        (
+            scan.Lane(
+                "unruled", own("unruled", "raise SystemExit(0)"), rules=tmp_path / "gone.yml"
+            ),
+            ["a.py"],
+            "INCOMPLETE",
+            "LANE_RULES_MISSING: the rules at gone.yml are not there",
+            "restore the rules file; an engine with no rules looks for nothing",
+        ),
+        (
+            scan.Lane(
+                "pinned",
+                engine(tmp_path, "raise SystemExit(0)"),
+                rules=rules,
+                rules_digest="deadbeef",
+            ),
+            ["a.py"],
+            "INCOMPLETE",
+            "LANE_RULES_TAMPERED: rules.yml is not the file this lane was pinned to",
+            "review the change and move the pin deliberately, or restore the file",
+        ),
+        (
+            scan.Lane("absent", (str(tmp_path / "no-such-engine"),)),
+            ["a.py"],
+            "INCOMPLETE",
+            f"LANE_ENGINE_MISSING: {tmp_path / 'no-such-engine'} is not installed here",
+            "install the pinned engine, or record this lane as not applicable",
+        ),
+        (
+            scan.Lane("slow", own("slow", "import time; time.sleep(30)"), timeout=1),
+            ["a.py"],
+            "INCOMPLETE",
+            "LANE_TIMEOUT: it did not finish within 1 seconds",
+            "narrow the inputs or raise the bound deliberately",
+        ),
+        (
+            scan.Lane("broken", own("broken", "raise SystemExit(97)")),
+            ["a.py"],
+            "INCOMPLETE",
+            "LANE_CRASHED: it exited 97, which has no meaning in this lane",
+            "read its output; an exit code with no defined meaning is not a verdict",
+        ),
+        (
+            scan.Lane("noisy", own("noisy", "raise SystemExit(1)")),
+            ["a.py", "b.py"],
+            "FAIL",
+            "it ran over 2 input(s) and found something",
+            "read its output, fix what it found, and run it again",
+        ),
+        (
+            scan.Lane("clean", own("clean", "raise SystemExit(0)")),
+            ["a.py", "b.py", "c.py"],
+            "PASS",
+            "it ran over 3 input(s) and found nothing",
+            None,
+        ),
+    )
+
+    for lane, inputs, status, detail, cure in cases:
+        fact = scan.run(lane, tmp_path, inputs)
+        assert fact.status == status, f"{lane.id}: {fact.status}"
+        assert fact.detail == detail, f"{lane.id}: {fact.detail!r}"
+        assert fact.cure == cure, f"{lane.id}: {fact.cure!r}"
+        assert fact.id == f"lane-{lane.id}"
+        assert fact.summary == f"The {lane.id} lane"
+
+
+def test_the_inputs_are_counted_and_not_described(tmp_path):
+    """`len(inputs)` and not a word for it. The count is the one number in a lane's answer
+    that a reader can check against what they asked for, and "some" or "several" in its place
+    would make a lane that scanned one file indistinguishable from one that scanned a hundred.
+    """
+    from ai_engineering import scan
+
+    lane = scan.Lane("counted", engine(tmp_path, "raise SystemExit(0)"))
+    for how_many in (1, 2, 7):
+        fact = scan.run(lane, tmp_path, [f"file{n}.py" for n in range(how_many)])
+        assert fact.detail == f"it ran over {how_many} input(s) and found nothing"
+
+
+def test_the_order_of_the_checks_is_the_order_the_docstring_claims(tmp_path):
+    """Inputs before the engine, rules before the exit code. The docstring says why and
+    nothing held it: a lane with no inputs and no engine has two reasons to refuse, and which
+    one it names decides whether somebody installs a tool or fixes a path.
+    """
+    from ai_engineering import scan
+
+    nowhere = scan.Lane("both", (str(tmp_path / "absent-engine"),), rules=tmp_path / "gone.yml")
+
+    # No inputs wins over a missing engine and over missing rules.
+    assert "LANE_NO_INPUTS" in scan.run(nowhere, tmp_path, []).detail
+
+    # Missing rules win over a missing engine, because an engine with no rules exits zero
+    # having looked for nothing — the worst of the two outcomes to mistake for a pass.
+    assert "LANE_RULES_MISSING" in scan.run(nowhere, tmp_path, ["a.py"]).detail
+
+
+def test_the_sarif_reader_keeps_every_shape_it_can_read_and_drops_the_rest(tmp_path):
+    """Fifteen mutants of `_results` survived, which means the shapes were named and never
+    counted. The reader's promise is exact: a row it cannot read yields nothing rather than an
+    answer, and `report` turns nothing into INCOMPLETE — so what has to be pinned is which rows
+    survive the filter and how many, not merely that a malformed one does not crash.
+    """
+    from ai_engineering import scan
+
+    where = tmp_path / "r.sarif"
+
+    # Two readable rows among five, and the three dropped ones are each a shape a real
+    # converter emits: a message that is a string, locations that are not a list, and a row
+    # that is not an object at all.
+    where.write_text(
+        '{"runs": [{"results": ['
+        '{"message": {"text": "one"}},'
+        '{"message": "a string"},'
+        '{"locations": "not a list"},'
+        '"not an object",'
+        '{"message": {"text": "two"}, "locations": [{"physicalLocation": {}}]}'
+        "]}]}",
+        encoding="utf-8",
+    )
+    kept = scan._results(where)
+    assert len(kept) == 2, kept
+    assert [row["message"]["text"] for row in kept] == ["one", "two"]
+
+    # Two runs are two sources of results and both are read; a run that is not an object is
+    # skipped without taking the other one with it.
+    where.write_text(
+        '{"runs": [{"results": [{"message": {"text": "a"}}]}, 7,'
+        ' {"results": [{"message": {"text": "b"}}]}]}',
+        encoding="utf-8",
+    )
+    assert [row["message"]["text"] for row in scan._results(where)] == ["a", "b"]
+
+    # And every way of not being a report at all is the empty answer, never an exception.
+    for body in ("[]", "7", '"a string"', "null", "{not json", ""):
+        where.write_text(body, encoding="utf-8")
+        assert scan._results(where) == [], body
+    assert scan._results(tmp_path / "absent.sarif") == []
+
+
+def test_the_coverage_answer_comes_from_the_engine_and_never_from_a_guess(tmp_path):
+    """`covered` asks the engine which files it read. Seventeen mutants survived, and the two
+    that matter are the ones this function was rewritten to prevent: asking a different
+    question than the run that decided the verdict, and treating "nobody asked" as "everything
+    was read".
+    """
+    from ai_engineering import scan
+
+    # The lane's own extra arguments reach the coverage run. Built from `argv` alone, this
+    # asked a narrower question than the verdict did — so an engine invoked without
+    # `--include-dev-deps` would still have reported the development tree read.
+    seen = tmp_path / "argv.json"
+    spy = engine(
+        tmp_path,
+        "import json, sys, pathlib\n"
+        f"pathlib.Path({str(seen)!r}).write_text(json.dumps(sys.argv[1:]))\n"
+        'print(json.dumps({"Results": [{"Target": "pyproject.toml"}]}))\n',
+    )
+    lane = scan.Lane("dep", spy, extra=("--include-dev-deps",))
+
+    assert scan.covered(tmp_path, lane) == {"pyproject.toml"}
+    import json as _json
+
+    assert "--include-dev-deps" in _json.loads(seen.read_text("utf-8"))
+
+    # Nobody asked is not everything read. With no lane and no baseline this used to raise on
+    # an empty tuple, which is a crash where the rule is that an engine unable to answer
+    # leaves every stack unread.
+    monkey = scan.BASELINE
+    try:
+        scan.BASELINE = ()
+        assert scan.covered(tmp_path) == set()
+    finally:
+        scan.BASELINE = monkey
+
+    # Every shape that is not an answer is the empty set, and a row with no target is not one.
+    (tmp_path / "quiet").mkdir()
+    for body in ("[]", "7", "{not json", "", '{"Results": null}', '{"Results": [{"Target": ""}]}'):
+        quiet = scan.Lane("quiet", engine(tmp_path / "quiet", f"print({body!r})"))
+        assert scan.covered(tmp_path, quiet) == set(), body
+
+    # And an engine that is not installed answers nothing rather than raising.
+    assert scan.covered(tmp_path, scan.Lane("gone", (str(tmp_path / "no-engine"),))) == set()
+
+
+def sarif_engine(where: Path, body: str) -> tuple[str, ...]:
+    """An engine that writes a SARIF file where it is told and exits saying it found something.
+
+    `report` formats the lane's `sarif` flags with a temporary path and reads the file back, so
+    an engine that ignores the flag proves nothing about the reader. This one honours it.
+    """
+    where.mkdir(parents=True, exist_ok=True)
+    return engine(
+        where,
+        "import sys, pathlib\n"
+        "target = sys.argv[sys.argv.index('--out') + 1]\n"
+        f"pathlib.Path(target).write_text({body!r})\n"
+        "raise SystemExit(1)\n",
+    )
+
+
+def test_a_finding_carries_the_engine_the_file_and_the_line_it_came_from(tmp_path):
+    """Thirty-six mutants of `report` survived, which is every field of a finding except the
+    count of them. What a person acts on is `decided_by` — which engine said so, in which file,
+    at which line — and the effect in the engine's own words. Those are pinned exactly.
+
+    The four judgement fields stay unanswered on purpose: a scanner cannot say what boundary a
+    hit crosses or what would refute it, and a finding that arrived looking complete would be
+    the green nobody earned with the sign reversed.
+    """
+    from ai_engineering import scan
+
+    lane = scan.Lane(
+        "semantic",
+        sarif_engine(
+            tmp_path / "found",
+            '{"runs": [{"results": [{"message": {"text": "  a  ragged   message  "},'
+            ' "locations": [{"physicalLocation": {"artifactLocation": {"uri": "src/thing.py"},'
+            ' "region": {"startLine": 12}}}]}]}]}',
+        ),
+        sarif=("--out", "{0}"),
+    )
+
+    found = scan.report(lane, tmp_path, ["."])
+    assert len(found) == 1
+    only = found[0]
+    assert only.effect == "a ragged message", "whitespace was not collapsed"
+    assert only.state == "INCOMPLETE"
+    assert only.decided_by.endswith(" — src/thing.py:12")
+    assert only.boundary == scan.UNANSWERED
+    assert only.attacker_controls == scan.UNANSWERED
+    assert only.refutation == scan.UNANSWERED
+    assert only.closed_by == scan.UNANSWERED
+    assert only.blank() == ("boundary", "attacker_controls", "refutation", "closed_by")
+
+
+def test_a_finding_with_nothing_to_locate_says_so_rather_than_inventing_a_place(tmp_path):
+    """Every field has a stated fallback and none of them is a guess. A row with no location
+    is `an unnamed file:?`, and a row with no message falls back to its rule id — because a
+    finding whose text is empty reads as a finding about nothing.
+    """
+    from ai_engineering import scan
+
+    lane = scan.Lane(
+        "bare",
+        sarif_engine(
+            tmp_path / "bare",
+            '{"runs": [{"results": ['
+            '{"ruleId": "RULE-7"},'
+            '{"message": {"text": "located"}, "locations": [{"physicalLocation":'
+            ' {"artifactLocation": "not an object", "region": "not an object"}}]}'
+            "]}]}",
+        ),
+        sarif=("--out", "{0}"),
+    )
+
+    first, second = scan.report(lane, tmp_path, ["."])
+    assert first.effect == "RULE-7", "a row with no message did not fall back to its rule"
+    assert first.decided_by.endswith(" — an unnamed file:?")
+    assert second.effect == "located"
+    assert second.decided_by.endswith(" — an unnamed file:?")
+
+
+def test_a_lane_that_cannot_report_returns_nothing_and_never_a_partial_list(tmp_path):
+    """Three ways there is nothing to report, and each is the empty list rather than an
+    exception or a half-answer: a lane that declares no SARIF flags, a call with no inputs, and
+    an engine that is not installed. The gate's verdict comes from the exit code and nothing
+    here may change it, so failing loudly here would be this function overruling the lane."""
+    from ai_engineering import scan
+
+    quiet = scan.Lane("quiet", engine(tmp_path, "raise SystemExit(1)"))
+    assert scan.report(quiet, tmp_path, ["."]) == [], "a lane with no sarif flags reported"
+
+    declared = scan.Lane(
+        "declared", engine(tmp_path, "raise SystemExit(1)"), sarif=("--out", "{0}")
+    )
+    assert scan.report(declared, tmp_path, []) == [], "a call with no inputs reported"
+
+    absent = scan.Lane("absent", (str(tmp_path / "no-engine"),), sarif=("--out", "{0}"))
+    assert scan.report(absent, tmp_path, ["."]) == [], "a missing engine raised instead"
+
+
+def test_the_security_lane_prints_every_finding_a_failing_engine_gave_it(
+    tmp_path, monkeypatch, capsys
+):
+    """`baseline`'s own loop, with a lane that really fails and really reports.
+
+    Forty-two mutants survived here because the fixtures either emptied the lanes or ran the
+    real engines, and neither exercises the branch that matters: a FAIL is followed by every
+    finding, each on three lines — what it is, who decided it, and which four questions nobody
+    has answered. That third line is the one that keeps a scanner hit from reading as a
+    completed finding.
+    """
+    from ai_engineering import scan
+
+    lane = scan.Lane(
+        "semantic",
+        sarif_engine(
+            tmp_path / "noisy",
+            '{"runs": [{"results": [{"message": {"text": "a real hit"},'
+            ' "locations": [{"physicalLocation": {"artifactLocation": {"uri": "a.py"},'
+            ' "region": {"startLine": 3}}}]}]}]}',
+        ),
+        sarif=("--out", "{0}"),
+        findings_exit=1,
+    )
+    monkeypatch.setattr(scan, "BASELINE", (lane,))
+    monkeypatch.setattr(scan, "CROSS_CHECKS", ())
+
+    assert scan.baseline(tmp_path) == 1
+    printed = capsys.readouterr().out
+    assert "FAIL        semantic      it ran over 1 input(s) and found something" in printed
+    assert "INCOMPLETE  semantic      a real hit" in printed
+    assert "decided by" in printed and "a.py:3" in printed
+    assert "nobody has answered: boundary, attacker_controls, refutation, closed_by" in printed
+
+
+def test_a_cross_check_that_cannot_answer_fails_the_gate_and_an_absent_one_does_not(
+    tmp_path, monkeypatch, capsys
+):
+    """The two halves of the second opinion, in `baseline`'s own loop. Absent is SKIPPED and
+    passes, because an organisation that never installed a tool is declining a check rather
+    than failing one. Present and unable to answer is INCOMPLETE and does not pass, which is
+    the same rule this module applies to its own engines."""
+    from ai_engineering import scan
+
+    monkeypatch.setattr(scan, "BASELINE", ())
+    monkeypatch.setattr(
+        scan, "CROSS_CHECKS", (scan.Lane("absent-tool", (str(tmp_path / "nope"),)),)
+    )
+    assert scan.baseline(tmp_path) == 0
+    assert "SKIPPED     absent-tool" in capsys.readouterr().out
+
+    monkeypatch.setattr(
+        scan, "CROSS_CHECKS", (scan.Lane("broken-tool", engine(tmp_path, "raise SystemExit(97)")),)
+    )
+    assert scan.baseline(tmp_path) == 1
+    assert "INCOMPLETE  broken-tool" in capsys.readouterr().out
+
+
+def test_the_whole_security_report_is_this_exact_block_of_lines(tmp_path, monkeypatch, capsys):
+    """Every line `just security` prints, for one fully described tree, compared whole.
+
+    Fragments were not enough. Asserting `"OBSERVED    boundaries" in printed` leaves the rest
+    of the sentence, the column widths and the order free, and thirty-eight mutants of this
+    function lived in exactly that freedom — a padding changed, a word swapped, two lines
+    transposed. What a person reads is the block, so the block is what is pinned.
+
+    It is also the most honest form of this assertion: if somebody improves the wording they
+    have to say so here, in a diff, beside the words they changed.
+    """
+    from ai_engineering import scan
+
+    (tmp_path / "policy").mkdir()
+    (tmp_path / "policy" / "threat-model.toml").write_text(
+        '[[boundary]]\nid = "whole"\n\n[[boundary]]\nid = "half"\nreason = "not built"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+
+    failing = scan.Lane(
+        "semantic",
+        sarif_engine(
+            tmp_path / "sem",
+            '{"runs": [{"results": [{"message": {"text": "a real hit"},'
+            ' "locations": [{"physicalLocation": {"artifactLocation": {"uri": "a.py"},'
+            ' "region": {"startLine": 3}}}]}]}]}',
+        ),
+        sarif=("--out", "{0}"),
+        findings_exit=1,
+    )
+    (tmp_path / "sec").mkdir()
+    clean = scan.Lane("secrets", engine(tmp_path / "sec", "raise SystemExit(0)"))
+    monkeypatch.setattr(scan, "BASELINE", (clean, failing))
+    monkeypatch.setattr(
+        scan, "CROSS_CHECKS", (scan.Lane("second-opinion", (str(tmp_path / "nope"),)),)
+    )
+
+    assert scan.baseline(tmp_path) == 1
+
+    decided = " ".join(failing.argv)
+    assert capsys.readouterr().out.splitlines() == [
+        "  PASS        secrets       it ran over 1 input(s) and found nothing",
+        "  FAIL        semantic      it ran over 1 input(s) and found something",
+        "  INCOMPLETE  semantic      a real hit",
+        f"                            decided by {decided} — a.py:3",
+        "                            nobody has answered: boundary, attacker_controls, "
+        "refutation, closed_by",
+        "  OBSERVED    boundaries    2 declared, 1 with a control this tree holds whole",
+        f"  SKIPPED     second-opinion {tmp_path / 'nope'} is not installed here, so there "
+        "is no second opinion to read",
+        "  OBSERVED    manifests     pyproject.toml",
+        "  INCOMPLETE  coverage      the engine read no file for pyproject.toml: a stack it "
+        "did not read reports as a stack with nothing in it",
+        "                            commit the file the engine reads for it (pdm.lock, "
+        "poetry.lock, requirements.txt, uv.lock), or record a dated risk acceptance with "
+        "`ai-eng accept`",
+        "  SKIPPED     images        no container image here, so no container lane runs",
+        "  SKIPPED     dast          nothing here scanned a running target: that needs a URL "
+        "somebody authorised, and this gate never has one",
+    ]
+
+
+def _sarif(results: list[dict]) -> dict:
+    return {"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "t"}}, "results": results}]}
+
+
+def test_every_shape_a_sarif_row_can_be_missing_becomes_a_finding_that_still_reads(
+    tmp_path, monkeypatch
+):
+    """Twenty-six mutants of `report` survived, and all of them are what this function does
+    when a row is not the shape it hoped for.
+
+    An engine's SARIF is somebody else's output. A row with no locations, a location with no
+    artefact, an artefact with no region, a message that is absent, a message that is four
+    kilobytes of wrapped text — each is a thing a real engine emits, and each one this
+    function turns into a finding a person reads. Nothing asserted any of them, so the
+    fallbacks could have been deleted or swapped and the suite would not have moved.
+
+    Driven through the whole function rather than around it: the stub writes the SARIF where
+    the lane's own flags say it will be written, so the argument formatting is exercised too.
+    """
+    from ai_engineering import scan
+
+    lane = scan.Lane(id="t", argv=("engine",), sarif=("--out", "{}"))
+
+    def engine(argv, **kwargs):
+        where = Path(argv[argv.index("--out") + 1])
+        where.write_text(json.dumps(_sarif(engine.rows)), encoding="utf-8")
+        return SimpleNamespace(returncode=1, stdout="", stderr="")
+
+    monkeypatch.setattr(scan.subprocess, "run", engine)
+
+    engine.rows = [
+        {
+            "message": {"text": "a real finding"},
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": "src/a.py"},
+                        "region": {"startLine": 12},
+                    }
+                }
+            ],
+        },
+        {"message": {"text": "no locations at all"}},
+        {"message": {"text": "no artefact"}, "locations": [{"physicalLocation": {"region": {}}}]},
+        {
+            "ruleId": "RULE-7",
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": "src/b.py"},
+                        "region": {"startLine": 3},
+                    }
+                }
+            ],
+        },
+        {"message": {"text": "  wrapped\n   across\tlines  "}, "locations": []},
+    ]
+    found = scan.report(lane, tmp_path, ["."])
+
+    assert [one.effect for one in found] == [
+        "a real finding",
+        "no locations at all",
+        "no artefact",
+        "RULE-7",
+        "wrapped across lines",
+    ]
+    assert [one.decided_by for one in found] == [
+        "engine — src/a.py:12",
+        "engine — an unnamed file:?",
+        "engine — an unnamed file:?",
+        "engine — src/b.py:3",
+        "engine — an unnamed file:?",
+    ]
+    # A row with no message falls back to its rule id, which is the fourth one above: an
+    # engine that reports a rule and no prose still has to arrive as something a person can
+    # look up, and an empty effect there would be a finding that says nothing at all.
+    assert found[3].effect == "RULE-7"
+
+    # Six of the seven fields are the same on every one of them, and that is the contract:
+    # a scanner names what it saw and answers none of the questions a person must.
+    for one in found:
+        assert one.state == "INCOMPLETE"
+        assert one.boundary == scan.UNANSWERED
+        assert one.attacker_controls == scan.UNANSWERED
+        assert one.refutation == scan.UNANSWERED
+        assert one.closed_by == scan.UNANSWERED
+
+
+def test_a_message_longer_than_the_bound_is_cut_and_a_lane_with_no_sarif_says_nothing(
+    tmp_path, monkeypatch
+):
+    """Two limits, and the second is the one that matters most.
+
+    The effect is a line in a report, so an engine emitting four kilobytes must not become
+    the report. And a lane that was never asked for SARIF returns nothing at all — which the
+    docstring is careful to distinguish from "it found nothing", because a lane with no
+    machine-readable output is a lane nobody can list findings from.
+    """
+    from ai_engineering import scan
+
+    def engine(argv, **kwargs):
+        where = Path(argv[argv.index("--out") + 1])
+        where.write_text(
+            json.dumps(_sarif([{"message": {"text": "x" * 500}, "locations": []}])),
+            encoding="utf-8",
+        )
+        return SimpleNamespace(returncode=1, stdout="", stderr="")
+
+    monkeypatch.setattr(scan.subprocess, "run", engine)
+
+    lane = scan.Lane(id="t", argv=("engine",), sarif=("--out", "{}"))
+    (cut,) = scan.report(lane, tmp_path, ["."])
+    assert len(cut.effect) == 200
+    assert cut.effect == "x" * 200
+
+    # Never asked, and no inputs: two separate reasons to return nothing, and neither runs
+    # the engine.
+    ran = []
+    monkeypatch.setattr(scan.subprocess, "run", lambda *a, **k: ran.append(a) or None)
+    assert scan.report(scan.Lane(id="t", argv=("engine",)), tmp_path, ["."]) == []
+    assert scan.report(lane, tmp_path, []) == []
+    assert ran == [], "an engine was run for a lane that cannot report"
+
+
+def test_an_engine_that_cannot_run_reports_nothing_rather_than_raising(tmp_path, monkeypatch):
+    """This runs only when a lane has already failed, so it must never be the thing that
+    takes the gate down. An engine that is absent, or that times out on the second run, gives
+    an empty list — the verdict was already decided by the exit code and nothing here may
+    change it."""
+    from ai_engineering import scan
+
+    lane = scan.Lane(id="t", argv=("engine",), sarif=("--out", "{}"))
+    for failure in (OSError("gone"), subprocess.TimeoutExpired("engine", 1)):
+        monkeypatch.setattr(
+            scan.subprocess, "run", lambda *a, _f=failure, **k: (_ for _ in ()).throw(_f)
+        )
+        assert scan.report(lane, tmp_path, ["."]) == []
+
+    # And a run that writes no SARIF at all, which is what an engine does when it crashes
+    # after starting.
+    monkeypatch.setattr(
+        scan.subprocess, "run", lambda *a, **k: SimpleNamespace(returncode=1, stdout="", stderr="")
+    )
+    assert scan.report(lane, tmp_path, ["."]) == []
+
+
+def test_the_whole_security_report_and_the_code_it_exits_with(tmp_path, monkeypatch, capsys):
+    """Twenty-six mutants of `baseline` survived, and this function is the security gate.
+
+    What it prints is the report somebody reads to decide whether to ship, and what it
+    returns is whether the gate goes red. Both were unasserted as a whole: a line that
+    changed its status word, a lane that stopped setting `worst`, a threat model whose count
+    drifted — none of it was visible to a test that only checked the exit code of a clean
+    run.
+
+    The clean case first, whole and in order, because a report that says the right things in
+    the wrong order is a report a person misreads.
+    """
+    from ai_engineering import outcome, scan
+
+    def clean(lane, root, inputs):
+        return outcome.fact(lane.id, "PASS", lane.id, "it ran and found nothing")
+
+    monkeypatch.setattr(scan, "run", clean)
+    monkeypatch.setattr(
+        scan,
+        "cross_check",
+        lambda lane, root, inputs: outcome.fact(
+            lane.id, "SKIPPED", lane.id, f"{lane.id} is not installed here"
+        ),
+    )
+    monkeypatch.setattr(scan, "model", lambda root: [{"id": "a"}, {"id": "b", "reason": "why"}])
+    monkeypatch.setattr(scan, "stacks", lambda root: ["pyproject.toml"])
+    monkeypatch.setattr(scan, "unread", lambda root, lane=None: [])
+    (tmp_path / "policy").mkdir()
+    (tmp_path / "policy" / "threat-model.toml").write_text("", encoding="utf-8")
+
+    assert scan.baseline(tmp_path) == 0
+    assert [one for one in capsys.readouterr().out.splitlines() if one.strip()] == [
+        "  PASS        secrets       it ran and found nothing",
+        "  PASS        semantic      it ran and found nothing",
+        "  PASS        dependencies  it ran and found nothing",
+        "  OBSERVED    boundaries    2 declared, 1 with a control this tree holds whole",
+        "  SKIPPED     skillspector  skillspector is not installed here",
+        "  SKIPPED     claude-security claude-security is not installed here",
+        "  OBSERVED    manifests     pyproject.toml",
+        "  OBSERVED    coverage      the engine read a file for every manifest here",
+        "  SKIPPED     images        no container image here, so no container lane runs",
+        "  SKIPPED     dast          nothing here scanned a running target: that needs a URL "
+        "somebody authorised, and this gate never has one",
+    ]
+
+
+def test_every_way_this_gate_goes_red_and_the_one_way_it_does_not(tmp_path, monkeypatch, capsys):
+    """Four states that fail it and two that do not, each asserted on the exit code.
+
+    INCOMPLETE fails exactly as FAIL does, and that is the whole position of this module: a
+    lane whose answer nobody has is not a clean one. What must *not* fail it is a scanner
+    that is absent — SKIPPED passes, because demanding somebody else's tool would make this
+    lane an opinion — and a repository with no threat model, which is declining rather than
+    failing.
+    """
+    from ai_engineering import outcome, scan
+
+    monkeypatch.setattr(scan, "model", lambda root: None)
+    monkeypatch.setattr(scan, "stacks", lambda root: [])
+    monkeypatch.setattr(scan, "unread", lambda root, lane=None: [])
+    monkeypatch.setattr(
+        scan,
+        "cross_check",
+        lambda lane, root, inputs: outcome.fact(lane.id, "SKIPPED", lane.id, "absent"),
+    )
+
+    def lanes(status):
+        return lambda lane, root, inputs: outcome.fact(lane.id, status, lane.id, "detail")
+
+    # A lane that failed, and a lane that could not run: both red.
+    for status in ("FAIL", "INCOMPLETE", "WARN"):
+        monkeypatch.setattr(scan, "run", lanes(status))
+        monkeypatch.setattr(scan, "report", lambda lane, root, inputs: [])
+        assert scan.baseline(tmp_path) == 1, status
+        capsys.readouterr()
+
+    # Every lane clean, no threat model on disk: not red, and it says it declined.
+    monkeypatch.setattr(scan, "run", lanes("PASS"))
+    assert scan.baseline(tmp_path) == 0
+    said = capsys.readouterr().out
+    assert "SKIPPED     boundaries" in said
+    assert "declares no threat model" in said
+
+    # A threat model that is there and cannot be read is a control nobody can read, which is
+    # not a pass — and this is the line that separates it from the case above.
+    (tmp_path / "policy").mkdir(exist_ok=True)
+    (tmp_path / "policy" / "threat-model.toml").write_text("", encoding="utf-8")
+    assert scan.baseline(tmp_path) == 1
+    assert "INCOMPLETE  boundaries" in capsys.readouterr().out
+
+    # A cross-check that is present and cannot answer is red; absent is not.
+    monkeypatch.setattr(scan, "model", lambda root: [])
+    monkeypatch.setattr(
+        scan,
+        "cross_check",
+        lambda lane, root, inputs: outcome.fact(
+            lane.id, "INCOMPLETE", lane.id, "it is installed and could not answer"
+        ),
+    )
+    assert scan.baseline(tmp_path) == 1
+    capsys.readouterr()
+
+    # And a manifest the engine read no file for: the stack was not scanned, and a stack that
+    # was not scanned reports as a stack with nothing in it.
+    monkeypatch.setattr(
+        scan,
+        "cross_check",
+        lambda lane, root, inputs: outcome.fact(lane.id, "SKIPPED", lane.id, "absent"),
+    )
+    monkeypatch.setattr(scan, "stacks", lambda root: ["package.json"])
+    monkeypatch.setattr(scan, "unread", lambda root, lane=None: ["package.json"])
+    assert scan.baseline(tmp_path) == 1
+    unread_said = capsys.readouterr().out
+    assert "INCOMPLETE  coverage" in unread_said
+    assert "a stack it did not read reports as a stack with nothing in it" in unread_said
+
+
+def test_a_failing_lane_prints_every_finding_with_the_four_fields_nobody_answered(
+    tmp_path, monkeypatch, capsys
+):
+    """A scanner hit that reads as a completed finding is the green nobody earned with the
+    sign reversed. So each one arrives INCOMPLETE, names the engine and the file that decided
+    it, and lists the four questions no scanner can answer."""
+    from ai_engineering import outcome, scan
+
+    monkeypatch.setattr(
+        scan,
+        "run",
+        lambda lane, root, inputs: outcome.fact(
+            lane.id, "FAIL" if lane.id == "semantic" else "PASS", lane.id, "detail"
+        ),
+    )
+    monkeypatch.setattr(scan, "model", lambda root: [])
+    monkeypatch.setattr(scan, "stacks", lambda root: [])
+    monkeypatch.setattr(scan, "unread", lambda root, lane=None: [])
+    monkeypatch.setattr(
+        scan,
+        "cross_check",
+        lambda lane, root, inputs: outcome.fact(lane.id, "SKIPPED", lane.id, "absent"),
+    )
+    monkeypatch.setattr(
+        scan,
+        "report",
+        lambda lane, root, inputs: (
+            [
+                scan.Finding(
+                    boundary=scan.UNANSWERED,
+                    attacker_controls=scan.UNANSWERED,
+                    effect="a thing it saw",
+                    state="INCOMPLETE",
+                    decided_by="semgrep — src/a.py:4",
+                    refutation=scan.UNANSWERED,
+                    closed_by=scan.UNANSWERED,
+                )
+            ]
+            if lane.id == "semantic"
+            else []
+        ),
+    )
+
+    assert scan.baseline(tmp_path) == 1
+    printed = [one for one in capsys.readouterr().out.splitlines() if one.strip()]
+
+    assert "  INCOMPLETE  semantic      a thing it saw" in printed
+    assert any("decided by semgrep — src/a.py:4" in one for one in printed)
+    assert any(
+        "nobody has answered: boundary, attacker_controls, refutation, closed_by" in one
+        for one in printed
+    )
+
+
+def test_a_tree_with_no_authorised_target_declines_the_dynamic_scan(tmp_path, capsys, monkeypatch):
+    """The lane this report does not have, said out loud instead of left silent.
+
+    Every engine pinned here reads files. None of them touches a running service, so a
+    repository with a deployed preview got exit zero and a report whose last line was about
+    container images — and `ai-security` step 3 tells the model to paste that output. A green
+    that means "nothing dynamic was looked at" reads identically to one that means "the
+    dynamic surface is clean", and this repository exists to tell those apart.
+
+    Declined, not passed, and not `N/A`: `outcome._FACT_STATUSES` has no such word, and
+    SKIPPED is already what this module says when it is refusing to answer rather than
+    answering. The decision on where a dynamic scan lives is D-014-11 and the security
+    research before it — inside `ai-security`, never a separate skill — and this line is the
+    part of it that is a script.
+    """
+
+    from ai_engineering import scan
+
+    # The engines are emptied because this is about a lane that is absent, not about the
+    # three that are present. Spawning them here would pay their cost twice per gate to
+    # prove nothing, which is the defect Task 2 removed from the threat-model suite.
+    monkeypatch.setattr(scan, "BASELINE", ())
+    monkeypatch.setattr(scan, "CROSS_CHECKS", ())
+
+    assert scan.baseline(tmp_path) == 0
+    said = capsys.readouterr().out
+    assert "SKIPPED     dast" in said
+    assert "running target" in said
+    # It is the last word, after the images line, because it is the lane furthest from what
+    # this gate can see.
+    lines = [one for one in said.splitlines() if one.strip()]
+    assert "dast" in lines[-1]
+    # And it touches nothing: a repository with no findings still exits zero.
+    assert scan.baseline(tmp_path) == 0

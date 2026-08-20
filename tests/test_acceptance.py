@@ -614,7 +614,13 @@ def test_gitleaks_gate_requires_exact_version_and_three_clean_results(
         def __init__(self, code: int, out: str = "") -> None:
             self.returncode, self.stdout, self.stderr = code, out, ""
 
-    def _scanner(version: str | None, scan_code: int, *, error: Exception | None = None):
+    def _scanner(
+        version: str | None,
+        scan_code: int,
+        *,
+        error: Exception | None = None,
+        directory: Path | None = None,
+    ):
         calls: list[tuple[tuple[str, ...], Path]] = []
 
         def run(argv: tuple[str, ...], cwd: Path):
@@ -623,6 +629,13 @@ def test_gitleaks_gate_requires_exact_version_and_three_clean_results(
                 raise error
             if argv[1] == "version":
                 return _Result(0, f"{version}\n")
+            # The scan is asked about two directories now: the one under test, and a
+            # temporary one the product plants a secret in to check the scanner still finds
+            # one. A stand-in answering `scan_code` to both is a stand-in for a scanner that
+            # has been made to find nothing, which is what the canary exists to refuse — so
+            # it answers "found" for anywhere that is not the directory this case is about.
+            if cwd != directory:
+                return _Result(1, "the canary")
             return _Result(scan_code, "a redacted finding line")
 
         return run, calls
@@ -636,12 +649,18 @@ def test_gitleaks_gate_requires_exact_version_and_three_clean_results(
         "8.30.1_exit_1": "FAIL",
     }
 
-    run, calls = _scanner(privacy.GITLEAKS_VERSION, 0)
+    run, calls = _scanner(privacy.GITLEAKS_VERSION, 0, directory=tmp_path)
     monkeypatch.setattr(privacy, "_run", run)
     assert privacy.gitleaks_v1(tmp_path).outcome == "PASS"
     # The exact command the specification names, run inside the unpublished record
     # directory and nowhere else.
-    assert calls == [(("gitleaks", "version"), tmp_path), (privacy.GITLEAKS_ARGV, tmp_path)]
+    # Three calls, in this order: the version, the directory, and the canary. The third is
+    # what makes the second's "clean" mean anything — it is the same argv against a directory
+    # holding a secret, so a scanner that answered clean to both would be talking about
+    # itself. It runs against somewhere else, which is why the third cwd is not `tmp_path`.
+    assert calls[:2] == [(("gitleaks", "version"), tmp_path), (privacy.GITLEAKS_ARGV, tmp_path)]
+    assert len(calls) == 3, calls
+    assert calls[2][0] == privacy.GITLEAKS_ARGV and calls[2][1] != tmp_path
     assert privacy.GITLEAKS_ARGV == (
         "gitleaks",
         "dir",
@@ -653,7 +672,7 @@ def test_gitleaks_gate_requires_exact_version_and_three_clean_results(
     )
     assert privacy.GITLEAKS_VERSION == "8.30.1"
 
-    run, _ = _scanner(privacy.GITLEAKS_VERSION, 1)
+    run, _ = _scanner(privacy.GITLEAKS_VERSION, 1, directory=tmp_path)
     monkeypatch.setattr(privacy, "_run", run)
     found = privacy.gitleaks_v1(tmp_path)
     assert found.outcome == "FAIL" and found.code == "ACCEPTANCE_GITLEAKS_SECRET"
@@ -661,14 +680,14 @@ def test_gitleaks_gate_requires_exact_version_and_three_clean_results(
     assert "redacted finding line" not in repr(found)
 
     for version, code in ((privacy.GITLEAKS_VERSION, 2), ("8.29.0", 0), ("8.30.2", 0), (None, 0)):
-        run, _ = _scanner(version, code)
+        run, _ = _scanner(version, code, directory=tmp_path)
         monkeypatch.setattr(privacy, "_run", run)
         verdict = privacy.gitleaks_v1(tmp_path)
         assert verdict.outcome == "INCOMPLETE", (version, code)
         assert verdict.code == "ACCEPTANCE_GITLEAKS_UNAVAILABLE", (version, code)
 
     for failure in (FileNotFoundError(), OSError("denied"), subprocess.SubprocessError()):
-        run, _ = _scanner(privacy.GITLEAKS_VERSION, 0, error=failure)
+        run, _ = _scanner(privacy.GITLEAKS_VERSION, 0, error=failure, directory=tmp_path)
         monkeypatch.setattr(privacy, "_run", run)
         assert privacy.gitleaks_v1(tmp_path).code == "ACCEPTANCE_GITLEAKS_UNAVAILABLE", failure
 
@@ -1318,3 +1337,75 @@ def test_a_junction_under_specs_is_refused_rather_than_followed(tmp_path) -> Non
     assert link.exists()
 
     assert acceptance.read(root).code == "ACCEPTANCE_UNSAFE_PATH"
+
+
+def test_a_scanner_that_reports_clean_and_cannot_find_a_planted_secret_is_refused(monkeypatch):
+    """`EP-051`, at the one artefact where flipping a byte proves nothing.
+
+    The version pin catches a scanner that is the wrong build. It cannot catch one that
+    reports the right version and finds nothing — a wrapper on `PATH`, a configuration that
+    disabled every rule, an ignore file somebody added upstream. From inside this process
+    those are indistinguishable from a clean tree, and "clean" is the answer the framework
+    then publishes about somebody's records.
+
+    So a clean scan is believed only after the same scanner, invoked the same way, has found
+    a secret planted where one certainly is. Three answers, three outcomes, and the middle
+    one is the whole point: a scanner that fails its own canary makes the result INCOMPLETE
+    rather than PASS.
+    """
+    from ai_engineering import acceptance_privacy as privacy
+
+    class Answer:
+        def __init__(self, code: int, out: str = "") -> None:
+            self.returncode, self.stdout, self.stderr = code, out, ""
+
+    def scanner(argv, cwd):
+        if argv[1] == "version":
+            return Answer(0, privacy.GITLEAKS_VERSION)
+        return Answer(0, "")
+
+    monkeypatch.setattr(privacy, "_run", scanner)
+
+    # It says clean about the records and clean about a file with a secret in it. That is a
+    # scanner talking about itself, and the verdict says so rather than passing.
+    monkeypatch.setattr(privacy, "_canary_holds", lambda directory: False)
+    refused = privacy.gitleaks_v1(ROOT)
+    assert refused.outcome == "INCOMPLETE"
+    assert refused.code == "ACCEPTANCE_GITLEAKS_UNAVAILABLE"
+    assert "planted in front of it" in refused.reason
+
+    # The canary itself could not run — a full disk, a scanner that crashed on the second
+    # call. That decides nothing, and deciding nothing is not the same as either answer.
+    monkeypatch.setattr(privacy, "_canary_holds", lambda directory: None)
+    undecided = privacy.gitleaks_v1(ROOT)
+    assert undecided.outcome == "INCOMPLETE"
+    assert "clean is unproven" in undecided.reason
+
+    # And the ordinary case, or the two above prove only that everything is refused.
+    monkeypatch.setattr(privacy, "_canary_holds", lambda directory: True)
+    assert privacy.gitleaks_v1(ROOT).outcome == "PASS"
+
+
+def test_the_canary_runs_the_real_scanner_and_finds_the_planted_secret():
+    """The canary against the scanner this machine actually has, not a stand-in.
+
+    Everything above monkeypatches `_canary_holds`, which proves the branches and not the
+    premise. The premise is that the planted secret is one this scanner finds — and the first
+    version of it was not: AWS's published example key is allowlisted precisely because every
+    tutorial contains it, so the canary came back False over a file with a credential in it
+    and would have made every clean run INCOMPLETE forever.
+    """
+    import shutil
+
+    from ai_engineering import acceptance_privacy as privacy
+
+    if shutil.which("gitleaks") is None:
+        pytest.skip("no scanner here, so nothing can be asked of it")
+
+    assert privacy._canary_holds(ROOT) is True, (
+        "the planted secret is not one this scanner finds, so the canary would refuse every "
+        "clean run for a reason that has nothing to do with tampering"
+    )
+    # And the fragments are fragments: this file is not itself a finding.
+    body = (ROOT / "src" / "ai_engineering" / "acceptance_privacy.py").read_text(encoding="utf-8")
+    assert privacy._CANARY_VALUE not in body, "the canary value is written whole in the source"

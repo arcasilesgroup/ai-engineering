@@ -643,7 +643,16 @@ def main(argv: list[str]) -> outcome.Result:
     # to let the install matrix run and put it back when the test that owns it said no —
     # the matrix is what changed instead, because a step that can never pass is a step that
     # proves nothing either way.
-    if not sys.stdin.isatty():
+    # …and a dry run is not an uninstall. It removes nothing and prints the plan, and behind
+    # this gate the flag was inert for every script, CI job and agent that has ever passed
+    # it — a preview nobody without a keyboard could take, which is most of the callers a
+    # preview exists for. An independent reviewer found it green in the suite because the
+    # one test that drives `--dry-run` monkeypatches `isatty` to True first.
+    #
+    # The keyboard is still required to remove, and required again below rather than only
+    # here: `-y` reaching the removal branch from a script is exactly what this gate was put
+    # here to stop, and moving it without restoring it is how that would happen quietly.
+    if not sys.stdin.isatty() and not args.dry_run:
         print("  INCOMPLETE: uninstall requires a person at a keyboard. Nothing removed.")
         return outcome.result("INCOMPLETE")
     installed = receipt_state()
@@ -687,6 +696,11 @@ def main(argv: list[str]) -> outcome.Result:
     if args.dry_run:
         print("  Dry run: the exact receipted removals above were derived; nothing was removed.")
         return outcome.dry_run(exact_changes=True)
+    # The keyboard again, because the gate at the top now lets a dry run past it. Anything
+    # reaching here is a removal, and `-y` from a script is the case that gate refuses.
+    if not sys.stdin.isatty():
+        print("  INCOMPLETE: uninstall requires a person at a keyboard. Nothing removed.")
+        return outcome.result("INCOMPLETE")
     if not (
         args.yes
         or (sys.stdin.isatty() and input("\n◆ Remove them? (y/N) › ").lower().startswith("y"))

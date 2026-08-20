@@ -33,7 +33,7 @@ because it is a reading aid for a diff, and a diff is what this lens loads for.
 
 ## The evidence manifest
 
-What `ai-verify` carried. One row per criterion, and a row is complete only when every
+What `ai-verify` carries. One row per criterion, and a row is complete only when every
 column is filled: the specification it comes from, the criterion in one line, the command
 that was run, the version of what ran it, the exit code it returned, and the digest of the
 artefact it produced. A row missing a column is INCOMPLETE and never a pass.

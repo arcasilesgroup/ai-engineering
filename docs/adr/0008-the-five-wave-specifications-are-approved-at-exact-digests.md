@@ -6,7 +6,10 @@ id: "0008"
 title: "The five wave specifications are approved at exact digests"
 date: "2026-08-15"
 spec: "011"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-17T13:22:17Z"
 supersedes: ""
 ---
 

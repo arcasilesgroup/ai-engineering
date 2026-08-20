@@ -1612,6 +1612,141 @@ def test_exception_is_hard_rename_without_plan_alias(
     assert invalid_guard.value.code == outcome.invalid_cli_exit()
 
 
+def test_a_preview_needs_no_keyboard_and_a_removal_still_does(
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`--dry-run` removes nothing, so the keyboard gate had no business refusing it.
+
+    Behind that gate the flag was inert for every script, CI job and agent — most of what a
+    preview exists for — and the suite could not see it, because the one test that drives
+    `--dry-run` sets `isatty` to True before it runs. An independent reviewer found it by
+    running the verb from a pipe. What must not move with it is removal: `-y` arriving from
+    a script is exactly what the gate was put there to stop, so it is asked again lower down
+    and both halves are held here.
+    """
+
+    monkeypatch.setattr(
+        uninstall.sys, "stdin", type("Pipe", (), {"isatty": staticmethod(lambda: False)})()
+    )
+
+    uninstall.main(["--dry-run"])
+    said = capsys.readouterr().out
+    assert "keyboard" not in said, "a preview was refused for having no keyboard"
+
+    removal = uninstall.main(["-y"])
+    assert removal.outcome == "INCOMPLETE"
+    assert "keyboard" in capsys.readouterr().out, "-y from a script was not stopped"
+
+
+def test_every_refusal_this_verb_can_print_says_what_and_says_nothing_was_removed(
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """One hundred and thirty mutants of `uninstall.main` survived the last measurement, and
+    almost every one is a sentence in this list.
+
+    A verb that deletes files owes two things in every refusal: what stopped it, and that
+    nothing was removed. The second is the load-bearing half — a message naming a cause and
+    leaving somebody unsure whether half their configuration is gone is worse than no message
+    — and it is exactly the half a test asserting only `outcome == "INCOMPLETE"` cannot see.
+
+    Each block is compared whole and in order. `in` would let a message keep its keyword and
+    lose its meaning, which is how a refusal becomes a string nobody can act on.
+    """
+
+    def piped(answer: bool) -> None:
+        monkeypatch.setattr(
+            uninstall.sys,
+            "stdin",
+            type("Pipe", (), {"isatty": staticmethod(lambda: answer)})(),
+        )
+
+    def lines() -> list[str]:
+        return [one for one in capsys.readouterr().out.splitlines() if one.strip()]
+
+    # No keyboard, and this is not a dry run.
+    piped(False)
+    assert uninstall.main(["-y"]).outcome == "INCOMPLETE"
+    assert lines() == ["  INCOMPLETE: uninstall requires a person at a keyboard. Nothing removed."]
+
+    # A receipt that is not there at all. `isolated_home` has never been installed into.
+    piped(True)
+    assert uninstall.main([]).outcome == "INCOMPLETE"
+    assert lines() == [
+        "  INCOMPLETE: the install receipt is missing, partial, corrupt or ambiguous.",
+        "  Nothing removed. Repair or migrate the receipt, then run uninstall again.",
+    ]
+
+    # A receipt that is present and unreadable answers with the same two lines, because from
+    # here the two are one fact: nothing here can say what was installed.
+    receipt = wiring.receipt_path()
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    receipt.write_text("{not json", encoding="utf-8")
+    assert uninstall.main([]).outcome == "INCOMPLETE"
+    assert lines()[0] == (
+        "  INCOMPLETE: the install receipt is missing, partial, corrupt or ambiguous."
+    )
+
+    # `--project` outside a repository. A different refusal, with a different cure, and the
+    # difference matters: this one is repairable by walking into the right directory.
+    receipt.write_text(json.dumps({"version": "0", "wrote": []}), encoding="utf-8")
+    monkeypatch.setattr(uninstall.paths, "repo_root", lambda: None)
+    monkeypatch.setattr(uninstall, "receipt_state", lambda: ({"version": "x"}, []))
+    assert uninstall.main(["--project"]).outcome == "INCOMPLETE"
+    assert lines() == [
+        "  INCOMPLETE: --project requires the repository that will be unwired.",
+        "  Nothing removed. Run this from inside the intended repository.",
+    ]
+
+    # And with a receipt naming nothing, there is nothing to remove — which is READY and not
+    # a refusal. A verb that reported INCOMPLETE over an empty receipt would be calling a
+    # clean machine a broken one.
+    assert uninstall.main([]).outcome == "READY"
+    assert lines() == [
+        "  0 things are recorded here, and 0 of them will be removed:",
+        f"  Kept, always: {', '.join(uninstall.KEEPS)}",
+        "  Nothing to remove.",
+    ]
+
+
+def test_a_recorded_target_this_run_cannot_place_stops_everything(
+    isolated_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The undecided branch, which is the most dangerous one in the verb.
+
+    A receipt row whose destination cannot be resolved is not a row to skip: skipping it
+    would mean removing everything around it and leaving one thing behind with nothing
+    recording that it stayed. So the whole run stops, and the message names each row rather
+    than counting them — a person has to know which target to look at.
+    """
+
+    monkeypatch.setattr(
+        uninstall.sys, "stdin", type("Tty", (), {"isatty": staticmethod(lambda: True)})()
+    )
+    row = {"kind": "guard", "path": "~/.somewhere/settings.json", "how": "json"}
+    monkeypatch.setattr(uninstall, "receipt_state", lambda: ({"version": "x"}, [row]))
+    monkeypatch.setattr(
+        uninstall, "fate", lambda one, root: f"{uninstall.UNDECIDED} it cannot be placed"
+    )
+    monkeypatch.setattr(uninstall, "canonical", lambda one, root: None)
+
+    result = uninstall.main([])
+    said = [one for one in capsys.readouterr().out.splitlines() if one.strip()]
+
+    assert result.outcome == "INCOMPLETE"
+    assert said[0] == "  INCOMPLETE: 1 recorded targets could not be undone:"
+    assert said[1] == "    guard    ~/.somewhere/settings.json  ·  it cannot be placed"
+    assert said[2] == (
+        "  Nothing removed. A destination this run cannot place is not one it may touch."
+    )
+    assert len(said) == 3
+
+
 def test_uninstall_is_explicit_and_returns_receipted_outcome(
     tmp_path: Path,
     isolated_home: Path,
@@ -2361,7 +2496,7 @@ def test_exception_refuses_aliased_bypass_and_leaves_no_grant_after_incomplete(
         outcome.result("PASS")
     )
     granted = json.loads(store.read_text(encoding="utf-8"))
-    assert granted["guard"] == "change_scope_guard"
+    assert granted["guard"] == "loop_guard"
     assert granted["reason"] == "a bounded and recorded exception"
 
 
@@ -2571,3 +2706,124 @@ def test_every_verb_states_its_will_before_mutating_and_counts_its_steps(
     payload = json.loads(machine.out)
     assert payload["command"] == "exception" and payload["outcome"] == "PASS"
     assert "RUNNING" not in machine.out and "will" not in payload
+
+
+def test_owned_means_exactly_our_entries_and_nothing_beside_them():
+    """Fifty-one mutants lived in the one function that decides whether uninstall may delete.
+
+    `_json_guard_owned` answers a question with two bad ways to be wrong. Too strict and
+    uninstall leaves our hooks behind in somebody's editor for ever, because it cannot prove
+    they are ours. Too loose and it deletes an entry a person added by hand. Nothing had asked
+    it either question: every fixture drove the file the installer had just written, which is
+    the one shape it is guaranteed to accept.
+
+    So each surface's exact shape is asserted true, and four near-misses are asserted false:
+    one of our entries missing, one extra of somebody else's beside ours, a required sibling
+    field flipped, and a command that is nearly but not quite the one we install.
+    """
+    from ai_engineering import uninstall, wiring
+
+    claude_hooks = [
+        {"type": "command", "command": wiring.command(event)} for event in wiring.EVENTS
+    ]
+    claude = {
+        "hooks": {
+            event: [{"matcher": "*", "hooks": [hook]}]
+            for event, hook in zip(wiring.EVENTS, claude_hooks, strict=True)
+        }
+    }
+    assert uninstall._json_guard_owned(claude, "json_claude")
+
+    # One of the four events missing: these are ours and they are not all here, so this file
+    # is not one uninstall wrote and it may not be rewritten as if it were.
+    short = {"hooks": {k: v for k, v in list(claude["hooks"].items())[:3]}}
+    assert not uninstall._json_guard_owned(short, "json_claude")
+
+    # Somebody else's hook beside ours is still owned, and that is the right answer — which is
+    # worth stating because the opposite is the intuitive one. This function asks whether *our*
+    # entries are exactly the ones we wrote, not whether the file contains nothing else. An
+    # editor's settings file is shared, so refusing here would leave our hooks in it for ever;
+    # what protects a person's work is that removal touches only the entries this answered for.
+    shared = {
+        "hooks": {
+            **claude["hooks"],
+            "PreToolUse": [
+                *claude["hooks"]["PreToolUse"],
+                {"matcher": "*", "hooks": [{"type": "command", "command": "their-own-tool"}]},
+            ],
+        }
+    }
+    assert uninstall._json_guard_owned(shared, "json_claude")
+
+    # A command one character from ours is not ours.
+    nearly = {
+        "hooks": {
+            event: [
+                {
+                    "matcher": "*",
+                    "hooks": [{"type": "command", "command": wiring.command(event) + " "}],
+                }
+            ]
+            for event in wiring.EVENTS
+        }
+    }
+    assert not uninstall._json_guard_owned(nearly, "json_claude")
+
+    # Cursor carries a sibling field that is part of what makes the file ours: without
+    # `failClosed` the entries could be anybody's copy of the same command.
+    cursor_hook = {"command": wiring.command("PreToolUse")}
+    cursor = {"failClosed": True, "hooks": {"beforeShellExecution": [cursor_hook, cursor_hook]}}
+    assert uninstall._json_guard_owned(cursor, "json_cursor")
+    assert not uninstall._json_guard_owned({**cursor, "failClosed": False}, "json_cursor")
+    assert not uninstall._json_guard_owned(
+        {"hooks": {"beforeShellExecution": [cursor_hook, cursor_hook]}}, "json_cursor"
+    )
+
+    # Codex's handler carries a timeout, a status message and an async flag, and each is part
+    # of the shape. A handler missing one is not the one this installer writes.
+    handler = {
+        "type": "command",
+        "command": wiring.command("PreToolUse"),
+        "timeout": 5,
+        "statusMessage": f"{wiring.MARK} guards",
+        "async": False,
+    }
+    codex = {"hooks": {"PreToolUse": [{"hooks": [handler]}]}}
+    assert uninstall._json_guard_owned(codex, "json_codex")
+    for field in ("timeout", "statusMessage", "async"):
+        thinner = {key: value for key, value in handler.items() if key != field}
+        assert not uninstall._json_guard_owned(
+            {"hooks": {"PreToolUse": [{"hooks": [thinner]}]}}, "json_codex"
+        ), field
+
+    # Copilot is compared whole rather than by collected entries, so anything beside ours is
+    # a different file.
+    copilot = {
+        "hooks": {"preToolUse": [{"type": "command", "command": wiring.command("PreToolUse")}]}
+    }
+    assert uninstall._json_guard_owned(copilot, "json_copilot")
+    assert not uninstall._json_guard_owned({**copilot, "theirs": 1}, "json_copilot")
+
+    # And a spelling this function does not know is refused rather than assumed owned, which
+    # is the direction that matters: an unknown surface is one uninstall must not touch.
+    assert not uninstall._json_guard_owned(claude, "json_something_new")
+
+
+def test_a_second_copy_of_one_of_our_own_entries_stops_the_removal():
+    """The case that does refuse, and the reason is the interesting half.
+
+    Somebody else's hook beside ours is fine: removal touches only our entries. But a second
+    copy of one of *ours* is not, because now the file holds nine entries this function
+    recognises and the installer writes eight. It cannot tell which of the two duplicates it
+    wrote, and removing both would be guessing. So it refuses, and the refusal is what stops an
+    uninstall from deleting an entry a person copied on purpose.
+    """
+    from ai_engineering import uninstall, wiring
+
+    mine = {
+        event: [{"matcher": "*", "hooks": [{"type": "command", "command": wiring.command(event)}]}]
+        for event in wiring.EVENTS
+    }
+    doubled = {"hooks": {**mine, "PreToolUse": [*mine["PreToolUse"], *mine["PreToolUse"]]}}
+
+    assert not uninstall._json_guard_owned(doubled, "json_claude")

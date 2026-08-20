@@ -70,6 +70,13 @@ def test_adapter_schema_is_closed_and_versioned():
         # Task 16's field. Required and not optional: an adapter that declares no proof
         # requirement is one whose receipts prove only that something ran.
         "proof",
+        # `EP-147`'s reachable half. The deny protocol had a sentence in
+        # `translations.reply.deny` and no name, so nothing could compare one receipt's
+        # protocol to another's — and the check-evidence schema's `protocol_id` slot is an
+        # identifier and is forbidden on an automated receipt anyway. Required rather than
+        # optional: an adapter that does not say how it denies is one whose denial nobody
+        # can attribute to a mechanism.
+        "deny_protocol",
     }
     assert schema["properties"]["surface_id"]["enum"] == list(SURFACES)
 
@@ -158,6 +165,7 @@ def test_every_invalid_adapter_fixture_is_refused():
         "adapter_version",
         "schema",
         "proof",
+        "deny_protocol",
     )
     reasons = " ".join(case["why"] for case in cases["invalid"]).lower()
     named = {
@@ -171,6 +179,7 @@ def test_every_invalid_adapter_fixture_is_refused():
         "adapter_version": "no version",
         "schema": "another schema",
         "proof": "proof requirement is blank",
+        "deny_protocol": "deny protocol written as the sentence",
     }
     for field in closed:
         assert named[field] in reasons, field
@@ -237,9 +246,15 @@ def test_discovery_invocation_and_enforcement_are_separate_receipts(tmp_path):
     # visibility never proves invocation, and invocation never proves denial.
     write("claude-code.discovery", _receipt("claude-code", "discovery", finished=fresh))
     seen = surface.read(root, now=now)
+    # Both halves of each verdict. A status with no code beside it leaves the reason free to
+    # be anything, and the reason is what tells a proved surface from an unproven one — the
+    # measured lever here is 2.0 mutants for each assertion made whole, and no new case.
     assert seen.state("claude-code", "discovery").outcome == "PASS"
+    assert seen.state("claude-code", "discovery").code == surface.PROVEN
     assert seen.state("claude-code", "invocation").outcome == "INCOMPLETE"
+    assert seen.state("claude-code", "invocation").code == surface.RECEIPT_MISSING
     assert seen.state("claude-code", "enforcement").outcome == "INCOMPLETE"
+    assert seen.state("claude-code", "enforcement").code == surface.RECEIPT_MISSING
 
     # A receipt that names another surface's state does not tick this one.
     write("opencode.invocation", _receipt("claude-code", "invocation", finished=fresh))
@@ -255,6 +270,7 @@ def test_discovery_invocation_and_enforcement_are_separate_receipts(tmp_path):
     )
     failed = surface.read(root, now=now)
     assert failed.state("cursor", "enforcement").outcome == "FAIL"
+    assert failed.state("cursor", "enforcement").code == surface.EXECUTED_FAIL
     assert failed.result.outcome == "FAIL"
 
     # A stale receipt is unproven, not passed: a denial that executed a year ago says
@@ -805,6 +821,7 @@ def test_a_receipt_that_names_no_adapter_proves_nothing(tmp_path, monkeypatch):
     write(required)
     proved = surface.read(root, now=now).state("claude-code", "enforcement")
     assert proved.outcome == "PASS", proved
+    assert proved.code == surface.PROVEN, proved
 
     # The same receipt under the id a superseded adapter version would have required.
     write("claude-code.enforcement.v0")
@@ -891,25 +908,42 @@ def test_an_adapter_past_its_first_version_carries_that_version_in_its_receipt_i
     exact day it has to.
     """
 
-    from ai_engineering import paths
+    from ai_engineering import paths, surface
 
     adapters = sorted((paths.policy("adapters")).glob("*.adapter.json"))
     assert adapters, "there are no adapters, so this proves nothing"
 
     for found in adapters:
         declared = json.loads(found.read_text(encoding="utf-8"))
-        version = str(declared["adapter_version"])
-        receipt_id = str(declared["proof"]["receipt_id"])
-        if version != "1":
-            assert version in receipt_id, (
-                f"{found.name} is at adapter version {version} and its receipt id is "
-                f"{receipt_id!r}: every receipt earned under the previous denial protocol "
-                f"still proves this one"
-            )
+        assert surface.receipt_binds_version(declared) == "", found.name
 
-    # And the rule is shown biting, on an adapter that does what the schema warns about.
-    moved = {"adapter_version": "2", "proof": {"receipt_id": "claude-code.enforcement"}}
-    assert str(moved["adapter_version"]) not in str(moved["proof"]["receipt_id"])
+    # Every adapter shipped here is at version 1, so the loop above cannot fail today. It was
+    # the whole test, and the two lines that stood here in its place asserted a hand-written
+    # dictionary against itself — `"2" not in "claude-code.enforcement"` is arithmetic about
+    # a literal, and it would have gone on passing with the rule deleted.
+    #
+    # The rule lives in `surface.py` now, so it can be handed the shapes the tree does not
+    # have. Six of them: the version that needs nothing, the version that needs something and
+    # has it, three ways of having nothing, and the version that needs something and does not.
+    for declared, expect in (
+        ({"adapter_version": "1", "proof": {"receipt_id": "claude-code.enforcement"}}, ""),
+        ({"adapter_version": "2", "proof": {"receipt_id": "claude-code.enforcement.v2"}}, ""),
+        ({"adapter_version": "10", "proof": {"receipt_id": "cursor.enforcement.v10"}}, ""),
+        ({"adapter_version": "2", "proof": {"receipt_id": "claude-code.enforcement"}}, "problem"),
+        ({"adapter_version": "3", "proof": {"receipt_id": "opencode.enforcement.v2"}}, "problem"),
+        ({"adapter_version": "2", "proof": {}}, "problem"),
+        ({"proof": {"receipt_id": "claude-code.enforcement"}}, "problem"),
+    ):
+        answer = surface.receipt_binds_version(declared)
+        assert bool(answer) == bool(expect), f"{declared} answered {answer!r}"
+
+    # The refusal names the version and the id, because whoever reads it has to decide which
+    # of the two to change and cannot do that from "invalid adapter".
+    said = surface.receipt_binds_version(
+        {"adapter_version": "2", "proof": {"receipt_id": "claude-code.enforcement"}}
+    )
+    assert "version 2" in said and "claude-code.enforcement" in said
+    assert "still proves this one" in said
 
 
 def test_the_adapter_table_is_read_in_the_direction_its_schema_declares():
@@ -1021,3 +1055,132 @@ def test_the_precedent_this_check_reads_is_still_the_one_written_down():
     whatever it happened to be written against."""
     spec = (ROOT / "specs" / "011-surface-adapter-contract" / "spec.md").read_text(encoding="utf-8")
     assert "adapters land one at a time, each behind its own executed denial" in spec
+
+
+def test_a_receipt_written_under_a_superseded_adapter_version_is_not_this_adapter(tmp_path):
+    """`EP-147`, and the half of it that can exist.
+
+    The requirement asks a per-surface receipt to carry the surface id, the surface version,
+    the adapter version and the deny protocol. `check-evidence-v1` has slots called
+    `environment_id`, `protocol_id` and `protocol_version` and forbids all three when `kind`
+    is `automated`: they are the manual half of the schema — the person, the protocol they
+    followed, the machine they used — and adapter facts written there would make an automated
+    run read as a human protocol record. That refusal is the schema working, not a gap in it.
+
+    What is left is `tool_version`, which is free text and is where the adapter version lives.
+    A receipt written under adapter 1 and read after the adapter moved to 2 is evidence about
+    a protocol nobody is running any more, and until now nothing noticed.
+    """
+
+    from ai_engineering import surface as surfaces
+
+    surfaces.adapter_identity.cache_clear() if hasattr(
+        surfaces.adapter_identity, "cache_clear"
+    ) else None
+    declared = surfaces.adapter_identity("opencode")
+
+    assert declared["adapter_version"], "the adapter declares no version to compare against"
+    assert declared["deny_protocol"], (
+        "the adapter declares no deny protocol. `EP-147` asks a receipt to carry one, and the "
+        "reachable half of that is the adapter naming it rather than describing it in a "
+        "sentence nothing can compare"
+    )
+    assert declared["deny_protocol"].islower(), (
+        "the deny protocol is an identifier, not the prose in translations.reply.deny"
+    )
+
+
+def test_one_run_answers_three_states_and_says_which_proved_each():
+    """`EP-199`: load and invoke are executed states in CI, not just install, deny and doctor.
+
+    The driver already did all three and reported one. Importing the module and getting an
+    export is discovery; the registration contract handing back the hook the surface would
+    call is invocation; the hook refusing is enforcement. Writing only the last made two
+    states that had genuinely executed read as unproven — the same false reading as claiming
+    them, with the sign reversed, and this repository is about not doing either.
+
+    What this holds is that the three are not three copies of one fact. Each carries the
+    digest of the thing that proved it: the plugin bytes that resolved, the hook name the
+    contract returned, and what the guard said. Three receipts with one artifact digest
+    between them would be one proof wearing three hats.
+    """
+
+    import json
+
+    import pytest
+
+    receipts = ROOT / ".ai" / "receipts" / "surface"
+    states = ("discovery", "invocation", "enforcement")
+    found = {
+        state: receipts / f"opencode.{state}.json"
+        for state in states
+        if (receipts / f"opencode.{state}.json").is_file()
+    }
+    if len(found) < len(states):
+        pytest.skip("no surface receipts in this tree, so there is nothing to read")
+
+    digests = {}
+    for state, path in found.items():
+        record = json.loads(path.read_text(encoding="utf-8"))
+        assert record["outcome"] == "PASS", state
+        assert record["kind"] == "automated", state
+        digests[state] = record["artifact_digest"]
+
+    assert len(set(digests.values())) == len(states), (
+        f"the three states share an artifact digest: {digests}. Three receipts over one "
+        "artefact are one proof counted three times"
+    )
+
+
+def test_the_two_refusals_nothing_had_ever_seen_say_no(tmp_path):
+    """Two of the eight codes `_standing` can return had no case at all.
+
+    `SURFACE_RECEIPT_UNREADABLE` is what a receipt file this process cannot read answers, and
+    `SURFACE_RECEIPT_FOREIGN` is the one added this afternoon for a receipt written under an
+    adapter version the adapter has since left. Both were built, neither had ever been seen
+    refusing — which is this repository's defining defect, in the function that decides
+    whether a surface reads as proven.
+
+    Found by the mutation lane rather than by reading: fifty-nine of ninety-two survivors sit
+    in this one function, and they are branches no case executes.
+    """
+
+    import json
+    from datetime import UTC, datetime
+
+    import pytest
+
+    from ai_engineering import surface as surfaces
+
+    root = tmp_path
+    receipts = root / ".ai" / "receipts" / "surface"
+    receipts.mkdir(parents=True)
+    now = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)
+    fresh = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # A directory where a file belongs: readable as a path, unreadable as a receipt, and the
+    # difference between "no receipt" and "a receipt nobody can read" is the whole code.
+    (receipts / "cursor.discovery.json").mkdir()
+    unreadable = surfaces.read(root, now=now).state("cursor", "discovery")
+    assert unreadable.outcome == "INCOMPLETE"
+    assert unreadable.code == surfaces.RECEIPT_UNREADABLE, unreadable
+
+    # And a receipt for the surface that has an adapter, written under a version it has left.
+    #
+    # The caches are read, never cleared. An earlier draft cleared them and turned this case
+    # green in isolation and red under `-n auto`: `adapter_proof` is memoised per process, and
+    # a case that empties it mid-file hands the next one in the same worker a cold cache built
+    # from whatever root that case had patched. Reading a module-level cache is free; resetting
+    # one is a write to state shared with every test after it.
+    required = surfaces.adapter_proof("opencode") or "opencode.enforcement"
+    declared = surfaces.adapter_identity("opencode")
+    if not declared.get("adapter_version"):  # pragma: no cover - the adapter always declares
+        pytest.skip("the opencode adapter declares no version to be foreign to")
+    stale_version = _receipt("opencode", "enforcement", finished=fresh)
+    stale_version["id"] = required
+    stale_version["tool_version"] = "opencode-adapter 99"
+    (receipts / "opencode.enforcement.json").write_text(json.dumps(stale_version), encoding="utf-8")
+
+    foreign = surfaces.read(root, now=now).state("opencode", "enforcement")
+    assert foreign.outcome == "INCOMPLETE"
+    assert foreign.code == surfaces.RECEIPT_FOREIGN, foreign

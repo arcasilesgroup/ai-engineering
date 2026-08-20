@@ -201,6 +201,52 @@ def _unavailable(reason: str) -> Verdict:
     return Verdict("INCOMPLETE", "ACCEPTANCE_GITLEAKS_UNAVAILABLE", reason)
 
 
+# The planted secret, in pieces so this file is not itself a finding, and the shape was
+# chosen rather than guessed. The first attempt used AWS's own published example key and the
+# canary came back False: the scanner allowlists it, precisely because it is the string every
+# tutorial contains. A canary the scanner is entitled to ignore fails for a reason that is not
+# the one it exists to detect, and it would have turned this control into a permanent refusal
+# on every clean run.
+#
+# What fires is the generic rule — a keyword the scanner knows, an assignment, and a value
+# with enough entropy to be a credential rather than a word. None of the fragments below is a
+# secret, and the file they build never leaves a temporary directory.
+_CANARY_KEYWORD = "api" + "_key"
+_CANARY_VALUE = "x9F2kQ7pLm3" + "Rt8Vn1Wz5Yb4" + "Hc6Jd0Ke"
+
+
+def _canary_holds(directory: Path) -> bool | None:
+    """Whether the scanner still finds a secret that is definitely there.
+
+    The version pin catches a scanner that is the wrong build. It cannot catch one that
+    reports the right version and finds nothing — a wrapper on `PATH`, a configuration that
+    disabled every rule, a `.gitleaksignore` somebody added upstream. From here those are
+    indistinguishable from a clean tree, and "clean" is the answer this framework then
+    publishes.
+
+    So a clean scan is only believed after the same scanner, invoked the same way, has found
+    a secret planted where one certainly is. `True` means it did, `False` means it did not,
+    and `None` means this check could not run and has decided nothing — which is a different
+    answer again and must not be read as either.
+
+    `EP-051` asks for a versioned tamper fixture that flips one byte of a security artefact
+    and forces a non-green result. A binary is the one artefact where flipping a byte proves
+    nothing: it either still runs or it does not. This is the equivalent that works — tamper
+    with the scanner's *answer* and the run stops being green.
+    """
+
+    import tempfile
+
+    try:
+        with tempfile.TemporaryDirectory() as area:
+            planted = Path(area) / "canary.txt"
+            planted.write_text(f'{_CANARY_KEYWORD} = "{_CANARY_VALUE}"\n', encoding="utf-8")
+            found = _run(GITLEAKS_ARGV, Path(area))
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return found.returncode == 1
+
+
 def gitleaks_v1(directory: Path) -> Verdict:
     """Scan one unpublished record directory with the exact pinned scanner.
 
@@ -228,4 +274,16 @@ def gitleaks_v1(directory: Path) -> Verdict:
         )
     if scan.returncode != 0:
         return _unavailable("the secret scanner returned an exit code with no defined meaning")
+
+    # Clean, and clean is the answer worth doubting. A FAIL is conclusive whatever the
+    # scanner is — it found something — so the canary runs only here, on the path where a
+    # scanner that had been made to find nothing would be believed.
+    canary = _canary_holds(directory)
+    if canary is None:
+        return _unavailable("the scanner's own canary could not be run, so clean is unproven")
+    if not canary:
+        return _unavailable(
+            "the scanner reported clean and then failed to find a secret planted in front "
+            "of it, so its clean answer is about the scanner and not about these bytes"
+        )
     return CLEAN

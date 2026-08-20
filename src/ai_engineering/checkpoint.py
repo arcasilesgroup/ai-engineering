@@ -17,16 +17,34 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
-from ai_engineering import acceptance_privacy, claim, dag, outcome
+from ai_engineering import acceptance_privacy, claim, dag, evidence, outcome
 
 RECEIPTS = Path(".ai") / "receipts"
 MAX_STAGED_BYTES = 400_000
 
 
+class Unreadable(outcome.Unreadable):
+    """Git was asked something and did not answer it."""
+
+
 def _git(root: Path, *args: str) -> str:
+    """Standard output, or a refusal. Never an empty string standing in for both.
+
+    It used to drop the exit code and return `done.stdout`, which for a failed call is the
+    empty string — so `staged` answered "nothing changed", `_compare` found nothing outside
+    the claim and reported PASS over zero files, `_privacy` had nothing to scan and reported
+    SKIPPED, and `verify` treats SKIPPED as neither a failure nor an incompletion. A
+    checkpoint published green because git broke. `ai-eng spec verify --base <ref that is
+    not there>` is the whole reproduction."""
+
     done = subprocess.run(
         ["git", "-C", str(root), *args], capture_output=True, text=True, timeout=60, check=False
     )
+    if done.returncode:
+        said = done.stderr.strip().splitlines()
+        raise Unreadable(
+            f"git {' '.join(args)} exited {done.returncode}" + (f": {said[0]}" if said else "")
+        )
     return done.stdout
 
 
@@ -52,9 +70,19 @@ def _privacy(root: Path, base: str = "") -> outcome.Fact:
     # call that an absolute path — so scanning the whole diff reported on git's punctuation
     # rather than on anything a person wrote. Removals are not scanned either: a line being
     # deleted was already in history, and this receipt is about what is being published.
+    try:
+        diff = _git(root, *_diff_args(base))
+    except Unreadable as refused:
+        return outcome.fact(
+            "staged-privacy",
+            "INCOMPLETE",
+            "The staged content",
+            str(refused),
+            cure="give a base this repository has, then check again",
+        )
     added = [
         line[1:]
-        for line in _git(root, *_diff_args(base)).splitlines()
+        for line in diff.splitlines()
         if line.startswith("+") and not line.startswith("+++")
     ]
     body = "\n".join(added)[:MAX_STAGED_BYTES]
@@ -124,9 +152,19 @@ def _compare(root: Path, base: str, claimed: list[str], named: str) -> outcome.F
     # and every path inside the claim read as outside it — a gate that failed the writer who
     # had done exactly what they claimed.
     claimed = [str(one).rstrip("/") for one in claimed]
+    try:
+        changed = staged(root, base)
+    except Unreadable as refused:
+        return outcome.fact(
+            "claimed-paths",
+            "INCOMPLETE",
+            "The claim in force",
+            str(refused),
+            cure="give a base this repository has, then check again",
+        )
     outside = [
         name
-        for name in staged(root, base)
+        for name in changed
         if not any(name == one or name.startswith(f"{one}/") for one in claimed)
     ]
     if outside:
@@ -139,6 +177,62 @@ def _compare(root: Path, base: str, claimed: list[str], named: str) -> outcome.F
         )
     return outcome.fact(
         "claimed-paths", "PASS", "The claim in force", f"every changed path is inside {claimed}"
+    )
+
+
+def _bound_to_this_tree(root: Path, folder: Path) -> outcome.Fact | None:
+    """The receipt that names the bytes it ran over, when there is one.
+
+    Everything else in this directory is chosen by age, and age is the weakest possible
+    reading: the windows on disk go up to a week, so a passing gate over entirely different
+    code publishes today's checkpoint. `ran.json` is the exception — `evidence.content_digest`
+    hashes every tracked and about-to-be-tracked file, and the commit-msg hook already refuses
+    a trailer when it does not match. `_executed` used to drop it, because it has no
+    `finished_at` and the handler that skips a malformed receipt swallowed the `KeyError`.
+
+    Preferred when present, and only then: a rule that refused every aged receipt would leave
+    a fresh clone permanently incomplete, because `.ai/receipts/` is not committed. And
+    preferred only over the aged receipts that PASSED — the first version of this returned
+    before the caller's failure scan, so a matching digest answered PASS over a fresh receipt
+    reporting FAIL, which is the shape the paragraph below was written to deny.
+
+    It carries no outcome field, so presence means the suite passed — the writer records it
+    after a green run and nowhere else. That is why this returns PASS or INCOMPLETE and never
+    FAIL: a failure leaves no receipt at all, and the aged reading is what catches that.
+    """
+
+    found = folder / "ran.json"
+    try:
+        record = json.loads(found.read_text(encoding="utf-8"))
+        recorded, suite = str(record["content"]), str(record.get("suite", "a suite"))
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    try:
+        measured = evidence.content_digest(root)
+    except (OSError, ValueError, subprocess.SubprocessError) as refused:
+        # Not None. Dropping through to the aged reading is how a repository whose git is
+        # broken reads PASS off a week-old receipt, which is the fail-open this lane exists
+        # to replace and the one `_git` above already refuses twice.
+        return outcome.fact(
+            "checks-executed",
+            "INCOMPLETE",
+            "The checks this diff affects",
+            f"the receipt names bytes and this tree could not be read: {refused}",
+            cure="check the repository is readable, then check again",
+        )
+    if recorded == measured:
+        return outcome.fact(
+            "checks-executed",
+            "PASS",
+            "The checks this diff affects",
+            f"{suite} ran over exactly these bytes",
+        )
+    return outcome.fact(
+        "checks-executed",
+        "INCOMPLETE",
+        "The checks this diff affects",
+        f"{suite} ran over {recorded[:12]} and this tree is {measured[:12]}",
+        cure=f"run `just {suite.replace(':', ' ')}` again, then check again",
     )
 
 
@@ -168,6 +262,13 @@ def _executed(root: Path, now: datetime | None = None) -> outcome.Fact:
         except (OSError, ValueError, KeyError, TypeError):
             continue
     failed = [row for row in fresh if row[0] != "PASS"]
+    # After the failure scan and not before it. A receipt bound to these bytes is the better
+    # evidence that something ran over this code; it is not evidence that nothing else
+    # reported a failure over the same code, and the first version of this returned above the
+    # scan and published PASS across a fresh FAIL.
+    bound = _bound_to_this_tree(root, folder)
+    if bound is not None and not failed:
+        return bound
     freshest = failed[0] if failed else (fresh[0] if fresh else None)
     if freshest is None:
         return outcome.fact(

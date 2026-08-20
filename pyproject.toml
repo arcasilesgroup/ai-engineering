@@ -53,30 +53,6 @@ packages = ["src/ai_engineering"]
 [tool.hatch.build.targets.sdist]
 include = ["src", "hooks", "surfaces", "git-hooks", "policy", "migrations", ".agents", "tests"]
 
-[tool.mutmut]
-# Only the package. mutmut runs the suite inside a `mutants/` copy and keys each mutant on
-# the module path it imports under, and the guards are imported bare because they are
-# executed by path and never as a package — that is the 110 ms this product refuses to
-# spend on its own hot path. mutmut says so itself: "tests import the source under a
-# different module path than mutmut sees". Making hooks/ a package to satisfy a test tool
-# would slow every tool call in every session, so the guards get tests/mutation.py instead.
-source_paths = ["src/ai_engineering"]
-# The sandbox holds only source and tests, and this suite reads files: the skills, the
-# wiring table, the git hooks, the doctrine. Without these the baseline run is red and
-# mutmut reports nothing rather than reporting a survivor.
-also_copy = [".agents", ".ai", ".github", "docs", "git-hooks", "hooks", "migrations", "policy",
-             "specs", "surfaces", "AGENTS.md", "CHANGELOG.md", "CLAUDE.md", "CONSTITUTION.md",
-             "LICENSE", "NOTICE", "README.md", "SECURITY.md", "justfile"]
-# test_contracts.py is left out on purpose and not because it is inconvenient: it asserts
-# the repository's own shape — the line ceiling, the doctrine's length, the skill contract
-# — which no mutant of the product can change, and it counts lines with `git ls-files`,
-# which the sandbox has no .git to answer.
-# The directory, never a list of files. A list was here first and it silently excluded
-# every test file added after it was written: six suites landed, killed 1,100 mutants
-# between them, and the score did not move by one point until this line stopped naming
-# names. A gate configured by enumeration reports the state of the enumeration.
-pytest_add_cli_args_test_selection = ["tests", "--ignore=tests/test_contracts.py"]
-
 [tool.pytest.ini_options]
 # Both halves of the product on the path. The guards are deliberately not importable as
 # part of the package — they are standard library Python executed by path, because on the

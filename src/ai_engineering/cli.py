@@ -20,20 +20,20 @@ import uuid
 from datetime import UTC, datetime
 from types import ModuleType
 
-from ai_engineering import __version__, outcome, paths, wiring
+from ai_engineering import __version__, outcome, paths
 
 VERBS: dict[str, str] = {
     "init": "Set up this machine, and this repository if you say yes.",
-    "doctor": "The 23 assertions and the coverage line. Is the system healthy now?",
+    "doctor": "The 25 assertions and the coverage line. Is the system healthy now?",
     "update": "Rewrite the pin and run the forward migrations.",
-    "spec": "spec new | spec list | spec show — the record of what was decided.",
+    "spec": "spec new | list | show | claim | wave | checkpoint — the record and its coordination.",
     "decide": "Add a decision to the spec, or promote it to an MADR with --madr.",
     "accept": "Accept a finding until a date, with a named owner and a reason.",
     "audit": "audit verify walks the whole chain; audit replay walks a session.",
     # What it does, not what it was going to do. The bare verb returns INCOMPLETE — "planned
     # for P2 and is not implemented" — so a line promising "the local governed report" sent a
     # stranger to a refusal. Three subcommands work today and the summary names them.
-    "report": "report digest | report issue | report surfaces — what this install can show.",
+    "report": "report digest | issue | surfaces | intent | blocked — what this install can show.",
     "exception": "Record a governed design exception, at a keyboard.",
     "uninstall": "Undo everything the receipt lists. The no-lock-in promise, as a command.",
 }
@@ -73,12 +73,20 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
     "spec": (
         "record what was decided, or list what already is",
         ("the Intent", "every spec"),
-        ("one new spec directory, on `spec new` only", "one claim ref, on `spec claim` only"),
+        (
+            "one new spec directory, on `spec new` only",
+            "one claim ref, on `spec claim` only",
+            "the remote-tracking refs a fetch updates, on `spec claim`, `spec checkpoint` "
+            "and `spec wave`",
+        ),
         # `spec claim` is the only subcommand that reaches a remote, and a will that named
         # no network for the verb that can take a claim would be the exact defect the
         # comment above this table describes: a command that opens a connection while
         # printing that it will not.
-        ("the git remote a claim is taken against, on `spec claim` only",),
+        (
+            "the git remote a claim is taken against, and the one `spec checkpoint` and "
+            "`spec wave` read the claims back from",
+        ),
     ),
     "decide": (
         "add a decision to its spec, or promote it to an MADR",
@@ -101,7 +109,7 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
     "report": (
         "produce the local governed report",
         ("the events", "this repository's records"),
-        ("the local digest read receipt",),
+        ("the local digest read receipt", "the Solution Intent page under docs/"),
         ("the configured observability endpoint, when one is configured",),
     ),
     "exception": (
@@ -286,6 +294,12 @@ def _json_dispatch(verb: str, rest: list[str], *, debug: bool = False) -> int:
     # built, and named apart from the module so that "not imported yet" and "the renderer"
     # are two things rather than one name meaning both.
     renderer: ModuleType | None = None
+    # The real stderr, held before `_silence` swaps it for /dev/null. Without this the
+    # `--debug` traceback below is written into the sink along with the child's prose, and
+    # the flag whose only job is to show a person what happened shows them nothing — a
+    # control that reads stronger than it is, in the one place a person looks when
+    # something has already gone wrong.
+    reachable = sys.stderr
     try:
         with _silence():
             from ai_engineering import ui
@@ -347,7 +361,7 @@ def _json_dispatch(verb: str, rest: list[str], *, debug: bool = False) -> int:
                 process_exit = execution.exit_code
             except BaseException:
                 if debug:
-                    traceback.print_exc()
+                    traceback.print_exc(file=reachable)
                 execution = outcome.execution(
                     outcome.result("INCOMPLETE"),
                     summary="The command failed before producing bounded execution facts",
@@ -493,10 +507,16 @@ def main(argv: list[str] | None = None) -> int:
         # be followed by two more lines of bookkeeping.
         interrupted = True
         code = 130
-    except wiring.Unreadable as why:
+    except outcome.Unreadable as why:
         # One place, because every verb that writes reads first. A file we cannot parse is
         # not an empty file, and the only safe thing to do with one is to stop and name it:
         # the alternative, which this used to do, is to treat it as empty and save over it.
+        #
+        # The base, not each module's own. Five readers had each named this condition for
+        # themselves and only `wiring`'s reached here, so a corrupt `docs/blocked.toml`
+        # printed UNEXPECTED_ERROR and "rerun with --debug for the trace" over a refusal the
+        # code named on purpose. Catching all five by listing them meant importing all five,
+        # which put twenty milliseconds on every verb including `--version`.
         sys.stderr.write(f"\n{why}\n")
         sys.stderr.write("Nothing was written. Fix that file, or move it aside and re-run.\n")
         paths.load("_emit").emit(verb, "error", error=repr(why))

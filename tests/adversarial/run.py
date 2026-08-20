@@ -51,11 +51,21 @@ REQUIRED: tuple[tuple[str, str, list[str]], ...] = (
 )
 
 
+# Every guard that denied during the last case, in order. Read by the reporter so a MISSED
+# names the guard that actually said no instead of the guard the case is about.
+DENIED_BY: list[str] = []
+
+
 def call(
     event: str, payload: dict, hooks: Path = HOOKS, cwd: Path | None = None, session: str = ""
 ) -> int:
-    """The guards judge the working directory they are called in, so every case runs
-    inside its own throwaway repository and never inside this one."""
+    """The guards judge the working directory they are called in, so a case that is about
+    the working directory passes `cwd` and gets its own throwaway repository. The rest run
+    where the suite runs, which is this one — and that is not free. A control case here was
+    once denied by a since-deleted scope guard and reported `MISSED control · self_protect`:
+    the right refusal, attributed to the wrong guard, and twenty minutes to find out. So the
+    denying guard's own line is kept and printed beside the result rather than thrown away
+    with the rest of stderr."""
     env = {**os.environ, "AI_ENG_SESSION": session or f"suite-{time.time_ns()}"}
     done = subprocess.run(
         [sys.executable, str(hooks / "chain.py"), event],
@@ -65,6 +75,10 @@ def call(
         env=env,
         cwd=str(cwd) if cwd else None,
     )
+    for line in done.stderr.splitlines():
+        if line.startswith("[") and "]" in line:
+            DENIED_BY.append(line[1 : line.index("]")])
+            break
     return done.returncode
 
 
@@ -270,30 +284,6 @@ def guard_crashes(tmp: Path) -> bool:
     return pre("Read", {"file_path": str(tmp / "any.txt")}, hooks=broken) == 2
 
 
-@case("no plan", "change_scope_guard")
-def no_plan(tmp: Path) -> bool:
-    """A stale plan stays shut: file three passes, four denies, and the new plan can open it."""
-    work = repo(tmp)
-    (work / "specs" / "001-old").mkdir(parents=True)
-    (work / "specs" / "001-old" / "plan.md").write_text("# a plan for something else\n")
-    git(work, "add", "-A")
-    if git(work, "commit", "-m", "docs: a plan this branch does not touch").returncode != 0:
-        raise RuntimeError("the old plan never landed, so the stale case was never asked")
-    git(work, "checkout", "-b", "feature")
-    for name in "abc":
-        (work / f"{name}.py").write_text("x = 1\n")
-    git(work, "add", "-A")
-    if git(work, "commit", "-m", "feat: three files").returncode != 0:
-        raise RuntimeError("the three files never landed, so the gate was never asked")
-    if pre("Edit", {"file_path": str(work / "c.py")}, cwd=work) != 0:
-        return False  # three is the budget, and a guard that denies at three is a bug
-    (work / "d.py").write_text("x = 1\n")
-    blocked = pre("Edit", {"file_path": str(work / "d.py")}, cwd=work) == 2
-    plan = work / "specs/002-feature/plan.md"
-    plan_writable = pre("Write", {"file_path": str(plan)}, cwd=work) == 0
-    return blocked and plan_writable  # crossing the budget cannot make /ai-plan block itself
-
-
 @case("skipping the hooks", "no_verify_guard")
 def skipping_hooks(tmp: Path) -> bool:
     return pre("Bash", {"command": "git commit --no-verify -m 'feat: x'"}) == 2
@@ -427,49 +417,6 @@ def control_loop(tmp: Path) -> bool:
     return codes == [0, 0]
 
 
-@case("write outside the claim", "claim_scope_guard")
-def outside_the_claim(tmp: Path) -> bool:
-    """A claim is held over one path and the write goes to another. The denial has to come
-    from the dispatcher rather than from a function a test called directly, because that is
-    the only version of it an agent ever meets."""
-
-    work = repo(tmp)
-    (work / ".ai").mkdir(exist_ok=True)
-    (work / ".ai" / "claim.json").write_text(
-        json.dumps({"item": "work-42", "paths": ["src/thing.py"]})
-    )
-    (work / "src").mkdir(exist_ok=True)
-    inside = pre("Write", {"file_path": str(work / "src" / "thing.py")}, cwd=work)
-    outside = pre("Write", {"file_path": str(work / "src" / "other.py")}, cwd=work)
-    return inside == 0 and outside == 2
-
-
-@case("control · claim_scope_guard", "none", controls="claim_scope_guard")
-def control_claim_scope(tmp: Path) -> bool:
-    """No claim in force is every repository that has never coordinated, and the guard has
-    no opinion there. A control that only proved the claimed path is writable would have
-    said nothing about the case that is almost all of them."""
-
-    work = repo(tmp)
-    (work / "anything.py").write_text("x = 1\n")
-    return pre("Write", {"file_path": str(work / "anything.py")}, cwd=work) == 0
-
-
-@case("control · change_scope_guard", "none", controls="change_scope_guard")
-def control_change_scope(tmp: Path) -> bool:
-    """Three files on a branch with no plan is the budget, not a breach. The attack proves
-    the fourth is denied; this proves the first three are not, which is the half that
-    decides whether the guard is usable at all."""
-
-    work = repo(tmp)
-    git(work, "checkout", "-b", "quiet-scope")
-    for name in "abc":
-        (work / f"{name}.py").write_text("x = 1\n")
-        if pre("Edit", {"file_path": str(work / f"{name}.py")}, cwd=work) != 0:
-            return False
-    return True
-
-
 @case("control · no_verify_guard", "none", controls="no_verify_guard")
 def control_no_verify(tmp: Path) -> bool:
     """An ordinary commit, and a command that merely contains the word. The guard reads a
@@ -480,6 +427,127 @@ def control_no_verify(tmp: Path) -> bool:
         pre("Bash", {"command": "git commit -m 'feat: an ordinary change'"}) == 0
         and pre("Bash", {"command": "grep -rn 'no-verify' docs/"}) == 0
     )
+
+
+def shared(tmp: Path) -> tuple[Path, Path, str]:
+    """One bare remote and two clones of it, with the base they both fetched.
+
+    Coordination is the one part of this product whose failure needs two writers, so the
+    guard cases above — one payload, one dispatcher — cannot reach it. `EP-040` asked for
+    the race, the moved base and the overlap to be here rather than only in the unit suite,
+    and it asked for a reason: what an agent meets is `ai-eng spec claim`, not
+    `claim.take()`, and only this file drives the verb.
+
+    The seed commit runs with no hooks. This repository's own pre-commit is on the path
+    these clones would otherwise inherit, and a fixture that trips the product's gate is a
+    fixture measuring the gate instead of the claim.
+    """
+
+    remote = tmp / "coord.git"
+    subprocess.run(["git", "init", "--bare", "-b", "main", str(remote)], capture_output=True)
+    clones = []
+    for name in ("one", "two"):
+        where = tmp / name
+        subprocess.run(["git", "clone", str(remote), str(where)], capture_output=True)
+        for key, value in (("user.email", "suite@example.com"), ("user.name", "suite")):
+            subprocess.run(["git", "-C", str(where), "config", key, value], capture_output=True)
+        clones.append(where)
+        if name == "one":
+            (where / "seed.txt").write_text("seed\n")
+            subprocess.run(["git", "-C", str(where), "add", "-A"], capture_output=True)
+            subprocess.run(
+                ["git", "-C", str(where), "-c", "core.hooksPath=", "commit", "-m", "chore: seed"],
+                capture_output=True,
+            )
+            subprocess.run(["git", "-C", str(where), "push", "origin", "main"], capture_output=True)
+    subprocess.run(["git", "-C", str(clones[1]), "fetch", "origin"], capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(clones[1]), "reset", "--hard", "origin/main"], capture_output=True
+    )
+    return clones[0], clones[1], git(clones[0], "rev-parse", "HEAD").stdout.strip()
+
+
+def claim(where: Path, item: str, base: str, path: str, role: str) -> int:
+    """The verb, run the way somebody runs it. Not the function the unit suite calls."""
+
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ai_engineering.cli",
+            "spec",
+            "claim",
+            item,
+            "--base",
+            base,
+            "--path",
+            path,
+            "--role",
+            role,
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(where),
+    ).returncode
+
+
+@case("two writers, one work item", "claim")
+def two_writers_one_item(tmp: Path) -> bool:
+    """The race, through the verb. Exactly one may win, and the loser is refused by the
+    remote rather than by a check on our side — which is the only version of it that holds
+    when the two writers are on different machines."""
+
+    one, two, base = shared(tmp)
+    outcomes = [
+        claim(one, "work-42", base, "src/thing.py", "writer-one"),
+        claim(two, "work-42", base, "src/thing.py", "writer-two"),
+    ]
+    return sorted(outcomes) == [0, 1]
+
+
+@case("a claim against a base that moved", "claim")
+def stale_base(tmp: Path) -> bool:
+    """The compare-and-swap half. The base a writer fetched has moved under it, and the
+    answer is a refusal: not a rebase, not a retry, not a warning it can ignore."""
+
+    one, two, base = shared(tmp)
+    (one / "moved.txt").write_text("moved\n")
+    git(one, "add", "-A")
+    git(one, "-c", "core.hooksPath=", "commit", "-m", "feat: move main on")
+    git(one, "push", "origin", "main")
+
+    return claim(two, "work-43", base, "src/thing.py", "writer-two") != 0
+
+
+@case("control · two claims over one path", "none", controls="claim")
+def overlapping_paths(tmp: Path) -> bool:
+    """Two work items reaching for the same file, and both are allowed. That is the design
+    and not a gap.
+
+    This was written as an attack and it failed, which is the useful half: `EP-194` records
+    that a hard path lease is refused until a real collision is on record, so refusing the
+    second claim here is exactly what this product decided not to do. What orders them is
+    `dag.order`, and what re-checks the claim afterwards is the merge gate, reading the
+    branch on the remote rather than a file on the machine doing the writing.
+
+    So it stays, as a control. A coordination mechanism that started refusing overlapping
+    claims would be a lease nobody decided to build, and this is the case that would notice.
+    """
+
+    one, two, base = shared(tmp)
+    first = claim(one, "work-44", base, "src/shared.py", "writer-one")
+    second = claim(two, "work-45", base, "src/shared.py", "writer-two")
+    return first == 0 and second == 0
+
+
+@case("control · claim", "none", controls="claim")
+def control_claim(tmp: Path) -> bool:
+    """One writer, an item nobody holds, the base they actually fetched. This is what every
+    claim looks like in a repository with one person in it, and a coordination mechanism
+    that refused here would be worse than none: nobody would take a claim at all."""
+
+    one, _, base = shared(tmp)
+    return claim(one, "work-46", base, "src/mine.py", "writer-one") == 0
 
 
 @case("control · self_protect", "none", controls="self_protect")
@@ -612,6 +680,7 @@ def main(root: Path = ROOT) -> int:
     guards: dict[str, bool] = {}
     unrunnable: list[str] = []
     for name, (guard, _controls, fn) in CASES.items():
+        DENIED_BY.clear()
         with tempfile.TemporaryDirectory() as raw:
             try:
                 caught, broke = bool(fn(Path(raw))), ""
@@ -629,7 +698,11 @@ def main(root: Path = ROOT) -> int:
         if guard != "none":
             guards[guard] = guards.get(guard, True) and caught
         word = "caught " if caught else ("NOT RUN" if broke else "MISSED ")
-        print(f"  {word} {name}{f'  ({broke})' if broke else ''}")
+        # A control that was denied names its denier. Without this a control case reads as
+        # a failure of the guard it is named after, whichever guard actually said no.
+        others = sorted({one for one in DENIED_BY if one != guard})
+        blame = f"  (denied by {', '.join(others)})" if not caught and not broke and others else ""
+        print(f"  {word} {name}{f'  ({broke})' if broke else blame}")
     if unrunnable:
         print(
             f"  NOT RUN {len(unrunnable)} of {len(CASES)} raised before reaching a verdict: "

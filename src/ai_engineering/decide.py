@@ -406,9 +406,37 @@ def accept(root: Path, number: str) -> outcome.Result:
         return outcome.result("INCOMPLETE")
     decision = found[0]
     raw = decision.read_bytes()
-    if madr._parse(raw).raw_fields.get("status") != '"proposed"':
-        print(f"  INCOMPLETE: {number} has already left `proposed`; accepting is not repeatable")
+    # Two conditions, and the second one was learned the expensive way.
+    #
+    # The message here used to be "has already left `proposed`" for anything whose status was
+    # not the *quoted* literal — so the three records written before the MADR schema, which
+    # carry a bare `status: proposed`, were refused with a sentence that is not what the file
+    # says and not what happened. It cost the operator five attempts at records they were
+    # entitled to look at, and a message that states something the code did not establish is
+    # this repository's most common defect.
+    #
+    # Widening it to accept both spellings was the obvious repair and it was wrong. Those
+    # three records have no MADR v1 frontmatter at all, so accepting one writes authority
+    # fields into a header the schema does not describe — and `madr.validate` then rejects
+    # the whole set. Measured: the graph went from PASS to MADR_SCHEMA_INVALID on the first
+    # acceptance. A verb that produces an invalid record is worse than one that refuses.
+    #
+    # So the refusal stands and it now says which of the two reasons it is. Accepting a
+    # pre-schema record means migrating its frontmatter first, and that is an edit to a
+    # historical record — a decision for a person, not a side effect of `--accept`.
+    status = madr._parse(raw).raw_fields.get("status", "")
+    header = raw.decode("utf-8")
+    if status != '"proposed"':
+        if status.strip('"') == "proposed":
+            print(f"  INCOMPLETE: {number} predates the MADR schema — its frontmatter has no")
+            print("  `schema`, `id` or `title`, so accepting it would write authority fields")
+            print("  into a header the schema does not describe and `ai-eng doctor` would")
+            print("  then reject every record. Migrate its frontmatter first, deliberately.")
+        else:
+            print(f"  INCOMPLETE: {number} reads `status: {status or 'missing'}`, and only a")
+            print("  proposed decision can be accepted. Nothing was written.")
         return outcome.result("INCOMPLETE")
+    spelling = 'status: "proposed"'
 
     authority = granted(root)
     if isinstance(authority, str):
@@ -423,9 +451,9 @@ def accept(root: Path, number: str) -> outcome.Result:
     # newline away from being forgeable by editing the Intent, and this is the file whose
     # whole purpose is to be the thing that cannot be forged. Ordinary values are unchanged
     # byte for byte; the escaping only shows up on values that were never legal.
-    written = raw.decode("utf-8").replace(
-        'status: "proposed"',
-        'status: "accepted"\n'
+    written = header.replace(
+        spelling,
+        spelling.replace("proposed", "accepted") + "\n"
         f"authority_role: {json.dumps(role, ensure_ascii=False)}\n"
         f"approval_ref: {json.dumps(reference, ensure_ascii=False)}\n"
         f'approved_at: "{stamped}"',

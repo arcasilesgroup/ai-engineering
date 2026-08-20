@@ -155,18 +155,37 @@ def test_the_intent_has_no_mirror_anywhere_in_the_repository() -> None:
 
 
 def test_ai_gitignore_unignores_only_the_records_that_are_reviewed(tmp_path: Path) -> None:
-    """Two records here are everybody's and are committed — the Solution Intent and the
-    readiness declaration a receipt is measured against. Everything else under `.ai/` is
-    this machine's, including the receipts themselves, and stays out of git."""
+    """Everything under `.ai/` is this machine's and stays out of git, except a named few.
+
+    Two are records that are everybody's: the Solution Intent and the readiness declaration a
+    receipt is measured against. Two more are the research documents the whole of spec 010 is
+    judged against — added on 2026-08-17 with the owner's agreement, because until then
+    `docs/requirements.toml` was the only in-tree record of what they asked and nobody but the
+    machine that wrote it could check the copy.
+
+    The list is asserted exactly, comments and all, so a fifth exception is a decision somebody
+    makes on purpose rather than a line that appears. That is the whole job of this test: `.ai/`
+    is disposable, and each thing rescued from it has to argue for itself.
+    """
 
     rules = (ROOT / ".ai" / ".gitignore").read_text(encoding="utf-8")
-    assert rules.splitlines() == [
+    kept = [line for line in rules.splitlines() if not line.startswith("#")]
+    assert kept == [
         "*",
         "!.gitignore",
         "!config.toml",
         "!intent.md",
         "!readiness.json",
+        "!reports/",
+        "!reports/evolution-proposal/",
+        "!reports/evolution-proposal/index.html",
+        "!reports/process-optimization-research/",
+        "!reports/process-optimization-research/index.html",
     ]
+    assert "judged against" in rules, (
+        "the exception for the reports carries no argument, and an exception without one is "
+        "how this file grows a sixth"
+    )
 
     repository = tmp_path / "repository"
     ignore_home = repository / ".ai"
@@ -1055,7 +1074,11 @@ def test_doctor_reports_intent_home_and_incomplete_reasons(tmp_path: Path) -> No
         check=True,
         capture_output=True,
     )
-    assert doctor.data_is_yours(canonical) is None
+    # `Noted`, not None: `EP-290` asks the check to publish what it inventoried, and a pass
+    # that says nothing is indistinguishable from a pass that looked at nothing.
+    answered = doctor.data_is_yours(canonical)
+    assert isinstance(answered, doctor.Noted)
+    assert "tracked files inventoried" in answered
     assert doctor.polarity(canonical) is None
 
     duplicate = canonical / ".ai" / "nested" / "intent.md"
@@ -1133,7 +1156,7 @@ def test_doctor_rejects_tracked_intent_mirrors_only(tmp_path: Path) -> None:
         check=True,
         capture_output=True,
     )
-    assert doctor.data_is_yours(allowed) is None
+    assert isinstance(doctor.data_is_yours(allowed), doctor.Noted)
 
 
 def test_audit_recomputes_intent_relations_without_metadata_proof(

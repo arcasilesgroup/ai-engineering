@@ -160,6 +160,80 @@ def adapter_proof(surface: str) -> str:
         return ""
 
 
+def receipt_binds_version(declared: dict) -> str:
+    """Whether this adapter's receipt id moves when its denial protocol does.
+
+    The schema decided how an enforcement receipt is bound to the adapter version and the
+    denial protocol, and it chose not to add two fields — a second source of truth beside
+    `receipt_id` is the EP-300 defect arriving again. It made the id itself move: "when a
+    superseding version of this adapter changes what a denial looks like, this id moves with
+    it and every receipt written under the old one stops proving anything."
+
+    That was a sentence in a description and nothing read it. An adapter could go to version
+    2, keep `claude-code.enforcement`, and every receipt earned against version 1's denial
+    would carry on vouching for a protocol that had changed underneath it.
+
+    Version 1 needs nothing in the id, because there is no earlier protocol for a receipt to
+    have been earned against. Every version after it does. Returns the problem, or "" when
+    there is none, so the caller decides what a problem costs.
+    """
+
+    version = str(declared.get("adapter_version", "")).strip()
+    receipt_id = str((declared.get("proof") or {}).get("receipt_id", "")).strip()
+    if not version or not receipt_id:
+        return "the adapter declares no version or no receipt id, so nothing binds them"
+    if version == "1" or version in receipt_id:
+        return ""
+    return (
+        f"adapter version {version} keeps receipt id {receipt_id!r}: every receipt earned "
+        f"under the previous denial protocol still proves this one"
+    )
+
+
+RECEIPT_FOREIGN = "SURFACE_RECEIPT_FOREIGN"
+
+
+def adapter_identity(surface: str) -> dict[str, str]:
+    """What a receipt for this surface must copy, and must not invent.
+
+    `EP-147` asks a per-surface receipt to carry the surface id, the surface version, the
+    adapter version and the deny protocol. Three of those four cannot go in a receipt at all,
+    and finding out why is the useful half of measuring this row.
+
+    `check-evidence-v1` has slots named `environment_id`, `protocol_id` and `protocol_version`
+    — and forbids every one of them when `kind` is `automated`. They are the manual half of
+    the schema: the person, the protocol they followed, the machine they used. Writing adapter
+    facts into them would make an automated run read as a human protocol record, which is the
+    schema stopping exactly the confusion it was closed to stop. The row recorded this as a
+    schema with none of the fields; it is a schema that has them and refuses them here, which
+    is a decision rather than a gap.
+
+    What an automated receipt may carry is `tool_version`, and that is the adapter version.
+    So that is what is compared, on the same principle `adapter_proof` applies to the id: the
+    field is evidence because it is a requirement the receipt did not get to choose. The deny
+    protocol now has a name in the adapter — `deny_protocol`, an identifier rather than the
+    sentence in `translations.reply.deny` — and the report prints it beside the surface, which
+    is the reachable half of what the requirement asked for.
+    """
+
+    import json
+
+    from ai_engineering import paths
+
+    try:
+        found = paths.policy(ADAPTERS) / f"{surface}.adapter.json"
+        if not found.is_file():
+            return {}
+        declared = json.loads(found.read_text(encoding="utf-8"))
+        version = str(declared.get("adapter_version", ""))
+        protocol = str(declared.get("deny_protocol", ""))
+        if not version or not protocol:
+            return {}
+        return {"adapter_version": version, "deny_protocol": protocol}
+    except (OSError, ValueError, TypeError, AttributeError):
+        return {}
+
+
 def _standing(root: Path, surface: str, state: str, now: datetime) -> Standing:
     def answer(status: str, code: str, age: int | None = None) -> Standing:
         return Standing(surface, state, status, code, age)
@@ -209,6 +283,20 @@ def _standing(root: Path, surface: str, state: str, now: datetime) -> Standing:
     required = adapter_proof(surface) if state == "enforcement" else ""
     if record.get("id") != (required or f"{surface}.{state}"):
         return answer("INCOMPLETE", RECEIPT_MISMATCH)
+
+    # And the three fields the adapter declares, where it declares them. A receipt carrying
+    # a deny protocol its adapter does not is a receipt about some other surface, or about
+    # this one under a protocol nobody reviewed; either way it is not proof of this adapter.
+    # Absent is not the same as wrong: a receipt written before these fields existed is
+    # incomplete rather than foreign, and the report says which.
+    if state == "enforcement":
+        declared = adapter_identity(surface)
+        version = declared.get("adapter_version")
+        # `tool_version` is free text by the schema, so what is checked is that it names the
+        # version the adapter declares. A receipt written under adapter 1 and read after the
+        # adapter moved to 2 is evidence about a protocol nobody is running any more.
+        if version and version not in str(record.get("tool_version", "")):
+            return answer("INCOMPLETE", RECEIPT_FOREIGN)
 
     age = _finished(record, now)
     if age is None:

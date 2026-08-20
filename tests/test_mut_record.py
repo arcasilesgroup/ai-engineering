@@ -189,10 +189,7 @@ def test_a_week_with_nothing_in_it_says_which_two_things_that_could_mean(report)
     assert "    assertion 7 is what tells the two apart." in printed
     assert "  Bypassed 0 times." in printed
     assert "  Quiet controls — no real block this window; liveness is assertion 7's job:" in printed
-    assert (
-        "    injection_guard, loop_guard, change_scope_guard, no_verify_guard, self_protect"
-        in printed
-    )
+    assert "    injection_guard, loop_guard, no_verify_guard, self_protect" in printed
     assert "  Commands: none" in printed
     assert "  Errors: 0" in printed
 
@@ -200,8 +197,8 @@ def test_a_week_with_nothing_in_it_says_which_two_things_that_could_mean(report)
 def test_a_control_that_blocked_this_week_is_not_listed_as_quiet(report):
     """The quiet list is the liveness reading. A guard that fired and is still named
     there tells the reader to go looking for a fault that is not present."""
-    report.events = [_event("change_scope_guard", "blocked", reason="no plan")]
-    assert "    injection_guard, loop_guard, no_verify_guard, self_protect" in report.run()
+    report.events = [_event("loop_guard", "blocked", reason="no plan")]
+    assert "    injection_guard, no_verify_guard, self_protect" in report.run()
 
 
 def test_only_the_six_loudest_blocks_are_printed(report):
@@ -261,15 +258,23 @@ def test_two_repeated_judgements_are_two_separate_rows(report):
     """Rule 12's list is read one line at a time and acted on one line at a time. Rows
     run together on a single line are rows that cannot be acted on."""
     report.events = [_event("loop_guard", "blocked", reason="a loop")] * 3 + [
-        _event("change_scope_guard", "bypassed", reason="shipping late")
+        _event("loop_guard", "bypassed", reason="shipping late")
     ] * 3
     printed = report.run()
-    assert "  Rule 12 — the same judgement, three times or more:" in printed
-    assert "    loop_guard · a loop 3× same verdict each time → owed a script" in printed
+    # The number in the heading is the constant that decides the rows under it, not a word
+    # typed beside it. It read "three times or more" while `OWED_A_SCRIPT` decided the
+    # threshold, so the sentence and the rule could have drifted apart in either direction
+    # and this assertion would have gone on passing.
+    # The heading now names what was measured as well as the threshold, because it prints on
+    # every run rather than only on the runs with something to say — an empty window and an
+    # absent check used to produce the same silence. Both numbers come from the run and the
+    # constant, so neither can drift into a sentence that stays true after the rule changes.
     assert (
-        "    change_scope_guard · shipping late 3× same verdict each time → owed a script"
-        in printed
-    )
+        f"  Rule 12 — 2 judgement(s) counted in this window, the most repeated 3×, "
+        f"owed a script at {report_command.OWED_A_SCRIPT}×:"
+    ) in printed
+    assert "    loop_guard · a loop 3× same verdict each time → owed a script" in printed
+    assert "    loop_guard · shipping late 3× same verdict each time → owed a script" in printed
 
 
 def test_a_configured_sink_that_is_receiving_nothing_says_so(report, monkeypatch):

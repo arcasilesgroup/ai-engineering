@@ -247,3 +247,213 @@ def test_a_failing_receipt_is_not_masked_by_a_passing_one_that_sorts_later(worki
 
     assert fact.status == "FAIL", fact
     assert fact.detail and "adversarial-attacks" in fact.detail
+
+
+def test_the_snapshot_the_checkpoint_is_taken_against_changes_what_it_sees(working):
+    """`EP-179` asks for the snapshot, freshness and final-combination correctness to be
+    three separately checkable things. This is the first of the three, and it was the one
+    nobody had checked.
+
+    It is called `base` here rather than snapshot, which is why an audit grepping for the
+    word found nothing: the parameter is threaded through `staged`, `_diff_args`, `_privacy`
+    and `_inside`, so every receipt is computed relative to it. What none of the eight
+    fixtures beside this one did was pass it. A parameter that decides which diff gets
+    scanned and that nothing exercises is a parameter that can stop working silently — and
+    the failure is the worst shape available: a checkpoint that scanned the wrong range and
+    reported clean.
+
+    So it is exercised both ways round. Committed work is invisible to a checkpoint taken
+    against HEAD and visible to one taken against the commit before it, over the same tree.
+    """
+    from ai_engineering import checkpoint
+
+    stage(working, "src/committed.py", "SECRET = 'not really'\n")
+    git(working, "commit", "-m", "feat: a commit this branch made")
+    behind = git(working, "rev-parse", "HEAD~1").stdout.strip()
+    head = git(working, "rev-parse", "HEAD").stdout.strip()
+    assert behind and head and behind != head
+
+    # No snapshot: only what is staged right now, and nothing is.
+    assert checkpoint.staged(working) == []
+
+    # Against HEAD: the commit is behind the snapshot, so it is not this checkpoint's to
+    # answer for. An empty answer here is correct and is exactly why the other direction
+    # has to be asserted too — on its own this line would pass with `base` ignored.
+    assert checkpoint.staged(working, head) == []
+
+    # Against the commit before it: the file appears, by name.
+    assert checkpoint.staged(working, behind) == ["src/committed.py"]
+
+
+def test_a_snapshot_that_names_nothing_is_not_read_as_a_clean_range(working):
+    """The fail-closed half. A base that no longer resolves — a rebased branch, a deleted
+    ref, a truncated SHA pasted by hand — must not answer "nothing changed", because that is
+    indistinguishable from a checkpoint over a branch that really changed nothing.
+
+    What this holds is that the answer is empty *and* the receipts do not claim a pass on
+    the strength of it. `git diff` against an unknown revision fails rather than returning
+    a diff, so the range is unreadable and the checkpoint has no evidence either way.
+    """
+    from ai_engineering import checkpoint
+
+    stage(working, "src/thing.py", "VALUE = 2\n")
+
+    unresolvable = "0" * 40
+    with pytest.raises(checkpoint.Unreadable) as refused:
+        checkpoint.staged(working, unresolvable)
+    assert "diff" in str(refused.value)
+
+    # And the staged file is still there to be found, which is the proof that the refusal
+    # above came from the unreadable range and not from an empty tree.
+    assert checkpoint.staged(working) == ["src/thing.py"]
+
+
+def test_a_checkpoint_over_a_base_that_does_not_exist_is_not_a_pass(working):
+    """The receipts a git failure used to produce, and what they said.
+
+    `_git` returned standard output and dropped the exit code, so an unreadable range gave
+    an empty file list: claimed-paths reported PASS over zero files, staged-privacy reported
+    SKIPPED because there was nothing to scan, and the aggregate treated SKIPPED as neither
+    a failure nor an incompletion. A checkpoint whose git call broke published green.
+
+    One command away from reachable: `ai-eng spec verify --base <ref that is not there>`.
+    """
+    from ai_engineering import checkpoint
+
+    stage(working, "src/thing.py", "VALUE = 2\n")
+    (working / ".ai").mkdir(exist_ok=True)
+    (working / ".ai" / "claim.json").write_text(
+        json.dumps({"item": "work-1", "paths": ["src"]}), encoding="utf-8"
+    )
+
+    answered = checkpoint.verify(working, base="0" * 40)
+
+    assert answered.outcome != "PASS", answered.summary
+    by_name = {fact.id: fact for fact in answered.checks}
+    assert by_name["claimed-paths"].status == "INCOMPLETE", by_name["claimed-paths"]
+    assert by_name["staged-privacy"].status == "INCOMPLETE", by_name["staged-privacy"]
+    # The message names the call that failed, because "something went wrong" sends a reader
+    # to the wrong file.
+    assert "diff" in by_name["claimed-paths"].detail
+
+
+def test_a_receipt_taken_before_the_staged_change_is_incomplete(working):
+    """The one receipt in the tree bound to content, and what reading it changes.
+
+    `ran.json` carries a digest over every tracked or about-to-be-tracked file, and the
+    commit-msg hook already refuses to write a trailer when it does not match. `_executed`
+    globbed the same directory and dropped it: no `finished_at`, `KeyError`, swallowed by the
+    handler that skips a malformed receipt. So the one receipt that could say "this ran over
+    exactly these bytes" was the one the checkpoint threw away, and what it kept instead was
+    chosen by age — up to a week, in the receipts on disk today.
+    """
+
+    from ai_engineering import checkpoint, evidence
+
+    receipts = working / ".ai" / "receipts"
+    receipts.mkdir(parents=True, exist_ok=True)
+    stage(working, "src/thing.py", "VALUE = 2\n")
+
+    matched = evidence.content_digest(working)
+    (receipts / "ran.json").write_text(
+        json.dumps({"suite": "quick:thing", "content": matched, "at": 0}), encoding="utf-8"
+    )
+    assert checkpoint._executed(working).status == "PASS"
+
+    # One edit after the run, and the receipt is about other bytes.
+    stage(working, "src/thing.py", "VALUE = 3\n")
+    stale = checkpoint._executed(working)
+    assert stale.status == "INCOMPLETE", stale
+    assert stale.cure and "quick" in stale.cure
+
+    # A digest receipt that is present and wrong outranks a fresh aged one that says PASS:
+    # the aged one proves a run happened somewhere, and this one proves it was not here.
+    (receipts / "local-command-python.json").write_text(
+        json.dumps(
+            {
+                "id": "local-command-python",
+                "outcome": "PASS",
+                "finished_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "max_age_seconds": 604800,
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert checkpoint._executed(working).status == "INCOMPLETE"
+
+
+def test_a_matching_digest_receipt_never_masks_a_fresh_failure(working):
+    """The precedence the early return got wrong, and the sentence it contradicted.
+
+    `_bound_to_this_tree` returned before the "worst of them decides" scan, so a `ran.json`
+    whose digest matched answered PASS over a fresh receipt reporting FAIL. Both are true at
+    once and neither is stale: `just check` writes the first, and `python tests/adversarial/
+    run.py` — which the always-loaded doctrine tells people to run — writes the second on its
+    way to failing, with no file edited in between, so the digest still matches.
+
+    The function's own docstring said "a failure leaves no receipt at all, which the aged
+    reading below still catches". The early return was what stopped it being caught.
+    """
+
+    from ai_engineering import checkpoint, evidence
+
+    receipts = working / ".ai" / "receipts"
+    receipts.mkdir(parents=True, exist_ok=True)
+    stage(working, "src/thing.py", "VALUE = 2\n")
+
+    (receipts / "ran.json").write_text(
+        json.dumps({"suite": "check", "content": evidence.content_digest(working), "at": 0}),
+        encoding="utf-8",
+    )
+    assert checkpoint._executed(working).status == "PASS"
+
+    (receipts / "adversarial-attacks.json").write_text(
+        json.dumps(
+            {
+                "id": "adversarial-attacks",
+                "outcome": "FAIL",
+                "finished_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "max_age_seconds": 86400,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    answered = checkpoint._executed(working)
+    assert answered.status == "FAIL", answered
+    assert "adversarial-attacks" in (answered.detail or "")
+
+
+def test_a_git_that_cannot_answer_does_not_fall_back_to_the_aged_reading(working, monkeypatch):
+    """The same fail-open shape Task 5 closed twice in this file, in the lane Task 7 added.
+
+    The digest needs git. When git cannot answer, returning None dropped through to the aged
+    receipts — so a repository whose git is broken read PASS off a week-old receipt, which is
+    the reading the bound receipt exists to replace."""
+
+    from ai_engineering import checkpoint, evidence
+
+    receipts = working / ".ai" / "receipts"
+    receipts.mkdir(parents=True, exist_ok=True)
+    (receipts / "ran.json").write_text(
+        json.dumps({"suite": "check", "content": "0" * 64, "at": 0}), encoding="utf-8"
+    )
+    (receipts / "gate.json").write_text(
+        json.dumps(
+            {
+                "id": "gate",
+                "outcome": "PASS",
+                "finished_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "max_age_seconds": 604800,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def refuse(*_args, **_kwargs):
+        raise OSError("git is not here")
+
+    monkeypatch.setattr(evidence, "content_digest", refuse)
+
+    answered = checkpoint._executed(working)
+    assert answered.status == "INCOMPLETE", answered

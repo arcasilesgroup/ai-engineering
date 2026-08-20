@@ -12,6 +12,7 @@ rather than implying otherwise.
 
 from __future__ import annotations
 
+import json
 import subprocess
 
 import pytest
@@ -119,7 +120,7 @@ def test_a_claim_record_carrying_a_machine_path_never_reaches_the_remote(tmp_pat
 def test_a_winning_claim_leaves_the_file_the_guard_reads_and_a_losing_one_does_not(
     tmp_path, remote
 ):
-    """The two halves have to agree. `claim_scope_guard` denies a write outside the claim
+    """The two halves have to agree. the merge gate refuses a claim it cannot match
     in force, and it reads that from `.ai/claim.json` — so the writer who lost the race must
     not be left holding a file that says it owns the work."""
 
@@ -157,3 +158,148 @@ def test_the_claim_object_carries_our_identity_and_not_the_machine_s(tmp_path, r
     assert "suite@example.com" not in author
     assert "ai-engineering" in author
     assert "work-45" in author and base in author
+
+
+def test_every_refusal_a_claim_can_give_says_its_own_code_sentence_and_cure(tmp_path, remote):
+    """Eighty-four mutants lived in the function that decides who holds a work item.
+
+    Six refusals, in a fixed order, and the order is the design: the tree is asked whether it
+    already holds a claim before anything is read, the record is scanned before
+    anything is built, the base is read before anything is pushed, and the race is settled by
+    the remote rather than by us. Each leaves the remote untouched, and each tells a different
+    person to do a different thing — read the new base, take a different task, check the
+    remote is reachable. The fixtures had asserted the codes and never the sentences or the
+    cures, so a writer who lost a race could have been told to check their disk.
+    """
+    from ai_engineering import claim
+
+    one, two = tmp_path / "one", tmp_path / "two"
+    good = claim.base(one)
+    assert good
+
+    # A record carrying a machine path never reaches the remote, and the cure says how to say
+    # the same thing without it.
+    refused = claim.take(one, "work-90", good, [str(tmp_path / "somewhere" / "thing.py")], "one")
+    assert refused.result.outcome == "INCOMPLETE"
+    assert refused.error.code == "CLAIM_RECORD_REFUSED"
+    assert refused.error.message.startswith("the claim record was refused before it was published")
+    assert refused.error.cure == (
+        "say the same thing with repository-relative paths and no personal data"
+    )
+    assert refused.error.retryable is False
+
+    # A base that has moved names both, shortened, so the reader can see which is which.
+    (one / "moved.txt").write_text("moved\n", encoding="utf-8")
+    git(one, "add", "-A")
+    git(one, "commit", "-m", "feat: move the base on")
+    git(one, "push", "origin", "main")
+    stale = claim.take(two, "work-91", good, ["src/thing.py"], "two")
+    assert stale.error.code == "CLAIM_BASE_STALE"
+    assert good[:12] in stale.error.message
+    assert stale.error.cure == "read the new base, decide again against it, and claim once"
+
+    # And the race, which git answers rather than we do. The loser is told to take another
+    # task, not to retry — a retry here is two writers taking turns at the same work.
+    fresh = claim.base(one)
+    assert fresh and fresh != good
+    won = claim.take(one, "work-92", fresh, ["src/thing.py"], "one")
+    assert won.result.outcome == "PASS"
+    lost = claim.take(two, "work-92", fresh, ["src/other.py"], "two")
+    assert lost.error.code == "CLAIM_LOST"
+    assert "another writer holds work-92" in lost.error.message
+    assert lost.error.cure == "read who holds it, and take a different task"
+    assert "retry" not in lost.error.cure
+
+
+def test_an_unreachable_remote_is_its_own_refusal_and_not_a_stale_base(tmp_path, remote):
+    """Two failures that look alike from a distance and are not: a base that moved is somebody
+    else's work landing, and a remote that cannot be read is a network or a permission. Telling
+    the second person to "read the new base" sends them looking for a change that is not
+    there."""
+    from ai_engineering import claim
+
+    one = tmp_path / "one"
+    good = claim.base(one)
+    git(one, "remote", "set-url", "origin", str(tmp_path / "no-such-remote.git"))
+
+    refused = claim.take(one, "work-93", good, ["src/thing.py"], "one")
+    assert refused.error.code == "CLAIM_BASE_UNAVAILABLE"
+    assert "could not be read, so there is no base to claim against" in refused.error.message
+    assert refused.error.cure == "check the remote is reachable and rerun"
+
+
+def test_the_claim_the_guard_reads_appears_only_after_the_remote_agreed(tmp_path, remote):
+    """The order that settles a race, asserted from the loser's side.
+
+    A local claim file written before the push would let a writer who lost carry on believing
+    it holds the work — which is exactly the disagreement the remote exists to settle. So the
+    winner has the file and the loser has none, and the winner's summary counts the paths it
+    actually claimed rather than saying "some".
+    """
+    from ai_engineering import claim
+
+    one, two = tmp_path / "one", tmp_path / "two"
+    shared = claim.base(one)
+
+    won = claim.take(one, "work-94", shared, ["src/a.py", "src/b.py"], "one")
+    lost = claim.take(two, "work-94", shared, ["src/c.py"], "two")
+
+    assert won.result.outcome == "PASS"
+    assert won.summary == f"work-94 is claimed at {shared[:12]} for 2 path(s)"
+    assert (one / claim.IN_FORCE).is_file()
+
+    assert lost.result.outcome == "INCOMPLETE"
+    assert not (two / claim.IN_FORCE).exists(), "the writer that lost the race kept a claim file"
+
+
+def test_a_second_claim_in_one_working_tree_is_refused(tmp_path, remote):
+    """One working tree, one writer — as an exit code rather than a sentence.
+
+    `take` wrote `.ai/claim.json` unconditionally: no lock, no check that one was already
+    there. Two writers in one tree over different items both won their own ref on the remote,
+    because the refs are named per item, and the second overwrote the single local file the
+    guard reads. From then on writer A was judged against writer B's paths — denied with a
+    message naming B's work item when the two are disjoint, and permitted to write outside
+    its own claim when B's are a superset.
+
+    The remote is untouched by the refusal, which is what makes the cure honest: the task is
+    still there to be taken from a worktree of its own."""
+
+    from ai_engineering import claim
+
+    root = tmp_path / "one"
+    base_sha = claim.base(root)
+    first = claim.take(root, "work-alpha", base_sha, ["src"], "writer")
+    assert first.outcome == "PASS", first.summary
+
+    refused = claim.take(root, "work-beta", base_sha, ["docs"], "writer")
+
+    assert refused.outcome == "INCOMPLETE", refused.summary
+    assert refused.error is not None
+    assert refused.error.code == "CLAIM_TREE_BUSY"
+    assert "work-alpha" in refused.error.message
+    assert "worktree" in refused.error.cure
+    assert ".ai/claim.json" in refused.error.cure
+
+    # The refusal changed nothing: the file still names the first claim, and the second item
+    # was never published, so somebody can still take it somewhere else.
+    held = json.loads((root / claim.IN_FORCE).read_text(encoding="utf-8"))
+    assert held["item"] == "work-alpha"
+    assert claim.held(root, "work-beta", "origin") is None
+
+
+def test_a_claim_file_nobody_can_read_is_the_same_refusal(tmp_path, remote):
+    """Fail closed. A scope the guard cannot see is not a scope, and carrying on would put
+    the writer back in the state this refusal exists to prevent."""
+
+    from ai_engineering import claim
+
+    root = tmp_path / "one"
+    where = root / claim.IN_FORCE
+    where.parent.mkdir(parents=True, exist_ok=True)
+    where.write_text("{not json", encoding="utf-8")
+
+    refused = claim.take(root, "work-beta", claim.base(root), ["docs"], "writer")
+
+    assert refused.outcome == "INCOMPLETE"
+    assert refused.error is not None and refused.error.code == "CLAIM_TREE_BUSY"

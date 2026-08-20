@@ -603,3 +603,92 @@ def test_replay_prints_what_it_found_and_says_so_when_it_found_nothing(anchored,
     )
     assert audit.main(["replay", "--session", "nobody"]) == outcome.result("PASS")
     assert capsys.readouterr().out == "  nothing recorded for that session\n"
+
+
+def _surface(monkeypatch, capsys, module, *argv: str) -> list[str]:
+    """One verb's whole help block, at a fixed width so it is comparable."""
+    import pytest as _pytest
+
+    monkeypatch.setenv("COLUMNS", "90")
+    with _pytest.raises(SystemExit):
+        module.main([*argv, "--help"])
+    return capsys.readouterr().out.rstrip("\n").splitlines()
+
+
+def test_the_accept_verb_says_exactly_what_it_accepts(monkeypatch, capsys):
+    """One hundred and eleven mutants of `accept.main` survived, and its surface is most.
+
+    This is the verb that accepts a risk — the one thing the constitution says a model never
+    does — so what it asks for is the whole of the accountability: who, why, until when, and
+    against what evidence. A help sentence rewritten or a field quietly made optional is
+    invisible to every test that passes valid arguments and reads the outcome.
+
+    `--expires` carries its consequence in its own help, and that is deliberate: a date with
+    no stated effect is a date nobody diaries.
+    """
+    from ai_engineering import accept
+
+    assert _surface(monkeypatch, capsys, accept) == [
+        "usage: ai-eng accept [-h] [--finding FINDING] [--severity SEVERITY] [--expires EXPIRES]",
+        "                     [--by BY] [--justification JUSTIFICATION] [--evidence EVIDENCE]",
+        "                     [--follow-up FOLLOW_UP] [--spec SPEC] [--expired]",
+        "",
+        "options:",
+        "  -h, --help            show this help message and exit",
+        "  --finding FINDING     the finding id being accepted",
+        "  --severity SEVERITY",
+        "  --expires EXPIRES     ISO date. After it, pre-push and doctor fail.",
+        "  --by BY               the accountable person or role",
+        "  --justification JUSTIFICATION",
+        "                        why this is acceptable, in one line",
+        "  --evidence EVIDENCE   repository-relative evidence file; its content digest is",
+        "                        recorded",
+        "  --follow-up FOLLOW_UP",
+        "  --spec SPEC           which spec it belongs to; needed when more than one is open",
+        "  --expired             list acceptances past their date",
+    ]
+
+
+def test_the_audit_verb_says_exactly_what_it_accepts(monkeypatch, capsys):
+    """One hundred and four in `audit.main`. Three actions and six flags, and the three that
+    matter are the ones that answer for a broken chain: which links, why, and who.
+
+    They are optional in the parser and required by the action, which is worth knowing before
+    reading either — `account` refuses without them at a controlling terminal rather than in
+    argparse, because the phrase a person types is the proof and argparse cannot ask for it.
+    """
+    from ai_engineering import audit
+
+    assert _surface(monkeypatch, capsys, audit) == [
+        "usage: ai-eng audit [-h] [--range RANGE] [--why WHY] [--by BY] [--anchors]",
+        "                    [--session SESSION] [--anchor]",
+        "                    [{verify,replay,account}]",
+        "",
+        "positional arguments:",
+        "  {verify,replay,account}",
+        "",
+        "options:",
+        "  -h, --help            show this help message and exit",
+        "  --range RANGE         the broken links to answer for, as FIRST-LAST",
+        "  --why WHY             why those links are there",
+        "  --by BY               the person answering for them",
+        "  --anchors             also check the anchors in git",
+        "  --session SESSION",
+        "  --anchor              print the footer for commit-msg",
+    ]
+
+
+def test_an_action_outside_the_three_is_refused_rather_than_run_as_verify(monkeypatch, capsys):
+    """The positional is a closed choice, and the closure is what matters: `audit` with a
+    misspelled action must not quietly walk the chain as if `verify` had been asked for. A
+    person who typed `acount` gets a refusal, not a report they will read as an answer."""
+    import pytest as _pytest
+
+    from ai_engineering import audit
+
+    monkeypatch.setenv("COLUMNS", "90")
+    with _pytest.raises(SystemExit) as refused:
+        audit.main(["acount"])
+
+    assert refused.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err

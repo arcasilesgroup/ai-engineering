@@ -58,7 +58,7 @@ P0: dict[str, tuple[str, str, str]] = {
         "policy/risk-acceptance-v1.schema.json",
         "x-acceptance-policy",
     ),
-    "hard-renames": ("hard renames", "CHANGELOG.md", "hooks/change_scope_guard.py"),
+    "hard-renames": ("hard renames", "CHANGELOG.md", "hooks/no_verify_guard.py"),
     "report-digest": ("`report digest`", "src/ai_engineering/report.py", 'add_parser("digest")'),
     "invalid-fixtures-first": (
         "with invalid fixtures red before valid implementations",
@@ -70,11 +70,15 @@ P0: dict[str, tuple[str, str, str]] = {
         "specs/010-governed-agentic-engineering-foundation/spec.md",
         "### P5 —",
     ),
+    # The rename happened and is recorded; the guard it renamed has since been deleted for
+    # blocking three times against 670 bypasses. So the proof moves from the file to the
+    # record — which is where a hard rename's proof belonged anyway, because a file proves
+    # only the name it currently has and never the name somebody used to type.
     "guard-rename": (
         "P0 hard-renames `design_gate` to `change_scope_guard`, with no alias, because the "
         "guard enforces approved scope and plan presence rather than judging design.",
-        "hooks/change_scope_guard.py",
-        "change_scope_guard",
+        "CHANGELOG.md",
+        "design_gate",
     ),
     "release-lanes": (
         "P0 retains the current trusted-publishing, provenance, dependency-audit, "
@@ -223,10 +227,38 @@ def test_p0_claims_nothing_that_belongs_to_a_later_wave():
     assert not (ROOT / "hooks" / "design_gate.py").exists()
 
     # And it is answered by the same command CI runs, rather than by a file somebody has to
-    # remember to run: `just check` calls `test`, and `test` runs the whole tests directory.
+    # remember to run. The whole tests directory still runs once per gate; it moved from
+    # `test` to `cover` when the gate stopped paying for it twice, and what `test` keeps is
+    # the half coverage instrumentation cannot measure — a latency bound, uninstrumented.
+    # Pinned as the pair rather than as one recipe's bytes, because the property is that
+    # every test runs, not which recipe happens to run it.
     recipe = (ROOT / "justfile").read_text(encoding="utf-8")
-    # The list is read rather than pinned as one string: `check` grew a `register` recipe in
-    # P5 and this assertion is about `test` being in it, not about the order of the others.
     called = recipe.split("\ncheck:", 1)[1].splitlines()[0].split()
-    assert "test" in called and "lint" in called and "security" in called, called
-    assert "\ntest:\n    uv run --with {{pytest}} pytest -q\n" in recipe
+    for owed in ("test", "cover", "lint", "security"):
+        assert owed in called, (owed, called)
+    selections = re.findall(r"pytest -q -n auto -k \"([^\"]+)\"", recipe)
+    assert sorted(selections) == ["fast_enough", "not fast_enough"], (
+        f"the two halves of the suite no longer partition it: {selections}. Between them "
+        "they must run every test exactly once."
+    )
+
+
+def test_the_gate_checks_the_page_is_about_this_tree():
+    """A generated document nothing verifies is a document that goes stale in a week.
+
+    The page under `docs/` is the one thing here written for a person rather than for a
+    machine, and the whole reason it can be trusted after nobody has looked at it for a
+    month is that the gate recomputes its digest. Which means the gate has to run it.
+
+    Before the receipt recipe, because that one writes last and a check after it would
+    record a run that had not finished."""
+
+    recipe = (ROOT / "justfile").read_text(encoding="utf-8")
+    called = recipe.split("\ncheck:", 1)[1].splitlines()[0].split()
+
+    assert "intent-page" in called, called
+    assert called.index("intent-page") < called.index("ran"), called
+    assert "\nintent-page:\n" in recipe
+    # And it is the module's own answer, not a second implementation of freshness.
+    body = recipe.split("\nintent-page:\n", 1)[1].split("\n\n", 1)[0]
+    assert "solution_intent" in body and "--check" in body

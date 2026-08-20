@@ -65,6 +65,25 @@ anchor_footer() {
   return 0
 }
 
+# What ran over exactly these bytes, when anything did. `PO-10` and `PO-14` ask whether
+# each commit ran its module's cheap suite instead of the whole gate, and whether the
+# practices the process removed stayed removed. Both were unanswerable: a gate run is a
+# process, its receipts are ignored, and nothing survived into the tree to read afterwards.
+#
+# Absent by default. The trailer appears only when a run is on record against the same
+# content this commit carries, so a commit with no trailer means nobody ran anything — which
+# is the reading that matters, and the one a trailer written unconditionally would destroy.
+# Like the anchor, it is a footer and never a gate: a hook that refuses commits is a hook
+# people escape with --no-verify.
+ran_footer() {
+  local ran
+  ran="$(uv run python "$(git rev-parse --show-toplevel)/tests/ran_receipt.py" trailer 2>/dev/null || true)"
+  [ -n "$ran" ] || return 0
+  git interpret-trailers --no-divider --in-place --trailer "$ran" "$1" ||
+    echo "commit-msg: the run receipt could not be placed; the commit stands." >&2
+  return 0
+}
+
 subject="$(head -n1 "$1")"
 # git writes these subjects itself. Refusing one strands a merge with MERGE_HEAD still
 # set and kills rebase --autosquash, and the only escape a person finds is --no-verify,
@@ -75,6 +94,7 @@ subject="$(head -n1 "$1")"
 # leave the commit out of the record.
 if grep -Eq '^(Merge |Revert |Reapply |fixup!|squash!|amend!)' <<<"$subject"; then
   anchor_footer "$1"
+  ran_footer "$1"
   exit 0
 fi
 grep -Eq '^(feat|fix|docs|refactor|test|chore|ci|perf|build|revert)(\([a-z0-9./-]+\))?!?: .{1,}' <<<"$subject" || {
@@ -82,4 +102,5 @@ grep -Eq '^(feat|fix|docs|refactor|test|chore|ci|perf|build|revert)(\([a-z0-9./-
   exit 1
 }
 anchor_footer "$1"
+ran_footer "$1"
 exit 0

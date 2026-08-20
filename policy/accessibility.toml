@@ -1,0 +1,227 @@
+# What "accessible" means for a program with no viewport, and which parts of it execute.
+#
+# `EP-022` asks for WCAG 2.2 AAA as the target and AA as the release floor. `EP-085` asks
+# that the floor be something a gate blocks on rather than a sentence in a document, and
+# `EP-292` asks for coverage over enumerated critical journeys — over a list nobody had
+# written, which makes any coverage figure a percentage of nothing.
+#
+# This is that list, and it is deliberately smaller than the standard. WCAG is written for
+# pages: it has criteria about viewports, images, focus order, reflow at 320 CSS pixels and
+# audio. This product is a command-line tool. Claiming AA over the whole standard would be
+# claiming to have met criteria that do not apply and cannot be tested here, which is the
+# false green this repository exists to remove — so every criterion below says either how it
+# is checked or why it cannot be, and there is no third state.
+#
+# The counterpart is that the criteria which *do* apply are not soft. Colour is the one a
+# terminal program gets wrong most often, and it is checked against every state this CLI can
+# print rather than against a sample.
+
+[floor]
+level = "AA"
+target = "AAA"
+# The floor a gate blocks on is the set of criteria marked `checked = true` below. AAA is
+# recorded as the direction and nothing here claims it: a claim nobody measures is what
+# `policy/pilot-register.toml` calls an indicator with no instrument.
+blocks_on = "every criterion with checked = true, in tests/test_accessibility.py"
+
+# ── the journeys ────────────────────────────────────────────────────────────────────
+#
+# The paths a person actually takes through this product. Enumerated because a coverage
+# figure over an unenumerated list is a hundred per cent of nothing, which is exactly what
+# EP-292 was filed for.
+
+[[journey]]
+id = "install"
+what = "a stranger installs the wheel and finds out whether it worked"
+entry = "uv tool install ai-engineering; ai-eng --version"
+
+[[journey]]
+id = "adopt"
+what = "somebody turns their repository into a governed one and reads what was written"
+entry = "ai-eng init"
+
+[[journey]]
+id = "gate"
+what = "somebody runs the gate and finds out whether the work may proceed"
+entry = "just check"
+
+[[journey]]
+id = "diagnose"
+what = "somebody asks what is wrong and gets one line per assertion"
+entry = "ai-eng doctor"
+
+[[journey]]
+id = "record"
+what = "somebody writes a spec, a plan or a decision and it is accepted or refused"
+entry = "ai-eng spec new"
+
+[[journey]]
+id = "report"
+what = "somebody reports a defect and confirms exactly what would be sent"
+entry = "ai-eng report issue"
+
+[[journey]]
+id = "remove"
+what = "somebody removes the framework and is told precisely what went"
+entry = "ai-eng uninstall"
+
+# ── the criteria ────────────────────────────────────────────────────────────────────
+
+[[criterion]]
+id = "1.4.1"
+name = "Use of colour"
+level = "A"
+checked = true
+means_here = """Every state this CLI prints carries a glyph and a word as well as a colour. \
+Two states share a colour today — INCOMPLETE and WARN are both yellow, CANCELLED and \
+WOULD_CHANGE are both dim — so colour alone cannot tell them apart and never could."""
+how = "tests/test_accessibility.py::test_no_state_is_told_by_colour_alone"
+
+# `reviewed` is on every argued criterion and on none of the checked ones, and the asymmetry
+# is the point. A criterion that executes is re-read by its test on every run. A criterion
+# held by a sentence is re-read only when somebody decides to, so the date says when that
+# last happened and `ai-eng doctor` reports one that has gone a year without.
+#
+# `EP-293` asked for the age of an accessibility exception and the answer was that none had
+# ever been recorded, so there was nothing to age. These are the recorded ones.
+
+[[criterion]]
+id = "1.4.3"
+name = "Contrast (minimum)"
+level = "AA"
+checked = false
+reviewed = "2026-08-17"
+reason = """The colours are the terminal's, not ours. This program names eight styles and \
+the emulator decides what each one looks like against a background we never chose, so a \
+contrast ratio measured here would be a number about this machine's colour scheme. What is \
+in our hands is 1.4.1 above: nothing depends on the colour arriving at all."""
+
+[[criterion]]
+id = "1.4.12"
+name = "Text spacing"
+level = "AA"
+checked = false
+reviewed = "2026-08-17"
+reason = "A terminal renders monospaced text at a size and spacing the person chose."
+
+[[criterion]]
+id = "2.1.1"
+name = "Keyboard"
+level = "A"
+checked = true
+means_here = """Every operation is reachable from the keyboard because there is nothing \
+else, and the two that ask a person to type do so on a controlling terminal rather than \
+reading a flag: `update` and `uninstall` refuse from a pipe instead of proceeding."""
+how = "tests/test_accessibility.py::test_every_decision_is_taken_at_a_keyboard"
+
+[[criterion]]
+id = "2.4.6"
+name = "Headings and labels"
+level = "AA"
+checked = true
+means_here = """Every result names its own outcome word before its detail, and each labelled \
+field is introduced by its label rather than by position."""
+how = "tests/test_accessibility.py::test_a_result_names_itself_before_it_explains_itself"
+
+[[criterion]]
+id = "3.3.1"
+name = "Error identification"
+level = "A"
+checked = true
+means_here = "A refusal carries a code and a reason in text, never only an exit status."
+how = "tests/test_accessibility.py::test_a_refusal_is_identified_in_words"
+
+[[criterion]]
+id = "3.3.3"
+name = "Error suggestion"
+level = "AA"
+checked = true
+means_here = """A result that blocked somebody carries the next action. This is the one \
+criterion the product was already built around — `outcome.Result` cannot be constructed \
+without it — and it is the reason it is worth stating: the standard has a name for the thing \
+this repository calls a cure."""
+how = "tests/test_accessibility.py::test_anything_that_blocks_says_what_to_do_next"
+
+[[criterion]]
+id = "1.1.1"
+name = "Non-text content"
+level = "A"
+checked = false
+reviewed = "2026-08-17"
+reason = """There is no non-text content. The glyphs are decoration on top of a word that \
+carries the same state, which is 1.4.1's job and is checked there; the plain output path \
+drops them entirely and loses nothing."""
+
+[[criterion]]
+id = "2.4.3"
+name = "Focus order"
+level = "A"
+checked = false
+reviewed = "2026-08-17"
+reason = "There is no focus. Output is a stream and the terminal owns the cursor."
+
+[[criterion]]
+id = "1.4.10"
+name = "Reflow"
+level = "AA"
+checked = false
+reviewed = "2026-08-17"
+reason = """Deliberately not met, and recorded rather than hidden: `ui.write` never wraps, \
+because a path that folds at column 80 is a path nobody can copy. A person on a narrow \
+terminal gets their emulator's own wrapping. Reopen this if somebody reports it."""
+
+# ── the level this file calls its target ────────────────────────────────────────────
+#
+# `target = "AAA"` sat at the top of this file with not one AAA criterion under it. Ten rows,
+# all A and AA. So the target was a word, and the comment beside the floor already names what
+# that is: an indicator with no instrument. `EP-022` asks for AAA as the target and AA as the
+# release floor, and half of it was a sentence nobody could refuse.
+#
+# These four are the AAA criteria a program with no viewport can be held to at all. Two are
+# met and named the test that proves it; two are not, and say why. The rest of AAA — enhanced
+# contrast, visual presentation, images of text, low or no background audio — is about
+# rendering this program does not do, and listing forty rows to say "no viewport" forty times
+# would bury the four that mean something.
+
+[[criterion]]
+id = "2.1.3"
+name = "Keyboard (no exception)"
+level = "AAA"
+checked = true
+means_here = """Everything is reachable from the keyboard because there is nothing else, and \
+the inverse is what is worth checking: the two verbs that ask a person to type refuse from a \
+pipe rather than taking a flag in place of the person."""
+how = "tests/test_accessibility.py::test_every_decision_is_taken_at_a_keyboard"
+
+[[criterion]]
+id = "3.3.5"
+name = "Help"
+level = "AAA"
+checked = true
+means_here = """Context-sensitive help at the point of failure, which for a command-line \
+program is the only place help is ever wanted. Everything that blocks names the next action, \
+and the criterion is met by that rather than by a manual somebody has to go and find."""
+how = "tests/test_accessibility.py::test_anything_that_blocks_says_what_to_do_next"
+
+[[criterion]]
+id = "3.3.6"
+name = "Error prevention (all)"
+level = "AAA"
+checked = false
+reviewed = "2026-08-19"
+reason = """Met for the verbs that publish or delete — they confirm, and refuse a flag in \
+place of a person — and not met as AAA states it, which is every submission being reversible, \
+checked or confirmed. Most verbs here submit nothing; the ones that write to the record are \
+append-only rather than reversible. Recorded as the honest partial rather than claimed."""
+
+[[criterion]]
+id = "1.4.6"
+name = "Contrast (enhanced)"
+level = "AAA"
+checked = false
+reviewed = "2026-08-19"
+reason = """Cannot be met by this program and cannot be measured from it. The colours are the \
+terminal's: eight named styles, and the emulator decides what each one looks like against \
+what background. This is 1.4.3 one level up and it fails for the same reason — the ratio \
+belongs to somebody else's configuration. It stands in here for the whole of the AAA that a \
+program with no viewport cannot reach."""

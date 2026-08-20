@@ -8,6 +8,7 @@ whole class of defect this repository exists to remove.
 from __future__ import annotations
 
 import copy
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -239,6 +240,32 @@ def test_two_skills_taking_one_case_is_a_fork_the_descriptions_cannot_show():
     assert any("both take the case" in line for line in found), found
 
 
+def test_one_labelled_case_contained_in_another_is_the_same_fork_a_word_longer():
+    """The asymmetry this closes, which was in the harness rather than in any corpus.
+
+    A skill's claims are compared to its neighbours' twice — once for the same phrase, and
+    once for a phrase that contains theirs, because "review this diff" and "review this diff
+    for security" are one fork with the ambiguity spelled out a word longer. The labelled
+    cases beside the skills were compared only the first way, so the sample the evaluation
+    actually runs on was held to a weaker rule than the descriptions above it.
+
+    Nothing in the corpus this repository ships trips it today. That is the reason to add it
+    now rather than after a case slips through: a rule written while the tree is clean is a
+    rule nobody had to argue with a red build about.
+    """
+
+    broken = copy.deepcopy(corpus())
+    borrowed = broken["ai-report"]["takes"][0]
+    broken["ai-debug"]["takes"].append(f"{borrowed} right now")
+    found = skill_eval.problems(broken)
+    # Named against the labelled case and not only against the shared wording: the claims
+    # rule ends in the same sentence, so a test that matched the tail alone would go green
+    # the day this rule was deleted and a description collided instead.
+    assert any("takes the case" in line and "one contains the other" in line for line in found), (
+        found
+    )
+
+
 def test_a_case_both_skills_refuse_leaves_the_person_who_wrote_it_nowhere():
     """The one this exists to catch. `ai-report` sends "this is failing, work out why" to
     `/ai-debug`; if `ai-debug` also refused it, each file would still read correctly on its
@@ -284,3 +311,143 @@ def test_a_corpus_row_that_is_not_a_quoted_case_is_skipped_and_not_guessed_at(tm
     # admission gate in `contract.audit_one` is what refuses that, and two checks refusing
     # the same thing in different words is one of them going stale.
     assert skill_eval.cases(tmp_path / "nothing-here") == {"takes": [], "sends": []}
+
+
+def test_the_evaluation_leaves_a_receipt_the_product_itself_will_accept(tmp_path, monkeypatch):
+    """`EP-281` asks for attestation, scan and evaluation as three separate records.
+
+    The scan half has had one since the adversarial suite got its two. The attestation half
+    needs a published release. The evaluation half had none — nothing had asked this run to
+    leave a record another command can read, so "the corpus was evaluated" was a line in CI
+    output and nothing else.
+
+    It is verified through `evidence.verify`, which is the product's own reader, rather than
+    by checking that some keys are present. The first version of this receipt wrote an empty
+    `artifact_digest`, the schema requires a `sha256:` value, and the run printed the
+    receipt's path anyway — a record of a check that no reader would accept, written by the
+    file whose subject is checks that only look like they ran.
+    """
+    import json
+    import subprocess
+    import sys
+    from datetime import UTC, datetime
+
+    from ai_engineering import evidence
+
+    where = ROOT / ".ai" / "receipts" / "skill-evaluation.json"
+    where.unlink(missing_ok=True)
+
+    done = subprocess.run(
+        [sys.executable, str(ROOT / "tests" / "skill_eval.py")],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        timeout=300,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout[-2000:]
+    assert where.is_file(), "the evaluation ran and left no record"
+
+    written = json.loads(where.read_text(encoding="utf-8"))
+    verdict = evidence.verify(
+        where.read_bytes(),
+        expected=evidence.Expectation(
+            kind="automated",
+            id="skill-evaluation",
+            applicability="applicable",
+            command="python tests/skill_eval.py",
+            tool_version=written["tool_version"],
+            input_digest=written["input_digest"],
+            artifact_digest=written["artifact_digest"],
+            max_age_seconds=86_400,
+        ),
+        now=datetime.now(UTC),
+    )
+    assert verdict.result.outcome == "PASS", verdict
+
+    # The digests say what was evaluated and what came out, or the receipt is a timestamp.
+    assert written["input_digest"].startswith("sha256:")
+    assert written["artifact_digest"].startswith("sha256:")
+    assert written["input_digest"] != written["artifact_digest"]
+
+    # And the input digest moves when a skill does. Without that the receipt would vouch for
+    # whatever the corpus is now rather than for what this run read.
+    #
+    # Proved over a copy. This used to append a line to `.agents/skills/ai-spec/SKILL.md` in
+    # the repository itself and restore it in a `finally`, which is correct in isolation and
+    # wrong under `-n auto`: for the length of two subprocess runs the tree really did carry
+    # an extra line, and every other worker reading that tree saw it. It cost two gates. The
+    # page's freshness check reddened because `solution_intent.read` opens live files, and
+    # `test_spec_010_004_intent_and_ceiling_transition_atomically` reddened because
+    # `contract.repo_lines` counts them — both intermittently, both blaming the wrong thing.
+    # An audit hook on `open` finally named this line. A test may read the tree it runs in;
+    # it may not write it.
+    corpus_root = tmp_path / "corpus"
+    shutil.copytree(ROOT / ".agents" / "skills", corpus_root / ".agents" / "skills")
+    monkeypatch.setattr(skill_eval, "ROOT", corpus_root)
+
+    before = skill_eval._corpus_digest()
+    (corpus_root / ".agents" / "skills" / "ai-spec" / "SKILL.md").write_bytes(
+        (ROOT / ".agents" / "skills" / "ai-spec" / "SKILL.md").read_bytes() + b"\n<!-- moved -->\n"
+    )
+    assert skill_eval._corpus_digest() != before
+
+
+def test_a_corpus_that_shrinks_is_refused_against_the_baseline(tmp_path, monkeypatch):
+    """`EP-289`'s checkable half: an evaluation that cannot shrink noticeably.
+
+    Nothing compared this run's size to anything, so the labelled corpus could have fallen
+    from 254 cases to 3 and the run would have printed `RAN skilleval=3` and exited zero.
+    A number nothing is compared against is decoration.
+
+    Three states, and the middle one is why the margin is zero: this evaluation is
+    deterministic, so a band around the number would be a tolerance for variance that does
+    not exist, and what it would hide is somebody deleting cases.
+    """
+    import tomllib
+
+    import skill_eval
+
+    register = tomllib.loads((ROOT / "policy" / "pilot-register.toml").read_text(encoding="utf-8"))
+    agreed = next(row for row in register["baseline"] if row["id"] == "skill-routing")
+    assert agreed["margin"] == 0, "a margin over a deterministic count hides deleted cases"
+
+    assert skill_eval._against_baseline(agreed["measured"]) == 0
+    assert skill_eval._against_baseline(agreed["measured"] - 1) == 1, "a lost case passed"
+    assert skill_eval._against_baseline(agreed["measured"] + 1) == 1, "a new case passed"
+
+    # A register with no baseline is not a run with nothing to compare against: it is a
+    # register to repair, and the difference is the whole point of the three states.
+    empty = tmp_path / "register.toml"
+    empty.write_text("[claim]\np5_complete = false\n", encoding="utf-8")
+    monkeypatch.setattr(skill_eval, "ROOT", tmp_path)
+    (tmp_path / "policy").mkdir()
+    (tmp_path / "policy" / "pilot-register.toml").write_text(
+        empty.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    assert skill_eval._against_baseline(254) == 1
+
+
+def test_the_baseline_is_the_number_this_tree_actually_measures():
+    """The pin and the tree, held together. A baseline that drifted from the corpus would
+    make every run red for a reason nobody could act on, which is the failure mode of a pin
+    nothing keeps honest — and it is why this asserts against a real run rather than against
+    the constant twice."""
+    import subprocess
+    import sys
+    import tomllib
+
+    register = tomllib.loads((ROOT / "policy" / "pilot-register.toml").read_text(encoding="utf-8"))
+    agreed = next(row for row in register["baseline"] if row["id"] == "skill-routing")
+
+    done = subprocess.run(
+        [sys.executable, str(ROOT / "tests" / "skill_eval.py")],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        timeout=300,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout[-2000:]
+    assert f"RAN skilleval={agreed['measured']}" in done.stdout
+    assert f"baseline {agreed['measured']}, delta +0" in done.stdout

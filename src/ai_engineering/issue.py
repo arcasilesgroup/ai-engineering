@@ -19,7 +19,7 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from ai_engineering import __version__, acceptance_privacy, paths
+from ai_engineering import __version__, acceptance_privacy, executor, paths
 
 SCHEMA = paths.policy("issue-v1.schema.json")
 SCHEMA_ID = "urn:ai-engineering:issue:1"
@@ -143,19 +143,43 @@ def confirmation(payload: dict) -> str:
     return f"SEND {payload['kind']} {digest(payload)[:16]}"
 
 
+def sandbox(root: Path) -> executor.Sandbox:
+    """The one capability this module acts as, named where the action happens.
+
+    `ai-report issue` declares `.ai/issue` as its only write root. That was a line in a
+    manifest nothing consulted; it is now the thing that decides whether the line below
+    writes anything at all, and this function is where the identity is claimed rather than
+    read out of a payload somebody else controls.
+    """
+
+    return executor.Sandbox(
+        "ai-report",
+        "issue",
+        root,
+        corpus=root / ".ai" / "runtime" / executor.CORPUS,
+    )
+
+
 def draft(root: Path, payload: dict) -> Path:
-    """Write the local draft and show what it holds.
+    """Write the local draft, through the capability that declares it, and show what it holds.
 
     The digest is printed beside the bytes so that a person confirming a send confirms one
     exact payload, and so that anything reading the receipt afterwards can tell whether the
     file changed between the preview and the confirmation.
+
+    The write goes through `executor.Sandbox` rather than straight to disk, which is the
+    difference between a manifest that describes this verb and a manifest that governs it.
+    An executor with no caller is a control nobody meets; this is its first caller, and the
+    refusal it can produce is a real one — `.ai/issue` replaced by a link out of the tree
+    stops the draft here instead of writing through it.
     """
 
-    written = draft_path(root)
-    written.parent.mkdir(parents=True, exist_ok=True)
     body = exact_bytes(payload)
-    written.write_bytes(body)
+    where = draft_path(root).relative_to(root)
+    written = sandbox(root).write(where.as_posix(), body)
     print(body.decode("utf-8"))
+    # The relative path, not the absolute one the sandbox resolved: `root` may itself sit
+    # under a link, and printing a machine path is what rule 8 forbids anyway.
     print(f"\n  sha256 {digest(payload)}")
-    print(f"  draft  {written.relative_to(root)}  (local, gitignored, nothing has been sent)")
+    print(f"  draft  {where}  (local, gitignored, nothing has been sent)")
     return written

@@ -37,18 +37,49 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     ("hooks/loop_guard.py", "REPEATS = 3", "REPEATS = 4", "how many repeats are a loop"),
     ("hooks/loop_guard.py", "[-60:]", "[:60]", "which end of a path discriminates it"),
     ("hooks/loop_guard.py", "FAILURES = 5", "FAILURES = 6", "how many failures are a wall"),
-    ("hooks/change_scope_guard.py", "BUDGET = 3", "BUDGET = 4", "the fourth file trips the gate"),
-    (
-        "hooks/change_scope_guard.py",
-        "if len(files) <= budget:",
-        "if len(files) < budget:",
-        "its edge",
-    ),
     ("hooks/chain.py", "re.fullmatch(m, tool", "re.match(m, tool", "a matcher that over-matches"),
     ("hooks/chain.py", "if not isinstance(body, dict):", "if False:", "an unreadable payload"),
     ("hooks/_wrap.py", "except BaseException", "except Exception", "a guard that crashes"),
-    ("src/ai_engineering/accept.py", "MAX_RENEWALS = 2", "MAX_RENEWALS = 3", "renewals"),
-    ("src/ai_engineering/accept.py", '"")) < today', '"")) <= today', "expiry, on the day"),
+    # The three that decide whether an action is allowed at all had no row between them, which
+    # is the whole reason the old apparatus was aimed away from the target: a floor of 89 over
+    # the package could move without any of these ever being touched. Each of these is a
+    # boundary somebody could plausibly write wrong, in a file whose failure is silent.
+    (
+        "hooks/no_verify_guard.py",
+        r"\bgit\b[^|;&]*\b(commit|push|merge|rebase|am)\b[^|;&]*--no-verify",
+        r"\bgit\b[^|;&]*\bcommit\b[^|;&]*--no-verify",
+        "--no-verify past a verb other than commit",
+    ),
+    (
+        "hooks/self_protect.py",
+        'if verb in WRITERS or (verb == "sed" and "-i" in words):',
+        "if verb in WRITERS:",
+        "sed -i as a writer",
+    ),
+    (
+        "hooks/self_protect.py",
+        "for match in REDIRECT.finditer(command):",
+        "for match in []:",
+        "a redirect aimed at a protected path",
+    ),
+    (
+        "hooks/injection_guard.py",
+        'text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")',
+        "text = text",
+        "the fold that stops a fullwidth letterform hiding a word",
+    ),
+    # Both rows named `accept.py`, and `accept.py` decides neither. Its `MAX_RENEWALS` has one
+    # use — a line it prints — so mutating it measured a display string, and its copy of the
+    # expiry comparison had already moved out from under the row, which is how the second one
+    # came to name an edit the file no longer holds. `acceptance.py` is where a renewal is
+    # refused and where an acceptance is called expired, so that is where the defects go.
+    ("src/ai_engineering/acceptance.py", "MAX_RENEWALS = 2", "MAX_RENEWALS = 3", "renewals"),
+    (
+        "src/ai_engineering/acceptance.py",
+        "e.expires < day",
+        "e.expires <= day",
+        "expiry, on the day itself",
+    ),
     (
         "src/ai_engineering/contract.py",
         "if len(lines) > CEILING:",
@@ -57,7 +88,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     ),
     (
         "src/ai_engineering/audit.py",
-        'prev = event.get("hash", "")',
+        'prev = stored if isinstance(stored, str) else ""',
         "prev = prev",
         "the chain link",
     ),
@@ -74,13 +105,19 @@ def quiet(*command: str) -> bool:
 
 
 def run_suite() -> bool:
-    """Both halves, in the order that costs least. pytest alone leaves every guard
-    threshold alive: the budgets and the windows are only ever crossed by the adversarial
-    suite, which pytest does not collect — the first run of this file said so, six
-    survivors in the two guards whose edges live over there. -x because one red is the
-    whole answer, and the slow half only runs when the fast half found nothing."""
-    fast = quiet(sys.executable, "-m", "pytest", "-qx", "--no-header", "-p", "no:cacheprovider")
-    return fast and quiet(sys.executable, str(ROOT / "tests" / "adversarial" / "run.py"))
+    """Both halves, in the order that costs least, and the cheap one is the adversarial run.
+    pytest alone leaves every guard threshold alive: the budgets and the windows are only
+    ever crossed by the adversarial suite, which pytest does not collect — the first run of
+    this file said so, six survivors in the two guards whose edges live over there.
+
+    A mutant is killed when either half goes red, so this is a conjunction and swapping its
+    two sides cannot change an answer, only the bill. It used to run pytest first, above a
+    docstring that already claimed the opposite; thirteen seconds now decide most rows
+    before sixty are spent on them. -x because one red is the whole answer."""
+    fast = quiet(sys.executable, str(ROOT / "tests" / "adversarial" / "run.py"))
+    return fast and quiet(
+        sys.executable, "-m", "pytest", "-qx", "--no-header", "-p", "no:cacheprovider"
+    )
 
 
 def main(only: str = "") -> int:

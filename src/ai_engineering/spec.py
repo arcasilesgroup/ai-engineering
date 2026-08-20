@@ -11,8 +11,11 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
+import json
 import re
 import stat
+import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
@@ -38,8 +41,8 @@ _MISSING_AUTHORITY = intent.Validation(
 )
 
 
-def _why_not_authority(status: str, role: str, owner: str, transition: dict) -> str:
-    """Which of the four conditions failed, in the values that failed it.
+def _why_not_authority(status: str, role: str, owner: str, transition: dict, approval: dict) -> str:
+    """Which of the five conditions failed, in the values that failed it.
 
     The one message covered four different situations and named none of them. Measured on
     this repository: the Intent was active and approved, and the verb refused because
@@ -47,7 +50,14 @@ def _why_not_authority(status: str, role: str, owner: str, transition: dict) -> 
     `repository maintainer` — two names for one person, and the check compares strings. The
     refusal was correct and unreadable, so it cost an afternoon and would have cost a
     stranger more. A control that is right and illegible gets worked around rather than
-    fixed."""
+    fixed.
+
+    Four branches for five conditions is the same defect one turn later, and an independent
+    reviewer proved it: an Intent differing only in `approval_ref` fell through every branch
+    and was told the role was one this framework refuses to read as an authority, about the
+    role it does accept. A wrong reason is worse than the one reason it replaced, because
+    the reader now has somewhere confident to go and it is the wrong place. The fall-through
+    is the last condition in the guard and nothing else may reach it."""
 
     if status != "active":
         return f"the Intent's lifecycle status is {status!r} and only 'active' grants this"
@@ -61,6 +71,12 @@ def _why_not_authority(status: str, role: str, owner: str, transition: dict) -> 
         return (
             f"the last transition was made by {transition.get('authority_role')!r} and the "
             f"approval is held by {role!r}"
+        )
+    if transition.get("approval_ref") != approval.get("approval_ref"):
+        return (
+            f"the last transition cites approval {transition.get('approval_ref')!r} and the "
+            f"approval on record is {approval.get('approval_ref')!r}. The Intent moved "
+            f"without the approval moving with it"
         )
     return f"the role {role!r} is one this framework refuses to read as an authority"
 
@@ -123,7 +139,9 @@ spec stops being checkable, and `ai-eng accept` is the only thing that accepts a
 
 TODO: Given / When / Then for the important success, the denial and the case nobody can
 decide. Observable outcomes, not intentions — an example whose Then is "it works" is a
-sentence, and the undecidable path is the one that gets forgotten.
+sentence, and the undecidable path is the one that gets forgotten. At least one Then
+names the command in backticks and the exact output beside it, because that is the half
+of an example a script can re-run and the half a vague one cannot fake.
 
 ## Decisions
 
@@ -200,6 +218,360 @@ def _canonical_specs(root: Path) -> list[Path]:
             raise OSError("canonical spec file is not one regular file")
         found.append(candidate)
     return sorted(found)
+
+
+EXAMPLES = "## Examples somebody can check"
+
+# Closed on purpose. A Then that names something nobody in this repository can run is prose
+# wearing a command, and the whole point of the clause is that it cannot be satisfied by
+# writing three words. `git` is here because specification 019's own success example uses it
+# and 019 is the only specification the gate's executable rule does not freeze.
+# ponytail: closed verb list, widen it when a specification legitimately names a tool that
+# is not on it — and widen it in the commit that needs it, so the reason is beside the word.
+RUNNABLE = ("ai-eng", "just", "uv", "pytest", "python3", "python", "git", "gh", "npm", "node")
+
+_SPAN = re.compile(r"`([^`]+)`")
+
+
+TASK_FIELDS = ("file", "check", "rollback", "done when")
+
+_TASK = re.compile(r"^\s*(\d+[a-z]*)\. \*\*(.+?)\*\*", re.M)
+_HEADING = re.compile(r"^#{1,6} ", re.M)
+_FIELD = re.compile(
+    r"\*\*(file|check|rollback|done when)\*\*:?(.*?)"
+    r"(?=\*\*(?:file|check|rollback|done when)\*\*|\n\n|\Z)",
+    re.S,
+)
+
+
+def plan_tasks(text: str) -> list[dict[str, str]]:
+    """Every numbered task of a plan, with the four fields the plan skill demands.
+
+    A plan is the one document in this repository nothing could read. Across thirteen of
+    them the task shape is three different things and sometimes absent, so an executor could
+    not be handed a task — only the whole file, which for the governing plan is 74,216 bytes
+    beside a 53,831-byte specification, re-read once per task. That is the second problem
+    the specification names and the one none of the first nine repairs touched.
+
+    A task is a numbered item whose title is bold — and the number may carry a letter, because
+    twenty-six of the tasks in this tree do: `39a` through `39u` and `52a` through `52c` in
+    spec 010, `6a` and `6b` in 011. Reading integers only found 90 of 116 and reported the
+    other twenty-six as absent rather than as unchecked, which is a gate describing its own
+    enumeration.
+
+    Its fields run to the next task or to the next heading, whichever comes first. Returned
+    as read, with no field invented: a task missing one comes back missing it, because a
+    parser that fills in blanks is a parser that hides them."""
+
+    found: list[dict[str, str]] = []
+    marks = list(_TASK.finditer(text))
+    for at, mark in enumerate(marks):
+        end = marks[at + 1].start() if at + 1 < len(marks) else len(text)
+        block = text[mark.start() : end]
+        # And it stops at a heading too. A task's block ran to the next numbered item, so an
+        # amendment section or a block heading between two tasks sat inside the first one —
+        # and a `**file**` written in that prose was read as the task's file. No plan donates
+        # a field today; 011 carries four amendment sections and is one authoring pass away.
+        heading = _HEADING.search(block)
+        if heading:
+            block = block[: heading.start()]
+        task: dict[str, str] = {"task": mark.group(1), "title": " ".join(mark.group(2).split())}
+        for name, value in _FIELD.findall(block):
+            task.setdefault(name, " ".join(value.split()).lstrip(": ").rstrip("."))
+        found.append(task)
+    return found
+
+
+def runs_something(value: str) -> bool:
+    """Whether a check field names a command this repository can run.
+
+    The plan skill has asked for this since it was written — "a check is a command, never a
+    judgement, and 'looks right' is not a check" — and nothing read it. The same closed list
+    the examples clause uses, for the same reason: a backticked phrase that starts with a
+    word nobody can type at a prompt is prose wearing a command."""
+
+    return any((one.split() or [""])[0] in RUNNABLE for one in _SPAN.findall(value))
+
+
+def _digest(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _envelope(home: Path, wanted: str, named: dict[str, str]) -> outcome.Result:
+    """One task, the two digests it was read under, and nothing else.
+
+    This is the answer to the second problem specification 019 names. An executor could not
+    be handed a task, only the document holding it: 74,216 bytes of plan beside a
+    53,831-byte specification, re-read once per task, because no plan had a shape a script
+    could enumerate. Task 15 gave plans that shape; this hands one task over.
+
+    Every unknown refuses rather than printing part of an envelope. A half-written one is
+    worse than none — it names a file and a check that may belong to a different task, and
+    the reader has no way to tell.
+    """
+
+    plan = home / "plan.md"
+    if not plan.is_file():
+        print(f"  no plan beside {home.name}, so there is no task to hand over")
+        return outcome.result("INCOMPLETE")
+    for what, path in (("spec", home / "spec.md"), ("plan", plan)):
+        asked = named.get(what)
+        if asked and asked != _digest(path):
+            # The caller said which bytes this is about and it is not these. Refusing is the
+            # whole reason an envelope can carry authority: a task extracted from a plan
+            # nobody approved is a task nobody approved.
+            print(f"  the {what} digest you named does not match {path.name} on disk")
+            return outcome.result("INCOMPLETE")
+    tasks = plan_tasks(plan.read_text(encoding="utf-8", errors="replace"))
+    if not tasks:
+        print(f"  {home.name} has a plan with no numbered tasks a script can enumerate")
+        return outcome.result("INCOMPLETE")
+    # A written task wins a collision. A plan whose "Options considered" list is numbered
+    # 1. and 2. parses those as tasks with no fields, and taking the first match returned
+    # the prose item and refused a task that exists and is whole. No plan in the tree has a
+    # duplicate id today; the refusal it produced was the wrong answer to the right question.
+    matching = [one for one in tasks if one["task"] == wanted]
+    found = next(
+        (one for one in matching if any(one.get(field) for field in TASK_FIELDS)),
+        matching[0] if matching else None,
+    )
+    if found is None:
+        print(
+            f"  no task {wanted} in {home.name}: it has {', '.join(one['task'] for one in tasks)}"
+        )
+        return outcome.result("INCOMPLETE")
+    # `.get`, not `in`. A bolded field marker with no value after it parses to an empty
+    # string, and testing for the key printed an envelope with blank lines where the file
+    # and the rollback should be — a partial envelope, which the paragraph above forbids.
+    missing = [field for field in TASK_FIELDS if not found.get(field)]
+    if missing:
+        print(f"  task {wanted} of {home.name} carries no {', '.join(missing)}")
+        return outcome.result("INCOMPLETE")
+
+    # Verified only when the caller named the digest. With no digest named this check
+    # proves nothing, and an envelope silent about the difference is one nobody can audit —
+    # so it says which of the two happened rather than refusing the ordinary case, where a
+    # person reading their own plan has no digest to hand.
+    print(f"  task: {found['task']}  {found['title']}")
+    for what, path in (("spec", home / "spec.md"), ("plan", plan)):
+        seal = " (verified)" if named.get(what) else ""
+        print(f"  {what}: {_digest(path)}{seal}")
+    for field in TASK_FIELDS:
+        print(f"  {field}: {found[field]}")
+    return outcome.result("PASS")
+
+
+ONE_WRITER = "one writer owns repository changes"
+
+
+def _declared_width(offered: str) -> int:
+    """A positive integer, or one. Absent, unparseable, zero and negative are all the same
+    answer, because a scheduler that guesses wide on a number it could not read is the
+    fail-open direction and this one has no other direction."""
+
+    try:
+        asked = int(offered)
+    except (TypeError, ValueError):
+        return 1
+    return asked if asked > 0 else 1
+
+
+def _width(
+    declared: int, ready: list[str], root: Path, facts: list[outcome.Fact]
+) -> outcome.Execution:
+    """The smallest of what was offered, what is ready, and one.
+
+    Its own function because every refusal above reaches it: a remote that did not
+    answer, a claim set with a cycle, a wave read cleanly. Each of those has a different
+    fact to add and the same arithmetic to run, and the first version reached the shared
+    half by raising an exception four lines up from the handler that caught it."""
+
+    widths = [declared, len(ready)]
+    # The test is whether the file parses as an Intent, not whether it is non-blank. Two
+    # earlier versions guarded a narrower shape each time — first the deleted file, then the
+    # emptied one — and each left a way through: a byte-order mark, undecodable bytes and a
+    # file of NUL bytes are all untouched by `str.strip()` and none of them is an Intent.
+    # `solution_intent` already reads this file with `json.loads`, so parsing is the shape
+    # the repository has rather than a new one. Specification 013's stated exit is that the
+    # sentence "has been swapped for another sentence"; anything that does not parse is
+    # neither the sentence nor another one, so the state is unknown, and unknown here is one.
+    try:
+        held = (root / ".ai" / "intent.md").read_text(encoding="utf-8")
+        json.loads(held)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        held = ""
+    if ONE_WRITER in held:
+        widths.append(1)
+        facts.append(
+            outcome.fact(
+                "one-writer",
+                "OBSERVED",
+                "The constraint the Intent holds",
+                f".ai/intent.md still says {ONE_WRITER!r}, so the width is one",
+            )
+        )
+    elif not held:
+        # A separate fact because the width is the same and the reason is not. Reporting
+        # "still says" over a deleted or unparseable file is a true number with a false
+        # reason, which is the defect the `claim.base` probe four commits ago exists to
+        # remove; it should not be reintroduced here to save a branch.
+        widths.append(1)
+        facts.append(
+            outcome.fact(
+                "one-writer",
+                "INCOMPLETE",
+                "The constraint the Intent holds",
+                ".ai/intent.md could not be read as an Intent, so the constraint's state "
+                "is unknown and the width is one",
+                cure="restore .ai/intent.md, or say in it what replaced the one-writer sentence",
+            )
+        )
+    width = max(1, min(widths))
+    facts.append(
+        outcome.fact(
+            "width",
+            "OBSERVED",
+            "How many writers this build could carry",
+            f"width: {width}",
+        )
+    )
+    return outcome.execution(
+        outcome.result("PASS"),
+        summary=f"width: {width}",
+        checks=facts,
+        remaining=[],
+    )
+
+
+def _wave(root: Path, offered: str, remote: str) -> outcome.Execution:
+    """How many writers this build could carry, computed and never spent.
+
+    The Intent says one writer owns repository changes until a separately approved
+    coordination plan proves otherwise, and specification 013 records that nothing
+    executable ever read that sentence — "whatever replaces the one-writer sentence arrives
+    with a check that fails, or the sentence has been swapped for another sentence". This is
+    the check. While the sentence is there the answer is one whatever anybody offers, and the
+    file that decided it is named, because a clamp nobody can trace is just a number.
+
+    The width is the smallest of three: what the surface says it can run, how many claims
+    have nothing in front of them, and one for every unknown. It grants nothing — the
+    writers still claim through the compare-and-swap on the remote, are still confined by
+    `claim_scope_guard`, and are still re-checked from the remote at the merge gate.
+    """
+
+    from ai_engineering import claim, dag
+
+    declared = _declared_width(offered)
+    ready: list[str] = []
+    facts = [
+        outcome.fact(
+            "declared-width",
+            "OBSERVED",
+            "What the surface said it can run",
+            f"{declared} from {offered or 'nothing offered'}",
+        )
+    ]
+    # Asked before the claims are read, because `claim.every` skips a ref it cannot read
+    # rather than failing — so an unreachable remote comes back as an empty list and reads
+    # as "nobody has claimed anything". The width would be right and the reason would be a
+    # lie: nothing was measured. `base` is the one call that says whether the remote answered.
+    if not claim.base(root, remote):
+        facts.append(
+            outcome.fact(
+                "wave",
+                "INCOMPLETE",
+                "The claims that could start together",
+                f"no claim was read from {remote}, so nothing there is coordinated against",
+                cure="check the remote is reachable, then ask again",
+            )
+        )
+        return _width(declared, ready, root, facts)
+
+    try:
+        ready = dag.wave(root, claim.every(root, remote))
+    except (OSError, ValueError, subprocess.SubprocessError) as refused:
+        facts.append(
+            outcome.fact(
+                "wave",
+                "INCOMPLETE",
+                "The claims that could start together",
+                f"{remote} could not be read: {refused}",
+                cure="check the remote is reachable, then ask again",
+            )
+        )
+    except dag.Unreadable as refused:
+        facts.append(
+            outcome.fact(
+                "wave",
+                "INCOMPLETE",
+                "The claims that could start together",
+                str(refused),
+                cure="split or merge the claims, or fix the file nobody can parse",
+            )
+        )
+    else:
+        facts.append(
+            outcome.fact(
+                "wave",
+                "OBSERVED",
+                "The claims that could start together",
+                ", ".join(ready) or "none are claimed on the remote",
+            )
+        )
+    return _width(declared, ready, root, facts)
+
+
+def examples_section(text: str) -> str:
+    """The body under the examples heading, or nothing.
+
+    One definition, because there were two and they disagreed. The gate over authored
+    specifications sliced the section itself while this module partitioned it, and after a
+    repair changed only one of them the two answered differently on a document that quotes
+    the heading in prose — which 019, a specification about this section, is one editing pass
+    from being.
+
+    The leading newline is prepended rather than tested for. A conditional fallback here
+    returned the whole document when the heading sat at position 0, so a specification with
+    no section at all — quoting the heading in prose beside an example — read as having one.
+    That is the fail-open direction, and it was introduced by the repair that added it.
+    """
+
+    return ("\n" + text).partition("\n" + EXAMPLES)[2].split("\n## ", 1)[0].replace("\r\n", "\n")
+
+
+def examples_facts(text: str) -> tuple[int, int, int, int]:
+    """(given, when, then, thens that name a command and the output beside it).
+
+    Counts, never a verdict: a caller decides what the numbers mean. The fourth is the one
+    that cannot be faked — spec 002 refused a rule that only asked for the three words,
+    because it goes green on "Given a user, When they click, Then it works".
+
+    A Then is executable when its paragraph carries a code span whose first word is on the
+    closed list above and at least one further span after it. Both halves are required: a
+    command with no expected output is an instruction, and an output with the command left
+    in prose is what the two specifications that have this section already carry."""
+
+    body = examples_section(text)
+    if not body:
+        return (0, 0, 0, 0)
+
+    given = when = then = executable = 0
+    for chunk in body.split("\n\n"):
+        flat = " ".join(chunk.split())
+        given += flat.count("Given ")
+        when += flat.count("When ")
+        then += flat.count("Then ")
+        if "Then " not in flat:
+            continue
+        # The whole paragraph, not the tail after `Then`. The canonical division of labour
+        # puts the action in When and the observation in Then — "When `just check` runs, Then
+        # it prints `2101 passed`" — and reading only the tail refused it. What is required is
+        # a runnable command with at least one span after it, wherever the two sit.
+        spans = _SPAN.findall(flat)
+        heads = [(one.split() or [""])[0] for one in spans]
+        if any(head in RUNNABLE for head in heads[:-1]):
+            executable += 1
+    return (given, when, then, executable)
 
 
 def status_of(path: Path) -> str:
@@ -336,7 +708,7 @@ def _authority(snapshot: _Snapshot) -> intent.Validation:
         return intent.Validation(
             _MISSING_AUTHORITY.outcome,
             _MISSING_AUTHORITY.code,
-            _why_not_authority(lifecycle["status"], role, owner, transition),
+            _why_not_authority(lifecycle["status"], role, owner, transition, approval),
         )
     return intent.PASS
 
@@ -608,6 +980,11 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     )
     shown = sub.add_parser("show")
     shown.add_argument("id", type=_argument(re.compile(r"^[0-9]+$"), "spec id"))
+    # Options on `show` rather than a sixth subcommand: the verb's closed list of five is
+    # pinned in four places and the ten verbs are the product's shape, not a convenience.
+    shown.add_argument("--task", type=_argument(re.compile(r"^[0-9]+[a-z]*$"), "task number"))
+    shown.add_argument("--spec-digest", default="")
+    shown.add_argument("--plan-digest", default="")
     listed = sub.add_parser("list")
     listed.add_argument("--all", action="store_true", help="include superseded specs")
     # The one subcommand here that reaches a remote, and the reason `spec`'s declared scope
@@ -620,6 +997,9 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     taken.add_argument("--path", action="append", default=[], required=True)
     taken.add_argument("--role", required=True)
     taken.add_argument("--remote", default="origin")
+    width = sub.add_parser("wave")
+    width.add_argument("--surface-width", dest="surface_width", default="")
+    width.add_argument("--remote", default="origin")
     checked = sub.add_parser("checkpoint")
     checked.add_argument("--base", default="", help="verify this branch against that SHA or ref")
     checked.add_argument("--item", default="", help="read the claim from the remote, not here")
@@ -630,6 +1010,8 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     if root is None:
         print("not inside a repository")
         return outcome.result("INCOMPLETE")
+    if args.action == "wave":
+        return _wave(root, args.surface_width, args.remote)
     if args.action == "checkpoint":
         from ai_engineering import checkpoint
 
@@ -656,14 +1038,41 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     if not matches:
         print(f"  no spec matches {args.id!r}")
         return outcome.result("INCOMPLETE")
+    if getattr(args, "task", None):
+        if len(matches) > 1:
+            print(f"  {args.id!r} matches {len(matches)} specs; name one of them exactly")
+            return outcome.result("INCOMPLETE")
+        return _envelope(
+            matches[0].parent,
+            args.task,
+            {"spec": args.spec_digest, "plan": args.plan_digest},
+        )
     # All of them, named. Printing the first and saying nothing about the rest is how
     # somebody reads one spec and acts as though it were the only one that matched.
     for match in matches:
         if len(matches) > 1:
             print(f"── {match.parent.name} ── {matches.index(match) + 1} of {len(matches)}")
         try:
-            print(match.read_text())
+            body = match.read_text()
         except OSError as why:
             print(f"  INCOMPLETE  {match.parent.name} could not be read: {why}")
             return outcome.result("INCOMPLETE")
+        print(body)
+        # What the examples section holds, for the specifications that have one. An
+        # observation and not a verdict — no status word, no exit code — because the
+        # examples were written into every specification by the template and read by nothing,
+        # and the honest first reader is the verb that already opens the file. Silent when
+        # there is no section: sixteen of the nineteen have none, and a row of zeroes under
+        # each of them is noise standing where a fact should be.
+        given, when, then, executable = examples_facts(body)
+        if given or when or then:
+            # "N of them" would put `1 of` in this line, and `tests/test_mut_spec.py`
+            # asserts that substring is absent from `show` output — it is the prefix of the
+            # `1 of 2` multi-match heading. It passes today only because the template's
+            # worked shape deliberately scores zero, so the guard would have been protected
+            # by another task's word choice rather than by anything structural.
+            print(
+                f"  examples: {given} given, {when} when, {then} then, "
+                f"{executable} naming a command and its output"
+            )
     return outcome.result("PASS")

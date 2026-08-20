@@ -6,10 +6,19 @@ name: release
 #
 # This used to say `ai-eng doctor` verifies it. No verb reads an attestation — the
 # sentence described a capability that had never existed, in a header comment, which is
-# where a claim hides longest: no test reads one and no reviewer diffs it twice. The
-# verifier, an SBOM naming the same digest, and the doctor-side check are specs/014's
-# work; until they land the honest statement is the command above. A test now binds the
-# two, so the claim can only return with the code.
+# where a claim hides longest: no test reads one and no reviewer diffs it twice. A test now
+# binds the claim to the code, so it can only return with it.
+#
+# Two of the three it deferred have since landed and this comment is the third thing that
+# had to move: **an SBOM naming the same digest** is built below by
+# `src/ai_engineering/sbom.py`, re-checked in this job against what `uv build` wrote, and
+# landed in `dist/` so the attestation step covers it as one subject. A comment that still
+# called that another wave's work was itself the stale kind of claim it warns about.
+#
+# What is genuinely still outstanding is the *verifier*: nothing in this framework fetches a
+# published artefact from the index and checks the attestation or the SBOM against it, which
+# needs the network and a release that exists. That is what `EP-049` and `EP-052` name, and
+# the honest statement for it remains the command above, typed by a person.
 
 on:
   push:
@@ -72,7 +81,7 @@ jobs:
           names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
           need = ["ai_engineering/hooks/chain.py", "ai_engineering/policy/iocs.yml",
                   "ai_engineering/git-hooks/pre-push", "ai_engineering/skills/ai-spec/SKILL.md",
-                  "ai_engineering/hooks/change_scope_guard.py",
+                  "ai_engineering/hooks/self_protect.py",
                   "ai_engineering/policy/risk-acceptance-v1.schema.json",
                   "ai_engineering/acceptance.py", "ai_engineering/acceptance_privacy.py"]
           gone = [n for n in names if n.endswith(("hooks/design_gate.py", "/plan.py", "/digest.py"))]
@@ -82,6 +91,28 @@ jobs:
           if missing:
               raise SystemExit(f"the wheel is missing {missing}")
           print("the wheel carries the guards, the policy, the git hooks and the skills")
+          PY
+
+      # Into `dist/`, because the job below attests `dist/*` as one subject list: a
+      # document written anywhere else is attested by nothing. No tool is fetched for this
+      # — the emitter is standard library and ships in the tree being released, which is
+      # the same reason this job refuses a tool cache.
+      - name: describe what was built, beside what was built
+        run: |
+          uv run python -m ai_engineering.sbom dist/*.whl
+          # `sbom.matches`, and not the comparison written out again here. Inline, this was
+          # the one check standing between a swapped document and a published release, in a
+          # job that runs only on a tag — so it had never executed and nothing could make it.
+          # As a function it has fixtures: a valid document describing another wheel, a
+          # single edited character, and four unreadable shapes, each refused.
+          uv run python - <<'PY'
+          import glob, pathlib, sys
+          from ai_engineering import sbom
+          wheel = pathlib.Path(glob.glob("dist/*.whl")[0])
+          bom = pathlib.Path(glob.glob("dist/*.cdx.json")[0])
+          if not sbom.matches(wheel, bom):
+              sys.exit(f"{bom.name} does not describe the wheel this job built")
+          print(f"the SBOM describes the wheel that was built: {wheel.name}")
           PY
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

@@ -131,8 +131,13 @@ def _chain_bytes(path: Path) -> tuple[bytes, str]:
 
 
 def read(root: Path | None) -> list[dict]:
-    emit = paths.load("_emit")
+    # Inside the `try`, and the `except` below has listed `ImportError` since it was written.
+    # The load was one line above it, so an emitter that cannot be imported — a half-removed
+    # install, a machine whose home moved — raised straight out of this function instead of
+    # answering CHAIN_UNREADABLE. Every caller here treats a raise as a crash and a problem
+    # string as an answer, so the one case the handler was written for was the one it missed.
     try:
+        emit = paths.load("_emit")
         raw, problem = _chain_bytes(emit.chain_path(root))
     except (ImportError, OSError, RuntimeError, TypeError, ValueError):
         return _ChainRead([], "CHAIN_UNREADABLE — the chain location cannot be derived")
@@ -595,7 +600,20 @@ def main(argv: list[str]) -> outcome.Result:
         # The same ceremony a risk acceptance asks for, and for the same reason: this is a
         # person taking responsibility for evidence a machine cannot judge. An agent that
         # can type into this process cannot answer a prompt on the controlling terminal.
-        if not accept.controlling_terminal_response(f"ACCOUNT {args.range} AS {args.by}"):
+        #
+        # And the phrase is printed first, which it was not. The reader opened the terminal
+        # and waited in silence, so the only way to learn what to type was to read this
+        # source — and the operator who tried it typed ahead, the process read an empty line,
+        # returned INCOMPLETE, and their shell got the phrase: `zsh: command not found:
+        # ACCOUNT`. A control whose refusal a person cannot act on is the defect this
+        # repository is named after, and it was sitting in the one command that clears a
+        # chain nobody else can clear.
+        phrase = f"ACCOUNT {args.range} AS {args.by}"
+        print(f"\n  To answer for links {args.range}, type exactly this and press return:")
+        print(f"    {phrase}")
+        print("  Nothing is erased. This adds a record that a person looked and said why.")
+        if not accept.controlling_terminal_response(phrase):
+            print("  nothing was written: the phrase did not match, or there is no keyboard here.")
             return outcome.result("INCOMPLETE")
         return account(root, first=bounds[0], last=bounds[1], why=args.why, by=args.by)
     if args.action == "replay":

@@ -136,7 +136,6 @@ def test_a_guard_that_returns_a_reason_denies_with_that_reason(repo, capsys):
         ("injection_guard", False),
         ("no_verify_guard", False),
         ("self_protect", False),
-        ("change_scope_guard", True),
         ("loop_guard", True),
     ],
 )
@@ -149,6 +148,37 @@ def test_only_flow_guards_hand_back_the_recipe_that_unblocks_them(capsys, name, 
     err = capsys.readouterr().err
     assert (f"--guard {name}" in err) is recipe
     assert f"[{name}] denied" in err
+
+
+def test_every_blocking_guard_is_declared_security_or_flow():
+    """The defect this closes shipped, and it bricked repositories.
+
+    `_wrap.deny` prints the bypass recipe for any guard not in `SECURITY`, and
+    `_wrap.take_bypass` honours a grant only for a guard in `FLOW`. A guard in neither set
+    therefore printed `ai-eng exception --skip ... --guard <name>` on every denial while no
+    grant it produced could ever be consumed — a remedy that cannot be run, handed to the
+    person the denial just stopped. `claim_scope_guard` was that guard, and because it also
+    failed closed on an *unreadable* `.ai/claim.json`, a corrupt file denied every edit in
+    the repository including the edit that would repair it, with an impossible fix printed
+    beside each denial.
+
+    The guard is gone. This is what stops the next one: the two sets must partition every
+    blocking row in the dispatcher, so a hook added to neither is red here rather than
+    discovered by somebody who cannot get their repository back."""
+
+    blocking = {
+        name for event in ("PreToolUse", "PostToolUse") for name, _ in chain.TABLE[event]
+    } - chain.TELEMETRY
+
+    undeclared = sorted(blocking - _wrap.SECURITY - _wrap.FLOW)
+    assert not undeclared, (
+        f"{undeclared} can deny and is in neither SECURITY nor FLOW, so each denial prints a "
+        "bypass recipe that take_bypass will never honour. Put it in one set or the other."
+    )
+    both = sorted(_wrap.SECURITY & _wrap.FLOW)
+    assert not both, f"{both} is declared as having no bypass and as having one"
+    stale = sorted((_wrap.SECURITY | _wrap.FLOW) - blocking)
+    assert not stale, f"{stale} is classified and no longer blocks anything"
 
 
 def test_a_denial_is_spelled_both_ways_so_the_surfaces_that_read_json_see_it(capsys):
@@ -225,7 +255,7 @@ def test_a_bypass_is_single_use_and_only_for_the_guard_it_names(repo):
     consent would silently become a standing exemption."""
     house = _emit.home()
     grant(house, "loop_guard")
-    assert _wrap.take_bypass("change_scope_guard") is None  # not this guard's grant
+    assert _wrap.take_bypass("self_protect") is None  # not this guard's grant
     assert _wrap.take_bypass("loop_guard") == "why"
     assert _wrap.take_bypass("loop_guard") is None  # consumed
     grant(house, "loop_guard", seconds=-1)
@@ -238,7 +268,7 @@ def test_a_bypass_is_single_use_and_only_for_the_guard_it_names(repo):
 
 @pytest.mark.parametrize(
     ("name", "denies"),
-    [("loop_guard", False), ("change_scope_guard", False), ("injection_guard", True)],
+    [("loop_guard", False), ("injection_guard", True)],
 )
 def test_a_bypass_cannot_be_forged_for_a_security_guard(repo, name, denies):
     """A grant file naming a security guard must do nothing. If it worked, writing one file
@@ -610,7 +640,7 @@ def test_normalise_survives_every_shape_a_surface_sends(raw, expected):
         (
             "PreToolUse",
             "NotebookEdit",
-            ["self_protect", "loop_guard", "change_scope_guard", "claim_scope_guard"],
+            ["self_protect", "loop_guard"],
         ),
         ("PostToolUse", "mcp__linear__issue", ["injection_guard", "loop_guard"]),
         ("PostToolUse", "WebFetchExtra", ["loop_guard"]),
@@ -869,6 +899,26 @@ def test_the_hooks_path_is_judged_by_the_value_it_would_be_left_at(
         assert stop.value.code == 2
     else:
         assert no_verify_guard.run({"tool_input": {"command": command}}) is None
+
+
+@pytest.mark.parametrize(
+    "verb",
+    ["commit", "push", "merge", "rebase", "am"],
+    ids=["commit", "push", "merge", "rebase", "am"],
+)
+def test_no_verify_is_denied_on_every_verb_that_accepts_it(repo, monkeypatch, verb):
+    """Found by a mutant, not by a reader. Narrowing the pattern from the five verbs to
+    `commit` alone survived the whole suite: every test here spelled `git commit
+    --no-verify`, so four of the five spellings were unasserted and the guard could have
+    lost them silently. `git push --no-verify` skips `pre-push`, which is the hook that
+    refuses a protected branch and scans the commits actually going to the server — the
+    one denial in this repository with a recorded count behind it."""
+    monkeypatch.setattr(no_verify_guard, "OURS", repo / "git-hooks")
+    monkeypatch.setattr(no_verify_guard, "repo_root", lambda start=None: repo)
+
+    with pytest.raises(SystemExit) as stop:
+        no_verify_guard.run({"tool_input": {"command": f"git {verb} --no-verify"}})
+    assert stop.value.code == 2
 
 
 # --- loop_guard: what counts as the same call, and what counts as the same failure ---
@@ -1186,38 +1236,6 @@ def test_the_formatter_runs_on_the_file_it_was_handed_and_on_nothing_else(repo, 
     autoformat.run({"tool_input": {"file_path": str(repo / "notes.txt")}})  # no formatter
     autoformat.run({"tool_input": {"file_path": str(repo / "gone.py")}})  # never written
     assert len(ran) == 1
-
-
-def test_change_scope_guard_is_hard_rename_of_design_gate():
-    """The old name is gone from the product, not aliased beside the new one.
-
-    A rename that leaves the previous spelling working is two names for one control, and the
-    day they disagree is the day somebody bypasses the one that is not wired. So the check is
-    not that the new name exists — it is that the old one exists nowhere the product can
-    reach, including the dispatcher table, the wrapper's flow set, the verb that grants a
-    bypass, and the report that names bypassed guards.
-    """
-
-    from pathlib import Path
-
-    root = Path(__file__).resolve().parents[1]
-    hooks = root / "hooks"
-    assert (hooks / "change_scope_guard.py").is_file()
-    assert not (hooks / "design_gate.py").exists()
-
-    # Not a name the dispatcher, the wrapper or any verb still answers to.
-    reachable = [*hooks.glob("*.py"), *(root / "src" / "ai_engineering").glob("*.py")]
-    named = [path.name for path in reachable if "design_gate" in path.read_text(encoding="utf-8")]
-    assert named == [], named
-
-    # Registered under the new name, on the events that can block, and as a guard.
-    registered = {name for rows in chain.TABLE.values() for name, _ in rows}
-    assert "change_scope_guard" in registered and "design_gate" not in registered
-    module = __import__("change_scope_guard")
-    assert getattr(module.run, "hook_class", None) == "guard"
-
-    # And the grant it reads is its own: a bypass minted for the old name buys nothing.
-    assert "change_scope_guard" in _wrap.FLOW and "design_gate" not in _wrap.FLOW
 
 
 def test_dispatcher_table_marks_blocking_hooks_as_guards_and_rejects_gaps(repo, monkeypatch):
@@ -1548,31 +1566,3 @@ def test_an_endpoint_with_no_stated_retention_receives_nothing(tmp_path, monkeyp
     # which is the honest next answer for a host that does not exist.
     configured('[observability]\nendpoint = "http://collector.invalid:4318"\nretention_days = 30\n')
     assert "nobody has decided" not in _otlp.post("logs", {})[2]
-
-
-def test_the_plan_gate_says_which_of_the_two_questions_it_asked():
-    """EP-324. Rule 1 says "no code before an approved plan". This guard reads whether a
-    plan exists on the branch, which is the weaker of the two, and its refusal said "has no
-    plan" — true about what it checked and easy to read as the stronger claim.
-
-    Approval here is an MADR naming an exact digest and no plan in this repository has one,
-    so a guard demanding it would deny every write on every branch including the one writing
-    the plan. That is recorded in the register with what would change it. What this asserts
-    is the honesty of the sentence a person actually sees when they are denied."""
-
-    import tomllib
-
-    source = (Path(__file__).resolve().parents[1] / "hooks" / "change_scope_guard.py").read_text(
-        encoding="utf-8"
-    )
-    assert "not that anybody approved it" in source
-    assert "Existence, and never approval" in source
-
-    register = tomllib.loads(
-        (Path(__file__).resolve().parents[1] / "policy" / "pilot-register.toml").read_text(
-            encoding="utf-8"
-        )
-    )
-    excused = {str(row["id"]): row for row in register["ungated"]}
-    assert "EP-324" in excused, "the gap is in the guard and nowhere a reader would find it"
-    assert excused["EP-324"]["reopen_when"].strip()

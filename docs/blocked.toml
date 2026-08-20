@@ -1,0 +1,16 @@
+# What is waiting for a person, written by the run that stopped.
+#
+# Each row states a gate that was reached and what is missing. Nothing here records that the
+# missing thing arrived: a model reading approval out of a conversation is what the
+# constitution forbids, and a ledger that could clear itself would be worse than none.
+#
+# Written by `ai-eng report blocked`. Rendered by the section at the top of
+# `docs/solution-intent.html`. Rows are keyed by what is waiting, so the same gate reached
+# twice is one row with a newer reason and the date of the first halt.
+
+[[stop]]
+id = "dos-sesiones-escriben-en-ledger-and-reco-2f8000a0"
+what = "dos sesiones escriben en ledger-and-records y el techo se movio 2.736 lineas"
+since = "2026-08-19"
+why = "el Intent dice que un solo escritor posee los cambios del repositorio. La otra sesion commiteo 619e24c7 a las 23:01 y dejo docs/solution-intent.html en el index; sellar ahora hornearia sus lineas dentro de mi techo, que es el incidente que contract.py ya registra"
+action = "git log --format='%h %ad %s' --date=format:'%H:%M' -6 && decidir que sesion sigue en esta rama"

@@ -259,7 +259,7 @@ def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
     assert declared_modes == {
         "ai-explore": ["default"],
         "ai-research": ["local", "cited-web"],
-        "ai-spec": ["default"],
+        "ai-spec": ["default", "coordination"],
         "ai-plan": ["default"],
         "ai-build": ["default"],
         "ai-debug": ["default"],
@@ -270,7 +270,7 @@ def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
         "ai-review": ["default"],
         "ai-verify": ["default"],
         "ai-note": ["default"],
-        "ai-report": ["digest", "issue"],
+        "ai-report": ["digest", "intent", "blocked", "issue"],
         "ai-ship": ["commit", "pull-request"],
     }
 
@@ -291,14 +291,20 @@ def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
             assert proof["installed_artifact"] is True
             assert proof["allow"] and proof["deny"]
 
-    by_id = {capability["id"]: capability["modes"] for capability in capabilities}
-    assert by_id["ai-explore"][0]["write_roots"] == []
-    assert by_id["ai-review"][0]["write_roots"] == []
-    assert by_id["ai-research"][0]["network"] == []
-    assert by_id["ai-research"][1]["human_gate"] == "before_network"
-    assert by_id["ai-report"][0]["network"] == []
-    assert by_id["ai-report"][1]["human_gate"] == "before_publish"
-    assert by_id["ai-ship"][1]["human_gate"] == "before_publish"
+    # By mode id, not by position. Indexing `[1]` meant a mode inserted in alphabetical
+    # order silently moved which mode each assertion was about, and the failure named a
+    # human gate rather than the ordering that caused it.
+    by_id = {
+        capability["id"]: {mode["id"]: mode for mode in capability["modes"]}
+        for capability in capabilities
+    }
+    assert by_id["ai-explore"]["default"]["write_roots"] == []
+    assert by_id["ai-review"]["default"]["write_roots"] == []
+    assert by_id["ai-research"]["local"]["network"] == []
+    assert by_id["ai-research"]["cited-web"]["human_gate"] == "before_network"
+    assert by_id["ai-report"]["digest"]["network"] == []
+    assert by_id["ai-report"]["issue"]["human_gate"] == "before_publish"
+    assert by_id["ai-ship"]["pull-request"]["human_gate"] == "before_publish"
 
 
 def test_capability_manifest_rejects_modes_that_only_reorder_set_like_permissions() -> None:
@@ -441,13 +447,30 @@ def test_capability_preflight_denies_undeclared_and_unenforced_actions(
         ).code
         == "CAPABILITY_ACTION_UNDECLARED"
     )
-    with pytest.raises(TypeError):
+    # The fourth parameter used to not exist, and this asserted that it did not: a manifest
+    # passed positionally raised `TypeError`, so nobody could hand `preflight` a widened
+    # declaration and be graded against it. That property still has to hold now that the
+    # slot is real, and it holds differently. The slot takes an executor, the manifest is
+    # still read from the canonical path, and an object that is not an executor cannot make
+    # anything pass — it refuses, because a control that crashes has proved nothing.
+    assert (
         capability_contract.preflight(
             "ai-review",
             "default",
             capability_contract.Action.write("src/pwn.py"),
             widened,
-        )
+        ).code
+        == "CAPABILITY_ACTION_UNDECLARED"
+    )
+    assert (
+        capability_contract.preflight(
+            "ai-review",
+            "default",
+            capability_contract.Action.execute("git", "status"),
+            widened,
+        ).code
+        == "CAPABILITY_ENFORCEMENT_UNAVAILABLE"
+    )
 
     changed_schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     changed_schema["description"] = "mutated policy"
@@ -523,3 +546,73 @@ def test_every_capability_says_which_phase_it_serves():
     # nothing, which is the other half of the defect this file is about. The reader is
     # proven where it runs — `test_skill_eval.py` drives the command and reads every
     # capability off its phase line — and not asserted a second time here.
+
+
+def test_every_shape_of_secret_this_classifier_knows_is_named_and_the_rest_are_not():
+    """Thirty-three mutants lived in the one function that decides whether a path is a secret.
+
+    It is a classifier, and a classifier's mutants are all of the same kind: drop a name from a
+    set, drop a suffix from a tuple, invert a prefix test. Every one of those is a real file
+    that stops being recognised — an `id_ed25519` read as an ordinary file, a `.pem` read as
+    text — and none of them changes any behaviour a test that checked one example would see.
+
+    So every member of every set is asserted, both that it is recognised and which of the three
+    classes it belongs to. And a near-miss beside each, because "endswith" and "equals" fail
+    differently: `notes.env.md` is not a `.env`, and `mykey` is not a key.
+    """
+    from ai_engineering import capability
+
+    for name in (".env", ".env.local", ".env.production", ".ENV", ".Env.Test"):
+        assert capability._secret_path(name) == "repository.env", name
+        assert capability._secret_path(f"deep/nested/{name}") == "repository.env", name
+
+    for name in (".git-credentials", ".npmrc", ".pypirc", "credentials"):
+        assert capability._secret_path(name) == "repository.credentials", name
+        assert capability._secret_path(name.upper()) == "repository.credentials", name
+
+    for name in ("id_dsa", "id_ecdsa", "id_ed25519", "id_rsa"):
+        assert capability._secret_path(name) == "repository.private-key", name
+    for suffix in (".key", ".pem", ".p12", ".pfx"):
+        assert capability._secret_path(f"anything{suffix}") == "repository.private-key", suffix
+        assert capability._secret_path(f"ANYTHING{suffix.upper()}") == "repository.private-key"
+
+    # And the near-misses. Each of these is a file somebody really has, and calling one a
+    # secret would refuse a read the capability was allowed to make.
+    for ordinary in (
+        "notes.env.md",
+        "environment.py",
+        "credentials.md",
+        "my.npmrc.backup",
+        "id_rsa.md",
+        "mykey",
+        "keychain",
+        "README.md",
+        "",
+    ):
+        assert capability._secret_path(ordinary) == "", ordinary
+
+
+def test_a_declared_read_of_a_secret_needs_that_secret_declared_too():
+    """The classifier's whole purpose, one function up. A path inside the declared roots is not
+    enough if it is a secret: the mode has to name that class of secret as well, which is what
+    stops a capability with `read_roots = ["."]` from reading everybody's private keys.
+    """
+    from ai_engineering import capability
+
+    inside = {"read_roots": ["."], "secrets": [], "enforcement": ["preflight.read"]}
+    allowed = {
+        "read_roots": ["."],
+        "secrets": ["repository.env"],
+        "enforcement": ["preflight.read"],
+    }
+
+    ordinary = capability.Action.read("src/thing.py")
+    assert capability._declared_action(inside, ordinary)
+
+    secret = capability.Action.read("src/.env")
+    assert not capability._declared_action(inside, secret), "a secret was read on roots alone"
+    assert capability._declared_action(allowed, secret)
+
+    # And declaring one class does not declare another.
+    key = capability.Action.read("src/server.pem")
+    assert not capability._declared_action(allowed, key)

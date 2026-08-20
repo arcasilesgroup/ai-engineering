@@ -401,9 +401,9 @@ def _ci_result_contract(workflow: str) -> None:
     # The lanes the plan requires, still present and still needed by the aggregate.
     aggregate = _child_block(lines, "  ci-result:")
     text = "\n".join(aggregate)
-    for lane in ("check", "suite", "mutation", "typecheck", "sonar", "snyk"):
+    for lane in ("check", "suite", "typecheck", "sonar", "snyk"):
         assert f"{lane}=${{{{ needs.{lane}.result }}}}" in text, lane
-    assert "needs: [check, suite, mutation, typecheck, sonar, snyk]" in text
+    assert "needs: [check, suite, typecheck, sonar, snyk]" in text
     assert "if: always()" in text
 
     # A skipped job is a failure, which is what makes a deleted or renamed lane visible.
@@ -458,7 +458,7 @@ def test_check_workflow_marks_missing_or_skipped_evidence_incomplete():
         ('echo "evidence=ran" >> "$GITHUB_OUTPUT"', ""),
         ('echo "evidence=unavailable" >> "$GITHUB_OUTPUT"', ""),
         ('[ "${pair##*=}" = "success" ] || failed=1', ""),
-        ("needs: [check, suite, mutation, typecheck, sonar, snyk]", ""),
+        ("needs: [check, suite, typecheck, sonar, snyk]", ""),
         ("evidence: ${{ steps.scan.outputs.evidence || 'unavailable' }}", ""),
         ("check=${{ needs.check.result }}", ""),
         ("test -s coverage.xml", ""),
@@ -523,7 +523,7 @@ def test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renam
     # one, which is the whole reason it is here.
     surface = _named_step(lines, "the ten verbs, the hard renames and one JSON object")
     assert _raw_digest(surface) == (
-        "f74e3be06ea3867c412cd3dc9d90236b0b8b947f1ac8df9f8ad691dd47bdbfd1"
+        "051dbde82c58acb8cb7e6adb924856d4a72351d6d75ede449b4fcc5ce53e9ac4"
     )
     body = "\n".join(surface)
 
@@ -546,7 +546,14 @@ def test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renam
     # Every hard rename, proved from the side that matters: the old spelling must refuse.
     for gone in ("ai-eng plan --skip x", "ai-eng digest", "ai-eng decide --adr x"):
         assert f"! {gone}" in body, gone
-    assert "design_gate" in body and "the old guard name survives" in body
+    # The tombstone list, not one name: `design_gate` was renamed and the guard it was
+    # renamed to has since been deleted, so what the wheel must prove is that no spelling of
+    # a removed guard survives in it — and that the guards which remain are actually there,
+    # which is the half a probe asking only about absence can never answer.
+    for gone in ("design_gate", "change_scope_guard", "claim_scope_guard"):
+        assert gone in body, gone
+    assert "a deleted guard survives in the wheel" in body
+    assert "the guards are not in the wheel" in body
 
     # One object, nothing on stderr, and it has to parse.
     assert "json mode wrote to stderr" in body
@@ -588,7 +595,7 @@ def test_release_workflow_retains_wheel_contents_provenance_and_head_sha_receipt
         "ai_engineering/policy/iocs.yml",
         "ai_engineering/git-hooks/pre-push",
         "ai_engineering/skills/ai-spec/SKILL.md",
-        "ai_engineering/hooks/change_scope_guard.py",
+        "ai_engineering/hooks/self_protect.py",
         "ai_engineering/policy/risk-acceptance-v1.schema.json",
         "ai_engineering/acceptance.py",
         "ai_engineering/acceptance_privacy.py",
@@ -729,10 +736,26 @@ GATE_CONTROLS = {
     "cover": "a run under the floor needs a full coverage pass; the floor itself is "
     "asserted by tests/test_contracts.py",
     "security": "one fixture per INCOMPLETE code, plus the rules-tamper fixture",
+    "sbom": "tests/test_sbom.py builds a wheel, hashes it, and asserts the document names "
+    "that digest — plus the release job re-checks the same equality against what `uv build` "
+    "wrote, so the recipe failing here and the release failing there are one fact",
     "register": "tests/test_pilot_register.py mutates the register and asserts each refusal",
     "skilleval": "tests/test_skill_eval.py mutates the corpus once per routing rule and "
     "asserts the harness refuses each one",
     "counts": "test_the_counts_this_repository_states_about_itself_are_the_counts_it_has",
+    "lenses": "tests/test_review_lenses.py plants the case the requirement is about — a "
+    "stylesheet with no movement in it — and asserts it routes to frontend and not to motion, "
+    "plus the inverse, plus a lens file with no row and a row with two rules",
+    "intent-page": "tests/test_solution_intent.py is five refusals and one pass — a page "
+    "somebody edited, a record that moved, a field rendered and not hashed, a number that "
+    "disagrees with the gate that enforces it, and a tree git cannot list — because this "
+    "recipe's whole value is the page it refuses to call fresh",
+    "ran": "and its second half prints the commits carrying no receipt, with a case holding "
+    "the inversion that would have made that report exactly backwards — a present trailer "
+    "splitting its own line. tests/test_ran_receipt.py is a table of unusable receipts and four "
+    "named "
+    "refusals — a file edited after the run, a file added after it, and two argument shapes "
+    "— because this recipe's whole value is when it writes nothing",
 }
 
 
@@ -757,6 +780,24 @@ def test_every_recipe_the_gate_runs_is_named_here_with_its_control_or_its_reason
     )
     for name in ordered:
         assert GATE_CONTROLS[name].strip(), f"{name} carries neither a control nor a reason"
+
+    # `EP-060` asks for a clean control in each gate recipe, and the honest half of that is
+    # how many are arguments rather than controls. It was six controlled and two argued when
+    # the requirement was measured; the table has grown since and nothing was counting, so
+    # the ratio could have drifted the wrong way one recipe at a time. `lint` and `typecheck`
+    # say "executed below" and mean it — the case under this one plants a defect and reads
+    # each of them refusing — so `build` is the only recipe held by a reason alone.
+    argued = [name for name, why in GATE_CONTROLS.items() if why == "executed below"]
+    assert set(argued) == {"lint", "typecheck"}, (
+        f"{argued} defer to a control below this case. Each one that does must be executed "
+        "there, and the case that executes them names exactly these two"
+    )
+    reasons = [name for name in ordered if name == "build"]
+    assert len(reasons) == 1 and len(ordered) - len(reasons) >= 12, (
+        f"{len(reasons)} of {len(ordered)} recipes are held by a reason alone. That is "
+        "allowed and it is the number worth watching: a gate whose recipes are mostly "
+        "argued is a gate mostly nobody has seen refuse"
+    )
 
 
 def test_the_linter_and_the_type_checker_are_shown_saying_no(tmp_path):
@@ -788,3 +829,56 @@ def test_the_linter_and_the_type_checker_are_shown_saying_no(tmp_path):
     )
     assert types.returncode != 0, types.stdout
     assert "return-value" in types.stdout, types.stdout
+
+
+def test_the_mutation_runner_spends_the_cheap_suite_first() -> None:
+    """A mutant is killed when either half of the suite goes red, so the order of the two
+    halves cannot change a verdict — only the bill. The adversarial run is thirteen seconds
+    and pytest is sixty; running pytest first means every killed mutant pays the expensive
+    half before the cheap one has had a chance to answer.
+
+    Read out of the source and not out of the docstring. The docstring already promised this
+    behaviour while the code did the opposite — "the slow half only runs when the fast half
+    found nothing", above a line that ran pytest first — so an assertion a reworded comment
+    can satisfy is no assertion at all."""
+
+    import ast
+
+    source = (ROOT / "tests" / "mutation.py").read_text(encoding="utf-8")
+    run_suite = next(
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.FunctionDef) and node.name == "run_suite"
+    )
+    # Discovery order, which for these two calls is the order they are written in. The
+    # docstring is not read: it is not a call.
+    calls = [
+        ast.unparse(node)
+        for node in ast.walk(run_suite)
+        if isinstance(node, ast.Call) and ast.unparse(node.func) == "quiet"
+    ]
+    assert len(calls) == 2, calls
+    assert "adversarial" in calls[0], calls
+    assert "pytest" in calls[1], calls
+    # And the expensive half is inside the conjunction, not merely somewhere in the same
+    # function. Written first, this asserted only that an `and` existed, which a version
+    # binding both halves to names and joining them afterwards satisfies while spending both
+    # on every mutant — the saving gone and nothing red. A reviewer wrote that version out
+    # and it passed.
+    conjunction = next(
+        (
+            node
+            for node in ast.walk(run_suite)
+            if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And)
+        ),
+        None,
+    )
+    # With no default this raised `StopIteration` instead of failing, so a shape that
+    # short-circuits with an early return — correct, but carrying no `and` — reported a bare
+    # exception rather than a sentence. Found by the bounded re-review of this very repair.
+    assert conjunction is not None, (
+        "run_suite stopped being a conjunction, so the order is not free"
+    )
+    assert any(
+        isinstance(half, ast.Call) and "pytest" in ast.unparse(half) for half in conjunction.values
+    ), "the pytest half is outside the conjunction, so it runs whether or not the cheap half passed"

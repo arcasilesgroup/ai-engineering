@@ -1,4 +1,4 @@
-"""Twenty-three assertions and one line.
+"""Twenty-five assertions and one line.
 
 These are not document sections: they are checks that fail. `--ci` runs the ones that
 make sense on a runner and says in its output which it skipped, because a doctor that
@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tomllib
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -126,6 +127,24 @@ class Undecidable(Exception):
     def __init__(self, message: str, cure: str = "") -> None:
         super().__init__(message)
         self.cure = cure
+
+
+class Noted(str):
+    """A pass that has something to report, which until now had nowhere to report it.
+
+    `EP-290` asks that the framework write only into the homes it declares *and that the
+    count be published*. The refusal half executes — assertion 18 fails by name on a stray —
+    and the count half could not exist, because a check returns `None` for a pass and a
+    string for the problem. There was no channel at all for a passing observation, so a check
+    that had looked at nineteen files and found them all correctly homed could say only the
+    same nothing as a check that had looked at none.
+
+    That is this repository's own defect one level up: a green nobody can distinguish from a
+    green nobody earned. A `str` subclass is the whole of the fix. Every existing check keeps
+    working untouched — `None` is still a silent pass and a plain string is still a problem —
+    and a check with something to show returns it wrapped, which the runner reads as a pass
+    carrying a detail rather than as a failure.
+    """
 
 
 def check(number: int, family: str, title: str, in_ci: bool = True):
@@ -584,15 +603,21 @@ def buffer_sealed(root: Path | None) -> str | None:
 @check(23, "The record", "Declared capabilities say whether anything enforces them")
 def capabilities_enforced(root: Path | None) -> str | None:
     """`policy/capabilities.toml` declares fifteen capabilities with read roots, write
-    roots, exec allowlists, network hosts, secrets and human gates. `capability.preflight`
-    validates all of it and then returns `CAPABILITY_ENFORCEMENT_UNAVAILABLE`, because no
-    executor exists yet — which is the honest answer and is pinned by a test.
+    roots, exec allowlists, network hosts, secrets and human gates. Until `executor.py`
+    existed, `capability.preflight` validated all of it and then returned
+    `CAPABILITY_ENFORCEMENT_UNAVAILABLE` on every path — the honest answer, pinned by a
+    test, and a declaration nobody enforces and nobody flags is the shape of a false green.
 
-    What was missing is anybody being told. Nothing in `doctor`, the README or any verb
-    mentioned it, so a reader of that file saw six governed fields per capability and had
-    no way to learn that none of them stops anything. A declaration nobody enforces and
-    nobody flags is the shape of a false green, and this repository's constitution says to
-    expose that rather than hide it.
+    Half of that is now closed and the half that is not is what this line is for. An action
+    performed through a `Sandbox` is enforced: the path is resolved at the moment of the
+    operation, the executable comes off the allowlist, the human gate is asked, and the
+    decision lands in a corpus under the proof id the manifest declared. An action performed
+    by a *surface* is not, and cannot be from here — nothing reads a running capability's
+    identity out of somebody else's payload, and no receipt has ever shown one being sent.
+
+    So this stays undecidable rather than becoming a pass. "Some actions are enforced" is
+    not an answer a person can act on unless it also says which, and the sentence below
+    says which.
 
     Reported as undecidable and not as a failure, which is a correction. FAIL is what an
     executed check says when it conclusively finds a violation; nothing executed here,
@@ -618,8 +643,9 @@ def capabilities_enforced(root: Path | None) -> str | None:
     # somebody else's software that has never been taken. Saying "no surface sends it" would
     # be asserting the second from the first.
     raise Undecidable(
-        f"{len(declared)} capabilities are declared and nothing enforces them: preflight "
-        f"validates the declaration and then refuses. An executor needs the running "
+        f"{len(declared)} capabilities are declared and only this framework's own actions "
+        f"are enforced: an action taken through `executor.Sandbox` is decided at the "
+        f"operation, and one taken by a surface is not. An executor needs the running "
         f"capability's identity to arrive with the action, and nothing here reads one — nor "
         f"has any receipt yet shown a surface sending one"
     )
@@ -656,6 +682,22 @@ def routers_intact(root: Path | None) -> str | tuple[str, str] | None:
     # the surface table declares, it is called `ai-<something>.md`, and it is a regular file
     # rather than a link to one. A row that does not resolve to exactly that is reported and
     # never opened, which is also the more useful answer for whoever is reading the report.
+    #
+    # "A link to one" covers both kinds, and the second was missed. `is_symlink()` is False
+    # for a hard link, so `os.link(secret, root/"ai-oracle.md")` put the oracle back: guess
+    # the digest right and the row is silent, guess it wrong and the report says
+    # `1 edited (ai-oracle.md)`. Narrower than what it replaced — it needs a write into a
+    # declared command root — but a bound that names links and reads only one of the two
+    # kinds is the defect this file exists to find, so `st_nlink` is asked as well. A
+    # legitimate router has one name.
+    def _hard_linked(path: Path) -> bool:
+        """More than one name for these bytes. A router has one; an oracle needs two."""
+
+        try:
+            return path.stat().st_nlink > 1
+        except OSError:
+            return False
+
     roots = [
         wiring.expand(row["commands"]) for row in wiring.table()["surface"] if row.get("commands")
     ]
@@ -667,7 +709,7 @@ def routers_intact(root: Path | None) -> str | tuple[str, str] | None:
             astray.append(name or "<unnamed>")
             continue
         target = next((one for one in rebuilt if one.exists()), rebuilt[0])
-        if target.is_symlink():
+        if target.is_symlink() or _hard_linked(target):
             astray.append(name)
             continue
         _, _, digest = str(row.get("how", "")).partition(" ")
@@ -734,7 +776,20 @@ def polarity(root: Path | None) -> str | None:
         raise Undecidable("not inside a repository")
     intent_home = ".ai/intent.md"
     tracked = {name for name in tracked_files(root) if name.startswith(".ai/")}
-    allowed = {".ai/.gitignore", ".ai/config.toml", intent_home, readiness.DECLARATION}
+    # The pin, plus the two research documents this repository's work is judged against. They
+    # are inputs and not state: nobody's machine produced them, editing one to fit would be the
+    # defect, and until they were committed the requirement ledger was the only in-tree record
+    # of what they asked. The rule is written twice on purpose — here and in `.ai/.gitignore` —
+    # and CI caught this reader still holding the old list while the other had moved, which is
+    # the check working rather than duplication nobody wanted.
+    allowed = {
+        ".ai/.gitignore",
+        ".ai/config.toml",
+        intent_home,
+        readiness.DECLARATION,
+        ".ai/reports/evolution-proposal/index.html",
+        ".ai/reports/process-optimization-research/index.html",
+    }
     problems = []
     if intent_home not in tracked:
         problems.append(f"Solution Intent is not tracked at {intent_home}")
@@ -796,7 +851,76 @@ def data_is_yours(root: Path | None) -> str | None:
                 f"Solution Intent at {intent_home} is {result.outcome}: "
                 f"{result.code} — {result.reason}"
             )
-    return None if not problems else "; ".join(problems)
+    if problems:
+        return "; ".join(problems)
+    # The published count. Not a decoration: `EP-290` asks for it by name, and the reason it
+    # is worth publishing is that "no strays" and "nothing was inventoried" print the same
+    # word. A number beside the pass is the difference between the two.
+    return Noted(
+        f"{len(tracked)} tracked files inventoried, {len(intent_homes(tracked))} Intent home"
+        f"{'' if len(intent_homes(tracked)) == 1 else 's'}, none outside {', '.join(homes)}"
+    )
+
+
+@check(25, "The record", "No declared capability has a second handler in this repository")
+def one_handler_each(root: Path | None) -> str | None:
+    """`EP-164` asks that `ai-spec` be pinned to one mode and that nothing be able to stand
+    up a second handler elsewhere. The first half was pinned by a test reading the manifest's
+    own content, which proves the manifest says what it says and nothing about elsewhere.
+
+    Elsewhere is where it matters. A capability is a name a surface routes on, so a second
+    `SKILL.md` calling itself `ai-spec` — in `.claude/skills/`, in a vendored copy, anywhere
+    a surface reads — is a second answer to the same request, and which one runs depends on
+    the surface's own search order rather than on anything declared here. That is the exact
+    shape of an ungoverned handler: it looks installed, it answers, and no record of this
+    framework mentions it.
+
+    Only tracked files are considered. An untracked scratch copy is somebody's working
+    directory and not this check's business, and reading the whole tree would also mean
+    reading `node_modules`.
+
+    The framework's own tree is the one legitimate home and is excluded by path, not by
+    name. Excluding by name would mean any file that declared itself canonical was.
+    """
+
+    if root is None:
+        raise Undecidable("not inside a repository")
+    from ai_engineering import capability
+
+    try:
+        declared = {entry["id"] for entry in capability._validated(None)["capabilities"]}
+    except Exception as broken:  # the manifest has its own assertion; this one is about homes
+        raise Undecidable("the capability manifest could not be read here") from broken
+
+    canonical = paths.skills().resolve()
+    found: dict[str, list[str]] = {}
+    for name in tracked_files(root):
+        if not name.endswith("SKILL.md"):
+            continue
+        where = (root / name).resolve()
+        if where == canonical or canonical in where.parents:
+            continue
+        # The declared name, from the frontmatter, and not from the directory. A handler is
+        # found by what it calls itself: a surface reads the name, so a directory renamed to
+        # hide a duplicate would still route.
+        try:
+            head = (root / name).read_text(encoding="utf-8", errors="replace")[:4000]
+        except OSError:
+            continue
+        for line in head.splitlines():
+            if line.startswith("name:"):
+                claimed = line.split(":", 1)[1].strip()
+                if claimed in declared:
+                    found.setdefault(claimed, []).append(name)
+                break
+
+    if not found:
+        return None
+    detail = "; ".join(f"{one}: {', '.join(sorted(where))}" for one, where in sorted(found.items()))
+    return (
+        f"{len(found)} declared capabilities have a second handler committed here — {detail}. "
+        "Which one answers is the surface's search order, not a decision anything recorded."
+    )
 
 
 # ---------------------------------------------------------------- the controls
@@ -857,6 +981,80 @@ def skills_contract(root: Path | None) -> str | None:
 
     problems = contract.audit(paths.skills())
     return None if not problems else f"{len(problems)} problems, first: {problems[0]}"
+
+
+# A year. An argued criterion is held by a sentence rather than by a test, and a sentence
+# about a product that ships every few weeks goes stale without anybody noticing — which is
+# the whole reason `EP-293` asked for the age of one. Long enough that re-reading five
+# paragraphs is not a chore, short enough that nobody inherits an argument nobody made.
+ACCESSIBILITY_MAX_AGE = 365
+
+
+@check(26, "The context", "Every accessibility criterion is checked or argued, never neither")
+def accessibility_floor(root: Path | None) -> str | None:
+    """`policy/accessibility.toml` names the release floor, and this is what stops it being
+    a level named in a document.
+
+    The file is deliberately smaller than WCAG, because WCAG is written for pages and this is
+    a command-line tool — so each criterion says either how it is checked or why it cannot
+    be. What it must never say is neither. A criterion with no check and no reason is a claim
+    about accessibility nobody made and nobody can refuse, which is the shape of every false
+    green this repository exists to remove.
+
+    Read here rather than only in the suite, and that is the whole reason this function
+    exists. A policy file only a test reads is a file that governs the tests — the repository
+    has its own check for exactly that, and it caught this one on the commit that added it.
+    The floor ships in the wheel, so the machine it was installed on is where it is asked.
+    """
+
+    from ai_engineering import paths as _paths
+
+    try:
+        policy = tomllib.loads(_paths.policy("accessibility.toml").read_text(encoding="utf-8"))
+        criteria = policy["criterion"]
+        journeys = policy["journey"]
+        level = policy["floor"]["level"]
+    except (OSError, KeyError, tomllib.TOMLDecodeError) as broken:
+        raise Undecidable("the accessibility floor cannot be read here") from broken
+
+    silent = [
+        row.get("id", "?")
+        for row in criteria
+        if not row.get("checked") and len(str(row.get("reason", "")).strip()) < 30
+    ]
+    if silent:
+        return (
+            f"{len(silent)} criteria are neither checked nor argued for: {', '.join(silent)}. "
+            "A criterion with no check and no reason is a claim nobody made"
+        )
+    executed = [row for row in criteria if row.get("checked")]
+    if not executed:
+        return f"the floor claims {level} and nothing in it executes"
+    if not journeys:
+        return "no critical journey is enumerated, so coverage over them is a share of nothing"
+
+    # `EP-293` asked for the age of an accessibility exception, and the answer used to be
+    # that none had ever been recorded, so there was nothing to age. There are five now, and
+    # this is what makes the date mean something: a criterion that executes is re-read by its
+    # test on every run, and one held by a sentence is re-read only when somebody decides to.
+    # A year without is not a failure — nothing broke — but it is worth a person's attention,
+    # so it says so and does not block.
+    stale = []
+    for row in criteria:
+        if row.get("checked"):
+            continue
+        try:
+            when = datetime.strptime(str(row.get("reviewed", "")), "%Y-%m-%d").replace(tzinfo=UTC)
+        except ValueError:
+            return f"criterion {row.get('id', '?')} is argued and carries no date it was read"
+        if (datetime.now(UTC) - when).days > ACCESSIBILITY_MAX_AGE:
+            stale.append(f"{row.get('id', '?')} ({when.date()})")
+    if stale:
+        raise Undecidable(
+            f"{len(stale)} accessibility exceptions have gone a year without being re-read: "
+            f"{', '.join(stale)}. Nothing broke; a sentence held them and nobody has looked"
+        )
+    return None
 
 
 @check(4, "The context", "The doctrine is short, present and filled in")
@@ -1218,6 +1416,12 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
                 check_facts.append(
                     outcome.fact(f"assertion-{number}", "INCOMPLETE", title, str(why))
                 )
+                continue
+            # Before the falsy test, because a `Noted` is a non-empty string and would
+            # otherwise be read as the problem it is the opposite of.
+            if isinstance(problem, Noted):
+                ui.verdict(number, "ok", title, str(problem))
+                check_facts.append(outcome.fact(f"assertion-{number}", "PASS", title, str(problem)))
                 continue
             if not problem:
                 ui.verdict(number, "ok", title)

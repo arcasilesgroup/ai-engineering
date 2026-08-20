@@ -34,7 +34,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -72,7 +73,8 @@
         },
         "proof": {
           "receipt_id": "zed.enforcement"
-        }
+        },
+        "deny_protocol": "instruction-only.no-deny"
       }
     },
     {
@@ -110,7 +112,8 @@
         },
         "proof": {
           "receipt_id": "codex-cli.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     }
   ],
@@ -149,7 +152,8 @@
         },
         "proof": {
           "receipt_id": "windsurf.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -186,7 +190,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -222,7 +227,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -259,7 +265,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -296,7 +303,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -332,7 +340,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -369,7 +378,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -407,7 +417,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -444,7 +455,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -474,7 +486,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -511,7 +524,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -548,7 +562,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -585,7 +600,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -623,7 +639,8 @@
         "notes": "handy",
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -664,7 +681,8 @@
         },
         "proof": {
           "receipt_id": "claude-code.enforcement"
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
       }
     },
     {
@@ -701,7 +719,46 @@
         },
         "proof": {
           "receipt_id": ""
-        }
+        },
+        "deny_protocol": "throw-in-tool-execute-before"
+      }
+    },
+    {
+      "why": "a deny protocol written as the sentence rather than as a name, which nothing can compare",
+      "record": {
+        "schema": "urn:ai-engineering:surface-adapter:1",
+        "schema_version": "1",
+        "surface_id": "claude-code",
+        "adapter_version": "1.0.0",
+        "detection": {
+          "signal": "~/.claude/settings.json holds a PreToolUse entry",
+          "written_by_us": false
+        },
+        "translations": {
+          "payload_field": {
+            "tool_name": "tool_name",
+            "tool_input": "tool_input"
+          },
+          "lifecycle_event": {
+            "PreToolUse": "PreToolUse",
+            "PostToolUse": "PostToolUse"
+          },
+          "exit_meaning": {
+            "0": "allow",
+            "2": "deny"
+          },
+          "reply": {
+            "allow": "permissionDecision=allow",
+            "deny": "permissionDecision=deny"
+          }
+        },
+        "trust": {
+          "required": false
+        },
+        "proof": {
+          "receipt_id": "claude-code.enforcement"
+        },
+        "deny_protocol": "throw inside tool.execute.before, which kills the tool call"
       }
     }
   ]

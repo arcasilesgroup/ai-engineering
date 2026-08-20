@@ -1465,3 +1465,376 @@ def test_a_broken_link_is_printed_with_the_command_that_answers_it():
     # A chain with nothing broken says nothing. A cure printed under a clean report is
     # noise, and noise is how the next real one gets skipped.
     assert audit._cure([("WARN", "nothing to see")]) == []
+
+
+def test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate():
+    """`PO-01`, `PO-06` and `PO-13` asked that the block cadence govern this work, and for
+    most of two sessions it did not — the audit records that as the honest failure. The rule
+    is now `docs/adr/0011`, accepted, and the evidence that it ran is a table per block in
+    `docs/audit-2026-08-16.md`.
+
+    A cadence whose only evidence is prose lapses on the first busy afternoon, which is how
+    these three came to be open in the first place. So the prose is read. Every block named
+    under the hand-offs heading has to carry the three fields that distinguish a block that
+    happened from a block that was described: who reviewed it and what they found, what was
+    repaired, and what the gate said afterwards.
+
+    Independence is not asserted here and is no longer excused in one sentence for all three.
+    Each hand-off carries its own `independent` row saying what a stranger can re-check, and
+    for all three that is the same fact: `gh run list` returns no run at that block's final
+    HEAD, because they closed before the first run on this branch.
+
+    The sentence this docstring used to carry — that no workflow runs on this branch — was
+    wrong, and measurably wrong the day it was written: sixty-four runs of `check.yml` have
+    happened here since 2026-08-17. The gap was real and its stated cause was not, which is
+    worse than no explanation, because a cause nobody re-measures outlives the condition it
+    describes. So the field is per block, where it can be checked against one sha, rather
+    than a property claimed of the branch.
+    """
+
+    import re
+
+    root = Path(__file__).resolve().parents[1]
+    body = (root / "docs" / "audit-2026-08-16.md").read_text("utf-8")
+    start = body.index("## The block hand-offs")
+    section = body[start : body.index("\n## ", start + 10)]
+
+    blocks = re.findall(r"^### Block (\w+)", section, re.M)
+    assert len(blocks) >= 3, f"only {blocks} have a hand-off; three blocks have closed"
+
+    for name in blocks:
+        where = section.index(f"### Block {name}")
+        table = section[where : section.find("###", where + 5) or len(section)]
+        for field in ("reviewer disposition", "repair commit", "gate", "independent"):
+            assert field in table, f"Block {name}'s hand-off names no {field}"
+        # A field with no value is a field nobody filled. The table is one row per line, so
+        # what is asserted is that something follows the name inside its own row.
+        for line in table.splitlines():
+            if line.startswith(("| reviewer disposition", "| gate", "| independent")):
+                cells = [one.strip() for one in line.strip("|").split("|")]
+                assert len(cells) == 2 and cells[1], f"Block {name}: {cells[0]!r} is empty"
+
+
+def test_the_account_command_says_what_to_type_before_it_waits_for_it(home, monkeypatch, capsys):
+    """The one command that can clear a chain nobody else can clear, and it asked in silence.
+
+    `controlling_terminal_response` opens the terminal and reads a line. It prints nothing,
+    and the caller printed nothing either — so the only way to learn the exact phrase was to
+    read this repository's source. The operator who needed it typed ahead, the reader took an
+    empty line, the run returned INCOMPLETE, and the phrase they had typed went to their
+    shell: `zsh: command not found: ACCOUNT`.
+
+    A control whose refusal a person cannot act on is the defect this repository is named
+    after, and it was sitting in the recovery path for a broken chain. Three things are held
+    here: the phrase is printed, it is printed *before* the wait, and a refusal says which of
+    the two reasons it was.
+    """
+    from ai_engineering import accept, audit
+
+    monkeypatch.setattr(accept, "controlling_terminal_response", lambda expected: False)
+
+    result = audit.main(
+        ["account", "--range", "918-923", "--why", "the tests wrote it", "--by", "somebody"]
+    )
+    printed = capsys.readouterr().out
+
+    assert result.outcome == "INCOMPLETE"
+    assert "ACCOUNT 918-923 AS somebody" in printed, "the phrase to type was never shown"
+    assert "type exactly this" in printed
+    assert "Nothing is erased" in printed, "the person is not told what they are agreeing to"
+    assert "did not match, or there is no keyboard here" in printed
+
+    # Printed before the wait, not after it. Anything else is a prompt nobody sees in time,
+    # which is what produced the shell error.
+    order = printed.index("ACCOUNT 918-923 AS somebody"), printed.index("did not match")
+    assert order[0] < order[1]
+
+    # And the phrase the caller prints is the phrase the reader compares against — one
+    # string, not two that happen to agree today.
+    seen: list[str] = []
+    monkeypatch.setattr(
+        accept, "controlling_terminal_response", lambda expected: seen.append(expected) or False
+    )
+    audit.main(["account", "--range", "1-2", "--why", "why", "--by", "who"])
+    assert seen == ["ACCOUNT 1-2 AS who"]
+    assert "ACCOUNT 1-2 AS who" in capsys.readouterr().out
+
+
+def test_show_says_what_the_examples_section_holds(repo, capsys):
+    """The downstream reader the examples never had.
+
+    They were written into every specification by the template and read by nothing: a
+    repo-wide search for the heading found the template and the two files that filled it,
+    and no consumer. There is no verify verb to give them to, so the reader is the verb that
+    already opens the file — and it reports what it observed and decides nothing, which is
+    what keeps it from becoming a second gate."""
+
+    where = _fixture_spec(repo, "a-thing")
+    body = where.read_text()
+    head, _, tail = body.partition("## Examples somebody can check")
+    where.write_text(
+        head
+        + "## Examples somebody can check\n\n"
+        + "**The success path.** Given a tree, When it runs, Then `just check` prints "
+        + "`RAN tests=2128`.\n\n## "
+        + tail.split("\n## ", 1)[1],
+        encoding="utf-8",
+    )
+
+    assert spec.main(["show", "001"]).outcome == "PASS"
+    out = capsys.readouterr().out
+
+    assert "examples: 1 given, 1 when, 1 then" in out
+    assert "1 naming a command and its output" in out
+    # Never "N of them": `1 of` is the prefix of the multi-match heading a
+    # sibling test asserts is absent, and that guard should not depend on how
+    # many examples a fixture happens to carry.
+    assert "1 of" not in out
+    # No verdict word: this observes and the reader decides.
+    tail = out.split("examples:", 1)[1]
+    for word in ("PASS", "FAIL", "INCOMPLETE"):
+        assert word not in tail
+
+
+def test_show_says_nothing_about_examples_when_there_are_none(repo, capsys):
+    """Sixteen of the nineteen specifications have no such section, and a line reading
+    "0 given, 0 when, 0 then" under every one of them is noise standing where a fact should
+    be."""
+
+    where = _fixture_spec(repo, "a-thing")
+    body = where.read_text()
+    where.write_text(body.split("## Examples somebody can check", 1)[0], encoding="utf-8")
+
+    assert spec.main(["show", "001"]).outcome == "PASS"
+    assert "examples:" not in capsys.readouterr().out
+
+
+def _plan_with_tasks(where, how_many=2):
+    """A plan in the shape the plan skill asks for, beside an existing spec."""
+    tasks = "\n\n".join(
+        f"{n}. **Task {n}** — **file** `src/thing.py`.\n"
+        f"   **check**: `just quick thing`.\n"
+        f"   **rollback**: `git revert <commit>`. **done when**: thing {n} works."
+        for n in range(1, how_many + 1)
+    )
+    (where.parent / "plan.md").write_text(f"# Plan\n\n{tasks}\n", encoding="utf-8")
+
+
+def test_show_hands_over_one_task_as_an_envelope(repo, capsys):
+    """The whole point of specification 019's second problem.
+
+    An executor could not be handed a task, only the file it lives in — 74,216 bytes of
+    plan beside a 53,831-byte specification, re-read once per task, because no plan had a
+    structure a script could enumerate. This is the other end of that: one task, the two
+    digests it was read under, and nothing else."""
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-thing")
+    _plan_with_tasks(where)
+
+    assert spec.main(["show", "001", "--task", "2"]).outcome == "PASS"
+    out = capsys.readouterr().out
+
+    assert "task: 2" in out
+    assert "file: `src/thing.py`" in out
+    assert "check: `just quick thing`" in out
+    assert "rollback: `git revert <commit>`" in out
+    assert "done when: thing 2 works" in out
+    # The two digests it was read under, so a hand-off names the bytes it came from.
+    assert "spec: sha256:" in out and "plan: sha256:" in out
+    # And nothing else: the specification body is not printed beside it.
+    assert "## Production-ready" not in out
+    # Small enough to hand over — measured against the real tree, not this fixture. Task 16
+    # asked for "under one kilobyte" and the largest real envelope is 1,862 bytes, so the
+    # fixture assertion pinned nothing. Two kilobytes is the measured bound with slack; what
+    # matters is the ratio against the 128,047 bytes a task used to cost.
+    assert len(out.encode()) < 2048, len(out.encode())
+
+
+def test_an_envelope_refuses_rather_than_printing_half_of_one(repo, capsys):
+    """Each refusal leaves nothing on stdout a reader could act on. A partial envelope is
+    worse than none: it names a file and a check that may belong to another task."""
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-thing")
+
+    # A plan that is not there.
+    assert spec.main(["show", "001", "--task", "1"]).outcome == "INCOMPLETE"
+    assert "no plan" in capsys.readouterr().out
+
+    # A plan with no task a script can enumerate.
+    (where.parent / "plan.md").write_text("# Plan\n\nProse only.\n", encoding="utf-8")
+    assert spec.main(["show", "001", "--task", "1"]).outcome == "INCOMPLETE"
+    assert "no numbered tasks" in capsys.readouterr().out
+
+    # A task number nobody wrote.
+    _plan_with_tasks(where)
+    assert spec.main(["show", "001", "--task", "9"]).outcome == "INCOMPLETE"
+    assert "no task 9" in capsys.readouterr().out
+
+    # A prose list numbered like a task does not shadow the task. Taking the first match
+    # returned the prose item and refused a task that is right there and whole.
+    (where.parent / "plan.md").write_text(
+        "# Plan\n\n## Options considered\n\n1. **Build the subsystem.**\n\n"
+        "## Tasks\n\n1. **The real one** — **file** `src/thing.py`.\n"
+        "   **check**: `just quick thing`.\n"
+        "   **rollback**: `git revert <commit>`. **done when**: it works.\n",
+        encoding="utf-8",
+    )
+    assert spec.main(["show", "001", "--task", "1"]).outcome == "PASS"
+    assert "The real one" in capsys.readouterr().out
+
+    # A digest the caller named that is not the bytes on disk. This is the one that makes
+    # the envelope an authority statement rather than a convenience.
+    _plan_with_tasks(where)
+    assert (
+        spec.main(["show", "001", "--task", "1", "--plan-digest", "sha256:" + "0" * 64]).outcome
+        == "INCOMPLETE"
+    )
+    said = capsys.readouterr().out
+    assert "does not match" in said
+    assert "check:" not in said
+
+
+def test_an_envelope_is_the_same_bytes_the_digest_names(repo, capsys):
+    """Naming the right digest is not a refusal, and the envelope carries it back."""
+
+    import hashlib
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-thing")
+    _plan_with_tasks(where)
+    digest = "sha256:" + hashlib.sha256((where.parent / "plan.md").read_bytes()).hexdigest()
+
+    assert spec.main(["show", "001", "--task", "1", "--plan-digest", digest]).outcome == "PASS"
+    out = capsys.readouterr().out
+    assert digest in out
+    # And the envelope says which of the two happened. With no digest named the check
+    # proves nothing, and one silent about the difference is a hand-off nobody can audit.
+    assert f"plan: {digest} (verified)" in out
+    assert "(verified)" not in out.split("plan:", 1)[0]
+
+
+def test_no_envelope_in_this_tree_is_larger_than_two_kilobytes():
+    """The claim the fixture could not make. Specification 019 measures a task as costing
+    128,047 bytes to hand over — the governing specification plus its plan, re-read once
+    per task. This is what it costs now, over every task that actually exists."""
+
+    import contextlib
+    import io
+
+    from ai_engineering import spec
+
+    root = Path(__file__).resolve().parents[1]
+    largest, where = 0, ""
+    for plan in sorted((root / "specs").glob("*/plan.md")):
+        for task in spec.plan_tasks(plan.read_text(encoding="utf-8", errors="replace")):
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer):
+                spec._envelope(plan.parent, task["task"], {})
+            size = len(buffer.getvalue().encode())
+            if size > largest:
+                largest, where = size, f"{plan.parent.name} task {task['task']}"
+
+    assert largest, "no envelope was produced, so this measured nothing"
+    assert largest < 2048, f"{where} is {largest} bytes"
+
+
+def _a_real_repository(where) -> None:
+    """The page reads the git index, so a fixture that only looks like a repository is not
+    one. Staged rather than committed: `git ls-files` reads the index, which is what makes
+    the natural order — stage the spec, generate, commit both — work."""
+
+    subprocess.run(["git", "init", "-q", "-b", "main", str(where)], check=True)
+    subprocess.run(["git", "-C", str(where), "add", "-A"], check=True)
+
+
+def test_report_intent_writes_the_page_and_says_where(repo, capsys, monkeypatch):
+    """The command the staleness message promised, which argparse rejected.
+
+    A gate whose remedy is a command that does not exist is worse than no gate: the reader
+    runs it, gets `invalid choice`, and learns the check is broken rather than that the page
+    is."""
+
+    from ai_engineering import report, solution_intent
+
+    monkeypatch.chdir(repo)
+    _fixture_spec(repo, "a-thing")
+    _a_real_repository(repo)
+
+    result = report.main(["intent", "--html"])
+
+    assert result.outcome == "PASS"
+    assert (repo / solution_intent.PAGE).is_file()
+    assert str(solution_intent.PAGE) in capsys.readouterr().out
+    assert solution_intent.staleness(repo)[0]
+
+
+def test_the_command_the_staleness_message_names_is_one_that_runs(repo, monkeypatch):
+    """The two halves are written in different files, so they are held equal here rather
+    than by whoever remembers to change both."""
+
+    import shlex
+
+    from ai_engineering import report, solution_intent
+
+    monkeypatch.chdir(repo)
+    _fixture_spec(repo, "a-thing")
+    _a_real_repository(repo)
+    _, why = solution_intent.staleness(repo)
+    named = why.split("run `", 1)[1].split("`", 1)[0]
+
+    assert named.startswith("ai-eng report ")
+    assert report.main(shlex.split(named)[2:]).outcome == "PASS"
+
+
+def test_the_approval_record_still_names_the_bytes_that_are_there():
+    """`EP-324`: no code before an approved plan, where approval means a record naming an
+    exact digest.
+
+    The row said no plan in this repository has one. It has had one since 2026-08-17:
+    `docs/adr/0009` records the approved digest of both `spec.md` and `plan.md`, and it lives
+    outside the files it approves for the reason it states — an approval naming the digest of
+    the file it is written in changes that digest by existing, so the number can never settle.
+
+    What was missing is a reader. `test_the_approval_digests_in_the_plan_are_read_by_something`
+    reads the specification's digest out of the plan's own prose; nothing read the record. So
+    the approval was a document with the same standing as the prose it replaced: true when
+    written, and unable to notice the day it stopped being true.
+
+    This reads it. Every row of the record's table names a file and a digest, and each has to
+    be the digest that file has now. An edit to either without a fresh approval turns this red
+    and names which file moved — which is the whole of what an activation gate can do while
+    the approval itself belongs to a person.
+    """
+
+    import hashlib
+    import re
+
+    root = Path(__file__).resolve().parents[1]
+    record = root / "docs" / "adr" / "0009-the-current-spec-010-digests-are-approved.md"
+    body = record.read_text(encoding="utf-8")
+
+    rows = re.findall(r"^\|\s*`([^`]+)`\s*\|\s*`([0-9a-f]{64})`\s*\|", body, re.M)
+    assert len(rows) >= 2, (
+        f"{record.name} names {len(rows)} approved digests and it approved two files. An "
+        "approval record nobody can read row by row is prose with a table in it"
+    )
+
+    moved = []
+    for name, approved in rows:
+        target = root / name
+        assert target.is_file(), f"{record.name} approves {name}, which is not in this tree"
+        now = hashlib.sha256(target.read_bytes()).hexdigest()
+        if now != approved:
+            moved.append(f"{name}: approved {approved[:12]}, now {now[:12]}")
+
+    assert not moved, (
+        "the approved bytes are not the bytes that are there: "
+        + "; ".join(moved)
+        + ". Either restore them or record a fresh approval — an approval that survives an "
+        "edit to what it approved is a signature on a blank page."
+    )

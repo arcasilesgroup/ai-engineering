@@ -38,10 +38,13 @@ SCHEMA_PATH = paths.policy("capability-manifest.schema.json")
 MANIFEST_PATH = paths.policy("capabilities.toml")
 # Moved deliberately when the manifest gained `phase`, and moved a second time when an
 # independent review found the sentence explaining it counting the wrong things: it said
-# twelve commands, where the catalogue is fifteen capabilities, the skill tree is twelve
-# directories and the CLI has ten verbs. The pin is what makes a change here a decision
-# somebody takes rather than a file that drifted, and a wrong number inside a governed file
-# is exactly what it exists to make expensive.
+# twelve commands, where the catalogue is fifteen capabilities, the skill tree was twelve
+# directories then and is thirteen now, and the CLI has ten verbs. The twelve was a real
+# count of the wrong thing, which is what the review found; rewriting it to today's number
+# would turn "you counted the wrong thing" into "you invented a number" and lose the
+# finding. The pin is what makes a change here a decision somebody takes rather than a file
+# that drifted, and a wrong number inside a governed file is exactly what it exists to make
+# expensive.
 _EXPECTED_SCHEMA_DIGEST = "1f1273266cc1f01a366aa5277082c6fe50976cee16f0adda045e62461f1df9e2"
 _MAX_POLICY_BYTES = 1_000_000
 # The `\.` alternative that stood here matched nothing the class after it did not:
@@ -363,8 +366,27 @@ def preflight(
     capability_id: str,
     mode_id: str,
     action: Action,
+    executor: Any = None,
 ) -> intent.Validation:
-    """Check canonical declaration and refuse until an installed executor proves enforcement."""
+    """Check the canonical declaration, then ask the executor that owns the operation.
+
+    With no executor the answer is `CAPABILITY_ENFORCEMENT_UNAVAILABLE`, unchanged and still
+    the honest one: a declaration checked beside an operation nobody owns is advice. That is
+    the default and it stays the default, because every caller that has not been rewritten
+    to go through an executor is still doing exactly what it did before.
+
+    An executor is a `Sandbox` — see `executor.py` — and it is asked two questions, after
+    the declaration has already refused anything outside scope. Whether a human confirmed
+    the action, when the mode declares a gate covering that kind of action; and whether the
+    executor is really about to perform this action under this identity.
+
+    The declaration goes first on purpose. A gate asked before it would put a person in
+    front of every out-of-scope action too, and a prompt that mostly precedes a refusal is a
+    prompt people learn to dismiss — which is how a gate stops being one.
+
+    Anything the executor raises is a refusal. This is a fail-closed control and an executor
+    that crashes has not proved it owns anything.
+    """
 
     try:
         manifest = _validated(None)
@@ -391,4 +413,20 @@ def preflight(
         return intent.Validation("INCOMPLETE", *ENFORCEMENT_UNAVAILABLE)
     if not declared:
         return intent.Validation("INCOMPLETE", *ACTION_UNDECLARED)
-    return intent.Validation("INCOMPLETE", *ENFORCEMENT_UNAVAILABLE)
+    if executor is None:
+        return intent.Validation("INCOMPLETE", *ENFORCEMENT_UNAVAILABLE)
+    from ai_engineering import executor as executor_module
+
+    try:
+        # An unrecognised gate word gates everything. The schema constrains the word, so
+        # this is unreachable through the shipped manifest — but the fallback that would
+        # read naturally here is an empty tuple, and that is a gate word nobody recognised
+        # silently meaning "ask nobody".
+        gate = executor_module.GATES.get(mode["human_gate"], tuple(_ACTION_CONTROLS))
+        if action.kind in gate and not executor.confirmed(action):
+            return intent.Validation("INCOMPLETE", *executor_module.HUMAN_GATE_UNCONFIRMED)
+        if not executor.owns(capability_id, mode_id, action):
+            return intent.Validation("INCOMPLETE", *ENFORCEMENT_UNAVAILABLE)
+    except Exception:
+        return intent.Validation("INCOMPLETE", *ENFORCEMENT_UNAVAILABLE)
+    return PASS

@@ -55,13 +55,22 @@ def git(root: Path, *args: str) -> None:
 
 
 def verdict(fn, root: Path | None) -> tuple[str, str]:
-    """The three states doctor prints, as a pair a table can be compared against."""
+    """The three states doctor prints, as a pair a table can be compared against.
+
+    A fourth answer arrived with `Noted`: a pass that publishes what it observed. It is a
+    non-empty string and would read as a failure here, exactly as it would in the runner —
+    which is why both places test for it before testing for truthiness, and why this helper
+    reports it as `ok` with its text rather than inventing a fourth word. A table comparing
+    against `("ok", "")` is asking whether the check passed, and it did.
+    """
     try:
         problem = fn(root)
     except doctor.Undecidable as why:
         return "undecidable", str(why)
     if isinstance(problem, tuple):
         problem = problem[0]  # a check that carries its own cure; the message is the first
+    if isinstance(problem, doctor.Noted):
+        return "ok", str(problem)
     return ("fail", problem) if problem else ("ok", "")
 
 
@@ -88,7 +97,7 @@ def test_every_assertion_has_a_unique_number_a_family_and_a_sentence():
     # 5 is retired, not renumbered: the numbers are cited in prose all over this repository
     # and moving them would silently repoint every one of those citations. It was the line
     # ceiling, and the test plane owns that assertion now.
-    assert sorted(numbers) == [n for n in range(1, 25) if n != 5]
+    assert sorted(numbers) == [n for n in range(1, 27) if n != 5]
     for number, family, title, in_ci, fn in doctor.CHECKS:
         assert family and title and callable(fn) and isinstance(in_ci, bool), number
 
@@ -347,26 +356,34 @@ def test_a_buffer_that_stopped_being_sealed_is_reported(home, repo):
     assert "2020-01-01" in said, said
 
 
-def test_fifteen_declared_capabilities_that_enforce_nothing_are_reported(home, repo):
+def test_fifteen_declared_capabilities_report_which_half_of_them_is_enforced(home, repo):
     """`policy/capabilities.toml` declares fifteen capabilities with read roots, write
-    roots, exec allowlists, network hosts, secrets and human gates, and `preflight`
-    validates every one of them and then refuses, because no executor exists. That refusal
-    is honest and is pinned elsewhere.
+    roots, exec allowlists, network hosts, secrets and human gates, and for a long time
+    `preflight` validated every one of them and then refused, because no executor existed.
 
     What nothing did was say so. No assertion, no README line, no verb mentioned it, so a
     reader of six governed fields per capability had no way to learn that none of them
-    stops anything. A declaration nobody enforces and nobody flags is the shape of a false
-    green, and the constitution's first duty is to expose that rather than hide it."""
+    stopped anything. A declaration nobody enforces and nobody flags is the shape of a false
+    green, and the constitution's first duty is to expose that rather than hide it.
 
-    # Undecidable and not FAIL. Nothing executed — the executor is what is missing — and
-    # FAIL is reserved for an executed check that conclusively found a violation. It still
-    # prints, under a heading whose last line is "None of these is a pass." The distinction
-    # is not cosmetic: as a failure it made `doctor` red on every machine forever, which is
+    Half of it is enforced now, by `executor.Sandbox`, and the sentence had to move with the
+    code or it would have become the same defect pointing the other way — a warning that
+    overstates is read once and then discounted, which costs exactly as much as one that
+    understates."""
+
+    # Still undecidable and still not FAIL, and the reason is unchanged: what remains open is
+    # a measurement about somebody else's software that has never been taken, not a violation
+    # this check executed and found. It prints under a heading whose last line is "None of
+    # these is a pass." As a failure it made `doctor` red on every machine forever, which is
     # a red nobody can clear and so a red everybody learns to scroll past.
     got, detail = verdict(doctor.capabilities_enforced, repo)
     assert got == "undecidable"
-    assert "nothing enforces them" in detail, detail
     assert detail.startswith("15 "), detail
+
+    # Both halves, in one sentence. Either alone is a claim a reader would act wrongly on.
+    assert "only this framework's own actions are enforced" in detail, detail
+    assert "one taken by a surface is not" in detail, detail
+    assert "nothing here reads one" in detail, detail
 
 
 def test_assertion_16_reports_could_not_evaluate_over_a_block_nobody_can_read(home, repo):
@@ -491,7 +508,12 @@ def test_assertions_17_and_18_the_record_is_committed_and_the_state_is_not(repo)
         target.write_text(file["content"])
     git(repo, "add", "-A")
     assert verdict(doctor.polarity, repo) == ("ok", "")
-    assert verdict(doctor.data_is_yours, repo) == ("ok", "")
+    passed, published = verdict(doctor.data_is_yours, repo)
+    # `EP-290` asks for the count and not only the refusal, so the pass is asserted to carry
+    # one. Before `Noted` there was no channel for it and this line could only read `("ok",
+    # "")` — the same silence a check that inventoried nothing would have produced.
+    assert passed == "ok"
+    assert "tracked files inventoried" in published
     (repo / ".ai" / "notes.md").write_text("scratch\n")
     (repo / ".ai-engineering").mkdir()
     (repo / ".ai-engineering" / "scripts.py").write_text("")
@@ -1675,3 +1697,705 @@ def test_a_receipt_pointing_somewhere_else_is_reported_and_never_opened(
     wiring.record([{"path": str(link), "kind": "router", "how": "generated deadbeef"}])
     again = doctor.routers_intact(repo)
     assert isinstance(again, tuple) and "ai-linked.md" in again[0]
+
+    # Both kinds of link, because only one of them was read. `is_symlink()` is False for a
+    # hard link, so `os.link` put the whole oracle back inside a declared command root: the
+    # right digest reported nothing and a wrong one reported `1 edited`, naming the file. An
+    # independent reviewer built exactly this. It is refused as astray now, and the report
+    # never opens it, so neither answer distinguishes anything.
+    import os
+
+    hard = commands / "ai-oracle.md"
+    os.link(secret, hard)
+    wiring.record([{"path": str(hard), "kind": "router", "how": "generated deadbeef"}])
+    hardened = doctor.routers_intact(repo)
+    assert isinstance(hardened, tuple)
+    assert "ai-oracle.md" in hardened[0]
+    assert "edited" not in hardened[0], "a hard link was hashed instead of being refused"
+
+
+def test_a_second_handler_for_a_declared_capability_is_named_and_a_clean_repository_is_not(repo):
+    """`EP-164`: `ai-spec` pinned to one mode was pinned by a test reading the manifest's own
+    content, which says nothing about elsewhere — and elsewhere is where a second handler
+    lives.
+
+    A capability is a name a surface routes on, so a second `SKILL.md` calling itself
+    `ai-spec` is a second answer to the same request, chosen by the surface's search order
+    rather than by anything this framework recorded.
+
+    Four cases, and the clean one first, because a check that failed on every repository
+    would look identical from the outside to one that works.
+    """
+
+    (repo / "README.md").write_text("a repository\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    got, _ = verdict(doctor.one_handler_each, repo)
+    assert got == "ok", "a repository with no second handler was reported as having one"
+
+    # Untracked is somebody's working directory and not this check's business.
+    rogue = repo / ".claude" / "skills" / "ai-spec"
+    rogue.mkdir(parents=True)
+    (rogue / "SKILL.md").write_text("---\nname: ai-spec\n---\n", encoding="utf-8")
+    assert verdict(doctor.one_handler_each, repo)[0] == "ok"
+
+    # Committed, and it is now a handler this repository ships.
+    git(repo, "add", "-A")
+    got, detail = verdict(doctor.one_handler_each, repo)
+    assert got == "fail"
+    assert "ai-spec" in detail and ".claude/skills/ai-spec/SKILL.md" in detail
+    assert "search order" in detail
+
+    # Found by the name it calls itself, not by the directory it sits in: a directory renamed
+    # to hide a duplicate still routes, because the surface reads the frontmatter.
+    hidden = repo / "vendor" / "notes"
+    hidden.mkdir(parents=True)
+    (hidden / "SKILL.md").write_text("---\nname: ai-review\n---\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    detail = verdict(doctor.one_handler_each, repo)[1]
+    assert "ai-review" in detail and "vendor/notes/SKILL.md" in detail
+
+    # And a skill that is nobody's declared capability is somebody's own work, left alone.
+    (hidden / "SKILL.md").write_text("---\nname: their-own-skill\n---\n", encoding="utf-8")
+    (rogue / "SKILL.md").unlink()
+    git(repo, "add", "-A")
+    assert verdict(doctor.one_handler_each, repo)[0] == "ok"
+
+
+def test_the_second_handler_check_answers_nothing_rather_than_guessing(monkeypatch):
+    """Outside a repository there is no inventory, and a manifest that cannot be read is not
+    a manifest declaring nothing. Both are undecidable, and the second is the one that would
+    otherwise pass loudly: an empty set of declared ids matches no handler at all."""
+
+    from ai_engineering import capability
+
+    assert verdict(doctor.one_handler_each, None)[0] == "undecidable"
+
+    def broken(_source):
+        raise ValueError("unreadable")
+
+    monkeypatch.setattr(capability, "_validated", broken)
+    got, detail = verdict(doctor.one_handler_each, Path.cwd())
+    assert got == "undecidable"
+    assert "could not be read" in detail
+
+
+def test_the_paths_flag_prints_five_homes_and_asks_nothing_else(monkeypatch, capsys):
+    """Eighty-nine mutants of `doctor.main` survived, and this is the half of it a person
+    pipes into a script.
+
+    Five file classes, each with the one path it lives at. The labels are what a reader greps
+    for and the paths are what they act on, so both are asserted — and so is the fact that
+    nothing else runs: `--paths` is a question about where things are, and a diagnosis that
+    answered it by executing twenty-six checks would be answering a different question
+    slowly.
+    """
+    ran = []
+    monkeypatch.setattr(
+        doctor, "CHECKS", [(1, "The record", "would have run", True, lambda root: ran.append(1))]
+    )
+
+    assert doctor.main(["--paths"]).outcome == "PASS"
+    printed = [one for one in capsys.readouterr().out.splitlines() if one.strip()]
+
+    assert [one.split()[0] for one in printed] == ["guards", "git", "skills", "record", "receipt"]
+    assert len(printed) == 5, printed
+    assert all(
+        one.endswith(("/", "json", "jsonl", "py", "skills")) or "/" in one for one in printed
+    )
+    assert ran == [], "--paths ran a check"
+
+
+def test_the_ci_flag_skips_what_a_runner_cannot_answer_and_says_which(monkeypatch, capsys):
+    """`--ci` is the shape a false green would take if it were quiet about it.
+
+    A runner has no working copy for some questions, and the honest answer is that they were
+    not asked. What must never happen is that they read as passes — so each one prints as
+    skipped, carries the reason, and arrives in the envelope as a SKIPPED fact rather than
+    being left out of it.
+    """
+    asked = []
+
+    def only_local(root):
+        asked.append("local")
+        return None
+
+    def anywhere(root):
+        asked.append("ci")
+        return None
+
+    monkeypatch.setattr(
+        doctor,
+        "CHECKS",
+        [
+            (1, "The record", "needs a working copy", False, only_local),
+            (2, "The record", "runs anywhere", True, anywhere),
+        ],
+    )
+
+    result = doctor.main(["--ci"])
+    printed = capsys.readouterr().out
+
+    assert asked == ["ci"], "a check a runner cannot answer was asked anyway"
+    assert "needs a real working copy" in printed
+    facts = {one.id: one for one in result.checks} if hasattr(result, "checks") else {}
+    if facts:
+        assert facts["assertion-1"].status == "SKIPPED"
+        assert facts["assertion-1"].detail == "needs a real working copy"
+        assert facts["assertion-2"].status != "SKIPPED"
+
+    # Without the flag, both are asked.
+    asked.clear()
+    doctor.main([])
+    assert sorted(asked) == ["ci", "local"]
+
+
+def test_every_way_the_anchor_can_fail_to_answer_is_its_own_sentence(monkeypatch, tmp_path):
+    """Thirty-six mutants of `_anchor_answers` survived, and this check exists because of a
+    machine found with a live interpreter and a dead module.
+
+    Six outcomes, and the distinction between two pairs of them is the whole point.
+    Liveness and anchorability are asked separately, because a module that cannot run is a
+    broken install and a failure, while a module that runs and cannot anchor is a chain that
+    has not been established — true of every fresh machine, and reporting it as a broken
+    install would make this assertion red by construction. A red by construction is a red
+    somebody silences.
+
+    Each returns a different sentence, and each sentence is what the person acts on, so the
+    sentences are asserted rather than the shape of the return value.
+    """
+    from ai_engineering import doctor as under
+
+    def answers(configured="", interpreter=None, version=None, anchor=None):
+        monkeypatch.setattr(under, "git", lambda root, *a: configured)
+        monkeypatch.setattr(under, "_interpreter_of", lambda value: interpreter)
+
+        def run(root, argv):
+            got = version if argv[0] == "--version" else anchor
+            if isinstance(got, Exception):
+                raise got
+            return got
+
+        monkeypatch.setattr(under, "_run_anchor", run)
+        return verdict(under._anchor_answers, tmp_path)
+
+    ok = SimpleNamespace(returncode=0, stdout="ai-engineering 1.0.0")
+    # The footer has an exact shape — owner/repo, a sequence and twelve hex of head — and a
+    # line that merely starts with the key matches nothing. That is deliberate: a chain
+    # footer somebody typed by hand is not one this tool wrote.
+
+    # Nothing configured: undecidable, because nothing was asked rather than answered wrongly.
+    state, said = answers()
+    assert state == "undecidable"
+    assert "ai.eng is not set here" in said
+
+    # Configured, and naming a different interpreter. What the hooks run is not what this
+    # install would run, which is a failure and not a question.
+    state, said = answers(
+        configured="/somewhere/python -m ai_engineering.cli", interpreter="/other"
+    )
+    assert state == "fail"
+    assert "does not name this interpreter and this module" in said
+
+    # The exact machine this check was written for: installed, and it does not run.
+    state, said = answers(
+        configured="x",
+        interpreter=sys.executable,
+        version=SimpleNamespace(returncode=1, stdout=""),
+    )
+    assert state == "fail"
+    assert "installed and does not run" in said
+
+    # It runs and answers something else entirely — a different tool on the same name.
+    state, said = answers(
+        configured="x",
+        interpreter=sys.executable,
+        version=SimpleNamespace(returncode=0, stdout="some other tool 2.0"),
+    )
+    assert state == "fail"
+
+    # It runs and cannot anchor yet: a fresh machine, and undecidable rather than broken.
+    state, said = answers(
+        configured="x",
+        interpreter=sys.executable,
+        version=ok,
+        anchor=SimpleNamespace(returncode=1, stdout=""),
+    )
+    assert state == "undecidable"
+    assert "not in a state to sign one" in said
+
+    # It anchors, and prints two footers. A commit carries exactly one, and two is a commit
+    # nobody can verify — the count is in the message because the number is the finding.
+    state, said = answers(
+        configured="x",
+        interpreter=sys.executable,
+        version=ok,
+        anchor=SimpleNamespace(
+            returncode=0,
+            stdout=(
+                "Ai-Eng-Anchor: o/r seq=1 head=0123456789ab\n"
+                "Ai-Eng-Anchor: o/r seq=2 head=0123456789ac\n"
+            ),
+        ),
+    )
+    assert state == "fail"
+    assert "printed 2 anchor footers" in said
+
+    # And an interpreter that cannot be executed at all is undecidable, not a failure: this
+    # ran nothing, so it found nothing.
+    state, said = answers(configured="x", interpreter=sys.executable, version=OSError("gone"))
+    assert state == "undecidable"
+    assert "could not be executed: OSError" in said
+
+
+def test_the_tracked_inventory_is_refused_rather_than_returned_short(tmp_path, monkeypatch):
+    """Eighteen mutants of `tracked_files` survived, and every reader of it decides what is
+    committed where.
+
+    `-z` exists because a filename may contain a newline, and a splitter that used one would
+    turn one file into two — which, in the check that finds framework files outside their
+    homes, invents a stray that is not there and hides the one that is. So the separator is
+    asserted with a name that would break a line-splitter.
+
+    Everything else is a refusal, and they matter more than the success: an inventory that
+    came back short reads as a repository with nothing wrong in it. Absent git, a git that
+    fails, output that is not UTF-8, output missing its final separator, and an empty name
+    between two separators are five ways to be short, and each is undecidable rather than an
+    empty list.
+    """
+    from ai_engineering import doctor as under
+
+    def answers(stdout=b"", code=0, error=None):
+        def run(argv, **kwargs):
+            if error is not None:
+                raise error
+            return SimpleNamespace(returncode=code, stdout=stdout, stderr=b"")
+
+        monkeypatch.setattr(under.subprocess, "run", run)
+
+    answers(b"a.py\0b/c.py\0")
+    assert under.tracked_files(tmp_path) == ["a.py", "b/c.py"]
+
+    # A newline inside a name. The only separator is the NUL, and this is why.
+    answers(b"one\ntwo.py\0plain.py\0")
+    assert under.tracked_files(tmp_path) == ["one\ntwo.py", "plain.py"]
+
+    # Nothing tracked at all is an empty inventory and not a refusal: a fresh repository is
+    # a real state, and refusing it would make this red by construction.
+    answers(b"")
+    assert under.tracked_files(tmp_path) == []
+
+    for why, kwargs in (
+        ("git is not installed", {"error": FileNotFoundError("git")}),
+        ("git timed out", {"error": subprocess.TimeoutExpired("git", 10)}),
+        ("git failed", {"code": 128}),
+        ("the output is not UTF-8", {"stdout": b"\xff\xfe.py\0"}),
+        ("the last name has no separator", {"stdout": b"a.py\0b.py"}),
+        ("an empty name between two separators", {"stdout": b"a.py\0\0b.py\0"}),
+    ):
+        answers(**kwargs)
+        with pytest.raises(under.Undecidable, match="could not inventory tracked files"):
+            under.tracked_files(tmp_path)
+        assert why, "every refusal above is named, so the reason is in the failure output"
+
+
+def test_the_inventory_asks_about_the_repository_it_was_handed(tmp_path, monkeypatch):
+    """`-C <root>`, and it is the argument that decides which repository is answered about.
+
+    Without it this reads whatever repository the process happens to be standing in — which,
+    for a diagnosis run from inside one repository about another, is a report about the wrong
+    tree that looks exactly like a report about the right one.
+    """
+    from ai_engineering import doctor as under
+
+    seen = []
+    monkeypatch.setattr(
+        under.subprocess,
+        "run",
+        lambda argv, **kw: (
+            seen.append(argv) or SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
+        ),
+    )
+
+    under.tracked_files(tmp_path)
+
+    assert seen[0][:4] == ["git", "-C", str(tmp_path), "ls-files"]
+    assert "-z" in seen[0], "the separator that makes a newline in a name safe is gone"
+    assert "--cached" in seen[0]
+
+
+def test_the_one_word_the_whole_diagnosis_collapses_to():
+    """Twelve mutants of `_terminal_result` survived, and every one of the twenty-six
+    assertions arrives here to become a single word and an exit code.
+
+    Four states in a strict order — FAIL, then INCOMPLETE, then WARN, then PASS — and the
+    order is the entire meaning. A failed assertion beside an unanswered one is a failure:
+    the thing that was found does not stop being found because something else could not be
+    asked. And an unanswered assertion beside a warning is INCOMPLETE, because a question
+    nobody could ask outranks a state somebody chose to accept.
+
+    Everything below is asserted as the outcome word rather than as a shape, because the
+    word is what the person and the exit code both come from.
+    """
+    from ai_engineering import doctor as under
+
+    def word(**kwargs):
+        base = {"failed": [], "unanswered": [], "coverage_lines": [], "coverage_unknown": False}
+        return under._terminal_result(**{**base, **kwargs}).outcome
+
+    assert word() == "PASS"
+
+    # Each of the three that fail, alone.
+    assert word(failed=[7]) == "FAIL"
+    assert word(readiness_failed=True) == "FAIL"
+    assert word(surface_failed=True) == "FAIL"
+
+    # And the fourth, which arrives as a word inside the coverage table rather than a flag:
+    # a surface whose settings and receipt disagree is a mismatch, and a mismatch is a
+    # failure however green everything around it is.
+    assert word(coverage_lines=["  claude-code   MISMATCH   the entry is not ours"]) == "FAIL"
+
+    # Unanswered, and the coverage table that could not be built.
+    assert word(unanswered=[(3, "a title", "why")]) == "INCOMPLETE"
+    assert word(coverage_unknown=True) == "INCOMPLETE"
+
+    # Warned, and the three words that mean somebody has not proved something rather than
+    # that something is wrong.
+    assert word(surface_warned=True) == "WARN"
+    for said in ("INERT", "UNPROVEN", "OPEN"):
+        assert word(coverage_lines=[f"  cursor   {said}   nothing has denied here"]) == "WARN", said
+
+    # The precedence, which is the part a rewrite would get wrong quietly.
+    assert word(failed=[1], unanswered=[(2, "t", "w")]) == "FAIL"
+    assert word(failed=[1], surface_warned=True) == "FAIL"
+    assert word(unanswered=[(2, "t", "w")], surface_warned=True) == "INCOMPLETE"
+    assert word(coverage_unknown=True, coverage_lines=["  x   UNPROVEN   y"]) == "INCOMPLETE"
+    assert word(failed=[1], coverage_lines=["  x   UNPROVEN   y"]) == "FAIL"
+
+    # A word that is none of the five it looks for changes nothing, or every line of prose in
+    # that table would be able to move the verdict.
+    assert word(coverage_lines=["  claude-code   PROVEN   a denial executed here"]) == "PASS"
+    assert word(coverage_lines=["  a line with no capitals at all"]) == "PASS"
+
+
+def test_the_diagnosis_exits_non_zero_whenever_it_did_not_pass():
+    """The half of the same decision a script reads. A verdict that printed FAIL and exited
+    zero would be the false green this product is named after, arriving in the command whose
+    entire job is to say whether the system is healthy."""
+    from ai_engineering import doctor as under
+
+    for word, expected in (("PASS", 0), ("WARN", 0), ("INCOMPLETE", 1), ("FAIL", 1)):
+        got = under._terminal_result(
+            failed=[1] if word == "FAIL" else [],
+            unanswered=[(1, "t", "w")] if word == "INCOMPLETE" else [],
+            coverage_lines=[],
+            coverage_unknown=False,
+            surface_warned=word == "WARN",
+        )
+        assert got.outcome == word
+        assert (got.exit_code != 0) == bool(expected), (word, got.exit_code)
+
+
+def test_the_fix_flag_runs_what_the_failures_named_and_never_invents_a_cure(monkeypatch, capsys):
+    """ADR 0003 decided this shape and eighteen of its mutants survived: **a check reports and
+    never writes; a check that knows the cure carries the command; `--fix` may invoke that
+    command and may not reimplement it.**
+
+    So what is asserted is that every command it runs came out of a cure, that each distinct
+    one runs exactly once however many checks named it, and that they run in this process
+    through `cli.main` rather than through a shell — `ai-eng` is on the PATH of the person who
+    typed it and not necessarily of whatever would run it here, and a repair that fails
+    because it could not find itself is worse than no repair.
+    """
+    from ai_engineering import cli
+    from ai_engineering import doctor as under
+
+    ran: list[list[str]] = []
+    monkeypatch.setattr(cli, "main", lambda argv: ran.append(argv) or 0)
+    monkeypatch.setattr(under, "main", lambda argv: outcome.result("PASS"))
+
+    # Two checks naming one cure, and a third naming another: two runs, not three.
+    under.repair({1: "ai-eng init", 4: "ai-eng init", 7: "ai-eng update"}, ["--fix"])
+    assert ran == [["init", "-y"], ["update"]]
+
+    # `-y` is added for `init` and for nothing else, because that is the one verb whose
+    # defaults destroy nothing — the picker arrives with nothing ticked.
+    assert under.UNATTENDED == {"init": ["-y"]}
+
+    # No cures is no commands. A `--fix` over a clean diagnosis must not run anything.
+    ran.clear()
+    under.repair({}, ["--fix"])
+    assert ran == []
+
+
+def test_a_cure_that_fails_stops_the_rest_and_says_so(monkeypatch, capsys):
+    """The order matters and so does stopping. A second cure run after the first failed is a
+    repair operating on a machine whose state nobody knows, and the honest answer is
+    INCOMPLETE with the exit code in it rather than carrying on."""
+    from ai_engineering import cli
+    from ai_engineering import doctor as under
+
+    ran: list[list[str]] = []
+    monkeypatch.setattr(
+        cli, "main", lambda argv: ran.append(argv) or (2 if argv[0] == "init" else 0)
+    )
+    monkeypatch.setattr(under, "main", lambda argv: outcome.result("PASS"))
+
+    result = under.repair({1: "ai-eng init", 2: "ai-eng update"}, ["--fix"])
+
+    assert result.outcome == "INCOMPLETE"
+    assert ran == [["init", "-y"]], "the rest was attempted after a cure failed"
+    assert "it exited 2. The rest is not attempted." in capsys.readouterr().out
+
+
+def test_the_second_pass_carries_no_fix_and_a_repair_that_changed_nothing_says_so(
+    monkeypatch, capsys
+):
+    """Two properties that keep `--fix` from being a loop.
+
+    The second pass has no `--fix` in it, so this recurses exactly once. And when the answer
+    is still red, it says that what is left is not something these commands reach — because
+    two of the cures cannot reach every shape of their failure, and a repair that invited a
+    second run of the same command would be a person typing the same thing forever.
+    """
+    from ai_engineering import cli
+    from ai_engineering import doctor as under
+
+    seen: list[list[str]] = []
+    monkeypatch.setattr(cli, "main", lambda argv: 0)
+    monkeypatch.setattr(under, "main", lambda argv: seen.append(argv) or outcome.result("FAIL"))
+
+    result = under.repair({1: "ai-eng init"}, ["--fix", "--ci"])
+
+    assert seen == [["--ci"]], "the second pass carried --fix and would recurse"
+    assert result.outcome == "FAIL"
+    said = capsys.readouterr().out
+    assert "Still failing" in said
+    assert "running --fix again will run the same ones" in said
+
+    # And when it passes, it says nothing extra: a repair that worked does not need a warning.
+    seen.clear()
+    monkeypatch.setattr(under, "main", lambda argv: seen.append(argv) or outcome.result("PASS"))
+    capsys.readouterr()
+    assert under.repair({1: "ai-eng init"}, ["--fix"]).outcome == "PASS"
+    assert "Still failing" not in capsys.readouterr().out
+
+
+def test_every_surface_state_arrives_as_a_sentence_and_never_as_a_code(tmp_path, monkeypatch):
+    """Seventeen mutants of `surface_states` survived, and this is twenty-four rows of the
+    output somebody reads to decide whether a surface is proved.
+
+    Eight codes, eight sentences, and the sentences are the point: `SURFACE_RECEIPT_STALE`
+    tells a person nothing, and "the receipt is older than a proof is allowed to be" tells
+    them what to do. A code that lost its sentence would fall back to the code and the row
+    would still print, which is exactly the kind of degradation nothing notices.
+
+    The age travels with it. A receipt is evidence about a moment, and a row that said
+    something executed without saying when is a claim with no shelf life.
+    """
+    from datetime import UTC, datetime
+
+    from ai_engineering import doctor as under
+    from ai_engineering import surface as surfaces
+
+    def rows(*items):
+        monkeypatch.setattr(
+            surfaces, "read", lambda root, *, now: SimpleNamespace(rows=list(items))
+        )
+
+    seen = []
+    for code in (
+        surfaces.PROVEN,
+        surfaces.NOT_APPLICABLE,
+        surfaces.RECEIPT_MISSING,
+        surfaces.RECEIPT_STALE,
+        surfaces.RECEIPT_MISMATCH,
+        surfaces.CANNOT_ENFORCE,
+        surfaces.WARNED,
+        surfaces.REFUSED_EXCUSE,
+    ):
+        rows(
+            SimpleNamespace(
+                surface="opencode", state="enforcement", outcome="PASS", code=code, age_seconds=None
+            )
+        )
+        (fact,) = under.surface_states(tmp_path, now=datetime.now(UTC))
+        seen.append(fact.detail)
+        assert fact.detail != code, f"{code} printed itself instead of a sentence"
+        assert fact.id == "surface-opencode-enforcement"
+        assert fact.summary == "opencode · enforcement"
+
+    assert len(set(seen)) == 8, "two codes share a sentence, so two states read the same"
+
+    # An age, when there is one. Evidence about a moment that does not say which moment is a
+    # claim with no shelf life.
+    rows(
+        SimpleNamespace(
+            surface="claude-code",
+            state="discovery",
+            outcome="PASS",
+            code=surfaces.PROVEN,
+            age_seconds=42,
+        )
+    )
+    (aged,) = under.surface_states(tmp_path, now=datetime.now(UTC))
+    assert aged.detail.endswith(" · 42s old")
+
+    # A code nobody wrote a sentence for still prints, as itself. Dropping the row would be
+    # an omission, and to anything counting an omitted row reads like a question that was not
+    # worth asking.
+    rows(
+        SimpleNamespace(
+            surface="zed",
+            state="invocation",
+            outcome="INCOMPLETE",
+            code="SURFACE_SOMETHING_NEW",
+            age_seconds=None,
+        )
+    )
+    (unknown,) = under.surface_states(tmp_path, now=datetime.now(UTC))
+    assert unknown.detail == "SURFACE_SOMETHING_NEW"
+
+    # And outside a repository there is nothing to read rather than twenty-four unproven
+    # rows: no receipts exist to be missing.
+    assert under.surface_states(None, now=datetime.now(UTC)) == []
+
+
+def test_the_coverage_table_says_pin_first_and_never_calls_an_unwired_surface_covered(
+    tmp_path, monkeypatch
+):
+    """Thirteen mutants of `coverage` survived, and this table is the honesty layer.
+
+    Its first line is the pin, and the word after it decides the whole verdict: `MISMATCH`
+    is scanned for by `_terminal_result` and turns the diagnosis red. A wheel and a pin that
+    disagree mean the hooks on this machine are not the ones this repository thinks it has.
+
+    Then a row per surface, with the tier first. The bug this function was corrected for is
+    in the docstring and is worth a case: `surfaces_alive` returns a tuple as soon as any
+    surface is unwired, and a substring test against a tuple is never true — so two surfaces
+    that fail *silently* printed as covered on a machine where another assertion was telling
+    the person they were dead.
+    """
+    from datetime import UTC, datetime
+
+    from ai_engineering import __version__, wiring
+    from ai_engineering import doctor as under
+
+    monkeypatch.setattr(
+        under.paths,
+        "load",
+        lambda name: SimpleNamespace(config=lambda root: {"framework": {"version": __version__}}),
+    )
+    monkeypatch.setattr(wiring, "detect", lambda: [])
+    monkeypatch.setattr(wiring, "wired", lambda: ([], []))
+    monkeypatch.setattr(under, "enforced", lambda root, *, now: set())
+    monkeypatch.setattr(under, "surfaces_alive", lambda root: ("opencode is inert", "a cure"))
+
+    lines = under.coverage(tmp_path, now=datetime.now(UTC))
+
+    assert lines[0].startswith("  PIN  wheel ")
+    assert lines[0].endswith("  OK"), lines[0]
+    assert "MISMATCH" not in lines[0]
+
+    # The pin disagreeing is the one word in this table that makes the run red.
+    monkeypatch.setattr(
+        under.paths,
+        "load",
+        lambda name: SimpleNamespace(config=lambda root: {"framework": {"version": "0.0.1"}}),
+    )
+    mismatched = under.coverage(tmp_path, now=datetime.now(UTC))
+    assert mismatched[0].endswith("  MISMATCH")
+    assert (
+        under._terminal_result(
+            failed=[], unanswered=[], coverage_lines=mismatched[:1], coverage_unknown=False
+        ).outcome
+        == "FAIL"
+    )
+
+    # A tuple from `surfaces_alive` is read as its message. Without this, the substring test
+    # below it is never true and an inert surface reads as covered.
+    assert any("opencode" in one for one in lines[1:])
+    assert len(lines) > len(under.OPEN), "the per-surface rows are gone"
+
+
+def test_nothing_installed_leaves_every_row_unproven_rather_than_undecided(tmp_path, monkeypatch):
+    """`surfaces_alive` raises when nothing is installed, and the answer is not a missing
+    table: every row already reads UNPROVEN, which is the honest word for a machine this
+    framework has never been wired into. Swallowing the exception into an empty table would
+    replace twenty-four honest rows with silence."""
+    from datetime import UTC, datetime
+
+    from ai_engineering import __version__, wiring
+    from ai_engineering import doctor as under
+
+    monkeypatch.setattr(
+        under.paths,
+        "load",
+        lambda name: SimpleNamespace(config=lambda root: {"framework": {"version": __version__}}),
+    )
+    monkeypatch.setattr(wiring, "detect", lambda: [])
+    monkeypatch.setattr(wiring, "wired", lambda: ([], []))
+    monkeypatch.setattr(under, "enforced", lambda root, *, now: set())
+
+    def nothing(root):
+        raise under.Undecidable("nothing is installed here")
+
+    monkeypatch.setattr(under, "surfaces_alive", nothing)
+
+    lines = under.coverage(tmp_path, now=datetime.now(UTC))
+
+    assert len(lines) > 1, "an undecidable liveness check emptied the table"
+    assert any("UNPROVEN" in one for one in lines), lines
+
+
+def test_a_production_ready_box_carries_its_age_beside_its_verdict(tmp_path, monkeypatch):
+    """Eleven mutants of `readiness_facts` survived, and the age is the whole reason this
+    function reports more than a verdict.
+
+    A receipt has two ways of meaning nothing and only one shows up as a failure: it can say
+    the wrong thing, or it can say the right thing about a run from six months ago. The
+    second reads green in every summary that only counts outcomes, which is why the age sits
+    beside the verdict on every row rather than in a separate report nobody opens.
+
+    A box with no receipt at all says "no receipt to age" rather than showing a zero. Zero is
+    a number, and a number here means somebody measured something.
+    """
+    from datetime import UTC, datetime
+
+    from ai_engineering import doctor as under
+    from ai_engineering import readiness
+
+    monkeypatch.setattr(
+        readiness,
+        "read",
+        lambda root, *, now: SimpleNamespace(
+            result=SimpleNamespace(outcome="INCOMPLETE"),
+            code="READINESS_UNPROVEN",
+            boxes=[
+                SimpleNamespace(
+                    id="ci", label="CI/CD", outcome="PASS", code="PROVEN", age_seconds=90
+                ),
+                SimpleNamespace(
+                    id="logs",
+                    label="Logs",
+                    outcome="INCOMPLETE",
+                    code="NO_RECEIPT",
+                    age_seconds=None,
+                ),
+            ],
+        ),
+    )
+
+    facts = under.readiness_facts(tmp_path, now=datetime.now(UTC))
+
+    assert [one.id for one in facts] == ["readiness", "readiness-ci", "readiness-logs"]
+    assert facts[0].status == "INCOMPLETE"
+    assert facts[0].detail == "READINESS_UNPROVEN"
+    assert facts[1].detail == "PROVEN · 90s old"
+    assert facts[2].detail == "NO_RECEIPT · no receipt to age"
+    assert facts[1].summary == "CI/CD", "the label a person reads was replaced by the id"
+
+    # Outside a repository there is one honest row and not eight unproven ones: there are no
+    # receipts to be missing, which is a different answer from receipts that say nothing.
+    (alone,) = under.readiness_facts(None, now=datetime.now(UTC))
+    assert alone.status == "INCOMPLETE"
+    assert alone.detail == "there is no repository here to read receipts from"

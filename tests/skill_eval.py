@@ -172,13 +172,26 @@ def problems(found: dict[str, dict], known_verbs: set[str] | None = None) -> lis
     # other descriptions; this evaluates the sample somebody wrote down as what the skill
     # must take and what it must send away — and a routing evaluation with no sample is a
     # self-consistency check wearing an evaluation's name.
+    # Held to the same rule as the claims above, and it was not. A description was compared
+    # to its neighbours twice — same phrase, and phrase containing theirs — while the cases
+    # beside the skills were compared only the first way. So the sample the evaluation
+    # actually runs on was judged more leniently than the descriptions it exists to check,
+    # and "review this diff" beside "review this diff for security" would have read as two
+    # cases when it is one fork with the ambiguity spelled out a word longer. Nothing in the
+    # corpus here trips it, which is when a rule costs least to add.
     for name, skill in found.items():
         for case in skill.get("takes", []):
             for other, rival in found.items():
                 if other <= name:
                     continue
-                if case in rival.get("takes", []):
-                    broken.append(f'{name} and {other} both take the case "{case}"')
+                for theirs in rival.get("takes", []):
+                    if case == theirs:
+                        broken.append(f'{name} and {other} both take the case "{case}"')
+                    elif case in theirs or theirs in case:
+                        broken.append(
+                            f'{name} takes the case "{case}" and {other} takes "{theirs}"; '
+                            "one contains the other and nothing decides between them"
+                        )
         for case, target in skill.get("sends", []):
             if case in skill.get("takes", []):
                 broken.append(f'{name} both takes and refuses the case "{case}"')
@@ -236,7 +249,135 @@ def problems(found: dict[str, dict], known_verbs: set[str] | None = None) -> lis
     return broken
 
 
+# The receipt this run owes, and the third of the three `EP-281` asks for. The scan half has
+# had one since the adversarial suite got its two; the attestation half needs a published
+# release. This is the evaluation half, and it was missing for the same reason the others
+# were not: nothing had asked the evaluation to leave a record another command can read.
+#
+# The same schema, the same bound and the same shape as `tests/adversarial/run.py`, because
+# two spellings of a receipt is two receipts. A day: an evaluation that ran last week says
+# nothing about the corpus as it is now.
+RECEIPT_SCHEMA = "urn:ai-engineering:check-evidence:1"
+RECEIPT_MAX_AGE = 86_400
+
+
+def _against_baseline(measured: int) -> int:
+    """Compare this run against the number somebody last agreed to, and refuse a silent move.
+
+    `EP-289` asks for a delta with a baseline and a margin. Until this, nothing compared the
+    evaluation's size to anything: the labelled corpus could have fallen from 254 cases to 3
+    and the run would have printed `RAN skilleval=3` and exited zero. An evaluation that
+    cannot shrink noticeably is an evaluation whose number is decoration.
+
+    The margin is zero, and that is not strictness for its own sake. This evaluation is
+    deterministic — a graph over descriptions and a labelled corpus, no model in the loop —
+    so the same tree gives the same number every time, and a band around it would be a
+    tolerance for variance that does not exist. What a margin would hide is somebody deleting
+    cases.
+
+    A missing baseline is not a pass. It is the register that has to be repaired, and saying
+    so is the difference between "nothing to compare against" and "compared and agreed".
+    """
+
+    register = ROOT / "policy" / "pilot-register.toml"
+    try:
+        rows = tomllib.loads(register.read_text(encoding="utf-8")).get("baseline", [])
+        agreed = next(row for row in rows if row["id"] == "skill-routing")
+    except (OSError, tomllib.TOMLDecodeError, KeyError, StopIteration):
+        print("  INCOMPLETE: no baseline for skill-routing in policy/pilot-register.toml,")
+        print("  so this number was compared against nothing.")
+        return 1
+
+    delta = measured - int(agreed["measured"])
+    if abs(delta) <= int(agreed["margin"]):
+        print(f"  baseline {agreed['measured']}, delta {delta:+d}, margin {agreed['margin']}")
+        return 0
+    print(
+        f"  FAIL: {measured} cases against a baseline of {agreed['measured']} — "
+        f"delta {delta:+d}, margin {agreed['margin']}."
+    )
+    print("  Coverage moved. Move the baseline in the same commit and say why, the way the")
+    print("  line ceiling moves; a number nobody argued for is a number that drifted.")
+    return 1
+
+
+def _corpus_digest() -> str:
+    """What was evaluated: every skill body and every corpus beside it.
+
+    Two runs over the same corpus agree; one line changed in any skill does not. Without it
+    the receipt would say a run happened and nothing about what it ran over, which is the
+    difference between a record and a timestamp.
+    """
+
+    import hashlib
+
+    listing = {}
+    for found in sorted((ROOT / ".agents" / "skills").rglob("*.md")):
+        listing[found.relative_to(ROOT).as_posix()] = hashlib.sha256(found.read_bytes()).hexdigest()
+    listing[".self"] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    body = "\n".join(f"{name} {digest}" for name, digest in sorted(listing.items()))
+    return "sha256:" + hashlib.sha256(body.encode()).hexdigest()
+
+
+def _receipt(measured: int, started: str, result: object) -> None:
+    """Write what this run evaluated, or say why it could not and change nothing else.
+
+    A failure to write is not a failure of the evaluation — the verdict is the exit code and
+    it has already been decided. So this never raises: a receipt that could take the run down
+    with it would make a record of a check into a way to fail the check.
+    """
+
+    import hashlib
+    import json
+    from datetime import UTC, datetime
+
+    where = ROOT / ".ai" / "receipts" / "skill-evaluation.json"
+    # What this run produced, not an empty string. The first version wrote `""` and the
+    # schema requires a `sha256:` digest — so the receipt was invalid and the run printed
+    # its path anyway, which is a record of a check that no reader would accept. The artefact
+    # of an evaluation is its result, so that is what is hashed.
+    artifact = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(result, sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest()
+    )
+    finished = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    try:
+        where.parent.mkdir(parents=True, exist_ok=True)
+        where.write_text(
+            json.dumps(
+                {
+                    "schema": RECEIPT_SCHEMA,
+                    "schema_version": "1",
+                    "kind": "automated",
+                    "id": "skill-evaluation",
+                    "applicability": "applicable",
+                    "command": "python tests/skill_eval.py",
+                    "tool_version": f"skill-eval over {measured} cases",
+                    "input_digest": _corpus_digest(),
+                    "artifact_digest": artifact,
+                    "started_at": started,
+                    "finished_at": finished,
+                    "max_age_seconds": RECEIPT_MAX_AGE,
+                    "outcome": "PASS",
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    except OSError as why:
+        print(f"  the evaluation ran and its receipt could not be written: {why}")
+        return
+    print(f"  receipt: {where.relative_to(ROOT)}")
+
+
 def main() -> int:
+    from datetime import UTC, datetime
+
+    started = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
         found = corpus()
     except OSError as why:  # pragma: no cover - a corpus that cannot be read
@@ -289,16 +430,22 @@ def main() -> int:
     # for a person meeting the catalogue with no idea what any of it is for, and a field no
     # command ever shows that person is a field that answers nobody. This is the command
     # that shows it.
-    by_phase: dict[str, list[str]] = {}
-    for row in declared["capabilities"]:
-        by_phase.setdefault(str(row["phase"]), []).append(str(row["id"]))
-    print(f"  the {len(by_phase)} phases the catalogue is arranged in:")
-    for phase in ("discover", "decide", "plan", "build", "verify"):
-        print(f"    {phase:<14} {', '.join(sorted(by_phase.get(phase, ['—'])))}")
+    # Read from the product rather than rebuilt here. This runner used to be the only place
+    # the map existed, which is what `EP-135` was reopened for: a field declared for a person
+    # meeting the catalogue, shown only to a developer watching CI. `ai-eng init` prints it
+    # now, to the person who has just been handed the thirteen, and both call this.
+    from ai_engineering import wiring
+
+    grouped = wiring.phase_map()
+    print(f"  the {len(grouped)} phases the catalogue is arranged in:")
+    for phase, names in grouped:
+        print(f"    {phase:<14} {', '.join(names) or '—'}")
 
     print("  Nothing here evaluates whether a skill's instructions are any good.")
-    print(f"RAN skilleval={claims + len(refusals) + takes + sends}")
-    return 0
+    measured = claims + len(refusals) + takes + sends
+    _receipt(measured, started, {"measured": measured, "phases": grouped})
+    print(f"RAN skilleval={measured}")
+    return _against_baseline(measured)
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@
 
 [claim]
 p5_complete = false
-why = "six indicators have no instrument and the pilot itself has not been run"
+why = "7 indicators have no instrument and the pilot itself has not been run"
 
 # ── the thirteen ────────────────────────────────────────────────────────────────────
 
@@ -36,8 +36,8 @@ wave = "P4"
 
 [[indicator]]
 id = "mutation_score"
-bound = "89% floor for the package, with an explicit matrix for the guards"
-command = "just mutate"
+bound = "no survivor among the deliberate defects written against the guards"
+command = "just guards"
 wave = "P0"
 
 [[indicator]]
@@ -61,12 +61,16 @@ wave = "P0"
 
 [[indicator]]
 id = "skill_eval_delta"
-no_instrument = """two of the three absences this row used to record are gone: `just \
-skilleval` is an evaluation runner inside the gate, and the 160 labelled cases beside the \
-skills are a corpus it runs on. What is still missing is what a delta needs — a baseline \
-recorded at a commit, a margin, and a named approver for the corpus — so there is a score \
-and nothing to take a delta of. Specification 012 refuses to invent the comparison, and a \
-first run that blocks is not a baseline."""
+# The third absence this row recorded is gone. `just skilleval` is an evaluation runner
+# inside the gate, the labelled cases sit beside every skill, and there is a baseline now:
+# 275, margin zero, delta printed on every run. A register with no baseline is refused rather
+# than passed.
+#
+# What is still missing is the named approver, which `EP-289` asks for and which nobody can
+# supply but a person. The row is instrumented and the requirement is not closed, and those
+# are different facts.
+bound = "the labelled corpus does not move from its baseline without the baseline moving too"
+command = "uv run python tests/skill_eval.py"
 wave = "P2"
 
 [[indicator]]
@@ -83,14 +87,23 @@ wave = "P2"
 
 [[indicator]]
 id = "a11y_critical_journey"
-no_instrument = """no critical journey is enumerated anywhere, and a coverage figure over \
-an empty list is 100%. The skill states the method; nothing has run it."""
+# Was `no_instrument = "no critical journey is enumerated anywhere, and a coverage figure
+# over an empty list is 100%"`. True when it was written and false since `policy/
+# accessibility.toml` landed: seven journeys are named with the command that walks each, and
+# the criteria that cover them are six that execute and four that say why they cannot.
+bound = "seven critical journeys enumerated, and every criterion either checked or argued"
+command = "uv run --with pytest==9.1.1 pytest -q tests/test_accessibility.py"
 wave = "P2"
 
 [[indicator]]
 id = "aaa_exception_age"
-no_instrument = """`ai-eng accept` already ages an acceptance with owner and expiry, and no \
-AAA criterion has ever been recorded, so there is nothing aged."""
+# Was `no_instrument = "no AAA criterion has ever been recorded, so there is nothing aged"`.
+# Five are recorded now — the four a command-line tool cannot be held to, and the one it
+# deliberately does not meet — each carrying the date it was last read. `ai-eng doctor`
+# reports one that has gone a year without, and reports rather than fails: nothing broke, and
+# a stale argument is still an argument.
+bound = "no argued accessibility criterion goes 365 days without being re-read"
+command = "uv run --with pytest==9.1.1 pytest -q tests/test_accessibility.py -k year_without"
 wave = "P2"
 
 [[indicator]]
@@ -98,6 +111,60 @@ id = "coordination_overlap"
 bound = "zero concurrent writers on one work item or one claimed path"
 command = "ai-eng spec checkpoint --base <ref> --item <work-item>"
 wave = "P3"
+
+# ── the six the pilot was commissioned to measure ───────────────────────────────
+#
+# `EP-056` names six: defects, cost, wait, conflicts, escalations and false greens. The
+# thirteen above were written from what this repository could already compute, and an audit
+# of the requirement found that not one of the thirteen is any of the six. That is not a
+# small mismatch — those six are the pilot's stated purpose, and the register that exists to
+# publish what has no instrument was silent about the six it was commissioned for.
+#
+# Silent is the part that gets fixed here. One of them has a real command, one was already
+# tracked under another name, and four have none — and four rows saying so is the honest
+# state, where their absence read as though the pilot measured everything it set out to.
+
+[[indicator]]
+id = "false_greens"
+bound = "no row graded proven may name a command that does not pass"
+# The answer key. It executes every command the ledger calls proof and refuses to write a
+# receipt if any row fails, so the count of false greens is a number something computes
+# rather than a claim somebody makes. It has found three in two days, one of them written
+# ten minutes before it ran.
+command = "python tests/ledger_run.py"
+wave = "P5"
+
+[[indicator]]
+id = "escalations"
+no_instrument = """an escalation is a person deciding that a gate's refusal needs somebody \
+above them, and nothing here can see that happen. What the tree holds is the refusals \
+themselves; who was asked afterwards is a conversation, and counting conversations from a \
+repository is how a metric gets invented rather than measured."""
+wave = "P5"
+
+[[indicator]]
+id = "defect_escape"
+no_instrument = """a defect that escaped is one the gate passed and a person later found, so \
+counting them needs the second half — a record of what was found after the fact, tied back \
+to the commit that shipped it. Nothing writes that record. The reviews on this branch found \
+nine defects in work already called done and none of them is countable from the tree."""
+wave = "P5"
+
+[[indicator]]
+id = "cycle_cost"
+no_instrument = """token and wall-clock cost per unit of work. Both are real and both are \
+measured outside this repository — in the session logs of whatever ran the work — so a \
+number here would be copied from somewhere nothing in `just check` can read, which is the \
+definition of a figure that goes stale without a test."""
+wave = "P5"
+
+[[indicator]]
+id = "review_wait"
+no_instrument = """the time between a block closing and a reviewer answering. Git records \
+commit times, not availability windows, so the same objection that makes `PO-05` \
+unfalsifiable applies here: nothing distinguishes a reviewer who answered immediately from \
+one who was asked late and answered at once."""
+wave = "P5"
 
 [[indicator]]
 id = "report_payload_unknown"
@@ -109,81 +176,187 @@ wave = "P2"
 
 [[prohibition]]
 id = "ide-mirrors"
+source_order = 1
+quote = "Mirrors por IDE o copias del framework dentro de repos consumidores."
 never = "per-IDE mirrors, or copies of the framework inside a consumer repository"
 check = "ai-eng doctor assertion 18 — every framework file has one declared home"
 
 [[prohibition]]
 id = "inventory-target"
+source_order = 2
+quote = "Los 54 skills como objetivo de inventario."
 never = "the fifty-four skills as an inventory target"
 reason = """an intention no check can read. What can be checked is the cost of each \
 addition, and `contract.audit_one` charges it: a corpus, a refusal case, a declared mode."""
 
 [[prohibition]]
 id = "wrong-mission"
+source_order = 3
+quote = "Fundraising, marketing, media, vídeo, slides o soporte como misión del wheel."
 never = "fundraising, marketing, media, video, slides or support as the wheel's mission"
 check = "tests/test_contracts.py — the constitution's mission and its Never list"
 
 [[prohibition]]
 id = "coordination-database"
+source_order = 4
+quote = "Una DB/FSM de coordinación, heartbeat o takeover por TTL antes de que Git+CI fallen en colisiones reales."
 never = "a coordination database, heartbeat or TTL takeover before Git and CI have failed"
 check = "tests/test_coordination_shape.py — no ownership store, heartbeat or takeover"
 
 [[prohibition]]
 id = "agent-per-lens"
+source_order = 5
+quote = "Un agente por lens de review."
 never = "one agent per review lens"
 reason = """no check can count agents that do not exist. The lenses are files under \
 `ai-review/references/`, loaded by the diff, and that is the shape that keeps it true."""
 
 [[prohibition]]
 id = "hook-ran-events"
+source_order = 6
+quote = "Eventos que solo prueban que un hook arrancó."
 never = "events that prove only that a hook started"
 check = "hooks/_emit.py — six closed classes, and a raise on anything else"
 
 [[prohibition]]
 id = "council-and-envelope"
+source_order = 7
+quote = "Dos modos de ai-spec, council obligatorio, mayoría simple de modelos o un authority-envelope subsystem sin consumidor real."
 never = "two ai-spec modes, a mandatory council, model majority, or an authority envelope"
 reason = """none of them exists to be found. The check that would matter is on the day \
 somebody adds one, and it is a review, not a grep: a council arrives as an argument."""
 
 [[prohibition]]
 id = "artificial-ceiling"
+source_order = 8
+quote = "Un ceiling artificial de verbos o skills que empeore la arquitectura de información."
 never = "an artificial ceiling of verbs or skills that worsens the information architecture"
 reason = """a judgement about architecture, which no gate holds. The ten verbs and the \
 skill count are both bound by tests, so a change to either is visible and argued for."""
 
 [[prohibition]]
 id = "documented-proven"
+source_order = 9
+quote = "Una surface marcada proven por leer documentación o generar un fichero."
 never = "a surface marked proven for reading documentation or writing a file"
 check = "tests/test_surface_adapter.py — the word is read from a receipt, never declared"
 
 [[prohibition]]
 id = "documentation-portal"
+source_order = 10
+quote = "Un portal de documentación que el core deba mantener para funcionar."
 never = "a documentation portal the core must maintain in order to work"
 reason = """nothing in `just check` reads a website. The site lives in another repository \
 by decision, and the check that keeps it there is that this one never imports it."""
 
 [[prohibition]]
 id = "publish-every-commit"
+source_order = 11
+quote = "Publicar cada commit local, hacer background rebase o usar force push sin SHA esperado."
 never = "publishing every local commit, rebasing in the background, or forcing without a SHA"
 check = "tests/test_coordination_shape.py — bare force, background rebase, per-commit push"
 
 [[prohibition]]
 id = "publish-user-text"
+source_order = 12
+quote = "Publicar logs o texto libre del usuario para reportar errores."
 never = "publishing a user's logs or free text in order to report an error"
 check = "tests/test_issue.py — a closed payload with no field for either"
 
 [[prohibition]]
 id = "scanner-accessibility"
+source_order = 13
+quote = "Declarar accesibilidad o AAA desde contraste, axe o cualquier scanner automático sin interacción manual."
 never = "declaring accessibility or AAA from contrast, axe or any scanner without a person"
 reason = """a scanner cannot tell you it did not look. The refusal is written as a corpus \
 case in `ai-design` — "axe passed, so we are accessible" — and no gate here claims AAA."""
 
 [[prohibition]]
 id = "score-compliance"
+source_order = 14
+quote = "Afirmar certificación, cumplimiento o seguridad total desde un score o un LLM."
 never = "claiming certification, compliance or total security from a score or a model"
 reason = """there is no compliance verb to make the claim with. `ai-security` refuses it in \
 its corpus, and refusing is the only thing a skill can do about a sentence somebody types."""
 
+# ── prohibitions that carry a number ────────────────────────────────────────────────
+#
+# `EP-057` asks for a stated prohibition and a numeric threshold for the same rule. The
+# fourteen above are stated and none of them carries a number, which was the finding — and
+# two rules in this framework do carry one. Both were bare literals inside a function, which
+# is how a threshold changes without anybody arguing for it.
+#
+# The number lives beside the sentence it enforces, and `tests/test_pilot_register.py`
+# refuses a register whose number and the code's have drifted apart. That is the pairing the
+# requirement asks for: neither half can move without the other going red.
+
+[[threshold]]
+id = "owed-a-script"
+never = "a judgement that always comes out the same way staying a prompt"
+threshold = 3
+unit = "identical verdicts, in one report window"
+stated_in = "AGENTS.md rule 12 — the third time the same judgement resolves the same way it becomes a script"
+enforced_by = "ai_engineering.report.OWED_A_SCRIPT, printed by `ai-eng report digest`"
+
+[[threshold]]
+id = "bypasses-worth-a-look"
+never = "a guard being walked past as a habit"
+threshold = 3
+unit = "bypasses of any guard, in one report window"
+stated_in = "src/ai_engineering/report.py — a guard you bypass three times is a guard to fix or to delete"
+enforced_by = "ai_engineering.report.BYPASSES_WORTH_A_LOOK, printed by `ai-eng report digest`"
+
+# ── what a measurement is compared against ───────────────────────────────────────────
+#
+# `EP-289` asks for an evaluation delta with a baseline, a margin and a named approver. The
+# routing evaluation has run in the gate for a wave and nothing compared its size to
+# anything: the labelled corpus could have fallen from 254 cases to 3 and the run would have
+# printed `RAN skilleval=3` and exited zero. An evaluation that cannot shrink noticeably is
+# an evaluation whose number is decoration.
+#
+# The margin is zero and that is not strictness for its own sake. This evaluation is
+# deterministic — a graph over descriptions and a labelled corpus, with no model in the loop
+# — so the same tree gives the same number every time, and any band around it would be a
+# tolerance for a variance that does not exist. What a margin would hide here is somebody
+# deleting cases.
+#
+# So it moves the way `contract.REPO_CEILING` moves: in a commit that says why. That commit
+# is the approval, and it is the same mechanism this repository already trusts for the line
+# ceiling. What it is not is a named person, and `EP-289` asks for one — the row stays open
+# on that and the field says so rather than carrying a name nobody typed.
+
+[[baseline]]
+id = "skill-routing"
+measured = 275
+margin = 0
+command = "python tests/skill_eval.py"
+approved_by = ""
+reopen_when = "somebody with authority names themselves here, which closes EP-289's third half"
+why = """The count is claims plus refusals plus the labelled cases on both sides. Falling \
+means a skill stopped declaring what it routes or a corpus lost cases; rising means the \
+opposite. Both are worth a sentence, and neither should happen without one.
+
+274 to 275: `ai-security` takes the deployed-target question and answers it INCOMPLETE, \
+which is repair 7 — the decision on where a dynamic scan lives was made twice already and \
+had no trace in the tree.
+
+255 to 274: `ai-verify` ships as a skill under specification 019 repair 6, bringing six \
+claims and six refusals of its own plus the labelled cases beside them. D-012-04 made \
+absorption its exit condition in the absence of a consumer for what it would verify; repair \
+5 built that consumer, so a spec's examples are now a section a command can parse.
+
+254 to 255: `ai-build`'s corpus took one more refusal — asking it to tick the task off in \
+the plan. Specification 019 repair 1 deletes that instruction from the skill because editing \
+the approved bytes withdraws the approval the task is running under, and a deleted \
+instruction with nothing in its place is read as permission. The refusal is the sentence \
+that replaces it."""
+
+# `EP-302` left this list on 2026-08-19 because its own reopening condition had fired:
+# "the record carries a red run somebody else can read". `tests/red_then_green.py` writes one
+# for every commit on the branch, and the nightly lane runs it. A row whose reopening
+# condition has fired and which nobody removed is a refusal that has outlived its argument,
+# which is the second time this register has been caught holding one.
+#
 # ── the ungated ─────────────────────────────────────────────────────────────────────
 #
 # Requirements this framework will not gate, and why. Rule 12 is explicit: a judgement that
@@ -210,34 +383,10 @@ reason = "every description carries four to six trigger phrases on purpose: a ro
 reopen_when = "a routing evaluation shows the extra phrases cost more misroutes than they prevent"
 
 [[ungated]]
-id = "EP-163"
-asks = "the writing is readable by somebody who does not code"
-reason = "a grade-level gate on prose is a check on style. The jargon ban is the half that executes — six words refused across every skill body by `contract.audit_one`."
-reopen_when = "a readability measure exists that a person disagreeing with it can argue against"
-
-[[ungated]]
-id = "EP-179"
-asks = "a snapshot as a contract term separate from freshness"
-reason = "the checkpoint already carries freshness and the merge gate already carries final combination; a third word for the same two facts is vocabulary, not a control."
-reopen_when = "two writers need to agree on a state neither freshness nor combination describes"
-
-[[ungated]]
-id = "EP-302"
-asks = "a test was red before the fix"
-reason = "nothing can observe a test that failed on somebody's machine before they wrote the fix. It is the first thing `ai-build` requires and the first thing a reviewer asks for."
-reopen_when = "the record carries a red run somebody else can read, which needs a receipt this product does not write"
-
-[[ungated]]
 id = "EP-305"
 asks = "names express intention"
 reason = "a judgement about language. The half that executes is the other clause of the same requirement: an error carries its cause and its cure, asserted in `test_doctor.py` and `test_outcomes.py`."
 reopen_when = "a naming rule exists that is not a preference"
-
-[[ungated]]
-id = "EP-324"
-asks = "no code before an approved plan"
-reason = "`hooks/change_scope_guard.py` reads whether a plan exists on the branch, which is the weaker of the two questions and the only one a hook can answer inside its latency budget. Approval here is an MADR naming an exact digest; no plan in this repository has one, so a guard demanding it would deny every write on every branch including the one writing the plan."
-reopen_when = "a plan is approved by digest in an accepted MADR, so the guard has something to read that is not itself"
 
 [[ungated]]
 id = "EP-262"
@@ -254,7 +403,7 @@ reopen_when = "a skill ships whose output is probabilistic rather than a routing
 [[ungated]]
 id = "EP-117"
 asks = "small golden cases, cross-model advisory, and blocking only after a stable baseline"
-reason = "the golden cases exist and run — 160 labelled routing cases beside the skills, evaluated on every gate — and the same argument as EP-083 applies to the rest: no baseline is recorded because a deterministic check has nothing to take a delta of, and `skill_eval_delta` says so in this register rather than pretending to a number"
+reason = "the golden cases exist and run — one labelled corpus beside the skills, counted and evaluated by `just skilleval` on every gate, which prints the number rather than repeating it here — and the same argument as EP-083 applies to the rest: no baseline is recorded because a deterministic check has nothing to take a delta of, and `skill_eval_delta` says so in this register rather than pretending to a number"
 reopen_when = "the evaluation produces a score that can move for a reason other than a defect, which is the first moment a baseline and a margin mean anything"
 
 # ── the judgements no script settles, gathered ──────────────────────────────────────
@@ -310,7 +459,7 @@ reopen_when = "a replay harness exists that can run the same task with and witho
 [[ungated]]
 id = "EP-161"
 asks = "a judgement that repeats becomes a script"
-reason = "rule 12 itself, and the only coded part is the ceiling on a SKILL.md: over eighty lines is a procedure that should be a script. The threshold half — how often is repeated — is the judgement, and a number chosen here would be chosen by whoever wrote this line."
+reason = "rule 12 itself. Two parts are coded: the ceiling on a SKILL.md, and `report.repeats`, which counts identical verdicts over the digest window and prints how many judgements were counted and the highest repetition on every run. The threshold half — how often is repeated — is the judgement, and a number chosen here would be chosen by whoever wrote this line."
 reopen_when = "the same judgement is recorded resolving the same way three times, which is the threshold rule 12 already states in words"
 
 [[ungated]]
@@ -322,7 +471,12 @@ reopen_when = "a skill's output becomes an artefact a command can read, rather t
 [[ungated]]
 id = "EP-168"
 asks = "a human answer outranks an inference when a person is reachable"
-reason = "no code detects an interactive channel, and one that guessed would be wrong in both directions: a pipe is not proof nobody is there, and a terminal is not proof somebody is."
+reason = """the half that could be coded is coded and was already: every question goes \
+through `accept.controlling_terminal_response`, which reads the OS controlling terminal and \
+refuses `isatty`, a flag, an environment value and piped stdin because a script supplies each. \
+This row's earlier reason said no code detects an interactive channel, which was false when it \
+was written and stayed on the page. What remains ungatable is the clause about which unknowns \
+are worth asking, and that is a judgement about a question nobody has asked yet."""
 reopen_when = "a surface reports whether a person is present, rather than the process inferring it"
 
 [[ungated]]

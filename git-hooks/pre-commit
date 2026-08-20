@@ -3,6 +3,18 @@
 # undoing the add rather than rewriting history. Staged hunks only — under a second.
 set -euo pipefail
 [ -x "$(dirname "$0")/pre-commit.local" ] && "$(dirname "$0")/pre-commit.local" "$@"
+
+# `PO-17`, which the plan has asked for since it was written and nothing has ever run: a
+# staged hunk with a whitespace error or a conflict marker left in it. It costs milliseconds
+# and it catches the one class of damage that survives review, because a reviewer reads what
+# the diff says and not what its trailing bytes are. Found by auditing the process
+# commitments the same way the product requirements were audited — the commitment was prose
+# in `specs/010/plan.md` and `grep -rF 'diff --check'` returned nothing anywhere else.
+if ! git diff --cached --check; then
+  echo "pre-commit: a staged hunk has a whitespace error or a conflict marker above." >&2
+  echo "Fix the lines it named and stage them again." >&2
+  exit 1
+fi
 if command -v gitleaks >/dev/null 2>&1; then
   gitleaks git --staged --redact --no-banner --exit-code 1 || {
     echo "pre-commit: a secret is staged. Unstage it and rotate it; it never reached history." >&2

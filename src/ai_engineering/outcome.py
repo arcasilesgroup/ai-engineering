@@ -136,6 +136,17 @@ class Result:
         }
 
 
+class Unreadable(Exception):
+    """A file that is there and cannot be read. Absent is an answer; unreadable is not.
+
+    One base for a condition five modules had each named for themselves. `cli` has a handler
+    for exactly this — stop, name the file, write nothing — and reaching it meant importing
+    every module that could raise, which put `solution_intent` and `blocked` on the cold start
+    of every verb and cost twenty milliseconds a `--version` call. A caller that wants to know
+    "could this be read" should not have to know who was reading.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class Fact:
     """One bounded execution fact, separate from the closed terminal-outcome schema."""

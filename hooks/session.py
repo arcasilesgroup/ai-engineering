@@ -49,7 +49,7 @@ def run(payload: dict) -> None:
             note("this repository is not set up — no pin, no git hooks. Run `ai-eng init`.")
         age = digest_age_days()
         if age is None or age > STALE_DAYS:
-            note("the weekly record has not been read. `ai-eng digest` is one paragraph.")
+            note("the weekly record has not been read. `ai-eng report digest` is one paragraph.")
         return
 
     emit("session", "session", phase="end", id=session_id())

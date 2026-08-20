@@ -8,6 +8,16 @@ on:
   push:
     branches: [main, v1]
   pull_request:
+  # `EP-211`: the wheel denial has to execute per release and not only on a push and a pull
+  # request. A release is the moment the claim stops being about a branch and starts being
+  # about something a stranger will install, and until now nothing re-ran these three
+  # platforms at that moment — the last evidence was whatever the merge commit produced.
+  #
+  # This builds the tag's own tree, which is the code that was released. It is not yet the
+  # published artefact fetched back from PyPI: that is `EP-151` and `EP-280`, it needs the
+  # network and a real release, and it is not what this trigger claims.
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -357,15 +367,15 @@ jobs:
           test "$(printf '%s' "$out" | wc -l)" -eq 0 || { echo "more than one line"; exit 1; }
           printf '%s' "$out" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['command']=='audit'; assert d['outcome']; assert d['schema_version']=='1'"
 
-          # The renamed guard, asked of the wheel that is installed rather than of a report
-          # that never mentions a guard filename. Grepping doctor's JSON for the old name
-          # was true for a wheel still shipping it, and true for a wheel shipping nothing.
+          # A guard, asked of the wheel that is installed rather than of a report that never
+          # mentions a guard filename. Grepping doctor's JSON for a name was true for a wheel
+          # still shipping it, and true for a wheel shipping nothing.
           # Asked of the artifact with the standard library and no import: the wheel is
           # installed into an isolated environment, so this runner's bare python3 cannot
           # import the package it just installed — a probe written that way replaces a
           # check that could never fail with one that could never pass.
-          python3 -c "import sys,zipfile; n=zipfile.ZipFile(sys.argv[1]).namelist(); sys.exit('the old guard name survives in the wheel' if any(x.endswith('hooks/design_gate.py') for x in n) else 'the renamed guard is not in the wheel' if not any(x.endswith('hooks/change_scope_guard.py') for x in n) else 0)" "$(printf '%s\n' "$GITHUB_WORKSPACE"/dist/*.whl | head -1)"
-          ai-eng exception --help | grep -q change_scope_guard
+          python3 -c "import sys,zipfile; n=zipfile.ZipFile(sys.argv[1]).namelist(); sys.exit('a deleted guard survives in the wheel' if any(x.endswith(d) for d in ('hooks/design_gate.py', 'hooks/change_scope_guard.py', 'hooks/claim_scope_guard.py') for x in n) else 'the guards are not in the wheel' if not any(x.endswith('hooks/no_verify_guard.py') for x in n) else 0)" "$(printf '%s\n' "$GITHUB_WORKSPACE"/dist/*.whl | head -1)"
+          ai-eng exception --help | grep -q loop_guard
 
           ai-eng --json doctor >doctor.json 2>err2.txt || true
           test ! -s err2.txt || { echo "json doctor wrote to stderr"; cat err2.txt; exit 1; }

@@ -156,7 +156,7 @@ BASELINE = (
         rules=Path("policy/semgrep.yml"),
         # Moved deliberately when the rules change, and a test says so with the command that
         # prints the new value. A pin nobody has to update is a pin nobody notices missing.
-        rules_digest="81adf3bdbd24ca883bbc75d659e9a44ba0967ef4c4445628bb78f63f85a26c2a",
+        rules_digest="5eb15f234e3989727a933e6689f0fc03e7397c7880e4db6b23e60a863987e223",
         extra=("--config", "policy/semgrep.yml", "--error", "--quiet"),
         sarif=("--sarif-output", "{}"),
     ),
@@ -293,6 +293,15 @@ def unread(root: Path, lane: Lane | None = None) -> list[str]:
     ]
 
 
+def _readable(path: Path) -> bool:
+    """`is_file()` that answers rather than raises, whatever the filesystem says."""
+
+    try:
+        return path.is_file()
+    except OSError:
+        return False
+
+
 def stacks(root: Path) -> list[str]:
     """Every dependency manifest in this repository, by name and sorted.
 
@@ -300,10 +309,20 @@ def stacks(root: Path) -> list[str]:
     somebody else's project, and walking the whole tree turns one answer into hundreds.
     """
 
-    found = {name for name in MANIFESTS if (Path(root) / name).is_file()}
-    for entry in sorted(Path(root).iterdir()) if Path(root).is_dir() else []:
+    # Every stat through `_readable`. A directory the process cannot traverse raises
+    # `PermissionError` out of the `is_file()` inside it, and this function is called by
+    # `baseline()`, which is `just security` — so one unreadable subdirectory in a
+    # consumer's repository crashed the security gate instead of answering it. A manifest
+    # that cannot be stat'd is a manifest this scan did not find, which is what the caller
+    # is asking and is the answer it can act on.
+    found = {name for name in MANIFESTS if _readable(Path(root) / name)}
+    try:
+        entries = sorted(Path(root).iterdir()) if Path(root).is_dir() else []
+    except OSError:
+        return sorted(found)
+    for entry in entries:
         if entry.is_dir() and not entry.name.startswith((".", "node_modules")):
-            found.update(name for name in MANIFESTS if (entry / name).is_file())
+            found.update(name for name in MANIFESTS if _readable(entry / name))
     return sorted(found)
 
 
@@ -494,7 +513,12 @@ def model(root: Path) -> list[dict] | None:
     where = Path(root) / "policy" / "threat-model.toml"
     try:
         declared = tomllib.loads(where.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError):
+    # `ValueError` and not `TOMLDecodeError`, and the widening is the finding. A file that
+    # is not valid UTF-8 raises `UnicodeDecodeError`, which is a `ValueError` and not an
+    # `OSError`, so it went out through the security gate as a traceback — the third time
+    # this module has thrown where its own docstring promises a verdict. `TOMLDecodeError`
+    # is itself a `ValueError`, so nothing that was caught stops being caught.
+    except (OSError, ValueError):
         return None
     rows = declared.get("boundary", [])
     if not isinstance(rows, list):
@@ -611,5 +635,22 @@ def baseline(root: Path) -> int:
         f"  {'OBSERVED':<11} {'images':<13} {', '.join(found)}"
         if found
         else f"  {'SKIPPED':<11} {'images':<13} no container image here, so no container lane runs"
+    )
+    # The lane this gate does not have, said rather than left silent. Every engine pinned
+    # here reads files; none of them touches a running service. So a repository with a
+    # deployed preview got exit zero and a report ending at container images, and
+    # `ai-security` tells the model to paste that output — a green meaning "nothing dynamic
+    # was looked at" reading identically to one meaning "the dynamic surface is clean".
+    #
+    # SKIPPED and not the research report's `N/A`: `outcome._FACT_STATUSES` has no such word,
+    # and SKIPPED is already what this module says when it declines rather than answers.
+    #
+    # No branch and no verdict. There is nothing here to get wrong, which is the point: the
+    # decision on where a dynamic scan lives is D-014-11 — a mode of `ai-security`, never a
+    # separate skill — and the judgement half of it, whether a target exists and who
+    # authorised it, is consent and stays in the skill.
+    print(
+        f"  {'SKIPPED':<11} {'dast':<13} nothing here scanned a running target: that needs a "
+        f"URL somebody authorised, and this gate never has one"
     )
     return worst
