@@ -343,3 +343,35 @@ def test_every_kind_the_collector_can_return_has_a_label():
     one nobody remembered to name here."""
 
     assert set(solution_intent._KIND) == set(blocked.ORDER)
+
+
+def test_a_percentage_the_page_prints_covers_the_whole_population_it_names():
+    """The page said `18/18` at 100% for months, and every digit of it was true.
+
+    It counted `- [x]` list checkboxes. Exactly two of sixteen plans use that shape, so the
+    other fourteen left the numerator *and* the denominator in silence — and a number that
+    is arithmetically correct read as a finished project. The small print said "in 2 of 14
+    plans" underneath, which is not where anybody looks before the headline.
+
+    So the rule this pins is not "compute it from the tree": that number always was. It is
+    that a denominator has to be the whole population its label names, and the "of how many"
+    has to survive inside the number rather than under it."""
+
+    tree = _tree()
+    page = solution_intent.render(tree)
+
+    # The population the label names is tasks, so every plan that has tasks is in it.
+    numbered = sum(s.tasks for s in tree.specs)
+    with_check = sum(s.checks for s in tree.specs)
+    assert numbered > 0, "no plan carries a task a script can enumerate; this asserts nothing"
+    assert f"{with_check}/{numbered}" in page
+
+    # And the plans that carry none are named rather than dropped, because "6 of 16" with no
+    # account of the other ten is the same silence one level down.
+    plans_with = sum(1 for s in tree.specs if s.tasks)
+    plans_all = sum(1 for s in tree.specs if s.has_plan)
+    assert f"en {plans_with} de {plans_all} planes" in page
+    assert f"los otros {plans_all - plans_with}" in page
+
+    # The shape that produced the lie does not come back.
+    assert "casillas de plan marcadas" not in page

@@ -51,6 +51,7 @@ class Spec:
     bytes_spec: int
     bytes_plan: int
     checks: int = 0
+    tasks: int = 0
 
 
 @dataclass
@@ -133,6 +134,7 @@ def _specs(root: Path, tracked: set[str]) -> list[Spec]:
                 # third regex made this page say eleven where `plan_tasks` says fifteen —
                 # and two of the last three blocks closed a two-definitions defect by name.
                 checks=sum(1 for one in spec.plan_tasks(plan_body) if one.get("check")),
+                tasks=len(spec.plan_tasks(plan_body)),
                 bytes_spec=len(body.encode("utf-8")),
                 bytes_plan=len(plan_body.encode("utf-8")),
             )
@@ -599,8 +601,18 @@ def render(tree: Tree, *, now: datetime | None = None) -> str:
     counts: dict[str, int] = {}
     for row in tree.specs:
         counts[row.status] = counts.get(row.status, 0) + 1
-    tasks_done = sum(s.done for s in tree.specs)
-    tasks_total = sum(s.total for s in tree.specs)
+    # What the tree actually carries, over the whole population the label names. This card
+    # printed `18/18` at 100% for months: it counted `- [x]` list checkboxes, which exactly
+    # two of sixteen plans use, so the other fourteen left the numerator AND the denominator
+    # in silence and a true number read as a finished project. The small print said "in 2 of
+    # 14 plans" underneath, which nobody reads before the headline.
+    #
+    # A percentage is only honest when its denominator is the whole population its label
+    # names, and the "of how many" belongs inside the number rather than under it.
+    with_check = sum(s.checks for s in tree.specs)
+    numbered = sum(s.tasks for s in tree.specs)
+    plans_with_tasks = sum(1 for s in tree.specs if s.tasks)
+    plans_total = sum(1 for s in tree.specs if s.has_plan)
     solution = tree.intent.get("solution_intent", {})
     lifecycle = tree.intent.get("lifecycle", {})
     identity = tree.intent.get("identity", {})
@@ -726,10 +738,11 @@ estado está cada especificación y qué lo gobierna.">
     }
     {
         _card(
-            f"{tasks_done}/{tasks_total}",
-            "casillas de plan marcadas",
-            f"en {sum(1 for s in tree.specs if s.total)} de "
-            f"{sum(1 for s in tree.specs if s.has_plan)} planes",
+            f"{with_check}/{numbered}",
+            "tareas con un comando que las decide",
+            f"en {plans_with_tasks} de {plans_total} planes · "
+            f"los otros {plans_total - plans_with_tasks} no llevan tareas que un script "
+            f"pueda enumerar, y no cuentan en ninguno de los dos números",
         )
     }
     {_card(len(tree.decisions), "decisiones registradas", "docs/adr/")}
