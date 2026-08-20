@@ -28,6 +28,31 @@ search for.
   now accepts only `--guard loop_guard`, because that is the only guard left that a person
   may bypass at all.
 
+- `contract.REPO_CEILING`, `contract.repo_lines` and `contract.NOT_THE_PRODUCT` are
+  hard-deleted, with no replacement and no shim, and `tests/seal_ceiling.py` and the `just
+  seal` recipe go with them. The ceiling was a total-line bound on the repository that a test
+  obliged to stay within 400 lines of the tree it claimed to bound, so it moved in fifty of
+  the last fifty commits — four of which do nothing else — and the one row in
+  `docs/blocked.toml`, the only time this machine ever stopped and asked a person, is a
+  fixed-point collision over that integer between two sessions. Nothing in its history shows
+  it catching a defect. What changes for you: **`just seal` no longer exists, a commit no
+  longer needs an arithmetic step, and anything importing those three names from `contract`
+  breaks at import.** `contract.tracked` and `contract.count` are untouched.
+  `contract.TEST_RATIO_MAX` is the size bound that remains, and its own comment says it
+  covers the shape the ceiling could not see: a suite growing while the product does not.
+  Recorded as EP-299, withdrawn in place in `docs/requirements.toml`, and in
+  `specs/021-three-controls-that-could-not-say-no`.
+
+- `"maxItems": 15` is removed from `policy/capability-manifest.schema.json`. It could not
+  fire: measured against a sixteenth capability in five shapes, anything that would trip it
+  died earlier in the exact-equality check against `allowed_ids`, and the one situation where
+  it did fire was after somebody had correctly widened both lists — when it answered "the
+  manifest is invalid" without naming which rule. What changes for you: **nothing, unless you
+  were relying on the catalogue being refused above fifteen entries, which it never was for
+  that reason.** `allowed_ids` and `minItems` are untouched and still refuse an undeclared or
+  empty catalogue. This closes EP-308, which `docs/audit-2026-08-16.md` already listed among
+  the proofs it withdrew.
+
 - `redact` is gone from `[observability]` in `.ai/config.toml`, and the exporter always
   redacts. It accepted `"strict"` and `"none"`, and `"none"` sent every field outside the
   two allow-lists to the collector verbatim — free text, guard reasons, whatever a payload
