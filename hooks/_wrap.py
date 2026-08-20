@@ -16,6 +16,7 @@ decorator called telemetry.
 from __future__ import annotations
 
 import json
+import os
 import stat
 import sys
 import time
@@ -72,6 +73,30 @@ def take_bypass(name: str) -> str | None:
     return grant.get("reason", "no reason given")
 
 
+def _verdict(decision: dict, *, status: int) -> None:
+    """Leave with the denial, or leave with a status that still reads as one.
+
+    A denial travels as text on standard output plus an exit status, and one of the two
+    protocols carries the whole decision in the text and exits 0. So a denial whose text
+    never arrives is a denial that reads as permission — measured: with standard output
+    closed, both protocols exited 120, which no surface reads as anything.
+
+    `print` does not raise here. The write lands in a buffer and the failure surfaces during
+    the interpreter's own flush at shutdown, after the exit status has been chosen, which is
+    what rewrote it to 120. So the flush is taken here, where it can be answered — and the
+    answer is `os._exit`, because `sys.exit` would hand control back to the same shutdown
+    flush that already failed and lose the status a second time."""
+
+    try:
+        if sys.stdout is None:  # closed before the interpreter started; there is no buffer
+            raise OSError("stdout is not open")
+        sys.stdout.write(json.dumps(decision) + "\n")
+        sys.stdout.flush()
+    except Exception:
+        os._exit(2)
+    sys.exit(status)
+
+
 def deny(name: str, message: str, structured: bool = False) -> None:
     """One denial protocol per surface, rather than a JSON reply and an exit status mixed
     together and hoped over.
@@ -98,31 +123,28 @@ def deny(name: str, message: str, structured: bool = False) -> None:
         recipe = f'ai-eng exception --skip "<reason>" --guard {name}'
         sys.stderr.write(f"[{name}] A person — not you — can grant one bypass: {recipe}\n")
     if structured:
-        print(
-            json.dumps(
-                {
-                    "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
-                        "permissionDecision": "deny",
-                        "permissionDecisionReason": text,
-                    }
-                }
-            )
-        )
-        sys.exit(0)  # the call is denied by the decision above, not by the status
-    print(
-        json.dumps(
+        _verdict(
             {
-                "permission": "deny",
-                "continue": False,
-                "user_message": text,
-                "userMessage": text,
-                "stop_reason": text,
-                "stopReason": text,
-            }
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": text,
+                }
+            },
+            # The call is denied by the decision above, not by the status.
+            status=0,
         )
+    _verdict(
+        {
+            "permission": "deny",
+            "continue": False,
+            "user_message": text,
+            "userMessage": text,
+            "stop_reason": text,
+            "stopReason": text,
+        },
+        status=2,
     )
-    sys.exit(2)
 
 
 def guard(name: str):

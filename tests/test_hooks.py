@@ -1626,3 +1626,47 @@ def test_a_dispatcher_that_cannot_read_a_call_denies_it(tmp_path):
     # And the clause did not eat the ordinary answers on the way past.
     allowed = '{"tool_name": "Bash", "tool_input": {"command": "echo hello"}, ' '"hook_event_name": "PreToolUse"}'
     assert ran(allowed) == 0
+
+
+def test_a_structured_denial_that_cannot_be_written_leaves_as_a_denial():
+    """The structured protocol carries the whole decision in the text and exits 0, so a
+    denial whose text never arrives is not a weaker denial — it is a success code with
+    nothing beside it, and the surface allows the call.
+
+    Measured against the unfixed file: with standard output closed, `deny(..., structured=
+    True)` exited **0**, silently. The plain protocol was fine at 2 on this machine, and an
+    earlier note that claimed 120 for both did not reproduce — the number that matters is
+    the zero, because zero is the success code.
+
+    So the write is taken where it can be answered, and the answer is `os._exit(2)`:
+    `sys.exit` would hand control back to the interpreter's shutdown flush, which is the
+    thing that already failed."""
+
+    hooks = str(Path(_wrap.__file__).parent)
+
+    def leaving(structured: bool, closed: bool) -> subprocess.CompletedProcess:
+        call = f"import _wrap; _wrap.deny('probe', 'no', structured={structured})"
+        if closed:
+            return subprocess.run(
+                ["bash", "-c", 'exec "$1" -c "$2" >&- 2>/dev/null', "_", sys.executable, call],
+                capture_output=True,
+                text=True,
+                env={**os.environ, "PYTHONPATH": hooks},
+            )
+        return subprocess.run(
+            [sys.executable, "-c", call],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PYTHONPATH": hooks},
+        )
+
+    assert leaving(True, closed=True).returncode == 2, (
+        "a structured denial nobody can read left with a success code, so the call was allowed"
+    )
+    assert leaving(False, closed=True).returncode == 2
+
+    # And with somewhere to write, both protocols are exactly what they were.
+    kept = leaving(True, closed=False)
+    assert kept.returncode == 0 and '"permissionDecision": "deny"' in kept.stdout
+    plain = leaving(False, closed=False)
+    assert plain.returncode == 2 and '"permission": "deny"' in plain.stdout
