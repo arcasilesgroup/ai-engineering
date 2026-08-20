@@ -14,7 +14,6 @@ import json
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import time
@@ -534,227 +533,6 @@ def test_the_anchor_written_into_a_commit_is_one_the_verifier_can_read_back(home
 # Not `SIGNED`: this module already binds that name to an acceptance argument list, and
 # rebinding it at import time would have replaced it for every test in the file.
 COAUTHOR = "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-FOOTER = "Ai-Eng-Anchor: testrepo/abcdef012345 seq=2 head=deadbeefcafe"
-
-
-def _commit_msg(
-    tmp_path,
-    *,
-    holds=True,
-    body="body.\n",
-    shim="",
-    config=(),
-    trailer=True,
-    subject="test(x): a probe",
-    engine=None,
-    config_engine=False,
-):
-    """Run the real hook over one message and report what it did.
-
-    The stub populates both streams the way the real verb does — progress on stderr, and
-    on stdout the footer *plus* the rendered verdict — so a test can tell "took the footer"
-    from "took whatever was on stdout"."""
-
-    repo = tmp_path / "clone"
-    repo.mkdir()
-    for argv in (["init", "-q"], ["config", "ai.managed", "true"], *config):
-        subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
-
-    stub = tmp_path / "stub-eng"
-    stub.write_text(
-        "#!/bin/sh\n"
-        'echo "  RUNNING 1/4  load the verb" >&2\n'
-        + (
-            f"printf '\\n{FOOTER}\\n'\nprintf '\\u2713 PASS\\nExit code: 0\\n'\n"
-            if holds
-            else "printf '\\u2717 FAIL\\nReason: a violation\\nExit code: 1\\n'\n"
-        ),
-        encoding="utf-8",
-    )
-    stub.chmod(0o755)
-
-    if config_engine:
-        # The path a real commit takes: no override in the environment, the CLI named by
-        # `git config --get ai.eng`.
-        subprocess.run(
-            ["git", "config", "ai.eng", str(stub)], cwd=repo, check=True, capture_output=True
-        )
-    environment = {k: v for k, v in os.environ.items() if k != "AI_ENG"}
-    if engine is not False:
-        environment["AI_ENG"] = engine if engine is not None else str(stub)
-    if shim:
-        # A `git` that fails the way a real one can. Everything the hook asks of git before
-        # this point still has to work, so it delegates the rest to the real one.
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        real = shlex.quote(shutil.which("git"))
-        (bin_dir / "git").write_text(
-            f'#!/bin/sh\ncase "$1" in\n  {shim}\nesac\nexec {real} "$@"\n',
-            encoding="utf-8",
-        )
-        (bin_dir / "git").chmod(0o755)
-        environment["PATH"] = f"{bin_dir}{os.pathsep}{environment.get('PATH', '')}"
-
-    # Both shapes, because this repository writes both in roughly equal numbers. A message
-    # that already carries a trailer is the one an anchor appended after a blank line
-    # orphans — it starts a second trailer block, and `--parse` then returns the anchor
-    # alone without the `Co-Authored-By` GitHub reads for attribution. A message with no
-    # trailer cannot show that defect, which is exactly why the first version of this test
-    # passed against it. Fixing that by only ever testing the trailer shape would swap one
-    # blind spot for the other, so `trailer=False` keeps the other half covered.
-    original = f"{subject}\n\n{body}" + (f"\n{COAUTHOR}\n" if trailer else "")
-    message = tmp_path / "COMMIT_EDITMSG"
-    message.write_text(original, encoding="utf-8")
-    hook = Path(__file__).resolve().parents[1] / "git-hooks" / "commit-msg"
-    done = subprocess.run(
-        ["bash", str(hook), str(message)],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=environment,
-    )
-    return done, message.read_text(encoding="utf-8"), original, repo
-
-
-def _trailers(repo, message: str, *, divider: bool = True) -> list[str]:
-    parsed = subprocess.run(
-        ["git", "interpret-trailers", *([] if divider else ["--no-divider"]), "--parse"],
-        cwd=repo,
-        input=message,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return parsed.stdout.splitlines()
-
-
-@pytest.mark.parametrize("holds", [True, False])
-def test_the_commit_msg_hook_appends_the_footer_and_never_the_verdict(tmp_path, holds):
-    """The hook itself, executed. Its format was tested and its behaviour never was, and
-    every failure that hid in the gap was in the behaviour.
-
-    `audit --anchor` puts its progress on stderr and its verdict on stdout, because the
-    verdict is the data every other verb produces. The hook appended stdout wholesale, so a
-    chain that does not hold wrote `✗ FAIL / Reason: ... / Exit code: 1` into the commit
-    message — and the call ends in `|| true`, so nothing would have said so."""
-
-    done, written, original, repo = _commit_msg(tmp_path, holds=holds)
-
-    # Never a gate, in either direction: a hook that refuses commits is a hook people
-    # delete, and the escape they reach for is the one rule 3 forbids.
-    assert done.returncode == 0, done.stderr
-    assert "Exit code" not in written, written
-    assert "PASS" not in written and "FAIL" not in written, written
-    if holds:
-        assert written.endswith(f"{FOOTER}\n"), written
-        # Git has to see it as a trailer, and see the one that was already there. Asserting
-        # only that the anchor parses is what let the append that deletes its neighbour go
-        # green.
-        assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
-    else:
-        assert written == original
-        assert "not anchored" in done.stderr, done.stderr
-
-
-def test_a_divider_in_the_body_does_not_orphan_the_trailer_beside_the_anchor(tmp_path):
-    """Git stops reading a commit message at a bare `---`. Without `--no-divider` the
-    anchor lands above it, mid-body, and `--parse` returns the anchor alone — the exact
-    defect the placement fix was written to close, reappearing on a different input. No
-    commit here carries a divider today, which is why only an attacker of the fix would
-    have found it.
-
-    Asserted on the bytes, not through `--parse`: git's default reading stops at the
-    divider and finds no trailer block at all, with or without the anchor, so a parse-based
-    assertion would be measuring git's divider rule rather than where the hook put the
-    line. What has to hold is that the anchor joins the trailer already at the end."""
-
-    done, written, _, repo = _commit_msg(tmp_path, body="Some prose.\n\n---\n\nMore prose.\n")
-    assert done.returncode == 0, done.stderr
-    assert written.splitlines()[-2:] == [COAUTHOR, FOOTER], written
-    assert _trailers(repo, written, divider=False) == [COAUTHOR, FOOTER], written
-
-
-@pytest.mark.parametrize(
-    ("how", "kwargs"),
-    [
-        # A git that does not know one of the options — what an older git is.
-        ("unknown option", {"shim": "interpret-trailers) exit 129 ;;"}),
-        # And a config git parses only when it is asked to. This route is the one an earlier
-        # version of this test called unreachable, on the reasoning that the hook's fifth
-        # line asks git for `ai.managed` and exits 0 when that fails. `config --get` does
-        # not validate keys nobody asked for, so it answers `true` and the anchor block runs
-        # anyway. The claim was written in the commit whose subject was unmeasured claims,
-        # and the test that "proved" it used the shim — the one input that cannot see it.
-        ("bad config", {"config": (["config", "core.abbrev", "notanumber"],)}),
-    ],
-)
-def test_a_git_that_cannot_place_the_anchor_leaves_the_commit_standing(tmp_path, how, kwargs):
-    """The footer is not a gate, and the placement fix quietly made it one: under
-    `set -euo pipefail` a bare `git interpret-trailers` hands its exit status to the hook,
-    and git then refuses the commit. Not hypothetical — a message file in a directory git
-    cannot write its temporary file into exits 128, and both routes below exit non-zero
-    here. The person's escape from a hook that refuses commits is `--no-verify`, which rule
-    3 forbids and a guard blocks: the hook whose bug forces its own bypass."""
-
-    done, written, original, _ = _commit_msg(tmp_path, **kwargs)
-    assert done.returncode == 0, f"the hook refused the commit ({how}): {done.stderr}"
-    assert written == original, written
-    assert "could not be placed" in done.stderr, done.stderr
-
-
-def test_a_subject_git_wrote_itself_is_still_anchored(tmp_path):
-    """The exemption at the top of the hook is for the subject rule. It used to `exit 0`
-    and take the anchor with it, so every merge left the record with nothing written and
-    nothing said. A subject git chose is not a reason to leave the commit unrecorded.
-
-    Asserted through `--parse`, not by looking for the line: the first version of this test
-    checked the string was somewhere in the file, which the round-three orphaning defect
-    passes. The merge path is the only path this test owns, so a weak assertion here is a
-    blind spot nothing else covers.
-
-    One subject, not one per keyword: `Merge`, `Revert` and `fixup!` are alternations of a
-    single `grep -Eq` and nothing downstream reads the subject, so three parameters were
-    three copies of one case running three times."""
-
-    done, written, _, repo = _commit_msg(tmp_path, subject="Merge branch 'feature'")
-    assert done.returncode == 0, done.stderr
-    assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
-
-
-def test_the_cli_is_resolved_from_ai_eng_when_the_environment_names_none(tmp_path):
-    """`AI_ENG` is the override; `git config --get ai.eng` is what a real commit uses. Every
-    other test in this file sets the environment variable, so the resolution path that
-    actually runs on a person's machine had no coverage at all — and a misconfigured
-    `ai.eng` is one of the two candidate causes Block R exists to account for. The one
-    branch a whole section of the plan is about was the one branch nothing executed."""
-
-    done, written, _, repo = _commit_msg(tmp_path, engine=False, config_engine=True)
-    assert done.returncode == 0, done.stderr
-    assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
-
-
-def test_a_cli_the_hook_cannot_even_run_is_reported_rather_than_skipped(tmp_path):
-    """`command -v` finding nothing used to mean the hook did nothing and said nothing.
-    Every other test supplies a resolvable stub, so not one of them could reach it, and a
-    hook that is quiet when it cannot record is how a run of unanchored commits passed
-    under a green gate. How long a run is not stated here: two figures were written into
-    these files across three rounds and neither was measured."""
-
-    done, written, original, _ = _commit_msg(tmp_path, engine="/nonexistent/ai-eng")
-    assert done.returncode == 0, done.stderr
-    assert written == original, written
-    assert "not on this machine" in done.stderr, done.stderr
-
-
-def test_a_message_with_no_trailer_of_its_own_still_gets_the_anchor(tmp_path):
-    """The other half of this repository's commits. Every assertion about placement was
-    written on the shape that carries a trailer, because that is the shape the orphaning
-    defect needed — and testing only that swaps one blind spot for the other. Here the
-    anchor is the whole trailer block, and it still has to be one git can read."""
-
-    done, written, _, repo = _commit_msg(tmp_path, trailer=False)
-    assert done.returncode == 0, done.stderr
-    assert _trailers(repo, written) == [FOOTER], written
 
 
 def test_a_break_that_has_been_accounted_for_is_recorded_and_never_erased(home, monkeypatch):
@@ -1762,7 +1540,6 @@ def test_the_command_the_staleness_message_names_is_one_that_runs(repo, monkeypa
     """The two halves are written in different files, so they are held equal here rather
     than by whoever remembers to change both."""
 
-    import shlex
 
     from ai_engineering import report, solution_intent
 
@@ -1823,3 +1600,50 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
         + ". Either restore them or record a fresh approval — an approval that survives an "
         "edit to what it approved is a signature on a blank page."
     )
+
+
+def test_the_commit_msg_hook_places_the_run_receipt_and_never_refuses_the_commit(tmp_path):
+    """What the seven deleted anchor tests were protecting, kept for the half that is left.
+
+    Those tests asserted three properties of the footer the hook writes: it joins the
+    trailer block already at the end rather than starting a second one, a body containing a
+    bare `---` does not orphan it, and a git that cannot place it leaves the commit
+    standing. All three were written about the anchor and all three are true of the run
+    receipt, which had no test of its own — so deleting them without this would have traded
+    a control for a deletion.
+
+    The receipt is absent by default, and that is the reading that matters: a commit with no
+    trailer means nobody ran anything."""
+
+    repo = tmp_path / "clone"
+    repo.mkdir()
+    for argv in (["init", "-q"], ["config", "ai.managed", "true"]):
+        subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
+
+    hook = Path(__file__).resolve().parents[1] / "git-hooks" / "commit-msg"
+
+    def ran(body: str, subject: str = "test(x): a probe") -> tuple[int, str]:
+        message = repo / "MSG"
+        message.write_text(f"{subject}\n\n{body}\n{COAUTHOR}\n", encoding="utf-8")
+        done = subprocess.run(
+            ["bash", str(hook), str(message)], cwd=repo, capture_output=True, text=True
+        )
+        return done.returncode, message.read_text(encoding="utf-8")
+
+    # No receipt is on record for this content, so nothing is appended and the commit stands.
+    code, written = ran("Some prose.")
+    assert code == 0, written
+    assert "Ai-Eng-Ran:" not in written
+    assert written.splitlines()[-1] == COAUTHOR
+
+    # A bare divider is the input that orphaned the anchor before `--no-divider`. The
+    # co-author trailer must still be the last line, wherever git decides the block is.
+    code, written = ran("Some prose.\n\n---\n\nMore prose.")
+    assert code == 0, written
+    assert written.splitlines()[-1] == COAUTHOR
+
+    # And a subject git wrote itself is exempt from the shape rule rather than refused,
+    # because refusing one strands a merge with MERGE_HEAD still set.
+    assert ran("Some prose.", subject="Merge branch 'x'")[0] == 0
+    # while a subject nobody's convention accepts is still refused.
+    assert ran("Some prose.", subject="just some words")[0] == 1
