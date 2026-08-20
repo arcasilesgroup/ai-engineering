@@ -120,14 +120,29 @@ def run_suite() -> bool:
     )
 
 
+def select(only: str) -> list[tuple[str, str, str, str]]:
+    """The rows this run is about, chosen before anything is counted.
+
+    The filter used to live inside the loop as a `continue`, and the score underneath it
+    counted `MUTANTS` — so `just guards nothing` skipped every row, appended no survivor,
+    printed "16 of 16 killed" and exited 0. That is a green over zero mutants, which is
+    the shape this repository exists to refuse, and it becomes load-bearing the moment a
+    workflow passes a filter: one typo, or a rename of `hooks/`, and the gate measures
+    nothing while reading exactly as it does now.
+    """
+    return [row for row in MUTANTS if not only or only in row[0] or only in row[3]]
+
+
 def main(only: str = "") -> int:
+    rows = select(only)
+    if not rows:
+        sys.stderr.write(f"mutation: no row names {only!r}, so nothing would be measured.\n")
+        return 1
     if not run_suite():
         sys.stderr.write("mutation: the suite is red before any mutant. Fix that first.\n")
         return 1
     survivors = []
-    for name, old, new, what in MUTANTS:
-        if only and only not in name and only not in what:
-            continue
+    for name, old, new, what in rows:
         path = ROOT / name
         before, was = path.read_text(encoding="utf-8"), digest(path)
         if before.count(old) != 1:
@@ -148,7 +163,14 @@ def main(only: str = "") -> int:
         if not killed:
             survivors.append(f"{name}: {old!r} -> {new!r} ({what})")
 
-    print(f"\n  {len(MUTANTS) - len(survivors)} of {len(MUTANTS)} killed")
+    print(f"\n  {len(rows) - len(survivors)} of {len(rows)} killed")
+    # The line `tests/anti_theatre.py` reads as proof this ran at all. Without it the run
+    # printed a sentence no reader in the repository matches, so a step that stopped
+    # running — deleted, mis-filtered, renamed out from under its filter — was
+    # indistinguishable from one that passed. That reader already refuses a count of zero;
+    # until this line existed the writer simply never gave it one to refuse. Its own line,
+    # nothing after the number: the pattern is anchored to the end of the line.
+    print(f"RAN guards={len(rows)}")
     for line in survivors:
         sys.stderr.write(f"  no test noticed: {line}\n")
     if survivors:
