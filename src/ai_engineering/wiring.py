@@ -557,8 +557,13 @@ def prior_hooks_path(root: Path) -> str:
     ).stdout.strip()
 
 
-def anchor_answers() -> subprocess.CompletedProcess[str]:
+def cli_answers() -> subprocess.CompletedProcess[str]:
     """Ask this interpreter whether it can run the product, and hand back what it said.
+
+    It was called `anchor_answers` and never checked an anchor: it runs `--version`.
+    Specification 022 deleted the anchor and the name went with it, in one pass, because
+    `tests/conftest.py` captures this function at import — so a half-done rename reds the
+    whole suite during collection rather than in one test.
 
     Its own function because it is the one part of wiring that depends on the environment
     rather than on the repository, and a test about where files land should not turn on
@@ -596,7 +601,7 @@ def wire_git(root: Path) -> str:
     the three keys is written unless it did."""
 
     try:
-        proved = anchor_answers()
+        proved = cli_answers()
     except (OSError, subprocess.SubprocessError) as why:
         raise Unreadable(
             f"the CLI this install would record could not be executed: {why.__class__.__name__}"

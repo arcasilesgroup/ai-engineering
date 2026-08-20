@@ -15,7 +15,7 @@ import pytest
 # to the real one has to be taken before anything can have replaced it.
 from ai_engineering import wiring as _wiring
 
-_REAL_ANCHOR = _wiring.anchor_answers
+_REAL_CLI_PROBE = _wiring.cli_answers
 
 
 @pytest.fixture(autouse=True)
@@ -66,7 +66,7 @@ def answering_anchor(monkeypatch):
 
     monkeypatch.setattr(
         wiring,
-        "anchor_answers",
+        "cli_answers",
         lambda: subprocess.CompletedProcess([], 0, f"ai-engineering {__version__}\n", ""),
     )
 
@@ -81,7 +81,7 @@ def real_anchor(monkeypatch):
 
     from ai_engineering import wiring
 
-    monkeypatch.setattr(wiring, "anchor_answers", _REAL_ANCHOR)
+    monkeypatch.setattr(wiring, "cli_answers", _REAL_CLI_PROBE)
 
 
 def repository() -> Path:

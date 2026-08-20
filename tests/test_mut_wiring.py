@@ -961,7 +961,7 @@ def test_the_git_anchor_is_not_written_when_the_cli_it_would_name_cannot_answer(
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     monkeypatch.setattr(
         wiring,
-        "anchor_answers",
+        "cli_answers",
         lambda: subprocess.CompletedProcess([], 1, stdout="", stderr="No module named x"),
     )
 
@@ -988,7 +988,7 @@ def test_an_answer_that_is_not_ours_is_refused_even_with_a_zero_exit(tmp_path, m
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     monkeypatch.setattr(
         wiring,
-        "anchor_answers",
+        "cli_answers",
         lambda: subprocess.CompletedProcess([], 0, stdout="somebody-elses-tool 9.9\n", stderr=""),
     )
 
@@ -1006,7 +1006,7 @@ def test_a_cli_that_cannot_be_executed_at_all_is_a_refusal_and_not_a_traceback(
     def explode():
         raise OSError(2, "no such file")
 
-    monkeypatch.setattr(wiring, "anchor_answers", explode)
+    monkeypatch.setattr(wiring, "cli_answers", explode)
 
     with pytest.raises(wiring.Unreadable) as refused:
         wiring.wire_git(root)
