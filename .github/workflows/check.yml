@@ -85,7 +85,15 @@ jobs:
           actionlint
           uv tool run zizmor .github/workflows/
 
+      # `shell: bash` is what makes the pipe carry a verdict. The implicit shell for `run:`
+      # on Linux is `bash -e {0}` and never `-o pipefail`, which arrives only when the key
+      # is written out — so `just check | tee` exited on tee's status and the gate could not
+      # fail. Proven rather than argued: `false | tee /dev/null` exits 0 under `bash -e` and
+      # 1 under `bash -eo pipefail`. The step below caught the case where a `RAN` line went
+      # missing and no other: `check` prints all five before its last three recipes run, so a
+      # failure in `intent-page`, `lenses` or `ran` left a complete log and a green job.
       - name: the gate, exactly as a developer runs it
+        shell: bash
         run: just check | tee "$RUNNER_TEMP/check.log"
 
       - name: it has to prove it ran
