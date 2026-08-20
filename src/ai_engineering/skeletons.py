@@ -185,7 +185,6 @@ version = "{version}"
 
 [record]
 # The durable chain lives outside every clone, under ~/.ai-engineering/state/.
-anchor_commits = true
 
 [guards]
 loop_window = 6
@@ -366,6 +365,6 @@ jobs:
         env:
           PIN: {version}
       - run: ai-eng doctor --ci
-      - run: ai-eng audit verify --anchors
+      - run: ai-eng audit verify
       - run: just check
 """
