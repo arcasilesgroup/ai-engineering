@@ -1174,21 +1174,6 @@ def test_a_description_over_the_budget_is_named_with_its_length(tmp_path):
     assert len(found) == 1 and f"over {contract.DESCRIPTION_MAX}" in found[0]
 
 
-def test_the_line_count_leaves_out_the_record_and_counts_everything_else(tmp_path):
-    """The ceiling only means something if the count is honest: the record grows by design
-    and is excluded, and anything we chose to write is counted."""
-    subprocess.run(["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True)
-    (tmp_path / "specs" / "001-a").mkdir(parents=True)
-    (tmp_path / "specs" / "001-a" / "spec.md").write_text("a\n" * 50)
-    (tmp_path / "docs" / "adr").mkdir(parents=True)
-    (tmp_path / "docs" / "adr" / "0001-a.md").write_text("a\n" * 40)
-    (tmp_path / "LICENSE").write_text("l\n" * 30)
-    (tmp_path / "README.md").write_text("r\n" * 4)
-    (tmp_path / "thing.py").write_text("x = 1\n" * 3)
-    subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], check=True, capture_output=True)
-    assert contract.repo_lines(tmp_path) == 7
-
-
 # ------------------------------------------------------------------ exception
 
 

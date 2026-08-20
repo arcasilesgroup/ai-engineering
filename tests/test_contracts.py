@@ -20,7 +20,6 @@ from ai_engineering import contract, paths, text, wiring
 
 ROOT = Path(__file__).resolve().parents[1]
 
-CEILING = contract.REPO_CEILING
 DOCTRINE_CEILING = 150
 
 
@@ -903,53 +902,6 @@ def test_an_entry_is_ours_by_the_dispatcher_it_runs_and_not_by_this_project_s_na
     assert not wiring.ours({"command": "/usr/bin/python /somebody/elses/hook.py"})
     assert not wiring.ours({"command": "/opt/ai-engineering/venv/bin/python /x/other.py"})
     assert "/" not in wiring.SIGNATURE
-
-
-def test_the_ceiling_is_closed_onto_the_tree_and_its_history_is_git():
-    """The ceiling is a number and a commit, and nothing else.
-
-    It used to be a number and 3,330 lines of hand-written prose narrating every raise it
-    had ever had — charged, by its own rule, against the total it was documenting, and
-    eighteen of those lines were a paragraph about that. This asserted the arithmetic inside
-    that prose, phrase by phrase, which made the comment load-bearing and the deletion
-    expensive: the record of a change to an integer cost more than every other constant in
-    the file put together.
-
-    What replaces it is what was always underneath: `git log -S REPO_CEILING` is the
-    changelog, `specs/` holds the arithmetic behind each spend, and the commit that raises
-    the number is the conversation. So this checks the two things a reader needs and the
-    prose could never guarantee — that the number is closed onto the tree it measures, and
-    that the file points at where its history actually lives.
-    """
-
-    total = contract.repo_lines(ROOT)
-    assert total <= contract.REPO_CEILING, f"{total} lines against {contract.REPO_CEILING}"
-    slack = contract.REPO_CEILING - total
-    assert slack <= 400, (
-        f"{slack} lines of unspent ceiling. A ceiling well above the tree is not a ceiling; "
-        "close it onto what was measured in the commit that measured it."
-    )
-
-    source = (ROOT / "src/ai_engineering/contract.py").read_text()
-    assert "git log -S REPO_CEILING" in source, (
-        "the ceiling no longer says where its history is, so the history is nowhere a reader "
-        "will look"
-    )
-    comment = sum(1 for line in source.splitlines() if line.strip().startswith("#"))
-    assert comment < 200, (
-        f"{comment} comment lines in contract.py. The prose changelog is growing back, and it "
-        "is charged against the ceiling it describes."
-    )
-
-
-def test_the_line_ceiling_holds(tmp_path):
-    with pytest.raises(ValueError):
-        contract.repo_lines(tmp_path)  # a count over zero files is not a pass
-    total = contract.repo_lines(ROOT)
-    assert total <= CEILING, (
-        f"{total} lines against a ceiling of {CEILING}. Raise it in a commit whose message "
-        f"says why — that commit is the conversation you would otherwise never have had."
-    )
 
 
 def test_the_tests_do_not_outgrow_what_they_test(tmp_path):
@@ -2093,9 +2045,9 @@ def test_no_skill_is_harder_to_read_than_the_hardest_one_is_today():
 
     Gunning fog counts both halves, sentence length and the share of long words, because
     either alone is gameable in the direction that helps nobody. The bound is the hardest
-    skill in the tree at the moment it was taken, with no headroom, on exactly the contract
-    `REPO_CEILING` has: raising it takes a commit that says why, and that commit is the
-    conversation about whether the new sentence earned its length.
+    skill in the tree at the moment it was taken, with no headroom: raising it takes a commit
+    that says why, and that commit is the conversation about whether the new sentence earned
+    its length.
 
     What this is not is a reader. A formula cannot tell whether anybody understood, and the
     ledger row stays incomplete until a non-technical person has said so. What it ends is

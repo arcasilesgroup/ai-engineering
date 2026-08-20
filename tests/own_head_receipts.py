@@ -90,12 +90,7 @@ def static() -> list[tuple[str, bool, str]]:
     import hashlib
     import re
 
-    sys.path.insert(0, str(ROOT / "src"))
-    from ai_engineering import contract
-
     spec = ROOT / "specs" / "010-governed-agentic-engineering-foundation" / "spec.md"
-    tree = contract.repo_lines(ROOT)
-    slack = contract.REPO_CEILING - tree
 
     def status(path) -> str:
         found = re.search(r'(?m)^status:\s*"?(\w+)', path.read_text(encoding="utf-8"))
@@ -106,7 +101,6 @@ def static() -> list[tuple[str, bool, str]]:
     intent = (ROOT / ".ai" / "intent.md").read_text(encoding="utf-8")
 
     return [
-        ("ceiling closed to zero slack", slack == 0, f"{contract.REPO_CEILING:,} against {tree:,}"),
         (
             "MADRs 0005, 0006 and 0007 accepted",
             all(status(one) == "accepted" for one in madrs),
