@@ -1238,6 +1238,35 @@ def test_the_formatter_runs_on_the_file_it_was_handed_and_on_nothing_else(repo, 
     assert len(ran) == 1
 
 
+def test_every_blocking_guard_carries_a_deliberate_defect():
+    """A guard nothing is aimed at is a guard nobody has proven fires.
+
+    `tests/mutation.py` breaks the product on purpose and fails if nothing notices, and its
+    own recipe says it "points at the guards and nowhere else". It did not: of the four
+    names on a blocking event, one had rows and three — the three that decide whether an
+    action is allowed at all — had none between them. That is the fault the whole-tree
+    apparatus was deleted for, at 1-in-4 instead of 0-in-6, and the sentence claiming
+    otherwise had never been executed against the table it describes.
+
+    So the sentence becomes this. A hook added to a blocking event with no row against it is
+    red here, naming itself, rather than a gap somebody notices a year later.
+    """
+
+    import chain
+    import mutation
+
+    blocking = {
+        name for event in ("PreToolUse", "PostToolUse") for name, _ in chain.TABLE[event]
+    } - chain.TELEMETRY
+    aimed = {row[0] for row in mutation.MUTANTS}
+    unaimed = sorted(one for one in blocking if f"hooks/{one}.py" not in aimed)
+    assert not unaimed, (
+        f"{unaimed} can stop a call and no row of mutation.MUTANTS breaks it on purpose, so "
+        "nothing in this repository would notice its rule being wrong. Write a row naming a "
+        "boundary or a constant in each, or take the hook off the blocking event."
+    )
+
+
 def test_dispatcher_table_marks_blocking_hooks_as_guards_and_rejects_gaps(repo, monkeypatch):
     """The dispatcher reads the class, and reads it at dispatch time.
 
