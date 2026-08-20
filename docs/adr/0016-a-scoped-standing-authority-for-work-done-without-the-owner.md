@@ -6,7 +6,10 @@ id: "0016"
 title: "A scoped standing authority for work done without the owner"
 date: "2026-08-20"
 spec: "021"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "no-hitl-2026-08-20"
+approved_at: "2026-08-20T14:00:00Z"
 supersedes: ""
 ---
 
