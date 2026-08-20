@@ -113,9 +113,16 @@ def test_the_collector_says_what_it_dropped():
     assert shown, "this tree has BLOCKED verdicts and unapproved drafts, so it is not empty"
     assert not set(row.id for row in shown) & set(dropped)
 
-    # Every class this collector reads, present. `_verdicts` returning nothing at all was the
-    # sabotage that survived the first version of this file.
-    assert {row.kind for row in shown} == {"draft", "verdict"}, "this tree has no recorded halt"
+    # Every class this collector reads that this tree can supply, present. `_verdicts`
+    # returning nothing at all was the sabotage that survived the first version of this file.
+    #
+    # A subset of ORDER rather than an exact set: the halt class was absent when this was
+    # written and is not any more — `docs/blocked.toml` now carries a real recorded halt, put
+    # there by the tool on the day two sessions turned out to be writing this branch. An
+    # equality here made a true test fail for the world moving rather than the code breaking.
+    kinds = {row.kind for row in shown}
+    assert kinds <= set(blocked.ORDER), kinds
+    assert {"draft", "verdict"} <= kinds, kinds
     assert sum(1 for row in shown if row.kind == "verdict") >= 10
 
     # Both halves, because each alone is defeated. Restating the literal was a second copy
@@ -374,3 +381,26 @@ def test_a_falsy_stop_key_is_unreadable_rather_than_empty(tmp_path):
         _ledger(tmp_path, shape)
         with pytest.raises(blocked.Unreadable):
             blocked.stops(tmp_path)
+
+
+def test_the_ledger_can_actually_be_committed(tmp_path):
+    """The verb that records a halt has to write a file this repository accepts.
+
+    Rows are joined with a blank line between them, so the last one left a blank line at the
+    end of the file, and `.githooks/pre-commit` refuses a staged hunk with trailing
+    whitespace. The first real halt this tool ever recorded could not be committed — found by
+    using it, which is the only way this class of defect is ever found.
+    """
+
+    (tmp_path / "docs").mkdir()
+    for what in ("the first gate", "the second gate"):
+        blocked.record(tmp_path, what=what, why="a reason", action="run this", since="2026-08-19")
+
+    body = (tmp_path / blocked.LEDGER).read_text(encoding="utf-8")
+
+    assert body.endswith('action = "run this"\n'), repr(body[-40:])
+    assert not body.endswith("\n\n")
+    assert not any(line.rstrip() != line for line in body.splitlines()), "no trailing spaces"
+    # And it still parses as two rows, so the fix did not eat a separator.
+    rows, dropped = blocked.stops(tmp_path)
+    assert len(rows) == 2 and dropped == []

@@ -451,7 +451,12 @@ def record(root: Path, *, what: str, why: str, action: str, since: str) -> Path:
     where.parent.mkdir(parents=True, exist_ok=True)
     beside = where.with_suffix(".toml.writing")
     try:
-        beside.write_text(HEADER + body, encoding="utf-8")
+        # One trailing newline, not two. Rows are joined with a blank line between them, so
+        # the last row left one at the end of the file and `.githooks/pre-commit` refuses a
+        # staged hunk with trailing whitespace — which meant the verb that exists to record a
+        # halt wrote a file this repository will not accept. Found by using it: the first
+        # real halt this tool ever recorded could not be committed.
+        beside.write_text(HEADER + body.rstrip("\n") + "\n", encoding="utf-8")
         os.replace(beside, where)
     finally:
         beside.unlink(missing_ok=True)
