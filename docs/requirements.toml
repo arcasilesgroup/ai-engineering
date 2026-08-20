@@ -1094,7 +1094,7 @@ evidence = "none — the requirement text could not be located"
 [[requirement]]
 id = "EP-147"
 verdict = "INCOMPLETE"
-mover = "repository"
+mover = "machine"
 subject = "a per-surface receipt carries surface id, surface version, adapter version and deny protocol together"
 evidence = "pytest tests/test_surface_adapter.py; grep -n deny_protocol policy/adapters/opencode.adapter.json"
 note = '''measured properly and the row's own diagnosis was wrong. It said the receipt schema has none of the four fields; `check-evidence-v1` has three of them — `environment_id`, `protocol_id`, `protocol_version` — and forbids every one when `kind` is `automated`, because they are the manual half of the schema: the person, the protocol they followed, the machine they used. Writing adapter facts there would make an automated run read as a human protocol record, which is the schema stopping the confusion it was closed to stop. That is a decision, not a gap, and it was found by writing the fields and watching the receipt turn MALFORMED. What is reachable is now built: the deny protocol has a name in the adapter rather than only a sentence in `translations.reply.deny`, the field is required and closed to an identifier with a fixture that breaks it, and `_standing` refuses an enforcement receipt whose `tool_version` does not name the adapter version the adapter declares — a receipt written under adapter 1 and read after the adapter moved to 2 is evidence about a protocol nobody runs. INCOMPLETE: surface version stays unobservable here, because the plugin is driven under node and node's version is not OpenCode's.'''
@@ -1477,7 +1477,7 @@ evidence = "none — the requirement text could not be located"
 [[requirement]]
 id = "EP-199"
 verdict = "INCOMPLETE"
-mover = "repository"
+mover = "machine"
 subject = "load and invoke are separate executed states in CI, not just install, deny and doctor"
 evidence = "python tests/surface_receipt.py opencode; ai-eng report surfaces"
 note = '''the three states are separate receipts now and one run writes all three, because one run had always answered all three and reported one. The driver imports the shipped plugin, which is discovery; the registration contract hands back the hook the surface would call, which is invocation; the hook refuses, which is enforcement. Each receipt carries the digest of the thing that proved it — the plugin bytes that resolved, the hook name the contract returned, what the guard said — and a case refuses three receipts sharing one artifact digest, because that is one proof counted three times. Writing only the last made two states that had genuinely executed read as unproven, which is the same false reading as claiming them with the sign reversed. INCOMPLETE for the reason that has not moved: this is one surface of eight, and the other seven have no executed run of any state.'''
@@ -1717,7 +1717,7 @@ note = "a deliberate, recorded non-build. As stated it names nothing built, whic
 [[requirement]]
 id = "EP-232"
 verdict = "INCOMPLETE"
-mover = "repository"
+mover = "nobody"
 subject = "the envelope's check objects carry a cure and also carry evidence"
 evidence = "ai-eng --json doctor"
 note = '''every check carries a cure and there is no key named evidence, and now `detail` carries an observation on a *pass* as well as on a failure — assertion 18 publishes its inventory there. So the content half of this requirement is real in both directions and the naming half is unresolved, which is where it stays: the requirement's own text could not be quoted, so nothing can settle whether it asks for a key called evidence or for the evidence itself, and a duplicate field would be worse than the gap.'''
@@ -2048,7 +2048,7 @@ note = "the local half is proven and re-checked in the release job; the publishe
 [[requirement]]
 id = "EP-281"
 verdict = "INCOMPLETE"
-mover = "repository"
+mover = "owner"
 subject = "attestation, scan and evaluation receipts are three separate records"
 evidence = "ls .ai/receipts/; pytest tests/test_skill_eval.py -k leaves_a_receipt"
 note = "two of the three are separate records that the product's own reader accepts: the scan half has had one since the adversarial suite got its two, and the evaluation half has one now — verified through `evidence.verify` rather than by checking that some keys are present, which is how the first version of it passed while writing an empty artifact digest the schema forbids. The attestation half is written in the release workflow and no tag has ever run it"
