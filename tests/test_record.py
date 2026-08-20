@@ -1540,7 +1540,6 @@ def test_the_command_the_staleness_message_names_is_one_that_runs(repo, monkeypa
     """The two halves are written in different files, so they are held equal here rather
     than by whoever remembers to change both."""
 
-
     from ai_engineering import report, solution_intent
 
     monkeypatch.chdir(repo)
