@@ -127,12 +127,22 @@ cover:
 # never fired. So the number that means something is how many deliberate defects the suite
 # catches, and it is a number, so it is a script.
 #
-# It points at the guards and nowhere else. A floor of 89 across the whole tree was never
-# once met — the last recorded run read 78 — and its rows named no security guard at all,
-# so the most expensive instrument in the repository was aimed at the least dangerous code.
-# Every row here is a deliberate defect in a file that decides whether an action is
-# allowed, and a single survivor fails: the floor is 100 over a surface small enough to
-# mean it.
+# Sixteen deliberate defects: eleven in the four guards that decide whether an action is
+# allowed, five in the verbs that write the record. This used to say "it points at the
+# guards and nowhere else", which was five rows short of true — the sentence outlived the
+# table, which is the defect class `docs/adr/0014` is about, in the recipe whose whole job
+# is catching it. A test now reads `chain.TABLE` and fails if a blocking guard has no row,
+# so the aim is asserted rather than described.
+#
+# A floor of 89 across the whole tree was never once met — the last recorded run read 78 —
+# and its rows named no security guard at all, so the most expensive instrument in the
+# repository was aimed at the least dangerous code. The floor here is 100 over a surface
+# small enough to mean it, and a single survivor fails.
+#
+# Not in `check`, and in CI as its own job: 6 min 07 s for all sixteen rows against the
+# gate's 20-minute budget. The halves are in cost order and stop at the first red, which is
+# where that number comes from — eleven rows are settled by `tests/test_hooks.py` in under
+# two seconds each, and the whole suite only runs for a row nothing cheaper caught.
 guards *filter:
     uv run --with {{pytest}} python tests/mutation.py {{ if filter != "" { "-k " + filter } else { "" } }}
 

@@ -13,8 +13,11 @@ sandbox contains. Every one is a test deselected during the run that exists to j
 tests. It also never completed a run here, so whether it exits non-zero on a survivor is
 a thing nobody has observed, and that is the whole question a gate asks.
 
-Not in `just check`: one mutant costs a full suite run. Run it when a guard's deny path
-changes, and before a release.
+Not in `just check`, and not a sentence either. It ran nowhere for as long as this file
+said "run it when a guard's deny path changes, and before a release" — a judgement that
+always comes out the same way, living in a docstring. It is a job in `check.yml` now, in
+`ci-result`'s needs, with `anti_theatre` reading the `RAN guards=` line it prints so a
+lane that stops running is a red rather than a silence.
 
 Usage: python tests/mutation.py [-k <substring>]
 """

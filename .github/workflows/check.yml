@@ -210,6 +210,45 @@ jobs:
       - name: every attack, and a clean control it must not fire on
         run: uv run python tests/adversarial/run.py
 
+  # Break the guards on purpose, and fail if nothing notices. Its own job because it edits
+  # the checkout while it runs and because it is the only lane here measured in minutes
+  # rather than seconds — 6 min 07 s for all sixteen rows on the machine that wrote this,
+  # 16 of 16 killed. It was in no job at all until now: `tests/mutation.py` carried the
+  # sentence "run it when a guard's deny path changes, and before a release", nothing
+  # executed that sentence, and nothing could tell a run from an absence.
+  #
+  # In `ci-result`'s needs, so it blocks without touching branch protection. The floor is
+  # 100 and a single survivor fails: sixteen defects a person chose, in the four guards that
+  # decide whether an action is allowed and the four verbs that write the record.
+  guards:
+    runs-on: ubuntu-latest
+    # Twice the measured local run and change. If this starts timing out the honest reading
+    # is that the lane grew or the suite did, and the number to raise is here.
+    timeout-minutes: 25
+    steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      # From PyPI and not from an action, the same way every other job here gets it: this
+      # repository allows GitHub-owned actions and a named list, and a job naming an action
+      # outside that list never starts — it reports startup_failure with no logs.
+      - name: install just
+        run: uv tool install "rust-just==${JUST_VERSION}"
+      # `shell: bash` for the pipe, for the same reason the gate above needs it: without it
+      # this step would report tee's zero and a surviving mutant would merge.
+      - name: break the guards on purpose
+        shell: bash
+        run: just guards | tee "$RUNNER_TEMP/guards.log"
+      # And the receipt, because the step above proves the mutants died and cannot prove it
+      # ran over any. `RAN guards=<n>` is refused at zero by the same reader `just check`
+      # uses, so a filter that stops matching — a rename, a typo — is a red and not a pass.
+      - name: it has to prove it ran over something
+        run: uv run python tests/anti_theatre.py "$RUNNER_TEMP/guards.log" . guards
+
   # Its own job, not a step inside check: it costs about ten minutes, and a gate people
   # stop running because it is slow is a gate that is not running. It still runs on every
   # push, which is the point — a test that stopped being able to fail is invisible to
@@ -343,7 +382,7 @@ jobs:
   ci-result:
     name: CI Result
     if: always()
-    needs: [check, suite, typecheck, sonar, snyk]
+    needs: [check, suite, guards, typecheck, sonar, snyk]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -361,13 +400,15 @@ jobs:
           RESULTS: >-
             check=${{ needs.check.result }}
             suite=${{ needs.suite.result }}
+            guards=${{ needs.guards.result }}
             typecheck=${{ needs.typecheck.result }}
             sonar=${{ needs.sonar.result }}
             snyk=${{ needs.snyk.result }}
         run: |
-          failed=0
+          failed=0 ran=0
           for pair in $RESULTS; do
             printf '  %-12s %s\n' "${pair%%=*}" "${pair##*=}"
+            ran=$((ran + 1))
             [ "${pair##*=}" = "success" ] || failed=1
           done
           if [ "$failed" -ne 0 ]; then
@@ -383,4 +424,4 @@ jobs:
             fi
             exit 1
           fi
-          echo "six jobs, six successes, and every lane observed something"
+          echo "$ran jobs, $ran successes, and every lane observed something"
