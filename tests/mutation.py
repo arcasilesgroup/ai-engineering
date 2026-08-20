@@ -22,6 +22,7 @@ Usage: python tests/mutation.py [-k <substring>]
 from __future__ import annotations
 
 import hashlib
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -149,6 +150,36 @@ def killer(halves: tuple[tuple[str, tuple[str, ...]], ...] = HALVES) -> tuple[st
     return "", ""
 
 
+def unwind(*_: object) -> None:
+    """Turn a termination signal into an exception, so the restore in `finally` still runs.
+
+    Every mutant here is written into the real tree and taken out again by a `finally`, and
+    `finally` unwinds on SIGINT because the interpreter raises. It does not unwind on SIGTERM
+    or SIGHUP, which terminate the process where it stands — and a CI job timeout sends
+    SIGTERM. The mutants are one-token edits nobody would spot in review: `except BaseException`
+    becoming `except Exception` is the fail-open guard this product exists to prevent, and it
+    would be sitting in a checkout where `git add -A` from any other session would stage it.
+
+    SIGKILL and a power cut are still outside this. `restored()` below is what notices those.
+    """
+    raise SystemExit("mutation: terminated mid-mutant; the tree was restored on the way out")
+
+
+def touched() -> str:
+    """What git sees under the two trees this file edits, as bytes rather than as a verdict.
+
+    Taken once before the first mutant and once after the last, and compared. The per-row
+    sha256 already refuses a file that came back wrong, so this is the wider net: it catches
+    a file this run left changed that no row names. Snapshotted rather than asserted empty,
+    because a developer with honest uncommitted work under `hooks/` or `src/` must not be
+    told they broke the harness.
+    """
+    done = subprocess.run(
+        ["git", "diff", "--", "hooks/", "src/"], cwd=ROOT, capture_output=True, text=True
+    )
+    return done.stdout
+
+
 def select(only: str) -> list[tuple[str, str, str, str]]:
     """The rows this run is about, chosen before anything is counted.
 
@@ -163,6 +194,8 @@ def select(only: str) -> list[tuple[str, str, str, str]]:
 
 
 def main(only: str = "") -> int:
+    for kill in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(kill, unwind)
     rows = select(only)
     if not rows:
         sys.stderr.write(f"mutation: no row names {only!r}, so nothing would be measured.\n")
@@ -171,7 +204,7 @@ def main(only: str = "") -> int:
     if half:
         sys.stderr.write(f"mutation: {half} is red before any mutant ({line}). Fix that first.\n")
         return 1
-    survivors = []
+    survivors, opening = [], touched()
     for name, old, new, what in rows:
         path = ROOT / name
         before, was = path.read_text(encoding="utf-8"), digest(path)
@@ -204,6 +237,12 @@ def main(only: str = "") -> int:
     # until this line existed the writer simply never gave it one to refuse. Its own line,
     # nothing after the number: the pattern is anchored to the end of the line.
     print(f"RAN guards={len(rows)}")
+    if touched() != opening:
+        sys.stderr.write(
+            "mutation: this run left hooks/ or src/ changed. Read `git diff` before "
+            "anything commits it.\n"
+        )
+        return 1
     for line in survivors:
         sys.stderr.write(f"  no test noticed: {line}\n")
     if survivors:
