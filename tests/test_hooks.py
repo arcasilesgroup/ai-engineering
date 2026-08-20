@@ -28,6 +28,7 @@ import _otlp
 import _wrap
 import autoformat
 import chain
+import injection_guard
 import loop_guard
 import no_verify_guard
 import pytest
@@ -1750,3 +1751,72 @@ def test_the_hooks_path_redirect_is_recognised_by_the_key_it_names():
     # never the wired hooks directory. Measured both ways. A test that appeared to kill that
     # mutant would be fabricating a kill, so the floor absorbs it instead.
     assert no_verify_guard.elsewhere("") is True
+
+
+def test_the_catalogue_refuses_a_shape_it_cannot_read_rather_than_scanning_with_less(
+    tmp_path, monkeypatch
+):
+    """Three mutation sites in `patterns` that nothing exercised, and one of them is a
+    fail-open of the same class as the two this branch already closed.
+
+    An empty catalogue is the worst of the three. Without that refusal the guard builds zero
+    patterns, scans every payload against none of them, catches nothing and says nothing —
+    a control that is present, running, and structurally incapable of firing. The guard's own
+    docstring says an unreadable catalogue must fail closed; an *empty* one is unreadable in
+    the only sense that matters.
+    """
+
+    def loading(body: str):
+        policy = tmp_path / "iocs.yml"
+        policy.write_text(body, encoding="utf-8")
+        monkeypatch.setattr(injection_guard, "POLICY", policy)
+        return injection_guard.patterns
+
+    # The catalogue as it is meant to be: single-quoted entries, and the doubled quote is
+    # how a literal one is spelled.
+    got = loading("patterns:\n  - 'ignore previous'\n  - 'it''s fine'\n")()
+    assert [one.pattern for one in got] == ["ignore previous", "it's fine"]
+
+    # An entry nobody quoted. Its escapes mean two different things depending on who reads
+    # it, so it is refused rather than guessed at.
+    with pytest.raises(ValueError, match="single-quoted"):
+        loading("patterns:\n  - ignore previous\n")()
+    with pytest.raises(ValueError, match="single-quoted"):
+        loading('patterns:\n  - "ignore previous"\n')()
+
+    # And a catalogue with nothing in it. Comments and a header are not patterns.
+    for empty in ("", "patterns:\n", "# every line here is a comment\npatterns:\n"):
+        with pytest.raises(ValueError, match="lists no patterns"):
+            loading(empty)()
+
+
+def test_a_read_with_nothing_to_read_is_allowed_rather_than_opened(tmp_path):
+    """`PreToolUse` on a read tool with no path is not an attack, and the guard allows it.
+
+    The early return that says so is the second equivalent mutant this surface has, and it
+    is written down rather than left for somebody to chase: removing it leaves the same
+    answer, because `Path("").read_text()` raises `IsADirectoryError`, which is an `OSError`,
+    which the clause below already turns into the same `None`. Measured, not reasoned.
+
+    The behaviour is still worth pinning even though no mutant of that line can be killed —
+    what would change it is somebody narrowing that `except`, and then this test is what
+    notices."""
+
+    assert (
+        injection_guard.run({"_event": "PreToolUse", "tool_name": "Read", "tool_input": {}}) is None
+    )
+    assert (
+        injection_guard.run(
+            {"_event": "PreToolUse", "tool_name": "Read", "tool_input": {"file_path": ""}}
+        )
+        is None
+    )
+
+
+def test_self_protect_reads_an_empty_command_as_nothing_to_judge():
+    """`words[0]` on an empty command raises, `@guard` turns that into a denial, and the
+    denial says this guard crashed — a self-inflicted refusal of a command that does nothing.
+    The same shape as the whitespace crash in `loop_guard` this branch already fixed."""
+
+    for nothing in ("", "   ", "\t\n"):
+        assert self_protect.writes(nothing) is None, repr(nothing)
