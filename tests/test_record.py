@@ -19,7 +19,6 @@ import sys
 import time
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -39,6 +38,8 @@ from ai_engineering import (
     spec_transaction,
     text,
 )
+
+COAUTHOR = "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 TODAY = date.today().isoformat()
 # The record stores a UTC date; local midnight is not the same instant.
@@ -471,7 +472,7 @@ def test_each_way_of_breaking_the_chain_is_reported_as_itself(home, mutate, reha
         if rehash:
             events[1]["hash"] = home.digest(events[1])
     _write(home, events)
-    problems = audit.verify(None, False)
+    problems = audit.verify(None)
     if expected is None:
         assert problems == []
     else:
@@ -517,27 +518,8 @@ def test_replay_filters_to_one_session(home, tmp_path, monkeypatch, capsys):
     assert "nothing recorded" in capsys.readouterr().out
 
 
-def test_the_anchor_written_into_a_commit_is_one_the_verifier_can_read_back(home, monkeypatch):
-    """The commit-msg hook writes this line and audit reads it with a regular expression.
-    If the two ever disagree on the format, every anchor in git history stops counting and
-    nothing says so — the tamper-evidence quietly becomes decoration."""
-    monkeypatch.setattr(home, "repo_id", lambda root=None: "testrepo")
-    events = _links(home, 2)
-    _write(home, events)
-    line = audit.anchor_line(None)
-    found = audit.ANCHOR.search(line)
-    assert found, line
-    assert found.group(3) == "2" and found.group(4) == events[-1]["hash"][:12]
-
-
-# Not `SIGNED`: this module already binds that name to an acceptance argument list, and
-# rebinding it at import time would have replaced it for every test in the file.
-COAUTHOR = "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-
-
 def test_a_break_that_has_been_accounted_for_is_recorded_and_never_erased(home, monkeypatch):
-    """The chain had no way back. One poisoned link and `audit verify` fails for good,
-    `anchor_line` raises, and no commit on that machine can ever be anchored again — a
+    """The chain had no way back. One poisoned link and `audit verify` fails for good — a
     ratchet with no recovery path, measured on the operator's own machine at 22 links.
 
     Erasing the links is the one thing that must not happen: it is the act the chain exists
@@ -546,8 +528,7 @@ def test_a_break_that_has_been_accounted_for_is_recorded_and_never_erased(home, 
     again because the break has been answered rather than hidden.
 
     It is not a way out from under a real edit. The account itself is a link, so adding one
-    later moves the head, and the head is what the anchors in git commits pin — replicated
-    and immutable, unlike this file."""
+    later moves the head, and every reader of this chain sees the addition."""
 
     monkeypatch.setattr(home, "repo_id", lambda root=None: "testrepo")
     events = _links(home, 3)
@@ -557,9 +538,7 @@ def test_a_break_that_has_been_accounted_for_is_recorded_and_never_erased(home, 
     events[2]["hash"] = home.digest(events[2])
     _write(home, events)
 
-    assert audit.verify(None, False), "a poisoned link must be reported before it is accounted"
-    with pytest.raises(ValueError):
-        audit.anchor_line(None)
+    assert audit.verify(None), "a poisoned link must be reported before it is accounted"
 
     accounted = audit.account(
         None, first=2, last=2, why="written by a test with its own home", by="Ada"
@@ -576,34 +555,6 @@ def test_a_break_that_has_been_accounted_for_is_recorded_and_never_erased(home, 
     kinds = dict((why.split(":")[0], kind) for kind, why in audit._chain_findings(after))
     assert kinds.get("link 2") == "ACCOUNTED", kinds
     assert "BROKEN" not in kinds.values(), kinds
-    # And the anchor works again, which is the whole point of being able to do this.
-    assert "Ai-Eng-Anchor: " in audit.anchor_line(None)
-
-
-@pytest.mark.parametrize("head", ["known", "aaaaaaaaaaaa"])
-def test_a_commit_anchoring_a_link_this_chain_has_lost_is_reported(home, monkeypatch, head):
-    """Git history is replicated and immutable; the chain on this laptop is neither. If
-    somebody truncates or replaces the local chain, the anchors in old commits are what
-    notices. A verifier that only walked the local file would find nothing wrong."""
-    monkeypatch.setattr(home, "repo_id", lambda root=None: "testrepo")
-    events = _links(home, 2)
-    _write(home, events)
-    anchored = events[-1]["hash"][:12] if head == "known" else head
-    log = f"Ai-Eng-Anchor: testrepo/{home.machine_id()} seq=2 head={anchored}\n\x00"
-    monkeypatch.setattr(
-        audit.subprocess,
-        "run",
-        lambda *a, **k: SimpleNamespace(returncode=0, stdout=log),
-    )
-    problems = audit.verify(Path("/nowhere"), True)
-    assert problems[-1] == (
-        "Solution Intent at .ai/intent.md is INCOMPLETE: INTENT_HOME_MISSING — "
-        "Solution Intent is missing at .ai/intent.md"
-    )
-    chain_problems = problems[:-1]
-    assert bool(chain_problems) is (head != "known"), problems
-    if chain_problems:
-        assert "the record was truncated or replaced" in chain_problems[0]
 
 
 def test_a_truncated_line_is_reported_as_broken_not_as_a_crash(home, capsys):
@@ -612,7 +563,7 @@ def test_a_truncated_line_is_reported_as_broken_not_as_a_crash(home, capsys):
     path = _write(home, _links(home, 2))
     with path.open("a", encoding="utf-8") as fh:
         fh.write('{"ts": "t", "cls": "allo\n')
-    problems = audit.verify(None, False)
+    problems = audit.verify(None)
     assert len(problems) == 1 and "link 3" in problems[0]
     assert audit.main(["verify"]) == outcome.result("FAIL")
     assert "intact" not in capsys.readouterr().out

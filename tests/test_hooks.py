@@ -581,7 +581,7 @@ def test_an_edited_buffer_is_sealed_as_the_error_that_says_it_was_edited(repo):
     sealed = links()[-1]
     assert (sealed["cls"], sealed["data"]["outcome"]) == ("error", "edited")
     assert sealed["data"]["claimed"]["reason"] == "a lie!!!"  # kept, and no longer a decision
-    assert "arrived edited" in " ".join(audit.verify(repo, anchors=False))
+    assert "arrived edited" in " ".join(audit.verify(repo))
 
     key = _emit.home() / "buffer.key"
     assert repo not in key.parents and (key.stat().st_mode & 0o077) == 0

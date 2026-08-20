@@ -266,7 +266,7 @@ def test_the_two_readers_of_the_chain_reach_the_same_verdict(
     path.write_text("".join(json.dumps(row) + "\n" for row in edit(rows)))
     got, detail = verdict(doctor.chain_intact, repo)
     assert (got, doctor_says in detail) == (("fail", True) if doctor_says else ("ok", True))
-    problems = audit.verify(repo, anchors=False)
+    problems = audit.verify(repo)
     assert "INTENT_HOME_MISSING" in problems[-1]
     chain_problems = " ".join(problems[:-1])
     assert (audit_says in chain_problems) and bool(chain_problems) == bool(audit_says)
@@ -282,7 +282,7 @@ def test_a_half_written_last_line_is_reported_by_both_readers_of_the_chain(home,
         fh.write('{"cls": "blo')
     assert len(doctor.events(repo)) == 2
     assert "link 3" in (doctor.chain_intact(repo) or "")
-    problems = audit.verify(repo, anchors=False)
+    problems = audit.verify(repo)
     assert len(problems) == 2
     assert "link 3" in problems[0]
     assert "INTENT_HOME_MISSING" in problems[1]
@@ -323,7 +323,7 @@ def test_doctor_cannot_call_a_chain_intact_that_the_verifier_calls_broken(home, 
 
     said = doctor.chain_intact(repo)
     assert said and "link 2" in said, f"doctor called a sealed-as-edited chain intact: {said!r}"
-    assert [w for w in audit.verify(repo, anchors=False) if "link 2" in w], "the verifier agrees"
+    assert [w for w in audit.verify(repo) if "link 2" in w], "the verifier agrees"
 
 
 def test_a_buffer_that_stopped_being_sealed_is_reported(home, repo):

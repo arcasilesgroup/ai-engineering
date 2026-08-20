@@ -1187,7 +1187,7 @@ def test_audit_recomputes_intent_relations_without_metadata_proof(
     no_ai.mkdir()
     monkeypatch.setattr(audit, "read", lambda root: [])
     for repository in (no_ai, missing):
-        assert audit.verify(repository, anchors=False) == [
+        assert audit.verify(repository) == [
             prefix + "INTENT_HOME_MISSING — Solution Intent is missing at .ai/intent.md"
         ]
         monkeypatch.setattr(paths, "repo_root", lambda repository=repository: repository)
@@ -1218,7 +1218,7 @@ def test_audit_recomputes_intent_relations_without_metadata_proof(
     claimed["hash"] = emit.digest(claimed)
     monkeypatch.setattr(audit, "read", lambda root: [claimed])
 
-    assert audit.verify(repository, anchors=False) == [
+    assert audit.verify(repository) == [
         prefix + "INTENT_RELATION_STALE — relation digest does not match target"
     ]
     monkeypatch.setattr(paths, "repo_root", lambda: repository)

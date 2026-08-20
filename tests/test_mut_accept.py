@@ -459,7 +459,7 @@ def test_a_link_whose_hash_was_deleted_is_reported_once_as_an_edit(anchored):
     events[1]["prev"] = ""
     events[1]["hash"] = emit.digest(events[1])
     _write_chain(emit, events, anchored)
-    problems = audit.verify(anchored, False)
+    problems = audit.verify(anchored)
     assert len(problems) == 2, problems
     assert "link 1: the hash does not match its own body" in problems[0]
     assert "INTENT_HOME_MISSING" in problems[1]
