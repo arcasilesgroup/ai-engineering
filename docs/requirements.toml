@@ -2078,10 +2078,11 @@ note = "declared as having no instrument rather than claiming a percentile it do
 
 [[requirement]]
 id = "EP-285"
-verdict = "PROVEN"
+verdict = "CONTRADICTED"
+mover = "decided"
 subject = "a whole-tree mutation score exists and is measured against the floor"
-evidence = "gh run view 32043131651 --log | grep 'deliberate defects'"
-note = "the score exists and the comparison executes: 21,960 mutants, 72% caught, against a floor of 89, published by the scheduled run on 2026-08-17. The requirement asks that it be measured against the floor and it is; that the floor is unmet is a separate fact, recorded in specs/018 plan T-11 and in the nightly's own header, and the owner's decision that day was to raise the tests rather than lower the number"
+evidence = "grep -rc mutmut justfile pyproject.toml"
+note = "regraded when the apparatus was deleted rather than left PROVEN over a run nobody can repeat. It was graded on `gh run view 32043131651` — 21,960 mutants, 72% against a floor of 89, published 2026-08-17 — and that grade is now false in both halves: there is no whole-tree score and no floor to measure it against, because `just mutate`, `[tool.mutmut]`, `FLOOR = 89` and the scheduled run were removed. What replaced it does not satisfy this row and is not pretending to: `just guards` breaks named defects in the four guards that decide whether an action is allowed, with a floor of 100 and a single survivor failing. That is a different requirement, over a curated surface rather than a whole tree, and writing it in here as though it were this one is the substitution this ledger exists to catch. The evidence command prints zero for both files, which is the fact the verdict rests on"
 
 [[requirement]]
 id = "EP-286"

@@ -8,11 +8,17 @@ artifact a gate left behind. None of it is asserted here — the gates already f
 this exits zero whatever it finds, and says so, because a report that sometimes fails is a
 gate nobody can name.
 
-The one thing it refuses to do is round a stale number up to a current one. Coverage and
-the mutation score are not computed here; they are left behind by `just cover` and
-`just mutate`, and an artifact older than the newest source file it describes is reported
-STALE rather than reported. A number that was true last Tuesday is the failure this
-product is about.
+The one thing it refuses to do is round a stale number up to a current one. Coverage is
+not computed here; it is left behind by `just cover`, and an artifact older than the newest
+source file it describes is reported STALE rather than reported. A number that was true
+last Tuesday is the failure this product is about.
+
+There is no mutation row. There was, reading `mutants/mutmut-cicd-stats.json` and citing
+`just mutate` — a directory nothing writes since the apparatus was deleted and a recipe
+that no longer exists — so the file whose whole purpose is refusing stale numbers was
+printing a dash and pointing at a command. `just guards` leaves its answer in a `RAN` line
+and not in an artifact, and inventing one so this could quote it would be building
+machinery to keep a report shaped the way it used to be.
 
 Usage: python tests/stats.py [--json]
 """
@@ -88,16 +94,6 @@ def coverage() -> tuple[str, str]:
     return (f"{float(found.group(1)) * 100:.0f}%" if found else "?"), state
 
 
-def mutation() -> tuple[str, str]:
-    stats = ROOT / "mutants" / "mutmut-cicd-stats.json"
-    state = freshness(stats)
-    if state == "not measured":
-        return "—", "run `just mutate`"
-    body = json.loads(stats.read_text())
-    total = body.get("total") or 0
-    return (f"{round(100 * body['killed'] / total)}%" if total else "?"), state
-
-
 def suppressions() -> list[str]:
     contract, _, _ = lib()
     found = []
@@ -168,7 +164,6 @@ def gather() -> dict:
         },
         "quality": {
             "coverage": coverage(),
-            "mutation": mutation(),
             "tests_collected": len(
                 re.findall(
                     r"^def test_",
@@ -243,9 +238,9 @@ def show(data: dict) -> None:
         print(f"      EXPIRED        {line}")
 
     print("\n  QUALITY")
-    for label, (value, state) in (("coverage", q["coverage"]), ("mutation score", q["mutation"])):
-        mark = "" if state == "fresh" else f"   <- {state}"
-        print(f"    {label:<16} {value}{mark}")
+    value, state = q["coverage"]
+    mark = "" if state == "fresh" else f"   <- {state}"
+    print(f"    {'coverage':<16} {value}{mark}")
     print(
         f"    tests            {q['tests_collected']} functions, "
         f"{q['adversarial_cases']} adversarial cases"
