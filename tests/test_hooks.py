@@ -1700,3 +1700,53 @@ def test_an_argument_of_only_whitespace_does_not_deny_in_the_guards_own_name():
     assert loop_guard.signature({"tool_name": "Read", "tool_input": {"file_path": long}}) == (
         "Read:" + long[-60:]
     )
+
+
+def test_the_hooks_path_redirect_is_recognised_by_the_key_it_names():
+    """Two holes a generated mutation run found in the guard that blocks `--no-verify`, and
+    a third that is named here because nothing can close it.
+
+    Pointing `core.hooksPath` somewhere else does not pass `--no-verify` and is not meant to
+    — it stops the hooks running at all, which is the same outcome by a quieter route. The
+    guard already caught it. What was missing was anything that would notice if it stopped.
+    """
+
+    def verdict(command) -> str:
+        try:
+            no_verify_guard.run(
+                {
+                    "tool_input": {"command": command},
+                    "tool_name": "Bash",
+                    "hook_event_name": "PreToolUse",
+                }
+            )
+        except SystemExit as left:
+            return f"denied:{left.code}"
+        return "allowed"
+
+    # The key is matched by name, case-folded. Flipping that comparison used to change
+    # nothing anything asserted, because only the matching half was ever exercised.
+    assert verdict("git config core.hooksPath /tmp/x && git commit -m x") == "denied:2"
+    assert verdict("git config CORE.HOOKSPATH /tmp/x && git commit -m x") == "denied:2"
+    assert verdict("git config core.hooks /tmp/x && git commit -m x") == "allowed"
+
+    # Unsetting it is the same act spelled as an absence.
+    assert list(no_verify_guard.targets("git config --unset core.hooksPath")) == [""]
+    assert verdict("git config --unset core.hooksPath") == "denied:2"
+
+    # Reading the value is not changing it.
+    assert verdict("git config --get core.hooksPath") == "allowed"
+
+    # A command that is not text is not a `--no-verify` attempt, and this guard says so by
+    # allowing it rather than by falling into its own fail-closed path. `chain.py` denies an
+    # unreadable payload upstream, so denying here would be denying twice for the wrong
+    # reason.
+    assert verdict(17) == "allowed"
+    assert verdict("") == "allowed"
+
+    # And the third site, written down rather than closed. The early `if not value: return
+    # True` inside `elsewhere` is a shortcut, not a behaviour: removing it leaves the same
+    # answer, because an empty value resolves against the repository root and the root is
+    # never the wired hooks directory. Measured both ways. A test that appeared to kill that
+    # mutant would be fabricating a kill, so the floor absorbs it instead.
+    assert no_verify_guard.elsewhere("") is True
