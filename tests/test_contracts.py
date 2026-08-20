@@ -1502,7 +1502,7 @@ the design does not
 # went through.
 GOVERNING_SKILL_TEXT = {
     ".agents/skills/ai-build/SKILL.md": (
-        "52c37f2ad9180c6bbf21e3519ce4bae0ff78a38ee9c0bacae2bbcbe9b0dade69"
+        "fa0a339491f53c56e175efcd02d829b76d5586862570979807e55063198f5cb6"
     ),
     ".agents/skills/ai-build/corpus.md": (
         "a058272096e4a0d7ec48688a78d4967af715c30476dc7271b3324bbcf43b238b"
