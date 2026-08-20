@@ -88,7 +88,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     ),
     (
         "src/ai_engineering/audit.py",
-        'prev = event.get("hash", "")',
+        'prev = stored if isinstance(stored, str) else ""',
         "prev = prev",
         "the chain link",
     ),

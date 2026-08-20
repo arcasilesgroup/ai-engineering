@@ -901,6 +901,26 @@ def test_the_hooks_path_is_judged_by_the_value_it_would_be_left_at(
         assert no_verify_guard.run({"tool_input": {"command": command}}) is None
 
 
+@pytest.mark.parametrize(
+    "verb",
+    ["commit", "push", "merge", "rebase", "am"],
+    ids=["commit", "push", "merge", "rebase", "am"],
+)
+def test_no_verify_is_denied_on_every_verb_that_accepts_it(repo, monkeypatch, verb):
+    """Found by a mutant, not by a reader. Narrowing the pattern from the five verbs to
+    `commit` alone survived the whole suite: every test here spelled `git commit
+    --no-verify`, so four of the five spellings were unasserted and the guard could have
+    lost them silently. `git push --no-verify` skips `pre-push`, which is the hook that
+    refuses a protected branch and scans the commits actually going to the server — the
+    one denial in this repository with a recorded count behind it."""
+    monkeypatch.setattr(no_verify_guard, "OURS", repo / "git-hooks")
+    monkeypatch.setattr(no_verify_guard, "repo_root", lambda start=None: repo)
+
+    with pytest.raises(SystemExit) as stop:
+        no_verify_guard.run({"tool_input": {"command": f"git {verb} --no-verify"}})
+    assert stop.value.code == 2
+
+
 # --- loop_guard: what counts as the same call, and what counts as the same failure ---
 
 

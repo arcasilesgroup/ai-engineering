@@ -295,8 +295,14 @@ def test_the_six_repairs_that_had_no_check(tmp_path):
     long_one = "the block header requires written authority naming two digests and neither came"
     long_two = "the block header requires written authority naming two SHA-256 digests"
     assert blocked._name(long_one) != blocked._name(long_two)
-    assert blocked._name(long_one) == blocked._name(long_one)
-    assert len(blocked._name(long_one).rsplit("-", 1)[1]) == 8
+    # Named rather than called twice inside one comparison: the property is that two
+    # separate calls agree, and `assert f(x) == f(x)` cannot say that — it is one expression
+    # compared with itself, which is true of any expression and is what SonarCloud's S5863
+    # reads it as. Two names, two calls, one claim.
+    first_call = blocked._name(long_one)
+    second_call = blocked._name(long_one)
+    assert first_call == second_call
+    assert len(first_call.rsplit("-", 1)[1]) == 8
 
     # A drop is never nameless: an entry with no id gets a positional label, because a drop
     # nobody can trace is the filter hiding itself.
