@@ -28,6 +28,23 @@ search for.
   now accepts only `--guard loop_guard`, because that is the only guard left that a person
   may bypass at all.
 
+- The commit anchor is hard-deleted, with no replacement and no shim: the
+  `Ai-Eng-Anchor:` footer that `git-hooks/commit-msg` wrote, the `--anchor` and `--anchors`
+  arguments of `ai-eng audit`, the three history verdicts that compared the git log against
+  the chain, `audit.anchor_line`, and the `anchor_commits` key `ai-eng init` used to seed.
+  The generated CI workflow now runs `ai-eng audit verify` without an argument — a wheel
+  whose generated CI passes a switch the wheel refuses is an argument error in every
+  destination repository. What changes for you: **`ai-eng audit verify --anchors` is an
+  unknown-argument error, commits no longer carry or ask for a footer, and the line saying a
+  commit is not anchored stops.** In this repository's life the three verdicts produced no
+  finding and one false alarm on every commit, and the cure the alarm named needed a person
+  at a physical keyboard and was never run. `audit verify`, `audit replay` and
+  `audit account` keep every other property, including refusing a link that arrived edited
+  before it was sealed. `ai-eng doctor` keeps 25 assertions; assertion 11 loses only the
+  question about signing a footer, so a machine whose chain is not established now reads
+  `ok` there rather than `undecidable`. Recorded in
+  `specs/022-the-anchor-nobody-could-answer-for` and approved at digests by `docs/adr/0017`.
+
 - `contract.REPO_CEILING`, `contract.repo_lines` and `contract.NOT_THE_PRODUCT` are
   hard-deleted, with no replacement and no shim, and `tests/seal_ceiling.py` and the `just
   seal` recipe go with them. The ceiling was a total-line bound on the repository that a test

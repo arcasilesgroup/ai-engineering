@@ -24,7 +24,7 @@ a pull request.
 | The promise | Its command | What makes it fail |
 |---|---|---|
 | Deterministic — the same rules for every person and for CI | `ai-eng doctor` | The installed wheel is not what the repository pins, or a guard entry points at another install |
-| Auditable — tamper-evident, survives losing the laptop | `ai-eng audit verify --anchors` | Any break in the chain, or a head anchored in git that is missing locally |
+| Auditable — tamper-evident | `ai-eng audit verify` | Any break in the chain, or evidence that moved after it was recorded as passing |
 | Your data is yours | `ai-eng doctor --paths` | Any framework file outside `.ai/`, `specs/` and `docs/adr/` |
 | No lock-in | delete `.ai/` | Nothing. `specs/` is markdown that outlives us. |
 
