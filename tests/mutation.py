@@ -100,24 +100,53 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def quiet(*command: str) -> bool:
-    return subprocess.run(list(command), cwd=ROOT, capture_output=True).returncode == 0
+# The two halves that can decide a row, cheapest first. Named, because a bare boolean
+# cannot say which one said no — and a floor of 100 is worth exactly what the attribution
+# behind each kill is worth.
+HALVES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("adversarial", (str(ROOT / "tests" / "adversarial" / "run.py"),)),
+    ("pytest", ("-m", "pytest", "-qx", "--no-header", "-p", "no:cacheprovider")),
+)
+
+# What a half's output looks like when it is the thing that said no. `tests/adversarial/run.py`
+# prints `MISSED` for a guard that did not fire and `NOT RUN` for a case that raised before
+# reaching a verdict; pytest prints `FAILED` and `E   `. Anything else falls back to the last
+# line, which is wrong less often than printing nothing.
+BLAME = ("MISSED", "NOT RUN", "FAILED", "E ", "ERROR")
 
 
-def run_suite() -> bool:
-    """Both halves, in the order that costs least, and the cheap one is the adversarial run.
-    pytest alone leaves every guard threshold alive: the budgets and the windows are only
-    ever crossed by the adversarial suite, which pytest does not collect — the first run of
-    this file said so, six survivors in the two guards whose edges live over there.
+def why(output: str) -> str:
+    """The shortest line that says what went red, out of output that was being discarded."""
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    for line in lines:
+        if line.startswith(BLAME):
+            return line[:100]
+    return lines[-1][:100] if lines else "no output"
 
-    A mutant is killed when either half goes red, so this is a conjunction and swapping its
-    two sides cannot change an answer, only the bill. It used to run pytest first, above a
-    docstring that already claimed the opposite; thirteen seconds now decide most rows
-    before sixty are spent on them. -x because one red is the whole answer."""
-    fast = quiet(sys.executable, str(ROOT / "tests" / "adversarial" / "run.py"))
-    return fast and quiet(
-        sys.executable, "-m", "pytest", "-qx", "--no-header", "-p", "no:cacheprovider"
-    )
+
+def red(*command: str) -> str:
+    """Empty when the command passed, and the line it failed on when it did not.
+
+    `quiet()` was here and returned a bool over `capture_output=True`, so every byte that
+    could say *why* was captured and thrown away. A mutant was then recorded as killed
+    because something, somewhere, went red for thirteen seconds — a transient, an
+    environment assertion, a ceiling — and no row could name the test that killed it. That
+    is the same defect this file indicts in coverage: a number nobody can trace to a rule.
+    """
+    done = subprocess.run(list(command), cwd=ROOT, capture_output=True, text=True)
+    return "" if done.returncode == 0 else why(done.stdout + done.stderr)
+
+
+def killer(halves: tuple[tuple[str, tuple[str, ...]], ...] = HALVES) -> tuple[str, str]:
+    """The first half to go red and the line it went red on; two empty strings when none did.
+
+    Cheapest first and stop at the first red, because one red is the whole answer.
+    """
+    for name, argv in halves:
+        line = red(sys.executable, *argv)
+        if line:
+            return name, line
+    return "", ""
 
 
 def select(only: str) -> list[tuple[str, str, str, str]]:
@@ -138,8 +167,9 @@ def main(only: str = "") -> int:
     if not rows:
         sys.stderr.write(f"mutation: no row names {only!r}, so nothing would be measured.\n")
         return 1
-    if not run_suite():
-        sys.stderr.write("mutation: the suite is red before any mutant. Fix that first.\n")
+    half, line = killer()
+    if half:
+        sys.stderr.write(f"mutation: {half} is red before any mutant ({line}). Fix that first.\n")
         return 1
     survivors = []
     for name, old, new, what in rows:
@@ -153,14 +183,17 @@ def main(only: str = "") -> int:
             return 1
         try:
             path.write_text(before.replace(old, new), encoding="utf-8")
-            killed = not run_suite()
+            half, line = killer()
         finally:
             path.write_text(before, encoding="utf-8")
         if digest(path) != was:
             sys.stderr.write(f"mutation: {name} was not restored. Check it before committing.\n")
             return 1
-        print(f"  {'killed  ' if killed else 'SURVIVED'} {name}  {what}")
-        if not killed:
+        # The half and its line, because "killed" alone cannot tell a defended rule from
+        # thirteen seconds of something unrelated being red.
+        blame = f"  <- {half}: {line}" if half else ""
+        print(f"  {'killed  ' if half else 'SURVIVED'} {name}  {what}{blame}")
+        if not half:
             survivors.append(f"{name}: {old!r} -> {new!r} ({what})")
 
     print(f"\n  {len(rows) - len(survivors)} of {len(rows)} killed")

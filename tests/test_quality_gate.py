@@ -832,53 +832,38 @@ def test_the_linter_and_the_type_checker_are_shown_saying_no(tmp_path):
 
 
 def test_the_mutation_runner_spends_the_cheap_suite_first() -> None:
-    """A mutant is killed when either half of the suite goes red, so the order of the two
-    halves cannot change a verdict — only the bill. The adversarial run is thirteen seconds
-    and pytest is sixty; running pytest first means every killed mutant pays the expensive
-    half before the cheap one has had a chance to answer.
+    """A mutant is killed when either half goes red, so the order of the two halves cannot
+    change a verdict — only the bill. The adversarial run is thirteen seconds and pytest is
+    over two minutes; running pytest first means every killed mutant pays the expensive half
+    before the cheap one has had a chance to answer.
 
-    Read out of the source and not out of the docstring. The docstring already promised this
-    behaviour while the code did the opposite — "the slow half only runs when the fast half
-    found nothing", above a line that ran pytest first — so an assertion a reworded comment
-    can satisfy is no assertion at all."""
+    Executed rather than read. This used to assert an AST shape — two `quiet` calls inside a
+    `BoolOp` — and an AST shape is a thing a correct rewrite breaks while a wrong one can
+    satisfy: the docstring had already promised this behaviour above a line that did the
+    opposite, and then the shape assertion outlived the function it described. So the claim
+    is run instead. Two fake halves, the first of which fails; if the runner spends the
+    second, the marker exists and this fails.
+    """
 
-    import ast
+    import tempfile
 
-    source = (ROOT / "tests" / "mutation.py").read_text(encoding="utf-8")
-    run_suite = next(
-        node
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.FunctionDef) and node.name == "run_suite"
+    import mutation
+
+    assert [name for name, _ in mutation.HALVES] == ["adversarial", "pytest"], (
+        "the cheap half is no longer first, so every killed mutant pays the expensive one"
     )
-    # Discovery order, which for these two calls is the order they are written in. The
-    # docstring is not read: it is not a call.
-    calls = [
-        ast.unparse(node)
-        for node in ast.walk(run_suite)
-        if isinstance(node, ast.Call) and ast.unparse(node.func) == "quiet"
-    ]
-    assert len(calls) == 2, calls
-    assert "adversarial" in calls[0], calls
-    assert "pytest" in calls[1], calls
-    # And the expensive half is inside the conjunction, not merely somewhere in the same
-    # function. Written first, this asserted only that an `and` existed, which a version
-    # binding both halves to names and joining them afterwards satisfies while spending both
-    # on every mutant — the saving gone and nothing red. A reviewer wrote that version out
-    # and it passed.
-    conjunction = next(
-        (
-            node
-            for node in ast.walk(run_suite)
-            if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And)
-        ),
-        None,
-    )
-    # With no default this raised `StopIteration` instead of failing, so a shape that
-    # short-circuits with an early return — correct, but carrying no `and` — reported a bare
-    # exception rather than a sentence. Found by the bounded re-review of this very repair.
-    assert conjunction is not None, (
-        "run_suite stopped being a conjunction, so the order is not free"
-    )
-    assert any(
-        isinstance(half, ast.Call) and "pytest" in ast.unparse(half) for half in conjunction.values
-    ), "the pytest half is outside the conjunction, so it runs whether or not the cheap half passed"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        marker = Path(tmp) / "the-second-half-ran"
+        half, line = mutation.killer(
+            (
+                ("first", ("-c", "import sys; sys.stderr.write('FAILED on purpose'); sys.exit(1)")),
+                ("second", ("-c", f"open({str(marker)!r}, 'w').close()")),
+            )
+        )
+        assert half == "first", half
+        assert "FAILED on purpose" in line, line
+        assert not marker.exists(), (
+            "the expensive half ran after the cheap one had already said no, so the saving "
+            "this order exists for is gone and nothing was red"
+        )
