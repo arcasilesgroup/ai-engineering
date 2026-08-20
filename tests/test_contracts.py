@@ -2099,3 +2099,56 @@ def test_a_document_with_no_prose_in_it_says_so_rather_than_scoring_zero():
 
     with pytest.raises(ValueError):
         contract.fog(contract.prose("---\nname: x\n---\n\n```\ncode only\n```\n"))
+
+
+def test_the_path_safety_readers_survive_every_deletion_called_anchor(tmp_path):
+    """The boundary specification 022 had to not cross, as a command rather than a sentence.
+
+    The word "anchor" named two unrelated things in this tree. One was the commit footer and
+    the three history verdicts behind it, all deleted. The other is this: readers that refuse
+    a symbolic link, a filesystem boundary crossing and an unbounded read before anything
+    downstream is allowed to trust what they returned. A person deleting "the anchor stuff"
+    by name would take a security control with it and the diff would look like the work.
+
+    So this names them. A rename is a red here with the new name in the message, which is the
+    conversation that has to happen; a deletion is a red with nothing to put back.
+    """
+
+    from ai_engineering import accept, acceptance, decide, readiness, surface
+
+    for owner, name in (
+        (accept, "_anchored_bytes"),
+        (acceptance, "_anchored"),
+        (readiness, "_anchored"),
+        (decide, "_require_anchored_io"),
+    ):
+        assert callable(getattr(owner, name, None)), (
+            f"{owner.__name__}.{name} is a path-safety reader, not the deleted commit anchor"
+        )
+
+    # `surface` imports readiness's rather than growing its own, and that is the property:
+    # one reader, four callers, so a repair lands in one place.
+    assert surface._anchored is readiness._anchored
+
+    # And it still refuses. A reader that exists and passes everything is the shape this
+    # would fail to notice, so the refusal is exercised rather than the name.
+    #
+    # What it guarantees is exactly one thing: nothing linked on the way. Not traversal —
+    # its callers pass fixed relative paths — and asserting traversal here would be this
+    # file claiming a property the code does not have, which is the defect `docs/adr/0014`
+    # is about.
+    root = tmp_path / "repo"
+    (root / "safe").mkdir(parents=True)
+    (root / "safe" / "real.json").write_text("{}", encoding="utf-8")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "planted.json").write_text("{}", encoding="utf-8")
+    (root / "safe" / "link.json").symlink_to(outside / "planted.json")
+    (root / "linked").symlink_to(outside)
+
+    assert readiness._anchored(root, "safe/real.json").name == "real.json"
+    # A file that is a link, and — the defect its own docstring names — a *directory* that
+    # is one, with a perfectly ordinary file underneath it.
+    for refused in ("safe/link.json", "linked/planted.json"):
+        with pytest.raises(readiness._Unreadable):
+            readiness._anchored(root, refused)
