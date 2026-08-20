@@ -336,16 +336,14 @@ def git_hook_fires(root: Path | None) -> str | tuple[str, str] | None:
             f"install wires. Something lives there; none of it is ours.",
             "ai-eng init --project",
         )
-    return _anchor_answers(root)
+    return _cli_answers(root)
 
 
-# The exact shape a live anchor has, and the only argument lists this check will run. Not a
-# shell, and not whatever `ai.eng` happens to hold: a configured value that is executed is a
-# configured value that can be anything, on a machine that may already be doing what an
-# injected instruction told it to.
-_ANCHOR_TAIL = ["-m", "ai_engineering.cli"]
-_ANCHOR_FOOTER = re.compile(r"^Ai-Eng-Anchor: \S+/\S+ seq=\d+ head=[0-9a-f]{12}$", re.M)
-_ANCHOR_CURE = "ai-eng init --project"
+# The only argument lists this check will run. Not a shell, and not whatever `ai.eng` happens
+# to hold: a configured value that is executed is a configured value that can be anything, on
+# a machine that may already be doing what an injected instruction told it to.
+_CLI_TAIL = ["-m", "ai_engineering.cli"]
+_CLI_CURE = "ai-eng init --project"
 
 
 def _interpreter_of(configured: str) -> str:
@@ -357,13 +355,13 @@ def _interpreter_of(configured: str) -> str:
     Windows mode keeps the quotes, and either way a path with a space becomes two arguments.
     """
 
-    suffix = " " + " ".join(_ANCHOR_TAIL)
+    suffix = " " + " ".join(_CLI_TAIL)
     if not configured.endswith(suffix):
         return ""
     return configured[: -len(suffix)].strip().strip('"')
 
 
-def _run_anchor(root: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
+def _run_cli(root: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
     """Run this interpreter's own CLI, in the repository being diagnosed, safely.
 
     `PYTHONSAFEPATH` is the whole reason this helper exists. `-m` prepends the child's
@@ -375,7 +373,7 @@ def _run_anchor(root: Path, arguments: list[str]) -> subprocess.CompletedProcess
     """
 
     return subprocess.run(
-        [sys.executable, *_ANCHOR_TAIL, *arguments],
+        [sys.executable, *_CLI_TAIL, *arguments],
         cwd=root,
         capture_output=True,
         text=True,
@@ -385,26 +383,22 @@ def _run_anchor(root: Path, arguments: list[str]) -> subprocess.CompletedProcess
     )
 
 
-def _anchor_answers(root: Path) -> str | tuple[str, str] | None:
-    """Whether the CLI this repository's anchor names can actually answer.
+def _cli_answers(root: Path) -> str | tuple[str, str] | None:
+    """Whether the CLI this repository names can actually answer.
 
-    The hooks resolve the CLI through `ai.eng`, and a persisted anchor proves only that
+    The hooks resolve the CLI through `ai.eng`, and a configured value proves only that
     somebody wrote a string. This machine was found with a live interpreter and a dead
-    `ai_engineering.cli` — an editable install pointing at a deleted worktree — so the anchor
+    `ai_engineering.cli` — an editable install pointing at a deleted worktree — so the value
     read as configured, `git config --get` returned it, and every hook that used it failed.
 
-    Liveness and anchorability are asked separately, because they have different answers. A
-    module that cannot run is a broken install and a failure. A module that runs and cannot
-    anchor is a chain that has not been established yet, which is true of every fresh
-    machine — reporting that as a broken install would make this assertion red by
-    construction, and a doctor that is red by construction is a doctor somebody silences.
+    It asked a fourth question until specification 022: whether that CLI could sign a commit
+    footer. That footer is deleted, and the three questions left are the ones with a cure —
+    is a CLI named, is it this install's, and does it run.
     """
 
     configured = git(root, "config", "--get", "ai.eng")
     if not configured:
-        raise Undecidable(
-            "ai.eng is not set here, so the hooks have no CLI to resolve", _ANCHOR_CURE
-        )
+        raise Undecidable("ai.eng is not set here, so the hooks have no CLI to resolve", _CLI_CURE)
     # Compared by shape rather than by tokenising. POSIX quoting eats a Windows path's
     # backslashes and every splitter cuts `C:\Program Files\...` in two, so both spellings
     # were permanently red — with a cure that rewrites the same unsplittable value, which
@@ -413,40 +407,20 @@ def _anchor_answers(root: Path) -> str | tuple[str, str] | None:
         return (
             "ai.eng does not name this interpreter and this module, so what the hooks run "
             "is not what this install would run",
-            _ANCHOR_CURE,
+            _CLI_CURE,
         )
     try:
-        alive = _run_anchor(root, ["--version"])
+        alive = _run_cli(root, ["--version"])
     except (OSError, subprocess.SubprocessError) as why:
         raise Undecidable(
-            f"the CLI the anchor names could not be executed: {why.__class__.__name__}",
-            _ANCHOR_CURE,
+            f"the CLI `ai.eng` names could not be executed: {why.__class__.__name__}",
+            _CLI_CURE,
         ) from why
     if alive.returncode != 0 or "ai-engineering" not in alive.stdout:
         return (
-            "the CLI the anchor names is installed and does not run: the hooks resolve a "
+            "the CLI `ai.eng` names is installed and does not run: the hooks resolve a "
             "module that answers nothing",
-            _ANCHOR_CURE,
-        )
-    try:
-        footed = _run_anchor(root, ["audit", "--anchor"])
-    except (OSError, subprocess.SubprocessError) as why:
-        raise Undecidable(
-            f"the CLI the anchor names could not be executed: {why.__class__.__name__}",
-            _ANCHOR_CURE,
-        ) from why
-    if footed.returncode != 0:
-        raise Undecidable(
-            "the CLI the anchor names runs and cannot anchor a commit yet, so this "
-            "repository's chain is not in a state to sign one",
-            _ANCHOR_CURE,
-        )
-    footers = _ANCHOR_FOOTER.findall(footed.stdout)
-    if len(footers) != 1:
-        return (
-            f"the CLI the anchor names printed {len(footers)} anchor footers, and a commit "
-            f"carries exactly one",
-            _ANCHOR_CURE,
+            _CLI_CURE,
         )
     return None
 

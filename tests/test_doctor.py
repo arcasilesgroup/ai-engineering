@@ -685,7 +685,7 @@ def test_assertion_11_the_floor_has_to_be_the_one_this_install_wired(
     # hooks path is decided by the hooks path — and never by whether this machine happens
     # to hold a chain that can be anchored.
     git(repo, "config", "ai.eng", f"{sys.executable} -m ai_engineering.cli")
-    monkeypatch.setattr(doctor, "_anchor_answers", lambda root: None)
+    monkeypatch.setattr(doctor, "_cli_answers", lambda root: None)
     got, detail = verdict(doctor.git_hook_fires, repo)
     assert (got, fragment in detail) == (want, True)
 
@@ -1452,14 +1452,15 @@ def test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module(home,
         assert doctor.resolve(11, doctor.git_hook_fires(repo))[1] == "ai-eng init --project"
 
     # On a machine with no chain yet — every fresh install — the module answers `--version`
-    # and cannot anchor, and that is undecidable rather than a broken install. A check that
-    # is red by construction is a check somebody silences.
+    # and that is the whole of what this assertion asks now. It used to ask a fourth
+    # question, whether the CLI could sign a commit footer, and answer `undecidable` when it
+    # could not; specification 022 deleted the footer, so a fresh machine reads `ok` here and
+    # the state of the chain is `audit verify`'s business rather than the wiring check's.
     #
     # Only liveness is stood in for, and only because it is ambient: inside the mutation
     # harness's sandbox the child cannot import the package, so this block reported a dead
-    # module and took the whole gate's baseline with it. The anchor call still runs for
-    # real, which is the half this block is about. A dead module is asserted below, where
-    # it is the subject rather than the weather.
+    # module and took the whole gate's baseline with it. A dead module is asserted below,
+    # where it is the subject rather than the weather.
     git(repo, "config", "ai.eng", f"{sys.executable} -m ai_engineering.cli")
     live = doctor.subprocess.run
 
@@ -1472,38 +1473,19 @@ def test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module(home,
     state, detail = verdict(doctor.git_hook_fires, repo)
     monkeypatch.undo()
     monkeypatch.setattr(paths, "git_hooks", lambda: ours)
-    assert state == "undecidable", detail
-    assert "cannot anchor a commit yet" in detail
+    assert state == "ok", detail
 
-    # And with a chain it can anchor, it passes.
-    footer = "Ai-Eng-Anchor: repo/machine seq=1 head=0123456789ab"
-    real_run = doctor.subprocess.run
-
-    def anchored(argv, *args, **kwargs):
-        if list(argv)[:1] == ["git"]:
-            return real_run(argv, *args, **kwargs)
-        if "--version" in list(argv):
-            return SimpleNamespace(returncode=0, stdout="ai-engineering 1.0.0")
-        return SimpleNamespace(returncode=0, stdout=f"{footer}\n")
-
-    monkeypatch.setattr(doctor.subprocess, "run", anchored)
-    assert verdict(doctor.git_hook_fires, repo)[0] == "ok"
-    monkeypatch.undo()
-    monkeypatch.setattr(paths, "git_hooks", lambda: ours)
-
-    # Only the anchor's own execution is stood in for. `git config --get` still runs, or
-    # the check would be reading a value this test never wrote.
+    # Only `git config --get` is left running for real, or the check would be reading a
+    # value this test never wrote. The rest of what this block used to stand in for was the
+    # anchor's own execution, and there is no anchor.
     real = doctor.subprocess.run
 
-    def only_the_anchor(answer, alive=None):
+    def only_the_cli(answer, alive=None):
         alive = alive or SimpleNamespace(returncode=0, stdout="ai-engineering 1.0")
 
         def run(argv, *args, **kwargs):
             if list(argv)[:1] == ["git"]:
                 return real(argv, *args, **kwargs)
-            # Liveness is a separate question from anchorability, so the stub answers it
-            # separately — and answerably, because the dead-module branch is the one this
-            # test is named for and hard-coding a live answer removed the only path to it.
             chosen = alive if "--version" in list(argv) else answer
             if isinstance(chosen, BaseException):
                 raise chosen
@@ -1511,36 +1493,20 @@ def test_assertion_11_rejects_a_live_interpreter_with_a_dead_ai_eng_module(home,
 
         return run
 
-    # A module that runs and prints the wrong thing is a failure; one that runs and cannot
-    # anchor is undecidable. Two different answers, because they have two different cures.
-    for wrong in (
-        SimpleNamespace(returncode=0, stdout=""),
-        SimpleNamespace(returncode=0, stdout="Ai-Eng-Anchor: not/a valid=footer\n"),
-        SimpleNamespace(returncode=0, stdout=f"{footer}\n{footer}\n"),
-    ):
-        monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(wrong))
-        assert verdict(doctor.git_hook_fires, repo)[0] == "fail", wrong
-    monkeypatch.setattr(
-        doctor.subprocess, "run", only_the_anchor(SimpleNamespace(returncode=1, stdout=""))
-    )
-    assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
-
     # The state this test is named for: the interpreter is alive and the module is not.
     for dead in (
         SimpleNamespace(returncode=1, stdout=""),
         SimpleNamespace(returncode=0, stdout=""),
         SimpleNamespace(returncode=0, stdout="some other tool 9.9"),
     ):
-        monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(dead, alive=dead))
+        monkeypatch.setattr(doctor.subprocess, "run", only_the_cli(dead, alive=dead))
         state, detail = verdict(doctor.git_hook_fires, repo)
         assert state == "fail", dead
         assert "installed and does not run" in detail, dead
 
-    # And a hang is undecidable rather than a pass that waited — on either call.
+    # And a hang is undecidable rather than a pass that waited.
     hangs = subprocess.TimeoutExpired(cmd="python", timeout=30)
-    monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(hangs))
-    assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
-    monkeypatch.setattr(doctor.subprocess, "run", only_the_anchor(hangs, alive=hangs))
+    monkeypatch.setattr(doctor.subprocess, "run", only_the_cli(hangs, alive=hangs))
     assert verdict(doctor.git_hook_fires, repo)[0] == "undecidable"
 
     # A path with a space in it is the default Windows install, and it used to make this
@@ -1605,7 +1571,7 @@ def test_the_anchor_check_runs_the_installed_module_and_never_the_repository_it_
     # the plant is in the working directory, and `PYTHONSAFEPATH` is what keeps it out.
     monkeypatch.setenv("PYTHONPATH", os.environ.get("AI_ENG_REAL_SRC") or str(ROOT / "src"))
 
-    answered = doctor._run_anchor(repo, ["--version"])
+    answered = doctor._run_cli(repo, ["--version"])
     assert not marker.exists(), "the repository being diagnosed executed its own code"
     assert answered.returncode == 0
     assert "ai-engineering" in answered.stdout
@@ -1849,19 +1815,17 @@ def test_the_ci_flag_skips_what_a_runner_cannot_answer_and_says_which(monkeypatc
     assert sorted(asked) == ["ci", "local"]
 
 
-def test_every_way_the_anchor_can_fail_to_answer_is_its_own_sentence(monkeypatch, tmp_path):
-    """Thirty-six mutants of `_anchor_answers` survived, and this check exists because of a
+def test_every_way_the_cli_can_fail_to_answer_is_its_own_sentence(monkeypatch, tmp_path):
+    """Thirty-six mutants of `_cli_answers` survived, and this check exists because of a
     machine found with a live interpreter and a dead module.
 
-    Six outcomes, and the distinction between two pairs of them is the whole point.
-    Liveness and anchorability are asked separately, because a module that cannot run is a
-    broken install and a failure, while a module that runs and cannot anchor is a chain that
-    has not been established — true of every fresh machine, and reporting it as a broken
-    install would make this assertion red by construction. A red by construction is a red
-    somebody silences.
+    Five outcomes. Nothing configured is undecidable, because nothing was asked rather than
+    answered wrongly; the other three failures are failures, because each names something a
+    person can repair. Each returns a different sentence, and the sentence is what the person
+    acts on, so the sentences are asserted rather than the shape of the return value.
 
-    Each returns a different sentence, and each sentence is what the person acts on, so the
-    sentences are asserted rather than the shape of the return value.
+    It had six until specification 022. The two that went were about signing a commit footer,
+    and the footer is deleted.
     """
     from ai_engineering import doctor as under
 
@@ -1875,13 +1839,10 @@ def test_every_way_the_anchor_can_fail_to_answer_is_its_own_sentence(monkeypatch
                 raise got
             return got
 
-        monkeypatch.setattr(under, "_run_anchor", run)
-        return verdict(under._anchor_answers, tmp_path)
+        monkeypatch.setattr(under, "_run_cli", run)
+        return verdict(under._cli_answers, tmp_path)
 
     ok = SimpleNamespace(returncode=0, stdout="ai-engineering 1.0.0")
-    # The footer has an exact shape — owner/repo, a sequence and twelve hex of head — and a
-    # line that merely starts with the key matches nothing. That is deliberate: a chain
-    # footer somebody typed by hand is not one this tool wrote.
 
     # Nothing configured: undecidable, because nothing was asked rather than answered wrongly.
     state, said = answers()
@@ -1913,38 +1874,11 @@ def test_every_way_the_anchor_can_fail_to_answer_is_its_own_sentence(monkeypatch
     )
     assert state == "fail"
 
-    # It runs and cannot anchor yet: a fresh machine, and undecidable rather than broken.
-    state, said = answers(
-        configured="x",
-        interpreter=sys.executable,
-        version=ok,
-        anchor=SimpleNamespace(returncode=1, stdout=""),
-    )
-    assert state == "undecidable"
-    assert "not in a state to sign one" in said
-
-    # It anchors, and prints two footers. A commit carries exactly one, and two is a commit
-    # nobody can verify — the count is in the message because the number is the finding.
-    state, said = answers(
-        configured="x",
-        interpreter=sys.executable,
-        version=ok,
-        anchor=SimpleNamespace(
-            returncode=0,
-            stdout=(
-                "Ai-Eng-Anchor: o/r seq=1 head=0123456789ab\n"
-                "Ai-Eng-Anchor: o/r seq=2 head=0123456789ac\n"
-            ),
-        ),
-    )
-    assert state == "fail"
-    assert "printed 2 anchor footers" in said
-
-    # And an interpreter that cannot be executed at all is undecidable, not a failure: this
-    # ran nothing, so it found nothing.
-    state, said = answers(configured="x", interpreter=sys.executable, version=OSError("gone"))
-    assert state == "undecidable"
-    assert "could not be executed: OSError" in said
+    # And the whole of what remains: it runs and answers as this tool. Nothing else is asked
+    # here, because the fourth question this used to put — can it sign a commit footer — went
+    # with the footer in specification 022.
+    state, said = answers(configured="x", interpreter=sys.executable, version=ok)
+    assert state == "ok", said
 
 
 def test_the_tracked_inventory_is_refused_rather_than_returned_short(tmp_path, monkeypatch):
