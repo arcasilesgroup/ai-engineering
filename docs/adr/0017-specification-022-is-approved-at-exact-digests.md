@@ -6,7 +6,10 @@ id: "0017"
 title: "Specification 022 is approved at exact digests"
 date: "2026-08-20"
 spec: "022"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "no-hitl-2026-08-20"
+approved_at: "2026-08-20T14:00:00Z"
 supersedes: ""
 ---
 
