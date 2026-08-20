@@ -1689,9 +1689,10 @@ def test_an_argument_of_only_whitespace_does_not_deny_in_the_guards_own_name():
     work are how people learn to route around the layer."""
 
     for spelling in ("   ", "\t", "\n ", " \t\n"):
-        assert loop_guard.signature(
-            {"tool_name": "Bash", "tool_input": {"command": spelling}}
-        ) == "Bash:", spelling
+        assert (
+            loop_guard.signature({"tool_name": "Bash", "tool_input": {"command": spelling}})
+            == "Bash:"
+        ), spelling
 
     # The truncation it is there for is unchanged: the last sixty characters of the first
     # token, so two files under one long temporary directory stay two calls.

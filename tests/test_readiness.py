@@ -561,7 +561,6 @@ def test_spec_010_004_intent_and_ceiling_transition_atomically():
         assert "INCOMPLETE" in row, box.id
 
 
-
 def test_every_shape_a_declaration_can_be_wrong_in_is_refused(tmp_path):
     """The mutation gate measured this module at 76% and named where: the box reader and
     the two bounded reads it depends on. These are the inputs those branches exist for, and

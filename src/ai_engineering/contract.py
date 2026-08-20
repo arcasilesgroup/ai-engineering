@@ -146,7 +146,6 @@ def _corpus_problems(folder: Path, name: str) -> list[str]:
     return problems
 
 
-
 def tracked(root: Path) -> list[str]:
     names = subprocess.run(
         ["git", "-C", str(root), "ls-files"], capture_output=True, text=True, timeout=30
