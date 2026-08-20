@@ -2179,9 +2179,11 @@ evidence = "pytest tests/test_surface_adapter.py::test_no_adapter_lands_without_
 
 [[requirement]]
 id = "EP-299"
-verdict = "PROVEN"
+verdict = "CONTRADICTED"
 subject = "the line ceiling bounds the tree and the build fails on the line after it"
-evidence = "pytest tests/test_contracts.py::test_the_line_ceiling_holds"
+evidence = "git grep -n REPO_CEILING -- src tests hooks justfile"
+mover = "decided"
+note = '''Withdrawn by specification 021, and the row stays because the ledger's total is asserted and a row that vanishes is a claim that stops being falsifiable. The requirement was met while the ceiling existed; what the measurement showed is that it could not be met and be a control at the same time. `tests/test_contracts.py` allowed at most 400 lines of slack, so the constant was obliged to follow the tree it claimed to bound: `git log -G'^REPO_CEILING = '` returns fifty of the last fifty commits, four of which do nothing else, and the single row in `docs/blocked.toml` is a fixed-point collision over this integer between two sessions. Nothing in the history shows it catching a defect. The evidence command now returns nothing, which is the fact this row records. `contract.TEST_RATIO_MAX` is the size bound that remains.'''
 
 [[requirement]]
 id = "EP-300"
