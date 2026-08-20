@@ -137,7 +137,6 @@ def record(names: list[str]) -> tuple[int, int, int, list[str]]:
 def gather() -> dict:
     contract, text, chain = lib()
     names = contract.tracked(ROOT)
-    lines = contract.repo_lines(ROOT)
     tests, product = contract.test_ratio(ROOT)
     surfaces = tomllib.loads((ROOT / "policy" / "surfaces.toml").read_text())["surface"]
     skills = sorted((ROOT / ".agents" / "skills").glob("ai-*/SKILL.md"))
@@ -145,9 +144,6 @@ def gather() -> dict:
 
     return {
         "governance": {
-            "lines": lines,
-            "ceiling": contract.REPO_CEILING,
-            "margin": contract.REPO_CEILING - lines,
             "test_lines": tests,
             "product_lines": product,
             "ratio": round(tests / product, 2),
