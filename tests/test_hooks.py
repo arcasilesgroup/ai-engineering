@@ -1624,7 +1624,13 @@ def test_a_dispatcher_that_cannot_read_a_call_denies_it(tmp_path):
     assert ran(unreadable) == 2, "a call the dispatcher cannot read is denied, not allowed"
 
     # And the clause did not eat the ordinary answers on the way past.
-    allowed = '{"tool_name": "Bash", "tool_input": {"command": "echo hello"}, ' '"hook_event_name": "PreToolUse"}'
+    allowed = json.dumps(
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": "echo hello"},
+            "hook_event_name": "PreToolUse",
+        }
+    )
     assert ran(allowed) == 0
 
 
