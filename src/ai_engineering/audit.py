@@ -551,46 +551,22 @@ def main(argv: list[str]) -> outcome.Result:
     parser.add_argument("--range", help="the broken links to answer for, as FIRST-LAST")
     parser.add_argument("--why", help="why those links are there")
     parser.add_argument("--by", help="the person answering for them")
-    parser.add_argument("--anchors", action="store_true", help="also check the anchors in git")
     parser.add_argument("--session")
-    parser.add_argument("--anchor", action="store_true", help="print the footer for commit-msg")
     args = parser.parse_args(argv)
 
-    if args.action == "replay" and args.anchors:
-        parser.error("--anchors applies only to verify")
     if args.action == "account" and not (args.range and args.why and args.by):
         parser.error("account requires --range FIRST-LAST, --why and --by")
     if args.action != "account" and (args.range or args.why or args.by):
         parser.error("--range, --why and --by apply only to account")
     if args.action != "replay" and args.session is not None:
         parser.error("--session applies only to replay")
-    if args.anchor and (args.action != "verify" or args.anchors or args.session):
-        parser.error("--anchor cannot be combined with replay, --anchors or --session")
 
     try:
         root = paths.repo_root()
     except (ImportError, OSError, RuntimeError, TypeError, ValueError):
         root_failure = _Inspection((), (("INCOMPLETE", ROOT_INCOMPLETE),))
-        _render(root_failure, stream=sys.stderr if args.anchor else None)
+        _render(root_failure, stream=None)
         return root_failure.result
-    if args.anchor:
-        inspection = _inspect(
-            root,
-            anchors=False,
-            require_root=True,
-            include_intent=False,
-        )
-        if inspection.result.outcome not in ("PASS", "WARN"):
-            _render(inspection, stream=sys.stderr)
-            return inspection.result
-        # A chain whose only findings are accounted breaks still anchors. The alternative
-        # is what this machine lived with: one poisoned link and no commit can ever carry a
-        # footer again, so the record stops growing at exactly the moment somebody is
-        # trying to repair it.
-        if inspection.findings:
-            _render(inspection, stream=sys.stderr)
-        print(_anchor_line(root, inspection.events), end="")
-        return inspection.result
     if args.action == "account":
         try:
             first, _, last = args.range.partition("-")
@@ -631,7 +607,7 @@ def main(argv: list[str]) -> outcome.Result:
         return outcome.result("PASS")
     inspection = _inspect(
         root,
-        args.anchors,
+        False,
         require_root=True,
         include_intent=True,
     )

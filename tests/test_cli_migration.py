@@ -1434,14 +1434,6 @@ def test_audit_migration_recomputes_digest_and_returns_incomplete_when_blind(
     assert blind_chain.outcome == "INCOMPLETE"
 
     chain.write_bytes(original_chain)
-    monkeypatch.setattr(
-        audit.subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 1, "", "history unreadable"),
-    )
-    blind_history = audit.main(["verify", "--anchors"])
-    assert type(blind_history) is outcome.Result
-    assert blind_history.outcome == "INCOMPLETE"
 
     intent_record = json.loads((root / ".ai" / "intent.md").read_text(encoding="utf-8"))
     relation = root / intent_record["relations"][0]["path"]

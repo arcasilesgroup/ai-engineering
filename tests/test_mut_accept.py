@@ -439,18 +439,6 @@ def test_a_spec_with_bytes_that_are_not_utf8_is_read_not_crashed(repo):
 # ------------------------------------------------------------------ audit
 
 
-def test_the_audit_help_names_both_switches(wide, capsys):
-    """These two switches are what a commit hook and a CI job pass. Undocumented, the next
-    person writing either one guesses, and a guess that runs is a guess nobody checks."""
-    with pytest.raises(SystemExit) as exit_code:
-        audit.main(["--help"])
-    assert exit_code.value.code == 0
-    out = capsys.readouterr().out
-    assert "usage: ai-eng audit" in out
-    assert " also check the anchors in git\n" in out
-    assert " print the footer for commit-msg\n" in out
-
-
 def test_bare_audit_verifies_and_an_unknown_action_is_refused(home, capsys):
     """`ai-eng audit` with no words after it is the documented way to check the chain. If
     the action became required, or any word were accepted, a typo would report success."""
@@ -459,75 +447,6 @@ def test_bare_audit_verifies_and_an_unknown_action_is_refused(home, capsys):
     with pytest.raises(SystemExit) as exit_code:
         audit.main(["nonsense"])
     assert exit_code.value.code == outcome.invalid_cli_exit()
-
-
-def test_anchors_is_a_switch_and_not_a_flag_that_swallows_a_word(home, capsys):
-    """CI runs `ai-eng audit verify --anchors`. If it took a value, the command would die
-    on its arguments and the anchor check would never run anywhere."""
-    assert audit.main(["verify", "--anchors"]) == outcome.result("INCOMPLETE")
-    assert "no repository root can be proven" in capsys.readouterr().out
-
-
-def test_the_anchor_footer_is_the_repository_this_machine_is_in(anchored, capsys):
-    """The commit-msg hook pipes this straight into a commit message. A trailing newline
-    of its own, or the head of the wrong repository's chain, and every anchor in git
-    history points at a record that cannot be checked against anything."""
-    emit = paths.load("_emit")
-    events = _links(emit, 2)
-    _write_chain(emit, events, anchored)
-    assert audit.main(["--anchor"]) == outcome.result("PASS")
-    assert capsys.readouterr().out == (
-        f"\nAi-Eng-Anchor: {REPO_ID}/{MACHINE} seq=2 head={events[-1]['hash'][:12]}\n"
-    )
-
-
-def test_a_commit_anchoring_a_head_this_chain_never_had_is_reported(anchored, capsys):
-    """Git history is replicated; the chain on this laptop is not. Truncate the chain and
-    the anchors in old commits are the only thing left that notices. This runs git for
-    real, because a check whose command line is wrong finds nothing and says nothing."""
-    emit = paths.load("_emit")
-    events = _links(emit, 2)
-    _write_chain(emit, events, anchored)
-    _git(anchored, "init", "-q")
-    for name, value in (
-        ("user.email", "t@example.invalid"),
-        ("user.name", "A Tester"),
-        ("commit.gpgsign", "false"),
-        ("core.hooksPath", str(anchored / "no-hooks")),
-    ):
-        _git(anchored, "config", name, value)
-    _git(
-        anchored,
-        "commit",
-        "--allow-empty",
-        "-m",
-        "chore: a commit that anchors a link this chain has",
-        "-m",
-        f"Ai-Eng-Anchor: {REPO_ID}/{MACHINE} seq=2 head={events[-1]['hash'][:12]}",
-    )
-    _git(
-        anchored,
-        "commit",
-        "--allow-empty",
-        "-m",
-        "chore: a commit that anchors a link this chain lost",
-        "-m",
-        f"Ai-Eng-Anchor: {REPO_ID}/{MACHINE} seq=9 head=aaaaaaaaaaaa",
-    )
-
-    problems = audit.verify(anchored, True)
-    assert len(problems) == 2, problems
-    assert "aaaaaaaaaaaa" in problems[0]
-    assert "the record was truncated or replaced" in problems[0]
-    assert problems[1] == (
-        "Solution Intent at .ai/intent.md is INCOMPLETE: INTENT_HOME_MISSING — "
-        "Solution Intent is missing at .ai/intent.md"
-    )
-    assert audit.verify(anchored, False) == [problems[1]], (
-        "without --anchors git is not consulted, while Intent is still recomputed"
-    )
-    assert audit.main(["verify", "--anchors"]) == outcome.result("FAIL")
-    assert "BROKEN" in capsys.readouterr().out
 
 
 def test_a_link_whose_hash_was_deleted_is_reported_once_as_an_edit(anchored):
@@ -650,18 +569,20 @@ def test_the_accept_verb_says_exactly_what_it_accepts(monkeypatch, capsys):
 
 
 def test_the_audit_verb_says_exactly_what_it_accepts(monkeypatch, capsys):
-    """One hundred and four in `audit.main`. Three actions and six flags, and the three that
-    matter are the ones that answer for a broken chain: which links, why, and who.
+    """Three actions and four flags, and the three that matter are the ones that answer for a
+    broken chain: which links, why, and who.
 
     They are optional in the parser and required by the action, which is worth knowing before
     reading either — `account` refuses without them at a controlling terminal rather than in
     argparse, because the phrase a person types is the proof and argparse cannot ask for it.
+
+    It was six flags until specification 022 deleted the anchor. This list is the whole of
+    what the verb accepts, so a switch that comes back without a decision reds here.
     """
     from ai_engineering import audit
 
     assert _surface(monkeypatch, capsys, audit) == [
-        "usage: ai-eng audit [-h] [--range RANGE] [--why WHY] [--by BY] [--anchors]",
-        "                    [--session SESSION] [--anchor]",
+        "usage: ai-eng audit [-h] [--range RANGE] [--why WHY] [--by BY] [--session SESSION]",
         "                    [{verify,replay,account}]",
         "",
         "positional arguments:",
@@ -672,9 +593,7 @@ def test_the_audit_verb_says_exactly_what_it_accepts(monkeypatch, capsys):
         "  --range RANGE         the broken links to answer for, as FIRST-LAST",
         "  --why WHY             why those links are there",
         "  --by BY               the person answering for them",
-        "  --anchors             also check the anchors in git",
         "  --session SESSION",
-        "  --anchor              print the footer for commit-msg",
     ]
 
 
