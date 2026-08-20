@@ -1075,12 +1075,10 @@ def doctrine(root: Path | None) -> str | None:
     return None if not problems else "; ".join(problems)
 
 
-# Assertion 5 was here: the product repository is under its line ceiling. It computed the
-# same number from the same function and compared it to the same constant as
-# `tests/test_contracts.test_the_line_ceiling_holds`, and CI ran both in the same job
-# eleven lines apart. It also refused to evaluate anywhere outside this repository, so it
-# has never told a user anything. The test is the right one to keep of the two: it fails
-# the build, where the check only printed a line.
+# Assertion 5 was here: the product repository is under its line ceiling. It duplicated a
+# test that ran in the same CI job eleven lines apart, and it refused to evaluate anywhere
+# outside this repository, so it never told a user anything. Both it and the ceiling itself
+# are gone now — the number was obliged to follow the tree it bounded.
 
 
 # ---------------------------------------------------------------- the outside
@@ -1127,8 +1125,7 @@ def production_ready(root: Path | None) -> str | None:
     shipped spec for an unticked box and never once looked at a ticked one, so the gate
     enforced that the question was answered and never that the answer said anything. Three
     of the eight boxes in this repository's own shipped spec claimed a control and named no
-    command. The ceiling is recorded as an accepted risk: a backtick proves something was
-    named, never that it passed."""
+    command. A backtick proves something was named, never that it passed."""
     if root is None:
         raise Undecidable("not inside a repository")
     bad = []

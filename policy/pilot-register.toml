@@ -320,10 +320,9 @@ enforced_by = "ai_engineering.report.BYPASSES_WORTH_A_LOOK, printed by `ai-eng r
 # tolerance for a variance that does not exist. What a margin would hide here is somebody
 # deleting cases.
 #
-# So it moves the way `contract.REPO_CEILING` moves: in a commit that says why. That commit
-# is the approval, and it is the same mechanism this repository already trusts for the line
-# ceiling. What it is not is a named person, and `EP-289` asks for one — the row stays open
-# on that and the field says so rather than carrying a name nobody typed.
+# So it moves in a commit that says why. That commit is the approval. What it is not is a
+# named person, and `EP-289` asks for one — the row stays open on that and the field says so
+# rather than carrying a name nobody typed.
 
 [[baseline]]
 id = "skill-routing"

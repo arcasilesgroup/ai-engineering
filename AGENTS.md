@@ -66,12 +66,11 @@ from 528 files, which is where the previous version ended up.
 ## Working here
 
 - `just check` is what CI runs. Run it before saying anything is done, and show the output.
-- The line ceiling lives in `contract.REPO_CEILING` and CI fails the build on the line
-  after it. When it is genuinely too low, raise it in a commit whose message says why —
-  that commit is the conversation you would otherwise never have had. Its comment records
-  every move it has made, and specs/ records the arithmetic behind each one. Three numbers
-  are named here and stored elsewhere; this file names the home and never the value,
-  because a doctrine that quotes a number is a doctrine that goes stale without a test.
+- Size is bounded by `contract.TEST_RATIO_MAX`, and by nothing else. A total-line ceiling
+  was tried and deleted: it was obliged to follow the tree it bounded, so it moved in fifty
+  of fifty commits and never caught a defect. Every number this file needs is named here and
+  stored elsewhere; this file names the home and never the value, because a doctrine that
+  quotes a number is a doctrine that goes stale without a test.
 - `AGENTS.md` is capped by a test at the length in `tests/test_contracts.DOCTRINE_CEILING`.
   Everything that is not true in every session belongs in a skill.
 - Every `SKILL.md` is capped at `contract.CEILING` lines. Longer means it is a procedure
