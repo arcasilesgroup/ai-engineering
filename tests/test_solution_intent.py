@@ -111,7 +111,6 @@ def test_the_numbers_the_page_prints_are_the_numbers_the_gate_enforces():
     tests, product = contract.test_ratio(ROOT)
 
     assert (tree.test_lines, tree.src_lines) == (tests, product)
-    assert tree.ceiling == contract.REPO_CEILING
     assert tree.ratio_max == contract.TEST_RATIO_MAX
 
 

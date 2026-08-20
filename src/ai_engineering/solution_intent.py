@@ -72,8 +72,6 @@ class Tree:
     verbs: dict[str, str] = field(default_factory=dict)
     src_lines: int = 0
     test_lines: int = 0
-    repo_lines: int = 0
-    ceiling: int = 0
     ratio_max: float = 0.0
     boxes: list[tuple[str, str, str]] = field(default_factory=list)
     readiness_code: str = ""
@@ -190,37 +188,25 @@ def _verbs(root: Path) -> dict[str, str]:
     return dict(re.findall(r'"([a-z-]+)":\s*"([^"]+)"', block.group(1)))
 
 
-def _measured(root: Path) -> tuple[int, int, int]:
-    """(tests, product, whole tree) — counted by `contract`, never by a second walk.
+def _measured(root: Path) -> tuple[int, int]:
+    """(tests, product) — counted by `contract`, never by a second walk.
 
-    The page prints the same three numbers the ceiling and the ratio gate enforce, so it
-    reports the headroom the build actually has. An independent glob here drifted by 625
-    lines on its first day, because git's index and the filesystem disagree about anything
-    not yet committed."""
+    The page prints the two numbers the ratio gate enforces, so it reports the headroom the
+    build actually has. An independent glob here drifted by 625 lines on its first day,
+    because git's index and the filesystem disagree about anything not yet committed.
+
+    It counted a third number until the line ceiling was deleted: the whole tree, with this
+    page excluded from its own measurement so the freshness digest could settle. Nothing
+    enforces that number any more, and a page that keeps printing a number nothing enforces
+    is the shape this repository spends its gates refusing."""
 
     try:
-        names = contract.tracked(root)
         # Through `test_ratio`, not a count of the same names, because the ratio gate stopped
         # counting comment on either side and a page that kept counting it would print
         # headroom the build does not have — which is the drift this docstring is about.
-        tests, product = contract.test_ratio(root)
-        # The page is excluded from its own measurement, and only from this one. Counting it
-        # makes the number a function of the file the number is printed in: a longer page
-        # raises the count, which changes the page, which changes the count. `seal_ceiling`
-        # solves that fixed point for the ceiling because the ceiling must be exact; here a
-        # number that never settles would make the freshness digest oscillate, and the gate
-        # would fail on a page nobody had touched. The ceiling itself still counts the page.
-        whole = contract.count(
-            root,
-            [
-                n
-                for n in names
-                if not n.startswith(contract.NOT_THE_PRODUCT) and n != PAGE.as_posix()
-            ],
-        )
-        return tests, product, whole
+        return contract.test_ratio(root)
     except (OSError, ValueError, subprocess.SubprocessError):
-        return (0, 0, 0)
+        return (0, 0)
 
 
 def _readiness(root: Path, now: datetime) -> tuple[str, str, list[tuple[str, str, str]]]:
@@ -271,7 +257,7 @@ def read(root: Path, *, now: datetime | None = None) -> Tree:
     # beside `collect` that walked the tree a second time to count, which is how a
     # section's "22 of 28" comes to be measured over a different tree than its rows.
     waiting, unshown = blocked_ledger.collect(root)
-    tests_lines, product_lines, whole = _measured(root)
+    tests_lines, product_lines = _measured(root)
     verdict, code, boxes = _readiness(root, now or datetime.now(UTC))
     intent_raw = _text(root / ".ai" / "intent.md")
     try:
@@ -292,8 +278,6 @@ def read(root: Path, *, now: datetime | None = None) -> Tree:
         verbs=_verbs(root),
         src_lines=product_lines,
         test_lines=tests_lines,
-        repo_lines=whole,
-        ceiling=contract.REPO_CEILING,
         ratio_max=contract.TEST_RATIO_MAX,
         boxes=boxes,
         readiness_code=code,
@@ -752,13 +736,6 @@ estado está cada especificación y qué lo gobierna.">
     {_card(len(tree.skills), "skills", f"techo de {80} líneas cada una")}
     {_card(len(tree.guards), "guards que fallan cerrados", f"+{len(tree.telemetry)} de telemetría")}
     {_card(len(tree.verbs), "verbos de CLI", "src/ai_engineering/cli.py")}
-    {
-        _card(
-            f"{tree.repo_lines:,}".replace(",", "."),
-            "líneas del producto",
-            f"techo {tree.ceiling:,}".replace(",", ".") + " · esta página no entra en la cuenta",
-        )
-    }
     {
         _card(
             f"{tree.test_lines / max(tree.src_lines, 1):.2f}:1",
