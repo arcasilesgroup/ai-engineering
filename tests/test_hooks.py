@@ -15,6 +15,7 @@ import ast
 import io
 import json
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -1595,3 +1596,33 @@ def test_an_endpoint_with_no_stated_retention_receives_nothing(tmp_path, monkeyp
     # which is the honest next answer for a host that does not exist.
     configured('[observability]\nendpoint = "http://collector.invalid:4318"\nretention_days = 30\n')
     assert "nobody has decided" not in _otlp.post("logs", {})[2]
+
+
+def test_a_dispatcher_that_cannot_read_a_call_denies_it(tmp_path):
+    """Measured before it was written: a `tool_name` that arrived as a number died outside
+    every handler and the process exited 1.
+
+    One is not a denial. Every surface reads a non-zero that is not two as an error in the
+    hook and lets the call through, so the action passed without a guard having seen it —
+    while `chain.py`'s own docstring promised a dispatcher that fails closed. The repair is
+    a clause at the entry point, and its order is the whole of it: `deny` leaves through
+    `SystemExit`, so a broader clause first would swallow every legitimate denial and print
+    it back as a crash.
+    """
+
+    def ran(payload: str) -> int:
+        done = subprocess.run(
+            [sys.executable, str(Path(chain.__file__)), "PreToolUse"],
+            input=payload,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PYTHONPATH": str(Path(chain.__file__).parent)},
+        )
+        return done.returncode
+
+    unreadable = '{"tool_name": 17, "tool_input": {}, "hook_event_name": "PreToolUse"}'
+    assert ran(unreadable) == 2, "a call the dispatcher cannot read is denied, not allowed"
+
+    # And the clause did not eat the ordinary answers on the way past.
+    allowed = '{"tool_name": "Bash", "tool_input": {"command": "echo hello"}, ' '"hook_event_name": "PreToolUse"}'
+    assert ran(allowed) == 0
