@@ -40,8 +40,46 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     ("hooks/chain.py", "re.fullmatch(m, tool", "re.match(m, tool", "a matcher that over-matches"),
     ("hooks/chain.py", "if not isinstance(body, dict):", "if False:", "an unreadable payload"),
     ("hooks/_wrap.py", "except BaseException", "except Exception", "a guard that crashes"),
-    ("src/ai_engineering/accept.py", "MAX_RENEWALS = 2", "MAX_RENEWALS = 3", "renewals"),
-    ("src/ai_engineering/accept.py", '"")) < today', '"")) <= today', "expiry, on the day"),
+    # The three that decide whether an action is allowed at all had no row between them, which
+    # is the whole reason the old apparatus was aimed away from the target: a floor of 89 over
+    # the package could move without any of these ever being touched. Each of these is a
+    # boundary somebody could plausibly write wrong, in a file whose failure is silent.
+    (
+        "hooks/no_verify_guard.py",
+        r"\bgit\b[^|;&]*\b(commit|push|merge|rebase|am)\b[^|;&]*--no-verify",
+        r"\bgit\b[^|;&]*\bcommit\b[^|;&]*--no-verify",
+        "--no-verify past a verb other than commit",
+    ),
+    (
+        "hooks/self_protect.py",
+        'if verb in WRITERS or (verb == "sed" and "-i" in words):',
+        "if verb in WRITERS:",
+        "sed -i as a writer",
+    ),
+    (
+        "hooks/self_protect.py",
+        "for match in REDIRECT.finditer(command):",
+        "for match in []:",
+        "a redirect aimed at a protected path",
+    ),
+    (
+        "hooks/injection_guard.py",
+        'text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")',
+        "text = text",
+        "the fold that stops a fullwidth letterform hiding a word",
+    ),
+    # Both rows named `accept.py`, and `accept.py` decides neither. Its `MAX_RENEWALS` has one
+    # use — a line it prints — so mutating it measured a display string, and its copy of the
+    # expiry comparison had already moved out from under the row, which is how the second one
+    # came to name an edit the file no longer holds. `acceptance.py` is where a renewal is
+    # refused and where an acceptance is called expired, so that is where the defects go.
+    ("src/ai_engineering/acceptance.py", "MAX_RENEWALS = 2", "MAX_RENEWALS = 3", "renewals"),
+    (
+        "src/ai_engineering/acceptance.py",
+        "e.expires < day",
+        "e.expires <= day",
+        "expiry, on the day itself",
+    ),
     (
         "src/ai_engineering/contract.py",
         "if len(lines) > CEILING:",

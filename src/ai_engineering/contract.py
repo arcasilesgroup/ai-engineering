@@ -39,7 +39,7 @@ DESCRIPTION_MAX = 1000
 # governance file that quotes a count goes stale silently; a governance file that quotes
 # three hundred of them goes stale in three hundred places. Raise it in a commit whose
 # message says why, and let git be the record of that, because git already is.
-REPO_CEILING = 82_123
+REPO_CEILING = 82_161
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
