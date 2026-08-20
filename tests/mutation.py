@@ -24,6 +24,7 @@ Usage: python tests/mutation.py [-k <substring>]
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import re
 import signal
@@ -246,6 +247,118 @@ def pristine(rows: list[tuple[str, str, str, str]]) -> str:
     return ""
 
 
+# ---------------------------------------------------------------- the generated half
+#
+# Sixteen defects a person chose answer "are the rules we thought of defended". They cannot
+# answer "how much of this surface is defended at all", because their denominator is a
+# judgement. This half generates its own denominator and scores against it.
+#
+# The surface is derived, never listed: whatever `chain.TABLE` routes to a blocking event,
+# minus telemetry, plus the dispatcher and the wrapper every guard leaves through. A fifth
+# blocking guard joins this measurement by being added to the one table it has to be added
+# to anyway, so nobody can ship a guard and forget to score it.
+FLOOR = 90
+
+# Comparisons and branches only. No arithmetic, and no constants — deliberately, and it is
+# what makes an exclusion register unnecessary. Mutating a numeric constant produces mostly
+# equivalents (a slice at 80 or 81, a hash prefix at 16 or 17), and a denominator full of
+# mutants nobody can kill forces either a register somebody maintains or a floor that lies.
+# Two equivalents still get through — both early returns that turn out to be shortcuts — and
+# a floor of 90 rather than 100 is what absorbs them.
+FLIP = {
+    "Lt": "<=",
+    "LtE": "<",
+    "Gt": ">=",
+    "GtE": ">",
+    "Eq": "!=",
+    "NotEq": "==",
+    "Is": "is not",
+    "IsNot": "is",
+    "In": "not in",
+    "NotIn": "in",
+}
+
+
+def surface() -> list[Path]:
+    sys.path.insert(0, str(ROOT / "hooks"))
+    import chain
+
+    blocking = {n for rows in chain.TABLE.values() for n, _ in rows} - set(chain.TELEMETRY)
+    named = sorted(blocking) + ["chain", "_wrap"]
+    found = [ROOT / "hooks" / f"{one}.py" for one in named]
+    return [one for one in found if one.is_file()]
+
+
+def spans(path: Path) -> list[tuple[str, int, int, int, str]]:
+    """(kind, line, start, end, replacement) over the file's own text.
+
+    The exact span the parser reports, never `ast.unparse`: unparsing drops every comment,
+    and tests in this suite read guard source as text — a mutant killed because the comments
+    vanished is a kill nobody earned, and an inflated numerator is the one failure a scorer
+    must not have."""
+
+    source = path.read_text(encoding="utf-8")
+    starts = [0]
+    for line in source.splitlines(True):
+        starts.append(starts[-1] + len(line))
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Compare) and len(node.ops) == 1:
+            name = type(node.ops[0]).__name__
+            if name not in FLIP:
+                continue
+            a = starts[node.left.end_lineno - 1] + node.left.end_col_offset
+            b = starts[node.comparators[0].lineno - 1] + node.comparators[0].col_offset
+            if "\n" in source[a:b]:
+                continue
+            found.append(("compare", node.lineno, a, b, f" {FLIP[name]} "))
+        elif isinstance(node, ast.If) and not isinstance(node.test, ast.Constant):
+            a = starts[node.test.lineno - 1] + node.test.col_offset
+            b = starts[node.test.end_lineno - 1] + node.test.end_col_offset
+            found.append(("branch", node.lineno, a, b, "False"))
+    return sorted(set(found), key=lambda one: (one[1], one[2]))
+
+
+def generated() -> int:
+    """Score the derived surface, and refuse the floor rather than report under it."""
+
+    killed, survivors = 0, []
+    for path in surface():
+        before = path.read_text(encoding="utf-8")
+        was = digest(path)
+        for kind, line, a, b, rep in spans(path):
+            try:
+                path.write_text(before[:a] + rep + before[b:], encoding="utf-8")
+                half, said = killer()
+            finally:
+                path.write_text(before, encoding="utf-8")
+            if digest(path) != was:
+                sys.stderr.write(f"mutation: {path.name} was not restored. Check it.\n")
+                return 1
+            if half:
+                killed += 1
+            else:
+                survivors.append(f"{path.name}:{line} {kind}")
+            print(f"  {'killed  ' if half else 'SURVIVED'} {path.name}:{line} {kind}")
+    total = killed + len(survivors)
+    if not total:
+        sys.stderr.write("mutation: the surface generated no mutants, which is not a pass.\n")
+        return 1
+    score = 100 * killed / total
+    print(f"\n  {killed} of {total} generated mutants killed — {score:.1f}%, floor {FLOOR}")
+    print(f"RAN generated={total}")
+    for one in survivors:
+        sys.stderr.write(f"  no test noticed: {one}\n")
+    if score < FLOOR:
+        sys.stderr.write(
+            f"  {score:.1f}% is under the floor of {FLOOR}. Close a hole with a test. The "
+            "floor only ever rises, and lowering it to fit the measurement is the defect "
+            "the line ceiling was deleted for.\n"
+        )
+        return 1
+    return 0
+
+
 def main(only: str = "") -> int:
     for kill in (signal.SIGTERM, signal.SIGHUP):
         signal.signal(kill, unwind)
@@ -301,7 +414,11 @@ def main(only: str = "") -> int:
             "  A defect nothing caught is a rule with no test behind it. Write the test, "
             "or delete the rule and say so.\n"
         )
-    return 1 if survivors else 0
+    if survivors:
+        return 1
+    # Only when the chosen defects all died: a generated score over a surface whose known
+    # rules are already broken would be measuring the wrong thing first.
+    return generated() if not only else 0
 
 
 if __name__ == "__main__":

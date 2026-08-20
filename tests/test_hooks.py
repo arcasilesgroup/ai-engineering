@@ -1838,19 +1838,19 @@ def test_which_half_of_a_settings_path_is_protected_is_decided_by_whose_file_it_
     policy = tmp_path / "surfaces.toml"
     policy.write_text(
         "[protect]\npaths = []\n\n"
-        '[[surface]]\nid = "ours"\nsettings = "/home/x/.config/ai-eng-settings.json"\n\n'
-        '[[surface]]\nid = "theirs"\nsettings = "/home/x/.claude/settings.json"\n',
+        '[[surface]]\nid = "ours"\nsettings = "/home/somebody/.config/ai-eng-settings.json"\n\n'
+        '[[surface]]\nid = "theirs"\nsettings = "/home/somebody/.claude/settings.json"\n',
         encoding="utf-8",
     )
     monkeypatch.setattr(self_protect, "POLICY", policy)
 
     got = self_protect.protected()
     # Ours: the directory holding it.
-    assert "/home/x/.config" in got
-    assert "/home/x/.config/ai-eng-settings.json" not in got
+    assert "/home/somebody/.config" in got
+    assert "/home/somebody/.config/ai-eng-settings.json" not in got
     # Theirs: that file and nothing above it.
-    assert "/home/x/.claude/settings.json" in got
-    assert "/home/x/.claude" not in got
+    assert "/home/somebody/.claude/settings.json" in got
+    assert "/home/somebody/.claude" not in got
 
 
 def test_a_working_copy_does_not_protect_the_files_it_exists_to_edit(tmp_path, monkeypatch):
