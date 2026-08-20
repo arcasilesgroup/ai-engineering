@@ -6,7 +6,10 @@ id: "0015"
 title: "Specifications 011 and 019 are approved at exact digests"
 date: "2026-08-19"
 spec: "020"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-19T21:07:36Z"
 supersedes: ""
 ---
 
