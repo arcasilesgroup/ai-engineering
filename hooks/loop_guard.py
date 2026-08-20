@@ -49,7 +49,10 @@ def signature(payload: dict) -> str:
                 # The last sixty characters, not the first. A path is discriminated by its
                 # tail, so truncating from the left made every file under one long
                 # temporary directory the same call; a command is one token by then.
-                first = str(args[key]).split()[0][-60:]
+                # `or [""]` because an argument made only of whitespace splits to nothing, and
+                # an IndexError here is a denial the guard inflicts on itself — reachable by
+                # the model, in the guard's own name, on a call that did nothing wrong.
+                first = (str(args[key]).split() or [""])[0][-60:]
                 break
     return f"{payload.get('tool_name', '')}:{first}"
 

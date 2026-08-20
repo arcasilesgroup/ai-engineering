@@ -1670,3 +1670,26 @@ def test_a_structured_denial_that_cannot_be_written_leaves_as_a_denial():
     assert kept.returncode == 0 and '"permissionDecision": "deny"' in kept.stdout
     plain = leaving(False, closed=False)
     assert plain.returncode == 2 and '"permission": "deny"' in plain.stdout
+
+
+def test_an_argument_of_only_whitespace_does_not_deny_in_the_guards_own_name():
+    """`signature` truncates the first token of an argument, and an argument made only of
+    whitespace splits to nothing — so it raised `IndexError` on `[0]`.
+
+    `@guard` fails closed, so the crash became a denial, and the denial said this guard had
+    crashed. That is correct behaviour on top of a defect, and it is the worst shape it
+    could take: the guard that sees every call denying an ordinary one in its own name,
+    reachable by the model, on a call that did nothing wrong. Guards that block ordinary
+    work are how people learn to route around the layer."""
+
+    for spelling in ("   ", "\t", "\n ", " \t\n"):
+        assert loop_guard.signature(
+            {"tool_name": "Bash", "tool_input": {"command": spelling}}
+        ) == "Bash:", spelling
+
+    # The truncation it is there for is unchanged: the last sixty characters of the first
+    # token, so two files under one long temporary directory stay two calls.
+    long = "/tmp/" + "d" * 80 + "/thing.py"
+    assert loop_guard.signature({"tool_name": "Read", "tool_input": {"file_path": long}}) == (
+        "Read:" + long[-60:]
+    )
