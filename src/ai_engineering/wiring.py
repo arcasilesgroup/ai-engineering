@@ -502,7 +502,13 @@ def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
             )
             target = where / f"{skill.name}.md"
             target.write_text(body, encoding="utf-8")
-            digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+            # The bytes on disk, never the string we meant to put there. `write_text`
+            # translates `\n` to `\r\n` on Windows, so hashing `body` recorded a digest of
+            # something that was never written — and `uninstall` reads the file back with
+            # `read_bytes`, so every generated router looked edited by a stranger from the
+            # first second and refused to be removed. Hashing the file cannot desync from
+            # the file, on any platform, for any reason anybody thinks of later.
+            digest = hashlib.sha256(target.read_bytes()).hexdigest()
             written.append({"path": str(target), "kind": "router", "how": f"generated {digest}"})
     return written
 

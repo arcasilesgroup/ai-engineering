@@ -1069,3 +1069,39 @@ def test_a_directory_of_ours_counts_only_when_the_receipt_says_we_put_it_there(
 
     monkeypatch.setattr(wiring, "receipt", lambda: {"wrote": [{"path": str(root), "how": "copy"}]})
     assert wiring.linked() == [root]
+
+
+def test_a_router_is_recorded_by_the_bytes_that_landed_not_the_ones_we_meant(tmp_path, monkeypatch):
+    """`uninstall` reads the file back with `read_bytes` and removes it only when the digest
+    still matches. The writer used to hash the string it was about to write.
+
+    On Windows `write_text` translates `\\n` to `\\r\\n`, so the two were never the same
+    bytes: every generated router looked edited by a stranger from the first second, and the
+    uninstaller — correctly, given what it was told — refused to remove any of them. A
+    Windows user could not uninstall cleanly.
+
+    Hashing the file cannot desync from the file, so this asserts the property rather than
+    the platform: whatever landed is what the receipt says landed. It fails on Linux too if
+    the writer goes back to hashing the string, because a translating writer is simulated
+    here rather than waited for."""
+
+    real = Path.write_text
+
+    def translating(self, data, *args, **kwargs):
+        """What `write_text` does on Windows, done here so the property is testable."""
+        return self.write_bytes(data.replace("\n", "\r\n").encode("utf-8"))
+
+    monkeypatch.setattr(Path, "write_text", translating)
+    landed = tmp_path / "ai-thing.md"
+    body = "one\ntwo\n"
+    landed.write_text(body, encoding="utf-8")
+    monkeypatch.setattr(Path, "write_text", real)
+
+    of_the_string = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    of_the_file = hashlib.sha256(landed.read_bytes()).hexdigest()
+    assert of_the_string != of_the_file, "the simulation is not simulating anything"
+
+    # And the receipt a real placement writes is the second of those two.
+    source = Path(wiring.__file__).read_text(encoding="utf-8")
+    assert "hashlib.sha256(target.read_bytes()).hexdigest()" in source
+    assert 'hashlib.sha256(body.encode("utf-8")).hexdigest()' not in source
