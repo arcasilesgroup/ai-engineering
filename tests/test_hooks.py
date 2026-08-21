@@ -1945,3 +1945,111 @@ def test_the_event_falls_back_to_the_payload_when_no_argument_names_it(repo, mon
         "the dispatcher could not read an event that arrived in the payload rather than as "
         "an argument, which is how every structured surface sends it"
     )
+
+
+def test_an_adapter_whose_translation_table_is_not_a_table_costs_only_itself(tmp_path, monkeypatch):
+    """`payload_field` is declared as an object, and a hand-written adapter can spell it as
+    anything. The loop that reads it calls `.items()`, so a list — or a string, or a number —
+    reaches that call and raises `AttributeError` outside every handler: the shape check two
+    lines above it is the only thing standing between a malformed data file and a dispatcher
+    that cannot normalise a payload at all.
+
+    That is the failure this whole function is written to avoid, and its own docstring says
+    so: an adapter somebody broke should cost its surface's extra spellings, not every call
+    on every surface. A guard that crashes is a guard that denies.
+
+    A generated mutant lived on that check through every run of the lane.
+    """
+
+    adapters = tmp_path / "adapters"
+    adapters.mkdir()
+    (adapters / "wrong-shape.adapter.json").write_text(
+        json.dumps({"translations": {"payload_field": ["tool_name", "toolName"]}}),
+        encoding="utf-8",
+    )
+    (adapters / "fine.adapter.json").write_text(
+        json.dumps({"translations": {"payload_field": {"tool_name": "aDialect"}}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(chain, "ADAPTERS", adapters)
+
+    assert chain.normalise({"aDialect": "Bash"})["tool_name"] == "Bash"
+    assert chain.normalise({"toolName": "Edit"})["tool_name"] == "Edit"
+
+
+@pytest.mark.parametrize(
+    ("hook", "declares", "because"),
+    [
+        ("no_such_hook", False, "could not even be loaded"),
+        ("injection_guard", True, "does not declare"),
+    ],
+)
+def test_a_denial_the_guard_never_reached_is_remembered_like_any_other(
+    repo, monkeypatch, capsys, hook, declares, because
+):
+    """Two denials are decided by the dispatcher itself rather than by a guard: one when the
+    guard cannot be imported, one when the hook on a blocking event declares no class. Both
+    write the same cache entry every guard's denial writes, and each `if dedup` is its own
+    line.
+
+    Without it the second delivery of the same call re-runs the whole line and re-decides —
+    and this repository already has the receipt for what that costs, in the comment beside
+    both lines: a remembered verdict keyed without the event once overwrote a PreToolUse
+    answer with a PostToolUse one. A denial that is not written down is a denial the next
+    delivery asks again, which is the dedup this module exists for failing on exactly the
+    two calls nobody wrote a guard for.
+
+    Two generated mutants lived on these two lines through every run of the lane.
+    """
+
+    class Undeclared:
+        @staticmethod
+        def run(payload):
+            raise AssertionError("a hook with no class must never be run")
+
+    monkeypatch.setattr(chain, "TABLE", {"PreToolUse": [(hook, r".*")]})
+    # The first case must reach a real failing import, so only the second one is handed a
+    # module: patching the import for both would make `no_such_hook` load fine and test the
+    # other arm twice.
+    if declares:
+        monkeypatch.setattr(chain.importlib, "import_module", lambda name: Undeclared)
+    call = {"tool_name": "Bash", "tool_input": {"command": "ls"}, "tool_use_id": "t-dedup"}
+
+    with pytest.raises(SystemExit) as stop:
+        dispatch(monkeypatch, "PreToolUse", json.dumps(call))
+    assert stop.value.code == 2
+    assert because in capsys.readouterr().err
+
+    remembered = chain.cached(chain.fingerprint(chain.normalise(call)))
+    assert remembered is not None and remembered["deny"] is True, (
+        "the dispatcher denied this call and wrote nothing down, so the next delivery of the "
+        "same call runs the whole line again to reach the same answer"
+    )
+
+
+def test_a_hot_path_over_the_budget_says_so_in_the_record(repo, monkeypatch):
+    """The dispatcher runs before every tool call on every surface, so its own latency is a
+    product property and not a curiosity: `AGENTS.md` says a slow guard is a disabled guard,
+    and the 110 ms import this whole half is written to avoid is the same budget.
+
+    Nothing but this line can notice the day it is exceeded. It is the only place the elapsed
+    time is compared to anything, and with the comparison forced false the record stays
+    silent while the hot path takes as long as it likes — which reads exactly like a hot path
+    that is fast.
+
+    A generated mutant lived on this branch through every run of the lane.
+    """
+
+    monkeypatch.setitem(chain.TABLE, "PreToolUse", [])
+    ticks = iter([0.0, 0.5])
+    monkeypatch.setattr(chain.time, "perf_counter", lambda: next(ticks))
+
+    said = []
+    monkeypatch.setattr(chain, "emit", lambda *a, **kw: said.append((a, kw)))
+    assert dispatch(monkeypatch, "PreToolUse", '{"tool_name": "Bash"}') == 0
+
+    slow = [kw for _, kw in said if kw.get("error") == "hot path over 200 ms"]
+    assert slow and slow[0]["ms"] == 500, (
+        "a dispatcher run that took half a second left nothing in the record, so the one "
+        "measurement that can notice this hot path slowing down is not being taken"
+    )
