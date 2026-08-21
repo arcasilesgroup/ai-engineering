@@ -88,6 +88,41 @@ enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight
 proof_requirements = { allow = ["ai-spec.coordination.allow"], deny = ["ai-spec.coordination.deny"], installed_artifact = true }
 
 [[capabilities]]
+id = "ai-challenge"
+phase = "decide"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = ["specs"]
+exec_allowlist = [
+  { executable = "git", argument_pattern = "read-only" },
+  { executable = "uv", argument_pattern = "declared.check" },
+]
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec"]
+proof_requirements = { allow = ["ai-challenge.default.allow"], deny = ["ai-challenge.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-council"
+phase = "decide"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = ["specs"]
+exec_allowlist = [
+  { executable = "git", argument_pattern = "read-only" },
+]
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec"]
+proof_requirements = { allow = ["ai-council.default.allow"], deny = ["ai-council.default.deny"], installed_artifact = true }
+
+[[capabilities]]
 id = "ai-plan"
 phase = "plan"
 
