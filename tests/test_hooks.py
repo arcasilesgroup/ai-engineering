@@ -1884,3 +1884,64 @@ def test_a_working_copy_does_not_protect_the_files_it_exists_to_edit(tmp_path, m
     assert str(checkout / "git-hooks") not in working
     # The guards themselves are protected in both, which is the half that never varies.
     assert str(checkout / "hooks") in working
+
+
+def test_a_telemetry_hook_that_lost_its_class_is_skipped_and_never_denies(repo, monkeypatch):
+    """The dispatcher refuses an undeclared hook on a blocking event and *skips* an
+    undeclared telemetry hook. The two arms are one `if`, and nothing read the telemetry one.
+
+    Measured: with that branch forced the other way, `autoformat` losing its decorator stops
+    being ignored and starts denying — a hook whose whole contract is "observes and never
+    decides" would block the call it was only supposed to watch. That is the fail-closed
+    direction applied to the one class this repository deliberately fails open, and
+    `CONSTITUTION.md` names the difference in a sentence.
+
+    A generated mutant lived on this line through every run of the lane.
+    """
+
+    import chain
+
+    class Undeclared:
+        @staticmethod
+        def run(payload):
+            raise AssertionError("a hook with no class must never be run")
+
+    monkeypatch.setattr(chain, "TABLE", {"PreToolUse": [("autoformat", r".*")]})
+    monkeypatch.setattr(chain.importlib, "import_module", lambda name: Undeclared)
+    monkeypatch.setattr(
+        chain.sys, "stdin", io.StringIO(json.dumps({"tool_name": "Bash", "command": "ls"}))
+    )
+    monkeypatch.setattr(chain.sys, "argv", ["chain.py", "PreToolUse"])
+
+    assert chain.main() == 0, (
+        "an undeclared telemetry hook denied the call. Telemetry observes and never decides, "
+        "and a dispatcher that blocks on one has turned an observer into a gate"
+    )
+
+
+def test_the_event_falls_back_to_the_payload_when_no_argument_names_it(repo, monkeypatch):
+    """`chain.py` takes the event from `sys.argv[1]`, and every surface that sends it in the
+    payload instead sends no argument at all.
+
+    So the index has to be guarded by `len(sys.argv) > 1`, and the off-by-one is not a style
+    question: with `>=` the very same line reads `sys.argv[1]` out of a one-element argv,
+    raises IndexError outside every handler, and the dispatcher denies a call it never
+    examined. The structured protocol is exactly the case that arrives this way.
+
+    A generated mutant lived on this comparison through every run of the lane.
+    """
+
+    import chain
+
+    monkeypatch.setattr(chain, "TABLE", {"PreToolUse": []})
+    monkeypatch.setattr(
+        chain.sys,
+        "stdin",
+        io.StringIO(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash"})),
+    )
+    monkeypatch.setattr(chain.sys, "argv", ["chain.py"])
+
+    assert chain.main() == 0, (
+        "the dispatcher could not read an event that arrived in the payload rather than as "
+        "an argument, which is how every structured surface sends it"
+    )
