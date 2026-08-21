@@ -1518,24 +1518,23 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
     # of its rows and nothing said so — which is the same defect one layer up: a control that
     # covers one instance of a class reads exactly like one that covers the class.
     #
-    # Those two are named here rather than repaired, because repairing them means either
-    # re-signing somebody else's approval or rewriting the files it approved, and neither is
-    # this branch's to do. Named on 2026-08-21:
-    #   0013 -> specs/016/spec.md          approved f5c004ee5307, now c91dbc80d502
-    #   0013 -> specs/018/plan.md          approved 22d69e65bb67, now 104d506522ed
-    # Anything that is not one of those two turns this red.
-    known = {
-        ("specs/016-the-thesis-nobody-owns/spec.md", "f5c004ee5307"),
-        ("specs/018-controls-a-reviewer-proved-were-not-controls/plan.md", "22d69e65bb67"),
-    }
-
+    # Rows are keyed by file and the newest record wins. An approval that a later approval
+    # replaced is history, not drift, and reading it as drift is what forced the waiver this
+    # replaces: `0013` approved `016` and `018` on 2026-08-17, both moved, and `0022`
+    # re-approved them on 2026-08-21. Records sort by their four-digit prefix, so the order
+    # this reads them in is the order they were written.
+    #
+    # Every row is still parsed, and the count below is still asserted over all of them, so a
+    # record whose table stops being readable is a failure rather than a silence.
     rows = []
+    latest: dict[str, tuple[str, str]] = {}
     for record in sorted((root / "docs" / "adr").glob("*.md")):
         body = record.read_text(encoding="utf-8")
         for name, approved in re.findall(
             r"^\|\s*`([^`]+)`\s*\|\s*`([0-9a-f]{64})`\s*\|", body, re.M
         ):
             rows.append((record.name, name, approved))
+            latest[name] = (record.name, approved)
     assert len(rows) >= 11, (
         f"the records name {len(rows)} approved digests and eleven were readable on the day "
         "this was written. An approval record nobody can read row by row is prose with a "
@@ -1543,11 +1542,11 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
     )
 
     moved = []
-    for where, name, approved in rows:
+    for name, (where, approved) in sorted(latest.items()):
         target = root / name
         assert target.is_file(), f"{where} approves {name}, which is not in this tree"
         now = hashlib.sha256(spec.approval_bytes(target)).hexdigest()
-        if now != approved and (name, approved[:12]) not in known:
+        if now != approved:
             moved.append(f"{where} -> {name}: approved {approved[:12]}, now {now[:12]}")
 
     assert not moved, (
