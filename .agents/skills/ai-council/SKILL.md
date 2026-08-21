@@ -1,12 +1,15 @@
 ---
 name: ai-council
 description: >-
-  Reads one specification through several declared lenses that never see each other, and
-  collects the gaps each one can demonstrate with a command. Trigger for "council this spec",
-  "read this from several angles", "what is this specification missing". Not for attacking the
-  claims it makes — use /ai-challenge, which executes sentences; this asks what is absent. Not
-  for judging a diff — use /ai-review. It has no vote, no verdict and no field in which the
-  word approved could be written: a council that approves is the same agent speaking twice.
+  Reads one specification through five lenses that never see each other, then has them read
+  each other anonymously to find what every one of them missed and to refute what does not
+  hold, then a chairman writes the page a person reads. Trigger for "council this spec",
+  "read this from several angles", "what is this specification missing", "pressure-test this
+  spec", "stress-test this before I sign it". Not for attacking the claims a specification
+  makes — use /ai-challenge, which executes its sentences; this asks what is absent. Not for
+  judging a diff — use /ai-review. Not for recording what was decided — use `ai-eng decide`,
+  which needs a named person. It concludes and it never grants: it may write a verdict and a
+  recommendation, and it may not write an approval, a PASS, a gate result or an accepted risk.
 license: Apache-2.0
 compatibility: needs git
 context: fork
@@ -14,45 +17,79 @@ background: false
 disable-model-invocation: true
 ---
 
-# Several angles, no agreement to reach
+# Three rounds, and the last one concludes
 
 ## What it produces
 
-`specs/NNN-slug/council.md`: one section per lens, each a list of gaps. A gap names what the
-specification does not say, and the command a reader can run to see the absence for
-themselves. A section that found nothing says so and stays — a lens that never comes back
-empty is a lens inventing work.
+Two files beside the spec. `specs/NNN-slug/council.md` is the transcript.
+`specs/NNN-slug/council.html` is the page the person reads. Both sit under `specs/`, the one
+root this skill may write.
 
-## The rule that makes it not one agent three times
+## Round one — five lenses, and none of them sees another
 
-A council of models that debate reach consensus, and consensus is what this repository
-already measured and rejected: an earlier run of three ended with "the three members arrived
-at the same point", having been handed three pre-written options to rank. So:
+Cost, reversibility, the undecidable path, what is taken on trust, the example nobody wrote.
+Each is a question, not a personality. Each reads the spec and nothing else. Not the plan,
+not the chat, not another lens's answer.
 
-1. **The members are lenses, not opinions.** Cost, reversibility, the undecidable path, what
-   is assumed without proof, the example nobody wrote. Each is a question, not a personality.
-2. **A lens reads the specification and nothing else.** Not the other lenses, not the plan,
-   not the conversation. A lens that sees another's answer is anchored by it.
-3. **No vote and no ranking.** There is no field to disagree in. Two lenses naming the same
-   gap is corroboration and both entries stay.
-4. **A gap without a command is deleted before the file is written.** That is the whole of
-   the difference between a gap and an opinion.
+That rule is not taste. Put one answer in a reader's context and a right answer turns wrong
+66.5% of the time, against 10.3% for a plain re-ask. Nobody was named as its author. So the
+harm comes from the words being there, not from being told who wrote them.
 
-## Steps
+Reading alone also buys ground. Human reviewers who do not confer raise 14 issues a session
+against 9. And 70% of what they find is seen by one reader only.
 
-1. Take the specification's digest. If it moved since it was written, stop and say so.
-2. Run each lens over the specification alone, and write its section.
-3. Delete every finding that carries no command. Say how many were deleted.
-4. Write the file. Do not summarise it: a summary is where a verdict grows.
+Every finding carries a command a reader can run to see the gap. One with no command is cut
+before the file is written, and the count is printed.
 
-## What this is not
+## Round two — they read each other, and they do not rank
 
-It grants nothing and blocks nothing. `ai-eng decide` is where a person records a decision,
-and this produces material for that person to read. It also does not run in parallel by
-contract: where the host can start several lenses at once it does, and where it cannot it
-runs them one after another, and the file is identical either way.
+Each lens sees the other four answers, relabelled and shuffled, and **not its own**. It
+answers two questions. Which of these findings is a false alarm, and what command shows it?
+And what did all of us miss?
+
+It is never asked which answer is best. Ranking five good answers is the worst case in the
+measured work. One judge falls from 0.70 to 0.34 moving from pairs to a list. And the one
+head-to-head of rank-then-write puts it under the best single reader.
+
+What the cross-read buys is aim. False alarms fall from 22% to 5.3%, and no true finding is
+lost.
+
+A refutation carries a command. The command is run and its output is written down. One with
+no command is dropped, the same way a finding with none is.
+
+A refuted finding is struck through and kept, with the refuting command beside it. It is
+never erased: a real gap killed by a good-looking answer must leave more than a number.
+Where one lens refutes and another agrees, the finding stays.
+
+## Round three — a chairman, and it does not learn who said what
+
+It is given the spec, both rounds, and no lens names. It writes new text rather than picking
+a winner. Put the names back and a judge's bias for its own text moves from 0.511 to between
+0.82 and 0.97 on the same words. So the names stay off in the one call that writes the answer.
+
+It writes what the lenses agree on, where they clash, the blind spots the cross-read caught,
+a verdict, a recommendation and one first step.
+
+It may not write an approval, a `PASS`, a gate result or an accepted risk. `ai-eng decide`
+with a named person is where that is written. A test refuses all four in this file.
+
+## The shape `council.md` must have, because a script reads it
+
+`### Gaps no single lens named` and `### Findings the cross-read refuted, with the command
+that refuted them`, each a list of top-level bullets. Then `## The two counts`, with exactly
+these two lines and the numbers filled in:
+
+```
+- Gaps that appeared only after the cross-read: **N**
+- Findings deleted, for carrying no command or for being refuted: **N**
+```
+
+`just council` counts the bullets again and fails when its count and those totals disagree.
+Do not write the totals you wanted. Write what is in the file. The check counts; it does not
+read your number.
 
 ## Done when
 
-Every lens has a section, every finding carries a command, the deleted count is written down,
-and nothing in the file says whether the specification is good.
+Every lens has a section. Every finding carries a command. Every refutation carries one that
+was run. The two counts are written and `just council` agrees with them. The chairman's page
+exists. And nothing in either file grants anything.

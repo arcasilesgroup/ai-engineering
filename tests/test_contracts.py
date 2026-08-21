@@ -2287,11 +2287,14 @@ def test_a_council_reviews_and_never_approves():
     )
 
     # And the skill itself has to say so, because the file above only exists after a run.
+    # The sentence moved with `docs/adr/0022`: the old one said the council had no field for
+    # a conclusion, and it has one now. What it must still say is where the line went.
     skill = (ROOT / ".agents" / "skills" / "ai-council" / "SKILL.md").read_text(encoding="utf-8")
-    assert "No vote and no ranking" in skill and "approved" in skill, (
-        "the council skill no longer states that it has no field in which the word approved "
-        "could be written, which is the instruction this test enforces the output of"
-    )
+    for required in ("It is never asked which answer is best", "It may not write an approval"):
+        assert required in skill, (
+            f"the council skill no longer says {required!r}, which is half of the boundary "
+            "this test enforces the output of — it concludes and it never grants"
+        )
 
 
 CRITICS = ("ai-challenge", "ai-council", "ai-review", "ai-verify", "ai-security")
