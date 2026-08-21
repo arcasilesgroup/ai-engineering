@@ -831,6 +831,47 @@ def test_the_linter_and_the_type_checker_are_shown_saying_no(tmp_path):
     assert "return-value" in types.stdout, types.stdout
 
 
+def test_no_child_of_the_mutation_runner_leaves_bytecode_behind() -> None:
+    """Every half runs over a tree with one mutant in it, so a half that writes bytecode
+    caches the mutant.
+
+    Python decides a cached file is still good from the source's size and its modification
+    time in whole seconds. A one-token flip is the same length — `==` for `!=`, `Exception`
+    for `BaseException` — so a mutant written and taken out again inside the same second
+    leaves a cache that validates against the restored original. Source correct, `git diff`
+    empty, `digest()` in agreement, and the interpreter still running the mutant.
+
+    It happened on 2026-08-20: `import chain` exited 0 out of a worktree git called clean,
+    because the cached `if __name__ == "__main__"` had been flipped, and no test in the suite
+    could run. A byte-identical clone was green, which is what proved the source innocent.
+
+    Executed, not read. A half that imports one module is spent through `killer` exactly as a
+    real half is, and this fails if a `.pyc` appears — so it survives any rewrite of how the
+    environment is passed, and fails the moment somebody stops passing it.
+    """
+
+    import tempfile
+
+    import mutation
+
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "shaped_like_a_mutant.py").write_text("VALUE = 1\n", encoding="utf-8")
+        half, line = mutation.killer(
+            (
+                (
+                    "one import",
+                    ("-c", f"import sys; sys.path.insert(0, {tmp!r}); import shaped_like_a_mutant"),
+                ),
+            )
+        )
+        assert half == "", f"the half meant to pass went red on {line}"
+        assert not list(Path(tmp).rglob("*.pyc")), (
+            "a child of the mutation runner wrote bytecode. Over a mutated tree that cache "
+            "outlives the restore and the interpreter goes on running the mutant, with git "
+            "reporting a clean tree"
+        )
+
+
 def test_the_mutation_runner_spends_the_cheap_suite_first() -> None:
     """A mutant is killed when either half goes red, so the order of the two halves cannot
     change a verdict — only the bill. The adversarial run is thirteen seconds and pytest is

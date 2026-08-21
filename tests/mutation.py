@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import os
 import re
 import signal
 import subprocess
@@ -142,6 +143,21 @@ def why(output: str) -> str:
     return lines[-1][:100] if lines else "no output"
 
 
+# Every half below runs over a tree with one mutant in it, and an interpreter that writes
+# bytecode leaves that mutant in `__pycache__`. Python validates a cached file by the source's
+# size and its modification time *in whole seconds*, and a one-token flip is the same length —
+# `==` for `!=`, `Exception` for `BaseException` — so a mutant written and taken out again
+# inside the same second leaves a cache that validates against the restored original. The
+# source is then correct, `git diff` is empty, `digest()` below agrees, and the interpreter
+# goes on running the mutant. Measured 2026-08-20: `import chain` exited 0 out of a clean
+# worktree because the cached `if __name__ == "__main__"` had been flipped, and no test in the
+# suite could run. A byte-identical clone was green, which is what proved the source innocent.
+#
+# So no child of this file writes bytecode. Purging afterwards would also work and is worse:
+# it repairs a window rather than closing it, and the window is open for every mutant.
+CLEAN_OF_BYTECODE = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+
+
 def red(*command: str) -> str:
     """Empty when the command passed, and the line it failed on when it did not.
 
@@ -151,7 +167,9 @@ def red(*command: str) -> str:
     environment assertion, a ceiling — and no row could name the test that killed it. That
     is the same defect this file indicts in coverage: a number nobody can trace to a rule.
     """
-    done = subprocess.run(list(command), cwd=ROOT, capture_output=True, text=True)
+    done = subprocess.run(
+        list(command), cwd=ROOT, capture_output=True, text=True, env=CLEAN_OF_BYTECODE
+    )
     return "" if done.returncode == 0 else why(done.stdout + done.stderr)
 
 
