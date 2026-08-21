@@ -2155,19 +2155,64 @@ def test_the_path_safety_readers_survive_every_deletion_called_anchor(tmp_path):
             readiness._anchored(root, refused)
 
 
+# What a council may not write, in two halves that answer two different documents.
+#
+# The first half is doctrine and it shrank. `docs/adr/0022` supersedes `0019` on the boundary
+# `0019` drew: a council may now conclude, so `verdict` and `recommendation` leave this list.
+# What stays is every field that reads as a group deciding rather than a reader concluding —
+# a vote, a score, a ranking, a consensus, a decision, an approval.
+#
+# The second half is `CONSTITUTION.md:53` and it grew, because executing this test is how the
+# gap was found: models "never grant authority or accept risk", and until now a bare
+# `approved`, a bare `PASS` and `Risk accepted: R-1` were all undetected. Only the field form
+# `approved:` fired. So the test that was described as forbidding approval forbade a colon.
 COUNCIL_VERDICT = re.compile(
-    r"^[ \t>*-]*(approved|approval|verdict|decision|vote|votes|voted|score|scores|"
-    r"consensus|ranking|ranked|recommendation)\b[ \t]*[:=]",
+    r"^[ \t>*-]*(approval|decision|vote|votes|voted|score|scores|"
+    r"consensus|ranking|ranked)\b[ \t]*[:=]",
     re.M | re.I,
 )
 COUNCIL_TALLY = re.compile(r"^[ \t>*-]*\d+\s*(of|/)\s*\d+\s+(members|lenses|agree)", re.M | re.I)
 
+# Granted authority, in the three shapes it actually arrives in, and deliberately not as a
+# bare word anywhere. A council file discusses approval — this repository's own does, at
+# "no field in which the word approved could be written" — and a rule that refused the word
+# in prose would be a rule nobody could write a council under, which is how controls get
+# turned off. What is refused is a line that *is* the word, the word written as a field,
+# a word that *follows* a colon, and a risk acceptance written as a field.
+_GRANTED = r"(approved|approve|approval|granted|PASS|FAIL)"
+_MARKUP = r"[ \t`*_\"']*"
+COUNCIL_AUTHORITY = re.compile(
+    r"^[ \t>*#-]*" + _MARKUP + _GRANTED + _MARKUP + r"[.!]?" + _MARKUP + r"$"
+    r"|^[ \t>*-]*" + _MARKUP + _GRANTED + r"\b" + _MARKUP + r"[:=]"
+    r"|[:=]" + _MARKUP + _GRANTED + r"\b"
+    r"|^[ \t>*-]*(risk[ \t]+accepted|accepted[ \t]+risk)[ \t]*[:=]",
+    re.M | re.I,
+)
+
 
 def _verdict_fields(body: str) -> list[str]:
-    """Every field in a council file that a machine could read as a decision."""
+    """Every field in a council file that a machine could read as a decision, and every
+    place it grants authority instead of proposing it.
 
-    found = {hit.group(1).lower() for hit in COUNCIL_VERDICT.finditer(body)}
-    found.update(hit.group(0).strip() for hit in COUNCIL_TALLY.finditer(body))
+    Quotations are removed before matching: inline code spans become `code`, which is the
+    idiom `contract.prose` already uses, and double-quoted runs on one line become `quoted`.
+    The reason is the same for both — a word inside them is being *named*, not asserted.
+    This repository's own council file names `approved` and `PASS` in backticks six times
+    and quotes "Recommendation: approve" twice, all while discussing this very boundary, and
+    a rule that refused those would be a rule no council could be written under. That is how
+    a control ends up switched off.
+
+    The hole that leaves, stated rather than discovered later: a grant written inside
+    backticks or quotation marks is not caught. Nothing here defends against a model
+    deliberately quoting its own conclusion to get past a gate, and no shape of this regex
+    would — the difference between naming a word and asserting it is not in the characters.
+    """
+
+    prose = re.sub(r"`[^`]*`", "code", body)
+    prose = re.sub(r'"[^"\n]{1,200}"', "quoted", prose)
+    found = {hit.group(1).lower() for hit in COUNCIL_VERDICT.finditer(prose)}
+    found.update(hit.group(0).strip() for hit in COUNCIL_TALLY.finditer(prose))
+    found.update(hit.group(0).strip() for hit in COUNCIL_AUTHORITY.finditer(prose))
     return sorted(found)
 
 
@@ -2180,27 +2225,56 @@ def test_a_council_reviews_and_never_approves():
     paragraph in a skill file — `EP-171` sat at UNFALSIFIABLE for exactly that reason, its
     evidence a grep for a sentence, with nothing to test against.
 
-    A council exists now, so this is that test. It reads what a council produces and refuses
-    any field a machine could read as a decision: an approval, a verdict, a vote, a score, a
-    ranking, or a tally of members agreeing. Approval stays where it is, with a person behind
-    it and `ai-eng decide` in front of it.
+    A council exists now, so this is that test, and `docs/adr/0022` moved where the line
+    sits. It refuses a group deciding — a vote, a score, a ranking, a consensus, a tally of
+    members agreeing — and it refuses granted authority in the three shapes it arrives in: a
+    line that *is* the word, a word that follows a colon, and a risk acceptance written as a
+    field, plus the field form the old regex already had. It no longer refuses a reader
+    concluding: a council may write `Verdict:` and
+    `Recommendation:`, because `CONSTITUTION.md:53` forbids granting and says nothing about
+    recommending.
 
-    Driven against a file that must be refused as well as the tree's own, because a rule that
-    has never fired is a rule nobody has tested — and today there is no `council.md` in this
-    repository at all, so the tree half alone would pass over nothing.
+    That is not a relaxation, and executing the old regex is what proved it. A bare
+    `approved`, a bare `PASS` and `Risk accepted: R-1` were all undetected before this —
+    only the field form `approved:` fired — so the test described as forbidding approval
+    forbade a colon. Three of the four things it claimed to catch are caught for the first
+    time here.
+
+    Driven against files that must be refused as well as the tree's own, because a rule that
+    has never fired is a rule nobody has tested. The tree half is no longer empty: one
+    `council.md` exists, and it names `approved` and `PASS` in backticks six times while
+    discussing this boundary, which is exactly the case the code-span rule in
+    `_verdict_fields` exists for.
     """
 
     clean = "# Council\n\n## Cost\n\n- the spec never says what this costs. `just check`\n"
     assert not _verdict_fields(clean), _verdict_fields(clean)
     for refused in (
         "approved: yes\n",
-        "- Verdict: ship it\n",
         "votes = 2\n",
         "> consensus: the three members agree\n",
         "2 of 3 members agree\n",
         "Recommendation: approve\n",
+        # The three the old regex let through, and the reason this is a rewrite.
+        "approved\n",
+        "PASS\n",
+        "Risk accepted: R-023-01\n",
+        "**Approved**\n",
+        "outcome = FAIL\n",
     ):
         assert _verdict_fields(clean + refused), f"a council could write {refused!r}"
+
+    # And the other direction, which is the half a loosened control gets wrong silently: a
+    # conclusion is not a grant, and a word named is not a word asserted.
+    for allowed in (
+        "Verdict: the specification is answerable\n",
+        "Recommendation: tighten section 4 before signing\n",
+        "- the skill says `approved` may not be written, and it is not\n",
+        "the gate printed `PASS` and that is not this council's to say\n",
+    ):
+        assert not _verdict_fields(clean + allowed), (
+            f"a council could not write {allowed!r}, which is a conclusion and not a grant"
+        )
 
     said = []
     for produced in sorted(ROOT.glob("specs/*/council.md")):
