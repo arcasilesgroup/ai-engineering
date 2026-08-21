@@ -29,7 +29,6 @@ JARGON = (
     "best-in-class",
     "cutting-edge",
 )
-CEILING = 80
 DESCRIPTION_MAX = 1000
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
@@ -65,11 +64,6 @@ def audit_one(path: Path) -> list[str]:
     name = path.parent.name
     found: list[str] = []
     lines = path.read_text(encoding="utf-8").splitlines()
-    if len(lines) > CEILING:
-        found.append(
-            f"{name}: {len(lines)} lines. Over {CEILING} means it is a procedure "
-            f"that should be a script."
-        )
     try:
         header = text.frontmatter(path)
     except ValueError as why:

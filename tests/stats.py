@@ -151,7 +151,6 @@ def gather() -> dict:
             "doctrine_lines": len((ROOT / "AGENTS.md").read_text().splitlines()),
             "skills": len(skills),
             "longest_skill": max(len(s.read_text().splitlines()) for s in skills),
-            "skill_ceiling": contract.CEILING,
             "skill_problems": contract.audit(ROOT / ".agents" / "skills"),
             "specs": specs,
             "decisions": decisions,
@@ -216,14 +215,13 @@ def _enforced() -> set[str]:
 def show(data: dict) -> None:
     g, q, s = data["governance"], data["quality"], data["security"]
     print("\n  GOVERNANCE")
-    print(f"    lines            {g['lines']} / {g['ceiling']}   margin {g['margin']}")
     print(
         f"    test ratio       {g['ratio']}x / {g['ratio_max']}x   "
         f"({g['test_lines']} test, {g['product_lines']} product)"
     )
     print(f"    doctrine         {g['doctrine_lines']} lines")
     print(
-        f"    skills           {g['skills']}, longest {g['longest_skill']} / {g['skill_ceiling']}"
+        f"    skills           {g['skills']}, longest {g['longest_skill']} lines"
         f"{'' if not g['skill_problems'] else '   ' + str(len(g['skill_problems'])) + ' PROBLEMS'}"
     )
     print(

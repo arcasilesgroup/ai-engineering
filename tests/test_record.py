@@ -840,23 +840,6 @@ def test_each_banned_word_is_caught_wherever_it_sits(tmp_path, word):
     assert len(found) == 1 and repr(word) in found[0]
 
 
-def test_a_skill_over_the_line_cap_is_a_procedure_that_should_be_a_script(tmp_path):
-    """Eighty lines is the cap, and it is inclusive: a file of exactly eighty is legal and
-    eighty-one is not. One line over has to be caught, or the cap is a suggestion and the
-    file grows into the 528-file version this rebuild replaced — and one line under has to
-    pass, or the cap silently becomes seventy-nine and every skill at the limit is red."""
-
-    def skill_of(lines: int) -> Path:
-        """A SKILL.md of exactly `lines` lines, header and blank line included."""
-        return _skill(tmp_path, body="\n".join("line" for _ in range(lines - 5)) + "\n")
-
-    at_the_cap = skill_of(contract.CEILING)
-    assert len(at_the_cap.read_text().splitlines()) == contract.CEILING
-    assert contract.audit_one(at_the_cap) == []
-    found = contract.audit_one(skill_of(contract.CEILING + 1))
-    assert any(f"Over {contract.CEILING} means" in problem for problem in found)
-
-
 def test_a_skill_with_no_header_is_reported_and_not_read_further(tmp_path):
     """Reading fields out of a file that has no header would hand back an empty dict and
     every later check would pass on nothing."""

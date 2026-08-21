@@ -88,12 +88,6 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "expiry, on the day itself",
     ),
     (
-        "src/ai_engineering/contract.py",
-        "if len(lines) > CEILING:",
-        "if len(lines) >= CEILING:",
-        "the skill cap",
-    ),
-    (
         "src/ai_engineering/audit.py",
         'prev = stored if isinstance(stored, str) else ""',
         "prev = prev",

@@ -88,8 +88,9 @@ from 528 files, which is where the previous version ended up.
   quotes a number is a doctrine that goes stale without a test.
 - `AGENTS.md` is capped by a test at the length in `tests/test_contracts.DOCTRINE_CEILING`.
   Everything that is not true in every session belongs in a skill.
-- Every `SKILL.md` is capped at `contract.CEILING` lines. Longer means it is a procedure
-  that should be a script, which is rule 12 applied to our own files.
+- Every `SKILL.md` is bounded by how hard it reads, at `contract.SKILL_FOG_CEILING`,
+  and by nothing else. A line cap was tried and deleted: it was spent on frontmatter and
+  blank lines, it bound one file, and nothing bounds length now.
 - No surface reads BLOCKS until a denial has receipted there, and none has. The word is
   read from a receipt and there is no field left that can assert it. A green nobody has
   earned is the failure this product cures.
