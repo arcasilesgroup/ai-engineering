@@ -173,6 +173,20 @@ model asserts about its own run. A "new" finding is one that no round-one lens n
 absence its command demonstrates; two lenses naming one gap stays corroboration and stays two
 entries, which is the rule this council already has.
 
+**And the loop is closed, because it was open.** Forty-nine findings were written for this
+specification — ten from the challenge, twenty-eight from the lenses, eleven from the cross-read
+— and nothing in this repository reads one of them. `challenge.md` has no reader at all. The two
+things that read `council.md` count its bullets and refuse its verdict fields, and neither opens
+a finding. The nineteen corrections in this document arrived because a person made them by hand,
+which is behaviour that lives in a session transcript and in no file.
+
+So each finding carries an identity, derived from its position in the file that holds it, and
+the author writes one `## Answers` block in that same file: one line per identity, `taken:` with
+the section that changed, or `refused:` with a reason. A finding that is neither is a finding
+dropped in silence. Neither critic writes that block — a reader that answers its own findings is
+marking its own paper — and neither is asked to edit the specification, which is what both of
+them already refuse.
+
 `contract.CEILING` is deleted in the same change, for reasons that are its own decision below.
 
 ## Challenged once
@@ -252,10 +266,13 @@ parses only the folded form and `_TRIGGER` matches only double-quoted phrases �
 running `uv run python -c "import sys; sys.path.insert(0,'tests'); import skill_eval;
 print(repr(skill_eval.description('description: \"a b\"')))"` and reading `''`.
 
-**Changing the description has a price.** Given the corpus as it stands, When `just skilleval`
-runs, Then it prints `RAN skilleval=326` beside `baseline 326, delta +0, margin 0`, so
-changing the skill's description and its `corpus.md` moves that number and the baseline at
-`policy/pilot-register.toml:329` must move in the same commit with a sentence saying why.
+**Changing the description has a price, and this document paid it.** Given the corpus before
+this work, When `just skilleval` ran, Then it printed `RAN skilleval=326` beside
+`baseline 326, delta +0, margin 0` — verified by running `git show main:policy/pilot-register.toml`
+and reading `measured = 326`. Changing the skill's description and its `corpus.md` moves that
+number, so the baseline moves in the same commit with a sentence saying why, and after this
+work `just skilleval` prints `RAN skilleval=332`. A Then that names no tree is a Then its own
+delivery turns false, which is what happened to the first draft of this line.
 
 **The cap is spent on formatting, not instructions.** Given the sixteen skills, When each is
 measured as non-blank lines of `contract.prose(body)` — frontmatter, fenced blocks, tables and
@@ -275,11 +292,12 @@ propose and review; they never grant authority or accept risk.` This is the comp
 When the four things `D-023-03` says must still fail are tested against the live
 `COUNCIL_VERDICT`, Then three of them pass undetected — a bare `approved`, a bare `PASS` and
 `Risk accepted: R-023-01` — while `Recommendation: sign it` and `Verdict: keep` are refused,
-verified by running `uv run python -c "import re,pathlib; s=pathlib.Path('tests/test_contracts.py').read_text();
-ns={'re':re}; exec(s[s.index('COUNCIL_VERDICT ='):s.index('COUNCIL_TALLY =')], ns);
-print([bool(ns['COUNCIL_VERDICT'].search(x)) for x in ('approved','PASS','Risk accepted: R-023-01','Recommendation: sign it','Verdict: keep')])"`
-and reading `[False, False, False, True, True]`. So this decision is not a relaxation of one
-word: it removes two and adds detection for four things nothing detects today.
+verified by running that regex from `git show main:tests/test_contracts.py` — the tree before
+this work, named because this work is what changes it — against those five strings, and
+reading `[False, False, False, True, True]`. After this work the same five read all `False`
+under `COUNCIL_VERDICT` alone, because `verdict` and `recommendation` have left it and the
+first three are answered by `COUNCIL_AUTHORITY` instead. So this decision is not a relaxation
+of one word: it removes two and adds detection for three things nothing detected before.
 
 **The denial path, after the rewrite.** Given the rewritten boundary, When `council.md`
 contains `Recommendation: tighten section 4` or `Verdict: answerable`, Then the suite passes;
@@ -294,16 +312,22 @@ two had, the chairman says it wrote over an empty transcript, and both counts ar
 council that never comes back empty is a council inventing work, and a run that cannot say
 how many readers it had is a run nobody can re-derive.
 
-**Deleting the cap moves six things.** Given the deletion of `contract.CEILING`, When
-`grep -rn 'contract\.CEILING\|^CEILING = \|> CEILING\|{CEILING}' src tests AGENTS.md` runs,
-Then it answers with the constant and its check in `src/ai_engineering/contract.py`, two
-assertions at `tests/test_record.py:853-857`, a guards-lane row at `tests/mutation.py:92`
-whose row count moves with it, `tests/stats.py:154` and `:226` where `skill_ceiling` is a
-published denominator, and `AGENTS.md:91`, which states the cap as doctrine and is itself
-length-capped by a test — verified by running `uv run --with pytest python -m pytest
-tests/test_record.py -k line_cap -q` and reading `1 passed` today. The same grep also answers
-`src/ai_engineering/readiness.py:212` and `tests/pilot_register.py:95`, which are a different
-constant with a similar name and must not be touched.
+**Deleting the cap moves five files.** Given the tree before this work, When
+`git grep -nE 'contract\.CEILING|^CEILING = |> CEILING|\{CEILING\}' main -- src tests AGENTS.md`
+runs, Then it answers ten lines in five files: the constant and its check in
+`src/ai_engineering/contract.py`, four assertions at `tests/test_record.py:853-857`, a
+guards-lane row at `tests/mutation.py:92` whose row count moves with it, the `skill_ceiling`
+field at `tests/stats.py:154`, and `AGENTS.md:91`, which states the cap as doctrine and is
+itself length-capped by a test. After this work the same command against `HEAD` answers
+nothing and exits 1, which is the whole of what the decision did.
+
+`tests/stats.py:226` reads that field back through `g['skill_ceiling']` and moves with it,
+and that line is *not* answered by the pattern above — a first draft of this example claimed
+it was, and claimed the same of `src/ai_engineering/readiness.py:212` and
+`tests/pilot_register.py:95`, which was never true: those read `MAX_AGE_CEILING` and
+`_CEILING`. They are different constants with a similar name, they are found by a plain
+`git grep -n CEILING`, and they must not be touched. The boundary is real; the claim about
+which command surfaces it was wrong, and `docs/adr/0014` is the record about exactly that.
 
 ## Decisions
 
@@ -382,6 +406,24 @@ own description says it "has no vote, no verdict and no field in which the word 
 be written". `D-023-03` makes both of those false. `tests/skill_eval.py` scores routing on
 exactly those two texts, so a refusal that no longer holds is a routing defect and not merely a
 number that moves — and the number moves too, against a baseline whose margin is zero.
+
+**D-023-09 — Every finding a critic writes carries an identity, and the author answers each one
+in the same file: `taken:` with the section that changed, or `refused:` with a reason.**
+
+**Rationale:** Forty-nine findings were produced for this specification and nothing in the tree
+reads one. `git grep -l 'challenge\.md'` answers only the skill that writes it. The two readers of
+`council.md` count bullets and refuse verdict fields. A critic that produces findings nobody is
+obliged to answer is a critic whose output is optional, and optional review is the shape of a
+green nobody earned. Identities come from position rather than from a field somebody types,
+because a transcript is append-only and an id nobody has to write is an id that cannot drift.
+
+**D-023-10 — If any finding is answered `taken:`, the specification's digest must have moved.**
+
+**Rationale:** `taken:` is a claim about another document, and this repository's answer to a claim
+about another document is a comparator rather than a re-reading — `docs/adr/0014`. Without one, an
+author can answer `taken:` to all forty-nine and change nothing, and the answers block becomes the
+thing it was built to prevent. The comparator is cheap: the digest before the answers were written
+against the digest after.
 
 **D-023-08 — `docs/adr/0019` is superseded by a new record, and the other two `EP-195` rows are
 moved by that record or not at all.**

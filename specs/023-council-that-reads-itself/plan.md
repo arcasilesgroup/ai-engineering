@@ -31,6 +31,12 @@ skill's description and its `corpus.md` are both scored by `just skilleval` agai
 whose margin is zero, so the text, the corpus and the baseline move together or the gate is
 red between them.
 
+Tasks 6 and 7 come last and were written after the first five shipped. They exist because three
+critics read this work and one asked the question the first five tasks do not answer: forty-nine
+findings were produced and nothing in the tree is obliged to read one. That is a defect this plan
+did not see, found by the stage this specification is about, which is the only argument for the
+stage that is worth anything.
+
 ## What this plan is not doing, and why
 
 - **No CI/CD task and no observability task.** Specification 023 adds nothing that gets a URL:
@@ -134,6 +140,43 @@ it did not happen rather than asserting it.
    chairman's boundary; the `skill-routing` baseline in `policy/pilot-register.toml` names its
    new number with a sentence saying why it moved; and the assertion in `tests/test_contracts.py`
    requires the new boundary sentence instead of `No vote and no ranking`.
+
+## Block D — the findings nobody was obliged to answer (Tasks 6–7)
+
+Added after the first five landed and after three critics read them. The order is forced: the
+identities and the answers block go before the cycle step that tells an author to write one,
+because a step naming a file shape that does not exist yet is an instruction nobody can follow.
+
+6. [ ] **A finding gets an identity, and an unanswered finding turns the gate red** —
+   **file** `tests/council_counts.py`, and with it `.agents/skills/ai-council/SKILL.md`,
+   `.agents/skills/ai-challenge/SKILL.md`, both `corpus.md` files, `policy/pilot-register.toml`,
+   `tests/test_contracts.py`, and the two transcripts under `specs/023-council-that-reads-itself/`.
+   **check**: `just council`.
+   **rollback**: `git revert <commit>`.
+   **done when**: every finding in `challenge.md` and `council.md` has an identity derived from
+   its position — `X-NNN-n` for a challenge finding, `C-NNN-n` for a council one — computed by
+   the script and never typed by an author; each file carries one `## Answers` block whose lines
+   are `X-NNN-n taken: <section>` or `X-NNN-n refused: <reason>`; the script refuses a file whose
+   answers do not cover exactly the identities it yields, in either direction; it refuses an
+   answer that is neither `taken:` nor `refused:`; it refuses a `refused:` with an empty reason;
+   `RAN council=` grows a third number, the count of findings answered; the two transcripts this
+   repository already holds carry their answers for all forty-nine findings; and a repository
+   with no transcript still exits zero without inventing a pass.
+
+7. [ ] **The cycle tells the author to answer, between the critics and the brief** —
+   **file** `.agents/skills/ai-cycle/SKILL.md`, and with it `.agents/skills/ai-cycle/corpus.md`
+   and `policy/pilot-register.toml`.
+   **check**: `just skilleval` at the moved baseline, and
+   `uv run --with pytest python -m pytest -q tests/test_contracts.py -k cycle_answers`.
+   **rollback**: `git revert <commit>`.
+   **done when**: the first half reads `4b. The author answers every finding` between
+   `ai-council` and the brief; that step says the author revises the specification for what is
+   taken and writes the reason for what is refused, and that neither critic writes the block
+   because a reader answering its own findings is marking its own paper; the corpus carries a
+   case that routes there and one it refuses; a test asserts that if any answer in a transcript
+   reads `taken:` then the specification's digest at the commit that wrote the answers differs
+   from its digest at the commit before, which is `D-023-10` as a comparator rather than a
+   sentence; and the routing baseline moves with its arithmetic.
 
 ## Done when the plan is done
 
