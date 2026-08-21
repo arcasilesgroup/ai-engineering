@@ -2102,7 +2102,7 @@ def test_a_document_with_no_prose_in_it_says_so_rather_than_scoring_zero():
         contract.fog(contract.prose("---\nname: x\n---\n\n```\ncode only\n```\n"))
 
 
-def test_the_path_safety_readers_survive_every_deletion_called_anchor(tmp_path):
+def test_the_anchored_path_safety_readers_survive_every_deletion_called_anchor(tmp_path):
     """The boundary specification 022 had to not cross, as a command rather than a sentence.
 
     The word "anchor" named two unrelated things in this tree. One was the commit footer and
