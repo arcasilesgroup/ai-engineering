@@ -1110,6 +1110,8 @@ def test_the_approval_digests_in_the_plan_are_read_by_something():
 
     import hashlib
 
+    from ai_engineering import spec
+
     root = Path(__file__).resolve().parents[1]
     folder = root / "specs" / "010-governed-agentic-engineering-foundation"
     # Whitespace-normalised: a sentence in a markdown paragraph wraps wherever the line
@@ -1140,7 +1142,7 @@ def test_the_approval_digests_in_the_plan_are_read_by_something():
         .split()
     )
     for named in ("spec.md", "plan.md"):
-        digest = hashlib.sha256((folder / named).read_bytes()).hexdigest()
+        digest = hashlib.sha256(spec.approval_bytes(folder / named)).hexdigest()
         assert digest in record, (
             f"{named} hashes to {digest} and MADR 0009 approves something else. "
             "An edit after an approval needs a new approval, not a new number in the record."
@@ -1421,7 +1423,7 @@ def test_an_envelope_is_the_same_bytes_the_digest_names(repo, capsys):
 
     where = _fixture_spec(repo, "a-thing")
     _plan_with_tasks(where)
-    digest = "sha256:" + hashlib.sha256((where.parent / "plan.md").read_bytes()).hexdigest()
+    digest = "sha256:" + hashlib.sha256(spec.approval_bytes(where.parent / "plan.md")).hexdigest()
 
     assert spec.main(["show", "001", "--task", "1", "--plan-digest", digest]).outcome == "PASS"
     out = capsys.readouterr().out
@@ -1526,6 +1528,8 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
     import hashlib
     import re
 
+    from ai_engineering import spec
+
     root = Path(__file__).resolve().parents[1]
     record = root / "docs" / "adr" / "0009-the-current-spec-010-digests-are-approved.md"
     body = record.read_text(encoding="utf-8")
@@ -1540,7 +1544,7 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
     for name, approved in rows:
         target = root / name
         assert target.is_file(), f"{record.name} approves {name}, which is not in this tree"
-        now = hashlib.sha256(target.read_bytes()).hexdigest()
+        now = hashlib.sha256(spec.approval_bytes(target)).hexdigest()
         if now != approved:
             moved.append(f"{name}: approved {approved[:12]}, now {now[:12]}")
 

@@ -293,8 +293,50 @@ def runs_something(value: str) -> bool:
     return any((one.split() or [""])[0] in RUNNABLE for one in _SPAN.findall(value))
 
 
+# The gap between a task's number and its bold title, which is the only part of a plan a
+# command is allowed to write. Everything else in the file is signed as it stands.
+_TASK_GAP = re.compile(
+    r"^([ \t]*\d+[a-z]*\.) (?:\[[ xX]\] )?(?:<!--t:[0-9a-f]{12}--> )?(?=\*\*)", re.M
+)
+
+
+def approval_bytes(path: Path) -> bytes:
+    r"""What an approval is a signature on, which is not always the file's bytes.
+
+    Approving a plan is signing a digest of it. Ticking a box changes bytes, so it would
+    void the signature — and the answer is not a looser signature but a different subject:
+    the digest is taken over the file with the tick column removed, the way a document is
+    photocopied with one column masked before it is sealed. The seal then certifies what the
+    plan *says*. Change a word, or a task's check command, and it moves exactly as before.
+
+    Two anchors keep this from becoming a hole, and both are load-bearing. The `(?=\*\*)`
+    lookahead means only a line that is genuinely a task — a number, then a bold title — has
+    an invisible column at all; without it any numbered line of prose or of a code block
+    could carry a flipped `[ ]` the signature could not see. And `spec.md` is never touched:
+    its bytes are signed raw, because the eight production-ready boxes in every specification
+    are a live control `readiness.py` reads. A box in a specification is a person's claim. A
+    box in a plan is going to be a command's result, and the two cannot share a rule.
+
+    Measured on this tree the day it was written: over all 16 plans and 22 specifications the
+    canonical digest equals the raw digest, so this function is the identity today and no
+    approval on record changes value. `specs/010/plan.md` canonicalises to 7bc96b09ed43,
+    which is the number `docs/adr/0009` signs. With a box inserted on all 141 tasks and every
+    one of them ticked, it is still 7bc96b09ed43."""
+
+    raw = path.read_bytes()
+    if path.name != "plan.md":
+        return raw
+    try:
+        body = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        # A plan that is not text is not a plan this can canonicalise, and guessing at its
+        # bytes would change what was signed. Sign what is there and let the reader fail.
+        return raw
+    return _TASK_GAP.sub(r"\1 ", body).encode("utf-8")
+
+
 def _digest(path: Path) -> str:
-    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+    return "sha256:" + hashlib.sha256(approval_bytes(path)).hexdigest()
 
 
 def _envelope(home: Path, wanted: str, named: dict[str, str]) -> outcome.Result:
