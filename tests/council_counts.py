@@ -32,7 +32,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 NEW_HEADING = "### Gaps no single lens named"
-DELETED_HEADING = "### Findings the cross-read refuted"
+CUT_HEADING = "### Findings cut for carrying no command"
+REFUTED_HEADING = "### Findings the cross-read refuted"
 TOTALS_HEADING = "## The two counts"
 
 _NEW_TOTAL = re.compile(r"^- Gaps that appeared only after the cross-read: \*\*(\d+)\*\*$", re.M)
@@ -43,6 +44,11 @@ _DELETED_TOTAL = re.compile(r"^- Findings deleted[^:]*: \*\*(\d+)\*\*$", re.M)
 # as it is now.
 RECEIPT_SCHEMA = "urn:ai-engineering:check-evidence:1"
 RECEIPT_MAX_AGE = 86_400
+
+# A transcript larger than this is not a transcript. Bounded because this reads every
+# matching file into memory to digest it, and an unbounded read is a check that can be
+# turned into a way to stop the gate.
+MAX_BYTES = 4_000_000
 
 
 class Unreadable(ValueError):
@@ -73,7 +79,15 @@ def entries(section: str) -> int:
 def counts(body: str) -> tuple[int, int]:
     """(new, deleted), recomputed, refusing when the run's own totals disagree."""
 
-    measured = (entries(_section(body, NEW_HEADING)), entries(_section(body, DELETED_HEADING)))
+    # Two causes, two sections, one total. A review found that the second count was labelled
+    # "deleted for carrying no command or for being refuted" while the file only ever showed
+    # refutations — the no-command cuts happen in round one and never reach the page — so the
+    # number could not be the number its own label named. Both sections are required: an
+    # absent one is an unreadable file and not a zero.
+    measured = (
+        entries(_section(body, NEW_HEADING)),
+        entries(_section(body, CUT_HEADING)) + entries(_section(body, REFUTED_HEADING)),
+    )
     totals = _section(body, TOTALS_HEADING)
     stated = (_NEW_TOTAL.search(totals), _DELETED_TOTAL.search(totals))
     if not all(stated):
@@ -127,6 +141,15 @@ def _receipt(files: int, new: int, deleted: int, started: str, digest: str) -> N
 def main() -> int:
     started = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     found = sorted(ROOT.glob("specs/*/council.md"))
+    for path in found:
+        # A council file that is a link, or whose directory is one, is a file this repository
+        # did not write where it thinks it did. Refusing is the only answer a check can give.
+        if path.is_symlink() or path.parent.is_symlink():
+            print(f"  {path.relative_to(ROOT)} is a link, and a link is not a record")
+            return 1
+        if path.stat().st_size > MAX_BYTES:
+            print(f"  {path.relative_to(ROOT)} is {path.stat().st_size} bytes, over {MAX_BYTES}")
+            return 1
     digest = hashlib.sha256(b"".join(path.read_bytes() for path in found) or b"").hexdigest()
     if not found:
         print("  no council has run in this repository, so there is nothing to count")

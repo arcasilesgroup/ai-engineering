@@ -2185,7 +2185,14 @@ COUNCIL_AUTHORITY = re.compile(
     r"^[ \t>*#-]*" + _MARKUP + _GRANTED + _MARKUP + r"[.!]?" + _MARKUP + r"$"
     r"|^[ \t>*-]*" + _MARKUP + _GRANTED + r"\b" + _MARKUP + r"[:=]"
     r"|[:=]" + _MARKUP + _GRANTED + r"\b"
-    r"|^[ \t>*-]*(risk[ \t]+accepted|accepted[ \t]+risk)[ \t]*[:=]",
+    r"|^[ \t>*-]*(risk[ \t]+accepted|accepted[ \t]+risk)[ \t]*[:=]"
+    # And the surface this change actually opened. A review found the hole by executing the
+    # first three shapes rather than reading them: `Verdict: the specification is approved`
+    # passed all of them, in the one field this change newly permits. The literal rule the
+    # first draft claimed — the word refused anywhere on a line — was tried and reds this
+    # repository's own council file four times, so what is refused is a grant in the tail of
+    # a verdict or a recommendation, which is where a council concluding would put one.
+    r"|^[ \t>*-]*(verdict|recommendation)\b[^\n]*\b" + _GRANTED + r"\b",
     re.M | re.I,
 )
 
@@ -2203,12 +2210,24 @@ def _verdict_fields(body: str) -> list[str]:
     a control ends up switched off.
 
     The hole that leaves, stated rather than discovered later: a grant written inside
-    backticks or quotation marks is not caught. Nothing here defends against a model
-    deliberately quoting its own conclusion to get past a gate, and no shape of this regex
-    would — the difference between naming a word and asserting it is not in the characters.
+    backticks, a fenced block or quotation marks is not caught. Nothing here defends against
+    a model deliberately quoting its own conclusion to get past a gate, and no shape of this
+    regex would — the difference between naming a word and asserting it is not in the
+    characters.
+
+    And the second hole, which a review found by executing this rather than reading it: a
+    grant written as an ordinary sentence outside a verdict or a recommendation — "This
+    council approves the specification." — is not caught either. The literal rule of refusing
+    the word anywhere on a line was tried and reds this repository's own council file four
+    times, so it is not available. What is closed is the surface this change opened.
     """
 
-    prose = re.sub(r"`[^`]*`", "code", body)
+    # Fenced blocks first, and deliberately. Left to the inline rule below, a fence's
+    # opening ``` is eaten as a span of its own and everything to the next backtick
+    # goes with it, which swallowed lines nobody meant to hide. Named here so the
+    # behaviour is a decision rather than an accident.
+    prose = re.sub(r"(?ms)^[ \t]*(```|~~~).*?^[ \t]*\1[ \t]*$", "code", body)
+    prose = re.sub(r"`[^`\n]*`", "code", prose)
     prose = re.sub(r'"[^"\n]{1,200}"', "quoted", prose)
     found = {hit.group(1).lower() for hit in COUNCIL_VERDICT.finditer(prose)}
     found.update(hit.group(0).strip() for hit in COUNCIL_TALLY.finditer(prose))
@@ -2261,6 +2280,10 @@ def test_a_council_reviews_and_never_approves():
         "Risk accepted: R-023-01\n",
         "**Approved**\n",
         "outcome = FAIL\n",
+        # The one a review found by executing the rule rather than reading it: a grant in the
+        # tail of the field this change newly permits, which passed all three earlier shapes.
+        "Verdict: the specification is approved and may be signed\n",
+        "Recommendation: sign it, the risk is approved\n",
     ):
         assert _verdict_fields(clean + refused), f"a council could write {refused!r}"
 
@@ -2271,6 +2294,7 @@ def test_a_council_reviews_and_never_approves():
         "Recommendation: tighten section 4 before signing\n",
         "- the skill says `approved` may not be written, and it is not\n",
         "the gate printed `PASS` and that is not this council's to say\n",
+        "Verdict: the specification is answerable at every point it asserts\n",
     ):
         assert not _verdict_fields(clean + allowed), (
             f"a council could not write {allowed!r}, which is a conclusion and not a grant"
@@ -2394,24 +2418,30 @@ def test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce():
     finally:
         sys.path.pop(0)
 
-    _DELETED_LINE = "- Findings deleted, for carrying no command or for being refuted: **1**\n"
+    _DELETED_LINE = "- Findings deleted, for carrying no command or for being refuted: **2**\n"
     honest = (
         "## Round two — x\n\n"
         "### Gaps no single lens named\n\n"
         "- one gap\n  - `just check`\n"
         "- another gap\n  - `just check`\n\n"
+        "### Findings cut for carrying no command\n\n"
+        "- one lens gestured at the cost and named nothing to run\n\n"
         "### Findings the cross-read refuted, with the command that refuted them\n\n"
         "- from the cost lens\n  - `just check`\n\n"
         "## The two counts\n\n"
         "- Gaps that appeared only after the cross-read: **2**\n" + _DELETED_LINE
     )
-    # The nested bullets are commands belonging to the entry above them. Counting them would
-    # inflate the number this script exists to hold honest, so two and one is the answer and
-    # five and two is the bug.
-    assert council_counts.counts(honest) == (2, 1)
+    # Nested bullets are commands belonging to the entry above them, so counting them would
+    # inflate the number this exists to hold honest. And the second count sums two causes:
+    # one cut for carrying no command and one refuted, which is two and not one.
+    assert council_counts.counts(honest) == (2, 2)
 
     for broken, because in (
-        (honest.replace("**2**", "**11**"), "a total nine higher than the entries"),
+        (honest.replace("cross-read: **2**", "cross-read: **11**"), "a total nine higher"),
+        (
+            honest.replace("### Findings cut for carrying no command", "### Cut"),
+            "the cut heading gone",
+        ),
         (honest.replace("### Gaps no single lens named", "### Gaps"), "a missing heading"),
         (honest.replace("## The two counts", "## Counts"), "a missing totals section"),
         (honest.replace(_DELETED_LINE, ""), "one total absent"),

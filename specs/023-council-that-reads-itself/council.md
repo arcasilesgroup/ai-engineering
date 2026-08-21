@@ -173,6 +173,12 @@ anybody signs for them. What the run produced is at the bottom.
 - The spec treats EP-195 as an open requirement ("stays open with no instrument", "the number EP-195 asked for") and never says that two in-tree records already closed it the other way. `specs/013-origin-first-coordination/spec.md:194` reads `| EP-195 | NON-GOAL | council refused; no benchmark defines "improves the result", so nothing can prove it does |`, and line 212 records "No council by default (EP-195)". `docs/requirements.toml:1445` records it as `verdict = "NO-EVIDENCE"`, `mover = "decided"`, with `evidence = "git grep -rn 'council|CouncilRole' -- src hooks"` — a command `tests/ledger_run.py` executes and that no printed count can move. Spec 023 mentions 013 once, names requirements.toml 0 times, and D-023-07 supersedes only docs/adr/0019, so nothing says who edits either row or what verdict it carries afterwards.
   - `grep -n 'EP-195' specs/013-origin-first-coordination/spec.md; sed -n '1444,1451p' docs/requirements.toml; grep -c 'requirements' specs/023-council-that-reads-itself/spec.md`
 
+### Findings cut for carrying no command
+
+None were recorded. Round one drops a finding with no command before its section is
+written, and this run did not keep that count separately — so this is what the run
+recorded, and not a claim that none were cut.
+
 ### Findings the cross-read refuted, with the command that refuted them
 
 - From the assumed lens: "Twelve bracketed citation markers carry the load of the Decision, the Challenge and five of the seven Rationales, and only three of them ([1], [3], [12]) are attached to a named source; the other nine…"

@@ -39,7 +39,8 @@ Reading alone also buys ground. Human reviewers who do not confer raise 14 issue
 against 9. And 70% of what they find is seen by one reader only.
 
 Every finding carries a command a reader can run to see the gap. One with no command is cut
-before the file is written, and the count is printed.
+before its section is written, and it is listed under its own heading below so the count can
+be recomputed rather than believed.
 
 ## Round two — they read each other, and they do not rank
 
@@ -75,9 +76,12 @@ with a named person is where that is written. A test refuses all four in this fi
 
 ## The shape `council.md` must have, because a script reads it
 
-`### Gaps no single lens named` and `### Findings the cross-read refuted, with the command
-that refuted them`, each a list of top-level bullets. Then `## The two counts`, with exactly
-these two lines and the numbers filled in:
+Three headings, each a list of top-level bullets: `### Gaps no single lens named`,
+`### Findings cut for carrying no command`, and `### Findings the cross-read refuted, with
+the command that refuted them`. The middle one is the round-one cuts, written down rather
+than only counted, because the second total below names two causes and a file that shows one
+of them cannot hold that total honest. All three are required; an absent one is an
+unreadable file, not a zero. Then `## The two counts`, with exactly these two lines:
 
 ```
 - Gaps that appeared only after the cross-read: **N**

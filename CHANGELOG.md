@@ -19,9 +19,13 @@ search for.
   importing `contract.CEILING` now raises `AttributeError` and there is no shim.
 - A council may now conclude. `/ai-council` writes a verdict and a recommendation where it
   previously had no field in which either could be written, and `docs/adr/0022` supersedes
-  `docs/adr/0019` on that boundary. What is refused instead is granted authority: `approved`,
-  `approve`, `approval`, `PASS`, `FAIL`, `granted` and an accepted risk, anywhere on a line —
-  three of which nothing detected before. `EP-195` is not closed by any of this.
+  `docs/adr/0019` on that boundary. What is refused instead is granted authority —
+  `approved`, `approve`, `approval`, `PASS`, `FAIL`, `granted` and an accepted risk — in
+  four shapes: a line that is the word, the word as a field, the word after a colon, and
+  the word anywhere in the tail of a `Verdict:` or `Recommendation:` line. Three of those
+  four caught nothing before. It is not refused in an ordinary sentence elsewhere, and it
+  is not refused inside backticks, a fenced block or quotation marks: the wide rule was
+  tried and reds this repository's own council file. `EP-195` is not closed by any of this.
 - `hooks/change_scope_guard.py` and `hooks/claim_scope_guard.py` are hard-deleted, with no
   replacement and no shim. `change_scope_guard` asked whether any `specs/**/plan.md` was in
   the branch's changed set — existence, never approval, as its own docstring conceded — so
