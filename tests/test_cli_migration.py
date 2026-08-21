@@ -686,8 +686,11 @@ def test_spec_command_enforces_intent_and_authority(
     assert approved.outcome == "PASS"
     created = root / "specs" / "011-approved-change" / "spec.md"
     assert created.is_file()
-    assert "--madr" in created.read_text(encoding="utf-8")
+    assert 'ai-eng decide "<title>"' in created.read_text(encoding="utf-8")
     assert "--adr" not in created.read_text(encoding="utf-8")
+    # And not the flag either: `--madr` was hard-deleted when the verb's other half went,
+    # so a template still offering it teaches a command that now errors.
+    assert "--madr" not in created.read_text(encoding="utf-8")
     assert existing_spec.read_bytes() == existing_bytes
     assert sentinel.read_bytes() == b"foreign sentinel\n"
 
@@ -1250,7 +1253,7 @@ def test_decide_returns_canonical_outcome_after_madr_validation(
     sentinel = tmp_path / "outside-decision-scope"
     sentinel.write_bytes(b"foreign sentinel\n")
 
-    created = decide.main(["Keep authority outside the proposal", "--madr"])
+    created = decide.main(["Keep authority outside the proposal"])
     assert type(created) is outcome.Result
     assert created.outcome == "PASS"
     proposal = root / "docs" / "adr" / "0001-keep-authority-outside-the-proposal.md"
@@ -1262,7 +1265,7 @@ def test_decide_returns_canonical_outcome_after_madr_validation(
     assert specification.read_bytes() == spec_bytes
     assert sentinel.read_bytes() == b"foreign sentinel\n"
 
-    orphan = decide.main(["Reject an orphan", "--madr", "--supersede", "9999"])
+    orphan = decide.main(["Reject an orphan", "--supersede", "9999"])
     assert type(orphan) is outcome.Result
     assert orphan.outcome == "INCOMPLETE"
     assert not (root / "docs" / "adr" / "0002-reject-an-orphan.md").exists()
@@ -1272,7 +1275,7 @@ def test_decide_returns_canonical_outcome_after_madr_validation(
     duplicate = root / "docs" / "adr" / "0009-duplicate.md"
     duplicate.write_bytes(proposal_bytes)
     before_names = sorted(path.name for path in proposal.parent.iterdir())
-    invalid_graph = decide.main(["Do not write through ambiguity", "--madr"])
+    invalid_graph = decide.main(["Do not write through ambiguity"])
     assert type(invalid_graph) is outcome.Result
     assert invalid_graph.outcome == "INCOMPLETE"
     assert sorted(path.name for path in proposal.parent.iterdir()) == before_names

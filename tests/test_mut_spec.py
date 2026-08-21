@@ -314,45 +314,6 @@ def test_an_adr_filename_is_a_clean_slug_capped_at_sixty_characters(tmp_path, ti
     assert decide.promote(tmp_path, title, "", specification).stem == stem
 
 
-def test_a_decision_lands_between_the_headings_and_leaves_the_spec_intact(tmp_path):
-    """The block goes under `## Decisions`, above the risks, and everything already in the
-    file survives. A decision written to the end of the file, or one that ate the
-    frontmatter, is a record that no longer parses."""
-    path = _fixture_spec(tmp_path, "a-thing")
-    decide.append(path, {"decision": "One queue", "date": TODAY})
-    body = path.read_text()
-    assert body.startswith("---\nid: ")
-    assert body.endswith("\n")
-    assert "## Decisions" in body.splitlines()
-    assert body.index("## Decisions") < body.index("decision: One queue")
-    assert body.index("decision: One queue") < body.index("## Accepted risks")
-    assert body.count("## Accepted risks") == 1
-
-
-def test_a_spec_with_no_decisions_heading_keeps_everything_it_already_held(tmp_path):
-    """Specs written before this heading existed get one added. Adding it must not cost
-    the spec its contents: overwriting the file here would delete the problem statement
-    somebody wrote, in the same command that claims to be recording a decision."""
-    path = tmp_path / "spec.md"
-    path.write_text("# a\n\n## Context\n\nthe problem, as filed.\n", encoding="utf-8")
-    decide.append(path, {"decision": "One queue"})
-    body = path.read_text()
-    assert body.startswith("# a\n")
-    assert "the problem, as filed." in body
-    assert "## Decisions" in body.splitlines() and "decision: One queue" in body
-
-
-def test_a_spec_that_names_the_decisions_heading_twice_takes_it_under_the_first(tmp_path):
-    """Somebody quoting the heading further down the file must not cost a decision. It
-    goes under the first one, deterministically, and nothing raises."""
-    path = tmp_path / "spec.md"
-    path.write_text("# a\n\n## Decisions\n\nfirst\n\n## Decisions\n\nsecond\n", encoding="utf-8")
-    decide.append(path, {"decision": "One queue"})
-    body = path.read_text()
-    assert body.count("## Decisions") == 2
-    assert body.index("decision: One queue") < body.index("first")
-
-
 def test_an_adr_listing_shows_the_status_of_every_file_including_the_broken_ones(tmp_path):
     """The listing is where somebody checks whether a decision is still live. A file with
     no status is marked unknown, and one written in another encoding does not take the
@@ -376,7 +337,7 @@ def test_decide_madr_writes_the_file_and_says_it_grants_no_authority(repo, capsy
     """A promoted decision is proposed, not accepted: the second line is what stops a
     reader treating a freshly written MADR as something the team agreed to."""
     _fixture_spec(repo, "queue")
-    result = decide.main(["Use one queue", "--madr"])
+    result = decide.main(["Use one queue"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     assert capsys.readouterr().out.splitlines() == [
@@ -392,12 +353,12 @@ def test_decide_madr_writes_the_file_and_says_it_grants_no_authority(repo, capsy
 def test_proposing_a_supersession_does_not_rewrite_or_authorize_the_old_madr(repo):
     """A proposal may point at the old MADR, but only human authority can transition it."""
     _fixture_spec(repo, "queue")
-    result = decide.main(["Use one queue", "--madr"])
+    result = decide.main(["Use one queue"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     old = repo / "docs" / "adr" / "0001-use-one-queue.md"
     before = old.read_bytes()
-    result = decide.main(["Use two queues", "--madr", "--supersede", "0001"])
+    result = decide.main(["Use two queues", "--supersede", "0001"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     assert old.read_bytes() == before
@@ -409,7 +370,7 @@ def test_a_madr_proposal_writes_nothing_outside_its_canonical_home(repo):
     """Proposal must not turn a spec edit into authority or create a second record."""
     path = _fixture_spec(repo, "a-thing")
     before = path.read_bytes()
-    result = decide.main(["Use one queue", "--madr"])
+    result = decide.main(["Use one queue"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     assert path.read_bytes() == before
@@ -423,10 +384,10 @@ def test_decide_list_prints_one_row_per_adr_and_says_so_when_there_are_none(repo
     assert result.outcome == "PASS"
     assert capsys.readouterr().out == "  no MADRs yet — most decisions never need one\n"
     _fixture_spec(repo, "decisions")
-    result = decide.main(["One", "--madr"])
+    result = decide.main(["One"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
-    result = decide.main(["Two", "--madr"])
+    result = decide.main(["Two"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     capsys.readouterr()
@@ -435,31 +396,6 @@ def test_decide_list_prints_one_row_per_adr_and_says_so_when_there_are_none(repo
     assert result.outcome == "PASS"
     rows = capsys.readouterr().out.splitlines()
     assert [row.split()[0] for row in rows] == ["0001-one", "0002-two"]
-
-
-def test_a_decision_that_stays_in_its_spec_is_dated_and_carries_a_rationale(repo, capsys):
-    """A decision with no date cannot be put in order against the others, and one with no
-    rationale is a note. When nobody typed --why the placeholder says so in the diff."""
-    _fixture_spec(repo, "a-thing")
-    result = decide.main(["Use one queue"])
-    assert type(result) is outcome.Result
-    assert result.outcome == "PASS"
-    assert capsys.readouterr().out == (
-        "  ✓ recorded in specs/001-a-thing/spec.md. If it constrains specs that do not exist "
-        "yet, promote it with --madr.\n"
-    )
-    body = (repo / "specs" / "001-a-thing" / "spec.md").read_text()
-    assert (
-        "```yaml\n"
-        "decision: Use one queue\n"
-        f"date: {TODAY}\n"
-        "rationale: TODO: why, in one sentence\n"
-        "```\n"
-    ) in body
-    result = decide.main(["Use two queues", "--why", "it is cheaper"])
-    assert type(result) is outcome.Result
-    assert result.outcome == "PASS"
-    assert "rationale: it is cheaper" in (repo / "specs" / "001-a-thing" / "spec.md").read_text()
 
 
 def test_decide_refuses_with_the_line_that_names_the_fix(repo, tmp_path, monkeypatch, capsys):
@@ -489,10 +425,13 @@ def test_decide_help_names_the_command_and_documents_every_flag(wide, capsys):
         decide.main(["--help"])
     assert stopped.value.code == 0
     out = capsys.readouterr().out
-    for token in ("usage: ai-eng decide", "--madr", "--supersede NNNN", "--list", "--why WHY"):
+    for token in ("usage: ai-eng decide", "--supersede NNNN", "--list", "--accept NNNN"):
         assert token in out
-    assert "--adr" not in out
-    for line in ("propose it in docs/adr/", "the rationale, when it stays inside the spec"):
+    # Both spellings of the half that is gone. `--madr` chose between two destinations and
+    # there is only one now; `--why` was the rationale of the destination that was deleted.
+    for gone in ("--adr", "--madr", "--why"):
+        assert gone not in out, gone
+    for line in ("accept a proposed MADR",):
         assert f" {line}\n" in out, "the help line is padded and ends there, not elsewhere"
 
 

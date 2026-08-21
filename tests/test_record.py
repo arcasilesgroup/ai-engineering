@@ -699,23 +699,6 @@ def test_proposing_a_supersession_preserves_the_old_madr_and_the_spec(tmp_path):
     ]
 
 
-def test_a_decision_recorded_against_a_spec_with_no_decisions_heading_still_lands(repo, capsys):
-    """Specs written before this heading existed, or by hand, must not swallow the
-    decision silently — the whole point is that it is in the diff."""
-    folder = repo / "specs" / "001-a"
-    folder.mkdir()
-    (folder / "spec.md").write_text("# a\n", encoding="utf-8")
-    result = decide.main(["A choice", "--why", "because"])
-    assert type(result) is outcome.Result
-    assert result.outcome == "PASS"
-    body = (folder / "spec.md").read_text()
-    assert "## Decisions" in body and "decision: A choice" in body and "rationale: because" in body
-    with pytest.raises(SystemExit) as stopped:
-        decide.main([])
-    assert stopped.value.code == outcome.invalid_cli_exit()
-    assert "a decision needs a title" in capsys.readouterr().err
-
-
 def test_a_decision_with_no_spec_is_refused(repo, capsys):
     """Without a spec there is no context to review the decision in, so it is not written
     somewhere convenient — it is not written at all."""

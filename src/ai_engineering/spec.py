@@ -123,7 +123,7 @@ not code can follow.
 ## Decision
 
 TODO: the one chosen, and why the others were not. If this decision constrains specs
-that do not exist yet, promote it: `ai-eng decide --madr "<title>"`.
+that do not exist yet, give it a record of its own: `ai-eng decide "<title>"`.
 
 ## Challenged once
 
@@ -146,7 +146,8 @@ of an example a script can re-run and the half a vague one cannot fake.
 
 ## Decisions
 
-<!-- ai-eng decide writes yaml blocks here -->
+<!-- One `**D-NNN-NN — <the decision>**` per line, each with a `**Rationale:**` under it.
+     `ai-eng decide` does not write here: it writes a record under docs/adr/. -->
 
 ## Accepted risks
 

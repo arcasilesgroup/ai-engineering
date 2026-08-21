@@ -28,6 +28,21 @@ search for.
   now accepts only `--guard loop_guard`, because that is the only guard left that a person
   may bypass at all.
 
+- `ai-eng decide` no longer writes into the specification, and `--madr` and `--why` are
+  hard-deleted with no shim. The verb had two halves and one destination was chosen with a
+  flag: a yaml block appended under the specification's `## Decisions` heading, or a record
+  under `docs/adr/`. The first half is gone. Measured before removing it: 70 of those blocks
+  exist, every one in specifications 001 to 009, none since 010 eleven specifications ago,
+  and nothing in `src/`, `hooks/` or `tests/` ever read one — a writer with no reader is a
+  place to put something and forget it. What changes for you: **`ai-eng decide "<title>"`
+  now writes a record under `docs/adr/` instead of a block inside the spec, `--madr` is an
+  unrecognised argument because there is no longer a choice to make, and `--why` is gone
+  with the destination it described.** `--list`, `--accept` and `--supersede` are untouched.
+  The 70 existing blocks stay where they are; nothing rewrites a delivered specification.
+  One behaviour improved in the same commit: with no specification to record against, the
+  verb now says so instead of reporting that git history cannot prove MADR transitions —
+  it resolves the target before validating the graph, and resolving writes nothing.
+
 - What an approval of a `plan.md` is a signature on has changed, and there is no shim. The
   digest is now taken over the file with one column masked — the gap between a task's number
   and its bold title, where `ai-eng spec show <id> --task <n> --tick` writes a box and its
