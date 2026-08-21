@@ -2293,3 +2293,78 @@ def test_the_reference_a_person_copies_from_names_commands_that_exist():
         f"`just check` runs `{steps}` and the reference describes something else. Quote the "
         "line rather than summarising it — a summary is what drifted last time"
     )
+
+
+def test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce():
+    """`D-023-05`, as a check rather than as a sentence in a skill.
+
+    `docs/adr/0019` closes by saying no benchmark defines the improvement a council shows,
+    and `EP-195` asks for a measurable gap rather than a manufactured consensus. Two counts
+    per run are that instrument — gaps found only by the cross-read, findings deleted — and
+    the whole value of them depends on nobody being able to write the number they wanted.
+
+    So the script does not read the totals back. It counts the entries under the two
+    round-two headings itself and refuses when the two disagree. That refusal is what this
+    tests, in both directions: a file whose totals match its entries passes, and a file that
+    says eleven while listing one is a failure and not a warning. The tree's own council file
+    is run through it as well, because a check that has only ever seen a fixture is a check
+    nobody has pointed at the thing it is for.
+    """
+
+    sys.path.insert(0, str(ROOT / "tests"))
+    try:
+        import council_counts
+    finally:
+        sys.path.pop(0)
+
+    _DELETED_LINE = "- Findings deleted, for carrying no command or for being refuted: **1**\n"
+    honest = (
+        "## Round two — x\n\n"
+        "### Gaps no single lens named\n\n"
+        "- one gap\n  - `just check`\n"
+        "- another gap\n  - `just check`\n\n"
+        "### Findings the cross-read refuted, with the command that refuted them\n\n"
+        "- from the cost lens\n  - `just check`\n\n"
+        "## The two counts\n\n"
+        "- Gaps that appeared only after the cross-read: **2**\n" + _DELETED_LINE
+    )
+    # The nested bullets are commands belonging to the entry above them. Counting them would
+    # inflate the number this script exists to hold honest, so two and one is the answer and
+    # five and two is the bug.
+    assert council_counts.counts(honest) == (2, 1)
+
+    for broken, because in (
+        (honest.replace("**2**", "**11**"), "a total nine higher than the entries"),
+        (honest.replace("### Gaps no single lens named", "### Gaps"), "a missing heading"),
+        (honest.replace("## The two counts", "## Counts"), "a missing totals section"),
+        (honest.replace(_DELETED_LINE, ""), "one total absent"),
+    ):
+        with pytest.raises(council_counts.Unreadable):
+            council_counts.counts(broken)
+        assert because  # the reason is the message, and it is why each case is here
+
+    # And the file this repository actually produced, which is the only one there is.
+    produced = sorted(ROOT.glob("specs/*/council.md"))
+    for path in produced:
+        gained, lost = council_counts.counts(path.read_text(encoding="utf-8"))
+        assert gained >= 0 and lost >= 0, path
+
+    # A repository with no council file is not a failure and is not a pass. The script says
+    # so and exits zero, because a council that has not run is not a council that lied.
+    assert council_counts.main() == 0
+
+
+def test_council_counts_is_a_step_in_the_gate_and_not_a_recipe_beside_it():
+    """A control outside `just check` is a control that runs when somebody remembers.
+
+    `just stats` is the counter-example this repository already carries: it sits outside the
+    gate deliberately and it had been crashing for days before anybody ran it.
+    """
+
+    justfile = (ROOT / "justfile").read_text(encoding="utf-8")
+    steps = re.search(r"(?m)^check:\s*(.+)$", justfile).group(1).split()
+    assert "council" in steps, f"`just check` runs {steps} and council is not one of them"
+    assert steps.index("council") < steps.index("ran"), (
+        "council runs after `ran`, which writes the receipt last, so the gate would record a "
+        "run that had not finished"
+    )

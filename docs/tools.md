@@ -37,11 +37,12 @@ just --list                # muestra las tareas de desarrollo
 | `just test` | Ejecuta toda la suite de Pytest. Para un archivo: `uv run --with pytest==9.1.1 pytest -q tests/test_doctor.py`. |
 | `just security` | Busca secretos con Gitleaks, analiza reglas con Semgrep y revisa vulnerabilidades/licencias/configuración con Trivy. |
 | `just cover` | Mide cobertura de ramas sobre paquete, hooks y suite adversarial; exige al menos 80 %. |
-| `just guards [FILTRO]` | Introduce defectos deliberados en los guardas y falla si los tests no los detectan. Dos mitades: dieciséis filas escritas a mano con suelo 100, y los mutantes generados sobre la superficie que bloquea, con suelo 90. Es la receta más lenta. |
+| `just guards [FILTRO]` | Introduce defectos deliberados en los guardas y falla si los tests no los detectan. Dos mitades: quince filas escritas a mano con suelo 100, y los mutantes generados sobre la superficie que bloquea, con suelo 90. Es la receta más lenta. |
 | `just quick MÓDULO` | La suite de un módulo y su recibo, que es lo que el hook de commit escribe en el trailer `Ai-Eng-Ran:`. **No sustituye** al gate completo. |
 | `just counts` | Imprime pruebas verificables de cuántos archivos formateó Ruff y cuántos tests recogió Pytest. |
+| `just council` | Recuenta, sobre cada `specs/*/council.md`, cuántos huecos aparecieron solo tras la lectura cruzada y cuántos hallazgos se borraron, y rechaza cuando su recuento no coincide con el total que la ejecución escribió. |
 | `just stats` | Muestra métricas del repositorio; es un informe, no un gate. Usa `uv run python tests/stats.py --json` para JSON. |
-| `just check` | Gate local/CI, trece pasos en orden: `build sbom lint typecheck test cover security register skilleval counts intent-page lenses ran`. No incluye `just guards`, que es un carril aparte y bloquea desde `ci-result`. |
+| `just check` | Gate local/CI, catorce pasos en orden: `build sbom lint typecheck test cover security register skilleval counts intent-page lenses council ran`. No incluye `just guards`, que es un carril aparte y bloquea desde `ci-result`. |
 
 ## 5. Scripts directos y automatismos
 | Ejecución | Uso |
