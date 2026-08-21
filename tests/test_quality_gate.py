@@ -692,8 +692,15 @@ def test_every_downloaded_engine_has_its_bytes_checked():
     the gate would have gone green having scanned with it.
 
     Read from the file rather than from a list here: a sixth download added later is caught
-    by this because it was never named."""
+    by this because it was never named.
 
+    Two spellings, because the rule is about the bytes and not about the coreutils. macOS
+    runners have `shasum` and not `sha256sum`, so the `platforms` lane checks its download
+    with `shasum -a 256 -c` — the same verification, from the tool that machine has. Both
+    still have to sit on the line immediately after the download, which is what stops a
+    check drifting away from the thing it checks."""
+
+    checkers = ("sha256sum -c", "shasum -a 256 -c")
     workflow = _check_workflow()
     lines = workflow.splitlines()
     downloads = [index for index, line in enumerate(lines) if "curl -sSfL -o" in line]
@@ -702,7 +709,7 @@ def test_every_downloaded_engine_has_its_bytes_checked():
     for index in downloads:
         target = lines[index].split("-o", 1)[1].split()[0]
         following = lines[index + 1] if index + 1 < len(lines) else ""
-        assert "sha256sum -c" in following, (
+        assert any(one in following for one in checkers), (
             f"{target} is downloaded on line {index + 1} and its bytes are never checked"
         )
 

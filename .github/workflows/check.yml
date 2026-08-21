@@ -35,6 +35,14 @@ env:
   # whose bytes were checked: the version said which release we asked for and nothing said
   # the bytes we got were that release, on the two engines whose whole job is to find things.
   GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  # The same release, read from the same place, for the two machines the `platforms` lane
+  # runs on. Twelve of its sixteen first-run failures were this binary being absent: the
+  # installer warns and returns WARN, and the acceptance path refuses with
+  # ACCEPTANCE_GITLEAKS_UNAVAILABLE. Pinned rather than taken from a package manager,
+  # because `just security` refuses a scanner whose version it did not pin and this lane
+  # has no business being the exception.
+  GITLEAKS_SHA256_DARWIN: "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5"
+  GITLEAKS_SHA256_WINDOWS: "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e"
   TRIVY_SHA256: "2edd39da482bb4e9831962487b68f68e3928ec3137794757f54d00383d79547b"
   PIP_AUDIT_VERSION: "2.10.1"
   MYPY_VERSION: "2.3.0"
@@ -238,6 +246,16 @@ jobs:
       # outside that list never starts — it reports startup_failure with no logs.
       - name: install just
         run: uv tool install "rust-just==${JUST_VERSION}"
+      # And the scanner, because one of the sixteen rows fires a guard through the
+      # adversarial suite and that suite reports NOT RUN for the staged-secret attack
+      # without it. `tests/mutation.py` refuses to score over a tree that is already red —
+      # a score taken over a red baseline is a full score nobody earned — so the absence
+      # stopped the whole lane rather than quietly costing it one row.
+      - name: install gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
       # `shell: bash` for the pipe, for the same reason the gate above needs it: without it
       # this step would report tee's zero and a surviving mutant would merge.
       - name: break the guards on purpose
@@ -411,7 +429,33 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # `madr.validate` walks committed history to prove every status transition, so on
+          # the default shallow checkout it returns INCOMPLETE and four tests fail for a
+          # reason that has nothing to do with the machine they run on.
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      - name: install the pinned gitleaks
+        if: runner.os == 'macOS'
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz"
+          echo "${GITLEAKS_SHA256_DARWIN}  gitleaks.tgz" | shasum -a 256 -c -
+          tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
+      - name: install the pinned gitleaks
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $url = "https://github.com/gitleaks/gitleaks/releases/download/v$env:GITLEAKS_VERSION/gitleaks_${env:GITLEAKS_VERSION}_windows_x64.zip"
+          Invoke-WebRequest -Uri $url -OutFile gitleaks.zip
+          $got = (Get-FileHash gitleaks.zip -Algorithm SHA256).Hash.ToLower()
+          if ($got -ne $env:GITLEAKS_SHA256_WINDOWS) {
+            throw "gitleaks.zip hashes to $got and this workflow pinned $env:GITLEAKS_SHA256_WINDOWS"
+          }
+          Expand-Archive gitleaks.zip -DestinationPath "$env:RUNNER_TEMP\gitleaks" -Force
+          "$env:RUNNER_TEMP\gitleaks" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      # It has to be on PATH before the suite starts, and saying so here is cheaper than
+      # reading twelve failures to find out it was not.
+      - name: it is there
+        run: gitleaks version
       # The suite and nothing else. `just check` is not portable and pretending otherwise
       # would be the theatre this repository exists to catch: it wants gitleaks, trivy, npm
       # and a shell pipeline, and a lane that silently skips half of what its name promises
