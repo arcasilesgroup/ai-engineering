@@ -2251,3 +2251,45 @@ def test_every_critic_runs_apart_and_is_marked_the_same_way():
     assert "One writer, and readers only when independence is what you are buying" in doctrine
     for name in CRITICS:
         assert f"/{name}" in doctrine, f"{name} is marked as a critic and the doctrine omits it"
+
+
+def test_the_reference_a_person_copies_from_names_commands_that_exist():
+    """`docs/tools.md` is where somebody copies a command from, and nothing compared it to
+    the justfile it describes.
+
+    Measured on 2026-08-21, before this existed: it offered `just mutate` and `just changed`,
+    **neither of which is a recipe** — the mutation lane is called `guards` and the other had
+    no successor at all — and it described `just check` as "build + lint + test + cover +
+    security + counts", which is six of the thirteen steps that recipe actually runs.
+
+    `docs/adr/0014` is the record for this defect class and states the rule: a claim one
+    document makes about another gets a comparator, and the comparator executes the sentence
+    instead of re-reading it. This is that comparator. A recipe renamed without the reference
+    following turns it red, and so does a step added to `check`.
+    """
+
+    import re
+
+    justfile = (ROOT / "justfile").read_text(encoding="utf-8")
+    reference = (ROOT / "docs" / "tools.md").read_text(encoding="utf-8")
+
+    recipes = {
+        hit.group(1)
+        for hit in re.finditer(r"(?m)^([a-z][a-z0-9-]*)(?:\s+[^:\n]*)?:(?!=)", justfile)
+    }
+    assert "check" in recipes and "guards" in recipes, sorted(recipes)
+
+    offered = {hit.group(1) for hit in re.finditer(r"`just ([a-z][a-z0-9-]*)", reference)}
+    missing = sorted(offered - recipes)
+    assert not missing, (
+        f"the reference offers {missing}, which no recipe answers to. Somebody copying that "
+        "line gets an error, and the file they would check next is this one"
+    )
+
+    # And the step list, because naming six of thirteen is the same defect one layer down:
+    # the sentence was true when it was written and nothing noticed the recipe growing.
+    steps = re.search(r"(?m)^check:\s*(.+)$", justfile).group(1).strip()
+    assert steps in reference, (
+        f"`just check` runs `{steps}` and the reference describes something else. Quote the "
+        "line rather than summarising it — a summary is what drifted last time"
+    )

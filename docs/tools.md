@@ -10,7 +10,7 @@ uv tool install --editable .  # opcional: deja `ai-eng` disponible en el PATH
 uv run ai-eng --help       # muestra la CLI del proyecto
 just --list                # muestra las tareas de desarrollo
 ```
-> Ruta habitual: prepara una vez con `uv sync` → trabaja con `just changed` → antes del PR ejecuta `just check` y `just mutate`.
+> Ruta habitual: prepara una vez con `uv sync` → trabaja con `just quick MÓDULO` → antes del PR ejecuta `just check` y `just guards`.
 ## 2. Cómo funciona
 `ai-eng` instala o escribe la configuración y el registro; `hooks/chain.py` recibe las acciones del agente y llama a los guardas; los hooks de Git protegen commits y pushes; CI ejecuta las mismas recetas de `just` que tú ejecutas localmente.
 ## 3. Todos los comandos `ai-eng`
@@ -37,17 +37,17 @@ just --list                # muestra las tareas de desarrollo
 | `just test` | Ejecuta toda la suite de Pytest. Para un archivo: `uv run --with pytest==9.1.1 pytest -q tests/test_doctor.py`. |
 | `just security` | Busca secretos con Gitleaks, analiza reglas con Semgrep y revisa vulnerabilidades/licencias/configuración con Trivy. |
 | `just cover` | Mide cobertura de ramas sobre paquete, hooks y suite adversarial; exige al menos 80 %. |
-| `just mutate [RUTA ...]` | Introduce defectos deliberados y falla si los tests no los detectan. Sin ruta recorre todo; suele ser la tarea más lenta. |
-| `just changed` | Atajo local: lint y tests completos, más mutación solo de lo cambiado. **No sustituye** al gate completo. |
+| `just guards [FILTRO]` | Introduce defectos deliberados en los guardas y falla si los tests no los detectan. Dos mitades: dieciséis filas escritas a mano con suelo 100, y los mutantes generados sobre la superficie que bloquea, con suelo 90. Es la receta más lenta. |
+| `just quick MÓDULO` | La suite de un módulo y su recibo, que es lo que el hook de commit escribe en el trailer `Ai-Eng-Ran:`. **No sustituye** al gate completo. |
 | `just counts` | Imprime pruebas verificables de cuántos archivos formateó Ruff y cuántos tests recogió Pytest. |
 | `just stats` | Muestra métricas del repositorio; es un informe, no un gate. Usa `uv run python tests/stats.py --json` para JSON. |
-| `just check` | Gate local/CI: `build + lint + test + cover + security + counts`. No incluye `just mutate`, que es un gate separado. |
+| `just check` | Gate local/CI, trece pasos en orden: `build sbom lint typecheck test cover security register skilleval counts intent-page lenses ran`. No incluye `just guards`, que es un carril aparte y bloquea desde `ci-result`. |
 
 ## 5. Scripts directos y automatismos
 | Ejecución | Uso |
 |---|---|
 | `uv run python tests/adversarial/run.py` | Lanza todos los ataques y un caso limpio que no debe bloquearse. |
-| `uv run python tests/mutation.py [-k RUTA]` | Mitad de mutación específica de los guardas; normalmente usa `just mutate`. |
+| `uv run python tests/mutation.py [-k FILTRO]` | El carril de mutación por debajo de la receta; normalmente usa `just guards`. |
 | `uv run python tests/anti_theatre.py LOG [RAÍZ] [nombres,separados]` | CI: confirma que un log demuestra que los gates realmente corrieron. |
 | `uv run python tests/stats.py [--json]` | Genera el informe de gobierno, calidad y seguridad. |
 | `SONAR_TOKEN=... uv run python tests/quality_gate.py [project-key]` | CI: compara el Quality Gate real de SonarCloud con `policy/quality-gate.toml`. |
