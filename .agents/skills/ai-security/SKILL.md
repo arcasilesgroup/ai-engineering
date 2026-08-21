@@ -11,6 +11,8 @@ description: >-
   declares compliance with anything.
 license: Apache-2.0
 compatibility: needs ai-eng
+context: fork
+background: false
 disable-model-invocation: true
 ---
 

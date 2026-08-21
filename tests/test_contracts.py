@@ -2218,3 +2218,36 @@ def test_a_council_reviews_and_never_approves():
         "the council skill no longer states that it has no field in which the word approved "
         "could be written, which is the instruction this test enforces the output of"
     )
+
+
+CRITICS = ("ai-challenge", "ai-council", "ai-review", "ai-verify", "ai-security")
+
+
+def test_every_critic_runs_apart_and_is_marked_the_same_way():
+    """The five skills that judge somebody else's work run in a context of their own.
+
+    Not for speed. A critic that sees the author's reasoning inherits it, and the whole
+    value of a separate reader is that it did not watch the thing being written. `context:
+    fork` is what buys that, and `background: false` is what keeps its verdict in order —
+    a forked skill runs in the background by default, so its answer lands after the work it
+    was judging and `/rewind` will not undo what it touched.
+
+    Four of the five were marked this way and `ai-security` was not, which is exactly the
+    shape a rule kept in prose takes: right in four places and quietly wrong in the fifth.
+    `AGENTS.md` states the rule; this is what makes it a rule.
+    """
+
+    wrong = []
+    for name in CRITICS:
+        header = text.frontmatter(ROOT / ".agents" / "skills" / name / "SKILL.md")
+        if header.get("context") != "fork":
+            wrong.append(f"{name}: context is {header.get('context')!r}, not 'fork'")
+        if str(header.get("background")).lower() != "false":
+            wrong.append(f"{name}: background is {header.get('background')!r}, not false")
+    assert not wrong, "; ".join(wrong)
+
+    # And the doctrine has to still say why, because the marking alone reads as an accident.
+    doctrine = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    assert "One writer, and readers only when independence is what you are buying" in doctrine
+    for name in CRITICS:
+        assert f"/{name}" in doctrine, f"{name} is marked as a critic and the doctrine omits it"

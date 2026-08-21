@@ -50,6 +50,21 @@ the user's repository, and verifies them with a command that exits non-zero.
 - `.ai/intent.md` — the user-owned, non-disposable canonical Intent.
 - `.ai/` — otherwise disposable, except `config.toml` and `.gitignore`, which are the pin.
 
+## One writer, and readers only when independence is what you are buying
+
+Every commit is made by one agent, in order, with the gate green after each. No block of
+work is split between parallel writers, and this is not a performance opinion: two writers
+share an index, and `git add -A` from either takes the other's work into its commit.
+
+The five critics — `/ai-challenge`, `/ai-council`, `/ai-review`, `/ai-verify` and
+`/ai-security` — are the exception, and they are marked the same way in their frontmatter:
+`context: fork`, `background: false`. They run apart because what a separate reader buys is
+independence, not speed. A critic that sees the author's reasoning inherits it.
+
+The fan-out is only paid in wall-clock if something waits on it. Where the host can start
+several at once it does; where it cannot, they run one after another, and the output is
+identical either way — which is what stops anybody claiming a parallelism they did not have.
+
 ## The two contracts that must not bend
 
 **A hook declares its class at the top of its own file.** `@guard` fails closed: if it
