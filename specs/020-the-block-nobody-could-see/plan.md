@@ -71,7 +71,7 @@ first run, and it must not be special-cased away.
 
 ## Block A — the record, and the collectors that read what already exists (Tasks 1–3)
 
-1. **A row missing any of the four fields is refused, not filled** — **file**
+1. [ ] **A row missing any of the four fields is refused, not filled** — **file**
    `src/ai_engineering/blocked.py`. A new module: a `Row` of `kind`, `id`, `what`, `since`,
    `why` and `action`; `FIELDS = ("what", "since", "why", "action")`; `stops(root)` reading
    `docs/blocked.toml` and returning rows; and `Unreadable` for a file nobody can parse.
@@ -85,7 +85,7 @@ first run, and it must not be special-cased away.
    rather than returning nothing, because an unreadable ledger of what is stuck is itself the
    fail-open direction; and no field is ever synthesised from another.
 
-2. **The verdicts and the drafts already say it, and nothing asks them** — **file**
+2. [ ] **The verdicts and the drafts already say it, and nothing asks them** — **file**
    `src/ai_engineering/blocked.py`. `collect(root)` returns `(shown, considered)`: the
    BLOCKED and CONTRADICTED rows of `docs/requirements.toml` that carry both a `note` and an
    `evidence`, mapped `subject` to `what`, the file's measured date to `since`, `note` to
@@ -102,7 +102,7 @@ first run, and it must not be special-cased away.
    carries a digest that matches `sha256` of the specification file as it is on disk; and the
    two numbers come from one pass, so they cannot disagree.
 
-3. **A halt writes its record before it halts** — **file** `src/ai_engineering/report.py`,
+3. [ ] **A halt writes its record before it halts** — **file** `src/ai_engineering/report.py`,
    **also names** `policy/capabilities.toml`, which needs an `ai-report.blocked` mode with
    `write_roots = ["docs"]` and no network, because a subcommand that writes a governed file
    without a declared mode is the refusal the capability table exists for.
@@ -121,7 +121,7 @@ first run, and it must not be special-cased away.
 
 ## Block B — the section a person opens (Tasks 4–6)
 
-4. **The page reads what is stuck** — **file** `src/ai_engineering/solution_intent.py`.
+4. [ ] **The page reads what is stuck** — **file** `src/ai_engineering/solution_intent.py`.
    `Tree` gains `blocked: tuple` and `considered: int`, filled from `blocked.collect`, and the
    digest covers both — it is derived from the dataclass, so a field added here cannot escape
    it, and this Task asserts that rather than assuming it.
@@ -133,7 +133,7 @@ first run, and it must not be special-cased away.
    propagates rather than rendering a page that says nothing is stuck, which is the same
    fail-open the empty-index refusal already closed for the tracked-file list.
 
-5. **One section, and it says what it dropped** — **file**
+5. [ ] **One section, and it says what it dropped** — **file**
    `src/ai_engineering/solution_intent.py`. A `bloqueos` section, immediately after `resumen`,
    because it is the thing a person opens the page for. One table, four columns, one row per
    item, the `action` in a `<code>` span a reader can select. Above the table one line:
@@ -147,7 +147,7 @@ first run, and it must not be special-cased away.
    one is caught by the numbers disagreeing with the row count; the section renders with a
    plain sentence and no table when nothing is stuck; and `just intent-page` prints PASS.
 
-6. **A skill that stops says so before it stops** — **file**
+6. [ ] **A skill that stops says so before it stops** — **file**
    `.agents/skills/ai-build/SKILL.md`, **also names** `.agents/skills/ai-spec/SKILL.md`, which
    is the other skill that halts for authority.
    **check**: `uv run --with pytest==8.4.2 pytest -q tests/test_contracts.py -k "blocked or

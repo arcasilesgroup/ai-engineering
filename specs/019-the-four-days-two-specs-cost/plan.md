@@ -80,7 +80,7 @@ This block is first because every later block close runs `just check` once, and 
 runs the suite twice. Paying for that six times before making it cheap is the velocity the
 specification's own case for this option promised and would then have spent.
 
-1. **Both full-suite recipes run across the machine's cores** — **file** `justfile`.
+1. [ ] **Both full-suite recipes run across the machine's cores** — **file** `justfile`.
    **check**: `uv run --with pytest==9.1.1 pytest -q -n auto tests/test_dag.py`. **Red now**:
    it exits 4 with `unrecognized arguments: -n`, because the pinned environment has no
    distribution plugin. Green once the plugin is pinned beside the others and both recipes
@@ -95,7 +95,7 @@ specification's own case for this option promised and would then have spent.
    and failed counts as before across three runs; and the coverage total is unchanged with the
    floor still exiting zero.
 
-2. **A unit test about a file reader stops calling the security lane** — **file**
+2. [ ] **A unit test about a file reader stops calling the security lane** — **file**
    `tests/test_threat_model.py`.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_threat_model.py --durations=3`.
    **Red now**: the slowest line names
@@ -112,7 +112,7 @@ specification's own case for this option promised and would then have spent.
    slowest lines, and the real pinned engines still run over the whole repository in the
    security recipe, which is where they are supposed to be observed.
 
-3. **The mutation runner spends the cheap suite first** — **file** `tests/mutation.py`.
+3. [ ] **The mutation runner spends the cheap suite first** — **file** `tests/mutation.py`.
    **check**: `uv run --with pytest==9.1.1 pytest -q
    tests/test_quality_gate.py::test_the_mutation_runner_spends_the_cheap_suite_first`.
    **Red now**: the node is absent.
@@ -125,7 +125,7 @@ specification's own case for this option promised and would then have spent.
 
 ## Block B — the cadence that invalidated its own approval (Task 4)
 
-4. **The build skill stops editing the plan and stops running the whole gate per Task** —
+4. [ ] **The build skill stops editing the plan and stops running the whole gate per Task** —
    **file** `.agents/skills/ai-build/SKILL.md`, with its sibling `corpus.md`.
    **check**: `uv run --with pytest==9.1.1 pytest -q
    tests/test_contracts.py::test_the_build_skill_neither_edits_the_plan_nor_gates_each_task`.
@@ -142,7 +142,7 @@ specification's own case for this option promised and would then have spent.
 
 ## Block C — the greens that are not greens (Tasks 5–10)
 
-5. **A failed git call is not an empty change set** — **file**
+5. [ ] **A failed git call is not an empty change set** — **file**
    `src/ai_engineering/checkpoint.py`.
    **check**: `uv run --with pytest==9.1.1 pytest -q
    tests/test_checkpoint.py::test_a_checkpoint_over_a_base_that_does_not_exist_is_not_a_pass`.
@@ -158,7 +158,7 @@ specification's own case for this option promised and would then have spent.
    privacy and claimed-paths receipts turn that into INCOMPLETE naming the git command that
    failed, and the aggregate verdict is not PASS.
 
-6. **The content digest moves into the package that needs it** — **file**
+6. [ ] **The content digest moves into the package that needs it** — **file**
    `src/ai_engineering/evidence.py`.
    **check**: `uv run --with pytest==9.1.1 pytest -q
    tests/test_ran_receipt.py::test_the_digest_the_receipt_carries_comes_from_the_package`.
@@ -174,7 +174,7 @@ specification's own case for this option promised and would then have spent.
    lives under `src/`, every caller reads it from there, and the receipt written by the build
    recipe is byte-identical to the one written before the move.
 
-7. **A receipt is evidence for the code it was taken over** — **file**
+7. [ ] **A receipt is evidence for the code it was taken over** — **file**
    `src/ai_engineering/checkpoint.py`.
    **check**: `uv run --with pytest==9.1.1 pytest -q
    tests/test_checkpoint.py::test_a_receipt_taken_before_the_staged_change_is_incomplete`.
@@ -191,7 +191,7 @@ specification's own case for this option promised and would then have spent.
    to run; and the plan hand-off says in one line that a digest receipt carries no outcome
    field, so presence means the suite passed and the failure branch stays with the aged ones.
 
-8. **An import inside this package is an ordering edge** — **file**
+8. [ ] **An import inside this package is an ordering edge** — **file**
    `src/ai_engineering/dag.py`.
    **check**: `uv run --with pytest==9.1.1 pytest -q
    tests/test_dag.py::test_a_package_import_puts_the_imported_file_first`. **Red now**: the
@@ -202,7 +202,7 @@ specification's own case for this option promised and would then have spent.
    file imports is ordered behind it for both spellings, the existing ordering test stays
    green, and a file that cannot be read is still an incompletion rather than a missing edge.
 
-9. **The ordering module can name the claims that could start together** — **file**
+9. [ ] **The ordering module can name the claims that could start together** — **file**
    `src/ai_engineering/dag.py`.
    **check**: `uv run --with pytest==9.1.1 pytest -q
    tests/test_dag.py::test_the_wave_is_the_claims_with_nothing_in_front_of_them`. **Red now**:
@@ -214,7 +214,7 @@ specification's own case for this option promised and would then have spent.
    one in front of it is, because a shared path is oriented by work item and not refused; and
    an unreadable file propagates as the same incompletion the ordering function already raises.
 
-10. **One working tree holds one claim** — **file** `src/ai_engineering/claim.py`.
+10. [ ] **One working tree holds one claim** — **file** `src/ai_engineering/claim.py`.
     **check**: `uv run --with pytest==9.1.1 pytest -q
     tests/test_claim.py::test_a_second_claim_in_one_working_tree_is_refused`. **Red now**: the
     node is absent, and the claim file is written unconditionally at line 209 with no lock and
@@ -229,7 +229,7 @@ specification's own case for this option promised and would then have spent.
 
 ## Block D — the examples become a thing a command reads (Tasks 11–14)
 
-11. **The template asks for a command and the output it prints** — **file**
+11. [ ] **The template asks for a command and the output it prints** — **file**
     `src/ai_engineering/spec.py`.
     **check**: `uv run --with pytest==9.1.1 pytest -q
     tests/test_contracts.py::
@@ -244,7 +244,7 @@ specification's own case for this option promised and would then have spent.
     executable clause on the day it is written, which is the failure Task 14 needs to be able
     to observe.
 
-12. **A function counts what an examples section actually holds** — **file**
+12. [ ] **A function counts what an examples section actually holds** — **file**
     `src/ai_engineering/spec.py`.
     **check**: `uv run --with pytest==9.1.1 pytest -q
     tests/test_mut_spec.py::test_the_examples_section_is_counted_by_what_it_holds`. **Red
@@ -259,7 +259,7 @@ specification's own case for this option promised and would then have spent.
     as a ceiling and the condition for widening it. This Task's home is the mutation-selected
     test file, not the contract file, so the parser gets mutation coverage.
 
-13. **The show subcommand prints what it observed and decides nothing** — **file**
+13. [ ] **The show subcommand prints what it observed and decides nothing** — **file**
     `src/ai_engineering/spec.py`.
     **check**: `uv run --with pytest==9.1.1 pytest -q
     tests/test_record.py::test_show_says_what_the_examples_section_holds`. **Red now**: the
@@ -270,7 +270,7 @@ specification's own case for this option promised and would then have spent.
     **rollback**: `git revert <commit>`. **done when**: the line is descriptive, carries no
     verdict word, and changes no exit code.
 
-14. **The gate reads authored specifications, with two frozen baselines** — **file**
+14. [ ] **The gate reads authored specifications, with two frozen baselines** — **file**
     `tests/test_contracts.py`.
     **check**: `uv run --with pytest==9.1.1 pytest -q
     tests/test_contracts.py::test_a_specification_carries_examples_somebody_can_check`. **Red
@@ -292,7 +292,7 @@ specification's own case for this option promised and would then have spent.
 
 ## Block E — the plan's own tasks become enumerable (Tasks 15–16)
 
-15. **A plan's tasks are something a script can read** — **file** `tests/test_contracts.py`.
+15. [ ] **A plan's tasks are something a script can read** — **file** `tests/test_contracts.py`.
     **check**: `uv run --with pytest==9.1.1 pytest -q
     tests/test_contracts.py::test_a_plan_names_a_file_a_check_a_rollback_and_a_done_when`.
     **Red now**: the node is absent, and no test in this repository opens a plan at all.
@@ -303,7 +303,7 @@ specification's own case for this option promised and would then have spent.
     forbids retro-editing them; the frozen list is asserted not to grow; and the list is
     asserted to name only directories that exist.
 
-16. **A task is handed over as an envelope, not as the bytes it came from** — **file**
+16. [ ] **A task is handed over as an envelope, not as the bytes it came from** — **file**
     `src/ai_engineering/spec.py`.
     **check**: `uv run --with pytest==9.1.1 pytest -q
     tests/test_mut_spec.py::test_one_task_is_read_out_of_a_plan_as_an_envelope`. **Red now**:
@@ -320,7 +320,7 @@ specification's own case for this option promised and would then have spent.
 
 ## Block F — the two stages with no house (Tasks 17–19)
 
-17. **The verify capability stops being declared and absent** — **file**
+17. [ ] **The verify capability stops being declared and absent** — **file**
     `.agents/skills/ai-verify/SKILL.md`, with its sibling `corpus.md`.
     **check**: `uv run --with pytest==9.1.1 pytest -q
     tests/test_contracts.py::
@@ -340,7 +340,7 @@ specification's own case for this option promised and would then have spent.
     incomplete is the default for a box or an example with no command pasted beside it; the
     corpus routes cases no sibling claims; and `uv run python tests/skill_eval.py` is green.
 
-18. **The security report declines the dynamic surface instead of passing over it** — **file**
+18. [ ] **The security report declines the dynamic surface instead of passing over it** — **file**
     `src/ai_engineering/scan.py`.
     **check**: `uv run --with pytest==9.1.1 pytest -q
     tests/test_scan.py::test_a_tree_with_no_authorised_target_declines_the_dynamic_scan`. **Red
@@ -354,7 +354,7 @@ specification's own case for this option promised and would then have spent.
     research report used, which this repository's status vocabulary does not have; the line
     touches no verdict and has no branch.
 
-19. **The security skill says where a running target goes and what the answer is today** —
+19. [ ] **The security skill says where a running target goes and what the answer is today** —
     **file** `.agents/skills/ai-security/SKILL.md`, with its sibling `corpus.md`.
     **check**: `uv run --with pytest==9.1.1 pytest -q
     tests/test_contracts.py::test_the_guidance_a_requirement_asks_for_is_in_the_file_that_owes_it`.
@@ -375,7 +375,7 @@ specification's own case for this option promised and would then have spent.
 The owner decided this after the plan was first written: the Solution Intent belongs under
 `docs/`. Specification 019 repair 11 carries the decision, and these three Tasks are it.
 
-20. **The page and the generator enter the repository** — **file**
+20. [ ] **The page and the generator enter the repository** — **file**
     `src/ai_engineering/solution_intent.py`, with the page it writes at
     `docs/solution-intent.html`.
     **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_solution_intent.py`. **Red
@@ -390,7 +390,7 @@ The owner decided this after the plan was first written: the Solution Intent bel
     numbers are the ones the ceiling and the ratio gate enforce; it excludes only itself, and
     says so on the page, because a page whose length feeds the number it prints never settles.
 
-21. **The command the failure message promises exists** — **file**
+21. [ ] **The command the failure message promises exists** — **file**
     `src/ai_engineering/report.py`.
     **check**: `uv run --with pytest==9.1.1 pytest -q
     tests/test_record.py::test_report_intent_writes_the_page_and_says_where`. **Red now**: the
@@ -404,7 +404,7 @@ The owner decided this after the plan was first written: the Solution Intent bel
     prints where it wrote it; the ten verbs are still ten; and the staleness message names the
     command that now works.
 
-22. **The page cannot go stale without the gate saying so** — **file** `justfile`.
+22. [ ] **The page cannot go stale without the gate saying so** — **file** `justfile`.
     **check**: `uv run --with pytest==9.1.1 pytest -q
     tests/test_p0_completeness.py::test_the_gate_checks_the_page_is_about_this_tree`. **Red
     now**: the node is absent, and nothing in the eleven recipes the gate depends on mentions
@@ -423,7 +423,7 @@ Block H may not start until Blocks A through G are closed and reviewed, **and** 
 accountable role has said in writing that this block may open. It changes no constraint, and it
 exists so that the constraint has something executable behind it.
 
-23. **A width is arithmetic over the records, and it is one** — **file**
+23. [ ] **A width is arithmetic over the records, and it is one** — **file**
     `src/ai_engineering/spec.py`.
     **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_wave.py`, three cases: two
     disjoint claims and a declared width of four, while the Intent still carries the one-writer

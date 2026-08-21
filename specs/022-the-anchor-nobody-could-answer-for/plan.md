@@ -30,21 +30,21 @@ The published promises go last, when they are false rather than before.
 
 ## Block A — the surface a person meets (Tasks 1–3)
 
-1. **The commit footer stops being written and stops complaining** —
+1. [ ] **The commit footer stops being written and stops complaining** —
    **file** `git-hooks/commit-msg`.
    **check**: `uv run pytest -q tests/test_record.py -k commit_msg`.
    **rollback**: `git revert <commit>`.
    **done when**: a commit prints nothing about anchoring on stderr, and `ran_footer` and the
    subject-shape refusal both still work.
 
-2. **The `--anchor` and `--anchors` arguments are refused as unknown** —
+2. [ ] **The `--anchor` and `--anchors` arguments are refused as unknown** —
    **file** `src/ai_engineering/audit.py`.
    **check**: `uv run pytest -q tests/test_mut_accept.py tests/test_cli_migration.py -k anchor`.
    **rollback**: `git revert <commit>`.
    **done when**: `ai-eng audit --anchor` exits non-zero naming the unknown argument, and
    `verify` and `replay` still run without it.
 
-3. **The generated workflow stops telling other repositories to pass it** —
+3. [ ] **The generated workflow stops telling other repositories to pass it** —
    **file** `src/ai_engineering/skeletons.py`.
    **check**: `uv run pytest -q tests/test_install.py`.
    **rollback**: `git revert <commit>`.
@@ -53,21 +53,21 @@ The published promises go last, when they are false rather than before.
 
 ## Block B — the code behind it (Tasks 4–6)
 
-4. **The three history verdicts and the pattern that fed them are deleted** —
+4. [ ] **The three history verdicts and the pattern that fed them are deleted** —
    **file** `src/ai_engineering/audit.py`.
    **check**: `uv run pytest -q tests/test_record.py tests/test_mut_accept.py`.
    **rollback**: `git revert <commit>`.
    **done when**: `ANCHOR`, `HISTORY_INCOMPLETE_PREFIX`, `_history_findings`, `_anchor_line`
    and `anchor_line` are gone, and `audit verify` still refuses a link that arrived edited.
 
-5. **The doctor loses one line and keeps twenty-five assertions** —
+5. [ ] **The doctor loses one line and keeps twenty-five assertions** —
    **file** `src/ai_engineering/doctor.py`.
    **check**: `uv run pytest -q tests/test_doctor.py`.
    **rollback**: `git revert <commit>`.
    **done when**: the anchor line is gone from assertion 11, the count is still 25, and the
    branch that detects a hijacked git-hooks path still fires.
 
-6. **The fixture that captured the deleted function stops capturing it** —
+6. [ ] **The fixture that captured the deleted function stops capturing it** —
    **file** `tests/conftest.py`.
    **check**: `uv run pytest -q tests/test_record.py tests/test_doctor.py`.
    **rollback**: `git revert <commit>`.
@@ -76,7 +76,7 @@ The published promises go last, when they are false rather than before.
 
 ## Block C — the promises, and the proof of the boundary (Tasks 7–8)
 
-7. **Two published sentences that are about to be false are rewritten** —
+7. [ ] **Two published sentences that are about to be false are rewritten** —
    **file** `README.md`.
    **check**: `uv run pytest -q tests/test_contracts.py -k readme`.
    **rollback**: `git revert <commit>`.
@@ -84,7 +84,7 @@ The published promises go last, when they are false rather than before.
    "survives losing the laptop", and `CHANGELOG.md` carries the hard deletion under the
    existing `### Breaking changes` block.
 
-8. **The boundary is proved rather than asserted** —
+8. [ ] **The boundary is proved rather than asserted** —
    **file** `tests/test_contracts.py`.
    **check**: `uv run pytest -q tests/test_contracts.py -k anchored`.
    **rollback**: `git revert <commit>`.

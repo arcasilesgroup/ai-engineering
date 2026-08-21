@@ -52,20 +52,20 @@ proved today.
 
 ### Block A — the contract and the three receipts (Tasks 1–6)
 
-1. **Adapter contract schema** — **file** `policy/surface-adapter-v1.schema.json`.
+1. [ ] **Adapter contract schema** — **file** `policy/surface-adapter-v1.schema.json`.
    **check**: `pytest -q tests/test_surface_adapter.py::test_adapter_schema_is_closed_and_versioned`.
    **rollback**: `git revert <commit>`. **done when**: closed schema, `additionalProperties`
    false, carrying detection signal, bidirectional translation tables for payload field,
    lifecycle event, exit meaning and reply, heartbeat states and trust requirement; every
    translation table is exhaustive and an unknown value on either side has no mapping.
 
-2. **Invalid fixtures before the reader** — **file** `tests/fixtures/surface-adapter-v1.json`.
+2. [ ] **Invalid fixtures before the reader** — **file** `tests/fixtures/surface-adapter-v1.json`.
    **check**: `pytest -q tests/test_surface_adapter.py::test_every_invalid_adapter_fixture_is_refused`.
    **rollback**: `git revert <commit>`. **done when**: at least one invalid fixture per
    closed field, including a translation table with a hole in it, and each is refused before
    any adapter exists to satisfy them.
 
-3. **Three states, three receipts** — **file** `src/ai_engineering/surface.py`.
+3. [ ] **Three states, three receipts** — **file** `src/ai_engineering/surface.py`.
    **check**: `pytest -q tests/test_surface_adapter.py::test_discovery_invocation_and_enforcement_are_separate_receipts`.
    **rollback**: `git revert <commit>`. **done when**: discovery, invocation and enforcement
    are read from three separate check-evidence receipts; a missing receipt is `INCOMPLETE`
@@ -83,7 +83,7 @@ They are swapped below. Nothing else changes: the same two tasks, the same check
 done-whens. Recording it here rather than quietly reordering, because a plan that drifts
 without saying so is a plan nobody can review against what happened.
 
-4. **Doctor reads the three states** — **file** `src/ai_engineering/doctor.py`.
+4. [ ] **Doctor reads the three states** — **file** `src/ai_engineering/doctor.py`.
    **check**: `pytest -q tests/test_surface_adapter.py::test_coverage_prints_three_states_and_never_one_word_for_three_questions`.
    **rollback**: `git revert <commit>`. **done when**: the coverage block prints discovery,
    invocation and enforcement separately; no row can print a word for a state without a
@@ -105,7 +105,7 @@ one step earlier, which is not adding the thing in the first place.
 The exit criterion the proposal names is a command that answers per surface. It does not
 say the command must be a verb, and a subcommand answers it exactly.
 
-5. **The `surface proof` report** — **file** `src/ai_engineering/report.py`.
+5. [ ] **The `surface proof` report** — **file** `src/ai_engineering/report.py`.
    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_surface_proof_reports_three_states_and_invents_none`.
    **rollback**: `git revert <commit>`. **done when**: `ai-eng report surfaces` reports the
    three states per surface with the age of each proof, returns `INCOMPLETE` rather than a
@@ -125,14 +125,14 @@ including the one that has read BLOCKS since the beginning. That is not a regres
 spec 010's own sentence — three surfaces read UNPROVEN and stay that way until a denial
 actually executes there — applied to all eight, because none of them has ever receipted one.
 
-6a. **The coverage word comes from a receipt** — **file** `src/ai_engineering/doctor.py`.
+6a. [ ] **The coverage word comes from a receipt** — **file** `src/ai_engineering/doctor.py`.
    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_the_coverage_word_is_earned_and_never_declared`.
    **rollback**: `git revert <commit>`. **done when**: `standing` takes the surfaces whose
    enforcement receipt proved, never `surface["proven"]`; the one-word block and the
    three-state block agree by construction because both read the same receipts; every row
    that has no receipt reads UNPROVEN, and the tests that pinned the old word move with it.
 
-6b. **`proven` stops being writable** — **file** `policy/surfaces.toml`.
+6b. [ ] **`proven` stops being writable** — **file** `policy/surfaces.toml`.
    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_no_surface_flag_can_assert_a_state_a_receipt_has_not_earned`.
    **rollback**: `git revert <commit>`. **done when**: the field is deleted, not deprecated,
    and the test fails if it returns under any spelling.
@@ -162,9 +162,9 @@ a task number, would be indefensible.
 So Task 7 is deferred, and Block B is the two tasks that close the gap this wave actually
 left open: the wheel executes a denial and nothing receipts it.
 
-7. **Deferred.** An adapter record lands when a reader needs one, not before.
+7. [ ] **Deferred.** An adapter record lands when a reader needs one, not before.
 
-8. **The wheel's denial writes its receipt** — **file** `.github/workflows/install-matrix.yml`.
+8. [ ] **The wheel's denial writes its receipt** — **file** `.github/workflows/install-matrix.yml`.
    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_the_matrix_receipts_the_denial_it_already_executes`.
    **rollback**: `git revert <commit>`. **done when**: the step that already denies
    `--no-verify` from the installed wheel writes a check-evidence receipt for
@@ -187,7 +187,7 @@ docstring, "no probes, no billed sessions". Anything cheaper collapses to "the f
 present", which `policy/check-evidence-v1.schema.json` names as not-proof in as many words:
 `metadata_is_proof: false`. So the honest delivery is the refusal, made checkable.
 
-9. **The two states nobody can execute stay unproven** — **file** `.github/workflows/install-matrix.yml`.
+9. [ ] **The two states nobody can execute stay unproven** — **file** `.github/workflows/install-matrix.yml`.
    **check**: `uv run --with pytest==9.1.1 --with 'rich>=13,<16' --with 'questionary>=2,<3' pytest -q tests/test_surface_adapter.py::test_the_matrix_proves_discovery_and_invocation_separately`.
    **rollback**: `git revert <commit>`. **done when**: exactly one receipt is written and it
    is the enforcement one; the job asserts from the same output that discovery and
@@ -207,7 +207,7 @@ It is also the surface with the strongest available proof: the plugin is our cod
 under node, and its deny path can be executed directly — which is more than claude-code
 has, where the job exercises the dispatcher and not the adapter.
 
-10. **The plugin fails closed** — **file** `surfaces/opencode.ts`.
+10. [ ] **The plugin fails closed** — **file** `surfaces/opencode.ts`.
     **check**: `npm exec -- tsc --noEmit` plus the node case in Task 11's step.
     **rollback**: `git revert <commit>`. **done when**: anything that is not an observed
     clean allow denies — a non-zero status, a null status from spawn failure or timeout, a
@@ -241,7 +241,7 @@ installed artifact, and this runs from the checkout. So opencode's enforcement s
 That is a smaller delivery than the task asked for and it is the honest one. The fail-open
 is closed and proved by execution; the receipt waits for a matrix that can run the surface.
 
-11. **The plugin's denial executes in the gate** — **file** `justfile`.
+11. [ ] **The plugin's denial executes in the gate** — **file** `justfile`.
     **check**: `just typecheck`.
     **rollback**: `git revert <commit>`. **done when**: `just typecheck` runs the plugin's
     deny path for both cases and fails if either allows; a node that cannot run it fails
@@ -323,7 +323,7 @@ tests are fixed and each has a test that dies without it.
 
 What is open, and what this block is for:
 
-12. **A process that is not the operator cannot poison the operator's chain** — **file**
+12. [ ] **A process that is not the operator cannot poison the operator's chain** — **file**
     `hooks/_emit.py`. **check**: `uv run pytest tests/test_record.py -k
     a_foreign_machine_cannot_write_into_this_chain`. **rollback**: `git revert <commit>`.
     **done when**: the buffer follows the same home the sealed chain follows, so a test
@@ -338,7 +338,7 @@ What is open, and what this block is for:
     `audit --anchor` refuses a footer, so no future commit here can be anchored. One
     poisoned line is a ratchet with no way back.
 
-13. **A break that has been accounted for can be closed without rewriting the chain** —
+13. [ ] **A break that has been accounted for can be closed without rewriting the chain** —
     **file** `src/ai_engineering/audit.py`. **check**: `uv run pytest tests/test_record.py
     -k an_accounted_break_is_recorded_not_erased`. **rollback**: `git revert <commit>`.
     **done when**: a human with authority can record, as a new link, that a named range of
@@ -347,7 +347,7 @@ What is open, and what this block is for:
     because that is the act the chain exists to detect. Without this, task 12 stops new
     poisoning and leaves this machine's record permanently unusable.
 
-14. **The buffer is sealed, and a buffer that is not sealed says so** — **file**
+14. [ ] **The buffer is sealed, and a buffer that is not sealed says so** — **file**
     `hooks/session.py`. **check**: `uv run pytest tests/test_record.py -k
     an_unsealed_buffer_is_reported`. **rollback**: `git revert <commit>`. **done when**:
     `doctor` reports the age of the newest sealed link and the depth of the unsealed
@@ -385,7 +385,7 @@ stable across machines — and the adapter schema is `additionalProperties: fals
 level, which is the property that makes it worth having and also means the field is an
 amendment rather than an addition.
 
-16. **A receipt is measured against the adapter it claims to have exercised** — **file**
+16. [ ] **A receipt is measured against the adapter it claims to have exercised** — **file**
     `policy/surface-adapter-v1.schema.json`. **check**: `uv run pytest
     tests/test_surface_adapter.py -k a_receipt_that_names_no_adapter_proves_nothing`.
     **rollback**: `git revert <commit>`. **done when**: the adapter declares a

@@ -14,6 +14,7 @@ import contextlib
 import hashlib
 import json
 import re
+import shlex
 import stat
 import subprocess
 from collections.abc import Mapping
@@ -235,7 +236,14 @@ _SPAN = re.compile(r"`([^`]+)`")
 
 TASK_FIELDS = ("file", "check", "rollback", "done when")
 
-_TASK = re.compile(r"^\s*(\d+[a-z]*)\. \*\*(.+?)\*\*", re.M)
+# The tick column: what a command may write between a task's number and its bold title, and
+# the only part of a plan `approval_bytes` masks before it is signed. Written once because
+# three readers have to agree on it exactly — the parser below, the canonical digest, and the
+# writer that fills it. When they disagreed for one commit, every plan in the tree parsed as
+# having no tasks at all.
+_COLUMN = r"(?:\[[ xX]\] )?(?:<!--t:[0-9a-f]{12}--> )?"
+
+_TASK = re.compile(r"^\s*(\d+[a-z]*)\. " + _COLUMN + r"\*\*(.+?)\*\*", re.M)
 _HEADING = re.compile(r"^#{1,6} ", re.M)
 _FIELD = re.compile(
     r"\*\*(file|check|rollback|done when)\*\*:?(.*?)"
@@ -295,9 +303,7 @@ def runs_something(value: str) -> bool:
 
 # The gap between a task's number and its bold title, which is the only part of a plan a
 # command is allowed to write. Everything else in the file is signed as it stands.
-_TASK_GAP = re.compile(
-    r"^([ \t]*\d+[a-z]*\.) (?:\[[ xX]\] )?(?:<!--t:[0-9a-f]{12}--> )?(?=\*\*)", re.M
-)
+_TASK_GAP = re.compile(r"^([ \t]*\d+[a-z]*\.) " + _COLUMN + r"(?=\*\*)", re.M)
 
 
 def approval_bytes(path: Path) -> bytes:
@@ -339,7 +345,7 @@ def _digest(path: Path) -> str:
     return "sha256:" + hashlib.sha256(approval_bytes(path)).hexdigest()
 
 
-def _envelope(home: Path, wanted: str, named: dict[str, str]) -> outcome.Result:
+def _envelope(home: Path, wanted: str, named: dict[str, str], tick: bool = False) -> outcome.Result:
     """One task, the two digests it was read under, and nothing else.
 
     This is the answer to the second problem specification 019 names. An executor could not
@@ -400,6 +406,110 @@ def _envelope(home: Path, wanted: str, named: dict[str, str]) -> outcome.Result:
         print(f"  {what}: {_digest(path)}{seal}")
     for field in TASK_FIELDS:
         print(f"  {field}: {found[field]}")
+    if tick:
+        return _tick(home, plan, found, named)
+    return outcome.result("PASS")
+
+
+def seal(task: str, check: str) -> str:
+    """Twelve characters that say a command decided this box, and which command it was.
+
+    The canonical digest is blind to the tick column by construction, so it would never
+    notice an `[x]` somebody typed. This is what notices. It is not a secret and it is not
+    meant to be one — anybody can run sha256 over two strings, which is the same standard
+    `docs/adr/0009` already lives under. What it removes is the case that actually happens:
+    a box ticked because somebody believed the work was done.
+
+    Copying another task's seal changes the identifier and fails. Editing the check text
+    expires the seal, and that is right rather than unfortunate: the evidence was for a
+    different command."""
+
+    return hashlib.sha256(f"{task}\n{check}".encode()).hexdigest()[:12]
+
+
+def _one_command(check: str) -> tuple[list[str], str]:
+    """The single runnable command a check declares, and why there is not one when there is not.
+
+    A check field is prose with backticked spans in it. Only the spans whose first word is on
+    `RUNNABLE` are commands; the rest are file names and phrases. Two of them is a refusal
+    rather than a choice — picking the first would tick a box on evidence from half the
+    check, and picking both would hide which one failed."""
+
+    runnable = [one for one in _SPAN.findall(check) if (one.split() or [""])[0] in RUNNABLE]
+    if not runnable:
+        return [], "its check names no command this tool can run"
+    if len(runnable) > 1:
+        return (
+            [],
+            f"its check names {len(runnable)} commands and choosing one is not this tool's call",
+        )
+    try:
+        argv = shlex.split(runnable[0])
+    except ValueError as unbalanced:
+        return [], f"its check does not parse as a command line: {unbalanced}"
+    if not argv or argv[0] not in RUNNABLE:
+        return [], "its check starts with a word that is not on the runnable list"
+    return argv, ""
+
+
+def _write_tick(plan: Path, task: str, mark: str) -> bool:
+    """Put one task's box in the state a command just measured. True when the file moved."""
+
+    body = plan.read_text(encoding="utf-8")
+    # Concatenated rather than formatted: `_COLUMN` contains a `{12}` repeat, and `.format`
+    # reads that as a field to substitute and raises on the twelfth positional argument
+    # nobody passed.
+    line = re.compile(r"^([ \t]*" + re.escape(task) + r"\.) " + _COLUMN + r"(?=\*\*)", re.M)
+    written = line.sub(lambda hit: f"{hit.group(1)} {mark}", body, count=1)
+    if written == body:
+        return False
+    plan.write_text(written, encoding="utf-8")
+    return True
+
+
+def _tick(home: Path, plan: Path, found: dict[str, str], named: dict[str, str]) -> outcome.Result:
+    """Run the check a task declares and write down what happened. Nothing else writes a box.
+
+    Three things in this order, and the order is the control. The approval is checked before
+    anything executes, because running a command out of a plan nobody approved is the risk
+    this whole verb exists inside. Then the command runs, without a shell, with its first
+    word on the closed list. Then the result is written: exit 0 ticks the box and seals it,
+    anything else leaves the box empty, removes any seal and prints the command with its
+    code.
+
+    There is no ratchet and no separate command to untick. A check that passed yesterday and
+    fails today empties its own box on the next run, which is the only behaviour that keeps
+    a ticked box worth reading.
+
+    Said plainly, because it is the sharp edge here: **this executes a command taken out of a
+    markdown file**. Measured over the 141 checks in this tree, 134 begin with `uv`, and
+    `uv run --with ...` resolves and runs third-party code from PyPI. Saying "only two of
+    them reach the network" would be false. What bounds it is the approval — the caller must
+    name the digest of the plan being executed, and it must be the plan on disk."""
+
+    if not named.get("plan"):
+        print("  --tick needs --plan-digest: executing a command out of a plan nobody named")
+        print("  as approved is the one thing this must not do quietly")
+        return outcome.result("INCOMPLETE")
+    argv, why_not = _one_command(found["check"])
+    if not argv:
+        print(f"  task {found['task']} was not ticked: {why_not}")
+        return outcome.result("INCOMPLETE")
+    try:
+        done = subprocess.run(argv, cwd=plan.parent.parents[1], timeout=1800, check=False)
+    except (OSError, subprocess.SubprocessError) as unrunnable:
+        print(f"  task {found['task']} was not ticked: {argv[0]} did not run ({unrunnable})")
+        _write_tick(plan, found["task"], "[ ] ")
+        return outcome.result("INCOMPLETE")
+    if done.returncode:
+        _write_tick(plan, found["task"], "[ ] ")
+        print(f"  task {found['task']} is open: {' '.join(argv)} exited {done.returncode}")
+        return outcome.result("INCOMPLETE")
+    stamp = seal(found["task"], found["check"])
+    if not _write_tick(plan, found["task"], f"[x] <!--t:{stamp}--> "):
+        print(f"  {' '.join(argv)} passed and task {found['task']} has no line to tick")
+        return outcome.result("INCOMPLETE")
+    print(f"  task {found['task']} is ticked: {' '.join(argv)} exited 0, sealed {stamp}")
     return outcome.result("PASS")
 
 
@@ -1027,6 +1137,11 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     shown.add_argument("--task", type=_argument(re.compile(r"^[0-9]+[a-z]*$"), "task number"))
     shown.add_argument("--spec-digest", default="")
     shown.add_argument("--plan-digest", default="")
+    shown.add_argument(
+        "--tick",
+        action="store_true",
+        help="run this task's check and write what it measured into the plan",
+    )
     listed = sub.add_parser("list")
     listed.add_argument("--all", action="store_true", help="include superseded specs")
     # The one subcommand here that reaches a remote, and the reason `spec`'s declared scope
@@ -1088,6 +1203,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
             matches[0].parent,
             args.task,
             {"spec": args.spec_digest, "plan": args.plan_digest},
+            tick=getattr(args, "tick", False),
         )
     # All of them, named. Printing the first and saying nothing about the rest is how
     # somebody reads one spec and acts as though it were the only one that matched.

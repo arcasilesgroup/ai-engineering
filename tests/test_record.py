@@ -1531,22 +1531,41 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
     from ai_engineering import spec
 
     root = Path(__file__).resolve().parents[1]
-    record = root / "docs" / "adr" / "0009-the-current-spec-010-digests-are-approved.md"
-    body = record.read_text(encoding="utf-8")
+    # Every record, not only 0009. While this read one file, `docs/adr/0013` drifted on two
+    # of its rows and nothing said so — which is the same defect one layer up: a control that
+    # covers one instance of a class reads exactly like one that covers the class.
+    #
+    # Those two are named here rather than repaired, because repairing them means either
+    # re-signing somebody else's approval or rewriting the files it approved, and neither is
+    # this branch's to do. Named on 2026-08-21:
+    #   0013 -> specs/016/spec.md          approved f5c004ee5307, now c91dbc80d502
+    #   0013 -> specs/018/plan.md          approved 22d69e65bb67, now 104d506522ed
+    # Anything that is not one of those two turns this red.
+    known = {
+        ("specs/016-the-thesis-nobody-owns/spec.md", "f5c004ee5307"),
+        ("specs/018-controls-a-reviewer-proved-were-not-controls/plan.md", "22d69e65bb67"),
+    }
 
-    rows = re.findall(r"^\|\s*`([^`]+)`\s*\|\s*`([0-9a-f]{64})`\s*\|", body, re.M)
-    assert len(rows) >= 2, (
-        f"{record.name} names {len(rows)} approved digests and it approved two files. An "
-        "approval record nobody can read row by row is prose with a table in it"
+    rows = []
+    for record in sorted((root / "docs" / "adr").glob("*.md")):
+        body = record.read_text(encoding="utf-8")
+        for name, approved in re.findall(
+            r"^\|\s*`([^`]+)`\s*\|\s*`([0-9a-f]{64})`\s*\|", body, re.M
+        ):
+            rows.append((record.name, name, approved))
+    assert len(rows) >= 11, (
+        f"the records name {len(rows)} approved digests and eleven were readable on the day "
+        "this was written. An approval record nobody can read row by row is prose with a "
+        "table in it"
     )
 
     moved = []
-    for name, approved in rows:
+    for where, name, approved in rows:
         target = root / name
-        assert target.is_file(), f"{record.name} approves {name}, which is not in this tree"
+        assert target.is_file(), f"{where} approves {name}, which is not in this tree"
         now = hashlib.sha256(spec.approval_bytes(target)).hexdigest()
-        if now != approved:
-            moved.append(f"{name}: approved {approved[:12]}, now {now[:12]}")
+        if now != approved and (name, approved[:12]) not in known:
+            moved.append(f"{where} -> {name}: approved {approved[:12]}, now {now[:12]}")
 
     assert not moved, (
         "the approved bytes are not the bytes that are there: "
@@ -1601,3 +1620,115 @@ def test_the_commit_msg_hook_places_the_run_receipt_and_never_refuses_the_commit
     assert ran("Some prose.", subject="Merge branch 'x'")[0] == 0
     # while a subject nobody's convention accepts is still refused.
     assert ran("Some prose.", subject="just some words")[0] == 1
+
+
+def _plan_with_check(where, command: str) -> Path:
+    """A one-task plan whose check is exactly the command given, box already in place."""
+    (where.parent / "plan.md").write_text(
+        "# Plan\n\n"
+        "1. [ ] **The one task** — **file** `src/thing.py`.\n"
+        f"   **check**: `{command}`.\n"
+        "   **rollback**: `git revert <commit>`. **done when**: it exits zero.\n",
+        encoding="utf-8",
+    )
+    return where.parent / "plan.md"
+
+
+def _tick(repo, command: str, digest: str | None = None):
+    """Run `--tick` over a one-task plan and give back the line it wrote."""
+    import hashlib
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-ticking-thing")
+    plan = _plan_with_check(where, command)
+    named = (
+        digest
+        if digest is not None
+        else "sha256:" + hashlib.sha256(spec.approval_bytes(plan)).hexdigest()
+    )
+    argv = ["show", where.parent.name[:3], "--task", "1", "--tick"]
+    if named:
+        argv += ["--plan-digest", named]
+    result = spec.main(argv)
+    body = plan.read_text(encoding="utf-8").splitlines()
+    line = next(one for one in body if one.startswith("1."))
+    return result, line
+
+
+def test_a_box_is_ticked_by_a_command_that_passed_and_by_nothing_else(repo, capsys):
+    """The tick column, and the three ways it can be wrong.
+
+    A box in a plan is a command's result, not a claim. So it is written by one thing —
+    `--tick`, which runs the check the task declares — and the interesting cases are the
+    ones where it must refuse: a check that fails leaves the box empty and says what exited
+    non-zero; a caller who did not name the approved digest gets nothing executed at all,
+    because running a command out of a plan nobody approved is the risk this lives inside;
+    and a check naming two commands is a refusal rather than a choice, since picking the
+    first would tick a box on half the evidence.
+    """
+
+    from ai_engineering import spec
+
+    passed, line = _tick(repo, "python -c pass")
+    assert passed.outcome == "PASS", capsys.readouterr().out
+    assert line.startswith("1. [x] <!--t:"), line
+    stamp = line.split("<!--t:")[1].split("-->")[0]
+    assert stamp == spec.seal("1", "`python -c pass`"), line
+
+    failed, line = _tick(repo, "python -c exit(3)")
+    assert failed.outcome == "INCOMPLETE"
+    assert line.startswith("1. [ ] **"), line
+    assert "exited 3" in capsys.readouterr().out
+
+    unapproved, line = _tick(repo, "python -c pass", digest="")
+    assert unapproved.outcome == "INCOMPLETE"
+    assert line.startswith("1. [ ] **"), "a command ran without an approved digest named"
+    assert "--plan-digest" in capsys.readouterr().out
+
+    wrong, line = _tick(repo, "python -c pass", digest="sha256:" + "0" * 64)
+    assert wrong.outcome == "INCOMPLETE"
+    assert line.startswith("1. [ ] **"), "a command ran against a plan that is not on disk"
+
+    both, _ = _tick(repo, "python -c pass` and `python -c pass")
+    assert both.outcome == "INCOMPLETE"
+    assert "choosing one is not this tool's call" in capsys.readouterr().out
+
+
+def test_every_ticked_box_in_this_tree_carries_the_seal_of_the_check_beside_it():
+    """The `if and only if` the canonical digest cannot see.
+
+    `approval_bytes` masks the tick column, which is what lets a box be written without
+    voiding an approval — and it means the signature would never notice an `[x]` somebody
+    typed. This notices. Every ticked box carries the seal of its own task id and its own
+    check text, and every seal sits on a ticked box.
+
+    A hand-painted box has no seal. A seal copied from another task has the wrong id. A
+    check whose text was edited after the run expires its seal, which is correct: the
+    evidence was for a different command.
+    """
+
+    import re
+
+    from ai_engineering import spec
+
+    root = Path(__file__).resolve().parents[1]
+    wrong = []
+    for plan in sorted(root.glob("specs/*/plan.md")):
+        body = plan.read_text(encoding="utf-8")
+        tasks = {one["task"]: one.get("check", "") for one in spec.plan_tasks(body)}
+        for mark in re.finditer(
+            r"^[ \t]*(\d+[a-z]*)\. (\[[ xX]\] )?(<!--t:([0-9a-f]{12})--> )?", body, re.M
+        ):
+            task, box, _, stamp = mark.group(1), mark.group(2) or "", mark.group(3), mark.group(4)
+            ticked = box.strip() in ("[x]", "[X]")
+            if not ticked and not stamp:
+                continue
+            where = f"{plan.parent.name} task {task}"
+            if ticked and not stamp:
+                wrong.append(f"{where}: ticked with no seal, so a person wrote it")
+            elif stamp and not ticked:
+                wrong.append(f"{where}: sealed with an empty box")
+            elif stamp != spec.seal(task, tasks.get(task, "")):
+                wrong.append(f"{where}: the seal is not this task's check")
+    assert not wrong, "; ".join(wrong)

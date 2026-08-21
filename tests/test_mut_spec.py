@@ -1394,7 +1394,6 @@ def test_the_tick_column_is_invisible_to_an_approval_and_nothing_else_is():
     """
 
     import hashlib
-    import re
     import shutil
 
     from ai_engineering import spec
@@ -1407,19 +1406,31 @@ def test_the_tick_column_is_invisible_to_an_approval_and_nothing_else_is():
     def canon(path: Path) -> str:
         return hashlib.sha256(spec.approval_bytes(path)).hexdigest()
 
-    moved = [
-        p.name for p in plans + specs if canon(p) != hashlib.sha256(p.read_bytes()).hexdigest()
-    ]
-    assert not moved, (
-        f"{len(moved)} approved files change digest the day this lands: {moved[:4]}. The "
-        "whole case for canonicalising is that no approval on record changes value"
-    )
+    # A specification is signed as it stands, always. Its eight production-ready boxes are a
+    # person's claim and `readiness.py` reads them, so masking one would sign the claim away.
+    raw = [p.parent.name for p in specs if canon(p) != hashlib.sha256(p.read_bytes()).hexdigest()]
+    assert not raw, f"specifications were canonicalised: {raw}"
 
-    numbered = re.compile(r"^([ \t]*\d+[a-z]*\.) (?=\*\*)", re.M)
+    # And a plan is signed as it read before the column existed — which is the whole case for
+    # doing it this way, since it means no approval on record changed value. Executed rather
+    # than asserted: take every box back out and the digest has to be that file's own bytes.
+    stripped = [
+        p.parent.name
+        for p in plans
+        if canon(p)
+        != hashlib.sha256(
+            spec._TASK_GAP.sub(r"\1 ", p.read_text(encoding="utf-8")).encode("utf-8")
+        ).hexdigest()
+    ]
+    assert not stripped, f"a plan's canonical digest is not its unticked bytes: {stripped}"
+
     exercised = 0
     for plan in plans:
         body = plan.read_text(encoding="utf-8")
-        ticked = numbered.sub(r"\1 [x] <!--t:0123456789ab--> ", body)
+        # Through the same gap the writer uses, so a box already there is replaced rather
+        # than doubled — this loop asserted over zero files for one commit because it
+        # inserted into a column that was no longer empty.
+        ticked = spec._TASK_GAP.sub(r"\1 [x] <!--t:0123456789ab--> ", body)
         if ticked == body:
             # Measured: some plans in this tree carry no task in the shape a script can
             # enumerate, and `specs/001` is one. They are counted below rather than passed

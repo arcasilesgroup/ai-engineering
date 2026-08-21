@@ -32,28 +32,28 @@ the doctrine, the filter, the ledger row, the changelog. Each is green on its ow
 
 ## Block A — the two controls that cannot fire (Tasks 1–8)
 
-1. **The capability cap is removed, and the list a person signs is kept** —
+1. [ ] **The capability cap is removed, and the list a person signs is kept** —
    **file** `policy/capability-manifest.schema.json`.
    **check**: `uv run pytest -q tests/test_capabilities.py tests/test_contracts.py -k capability`.
    **rollback**: `git revert <commit>`.
    **done when**: the `maxItems` key is gone, `minItems` remains, `allowed_ids` is untouched,
    and the schema seal in `src/ai_engineering/capability.py` matches the new file.
 
-2. **The ceiling card leaves the page that publishes it** —
+2. [ ] **The ceiling card leaves the page that publishes it** —
    **file** `src/ai_engineering/solution_intent.py`.
    **check**: `uv run pytest -q tests/test_solution_intent.py`.
    **rollback**: `git revert <commit>`.
    **done when**: the page renders without a product-lines card and the module imports with
    no unused reader left behind.
 
-3. **The assertions and receipts that read the ceiling are deleted** —
+3. [ ] **The assertions and receipts that read the ceiling are deleted** —
    **file** `tests/test_contracts.py`.
    **check**: `uv run pytest -q tests/test_contracts.py tests/test_readiness.py tests/test_record.py`.
    **rollback**: `git revert <commit>`.
    **done when**: no test imports `REPO_CEILING`, including the module-level alias, and the
    suite still collects.
 
-4. **The constant, its sealer and its recipe are deleted** —
+4. [ ] **The constant, its sealer and its recipe are deleted** —
    **file** `src/ai_engineering/contract.py`.
    **check**: `git grep -n REPO_CEILING -- src tests hooks justfile`.
    **rollback**: `git revert <commit>`.
@@ -61,7 +61,7 @@ the doctrine, the filter, the ledger row, the changelog. Each is green on its ow
    recipe is gone, and `contract.tracked` and `contract.count` still resolve for their live
    readers.
 
-5. **The doctrine stops naming a number that is not there** —
+5. [ ] **The doctrine stops naming a number that is not there** —
    **file** `AGENTS.md`.
    **check**: `uv run pytest -q tests/test_contracts.py -k doctrine`.
    **rollback**: `git revert <commit>`.
@@ -69,20 +69,20 @@ the doctrine, the filter, the ledger row, the changelog. Each is green on its ow
    value, and `doctor.py` and `policy/pilot-register.toml` lose their matching sentences in
    the same commit.
 
-6. **The filter that existed only for ceiling commits is deleted** —
+6. [ ] **The filter that existed only for ceiling commits is deleted** —
    **file** `tests/red_then_green.py`.
    **check**: `uv run python tests/red_then_green.py`.
    **rollback**: `git revert <commit>`.
    **done when**: the bookkeeping special case is gone and the harness still runs.
 
-7. **The requirement row is rewritten in place, not deleted** —
+7. [ ] **The requirement row is rewritten in place, not deleted** —
    **file** `docs/requirements.toml`.
    **check**: `uv run pytest -q tests/test_requirements_ledger.py`.
    **rollback**: `git revert <commit>`.
    **done when**: the row that named the ceiling command says what is true now, the total is
    still 385 and every identifier still resolves.
 
-8. **The removal is written where a stranger reads it** —
+8. [ ] **The removal is written where a stranger reads it** —
    **file** `CHANGELOG.md`.
    **check**: `uv run pytest -q tests/docs`.
    **rollback**: `git revert <commit>`.
@@ -91,7 +91,7 @@ the doctrine, the filter, the ledger row, the changelog. Each is green on its ow
 
 ## Block B — the paths that read a crash as permission (Tasks 9–11)
 
-9. **The dispatcher denies when it cannot decide** —
+9. [ ] **The dispatcher denies when it cannot decide** —
    **file** `hooks/chain.py`.
    **check**: `uv run pytest -q tests/test_hooks.py -k dispatcher`.
    **rollback**: `git revert <commit>`.
@@ -99,14 +99,14 @@ the doctrine, the filter, the ledger row, the changelog. Each is green on its ow
    exits once with one message — the `SystemExit` clause comes first or every real denial is
    swallowed and printed twice.
 
-10. **A denial survives a broken standard output** —
+10. [ ] **A denial survives a broken standard output** —
     **file** `hooks/_wrap.py`.
     **check**: `uv run pytest -q tests/test_hooks.py -k stdout`.
     **rollback**: `git revert <commit>`.
     **done when**: with standard output closed the process exits 2 in both protocols, and
     the exit does not run the interpreter's flush, which is what rewrites the status to 120.
 
-11. **The loop guard stops denying on whitespace** —
+11. [ ] **The loop guard stops denying on whitespace** —
     **file** `hooks/loop_guard.py`.
     **check**: `uv run pytest -q tests/test_hooks.py -k whitespace`.
     **rollback**: `git revert <commit>`.
