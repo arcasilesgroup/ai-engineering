@@ -27,7 +27,7 @@ there should not be tangled up with a gate that was already moving.
 
 ## Block A — the record of what may be done (Tasks 1–3)
 
-1. [ ] **The widened grant is written down before it is used** —
+1. [x] <!--t:4679efda9ea1--> **The widened grant is written down before it is used** —
    **file** `docs/adr/0021-the-owner-approves-specifications-and-nothing-else.md`.
    **check**: `uv run pytest -q tests/test_record.py -k madr`.
    **rollback**: `git revert <commit>`.
@@ -35,14 +35,14 @@ there should not be tangled up with a gate that was already moving.
    states the four things still refused — push to the default branch is not among the grants
    this plan uses.
 
-2. [ ] **An approval reader that lets a later record supersede an earlier row** —
+2. [x] <!--t:ac07c765ed18--> **An approval reader that lets a later record supersede an earlier row** —
    **file** `tests/test_record.py`.
    **check**: `uv run pytest -q tests/test_record.py -k approval`.
    **rollback**: `git revert <commit>`.
    **done when**: rows are keyed by file and the newest record wins, the hand-written waiver
    set is gone, and a file whose newest approval does not match its bytes still turns it red.
 
-3. [ ] **Specifications 016 and 018 are approved at the bytes they have** —
+3. [x] <!--t:8b7b15814856--> **Specifications 016 and 018 are approved at the bytes they have** —
    **file** `docs/adr/0022-specifications-016-and-018-are-re-approved-at-exact-digests.md`.
    **check**: `uv run pytest -q tests/test_record.py -k approval`.
    **rollback**: `git revert <commit>`.
@@ -51,7 +51,7 @@ there should not be tangled up with a gate that was already moving.
 
 ## Block B — two documents that disagreed (Tasks 4–5)
 
-4. [ ] **Task 8 of specification 022 gets a check that can pass** —
+4. [x] <!--t:90cddc98943f--> **Task 8 of specification 022 gets a check that can pass** —
    **file** `tests/test_contracts.py`.
    **check**: `uv run pytest -q tests/test_contracts.py -k anchored`.
    **rollback**: `git revert <commit>`.
@@ -75,7 +75,7 @@ there should not be tangled up with a gate that was already moving.
    and passes on both interpreters, so `requires-python = ">=3.11"` stops being a claim the
    package does not keep.
 
-7. [ ] **Wave 3 is refused in writing, and the constitutional misreading is withdrawn** —
+7. [x] <!--t:6dbe0eddcf5d--> **Wave 3 is refused in writing, and the constitutional misreading is withdrawn** —
    **file** `docs/adr/0023-the-record-is-not-context-and-archiving-it-buys-nothing.md`.
    **check**: `grep -rn 'specs/' hooks/*.py` prints nothing, and
    `uv run pytest -q tests/test_record.py -k madr`.
@@ -86,7 +86,7 @@ there should not be tangled up with a gate that was already moving.
 
 ## Block D — the margin on the lane (Task 8)
 
-8. [ ] **The nine surviving generated mutants are killed** —
+8. [x] <!--t:652acb56c3a1--> **The nine surviving generated mutants are killed** —
    **file** the test files each survivor's module is proved by.
    **check**: `python tests/mutation.py`.
    **rollback**: `git revert <commit>`.
