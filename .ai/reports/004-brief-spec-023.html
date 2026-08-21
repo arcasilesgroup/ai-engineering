@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="Brief de decision: sustituir el metodo de /ai-council por el del LLM Council. Que se propone, que se refuto, que falta y que cuesta.">
+  <title>ai-engineering | Brief: sustituir el council</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --bg:#f4f2eb; --surface:#fcfbf7; --surface-2:#e9e6dc;
+      --ink:#17201d; --muted:#56625c; --line:#cac7bc; --line-strong:#989c96;
+      --green:#166e52; --green-soft:#dcebe4; --amber:#89570f; --amber-soft:#f2e5cc;
+      --red:#913b35; --red-soft:#f1dfdc; --blue:#315e7d; --blue-soft:#dce8ef;
+      --shadow:0 20px 54px rgba(22,31,27,.09); --radius:14px; --max:1080px;
+      --sans:"Avenir Next",Avenir,"Segoe UI",Inter,system-ui,sans-serif;
+      --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    }
+    html[data-theme="dark"]{
+      --bg:#0d1412; --surface:#151e1b; --surface-2:#1e2a26;
+      --ink:#eaf0ec; --muted:#a7b3ad; --line:#2d3b36; --line-strong:#52635c;
+      --green:#70d0aa; --green-soft:#17382d; --amber:#efb869; --amber-soft:#3a2d19;
+      --red:#f0958c; --red-soft:#3a2422; --blue:#8bc1e3; --blue-soft:#1b3040;
+      --shadow:0 24px 60px rgba(0,0,0,.28);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;min-width:320px;background:var(--bg);color:var(--ink);
+         font-family:var(--sans);font-size:17px;line-height:1.62}
+    .wrap{max-width:var(--max);margin:0 auto;padding:0 22px}
+    header{border-bottom:1px solid var(--line);padding:34px 0 26px}
+    .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.13em;
+            text-transform:uppercase;color:var(--muted)}
+    h1{font-size:clamp(28px,4.4vw,44px);line-height:1.12;margin:12px 0 10px;letter-spacing:-.02em}
+    .sub{color:var(--muted);max-width:64ch;margin:0}
+    main{padding:32px 0 60px}
+    section{margin:0 0 40px}
+    h2{font-size:clamp(21px,2.6vw,27px);margin:0 0 14px;letter-spacing:-.01em}
+    h3{font-size:18px;margin:24px 0 8px}
+    .bluf{background:var(--surface);border:1px solid var(--line-strong);
+          border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow)}
+    .bluf p{margin:0 0 12px}.bluf p:last-child{margin:0}
+    .card{background:var(--surface);border:1px solid var(--line);
+          border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
+    .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+    .stat{background:var(--surface);border:1px solid var(--line);
+          border-radius:var(--radius);padding:16px 18px}
+    .stat .n{font-family:var(--mono);font-size:27px;font-weight:600;display:block;line-height:1.2}
+    .stat .lab{color:var(--muted);font-size:14px;display:block;margin-top:4px}
+    .n.up{color:var(--green)}.n.down{color:var(--red)}.n.mid{color:var(--amber)}
+    .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+    table{border-collapse:collapse;width:100%;min-width:640px;font-size:15px}
+    th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+    th{font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+       color:var(--muted);background:var(--surface-2)}
+    tr:last-child td{border-bottom:none}
+    code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);padding:1px 5px;border-radius:5px}
+    .tag{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+         padding:2px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+    .t-ok{color:var(--green);background:var(--green-soft)}
+    .t-no{color:var(--red);background:var(--red-soft)}
+    .t-open{color:var(--amber);background:var(--amber-soft)}
+    ul,ol{padding-left:20px}li{margin:7px 0}
+    a{color:var(--blue)}
+    .stop{border:1px solid var(--amber);background:var(--amber-soft);color:var(--ink);
+          border-radius:var(--radius);padding:20px 22px}
+    .foot{border-top:1px solid var(--line);padding:20px 0 0;color:var(--muted);font-size:14.5px}
+    .btn{font:inherit;font-size:14px;background:var(--surface-2);color:var(--ink);
+         border:1px solid var(--line);border-radius:9px;padding:6px 13px;cursor:pointer}
+    .bar{display:flex;gap:8px;justify-content:flex-end;padding-top:14px}
+    @media print{.bar{display:none}body{background:#fff}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="bar">
+    <button class="btn" id="themeButton">Tema</button>
+    <button class="btn" id="printButton">Imprimir</button>
+  </div>
+  <p class="kicker">Brief 004 &middot; 21 de agosto de 2026 &middot; especificaci&oacute;n 023</p>
+  <h1>Sustituir el m&eacute;todo de <code>/ai-council</code></h1>
+  <p class="sub">Primera mitad del ciclo terminada. Esto es lo que se propone, lo que se refut&oacute;,
+  lo que falta y lo que cuesta. No hay ninguna aprobaci&oacute;n escrita en ning&uacute;n sitio: eso lo pones t&uacute;.</p>
+</header>
+
+<main>
+
+<section>
+  <h2>En una p&aacute;gina</h2>
+  <div class="bluf">
+    <p>Pediste sustituir nuestro council por el LLM Council de Karpathy, y cuando te dije que
+    contradec&iacute;a un ADR aceptado esa misma ma&ntilde;ana, dijiste que aun as&iacute; hay que hacerlo.
+    <strong>Se hace.</strong> El chairman escribir&aacute; veredicto y recomendaci&oacute;n.</p>
+
+    <p><strong>Con un cambio, y no es est&eacute;tico.</strong> La ronda dos no preguntar&aacute;
+    "&iquest;cu&aacute;l respuesta es la mejor?" sino "&iquest;cu&aacute;l de estos hallazgos es un falso positivo,
+    y con qu&eacute; comando se ve?". Motivo: existe una r&eacute;plica con benchmark de la forma exacta de Karpathy
+    &mdash;<em>Independent &rarr; Rank &rarr; Synthesize</em>&mdash; y fue la <strong>&uacute;nica</strong> estructura
+    deliberativa que puntu&oacute; por debajo del mejor lector individual. En el mismo arn&eacute;s, votar sac&oacute;
+    +5.1&nbsp;pp. El ensemble funciona; rankear-y-sintetizar es lo que pierde.</p>
+
+    <p><strong>Y ya lo corrimos una vez, sobre esta misma especificaci&oacute;n.</strong> Cinco lentes
+    independientes: 28 hallazgos. La lectura cruzada: <strong>11 huecos que ninguna lente hab&iacute;a visto</strong>
+    y <strong>3 hallazgos refutados</strong> con el comando que lo demuestra. Es un solo caso, con una sola familia
+    de modelos, y no es un benchmark. Es la primera evidencia que este repositorio ha tenido nunca sobre la pregunta.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Los n&uacute;meros de esta ejecuci&oacute;n</h2>
+  <div class="grid">
+    <div class="stat"><span class="n">28</span><span class="lab">hallazgos de cinco lentes que no se vieron entre s&iacute;</span></div>
+    <div class="stat"><span class="n up">11</span><span class="lab">huecos que solo aparecieron tras la lectura cruzada, cada uno verificado con un comando</span></div>
+    <div class="stat"><span class="n mid">3</span><span class="lab">hallazgos refutados, cada refutaci&oacute;n ejecutada</span></div>
+    <div class="stat"><span class="n down">6</span><span class="lab">frases de mi propia spec que el challenger ejecut&oacute; y result&aacute;ron falsas. Todas reparadas</span></div>
+  </div>
+  <p style="color:var(--muted);margin-top:14px">Esos dos primeros n&uacute;meros son exactamente lo que el ADR&nbsp;0019
+  dijo que faltaba: <em>"no existe todav&iacute;a un benchmark que defina la mejora que un council muestra"</em>.
+  Ahora existe un instrumento. Todav&iacute;a no existe una serie.</p>
+</section>
+
+<section>
+  <h2>Qu&eacute; se propone exactamente</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Ronda</th><th>Qu&eacute; hace</th><th>Diferencia con lo pegado</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Uno</strong></td>
+          <td>Cinco lentes leen la spec y nada m&aacute;s. Ninguna ve a las otras.</td>
+          <td>Igual. Es lo que compra la cobertura: 14 incidencias por sesi&oacute;n frente a 9, y el 70&nbsp;% las vio un solo lector.</td></tr>
+      <tr><td><strong>Dos</strong></td>
+          <td>Cada lente ve a las otras cuatro, anonimizadas y barajadas, <strong>y no la suya</strong>. Dos preguntas: qu&eacute; hallazgo es falso positivo (con comando), y qu&eacute; se les escap&oacute; a todas.</td>
+          <td><span class="tag t-no">cambiado</span> No rankea. Y ocultarle su propia respuesta mantiene fuera la auto-preferencia justo en la ronda que borra cosas.</td></tr>
+      <tr><td><strong>Tres</strong></td>
+          <td>Un chairman recibe la spec, las dos rondas sin nombres, y escribe veredicto, desacuerdos, puntos ciegos, recomendaci&oacute;n y un primer paso.</td>
+          <td><span class="tag t-ok">como pediste</span>, pero <strong>sin volver a pegar los nombres</strong>: el c&oacute;digo original s&iacute; lo hace, y revelar identidad mueve la auto-preferencia de 0.511 a 0.82&ndash;0.97.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Qu&eacute; podr&aacute; escribir y qu&eacute; no</h3>
+  <div class="card">
+    <p>Podr&aacute; escribir <code>Recommendation: aprieta la secci&oacute;n 4</code> y <code>Verdict: contestable</code>.
+    No podr&aacute; escribir <code>approved</code>, <code>PASS</code>, un resultado de gate ni una aceptaci&oacute;n de riesgo.
+    <code>ai-eng decide</code> con una persona nombrada sigue siendo el &uacute;nico sitio donde se concede algo.</p>
+    <p><strong>Y aqu&iacute; el challenger encontr&oacute; algo inc&oacute;modo:</strong> el test que supuestamente prohib&iacute;a
+    todo eso <strong>no detecta hoy</strong> un <code>approved</code> suelto, ni un <code>PASS</code>, ni un riesgo aceptado.
+    Solo dispara con la forma <code>palabra:</code>. As&iacute; que esto no es relajar un test: es reescribirlo
+    para que por primera vez detecte tres de las cuatro cosas que dice prohibir.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Qu&eacute; se refut&oacute;</h2>
+  <ul>
+    <li><span class="tag t-no">refutado</span> <strong>"Anonimizar no sirve porque el modelo se reconoce igual."</strong>
+      Era nuestra mejor defensa del dise&ntilde;o actual y es falsa. Panickssery et al., Tabla 6: la auto-preferencia
+      pasa de 0.511 sin etiquetas a 0.82&ndash;0.97 con ellas. Anonimizar <em>funciona</em>. Lo que no funciona es
+      lo que hace el c&oacute;digo de Karpathy, que vuelve a pegar los nombres en la llamada final.</li>
+    <li><span class="tag t-no">refutado</span> <strong>"Karpathy midi&oacute; que su council mejora las respuestas."</strong>
+      No midi&oacute; nada. Cero tests, cero benchmarks, cinco commits en un solo d&iacute;a. &Eacute;l mismo dej&oacute; escrito
+      que el ranking de pares <em>no coincid&iacute;a con su propio juicio</em>, y un mes despu&eacute;s lo archiv&oacute;
+      entre "demos r&aacute;pidas de cosas que quer&iacute;a que existieran".</li>
+    <li><span class="tag t-no">refutado</span> <strong>Mi propia tabla de nueve puertas en rojo.</strong>
+      El fichero pegado no est&aacute; en el &aacute;rbol, as&iacute; que ese n&uacute;mero no se puede ejecutar aqu&iacute;.
+      La spec ya no lo afirma: nombra las comprobaciones con su comando y no cuenta.</li>
+    <li><span class="tag t-no">refutado</span> Y una del propio council: una lente sostuvo que las citas de la spec
+      no resolv&iacute;an a ninguna fuente. La lectura cruzada abri&oacute; el informe, encontr&oacute; las veinte
+      y la elimin&oacute;. Eso es exactamente para lo que sirve la ronda dos.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Qu&eacute; falta, y sigue faltando</h2>
+  <ul>
+    <li><span class="tag t-open">sin fuente</span> <strong>Nadie ha comparado nunca rankear contra buscar ausencias</strong>
+      en sesgo posicional, auto-preferencia ni conformidad. Es el eje exacto en el que difieren los dos dise&ntilde;os
+      y el estudio no existe.</li>
+    <li><span class="tag t-open">sin fuente</span> <strong>Nadie separa la lectura cruzada de una ronda del debate iterado.</strong>
+      Casi toda la evidencia en contra mide debate <em>iterado</em>; esta propuesta no itera. Si esa distinci&oacute;n
+      aguanta, unas quince objeciones no aplican. Si no aguanta, aplican todas. Es el punto d&eacute;bil real de la decisi&oacute;n.</li>
+    <li><span class="tag t-open">abierto</span> <strong>Una ejecuci&oacute;n no es una serie.</strong> 11 y 3 salieron de un
+      documento, con una familia de modelos, y el que escribi&oacute; el documento tambi&eacute;n dise&ntilde;&oacute; el experimento.</li>
+    <li><span class="tag t-open">abierto</span> <strong>Nada mide si alguien lee la salida del council.</strong>
+      Es el problema n&uacute;mero dos de la spec y no tiene comparador ni antes ni despu&eacute;s.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Qu&eacute; cuesta</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Concepto</th><th>Precio</th></tr></thead>
+    <tbody>
+      <tr><td>Ejecuci&oacute;n</td><td>Once llamadas de modelo por council donde hoy hay cinco. Sin credenciales nuevas y sin proveedor nuevo: las lentes son forks del host que ya est&aacute; corriendo.</td></tr>
+      <tr><td>Ficheros que se tocan</td><td>El skill y su <code>corpus.md</code>; dos tests de contrato; <code>contract.py</code> y sus cuatro consumidores; la l&iacute;nea 91 de <code>AGENTS.md</code>; el baseline 326 de <code>pilot-register.toml</code>; un script nuevo con su recibo dentro de <code>just check</code>; y un ADR que supersede al 0019.</td></tr>
+      <tr><td>Se borra <code>contract.CEILING</code></td><td>Decisi&oacute;n tuya de hoy. Coste declarado: la regla 12 vuelve a ser un prompt, y nada acota la longitud de un skill despu&eacute;s. <code>SKILL_FOG_CEILING</code> mide dificultad de lectura, no longitud. Volver atr&aacute;s no es re-a&ntilde;adir una constante: es una fila de mutaci&oacute;n, un campo de stats, dos aserciones y cualquier skill que haya crecido entretanto.</td></tr>
+      <tr><td>Se reabre el ADR 0019</td><td>Con un registro que lo supersede, no con un commit que lo contradiga en silencio. <code>EP-195</code> est&aacute; anotado en dos sitios m&aacute;s &mdash;<code>specs/013</code> y <code>docs/requirements.toml</code>&mdash; y lo honesto es dejarlos donde est&aacute;n hasta que el recibo tenga m&aacute;s de una ejecuci&oacute;n.</td></tr>
+      <tr><td>Vuelta atr&aacute;s</td><td>Un <code>git revert</code> de un commit. Los recibos escritos antes sobreviven.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Aqu&iacute; para</h2>
+  <div class="stop">
+    <p style="margin:0 0 12px"><strong>No hay ninguna aprobaci&oacute;n escrita.</strong> La especificaci&oacute;n est&aacute;
+    en <code>specs/023-council-that-reads-itself/spec.md</code> con estado <code>draft</code>, junto a
+    <code>challenge.md</code> (lo que fall&oacute; al ejecutarse) y <code>council.md</code> (las dos rondas y los dos n&uacute;meros).</p>
+    <p style="margin:0 0 12px">La segunda mitad del ciclo &mdash;construir, revisar, verificar, seguridad, auditar, publicar&mdash;
+    no tiene nada contra lo que correr hasta que exista un registro de aprobaci&oacute;n con el digest exacto de esa spec.</p>
+    <p style="margin:0"><strong>Lo que decides:</strong> firmar la spec tal como est&aacute;, o decirme qu&eacute; cambiar
+    &mdash;especialmente si prefieres que la ronda dos s&iacute; rankee, que es lo &uacute;nico donde me apart&eacute; de lo que pegaste,
+    y lo hice sobre una medici&oacute;n que puedes leer en el informe 003.</p>
+  </div>
+</section>
+
+<p class="foot">Brief de decisi&oacute;n. No es una especificaci&oacute;n, un plan, una aprobaci&oacute;n, un PASS
+ni una aceptaci&oacute;n de riesgo. Primera mitad del ciclo gobernado: investigar, especificar, retar, council, y parar.
+Evidencia citada en <code>.ai/reports/003-council-peer-review-evidence.html</code>.</p>
+
+</main>
+</div>
+<script>
+  (() => {
+    const root = document.documentElement;
+    const stored = localStorage.getItem('ai-eng-brief-004-theme');
+    if (stored === 'light' || stored === 'dark') root.dataset.theme = stored;
+    document.getElementById('themeButton').addEventListener('click', () => {
+      root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('ai-eng-brief-004-theme', root.dataset.theme);
+    });
+    document.getElementById('printButton').addEventListener('click', () => window.print());
+  })();
+</script>
+</body>
+</html>
