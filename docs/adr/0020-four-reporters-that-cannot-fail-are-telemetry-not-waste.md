@@ -6,7 +6,10 @@ id: "0020"
 title: "Four reporters that cannot fail are telemetry, not waste"
 date: "2026-08-21"
 spec: "022"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "no-hitl-2026-08-20"
+approved_at: "2026-08-21T01:00:00Z"
 supersedes: ""
 ---
 
