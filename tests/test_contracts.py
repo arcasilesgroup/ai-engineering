@@ -2153,3 +2153,68 @@ def test_the_path_safety_readers_survive_every_deletion_called_anchor(tmp_path):
     for refused in ("safe/link.json", "linked/planted.json"):
         with pytest.raises(readiness._Unreadable):
             readiness._anchored(root, refused)
+
+
+COUNCIL_VERDICT = re.compile(
+    r"^[ \t>*-]*(approved|approval|verdict|decision|vote|votes|voted|score|scores|"
+    r"consensus|ranking|ranked|recommendation)\b[ \t]*[:=]",
+    re.M | re.I,
+)
+COUNCIL_TALLY = re.compile(r"^[ \t>*-]*\d+\s*(of|/)\s*\d+\s+(members|lenses|agree)", re.M | re.I)
+
+
+def _verdict_fields(body: str) -> list[str]:
+    """Every field in a council file that a machine could read as a decision."""
+
+    found = {hit.group(1).lower() for hit in COUNCIL_VERDICT.finditer(body)}
+    found.update(hit.group(0).strip() for hit in COUNCIL_TALLY.finditer(body))
+    return sorted(found)
+
+
+def test_a_council_reviews_and_never_approves():
+    """`EP-171`, which asked for a check rather than a sentence the day a council existed.
+
+    The constitution says models "may investigate, propose and review; they never grant
+    authority or accept risk". The distinction is exact and it is easy to lose: a council
+    that reviews is allowed, a council that approves is not. So the boundary cannot be a
+    paragraph in a skill file — `EP-171` sat at UNFALSIFIABLE for exactly that reason, its
+    evidence a grep for a sentence, with nothing to test against.
+
+    A council exists now, so this is that test. It reads what a council produces and refuses
+    any field a machine could read as a decision: an approval, a verdict, a vote, a score, a
+    ranking, or a tally of members agreeing. Approval stays where it is, with a person behind
+    it and `ai-eng decide` in front of it.
+
+    Driven against a file that must be refused as well as the tree's own, because a rule that
+    has never fired is a rule nobody has tested — and today there is no `council.md` in this
+    repository at all, so the tree half alone would pass over nothing.
+    """
+
+    clean = "# Council\n\n## Cost\n\n- the spec never says what this costs. `just check`\n"
+    assert not _verdict_fields(clean), _verdict_fields(clean)
+    for refused in (
+        "approved: yes\n",
+        "- Verdict: ship it\n",
+        "votes = 2\n",
+        "> consensus: the three members agree\n",
+        "2 of 3 members agree\n",
+        "Recommendation: approve\n",
+    ):
+        assert _verdict_fields(clean + refused), f"a council could write {refused!r}"
+
+    said = []
+    for produced in sorted(ROOT.glob("specs/*/council.md")):
+        fields = _verdict_fields(produced.read_text(encoding="utf-8"))
+        if fields:
+            said.append(f"{produced.parent.name}: {', '.join(fields)}")
+    assert not said, (
+        "a council granted authority: " + "; ".join(said) + ". It may name what is absent "
+        "and it may not say whether the specification is good — that belongs to a person"
+    )
+
+    # And the skill itself has to say so, because the file above only exists after a run.
+    skill = (ROOT / ".agents" / "skills" / "ai-council" / "SKILL.md").read_text(encoding="utf-8")
+    assert "No vote and no ranking" in skill and "approved" in skill, (
+        "the council skill no longer states that it has no field in which the word approved "
+        "could be written, which is the instruction this test enforces the output of"
+    )

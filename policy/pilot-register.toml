@@ -502,12 +502,6 @@ reason = "irreversible, high-risk, contradictory and cross-cutting are readings 
 reopen_when = "a decision record carries the four as declared fields, which would make them checkable and would also make them somebody's assertion"
 
 [[ungated]]
-id = "EP-171"
-asks = "more reviewers do not change the authority boundary"
-reason = "there is no council code to bound and no gap metric to compute. What executes is the refusal itself: `tests/test_contracts.py` refuses an edit that lets a reviewer grant authority."
-reopen_when = "a council ships, at which point the boundary needs a gate rather than a sentence"
-
-[[ungated]]
 id = "EP-175"
 asks = "the agent challenges its own recommendation once"
 reason = "the spec template requires the section and the skill requires the challenge; whether the challenge was real is a reading of prose. A check on its presence would be satisfied by a heading."

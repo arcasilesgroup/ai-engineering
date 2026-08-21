@@ -1271,11 +1271,10 @@ note = "the triggers are named in prose; nothing in code detects any of them"
 
 [[requirement]]
 id = "EP-171"
-verdict = "UNFALSIFIABLE"
-mover = "nobody"
+verdict = "PROVEN"
 subject = "more reviewers never substitute for the authority boundary"
-evidence = "grep -n 'More reviewers do not change' .agents/skills/ai-spec/SKILL.md"
-note = "prose only; there is no reviewer-count code to test against and no gap metric is defined"
+evidence = "pytest tests/test_contracts.py::test_a_council_reviews_and_never_approves"
+note = "the row asked for a check rather than a sentence the day a council existed, and it now exists. The test reads what a council produces and refuses any field a machine could read as a decision — an approval, a verdict, a vote, a score, a ranking, or a tally of members agreeing — and is driven against files that must be refused as well as the tree's own, because there is no council.md here yet and the tree half alone would pass over nothing"
 
 [[requirement]]
 id = "EP-172"
