@@ -516,15 +516,25 @@ def test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renam
         == "71453f9c11662280b748a823e97d22b6f46815292bb04b8c5b1e4462aa75b458"
     )
 
-    # This one moved, once, and here is the reason rather than a new number. The step
-    # counted verbs with a regex that required each description to start with a capital
-    # letter; two of the ten open with their own subcommands, so it counted eight and failed
-    # a wheel that was right — on all three operating systems, the first time this branch
-    # ever reached CI. The pin is what made that edit a reviewable act instead of a quiet
-    # one, which is the whole reason it is here.
+    # This one has moved twice, and each move carries its reason rather than a new number.
+    #
+    # First: the step counted verbs with a regex that required each description to start with
+    # a capital letter; two of the ten open with their own subcommands, so it counted eight
+    # and failed a wheel that was right — on all three operating systems, the first time that
+    # branch ever reached CI.
+    #
+    # Second: `ai-eng decide --help | grep -q -- --madr` required a flag that was deleted
+    # with the half of the verb that wrote into the specification. The line is now the shape
+    # the two hard renames beside it already use — the old spelling must refuse — and `--why`
+    # is asked the same way. This is the line that caught the deletion, and it could only be
+    # caught here: `install-matrix.yml` is not part of `just check`, so the local gate never
+    # sees the surface a stranger installs.
+    #
+    # The pin is what made both edits a reviewable act instead of a quiet one, which is the
+    # whole reason it is here.
     surface = _named_step(lines, "the ten verbs, the hard renames and one JSON object")
     assert _raw_digest(surface) == (
-        "051dbde82c58acb8cb7e6adb924856d4a72351d6d75ede449b4fcc5ce53e9ac4"
+        "57f38b8117fb7e96f73343cc44a2ed4f816896c777f24c6bc7efa99aaec0c6a4"
     )
     body = "\n".join(surface)
 

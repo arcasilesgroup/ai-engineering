@@ -356,9 +356,16 @@ jobs:
           ! ai-eng plan --skip x >/dev/null 2>&1 || { echo "the plan verb still answers"; exit 1; }
           ! ai-eng digest >/dev/null 2>&1 || { echo "the digest verb still answers"; exit 1; }
           ! ai-eng decide --adr x >/dev/null 2>&1 || { echo "--adr still answers"; exit 1; }
+          # `--madr` and `--why` went with the half of `decide` that wrote into the
+          # specification, so they are asked for from the side that matters now: the old
+          # spelling must refuse. This line used to require `--madr` in the help, and it is
+          # the one thing that caught the deletion — `install-matrix.yml` is not in
+          # `just check`, so the local gate cannot see the surface a stranger installs.
+          ! ai-eng decide --madr x >/dev/null 2>&1 || { echo "--madr still answers"; exit 1; }
+          ! ai-eng decide --why x y >/dev/null 2>&1 || { echo "--why still answers"; exit 1; }
           ai-eng exception --help >/dev/null
           ai-eng report --help >/dev/null
-          ai-eng decide --help | grep -q -- --madr
+          ai-eng decide --help | grep -q -- --supersede
 
           # One JSON object on stdout, nothing on stderr, for a verb that refuses.
           out=$(ai-eng --json audit verify 2>err.txt || true)
