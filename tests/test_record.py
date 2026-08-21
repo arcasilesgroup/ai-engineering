@@ -1732,3 +1732,76 @@ def test_every_ticked_box_in_this_tree_carries_the_seal_of_the_check_beside_it()
             elif stamp != spec.seal(task, tasks.get(task, "")):
                 wrong.append(f"{where}: the seal is not this task's check")
     assert not wrong, "; ".join(wrong)
+
+
+def test_progress_reads_the_seal_the_history_and_the_silence(repo, capsys, monkeypatch):
+    """Three states per task, and the one that matters is the third.
+
+    A sealed box says this task's own check ran here and exited zero. A receipt says a
+    commit carries `Ai-Eng-Ran: task:<id>#<n>`, so a suite ran over exactly those bytes —
+    a different question, and one that survives the box being emptied later. Open is
+    neither, and it is printed rather than skipped: a report that lists what happened and
+    stays quiet about what did not is the shape of every green nobody earned.
+
+    The git half is driven through a real repository with a real trailer, because the
+    parsing is the part that inverts — a trailer read without `separator=` splits its commit
+    into two lines, and then the commits that ran look malformed while the ones that did not
+    look fine.
+    """
+
+    import subprocess
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-measured-thing")
+    home = where.parent
+    (home / "plan.md").write_text(
+        "# Plan\n\n"
+        "1. [ ] **First** — **file** `a.py`.\n"
+        "   **check**: `python -c pass`.\n"
+        "   **rollback**: `git revert <commit>`. **done when**: it exits zero.\n\n"
+        "2. [ ] **Second** — **file** `b.py`.\n"
+        "   **check**: `python -c pass`.\n"
+        "   **rollback**: `git revert <commit>`. **done when**: it exits zero.\n",
+        encoding="utf-8",
+    )
+
+    assert spec.main(["show", home.name[:3], "--progress"]).outcome == "PASS"
+    said = capsys.readouterr().out
+    assert "0 sealed, 0 with a receipt and no seal, 2 open, of 2" in said, said
+
+    def git(*argv: str) -> None:
+        subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "nobody@example.invalid")
+    git("config", "user.name", "Nobody")
+    git("config", "commit.gpgsign", "false")
+    # An empty hooks path rather than `--no-verify`: rule 3 has no exception for a throwaway
+    # repository, and a machine with a global `core.hooksPath` would otherwise run somebody
+    # else's hooks inside this test.
+    (repo / "nohooks").mkdir()
+    git("config", "core.hooksPath", str(repo / "nohooks"))
+    git("add", "-A")
+    git(
+        "commit",
+        "-q",
+        "-m",
+        f"chore: measure one task\n\nAi-Eng-Ran: task:{home.name[:3]}#1 content=abcdef012345",
+    )
+
+    assert spec.main(["show", home.name[:3], "--progress"]).outcome == "PASS"
+    said = capsys.readouterr().out
+    assert "1 receipt " in said.replace("  ", " "), said
+    assert "0 sealed, 1 with a receipt and no seal, 1 open, of 2" in said, said
+
+    # And a seal outranks a receipt, because it answers the sharper question.
+    digest = "sha256:" + hashlib.sha256(spec.approval_bytes(home / "plan.md")).hexdigest()
+    assert (
+        spec.main(["show", home.name[:3], "--task", "1", "--tick", "--plan-digest", digest]).outcome
+        == "PASS"
+    )
+    capsys.readouterr()
+    assert spec.main(["show", home.name[:3], "--progress"]).outcome == "PASS"
+    said = capsys.readouterr().out
+    assert "1 sealed, 0 with a receipt and no seal, 1 open, of 2" in said, said
