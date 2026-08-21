@@ -752,20 +752,24 @@ def polarity(root: Path | None) -> str | None:
         raise Undecidable("not inside a repository")
     intent_home = ".ai/intent.md"
     tracked = {name for name in tracked_files(root) if name.startswith(".ai/")}
-    # The pin, plus the two research documents this repository's work is judged against. They
-    # are inputs and not state: nobody's machine produced them, editing one to fit would be the
-    # defect, and until they were committed the requirement ledger was the only in-tree record
-    # of what they asked. The rule is written twice on purpose — here and in `.ai/.gitignore` —
-    # and CI caught this reader still holding the old list while the other had moved, which is
-    # the check working rather than duplication nobody wanted.
+    # The pin, plus the research documents this repository's work is judged against. Those
+    # are inputs and not state: nobody's machine produced them, editing one to fit would be
+    # the defect, and until they were committed the requirement ledger was the only in-tree
+    # record of what they asked. The rule is written twice on purpose — here and in
+    # `.ai/.gitignore` — and CI caught this reader still holding the old list while the other
+    # had moved, which is the check working rather than duplication nobody wanted.
+    #
+    # A shape rather than a list, on both sides. Naming each report meant every report after
+    # the second was state by default, and three of them were: they lived only on the machine
+    # that made them, ordered by a file date a `git checkout` rewrites. Three digits, a
+    # hyphen, a name, `.html`, directly under `reports/`.
     allowed = {
         ".ai/.gitignore",
         ".ai/config.toml",
         intent_home,
         readiness.DECLARATION,
-        ".ai/reports/evolution-proposal/index.html",
-        ".ai/reports/process-optimization-research/index.html",
     }
+    report = re.compile(r"^\.ai/reports/[0-9]{3}-[^/]+\.html$")
     problems = []
     if intent_home not in tracked:
         problems.append(f"Solution Intent is not tracked at {intent_home}")
@@ -788,7 +792,7 @@ def polarity(root: Path | None) -> str | None:
             f"receipts are here and {readiness.DECLARATION} is not committed — add "
             f"!{PurePosixPath(readiness.DECLARATION).name} to .ai/.gitignore, then commit it"
         )
-    extra = tracked - allowed
+    extra = {name for name in tracked - allowed if not report.fullmatch(name)}
     if extra:
         problems.append(f"state slipped into git: {sorted(extra)[:3]}")
     return None if not problems else "; ".join(problems)

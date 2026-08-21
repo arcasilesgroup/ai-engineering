@@ -145,7 +145,7 @@ def problems(register: dict) -> list[str]:
 # clone and every CI runner has neither report — which is why this is a separate function
 # that says it could not look, rather than a row in `problems()` that would fail the gate on
 # every machine but this one.
-REPORT = ROOT / ".ai" / "reports" / "evolution-proposal" / "index.html"
+REPORT = ROOT / ".ai" / "reports" / "001-evolution-proposal.html"
 
 
 def against_report(register: dict) -> tuple[bool, list[str]]:

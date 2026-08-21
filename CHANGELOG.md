@@ -28,6 +28,20 @@ search for.
   now accepts only `--guard loop_guard`, because that is the only guard left that a person
   may bypass at all.
 
+- The two research reports are hard-renamed and there is no shim:
+  `.ai/reports/evolution-proposal/index.html` is now
+  `.ai/reports/001-evolution-proposal.html`, and
+  `.ai/reports/process-optimization-research/index.html` is now
+  `.ai/reports/002-process-optimization-research.html`. Anything naming the old paths — a
+  script, a bookmark, an evidence command — stops resolving. What changes for you:
+  **`.ai/.gitignore` now keeps reports by the shape of their name rather than by listing
+  them**, so a report matching `reports/[0-9][0-9][0-9]-*.html` is committed and reviewed
+  like any other change and everything else in that directory stays this machine's. Under
+  the old five lines every report after the second was ignored by default: three were, and
+  two of those could only be ordered by a file date that a `git checkout` rewrites. `ai-eng
+  doctor`'s assertion 17 reads the same shape rather than a hand-written list — the rule is
+  written twice on purpose, and CI has already caught one side moving without the other.
+
 - `ai-eng decide` no longer writes into the specification, and `--madr` and `--why` are
   hard-deleted with no shim. The verb had two halves and one destination was chosen with a
   flag: a yaml block appended under the specification's `## Decisions` heading, or a record

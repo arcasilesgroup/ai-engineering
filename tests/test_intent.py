@@ -177,10 +177,7 @@ def test_ai_gitignore_unignores_only_the_records_that_are_reviewed(tmp_path: Pat
         "!intent.md",
         "!readiness.json",
         "!reports/",
-        "!reports/evolution-proposal/",
-        "!reports/evolution-proposal/index.html",
-        "!reports/process-optimization-research/",
-        "!reports/process-optimization-research/index.html",
+        "!reports/[0-9][0-9][0-9]-*.html",
     ]
     assert "judged against" in rules, (
         "the exception for the reports carries no argument, and an exception without one is "

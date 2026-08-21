@@ -2353,7 +2353,7 @@ id = "EP-322"
 verdict = "INCOMPLETE"
 mover = "nobody"
 subject = "the evidence-type legend names four labels and the document is consistent with it"
-evidence = "python -c \"import re,pathlib; print(len(set(re.findall(r'evidence-type\\\">([^<]+)', pathlib.Path('.ai/reports/evolution-proposal/index.html').read_text('utf-8')))))\""
+evidence = "python -c \"import re,pathlib; print(len(set(re.findall(r'evidence-type\\\">([^<]+)', pathlib.Path('.ai/reports/001-evolution-proposal.html').read_text('utf-8')))))\""
 note = "nineteen distinct values, not four. A property of the source research document, which nothing in this repository can change"
 
 [[requirement]]
@@ -2792,7 +2792,7 @@ subject = "an absorbed visual capability left asset-card guidance in the design 
 evidence = "pytest tests/test_contracts.py -k 'EP-385'"
 
 # ─────────────────────────────────────────────────────────────────────────────────────────
-# The 26 process commitments from `.ai/reports/process-optimization-research/index.html`.
+# The 26 process commitments from `.ai/reports/002-process-optimization-research.html`.
 #
 # The product requirements above are about what the wheel does. These are about how work
 # happens here — the cadence, the review discipline, what a commit may claim. Their status

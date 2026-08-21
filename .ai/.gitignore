@@ -12,8 +12,12 @@
 #
 # `.ai/` stays disposable and this is the exception that proves it: these two are inputs the
 # work is judged against, not state the work produces.
+# A shape, not a list. Five lines named two directories and two files one by one, so every
+# report after those two was ignored by default and lived only on the machine that made it —
+# three of them did, and two of those three could only be ordered by a file date that a
+# `git checkout` rewrites. A rule anybody can read from the name is the cure: three digits,
+# a hyphen, a name, `.html`, directly in `reports/`. Tested against a real repository: it
+# keeps `001-….html` and `010-x.html`, and ignores `notes.html`, `scratch.txt`,
+# `0001-four.html` and any loose directory.
 !reports/
-!reports/evolution-proposal/
-!reports/evolution-proposal/index.html
-!reports/process-optimization-research/
-!reports/process-optimization-research/index.html
+!reports/[0-9][0-9][0-9]-*.html

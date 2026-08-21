@@ -213,8 +213,8 @@ def test_every_commitment_carries_a_verdict_a_command_and_a_reason_when_it_owes_
 
 
 REPORTS = {
-    "evolution_proposal": ".ai/reports/evolution-proposal/index.html",
-    "process_optimization": ".ai/reports/process-optimization-research/index.html",
+    "evolution_proposal": ".ai/reports/001-evolution-proposal.html",
+    "process_optimization": ".ai/reports/002-process-optimization-research.html",
 }
 
 
@@ -226,11 +226,15 @@ def test_the_ledger_names_the_exact_bytes_it_was_measured_against():
     are the right totals. They are a reading. What a command *can* confirm is that the reading
     was taken against these bytes and that nobody has edited a report underneath it since.
 
-    Absence is not a pass. `.ai/.gitignore` begins with `*`, so neither report is in the
-    repository and a fresh clone or a CI runner has neither file. That case says it cannot
-    decide, which is a different answer from agreeing, and it is the honest one: on any
-    machine but the one that measured them, the ledger's provenance is unverifiable and this
-    test's silence would otherwise imply the opposite.
+    Absence is not a pass, and it used to be a skip. The docstring here said neither report
+    was in the repository because `.ai/.gitignore` begins with `*` — and it had stopped being
+    true: both are committed through the exceptions below that line, so a fresh clone and a
+    CI runner have both. What the skip actually guarded against by then was a rename, which
+    is the one case where silence is worst: move a report and this test goes green having
+    checked nothing.
+
+    So a missing report is a failure. If one is ever genuinely absent on a machine that
+    should have it, that is a finding and not a reason to stop asking.
     """
 
     import hashlib
@@ -238,8 +242,10 @@ def test_the_ledger_names_the_exact_bytes_it_was_measured_against():
     pinned = _ledger()["sources"]
     for key, where in REPORTS.items():
         source = ROOT / where
-        if not source.is_file():
-            pytest.skip(f"{where} is not in this tree, so its digest cannot be checked here")
+        assert source.is_file(), (
+            f"{where} is not in this tree. Both reports are committed, so this is a rename "
+            "or a deletion — repoint this table rather than letting the digest go unchecked."
+        )
         actual = hashlib.sha256(source.read_bytes()).hexdigest()
         assert actual == pinned[key], (
             f"{where} has changed since the ledger was measured on {pinned['measured_at']}: "
