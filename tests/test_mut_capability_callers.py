@@ -3,7 +3,7 @@
 `EP-078` asks that the declared capabilities be enforced and not only declared. The mechanism
 is real: an action taken through `executor.Sandbox` is decided at the operation, against the
 resolved path and the real binary, and a refusal is recorded. What the row could not say was
-the plural — one capability of fifteen has a caller, and that sentence sat in a note.
+the plural — one capability of eighteen has a caller, and that sentence sat in a note.
 
 A sentence is how the gate-recipe count came to read "six controlled and two argued" five
 recipes after it stopped being true. So this counts, and it fails when the count drops. It
@@ -116,7 +116,7 @@ def test_every_caller_names_a_capability_the_manifest_declares():
 def test_the_count_of_capabilities_with_a_caller_is_published_and_does_not_drop():
     """`EP-078`'s plural, as a number rather than a sentence.
 
-    One of fifteen today, through `ai-report issue`. That gap is real and this does not
+    One of eighteen today, through `ai-report issue`. That gap is real and this does not
     pretend otherwise — what it stops is the gap widening while the note still says one, or
     narrowing without anybody noticing they had closed it.
     """
@@ -125,9 +125,9 @@ def test_the_count_of_capabilities_with_a_caller_is_published_and_does_not_drop(
         pytest.skip("this tree is not a git repository, so the committed source is unreadable")
     known, taken = declared(), callers()
 
-    assert len(known) == 15, f"{len(known)} capabilities are declared and the audit measured 15"
+    assert len(known) == 18, f"{len(known)} capabilities are declared and the audit measured 18"
     assert taken, (
-        "no capability has a caller at all. The manifest would then be fifteen declarations "
+        "no capability has a caller at all. The manifest would then be eighteen declarations "
         "and nothing that resolves against them, which is the state EP-078 was filed for"
     )
     assert len(taken) >= 1, len(taken)

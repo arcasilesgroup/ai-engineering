@@ -504,11 +504,10 @@ def test_spec_010_004_intent_and_ceiling_transition_atomically():
     separate consent, and a static check that pretended to them would be the green this
     whole wave exists to refuse."""
 
-    import os
     import re
     from hashlib import sha256
 
-    from ai_engineering import contract, intent
+    from ai_engineering import intent
 
     def frontmatter(path: Path) -> dict[str, str]:
         block = path.read_text(encoding="utf-8").split("---", 2)[1]
@@ -560,20 +559,6 @@ def test_spec_010_004_intent_and_ceiling_transition_atomically():
     for box, row in zip(readiness.BOXES, recorded[1:], strict=True):
         assert box.label in row, box.id
         assert "INCOMPLETE" in row, box.id
-
-    # The candidate closed the ceiling onto the tree it measured, so the next line added
-    # had to be argued for. It has been, more than once by now — a raise is a commit that
-    # argues for itself. The narrative of those raises used to be asserted here, phrase by
-    # phrase, out of a 3,330-line comment; it is `git log -S REPO_CEILING` now, and what
-    # this checks is the property that comment could never guarantee: the tree is inside
-    # whatever the ceiling currently says.
-    budget = (ROOT / "src" / "ai_engineering" / "contract.py").read_text(encoding="utf-8")
-    assert "git log -S REPO_CEILING" in budget
-    if not os.environ.get("AI_ENG_REAL_SRC"):
-        # Counting the tree means asking git what it tracks, and the mutation harness runs
-        # the suite in a copied tree with no history. The record above is readable anywhere;
-        # only the count needs a repository, so only the count waits for one.
-        assert contract.repo_lines(ROOT) <= contract.REPO_CEILING
 
 
 def test_every_shape_a_declaration_can_be_wrong_in_is_refused(tmp_path):

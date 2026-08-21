@@ -1192,7 +1192,7 @@ def test_decide_madr_accepts_madr_and_rejects_adr_alias(
     _repository_with_spec(root)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
 
-    result = decide.main(["Keep authority outside the agent", "--madr"])
+    result = decide.main(["Keep authority outside the agent"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     output = capsys.readouterr()
@@ -1206,7 +1206,7 @@ def test_decide_madr_accepts_madr_and_rejects_adr_alias(
     assert "authority_role:" not in decision.read_text(encoding="utf-8")
     assert not any("specs/" in line for line in _git_status(root))
 
-    result = decide.main(["Reject an orphan", "--madr", "--supersede", "9999"])
+    result = decide.main(["Reject an orphan", "--supersede", "9999"])
     assert type(result) is outcome.Result
     assert result.outcome == "INCOMPLETE"
     assert capsys.readouterr().out == (
@@ -1227,7 +1227,7 @@ def test_decide_madr_accepts_madr_and_rejects_adr_alias(
     duplicate = root / "docs" / "adr" / "0009-duplicate.md"
     duplicate.write_bytes(decision.read_bytes())
     before = _git_status(root)
-    result = decide.main(["Do not write through ambiguity", "--madr"])
+    result = decide.main(["Do not write through ambiguity"])
     assert type(result) is outcome.Result
     assert result.outcome == "INCOMPLETE"
     assert capsys.readouterr().out == (
@@ -1261,7 +1261,7 @@ def test_decide_madr_creation_is_exclusive_and_cleans_partial_writes(
         return original_open(path, flags, mode, dir_fd=dir_fd)
 
     monkeypatch.setattr(os, "open", collide)
-    result = decide.main(["Concurrent decision", "--madr"])
+    result = decide.main(["Concurrent decision"])
     assert type(result) is outcome.Result
     assert result.outcome == "INCOMPLETE"
     output = capsys.readouterr().out
@@ -1298,7 +1298,7 @@ def test_decide_madr_creation_is_exclusive_and_cleans_partial_writes(
         return PartialWriter(original_fdopen(fd, *args, **kwargs))
 
     monkeypatch.setattr(os, "fdopen", fail_partly)
-    result = decide.main(["Partial decision", "--madr"])
+    result = decide.main(["Partial decision"])
     assert type(result) is outcome.Result
     assert result.outcome == "INCOMPLETE"
     output = capsys.readouterr().out
@@ -1323,7 +1323,7 @@ def test_an_authority_role_holding_a_newline_cannot_write_its_own_frontmatter(
     root = tmp_path / "forging"
     _repository_with_spec(root)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
-    assert decide.main(["Keep authority outside the agent", "--madr"]).outcome == "PASS"
+    assert decide.main(["Keep authority outside the agent"]).outcome == "PASS"
     monkeypatch.setattr(
         decide,
         "granted",
@@ -1376,7 +1376,7 @@ def test_decide_madr_never_follows_a_canonical_home_symlink(
     (root / "docs").symlink_to(outside, target_is_directory=True)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
 
-    result = decide.main(["Stay inside the repository", "--madr"])
+    result = decide.main(["Stay inside the repository"])
     assert type(result) is outcome.Result
     assert result.outcome == "INCOMPLETE"
     assert "MADR_WRITE_FAILED" in capsys.readouterr().out
@@ -1411,7 +1411,7 @@ def test_decide_madr_creation_stays_anchored_when_home_is_swapped(
         return original_open(path, flags, mode, dir_fd=dir_fd)
 
     monkeypatch.setattr(os, "open", exchange)
-    result = decide.main(["Stay descriptor relative", "--madr"])
+    result = decide.main(["Stay descriptor relative"])
     assert type(result) is outcome.Result
     assert result.outcome == "INCOMPLETE"
     output = capsys.readouterr().out
@@ -1430,7 +1430,7 @@ def test_decide_madr_fails_closed_without_descriptor_relative_support(
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     monkeypatch.setattr(os, "supports_dir_fd", os.supports_dir_fd - {os.open})
 
-    result = decide.main(["Require anchored writes", "--madr"])
+    result = decide.main(["Require anchored writes"])
     assert type(result) is outcome.Result
     assert result.outcome == "INCOMPLETE"
     assert "MADR_WRITE_FAILED" in capsys.readouterr().out
@@ -1460,7 +1460,7 @@ def test_decide_madr_closes_every_descriptor_after_success_and_failure(
     success = tmp_path / "success-descriptors"
     _repository_with_spec(success)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: success)
-    result = decide.main(["Close on success", "--madr"])
+    result = decide.main(["Close on success"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     assert opened <= closed
@@ -1470,7 +1470,7 @@ def test_decide_madr_closes_every_descriptor_after_success_and_failure(
     failure = tmp_path / "failure-descriptors"
     _repository_with_spec(failure)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: failure)
-    result = decide.main(["Close on failure", "--madr", "--supersede", "9999"])
+    result = decide.main(["Close on failure", "--supersede", "9999"])
     assert type(result) is outcome.Result
     assert result.outcome == "INCOMPLETE"
     assert opened <= closed
@@ -1484,12 +1484,12 @@ def test_decide_madr_validates_title_and_cleans_new_home_after_rejection(
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
 
     with pytest.raises(SystemExit) as stopped:
-        decide.main(["   ", "--madr"])
+        decide.main(["   "])
     assert stopped.value.code == outcome.invalid_cli_exit()
     assert "needs a title" in capsys.readouterr().err
     assert not (root / "docs").exists()
 
-    result = decide.main(["Ñ決定", "--madr"])
+    result = decide.main(["Ñ決定"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     capsys.readouterr()
@@ -1497,7 +1497,7 @@ def test_decide_madr_validates_title_and_cleans_new_home_after_rejection(
     assert fallback.exists() and madr.validate(root).outcome == "PASS"
 
     trailing_separator = "a" * 59 + " separator"
-    result = decide.main([trailing_separator, "--madr"])
+    result = decide.main([trailing_separator])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     capsys.readouterr()
@@ -1508,7 +1508,7 @@ def test_decide_madr_validates_title_and_cleans_new_home_after_rejection(
     rejected = tmp_path / "rejected"
     _repository_with_spec(rejected)
     monkeypatch.setattr(paths, "repo_root", lambda start=None: rejected)
-    result = decide.main(["Orphan", "--madr", "--supersede", "9999"])
+    result = decide.main(["Orphan", "--supersede", "9999"])
     assert type(result) is outcome.Result
     assert result.outcome == "INCOMPLETE"
     assert "MADR_GRAPH_INVALID" in capsys.readouterr().out

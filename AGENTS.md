@@ -31,7 +31,7 @@ once per session. `CLAUDE.md` is one line that imports this file.
 
 ## What this project is
 
-A wheel on PyPI that carries thirteen skills, four guards and a ten-verb CLI. One command
+A wheel on PyPI that carries sixteen skills, four guards and a ten-verb CLI. One command
 places the skills and registers the guards in the settings file each surface already
 reads, so they are present in every project on a machine without a single file landing in
 any of them. It writes specs, plans, decisions and dated risk acceptances as plain text in
@@ -50,6 +50,21 @@ the user's repository, and verifies them with a command that exits non-zero.
 - `.ai/intent.md` — the user-owned, non-disposable canonical Intent.
 - `.ai/` — otherwise disposable, except `config.toml` and `.gitignore`, which are the pin.
 
+## One writer, and readers only when independence is what you are buying
+
+Every commit is made by one agent, in order, with the gate green after each. No block of
+work is split between parallel writers, and this is not a performance opinion: two writers
+share an index, and `git add -A` from either takes the other's work into its commit.
+
+The five critics — `/ai-challenge`, `/ai-council`, `/ai-review`, `/ai-verify` and
+`/ai-security` — are the exception, and they are marked the same way in their frontmatter:
+`context: fork`, `background: false`. They run apart because what a separate reader buys is
+independence, not speed. A critic that sees the author's reasoning inherits it.
+
+The fan-out is only paid in wall-clock if something waits on it. Where the host can start
+several at once it does; where it cannot, they run one after another, and the output is
+identical either way — which is what stops anybody claiming a parallelism they did not have.
+
 ## The two contracts that must not bend
 
 **A hook declares its class at the top of its own file.** `@guard` fails closed: if it
@@ -66,12 +81,11 @@ from 528 files, which is where the previous version ended up.
 ## Working here
 
 - `just check` is what CI runs. Run it before saying anything is done, and show the output.
-- The line ceiling lives in `contract.REPO_CEILING` and CI fails the build on the line
-  after it. When it is genuinely too low, raise it in a commit whose message says why —
-  that commit is the conversation you would otherwise never have had. Its comment records
-  every move it has made, and specs/ records the arithmetic behind each one. Three numbers
-  are named here and stored elsewhere; this file names the home and never the value,
-  because a doctrine that quotes a number is a doctrine that goes stale without a test.
+- Size is bounded by `contract.TEST_RATIO_MAX`, and by nothing else. A total-line ceiling
+  was tried and deleted: it was obliged to follow the tree it bounded, so it moved in fifty
+  of fifty commits and never caught a defect. Every number this file needs is named here and
+  stored elsewhere; this file names the home and never the value, because a doctrine that
+  quotes a number is a doctrine that goes stale without a test.
 - `AGENTS.md` is capped by a test at the length in `tests/test_contracts.DOCTRINE_CEILING`.
   Everything that is not true in every session belongs in a skill.
 - Every `SKILL.md` is capped at `contract.CEILING` lines. Longer means it is a procedure

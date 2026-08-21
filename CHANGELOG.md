@@ -28,6 +28,90 @@ search for.
   now accepts only `--guard loop_guard`, because that is the only guard left that a person
   may bypass at all.
 
+- The two research reports are hard-renamed and there is no shim:
+  `.ai/reports/evolution-proposal/index.html` is now
+  `.ai/reports/001-evolution-proposal.html`, and
+  `.ai/reports/process-optimization-research/index.html` is now
+  `.ai/reports/002-process-optimization-research.html`. Anything naming the old paths — a
+  script, a bookmark, an evidence command — stops resolving. What changes for you:
+  **`.ai/.gitignore` now keeps reports by the shape of their name rather than by listing
+  them**, so a report matching `reports/[0-9][0-9][0-9]-*.html` is committed and reviewed
+  like any other change and everything else in that directory stays this machine's. Under
+  the old five lines every report after the second was ignored by default: three were, and
+  two of those could only be ordered by a file date that a `git checkout` rewrites. `ai-eng
+  doctor`'s assertion 17 reads the same shape rather than a hand-written list — the rule is
+  written twice on purpose, and CI has already caught one side moving without the other.
+
+- `ai-eng decide` no longer writes into the specification, and `--madr` and `--why` are
+  hard-deleted with no shim. The verb had two halves and one destination was chosen with a
+  flag: a yaml block appended under the specification's `## Decisions` heading, or a record
+  under `docs/adr/`. The first half is gone. Measured before removing it: 70 of those blocks
+  exist, every one in specifications 001 to 009, none since 010 eleven specifications ago,
+  and nothing in `src/`, `hooks/` or `tests/` ever read one — a writer with no reader is a
+  place to put something and forget it. What changes for you: **`ai-eng decide "<title>"`
+  now writes a record under `docs/adr/` instead of a block inside the spec, `--madr` is an
+  unrecognised argument because there is no longer a choice to make, and `--why` is gone
+  with the destination it described.** `--list`, `--accept` and `--supersede` are untouched.
+  The 70 existing blocks stay where they are; nothing rewrites a delivered specification.
+  One behaviour improved in the same commit: with no specification to record against, the
+  verb now says so instead of reporting that git history cannot prove MADR transitions —
+  it resolves the target before validating the graph, and resolving writes nothing.
+
+- What an approval of a `plan.md` is a signature on has changed, and there is no shim. The
+  digest is now taken over the file with one column masked — the gap between a task's number
+  and its bold title, where `ai-eng spec show <id> --task <n> --tick` writes a box and its
+  seal. A `spec.md` is untouched and is still signed over its raw bytes, because its eight
+  production-ready boxes are a person's claim that `readiness.py` reads. What changes for
+  you: **`sha256 plan.md` and the digest `ai-eng` compares against your approval are no
+  longer the same number once any task carries a box**, and a plan with no box is unaffected.
+  Measured on this repository the day it landed: over 16 plans and 22 specifications the two
+  were identical, `specs/010/plan.md` canonicalised to the number `docs/adr/0009` signs, and
+  a box on all 141 tasks with every one ticked left it at that same number — so no approval
+  on record changed value and nothing was re-signed. Ticking a box no longer voids an
+  approval; editing a word, or a task's check command, moves the digest exactly as before.
+
+- The commit anchor is hard-deleted, with no replacement and no shim: the
+  `Ai-Eng-Anchor:` footer that `git-hooks/commit-msg` wrote, the `--anchor` and `--anchors`
+  arguments of `ai-eng audit`, the three history verdicts that compared the git log against
+  the chain, `audit.anchor_line`, and the `anchor_commits` key `ai-eng init` used to seed.
+  The generated CI workflow now runs `ai-eng audit verify` without an argument — a wheel
+  whose generated CI passes a switch the wheel refuses is an argument error in every
+  destination repository. What changes for you: **`ai-eng audit verify --anchors` is an
+  unknown-argument error, commits no longer carry or ask for a footer, and the line saying a
+  commit is not anchored stops.** In this repository's life the three verdicts produced no
+  finding and one false alarm on every commit, and the cure the alarm named needed a person
+  at a physical keyboard and was never run. `audit verify`, `audit replay` and
+  `audit account` keep every other property, including refusing a link that arrived edited
+  before it was sealed. `ai-eng doctor` keeps 25 assertions; assertion 11 loses only the
+  question about signing a footer, so a machine whose chain is not established now reads
+  `ok` there rather than `undecidable`. Recorded in
+  `specs/022-the-anchor-nobody-could-answer-for` and approved at digests by `docs/adr/0017`.
+
+- `contract.REPO_CEILING`, `contract.repo_lines` and `contract.NOT_THE_PRODUCT` are
+  hard-deleted, with no replacement and no shim, and `tests/seal_ceiling.py` and the `just
+  seal` recipe go with them. The ceiling was a total-line bound on the repository that a test
+  obliged to stay within 400 lines of the tree it claimed to bound, so it moved in fifty of
+  the last fifty commits — four of which do nothing else — and the one row in
+  `docs/blocked.toml`, the only time this machine ever stopped and asked a person, is a
+  fixed-point collision over that integer between two sessions. Nothing in its history shows
+  it catching a defect. What changes for you: **`just seal` no longer exists, a commit no
+  longer needs an arithmetic step, and anything importing those three names from `contract`
+  breaks at import.** `contract.tracked` and `contract.count` are untouched.
+  `contract.TEST_RATIO_MAX` is the size bound that remains, and its own comment says it
+  covers the shape the ceiling could not see: a suite growing while the product does not.
+  Recorded as EP-299, withdrawn in place in `docs/requirements.toml`, and in
+  `specs/021-three-controls-that-could-not-say-no`.
+
+- `"maxItems": 15` is removed from `policy/capability-manifest.schema.json`. It could not
+  fire: measured against a sixteenth capability in five shapes, anything that would trip it
+  died earlier in the exact-equality check against `allowed_ids`, and the one situation where
+  it did fire was after somebody had correctly widened both lists — when it answered "the
+  manifest is invalid" without naming which rule. What changes for you: **nothing, unless you
+  were relying on the catalogue being refused above fifteen entries, which it never was for
+  that reason.** `allowed_ids` and `minItems` are untouched and still refuse an undeclared or
+  empty catalogue. This closes EP-308, which `docs/audit-2026-08-16.md` already listed among
+  the proofs it withdrew.
+
 - `redact` is gone from `[observability]` in `.ai/config.toml`, and the exporter always
   redacts. It accepted `"strict"` and `"none"`, and `"none"` sent every field outside the
   two allow-lists to the collector verbatim — free text, guard reasons, whatever a payload

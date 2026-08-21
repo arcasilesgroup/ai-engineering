@@ -22,7 +22,6 @@
     "capabilities": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 15,
       "uniqueItems": true,
       "items": {
         "$ref": "#/$defs/capability"
@@ -226,6 +225,9 @@
             "ai-explore",
             "ai-research",
             "ai-spec",
+        "ai-challenge",
+        "ai-council",
+        "ai-cycle",
             "ai-plan",
             "ai-build",
             "ai-debug",
@@ -269,6 +271,9 @@
       "ai-explore",
       "ai-research",
       "ai-spec",
+        "ai-challenge",
+        "ai-council",
+        "ai-cycle",
       "ai-plan",
       "ai-build",
       "ai-debug",

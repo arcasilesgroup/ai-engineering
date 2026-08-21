@@ -347,4 +347,16 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except SystemExit:
+        # First, and it is the whole correction. `deny` leaves through SystemExit, so a
+        # broader clause below would swallow every legitimate denial and re-print it as a
+        # crash — the guard would still be right and the surface would be told twice.
+        raise
+    except BaseException as unreadable:
+        # Measured: a `tool_name` that arrives as a number died out here, outside every
+        # handler, and the process exited 1 — which every surface reads as "not blocking",
+        # so the call went through without a guard having seen it. The file's own docstring
+        # promised the opposite. Unreadable has one answer and it is deny.
+        deny("chain", f"the dispatcher could not read this call: {unreadable}")

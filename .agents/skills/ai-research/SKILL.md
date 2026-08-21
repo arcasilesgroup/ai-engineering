@@ -19,6 +19,12 @@ background: false
 
 An answer where every claim carries `[N]` and a source list, or carries `[unsourced]`.
 
+When it is written down, it is one file: `.ai/reports/NNN-a-name.html`, three digits and a
+name, directly in that directory and never in a folder of its own. The number is the next
+one free and it is what orders them, because the alternative was a file date that a
+`git checkout` rewrites. Anything shaped that way is committed and reviewed like any other
+change; anything else in that directory is ignored and lives only on this machine.
+
 ## Steps
 
 1. Say what would change depending on the answer. Research with no decision behind it is

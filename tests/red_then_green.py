@@ -40,16 +40,6 @@ PRODUCT = ("src", "hooks")
 
 ADDED_TEST = re.compile(r"^\+def (test_[A-Za-z0-9_]+)", re.MULTILINE)
 
-# The one piece of product state that is bookkeeping rather than behaviour.
-BOOKKEEPING = "REPO_CEILING"
-
-
-def _is_bookkeeping(statement: ast.stmt) -> bool:
-    return isinstance(statement, ast.Assign) and any(
-        isinstance(target, ast.Name) and target.id == BOOKKEEPING for target in statement.targets
-    )
-
-
 ENGINE = "pytest==9.1.1"
 
 # Long enough for the slowest module suite, short enough that a test waiting on a terminal
@@ -118,10 +108,10 @@ def _shape(source: str) -> str | None:
             and isinstance(first.value.value, str)
         ):
             node.body = body[1:] or [ast.Pass()]
-    # And the ceiling, which is a number about the tree's size rather than about what the
-    # tree does. Every commit that adds a line moves it, so leaving it in would make every
-    # commit a behaviour change and this runner would demand red from all of them.
-    tree.body = [statement for statement in tree.body if not _is_bookkeeping(statement)]
+    # There was a second filter here, for `REPO_CEILING`: a number about the tree's size
+    # rather than about what the tree does, moved by every commit that added a line, so
+    # leaving it in made every commit a behaviour change and this runner demanded red from
+    # all of them. The constant is deleted, so the exemption filters nothing.
     return ast.dump(tree)
 
 

@@ -88,6 +88,8 @@ OPEN = (
     "  OPEN  --no-verify from your own shell walks past every row above, and so does",
     "        anything that never asks a surface. Only a required check on the server",
     "        (T0) stops those, and nothing on this machine can give you one.",
+    "  OPEN  self_protect matches shell commands as text: `cd hooks && rm x`,",
+    "        `xargs rm`, `env rm`, `patch` and a relative path all get through.",
 )
 
 # The cure for a failure, where a command is the cure. Sixteen of the twenty have none,
@@ -336,16 +338,14 @@ def git_hook_fires(root: Path | None) -> str | tuple[str, str] | None:
             f"install wires. Something lives there; none of it is ours.",
             "ai-eng init --project",
         )
-    return _anchor_answers(root)
+    return _cli_answers(root)
 
 
-# The exact shape a live anchor has, and the only argument lists this check will run. Not a
-# shell, and not whatever `ai.eng` happens to hold: a configured value that is executed is a
-# configured value that can be anything, on a machine that may already be doing what an
-# injected instruction told it to.
-_ANCHOR_TAIL = ["-m", "ai_engineering.cli"]
-_ANCHOR_FOOTER = re.compile(r"^Ai-Eng-Anchor: \S+/\S+ seq=\d+ head=[0-9a-f]{12}$", re.M)
-_ANCHOR_CURE = "ai-eng init --project"
+# The only argument lists this check will run. Not a shell, and not whatever `ai.eng` happens
+# to hold: a configured value that is executed is a configured value that can be anything, on
+# a machine that may already be doing what an injected instruction told it to.
+_CLI_TAIL = ["-m", "ai_engineering.cli"]
+_CLI_CURE = "ai-eng init --project"
 
 
 def _interpreter_of(configured: str) -> str:
@@ -357,13 +357,13 @@ def _interpreter_of(configured: str) -> str:
     Windows mode keeps the quotes, and either way a path with a space becomes two arguments.
     """
 
-    suffix = " " + " ".join(_ANCHOR_TAIL)
+    suffix = " " + " ".join(_CLI_TAIL)
     if not configured.endswith(suffix):
         return ""
     return configured[: -len(suffix)].strip().strip('"')
 
 
-def _run_anchor(root: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
+def _run_cli(root: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
     """Run this interpreter's own CLI, in the repository being diagnosed, safely.
 
     `PYTHONSAFEPATH` is the whole reason this helper exists. `-m` prepends the child's
@@ -375,7 +375,7 @@ def _run_anchor(root: Path, arguments: list[str]) -> subprocess.CompletedProcess
     """
 
     return subprocess.run(
-        [sys.executable, *_ANCHOR_TAIL, *arguments],
+        [sys.executable, *_CLI_TAIL, *arguments],
         cwd=root,
         capture_output=True,
         text=True,
@@ -385,26 +385,22 @@ def _run_anchor(root: Path, arguments: list[str]) -> subprocess.CompletedProcess
     )
 
 
-def _anchor_answers(root: Path) -> str | tuple[str, str] | None:
-    """Whether the CLI this repository's anchor names can actually answer.
+def _cli_answers(root: Path) -> str | tuple[str, str] | None:
+    """Whether the CLI this repository names can actually answer.
 
-    The hooks resolve the CLI through `ai.eng`, and a persisted anchor proves only that
+    The hooks resolve the CLI through `ai.eng`, and a configured value proves only that
     somebody wrote a string. This machine was found with a live interpreter and a dead
-    `ai_engineering.cli` — an editable install pointing at a deleted worktree — so the anchor
+    `ai_engineering.cli` — an editable install pointing at a deleted worktree — so the value
     read as configured, `git config --get` returned it, and every hook that used it failed.
 
-    Liveness and anchorability are asked separately, because they have different answers. A
-    module that cannot run is a broken install and a failure. A module that runs and cannot
-    anchor is a chain that has not been established yet, which is true of every fresh
-    machine — reporting that as a broken install would make this assertion red by
-    construction, and a doctor that is red by construction is a doctor somebody silences.
+    It asked a fourth question until specification 022: whether that CLI could sign a commit
+    footer. That footer is deleted, and the three questions left are the ones with a cure —
+    is a CLI named, is it this install's, and does it run.
     """
 
     configured = git(root, "config", "--get", "ai.eng")
     if not configured:
-        raise Undecidable(
-            "ai.eng is not set here, so the hooks have no CLI to resolve", _ANCHOR_CURE
-        )
+        raise Undecidable("ai.eng is not set here, so the hooks have no CLI to resolve", _CLI_CURE)
     # Compared by shape rather than by tokenising. POSIX quoting eats a Windows path's
     # backslashes and every splitter cuts `C:\Program Files\...` in two, so both spellings
     # were permanently red — with a cure that rewrites the same unsplittable value, which
@@ -413,40 +409,20 @@ def _anchor_answers(root: Path) -> str | tuple[str, str] | None:
         return (
             "ai.eng does not name this interpreter and this module, so what the hooks run "
             "is not what this install would run",
-            _ANCHOR_CURE,
+            _CLI_CURE,
         )
     try:
-        alive = _run_anchor(root, ["--version"])
+        alive = _run_cli(root, ["--version"])
     except (OSError, subprocess.SubprocessError) as why:
         raise Undecidable(
-            f"the CLI the anchor names could not be executed: {why.__class__.__name__}",
-            _ANCHOR_CURE,
+            f"the CLI `ai.eng` names could not be executed: {why.__class__.__name__}",
+            _CLI_CURE,
         ) from why
     if alive.returncode != 0 or "ai-engineering" not in alive.stdout:
         return (
-            "the CLI the anchor names is installed and does not run: the hooks resolve a "
+            "the CLI `ai.eng` names is installed and does not run: the hooks resolve a "
             "module that answers nothing",
-            _ANCHOR_CURE,
-        )
-    try:
-        footed = _run_anchor(root, ["audit", "--anchor"])
-    except (OSError, subprocess.SubprocessError) as why:
-        raise Undecidable(
-            f"the CLI the anchor names could not be executed: {why.__class__.__name__}",
-            _ANCHOR_CURE,
-        ) from why
-    if footed.returncode != 0:
-        raise Undecidable(
-            "the CLI the anchor names runs and cannot anchor a commit yet, so this "
-            "repository's chain is not in a state to sign one",
-            _ANCHOR_CURE,
-        )
-    footers = _ANCHOR_FOOTER.findall(footed.stdout)
-    if len(footers) != 1:
-        return (
-            f"the CLI the anchor names printed {len(footers)} anchor footers, and a commit "
-            f"carries exactly one",
-            _ANCHOR_CURE,
+            _CLI_CURE,
         )
     return None
 
@@ -776,20 +752,24 @@ def polarity(root: Path | None) -> str | None:
         raise Undecidable("not inside a repository")
     intent_home = ".ai/intent.md"
     tracked = {name for name in tracked_files(root) if name.startswith(".ai/")}
-    # The pin, plus the two research documents this repository's work is judged against. They
-    # are inputs and not state: nobody's machine produced them, editing one to fit would be the
-    # defect, and until they were committed the requirement ledger was the only in-tree record
-    # of what they asked. The rule is written twice on purpose — here and in `.ai/.gitignore` —
-    # and CI caught this reader still holding the old list while the other had moved, which is
-    # the check working rather than duplication nobody wanted.
+    # The pin, plus the research documents this repository's work is judged against. Those
+    # are inputs and not state: nobody's machine produced them, editing one to fit would be
+    # the defect, and until they were committed the requirement ledger was the only in-tree
+    # record of what they asked. The rule is written twice on purpose — here and in
+    # `.ai/.gitignore` — and CI caught this reader still holding the old list while the other
+    # had moved, which is the check working rather than duplication nobody wanted.
+    #
+    # A shape rather than a list, on both sides. Naming each report meant every report after
+    # the second was state by default, and three of them were: they lived only on the machine
+    # that made them, ordered by a file date a `git checkout` rewrites. Three digits, a
+    # hyphen, a name, `.html`, directly under `reports/`.
     allowed = {
         ".ai/.gitignore",
         ".ai/config.toml",
         intent_home,
         readiness.DECLARATION,
-        ".ai/reports/evolution-proposal/index.html",
-        ".ai/reports/process-optimization-research/index.html",
     }
+    report = re.compile(r"^\.ai/reports/[0-9]{3}-[^/]+\.html$")
     problems = []
     if intent_home not in tracked:
         problems.append(f"Solution Intent is not tracked at {intent_home}")
@@ -812,7 +792,7 @@ def polarity(root: Path | None) -> str | None:
             f"receipts are here and {readiness.DECLARATION} is not committed — add "
             f"!{PurePosixPath(readiness.DECLARATION).name} to .ai/.gitignore, then commit it"
         )
-    extra = tracked - allowed
+    extra = {name for name in tracked - allowed if not report.fullmatch(name)}
     if extra:
         problems.append(f"state slipped into git: {sorted(extra)[:3]}")
     return None if not problems else "; ".join(problems)
@@ -1075,12 +1055,10 @@ def doctrine(root: Path | None) -> str | None:
     return None if not problems else "; ".join(problems)
 
 
-# Assertion 5 was here: the product repository is under its line ceiling. It computed the
-# same number from the same function and compared it to the same constant as
-# `tests/test_contracts.test_the_line_ceiling_holds`, and CI ran both in the same job
-# eleven lines apart. It also refused to evaluate anywhere outside this repository, so it
-# has never told a user anything. The test is the right one to keep of the two: it fails
-# the build, where the check only printed a line.
+# Assertion 5 was here: the product repository is under its line ceiling. It duplicated a
+# test that ran in the same CI job eleven lines apart, and it refused to evaluate anywhere
+# outside this repository, so it never told a user anything. Both it and the ceiling itself
+# are gone now — the number was obliged to follow the tree it bounded.
 
 
 # ---------------------------------------------------------------- the outside
@@ -1127,8 +1105,7 @@ def production_ready(root: Path | None) -> str | None:
     shipped spec for an unticked box and never once looked at a ticked one, so the gate
     enforced that the question was answered and never that the answer said anything. Three
     of the eight boxes in this repository's own shipped spec claimed a control and named no
-    command. The ceiling is recorded as an accepted risk: a backtick proves something was
-    named, never that it passed."""
+    command. A backtick proves something was named, never that it passed."""
     if root is None:
         raise Undecidable("not inside a repository")
     bad = []

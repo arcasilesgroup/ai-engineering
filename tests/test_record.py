@@ -14,13 +14,11 @@ import json
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import time
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -40,6 +38,8 @@ from ai_engineering import (
     spec_transaction,
     text,
 )
+
+COAUTHOR = "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 TODAY = date.today().isoformat()
 # The record stores a UTC date; local midnight is not the same instant.
@@ -472,7 +472,7 @@ def test_each_way_of_breaking_the_chain_is_reported_as_itself(home, mutate, reha
         if rehash:
             events[1]["hash"] = home.digest(events[1])
     _write(home, events)
-    problems = audit.verify(None, False)
+    problems = audit.verify(None)
     if expected is None:
         assert problems == []
     else:
@@ -518,248 +518,8 @@ def test_replay_filters_to_one_session(home, tmp_path, monkeypatch, capsys):
     assert "nothing recorded" in capsys.readouterr().out
 
 
-def test_the_anchor_written_into_a_commit_is_one_the_verifier_can_read_back(home, monkeypatch):
-    """The commit-msg hook writes this line and audit reads it with a regular expression.
-    If the two ever disagree on the format, every anchor in git history stops counting and
-    nothing says so — the tamper-evidence quietly becomes decoration."""
-    monkeypatch.setattr(home, "repo_id", lambda root=None: "testrepo")
-    events = _links(home, 2)
-    _write(home, events)
-    line = audit.anchor_line(None)
-    found = audit.ANCHOR.search(line)
-    assert found, line
-    assert found.group(3) == "2" and found.group(4) == events[-1]["hash"][:12]
-
-
-# Not `SIGNED`: this module already binds that name to an acceptance argument list, and
-# rebinding it at import time would have replaced it for every test in the file.
-COAUTHOR = "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-FOOTER = "Ai-Eng-Anchor: testrepo/abcdef012345 seq=2 head=deadbeefcafe"
-
-
-def _commit_msg(
-    tmp_path,
-    *,
-    holds=True,
-    body="body.\n",
-    shim="",
-    config=(),
-    trailer=True,
-    subject="test(x): a probe",
-    engine=None,
-    config_engine=False,
-):
-    """Run the real hook over one message and report what it did.
-
-    The stub populates both streams the way the real verb does — progress on stderr, and
-    on stdout the footer *plus* the rendered verdict — so a test can tell "took the footer"
-    from "took whatever was on stdout"."""
-
-    repo = tmp_path / "clone"
-    repo.mkdir()
-    for argv in (["init", "-q"], ["config", "ai.managed", "true"], *config):
-        subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
-
-    stub = tmp_path / "stub-eng"
-    stub.write_text(
-        "#!/bin/sh\n"
-        'echo "  RUNNING 1/4  load the verb" >&2\n'
-        + (
-            f"printf '\\n{FOOTER}\\n'\nprintf '\\u2713 PASS\\nExit code: 0\\n'\n"
-            if holds
-            else "printf '\\u2717 FAIL\\nReason: a violation\\nExit code: 1\\n'\n"
-        ),
-        encoding="utf-8",
-    )
-    stub.chmod(0o755)
-
-    if config_engine:
-        # The path a real commit takes: no override in the environment, the CLI named by
-        # `git config --get ai.eng`.
-        subprocess.run(
-            ["git", "config", "ai.eng", str(stub)], cwd=repo, check=True, capture_output=True
-        )
-    environment = {k: v for k, v in os.environ.items() if k != "AI_ENG"}
-    if engine is not False:
-        environment["AI_ENG"] = engine if engine is not None else str(stub)
-    if shim:
-        # A `git` that fails the way a real one can. Everything the hook asks of git before
-        # this point still has to work, so it delegates the rest to the real one.
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        real = shlex.quote(shutil.which("git"))
-        (bin_dir / "git").write_text(
-            f'#!/bin/sh\ncase "$1" in\n  {shim}\nesac\nexec {real} "$@"\n',
-            encoding="utf-8",
-        )
-        (bin_dir / "git").chmod(0o755)
-        environment["PATH"] = f"{bin_dir}{os.pathsep}{environment.get('PATH', '')}"
-
-    # Both shapes, because this repository writes both in roughly equal numbers. A message
-    # that already carries a trailer is the one an anchor appended after a blank line
-    # orphans — it starts a second trailer block, and `--parse` then returns the anchor
-    # alone without the `Co-Authored-By` GitHub reads for attribution. A message with no
-    # trailer cannot show that defect, which is exactly why the first version of this test
-    # passed against it. Fixing that by only ever testing the trailer shape would swap one
-    # blind spot for the other, so `trailer=False` keeps the other half covered.
-    original = f"{subject}\n\n{body}" + (f"\n{COAUTHOR}\n" if trailer else "")
-    message = tmp_path / "COMMIT_EDITMSG"
-    message.write_text(original, encoding="utf-8")
-    hook = Path(__file__).resolve().parents[1] / "git-hooks" / "commit-msg"
-    done = subprocess.run(
-        ["bash", str(hook), str(message)],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=environment,
-    )
-    return done, message.read_text(encoding="utf-8"), original, repo
-
-
-def _trailers(repo, message: str, *, divider: bool = True) -> list[str]:
-    parsed = subprocess.run(
-        ["git", "interpret-trailers", *([] if divider else ["--no-divider"]), "--parse"],
-        cwd=repo,
-        input=message,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return parsed.stdout.splitlines()
-
-
-@pytest.mark.parametrize("holds", [True, False])
-def test_the_commit_msg_hook_appends_the_footer_and_never_the_verdict(tmp_path, holds):
-    """The hook itself, executed. Its format was tested and its behaviour never was, and
-    every failure that hid in the gap was in the behaviour.
-
-    `audit --anchor` puts its progress on stderr and its verdict on stdout, because the
-    verdict is the data every other verb produces. The hook appended stdout wholesale, so a
-    chain that does not hold wrote `✗ FAIL / Reason: ... / Exit code: 1` into the commit
-    message — and the call ends in `|| true`, so nothing would have said so."""
-
-    done, written, original, repo = _commit_msg(tmp_path, holds=holds)
-
-    # Never a gate, in either direction: a hook that refuses commits is a hook people
-    # delete, and the escape they reach for is the one rule 3 forbids.
-    assert done.returncode == 0, done.stderr
-    assert "Exit code" not in written, written
-    assert "PASS" not in written and "FAIL" not in written, written
-    if holds:
-        assert written.endswith(f"{FOOTER}\n"), written
-        # Git has to see it as a trailer, and see the one that was already there. Asserting
-        # only that the anchor parses is what let the append that deletes its neighbour go
-        # green.
-        assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
-    else:
-        assert written == original
-        assert "not anchored" in done.stderr, done.stderr
-
-
-def test_a_divider_in_the_body_does_not_orphan_the_trailer_beside_the_anchor(tmp_path):
-    """Git stops reading a commit message at a bare `---`. Without `--no-divider` the
-    anchor lands above it, mid-body, and `--parse` returns the anchor alone — the exact
-    defect the placement fix was written to close, reappearing on a different input. No
-    commit here carries a divider today, which is why only an attacker of the fix would
-    have found it.
-
-    Asserted on the bytes, not through `--parse`: git's default reading stops at the
-    divider and finds no trailer block at all, with or without the anchor, so a parse-based
-    assertion would be measuring git's divider rule rather than where the hook put the
-    line. What has to hold is that the anchor joins the trailer already at the end."""
-
-    done, written, _, repo = _commit_msg(tmp_path, body="Some prose.\n\n---\n\nMore prose.\n")
-    assert done.returncode == 0, done.stderr
-    assert written.splitlines()[-2:] == [COAUTHOR, FOOTER], written
-    assert _trailers(repo, written, divider=False) == [COAUTHOR, FOOTER], written
-
-
-@pytest.mark.parametrize(
-    ("how", "kwargs"),
-    [
-        # A git that does not know one of the options — what an older git is.
-        ("unknown option", {"shim": "interpret-trailers) exit 129 ;;"}),
-        # And a config git parses only when it is asked to. This route is the one an earlier
-        # version of this test called unreachable, on the reasoning that the hook's fifth
-        # line asks git for `ai.managed` and exits 0 when that fails. `config --get` does
-        # not validate keys nobody asked for, so it answers `true` and the anchor block runs
-        # anyway. The claim was written in the commit whose subject was unmeasured claims,
-        # and the test that "proved" it used the shim — the one input that cannot see it.
-        ("bad config", {"config": (["config", "core.abbrev", "notanumber"],)}),
-    ],
-)
-def test_a_git_that_cannot_place_the_anchor_leaves_the_commit_standing(tmp_path, how, kwargs):
-    """The footer is not a gate, and the placement fix quietly made it one: under
-    `set -euo pipefail` a bare `git interpret-trailers` hands its exit status to the hook,
-    and git then refuses the commit. Not hypothetical — a message file in a directory git
-    cannot write its temporary file into exits 128, and both routes below exit non-zero
-    here. The person's escape from a hook that refuses commits is `--no-verify`, which rule
-    3 forbids and a guard blocks: the hook whose bug forces its own bypass."""
-
-    done, written, original, _ = _commit_msg(tmp_path, **kwargs)
-    assert done.returncode == 0, f"the hook refused the commit ({how}): {done.stderr}"
-    assert written == original, written
-    assert "could not be placed" in done.stderr, done.stderr
-
-
-def test_a_subject_git_wrote_itself_is_still_anchored(tmp_path):
-    """The exemption at the top of the hook is for the subject rule. It used to `exit 0`
-    and take the anchor with it, so every merge left the record with nothing written and
-    nothing said. A subject git chose is not a reason to leave the commit unrecorded.
-
-    Asserted through `--parse`, not by looking for the line: the first version of this test
-    checked the string was somewhere in the file, which the round-three orphaning defect
-    passes. The merge path is the only path this test owns, so a weak assertion here is a
-    blind spot nothing else covers.
-
-    One subject, not one per keyword: `Merge`, `Revert` and `fixup!` are alternations of a
-    single `grep -Eq` and nothing downstream reads the subject, so three parameters were
-    three copies of one case running three times."""
-
-    done, written, _, repo = _commit_msg(tmp_path, subject="Merge branch 'feature'")
-    assert done.returncode == 0, done.stderr
-    assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
-
-
-def test_the_cli_is_resolved_from_ai_eng_when_the_environment_names_none(tmp_path):
-    """`AI_ENG` is the override; `git config --get ai.eng` is what a real commit uses. Every
-    other test in this file sets the environment variable, so the resolution path that
-    actually runs on a person's machine had no coverage at all — and a misconfigured
-    `ai.eng` is one of the two candidate causes Block R exists to account for. The one
-    branch a whole section of the plan is about was the one branch nothing executed."""
-
-    done, written, _, repo = _commit_msg(tmp_path, engine=False, config_engine=True)
-    assert done.returncode == 0, done.stderr
-    assert _trailers(repo, written) == [COAUTHOR, FOOTER], written
-
-
-def test_a_cli_the_hook_cannot_even_run_is_reported_rather_than_skipped(tmp_path):
-    """`command -v` finding nothing used to mean the hook did nothing and said nothing.
-    Every other test supplies a resolvable stub, so not one of them could reach it, and a
-    hook that is quiet when it cannot record is how a run of unanchored commits passed
-    under a green gate. How long a run is not stated here: two figures were written into
-    these files across three rounds and neither was measured."""
-
-    done, written, original, _ = _commit_msg(tmp_path, engine="/nonexistent/ai-eng")
-    assert done.returncode == 0, done.stderr
-    assert written == original, written
-    assert "not on this machine" in done.stderr, done.stderr
-
-
-def test_a_message_with_no_trailer_of_its_own_still_gets_the_anchor(tmp_path):
-    """The other half of this repository's commits. Every assertion about placement was
-    written on the shape that carries a trailer, because that is the shape the orphaning
-    defect needed — and testing only that swaps one blind spot for the other. Here the
-    anchor is the whole trailer block, and it still has to be one git can read."""
-
-    done, written, _, repo = _commit_msg(tmp_path, trailer=False)
-    assert done.returncode == 0, done.stderr
-    assert _trailers(repo, written) == [FOOTER], written
-
-
 def test_a_break_that_has_been_accounted_for_is_recorded_and_never_erased(home, monkeypatch):
-    """The chain had no way back. One poisoned link and `audit verify` fails for good,
-    `anchor_line` raises, and no commit on that machine can ever be anchored again — a
+    """The chain had no way back. One poisoned link and `audit verify` fails for good — a
     ratchet with no recovery path, measured on the operator's own machine at 22 links.
 
     Erasing the links is the one thing that must not happen: it is the act the chain exists
@@ -768,8 +528,7 @@ def test_a_break_that_has_been_accounted_for_is_recorded_and_never_erased(home, 
     again because the break has been answered rather than hidden.
 
     It is not a way out from under a real edit. The account itself is a link, so adding one
-    later moves the head, and the head is what the anchors in git commits pin — replicated
-    and immutable, unlike this file."""
+    later moves the head, and every reader of this chain sees the addition."""
 
     monkeypatch.setattr(home, "repo_id", lambda root=None: "testrepo")
     events = _links(home, 3)
@@ -779,9 +538,7 @@ def test_a_break_that_has_been_accounted_for_is_recorded_and_never_erased(home, 
     events[2]["hash"] = home.digest(events[2])
     _write(home, events)
 
-    assert audit.verify(None, False), "a poisoned link must be reported before it is accounted"
-    with pytest.raises(ValueError):
-        audit.anchor_line(None)
+    assert audit.verify(None), "a poisoned link must be reported before it is accounted"
 
     accounted = audit.account(
         None, first=2, last=2, why="written by a test with its own home", by="Ada"
@@ -798,34 +555,6 @@ def test_a_break_that_has_been_accounted_for_is_recorded_and_never_erased(home, 
     kinds = dict((why.split(":")[0], kind) for kind, why in audit._chain_findings(after))
     assert kinds.get("link 2") == "ACCOUNTED", kinds
     assert "BROKEN" not in kinds.values(), kinds
-    # And the anchor works again, which is the whole point of being able to do this.
-    assert "Ai-Eng-Anchor: " in audit.anchor_line(None)
-
-
-@pytest.mark.parametrize("head", ["known", "aaaaaaaaaaaa"])
-def test_a_commit_anchoring_a_link_this_chain_has_lost_is_reported(home, monkeypatch, head):
-    """Git history is replicated and immutable; the chain on this laptop is neither. If
-    somebody truncates or replaces the local chain, the anchors in old commits are what
-    notices. A verifier that only walked the local file would find nothing wrong."""
-    monkeypatch.setattr(home, "repo_id", lambda root=None: "testrepo")
-    events = _links(home, 2)
-    _write(home, events)
-    anchored = events[-1]["hash"][:12] if head == "known" else head
-    log = f"Ai-Eng-Anchor: testrepo/{home.machine_id()} seq=2 head={anchored}\n\x00"
-    monkeypatch.setattr(
-        audit.subprocess,
-        "run",
-        lambda *a, **k: SimpleNamespace(returncode=0, stdout=log),
-    )
-    problems = audit.verify(Path("/nowhere"), True)
-    assert problems[-1] == (
-        "Solution Intent at .ai/intent.md is INCOMPLETE: INTENT_HOME_MISSING — "
-        "Solution Intent is missing at .ai/intent.md"
-    )
-    chain_problems = problems[:-1]
-    assert bool(chain_problems) is (head != "known"), problems
-    if chain_problems:
-        assert "the record was truncated or replaced" in chain_problems[0]
 
 
 def test_a_truncated_line_is_reported_as_broken_not_as_a_crash(home, capsys):
@@ -834,7 +563,7 @@ def test_a_truncated_line_is_reported_as_broken_not_as_a_crash(home, capsys):
     path = _write(home, _links(home, 2))
     with path.open("a", encoding="utf-8") as fh:
         fh.write('{"ts": "t", "cls": "allo\n')
-    problems = audit.verify(None, False)
+    problems = audit.verify(None)
     assert len(problems) == 1 and "link 3" in problems[0]
     assert audit.main(["verify"]) == outcome.result("FAIL")
     assert "intact" not in capsys.readouterr().out
@@ -968,23 +697,6 @@ def test_proposing_a_supersession_preserves_the_old_madr_and_the_spec(tmp_path):
         "0001-use-one-queue",
         "0002-use-two-queues",
     ]
-
-
-def test_a_decision_recorded_against_a_spec_with_no_decisions_heading_still_lands(repo, capsys):
-    """Specs written before this heading existed, or by hand, must not swallow the
-    decision silently — the whole point is that it is in the diff."""
-    folder = repo / "specs" / "001-a"
-    folder.mkdir()
-    (folder / "spec.md").write_text("# a\n", encoding="utf-8")
-    result = decide.main(["A choice", "--why", "because"])
-    assert type(result) is outcome.Result
-    assert result.outcome == "PASS"
-    body = (folder / "spec.md").read_text()
-    assert "## Decisions" in body and "decision: A choice" in body and "rationale: because" in body
-    with pytest.raises(SystemExit) as stopped:
-        decide.main([])
-    assert stopped.value.code == outcome.invalid_cli_exit()
-    assert "a decision needs a title" in capsys.readouterr().err
 
 
 def test_a_decision_with_no_spec_is_refused(repo, capsys):
@@ -1172,21 +884,6 @@ def test_a_description_over_the_budget_is_named_with_its_length(tmp_path):
     assert contract.audit_one(described(contract.DESCRIPTION_MAX)) == [], "the budget is inclusive"
     found = contract.audit_one(described(contract.DESCRIPTION_MAX + 1))
     assert len(found) == 1 and f"over {contract.DESCRIPTION_MAX}" in found[0]
-
-
-def test_the_line_count_leaves_out_the_record_and_counts_everything_else(tmp_path):
-    """The ceiling only means something if the count is honest: the record grows by design
-    and is excluded, and anything we chose to write is counted."""
-    subprocess.run(["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True)
-    (tmp_path / "specs" / "001-a").mkdir(parents=True)
-    (tmp_path / "specs" / "001-a" / "spec.md").write_text("a\n" * 50)
-    (tmp_path / "docs" / "adr").mkdir(parents=True)
-    (tmp_path / "docs" / "adr" / "0001-a.md").write_text("a\n" * 40)
-    (tmp_path / "LICENSE").write_text("l\n" * 30)
-    (tmp_path / "README.md").write_text("r\n" * 4)
-    (tmp_path / "thing.py").write_text("x = 1\n" * 3)
-    subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], check=True, capture_output=True)
-    assert contract.repo_lines(tmp_path) == 7
 
 
 # ------------------------------------------------------------------ exception
@@ -1396,6 +1093,8 @@ def test_the_approval_digests_in_the_plan_are_read_by_something():
 
     import hashlib
 
+    from ai_engineering import spec
+
     root = Path(__file__).resolve().parents[1]
     folder = root / "specs" / "010-governed-agentic-engineering-foundation"
     # Whitespace-normalised: a sentence in a markdown paragraph wraps wherever the line
@@ -1426,7 +1125,7 @@ def test_the_approval_digests_in_the_plan_are_read_by_something():
         .split()
     )
     for named in ("spec.md", "plan.md"):
-        digest = hashlib.sha256((folder / named).read_bytes()).hexdigest()
+        digest = hashlib.sha256(spec.approval_bytes(folder / named)).hexdigest()
         assert digest in record, (
             f"{named} hashes to {digest} and MADR 0009 approves something else. "
             "An edit after an approval needs a new approval, not a new number in the record."
@@ -1707,7 +1406,7 @@ def test_an_envelope_is_the_same_bytes_the_digest_names(repo, capsys):
 
     where = _fixture_spec(repo, "a-thing")
     _plan_with_tasks(where)
-    digest = "sha256:" + hashlib.sha256((where.parent / "plan.md").read_bytes()).hexdigest()
+    digest = "sha256:" + hashlib.sha256(spec.approval_bytes(where.parent / "plan.md")).hexdigest()
 
     assert spec.main(["show", "001", "--task", "1", "--plan-digest", digest]).outcome == "PASS"
     out = capsys.readouterr().out
@@ -1777,8 +1476,6 @@ def test_the_command_the_staleness_message_names_is_one_that_runs(repo, monkeypa
     """The two halves are written in different files, so they are held equal here rather
     than by whoever remembers to change both."""
 
-    import shlex
-
     from ai_engineering import report, solution_intent
 
     monkeypatch.chdir(repo)
@@ -1814,23 +1511,44 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
     import hashlib
     import re
 
-    root = Path(__file__).resolve().parents[1]
-    record = root / "docs" / "adr" / "0009-the-current-spec-010-digests-are-approved.md"
-    body = record.read_text(encoding="utf-8")
+    from ai_engineering import spec
 
-    rows = re.findall(r"^\|\s*`([^`]+)`\s*\|\s*`([0-9a-f]{64})`\s*\|", body, re.M)
-    assert len(rows) >= 2, (
-        f"{record.name} names {len(rows)} approved digests and it approved two files. An "
-        "approval record nobody can read row by row is prose with a table in it"
+    root = Path(__file__).resolve().parents[1]
+    # Every record, not only 0009. While this read one file, `docs/adr/0013` drifted on two
+    # of its rows and nothing said so — which is the same defect one layer up: a control that
+    # covers one instance of a class reads exactly like one that covers the class.
+    #
+    # Those two are named here rather than repaired, because repairing them means either
+    # re-signing somebody else's approval or rewriting the files it approved, and neither is
+    # this branch's to do. Named on 2026-08-21:
+    #   0013 -> specs/016/spec.md          approved f5c004ee5307, now c91dbc80d502
+    #   0013 -> specs/018/plan.md          approved 22d69e65bb67, now 104d506522ed
+    # Anything that is not one of those two turns this red.
+    known = {
+        ("specs/016-the-thesis-nobody-owns/spec.md", "f5c004ee5307"),
+        ("specs/018-controls-a-reviewer-proved-were-not-controls/plan.md", "22d69e65bb67"),
+    }
+
+    rows = []
+    for record in sorted((root / "docs" / "adr").glob("*.md")):
+        body = record.read_text(encoding="utf-8")
+        for name, approved in re.findall(
+            r"^\|\s*`([^`]+)`\s*\|\s*`([0-9a-f]{64})`\s*\|", body, re.M
+        ):
+            rows.append((record.name, name, approved))
+    assert len(rows) >= 11, (
+        f"the records name {len(rows)} approved digests and eleven were readable on the day "
+        "this was written. An approval record nobody can read row by row is prose with a "
+        "table in it"
     )
 
     moved = []
-    for name, approved in rows:
+    for where, name, approved in rows:
         target = root / name
-        assert target.is_file(), f"{record.name} approves {name}, which is not in this tree"
-        now = hashlib.sha256(target.read_bytes()).hexdigest()
-        if now != approved:
-            moved.append(f"{name}: approved {approved[:12]}, now {now[:12]}")
+        assert target.is_file(), f"{where} approves {name}, which is not in this tree"
+        now = hashlib.sha256(spec.approval_bytes(target)).hexdigest()
+        if now != approved and (name, approved[:12]) not in known:
+            moved.append(f"{where} -> {name}: approved {approved[:12]}, now {now[:12]}")
 
     assert not moved, (
         "the approved bytes are not the bytes that are there: "
@@ -1838,3 +1556,235 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
         + ". Either restore them or record a fresh approval — an approval that survives an "
         "edit to what it approved is a signature on a blank page."
     )
+
+
+def test_the_commit_msg_hook_places_the_run_receipt_and_never_refuses_the_commit(tmp_path):
+    """What the seven deleted anchor tests were protecting, kept for the half that is left.
+
+    Those tests asserted three properties of the footer the hook writes: it joins the
+    trailer block already at the end rather than starting a second one, a body containing a
+    bare `---` does not orphan it, and a git that cannot place it leaves the commit
+    standing. All three were written about the anchor and all three are true of the run
+    receipt, which had no test of its own — so deleting them without this would have traded
+    a control for a deletion.
+
+    The receipt is absent by default, and that is the reading that matters: a commit with no
+    trailer means nobody ran anything."""
+
+    repo = tmp_path / "clone"
+    repo.mkdir()
+    for argv in (["init", "-q"], ["config", "ai.managed", "true"]):
+        subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
+
+    hook = Path(__file__).resolve().parents[1] / "git-hooks" / "commit-msg"
+
+    def ran(body: str, subject: str = "test(x): a probe") -> tuple[int, str]:
+        message = repo / "MSG"
+        message.write_text(f"{subject}\n\n{body}\n{COAUTHOR}\n", encoding="utf-8")
+        done = subprocess.run(
+            ["bash", str(hook), str(message)], cwd=repo, capture_output=True, text=True
+        )
+        return done.returncode, message.read_text(encoding="utf-8")
+
+    # No receipt is on record for this content, so nothing is appended and the commit stands.
+    code, written = ran("Some prose.")
+    assert code == 0, written
+    assert "Ai-Eng-Ran:" not in written
+    assert written.splitlines()[-1] == COAUTHOR
+
+    # A bare divider is the input that orphaned the anchor before `--no-divider`. The
+    # co-author trailer must still be the last line, wherever git decides the block is.
+    code, written = ran("Some prose.\n\n---\n\nMore prose.")
+    assert code == 0, written
+    assert written.splitlines()[-1] == COAUTHOR
+
+    # And a subject git wrote itself is exempt from the shape rule rather than refused,
+    # because refusing one strands a merge with MERGE_HEAD still set.
+    assert ran("Some prose.", subject="Merge branch 'x'")[0] == 0
+    # while a subject nobody's convention accepts is still refused.
+    assert ran("Some prose.", subject="just some words")[0] == 1
+
+
+def _plan_with_check(where, command: str) -> Path:
+    """A one-task plan whose check is exactly the command given, box already in place."""
+    (where.parent / "plan.md").write_text(
+        "# Plan\n\n"
+        "1. [ ] **The one task** — **file** `src/thing.py`.\n"
+        f"   **check**: `{command}`.\n"
+        "   **rollback**: `git revert <commit>`. **done when**: it exits zero.\n",
+        encoding="utf-8",
+    )
+    return where.parent / "plan.md"
+
+
+def _tick(repo, command: str, digest: str | None = None):
+    """Run `--tick` over a one-task plan and give back the line it wrote."""
+    import hashlib
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-ticking-thing")
+    plan = _plan_with_check(where, command)
+    named = (
+        digest
+        if digest is not None
+        else "sha256:" + hashlib.sha256(spec.approval_bytes(plan)).hexdigest()
+    )
+    argv = ["show", where.parent.name[:3], "--task", "1", "--tick"]
+    if named:
+        argv += ["--plan-digest", named]
+    result = spec.main(argv)
+    body = plan.read_text(encoding="utf-8").splitlines()
+    line = next(one for one in body if one.startswith("1."))
+    return result, line
+
+
+def test_a_box_is_ticked_by_a_command_that_passed_and_by_nothing_else(repo, capsys):
+    """The tick column, and the three ways it can be wrong.
+
+    A box in a plan is a command's result, not a claim. So it is written by one thing —
+    `--tick`, which runs the check the task declares — and the interesting cases are the
+    ones where it must refuse: a check that fails leaves the box empty and says what exited
+    non-zero; a caller who did not name the approved digest gets nothing executed at all,
+    because running a command out of a plan nobody approved is the risk this lives inside;
+    and a check naming two commands is a refusal rather than a choice, since picking the
+    first would tick a box on half the evidence.
+    """
+
+    from ai_engineering import spec
+
+    passed, line = _tick(repo, "python -c pass")
+    assert passed.outcome == "PASS", capsys.readouterr().out
+    assert line.startswith("1. [x] <!--t:"), line
+    stamp = line.split("<!--t:")[1].split("-->")[0]
+    assert stamp == spec.seal("1", "`python -c pass`"), line
+
+    failed, line = _tick(repo, "python -c exit(3)")
+    assert failed.outcome == "INCOMPLETE"
+    assert line.startswith("1. [ ] **"), line
+    assert "exited 3" in capsys.readouterr().out
+
+    unapproved, line = _tick(repo, "python -c pass", digest="")
+    assert unapproved.outcome == "INCOMPLETE"
+    assert line.startswith("1. [ ] **"), "a command ran without an approved digest named"
+    assert "--plan-digest" in capsys.readouterr().out
+
+    wrong, line = _tick(repo, "python -c pass", digest="sha256:" + "0" * 64)
+    assert wrong.outcome == "INCOMPLETE"
+    assert line.startswith("1. [ ] **"), "a command ran against a plan that is not on disk"
+
+    both, _ = _tick(repo, "python -c pass` and `python -c pass")
+    assert both.outcome == "INCOMPLETE"
+    assert "choosing one is not this tool's call" in capsys.readouterr().out
+
+
+def test_every_ticked_box_in_this_tree_carries_the_seal_of_the_check_beside_it():
+    """The `if and only if` the canonical digest cannot see.
+
+    `approval_bytes` masks the tick column, which is what lets a box be written without
+    voiding an approval — and it means the signature would never notice an `[x]` somebody
+    typed. This notices. Every ticked box carries the seal of its own task id and its own
+    check text, and every seal sits on a ticked box.
+
+    A hand-painted box has no seal. A seal copied from another task has the wrong id. A
+    check whose text was edited after the run expires its seal, which is correct: the
+    evidence was for a different command.
+    """
+
+    import re
+
+    from ai_engineering import spec
+
+    root = Path(__file__).resolve().parents[1]
+    wrong = []
+    for plan in sorted(root.glob("specs/*/plan.md")):
+        body = plan.read_text(encoding="utf-8")
+        tasks = {one["task"]: one.get("check", "") for one in spec.plan_tasks(body)}
+        for mark in re.finditer(
+            r"^[ \t]*(\d+[a-z]*)\. (\[[ xX]\] )?(<!--t:([0-9a-f]{12})--> )?", body, re.M
+        ):
+            task, box, _, stamp = mark.group(1), mark.group(2) or "", mark.group(3), mark.group(4)
+            ticked = box.strip() in ("[x]", "[X]")
+            if not ticked and not stamp:
+                continue
+            where = f"{plan.parent.name} task {task}"
+            if ticked and not stamp:
+                wrong.append(f"{where}: ticked with no seal, so a person wrote it")
+            elif stamp and not ticked:
+                wrong.append(f"{where}: sealed with an empty box")
+            elif stamp != spec.seal(task, tasks.get(task, "")):
+                wrong.append(f"{where}: the seal is not this task's check")
+    assert not wrong, "; ".join(wrong)
+
+
+def test_progress_reads_the_seal_the_history_and_the_silence(repo, capsys, monkeypatch):
+    """Three states per task, and the one that matters is the third.
+
+    A sealed box says this task's own check ran here and exited zero. A receipt says a
+    commit carries `Ai-Eng-Ran: task:<id>#<n>`, so a suite ran over exactly those bytes —
+    a different question, and one that survives the box being emptied later. Open is
+    neither, and it is printed rather than skipped: a report that lists what happened and
+    stays quiet about what did not is the shape of every green nobody earned.
+
+    The git half is driven through a real repository with a real trailer, because the
+    parsing is the part that inverts — a trailer read without `separator=` splits its commit
+    into two lines, and then the commits that ran look malformed while the ones that did not
+    look fine.
+    """
+
+    import subprocess
+
+    from ai_engineering import spec
+
+    where = _fixture_spec(repo, "a-measured-thing")
+    home = where.parent
+    (home / "plan.md").write_text(
+        "# Plan\n\n"
+        "1. [ ] **First** — **file** `a.py`.\n"
+        "   **check**: `python -c pass`.\n"
+        "   **rollback**: `git revert <commit>`. **done when**: it exits zero.\n\n"
+        "2. [ ] **Second** — **file** `b.py`.\n"
+        "   **check**: `python -c pass`.\n"
+        "   **rollback**: `git revert <commit>`. **done when**: it exits zero.\n",
+        encoding="utf-8",
+    )
+
+    assert spec.main(["show", home.name[:3], "--progress"]).outcome == "PASS"
+    said = capsys.readouterr().out
+    assert "0 sealed, 0 with a receipt and no seal, 2 open, of 2" in said, said
+
+    def git(*argv: str) -> None:
+        subprocess.run(["git", *argv], cwd=repo, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "nobody@example.invalid")
+    git("config", "user.name", "Nobody")
+    git("config", "commit.gpgsign", "false")
+    # An empty hooks path rather than `--no-verify`: rule 3 has no exception for a throwaway
+    # repository, and a machine with a global `core.hooksPath` would otherwise run somebody
+    # else's hooks inside this test.
+    (repo / "nohooks").mkdir()
+    git("config", "core.hooksPath", str(repo / "nohooks"))
+    git("add", "-A")
+    git(
+        "commit",
+        "-q",
+        "-m",
+        f"chore: measure one task\n\nAi-Eng-Ran: task:{home.name[:3]}#1 content=abcdef012345",
+    )
+
+    assert spec.main(["show", home.name[:3], "--progress"]).outcome == "PASS"
+    said = capsys.readouterr().out
+    assert "1 receipt " in said.replace("  ", " "), said
+    assert "0 sealed, 1 with a receipt and no seal, 1 open, of 2" in said, said
+
+    # And a seal outranks a receipt, because it answers the sharper question.
+    digest = "sha256:" + hashlib.sha256(spec.approval_bytes(home / "plan.md")).hexdigest()
+    assert (
+        spec.main(["show", home.name[:3], "--task", "1", "--tick", "--plan-digest", digest]).outcome
+        == "PASS"
+    )
+    capsys.readouterr()
+    assert spec.main(["show", home.name[:3], "--progress"]).outcome == "PASS"
+    said = capsys.readouterr().out
+    assert "1 sealed, 0 with a receipt and no seal, 1 open, of 2" in said, said

@@ -177,10 +177,7 @@ def test_ai_gitignore_unignores_only_the_records_that_are_reviewed(tmp_path: Pat
         "!intent.md",
         "!readiness.json",
         "!reports/",
-        "!reports/evolution-proposal/",
-        "!reports/evolution-proposal/index.html",
-        "!reports/process-optimization-research/",
-        "!reports/process-optimization-research/index.html",
+        "!reports/[0-9][0-9][0-9]-*.html",
     ]
     assert "judged against" in rules, (
         "the exception for the reports carries no argument, and an exception without one is "
@@ -1187,7 +1184,7 @@ def test_audit_recomputes_intent_relations_without_metadata_proof(
     no_ai.mkdir()
     monkeypatch.setattr(audit, "read", lambda root: [])
     for repository in (no_ai, missing):
-        assert audit.verify(repository, anchors=False) == [
+        assert audit.verify(repository) == [
             prefix + "INTENT_HOME_MISSING — Solution Intent is missing at .ai/intent.md"
         ]
         monkeypatch.setattr(paths, "repo_root", lambda repository=repository: repository)
@@ -1218,7 +1215,7 @@ def test_audit_recomputes_intent_relations_without_metadata_proof(
     claimed["hash"] = emit.digest(claimed)
     monkeypatch.setattr(audit, "read", lambda root: [claimed])
 
-    assert audit.verify(repository, anchors=False) == [
+    assert audit.verify(repository) == [
         prefix + "INTENT_RELATION_STALE — relation digest does not match target"
     ]
     monkeypatch.setattr(paths, "repo_root", lambda: repository)

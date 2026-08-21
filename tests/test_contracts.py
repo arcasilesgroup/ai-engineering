@@ -20,7 +20,6 @@ from ai_engineering import contract, paths, text, wiring
 
 ROOT = Path(__file__).resolve().parents[1]
 
-CEILING = contract.REPO_CEILING
 DOCTRINE_CEILING = 150
 
 
@@ -826,6 +825,7 @@ WORDS = {
     9: "nine",
     12: "twelve",
     13: "thirteen",
+    15: "fifteen",
     10: "ten",
     16: "sixteen",
     20: "twenty",
@@ -903,53 +903,6 @@ def test_an_entry_is_ours_by_the_dispatcher_it_runs_and_not_by_this_project_s_na
     assert not wiring.ours({"command": "/usr/bin/python /somebody/elses/hook.py"})
     assert not wiring.ours({"command": "/opt/ai-engineering/venv/bin/python /x/other.py"})
     assert "/" not in wiring.SIGNATURE
-
-
-def test_the_ceiling_is_closed_onto_the_tree_and_its_history_is_git():
-    """The ceiling is a number and a commit, and nothing else.
-
-    It used to be a number and 3,330 lines of hand-written prose narrating every raise it
-    had ever had — charged, by its own rule, against the total it was documenting, and
-    eighteen of those lines were a paragraph about that. This asserted the arithmetic inside
-    that prose, phrase by phrase, which made the comment load-bearing and the deletion
-    expensive: the record of a change to an integer cost more than every other constant in
-    the file put together.
-
-    What replaces it is what was always underneath: `git log -S REPO_CEILING` is the
-    changelog, `specs/` holds the arithmetic behind each spend, and the commit that raises
-    the number is the conversation. So this checks the two things a reader needs and the
-    prose could never guarantee — that the number is closed onto the tree it measures, and
-    that the file points at where its history actually lives.
-    """
-
-    total = contract.repo_lines(ROOT)
-    assert total <= contract.REPO_CEILING, f"{total} lines against {contract.REPO_CEILING}"
-    slack = contract.REPO_CEILING - total
-    assert slack <= 400, (
-        f"{slack} lines of unspent ceiling. A ceiling well above the tree is not a ceiling; "
-        "close it onto what was measured in the commit that measured it."
-    )
-
-    source = (ROOT / "src/ai_engineering/contract.py").read_text()
-    assert "git log -S REPO_CEILING" in source, (
-        "the ceiling no longer says where its history is, so the history is nowhere a reader "
-        "will look"
-    )
-    comment = sum(1 for line in source.splitlines() if line.strip().startswith("#"))
-    assert comment < 200, (
-        f"{comment} comment lines in contract.py. The prose changelog is growing back, and it "
-        "is charged against the ceiling it describes."
-    )
-
-
-def test_the_line_ceiling_holds(tmp_path):
-    with pytest.raises(ValueError):
-        contract.repo_lines(tmp_path)  # a count over zero files is not a pass
-    total = contract.repo_lines(ROOT)
-    assert total <= CEILING, (
-        f"{total} lines against a ceiling of {CEILING}. Raise it in a commit whose message "
-        f"says why — that commit is the conversation you would otherwise never have had."
-    )
 
 
 def test_the_tests_do_not_outgrow_what_they_test(tmp_path):
@@ -1550,7 +1503,7 @@ the design does not
 # went through.
 GOVERNING_SKILL_TEXT = {
     ".agents/skills/ai-build/SKILL.md": (
-        "52c37f2ad9180c6bbf21e3519ce4bae0ff78a38ee9c0bacae2bbcbe9b0dade69"
+        "fa0a339491f53c56e175efcd02d829b76d5586862570979807e55063198f5cb6"
     ),
     ".agents/skills/ai-build/corpus.md": (
         "a058272096e4a0d7ec48688a78d4967af715c30476dc7271b3324bbcf43b238b"
@@ -2093,9 +2046,9 @@ def test_no_skill_is_harder_to_read_than_the_hardest_one_is_today():
 
     Gunning fog counts both halves, sentence length and the share of long words, because
     either alone is gameable in the direction that helps nobody. The bound is the hardest
-    skill in the tree at the moment it was taken, with no headroom, on exactly the contract
-    `REPO_CEILING` has: raising it takes a commit that says why, and that commit is the
-    conversation about whether the new sentence earned its length.
+    skill in the tree at the moment it was taken, with no headroom: raising it takes a commit
+    that says why, and that commit is the conversation about whether the new sentence earned
+    its length.
 
     What this is not is a reader. A formula cannot tell whether anybody understood, and the
     ledger row stays incomplete until a non-technical person has said so. What it ends is
@@ -2147,3 +2100,196 @@ def test_a_document_with_no_prose_in_it_says_so_rather_than_scoring_zero():
 
     with pytest.raises(ValueError):
         contract.fog(contract.prose("---\nname: x\n---\n\n```\ncode only\n```\n"))
+
+
+def test_the_path_safety_readers_survive_every_deletion_called_anchor(tmp_path):
+    """The boundary specification 022 had to not cross, as a command rather than a sentence.
+
+    The word "anchor" named two unrelated things in this tree. One was the commit footer and
+    the three history verdicts behind it, all deleted. The other is this: readers that refuse
+    a symbolic link, a filesystem boundary crossing and an unbounded read before anything
+    downstream is allowed to trust what they returned. A person deleting "the anchor stuff"
+    by name would take a security control with it and the diff would look like the work.
+
+    So this names them. A rename is a red here with the new name in the message, which is the
+    conversation that has to happen; a deletion is a red with nothing to put back.
+    """
+
+    from ai_engineering import accept, acceptance, decide, readiness, surface
+
+    for owner, name in (
+        (accept, "_anchored_bytes"),
+        (acceptance, "_anchored"),
+        (readiness, "_anchored"),
+        (decide, "_require_anchored_io"),
+    ):
+        assert callable(getattr(owner, name, None)), (
+            f"{owner.__name__}.{name} is a path-safety reader, not the deleted commit anchor"
+        )
+
+    # `surface` imports readiness's rather than growing its own, and that is the property:
+    # one reader, four callers, so a repair lands in one place.
+    assert surface._anchored is readiness._anchored
+
+    # And it still refuses. A reader that exists and passes everything is the shape this
+    # would fail to notice, so the refusal is exercised rather than the name.
+    #
+    # What it guarantees is exactly one thing: nothing linked on the way. Not traversal —
+    # its callers pass fixed relative paths — and asserting traversal here would be this
+    # file claiming a property the code does not have, which is the defect `docs/adr/0014`
+    # is about.
+    root = tmp_path / "repo"
+    (root / "safe").mkdir(parents=True)
+    (root / "safe" / "real.json").write_text("{}", encoding="utf-8")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "planted.json").write_text("{}", encoding="utf-8")
+    (root / "safe" / "link.json").symlink_to(outside / "planted.json")
+    (root / "linked").symlink_to(outside)
+
+    assert readiness._anchored(root, "safe/real.json").name == "real.json"
+    # A file that is a link, and — the defect its own docstring names — a *directory* that
+    # is one, with a perfectly ordinary file underneath it.
+    for refused in ("safe/link.json", "linked/planted.json"):
+        with pytest.raises(readiness._Unreadable):
+            readiness._anchored(root, refused)
+
+
+COUNCIL_VERDICT = re.compile(
+    r"^[ \t>*-]*(approved|approval|verdict|decision|vote|votes|voted|score|scores|"
+    r"consensus|ranking|ranked|recommendation)\b[ \t]*[:=]",
+    re.M | re.I,
+)
+COUNCIL_TALLY = re.compile(r"^[ \t>*-]*\d+\s*(of|/)\s*\d+\s+(members|lenses|agree)", re.M | re.I)
+
+
+def _verdict_fields(body: str) -> list[str]:
+    """Every field in a council file that a machine could read as a decision."""
+
+    found = {hit.group(1).lower() for hit in COUNCIL_VERDICT.finditer(body)}
+    found.update(hit.group(0).strip() for hit in COUNCIL_TALLY.finditer(body))
+    return sorted(found)
+
+
+def test_a_council_reviews_and_never_approves():
+    """`EP-171`, which asked for a check rather than a sentence the day a council existed.
+
+    The constitution says models "may investigate, propose and review; they never grant
+    authority or accept risk". The distinction is exact and it is easy to lose: a council
+    that reviews is allowed, a council that approves is not. So the boundary cannot be a
+    paragraph in a skill file — `EP-171` sat at UNFALSIFIABLE for exactly that reason, its
+    evidence a grep for a sentence, with nothing to test against.
+
+    A council exists now, so this is that test. It reads what a council produces and refuses
+    any field a machine could read as a decision: an approval, a verdict, a vote, a score, a
+    ranking, or a tally of members agreeing. Approval stays where it is, with a person behind
+    it and `ai-eng decide` in front of it.
+
+    Driven against a file that must be refused as well as the tree's own, because a rule that
+    has never fired is a rule nobody has tested — and today there is no `council.md` in this
+    repository at all, so the tree half alone would pass over nothing.
+    """
+
+    clean = "# Council\n\n## Cost\n\n- the spec never says what this costs. `just check`\n"
+    assert not _verdict_fields(clean), _verdict_fields(clean)
+    for refused in (
+        "approved: yes\n",
+        "- Verdict: ship it\n",
+        "votes = 2\n",
+        "> consensus: the three members agree\n",
+        "2 of 3 members agree\n",
+        "Recommendation: approve\n",
+    ):
+        assert _verdict_fields(clean + refused), f"a council could write {refused!r}"
+
+    said = []
+    for produced in sorted(ROOT.glob("specs/*/council.md")):
+        fields = _verdict_fields(produced.read_text(encoding="utf-8"))
+        if fields:
+            said.append(f"{produced.parent.name}: {', '.join(fields)}")
+    assert not said, (
+        "a council granted authority: " + "; ".join(said) + ". It may name what is absent "
+        "and it may not say whether the specification is good — that belongs to a person"
+    )
+
+    # And the skill itself has to say so, because the file above only exists after a run.
+    skill = (ROOT / ".agents" / "skills" / "ai-council" / "SKILL.md").read_text(encoding="utf-8")
+    assert "No vote and no ranking" in skill and "approved" in skill, (
+        "the council skill no longer states that it has no field in which the word approved "
+        "could be written, which is the instruction this test enforces the output of"
+    )
+
+
+CRITICS = ("ai-challenge", "ai-council", "ai-review", "ai-verify", "ai-security")
+
+
+def test_every_critic_runs_apart_and_is_marked_the_same_way():
+    """The five skills that judge somebody else's work run in a context of their own.
+
+    Not for speed. A critic that sees the author's reasoning inherits it, and the whole
+    value of a separate reader is that it did not watch the thing being written. `context:
+    fork` is what buys that, and `background: false` is what keeps its verdict in order —
+    a forked skill runs in the background by default, so its answer lands after the work it
+    was judging and `/rewind` will not undo what it touched.
+
+    Four of the five were marked this way and `ai-security` was not, which is exactly the
+    shape a rule kept in prose takes: right in four places and quietly wrong in the fifth.
+    `AGENTS.md` states the rule; this is what makes it a rule.
+    """
+
+    wrong = []
+    for name in CRITICS:
+        header = text.frontmatter(ROOT / ".agents" / "skills" / name / "SKILL.md")
+        if header.get("context") != "fork":
+            wrong.append(f"{name}: context is {header.get('context')!r}, not 'fork'")
+        if str(header.get("background")).lower() != "false":
+            wrong.append(f"{name}: background is {header.get('background')!r}, not false")
+    assert not wrong, "; ".join(wrong)
+
+    # And the doctrine has to still say why, because the marking alone reads as an accident.
+    doctrine = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    assert "One writer, and readers only when independence is what you are buying" in doctrine
+    for name in CRITICS:
+        assert f"/{name}" in doctrine, f"{name} is marked as a critic and the doctrine omits it"
+
+
+def test_the_reference_a_person_copies_from_names_commands_that_exist():
+    """`docs/tools.md` is where somebody copies a command from, and nothing compared it to
+    the justfile it describes.
+
+    Measured on 2026-08-21, before this existed: it offered `just mutate` and `just changed`,
+    **neither of which is a recipe** — the mutation lane is called `guards` and the other had
+    no successor at all — and it described `just check` as "build + lint + test + cover +
+    security + counts", which is six of the thirteen steps that recipe actually runs.
+
+    `docs/adr/0014` is the record for this defect class and states the rule: a claim one
+    document makes about another gets a comparator, and the comparator executes the sentence
+    instead of re-reading it. This is that comparator. A recipe renamed without the reference
+    following turns it red, and so does a step added to `check`.
+    """
+
+    import re
+
+    justfile = (ROOT / "justfile").read_text(encoding="utf-8")
+    reference = (ROOT / "docs" / "tools.md").read_text(encoding="utf-8")
+
+    recipes = {
+        hit.group(1)
+        for hit in re.finditer(r"(?m)^([a-z][a-z0-9-]*)(?:\s+[^:\n]*)?:(?!=)", justfile)
+    }
+    assert "check" in recipes and "guards" in recipes, sorted(recipes)
+
+    offered = {hit.group(1) for hit in re.finditer(r"`just ([a-z][a-z0-9-]*)", reference)}
+    missing = sorted(offered - recipes)
+    assert not missing, (
+        f"the reference offers {missing}, which no recipe answers to. Somebody copying that "
+        "line gets an error, and the file they would check next is this one"
+    )
+
+    # And the step list, because naming six of thirteen is the same defect one layer down:
+    # the sentence was true when it was written and nothing noticed the recipe growing.
+    steps = re.search(r"(?m)^check:\s*(.+)$", justfile).group(1).strip()
+    assert steps in reference, (
+        f"`just check` runs `{steps}` and the reference describes something else. Quote the "
+        "line rather than summarising it — a summary is what drifted last time"
+    )

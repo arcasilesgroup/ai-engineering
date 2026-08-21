@@ -385,7 +385,7 @@ $ARGUMENTS
 
 def phases() -> dict[str, str]:
     """Which of the five phases each capability serves, read from the one file that lists
-    all fifteen. A second copy here would be a second answer within a week."""
+    all eighteen. A second copy here would be a second answer within a week."""
 
     try:
         declared = tomllib.loads(paths.policy("capabilities.toml").read_text(encoding="utf-8"))
@@ -502,7 +502,13 @@ def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
             )
             target = where / f"{skill.name}.md"
             target.write_text(body, encoding="utf-8")
-            digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+            # The bytes on disk, never the string we meant to put there. `write_text`
+            # translates `\n` to `\r\n` on Windows, so hashing `body` recorded a digest of
+            # something that was never written — and `uninstall` reads the file back with
+            # `read_bytes`, so every generated router looked edited by a stranger from the
+            # first second and refused to be removed. Hashing the file cannot desync from
+            # the file, on any platform, for any reason anybody thinks of later.
+            digest = hashlib.sha256(target.read_bytes()).hexdigest()
             written.append({"path": str(target), "kind": "router", "how": f"generated {digest}"})
     return written
 
@@ -557,8 +563,13 @@ def prior_hooks_path(root: Path) -> str:
     ).stdout.strip()
 
 
-def anchor_answers() -> subprocess.CompletedProcess[str]:
+def cli_answers() -> subprocess.CompletedProcess[str]:
     """Ask this interpreter whether it can run the product, and hand back what it said.
+
+    It was called `anchor_answers` and never checked an anchor: it runs `--version`.
+    Specification 022 deleted the anchor and the name went with it, in one pass, because
+    `tests/conftest.py` captures this function at import — so a half-done rename reds the
+    whole suite during collection rather than in one test.
 
     Its own function because it is the one part of wiring that depends on the environment
     rather than on the repository, and a test about where files land should not turn on
@@ -596,7 +607,7 @@ def wire_git(root: Path) -> str:
     the three keys is written unless it did."""
 
     try:
-        proved = anchor_answers()
+        proved = cli_answers()
     except (OSError, subprocess.SubprocessError) as why:
         raise Unreadable(
             f"the CLI this install would record could not be executed: {why.__class__.__name__}"

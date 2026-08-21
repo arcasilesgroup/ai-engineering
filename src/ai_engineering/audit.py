@@ -21,7 +21,6 @@ import json
 import os
 import re
 import stat
-import subprocess
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -29,7 +28,6 @@ from pathlib import Path
 
 from ai_engineering import accept, outcome, paths
 
-ANCHOR = re.compile(r"^Ai-Eng-Anchor: (\S+)/(\S+) seq=(\d+) head=([0-9a-f]{12})$", re.M)
 INTENT_HOME = ".ai/intent.md"
 INTENT_INCOMPLETE_PREFIX = f"Solution Intent at {INTENT_HOME} is INCOMPLETE: "
 ROOT_INCOMPLETE = "Repository context is INCOMPLETE: no repository root can be proven"
@@ -37,7 +35,6 @@ CHAIN_INCOMPLETE_PREFIX = "Chain evidence is INCOMPLETE: "
 # The event name an account carries. Not a new event class: the six are closed, and an
 # account is a command a person ran, which is what `command` means.
 ACCOUNT = "audit_account"
-HISTORY_INCOMPLETE_PREFIX = "Anchor history is INCOMPLETE: "
 
 
 class _ChainRead(list[dict]):
@@ -295,104 +292,8 @@ def _chain_findings(events: list[dict]) -> list[tuple[str, str]]:
     return findings
 
 
-def _history_findings(root: Path, events: list[dict]) -> list[tuple[str, str]]:
-    emit = paths.load("_emit")
-    try:
-        completed = subprocess.run(
-            ["git", "-C", str(root), "log", "--format=%B%x00", "-n", "200"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if getattr(completed, "returncode", None) != 0 or not isinstance(completed.stdout, str):
-            raise OSError("git history did not complete")
-        machine = emit.machine_id()
-        repository = emit.repo_id(root)
-        if not machine or repository in {"", "unborn", "unknown"}:
-            raise OSError("repository or machine identity is unavailable")
-    except (ImportError, OSError, RuntimeError, subprocess.SubprocessError, TypeError, ValueError):
-        return [
-            (
-                "INCOMPLETE",
-                HISTORY_INCOMPLETE_PREFIX + "HISTORY_UNREADABLE — git history cannot be read",
-            )
-        ]
-
-    known: dict[str, tuple[int, str] | None] = {}
-    for event in events:
-        digest = event.get("hash")
-        sequence = event.get("seq")
-        if not isinstance(digest, str) or type(sequence) is not int:
-            continue
-        prefix = digest[:12]
-        link = (sequence, digest)
-        known[prefix] = link if prefix not in known else None
-
-    findings: list[tuple[str, str]] = []
-    seen = False
-    anchors = ANCHOR.findall(completed.stdout)
-    anchor_lines = re.findall(r"^Ai-Eng-Anchor:.*$", completed.stdout, re.M)
-    if len(anchor_lines) != len(anchors):
-        findings.append(
-            (
-                "INCOMPLETE",
-                HISTORY_INCOMPLETE_PREFIX
-                + "HISTORY_AMBIGUOUS — a commit contains a malformed anchor line",
-            )
-        )
-    for repo_id, anchor_machine, number, head in anchors:
-        if anchor_machine != machine:
-            continue
-        seen = True
-        if repo_id != repository:
-            findings.append(
-                (
-                    "BROKEN",
-                    f"a commit anchors this machine under repository {repo_id}, not {repository}",
-                )
-            )
-        elif head not in known:
-            findings.append(
-                (
-                    "BROKEN",
-                    f"a commit anchors head {head} at seq {number}, and this chain "
-                    f"has no such link: the record was truncated or replaced",
-                )
-            )
-        else:
-            # Bound once. Two subscripts of the same key are two reads to a type checker and
-            # two facts to a reader, and only one of them is the link this branch is about.
-            placed = known[head]
-            if placed is None:
-                findings.append(
-                    (
-                        "INCOMPLETE",
-                        HISTORY_INCOMPLETE_PREFIX
-                        + f"HISTORY_AMBIGUOUS — head prefix {head} names multiple links",
-                    )
-                )
-            elif placed[0] != int(number):
-                findings.append(
-                    (
-                        "BROKEN",
-                        f"a commit anchors head {head} at seq {number}, but the recomputed "
-                        f"chain places it at seq {placed[0]}",
-                    )
-                )
-    if not seen:
-        findings.append(
-            (
-                "INCOMPLETE",
-                HISTORY_INCOMPLETE_PREFIX
-                + "HISTORY_BLIND — no commit anchors this machine's chain",
-            )
-        )
-    return findings
-
-
 def _inspect(
     root: Path | None,
-    anchors: bool,
     *,
     require_root: bool,
     include_intent: bool,
@@ -402,17 +303,14 @@ def _inspect(
     if require_root and root is None:
         findings.append(("INCOMPLETE", ROOT_INCOMPLETE))
     findings.extend(_chain_findings(events))
-    if anchors and root is not None:
-        findings.extend(_history_findings(root, events))
     if include_intent and root is not None:
         findings.extend(("INCOMPLETE", problem) for problem in verify_intent(root))
     return _Inspection(tuple(events), tuple(findings))
 
 
-def verify(root: Path | None, anchors: bool) -> list[str]:
+def verify(root: Path | None) -> list[str]:
     inspection = _inspect(
         root,
-        anchors,
         require_root=False,
         include_intent=root is not None,
     )
@@ -436,8 +334,6 @@ def _cure(findings: Sequence[tuple[str, str]]) -> list[str]:
     The ranges are printed because a person answering for twenty-two links should not have
     to derive five contiguous runs from a list by eye.
     """
-
-    import re
 
     # A set, because one link can be reported broken for more than one reason and the runs
     # are about which links need answering, not how many complaints each one drew. Without
@@ -493,15 +389,6 @@ def replay(root: Path | None, session: str) -> list[str]:
     return _replay(read(root), session)
 
 
-def _anchor_line(root: Path | None, events: list[dict] | tuple[dict, ...]) -> str:
-    emit = paths.load("_emit")
-    last = events[-1]
-    return (
-        f"\nAi-Eng-Anchor: {emit.repo_id(root)}/{emit.machine_id()} "
-        f"seq={last['seq']} head={last['hash'][:12]}\n"
-    )
-
-
 def account(root: Path | None, *, first: int, last: int, why: str, by: str) -> outcome.Result:
     """Answer for a named range of broken links, as a new link.
 
@@ -519,18 +406,6 @@ def account(root: Path | None, *, first: int, last: int, why: str, by: str) -> o
     emit.emit(ACCOUNT, "command", first=first, last=last, why=why.strip(), by=by.strip())
     emit.flush(root)
     return outcome.result("PASS")
-
-
-def anchor_line(root: Path | None) -> str:
-    inspection = _inspect(
-        root,
-        anchors=False,
-        require_root=False,
-        include_intent=False,
-    )
-    if inspection.result.outcome not in ("PASS", "WARN"):
-        raise ValueError("an anchor requires a chain that is intact or accounted for")
-    return _anchor_line(root, inspection.events)
 
 
 def _render(inspection: _Inspection, *, stream=None) -> None:
@@ -551,46 +426,22 @@ def main(argv: list[str]) -> outcome.Result:
     parser.add_argument("--range", help="the broken links to answer for, as FIRST-LAST")
     parser.add_argument("--why", help="why those links are there")
     parser.add_argument("--by", help="the person answering for them")
-    parser.add_argument("--anchors", action="store_true", help="also check the anchors in git")
     parser.add_argument("--session")
-    parser.add_argument("--anchor", action="store_true", help="print the footer for commit-msg")
     args = parser.parse_args(argv)
 
-    if args.action == "replay" and args.anchors:
-        parser.error("--anchors applies only to verify")
     if args.action == "account" and not (args.range and args.why and args.by):
         parser.error("account requires --range FIRST-LAST, --why and --by")
     if args.action != "account" and (args.range or args.why or args.by):
         parser.error("--range, --why and --by apply only to account")
     if args.action != "replay" and args.session is not None:
         parser.error("--session applies only to replay")
-    if args.anchor and (args.action != "verify" or args.anchors or args.session):
-        parser.error("--anchor cannot be combined with replay, --anchors or --session")
 
     try:
         root = paths.repo_root()
     except (ImportError, OSError, RuntimeError, TypeError, ValueError):
         root_failure = _Inspection((), (("INCOMPLETE", ROOT_INCOMPLETE),))
-        _render(root_failure, stream=sys.stderr if args.anchor else None)
+        _render(root_failure, stream=None)
         return root_failure.result
-    if args.anchor:
-        inspection = _inspect(
-            root,
-            anchors=False,
-            require_root=True,
-            include_intent=False,
-        )
-        if inspection.result.outcome not in ("PASS", "WARN"):
-            _render(inspection, stream=sys.stderr)
-            return inspection.result
-        # A chain whose only findings are accounted breaks still anchors. The alternative
-        # is what this machine lived with: one poisoned link and no commit can ever carry a
-        # footer again, so the record stops growing at exactly the moment somebody is
-        # trying to repair it.
-        if inspection.findings:
-            _render(inspection, stream=sys.stderr)
-        print(_anchor_line(root, inspection.events), end="")
-        return inspection.result
     if args.action == "account":
         try:
             first, _, last = args.range.partition("-")
@@ -619,7 +470,6 @@ def main(argv: list[str]) -> outcome.Result:
     if args.action == "replay":
         inspection = _inspect(
             root,
-            anchors=False,
             require_root=True,
             include_intent=False,
         )
@@ -631,7 +481,6 @@ def main(argv: list[str]) -> outcome.Result:
         return outcome.result("PASS")
     inspection = _inspect(
         root,
-        args.anchors,
         require_root=True,
         include_intent=True,
     )

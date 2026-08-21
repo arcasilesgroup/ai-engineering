@@ -377,9 +377,9 @@ def test_the_evaluation_leaves_a_receipt_the_product_itself_will_accept(tmp_path
     # the repository itself and restore it in a `finally`, which is correct in isolation and
     # wrong under `-n auto`: for the length of two subprocess runs the tree really did carry
     # an extra line, and every other worker reading that tree saw it. It cost two gates. The
-    # page's freshness check reddened because `solution_intent.read` opens live files, and
-    # `test_spec_010_004_intent_and_ceiling_transition_atomically` reddened because
-    # `contract.repo_lines` counts them — both intermittently, both blaming the wrong thing.
+    # page's freshness check reddened because `solution_intent.read` opens live files, and a
+    # line-counting test reddened because it counted them — both intermittently, and both
+    # blaming the wrong thing.
     # An audit hook on `open` finally named this line. A test may read the tree it runs in;
     # it may not write it.
     corpus_root = tmp_path / "corpus"

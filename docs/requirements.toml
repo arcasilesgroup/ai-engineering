@@ -273,7 +273,7 @@ verdict = "INCOMPLETE"
 mover = "owner"
 subject = "a skill evaluation against an approved corpus, with a named approver, format, location and command"
 evidence = "python tests/skill_eval.py; grep -n 'baseline' policy/pilot-register.toml"
-note = "four of the five exist: the corpus is the labelled cases beside every skill, the format is the two headings the admission gate demands, the location is `corpus.md` in each skill directory, and the command is `python tests/skill_eval.py` with a lower bound of 275 it is compared against. The approver is the fifth and is the same gap as EP-289 — a name nobody typed"
+note = "four of the five exist: the corpus is the labelled cases beside every skill, the format is the two headings the admission gate demands, the location is `corpus.md` in each skill directory, and the command is `python tests/skill_eval.py` with a lower bound of 326 it is compared against. The approver is the fifth and is the same gap as EP-289 — a name nobody typed"
 
 [[requirement]]
 id = "EP-030"
@@ -1271,11 +1271,10 @@ note = "the triggers are named in prose; nothing in code detects any of them"
 
 [[requirement]]
 id = "EP-171"
-verdict = "UNFALSIFIABLE"
-mover = "nobody"
+verdict = "PROVEN"
 subject = "more reviewers never substitute for the authority boundary"
-evidence = "grep -n 'More reviewers do not change' .agents/skills/ai-spec/SKILL.md"
-note = "prose only; there is no reviewer-count code to test against and no gap metric is defined"
+evidence = "pytest tests/test_contracts.py::test_a_council_reviews_and_never_approves"
+note = "the row asked for a check rather than a sentence the day a council existed, and it now exists. The test reads what a council produces and refuses any field a machine could read as a decision — an approval, a verdict, a vote, a score, a ranking, or a tally of members agreeing — and is driven against files that must be refused as well as the tree's own, because there is no council.md here yet and the tree half alone would pass over nothing"
 
 [[requirement]]
 id = "EP-172"
@@ -2078,10 +2077,11 @@ note = "declared as having no instrument rather than claiming a percentile it do
 
 [[requirement]]
 id = "EP-285"
-verdict = "PROVEN"
+verdict = "CONTRADICTED"
+mover = "decided"
 subject = "a whole-tree mutation score exists and is measured against the floor"
-evidence = "gh run view 32043131651 --log | grep 'deliberate defects'"
-note = "the score exists and the comparison executes: 21,960 mutants, 72% caught, against a floor of 89, published by the scheduled run on 2026-08-17. The requirement asks that it be measured against the floor and it is; that the floor is unmet is a separate fact, recorded in specs/018 plan T-11 and in the nightly's own header, and the owner's decision that day was to raise the tests rather than lower the number"
+evidence = "grep -rc mutmut justfile pyproject.toml"
+note = "regraded when the apparatus was deleted rather than left PROVEN over a run nobody can repeat. It was graded on `gh run view 32043131651` — 21,960 mutants, 72% against a floor of 89, published 2026-08-17 — and that grade is now false in both halves: there is no whole-tree score and no floor to measure it against, because `just mutate`, `[tool.mutmut]`, `FLOOR = 89` and the scheduled run were removed. What replaced it does not satisfy this row and is not pretending to: `just guards` breaks named defects in the four guards that decide whether an action is allowed, with a floor of 100 and a single survivor failing. That is a different requirement, over a curated surface rather than a whole tree, and writing it in here as though it were this one is the substitution this ledger exists to catch. The evidence command prints zero for both files, which is the fact the verdict rests on"
 
 [[requirement]]
 id = "EP-286"
@@ -2108,7 +2108,7 @@ verdict = "INCOMPLETE"
 mover = "owner"
 subject = "a skill-evaluation delta with a baseline, a margin and a named approver"
 evidence = "python tests/skill_eval.py | grep baseline; pytest tests/test_skill_eval.py -k baseline"
-note = "two of the three exist and execute. The baseline is 275 in policy/pilot-register.toml and the run prints its delta; the margin is zero, argued rather than assumed — the evaluation is deterministic, so a band around the number would be a tolerance for variance that does not exist and what it would hide is deleted cases. Before this the corpus could have fallen from 254 to 3 and the run would have exited zero. The third half is a named approver: the field is empty on purpose rather than carrying a name nobody typed, and the row reopens when somebody with authority puts theirs there"
+note = "two of the three exist and execute. The baseline is 326 in policy/pilot-register.toml and the run prints its delta; the margin is zero, argued rather than assumed — the evaluation is deterministic, so a band around the number would be a tolerance for variance that does not exist and what it would hide is deleted cases. Before this the corpus could have fallen from 254 to 3 and the run would have exited zero. The third half is a named approver: the field is empty on purpose rather than carrying a name nobody typed, and the row reopens when somebody with authority puts theirs there"
 
 [[requirement]]
 id = "EP-290"
@@ -2178,9 +2178,11 @@ evidence = "pytest tests/test_surface_adapter.py::test_no_adapter_lands_without_
 
 [[requirement]]
 id = "EP-299"
-verdict = "PROVEN"
+verdict = "CONTRADICTED"
 subject = "the line ceiling bounds the tree and the build fails on the line after it"
-evidence = "pytest tests/test_contracts.py::test_the_line_ceiling_holds"
+evidence = "git grep -n REPO_CEILING -- src tests hooks justfile"
+mover = "decided"
+note = '''Withdrawn by specification 021, and the row stays because the ledger's total is asserted and a row that vanishes is a claim that stops being falsifiable. The requirement was met while the ceiling existed; what the measurement showed is that it could not be met and be a control at the same time. `tests/test_contracts.py` allowed at most 400 lines of slack, so the constant was obliged to follow the tree it claimed to bound: `git log -G'^REPO_CEILING = '` returns fifty of the last fifty commits, four of which do nothing else, and the single row in `docs/blocked.toml` is a fixed-point collision over this integer between two sessions. Nothing in the history shows it catching a defect. The evidence command now returns nothing, which is the fact this row records. `contract.TEST_RATIO_MAX` is the size bound that remains.'''
 
 [[requirement]]
 id = "EP-300"
@@ -2351,7 +2353,7 @@ id = "EP-322"
 verdict = "INCOMPLETE"
 mover = "nobody"
 subject = "the evidence-type legend names four labels and the document is consistent with it"
-evidence = "python -c \"import re,pathlib; print(len(set(re.findall(r'evidence-type\\\">([^<]+)', pathlib.Path('.ai/reports/evolution-proposal/index.html').read_text('utf-8')))))\""
+evidence = "python -c \"import re,pathlib; print(len(set(re.findall(r'evidence-type\\\">([^<]+)', pathlib.Path('.ai/reports/001-evolution-proposal.html').read_text('utf-8')))))\""
 note = "nineteen distinct values, not four. A property of the source research document, which nothing in this repository can change"
 
 [[requirement]]
@@ -2790,7 +2792,7 @@ subject = "an absorbed visual capability left asset-card guidance in the design 
 evidence = "pytest tests/test_contracts.py -k 'EP-385'"
 
 # ─────────────────────────────────────────────────────────────────────────────────────────
-# The 26 process commitments from `.ai/reports/process-optimization-research/index.html`.
+# The 26 process commitments from `.ai/reports/002-process-optimization-research.html`.
 #
 # The product requirements above are about what the wheel does. These are about how work
 # happens here — the cadence, the review discipline, what a commit may claim. Their status
@@ -2922,7 +2924,7 @@ verdict = "CONTRADICTED"
 mover = "repository"
 subject = "one primary home per commit, and the recorded exception covers only a commit moving a count another check forces it to move"
 evidence = "python tests/one_home.py; pytest tests/test_one_home.py"
-note = '''still contradicted, and now measured every run instead of once. 194 commits on this branch, 26 touching one home and 168 touching more; the widest spans seven — `.agents`, `.github`, `docs`, `policy`, `specs`, `src`, `tests`. The rule says one home with a single recorded exception, a commit moving a count another check forces it to move, and 168 is not that. What the row could not say before is how far off the practice runs, because the evidence was one commit somebody looked at once and a sentence about it. `tests/one_home.py` reports and never blocks: the exception cannot be recognised mechanically — a count moved because a check forced it looks exactly like a count moved because somebody felt like it — and a gate failing here would assert a judgement it cannot make. This is the audit grading the sessions that commissioned it, including today's.'''
+note = '''still contradicted, and measured by a command instead of by a sentence about one commit. `just homes` is not in `check` — that list is build, sbom, lint, typecheck, test, cover, security, register, skilleval, counts, intent-page, lenses, ran — so it is measured when somebody runs it, and the reading below ages between runs. 194 commits on this branch, 26 touching one home and 168 touching more; the widest spans seven — `.agents`, `.github`, `docs`, `policy`, `specs`, `src`, `tests`. The rule says one home with a single recorded exception, a commit moving a count another check forces it to move, and 168 is not that. What the row could not say before is how far off the practice runs, because the evidence was one commit somebody looked at once and a sentence about it. `tests/one_home.py` reports and never blocks: the exception cannot be recognised mechanically — a count moved because a check forced it looks exactly like a count moved because somebody felt like it — and a gate failing here would assert a judgement it cannot make. This is the audit grading the sessions that commissioned it, including today's.'''
 
 [[commitment]]
 id = "PO-17"

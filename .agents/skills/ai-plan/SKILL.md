@@ -22,9 +22,13 @@ disable-model-invocation: true
 
 1. Read the spec, and only the specs it names — the one it supersedes, the ones it depends
    on. Nothing else. A hundred specs cost the index plus the ones you were told about.
-2. Write tasks small enough that each one is a commit. For every task, four things:
+2. Write tasks small enough that each one is a commit, each one numbered and each one
+   opening with an empty box: `1. [ ] **Title** —`. For every task, four things:
    **file** (the one it touches), **check** (the command that fails today and passes
    after), **rollback** (how to undo it), **done when** (in one sentence, testable).
+   Never write `[x]`. The box is filled by `ai-eng spec show <id> --task <n> --tick`,
+   which runs the check and seals what it measured; an empty box means no command has
+   run over these bytes yet, which is not the same as "not done".
 3. A check is a command, never a judgement. "Looks right" is not a check. If a task's
    check reads "the agent decides X", say in one line why a script cannot do it — and if
    you cannot say why, write the script instead. That is rule 12, and it applies here

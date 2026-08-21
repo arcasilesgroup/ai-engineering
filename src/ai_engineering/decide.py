@@ -24,7 +24,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 from ai_engineering import intent as intents
-from ai_engineering import madr, outcome, paths, text
+from ai_engineering import madr, outcome, paths
 from ai_engineering import spec as specs
 from ai_engineering.intent import Validation
 
@@ -284,16 +284,6 @@ def _refuse_write(failure: _WriteFailure) -> outcome.Result:
     return outcome.result("INCOMPLETE")
 
 
-def append(spec: Path, fields: dict) -> None:
-    body = spec.read_text(encoding="utf-8")
-    marker = "## Decisions"
-    if marker not in body:
-        body += f"\n{marker}\n"
-    head, tail = body.split(marker, 1)
-    with spec.open("w", encoding="utf-8") as stream:
-        stream.write(f"{head}{marker}\n\n{text.render(fields)}{tail.lstrip()}")
-
-
 def listing(root: Path) -> list[str]:
     """A grep over headers. There is no index file to maintain by hand, because a
     hand-maintained index rots."""
@@ -468,11 +458,9 @@ def accept(root: Path, number: str) -> outcome.Result:
 def main(argv: list[str]) -> outcome.Result:
     parser = argparse.ArgumentParser("ai-eng decide", allow_abbrev=False)
     parser.add_argument("title", nargs="?", default="")
-    parser.add_argument("--madr", action="store_true", help="propose it in docs/adr/")
     parser.add_argument("--supersede", default="", metavar="NNNN")
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--accept", default="", metavar="NNNN", help="accept a proposed MADR")
-    parser.add_argument("--why", default="", help="the rationale, when it stays inside the spec")
     parser.add_argument(
         "--spec", default="", help="which spec it belongs to; needed when more than one is open"
     )
@@ -501,53 +489,41 @@ def main(argv: list[str]) -> outcome.Result:
     # Named, or the only one open. It used to resolve to whichever directory sorted last,
     # and that is how two decisions written for spec 003 landed in another session's spec,
     # because a fourth directory appeared between two commands.
-    if args.madr:
-        existing = madr.validate(root)
-        if existing.outcome != "PASS":
-            return _refuse_invalid(existing)
-        try:
-            target = specs.target(root, args.spec)
-        except LookupError as why:
-            print(f"  INCOMPLETE [MADR_GRAPH_INVALID]: {why}. Nothing was written.")
-            return outcome.result("INCOMPLETE")
-        try:
-            promoted = _create(root, title, args.supersede, target)
-        except _WriteFailure as failure:
-            return _refuse_write(failure)
-        try:
-            result = madr.validate(root)
-            if result.outcome != "PASS":
-                residue = _cleanup(promoted.home, promoted.filename, True)
-                state = (
-                    "Repository state remains under docs/adr/; inspect it before retrying."
-                    if residue
-                    else "No change remains."
-                )
-                return _refuse_invalid(result, state)
-        finally:
-            _close_home(promoted.home)
-        print(f"  ✓ {promoted.path.relative_to(root)}")
-        print("    outcome: PASS. status: proposed; this record grants no authority.")
-        return outcome.result("PASS")
+    #
+    # Every decision this verb records is a record under `docs/adr/`. It used to have a
+    # second half that wrote a yaml block into the specification itself, with `--madr`
+    # choosing between them, and that half is deleted: 70 of those blocks exist, every one
+    # of them in specifications 001 to 009, none since 010 eleven specifications ago, and
+    # nothing in `src/`, `hooks/` or `tests/` ever read one. A writer with no reader is a
+    # place to put something and forget it.
+    # The target before the graph, and the order is the diagnostic. Validating history
+    # first answered "you have no specification" with "Git history cannot prove MADR
+    # transitions", which is true and useless. Resolving a target writes nothing, so
+    # nothing is weakened by asking the cheaper, likelier question first.
     try:
-        spec = specs.target(root, args.spec)
-    except (LookupError, OSError) as why:
+        target = specs.target(root, args.spec)
+    except LookupError as why:
         print(f"  {why}")
         return outcome.result("INCOMPLETE")
+    existing = madr.validate(root)
+    if existing.outcome != "PASS":
+        return _refuse_invalid(existing)
     try:
-        append(
-            spec,
-            {
-                "decision": title,
-                "date": date.today().isoformat(),
-                "rationale": args.why or "TODO: why, in one sentence",
-            },
-        )
-    except OSError as why:
-        print(f"  INCOMPLETE [DECISION_WRITE_FAILED]: decision could not be recorded: {why}")
-        return outcome.result("INCOMPLETE")
-    print(
-        f"  ✓ recorded in {spec.relative_to(root)}. If it constrains specs that do not exist "
-        f"yet, promote it with --madr."
-    )
+        promoted = _create(root, title, args.supersede, target)
+    except _WriteFailure as failure:
+        return _refuse_write(failure)
+    try:
+        result = madr.validate(root)
+        if result.outcome != "PASS":
+            residue = _cleanup(promoted.home, promoted.filename, True)
+            state = (
+                "Repository state remains under docs/adr/; inspect it before retrying."
+                if residue
+                else "No change remains."
+            )
+            return _refuse_invalid(result, state)
+    finally:
+        _close_home(promoted.home)
+    print(f"  ✓ {promoted.path.relative_to(root)}")
+    print("    outcome: PASS. status: proposed; this record grants no authority.")
     return outcome.result("PASS")

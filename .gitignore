@@ -7,9 +7,6 @@ build/
 .ruff_cache/
 .pytest_cache/
 .coverage*
-mutants/
-mutants-stats.json
-mutants-survivors.txt
 .ai-engineering/
 .ai/events.jsonl
 .ai/cache/

@@ -35,6 +35,14 @@ env:
   # whose bytes were checked: the version said which release we asked for and nothing said
   # the bytes we got were that release, on the two engines whose whole job is to find things.
   GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  # The same release, read from the same place, for the two machines the `platforms` lane
+  # runs on. Twelve of its sixteen first-run failures were this binary being absent: the
+  # installer warns and returns WARN, and the acceptance path refuses with
+  # ACCEPTANCE_GITLEAKS_UNAVAILABLE. Pinned rather than taken from a package manager,
+  # because `just security` refuses a scanner whose version it did not pin and this lane
+  # has no business being the exception.
+  GITLEAKS_SHA256_DARWIN: "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5"
+  GITLEAKS_SHA256_WINDOWS: "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e"
   TRIVY_SHA256: "2edd39da482bb4e9831962487b68f68e3928ec3137794757f54d00383d79547b"
   PIP_AUDIT_VERSION: "2.10.1"
   MYPY_VERSION: "2.3.0"
@@ -85,7 +93,15 @@ jobs:
           actionlint
           uv tool run zizmor .github/workflows/
 
+      # `shell: bash` is what makes the pipe carry a verdict. The implicit shell for `run:`
+      # on Linux is `bash -e {0}` and never `-o pipefail`, which arrives only when the key
+      # is written out — so `just check | tee` exited on tee's status and the gate could not
+      # fail. Proven rather than argued: `false | tee /dev/null` exits 0 under `bash -e` and
+      # 1 under `bash -eo pipefail`. The step below caught the case where a `RAN` line went
+      # missing and no other: `check` prints all five before its last three recipes run, so a
+      # failure in `intent-page`, `lenses` or `ran` left a complete log and a green job.
       - name: the gate, exactly as a developer runs it
+        shell: bash
         run: just check | tee "$RUNNER_TEMP/check.log"
 
       - name: it has to prove it ran
@@ -201,6 +217,60 @@ jobs:
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
       - name: every attack, and a clean control it must not fire on
         run: uv run python tests/adversarial/run.py
+
+  # Break the guards on purpose, and fail if nothing notices. Its own job because it edits
+  # the checkout while it runs and because it is the only lane here measured in minutes
+  # rather than seconds — 6 min 07 s for all sixteen rows on the machine that wrote this,
+  # 16 of 16 killed. It was in no job at all until now: `tests/mutation.py` carried the
+  # sentence "run it when a guard's deny path changes, and before a release", nothing
+  # executed that sentence, and nothing could tell a run from an absence.
+  #
+  # In `ci-result`'s needs, so it blocks without touching branch protection. The floor is
+  # 100 and a single survivor fails: sixteen defects a person chose, in the four guards that
+  # decide whether an action is allowed and the four verbs that write the record.
+  guards:
+    runs-on: ubuntu-latest
+    # Twice the measured local run and change. If this starts timing out the honest reading
+    # is that the lane grew or the suite did, and the number to raise is here.
+    timeout-minutes: 25
+    steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The suite is one of the three halves a mutant has to survive, and `madr.validate`
+          # walks committed history. On a one-commit checkout it returns INCOMPLETE, so the
+          # baseline is red and `tests/mutation.py` refuses to score at all — correctly, over
+          # a cause that has nothing to do with any mutant. `check` already sets this.
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      # From PyPI and not from an action, the same way every other job here gets it: this
+      # repository allows GitHub-owned actions and a named list, and a job naming an action
+      # outside that list never starts — it reports startup_failure with no logs.
+      - name: install just
+        run: uv tool install "rust-just==${JUST_VERSION}"
+      # And the scanner, because one of the sixteen rows fires a guard through the
+      # adversarial suite and that suite reports NOT RUN for the staged-secret attack
+      # without it. `tests/mutation.py` refuses to score over a tree that is already red —
+      # a score taken over a red baseline is a full score nobody earned — so the absence
+      # stopped the whole lane rather than quietly costing it one row.
+      - name: install gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
+      # `shell: bash` for the pipe, for the same reason the gate above needs it: without it
+      # this step would report tee's zero and a surviving mutant would merge.
+      - name: break the guards on purpose
+        shell: bash
+        run: just guards | tee "$RUNNER_TEMP/guards.log"
+      # And the receipt, because the step above proves the mutants died and cannot prove it
+      # ran over any. `RAN guards=<n>` is refused at zero by the same reader `just check`
+      # uses, so a filter that stops matching — a rename, a typo — is a red and not a pass.
+      - name: it has to prove it ran over something
+        run: uv run python tests/anti_theatre.py "$RUNNER_TEMP/guards.log" . guards
 
   # Its own job, not a step inside check: it costs about ten minutes, and a gate people
   # stop running because it is slow is a gate that is not running. It still runs on every
@@ -332,10 +402,101 @@ jobs:
   # skipped by a dependency that failed, deleted in a refactor — is invisible: the pull
   # request is still green because nothing was watching for its absence. Skipped is a
   # failure here for exactly that reason.
+  # The one thing this repository ships is a wheel that writes files into somebody else's
+  # machine, and every gate above ran on exactly one kind of machine. `install-matrix.yml`
+  # already covers three, but it runs on a release and it tests the *installed wheel*, so a
+  # test that only passes on Linux could sit in `main` for a whole cycle before anything
+  # said so. This runs the suite itself, where it is written, on the other two.
+  #
+  # macOS and Windows only: the Linux arm is `check` and `suite` above, and paying for a
+  # third Linux run buys a duplicate.
+  #
+  # Windows ran, once, and is not in the matrix. That is a measurement and not a waiver, so
+  # here is the number: **183 failed, 2,031 passed, 19 skipped**. What makes taking the arm
+  # out defensible rather than convenient is that `install-smoke` and `smoke (windows-latest)`
+  # both pass — the wheel installs and the ten verbs answer on Windows. What does not survive
+  # is the *suite*, which carries POSIX assumptions: 36 failures in `test_cli_migration`, 32
+  # in `test_install`, 14 each in `test_hooks` and `test_update`. Eleven are Windows file
+  # locking, six are the product deliberately refusing to publish a pin on that platform with
+  # the test asserting the POSIX path anyway, and two are digests moving because git checked
+  # the file out with CRLF.
+  #
+  # A permanently red lane blocks every pull request and teaches everybody to ignore it,
+  # which is the failure this repository exists to catch. So the arm comes out until somebody
+  # decides what to do with 183 tests, and the number lives here rather than in a commit
+  # message nobody will find again.
+  #
+  # The Python is pinned for the same reason the arm is out. Without it `uv` took 3.14.6 on
+  # macOS while every other lane runs the runner's own 3.12.3, so this lane was moving two
+  # variables and reporting one. Python 3.14 changed how argparse wraps a usage line and
+  # `test_the_issue_subcommand_requires_all_five_fields_and_offers_one_flag` pins that text.
+  # `pyproject.toml` says `requires-python = ">=3.11"`, so that failure is a claim this
+  # package makes and does not keep — and it belongs to a lane nobody has asked for yet.
+  platforms:
+    name: platforms (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest]
+    runs-on: ${{ matrix.os }}
+    # The Linux suite takes about two minutes. Windows is reliably slower at process
+    # creation and this suite starts a lot of them, so the budget is generous rather than
+    # tight: a flake caused by the timeout would teach everybody to ignore this lane.
+    timeout-minutes: 20
+    steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # `madr.validate` walks committed history to prove every status transition, so on
+          # the default shallow checkout it returns INCOMPLETE and four tests fail for a
+          # reason that has nothing to do with the machine they run on.
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      - name: install the pinned gitleaks
+        if: runner.os == 'macOS'
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz"
+          echo "${GITLEAKS_SHA256_DARWIN}  gitleaks.tgz" | shasum -a 256 -c -
+          tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
+      - name: install the pinned gitleaks
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $url = "https://github.com/gitleaks/gitleaks/releases/download/v$env:GITLEAKS_VERSION/gitleaks_${env:GITLEAKS_VERSION}_windows_x64.zip"
+          Invoke-WebRequest -Uri $url -OutFile gitleaks.zip
+          $got = (Get-FileHash gitleaks.zip -Algorithm SHA256).Hash.ToLower()
+          if ($got -ne $env:GITLEAKS_SHA256_WINDOWS) {
+            throw "gitleaks.zip hashes to $got and this workflow pinned $env:GITLEAKS_SHA256_WINDOWS"
+          }
+          Expand-Archive gitleaks.zip -DestinationPath "$env:RUNNER_TEMP\gitleaks" -Force
+          "$env:RUNNER_TEMP\gitleaks" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      # It has to be on PATH before the suite starts, and saying so here is cheaper than
+      # reading twelve failures to find out it was not.
+      - name: it is there
+        run: gitleaks version
+      # The suite and nothing else. `just check` is not portable and pretending otherwise
+      # would be the theatre this repository exists to catch: it wants gitleaks, trivy, npm
+      # and a shell pipeline, and a lane that silently skips half of what its name promises
+      # is worse than no lane.
+      # One test is deselected and it is named rather than filtered by keyword, so a rename
+      # turns this red instead of silently widening it. `test_the_guards_start_fast_enough_
+      # to_be_guards` measures a wall-clock start-up bound; under the whole suite in parallel
+      # on a shared two-core runner that number is contention, not latency. Measured on the
+      # machine that wrote this: green on its own under `-n auto`, red inside the full
+      # parallel run. `just check` measures it uninstrumented on Linux, which is where the
+      # number means something, and the justfile already says so above its own `test` recipe.
+      - name: the suite, on a machine that is not Linux
+        run: >-
+          uv run --python 3.12 --with pytest==9.1.1 --with pytest-xdist==3.8.0 pytest -q -n auto tests/
+          --deselect tests/test_contracts.py::test_the_guards_start_fast_enough_to_be_guards
+
   ci-result:
     name: CI Result
     if: always()
-    needs: [check, suite, typecheck, sonar, snyk]
+    needs: [check, suite, guards, typecheck, platforms, sonar, snyk]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -353,13 +514,16 @@ jobs:
           RESULTS: >-
             check=${{ needs.check.result }}
             suite=${{ needs.suite.result }}
+            guards=${{ needs.guards.result }}
             typecheck=${{ needs.typecheck.result }}
+            platforms=${{ needs.platforms.result }}
             sonar=${{ needs.sonar.result }}
             snyk=${{ needs.snyk.result }}
         run: |
-          failed=0
+          failed=0 ran=0
           for pair in $RESULTS; do
             printf '  %-12s %s\n' "${pair%%=*}" "${pair##*=}"
+            ran=$((ran + 1))
             [ "${pair##*=}" = "success" ] || failed=1
           done
           if [ "$failed" -ne 0 ]; then
@@ -375,4 +539,4 @@ jobs:
             fi
             exit 1
           fi
-          echo "six jobs, six successes, and every lane observed something"
+          echo "$ran jobs, $ran successes, and every lane observed something"

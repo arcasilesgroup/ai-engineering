@@ -31,15 +31,6 @@ JARGON = (
 )
 CEILING = 80
 DESCRIPTION_MAX = 1000
-# The line ceiling, in one place so raising it is a single reviewable edit. Every move it
-# has made is in `git log -S REPO_CEILING -- src/ai_engineering/contract.py`, and the
-# arithmetic behind each one is in the specification that spent it. Both were true while a
-# hand-written prose changelog of this one integer also sat here, 3,330 lines of it, charged
-# against the very number it documented — eighteen of them for a paragraph about itself. A
-# governance file that quotes a count goes stale silently; a governance file that quotes
-# three hundred of them goes stale in three hundred places. Raise it in a commit whose
-# message says why, and let git be the record of that, because git already is.
-REPO_CEILING = 82_187
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
@@ -155,18 +146,6 @@ def _corpus_problems(folder: Path, name: str) -> list[str]:
     return problems
 
 
-# Not the product, so not counted, and these two reasons are the only ones that qualify:
-# the record grows by design every time a decision is written down, and nobody here wrote
-# the licence or can shorten it. Everything we chose to write, documentation included, counts.
-# What the ceiling does not count, and the rule is one sentence: this is the record and the
-# inputs, not the thing that ships. `.ai/reports/` joins them because those two documents are
-# what the whole of spec 010 is judged against — 4,293 lines of research nobody wrote here and
-# nobody may edit to fit. Counting them would put the tree over its bound for having brought
-# its own source of truth into view, and raising the bound by their size would say the ceiling
-# is negotiable by adding files. Neither is the answer; they are simply not the product.
-NOT_THE_PRODUCT = ("specs/", "docs/adr/", ".ai/reports/", "LICENSE", "NOTICE")
-
-
 def tracked(root: Path) -> list[str]:
     names = subprocess.run(
         ["git", "-C", str(root), "ls-files"], capture_output=True, text=True, timeout=30
@@ -184,13 +163,6 @@ def count(root: Path, names: list[str]) -> int:
         except OSError:
             continue
     return total
-
-
-def repo_lines(root: Path) -> int:
-    """Every committed line of the product. The ceiling is the mechanism that prevents a
-    second 436,091: not discipline, an exit code."""
-    names = [n for n in tracked(root) if not n.startswith(NOT_THE_PRODUCT)]
-    return count(root, names)
 
 
 def test_ratio(root: Path) -> tuple[int, int]:

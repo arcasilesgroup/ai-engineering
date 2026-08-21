@@ -15,6 +15,7 @@ import ast
 import io
 import json
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -27,6 +28,7 @@ import _otlp
 import _wrap
 import autoformat
 import chain
+import injection_guard
 import loop_guard
 import no_verify_guard
 import pytest
@@ -580,7 +582,7 @@ def test_an_edited_buffer_is_sealed_as_the_error_that_says_it_was_edited(repo):
     sealed = links()[-1]
     assert (sealed["cls"], sealed["data"]["outcome"]) == ("error", "edited")
     assert sealed["data"]["claimed"]["reason"] == "a lie!!!"  # kept, and no longer a decision
-    assert "arrived edited" in " ".join(audit.verify(repo, anchors=False))
+    assert "arrived edited" in " ".join(audit.verify(repo))
 
     key = _emit.home() / "buffer.key"
     assert repo not in key.parents and (key.stat().st_mode & 0o077) == 0
@@ -1238,6 +1240,35 @@ def test_the_formatter_runs_on_the_file_it_was_handed_and_on_nothing_else(repo, 
     assert len(ran) == 1
 
 
+def test_every_blocking_guard_carries_a_deliberate_defect():
+    """A guard nothing is aimed at is a guard nobody has proven fires.
+
+    `tests/mutation.py` breaks the product on purpose and fails if nothing notices, and its
+    own recipe says it "points at the guards and nowhere else". It did not: of the four
+    names on a blocking event, one had rows and three — the three that decide whether an
+    action is allowed at all — had none between them. That is the fault the whole-tree
+    apparatus was deleted for, at 1-in-4 instead of 0-in-6, and the sentence claiming
+    otherwise had never been executed against the table it describes.
+
+    So the sentence becomes this. A hook added to a blocking event with no row against it is
+    red here, naming itself, rather than a gap somebody notices a year later.
+    """
+
+    import chain
+    import mutation
+
+    blocking = {
+        name for event in ("PreToolUse", "PostToolUse") for name, _ in chain.TABLE[event]
+    } - chain.TELEMETRY
+    aimed = {row[0] for row in mutation.MUTANTS}
+    unaimed = sorted(one for one in blocking if f"hooks/{one}.py" not in aimed)
+    assert not unaimed, (
+        f"{unaimed} can stop a call and no row of mutation.MUTANTS breaks it on purpose, so "
+        "nothing in this repository would notice its rule being wrong. Write a row naming a "
+        "boundary or a constant in each, or take the hook off the blocking event."
+    )
+
+
 def test_dispatcher_table_marks_blocking_hooks_as_guards_and_rejects_gaps(repo, monkeypatch):
     """The dispatcher reads the class, and reads it at dispatch time.
 
@@ -1566,3 +1597,351 @@ def test_an_endpoint_with_no_stated_retention_receives_nothing(tmp_path, monkeyp
     # which is the honest next answer for a host that does not exist.
     configured('[observability]\nendpoint = "http://collector.invalid:4318"\nretention_days = 30\n')
     assert "nobody has decided" not in _otlp.post("logs", {})[2]
+
+
+def test_a_dispatcher_that_cannot_read_a_call_denies_it(tmp_path):
+    """Measured before it was written: a `tool_name` that arrived as a number died outside
+    every handler and the process exited 1.
+
+    One is not a denial. Every surface reads a non-zero that is not two as an error in the
+    hook and lets the call through, so the action passed without a guard having seen it —
+    while `chain.py`'s own docstring promised a dispatcher that fails closed. The repair is
+    a clause at the entry point, and its order is the whole of it: `deny` leaves through
+    `SystemExit`, so a broader clause first would swallow every legitimate denial and print
+    it back as a crash.
+    """
+
+    def ran(payload: str) -> int:
+        done = subprocess.run(
+            [sys.executable, str(Path(chain.__file__)), "PreToolUse"],
+            input=payload,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PYTHONPATH": str(Path(chain.__file__).parent)},
+        )
+        return done.returncode
+
+    unreadable = '{"tool_name": 17, "tool_input": {}, "hook_event_name": "PreToolUse"}'
+    assert ran(unreadable) == 2, "a call the dispatcher cannot read is denied, not allowed"
+
+    # And the clause did not eat the ordinary answers on the way past.
+    allowed = json.dumps(
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": "echo hello"},
+            "hook_event_name": "PreToolUse",
+        }
+    )
+    assert ran(allowed) == 0
+
+
+def test_a_structured_denial_that_cannot_be_written_leaves_as_a_denial():
+    """The structured protocol carries the whole decision in the text and exits 0, so a
+    denial whose text never arrives is not a weaker denial — it is a success code with
+    nothing beside it, and the surface allows the call.
+
+    Measured against the unfixed file: with standard output closed, `deny(..., structured=
+    True)` exited **0**, silently. The plain protocol was fine at 2 on this machine, and an
+    earlier note that claimed 120 for both did not reproduce — the number that matters is
+    the zero, because zero is the success code.
+
+    So the write is taken where it can be answered, and the answer is `os._exit(2)`:
+    `sys.exit` would hand control back to the interpreter's shutdown flush, which is the
+    thing that already failed."""
+
+    hooks = str(Path(_wrap.__file__).parent)
+
+    def leaving(structured: bool, closed: bool) -> subprocess.CompletedProcess:
+        call = f"import _wrap; _wrap.deny('probe', 'no', structured={structured})"
+        if closed:
+            return subprocess.run(
+                ["bash", "-c", 'exec "$1" -c "$2" >&- 2>/dev/null', "_", sys.executable, call],
+                capture_output=True,
+                text=True,
+                env={**os.environ, "PYTHONPATH": hooks},
+            )
+        return subprocess.run(
+            [sys.executable, "-c", call],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PYTHONPATH": hooks},
+        )
+
+    assert leaving(True, closed=True).returncode == 2, (
+        "a structured denial nobody can read left with a success code, so the call was allowed"
+    )
+    assert leaving(False, closed=True).returncode == 2
+
+    # And with somewhere to write, both protocols are exactly what they were.
+    kept = leaving(True, closed=False)
+    assert kept.returncode == 0 and '"permissionDecision": "deny"' in kept.stdout
+    plain = leaving(False, closed=False)
+    assert plain.returncode == 2 and '"permission": "deny"' in plain.stdout
+
+
+def test_an_argument_of_only_whitespace_does_not_deny_in_the_guards_own_name():
+    """`signature` truncates the first token of an argument, and an argument made only of
+    whitespace splits to nothing — so it raised `IndexError` on `[0]`.
+
+    `@guard` fails closed, so the crash became a denial, and the denial said this guard had
+    crashed. That is correct behaviour on top of a defect, and it is the worst shape it
+    could take: the guard that sees every call denying an ordinary one in its own name,
+    reachable by the model, on a call that did nothing wrong. Guards that block ordinary
+    work are how people learn to route around the layer."""
+
+    for spelling in ("   ", "\t", "\n ", " \t\n"):
+        assert (
+            loop_guard.signature({"tool_name": "Bash", "tool_input": {"command": spelling}})
+            == "Bash:"
+        ), spelling
+
+    # The truncation it is there for is unchanged: the last sixty characters of the first
+    # token, so two files under one long temporary directory stay two calls.
+    long = "/tmp/" + "d" * 80 + "/thing.py"
+    assert loop_guard.signature({"tool_name": "Read", "tool_input": {"file_path": long}}) == (
+        "Read:" + long[-60:]
+    )
+
+
+def test_the_hooks_path_redirect_is_recognised_by_the_key_it_names():
+    """Two holes a generated mutation run found in the guard that blocks `--no-verify`, and
+    a third that is named here because nothing can close it.
+
+    Pointing `core.hooksPath` somewhere else does not pass `--no-verify` and is not meant to
+    — it stops the hooks running at all, which is the same outcome by a quieter route. The
+    guard already caught it. What was missing was anything that would notice if it stopped.
+    """
+
+    def verdict(command) -> str:
+        try:
+            no_verify_guard.run(
+                {
+                    "tool_input": {"command": command},
+                    "tool_name": "Bash",
+                    "hook_event_name": "PreToolUse",
+                }
+            )
+        except SystemExit as left:
+            return f"denied:{left.code}"
+        return "allowed"
+
+    # The key is matched by name, case-folded. Flipping that comparison used to change
+    # nothing anything asserted, because only the matching half was ever exercised.
+    assert verdict("git config core.hooksPath /tmp/x && git commit -m x") == "denied:2"
+    assert verdict("git config CORE.HOOKSPATH /tmp/x && git commit -m x") == "denied:2"
+    assert verdict("git config core.hooks /tmp/x && git commit -m x") == "allowed"
+
+    # Unsetting it is the same act spelled as an absence.
+    assert list(no_verify_guard.targets("git config --unset core.hooksPath")) == [""]
+    assert verdict("git config --unset core.hooksPath") == "denied:2"
+
+    # Reading the value is not changing it.
+    assert verdict("git config --get core.hooksPath") == "allowed"
+
+    # A command that is not text is not a `--no-verify` attempt, and this guard says so by
+    # allowing it rather than by falling into its own fail-closed path. `chain.py` denies an
+    # unreadable payload upstream, so denying here would be denying twice for the wrong
+    # reason.
+    assert verdict(17) == "allowed"
+    assert verdict("") == "allowed"
+
+    # And the third site, written down rather than closed. The early `if not value: return
+    # True` inside `elsewhere` is a shortcut, not a behaviour: removing it leaves the same
+    # answer, because an empty value resolves against the repository root and the root is
+    # never the wired hooks directory. Measured both ways. A test that appeared to kill that
+    # mutant would be fabricating a kill, so the floor absorbs it instead.
+    assert no_verify_guard.elsewhere("") is True
+
+
+def test_the_catalogue_refuses_a_shape_it_cannot_read_rather_than_scanning_with_less(
+    tmp_path, monkeypatch
+):
+    """Three mutation sites in `patterns` that nothing exercised, and one of them is a
+    fail-open of the same class as the two this branch already closed.
+
+    An empty catalogue is the worst of the three. Without that refusal the guard builds zero
+    patterns, scans every payload against none of them, catches nothing and says nothing —
+    a control that is present, running, and structurally incapable of firing. The guard's own
+    docstring says an unreadable catalogue must fail closed; an *empty* one is unreadable in
+    the only sense that matters.
+    """
+
+    def loading(body: str):
+        policy = tmp_path / "iocs.yml"
+        policy.write_text(body, encoding="utf-8")
+        monkeypatch.setattr(injection_guard, "POLICY", policy)
+        return injection_guard.patterns
+
+    # The catalogue as it is meant to be: single-quoted entries, and the doubled quote is
+    # how a literal one is spelled.
+    got = loading("patterns:\n  - 'ignore previous'\n  - 'it''s fine'\n")()
+    assert [one.pattern for one in got] == ["ignore previous", "it's fine"]
+
+    # An entry nobody quoted. Its escapes mean two different things depending on who reads
+    # it, so it is refused rather than guessed at.
+    with pytest.raises(ValueError, match="single-quoted"):
+        loading("patterns:\n  - ignore previous\n")()
+    with pytest.raises(ValueError, match="single-quoted"):
+        loading('patterns:\n  - "ignore previous"\n')()
+
+    # And a catalogue with nothing in it. Comments and a header are not patterns.
+    for empty in ("", "patterns:\n", "# every line here is a comment\npatterns:\n"):
+        with pytest.raises(ValueError, match="lists no patterns"):
+            loading(empty)()
+
+
+def test_a_read_with_nothing_to_read_is_allowed_rather_than_opened(tmp_path):
+    """`PreToolUse` on a read tool with no path is not an attack, and the guard allows it.
+
+    The early return that says so is the second equivalent mutant this surface has, and it
+    is written down rather than left for somebody to chase: removing it leaves the same
+    answer, because `Path("").read_text()` raises `IsADirectoryError`, which is an `OSError`,
+    which the clause below already turns into the same `None`. Measured, not reasoned.
+
+    The behaviour is still worth pinning even though no mutant of that line can be killed —
+    what would change it is somebody narrowing that `except`, and then this test is what
+    notices."""
+
+    assert (
+        injection_guard.run({"_event": "PreToolUse", "tool_name": "Read", "tool_input": {}}) is None
+    )
+    assert (
+        injection_guard.run(
+            {"_event": "PreToolUse", "tool_name": "Read", "tool_input": {"file_path": ""}}
+        )
+        is None
+    )
+
+
+def test_self_protect_reads_an_empty_command_as_nothing_to_judge():
+    """`words[0]` on an empty command raises, `@guard` turns that into a denial, and the
+    denial says this guard crashed — a self-inflicted refusal of a command that does nothing.
+    The same shape as the whitespace crash in `loop_guard` this branch already fixed."""
+
+    for nothing in ("", "   ", "\t\n"):
+        assert self_protect.writes(nothing) is None, repr(nothing)
+
+
+def test_which_half_of_a_settings_path_is_protected_is_decided_by_whose_file_it_is(
+    tmp_path, monkeypatch
+):
+    """The last two mutation sites on this surface, and both are real behaviour.
+
+    A settings file carrying our name sits in a directory we created, so the whole directory
+    is protected. A surface's own settings file is theirs, so only that file is — protecting
+    `~/.claude` outright would deny every write anywhere under it, including a person's own
+    notes, and a guard that denies ordinary work is how people learn to route around the
+    layer. Flipping the comparison swaps those two, which is not a smaller control: it is a
+    guard that protects the wrong thing and stops protecting the right one.
+    """
+
+    policy = tmp_path / "surfaces.toml"
+    policy.write_text(
+        "[protect]\npaths = []\n\n"
+        '[[surface]]\nid = "ours"\nsettings = "/home/somebody/.config/ai-eng-settings.json"\n\n'
+        '[[surface]]\nid = "theirs"\nsettings = "/home/somebody/.claude/settings.json"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(self_protect, "POLICY", policy)
+
+    got = self_protect.protected()
+    # Ours: the directory holding it.
+    assert "/home/somebody/.config" in got
+    assert "/home/somebody/.config/ai-eng-settings.json" not in got
+    # Theirs: that file and nothing above it.
+    assert "/home/somebody/.claude/settings.json" in got
+    assert "/home/somebody/.claude" not in got
+
+
+def test_a_working_copy_does_not_protect_the_files_it_exists_to_edit(tmp_path, monkeypatch):
+    """An installed wheel protects its own data as siblings of the guards. A working copy of
+    this project must not: `policy/`, `git-hooks/` and `surfaces/` are what somebody working
+    here edits all day, and protecting them denies every one of those edits.
+
+    The two layouts are told apart by a `pyproject.toml` beside the guards, which is exactly
+    what an editable install is. Forcing that branch either way was invisible to every test
+    until this one."""
+
+    policy = tmp_path / "surfaces.toml"
+    policy.write_text("surface = []\n\n[protect]\npaths = []\n", encoding="utf-8")
+    monkeypatch.setattr(self_protect, "POLICY", policy)
+
+    def protecting(layout) -> list[str]:
+        guards = layout / "hooks"
+        guards.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(self_protect, "__file__", str(guards / "self_protect.py"))
+        return self_protect.protected()
+
+    installed = protecting(tmp_path / "wheel")
+    assert str(tmp_path / "wheel" / "policy") in installed
+    assert str(tmp_path / "wheel" / "git-hooks") in installed
+
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    (checkout / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    working = protecting(checkout)
+    assert str(checkout / "policy") not in working
+    assert str(checkout / "git-hooks") not in working
+    # The guards themselves are protected in both, which is the half that never varies.
+    assert str(checkout / "hooks") in working
+
+
+def test_a_telemetry_hook_that_lost_its_class_is_skipped_and_never_denies(repo, monkeypatch):
+    """The dispatcher refuses an undeclared hook on a blocking event and *skips* an
+    undeclared telemetry hook. The two arms are one `if`, and nothing read the telemetry one.
+
+    Measured: with that branch forced the other way, `autoformat` losing its decorator stops
+    being ignored and starts denying — a hook whose whole contract is "observes and never
+    decides" would block the call it was only supposed to watch. That is the fail-closed
+    direction applied to the one class this repository deliberately fails open, and
+    `CONSTITUTION.md` names the difference in a sentence.
+
+    A generated mutant lived on this line through every run of the lane.
+    """
+
+    import chain
+
+    class Undeclared:
+        @staticmethod
+        def run(payload):
+            raise AssertionError("a hook with no class must never be run")
+
+    monkeypatch.setattr(chain, "TABLE", {"PreToolUse": [("autoformat", r".*")]})
+    monkeypatch.setattr(chain.importlib, "import_module", lambda name: Undeclared)
+    monkeypatch.setattr(
+        chain.sys, "stdin", io.StringIO(json.dumps({"tool_name": "Bash", "command": "ls"}))
+    )
+    monkeypatch.setattr(chain.sys, "argv", ["chain.py", "PreToolUse"])
+
+    assert chain.main() == 0, (
+        "an undeclared telemetry hook denied the call. Telemetry observes and never decides, "
+        "and a dispatcher that blocks on one has turned an observer into a gate"
+    )
+
+
+def test_the_event_falls_back_to_the_payload_when_no_argument_names_it(repo, monkeypatch):
+    """`chain.py` takes the event from `sys.argv[1]`, and every surface that sends it in the
+    payload instead sends no argument at all.
+
+    So the index has to be guarded by `len(sys.argv) > 1`, and the off-by-one is not a style
+    question: with `>=` the very same line reads `sys.argv[1]` out of a one-element argv,
+    raises IndexError outside every handler, and the dispatcher denies a call it never
+    examined. The structured protocol is exactly the case that arrives this way.
+
+    A generated mutant lived on this comparison through every run of the lane.
+    """
+
+    import chain
+
+    monkeypatch.setattr(chain, "TABLE", {"PreToolUse": []})
+    monkeypatch.setattr(
+        chain.sys,
+        "stdin",
+        io.StringIO(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash"})),
+    )
+    monkeypatch.setattr(chain.sys, "argv", ["chain.py"])
+
+    assert chain.main() == 0, (
+        "the dispatcher could not read an event that arrived in the payload rather than as "
+        "an argument, which is how every structured surface sends it"
+    )

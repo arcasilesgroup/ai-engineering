@@ -314,45 +314,6 @@ def test_an_adr_filename_is_a_clean_slug_capped_at_sixty_characters(tmp_path, ti
     assert decide.promote(tmp_path, title, "", specification).stem == stem
 
 
-def test_a_decision_lands_between_the_headings_and_leaves_the_spec_intact(tmp_path):
-    """The block goes under `## Decisions`, above the risks, and everything already in the
-    file survives. A decision written to the end of the file, or one that ate the
-    frontmatter, is a record that no longer parses."""
-    path = _fixture_spec(tmp_path, "a-thing")
-    decide.append(path, {"decision": "One queue", "date": TODAY})
-    body = path.read_text()
-    assert body.startswith("---\nid: ")
-    assert body.endswith("\n")
-    assert "## Decisions" in body.splitlines()
-    assert body.index("## Decisions") < body.index("decision: One queue")
-    assert body.index("decision: One queue") < body.index("## Accepted risks")
-    assert body.count("## Accepted risks") == 1
-
-
-def test_a_spec_with_no_decisions_heading_keeps_everything_it_already_held(tmp_path):
-    """Specs written before this heading existed get one added. Adding it must not cost
-    the spec its contents: overwriting the file here would delete the problem statement
-    somebody wrote, in the same command that claims to be recording a decision."""
-    path = tmp_path / "spec.md"
-    path.write_text("# a\n\n## Context\n\nthe problem, as filed.\n", encoding="utf-8")
-    decide.append(path, {"decision": "One queue"})
-    body = path.read_text()
-    assert body.startswith("# a\n")
-    assert "the problem, as filed." in body
-    assert "## Decisions" in body.splitlines() and "decision: One queue" in body
-
-
-def test_a_spec_that_names_the_decisions_heading_twice_takes_it_under_the_first(tmp_path):
-    """Somebody quoting the heading further down the file must not cost a decision. It
-    goes under the first one, deterministically, and nothing raises."""
-    path = tmp_path / "spec.md"
-    path.write_text("# a\n\n## Decisions\n\nfirst\n\n## Decisions\n\nsecond\n", encoding="utf-8")
-    decide.append(path, {"decision": "One queue"})
-    body = path.read_text()
-    assert body.count("## Decisions") == 2
-    assert body.index("decision: One queue") < body.index("first")
-
-
 def test_an_adr_listing_shows_the_status_of_every_file_including_the_broken_ones(tmp_path):
     """The listing is where somebody checks whether a decision is still live. A file with
     no status is marked unknown, and one written in another encoding does not take the
@@ -376,7 +337,7 @@ def test_decide_madr_writes_the_file_and_says_it_grants_no_authority(repo, capsy
     """A promoted decision is proposed, not accepted: the second line is what stops a
     reader treating a freshly written MADR as something the team agreed to."""
     _fixture_spec(repo, "queue")
-    result = decide.main(["Use one queue", "--madr"])
+    result = decide.main(["Use one queue"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     assert capsys.readouterr().out.splitlines() == [
@@ -392,12 +353,12 @@ def test_decide_madr_writes_the_file_and_says_it_grants_no_authority(repo, capsy
 def test_proposing_a_supersession_does_not_rewrite_or_authorize_the_old_madr(repo):
     """A proposal may point at the old MADR, but only human authority can transition it."""
     _fixture_spec(repo, "queue")
-    result = decide.main(["Use one queue", "--madr"])
+    result = decide.main(["Use one queue"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     old = repo / "docs" / "adr" / "0001-use-one-queue.md"
     before = old.read_bytes()
-    result = decide.main(["Use two queues", "--madr", "--supersede", "0001"])
+    result = decide.main(["Use two queues", "--supersede", "0001"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     assert old.read_bytes() == before
@@ -409,7 +370,7 @@ def test_a_madr_proposal_writes_nothing_outside_its_canonical_home(repo):
     """Proposal must not turn a spec edit into authority or create a second record."""
     path = _fixture_spec(repo, "a-thing")
     before = path.read_bytes()
-    result = decide.main(["Use one queue", "--madr"])
+    result = decide.main(["Use one queue"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     assert path.read_bytes() == before
@@ -423,10 +384,10 @@ def test_decide_list_prints_one_row_per_adr_and_says_so_when_there_are_none(repo
     assert result.outcome == "PASS"
     assert capsys.readouterr().out == "  no MADRs yet — most decisions never need one\n"
     _fixture_spec(repo, "decisions")
-    result = decide.main(["One", "--madr"])
+    result = decide.main(["One"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
-    result = decide.main(["Two", "--madr"])
+    result = decide.main(["Two"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     capsys.readouterr()
@@ -435,31 +396,6 @@ def test_decide_list_prints_one_row_per_adr_and_says_so_when_there_are_none(repo
     assert result.outcome == "PASS"
     rows = capsys.readouterr().out.splitlines()
     assert [row.split()[0] for row in rows] == ["0001-one", "0002-two"]
-
-
-def test_a_decision_that_stays_in_its_spec_is_dated_and_carries_a_rationale(repo, capsys):
-    """A decision with no date cannot be put in order against the others, and one with no
-    rationale is a note. When nobody typed --why the placeholder says so in the diff."""
-    _fixture_spec(repo, "a-thing")
-    result = decide.main(["Use one queue"])
-    assert type(result) is outcome.Result
-    assert result.outcome == "PASS"
-    assert capsys.readouterr().out == (
-        "  ✓ recorded in specs/001-a-thing/spec.md. If it constrains specs that do not exist "
-        "yet, promote it with --madr.\n"
-    )
-    body = (repo / "specs" / "001-a-thing" / "spec.md").read_text()
-    assert (
-        "```yaml\n"
-        "decision: Use one queue\n"
-        f"date: {TODAY}\n"
-        "rationale: TODO: why, in one sentence\n"
-        "```\n"
-    ) in body
-    result = decide.main(["Use two queues", "--why", "it is cheaper"])
-    assert type(result) is outcome.Result
-    assert result.outcome == "PASS"
-    assert "rationale: it is cheaper" in (repo / "specs" / "001-a-thing" / "spec.md").read_text()
 
 
 def test_decide_refuses_with_the_line_that_names_the_fix(repo, tmp_path, monkeypatch, capsys):
@@ -489,10 +425,13 @@ def test_decide_help_names_the_command_and_documents_every_flag(wide, capsys):
         decide.main(["--help"])
     assert stopped.value.code == 0
     out = capsys.readouterr().out
-    for token in ("usage: ai-eng decide", "--madr", "--supersede NNNN", "--list", "--why WHY"):
+    for token in ("usage: ai-eng decide", "--supersede NNNN", "--list", "--accept NNNN"):
         assert token in out
-    assert "--adr" not in out
-    for line in ("propose it in docs/adr/", "the rationale, when it stays inside the spec"):
+    # Both spellings of the half that is gone. `--madr` chose between two destinations and
+    # there is only one now; `--why` was the rationale of the destination that was deleted.
+    for gone in ("--adr", "--madr", "--why"):
+        assert gone not in out, gone
+    for line in ("accept a proposed MADR",):
         assert f" {line}\n" in out, "the help line is padded and ends there, not elsewhere"
 
 
@@ -1375,3 +1314,112 @@ def test_the_template_own_examples_prompt_is_not_executable():
 
     prompt = spec.TEMPLATE.split("## Examples somebody can check", 1)[1].split("\n## ", 1)[0]
     assert spec.examples_facts("## Examples somebody can check" + prompt)[3] == 0
+
+
+def test_the_tick_column_is_invisible_to_an_approval_and_nothing_else_is():
+    """What `spec.approval_bytes` may hide, proved on this tree rather than asserted.
+
+    Approving a plan is signing a digest of it, and a command that ticks a box changes bytes.
+    The answer is not a looser signature but a narrower subject: the digest is taken with the
+    tick column masked, so the seal certifies what the plan says and still moves when a word
+    or a check command does.
+
+    Four claims, each executed. That the change costs no migration — every approval on record
+    keeps its value, because the function is the identity over this whole tree today. That a
+    box on every task, all of them ticked and sealed, moves nothing. That a specification is
+    *not* canonicalised, because its production-ready boxes are a person's claim and
+    `readiness.py` reads them. And the hole this must not open: a numbered line that is not a
+    task carries no invisible column at all.
+    """
+
+    import hashlib
+    import shutil
+
+    from ai_engineering import spec
+
+    root = Path(__file__).resolve().parents[1]
+    plans = sorted(root.glob("specs/*/plan.md"))
+    specs = sorted(root.glob("specs/*/spec.md"))
+    assert len(plans) >= 10 and len(specs) >= 10, f"{len(plans)} plans and {len(specs)} specs"
+
+    def canon(path: Path) -> str:
+        return hashlib.sha256(spec.approval_bytes(path)).hexdigest()
+
+    # A specification is signed as it stands, always. Its eight production-ready boxes are a
+    # person's claim and `readiness.py` reads them, so masking one would sign the claim away.
+    raw = [p.parent.name for p in specs if canon(p) != hashlib.sha256(p.read_bytes()).hexdigest()]
+    assert not raw, f"specifications were canonicalised: {raw}"
+
+    # And a plan is signed as it read before the column existed — which is the whole case for
+    # doing it this way, since it means no approval on record changed value. Executed rather
+    # than asserted: take every box back out and the digest has to be that file's own bytes.
+    stripped = [
+        p.parent.name
+        for p in plans
+        if canon(p)
+        != hashlib.sha256(
+            spec._TASK_GAP.sub(r"\1 ", p.read_text(encoding="utf-8")).encode("utf-8")
+        ).hexdigest()
+    ]
+    assert not stripped, f"a plan's canonical digest is not its unticked bytes: {stripped}"
+
+    exercised = 0
+    for plan in plans:
+        body = plan.read_text(encoding="utf-8")
+        # Through the same gap the writer uses, so a box already there is replaced rather
+        # than doubled — this loop asserted over zero files for one commit because it
+        # inserted into a column that was no longer empty.
+        ticked = spec._TASK_GAP.sub(r"\1 [x] <!--t:0123456789ab--> ", body)
+        if ticked == body:
+            # Measured: some plans in this tree carry no task in the shape a script can
+            # enumerate, and `specs/001` is one. They are counted below rather than passed
+            # over in silence, because a suite that quietly exercises four of sixteen files
+            # reads exactly like one that exercised all of them.
+            continue
+        exercised += 1
+        try:
+            # Written as `plan.md` in a directory of its own: the rule keys off the name.
+            home = plan.parent / "ticked"
+            home.mkdir(exist_ok=True)
+            (home / "plan.md").write_text(ticked, encoding="utf-8")
+            assert canon(home / "plan.md") == canon(plan), (
+                f"{plan.name} changes digest once its boxes are ticked, so every approval "
+                "would have to be signed again on the first tick"
+            )
+        finally:
+            shutil.rmtree(plan.parent / "ticked", ignore_errors=True)
+
+    # Six today, holding 141 tasks between them: 010, 011, 019, 020, 021 and 022. The other
+    # ten are specifications 001 to 009 and 018, written before the task shape existed, and
+    # they carry no numbered item a script can read — which is why the number is six and not
+    # sixteen, and why saying "every plan" here would be false.
+    assert exercised >= 6, (
+        f"only {exercised} of {len(plans)} plans carry a task a box could go on, so this "
+        "proved the invariance over fewer files than the six that have tasks today"
+    )
+
+    # The boundary. A specification's boxes are signed, so ticking one is a change.
+    live = next(p for p in specs if "- [ ] CI/CD" in p.read_text(encoding="utf-8"))
+    claimed = live.read_text(encoding="utf-8").replace("- [ ] CI/CD", "- [x] CI/CD", 1)
+    aside = live.parent / "spec.md.aside"
+    try:
+        aside.write_text(claimed, encoding="utf-8")
+        assert spec.approval_bytes(aside) == claimed.encode("utf-8"), (
+            "a specification was canonicalised. Its production-ready boxes are a person's "
+            "claim and a control reads them; masking one would sign away the claim"
+        )
+    finally:
+        aside.unlink(missing_ok=True)
+
+    # And the hole. Only a number followed by a bold title has an invisible column.
+    prose = "3. [x] not a task, just a numbered line\n"
+    apart = plans[0].parent / "notaplan"
+    apart.mkdir(exist_ok=True)
+    try:
+        (apart / "plan.md").write_text(prose, encoding="utf-8")
+        assert spec.approval_bytes(apart / "plan.md") == prose.encode("utf-8"), (
+            "a numbered line of prose carries an invisible box, so anybody could flip one "
+            "inside a paragraph or a code block without moving the signature"
+        )
+    finally:
+        shutil.rmtree(apart, ignore_errors=True)

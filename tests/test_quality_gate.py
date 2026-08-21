@@ -401,9 +401,9 @@ def _ci_result_contract(workflow: str) -> None:
     # The lanes the plan requires, still present and still needed by the aggregate.
     aggregate = _child_block(lines, "  ci-result:")
     text = "\n".join(aggregate)
-    for lane in ("check", "suite", "typecheck", "sonar", "snyk"):
+    for lane in ("check", "suite", "guards", "typecheck", "platforms", "sonar", "snyk"):
         assert f"{lane}=${{{{ needs.{lane}.result }}}}" in text, lane
-    assert "needs: [check, suite, typecheck, sonar, snyk]" in text
+    assert "needs: [check, suite, guards, typecheck, platforms, sonar, snyk]" in text
     assert "if: always()" in text
 
     # A skipped job is a failure, which is what makes a deleted or renamed lane visible.
@@ -458,17 +458,18 @@ def test_check_workflow_marks_missing_or_skipped_evidence_incomplete():
         ('echo "evidence=ran" >> "$GITHUB_OUTPUT"', ""),
         ('echo "evidence=unavailable" >> "$GITHUB_OUTPUT"', ""),
         ('[ "${pair##*=}" = "success" ] || failed=1', ""),
-        ("needs: [check, suite, typecheck, sonar, snyk]", ""),
+        ("needs: [check, suite, guards, typecheck, platforms, sonar, snyk]", ""),
         ("evidence: ${{ steps.scan.outputs.evidence || 'unavailable' }}", ""),
         ("check=${{ needs.check.result }}", ""),
+        ("platforms=${{ needs.platforms.result }}", ""),
         ("test -s coverage.xml", ""),
         ("re-home the branch to this repository to get the evidence.", ""),
         # The one that cannot be tested by deletion: waiving a lane is something added.
         ("    name: CI Result", "    name: CI Result\n    continue-on-error: true"),
         # And the fork branch turning back into a warning that falls through to green.
         (
-            '            exit 1\n          fi\n          echo "six jobs',
-            '            fi\n          echo "six jobs',
+            '            exit 1\n          fi\n          echo "$ran jobs',
+            '            fi\n          echo "$ran jobs',
         ),
     ],
 )
@@ -515,15 +516,25 @@ def test_install_matrix_preserves_native_transaction_and_proves_head_wheel_renam
         == "71453f9c11662280b748a823e97d22b6f46815292bb04b8c5b1e4462aa75b458"
     )
 
-    # This one moved, once, and here is the reason rather than a new number. The step
-    # counted verbs with a regex that required each description to start with a capital
-    # letter; two of the ten open with their own subcommands, so it counted eight and failed
-    # a wheel that was right — on all three operating systems, the first time this branch
-    # ever reached CI. The pin is what made that edit a reviewable act instead of a quiet
-    # one, which is the whole reason it is here.
+    # This one has moved twice, and each move carries its reason rather than a new number.
+    #
+    # First: the step counted verbs with a regex that required each description to start with
+    # a capital letter; two of the ten open with their own subcommands, so it counted eight
+    # and failed a wheel that was right — on all three operating systems, the first time that
+    # branch ever reached CI.
+    #
+    # Second: `ai-eng decide --help | grep -q -- --madr` required a flag that was deleted
+    # with the half of the verb that wrote into the specification. The line is now the shape
+    # the two hard renames beside it already use — the old spelling must refuse — and `--why`
+    # is asked the same way. This is the line that caught the deletion, and it could only be
+    # caught here: `install-matrix.yml` is not part of `just check`, so the local gate never
+    # sees the surface a stranger installs.
+    #
+    # The pin is what made both edits a reviewable act instead of a quiet one, which is the
+    # whole reason it is here.
     surface = _named_step(lines, "the ten verbs, the hard renames and one JSON object")
     assert _raw_digest(surface) == (
-        "051dbde82c58acb8cb7e6adb924856d4a72351d6d75ede449b4fcc5ce53e9ac4"
+        "57f38b8117fb7e96f73343cc44a2ed4f816896c777f24c6bc7efa99aaec0c6a4"
     )
     body = "\n".join(surface)
 
@@ -681,8 +692,15 @@ def test_every_downloaded_engine_has_its_bytes_checked():
     the gate would have gone green having scanned with it.
 
     Read from the file rather than from a list here: a sixth download added later is caught
-    by this because it was never named."""
+    by this because it was never named.
 
+    Two spellings, because the rule is about the bytes and not about the coreutils. macOS
+    runners have `shasum` and not `sha256sum`, so the `platforms` lane checks its download
+    with `shasum -a 256 -c` — the same verification, from the tool that machine has. Both
+    still have to sit on the line immediately after the download, which is what stops a
+    check drifting away from the thing it checks."""
+
+    checkers = ("sha256sum -c", "shasum -a 256 -c")
     workflow = _check_workflow()
     lines = workflow.splitlines()
     downloads = [index for index, line in enumerate(lines) if "curl -sSfL -o" in line]
@@ -691,7 +709,7 @@ def test_every_downloaded_engine_has_its_bytes_checked():
     for index in downloads:
         target = lines[index].split("-o", 1)[1].split()[0]
         following = lines[index + 1] if index + 1 < len(lines) else ""
-        assert "sha256sum -c" in following, (
+        assert any(one in following for one in checkers), (
             f"{target} is downloaded on line {index + 1} and its bytes are never checked"
         )
 
@@ -831,54 +849,82 @@ def test_the_linter_and_the_type_checker_are_shown_saying_no(tmp_path):
     assert "return-value" in types.stdout, types.stdout
 
 
+def test_no_child_of_the_mutation_runner_leaves_bytecode_behind() -> None:
+    """Every half runs over a tree with one mutant in it, so a half that writes bytecode
+    caches the mutant.
+
+    Python decides a cached file is still good from the source's size and its modification
+    time in whole seconds. A one-token flip is the same length — `==` for `!=`, `Exception`
+    for `BaseException` — so a mutant written and taken out again inside the same second
+    leaves a cache that validates against the restored original. Source correct, `git diff`
+    empty, `digest()` in agreement, and the interpreter still running the mutant.
+
+    It happened on 2026-08-20: `import chain` exited 0 out of a worktree git called clean,
+    because the cached `if __name__ == "__main__"` had been flipped, and no test in the suite
+    could run. A byte-identical clone was green, which is what proved the source innocent.
+
+    Executed, not read. A half that imports one module is spent through `killer` exactly as a
+    real half is, and this fails if a `.pyc` appears — so it survives any rewrite of how the
+    environment is passed, and fails the moment somebody stops passing it.
+    """
+
+    import tempfile
+
+    import mutation
+
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "shaped_like_a_mutant.py").write_text("VALUE = 1\n", encoding="utf-8")
+        half, line = mutation.killer(
+            (
+                (
+                    "one import",
+                    ("-c", f"import sys; sys.path.insert(0, {tmp!r}); import shaped_like_a_mutant"),
+                ),
+            )
+        )
+        assert half == "", f"the half meant to pass went red on {line}"
+        assert not list(Path(tmp).rglob("*.pyc")), (
+            "a child of the mutation runner wrote bytecode. Over a mutated tree that cache "
+            "outlives the restore and the interpreter goes on running the mutant, with git "
+            "reporting a clean tree"
+        )
+
+
 def test_the_mutation_runner_spends_the_cheap_suite_first() -> None:
-    """A mutant is killed when either half of the suite goes red, so the order of the two
-    halves cannot change a verdict — only the bill. The adversarial run is thirteen seconds
-    and pytest is sixty; running pytest first means every killed mutant pays the expensive
-    half before the cheap one has had a chance to answer.
+    """A mutant is killed when either half goes red, so the order of the two halves cannot
+    change a verdict — only the bill. The adversarial run is thirteen seconds and pytest is
+    over two minutes; running pytest first means every killed mutant pays the expensive half
+    before the cheap one has had a chance to answer.
 
-    Read out of the source and not out of the docstring. The docstring already promised this
-    behaviour while the code did the opposite — "the slow half only runs when the fast half
-    found nothing", above a line that ran pytest first — so an assertion a reworded comment
-    can satisfy is no assertion at all."""
+    Executed rather than read. This used to assert an AST shape — two `quiet` calls inside a
+    `BoolOp` — and an AST shape is a thing a correct rewrite breaks while a wrong one can
+    satisfy: the docstring had already promised this behaviour above a line that did the
+    opposite, and then the shape assertion outlived the function it described. So the claim
+    is run instead. Two fake halves, the first of which fails; if the runner spends the
+    second, the marker exists and this fails.
+    """
 
-    import ast
+    import tempfile
 
-    source = (ROOT / "tests" / "mutation.py").read_text(encoding="utf-8")
-    run_suite = next(
-        node
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.FunctionDef) and node.name == "run_suite"
+    import mutation
+
+    costs = [name for name, _ in mutation.HALVES]
+    assert costs == ["guard tests", "adversarial", "the suite"], (
+        f"the halves are no longer in cost order ({costs}), so a mutant the cheapest one "
+        "settles pays a dearer one first"
     )
-    # Discovery order, which for these two calls is the order they are written in. The
-    # docstring is not read: it is not a call.
-    calls = [
-        ast.unparse(node)
-        for node in ast.walk(run_suite)
-        if isinstance(node, ast.Call) and ast.unparse(node.func) == "quiet"
-    ]
-    assert len(calls) == 2, calls
-    assert "adversarial" in calls[0], calls
-    assert "pytest" in calls[1], calls
-    # And the expensive half is inside the conjunction, not merely somewhere in the same
-    # function. Written first, this asserted only that an `and` existed, which a version
-    # binding both halves to names and joining them afterwards satisfies while spending both
-    # on every mutant — the saving gone and nothing red. A reviewer wrote that version out
-    # and it passed.
-    conjunction = next(
-        (
-            node
-            for node in ast.walk(run_suite)
-            if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And)
-        ),
-        None,
-    )
-    # With no default this raised `StopIteration` instead of failing, so a shape that
-    # short-circuits with an early return — correct, but carrying no `and` — reported a bare
-    # exception rather than a sentence. Found by the bounded re-review of this very repair.
-    assert conjunction is not None, (
-        "run_suite stopped being a conjunction, so the order is not free"
-    )
-    assert any(
-        isinstance(half, ast.Call) and "pytest" in ast.unparse(half) for half in conjunction.values
-    ), "the pytest half is outside the conjunction, so it runs whether or not the cheap half passed"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        marker = Path(tmp) / "the-second-half-ran"
+        half, line = mutation.killer(
+            (
+                ("first", ("-c", "import sys; sys.stderr.write('FAILED on purpose'); sys.exit(1)")),
+                ("second", ("-c", f"open({str(marker)!r}, 'w').close()")),
+            )
+        )
+        assert half == "first", half
+        assert "FAILED on purpose" in line, line
+        assert not marker.exists(), (
+            "the expensive half ran after the cheap one had already said no, so the saving "
+            "this order exists for is gone and nothing was red"
+        )

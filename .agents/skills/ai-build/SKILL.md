@@ -21,8 +21,10 @@ Code and tests for one task, and one commit nobody has reviewed yet.
 
 ## Steps
 
-1. Read the plan and name the task you are doing. If the task is not in a plan, or the plan
-   is not approved, stop here: this skill has nothing to execute.
+1. Take the task, not the plan: `ai-eng spec show <id> --task <n>` prints it with the file,
+   the check, the rollback and the digest of the plan it came from. It refuses when that
+   digest no longer matches the file on disk, which is the approval saying so. If the task
+   is not in a plan, or the plan is not approved, stop here: nothing to execute.
 2. Write the failing test first, and run it. A test that has never been red is a test that
    has never been shown to test anything, and the exact focal point matters — assert on the
    thing that would break, not on the shape around it.

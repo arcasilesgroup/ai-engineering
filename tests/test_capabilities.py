@@ -156,7 +156,7 @@ def test_capability_schema_is_closed_and_permission_distinct() -> None:
 
     capability_policy = schema["x-capability-policy"]
     allowed_ids = capability_policy["allowed_ids"]
-    assert len(allowed_ids) == len(set(allowed_ids)) == 15
+    assert len(allowed_ids) == len(set(allowed_ids)) == 18
     assert capability_policy == {
         "id_field": "id",
         "ids_unique": True,
@@ -207,7 +207,7 @@ def test_capability_schema_is_closed_and_permission_distinct() -> None:
         "schema_version": "1",
         # `phase` is required now: a capability with no phase is a command a person has to
         # try in order to learn what it is for, and the manifest is the only place that
-        # enumerates all fifteen.
+        # enumerates all eighteen.
         "capabilities": [
             {
                 "id": "ai-spec",
@@ -243,7 +243,7 @@ def test_capability_schema_is_closed_and_permission_distinct() -> None:
     assert not _manifest_accepts(duplicate_permissions, schema)
 
 
-def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
+def test_capabilities_toml_declares_exactly_eighteen_capabilities() -> None:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     manifest = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))
     assert _manifest_accepts(manifest, schema)
@@ -251,7 +251,7 @@ def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
     capabilities = manifest["capabilities"]
     expected = schema["x-capability-policy"]["allowed_ids"]
     assert [capability["id"] for capability in capabilities] == expected
-    assert len(capabilities) == 15
+    assert len(capabilities) == 18
     declared_modes = {
         capability["id"]: [mode["id"] for mode in capability["modes"]]
         for capability in capabilities
@@ -260,6 +260,9 @@ def test_capabilities_toml_declares_exactly_fifteen_capabilities() -> None:
         "ai-explore": ["default"],
         "ai-research": ["local", "cited-web"],
         "ai-spec": ["default", "coordination"],
+        "ai-challenge": ["default"],
+        "ai-council": ["default"],
+        "ai-cycle": ["default"],
         "ai-plan": ["default"],
         "ai-build": ["default"],
         "ai-debug": ["default"],
@@ -505,7 +508,7 @@ def test_every_capability_says_which_phase_it_serves():
     learn what it was for, and the five phases the work actually moves through — discover,
     decide, plan, build, verify — were named in no file that lists the capabilities.
 
-    The manifest is the only place all fifteen are enumerated, so the phase belongs there
+    The manifest is the only place all eighteen are enumerated, so the phase belongs there
     rather than in a README paragraph that would drift from it. One phase each, and that is
     the same argument the skills make about themselves: a capability serving two phases is
     two capabilities, which is what the routing clause already says.
