@@ -123,6 +123,24 @@ enforcement = ["preflight.read", "preflight.write", "preflight.exec"]
 proof_requirements = { allow = ["ai-council.default.allow"], deny = ["ai-council.default.deny"], installed_artifact = true }
 
 [[capabilities]]
+id = "ai-cycle"
+phase = "plan"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = ["specs", ".ai"]
+exec_allowlist = [
+  { executable = "git", argument_pattern = "read-only" },
+  { executable = "ai-eng", argument_pattern = "any" },
+]
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec"]
+proof_requirements = { allow = ["ai-cycle.default.allow"], deny = ["ai-cycle.default.deny"], installed_artifact = true }
+
+[[capabilities]]
 id = "ai-plan"
 phase = "plan"
 

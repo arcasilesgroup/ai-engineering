@@ -385,7 +385,7 @@ $ARGUMENTS
 
 def phases() -> dict[str, str]:
     """Which of the five phases each capability serves, read from the one file that lists
-    all fifteen. A second copy here would be a second answer within a week."""
+    all eighteen. A second copy here would be a second answer within a week."""
 
     try:
         declared = tomllib.loads(paths.policy("capabilities.toml").read_text(encoding="utf-8"))

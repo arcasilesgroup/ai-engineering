@@ -45,7 +45,7 @@ MANIFEST_PATH = paths.policy("capabilities.toml")
 # finding. The pin is what makes a change here a decision somebody takes rather than a file
 # that drifted, and a wrong number inside a governed file is exactly what it exists to make
 # expensive.
-_EXPECTED_SCHEMA_DIGEST = "c28983ad6dbc2f70f07dc25d2b669c967b6849e36bdfc0bd0f2b751cc1ec5cdc"
+_EXPECTED_SCHEMA_DIGEST = "b9d86afdde0547dde4b12bbddea26d5f4d0eed1e93dc59ee32186c75cc508056"
 _MAX_POLICY_BYTES = 1_000_000
 # The `\.` alternative that stood here matched nothing the class after it did not:
 # a dot is already in `[A-Za-z0-9._-]`. It read as though a lone `.` were special
