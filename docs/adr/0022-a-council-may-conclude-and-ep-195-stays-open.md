@@ -6,7 +6,10 @@ id: "0022"
 title: "A council may conclude, and EP-195 stays open"
 date: "2026-08-21"
 spec: "023"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-21T12:43:47Z"
 supersedes: "0019"
 ---
 
