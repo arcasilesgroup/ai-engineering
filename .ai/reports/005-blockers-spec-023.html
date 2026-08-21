@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="description" content="Spec 023 construida y revisada. Lo que queda necesita tu firma: tres ejemplos falsos en una spec aprobada, y una cadena rota que solo una persona nombrada puede responder.">
+<title>ai-engineering | Bloqueos: spec 023</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#f4f2eb;--surface:#fcfbf7;--surface-2:#e9e6dc;--ink:#17201d;--muted:#56625c;
+--line:#cac7bc;--line-strong:#989c96;--green:#166e52;--green-soft:#dcebe4;--amber:#89570f;
+--amber-soft:#f2e5cc;--red:#913b35;--red-soft:#f1dfdc;--blue:#315e7d;--blue-soft:#dce8ef;
+--shadow:0 20px 54px rgba(22,31,27,.09);--radius:14px;--max:1080px;
+--sans:"Avenir Next",Avenir,"Segoe UI",Inter,system-ui,sans-serif;
+--mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
+html[data-theme="dark"]{--bg:#0d1412;--surface:#151e1b;--surface-2:#1e2a26;--ink:#eaf0ec;
+--muted:#a7b3ad;--line:#2d3b36;--line-strong:#52635c;--green:#70d0aa;--green-soft:#17382d;
+--amber:#efb869;--amber-soft:#3a2d19;--red:#f0958c;--red-soft:#3a2422;--blue:#8bc1e3;
+--blue-soft:#1b3040;--shadow:0 24px 60px rgba(0,0,0,.28)}
+*{box-sizing:border-box}
+body{margin:0;min-width:320px;background:var(--bg);color:var(--ink);font-family:var(--sans);
+font-size:17px;line-height:1.62}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 22px}
+header{border-bottom:1px solid var(--line);padding:34px 0 26px}
+.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:clamp(28px,4.4vw,44px);line-height:1.12;margin:12px 0 10px;letter-spacing:-.02em}
+.sub{color:var(--muted);max-width:64ch;margin:0}
+main{padding:32px 0 60px}section{margin:0 0 40px}
+h2{font-size:clamp(21px,2.6vw,27px);margin:0 0 14px;letter-spacing:-.01em}
+h3{font-size:17px;margin:22px 0 6px}
+.bluf{background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius);
+padding:22px 24px;box-shadow:var(--shadow)}
+.bluf p{margin:0 0 12px}.bluf p:last-child{margin:0}
+.ask{border:1px solid var(--amber);background:var(--amber-soft);border-radius:var(--radius);
+padding:18px 20px;margin:0 0 16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+padding:18px 20px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.stat .n{font-family:var(--mono);font-size:27px;font-weight:600;display:block;line-height:1.2}
+.stat .lab{color:var(--muted);font-size:14px;display:block;margin-top:4px}
+.n.up{color:var(--green)}.n.down{color:var(--red)}.n.mid{color:var(--amber)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:15px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+color:var(--muted);background:var(--surface-2)}
+tr:last-child td{border-bottom:none}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);padding:1px 5px;border-radius:5px}
+pre{font-family:var(--mono);font-size:13px;background:var(--surface-2);padding:12px 14px;
+border-radius:9px;overflow-x:auto;margin:8px 0}
+.tag{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+padding:2px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.t-ok{color:var(--green);background:var(--green-soft)}
+.t-no{color:var(--red);background:var(--red-soft)}
+.t-open{color:var(--amber);background:var(--amber-soft)}
+ul,ol{padding-left:20px}li{margin:7px 0}a{color:var(--blue)}
+.foot{border-top:1px solid var(--line);padding:20px 0 0;color:var(--muted);font-size:14.5px}
+.btn{font:inherit;font-size:14px;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);
+border-radius:9px;padding:6px 13px;cursor:pointer}
+.bar{display:flex;gap:8px;justify-content:flex-end;padding-top:14px}
+@media print{.bar{display:none}body{background:#fff}}
+</style>
+</head>
+<body><div class="wrap">
+
+<header>
+<div class="bar"><button class="btn" id="themeButton">Tema</button><button class="btn" id="printButton">Imprimir</button></div>
+<p class="kicker">Bloqueos 005 &middot; 21 de agosto de 2026 &middot; especificaci&oacute;n 023</p>
+<h1>Construida, revisada, y tres cosas necesitan tu firma</h1>
+<p class="sub">La segunda mitad del ciclo est&aacute; hecha. Once commits, gate verde en cada uno.
+Tres cr&iacute;ticos la leyeron en contextos separados. Esto es lo que encontraron y lo que no puedo cerrar yo.</p>
+</header>
+
+<main>
+
+<section>
+<h2>En una p&aacute;gina</h2>
+<div class="bluf">
+<p><strong>Se construy&oacute; entera.</strong> Las cinco tareas del plan, cada una un commit con
+<code>just check</code> verde en la misma cadena. El council ahora tiene tres rondas, escribe veredicto
+y recomendaci&oacute;n, y no puede conceder. <code>contract.CEILING</code> est&aacute; borrado. Y
+<code>just council</code> es un paso del gate que recuenta 11/3 en vez de creerse el n&uacute;mero.</p>
+
+<p><strong>Los cr&iacute;ticos encontraron once bloqueantes. Refut&eacute; seis ejecut&aacute;ndolos. Cinco vivieron.</strong>
+Cuatro est&aacute;n reparados y commiteados. El quinto no lo puedo tocar yo.</p>
+
+<p><strong>El grave era m&iacute;o, y es exactamente el defecto que este cambio dice curar.</strong>
+El control nuevo no refutaba una concesi&oacute;n escrita como frase normal:
+<code>Verdict: the specification is approved and may be signed</code> pasaba entero. Mi propio commit
+anterior argumentaba que el test viejo "prohib&iacute;a dos puntos en vez de prohibir aprobar" — y el
+reemplazo prohib&iacute;a dos puntos, un inicio de l&iacute;nea y una palabra pegada a dos puntos. Lo
+encontr&oacute; un revisor <em>ejecutando</em> la regla, no rele&yacute;&eacute;ndola. Reparado.</p>
+</div>
+</section>
+
+<section>
+<h2>N&uacute;meros</h2>
+<div class="grid">
+<div class="stat"><span class="n up">11</span><span class="lab">commits, gate verde en cada uno</span></div>
+<div class="stat"><span class="n">11</span><span class="lab">hallazgos bloqueantes de los tres cr&iacute;ticos</span></div>
+<div class="stat"><span class="n mid">6</span><span class="lab">refutados ejecut&aacute;ndolos, no discuti&eacute;ndolos</span></div>
+<div class="stat"><span class="n down">5</span><span class="lab">sobrevivieron. 4 reparados, 1 necesita firma</span></div>
+</div>
+</section>
+
+<section>
+<h2>Lo que necesita que decidas t&uacute;</h2>
+
+<div class="ask">
+<h3 style="margin-top:0">1. Tres ejemplos de la spec son falsos contra el &aacute;rbol en el que viajan</h3>
+<p>El ADR 0021 firma <strong>esos bytes exactos</strong>. Corregirlos cambia el digest de
+<code>spec.md</code>, y entonces la tabla del 0021 hay que volver a firmarla. Ese es el coste real, y
+es la raz&oacute;n de decidirlo a prop&oacute;sito y no en silencio.</p>
+<div class="scroll"><table>
+<thead><tr><th>D&oacute;nde</th><th>Qu&eacute; dice</th><th>Qu&eacute; pasa al ejecutarlo</th></tr></thead>
+<tbody>
+<tr><td><code>spec.md:256</code></td>
+<td>que <code>just skilleval</code> imprime <code>RAN skilleval=326</code> y <code>baseline 326</code></td>
+<td>La tarea 5 movi&oacute; el baseline a <strong>332</strong> en esta misma rama. Era cierto cuando se firm&oacute;, y su propia entrega lo volvi&oacute; falso.</td></tr>
+<tr><td><code>spec.md:281</code></td>
+<td>que el comando lee <code>[False, False, False, True, True]</code>, demostrando que <code>Recommendation:</code> y <code>Verdict:</code> se rechazan hoy</td>
+<td>En esta rama esas dos palabras salieron de <code>COUNCIL_VERDICT</code>, as&iacute; que lee todo False y el ejemplo ya no demuestra nada. Arreglo: decir contra qu&eacute; &aacute;rbol — <code>git show main:tests/test_contracts.py</code>.</td></tr>
+<tr><td><code>spec.md:297-306</code></td>
+<td>que el <code>grep</code> responde cinco sitios en cuatro ficheros, y que ese mismo grep tambi&eacute;n responde <code>readiness.py:212</code> y <code>pilot_register.py:95</code></td>
+<td>Dos mitades falsas. En HEAD el grep no responde nada (salida 1) y el pytest lee <code>119 deselected</code>, porque el test que nombra lo borr&oacute; el cambio que el ejemplo describe. Y la frase sobre <code>readiness</code>/<code>pilot_register</code> <strong>nunca fue cierta</strong>: esas l&iacute;neas dicen <code>&gt; MAX_AGE_CEILING</code> y <code>&gt; _CEILING</code>, que ese patr&oacute;n no captura.</td></tr>
+</tbody>
+</table></div>
+<p style="margin-bottom:0"><strong>Lo que te pido:</strong> ¿corrijo los tres y vuelves a firmar el 0021 con
+el digest nuevo, o los dejo como est&aacute;n y el registro dice que la spec aprobada lleva tres afirmaciones
+ejecutables falsas? Recomiendo lo primero. Es el defecto que el ADR&nbsp;0014 existe para cazar, y este
+ciclo lo cometi&oacute; dos veces: una en el borrador, que el challenge caz&oacute;, y otra aqu&iacute;.</p>
+</div>
+
+<div class="ask">
+<h3 style="margin-top:0">2. <code>ai-eng audit verify</code> sale en FAIL, y solo una persona nombrada lo cierra</h3>
+<pre>22 broken link(s) in 5 run(s): 918-923 933-936 946-949 959-962 974-977</pre>
+<p style="margin-bottom:0">No es de este trabajo: son del 2026-08-12 y llevan ah&iacute; desde entonces. La cadena
+no se borra nunca; responder por un tramo es lo que deja de mantenerlo abierto, y el comando pide un nombre:
+<code>ai-eng audit account --range 918-923 --why '&lt;qu&eacute; pas&oacute;&gt;' --by '&lt;persona&gt;'</code>.
+Un modelo no puede poner ese nombre. Mientras no lo hagas, la etapa de auditor&iacute;a del ciclo cierra en FAIL
+y lo digo en vez de saltármela.</p>
+</div>
+
+<div class="ask">
+<h3 style="margin-top:0">3. Las cinco casillas del plan est&aacute;n vac&iacute;as, y es honesto</h3>
+<p style="margin-bottom:0"><code>ai-eng spec show 023 --task N --tick</code> las rechaza:
+<em>"its check names 2 commands and choosing one is not this tool's call"</em>. Mis checks nombran dos comandos
+cada uno. El plan no se edita mientras se ejecuta — regla suya — as&iacute; que se quedan vac&iacute;as.
+Vac&iacute;a significa "ning&uacute;n comando ha corrido sobre estos bytes", que no es lo mismo que "sin hacer":
+el trabajo est&aacute; hecho y el gate verde en cada commit. Es un defecto de mi plan y lo dejo escrito.</p>
+</div>
+</section>
+
+<section>
+<h2>Lo que los cr&iacute;ticos encontraron y sigue abierto</h2>
+<ul>
+<li><span class="tag t-open">no cerrado</span> <strong>Una concesi&oacute;n en una frase normal fuera de
+<code>Verdict:</code> o <code>Recommendation:</code> sigue sin detectarse.</strong> "This council approves the
+specification." pasa. La regla literal — la palabra prohibida en cualquier parte de la l&iacute;nea — se prob&oacute;
+y pone en rojo el propio <code>council.md</code> de este repositorio cuatro veces, porque el fichero
+<em>habla</em> de la frontera. Est&aacute; escrito en el docstring, al lado del agujero que ya admit&iacute;a.</li>
+<li><span class="tag t-open">no cerrado</span> Una concesi&oacute;n escondida entre backticks, comillas o un
+bloque cercado tampoco se caza. Ninguna forma de esa expresi&oacute;n lo cazar&iacute;a: la diferencia entre
+nombrar una palabra y afirmarla no est&aacute; en los caracteres.</li>
+<li><span class="tag t-open">abierto</span> <strong><code>EP-195</code> sigue abierto en sus tres filas.</strong>
+El ADR 0022 lo dice expl&iacute;citamente y no mueve ninguna. Once y tres es una ejecuci&oacute;n, no una serie.</li>
+<li><span class="tag t-no">no ejecutado</span> Ning&uacute;n esc&aacute;ner fijado aqu&iacute; toca un objetivo en
+marcha, as&iacute; que nada de esto dice nada sobre un servicio desplegado.</li>
+</ul>
+</section>
+
+<section>
+<h2>Lo que s&iacute; qued&oacute; reparado</h2>
+<div class="card">
+<ul style="margin:0">
+<li>La concesi&oacute;n en la cola de un veredicto o una recomendaci&oacute;n, con las dos frases del revisor como fixtures en ambas direcciones.</li>
+<li>El despojado de comillas se com&iacute;a bloques cercados por accidente — la apertura <code>```</code> se consum&iacute;a como un span y se llevaba todo hasta el siguiente backtick. Ahora los bloques se tratan primero y con nombre.</li>
+<li>El segundo contador no pod&iacute;a ser el n&uacute;mero que su propia etiqueta nombraba: dec&iacute;a "borrados por no llevar comando <em>o</em> por ser refutados" y el fichero solo mostraba refutaciones. Ahora los cortes tienen su propia cabecera obligatoria y el script suma las dos.</li>
+<li>El script no rechazaba nada de lo que le&iacute;a. Un <code>council.md</code> que es un enlace, o bajo un directorio que lo es, se rechaza; y un transcript de m&aacute;s de cuatro megas se rechaza en vez de leerse a memoria.</li>
+</ul>
+</div>
+</section>
+
+<p class="foot">P&aacute;gina de bloqueos. No es una aprobaci&oacute;n, un PASS ni una aceptaci&oacute;n de riesgo.
+Rama <code>spec/023-council-substitution</code>, once commits, <code>just check</code> verde en cada uno,
+<code>just guards</code> 15 de 15 y 90.9% de 99 sobre un suelo de 90. El PR no est&aacute; abierto: eso lo
+decides t&uacute; despu&eacute;s de los tres puntos de arriba.</p>
+
+</main></div>
+<script>(()=>{const r=document.documentElement;const s=localStorage.getItem('ai-eng-blockers-005-theme');
+if(s==='light'||s==='dark')r.dataset.theme=s;
+document.getElementById('themeButton').addEventListener('click',()=>{r.dataset.theme=r.dataset.theme==='dark'?'light':'dark';
+localStorage.setItem('ai-eng-blockers-005-theme',r.dataset.theme)});
+document.getElementById('printButton').addEventListener('click',()=>window.print())})();</script>
+</body></html>
