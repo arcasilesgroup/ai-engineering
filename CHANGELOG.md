@@ -28,6 +28,19 @@ search for.
   now accepts only `--guard loop_guard`, because that is the only guard left that a person
   may bypass at all.
 
+- What an approval of a `plan.md` is a signature on has changed, and there is no shim. The
+  digest is now taken over the file with one column masked — the gap between a task's number
+  and its bold title, where `ai-eng spec show <id> --task <n> --tick` writes a box and its
+  seal. A `spec.md` is untouched and is still signed over its raw bytes, because its eight
+  production-ready boxes are a person's claim that `readiness.py` reads. What changes for
+  you: **`sha256 plan.md` and the digest `ai-eng` compares against your approval are no
+  longer the same number once any task carries a box**, and a plan with no box is unaffected.
+  Measured on this repository the day it landed: over 16 plans and 22 specifications the two
+  were identical, `specs/010/plan.md` canonicalised to the number `docs/adr/0009` signs, and
+  a box on all 141 tasks with every one ticked left it at that same number — so no approval
+  on record changed value and nothing was re-signed. Ticking a box no longer voids an
+  approval; editing a word, or a task's check command, moves the digest exactly as before.
+
 - The commit anchor is hard-deleted, with no replacement and no shim: the
   `Ai-Eng-Anchor:` footer that `git-hooks/commit-msg` wrote, the `--anchor` and `--anchors`
   arguments of `ai-eng audit`, the three history verdicts that compared the git log against
