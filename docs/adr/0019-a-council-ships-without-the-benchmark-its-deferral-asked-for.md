@@ -6,7 +6,10 @@ id: "0019"
 title: "A council ships without the benchmark its deferral asked for"
 date: "2026-08-21"
 spec: "022"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "no-hitl-2026-08-20"
+approved_at: "2026-08-21T00:00:00Z"
 supersedes: ""
 ---
 
