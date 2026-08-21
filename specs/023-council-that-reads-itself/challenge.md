@@ -1,6 +1,6 @@
 # Challenge: `specs/023-council-that-reads-itself/spec.md`
 
-Executed against the tree at `461435fb`. Every command below was run in `/Users/soydachi/repos/ai-engineering`.
+Executed against the tree at `461435fb`. Every command below was run in `the repository root`.
 
 ---
 
