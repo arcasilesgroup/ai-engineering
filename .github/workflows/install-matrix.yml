@@ -437,7 +437,14 @@ jobs:
             || { echo "the template commit-msg is not executable"; exit 1; }
           test -x "$HOME/.ai-engineering/hooks-template/pre-push" \
             || { echo "the template pre-push is not executable"; exit 1; }
-          test "$(git config --global --get init.templateDir)" = "$HOME/.ai-engineering/hooks-template" \
+          # `$HOME/.ai-engineering/hooks-template` in the shell is the msys form on
+          # Windows (forward slashes, translated drive root), while `init` writes the
+          # value as `str(paths.home() / "hooks-template")` — backslashes on Windows.
+          # The string equality was true on ubuntu and macOS and false on Windows for
+          # the very same directory, so the expected value is computed with the same
+          # rules the product computes it with rather than typed a second time.
+          template_expected="$(python3 -c "import os;print(os.path.normpath(os.path.expanduser('~/.ai-engineering/hooks-template')))")"
+          test "$(git config --global --get init.templateDir)" = "$template_expected" \
             || { echo "init.templateDir does not point at the template"; exit 1; }
           test -z "$(git config --global --get core.hooksPath)" \
             || { echo "machine-scope core.hooksPath was written"; exit 1; }
