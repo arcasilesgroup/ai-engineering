@@ -8,6 +8,24 @@ search for.
 
 ### Breaking changes
 
+- `contract.CEILING` is hard-deleted, and with it the length branch in
+  `contract.audit_one`, the test `test_a_skill_over_the_line_cap_is_a_procedure_that_should_be_a_script`,
+  the `"the skill cap"` row in the guards mutation lane and the `skill_ceiling` field that
+  `just stats` printed as a denominator. A `SKILL.md` is no longer capped at 80 lines and is
+  no longer capped at any number: `contract.SKILL_FOG_CEILING` bounds how hard a skill reads
+  and nothing bounds how long it is. Measured before deleting it, across sixteen skills the
+  largest file was 80 lines and the largest prose count 52, so the cap was spent on
+  frontmatter, blank lines and fenced blocks and was binding on exactly one file. Anything
+  importing `contract.CEILING` now raises `AttributeError` and there is no shim.
+- A council may now conclude. `/ai-council` writes a verdict and a recommendation where it
+  previously had no field in which either could be written, and `docs/adr/0022` supersedes
+  `docs/adr/0019` on that boundary. What is refused instead is granted authority —
+  `approved`, `approve`, `approval`, `PASS`, `FAIL`, `granted` and an accepted risk — in
+  four shapes: a line that is the word, the word as a field, the word after a colon, and
+  the word anywhere in the tail of a `Verdict:` or `Recommendation:` line. Three of those
+  four caught nothing before. It is not refused in an ordinary sentence elsewhere, and it
+  is not refused inside backticks, a fenced block or quotation marks: the wide rule was
+  tried and reds this repository's own council file. `EP-195` is not closed by any of this.
 - `hooks/change_scope_guard.py` and `hooks/claim_scope_guard.py` are hard-deleted, with no
   replacement and no shim. `change_scope_guard` asked whether any `specs/**/plan.md` was in
   the branch's changed set — existence, never approval, as its own docstring conceded — so

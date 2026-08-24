@@ -452,7 +452,7 @@ color:var(--muted);font-size:.88em}
 """
 
 _FLOW = [
-    ("idea", "una petición"),
+    ("idea", "a request"),
     ("research", "/ai-research"),
     ("spec", "/ai-spec"),
     ("challenge", "/ai-challenge"),
@@ -479,7 +479,7 @@ def _flow_svg(present: dict[str, bool]) -> str:
     height = rows * (box_h + 34) + pad * 2
     parts = [
         f'<svg viewBox="0 0 {width} {height}" role="img" '
-        f'aria-label="Ciclo de vida: {", ".join(name for name, _ in _FLOW)}">'
+        f'aria-label="Lifecycle: {", ".join(name for name, _ in _FLOW)}">'
     ]
     for index, (name, home) in enumerate(_FLOW):
         row, col = divmod(index, per_row)
@@ -516,9 +516,9 @@ def _tag(status: str) -> str:
 
 
 _KIND = {
-    "halt": ("una parada", "bad"),
-    "draft": ("una spec sin aprobar", "warn"),
-    "verdict": ("un requisito inalcanzable", "muted"),
+    "halt": ("a stopped gate", "bad"),
+    "draft": ("an unapproved spec", "warn"),
+    "verdict": ("an unreachable requirement", "muted"),
 }
 
 
@@ -540,12 +540,13 @@ def _waiting(rows: tuple[blocked_ledger.Row, ...], considered: int) -> str:
         # printed the first over the second, so a tree where every candidate was refused —
         # several of which really do wait on a person — read as clear.
         if not considered:
-            return '  <p class="note">Nada espera a una persona ahora mismo.</p>'
-        one = "candidato" if considered == 1 else "candidatos"
+            return '  <p class="note">Nothing is waiting for a person right now.</p>'
+        one = "candidate" if considered == 1 else "candidates"
+        verb = "was" if considered == 1 else "were"
         return (
-            f'  <p class="note">Se miraron {considered} {one} y ninguno dice las cuatro '
-            "cosas, así que no se pinta ninguno. Eso no quiere decir que no haya nada "
-            "esperando: quiere decir que nada dice qué hacer.</p>"
+            f'  <p class="note">{considered} {one} {verb} examined and none of them says all '
+            "four things, so none is rendered. That is not the same as nothing waiting: it "
+            "means nothing says what to do.</p>"
         )
     body = ""
     for row in rows:
@@ -576,13 +577,14 @@ def _waiting(rows: tuple[blocked_ledger.Row, ...], considered: int) -> str:
     # Both were the same mistake and it is the one this section exists to stop: a true number
     # with a false reason. Five times now, by the count kept in `blocked.py` — twice inside
     # the section written to prevent it.
-    return f"""  <p class="note"><b>{len(rows)} de {considered}</b> · los otros
-  {considered - len(rows)} no dicen las cuatro cosas — qué espera, desde cuándo, por qué y
-  qué hacer — así que no se pintan. Casi siempre son borradores sin plan, que esperan al
-  build y no a ti; pero no siempre, y por eso el total está aquí y no sólo la tabla.</p>
+    return f"""  <p class="note"><b>{len(rows)} of {considered}</b> · the other
+  {considered - len(rows)} do not say the four things — what waits, since when, why and
+  what unblocks it — so they are not rendered. Most are planless drafts that wait on a
+  build and not on you; but not all, and that is why the total is here and not just the
+  table.</p>
   <div class="scroll"><table>
-    <thead><tr><th>qué es</th><th>qué espera</th><th class="num">desde</th><th>por qué paró</th>
-    <th>qué lo desbloquea</th></tr></thead>
+    <thead><tr><th>kind</th><th>what waits</th><th class="num">since</th><th>why it stopped</th>
+    <th>what unblocks it</th></tr></thead>
     <tbody>{body}</tbody>
   </table></div>"""
 
@@ -642,15 +644,15 @@ def render(tree: Tree, *, now: datetime | None = None) -> str:
             pct = round(100 * row.done / row.total)
             progress = f'{row.done}/{row.total}<div class="bar"><i style="width:{pct}%"></i></div>'
         elif row.checks:
-            progress = f'<span class="tag good">{row.checks} tareas con check</span>'
+            progress = f'<span class="tag good">{row.checks} tasks with checks</span>'
         elif row.has_plan:
             # Not a formatting preference. A plan whose tasks a script cannot enumerate is a
             # plan no envelope can be extracted from, which is why the executor has to read
             # all of it every time.
-            progress = '<span class="tag warn">plan sin tareas legibles por máquina</span>'
+            progress = '<span class="tag warn">plan with no machine-readable tasks</span>'
         else:
-            progress = '<span class="tag muted">sin plan</span>'
-        supersedes = f"sustituye {html.escape(row.supersedes)}" if row.supersedes else ""
+            progress = '<span class="tag muted">no plan</span>'
+        supersedes = f"supersedes {html.escape(row.supersedes)}" if row.supersedes else ""
         rows.append(
             "<tr>"
             f'<td class="num">{html.escape(row.ident)}</td>'
@@ -689,8 +691,8 @@ def render(tree: Tree, *, now: datetime | None = None) -> str:
     )
     skill_rows = "".join(
         f'<tr><td class="num">/{html.escape(name)}</td>'
-        f'<td class="num">{lines} líneas</td>'
-        f"<td>{'' if lines <= 80 else _tag('sobre el techo de 80')}</td></tr>"
+        f'<td class="num">{lines} lines</td>'
+        f"<td>{'' if lines <= 80 else _tag('over the 80-line ceiling')}</td></tr>"
         for name, lines in tree.skills
     )
     missing = [name for name, live in present.items() if not live]
@@ -701,13 +703,13 @@ def render(tree: Tree, *, now: datetime | None = None) -> str:
     )
 
     return f"""<!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="Solution Intent de ai-engineering: qué es, en qué
-estado está cada especificación y qué lo gobierna.">
+<meta name="description" content="The Solution Intent of ai-engineering: what it is, the
+state of each specification, and what governs it.">
 <title>ai-engineering | Solution Intent</title>
 <style>{_CSS}</style>
 </head>
@@ -715,83 +717,79 @@ estado está cada especificación y qué lo gobierna.">
 <div class="wrap">
 <header class="hero">
   <h1>{html.escape(identity.get("title", "Solution Intent"))}</h1>
-  <p class="lead">Esta página es el estado del proyecto para una persona: qué existe, qué está
-  a medias, qué lo decide y qué todavía no tiene prueba. La genera un comando a partir de los
-  ficheros del repositorio, así que no puede envejecer sin que el gate lo diga.</p>
+  <p class="lead">This page is the state of the project for a person: what exists, what is
+  half done, what decides it and what has no proof yet. A command generates it from the
+  repository's files, so it cannot go stale without the gate saying so.</p>
   <div class="stamp">
-    <span>estado del Intent: {html.escape(lifecycle.get("status", "desconocido"))}</span>
+    <span>Intent status: {html.escape(lifecycle.get("status", "unknown"))}</span>
     <span>{DIGEST_MARK[5:-1]} {digest(tree)[:16]}…</span>
-    <span>sin fecha ni HEAD: lo que no se puede firmar no se imprime</span>
+    <span>no date and no HEAD: what cannot be signed is not printed</span>
   </div>
 </header>
 
 <section id="resumen">
-  <h2>De un vistazo</h2>
-  <p class="note">Cada número sale de un fichero del árbol. Ninguno está escrito a mano.</p>
+  <h2>At a glance</h2>
+  <p class="note">Every number comes from a file in the tree. None of them is hand-written.</p>
   <div class="cards">
     {
         _card(
             len(tree.specs),
-            "especificaciones",
+            "specifications",
             " · ".join(f"{n} {k}" for k, n in sorted(counts.items())),
         )
     }
     {
         _card(
             f"{with_check}/{numbered}",
-            "tareas con un comando que las decide",
-            f"en {plans_with_tasks} de {plans_total} planes · "
-            f"los otros {plans_total - plans_with_tasks} no llevan tareas que un script "
-            f"pueda enumerar, y no cuentan en ninguno de los dos números",
+            "tasks with a command that decides them",
+            f"in {plans_with_tasks} of {plans_total} plans · "
+            f"the other {plans_total - plans_with_tasks} carry no tasks a script can enumerate, "
+            f"and count in neither number",
         )
     }
-    {_card(len(tree.decisions), "decisiones registradas", "docs/adr/")}
-    {_card(len(tree.skills), "skills", f"techo de {80} líneas cada una")}
-    {_card(len(tree.guards), "guards que fallan cerrados", f"+{len(tree.telemetry)} de telemetría")}
-    {_card(len(tree.verbs), "verbos de CLI", "src/ai_engineering/cli.py")}
+    {_card(len(tree.decisions), "recorded decisions", "docs/adr/")}
+    {_card(len(tree.skills), "skills", f"{80} lines each at most")}
+    {_card(len(tree.guards), "fail-closed guards", f"+{len(tree.telemetry)} telemetry")}
+    {_card(len(tree.verbs), "CLI verbs", "src/ai_engineering/cli.py")}
     {
         _card(
             f"{tree.test_lines / max(tree.src_lines, 1):.2f}:1",
-            "prueba frente a producto",
-            f"máximo {tree.ratio_max}:1 · {tree.test_lines:,} / {tree.src_lines:,}".replace(
-                ",", "."
-            ),
+            "tests against product",
+            f"max {tree.ratio_max}:1 · {tree.test_lines:,} / {tree.src_lines:,}".replace(",", "."),
         )
     }
     {
         _card(
             f"{sum(1 for _, verdict, _ in tree.boxes if verdict == 'PASS')}/8",
-            "cajas de producción probadas",
-            html.escape(tree.readiness_code or "sin código"),
+            "production boxes proven",
+            html.escape(tree.readiness_code or "no code"),
         )
     }
   </div>
 </section>
 
 <section id="bloqueos">
-  <h2>Qué te está esperando</h2>
+  <h2>What is waiting for you</h2>
 {_waiting(tree.blocked, tree.considered)}
 </section>
 
 <section id="ciclo">
-  <h2>El ciclo de vida, y dónde vive cada paso</h2>
-  <p class="note">Caja continua: el paso tiene una skill o un verbo que lo ejecuta. Caja
-  discontinua: todavía es una conversación.{
-        " Sin huecos." if not missing else " Sin casa: " + html.escape(", ".join(missing)) + "."
-    }</p>
+  <h2>The lifecycle, and where each step lives</h2>
+  <p class="note">Solid box: the step has a skill or a verb that runs it. Dashed box: it is
+  still a conversation.{" No home: " + html.escape(", ".join(missing)) + "." if missing else ""}</p>
   <figure class="panel">{_flow_svg(present)}</figure>
 </section>
 
 <section id="intent">
-  <h2>El Solution Intent que gobierna</h2>
-  <p class="note">Copiado literalmente de <code>.ai/intent.md</code>. Es el documento del
-  propietario del repositorio; nada de esta página puede contradecirlo.</p>
+  <h2>The Solution Intent that governs</h2>
+  <p class="note">Copied verbatim from <code>.ai/intent.md</code>. It is the repository
+  owner's document; nothing on this page may contradict it.</p>
   <div class="split">
-    <div class="panel"><h3>Restricciones fijas</h3>
+    <div class="panel"><h3>Fixed constraints</h3>
       <ul class="plain">{bullets("fixed_constraints")}</ul></div>
-    <div class="panel"><h3>Resultados buscados</h3>
+    <div class="panel"><h3>Intended outcomes</h3>
       <ul class="plain">{bullets("intended_outcomes")}</ul></div>
-    <div class="panel warn"><h3>Hechos actuales</h3>
+    <div class="panel warn"><h3>Current facts</h3>
       <ul class="plain">{bullets("current_facts")}</ul></div>
     <div class="panel"><h3>Variables</h3>
       <ul class="plain">{bullets("variables")}</ul></div>
@@ -799,76 +797,75 @@ estado está cada especificación y qué lo gobierna.">
 </section>
 
 <section id="specs">
-  <h2>Dónde está cada especificación</h2>
-  <p class="note">Sólo las specs que están en git: una sin commitear no se publica en un
-  documento que sí lo está. El estado sale del frontmatter de cada <code>spec.md</code>. El progreso
-  cuenta las casillas de su <code>plan.md</code>; una casilla no es una prueba, sólo dice qué
-  se marcó.</p>
+  <h2>Where each specification stands</h2>
+  <p class="note">Only specs that are in git: an uncommitted one is not published into a
+  document that is. The status comes from each <code>spec.md</code>'s frontmatter. Progress
+  counts the boxes of its <code>plan.md</code>; a box is not proof, it only says what was
+  marked.</p>
   <div class="scroll"><table>
-    <thead><tr><th class="num">id</th><th>título</th><th>estado</th><th class="num">fecha</th>
-    <th class="num">tareas</th><th class="num">tamaño</th></tr></thead>
+    <thead><tr><th class="num">id</th><th>title</th><th>status</th><th class="num">date</th>
+    <th class="num">tasks</th><th class="num">size</th></tr></thead>
     <tbody>{"".join(rows)}</tbody>
   </table></div>
 </section>
 
 <section id="decisiones">
-  <h2>Decisiones que atan al futuro</h2>
-  <p class="note">Un ADR es inmutable: se sustituye, no se reescribe.</p>
+  <h2>Decisions that bind the future</h2>
+  <p class="note">An ADR is immutable: it is superseded, never rewritten.</p>
   <div class="scroll"><table>
-    <thead><tr><th class="num">nº</th><th>decisión</th><th>estado</th></tr></thead>
+    <thead><tr><th class="num">no.</th><th>decision</th><th>status</th></tr></thead>
     <tbody>{decision_rows}</tbody>
   </table></div>
 </section>
 
 <section id="produccion">
-  <h2>¿Está lista para producción?</h2>
-  <p class="note">Las ocho cajas que <code>src/ai_engineering/readiness.py</code> verifica
-  contra <code>.ai/readiness.json</code>. Veredicto agregado:
+  <h2>Is it production-ready?</h2>
+  <p class="note">The eight boxes <code>src/ai_engineering/readiness.py</code> checks against
+  <code>.ai/readiness.json</code>. Aggregated verdict:
   {_tag(tree.readiness_outcome)} <code>{html.escape(tree.readiness_code or "—")}</code>.
-  Ninguna caja se marca sin un recibo; una declaración ausente es INCOMPLETE, no un hueco.</p>
+  No box is marked without a receipt; a missing declaration is INCOMPLETE, not a gap.</p>
   <div class="scroll"><table style="min-width:0">
-    <thead><tr><th>caja</th><th>resultado</th><th>código</th></tr></thead>
+    <thead><tr><th>box</th><th>result</th><th>code</th></tr></thead>
     <tbody>{box_rows}</tbody>
   </table></div>
 </section>
 
 <section id="superficie">
-  <h2>Lo que el producto expone</h2>
+  <h2>What the product exposes</h2>
   <div class="split">
     <div>
-      <h3>Verbos</h3>
+      <h3>Verbs</h3>
       <div class="scroll"><table style="min-width:0">
-        <thead><tr><th class="num">verbo</th><th>qué hace</th></tr></thead>
+        <thead><tr><th class="num">verb</th><th>what it does</th></tr></thead>
         <tbody>{verb_rows}</tbody>
       </table></div>
     </div>
     <div>
       <h3>Skills</h3>
       <div class="scroll"><table style="min-width:0">
-        <thead><tr><th class="num">skill</th><th class="num">tamaño</th><th></th></tr></thead>
+        <thead><tr><th class="num">skill</th><th class="num">size</th><th></th></tr></thead>
         <tbody>{skill_rows}</tbody>
       </table></div>
     </div>
   </div>
   <h3>Guards</h3>
-  <p>Fallan cerrados: <code>{html.escape(", ".join(tree.guards) or "ninguno")}</code>.
-  Telemetría, que observa y nunca decide:
-  <code>{html.escape(", ".join(tree.telemetry) or "ninguna")}</code>.</p>
+  <p>Fail closed: <code>{html.escape(", ".join(tree.guards) or "none")}</code>.
+  Telemetry, which observes and never decides:
+  <code>{html.escape(", ".join(tree.telemetry) or "none")}</code>.</p>
 </section>
 
 <footer class="wrap">
-  <p>Generada por <code>src/ai_engineering/solution_intent.py</code> a partir de
+  <p>Generated by <code>src/ai_engineering/solution_intent.py</code> from
   <code>specs/</code>, <code>docs/adr/</code>, <code>.ai/intent.md</code>, <code>hooks/</code>
-  y <code>src/ai_engineering/cli.py</code>. Para regenerarla, ejecuta el comando que la
-  escribe; para saber si está caducada, <code>solution_intent.staleness()</code> compara el
-  digest de arriba con el árbol actual.</p>
-  <p>Un estado en esta página es lo que el fichero dice, no una prueba de que algo funcione.
-  La prueba es un recibo de un check que se ejecutó.</p>
+  and <code>src/ai_engineering/cli.py</code>. To regenerate it, run the command that writes
+  it; to tell whether it is stale, <code>solution_intent.staleness()</code> compares the
+  digest above with the current tree.</p>
+  <p>A status on this page is what the file says, not proof that something works.
+  The proof is a receipt of a check that actually ran.</p>
 </footer>
 </div>
 </body>
-</html>
-"""
+</html>"""
 
 
 def write(root: Path, *, now: datetime | None = None) -> Path:

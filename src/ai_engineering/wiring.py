@@ -110,6 +110,28 @@ def holds_ours(root: Path, store: Path, copied: set[str]) -> bool:
     return False
 
 
+def foreign(root: Path, names: list[str]) -> list[Path]:
+    """The directories in a shared skills root that carry one of our names and are not ours.
+
+    A skills root belongs to the person, not to us: eighteen `ai-*` skills from other
+    publishers sat in one of these while this framework claimed the whole prefix. A real
+    directory with something in it, at a name we ship, that the receipt does not record us
+    copying there, is theirs. It is named and skipped now. It used to refuse the machine:
+    one folder called `ai-design`, owned four weeks before we shipped a skill of that name,
+    left eight surfaces uninstalled and named nothing in the message."""
+    copied = {row["path"] for row in receipt().get("wrote", []) if row.get("how") == "copy"}
+    if str(root) in copied:
+        return []
+    theirs = []
+    for name in names:
+        target = root / name
+        if target.is_symlink() or not target.is_dir():
+            continue
+        if any(target.iterdir()):
+            theirs.append(target)
+    return sorted(theirs)
+
+
 class Unreadable(outcome.Unreadable):
     """A file that is there and cannot be read. Absent is an answer; unreadable is not."""
 
@@ -360,10 +382,17 @@ def install_skills(surfaces: list[dict] | None = None) -> list[dict]:
     written = [{"path": str(real), "kind": "skills", "how": "wheel"}]
     rows = table()["surface"] if surfaces is None else surfaces
     for root in sorted({s["skills"] for s in rows if s.get("skills")}):
+        where = expand(root)
+        ours = sorted(real.glob("ai-*"))
+        # Skipped rather than merged. `link` copies into a directory that is already there,
+        # so without this line one shared name puts our SKILL.md on top of somebody else's.
+        theirs = {path.name for path in foreign(where, [skill.name for skill in ours])}
         how = "none"
-        for skill in sorted(real.glob("ai-*")):
-            how = link(skill, expand(root) / skill.name)
-        written.append({"path": str(expand(root)), "kind": "link", "how": how})
+        for skill in ours:
+            if skill.name in theirs:
+                continue
+            how = link(skill, where / skill.name)
+        written.append({"path": str(where), "kind": "link", "how": how})
     return written
 
 
@@ -490,13 +519,31 @@ def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
     rows = table()["surface"] if surfaces is None else surfaces
     written: list[dict] = []
     placed = phases()
+    # A commands root is the person's directory too. `write_text` below is unconditional,
+    # so without this set a personal `~/.claude/commands/ai-note.md` was destroyed by the
+    # generated router — no prompt, no backup, and a repository file in the same run gets
+    # both. A path this framework has not recorded writing is not this framework's to
+    # replace, and a router for a skill we skipped points at a body that never landed.
+    mine = {row["path"] for row in receipt().get("wrote", []) if row.get("kind") == "router"}
     for surface in rows:
         root = surface.get("commands")
         if not root:
             continue
         where = expand(root)
         where.mkdir(parents=True, exist_ok=True)
+        names = [skill.name for skill in sorted(paths.skills().glob("ai-*"))]
+        theirs = (
+            {path.name for path in foreign(expand(surface["skills"]), names)}
+            if surface.get("skills")
+            else set()
+        )
         for skill in sorted(paths.skills().glob("ai-*")):
+            if skill.name in theirs:
+                continue
+            if (where / f"{skill.name}.md").exists() and str(
+                where / f"{skill.name}.md"
+            ) not in mine:
+                continue
             body = router_body(
                 skill.name, _described(skill), placed.get(skill.name, ""), example(skill)
             )

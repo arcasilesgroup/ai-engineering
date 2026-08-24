@@ -21,7 +21,8 @@ from ai_engineering import __version__, outcome, paths, wiring
 from ai_engineering import init as installer
 
 KEEPS = ("specs/", "CONSTITUTION.md", "AGENTS.md", "docs/adr/")
-GLOBAL_KINDS = ("guard", "link", "skills", "router")
+GLOBAL_KINDS = ("guard", "link", "skills", "router", "hooks-template")
+_HOOK_NAMES = ("pre-commit", "commit-msg", "pre-push")
 
 
 def receipt_state() -> tuple[dict, list[dict]] | None:
@@ -251,6 +252,24 @@ def _git_value(root: Path, key: str) -> str | None:
     return read.stdout.strip() if read.returncode == 0 else ""
 
 
+def _git_value_global(key: str) -> str | None:
+    """The machine-scope value, as a string that is empty when unset. `None` means the
+    question could not be asked, which is a stop: uninstall must not unset a key it could
+    not read first."""
+    try:
+        read = subprocess.run(
+            ["git", "config", "--global", "--get", key],
+            timeout=10,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if read.returncode not in (0, 1):
+        return None
+    return read.stdout.strip() if read.returncode == 0 else ""
+
+
 def _router_owned(row: dict) -> bool:
     """A generated router is ours only while it is still the bytes we generated.
 
@@ -280,6 +299,20 @@ def _owned(row: dict, root: Path | None) -> bool:
         return _skills_owned(Path(row["path"]), "wheel")
     if kind == "router":
         return _router_owned(row)
+    if kind == "hooks-template":
+        # Ours only while it is still the bytes we shipped and the global key still points
+        # at it. A template somebody edited is theirs; a key somebody re-pointed is theirs.
+        target = Path(row["path"])
+        if not target.is_dir():
+            return False
+        try:
+            shipped_bytes = {name: (paths.git_hooks() / name).read_bytes() for name in _HOOK_NAMES}
+            for name, body in shipped_bytes.items():
+                if (target / name).read_bytes() != body:
+                    return False
+        except (OSError, FileNotFoundError):
+            return False
+        return _git_value_global("init.templateDir") == str(target)
     if root is None:
         return False
     if kind == "project":
@@ -413,6 +446,17 @@ def canonical(row: dict, root: Path | None) -> dict | None:
                 target = wiring.expand(declared) / f"{skill.name}.md"
                 if path == str(target):
                     return {"path": str(target), "kind": "router", "how": how}
+    if kind == "hooks-template":
+        # The one git key this product owns at machine scope, and only when the current
+        # value is the one the receipt records. A receipt row may never unset somebody
+        # else's template.
+        target = paths.home() / "hooks-template"
+        if (
+            path == str(target)
+            and how == "written"
+            and _git_value_global("init.templateDir") == str(target)
+        ):
+            return {"path": str(target), "kind": "hooks-template", "how": "written"}
     if root is None:
         return None
     if kind == "project":
@@ -620,6 +664,8 @@ def _removed(row: dict, root: Path | None) -> bool:
     if kind in ("link", "skills"):
         names = _expected_skill_names()
         return names is not None and not any(os.path.lexists(target / name) for name in names)
+    if kind == "hooks-template":
+        return not os.path.lexists(target) and _git_value_global("init.templateDir") == ""
     if kind == "project":
         return not os.path.lexists(target)
     if kind == "repo" and root is not None:
@@ -740,6 +786,24 @@ def main(argv: list[str]) -> outcome.Result:
             elif row["kind"] == "skills":
                 done = strip_skills(path)
                 print(f"  ✓ skills removed from {path}" if done else f"  → {path} was already gone")
+            elif row["kind"] == "hooks-template":
+                # Our directory and our key, and only after the ownership checks above
+                # confirmed both. The unset value is read once more at removal time: a
+                # machine changed between consent and removal is a machine this run must
+                # not silently disagree with.
+                current_value = _git_value_global("init.templateDir")
+                if current_value is None:
+                    raise wiring.Unreadable(
+                        "git config could not be read to unset init.templateDir"
+                    ) from None
+                shutil.rmtree(path, ignore_errors=False)
+                if current_value == str(path):
+                    subprocess.run(
+                        ["git", "config", "--global", "--unset", "init.templateDir"],
+                        check=True,
+                        timeout=10,
+                    )
+                print(f"  ✓ hooks template removed from {path}")
             else:
                 continue  # project and repo rows are the repository half, undone below
         except (wiring.Unreadable, OSError) as why:

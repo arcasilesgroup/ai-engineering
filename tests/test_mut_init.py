@@ -1172,6 +1172,7 @@ def test_init_can_be_run_twice_on_a_machine_it_already_set_up(home, monkeypatch)
         "_receipt_state",
         lambda: {"wrote": [{"path": str(store), "kind": "skills", "how": "wheel"}]},
     )
-    assert init._global_paths_safe(args), (
-        "a machine this verb installed itself cannot be one it refuses to look at"
+    assert init._global_paths_safe(args) == [], (
+        "a machine this verb installed itself cannot be one it refuses to look at, and it "
+        "has nobody else's skill folder in it either"
     )

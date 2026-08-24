@@ -97,7 +97,7 @@ def test_every_assertion_has_a_unique_number_a_family_and_a_sentence():
     # 5 is retired, not renumbered: the numbers are cited in prose all over this repository
     # and moving them would silently repoint every one of those citations. It was the line
     # ceiling, and the test plane owns that assertion now.
-    assert sorted(numbers) == [n for n in range(1, 27) if n != 5]
+    assert sorted(numbers) == [n for n in range(1, 28) if n != 5]
     for number, family, title, in_ci, fn in doctor.CHECKS:
         assert family and title and callable(fn) and isinstance(in_ci, bool), number
 
@@ -2333,3 +2333,27 @@ def test_a_production_ready_box_carries_its_age_beside_its_verdict(tmp_path, mon
     (alone,) = under.readiness_facts(None, now=datetime.now(UTC))
     assert alone.status == "INCOMPLETE"
     assert alone.detail == "there is no repository here to read receipts from"
+
+
+def test_doctor_asserts_the_hooks_template_is_owned_and_removable(home):
+    """D-024-01 observability half: the machine's hooks template and its global key are a
+    state doctor can see. Three states: installed and owned is ok; a receipt row with no
+    template is a removable gap; a template with no receipt row is not ours to explain."""
+
+    import shutil
+
+    template = paths.home() / "hooks-template"
+    shipped = paths.git_hooks()
+    subprocess.run(["mkdir", "-p", str(template)], check=True)
+    for name in ("pre-commit", "commit-msg", "pre-push"):
+        shutil.copy2(shipped / name, template / name)
+    subprocess.run(["git", "config", "--global", "init.templateDir", str(template)], check=True)
+    wiring.record([{"path": str(template), "kind": "hooks-template", "how": "written"}])
+
+    assert verdict(doctor.hooks_template_owned, None) == ("ok", "")
+
+    # The template is deleted, the key stays: the row and the key exist, the dir does not.
+    shutil.rmtree(template)
+    problem, cure = doctor.hooks_template_owned(None)
+    assert "disagree" in problem
+    assert "ai-eng uninstall" in cure

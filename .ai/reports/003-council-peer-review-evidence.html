@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="Evidencia citada sobre si una revision cruzada anonima y un veredicto de chairman mejoran lo que produce un council de agentes.">
+  <title>ai-engineering | Evidencia: council, revision cruzada y veredicto</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --bg: #f4f2eb; --surface: #fcfbf7; --surface-2: #e9e6dc;
+      --ink: #17201d; --muted: #56625c; --line: #cac7bc; --line-strong: #989c96;
+      --green: #166e52; --green-soft: #dcebe4;
+      --amber: #89570f; --amber-soft: #f2e5cc;
+      --red: #913b35; --red-soft: #f1dfdc;
+      --blue: #315e7d; --blue-soft: #dce8ef;
+      --shadow: 0 20px 54px rgba(22,31,27,.09); --radius: 14px; --max: 1120px;
+      --sans: "Avenir Next", Avenir, "Segoe UI", Inter, system-ui, sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+    html[data-theme="dark"] {
+      --bg: #0d1412; --surface: #151e1b; --surface-2: #1e2a26;
+      --ink: #eaf0ec; --muted: #a7b3ad; --line: #2d3b36; --line-strong: #52635c;
+      --green: #70d0aa; --green-soft: #17382d;
+      --amber: #efb869; --amber-soft: #3a2d19;
+      --red: #f0958c; --red-soft: #3a2422;
+      --blue: #8bc1e3; --blue-soft: #1b3040;
+      --shadow: 0 24px 60px rgba(0,0,0,.28);
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; min-width:320px; background:var(--bg); color:var(--ink);
+           font-family:var(--sans); font-size:17px; line-height:1.62; }
+    .wrap { max-width:var(--max); margin:0 auto; padding:0 22px; }
+    header { border-bottom:1px solid var(--line); padding:34px 0 26px; }
+    .kicker { font-family:var(--mono); font-size:12px; letter-spacing:.13em;
+              text-transform:uppercase; color:var(--muted); }
+    h1 { font-size:clamp(28px,4.4vw,44px); line-height:1.12; margin:12px 0 10px; letter-spacing:-.02em; }
+    .sub { color:var(--muted); max-width:62ch; margin:0; }
+    main { padding:34px 0 60px; }
+    section { margin:0 0 42px; }
+    h2 { font-size:clamp(21px,2.6vw,27px); margin:0 0 6px; letter-spacing:-.01em; }
+    h2 + .lede { color:var(--muted); margin:0 0 20px; max-width:70ch; }
+    h3 { font-size:18px; margin:26px 0 8px; }
+    .card { background:var(--surface); border:1px solid var(--line);
+            border-radius:var(--radius); padding:20px 22px; box-shadow:var(--shadow); }
+    .bluf { background:var(--surface); border:1px solid var(--line-strong);
+            border-radius:var(--radius); padding:22px 24px; box-shadow:var(--shadow); }
+    .bluf p { margin:0 0 12px; } .bluf p:last-child { margin:0; }
+    .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(255px,1fr)); }
+    .stat { background:var(--surface); border:1px solid var(--line);
+            border-radius:var(--radius); padding:16px 18px; }
+    .stat .n { font-family:var(--mono); font-size:26px; font-weight:600; display:block; line-height:1.2; }
+    .stat .lab { color:var(--muted); font-size:14px; display:block; margin-top:4px; }
+    .n.up { color:var(--green); } .n.down { color:var(--red); } .n.mid { color:var(--amber); }
+    .scroll { overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius);
+              background:var(--surface); }
+    table { border-collapse:collapse; width:100%; min-width:660px; font-size:15px; }
+    th, td { text-align:left; padding:11px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { font-family:var(--mono); font-size:11.5px; letter-spacing:.09em; text-transform:uppercase;
+         color:var(--muted); background:var(--surface-2); }
+    tr:last-child td { border-bottom:none; }
+    code { font-family:var(--mono); font-size:.88em; background:var(--surface-2);
+           padding:1px 5px; border-radius:5px; }
+    .tag { font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+           padding:2px 8px; border-radius:99px; border:1px solid currentColor; white-space:nowrap; }
+    .t-for { color:var(--green); background:var(--green-soft); }
+    .t-against { color:var(--red); background:var(--red-soft); }
+    .t-open { color:var(--amber); background:var(--amber-soft); }
+    .t-note { color:var(--blue); background:var(--blue-soft); }
+    ul, ol { padding-left:20px; } li { margin:7px 0; }
+    a { color:var(--blue); }
+    .src { font-size:13.5px; color:var(--muted); font-family:var(--mono); word-break:break-word; }
+    ol.refs { counter-reset:none; }
+    ol.refs li { margin:11px 0; }
+    .foot { border-top:1px solid var(--line); padding:20px 0 0; color:var(--muted); font-size:14.5px; }
+    .btn { font:inherit; font-size:14px; background:var(--surface-2); color:var(--ink);
+           border:1px solid var(--line); border-radius:9px; padding:6px 13px; cursor:pointer; }
+    .bar { display:flex; gap:8px; justify-content:flex-end; padding-top:14px; }
+    @media print { .bar { display:none; } body { background:#fff; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="bar">
+    <button class="btn" id="themeButton">Tema</button>
+    <button class="btn" id="printButton">Imprimir</button>
+  </div>
+  <p class="kicker">Informe 003 &middot; 21 de agosto de 2026 &middot; ai-research</p>
+  <h1>&iquest;Una revisi&oacute;n cruzada an&oacute;nima y un veredicto mejoran lo que produce un council?</h1>
+  <p class="sub">Cuatro l&iacute;neas de investigaci&oacute;n, 22 agentes, verificaci&oacute;n adversarial de cada afirmaci&oacute;n
+  que sostiene la decisi&oacute;n. Tres afirmaciones fueron refutadas contra su propia fuente y siguen aqu&iacute; marcadas.
+  Lo que no pudo comprobarse sigue marcado <code>[sin fuente]</code>.</p>
+</header>
+
+<main>
+
+<section>
+  <h2>Lo que decide</h2>
+  <div class="bluf">
+    <p><strong>Existe una r&eacute;plica con benchmark de la forma exacta que se propone importar, y pierde.</strong>
+    <code>andybhall/llm-council-governance</code> implementa la tuber&iacute;a de Karpathy en una clase cuyo docstring dice
+    literalmente <em>"Structure A: Independent &rarr; Rank &rarr; Synthesize (Karpathy Baseline)"</em>. Sobre MMLU-Pro Math
+    fue <strong>la &uacute;nica estructura deliberativa que puntu&oacute; por debajo del mejor miembro individual</strong>:
+    70.7&nbsp;% frente a 71.7&nbsp;% (&minus;1.0&nbsp;pp, n=147). En el mismo arn&eacute;s, con los mismos modelos:
+    voto por mayor&iacute;a +5.1&nbsp;pp y deliberar-y-votar +9.2&nbsp;pp. <strong>El ensemble de varios lectores funciona.
+    Lo que pierde es concretamente el paso de rankear y luego sintetizar.</strong> [1]</p>
+
+    <p><strong>Pero la revisi&oacute;n cruzada s&iacute; compra algo, y est&aacute; medido en el sitio donde importa: la precisi&oacute;n.</strong>
+    En un experimento controlado con 24 grupos de tres personas, los grupos nominales &mdash;cada quien lee solo, los hallazgos
+    se juntan sin reuni&oacute;n&mdash; levantaron <strong>14 incidencias por sesi&oacute;n frente a 9</strong> de los grupos que
+    se re&uacute;nen (56&nbsp;% m&aacute;s), y solo el <strong>30&nbsp;%</strong> de lo que encontr&oacute; el grupo nominal lo vio m&aacute;s de un lector.
+    El precio: <strong>22&nbsp;% de falsos positivos frente a 5.3&nbsp;%</strong>, sin diferencia significativa en defectos v&aacute;lidos
+    encontrados. Leer en solitario compra cobertura y paga en precisi&oacute;n. [12]</p>
+
+    <p><strong>Conclusi&oacute;n operativa:</strong> el valor medido de la ronda cruzada es <em>filtrar falsos positivos</em>,
+    no <em>elegir al mejor</em>. Rankear cinco respuestas de calidad parecida es exactamente el peor caso de la literatura de sesgo
+    posicional. Un chairman que sintetiza tiene apoyo; uno que rankea y luego sintetiza es lo &uacute;nico medido que pierde.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Los n&uacute;meros que hay que llevarse</h2>
+  <div class="grid">
+    <div class="stat"><span class="n down">&minus;1.0 pp</span><span class="lab">Rank&rarr;Synthesize de Karpathy contra el mejor modelo individual, MMLU-Pro Math, n=147 [1]</span></div>
+    <div class="stat"><span class="n up">+9.2 pp</span><span class="lab">Deliberar&rarr;Votar en el mismo arn&eacute;s. La agregaci&oacute;n es lo que decide, no el council [1]</span></div>
+    <div class="stat"><span class="n down">66.5 %</span><span class="lab">De respuestas correctas que se vuelven err&oacute;neas solo por meter otra respuesta en el contexto, sin atribuir a nadie (contra 10.3&nbsp;% al repreguntar en vac&iacute;o) [7]</span></div>
+    <div class="stat"><span class="n mid">0.70 &rarr; 0.34</span><span class="lab">Consistencia posicional de GPT-3.5-Turbo al pasar de comparar de dos en dos a rankear una lista [4]</span></div>
+    <div class="stat"><span class="n up">14 vs 9</span><span class="lab">Incidencias por sesi&oacute;n: lectores independientes contra grupo reunido [12]</span></div>
+    <div class="stat"><span class="n down">22 % vs 5.3 %</span><span class="lab">Falsos positivos: independientes contra grupo reunido, con los mismos defectos v&aacute;lidos [12]</span></div>
+    <div class="stat"><span class="n mid">57&ndash;77 %</span><span class="lab">De los cambios de postura por conformidad en debate multiagente que van de correcto a incorrecto [9]</span></div>
+    <div class="stat"><span class="n up">0.820 vs 0.777</span><span class="lab">Revisi&oacute;n cruzada de una sola ronda con r&uacute;brica frente al mejor modelo individual (HeadQA/MedQA/PubMedQA) [2]</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Qu&eacute; es realmente el artefacto de Karpathy</h2>
+  <p class="lede">Le&iacute;do del c&oacute;digo fuente, no del README. Donde los dos discrepan, manda el c&oacute;digo &mdash; y discrepan.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Lo que dice la met&oacute;dica pegada</th><th>Lo que hace el c&oacute;digo</th><th></th></tr></thead>
+    <tbody>
+      <tr><td>"aleatoriza qu&eacute; asesor va a qu&eacute; letra para que no haya sesgo posicional"</td>
+          <td><code>labels = [chr(65 + i) ...]</code> sobre <code>COUNCIL_MODELS</code> sin barajar. "Response A" es <code>openai/gpt-5.1</code> en todas las consultas. No hay <code>random.shuffle</code> en el repositorio.</td>
+          <td><span class="tag t-note">m&aacute;s estricto que el original</span></td></tr>
+      <tr><td>"se les pide rankear en precisi&oacute;n y perspicacia"</td>
+          <td>El prompt no nombra ning&uacute;n criterio. Pide fortalezas y debilidades de cada una y luego un orden de mejor a peor. La frase "accuracy and insight" est&aacute; en <code>README.md</code> l&iacute;nea 10, no en el prompt.</td>
+          <td><span class="tag t-against">refutado</span></td></tr>
+      <tr><td>"el chairman recibe todo y sintetiza"</td>
+          <td>El ranking agregado <strong>nunca llega al chairman</strong>. <code>calculate_aggregate_rankings</code> devuelve metadatos que solo pinta la pesta&ntilde;a Stage2 del frontend. La revisi&oacute;n por pares no toca el veredicto.</td>
+          <td><span class="tag t-against">defecto</span></td></tr>
+      <tr><td>"anonimizado"</td>
+          <td>El prompt del chairman incrusta <code>Model: {name}</code> literal. Vuelve a poner los nombres justo en la &uacute;nica llamada que escribe la respuesta al usuario.</td>
+          <td><span class="tag t-against">defecto</span></td></tr>
+      <tr><td>&mdash;</td>
+          <td>Si falta la l&iacute;nea <code>FINAL RANKING:</code>, <code>parse_ranking_from_text</code> cae a <code>re.findall(r'Response [A-Z]')</code> sobre toda la prosa, sin deduplicar ni validar: fabrica un ranking a partir de la discusi&oacute;n.</td>
+          <td><span class="tag t-against">defecto</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Y lo que dice su autor</h3>
+  <ul>
+    <li>Cinco commits, todos del 22 de noviembre de 2025. Sin tocar desde entonces. Cero tests, cero benchmarks. [3]</li>
+    <li>Lo que s&iacute; propuso como m&eacute;todo de evaluaci&oacute;n fue <strong>la ronda de pares, no el chairman</strong>:
+      <em>"Quite often, the models are surprisingly willing to select another LLM's response as superior to their own,
+      making this an interesting model evaluation strategy more generally."</em> [3]</li>
+    <li>Y registr&oacute; que el ranking de pares <strong>no coincidi&oacute; con su propio juicio</strong>:
+      <em>"But I'm not 100&nbsp;% convinced this aligns with my own qualitative assessment."</em> [3]</li>
+    <li>Cerr&oacute; llamando al espacio de dise&ntilde;o no validado: <em>"there's probably a whole design space of the data flow
+      of your LLM council. The construction of LLM ensembles seems under-explored."</em> Un mes despu&eacute;s lo archiv&oacute; entre
+      <em>"quick app demos of something I wanted to exist"</em>. [3]</li>
+  </ul>
+  <p>Nada de esto lo descalifica. Lo sit&uacute;a: es una idea publicada como demo, no una met&oacute;dica con evidencia detr&aacute;s.</p>
+</section>
+
+<section>
+  <h2>A favor de la revisi&oacute;n cruzada</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Hallazgo</th><th>N&uacute;mero</th><th>Fuente</th></tr></thead>
+    <tbody>
+      <tr><td>Revisi&oacute;n por pares de una sola ronda con r&uacute;brica, gana la cadena mejor puntuada. Sin debate, sin ronda de consenso.</td><td>0.820 de media frente a 0.789 del mejor voto por mayor&iacute;a y 0.777 del mejor modelo individual</td><td>[2]</td></tr>
+      <tr><td>Un agregador que <em>escribe texto nuevo</em> supera al mismo modelo <em>eligiendo</em> una respuesta. El agregador no selecciona: compone.</td><td>MoA supera significativamente al baseline de ranker</td><td>[5]</td></tr>
+      <tr><td>Mixture-of-Agents contra self-consistency <strong>a igual c&oacute;mputo</strong>, y m&aacute;s en los &iacute;tems dif&iacute;ciles.</td><td>+2.7&nbsp;pp global; +9.0&nbsp;pp en MMLU-Pro dif&iacute;cil frente a +2.2&nbsp;pp en f&aacute;cil</td><td>[6]</td></tr>
+      <tr><td>La visibilidad mutua s&iacute; cambia respuestas, y en neto para bien en esa r&eacute;plica.</td><td>revisan el 10&ndash;15&nbsp;% de las veces; "+50 more answers fixed than broken"</td><td>[1]</td></tr>
+      <tr><td>Ensamblar para cobertura funciona donde ensamblar para elegir no: a partir de tres modelos, la peor combinaci&oacute;n supera en recall al mejor modelo suelto.</td><td>&mdash;</td><td>[13]</td></tr>
+      <tr><td>Los grupos que se re&uacute;nen no encuentran m&aacute;s defectos v&aacute;lidos, pero tiran cuatro veces menos falsos positivos.</td><td>5.3&nbsp;% frente a 22&nbsp;%</td><td>[12]</td></tr>
+      <tr><td>Y el aviso inc&oacute;modo del mismo experimento: los participantes prefirieron con fuerza el m&eacute;todo con reuni&oacute;n y creyeron que produc&iacute;a m&aacute;s calidad, pese a que los datos dec&iacute;an que no. Un informe que nadie lee tiene precisi&oacute;n efectiva cero.</td><td>&mdash;</td><td>[12]</td></tr>
+      <tr><td>Delphi &mdash;an&oacute;nimo, por rondas, con facilitador&mdash; gana a los agregados que no interact&uacute;an.</td><td>12 estudios a 2; y 5 a 1 contra grupos que discuten</td><td>[10]</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>En contra, y es la mitad m&aacute;s pesada</h2>
+
+  <h3>Contra dejar que un lector vea la respuesta de otro</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Hallazgo</th><th>N&uacute;mero</th><th>Fuente</th></tr></thead>
+    <tbody>
+      <tr><td>Basta con que otra respuesta est&eacute; en el contexto. No hace falta atribuirla a nadie.</td><td>66.5&nbsp;% de correctas se vuelven err&oacute;neas, contra 10.3&nbsp;% repreguntando en vac&iacute;o. Atribuirla a un panel de expertos solo suma +12.9&nbsp;pp m&aacute;s</td><td>[7]</td></tr>
+      <tr><td>Autocorrecci&oacute;n aislada contra debate multiagente sin gu&iacute;a: gan&oacute; el aislamiento en todas las configuraciones.</td><td>GSM-Hard 48.3&nbsp;% aislado contra 20.7&nbsp;% en debate (+27.6&nbsp;pp), con 2.1&ndash;3.4&times; m&aacute;s tokens</td><td>[8]</td></tr>
+      <tr><td>En el mismo estudio, el consenso sube mientras la correcci&oacute;n baja.</td><td>consenso 90.1&nbsp;% contra 81.7&nbsp;%; hasta 32.3&nbsp;pp de respuestas correctas descartadas; sicofanc&iacute;a hasta 85.5&nbsp;%</td><td>[8]</td></tr>
+      <tr><td>Cambios de postura por conformidad en debate, no por argumento.</td><td>29&nbsp;% de las observaciones; de esas, 57&ndash;77&nbsp;% van de correcto a incorrecto</td><td>[9]</td></tr>
+      <tr><td>Una mayor&iacute;a un&aacute;nime y equivocada revierte respuestas correctas.</td><td>22.8&nbsp;% en MMLU, 54.8&nbsp;% en GPQA, 71.0&nbsp;% en SimpleQA, sobre 23 modelos</td><td>[14]</td></tr>
+      <tr><td>En humanos: la influencia social encoge la diversidad de estimaciones sin reducir el error colectivo, y sube la confianza.</td><td>N=144, 12 sesiones; tres mecanismos nombrados: diversidad, reducci&oacute;n de rango y confianza</td><td>[11]</td></tr>
+      <tr><td>El debate multiagente no supera de forma fiable a cadena-de-pensamiento ni a self-consistency, ni siquiera gastando m&aacute;s.</td><td>5 m&eacute;todos, 9 benchmarks, 4 modelos base</td><td>[15]</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Contra el paso de rankear en concreto</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Hallazgo</th><th>N&uacute;mero</th><th>Fuente</th></tr></thead>
+    <tbody>
+      <tr><td>Rankear una lista destroza la consistencia frente a comparar de dos en dos. Y el dise&ntilde;o propuesto rankea cinco a la vez.</td><td>GPT-3.5-Turbo 0.70&rarr;0.34; Claude-3.5 0.82&rarr;0.67; GPT-4o 0.76&rarr;0.68</td><td>[4]</td></tr>
+      <tr><td>La consistencia es <em>m&iacute;nima</em> justo cuando las candidatas son de calidad parecida &mdash; cinco asesores igual de competentes es el peor caso.</td><td>relaci&oacute;n parab&oacute;lica, m&iacute;nimo en el punto medio</td><td>[4]</td></tr>
+      <tr><td>La <em>direcci&oacute;n</em> del sesgo posicional no es estable entre tareas para el mismo juez, as&iacute; que no hay correcci&oacute;n &uacute;nica que aplicar.</td><td>Claude-3.5 pasa de PF 0.01 a 0.22 seg&uacute;n el conjunto</td><td>[4]</td></tr>
+      <tr><td>Barajar el orden es reducci&oacute;n de varianza, no eliminaci&oacute;n de sesgo.</td><td>a presupuesto igualado K=10, permutaci&oacute;n balanceada es indistinguible de agregaci&oacute;n aleatoria</td><td>[16]</td></tr>
+      <tr><td>Los protocolos comparativos son unas cuatro veces m&aacute;s manipulables que los absolutos.</td><td>inyectar distractores voltea el 35&nbsp;% de las preferencias por pares y solo el 9&nbsp;% de las puntuaciones absolutas</td><td>[17]</td></tr>
+      <tr><td>Sesgo de arrastre: decirle al juez que la mayor&iacute;a prefiere una respuesta voltea juicios sin cambiar las respuestas.</td><td>tasa de robustez 0.61&ndash;0.79, es decir 21&ndash;39&nbsp;% de vuelcos</td><td>[18]</td></tr>
+      <tr><td>Las personas asignadas <strong>no</strong> mejoran la precisi&oacute;n.</td><td>162 roles, 2410 preguntas MMLU, 9 modelos: ninguna persona super&oacute; significativamente al control sin persona</td><td>[19]</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Una refutaci&oacute;n que cambi&oacute; de bando</h3>
+  <div class="card">
+    <p>La l&iacute;nea m&aacute;s c&oacute;moda para defender el dise&ntilde;o actual era: <em>"anonimizar no sirve, el modelo se reconoce igual"</em>.
+    <strong>Se comprob&oacute; contra la fuente primaria y es falsa.</strong> Panickssery et al., Tabla 6: la auto-preferencia de
+    Llama-2 pasa de 0.511 sin etiquetas a 0.82&ndash;0.97 con ellas, y la de GPT-4 baja de 0.73 a 0.32 con las etiquetas invertidas.
+    <strong>Revelar la identidad es una palanca causal grande, as&iacute; que anonimizar funciona.</strong> [20]</p>
+    <p>La consecuencia no favorece al artefacto pegado: su chairman <strong>vuelve a pegar los nombres</strong>, tirando
+    a la basura la &uacute;nica palanca que est&aacute; medida como eficaz, en la llamada que escribe la respuesta final.</p>
+    <p>Lo que s&iacute; queda en pie del mismo trabajo: GPT-4 reconoce su propio texto al 73.5&nbsp;% sin ning&uacute;n ajuste,
+    y a nivel de ejemplo la correlaci&oacute;n entre reconocerse y preferirse es &tau;&nbsp;=&nbsp;0.41. [20]</p>
+  </div>
+</section>
+
+<section>
+  <h2>Lo que nadie ha medido</h2>
+  <p class="lede">Marcado, y se queda marcado. Quitar la marca porque la afirmaci&oacute;n suena bien es el fallo que este formato existe para evitar.</p>
+  <ul>
+    <li><span class="tag t-open">sin fuente</span> <strong>Nadie ha comparado nunca "&iquest;cu&aacute;l es la mejor?" (rankear)
+      contra "&iquest;qu&eacute; se les escap&oacute; a todas?" (buscar ausencias)</strong> en sesgo posicional, auto-preferencia,
+      verbosidad ni conformidad. Es exactamente el eje en el que difieren el council actual y el propuesto, y no existe el estudio.</li>
+    <li><span class="tag t-open">sin fuente</span> <strong>Ning&uacute;n trabajo separa la lectura cruzada de una sola ronda del debate iterado</strong>
+      con los mismos modelos, benchmark y presupuesto. Casi toda la evidencia negativa mide debate <em>iterado</em>; la propuesta no itera.
+      Si esa distinci&oacute;n aguanta, unas quince afirmaciones en contra no aplican. Si no aguanta, aplican todas. Nadie lo ha resuelto.</li>
+    <li><span class="tag t-open">sin fuente</span> Nadie ha medido la auto-preferencia en un ranking de cinco a la vez;
+      todos los n&uacute;meros existentes son por pares o puntuaci&oacute;n individual.</li>
+    <li><span class="tag t-open">sin fuente</span> Nadie ha medido si un tope de 150&ndash;300 palabras neutraliza el sesgo de verbosidad
+      o solo lo estrecha.</li>
+    <li><span class="tag t-open">sin fuente</span> Nadie ha replicado el montaje de Karpathy a escala frontera con un benchmark puntuado.
+      La &uacute;nica r&eacute;plica que existe corre modelos de 7&ndash;9B y su propio README dice que puede no generalizar.</li>
+    <li><span class="tag t-note">no ejecutado</span> No se corri&oacute; <code>llm-council</code>: se ley&oacute; su c&oacute;digo. Ese es
+      justamente el error que ejecutar habr&iacute;a cazado, y de hecho caz&oacute; uno: la afirmaci&oacute;n sobre los criterios
+      de ranking citaba el README creyendo citar el prompt.</li>
+    <li><span class="tag t-note">no ejecutado</span> No se abri&oacute; ni una salida de council que este repositorio haya producido.
+      La pregunta es si N lentes sin veredicto producen algo que alguien lee, y ese artefacto est&aacute; en disco.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Tres direcciones que se pueden tomar ma&ntilde;ana</h2>
+  <ol>
+    <li><strong>Quedarse la ronda cruzada y tirar el ranking.</strong> Lo medido que compra la lectura cruzada es
+      precisi&oacute;n &mdash;22&nbsp;% de falsos positivos frente a 5.3&nbsp;%, sin p&eacute;rdida de defectos v&aacute;lidos [12]&mdash;
+      y lo medido que pierde es rankear [1][4][17]. La pregunta de la ronda dos deja de ser "&iquest;cu&aacute;l es la mejor?"
+      y pasa a ser "&iquest;cu&aacute;l de estos hallazgos es un falso positivo, y con qu&eacute; comando se ve?".</li>
+    <li><strong>Que el chairman sintetice, pero sin nombres.</strong> Componer texto nuevo tiene apoyo [5][6];
+      volver a pegar identidades est&aacute; medido como una palanca de sesgo grande [20], y es un defecto del artefacto original,
+      no parte de su idea.</li>
+    <li><strong>Publicar dos n&uacute;meros por ejecuci&oacute;n y cerrar EP-195.</strong> Hallazgos que solo aparecieron
+      tras la lectura cruzada, y hallazgos eliminados por no sostener un comando. Eso es "una brecha medible, no un consenso
+      fabricado", que es exactamente lo que el diferimiento pidi&oacute; y el ADR&nbsp;0019 dej&oacute; abierto.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Fuentes</h2>
+  <ol class="refs">
+    <li>[1] <span class="src">andybhall/llm-council-governance &mdash; README, tabla "Main Results: MMLU-Pro Math" y backend/governance/independent_rank_synthesize.py &middot; https://github.com/andybhall/llm-council-governance &middot; 2026-01-04</span>. Limitaciones declaradas por su autor: modelos de 7&ndash;9B, la mayor&iacute;a de comparaciones por pares sin significaci&oacute;n estad&iacute;stica, puede no generalizar a modelos frontera.</li>
+    <li>[2] <span class="src">Zhan, Zhou &amp; Zhang &mdash; revisi&oacute;n cruzada de una ronda con r&uacute;brica sobre HeadQA/MedQA/PubMedQA</span>. Le&iacute;do a nivel de resultados; no se abri&oacute; la secci&oacute;n de m&eacute;todo.</li>
+    <li>[3] <span class="src">karpathy/llm-council &middot; https://github.com/karpathy/llm-council &middot; 5 commits, todos 2025-11-22</span>; y su anuncio en X (https://x.com/karpathy/status/1992381094667411768, 2025-11-22) y "2025 LLM Year in Review" (https://karpathy.bearblog.dev/year-in-review-2025/, 2025-12-19). <strong>Aviso:</strong> x.com devolvi&oacute; HTTP 402; las citas literales se obtuvieron por un proxy de texto y se contrastaron palabra por palabra con dos art&iacute;culos secundarios del 2025-11-24. Cualquier detalle de transcripci&oacute;n deber&iacute;a re-verificarse contra el post en vivo antes de citarse como literal.</li>
+    <li>[4] <span class="src">"Judging the Judges: A Systematic Study of Position Bias in LLM-as-a-Judge" &middot; https://aclanthology.org/2025.ijcnlp-long.18.pdf &middot; IJCNLP-AACL 2025 (arXiv 2406.07791)</span> &mdash; 15 jueces, 22 tareas, m&aacute;s de 150.000 instancias.</li>
+    <li>[5] <span class="src">Wang, Wang, Athiwaratkun, Zhang &amp; Zou, "Mixture-of-Agents Enhances Large Language Model Capabilities" &middot; https://arxiv.org/abs/2406.04692 &middot; 2024-06-07</span>.</li>
+    <li>[6] <span class="src">Wunderlich et al. &mdash; MoA frente a self-consistency a c&oacute;mputo igualado</span>; le&iacute;do por extracci&oacute;n directa del PDF.</li>
+    <li>[7] <span class="src">Hu &amp; Qu, "Most LLM Conformity Needs No Speaker: Measuring the Speaker-Free Floor in Peer-Pressure Benchmarks" &middot; https://arxiv.org/pdf/2607.05545 &middot; 2026-07-06</span> &mdash; preprint sin revisi&oacute;n por pares; seis modelos abiertos, siete conjuntos.</li>
+    <li>[8] <span class="src">Bertalani&#269; &amp; Fortuna, "The Cost of Consensus: Isolated Self-Correction Prevails Over Unguided Homogeneous Multi-Agent Debate" &middot; https://arxiv.org/html/2605.00914v1 &middot; 2026-04-29</span> &mdash; preprint sin revisi&oacute;n por pares.</li>
+    <li>[9] <span class="src">Hao et al., "Not All Flips Are Conformity: Decomposing Stance Convergence in Multi-Agent LLM Debate" &middot; https://arxiv.org/abs/2606.00820 &middot; 2026-05-30</span> &mdash; le&iacute;do solo a nivel de resumen.</li>
+    <li>[10] <span class="src">Rowe &amp; Wright, "The Delphi technique as a forecasting tool: issues and analysis", International Journal of Forecasting 15:353&ndash;375, 1999</span>. Los propios autores avisan de que la convergencia puede ser conformidad: los panelistas con posturas extremas abandonan m&aacute;s.</li>
+    <li>[11] <span class="src">Lorenz, Rauhut, Schweitzer &amp; Helbing, "How social influence can undermine the wisdom of crowd effect", PNAS 108(22):9020&ndash;9025 &middot; https://pmc.ncbi.nlm.nih.gov/articles/PMC3107299/ &middot; 2011-05-16</span>. pnas.org devolvi&oacute; 403; le&iacute;do por PMC, sin extraer las magnitudes de varianza.</li>
+    <li>[12] <span class="src">Johnson &amp; Tjahjono, "Assessing software review meetings: A controlled experimental study using CSRS", Univ. of Hawaii ICS 96-06 &middot; https://csdl.ics.hawaii.edu/techreports/1996/96-06/96-06.pdf &middot; 1996</span> (versi&oacute;n de revista: EMSE 1998, "Does Every Inspection Really Need a Meeting?").</li>
+    <li>[13] <span class="src">"Complete Evidence Extraction with Model Ensembles: A Case Study on Medical Coding" &middot; https://arxiv.org/html/2511.07055 &middot; 2025-11</span> &mdash; sostenido solo por el resumen de b&uacute;squeda; no se confirm&oacute; el conjunto de modelos contra el propio art&iacute;culo.</li>
+    <li>[14] <span class="src">Hussain &amp; Nielbo, "Conformity Mitigations in Large Language Models Lie on a Single Resistance&ndash;Receptivity Frontier" &middot; https://arxiv.org/abs/2608.11247 &middot; 2026-08-03</span> &mdash; le&iacute;do solo a nivel de resumen.</li>
+    <li>[15] <span class="src">Zhang et al., "If Multi-Agent Debate is the Answer, What is the Question?" &middot; arXiv 2502.08788 &middot; 2025</span>.</li>
+    <li>[16] <span class="src">Xu, Hirasawa, Kozuno &amp; Ushiku, "Am I More Pointwise or Pairwise? Revealing Position Bias in Rubric-Based LLM-as-a-Judge" &middot; https://arxiv.org/html/2602.02219v2 &middot; 2026-06-24</span>.</li>
+    <li>[17] <span class="src">Tripathi, Wadhwa, Durrett &amp; Niekum, "Pairwise or Pointwise? Evaluating Feedback Protocols for Bias in LLM-Based Evaluation" &middot; https://arxiv.org/abs/2504.14716 &middot; 2025-04-20</span>.</li>
+    <li>[18] <span class="src">Ye, Wang, Huang et al., "Justice or Prejudice? Quantifying Biases in LLM-as-a-Judge" (CALM) &middot; https://arxiv.org/pdf/2410.02736 &middot; 2024-10-04</span>.</li>
+    <li>[19] <span class="src">Zheng, Pei, Logeswaran, Lee &amp; Jurgens, "When 'A Helpful Assistant' Is Not Really Helpful: Personas in System Prompts Do Not Improve Performances of Large Language Models", Findings of EMNLP 2024 &middot; https://arxiv.org/html/2311.10054v3</span>. El mismo trabajo encuentra que agregar la mejor persona por pregunta s&iacute; mejora, pero ning&uacute;n m&eacute;todo autom&aacute;tico de elegirla supera al azar.</li>
+    <li>[20] <span class="src">Panickssery, Bowman &amp; Feng, "LLM Evaluators Recognize and Favor Their Own Generations", NeurIPS 2024 &middot; https://proceedings.neurips.cc/paper_files/paper/2024/hash/7f1f0218e45f5414c79c0679633e47bc-Abstract-Conference.html</span> &mdash; Tabla 6 y Tabla 7.</li>
+  </ol>
+</section>
+
+<p class="foot">Informe de investigaci&oacute;n. No es una especificaci&oacute;n, un plan, una aprobaci&oacute;n, un PASS ni una aceptaci&oacute;n de riesgo.
+No cambia el producto. Cuatro l&iacute;neas y 22 agentes, cada afirmaci&oacute;n que sostiene la decisi&oacute;n sometida a un verificador
+que intentaba refutarla abriendo la fuente; tres cayeron y siguen aqu&iacute; marcadas. Lo que no pudo comprobarse desde esta m&aacute;quina
+sigue como <code>[sin fuente]</code>.</p>
+
+</main>
+</div>
+<script>
+  (() => {
+    const root = document.documentElement;
+    const stored = localStorage.getItem('ai-eng-report-003-theme');
+    if (stored === 'light' || stored === 'dark') root.dataset.theme = stored;
+    document.getElementById('themeButton').addEventListener('click', () => {
+      root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('ai-eng-report-003-theme', root.dataset.theme);
+    });
+    document.getElementById('printButton').addEventListener('click', () => window.print());
+  })();
+</script>
+</body>
+</html>

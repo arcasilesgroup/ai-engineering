@@ -321,6 +321,41 @@ def test_every_skill_meets_the_contract():
     assert not problems, "\n".join(problems)
 
 
+def test_the_catalogue_fits_the_smallest_documented_budget(tmp_path):
+    """D-024-03. "Not one word over" is currently true per file and unmeasured across a
+    catalogue; a surface that drops a skill silently is the exact failure this repository
+    exists to expose. The sum of every skill's name and description must stay inside the
+    smallest documented per-catalogue budget (Zed's 50 KB), so a future skill cannot make
+    one silently disappear from a surface. The per-file `DESCRIPTION_MAX` stays 1000; the
+    divergence from the open standard's 1,024 is deliberate and recorded in spec 024."""
+
+    assert contract.CATALOG_MAX == 50_000
+    skills = sorted((ROOT / ".agents" / "skills").glob("ai-*/SKILL.md"))
+    assert skills
+    total = 0
+    for path in skills:
+        header = text.frontmatter(path)
+        total += len(path.parent.name) + len(header.get("description", ""))
+    assert total < contract.CATALOG_MAX, (
+        f"{total} of {contract.CATALOG_MAX}: the shipped catalogue fits"
+    )
+
+    # The denial path: one skill over the budget must refuse, naming the budget and the
+    # culprit, rather than silently letting a surface drop it.
+    huge = tmp_path / "ai-huge"
+    huge.mkdir()
+    (huge / "SKILL.md").write_text(
+        "---\nname: ai-huge\ndescription: "
+        + "x" * 60_000
+        + "\n---\n\n# ai-huge\n\n## Routes here\n\ntake it\n\n## Refuses\n\nrefuse it\n",
+        encoding="utf-8",
+    )
+    problems = contract.audit(tmp_path)
+    assert any("catalogue budget" in problem and "ai-huge" in problem for problem in problems), (
+        problems
+    )
+
+
 AI_HOME_ENTRIES = (
     "`.ai/intent.md` — the user-owned, non-disposable canonical Intent.",
     "`.ai/` — otherwise disposable, except `config.toml` and `.gitignore`, which are the pin.",
@@ -834,6 +869,7 @@ WORDS = {
     23: "twenty-three",
     24: "twenty-four",
     25: "twenty-five",
+    26: "twenty-six",
 }
 COUNTED = (
     ("skills", "README.md", "{Word} written procedures"),
@@ -2155,19 +2191,83 @@ def test_the_path_safety_readers_survive_every_deletion_called_anchor(tmp_path):
             readiness._anchored(root, refused)
 
 
+# What a council may not write, in two halves that answer two different documents.
+#
+# The first half is doctrine and it shrank. `docs/adr/0022` supersedes `0019` on the boundary
+# `0019` drew: a council may now conclude, so `verdict` and `recommendation` leave this list.
+# What stays is every field that reads as a group deciding rather than a reader concluding —
+# a vote, a score, a ranking, a consensus, a decision, an approval.
+#
+# The second half is `CONSTITUTION.md:53` and it grew, because executing this test is how the
+# gap was found: models "never grant authority or accept risk", and until now a bare
+# `approved`, a bare `PASS` and `Risk accepted: R-1` were all undetected. Only the field form
+# `approved:` fired. So the test that was described as forbidding approval forbade a colon.
 COUNCIL_VERDICT = re.compile(
-    r"^[ \t>*-]*(approved|approval|verdict|decision|vote|votes|voted|score|scores|"
-    r"consensus|ranking|ranked|recommendation)\b[ \t]*[:=]",
+    r"^[ \t>*-]*(approval|decision|vote|votes|voted|score|scores|"
+    r"consensus|ranking|ranked)\b[ \t]*[:=]",
     re.M | re.I,
 )
 COUNCIL_TALLY = re.compile(r"^[ \t>*-]*\d+\s*(of|/)\s*\d+\s+(members|lenses|agree)", re.M | re.I)
 
+# Granted authority, in the three shapes it actually arrives in, and deliberately not as a
+# bare word anywhere. A council file discusses approval — this repository's own does, at
+# "no field in which the word approved could be written" — and a rule that refused the word
+# in prose would be a rule nobody could write a council under, which is how controls get
+# turned off. What is refused is a line that *is* the word, the word written as a field,
+# a word that *follows* a colon, and a risk acceptance written as a field.
+_GRANTED = r"(approved|approve|approval|granted|PASS|FAIL)"
+_MARKUP = r"[ \t`*_\"']*"
+COUNCIL_AUTHORITY = re.compile(
+    r"^[ \t>*#-]*" + _MARKUP + _GRANTED + _MARKUP + r"[.!]?" + _MARKUP + r"$"
+    r"|^[ \t>*-]*" + _MARKUP + _GRANTED + r"\b" + _MARKUP + r"[:=]"
+    r"|[:=]" + _MARKUP + _GRANTED + r"\b"
+    r"|^[ \t>*-]*(risk[ \t]+accepted|accepted[ \t]+risk)[ \t]*[:=]"
+    # And the surface this change actually opened. A review found the hole by executing the
+    # first three shapes rather than reading them: `Verdict: the specification is approved`
+    # passed all of them, in the one field this change newly permits. The literal rule the
+    # first draft claimed — the word refused anywhere on a line — was tried and reds this
+    # repository's own council file four times, so what is refused is a grant in the tail of
+    # a verdict or a recommendation, which is where a council concluding would put one.
+    r"|^[ \t>*-]*(verdict|recommendation)\b[^\n]*\b" + _GRANTED + r"\b",
+    re.M | re.I,
+)
+
 
 def _verdict_fields(body: str) -> list[str]:
-    """Every field in a council file that a machine could read as a decision."""
+    """Every field in a council file that a machine could read as a decision, and every
+    place it grants authority instead of proposing it.
 
-    found = {hit.group(1).lower() for hit in COUNCIL_VERDICT.finditer(body)}
-    found.update(hit.group(0).strip() for hit in COUNCIL_TALLY.finditer(body))
+    Quotations are removed before matching: inline code spans become `code`, which is the
+    idiom `contract.prose` already uses, and double-quoted runs on one line become `quoted`.
+    The reason is the same for both — a word inside them is being *named*, not asserted.
+    This repository's own council file names `approved` and `PASS` in backticks six times
+    and quotes "Recommendation: approve" twice, all while discussing this very boundary, and
+    a rule that refused those would be a rule no council could be written under. That is how
+    a control ends up switched off.
+
+    The hole that leaves, stated rather than discovered later: a grant written inside
+    backticks, a fenced block or quotation marks is not caught. Nothing here defends against
+    a model deliberately quoting its own conclusion to get past a gate, and no shape of this
+    regex would — the difference between naming a word and asserting it is not in the
+    characters.
+
+    And the second hole, which a review found by executing this rather than reading it: a
+    grant written as an ordinary sentence outside a verdict or a recommendation — "This
+    council approves the specification." — is not caught either. The literal rule of refusing
+    the word anywhere on a line was tried and reds this repository's own council file four
+    times, so it is not available. What is closed is the surface this change opened.
+    """
+
+    # Fenced blocks first, and deliberately. Left to the inline rule below, a fence's
+    # opening ``` is eaten as a span of its own and everything to the next backtick
+    # goes with it, which swallowed lines nobody meant to hide. Named here so the
+    # behaviour is a decision rather than an accident.
+    prose = re.sub(r"(?ms)^[ \t]*(```|~~~).*?^[ \t]*\1[ \t]*$", "code", body)
+    prose = re.sub(r"`[^`\n]*`", "code", prose)
+    prose = re.sub(r'"[^"\n]{1,200}"', "quoted", prose)
+    found = {hit.group(1).lower() for hit in COUNCIL_VERDICT.finditer(prose)}
+    found.update(hit.group(0).strip() for hit in COUNCIL_TALLY.finditer(prose))
+    found.update(hit.group(0).strip() for hit in COUNCIL_AUTHORITY.finditer(prose))
     return sorted(found)
 
 
@@ -2180,27 +2280,61 @@ def test_a_council_reviews_and_never_approves():
     paragraph in a skill file — `EP-171` sat at UNFALSIFIABLE for exactly that reason, its
     evidence a grep for a sentence, with nothing to test against.
 
-    A council exists now, so this is that test. It reads what a council produces and refuses
-    any field a machine could read as a decision: an approval, a verdict, a vote, a score, a
-    ranking, or a tally of members agreeing. Approval stays where it is, with a person behind
-    it and `ai-eng decide` in front of it.
+    A council exists now, so this is that test, and `docs/adr/0022` moved where the line
+    sits. It refuses a group deciding — a vote, a score, a ranking, a consensus, a tally of
+    members agreeing — and it refuses granted authority in the three shapes it arrives in: a
+    line that *is* the word, a word that follows a colon, and a risk acceptance written as a
+    field, plus the field form the old regex already had. It no longer refuses a reader
+    concluding: a council may write `Verdict:` and
+    `Recommendation:`, because `CONSTITUTION.md:53` forbids granting and says nothing about
+    recommending.
 
-    Driven against a file that must be refused as well as the tree's own, because a rule that
-    has never fired is a rule nobody has tested — and today there is no `council.md` in this
-    repository at all, so the tree half alone would pass over nothing.
+    That is not a relaxation, and executing the old regex is what proved it. A bare
+    `approved`, a bare `PASS` and `Risk accepted: R-1` were all undetected before this —
+    only the field form `approved:` fired — so the test described as forbidding approval
+    forbade a colon. Three of the four things it claimed to catch are caught for the first
+    time here.
+
+    Driven against files that must be refused as well as the tree's own, because a rule that
+    has never fired is a rule nobody has tested. The tree half is no longer empty: one
+    `council.md` exists, and it names `approved` and `PASS` in backticks six times while
+    discussing this boundary, which is exactly the case the code-span rule in
+    `_verdict_fields` exists for.
     """
 
     clean = "# Council\n\n## Cost\n\n- the spec never says what this costs. `just check`\n"
     assert not _verdict_fields(clean), _verdict_fields(clean)
     for refused in (
         "approved: yes\n",
-        "- Verdict: ship it\n",
         "votes = 2\n",
         "> consensus: the three members agree\n",
         "2 of 3 members agree\n",
         "Recommendation: approve\n",
+        # The three the old regex let through, and the reason this is a rewrite.
+        "approved\n",
+        "PASS\n",
+        "Risk accepted: R-023-01\n",
+        "**Approved**\n",
+        "outcome = FAIL\n",
+        # The one a review found by executing the rule rather than reading it: a grant in the
+        # tail of the field this change newly permits, which passed all three earlier shapes.
+        "Verdict: the specification is approved and may be signed\n",
+        "Recommendation: sign it, the risk is approved\n",
     ):
         assert _verdict_fields(clean + refused), f"a council could write {refused!r}"
+
+    # And the other direction, which is the half a loosened control gets wrong silently: a
+    # conclusion is not a grant, and a word named is not a word asserted.
+    for allowed in (
+        "Verdict: the specification is answerable\n",
+        "Recommendation: tighten section 4 before signing\n",
+        "- the skill says `approved` may not be written, and it is not\n",
+        "the gate printed `PASS` and that is not this council's to say\n",
+        "Verdict: the specification is answerable at every point it asserts\n",
+    ):
+        assert not _verdict_fields(clean + allowed), (
+            f"a council could not write {allowed!r}, which is a conclusion and not a grant"
+        )
 
     said = []
     for produced in sorted(ROOT.glob("specs/*/council.md")):
@@ -2213,11 +2347,14 @@ def test_a_council_reviews_and_never_approves():
     )
 
     # And the skill itself has to say so, because the file above only exists after a run.
+    # The sentence moved with `docs/adr/0022`: the old one said the council had no field for
+    # a conclusion, and it has one now. What it must still say is where the line went.
     skill = (ROOT / ".agents" / "skills" / "ai-council" / "SKILL.md").read_text(encoding="utf-8")
-    assert "No vote and no ranking" in skill and "approved" in skill, (
-        "the council skill no longer states that it has no field in which the word approved "
-        "could be written, which is the instruction this test enforces the output of"
-    )
+    for required in ("It is never asked which answer is best", "It may not write an approval"):
+        assert required in skill, (
+            f"the council skill no longer says {required!r}, which is half of the boundary "
+            "this test enforces the output of — it concludes and it never grants"
+        )
 
 
 CRITICS = ("ai-challenge", "ai-council", "ai-review", "ai-verify", "ai-security")
@@ -2292,4 +2429,85 @@ def test_the_reference_a_person_copies_from_names_commands_that_exist():
     assert steps in reference, (
         f"`just check` runs `{steps}` and the reference describes something else. Quote the "
         "line rather than summarising it — a summary is what drifted last time"
+    )
+
+
+def test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce():
+    """`D-023-05`, as a check rather than as a sentence in a skill.
+
+    `docs/adr/0019` closes by saying no benchmark defines the improvement a council shows,
+    and `EP-195` asks for a measurable gap rather than a manufactured consensus. Two counts
+    per run are that instrument — gaps found only by the cross-read, findings deleted — and
+    the whole value of them depends on nobody being able to write the number they wanted.
+
+    So the script does not read the totals back. It counts the entries under the two
+    round-two headings itself and refuses when the two disagree. That refusal is what this
+    tests, in both directions: a file whose totals match its entries passes, and a file that
+    says eleven while listing one is a failure and not a warning. The tree's own council file
+    is run through it as well, because a check that has only ever seen a fixture is a check
+    nobody has pointed at the thing it is for.
+    """
+
+    sys.path.insert(0, str(ROOT / "tests"))
+    try:
+        import council_counts
+    finally:
+        sys.path.pop(0)
+
+    _DELETED_LINE = "- Findings deleted, for carrying no command or for being refuted: **2**\n"
+    honest = (
+        "## Round two — x\n\n"
+        "### Gaps no single lens named\n\n"
+        "- one gap\n  - `just check`\n"
+        "- another gap\n  - `just check`\n\n"
+        "### Findings cut for carrying no command\n\n"
+        "- one lens gestured at the cost and named nothing to run\n\n"
+        "### Findings the cross-read refuted, with the command that refuted them\n\n"
+        "- from the cost lens\n  - `just check`\n\n"
+        "## The two counts\n\n"
+        "- Gaps that appeared only after the cross-read: **2**\n" + _DELETED_LINE
+    )
+    # Nested bullets are commands belonging to the entry above them, so counting them would
+    # inflate the number this exists to hold honest. And the second count sums two causes:
+    # one cut for carrying no command and one refuted, which is two and not one.
+    assert council_counts.counts(honest) == (2, 2)
+
+    for broken, because in (
+        (honest.replace("cross-read: **2**", "cross-read: **11**"), "a total nine higher"),
+        (
+            honest.replace("### Findings cut for carrying no command", "### Cut"),
+            "the cut heading gone",
+        ),
+        (honest.replace("### Gaps no single lens named", "### Gaps"), "a missing heading"),
+        (honest.replace("## The two counts", "## Counts"), "a missing totals section"),
+        (honest.replace(_DELETED_LINE, ""), "one total absent"),
+    ):
+        with pytest.raises(council_counts.Unreadable):
+            council_counts.counts(broken)
+        assert because  # the reason is the message, and it is why each case is here
+
+    # And the file this repository actually produced, which is the only one there is.
+    produced = sorted(ROOT.glob("specs/*/council.md"))
+    for path in produced:
+        gained, lost = council_counts.counts(path.read_text(encoding="utf-8"))
+        assert gained >= 0 and lost >= 0, path
+
+    # A repository with no council file is not a failure and is not a pass. The script says
+    # so and exits zero, because a council that has not run is not a council that lied.
+    assert council_counts.main() == 0
+
+
+def test_council_counts_is_a_step_in_the_gate_and_not_a_recipe_beside_it():
+    """A control outside `just check` is a control that runs when somebody remembers.
+
+    `just stats` is the counter-example this repository already carries: it sits outside the
+    gate deliberately and it had been crashing for days before anybody ran it.
+    """
+
+    justfile = (ROOT / "justfile").read_text(encoding="utf-8")
+    steps = re.search(r"(?m)^check:\s*(.+)$", justfile).group(1).split()
+    assert "council" in steps, f"`just check` runs {steps} and council is not one of them"
+    assert steps.index("council") < steps.index("ran"), (
+        "council runs after `ran`, which writes the receipt last, so the gate would record a "
+        "run that had not finished"
     )

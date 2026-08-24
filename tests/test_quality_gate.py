@@ -186,6 +186,44 @@ def test_install_matrix_executes_native_spec_transaction_on_every_supported_os()
     _assert_install_matrix_contract(workflow)
 
 
+def test_install_matrix_executes_the_hooks_template_on_every_supported_os():
+    """D-024-01's deployable half. The wheel is the deployable artefact, and the install
+    matrix is the only thing that runs a stranger's install on Linux, macOS and Windows in
+    one job. The opt-in hooks template must be exercised there with assertions on its real
+    effects — the template directory, the global key — inside the step every platform runs,
+    not merely named beside it."""
+
+    workflow = (ROOT / ".github" / "workflows" / "install-matrix.yml").read_text(encoding="utf-8")
+    _assert_install_matrix_contract(workflow)
+    lines = workflow.splitlines()
+    step = _named_step(lines, "zero to a green doctor, in a repository it has never seen")
+    block = "\n".join(step)
+    # The exercise may not live in a step a single platform can skip: it sits inside the
+    # step the matrix runs on every OS, and it asserts the real effects — the template
+    # directory written by the installed wheel, and the global key pointing at it.
+    assert "machine_config" in block or "hooks-template" in block
+    assert "ai-eng init --hooks-template" in block
+    assert "init.templateDir" in block
+    assert block.index("ai-eng init --hooks-template") < block.index("ai-eng doctor || true")
+
+
+def test_no_spanish_in_docs():
+    """D-024-04: the record and the rule agree. The project is English-first for open
+    source, and the two artifacts this decision owns — the hand-written `docs/tools.md`
+    and the generator's own template — must not carry Spanish UI text. The rendered page
+    also shows the operator's data (historical blocked rows, spec titles) which is not
+    this generator's language and is deliberately preserved as history."""
+
+    tools = (ROOT / "docs" / "tools.md").read_text(encoding="utf-8", errors="replace")
+    generator = (ROOT / "src" / "ai_engineering" / "solution_intent.py").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    markers = ("Guía rápida", "Decisiones que atan", "De un vistazo", "cuatro cosas", "escribe")
+    for name, body in (("tools.md", tools), ("solution_intent.py", generator)):
+        hits = [marker for marker in markers if marker in body]
+        assert not hits, f"{name} still carries Spanish UI text: {hits}"
+
+
 def test_install_matrix_executes_acceptance_publication_on_every_supported_os():
     """Every acceptance control the wheel owes, on all three runners, from the wheel.
 
@@ -739,7 +777,7 @@ def test_no_workflow_carries_an_expression_with_nothing_in_it():
         )
 
 
-# The eight recipes `just check` runs, and whether anything has ever shown each one saying
+# The recipes `just check` runs, and whether anything has ever shown each one saying
 # no. Four are controlled by their own readers' fixtures: `test` is red fixtures end to end,
 # `security` has one per INCOMPLETE code plus a tamper fixture, `register` mutates the
 # register and asserts the refusal, and `counts` fired today when prose and the registry
@@ -761,6 +799,10 @@ GATE_CONTROLS = {
     "skilleval": "tests/test_skill_eval.py mutates the corpus once per routing rule and "
     "asserts the harness refuses each one",
     "counts": "test_the_counts_this_repository_states_about_itself_are_the_counts_it_has",
+    "council": "test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce "
+    "plants four files the script must refuse — a total nine higher than the entries "
+    "beneath it, a missing heading, a missing totals section and one total absent — "
+    "because this recipe's whole value is refusing a number the run wrote about itself",
     "lenses": "tests/test_review_lenses.py plants the case the requirement is about — a "
     "stylesheet with no movement in it — and asserts it routes to frontend and not to motion, "
     "plus the inverse, plus a lens file with no row and a row with two rules",

@@ -179,6 +179,15 @@ skilleval:
 stats:
     @uv run python tests/stats.py
 
+# The two numbers `EP-195` asked for, recomputed rather than read back. `docs/adr/0019` closes
+# by saying no benchmark defines the improvement a council shows; this is the instrument, and it
+# is a script because a model printing its own score is what rule 11 refuses. It counts the
+# entries under the round-two headings itself and refuses when its count and the run's stated
+# total disagree — which is the only lie this can catch and the one worth catching. Before
+# `ran`, because that recipe writes the receipt last.
+council:
+    @uv run python tests/council_counts.py
+
 # The last step, and the only one that leaves anything behind. Everything above is an
 # ephemeral process writing ignored receipts, which is why `PO-10` and `PO-14` — did the
 # removed practices stay removed, and did each commit run its module's suite — were both
@@ -226,4 +235,4 @@ unreviewed base="main":
 homes base="main":
     @uv run python tests/one_home.py --since {{base}}
 
-check: build sbom lint typecheck test cover security register skilleval counts intent-page lenses ran
+check: build sbom lint typecheck test cover security register skilleval counts intent-page lenses council ran

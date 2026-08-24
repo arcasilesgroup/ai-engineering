@@ -89,6 +89,12 @@ def parse(argv: list[str]) -> argparse.Namespace:
     p.add_argument(
         "--dry-run", dest="dry", action="store_true", help="print the checklist, write nothing"
     )
+    p.add_argument(
+        "--hooks-template",
+        dest="hooks_template",
+        action="store_true",
+        help="opt-in: write the product's hooks into a git init template for new clones",
+    )
     p.add_argument("-y", "--yes", action="store_true", help="take every default")
     return p.parse_args(argv)
 
@@ -496,19 +502,27 @@ def _project_paths_safe(root: Path) -> bool:
     return _receipt_state() is not None
 
 
-def _global_paths_safe(args) -> bool:
+def _global_paths_safe(args) -> list[Path] | None:
+    """`None` when this machine's install paths are not ours to write. Otherwise the skill
+    directories we found belonging to somebody else, which are skipped and named.
+
+    It returned a bare `False` for both, and one foreign folder under one of our sixteen
+    names refused every surface on the machine over a message that named no path. A name
+    collision in a root we share is not a reason to install nothing."""
+
     only = [surface for surface in args.harness.split(",") if surface] or None
+    theirs: list[Path] = []
     try:
         receipt = wiring.receipt_path()
         if not _safe_path(receipt.parent, "directory") or not _safe_path(receipt, "file"):
-            return False
+            return None
         installed = _receipt_state()
         if installed is None:
-            return False
+            return None
         found = wiring.detect(only)
         store = paths.home() / "skills"
         if not _safe_path(paths.home(), "directory") or not _safe_path(store, "directory"):
-            return False
+            return None
         store_owned = any(
             row.get("path") == str(store)
             and row.get("kind") == "skills"
@@ -516,17 +530,12 @@ def _global_paths_safe(args) -> bool:
             for row in installed.get("wrote", [])
         )
         if not store_owned and any(store.glob("ai-*")):
-            return False
-        copied = {
-            row["path"]
-            for row in installed.get("wrote", [])
-            if row.get("kind") == "link" and row.get("how") == "copy"
-        }
+            return None
         for surface in found:
             settings = wiring.expand(surface["settings"]) if surface.get("settings") else None
             if settings is not None:
                 if not _safe_path(settings.parent, "directory") or not _safe_path(settings, "file"):
-                    return False
+                    return None
                 if settings.exists() and surface["writer"].startswith("json_"):
                     wiring.read_json(settings)
                 if (
@@ -534,42 +543,21 @@ def _global_paths_safe(args) -> bool:
                     and surface["writer"] == "ts_opencode"
                     and wiring.SIGNATURE not in settings.read_text(encoding="utf-8")
                 ):
-                    return False
+                    return None
             if not surface.get("skills"):
                 continue
             skills_root = wiring.expand(surface["skills"])
             if not _safe_path(skills_root, "directory"):
-                return False
-            for source in paths.skills().glob("ai-*"):
-                target = skills_root / source.name
-                if not os.path.lexists(target):
-                    continue
-                # Ours if it points at the source, or at the store this verb installs into.
-                # Only the second is reachable after a successful run: `init` copies the
-                # skills to `home()/skills` and links every surface root at *that*, so a
-                # check that recognised the source alone declared its own finished work
-                # unsafe. Every second `init` on every machine returned False here and
-                # printed INCOMPLETE with no surface table, no reason and no cure — a guard
-                # failing closed for the wrong reason, in the only verb that installs one.
-                if target.is_symlink() and target.resolve() in (
-                    source.resolve(),
-                    (store / source.name).resolve(),
-                ):
-                    continue
-                if target.is_dir() and str(skills_root) in copied:
-                    continue
-                # An empty directory of ours by name has nothing in it to lose, and it is
-                # the state a skills root is in the first time a surface creates one — which
-                # the install matrix reproduces on purpose to force the copy path. Refusing
-                # it meant a fresh machine whose editor had made the folder could never be
-                # initialised at all. A directory with something in it that this install did
-                # not write is a different thing and is still refused.
-                if target.is_dir() and not any(target.iterdir()):
-                    continue
-                return False
+                return None
+            # Named, not refused. `wiring.foreign` answers the one question the disk can:
+            # a non-empty real directory at a name we ship, in a root the receipt does not
+            # record us copying into, is somebody else's. It is skipped at the write site
+            # and printed here, and the other fifteen skills install.
+            ours = [source.name for source in paths.skills().glob("ai-*")]
+            theirs.extend(wiring.foreign(skills_root, ours))
     except (KeyError, OSError, UnicodeError, wiring.Unreadable):
-        return False
-    return True
+        return None
+    return sorted(set(theirs))
 
 
 def _project_preflight(args) -> tuple[Path | None, intent.Validation | None] | None:
@@ -616,7 +604,13 @@ def project_step(args, prepared_root: Path | None = None) -> outcome.Result:
         return outcome.result("READY")
 
     ui.section(f"◇ Project   {root}   git repository, not set up")
-    if not (args.project is not None or ask("Set up this project too?", sys.stdin.isatty(), args)):
+    # A terminal answers yes by default when the run is interactive, but never under -y:
+    # `ask` returns the default on -y, and the machine-only promise `-y` makes must not
+    # turn into "and whatever repository I happen to be standing in" (D-024-02).
+    if not (
+        args.project is not None
+        or ask("Set up this project too?", sys.stdin.isatty() and not args.yes, args)
+    ):
         out("   → skipped. Nothing was written.")
         return outcome.result("READY")
 
@@ -812,6 +806,51 @@ def _refused(why: str, cure: str) -> outcome.Result:
     return outcome.result("INCOMPLETE")
 
 
+def _hooks_template_step(args) -> outcome.Result:
+    """D-024-01: the opt-in git init template. Writes the shipped hooks into one directory
+    this product owns and points `init.templateDir` at it, so *new* clones carry the floor
+    from the first commit. Machine scope only ever holds this key; `core.hooksPath` stays
+    repository-scoped, where `wire_git` writes it, and this step never touches it.
+
+    The hooks are the shipped files, so the safety property is inherited: each one exits 0
+    on a repository that has never set `ai.managed` (pre-commit's gitleaks branch, commit-msg
+    line 5, pre-push's foreign-fork path).
+    """
+
+    template = paths.home() / "hooks-template"
+    shipped = paths.git_hooks()
+    names = sorted(("pre-commit", "commit-msg", "pre-push"))
+    ui.section("◇ Hooks template")
+    ui.facts(
+        [
+            ("hooks", f"{len(names)}", f"→ {template}/pre-commit, commit-msg, pre-push"),
+            ("git", "init.templateDir", f"→ {template}"),
+        ]
+    )
+    if args.dry:
+        out("   → skipped.")
+        return outcome.dry_run(exact_changes=True)
+    if (
+        args.yes
+        or not sys.stdin.isatty()
+        or ask("Write the hooks template for new clones?", True, args)
+    ):
+        template.mkdir(parents=True, exist_ok=True)
+        for name in names:
+            shutil.copy2(shipped / name, template / name)
+        subprocess.run(
+            ["git", "config", "--global", "init.templateDir", str(template)],
+            check=True,
+            timeout=10,
+        )
+        _record([{"path": str(template), "kind": "hooks-template", "how": "written"}])
+        ui.step("ok", "template  ", f"→ {template}")
+        ui.step("ok", "git init  ", "init.templateDir set for new clones")
+        return outcome.result("PASS")
+    out("   → skipped. Nothing was written.")
+    return outcome.result("READY")
+
+
 def main(argv: list[str]) -> outcome.Result:
     args = parse(argv)
     # Invocation authorizes this verb's deterministic install scope. The manifest check
@@ -824,6 +863,11 @@ def main(argv: list[str]) -> outcome.Result:
         )
 
     try:
+        if args.hooks_template:
+            # Standalone and machine-scope: writing the init template for new clones does
+            # not care what repository (if any) the person is standing in, so it runs
+            # before the project preflight and is not blocked by it.
+            return _hooks_template_step(args)
         prepared = _project_preflight(args)
         if prepared is None:
             return _refused(
@@ -831,13 +875,26 @@ def main(argv: list[str]) -> outcome.Result:
                 "check that no directory in the path is a symlink, and that it is readable",
             )
         root, intent_state = prepared
-        if not args.skip_global and not _global_paths_safe(args):
-            return _refused(
-                "something in this machine's install paths is not this installer's to write",
-                "run `ai-eng doctor` to see which surface, or move that file aside",
-            )
+        theirs: list[Path] = []
+        if not args.skip_global:
+            collided = _global_paths_safe(args)
+            if collided is None:
+                return _refused(
+                    "something in this machine's install paths is not this installer's to write",
+                    "run `ai-eng doctor` to see which surface, or move that file aside",
+                )
+            theirs = collided
 
         banner()
+        # Before anything is written, because it changes what the counts below mean. A
+        # skills root is shared with the person and with every other publisher, and the
+        # reader has to be able to tell "we skipped one of yours" from "one is missing".
+        if theirs:
+            out(f"\n   {len(theirs)} skill folder(s) here are somebody else's.")
+            out("   Skipped, not touched:")
+            for path in theirs:
+                out(f"     {path}")
+            out("   Rename ours, or move theirs aside, if you want ours in that surface.")
         machine = global_step(args)
         if machine.outcome == "CANCELLED":
             return machine

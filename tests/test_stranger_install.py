@@ -131,11 +131,17 @@ def test_a_skills_root_that_already_holds_empty_folders_does_not_stop_the_instal
     assert (Path.home() / ".claude" / "settings.json").is_file()
 
 
-def test_a_folder_this_install_never_wrote_is_still_refused_and_says_why(
+def test_a_folder_this_install_never_wrote_is_named_and_skipped_and_the_rest_install(
     stranger, monkeypatch, capsys
 ):
-    """The other side of it. An empty directory has nothing to lose; one with somebody
-    else's file in it is theirs, and refusing is right — refusing in silence is not."""
+    """The other side of it, and the assertion this test used to make was the defect.
+
+    It asserted INCOMPLETE over one foreign directory, with a docstring arguing that
+    refusing was right. It passed in 0.18s while a real machine could not install at all:
+    one folder named `ai-design`, owned by the person four weeks before this repository
+    shipped a skill of that name, refused eight surfaces and named no path. A skills root
+    is shared — eighteen `ai-*` skills from other publishers sat in that one. Their folder
+    is theirs, so it is skipped and printed; the other fifteen are ours to install."""
 
     from ai_engineering import paths
 
@@ -145,12 +151,18 @@ def test_a_folder_this_install_never_wrote_is_still_refused_and_says_why(
     stranger_file = root / "ai-spec" / "somebody-elses.md"
     stranger_file.write_text("not ours\n", encoding="utf-8")
 
-    result = init.main(["--global", "--project", ".", "-y"])
+    init.main(["--global", "--project", ".", "-y"])
     printed = capsys.readouterr().err
 
-    assert result.outcome == "INCOMPLETE"
-    assert "not this installer's to write" in printed
+    assert str(root / "ai-spec") in printed, printed[-800:]
     assert stranger_file.read_text(encoding="utf-8") == "not ours\n"
+    # Skipped, not merged: `link` copies into a directory that already exists, so the
+    # failure this guards against is our SKILL.md landing on top of theirs.
+    assert not (root / "ai-spec" / "SKILL.md").exists()
+    # And the whole point — one collision costs one skill, not the machine.
+    landed = sorted(p.name for p in root.glob("ai-*") if (p / "SKILL.md").exists())
+    assert len(landed) == len(list(paths.skills().glob("ai-*"))) - 1, landed
+    assert (Path.home() / ".claude" / "settings.json").is_file()
 
 
 def test_the_first_spec_names_the_missing_intent_rather_than_a_path(stranger, capsys):
@@ -231,3 +243,144 @@ def test_a_real_install_writes_a_real_router_and_doctor_reads_it_back(stranger, 
 
     # And the check that reads them back agrees, on the same machine, with no argument.
     assert doctor.routers_intact(stranger) is None
+
+
+# ── D-024-02: context-aware init ─────────────────────────────────────────────────────
+# The split stops needing to be remembered: inside a repository with a person answering it
+# offers the project step; outside a repository it does global only; `-y` stays a promise
+# about the machine and never turns the project half on. Spec 024 example 2 pins these
+# three behaviours.
+
+
+class _Tty:
+    def isatty(self) -> bool:
+        return True
+
+
+@pytest.fixture
+def tty(monkeypatch):
+    import sys
+
+    monkeypatch.setattr(sys, "stdin", _Tty())
+
+
+@pytest.fixture
+def typed(monkeypatch):
+    import builtins
+
+    box = {"prompts": [], "replies": []}
+
+    def fake_input(prompt=""):
+        box["prompts"].append(prompt)
+        return box["replies"].pop(0) if box["replies"] else "y"
+
+    monkeypatch.setattr(builtins, "input", fake_input)
+    return box
+
+
+def test_bare_init_inside_a_repo_offers_the_project_step(stranger, tty, typed, capsys):
+    result = init.main(["--harness", "claude-code"])
+    # The stranger repo carries no canonical Intent, so the honest terminal outcome is
+    # INCOMPLETE ("a repository without its canonical Intent is not a governed one", the
+    # product's own gate). What D-024-02 pins is the offer, not that gate: the project
+    # step asked, and the files were written on the yes.
+    assert result.outcome == "INCOMPLETE", result.as_dict()
+    asked = "".join(typed["prompts"])
+    assert "Set up this project too?" in asked, asked
+    assert (stranger / "AGENTS.md").is_file()
+
+
+def test_bare_init_outside_a_repo_does_global_only(tmp_path, monkeypatch, capsys):
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("AI_ENGINEERING_HOME", str(home / ".ai-engineering"))
+    monkeypatch.chdir(tmp_path)
+    result = init.main(["--harness", "claude-code", "-y"])
+    assert result.outcome == "PASS", result.as_dict()
+    out = capsys.readouterr().err
+    assert "Set up this project too?" not in out
+    assert not list(tmp_path.glob("AGENTS.md"))
+
+
+def test_bare_init_dash_y_in_a_repo_stays_global_only(stranger, tty, capsys):
+    # On a real terminal the machine half's default is yes, and the project half used to
+    # inherit it: `-y` then set up whatever repository the person happened to be standing
+    # in. D-024-02 pins that `-y` stays a promise about the machine only.
+    result = init.main(["--harness", "claude-code", "-y"])
+    assert result.outcome == "PASS", result.as_dict()
+    assert not (stranger / "AGENTS.md").is_file()
+    assert not (stranger / "CONSTITUTION.md").is_file()
+
+
+# ── D-024-01: opt-in hooks template ───────────────────────────────────────────────
+# New clones start with the floor when a person opts in, never on any default, and never
+# by widening `core.hooksPath` to machine scope. The template is the shipped hooks, which
+# already exit 0 on a repository that never set `ai.managed` (spec 024 example 1).
+
+
+def _global_git(key: str) -> str:
+    return subprocess.run(
+        ["git", "config", "--global", "--get", key],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def test_hooks_template_writes_the_template_and_never_a_global_hooks_path(stranger, capsys):
+    from ai_engineering import paths
+
+    result = init.main(["--hooks-template"])
+    assert result.outcome == "PASS", result.as_dict()
+    template = paths.home() / "hooks-template"
+    expected = {"pre-commit", "commit-msg", "pre-push"}
+    assert {p.name for p in template.glob("*")} == expected
+    for name in expected:
+        assert (template / name).is_file()
+        assert (template / name).stat().st_mode & 0o100  # executable
+    assert _global_git("init.templateDir") == str(template)
+    # The whole D-024-01 safety claim: hooksPath never leaves the repository floor.
+    assert _global_git("core.hooksPath") == ""
+
+
+def test_hooks_template_dry_run_writes_nothing(stranger, capsys):
+    from ai_engineering import paths
+
+    result = init.main(["--hooks-template", "--dry-run"])
+    assert result.outcome == "WOULD_CHANGE", result.as_dict()
+    assert not (paths.home() / "hooks-template").exists()
+    assert _global_git("init.templateDir") == ""
+    assert (paths.home() / "machine.json").exists() is False or "hooks-template" not in (
+        paths.home() / "machine.json"
+    ).read_text(encoding="utf-8")
+
+
+def test_uninstall_removes_the_hooks_template_and_global_key(stranger, monkeypatch, capsys):
+    """D-024-01 uninstall parity: the template and the global key come out, and only when
+    the receipt row and the current global value are ours. A person's own templateDir is
+    never removed."""
+
+    import sys
+
+    from ai_engineering import paths, uninstall, wiring
+
+    init.main(["--hooks-template"])
+    capsys.readouterr()
+    template = paths.home() / "hooks-template"
+    assert template.is_dir()
+    assert _global_git("init.templateDir") == str(template)
+
+    class Keyboard:
+        def isatty(self):
+            return True
+
+        def readline(self):
+            return "y"
+
+    monkeypatch.setattr(sys, "stdin", Keyboard())
+    result = uninstall.main(["-y"])
+    assert result.outcome == "PASS", result.as_dict()
+    assert not template.exists()
+    assert _global_git("init.templateDir") == ""
+    assert all(row["kind"] != "hooks-template" for row in wiring.receipt().get("wrote", []))

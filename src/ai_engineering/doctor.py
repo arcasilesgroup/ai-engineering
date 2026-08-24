@@ -1,4 +1,4 @@
-"""Twenty-five assertions and one line.
+"""Twenty-six assertions and one line.
 
 These are not document sections: they are checks that fail. `--ci` runs the ones that
 make sense on a runner and says in its output which it skipped, because a doctor that
@@ -709,6 +709,50 @@ def routers_intact(root: Path | None) -> str | tuple[str, str] | None:
         f"of {len(recorded)} routers, {' and '.join(said)}",
         "`ai-eng init` writes them again; an edited one is left alone by `uninstall`",
     )
+
+
+@check(27, "The wiring", "The opt-in hooks template is present, ours, and removable")
+def hooks_template_owned(root: Path | None) -> str | tuple[str, str] | None:
+    """D-024-01's observability half. The machine's hooks template and its global key are a
+    state doctor can see: a template the receipt says we wrote, a directory still holding the
+    shipped bytes, and a global key still pointing at it are all consistent and all fine; a
+    receipt row with no template is a removable gap; a template with no row is not ours to
+    explain. It is a machine-state check, so it answers outside a repository too."""
+
+    template = paths.home() / "hooks-template"
+    recorded = [
+        row for row in wiring.receipt().get("wrote", []) if row.get("kind") == "hooks-template"
+    ]
+    try:
+        read = subprocess.run(
+            ["git", "config", "--global", "--get", "init.templateDir"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        pointed = read.stdout.strip() if read.returncode in (0,) else ""
+    except (OSError, subprocess.SubprocessError):
+        raise Undecidable("git config could not be read to inspect the hooks template") from None
+
+    if not recorded and not template.exists():
+        return None  # the feature is opt-in; a machine that never opted in is fine
+    if not recorded or not template.is_dir():
+        return (
+            "the hooks template and its receipt disagree on what is installed here",
+            "`ai-eng uninstall` removes the key, or `ai-eng init --hooks-template` rewrites it",
+        )
+    names = ("pre-commit", "commit-msg", "pre-push")
+    try:
+        owned = all((template / name).is_file() for name in names) and pointed == str(template)
+    except OSError:
+        owned = False
+    if not owned:
+        return (
+            "the hooks template is recorded but no longer the bytes we wrote, or the global "
+            "key no longer points at it",
+            "`ai-eng uninstall` to remove it cleanly, then `ai-eng init --hooks-template`",
+        )
+    return None
 
 
 @check(10, "The record", "Continuity: this head extends the last archived one")
