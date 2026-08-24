@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>007 — What obra/superpowers does that this repo does not</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:880px;margin:2rem auto;padding:0 1.2rem;line-height:1.55;color:#1a1a1a;font-size:16px}
+  h1{font-size:1.6rem;line-height:1.25}
+  h2{font-size:1.15rem;margin-top:2.2rem;border-top:1px solid #ddd;padding-top:1rem}
+  .meta{color:#555;font-size:.9rem}
+  a{color:#0b5394}
+  table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+  th,td{border:1px solid #ccc;padding:.4rem .55rem;text-align:left;vertical-align:top}
+  th{background:#f3f3f3}
+  blockquote{margin:0 0 .6rem;padding:0 .8rem;border-left:3px solid #bbb;color:#333}
+  .tag{font-size:.75rem;background:#eee;border-radius:4px;padding:.1rem .45rem}
+  ul,ol{margin:.4rem 0}
+</style>
+</head>
+<body>
+
+<h1>What <code>obra/superpowers</code> does that this repo does not</h1>
+<p class="meta">Research brief — <a href="https://github.com/obra/superpowers">github.com/obra/superpowers</a>, branch <code>main</code>, accessed 2026-08. Everything below is from the repository's own files (primary source) or its public issues.</p>
+
+<h2>1. What it actually is</h2>
+<p>A "complete software development methodology for your coding agents", built from <strong>composable, trigger-based skills</strong> plus <strong>bootstrap instructions</strong> that make the agent consult them [1]. Distributed as a per-harness plugin shim; current version 6.3.0, MIT [2]. By Jesse Vincent and Prime Radiant ("obra" org).</p>
+<p><strong>No "workflow" entity type exists.</strong> A skill is a reference guide (technique / pattern / reference) with YAML frontmatter and a <code>SKILL.md</code> body; "workflow" is the ordered <em>sequence</em> of skills that fire automatically: brainstorming → using-git-worktrees → writing-plans → subagent-driven-development OR executing-plans → test-driven-development → requesting-code-review → finishing-a-development-branch [1][2]. Historically the workflow steps were slash-commands; those macro shims were removed and replaced with direct invocation via each harness's native <code>Skill</code> tool [4][5].</p>
+
+<h2>2. The delivery mechanism: a SessionStart hook, not installed files</h2>
+<p>The repo ships a <code>hooks/session-start</code> bash hook that <strong>reads the meta-skill and injects it as session-start additional context</strong> in each harness's shape (Cursor <code>additional_context</code>; Claude Code <code>hookSpecificOutput.additionalContext</code>; Copilot/SDK-standard top-level <code>additionalContext</code>) [6]. This is the whole distributed mechanism — very close to this repo's "no file lands in the project" idea, but keyed on a <strong>session-start hook straight into the agent's context</strong>.</p>
+
+<h2>3. The mandatory skill-check protocol (what "auto-trigger" means)</h2>
+<p>The <code>using-superpowers</code> meta-skill is deliberately aggressive: <strong>"if you think there is even a 1% chance a skill might apply, you MUST invoke it before any response or action"</strong> — including clarifying questions, exploring the codebase or checking files; then announce "Using [skill] to [purpose]". It ships a "Red Flags" table of rationalizations to stop on ("this is just a simple question", "let me explore the codebase first", "I remember this skill"…). Subagents dispatched to a task explicitly <em>skip</em> the protocol (<code>&lt;SUBAGENT-STOP&gt;</code>) so it does not recurse [7].</p>
+
+<h2>4. Skill authoring: TDD applied to documentation</h2>
+<p>The <code>writing-skills</code> skill is the most transferable piece: <em>documentation is RED–GREEN–REFACTOR</em>.</p>
+<ul>
+<li><strong>no skill without a failing test first</strong> — you must watch an agent <em>fail without</em> the skill (baseline), then verify it <em>complies with</em> it (GREEN), then close loopholes (REFACTOR). Writing before testing means delete and start over [8].</li>
+<li><strong><code>description</code> states ONLY when to use, never what the skill does.</strong> A description that summarizes the workflow made agents follow the description instead of reading the body — measured in their head-to-head wording tests. "Use when executing implementation plans with independent tasks" (triggers only), not "dispatches subagent per task with review" (workflow) [8].</li>
+<li>Match the form to the failure: <strong>prohibitions backfire on shaping problems</strong> (agents negotiate with "don't X"); positive recipes ("say what the output IS") work better for shape. No nuance clauses — "don't X unless it matters" reopens the negotiation [8].</li>
+<li><strong>Skill-discovery keywords</strong> mirror your problem's symptoms/errors ("flaky", "Hook timed out"), <strong>active voice</strong> names (<code>creating-skills</code>, <code>condition-based-waiting</code>), token budgets (<em>frequently-loaded: &lt;200 words; getting-started &lt;150; others &lt;500</em>), heavy references split into separate files [8].</li>
+</ul>
+
+<h2>5. The subagent-driven development loop</h2>
+<p>The README's core: once a plan is approved, the agent works <em>autonomously for "a couple of hours" without deviating from the plan</em>. The <code>subagent-driven-development</code> skill dispatches a <strong>fresh subagent per task</strong> (clean context — no inherited reasoning), then a <strong>two-stage review</strong> (spec-compliance first, then code-quality), then the next task [9][10]. This is exactly the "IDE let the host decide how many agents" model you were describing, and it is why there is no "one writer" rule there: <strong>isolation is bought by per-task subagents, not by serializing the main thread</strong> [9].</p>
+
+<h2>6. Known criticisms and limits</h2>
+<dl>
+<dt><strong>Token cost is the dominant complaint.</strong></dt>
+<dd>Issue #190: all skills preloaded at startup consumed 22k+ tokens (~11% of context); dormant skills still cost "description rent" even when they never fire. Independent measure (Ken Imoto): 5 skills loaded, 3 never fired, skills ≈ 18% of bill over 7h [11][12][13]. (Their skills are <em>large</em>; their <code>description</code> discipline is the mitigation, ours is the framing.)</dd>
+<dt><strong>Heaviness / slow plan phase.</strong></dt>
+<dd>Issue #781: "approval process too cumbersome, plan formulation too long"; SDD's review loops turn minutes into hours for small tasks [14].</dd>
+<dt><strong>SoMe' no "braid" skill manager in 2026.</strong></dt>
+<dd>The task premise mentioned "braid"; the current tree has none — that was a historical, pre-plugin loader (late 2025). Today it's session-start hooks + the harness-native Skill tool [15][16].</dd>
+</dl>
+
+<h2>7. The four ideas worth taking from here</h2>
+<ol>
+<li><strong>A session-start injection (`hooks/session-start`) instead of writing files.</strong> Your distribution already avoids writing into consumer repos, but it does it by landing seven files + guards registered in profiles; Superpowers instead injects a meta-skill into <em>agent context at startup</em>, keyed per-harness. That is a different distribution surface worth evaluating.</li>
+<li><strong>The "using-superpowers" mandatory skill-check protocol</strong> — a <em>meta-skill</em> that forces "check skills before any action" and includes a rationalization Red-Flags table. This repo has no equivalent of a "always check the skill tree first" instruction; its rejections live in <code>AGENTS.md</code> and per-skill triggers.</li>
+<li><strong>TDD for skills (WRITE skills like code, with a failing-test-first baseline)</strong> — namely: watch an agent fail without a skill before you ship it. This repo treats skills as prose (even with <code>SKILL_FOG_CEILING</code>); Superpowers treats skills as code and enforces a test-first rule.</li>
+<li><strong>description discipline: "when to use" only, never the workflow.</strong> Their own measurement (agents follow the description instead of the body) is exactly the failure mode your "always-loaded budget" doctrine guards against, applied to skill <code>description</code>.</li>
+</ol>
+
+<h2>8. What is NOT transferable (and why)</h2>
+<ul>
+<li><strong>No fail-closed guardrail in superpowers.</strong> There is no fail-closed belt-and-suspenders: the "1% rule" is a <em>prompt</em> injunction, not a check. A gate that is also a prompt is the failure this repo exists to fix — this repo has <strong>no</strong> fail-closed=red-gate equivalent to borrow; keep fail-closed machinery inside the framework.</li>
+<li><strong>Autonomy as a selling point</strong> — the "2 hours autonomous without deviating" is contrary to this repo's "green gate before done" + receipts. An autonomous mode built here would still need a receipt for every step.</li>
+<li><strong>Large skills.</strong> Superpowers skills are big (tokens). This repo caps skill readability (FOG) and always-loaded budget; its skills are meant to be <em>small</em>. The tuning difference matters more than the implementation.</li>
+</ul>
+
+<h2>Sources (date: 2026-08)</h2>
+<ol>
+<li>README.md — <a href="https://github.com/obra/superpowers/blob/main/README.md">blob/main/README.md</a></li>
+<li>.claude-plugin/plugin.json — <a href="https://github.com/obra/superpowers/blob/main/.claude-plugin/plugin.json">blob</a> (v6.3.0)</li>
+<li>README "The Basic Workflow" — same as [1]</li>
+<li>RELEASE-NOTES.md — <a href="https://github.com/obra/superpowers/blob/main/RELEASE-NOTES.md">blob</a></li>
+<li>Issue #1275 (slash-command macros removed) — <a href="https://github.com/obra/superpowers/issues/1275">link</a></li>
+<li>hooks/session-start — <a href="https://github.com/obra/superpowers/blob/main/hooks/session-start">blob</a></li>
+<li>skills/using-superpowers/SKILL.md — <a href="https://github.com/obra/superpowers/blob/main/skills/using-superpowers/SKILL.md">blob</a></li>
+<li>skills/writing-skills/SKILL.md — <a href="https://github.com/obra/superpowers/blob/main/skills/writing-skills/SKILL.md">blob</a></li>
+<li>skills/subagent-driven-development/SKILL.md — <a href="https://github.com/obra/superpowers/blob/main/skills/subagent-driven-development/SKILL.md">blob</a></li>
+<li>skills/using-superpowers/references/codex-tools.md — <a href="https://github.com/obra/superpowers/blob/main/skills/using-superpowers/references/codex-tools.md">blob</a></li>
+<li>Primer Radiant announcement — <a href="https://blog.fsck.com/2025/10/09/superpowers/">blog.fsck.com/2025/10/09/superpowers/</a></li>
+<li>GitHub issues: <a href="https://github.com/obra/superpowers/issues/190">#190</a>, <a href="https://github.com/obra/superpowers/issues/762">#762</a>, <a href="https://github.com/obra/superpowers/issues/1953">#1953</a>, <a href="https://github.com/obra/superpowers/issues/750">#750</a>, <a href="https://github.com/obra/superpowers/issues/781">#781</a>, <a href="https://github.com/obra/superpowers/issues/655">#655</a>, <a href="https://github.com/obra/superpowers/issues/766">#766</a>, <a href="https://github.com/obra/superpowers/issues/1275">#1275</a></li>
+<li>Ken Imoto measurement — <a href="https://kenimoto.dev/blog/skills-loaded-3-never-fired-18/">kenimoto.dev/blog/skills-loaded-3-never-fired-18/</a></li>
+</ul>
+<p class="meta">[unsourced] items: the claim that no third-party public benchmark exists; the claimed ~22k token / ~11% context figure is from issue #190, not independently re-measured by me; all file contents read at ~2026-08-24T21:12Z (UTC) from <code>main</code>.</p>
+
+</body>
+</html>

@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="State of ai-engineering today, the eight goals it must serve, and the cited research behind the decisions the next spec will take: hook scope, one-shot install, skills precision, PII and supply chain, English-first.">
+  <title>ai-engineering | State, gaps and the research behind the next spec</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --bg: #f4f2eb; --surface: #fcfbf7; --surface-2: #e9e6dc;
+      --ink: #17201d; --muted: #56625c; --line: #cac7bc; --line-strong: #989c96;
+      --green: #166e52; --green-soft: #dcebe4;
+      --amber: #89570f; --amber-soft: #f2e5cc;
+      --red: #913b35; --red-soft: #f1dfdc;
+      --blue: #315e7d; --blue-soft: #dce8ef;
+      --shadow: 0 20px 54px rgba(22,31,27,.09); --radius: 14px; --max: 1120px;
+      --sans: "Avenir Next", Avenir, "Segoe UI", Inter, system-ui, sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+    html[data-theme="dark"] {
+      --bg: #0d1412; --surface: #151e1b; --surface-2: #1e2a26;
+      --ink: #eaf0ec; --muted: #a7b3ad; --line: #2d3b36; --line-strong: #52635c;
+      --green: #70d0aa; --green-soft: #17382d;
+      --amber: #efb869; --amber-soft: #3a2d19;
+      --red: #f0958c; --red-soft: #3a2422;
+      --blue: #8bc1e3; --blue-soft: #1b3040;
+      --shadow: 0 24px 60px rgba(0,0,0,.28);
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; min-width:320px; background:var(--bg); color:var(--ink);
+           font-family:var(--sans); font-size:17px; line-height:1.62; }
+    .wrap { max-width:var(--max); margin:0 auto; padding:0 22px; }
+    header { border-bottom:1px solid var(--line); padding:34px 0 26px; }
+    .kicker { font-family:var(--mono); font-size:12px; letter-spacing:.13em;
+              text-transform:uppercase; color:var(--muted); }
+    h1 { font-size:clamp(28px,4.4vw,44px); line-height:1.12; margin:12px 0 10px; letter-spacing:-.02em; }
+    .sub { color:var(--muted); max-width:64ch; margin:0; }
+    main { padding:34px 0 60px; }
+    section { margin:0 0 42px; }
+    h2 { font-size:clamp(21px,2.6vw,27px); margin:0 0 6px; letter-spacing:-.01em; }
+    h2 + .lede { color:var(--muted); margin:0 0 20px; max-width:70ch; }
+    h3 { font-size:18px; margin:26px 0 8px; }
+    .bluf { background:var(--surface); border:1px solid var(--line-strong);
+            border-radius:var(--radius); padding:22px 24px; box-shadow:var(--shadow); }
+    .bluf p { margin:0 0 12px; } .bluf p:last-child { margin:0; }
+    .card { background:var(--surface); border:1px solid var(--line);
+            border-radius:var(--radius); padding:20px 22px; box-shadow:var(--shadow); }
+    .card h4 { margin:0 0 10px; font-size:17px; }
+    .card p { margin:0 0 10px; } .card p:last-child { margin:0; }
+    .stop { border:1px solid var(--amber); background:var(--amber-soft); color:var(--ink);
+            border-radius:var(--radius); padding:20px 22px; }
+    .stop p { margin:0 0 12px; } .stop p:last-child { margin:0; }
+    .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(255px,1fr)); }
+    .stat { background:var(--surface); border:1px solid var(--line);
+            border-radius:var(--radius); padding:16px 18px; }
+    .stat .n { font-family:var(--mono); font-size:26px; font-weight:600; display:block; line-height:1.2; }
+    .stat .lab { color:var(--muted); font-size:14px; display:block; margin-top:6px; }
+    .n.up { color:var(--green); } .n.down { color:var(--red); } .n.mid { color:var(--amber); }
+    .scroll { overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius);
+              background:var(--surface); }
+    table { border-collapse:collapse; width:100%; min-width:680px; font-size:15px; }
+    th, td { text-align:left; padding:11px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { font-family:var(--mono); font-size:11.5px; letter-spacing:.09em; text-transform:uppercase;
+         color:var(--muted); background:var(--surface-2); }
+    tr:last-child td { border-bottom:none; }
+    code { font-family:var(--mono); font-size:.88em; background:var(--surface-2);
+           padding:1px 5px; border-radius:5px; }
+    .tag { font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+           padding:2px 8px; border-radius:99px; border:1px solid currentColor; white-space:nowrap; }
+    .t-for { color:var(--green); background:var(--green-soft); }
+    .t-against { color:var(--red); background:var(--red-soft); }
+    .t-open { color:var(--amber); background:var(--amber-soft); }
+    .t-note { color:var(--blue); background:var(--blue-soft); }
+    ul, ol { padding-left:20px; } li { margin:7px 0; }
+    a { color:var(--blue); }
+    .foot { border-top:1px solid var(--line); padding:20px 0 0; color:var(--muted); font-size:14.5px; }
+    .btn { font:inherit; font-size:14px; background:var(--surface-2); color:var(--ink);
+           border:1px solid var(--line); border-radius:9px; padding:6px 13px; cursor:pointer; }
+    .bar { display:flex; gap:8px; justify-content:flex-end; padding-top:14px; }
+    ol.refs { font-size:14.5px; padding-left:22px; }
+    ol.refs li { margin:10px 0; }
+    .src { color:var(--muted); font-family:var(--mono); font-size:13px; word-break:break-word; }
+    @media print { .bar { display:none; } body { background:#fff; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="bar">
+    <button class="btn" id="themeButton">Theme</button>
+    <button class="btn" id="printButton">Print</button>
+  </div>
+  <p class="kicker">Research 006 &middot; 24 August 2026 &middot; ai-engineering</p>
+  <h1>State, gaps, and the research behind the next spec</h1>
+  <p class="sub">What ai-engineering is today, the eight goals it must serve, and what primary
+  sources say about each open decision. Every claim carries a number and a source, or says it
+  could not be sourced. This report is the research input for the next spec and plan; the
+  brainstorming half of that spec is the discovery step of <code>/ai-spec</code>, which this
+  document feeds rather than replaces. [11]</p>
+</header>
+
+<main>
+
+<section>
+  <h2>One page</h2>
+  <div class="bluf">
+    <p><strong>The framework already does most of what the eight goals ask.</strong> Sixteen
+    skills under <code>.agents/skills/</code> with a contract that measures descriptions, corpora
+    and routing; four fail-closed guards plus two telemetry hooks, dispatched by
+    <code>hooks/chain.py</code> on every surface; three git hooks shipped in the wheel and wired
+    per repository through <code>core.hooksPath</code>; a ten-verb CLI whose <code>init</code>
+    installs globally and, on request, per project; a hash-linked audit chain; a CycloneDX SBOM
+    and release attestation; and a quality gate whose every promise is a command. [11]</p>
+
+    <p><strong>The open decisions are smaller than they look.</strong> (1) Git hooks stay
+    per-repository &mdash; that is what git's own documentation and pre-commit's both recommend; a
+    global hook install is explicitly <em>not recommended</em> because of untrusted repositories,
+    and the middle ground for new clones is <code>init.templateDir</code>. [1][2]
+    (2) The per-project half of <code>ai-eng init</code> cannot be globalised &mdash; the seven
+    files it writes are repository-scoped by nature &mdash; but it can become automatic: run
+    inside a repository and it does global plus project; outside, global only. [11]
+    (3) Skills are already ahead of the open Agent Skills standard, and the next step is a
+    measurable catalog budget, not new fields. [5][6]
+    (4) PII is the one genuine security gap: gitleaks finds secrets, not personal data, and the
+    guard layer never reads document bodies &mdash; the fix is a scanning lane, not a new guard.
+    <span class="tag t-open">unsourced</span></p>
+
+    <p><strong>And one committed inconsistency to decide:</strong> the project is English-first, yet
+    <code>docs/tools.md</code>, the generated <code>docs/solution-intent.html</code> and reports
+    001&ndash;005 are in Spanish. The rule and the record disagree; a spec should close it. [11]</p>
+
+    <p>This report ends with three cited directions worth taking; the spec weighs them against
+    the options below.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Where ai-engineering stands today</h2>
+  <p class="lede">Every line below is anchored in this tree, read this session, not asserted.</p>
+  <div class="grid">
+    <div class="stat"><span class="n">16</span><span class="lab">skills under <code>.agents/skills/ai-*</code>, each with a <code>corpus.md</code> of cases it must take and refuse</span></div>
+    <div class="stat"><span class="n">4</span><span class="lab">fail-closed guards (<code>self_protect</code>, <code>no_verify_guard</code>, <code>injection_guard</code>, <code>loop_guard</code>) + 2 telemetry hooks</span></div>
+    <div class="stat"><span class="n">8</span><span class="lab">surfaces tabled in <code>policy/surfaces.toml</code>: 6 at T2, 2 at T3</span></div>
+    <div class="stat"><span class="n">3</span><span class="lab">git hooks shipped (<code>pre-commit</code>, <code>commit-msg</code>, <code>pre-push</code>), wired per repo via <code>core.hooksPath</code></span></div>
+    <div class="stat"><span class="n">10</span><span class="lab">CLI verbs in <code>src/ai_engineering/cli.py</code>, each with a declared read/write/network will</span></div>
+    <div class="stat"><span class="n">7</span><span class="lab">project files <code>init</code> writes: AGENTS.md, CONSTITUTION.md, CLAUDE.md, justfile, check.yml, <code>.ai/config.toml</code>, <code>.ai/.gitignore</code></span></div>
+    <div class="stat"><span class="n">8</span><span class="lab">production-readiness boxes verified by <code>src/ai_engineering/readiness.py</code> &mdash; all INCOMPLETE until evidenced</span></div>
+    <div class="stat"><span class="n">7</span><span class="lab">stacks <code>init</code> detects for the per-project justfile (python, node, go, rust, java, ruby, dotnet)</span></div>
+  </div>
+
+  <h3>What is proven, and what is not</h3>
+  <ul>
+    <li><span class="tag t-for">proven</span> <strong>Guards are fail-closed and their class is asserted.</strong> A test reads the
+    dispatcher table and turns CI red if a hook on a blocking event is not a guard; a guard that
+    crashes denies. Telemetry is the only thing that may fail open.</li>
+    <li><span class="tag t-open">unproven</span> <strong>No surface reads as proven.</strong> The README is explicit: not one surface has a
+    receipted denial, so every surface that can deny reads <em>unproven</em> &mdash; including
+    Claude Code. CI proves the dispatcher's deny path, not a surface.</li>
+    <li><span class="tag t-for">measured</span> <strong>Skills are measured, not described.</strong> <code>contract.audit_one</code>
+    checks the six portable fields plus exactly three extensions, requires a
+    <code>Not for X &mdash; use /ai-Y</code> clause, caps descriptions at 1,000 characters, bans
+    jargon, scores prose with a Gunning-fog ceiling (11.03), and requires a corpus with
+    <code>## Routes here</code> and <code>## Refuses</code> sections. <code>just skilleval</code>
+    routes the corpus against a baseline in <code>policy/pilot-register.toml</code>.</li>
+    <li><span class="tag t-for">proven</span> <strong>The git floor exists and is verified.</strong> <code>pre-commit</code> runs
+    <code>git diff --cached --check</code> and gitleaks over staged hunks; <code>pre-push</code>
+    blocks protected branches, gitleaks on outgoing commits, and expired risk acceptances;
+    <code>commit-msg</code> enforces <code>&lt;type&gt;(&lt;scope&gt;): subject</code> and writes
+    the run-receipt trailer. <code>ai-eng doctor</code> asserts <code>git_hook_fires</code>.</li>
+    <li><span class="tag t-open">one gap</span> <strong>Supply chain is real but has one open verifier.</strong> <code>sbom.py</code>
+    writes a CycloneDX document naming the exact sha256 <code>uv build</code> produced; the
+    release job attests <code>dist/*</code> and the SBOM as one subject list; CI pins every scanner
+    version and checksum. What nobody has done is fetch a published artefact from the index and
+    check it against the attestation (<code>EP-047</code>/<code>EP-280</code>, per
+    <code>policy/threat-model.toml</code>).</li>
+    <li><span class="tag t-for">written down</span> <strong>The doctrine is written down.</strong> The twelve rules in <code>AGENTS.md</code>
+    include rule 10 (KISS, YAGNI, DRY, SOLID, TDD, Clean Code, Clean Architecture) and rule 11
+    (monitoring and observability before a URL). The templates <code>init</code> writes carry the
+    same rules into every new repository.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>The eight goals, today</h2>
+  <p class="lede">Each row: what exists, what is missing, and what the cited research points to.</p>
+  <div class="scroll"><table>
+    <thead>
+      <tr><th>Goal</th><th>Status today</th><th>Gap</th><th>What the sources say</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>1 &middot; Git hooks enforcing quality &amp; security for the harness</strong></td>
+        <td>Three hooks exist, wired per repo; gitleaks on staged + outgoing data; diff checks; protected branches; run receipts. [11]</td>
+        <td>No PII lane. Supply chain is checked in CI, not in the hooks themselves. Hook coverage is asserted by <code>doctor</code>, not by every install.</td>
+        <td>Keep hooks per-repository; the global form is warned against for untrusted repositories. PII needs a scanning lane (see &sect;5.3). [1][2]</td>
+      </tr>
+      <tr>
+        <td><strong>2 &middot; Skills and agents exact &mdash; not one word over, not one under</strong></td>
+        <td>16 skills; <code>contract.py</code> enforces fields, description budget, <code>Not&nbsp;for</code> clause, corpus, fog ceiling; routing is evaluated. [11]</td>
+        <td>The open standard is 1,024 description chars and a 50&nbsp;KB catalog budget (Zed); the repo uses 1,000. No guardrail measures the sum of all descriptions per surface.</td>
+        <td>The description is the whole of skill selection; keep the <code>Not&nbsp;for</code> clause and corpora. Add the measurable catalog budget, not new fields. [3][4][5][6]</td>
+      </tr>
+      <tr>
+        <td><strong>3 &middot; English always (open source)</strong></td>
+        <td>README, AGENTS, CONSTITUTION, CLAUDE template, CHANGELOG, SECURITY, audit in English. [11]</td>
+        <td><code>docs/tools.md</code>, the generated <code>docs/solution-intent.html</code> and reports 001&ndash;005 are in Spanish &mdash; committed, reviewed artifacts.</td>
+        <td>The project's own stated rule binds its committed artifacts. Translate or regenerate; the generator lives at <code>src/ai_engineering/solution_intent.py</code>. [11]</td>
+      </tr>
+      <tr>
+        <td><strong>4 &middot; Skills global for every IDE (surfaces)</strong></td>
+        <td>Yes: <code>wiring.install_skills</code> writes to <code>~/.agents/skills</code> and per-surface roots; <code>surfaces.toml</code> tables eight surfaces. [11]</td>
+        <td>Paths were measured on the maintainer's machines; some surfaces (Codex, Cursor, VS&nbsp;Code Copilot) need re-verification against current vendor docs. Codex needs one human <code>/hooks</code> approval to run.</td>
+        <td>Zed documents <code>~/.agents/skills</code> as its global root and gating project skills behind trust; Claude Code documents <code>~/.claude/skills</code>. The wiring matches both. [3][6]</td>
+      </tr>
+      <tr>
+        <td><strong>5 &middot; Git hooks: global or per project?</strong></td>
+        <td>Per repository, deliberately: <code>wire_git</code> records <code>core.hooksPath</code> and <code>ai.managed</code>; the docstring argues a global path would impose the convention on foreign forks. [11]</td>
+        <td>New clones are not wired automatically; a person must run <code>ai-eng init --project</code>.</td>
+        <td>Git documents <code>core.hooksPath</code> for central config but treats global/system scope as protected configuration; pre-commit's docs explicitly call global install <em>not recommended</em> for untrusted repositories. The middle ground is <code>init.templateDir</code>, which wires <em>new</em> clones only. [1][2]</td>
+      </tr>
+      <tr>
+        <td><strong>6 &middot; CLI direct and simple: one run, installed, configured, ready</strong></td>
+        <td>Two commands: <code>uv tool install ai-engineering</code> then <code>ai-eng init</code>; <code>init</code> asks before touching, supports <code>--dry-run</code>, <code>--json</code>, and writes a receipt. [11]</td>
+        <td>Still two commands and a read of the offer before &ldquo;yes&rdquo;. The verb table is ten entries, which the repo itself defends as the right size.</td>
+        <td>The CLI guidelines the repo already follows: default is the right thing for most users, confirm before state change, <code>--dry-run</code>, tell the user what changed, always a repair path (<code>doctor --fix</code>). [10]</td>
+      </tr>
+      <tr>
+        <td><strong>7 &middot; Is per-project <code>init</code> needed if we go global?</strong></td>
+        <td>Yes: the project half writes seven repository-scoped files plus the git wiring. It cannot be global without imposing on forks. [11]</td>
+        <td>The split is manual today (<code>--global</code>/<code>--project</code>); it can be automatic (inside a repo &rarr; both; outside &rarr; global only).</td>
+        <td>Git's protected-configuration model and pre-commit's warning both argue against a machine-wide hook floor; per-repo wiring is the safe default. [1][2]</td>
+      </tr>
+      <tr>
+        <td><strong>8 &middot; A command producing AGENTS.md/CLAUDE.md with doctrine + monitoring + CI/CD quality &amp; security for every project type</strong></td>
+        <td><code>init</code> already writes the doctrine files (rules 10 and 11 included), a per-stack justfile (7 stacks), a check workflow, and an observability stanza in <code>.ai/config.toml</code> (provider empty by default). [11]</td>
+        <td>Rule 10 criteria are prose, not checks. SAST rule sets are not shipped per language (&ldquo;add your own&rdquo;). Readiness boxes exist but the templates do not wire them. Observability is opt-in.</td>
+        <td>The OWASP GenAI Top-10 mapping gives the per-stack security lane its checklist; clig.dev gives the verb shape. The spec decides whether this is <code>init --stack</code> or a sibling verb. [7][10]</td>
+      </tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Research findings</h2>
+
+  <h3>5.1 Git hooks: the scope decision (goal 5, and the floor of goal 1)</h3>
+  <p>Git's own documentation frames <code>core.hooksPath</code> as the mechanism for
+  &ldquo;centrally configure your Git hooks&rdquo;, and it can be set at any config scope. The
+  same manual explains that system, global and command scopes are <em>protected configuration</em>
+  &mdash; scopes git trusts because they are controlled by the user or a trusted administrator.
+  That trust is precisely the risk: a hook that runs everywhere runs in repositories the user did
+  not choose to govern. [1]</p>
+  <p>pre-commit, the most widely used hook framework, installs per repository
+  (<code>.git/hooks/pre-commit</code>). Its documentation is explicit about the global form:</p>
+  <div class="stop">
+    <p style="margin:0">a global install &ldquo;not recommended as it can lead to accidentally running hooks when
+    interacting with an <strong>untrusted repository</strong>&rdquo; [2]</p>
+  </div>
+  <p>pre-commit's supported middle ground is <code>init-templatedir</code> set into
+  <code>git config --global init.templateDir</code>: hooks land in <em>newly created or cloned</em>
+  repositories via the template, while existing foreign forks are untouched, and hooks pass cleanly
+  when the repository never opted into the config (<code>--skip-on-missing-config</code>). [2]</p>
+  <p>The ai-engineering repo already chose the per-repository model and wrote down why in
+  <code>wiring.wire_git</code>: &ldquo;a global core.hooksPath would impose our commit convention
+  on every foreign clone on the machine, forks included.&rdquo; [11] The
+  research agrees with that decision. The genuinely new option is <code>init.templateDir</code>
+  so the floor exists on day one of a new clone.</p>
+
+  <h3>5.2 Skills: the open standard, and where the repo is already ahead (goals 2 and 4)</h3>
+  <p>The open Agent Skills specification (originally Anthropic's, now an open standard) defines
+  <code>name</code> (1&ndash;64 lowercase/hyphenated chars, must match the folder), a
+  <code>description</code> of 1&ndash;1,024 characters that must say <em>what</em> and
+  <em>when</em>, and optional <code>license</code>, <code>compatibility</code> (1&ndash;500),
+  <code>metadata</code> and <code>allowed-tools</code> (experimental). Loading is progressive:
+  ~100 tokens of metadata at startup, the body on activation (keep under 500 lines), references one
+  level deep. [5]</p>
+  <p>Anthropic's authoring guidance is sharp about the description: it is the field Claude matches
+  against when deciding whether to trigger the skill, it should be third-person, name specific
+  triggers, and be tested with evaluations before volume. [3][4] The
+  repo's corpus discipline &mdash; a <code>Not&nbsp;for X &mdash; use /ai-Y</code> clause, a
+  <code>corpus.md</code> of routing and refusal cases, and <code>just skilleval</code> against a
+  baseline &mdash; is precisely the &ldquo;evaluations first&rdquo; practice the guidance asks
+  for, enforced as code. [11]</p>
+  <p>Zed adds a constraint the repo should measure: the <em>total</em> size of all skill names and
+  descriptions is capped at 50&nbsp;KB per catalog, and skills that do not fit are
+  &ldquo;dropped from the catalog with a warning&rdquo;. None of the 16 current descriptions is
+  close to 1,000 chars, so sixteen skills sit far below the budget; the guardrail keeps it
+  true. [6] Zed also confirms the repo's global root
+  (<code>~/.agents/skills/</code>), project-local trust gating, and support for
+  <code>disable-model-invocation</code>, which the repo already uses on the critics. [11]</p>
+  <p>One deliberate divergence is worth recording in the spec: <code>contract.py</code> allows the
+  six portable fields plus exactly three extensions and rejects everything else, including the
+  spec's optional <code>metadata</code>. That is a portability choice, written down; keep it, and
+  say so in the record rather than relitigating it silently. [11]</p>
+
+  <h3>5.3 Security and quality: OWASP GenAI, PII, supply chain (goals 1 and 8)</h3>
+  <p>The OWASP GenAI LLM Top&nbsp;10 2026 (published 4 August 2026, successor of the LLM
+  Top&nbsp;10 v1.1) keeps the categories that map to this product's guards: [7]</p>
+  <div class="scroll"><table>
+    <thead><tr><th>OWASP category</th><th>Existing control in ai-engineering</th></tr></thead>
+    <tbody>
+      <tr><td>Prompt injection</td><td><code>hooks/injection_guard.py</code> on Read/WebFetch/Fetch/WebSearch/MCP + adversarial suite</td></tr>
+      <tr><td>Sensitive information disclosure</td><td>gitleaks at the git floor; closed 9-field <code>issue.py</code> payload; <code>_otlp.py</code> redact=strict; constitution &ldquo;never record secrets or personal data&rdquo;</td></tr>
+      <tr><td>Supply chain vulnerabilities</td><td>SBOM from the wheel; release attestation; pinned+checksummed scanners in CI; dependency gates (trivy, pip-audit, snyk)</td></tr>
+      <tr><td>Excessive agency</td><td>fail-closed guards; <code>loop_guard</code>; <code>no_verify_guard</code>; keyboard-only <code>exception</code></td></tr>
+      <tr><td>Insecure plugin / skill design</td><td><code>contract.py</code> audits every skill; <code>self_protect</code> denies writes into guards and settings</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>The genuine gap is PII, and it is a scanning problem, not a guard problem.</strong> gitleaks detects secrets (credentials, keys, tokens); it is not a personal-data classifier. <span class="tag t-open">unsourced</span> Most personal data never reaches the guard layer at all
+  (guards read tool names, paths and payloads, not document bodies), so the control that matters is
+  a PII lane in the git floor and in issue reporting &mdash; regex/entity scanning over staged hunks
+  and over the closed issue payload &mdash; plus keeping the existing &ldquo;never record personal
+  data&rdquo; rule. This is additive: a pre-push/pre-commit lane, not a fifth guard. [11]</p>
+  <p>Supply chain is the strongest pillar and has exactly one open verifier. The repo builds a
+  CycloneDX SBOM naming the wheel's sha256, runs it inside <code>just check</code>, attests
+  <code>dist/*</code> and the SBOM in release, and pins every scanner. Sigstore's model &mdash;
+  keyless signing with OIDC identity and a transparency log &mdash; is what the GitHub-native
+  attestation used by the release workflow implements. [8][9] SLSA gives the
+  levels for stating what provenance that buys (v1.2 is current; the repo's threat model already
+  bounds its claim to a named subset of CycloneDX 1.6). What remains, per
+  <code>threat-model.toml</code>, is <code>EP-047</code>/<code>EP-280</code>: nobody has fetched a
+  published wheel from the index and verified the attestation + SBOM against it. That needs the
+  network and a published release; the report marks it as the one supply-chain item no local work
+  can close. [11]</p>
+
+  <h3>5.4 One-shot CLI and project scaffolding (goals 6, 7, 8)</h3>
+  <p>The Command Line Interface Guidelines the repo already follows cover all three goals:
+  make the default the right thing for most users; never <em>require</em> a prompt;
+  confirm before changing state; <code>--dry-run</code>; tell the user what changed; keep a repair
+  path; and make it easy to uninstall. [10] <code>ai-eng init</code> already
+  does the last five. The simplification that remains is detection: if <code>init</code> runs
+  inside a repository it offers the project half; if not, it does the global half and says so.
+  &ldquo;Run once, configured&rdquo; then reads: <code>uv tool install ai-engineering</code> +
+  <code>ai-eng init</code>, with <code>--dry-run</code> first for the cautious. [10][11]</p>
+  <p>For goal 8 the repo already ships the bones: write-once doctrine files with rules 10 and
+  11 baked in, a per-stack justfile with lint/test/build per detected language, a security
+  recipe (trivy + gitleaks) and a check workflow. The two honest gaps are that SAST rule sets are
+  explicitly &ldquo;add your own&rdquo; per language, and the observability stanza defaults to an
+  empty provider. The spec decision is whether the per-stack SLA becomes <code>init --stack</code>
+  or a sibling verb; the doctrine says: prefer the smallest control that proves the outcome, and a
+  new verb home costs a capability row, not just a file. [11]</p>
+
+  <h3>5.5 Language: English always (goal 3)</h3>
+  <p>The project states the rule (this session: &ldquo;the project is always in English because it
+  is open source&rdquo;) and the tree mostly obeys it. The exceptions are committed and reviewed:
+  <code>docs/tools.md</code> (a command cheat-sheet), the generated <code>docs/solution-intent.html</code>,
+  and reports 001&ndash;005 under <code>.ai/reports/</code>. Fixing the generated page is a change
+  in <code>src/ai_engineering/solution_intent.py</code> plus a regeneration; the others are
+  translations or a deliberate archival note. This report is written in English to conform, and any
+  spec/plan it feeds should be too. [11]</p>
+</section>
+
+<section>
+  <h2>Decision-ready options for the spec</h2>
+  <p class="lede">Five options the next spec should weigh. Each says what it is, what it gives,
+  what it costs, what it rules out, and what the research points to.</p>
+
+  <div class="card">
+    <h4>Option 1 &middot; Hooks: keep the per-repo floor, add <code>init.templateDir</code></h4>
+    <p><strong>What:</strong> Keep <code>core.hooksPath</code> + <code>ai.managed</code>
+    per repository; add an opt-in <code>git init.templateDir</code> so <em>new</em> clones are wired
+    automatically; never set a global <code>core.hooksPath</code>.</p>
+    <p><strong>Gives:</strong> the floor exists on day one of a new repo; foreign forks
+    stay untouched; matches git's documentation and pre-commit's explicit warning.</p>
+    <p><strong>Costs:</strong> one more init step (writes the template dir once, machine
+    scope); new repos run gitleaks before a human has decided to govern that repo &mdash; which is
+    exactly the &ldquo;untrusted repository&rdquo; case, so the template hook must pass cleanly
+    when the repo never opted in.</p>
+    <p style="margin:0"><strong>Rules out:</strong> a true global hook floor, and everything that implies
+    for forks. <span class="tag t-for">recommended</span> [1][2][11]</p>
+  </div>
+
+  <div class="card">
+    <h4>Option 2 &middot; CLI: <code>init</code> becomes context-aware (repo &rarr; global+project)</h4>
+    <p><strong>What:</strong> <code>ai-eng init</code> detects whether it is inside a
+    repository; inside, it offers the project half after the global half; outside, global only.
+    Flags (<code>--global</code>/<code>--project</code>/<code>--dry-run</code>) stay for scripts.</p>
+    <p><strong>Gives:</strong> one command, one mental model; the per-project half stays
+    (it cannot be globalised), but nobody has to remember the split.</p>
+    <p><strong>Costs:</strong> a detection step and a new test for &ldquo;inside vs
+    outside a repo&rdquo;; the will table (<code>SCOPE</code>) gains a conditional.</p>
+    <p style="margin:0"><strong>Rules out:</strong> a global-only install, which would silently not govern
+    any repository. <span class="tag t-for">recommended</span> [10][11]</p>
+  </div>
+
+  <div class="card">
+    <h4>Option 3 &middot; Scaffolding: per-stack CI/CD + SAST + observability wiring</h4>
+    <p><strong>What:</strong> Extend the project half so the generated justfile/check.yml
+    carries a per-stack security lane (SAST rule set + dependency scan + gitleaks) and an
+    observability stanza with a named provider slot. Either inside <code>init --stack</code> or a
+    sibling verb; the spec decides the home.</p>
+    <p><strong>Gives:</strong> goal 8 in full: doctrine + monitoring + CI/CD quality and
+    security for every detected project type, each step a command.</p>
+    <p><strong>Costs:</strong> real maintenance weight per stack; the language-specific
+    rules age and must be pinned like everything else in this repo; a capability row changes.</p>
+    <p style="margin:0"><strong>Rules out:</strong> leaving &ldquo;add your own&rdquo; as the per-language
+    answer. <span class="tag t-for">recommended</span> [7][10][11]</p>
+  </div>
+
+  <div class="card">
+    <h4>Option 4 &middot; Skills: keep the six fields, add a measurable catalog budget</h4>
+    <p><strong>What:</strong> Keep <code>contract.py</code>'s six portable fields + three
+    extensions and the corpus discipline; add a check that the sum of every skill's name +
+    description stays under the smallest documented catalog budget (Zed's 50&nbsp;KB), so a future
+    new skill cannot silently drop off a surface.</p>
+    <p><strong>Gives:</strong> the &ldquo;not one word over&rdquo; guarantee becomes
+    measurable per surface instead of per file; no new fields to maintain.</p>
+    <p><strong>Costs:</strong> one constant and one assertion; the description cap stays at
+    1,000 internally vs the open standard's 1,024 (deliberate; keep and record why).</p>
+    <p style="margin:0"><strong>Rules out:</strong> adopting <code>metadata</code> or other upstream fields
+    the contract currently refuses. <span class="tag t-for">recommended</span> [5][6][4][11]</p>
+  </div>
+
+  <div class="card">
+    <h4>Option 5 &middot; PII: a scanning lane, not a fifth guard</h4>
+    <p><strong>What:</strong> Add a PII scan to the git floor (staged hunks, on the same
+    path gitleaks uses) and to the closed issue payload; keep it additive and fail-closed when the
+    lane cannot run; leave the guards themselves unchanged.</p>
+    <p><strong>Gives:</strong> the missing OWASP &ldquo;sensitive information
+    disclosure&rdquo; coverage without widening guard authority or reading document bodies.</p>
+    <p><strong>Costs:</strong> a scanner choice and its pin; PII detection is heuristic and
+    must refuse to over-block (the repo's own threshold discipline applies).</p>
+    <p style="margin:0"><strong>Rules out:</strong> treating PII as a guard concern. The guard layer decides
+    tool calls; PII is data that should never be written, and the floor is where that is caught.
+    <span class="tag t-open">unsourced</span> [7]</p>
+  </div>
+
+  <h3>Explicitly not doing</h3>
+  <ul>
+    <li><strong>No <code>ai-brainstorm</code> skill.</strong> The normative disposition (spec 010)
+    absorbed brainstorming into the discovery step of the <code>/ai-spec</code>; this report is that
+    step's research input for the next spec. Adding a skill would be a second home for a decision
+    the record already made. [11]</li>
+    <li><strong>No global <code>core.hooksPath</code>.</strong> Both git's protected-configuration
+    model and pre-commit's warning oppose it; per-repo wiring plus <code>init.templateDir</code>
+    covers the need.</li>
+    <li><strong>No new CLI verbs without a capability row.</strong> Every verb change touches the
+    will table and the capability manifest; the report prefers extending <code>init</code> over
+    adding new homes.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>What would change, depending on each answer</h2>
+  <div class="grid">
+    <div class="stat"><span class="n mid">D1</span><span class="lab">Hooks: per-repo + <code>init.templateDir</code> &rarr; new clones governed on day one; forks never touched. A global floor would change nothing for the better.</span></div>
+    <div class="stat"><span class="n mid">D2</span><span class="lab">CLI context-aware &rarr; <code>init</code> outside a repo does global only. The alternative (drop the project half) would silently stop governing repositories.</span></div>
+    <div class="stat"><span class="n mid">D3</span><span class="lab">Per-stack SLA &rarr; every generated project gets the security/quality lane; the cost is a pinned rule set per language that CI must test like any other scanner.</span></div>
+    <div class="stat"><span class="n mid">D4</span><span class="lab">Catalog budget &rarr; the &ldquo;not one word over&rdquo; goal becomes measurable across the corpus, not just per file.</span></div>
+    <div class="stat"><span class="n mid">D5</span><span class="lab">PII lane &rarr; closes the one OWASP gap without changing guard authority. Supply-chain verifier (EP-047/280) stays open until a release exists to fetch.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Three cited directions worth taking</h2>
+  <div class="card">
+    <p><strong>1. Adopt the hybrid hook model and wire new clones.</strong> Keep the per-repository
+    <code>core.hooksPath</code> floor exactly as <code>wiring.py</code> builds it, and add an
+    opt-in <code>init.templateDir</code> so a new clone runs the floor from its first commit &mdash;
+    while passing cleanly on any repository that never opted in. Git documents the mechanism, and
+    pre-commit's maintainers explicitly warn that a global hook install misfires on untrusted
+    repositories. [1][2]</p>
+    <p><strong>2. Make skill precision measurable across the corpus.</strong> Keep the six-field
+    contract, the <code>Not&nbsp;for</code> clause and the corpora that <code>skilleval</code>
+    already routes, and add the catalog-budget assertion the surface docs actually impose
+    (50&nbsp;KB of metadata on Zed) so &ldquo;not one word over&rdquo; is a gate and not a
+    description. [5][6][4]</p>
+    <p style="margin:0"><strong>3. Close the supply-chain verifier gap the threat model names.</strong> Ship the
+    fetch-and-verify step for the published wheel &mdash; attestation + SBOM against the index
+    bytes &mdash; the half <code>EP-047</code>/<code>EP-280</code> mark as unreachable from local
+    work, using the model the release workflow already implements. And fix the English-first
+    inconsistency (translate <code>tools.md</code>, regenerate the page) in the same block so the
+    record and the rule stop disagreeing. [8][9][11]</p>
+  </div>
+</section>
+
+<section>
+  <h2>Sources</h2>
+  <ol class="refs">
+    <li>[1] <span class="src">Git manual, <code>git-config</code> &middot; core.hooksPath, pathname values, and protected-configuration scopes &middot; git-scm.com/docs/git-config &middot; retrieved 2026-08-24</span>.</li>
+    <li>[2] <span class="src">pre-commit documentation &middot; install, init-templatedir, and the warning against a global install &middot; pre-commit.com &middot; retrieved 2026-08-24</span>.</li>
+    <li>[3] <span class="src">Anthropic, Claude Platform Docs &middot; Agent Skills overview; per-surface locations incl. ~/.claude/skills &middot; docs.anthropic.com &middot; retrieved 2026-08-24</span>.</li>
+    <li>[4] <span class="src">Anthropic, Claude Platform Docs &middot; Skill authoring best practices; third-person, what + when, evaluate first &middot; docs.anthropic.com &middot; retrieved 2026-08-24</span>.</li>
+    <li>[5] <span class="src">Agent Skills specification (open standard) &middot; name, description, optional fields, ~100-token metadata load &middot; agentskills.io/specification &middot; retrieved 2026-08-24</span>.</li>
+    <li>[6] <span class="src">Zed documentation &middot; Skills &middot; ~/.agents/skills global root, trust gating, 50 KB catalog budget &middot; zed.dev/docs/ai/skills &middot; retrieved 2026-08-24</span>.</li>
+    <li>[7] <span class="src">OWASP GenAI LLM Top 10 2026 (published 2026-08-04) &middot; successor of the LLM Top 10 v1.1 &middot; owasp.org &middot; retrieved 2026-08-24</span>.</li>
+    <li>[8] <span class="src">SLSA specification &middot; supply-chain levels and provenance; v1.2 current &middot; slsa.dev &middot; retrieved 2026-08-24</span>.</li>
+    <li>[9] <span class="src">Sigstore overview &middot; keyless signing, OIDC identity, transparency log &middot; docs.sigstore.dev &middot; retrieved 2026-08-24</span>.</li>
+    <li>[10] <span class="src">Command Line Interface Guidelines &middot; defaults, prompting, dry-run, tell what changed, uninstall &middot; clig.dev &middot; retrieved 2026-08-24</span>.</li>
+    <li>[11] <span class="src">In-repository evidence read this session &middot; AGENTS.md; CONSTITUTION.md; hooks/chain.py; git-hooks/*; src/ai_engineering/{cli,doctor,init,skeletons,contract,wiring,solution_intent,sbom,readiness}.py; policy/{surfaces,threat-model,quality-gate,capabilities}.toml; .github/workflows/{check,release}.yml; SECURITY.md; specs/010; docs/{requirements.toml,audit-2026-08-16.md}; .ai/{intent.md,config.toml}; CHANGELOG.md</span>.</li>
+  </ol>
+  <p style="color:var(--muted);font-size:14.5px"><strong><span class="tag t-open">unsourced</span></strong> marks claims no source was reachable for from here: the statement that gitleaks detects secrets rather than personal data (its own docs not fetched; the repo's use of it is evidence), and any PII-heuristic claim in Option 5. Every URL was retrieved on 2026-08-24.</p>
+</section>
+
+<p class="foot">Research report. Not a spec, a plan, an approval, a PASS or a risk acceptance.
+It changes nothing. Sixteen skills and four guards read and measured; every claim that supports the
+decision cites the source it came from or stays marked <span class="tag t-open">unsourced</span>.</p>
+
+</main>
+</div>
+<script>
+  (() => {
+    const root = document.documentElement;
+    const stored = localStorage.getItem('ai-eng-report-006-theme');
+    if (stored === 'light' || stored === 'dark') root.dataset.theme = stored;
+    document.getElementById('themeButton').addEventListener('click', () => {
+      root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('ai-eng-report-006-theme', root.dataset.theme);
+    });
+    document.getElementById('printButton').addEventListener('click', () => window.print());
+  })();
+</script>
+</body>
+</html>
