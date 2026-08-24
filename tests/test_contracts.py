@@ -336,19 +336,24 @@ def test_the_catalogue_fits_the_smallest_documented_budget(tmp_path):
     for path in skills:
         header = text.frontmatter(path)
         total += len(path.parent.name) + len(header.get("description", ""))
-    assert total < contract.CATALOG_MAX, f"{total} of {contract.CATALOG_MAX}: the shipped catalogue fits"
+    assert total < contract.CATALOG_MAX, (
+        f"{total} of {contract.CATALOG_MAX}: the shipped catalogue fits"
+    )
 
     # The denial path: one skill over the budget must refuse, naming the budget and the
     # culprit, rather than silently letting a surface drop it.
     huge = tmp_path / "ai-huge"
     huge.mkdir()
     (huge / "SKILL.md").write_text(
-        "---\nname: ai-huge\ndescription: " + "x" * 60_000
+        "---\nname: ai-huge\ndescription: "
+        + "x" * 60_000
         + "\n---\n\n# ai-huge\n\n## Routes here\n\ntake it\n\n## Refuses\n\nrefuse it\n",
         encoding="utf-8",
     )
     problems = contract.audit(tmp_path)
-    assert any("catalogue budget" in problem and "ai-huge" in problem for problem in problems), problems
+    assert any("catalogue budget" in problem and "ai-huge" in problem for problem in problems), (
+        problems
+    )
 
 
 AI_HOME_ENTRIES = (

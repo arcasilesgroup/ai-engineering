@@ -732,7 +732,7 @@ def hooks_template_owned(root: Path | None) -> str | tuple[str, str] | None:
         )
         pointed = read.stdout.strip() if read.returncode in (0,) else ""
     except (OSError, subprocess.SubprocessError):
-        raise Undecidable("git config could not be read to inspect the hooks template")
+        raise Undecidable("git config could not be read to inspect the hooks template") from None
 
     if not recorded and not template.exists():
         return None  # the feature is opt-in; a machine that never opted in is fine

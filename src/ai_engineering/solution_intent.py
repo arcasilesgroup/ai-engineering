@@ -731,24 +731,40 @@ state of each specification, and what governs it.">
   <h2>At a glance</h2>
   <p class="note">Every number comes from a file in the tree. None of them is hand-written.</p>
   <div class="cards">
-    {_card(len(tree.specs), "specifications", " · ".join(f"{n} {k}" for k, n in sorted(counts.items())))}
-    {_card(
-        f"{with_check}/{numbered}",
-        "tasks with a command that decides them",
-        f"in {plans_with_tasks} of {plans_total} plans · "
-        f"the other {plans_total - plans_with_tasks} carry no tasks a script can enumerate, "
-        f"and count in neither number",
-    )}
+    {
+        _card(
+            len(tree.specs),
+            "specifications",
+            " · ".join(f"{n} {k}" for k, n in sorted(counts.items())),
+        )
+    }
+    {
+        _card(
+            f"{with_check}/{numbered}",
+            "tasks with a command that decides them",
+            f"in {plans_with_tasks} of {plans_total} plans · "
+            f"the other {plans_total - plans_with_tasks} carry no tasks a script can enumerate, "
+            f"and count in neither number",
+        )
+    }
     {_card(len(tree.decisions), "recorded decisions", "docs/adr/")}
     {_card(len(tree.skills), "skills", f"{80} lines each at most")}
     {_card(len(tree.guards), "fail-closed guards", f"+{len(tree.telemetry)} telemetry")}
     {_card(len(tree.verbs), "CLI verbs", "src/ai_engineering/cli.py")}
-    {_card(f"{tree.test_lines / max(tree.src_lines, 1):.2f}:1", "tests against product", f"max {tree.ratio_max}:1 · {tree.test_lines:,} / {tree.src_lines:,}".replace(",", "."))}
-    {_card(
-        f"{sum(1 for _, verdict, _ in tree.boxes if verdict == 'PASS')}/8",
-        "production boxes proven",
-        html.escape(tree.readiness_code or "no code"),
-    )}
+    {
+        _card(
+            f"{tree.test_lines / max(tree.src_lines, 1):.2f}:1",
+            "tests against product",
+            f"max {tree.ratio_max}:1 · {tree.test_lines:,} / {tree.src_lines:,}".replace(",", "."),
+        )
+    }
+    {
+        _card(
+            f"{sum(1 for _, verdict, _ in tree.boxes if verdict == 'PASS')}/8",
+            "production boxes proven",
+            html.escape(tree.readiness_code or "no code"),
+        )
+    }
   </div>
 </section>
 
@@ -760,7 +776,7 @@ state of each specification, and what governs it.">
 <section id="ciclo">
   <h2>The lifecycle, and where each step lives</h2>
   <p class="note">Solid box: the step has a skill or a verb that runs it. Dashed box: it is
-  still a conversation.{' No home: ' + html.escape(', '.join(missing)) + '.' if missing else ''}</p>
+  still a conversation.{" No home: " + html.escape(", ".join(missing)) + "." if missing else ""}</p>
   <figure class="panel">{_flow_svg(present)}</figure>
 </section>
 

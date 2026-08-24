@@ -86,7 +86,9 @@ def parse(argv: list[str]) -> argparse.Namespace:
         "--harness", default="", help="comma-separated surface ids; default is all found"
     )
     p.add_argument("--overwrite", default="", help="comma-separated file names, or all")
-    p.add_argument("--dry-run", dest="dry", action="store_true", help="print the checklist, write nothing")
+    p.add_argument(
+        "--dry-run", dest="dry", action="store_true", help="print the checklist, write nothing"
+    )
     p.add_argument(
         "--hooks-template",
         dest="hooks_template",
@@ -828,7 +830,11 @@ def _hooks_template_step(args) -> outcome.Result:
     if args.dry:
         out("   → skipped.")
         return outcome.dry_run(exact_changes=True)
-    if args.yes or not sys.stdin.isatty() or ask("Write the hooks template for new clones?", True, args):
+    if (
+        args.yes
+        or not sys.stdin.isatty()
+        or ask("Write the hooks template for new clones?", True, args)
+    ):
         template.mkdir(parents=True, exist_ok=True)
         for name in names:
             shutil.copy2(shipped / name, template / name)

@@ -252,7 +252,7 @@ def _git_value(root: Path, key: str) -> str | None:
     return read.stdout.strip() if read.returncode == 0 else ""
 
 
-def _git_value_global(key: str) -> str:
+def _git_value_global(key: str) -> str | None:
     """The machine-scope value, as a string that is empty when unset. `None` means the
     question could not be asked, which is a stop: uninstall must not unset a key it could
     not read first."""
@@ -306,8 +306,8 @@ def _owned(row: dict, root: Path | None) -> bool:
         if not target.is_dir():
             return False
         try:
-            expected = {name: (paths.git_hooks() / name).read_bytes() for name in _HOOK_NAMES}
-            for name, body in expected.items():
+            shipped_bytes = {name: (paths.git_hooks() / name).read_bytes() for name in _HOOK_NAMES}
+            for name, body in shipped_bytes.items():
                 if (target / name).read_bytes() != body:
                     return False
         except (OSError, FileNotFoundError):
@@ -791,11 +791,13 @@ def main(argv: list[str]) -> outcome.Result:
                 # confirmed both. The unset value is read once more at removal time: a
                 # machine changed between consent and removal is a machine this run must
                 # not silently disagree with.
-                current = _git_value_global("init.templateDir")
-                if current is None:
-                    raise wiring.Unreadable("git config could not be read to unset init.templateDir")
+                current_value = _git_value_global("init.templateDir")
+                if current_value is None:
+                    raise wiring.Unreadable(
+                        "git config could not be read to unset init.templateDir"
+                    ) from None
                 shutil.rmtree(path, ignore_errors=False)
-                if current == str(path):
+                if current_value == str(path):
                     subprocess.run(
                         ["git", "config", "--global", "--unset", "init.templateDir"],
                         check=True,

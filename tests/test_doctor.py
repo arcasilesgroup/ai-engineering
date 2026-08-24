@@ -2342,8 +2342,6 @@ def test_doctor_asserts_the_hooks_template_is_owned_and_removable(home):
 
     import shutil
 
-    from ai_engineering import uninstall
-
     template = paths.home() / "hooks-template"
     shipped = paths.git_hooks()
     subprocess.run(["mkdir", "-p", str(template)], check=True)
