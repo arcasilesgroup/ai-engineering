@@ -243,3 +243,72 @@ def test_a_real_install_writes_a_real_router_and_doctor_reads_it_back(stranger, 
 
     # And the check that reads them back agrees, on the same machine, with no argument.
     assert doctor.routers_intact(stranger) is None
+
+
+# ── D-024-02: context-aware init ─────────────────────────────────────────────────────
+# The split stops needing to be remembered: inside a repository with a person answering it
+# offers the project step; outside a repository it does global only; `-y` stays a promise
+# about the machine and never turns the project half on. Spec 024 example 2 pins these
+# three behaviours.
+
+
+class _Tty:
+    def isatty(self) -> bool:
+        return True
+
+
+@pytest.fixture
+def tty(monkeypatch):
+    import sys
+
+    monkeypatch.setattr(sys, "stdin", _Tty())
+
+
+@pytest.fixture
+def typed(monkeypatch):
+    import builtins
+
+    box = {"prompts": [], "replies": []}
+
+    def fake_input(prompt=""):
+        box["prompts"].append(prompt)
+        return box["replies"].pop(0) if box["replies"] else "y"
+
+    monkeypatch.setattr(builtins, "input", fake_input)
+    return box
+
+
+def test_bare_init_inside_a_repo_offers_the_project_step(stranger, tty, typed, capsys):
+    result = init.main(["--harness", "claude-code"])
+    # The stranger repo carries no canonical Intent, so the honest terminal outcome is
+    # INCOMPLETE ("a repository without its canonical Intent is not a governed one", the
+    # product's own gate). What D-024-02 pins is the offer, not that gate: the project
+    # step asked, and the files were written on the yes.
+    assert result.outcome == "INCOMPLETE", result.as_dict()
+    asked = "".join(typed["prompts"])
+    assert "Set up this project too?" in asked, asked
+    assert (stranger / "AGENTS.md").is_file()
+
+
+def test_bare_init_outside_a_repo_does_global_only(tmp_path, monkeypatch, capsys):
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("AI_ENGINEERING_HOME", str(home / ".ai-engineering"))
+    monkeypatch.chdir(tmp_path)
+    result = init.main(["--harness", "claude-code", "-y"])
+    assert result.outcome == "PASS", result.as_dict()
+    out = capsys.readouterr().err
+    assert "Set up this project too?" not in out
+    assert not list(tmp_path.glob("AGENTS.md"))
+
+
+def test_bare_init_dash_y_in_a_repo_stays_global_only(stranger, tty, capsys):
+    # On a real terminal the machine half's default is yes, and the project half used to
+    # inherit it: `-y` then set up whatever repository the person happened to be standing
+    # in. D-024-02 pins that `-y` stays a promise about the machine only.
+    result = init.main(["--harness", "claude-code", "-y"])
+    assert result.outcome == "PASS", result.as_dict()
+    assert not (stranger / "AGENTS.md").is_file()
+    assert not (stranger / "CONSTITUTION.md").is_file()

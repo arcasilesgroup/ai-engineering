@@ -598,7 +598,13 @@ def project_step(args, prepared_root: Path | None = None) -> outcome.Result:
         return outcome.result("READY")
 
     ui.section(f"◇ Project   {root}   git repository, not set up")
-    if not (args.project is not None or ask("Set up this project too?", sys.stdin.isatty(), args)):
+    # A terminal answers yes by default when the run is interactive, but never under -y:
+    # `ask` returns the default on -y, and the machine-only promise `-y` makes must not
+    # turn into "and whatever repository I happen to be standing in" (D-024-02).
+    if not (
+        args.project is not None
+        or ask("Set up this project too?", sys.stdin.isatty() and not args.yes, args)
+    ):
         out("   → skipped. Nothing was written.")
         return outcome.result("READY")
 
