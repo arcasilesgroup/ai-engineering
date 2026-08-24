@@ -496,19 +496,27 @@ def _project_paths_safe(root: Path) -> bool:
     return _receipt_state() is not None
 
 
-def _global_paths_safe(args) -> bool:
+def _global_paths_safe(args) -> list[Path] | None:
+    """`None` when this machine's install paths are not ours to write. Otherwise the skill
+    directories we found belonging to somebody else, which are skipped and named.
+
+    It returned a bare `False` for both, and one foreign folder under one of our sixteen
+    names refused every surface on the machine over a message that named no path. A name
+    collision in a root we share is not a reason to install nothing."""
+
     only = [surface for surface in args.harness.split(",") if surface] or None
+    theirs: list[Path] = []
     try:
         receipt = wiring.receipt_path()
         if not _safe_path(receipt.parent, "directory") or not _safe_path(receipt, "file"):
-            return False
+            return None
         installed = _receipt_state()
         if installed is None:
-            return False
+            return None
         found = wiring.detect(only)
         store = paths.home() / "skills"
         if not _safe_path(paths.home(), "directory") or not _safe_path(store, "directory"):
-            return False
+            return None
         store_owned = any(
             row.get("path") == str(store)
             and row.get("kind") == "skills"
@@ -516,17 +524,12 @@ def _global_paths_safe(args) -> bool:
             for row in installed.get("wrote", [])
         )
         if not store_owned and any(store.glob("ai-*")):
-            return False
-        copied = {
-            row["path"]
-            for row in installed.get("wrote", [])
-            if row.get("kind") == "link" and row.get("how") == "copy"
-        }
+            return None
         for surface in found:
             settings = wiring.expand(surface["settings"]) if surface.get("settings") else None
             if settings is not None:
                 if not _safe_path(settings.parent, "directory") or not _safe_path(settings, "file"):
-                    return False
+                    return None
                 if settings.exists() and surface["writer"].startswith("json_"):
                     wiring.read_json(settings)
                 if (
@@ -534,42 +537,21 @@ def _global_paths_safe(args) -> bool:
                     and surface["writer"] == "ts_opencode"
                     and wiring.SIGNATURE not in settings.read_text(encoding="utf-8")
                 ):
-                    return False
+                    return None
             if not surface.get("skills"):
                 continue
             skills_root = wiring.expand(surface["skills"])
             if not _safe_path(skills_root, "directory"):
-                return False
-            for source in paths.skills().glob("ai-*"):
-                target = skills_root / source.name
-                if not os.path.lexists(target):
-                    continue
-                # Ours if it points at the source, or at the store this verb installs into.
-                # Only the second is reachable after a successful run: `init` copies the
-                # skills to `home()/skills` and links every surface root at *that*, so a
-                # check that recognised the source alone declared its own finished work
-                # unsafe. Every second `init` on every machine returned False here and
-                # printed INCOMPLETE with no surface table, no reason and no cure — a guard
-                # failing closed for the wrong reason, in the only verb that installs one.
-                if target.is_symlink() and target.resolve() in (
-                    source.resolve(),
-                    (store / source.name).resolve(),
-                ):
-                    continue
-                if target.is_dir() and str(skills_root) in copied:
-                    continue
-                # An empty directory of ours by name has nothing in it to lose, and it is
-                # the state a skills root is in the first time a surface creates one — which
-                # the install matrix reproduces on purpose to force the copy path. Refusing
-                # it meant a fresh machine whose editor had made the folder could never be
-                # initialised at all. A directory with something in it that this install did
-                # not write is a different thing and is still refused.
-                if target.is_dir() and not any(target.iterdir()):
-                    continue
-                return False
+                return None
+            # Named, not refused. `wiring.foreign` answers the one question the disk can:
+            # a non-empty real directory at a name we ship, in a root the receipt does not
+            # record us copying into, is somebody else's. It is skipped at the write site
+            # and printed here, and the other fifteen skills install.
+            ours = [source.name for source in paths.skills().glob("ai-*")]
+            theirs.extend(wiring.foreign(skills_root, ours))
     except (KeyError, OSError, UnicodeError, wiring.Unreadable):
-        return False
-    return True
+        return None
+    return sorted(set(theirs))
 
 
 def _project_preflight(args) -> tuple[Path | None, intent.Validation | None] | None:
@@ -831,13 +813,26 @@ def main(argv: list[str]) -> outcome.Result:
                 "check that no directory in the path is a symlink, and that it is readable",
             )
         root, intent_state = prepared
-        if not args.skip_global and not _global_paths_safe(args):
-            return _refused(
-                "something in this machine's install paths is not this installer's to write",
-                "run `ai-eng doctor` to see which surface, or move that file aside",
-            )
+        theirs: list[Path] = []
+        if not args.skip_global:
+            collided = _global_paths_safe(args)
+            if collided is None:
+                return _refused(
+                    "something in this machine's install paths is not this installer's to write",
+                    "run `ai-eng doctor` to see which surface, or move that file aside",
+                )
+            theirs = collided
 
         banner()
+        # Before anything is written, because it changes what the counts below mean. A
+        # skills root is shared with the person and with every other publisher, and the
+        # reader has to be able to tell "we skipped one of yours" from "one is missing".
+        if theirs:
+            out(f"\n   {len(theirs)} skill folder(s) here are somebody else's.")
+            out("   Skipped, not touched:")
+            for path in theirs:
+                out(f"     {path}")
+            out("   Rename ours, or move theirs aside, if you want ours in that surface.")
         machine = global_step(args)
         if machine.outcome == "CANCELLED":
             return machine

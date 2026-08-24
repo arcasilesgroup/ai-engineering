@@ -131,11 +131,17 @@ def test_a_skills_root_that_already_holds_empty_folders_does_not_stop_the_instal
     assert (Path.home() / ".claude" / "settings.json").is_file()
 
 
-def test_a_folder_this_install_never_wrote_is_still_refused_and_says_why(
+def test_a_folder_this_install_never_wrote_is_named_and_skipped_and_the_rest_install(
     stranger, monkeypatch, capsys
 ):
-    """The other side of it. An empty directory has nothing to lose; one with somebody
-    else's file in it is theirs, and refusing is right — refusing in silence is not."""
+    """The other side of it, and the assertion this test used to make was the defect.
+
+    It asserted INCOMPLETE over one foreign directory, with a docstring arguing that
+    refusing was right. It passed in 0.18s while a real machine could not install at all:
+    one folder named `ai-design`, owned by the person four weeks before this repository
+    shipped a skill of that name, refused eight surfaces and named no path. A skills root
+    is shared — eighteen `ai-*` skills from other publishers sat in that one. Their folder
+    is theirs, so it is skipped and printed; the other fifteen are ours to install."""
 
     from ai_engineering import paths
 
@@ -145,12 +151,18 @@ def test_a_folder_this_install_never_wrote_is_still_refused_and_says_why(
     stranger_file = root / "ai-spec" / "somebody-elses.md"
     stranger_file.write_text("not ours\n", encoding="utf-8")
 
-    result = init.main(["--global", "--project", ".", "-y"])
+    init.main(["--global", "--project", ".", "-y"])
     printed = capsys.readouterr().err
 
-    assert result.outcome == "INCOMPLETE"
-    assert "not this installer's to write" in printed
+    assert str(root / "ai-spec") in printed, printed[-800:]
     assert stranger_file.read_text(encoding="utf-8") == "not ours\n"
+    # Skipped, not merged: `link` copies into a directory that already exists, so the
+    # failure this guards against is our SKILL.md landing on top of theirs.
+    assert not (root / "ai-spec" / "SKILL.md").exists()
+    # And the whole point — one collision costs one skill, not the machine.
+    landed = sorted(p.name for p in root.glob("ai-*") if (p / "SKILL.md").exists())
+    assert len(landed) == len(list(paths.skills().glob("ai-*"))) - 1, landed
+    assert (Path.home() / ".claude" / "settings.json").is_file()
 
 
 def test_the_first_spec_names_the_missing_intent_rather_than_a_path(stranger, capsys):
