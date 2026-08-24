@@ -1,64 +1,73 @@
-# Guía rápida de comandos
-Esta es la chuleta para instalar, entender y ejecutar este repositorio sin tener que leer el código.
-> Ejecuta todo desde la raíz. Usa `uv run ai-eng` para el código local; si instalaste la herramienta, puedes escribir solo `ai-eng`.
-## 1. Preparación
-Necesitas **Python 3.11+**, `uv` y `just`; `just security`/`just check` también necesitan `gitleaks` y `trivy`. En macOS: `brew install uv just gitleaks trivy`.
+# Quick command guide
+This is the cheat sheet for installing, understanding and running this repository without
+having to read the code.
+> Run everything from the root. Use `uv run ai-eng` for the local code; once the tool is
+> installed you can write just `ai-eng`.
+
+## 1. Setup
+You need **Python 3.11+**, `uv` and `just`; `just security`/`just check` also need
+`gitleaks` and `trivy`. On macOS: `brew install uv just gitleaks trivy`.
 
 ```bash
-uv sync                    # prepara el entorno local
-uv tool install --editable .  # opcional: deja `ai-eng` disponible en el PATH
-uv run ai-eng --help       # muestra la CLI del proyecto
-just --list                # muestra las tareas de desarrollo
+uv sync                    # prepare the local environment
+uv tool install --editable .  # optional: makes `ai-eng` available on the PATH
+uv run ai-eng --help       # shows the project's CLI
+just --list                # shows the development tasks
 ```
-> Ruta habitual: prepara una vez con `uv sync` → trabaja con `just quick MÓDULO` → antes del PR ejecuta `just check` y `just guards`.
-## 2. Cómo funciona
-`ai-eng` instala o escribe la configuración y el registro; `hooks/chain.py` recibe las acciones del agente y llama a los guardas; los hooks de Git protegen commits y pushes; CI ejecuta las mismas recetas de `just` que tú ejecutas localmente.
-## 3. Todos los comandos `ai-eng`
-| Comando | Para qué sirve |
-|---|---|
-| `uv run ai-eng init [--global] [--no-global] [--project [RUTA]] [--no-project] [--harness IDS] [--overwrite ARCHIVOS\|all] [--dry-run] [-y]` | Configura la máquina y, si lo eliges, el repositorio. Escribe `.github/workflows/check.yml` y un `justfile` con los comandos de los stacks que encuentre. Empieza con `--dry-run`; no instala binarios ni hace commits. |
-| `uv run ai-eng doctor [--ci] [--paths] [--fix]` | Ejecuta el diagnóstico de salud. `--ci` omite lo que un runner no puede comprobar; `--paths` enseña dónde vive cada clase de archivo; `--fix` ejecuta solo las curas que los propios fallos declaran y vuelve a comprobar. |
-| `uv run ai-eng update [--to VERSION] [--force]` | Migra el pin del proyecto de forma interactiva. `--force` **solo informa** qué se descartaría; nunca sobrescribe cambios locales. |
-| `uv run ai-eng spec new SLUG [--ref owner/repo#45]` | Crea `specs/NNN-slug/spec.md`; `--ref` solo anota el work item en el frontmatter y no rellena nada. |
-| `uv run ai-eng spec list [--all]` · `uv run ai-eng spec show ID` | Lista especificaciones o muestra una; `--all` incluye las reemplazadas. |
-| `uv run ai-eng decide "DECISIÓN" [--supersede NNNN]` · `uv run ai-eng decide --list` · `uv run ai-eng decide --accept NNNN` | Crea o lista un ADR en `docs/adr/`. Ya no escribe dentro de la spec: esa mitad se borró con `--why` y `--madr`, porque nada leía lo que escribía. `--accept` saca un MADR de `proposed` tomando la autoridad del Solution Intent aprobado; no la inventa ni la vuelve a pedir, y si el Intent no valida o sigue en borrador no concede nada. El commit lo haces tú. |
-| `uv run ai-eng accept --finding ID --expires AAAA-MM-DD --by PERSONA --justification TEXTO [--severity NIVEL] [--follow-up TEXTO] [--spec ID]` · `uv run ai-eng accept --expired` | Registra un riesgo con dueño y caducidad, o lista los ya caducados. Las cuatro primeras son obligatorias: una aceptación sin nombre y sin razón no es una aceptación. |
-| `uv run ai-eng audit [verify\|replay] [--anchors] [--session ID] [--anchor]` | Verifica o reproduce la cadena de auditoría. `--anchors` coteja Git; `--anchor` es para el hook `commit-msg`. |
-| `uv run ai-eng report digest [--weeks N]` | Resume sesiones, bloqueos, bypasses, errores y cobertura del periodo; marca el resumen como leído. `ai-eng report issue` existe como subcomando pero devuelve `INCOMPLETE`: no está implementado en P0 y no envía nada. |
-| `uv run ai-eng exception --skip "MOTIVO" [--guard loop_guard]` | Con confirmación humana, concede **un** bypass durante 15 minutos y lo registra. No funciona sin terminal interactiva. |
-| `uv run ai-eng uninstall [--project] [-y]` | Quita lo instalado según el recibo, e imprime una línea por fila: lo que quita y, para lo que conserva, por qué. Sin `--project` no entra en ningún repositorio y los nombra. Conserva siempre `specs/`, `CONSTITUTION.md`, `AGENTS.md`, `docs/adr/` y el registro externo. |
-| `uv run ai-eng --version` · `uv run ai-eng <comando> --help` | Muestra la versión o todas las opciones reales de un comando. |
+> Typical path: set up once with `uv sync` → work with `just quick MODULE` → before the PR
+> run `just check` and `just guards`.
 
-## 4. Todas las recetas `just`
-| Receta | Qué ejecuta y cuándo usarla |
-|---|---|
-| `just build` | Construye el wheel y el paquete fuente con `uv build`. |
-| `just lint` | Ejecuta Ruff: reglas de código y comprobación de formato. |
-| `just test` | Ejecuta toda la suite de Pytest. Para un archivo: `uv run --with pytest==9.1.1 pytest -q tests/test_doctor.py`. |
-| `just security` | Busca secretos con Gitleaks, analiza reglas con Semgrep y revisa vulnerabilidades/licencias/configuración con Trivy. |
-| `just cover` | Mide cobertura de ramas sobre paquete, hooks y suite adversarial; exige al menos 80 %. |
-| `just guards [FILTRO]` | Introduce defectos deliberados en los guardas y falla si los tests no los detectan. Dos mitades: quince filas escritas a mano con suelo 100, y los mutantes generados sobre la superficie que bloquea, con suelo 90. Es la receta más lenta. |
-| `just quick MÓDULO` | La suite de un módulo y su recibo, que es lo que el hook de commit escribe en el trailer `Ai-Eng-Ran:`. **No sustituye** al gate completo. |
-| `just counts` | Imprime pruebas verificables de cuántos archivos formateó Ruff y cuántos tests recogió Pytest. |
-| `just council` | Recuenta, sobre cada `specs/*/council.md`, cuántos huecos aparecieron solo tras la lectura cruzada y cuántos hallazgos se borraron, y rechaza cuando su recuento no coincide con el total que la ejecución escribió. |
-| `just stats` | Muestra métricas del repositorio; es un informe, no un gate. Usa `uv run python tests/stats.py --json` para JSON. |
-| `just check` | Gate local/CI, catorce pasos en orden: `build sbom lint typecheck test cover security register skilleval counts intent-page lenses council ran`. No incluye `just guards`, que es un carril aparte y bloquea desde `ci-result`. |
+## 2. How it works
+`ai-eng` installs or writes the configuration and the record; `hooks/chain.py` receives the
+agent's actions and calls the guards; the Git hooks protect commits and pushes; CI runs the
+same `just` recipes you run locally.
 
-## 5. Scripts directos y automatismos
-| Ejecución | Uso |
+## 3. All `ai-eng` commands
+| Command | What it is for |
 |---|---|
-| `uv run python tests/adversarial/run.py` | Lanza todos los ataques y un caso limpio que no debe bloquearse. |
-| `uv run python tests/mutation.py [-k FILTRO]` | El carril de mutación por debajo de la receta; normalmente usa `just guards`. |
-| `uv run python tests/anti_theatre.py LOG [RAÍZ] [nombres,separados]` | CI: confirma que un log demuestra que los gates realmente corrieron. |
-| `uv run python tests/stats.py [--json]` | Genera el informe de gobierno, calidad y seguridad. |
-| `SONAR_TOKEN=... uv run python tests/quality_gate.py [project-key]` | CI: compara el Quality Gate real de SonarCloud con `policy/quality-gate.toml`. |
-| `uv run python migrations/0.13..1.0/unvendor.py [RAÍZ] [HOME]` | Migración interna desde 0.13; normalmente la llama `ai-eng update`, no una persona. |
+| `uv run ai-eng init [--global] [--no-global] [--project [PATH]] [--no-project] [--harness IDS] [--overwrite FILES\|all] [--dry-run] [-y]` | Sets up the machine and, if you choose, the repository. Writes `.github/workflows/check.yml` and a `justfile` with the commands for the stacks it finds. Start with `--dry-run`; it installs no binaries and makes no commits. |
+| `uv run ai-eng doctor [--ci] [--paths] [--fix]` | Runs the health diagnosis. `--ci` skips what a runner cannot check; `--paths` shows where each file class lives; `--fix` runs only the cures the failures themselves declare and re-checks. |
+| `uv run ai-eng update [--to VERSION] [--force]` | Migrates the project's pin interactively. `--force` **only reports** what would be discarded; it never overwrites local changes. |
+| `uv run ai-eng spec new SLUG [--ref owner/repo#45]` | Creates `specs/NNN-slug/spec.md`; `--ref` only annotates the work item in the frontmatter and fills nothing in. |
+| `uv run ai-eng spec list [--all]` · `uv run ai-eng spec show ID` | Lists specifications or shows one; `--all` includes the replaced ones. |
+| `uv run ai-eng decide "DECISION" [--supersede NNNN]` · `uv run ai-eng decide --list` · `uv run ai-eng decide --accept NNNN` | Creates or lists an ADR in `docs/adr/`. It no longer writes inside the spec: that half was deleted with `--why` and `--madr`, because nothing read what it wrote. `--accept` moves a MADR out of `proposed` taking the authority of the approved Solution Intent; it does not invent it or ask again, and if the Intent does not validate or is still draft it grants nothing. The commit is yours. |
+| `uv run ai-eng accept --finding ID --expires YYYY-MM-DD --by PERSON --justification TEXT [--severity LEVEL] [--follow-up TEXT] [--spec ID]` · `uv run ai-eng accept --expired` | Records a risk with an owner and an expiry, or lists the expired ones. The first four are required: an acceptance with no name and no reason is not an acceptance. |
+| `uv run ai-eng audit [verify\|replay] [--anchors] [--session ID] [--anchor]` | Verifies or replays the audit chain. `--anchors` cross-checks Git; `--anchor` is for the `commit-msg` hook. |
+| `uv run ai-eng report digest [--weeks N]` | Summarises sessions, blocks, bypasses, errors and coverage for the period; marks the summary as read. `ai-eng report issue` exists as a subcommand but returns `INCOMPLETE`: it is not implemented in P0 and sends nothing. |
+| `uv run ai-eng exception --skip "REASON" [--guard loop_guard]` | With human confirmation, grants **one** 15-minute bypass and records it. It does not work without an interactive terminal. |
+| `uv run ai-eng uninstall [--project] [-y]` | Removes what was installed according to the receipt, and prints one line per row: what it removes and, for what it keeps, why. Without `--project` it enters no repository and names them. It always keeps `specs/`, `CONSTITUTION.md`, `AGENTS.md`, `docs/adr/` and the external record. |
+| `uv run ai-eng --version` · `uv run ai-eng <command> --help` | Shows the version or all the real options of a command. |
 
-| Automático | Qué hace |
+## 4. All `just` recipes
+| Recipe | What it runs and when to use it |
 |---|---|
-| `git-hooks/` | `pre-commit` busca secretos; `commit-msg` valida el asunto y añade el ancla; `pre-push` bloquea ramas protegidas, secretos salientes y riesgos caducados. |
-| `hooks/chain.py` | Despacha `self_protect`, `no_verify_guard`, `injection_guard`, `loop_guard`, `autoformat` y `session`; no se ejecutan a mano. |
-| `hooks/_emit.py`, `_otlp.py`, `_wrap.py` | Mantienen el registro, exportan OTLP y definen el comportamiento fail-closed/fail-open; son auxiliares internos. |
-| `tests/test_*.py` · `surfaces/opencode.ts` | Pytest recoge los tests y OpenCode carga su plugin. |
-| `.agents/skills/ai-*` | El agente invoca `ai-debug`, `ai-explore`, `ai-note`, `ai-plan`, `ai-research`, `ai-review`, `ai-ship` y `ai-spec`; no son comandos del shell. |
-| `.github/workflows/` | GitHub ejecuta check, ataques, mutación, mypy, Sonar, Snyk, instalación multiplataforma y publicación; localmente usa las recetas anteriores. |
+| `just build` | Builds the wheel and the source package with `uv build`. |
+| `just lint` | Runs Ruff: code rules and formatting check. |
+| `just test` | Runs the whole Pytest suite. For one file: `uv run --with pytest==9.1.1 pytest -q tests/test_doctor.py`. |
+| `just security` | Finds secrets with Gitleaks, analyses rules with Semgrep and reviews vulnerabilities/licences/configuration with Trivy. |
+| `just cover` | Measures branch coverage over the package, hooks and adversarial suite; requires at least 80 %. |
+| `just guards [FILTER]` | Introduces deliberate defects into the guards and fails if the tests do not catch them. Two halves: fifteen hand-written rows with a floor of 100, and the mutants generated over the blocking surface, with a floor of 90. It is the slowest recipe. |
+| `just quick MODULE` | One module's suite and its receipt, which is what the commit hook writes into the `Ai-Eng-Ran:` trailer. **It is no substitute** for the full gate. |
+| `just counts` | Prints verifiable proof of how many files Ruff formatted and how many tests Pytest collected. |
+| `just council` | Recounts, over each `specs/*/council.md`, how many gaps appeared only after cross-reading and how many findings were deleted, and rejects when its count does not match the total the run wrote. |
+| `just stats` | Shows repository metrics; it is a report, not a gate. Use `uv run python tests/stats.py --json` for JSON. |
+| `just check` | Local/CI gate, fourteen steps in order: `build sbom lint typecheck test cover security register skilleval counts intent-page lenses council ran`. It does not include `just guards`, which is a separate lane and blocks from `ci-result`. |
+
+## 5. Direct scripts and automation
+| Execution | Use |
+|---|---|
+| `uv run python tests/adversarial/run.py` | Launches every attack and a clean control that must not block. |
+| `uv run python tests/mutation.py [-k FILTER]` | The mutation lane under the recipe; normally use `just guards`. |
+| `uv run python tests/anti_theatre.py LOG [ROOT] [names,comma-separated]` | CI: confirms that a log proves the gates really ran. |
+| `uv run python tests/stats.py [--json]` | Generates the governance, quality and security report. |
+| `SONAR_TOKEN=... uv run python tests/quality_gate.py [project-key]` | CI: compares the real SonarCloud Quality Gate with `policy/quality-gate.toml`. |
+| `uv run python migrations/0.13..1.0/unvendor.py [ROOT] [HOME]` | Internal migration from 0.13; normally `ai-eng update` calls it, not a person. |
+
+| Automatic | What it does |
+|---|---|
+| `git-hooks/` | `pre-commit` finds secrets; `commit-msg` validates the subject and adds the run receipt; `pre-push` blocks protected branches, outgoing secrets and expired risks. |
+| `hooks/chain.py` | Dispatches `self_protect`, `no_verify_guard`, `injection_guard`, `loop_guard`, `autoformat` and `session`; they are not run by hand. |
+| `hooks/_emit.py`, `_otlp.py`, `_wrap.py` | Keep the record, export OTLP and define the fail-closed/fail-open behaviour; they are internal helpers. |
+| `tests/test_*.py` · `surfaces/opencode.ts` | Pytest collects the tests and OpenCode loads its plugin. |
+| `.agents/skills/ai-*` | The agent invokes `ai-debug`, `ai-explore`, `ai-note`, `ai-plan`, `ai-research`, `ai-review`, `ai-ship` and `ai-spec`; they are not shell commands. |
+| `.github/workflows/` | GitHub runs check, attacks, mutation, mypy, Sonar, Snyk, cross-platform install and publication; locally it uses the recipes above. |

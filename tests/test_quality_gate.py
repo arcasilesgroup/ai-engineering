@@ -207,6 +207,23 @@ def test_install_matrix_executes_the_hooks_template_on_every_supported_os():
     assert block.index("ai-eng init --hooks-template") < block.index("ai-eng doctor || true")
 
 
+def test_no_spanish_in_docs():
+    """D-024-04: the record and the rule agree. The project is English-first for open
+    source, and the two artifacts this decision owns — the hand-written `docs/tools.md`
+    and the generator's own template — must not carry Spanish UI text. The rendered page
+    also shows the operator's data (historical blocked rows, spec titles) which is not
+    this generator's language and is deliberately preserved as history."""
+
+    tools = (ROOT / "docs" / "tools.md").read_text(encoding="utf-8", errors="replace")
+    generator = (ROOT / "src" / "ai_engineering" / "solution_intent.py").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    markers = ("Guía rápida", "Decisiones que atan", "De un vistazo", "cuatro cosas", "escribe")
+    for name, body in (("tools.md", tools), ("solution_intent.py", generator)):
+        hits = [marker for marker in markers if marker in body]
+        assert not hits, f"{name} still carries Spanish UI text: {hits}"
+
+
 def test_install_matrix_executes_acceptance_publication_on_every_supported_os():
     """Every acceptance control the wheel owes, on all three runners, from the wheel.
 

@@ -251,12 +251,12 @@ def test_a_row_with_no_action_is_absent_and_the_count_says_so():
     shown, dropped = blocked.collect(ROOT)
     assert tree.considered == len(shown) + len(dropped)
     assert tree.considered > len(tree.blocked), "this tree drops six drafts with no plan"
-    assert f"{len(tree.blocked)} de {tree.considered}" in section
+    assert f"{len(tree.blocked)} of {tree.considered}" in section
 
     # And the clause, not the bare digit. `str(considered - len(blocked))` is "6" on this
     # tree, and every date cell in the table contains "2026" — so deleting the entire
     # disclosure paragraph left that assertion passing on a substring of a date.
-    assert f"{tree.considered - len(tree.blocked)} no dicen las cuatro cosas" in " ".join(
+    assert f"{tree.considered - len(tree.blocked)} do not say the four things" in " ".join(
         section.split()
     )
 
@@ -285,18 +285,19 @@ def test_a_tree_with_nothing_waiting_says_so_in_a_sentence():
 
     clear = section(0)
     assert "<table>" not in clear
-    assert "Nada espera a una persona ahora mismo." in clear
-    assert "cuatro cosas" not in clear
+    assert "Nothing is waiting for a person right now." in clear
+    assert "the four things" not in clear
 
     refused = section(28)
     assert "<table>" not in refused
-    assert "Se miraron 28 candidatos" in refused
-    assert "ninguno dice las cuatro cosas" in refused
-    assert "no quiere decir que no haya nada esperando" in refused
+    assert "candidates were examined" in refused
+    assert "none of them says all" in refused
+    assert "nothing says what to do" in refused
 
-    # One candidate is one candidato. A count line that cannot count to one reads as
-    # generated, and this one is the first thing a person sees on the page.
-    assert "1 candidato y" in section(1)
+    # One candidate is one candidate, and the verb agrees with it. A count line that
+    # cannot count to one reads as generated, and this one is the first thing a person
+    # sees on the page.
+    assert "1 candidate was examined" in section(1)
 
 
 def test_a_hostile_row_cannot_reach_the_page_unescaped():
@@ -370,8 +371,8 @@ def test_a_percentage_the_page_prints_covers_the_whole_population_it_names():
     # account of the other ten is the same silence one level down.
     plans_with = sum(1 for s in tree.specs if s.tasks)
     plans_all = sum(1 for s in tree.specs if s.has_plan)
-    assert f"en {plans_with} de {plans_all} planes" in page
-    assert f"los otros {plans_all - plans_with}" in page
+    assert f"in {plans_with} of {plans_all} plans" in page
+    assert f"the other {plans_all - plans_with}" in page
 
     # The shape that produced the lie does not come back.
     assert "casillas de plan marcadas" not in page
