@@ -31,6 +31,13 @@ JARGON = (
 )
 DESCRIPTION_MAX = 1000
 
+# The catalogue budget, not the file budget: the open Agent Skills specification and each
+# surface load a catalogue, and a skill that silently does not fit is a skill that silently
+# does not exist there. 50 000 is the smallest documented budget (Zed's 50 KB, spec 024
+# D-024-03); the per-file `DESCRIPTION_MAX` above stays 1000 and the divergence from the
+# open standard's 1,024 is deliberate and recorded in that decision.
+CATALOG_MAX = 50_000
+
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
 # it was wrong. An unmeasured number in a governance file is the defect this product is
@@ -57,7 +64,29 @@ def audit(root: Path) -> list[str]:
     skills = sorted(root.glob("ai-*/SKILL.md"))
     if not skills:
         return [f"no skills found under {root}"]
-    return [problem for skill in skills for problem in audit_one(skill)]
+    problems = [problem for skill in skills for problem in audit_one(skill)]
+    # Measured once for the whole catalogue, because that is what a surface loads and what
+    # the smallest documented budget bounds. One parse per skill, in the same pass that
+    # names the largest contributor: a catalogue that blows the budget is usually one
+    # skill far over, and a message that names it is a message somebody can act on.
+    total = 0
+    largest: tuple[int, str] = (0, "")
+    for skill in skills:
+        try:
+            header = text.frontmatter(skill)
+        except ValueError:
+            continue  # audit_one already reported the broken frontmatter
+        size = len(skill.parent.name) + len(header.get("description", ""))
+        total += size
+        if size > largest[0]:
+            largest = (size, skill.parent.name)
+    if total > CATALOG_MAX:
+        problems.append(
+            f"catalogue budget: {total} characters over CATALOG_MAX={CATALOG_MAX}; top "
+            f"contributor {largest[1]} is {largest[0]} — a surface that loads this catalogue "
+            f"would drop a skill silently"
+        )
+    return problems
 
 
 def audit_one(path: Path) -> list[str]:

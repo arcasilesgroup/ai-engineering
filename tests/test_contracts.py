@@ -321,6 +321,36 @@ def test_every_skill_meets_the_contract():
     assert not problems, "\n".join(problems)
 
 
+def test_the_catalogue_fits_the_smallest_documented_budget(tmp_path):
+    """D-024-03. "Not one word over" is currently true per file and unmeasured across a
+    catalogue; a surface that drops a skill silently is the exact failure this repository
+    exists to expose. The sum of every skill's name and description must stay inside the
+    smallest documented per-catalogue budget (Zed's 50 KB), so a future skill cannot make
+    one silently disappear from a surface. The per-file `DESCRIPTION_MAX` stays 1000; the
+    divergence from the open standard's 1,024 is deliberate and recorded in spec 024."""
+
+    assert contract.CATALOG_MAX == 50_000
+    skills = sorted((ROOT / ".agents" / "skills").glob("ai-*/SKILL.md"))
+    assert skills
+    total = 0
+    for path in skills:
+        header = text.frontmatter(path)
+        total += len(path.parent.name) + len(header.get("description", ""))
+    assert total < contract.CATALOG_MAX, f"{total} of {contract.CATALOG_MAX}: the shipped catalogue fits"
+
+    # The denial path: one skill over the budget must refuse, naming the budget and the
+    # culprit, rather than silently letting a surface drop it.
+    huge = tmp_path / "ai-huge"
+    huge.mkdir()
+    (huge / "SKILL.md").write_text(
+        "---\nname: ai-huge\ndescription: " + "x" * 60_000
+        + "\n---\n\n# ai-huge\n\n## Routes here\n\ntake it\n\n## Refuses\n\nrefuse it\n",
+        encoding="utf-8",
+    )
+    problems = contract.audit(tmp_path)
+    assert any("catalogue budget" in problem and "ai-huge" in problem for problem in problems), problems
+
+
 AI_HOME_ENTRIES = (
     "`.ai/intent.md` — the user-owned, non-disposable canonical Intent.",
     "`.ai/` — otherwise disposable, except `config.toml` and `.gitignore`, which are the pin.",
