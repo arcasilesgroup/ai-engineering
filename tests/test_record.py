@@ -1510,6 +1510,11 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
     known = {
         ("specs/016-the-thesis-nobody-owns/spec.md", "f5c004ee5307"),
         ("specs/018-controls-a-reviewer-proved-were-not-controls/plan.md", "22d69e65bb67"),
+        # 0021 approved spec 023 and its plan at bytes that the fix wave then corrected;
+        # 0023 re-approved both at the corrected digests, so the old approvals legitimately
+        # moved and the fresh rows in 0023 carry the bytes that are there now.
+        ("specs/023-council-that-reads-itself/spec.md", "862372fb0e24"),
+        ("specs/023-council-that-reads-itself/plan.md", "821b48e6cf6c"),
     }
 
     rows = []

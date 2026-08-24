@@ -1,4 +1,4 @@
-"""Twenty-seven assertions and one line.
+"""Twenty-six assertions and one line.
 
 These are not document sections: they are checks that fail. `--ci` runs the ones that
 make sense on a runner and says in its output which it skipped, because a doctor that

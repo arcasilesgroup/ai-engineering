@@ -24,7 +24,7 @@ from ai_engineering import __version__, outcome, paths
 
 VERBS: dict[str, str] = {
     "init": "Set up this machine, and this repository if you say yes.",
-    "doctor": "The 25 assertions and the coverage line. Is the system healthy now?",
+    "doctor": "The 26 assertions and the coverage line. Is the system healthy now?",
     "update": "Rewrite the pin and run the forward migrations.",
     "spec": "spec new | list | show | claim | wave | checkpoint — the record and its coordination.",
     "decide": "Add a decision to the spec, or promote it to an MADR with --madr.",

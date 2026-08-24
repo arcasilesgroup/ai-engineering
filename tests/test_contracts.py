@@ -869,6 +869,7 @@ WORDS = {
     23: "twenty-three",
     24: "twenty-four",
     25: "twenty-five",
+    26: "twenty-six",
 }
 COUNTED = (
     ("skills", "README.md", "{Word} written procedures"),
