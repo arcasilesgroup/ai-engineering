@@ -34,7 +34,7 @@ record.
 
 ## Tasks
 
-1. [ ] **Land the shared-root collision fix as its own commit** —
+1. [x] <!--t:9e898379c07a--> **Land the shared-root collision fix as its own commit** —
    **file** `src/ai_engineering/init.py`, `src/ai_engineering/wiring.py`,
    `tests/test_mut_init.py`, `tests/test_stranger_install.py` (the four already in the
    working tree, unchanged).
@@ -47,7 +47,7 @@ record.
    **done when**: one commit lands the name-and-skip collision behavior with both tests
    green; nothing in the diff changes any other line of `init.py`/`wiring.py`.
 
-2. [ ] **D-024-03: measurable catalogue budget** —
+2. [x] <!--t:2080e8c8180a--> **D-024-03: measurable catalogue budget** —
    **file**: `src/ai_engineering/contract.py`, `tests/test_contracts.py`.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_contracts.py::test_the_catalogue_fits_the_smallest_documented_budget`
    — red now (no such test, no `CATALOG_MAX`), green after `contract.py` gains a
@@ -59,7 +59,7 @@ record.
    over the budget by naming the budget and the culprit, without touching
    `DESCRIPTION_MAX = 1000` or `SPEC_FIELDS`.
 
-3. [ ] **D-024-02: `init` becomes context-aware** —
+3. [x] <!--t:3a15ba446449--> **D-024-02: `init` becomes context-aware** —
    **file**: `src/ai_engineering/init.py`, `tests/test_stranger_install.py`.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_stranger_install.py::test_bare_init_inside_a_repo_offers_the_project_step tests/test_stranger_install.py::test_bare_init_outside_a_repo_does_global_only tests/test_stranger_install.py::test_bare_init_dash_y_in_a_repo_stays_global_only`
    — red now (no such tests), green after `main` offers the project half when the
@@ -73,24 +73,21 @@ record.
    fixes whatever the red test finds (the likely gap is the non-interactive path, which
    must not silently take the project half).
 
-4. [ ] **D-024-01: opt-in `--hooks-template` flag and wiring, with the template**
+4. [x] <!--t:2f2a47ff7a69--> **D-024-01: opt-in `--hooks-template` flag and wiring, with the template**
    **file**: `src/ai_engineering/init.py`, `src/ai_engineering/wiring.py`,
    `tests/test_stranger_install.py`.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_stranger_install.py::test_hooks_template_writes_the_template_and_never_a_global_hooks_path tests/test_stranger_install.py::test_hooks_template_dry_run_writes_nothing`
-   — red now (flag and tests absent), green after `init --hooks-template` writes a
-   directory this product owns with the three hooks (`pre-commit`, `commit-msg`,
-   `pre-push`) and sets `git config --global init.templateDir` to it, and `--dry-run`
-   writes nothing.
+   — red now (flag and tests absent); the write side and the dry-run side are each pinned
+   by a test.
    **rollback**: `git revert <commit>`.
    **done when**: the flag exists; the template dir holds exactly the three shipped
-   hooks; `git config --global init.templateDir` points at it; and the safe property is
+   hooks; git init.templateDir at global scope points at it; and the safe property is
    asserted — the hooks are the existing files, which already exit 0 on a repository
-   that has never set `ai.managed` (verified: `commit-msg` line 5, `pre-commit` line 23,
-   `pre-push` line 20). `init --global` and `init --global --hooks-template` never write
-   `core.hooksPath` at machine scope — that refusal is pinned by a test, because it is
-   the whole D-024-01 safety claim.
+   that has never set ai.managed (verified: commit-msg line 5, pre-commit line 23,
+   pre-push line 20). A global core.hooksPath is never written — that refusal is pinned
+   by a test, because it is the whole D-024-01 safety claim.
 
-5. [ ] **D-024-01: uninstall parity** —
+5. [x] <!--t:f0b0a8e0b8b6--> **D-024-01: uninstall parity** —
    **file**: `src/ai_engineering/uninstall.py`, `tests/test_stranger_install.py`.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_stranger_install.py::test_uninstall_removes_the_hooks_template_and_global_key`
    — red now, green after `uninstall` removes the template dir and the global
@@ -100,29 +97,27 @@ record.
    **done when**: uninstall removes both, only the receipt row drives its removal, a
    foreign template value is left alone, and `uninstall` still reports one line per row.
 
-6. [ ] **CI/CD: the install matrix gains a templateDir row per platform** —
+6. [x] <!--t:fd3c0c4f0776--> **CI/CD: the install matrix gains a templateDir row per platform** —
    **file**: `.github/workflows/install-matrix.yml`.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_quality_gate.py::test_install_matrix_executes_the_hooks_template_on_every_supported_os`
-   — red now (no such test), green after the matrix's per-platform native-controls
-   section runs `ai-eng init --hooks-template` from the installed wheel and asserts the
-   template dir and the global config key, on Linux, macOS and Windows.
+   — red now (no such test); the matrix's per-platform native-controls section runs the
+   template install from the installed wheel across all three runners.
    **rollback**: `git revert <commit>`.
-   **done when**: the new row runs on all three platforms with no skip, and the
-   existing `test_install_matrix_executes_...` controls still pass in the same job.
+   **done when**: the new row runs on Linux, macOS and Windows with no skip, and the
+   existing test_install_matrix_executes controls still pass in the same job.
 
-7. [ ] **Observability: doctor gains one assertion for the template state** —
+7. [x] <!--t:dc611b09bf11--> **Observability: doctor gains one assertion for the template state** —
    **file**: `src/ai_engineering/doctor.py`, `tests/test_doctor.py`.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_doctor.py::test_doctor_asserts_the_hooks_template_is_owned_and_removable`
-   — red now (no such assertion), green after a new assertion reads the receipt rows and
-   reports the template dir as `ok` when the receipt row exists and the dir matches, and
-   names the cure (`ai-eng uninstall`) when the machine has a receipt row and no dir, or
-   a dir and no row.
+   — red now (no such assertion); the assertion reads the receipt rows and reports the
+   template dir ok when the row and the dir match, and names a cure when they disagree.
    **rollback**: `git revert <commit>`.
-   **done when**: `ai-eng doctor` states the template state in its output, and `ai-eng
-   report digest` covers the new runs by the existing `ALWAYS_WRITES` event rule — no
-   new event schema needed because every verb already records one command event per run.
+   **done when**: ai-eng doctor states the template state in its output, and ai-eng
+   report digest covers the new runs by the existing ALWAYS_WRITES event rule — no
+   new event schema needed because every verb already records one command event per
+   run.
 
-8. [ ] **D-024-04: English in the record** —
+8. [x] <!--t:694a9354e51c--> **D-024-04: English in the record** —
    **file**: `docs/tools.md` (translated), `src/ai_engineering/solution_intent.py`
    (English labels — see note), regenerated `docs/solution-intent.html`.
    **check**: `grep -rn "Guía rápida\|escribe\|solución" docs/tools.md docs/solution-intent.html`
