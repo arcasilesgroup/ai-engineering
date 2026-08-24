@@ -423,6 +423,24 @@ jobs:
           command -v gitleaks >/dev/null \
             || grep -q "gitleaks is not on your PATH" init.log \
             || { echo "the gitleaks notice never printed"; exit 1; }
+          # D-024-01: the opt-in hooks template, from the installed wheel, on every OS. A
+          # fresh clone must inherit the floor only when a person opts in, so this asserts
+          # the write, the global key, and that `core.hooksPath` was never touched at
+          # machine scope — the whole safety claim of the feature. The template is the
+          # shipped hooks, which pass cleanly on a repository that never set `ai.managed`.
+          ai-eng init --hooks-template 2>&1 | tee template.log || true
+          test -d "$HOME/.ai-engineering/hooks-template" \
+            || { echo "--hooks-template wrote no template directory"; exit 1; }
+          test -x "$HOME/.ai-engineering/hooks-template/pre-commit" \
+            || { echo "the template pre-commit is not executable"; exit 1; }
+          test -x "$HOME/.ai-engineering/hooks-template/commit-msg" \
+            || { echo "the template commit-msg is not executable"; exit 1; }
+          test -x "$HOME/.ai-engineering/hooks-template/pre-push" \
+            || { echo "the template pre-push is not executable"; exit 1; }
+          test "$(git config --global --get init.templateDir)" = "$HOME/.ai-engineering/hooks-template" \
+            || { echo "init.templateDir does not point at the template"; exit 1; }
+          test -z "$(git config --global --get core.hooksPath)" \
+            || { echo "machine-scope core.hooksPath was written"; exit 1; }
           ai-eng doctor || true   # a fresh machine is red on purpose; it must not crash
           # No platform had ever run the one verb that both diagnoses and writes. Take the
           # entry away so assertion 2 fails with a cure, and read the file back, not the code.

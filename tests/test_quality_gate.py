@@ -186,6 +186,27 @@ def test_install_matrix_executes_native_spec_transaction_on_every_supported_os()
     _assert_install_matrix_contract(workflow)
 
 
+def test_install_matrix_executes_the_hooks_template_on_every_supported_os():
+    """D-024-01's deployable half. The wheel is the deployable artefact, and the install
+    matrix is the only thing that runs a stranger's install on Linux, macOS and Windows in
+    one job. The opt-in hooks template must be exercised there with assertions on its real
+    effects — the template directory, the global key — inside the step every platform runs,
+    not merely named beside it."""
+
+    workflow = (ROOT / ".github" / "workflows" / "install-matrix.yml").read_text(encoding="utf-8")
+    _assert_install_matrix_contract(workflow)
+    lines = workflow.splitlines()
+    step = _named_step(lines, "zero to a green doctor, in a repository it has never seen")
+    block = "\n".join(step)
+    # The exercise may not live in a step a single platform can skip: it sits inside the
+    # step the matrix runs on every OS, and it asserts the real effects — the template
+    # directory written by the installed wheel, and the global key pointing at it.
+    assert "machine_config" in block or "hooks-template" in block
+    assert "ai-eng init --hooks-template" in block
+    assert "init.templateDir" in block
+    assert block.index("ai-eng init --hooks-template") < block.index("ai-eng doctor || true")
+
+
 def test_install_matrix_executes_acceptance_publication_on_every_supported_os():
     """Every acceptance control the wheel owes, on all three runners, from the wheel.
 
