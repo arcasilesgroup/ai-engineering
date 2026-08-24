@@ -488,9 +488,16 @@ jobs:
       # machine that wrote this: green on its own under `-n auto`, red inside the full
       # parallel run. `just check` measures it uninstrumented on Linux, which is where the
       # number means something, and the justfile already says so above its own `test` recipe.
-      - name: the suite, on a machine that is not Linux
+      # 3.14 rather than 3.12, and the version is the second thing this lane measures.
+      # `pyproject.toml` declares `requires-python = ">=3.11"`, and until 2026-08-21 that was
+      # a claim nothing kept: uv picked 3.14.6 here once and one test failed, because it
+      # pinned how argparse wrapped a usage line and 3.14 wraps it differently. The test was
+      # repaired to assert what the command accepts rather than where the line broke. Every
+      # other lane runs the runner's 3.12, so between them the declared range is checked at
+      # both ends by a command instead of by a sentence in a manifest.
+      - name: the suite, on a machine that is not Linux and an interpreter that is not 3.12
         run: >-
-          uv run --python 3.12 --with pytest==9.1.1 --with pytest-xdist==3.8.0 pytest -q -n auto tests/
+          uv run --python 3.14 --with pytest==9.1.1 --with pytest-xdist==3.8.0 pytest -q -n auto tests/
           --deselect tests/test_contracts.py::test_the_guards_start_fast_enough_to_be_guards
 
   ci-result:

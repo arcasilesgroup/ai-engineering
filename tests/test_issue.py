@@ -381,13 +381,26 @@ def test_no_eleventh_verb_and_the_stub_sentence_is_gone():
 
 
 def _report_help(monkeypatch, capsys, *argv: str) -> list[str]:
-    """One subcommand's whole help block, at a fixed width so it is comparable."""
+    """One subcommand's whole help block, with the usage sentence on a single line.
+
+    The usage block is unwrapped before it is returned, because how argparse breaks it is
+    argparse's business and it changed in 3.14: a surface that fits on one line at that
+    version's arithmetic and two at 3.12's is the same surface. Pinning the break made
+    `pyproject.toml`'s `requires-python = ">=3.11"` false — one assertion, and the only
+    thing in 2,236 tests that did not survive 3.14.
+
+    What is pinned is what the command accepts, which is the thing a mutant can move.
+    """
     from ai_engineering import report
 
     monkeypatch.setenv("COLUMNS", "90")
     with pytest.raises(SystemExit):
         report.main([*argv, "--help"])
-    return capsys.readouterr().out.rstrip("\n").splitlines()
+    lines = capsys.readouterr().out.rstrip("\n").splitlines()
+    usage = []
+    while lines and lines[0].strip():
+        usage.append(lines.pop(0).strip())
+    return [" ".join(usage), *lines]
 
 
 def test_the_report_verb_declares_exactly_these_five_subcommands(monkeypatch, capsys):
@@ -438,8 +451,8 @@ def test_the_issue_subcommand_requires_all_five_fields_and_offers_one_flag(monke
     public route is offered at all. The other four are the payload, and `--submit` is the one
     flag that turns a draft into something that leaves."""
     assert _report_help(monkeypatch, capsys, "issue") == [
-        "usage: ai-eng report issue [-h] --kind {bug,security} --title TITLE --what-happened",
-        "                           WHAT_HAPPENED --expected EXPECTED --step STEP [--submit]",
+        "usage: ai-eng report issue [-h] --kind {bug,security} --title TITLE --what-happened "
+        "WHAT_HAPPENED --expected EXPECTED --step STEP [--submit]",
         "",
         "options:",
         "  -h, --help            show this help message and exit",
