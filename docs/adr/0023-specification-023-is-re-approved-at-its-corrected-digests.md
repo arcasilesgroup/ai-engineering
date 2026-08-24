@@ -6,7 +6,10 @@ id: "0023"
 title: "Specification 023 is re-approved at its corrected digests"
 date: "2026-08-22"
 spec: "023"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-24T17:00:20Z"
 supersedes: "0021"
 ---
 
