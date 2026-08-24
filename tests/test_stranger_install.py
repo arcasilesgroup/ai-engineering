@@ -354,3 +354,33 @@ def test_hooks_template_dry_run_writes_nothing(stranger, capsys):
     assert (paths.home() / "machine.json").exists() is False or "hooks-template" not in (
         paths.home() / "machine.json"
     ).read_text(encoding="utf-8")
+
+
+def test_uninstall_removes_the_hooks_template_and_global_key(stranger, monkeypatch, capsys):
+    """D-024-01 uninstall parity: the template and the global key come out, and only when
+    the receipt row and the current global value are ours. A person's own templateDir is
+    never removed."""
+
+    import sys
+
+    from ai_engineering import paths, uninstall, wiring
+
+    init.main(["--hooks-template"])
+    capsys.readouterr()
+    template = paths.home() / "hooks-template"
+    assert template.is_dir()
+    assert _global_git("init.templateDir") == str(template)
+
+    class Keyboard:
+        def isatty(self):
+            return True
+
+        def readline(self):
+            return "y"
+
+    monkeypatch.setattr(sys, "stdin", Keyboard())
+    result = uninstall.main(["-y"])
+    assert result.outcome == "PASS", result.as_dict()
+    assert not template.exists()
+    assert _global_git("init.templateDir") == ""
+    assert all(row["kind"] != "hooks-template" for row in wiring.receipt().get("wrote", []))
