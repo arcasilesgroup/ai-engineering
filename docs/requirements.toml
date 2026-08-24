@@ -2367,7 +2367,7 @@ note = '''the fourteen prohibitions are now proved to be the report's own list, 
 [[requirement]]
 id = "EP-324"
 verdict = "PROVEN"
-subject = "no code before an approved plan"
+subject = "no code before an approved spec and plan"
 evidence = "pytest tests/test_record.py -k 'approval_record or approval_digests'; python tests/adversarial/run.py | grep -E 'no plan|control . change_scope_guard'"
 note = '''both halves execute and the row's claim that no plan here has an approved digest was wrong. `docs/adr/0009` has recorded the approved digest of `spec.md` and `plan.md` since 2026-08-17, outside the files it approves for the reason it states — an approval naming the digest of the file it is written in changes that digest by existing, so the number never settles. What was missing was a reader: the record had the same standing as the prose it replaced, true when written and unable to notice the day it stopped being true. It is read now, row by row, and both files still hash to what was approved. An edit to either turns the gate red naming which file moved and by how much, proved by appending one comment to the plan and reading the refusal. The weaker half — that a plan exists on the branch at all — remains `hooks/change_scope_guard.py`.'''
 

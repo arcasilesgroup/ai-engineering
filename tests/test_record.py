@@ -1472,7 +1472,7 @@ def test_the_command_the_staleness_message_names_is_one_that_runs(repo, monkeypa
 
 
 def test_the_approval_record_still_names_the_bytes_that_are_there():
-    """`EP-324`: no code before an approved plan, where approval means a record naming an
+    """`EP-324`: no code before an approved spec and plan, where approval means a record naming an
     exact digest.
 
     The row said no plan in this repository has one. It has had one since 2026-08-17:
