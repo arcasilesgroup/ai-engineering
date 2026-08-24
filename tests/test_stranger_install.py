@@ -312,3 +312,45 @@ def test_bare_init_dash_y_in_a_repo_stays_global_only(stranger, tty, capsys):
     assert result.outcome == "PASS", result.as_dict()
     assert not (stranger / "AGENTS.md").is_file()
     assert not (stranger / "CONSTITUTION.md").is_file()
+
+
+# ── D-024-01: opt-in hooks template ───────────────────────────────────────────────
+# New clones start with the floor when a person opts in, never on any default, and never
+# by widening `core.hooksPath` to machine scope. The template is the shipped hooks, which
+# already exit 0 on a repository that never set `ai.managed` (spec 024 example 1).
+
+
+def _global_git(key: str) -> str:
+    return subprocess.run(
+        ["git", "config", "--global", "--get", key],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def test_hooks_template_writes_the_template_and_never_a_global_hooks_path(stranger, capsys):
+    from ai_engineering import paths
+
+    result = init.main(["--hooks-template"])
+    assert result.outcome == "PASS", result.as_dict()
+    template = paths.home() / "hooks-template"
+    expected = {"pre-commit", "commit-msg", "pre-push"}
+    assert {p.name for p in template.glob("*")} == expected
+    for name in expected:
+        assert (template / name).is_file()
+        assert (template / name).stat().st_mode & 0o100  # executable
+    assert _global_git("init.templateDir") == str(template)
+    # The whole D-024-01 safety claim: hooksPath never leaves the repository floor.
+    assert _global_git("core.hooksPath") == ""
+
+
+def test_hooks_template_dry_run_writes_nothing(stranger, capsys):
+    from ai_engineering import paths
+
+    result = init.main(["--hooks-template", "--dry-run"])
+    assert result.outcome == "WOULD_CHANGE", result.as_dict()
+    assert not (paths.home() / "hooks-template").exists()
+    assert _global_git("init.templateDir") == ""
+    assert (paths.home() / "machine.json").exists() is False or "hooks-template" not in (
+        paths.home() / "machine.json"
+    ).read_text(encoding="utf-8")

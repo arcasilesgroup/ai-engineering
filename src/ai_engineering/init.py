@@ -86,8 +86,12 @@ def parse(argv: list[str]) -> argparse.Namespace:
         "--harness", default="", help="comma-separated surface ids; default is all found"
     )
     p.add_argument("--overwrite", default="", help="comma-separated file names, or all")
+    p.add_argument("--dry-run", dest="dry", action="store_true", help="print the checklist, write nothing")
     p.add_argument(
-        "--dry-run", dest="dry", action="store_true", help="print the checklist, write nothing"
+        "--hooks-template",
+        dest="hooks_template",
+        action="store_true",
+        help="opt-in: write the product's hooks into a git init template for new clones",
     )
     p.add_argument("-y", "--yes", action="store_true", help="take every default")
     return p.parse_args(argv)
@@ -800,6 +804,47 @@ def _refused(why: str, cure: str) -> outcome.Result:
     return outcome.result("INCOMPLETE")
 
 
+def _hooks_template_step(args) -> outcome.Result:
+    """D-024-01: the opt-in git init template. Writes the shipped hooks into one directory
+    this product owns and points `init.templateDir` at it, so *new* clones carry the floor
+    from the first commit. Machine scope only ever holds this key; `core.hooksPath` stays
+    repository-scoped, where `wire_git` writes it, and this step never touches it.
+
+    The hooks are the shipped files, so the safety property is inherited: each one exits 0
+    on a repository that has never set `ai.managed` (pre-commit's gitleaks branch, commit-msg
+    line 5, pre-push's foreign-fork path).
+    """
+
+    template = paths.home() / "hooks-template"
+    shipped = paths.git_hooks()
+    names = sorted(("pre-commit", "commit-msg", "pre-push"))
+    ui.section("◇ Hooks template")
+    ui.facts(
+        [
+            ("hooks", f"{len(names)}", f"→ {template}/pre-commit, commit-msg, pre-push"),
+            ("git", "init.templateDir", f"→ {template}"),
+        ]
+    )
+    if args.dry:
+        out("   → skipped.")
+        return outcome.dry_run(exact_changes=True)
+    if args.yes or not sys.stdin.isatty() or ask("Write the hooks template for new clones?", True, args):
+        template.mkdir(parents=True, exist_ok=True)
+        for name in names:
+            shutil.copy2(shipped / name, template / name)
+        subprocess.run(
+            ["git", "config", "--global", "init.templateDir", str(template)],
+            check=True,
+            timeout=10,
+        )
+        _record([{"path": str(template), "kind": "hooks-template", "how": "written"}])
+        ui.step("ok", "template  ", f"→ {template}")
+        ui.step("ok", "git init  ", "init.templateDir set for new clones")
+        return outcome.result("PASS")
+    out("   → skipped. Nothing was written.")
+    return outcome.result("READY")
+
+
 def main(argv: list[str]) -> outcome.Result:
     args = parse(argv)
     # Invocation authorizes this verb's deterministic install scope. The manifest check
@@ -812,6 +857,11 @@ def main(argv: list[str]) -> outcome.Result:
         )
 
     try:
+        if args.hooks_template:
+            # Standalone and machine-scope: writing the init template for new clones does
+            # not care what repository (if any) the person is standing in, so it runs
+            # before the project preflight and is not blocked by it.
+            return _hooks_template_step(args)
         prepared = _project_preflight(args)
         if prepared is None:
             return _refused(
