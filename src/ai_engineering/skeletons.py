@@ -29,7 +29,7 @@ Project identity, vocabulary and prohibitions live in CONSTITUTION.md. Read it f
 
 ## The rules
 
-1. No code before an approved plan (more than 3 files).
+1. No code before an approved spec and plan (more than 3 files).
 2. One commit, one change.
 3. Never `--no-verify`. Never silence a linter, in any language.
 4. No compatibility shims. Hard rename, hard delete; say it in the changelog.

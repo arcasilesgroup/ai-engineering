@@ -9,7 +9,7 @@ once per session. `CLAUDE.md` is one line that imports this file.
 
 ## The twelve rules
 
-1. No code before an approved plan (more than 3 files).
+1. No code before an approved spec and plan (more than 3 files).
 2. One commit, one change.
 3. Never `--no-verify`. Never silence a linter (`noqa`, `@ts-ignore`, `nosec`).
 4. No compatibility shims. Hard rename, hard delete; say it in the changelog.

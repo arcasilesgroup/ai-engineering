@@ -229,6 +229,17 @@ search for.
   liked. If you keep a package by that name in a repository, the diagnosis now reads the
   installed product instead of yours.
 
+### Changes
+
+- Rule 1 of `AGENTS.md` now reads "No code before an approved spec and plan", and the
+  delivered doctrine matches it: the `AGENTS.md` skeleton `init` writes, the `EP-324`
+  ledger subject and the `test_record` docstring that quotes it. The rule had always
+  meant both documents — the approval records name a digest for `spec.md` and `plan.md`
+  alike — but the short form "approved plan" let the spec pass on a reading of the plan
+  alone. The two historical records that quote the older wording (`docs/adr/0016`,
+  `specs/024`) are left as written, because an approval record describes the rule as it
+  was when it approved that work.
+
 ## 1.0.0 — 2026-08-10
 
 ### Breaking changes
