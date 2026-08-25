@@ -153,13 +153,10 @@ exec_allowlist = [
   { executable = "just", argument_pattern = "declared.recipe" },
   { executable = "uv", argument_pattern = "declared.check" },
 ]
-network = [
-  { protocol = "https", host = "api.exa.ai", purpose = "cited.research" },
-  { protocol = "https", host = "api.tavily.com", purpose = "cited.research" },
-]
+network = []
 secrets = []
-human_gate = "before_network"
-enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.network", "preflight.human-gate"]
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec"]
 proof_requirements = { allow = ["ai-goal.default.allow"], deny = ["ai-goal.default.deny"], installed_artifact = true }
 
 [[capabilities]]
