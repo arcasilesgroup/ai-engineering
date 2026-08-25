@@ -24,7 +24,8 @@ that ticked it, and an acceptance table where every example carries its verdict.
 
 ## Verify — the boxes
 
-1. Run `just check` and `just security`. Paste the output. A summary of a gate is not a gate.
+1. Run the repository's own gate and its security lane — whatever CI runs them is the
+   gate, not a recipe name. Paste the output. A summary of a gate is not a gate.
 2. For each of the eight production-ready boxes, write the command that proves it and the
    output it gave. A box with no command beside it is `INCOMPLETE`, and that is the answer,
    not a gap to fill in later.
@@ -41,7 +42,8 @@ that ticked it, and an acceptance table where every example carries its verdict.
    Given, When and Then lines it holds and how many name a command with its output, and
    prints nothing when there is no such section — which is itself the answer, for sixteen
    of the nineteen specs here. The columns a row needs are in
-   `ai-review/references/testing.md`.
+   `ai-review/references/testing.md` — if that reference file is missing, answer
+   `INCOMPLETE` rather than inventing the columns.
 2. Run each example's command. Mark it `PASS` when the output matches what the Then says,
    `FAIL` when it does not, and `INCOMPLETE` when the Then names no command — which is most
    of them, and saying so is the point.

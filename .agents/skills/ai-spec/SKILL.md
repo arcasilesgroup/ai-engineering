@@ -25,6 +25,8 @@ It is a decision record, not code, a plan or permission the agent gave itself.
 1. Read `CONSTITUTION.md`, the related records and repository evidence and current primary
    sources relevant to the decision before asking anyone. State what was read, what is true
    now and what remains unknown. Never infer a control from its documentation alone.
+   If `CONSTITUTION.md` is absent or incomplete, the spec records what is missing rather
+   than assuming it exists — a repo without it is a repo without the framework's identity.
 2. State the problem in words a non-technical reader can follow. Separate fixed
    constraints, current facts, intended outcomes and the harm of leaving it unchanged.
 3. Present at least two real options. For each, say what it gives, costs, risks and rules

@@ -48,7 +48,7 @@ disable-model-invocation: true
 
 - Every task has a file, a check, a rollback and a "done when".
 - The deployable tasks exist if the spec is deployable, and are absent if it is not.
-- The person has approved it. That approval is the gate: no code before it.
+- The person has approved it, recorded as an ADR at the spec and plan digests. That record is the gate: no code before it.
 
 ## What this is not
 

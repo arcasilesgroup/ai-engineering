@@ -20,8 +20,9 @@ Commits, a changelog entry, a pull request, and a branch that gets deleted after
 
 ## Steps
 
-1. Run `just check` and show its output. Not a summary of it — the output. If it is red,
-   stop here; nothing below this line is worth doing.
+1. Run the repository's own gate — the recipe set CI runs, whatever it is called here —
+   and show its output. Not a summary of it — the output. If it is red, stop here;
+   nothing below this line is worth doing.
 2. Commit in the shape the change actually has: one commit, one change. A commit that
    needs the word "and" in its subject is two commits. Subject is
    `<type>(<scope>): <what changed>`, imperative, and the body says why rather than what.

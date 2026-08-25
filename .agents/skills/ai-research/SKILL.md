@@ -47,6 +47,7 @@ change; anything else in that directory is ignored and lives only on this machin
    somebody can act on tomorrow.
 
 ## Done when
+- The report file is committed at `.ai/reports/NNN-a-name.html`.
 
 - Every claim is either cited or marked.
 - The sources are named well enough that the person can open them.

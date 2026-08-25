@@ -41,7 +41,7 @@ PORTABLE_BANNED = ("just ", "semgrep", "gitleaks", "trivy", "git grep")
 # Cues that turn a mention of a banned binary into an instruction to run it. A bare
 # noun ("the `just` recipe") is a reference; "Run `just check`" is a command. The rule
 # refuses the command and passes the reference.
-_RUN_CUES = re.compile(r"\b(run|running|execute|executes|execution|drive|via)\b", re.I)
+_RUN_CUES = re.compile(r"\b(?:run|running|execute|executes|execution|drive|via)\b(?<!\bwas )(?<!\bis )", re.I)
 _SPAN = re.compile(r"`([^`]+)`")
 _JUST = re.compile(r"\bjust [a-z-]+")
 _GIT_GREP = re.compile(r"\bgit\s+grep\b")
@@ -51,7 +51,11 @@ _GIT_GREP = re.compile(r"\bgit\s+grep\b")
 # every other root — policy/, hooks/, specs/, docs/, CONSTITUTION.md and a sibling skill's
 # references/ — is a file the stranger's repo may not have unless the skill says so and
 # fails closed when it does not.
-_EXIST_ROOTS = re.compile(r"`((?:policy|hooks|specs|docs)/[^`]+)`|`(CONSTITUTION\.md)`|`([a-z][a-z0-9-]*/references/[^`]+)`")
+# A path a shipped skill depends on: the wheel guarantees nothing beside the skill except
+# its own `references/` subfolder. The skill's own output namespace is excluded — a skill
+# writing `specs/NNN-slug/council.md` or `docs/notes/<slug>.md` creates that path, it does
+# not depend on it, so demanding an existence check for its own artifact is noise.
+_EXIST_ROOTS = re.compile(r"`((?:policy|hooks)/[^`]+|specs/(?!NNN-slug)[^`]+)`|`(CONSTITUTION\.md)`|`([a-z][a-z0-9-]*/references/[^`]+)`")
 _FAIL_CLOSED = re.compile(r"\b(absent|missing|does not exist|fail(?:s)? closed|refus(?:es|e)|when it is not there)\b", re.I)
 
 # A cross-file reference a skill body makes to a path the wheel does not guarantee beside
@@ -217,9 +221,18 @@ def _existence_problems(folder: Path, name: str) -> list[str]:
                 for group in match.groups()
                 if group
             )
-            # The fail-closed clause must sit with the reference, not two sections away:
-            # this line, or a line immediately before or after it.
-            around = "\n".join(all_lines[max(0, line_no - 1) : line_no + 2])
+            # The fail-closed clause must sit with the reference — the same paragraph, not
+            # two sections away: this line, or up to three lines around it.
+            def boundary(k: int) -> bool:
+                return k < 0 or k >= len(all_lines) or not all_lines[k].strip() or all_lines[k].lstrip().startswith("#")
+
+            start = line_no
+            while not boundary(start - 1) and line_no - start < 3:
+                start -= 1
+            end = line_no
+            while not boundary(end + 1) and end - line_no < 3:
+                end += 1
+            around = "\n".join(all_lines[start : end + 1])
             if not _FAIL_CLOSED.search(around):
                 problems.append(
                     f"{name}: {doc.name} line {line_no + 1} references `{target}` without "
@@ -249,7 +262,9 @@ def _forced_output_problems(folder: Path, name: str) -> list[str]:
         done = body.partition("## Done when")[2].partition("\n## ")[0]
         if not done:
             continue
-        weak = _WEAK_OUTPUT.search(done)
+        # 'verify' inside a backticked command (`ai-eng audit verify`) is the portable
+        # verb, not a weak exit — only prose outside the backticks can be weak.
+        weak = _WEAK_OUTPUT.search(_SPAN.sub("", done))
         if weak and not _ARTIFACT.search(done):
             problems.append(
                 f"{name}: {doc.name} 'Done when' says only {weak.group(0)!r} — "
@@ -314,19 +329,22 @@ def _portable_problems(folder: Path, name: str) -> list[str]:
         if not doc.exists():
             continue
         for line in doc.read_text(encoding="utf-8").splitlines():
-            if not _RUN_CUES.search(line):
-                continue
+            found_this_line: set[str] = set()
             for span in _SPAN.findall(line):
                 lowered = span.strip().lower()
                 if lowered.startswith(PORTABLE_BANNED):
-                    problems.append(
-                        f"{name}: {doc.name} runs {lowered!r} — a repo-specific command "
-                        f"the wheel does not guarantee on the stranger's machine. Name an "
-                        f"`ai-eng` verb, or keep the tool only as the output the gate holds."
-                    )
-            if _GIT_GREP.search(line) or _JUST.search(line):
+                    # The command must be directly commanded, not merely mentioned later
+                    # in the sentence: "Run `just check`" fires, "that is just check in
+                    # CI" does not. The cue has to be the words immediately before the
+                    # span (with only a preposition or connective allowed between).
+                    mech = _SPAN.search(line)
+                    prefix = line[: mech.start()] if mech else ""
+                    tail = re.split(r"[.;:|\n]", prefix)[-1].strip().lower()
+                    if re.search(r"\b(?:run|running|execute|executes|drive|via)(?:\s+(?:the|a|an|its|your|our|their|these|those|this|repo(?:sitory)?'?s))?\s*$", tail):
+                        found_this_line.add(lowered)
+            for command in sorted(found_this_line):
                 problems.append(
-                    f"{name}: {doc.name} names {line.strip()!r} — a repo-specific command "
+                    f"{name}: {doc.name} runs {command!r} — a repo-specific command "
                     f"the wheel does not guarantee on the stranger's machine. Name an "
                     f"`ai-eng` verb, or keep the tool only as the output the gate holds."
                 )

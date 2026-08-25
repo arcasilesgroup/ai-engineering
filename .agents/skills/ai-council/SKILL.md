@@ -32,11 +32,11 @@ Each is a question, not a personality. Each reads the spec and nothing else. Not
 not the chat, not another lens's answer.
 
 That rule is not taste. Put one answer in a reader's context and a right answer turns wrong
-66.5% of the time, against 10.3% for a plain re-ask. Nobody was named as its author. So the
+66.5% of the time, against 10.3% for a plain re-ask (report 003). Nobody was named as its author. So the
 harm comes from the words being there, not from being told who wrote them.
 
 Reading alone also buys ground. Human reviewers who do not confer raise 14 issues a session
-against 9. And 70% of what they find is seen by one reader only.
+against 9 (report 003). And 70% (report 003) of what they find is seen by one reader only.
 
 Every finding carries a command a reader can run to see the gap. One with no command is cut
 before its section is written, and it is listed under its own heading below so the count can
@@ -49,11 +49,10 @@ answers two questions. Which of these findings is a false alarm, and what comman
 And what did all of us miss?
 
 It is never asked which answer is best. Ranking five good answers is the worst case in the
-measured work. One judge falls from 0.70 to 0.34 moving from pairs to a list. And the one
+measured work. One judge falls from 0.70 to 0.34 moving from pairs to a list (report 003). And the one
 head-to-head of rank-then-write puts it under the best single reader.
 
-What the cross-read buys is aim. False alarms fall from 22% to 5.3%, and no true finding is
-lost.
+What the cross-read buys is aim. False alarms fall from 22% to 5.3%, and no true finding is lost (report 003).
 
 A refutation carries a command. The command is run and its output is written down. One with
 no command is dropped, the same way a finding with none is.
@@ -65,8 +64,7 @@ Where one lens refutes and another agrees, the finding stays.
 ## Round three — a chairman, and it does not learn who said what
 
 It is given the spec, both rounds, and no lens names. It writes new text rather than picking
-a winner. Put the names back and a judge's bias for its own text moves from 0.511 to between
-0.82 and 0.97 on the same words. So the names stay off in the one call that writes the answer.
+a winner. Put the names back and a judge's bias for its own text moves from 0.511 to between 0.82 and 0.97 on the same words (report 003). So the names stay off in the one call that writes the answer.
 
 It writes what the lenses agree on, where they clash, the blind spots the cross-read caught,
 a verdict, a recommendation and one first step.
