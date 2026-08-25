@@ -1,0 +1,42 @@
+# The map's template holes, as data (spec 026).
+#
+# `sm` (skill-map.ai) flags as reference-broken any link whose target does not exist in
+# the graph or on disk. Some of those are the framework's own *demonstration* links: the
+# skills' SKILL.md and corpus.md docs point at `specs/NNN-slug/spec.md` and friends,
+# where `NNN-slug` is a hole that says "your spec's number and slug go here", not a file
+# that must exist. A deterministic analyzer cannot tell a demo hole from a missing target,
+# so the holes are declared here as data — a loaded prefix list, not a suppression comment
+# anywhere in a skill file (CONSTITUTION.md never ships a suppression comment).
+#
+# Every entry is a path *prefix* whose remainder may be a placeholder anywhere it appears.
+# A target equal to or beginning with one of these is a template hole, expected, and kept
+# out of the gate's real-defect count. Anything else `sm` reports as broken is a real
+# reference and is either fixed or accepted in its dated record.
+
+schema = "urn:ai-engineering:skill-map-exclusions:1"
+schema_version = "1"
+
+# The framework's own demo path for "a spec lives here": NNN is the three-digit number a
+# real spec will get, slug the lowercase name. Until a real file exists, the pointer is a
+# template, not a target. skills and their corpora use it for every one of the six stages.
+template = [
+  "specs/NNN-slug/spec.md",
+  "specs/NNN-slug/plan.md",
+  "specs/NNN-slug/challenge.md",
+  "specs/NNN-slug/council.md",
+  "specs/NNN-slug/council.html",
+  "docs/specs/NNN-slug/spec.md",
+]
+
+# A second template the cycle's own docs reuse: a sub-spec or ref nested inside its home,
+# written with the NNN-slug form rather than a real directory. Same rule as above.
+nested_routes = [
+  "specs/NNN-slug/council.md",
+  "specs/NNN-slug/challenge.md",
+  "docs/specs/NNN-slug/spec.md",
+]
+
+# Paths the project writes by hand that `sm` reads as a target even though they are
+# intentionally absent: none should be needed beyond the template holes, and the test fails
+# if a real target ends up here disguised as a template (a broken link accepted silently
+# would be the failure map exists to prevent).
