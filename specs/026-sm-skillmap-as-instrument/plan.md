@@ -48,7 +48,7 @@ it stays out of the receipt and the commit.
 
 ## Block A — the instrument and its honesty (Tasks 1–2)
 
-1. [ ] **`sm` is pinned by version and a `map` recipe is defined in the Justfile** —
+1. [x] <!--t:0f5343b20a13--> **`sm` is pinned by version and a `map` recipe is defined in the Justfile** —
    **file** `justfile`.
    **check**: `uv run python -c "import sys;from pathlib import Path;s=Path('justfile').read_text();sys.exit(0 if ('sm := ' in s and 'map:' in s) else 1)"`
    **rollback**: `git revert <commit>`.
