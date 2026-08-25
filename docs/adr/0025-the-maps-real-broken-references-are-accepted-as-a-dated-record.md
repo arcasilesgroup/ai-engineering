@@ -19,18 +19,19 @@ follow_up: "a separate spec repairs the accepted references, guided by this reco
 
 ## Context
 
-Spec 026 adopts `sm` (skill-map.ai) as the reference-integrity instrument. Its first
-honest run reported **45 real broken references** in this tree (with `.venv` excluded and
-the template holes declared): links in `CHANGELOG.md`, `docs/audit-2026-08-16.md`, the
-`docs/adr/` records, and two dozen `specs/NNN-*/` records pointing at `SKILL.md`,
+ its first
+ honest run reported **42 unique real broken targets** in this tree (with `.venv`
+excluded and the template holes declared): links in `CHANGELOG.md`, `docs/audit-2026-08-16.md`,
+the `docs/adr/` records, and two dozen `specs/NNN-*/` records pointing at `SKILL.md`,
 `DESIGN.md`, `docs/thesis.md`, `corpus.md` or a nested `specs/` path that does not exist on
 disk. The instrument's whole point is that these are visible; this record accepts them as
-known debt so the gate's green is honest, and pins the exact class that must be repaired.
+ known debt so the gate's green is honest, and pins the exact class that must be repaired.
 
-## What is accepted
-
-The 45 references `sm check --json` reports as `reference-broken` with a non-template
-target, measured on this tree at 2026-08-25 (`sm scan` with `scan.respectGitignore=true`
+and the `policy/skill-map-exclusions.toml` template holes excluded). The exact set is
+`policy/skill-map-accepted.toml`, the machine-readable half of this record: a reference
+that is neither fixed nor in that file reddens the gate. Not accepted: any `NNN-slug`
+template hole (those are declared, never accepted), and any reference that a later scan
+adds — the next green must not silently include new breakage.
 and the `policy/skill-map-exclusions.toml` template holes excluded). Not accepted: any
 `NNN-slug` template hole (those are declared, never accepted), and any reference that a
 later scan adds — the next green must not silently include new breakage.
@@ -40,7 +41,7 @@ owner reads; a reference added after today is outside it and reddens the gate.`
 
 ## Decision outcome
 
-Accept the 45 as of today, valid to **2026-09-30**, owner: repository owner. The
+Accept the 42 unique targets as of today, valid to **2026-09-30**, owner: repository owner. The
 acceptance is a dated record, not prose: `follow_up` names the separate repair block, and
 expiry means the debt is visible until it is cured or re-accepted, never silently
 permanent. The repair is explicitly **not** in spec 026's block — the challenge and the
