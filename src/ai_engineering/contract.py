@@ -210,6 +210,7 @@ def audit_one(path: Path) -> list[str]:
     found.extend(_output_contract_problems(path.parent, name))
     found.extend(_incorrect_correct_problems(path.parent, name))
     found.extend(_load_tier_problems(path.parent, name))
+    found.extend(_dispatcher_problems(path.parent, name))
     return found
 
 
@@ -490,6 +491,29 @@ def _load_tier_problems(folder: Path, name: str) -> list[str]:
             "is executed, never read into context"
         )
     return problems
+
+
+# B-033-3: a skill whose procedure has conditional branches past the tier bound must keep
+# the branch bodies in on-demand files (examples/ or references/) rather than in the body.
+# The rule fires only where the bloat is real: branches present AND the body over the
+# bound it should have split. A clean dispatcher or a linear body passes.
+_BRANCH_CUE = re.compile(
+    r"\bwhen\s+\w+.*\b(?:use|run|load)\b|\bif\s+\w+.*\b(?:run|load|use)\b", re.I
+)
+
+
+def _dispatcher_problems(folder: Path, name: str) -> list[str]:
+    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    size = body.count("\n") + 1
+    if size <= LOAD_TIER_MAX:
+        return []  # under the bound: even branches are affordable on-demand reads
+    if _BRANCH_CUE.search(body):
+        return [
+            f"{name}: body is {size} lines over LOAD_TIER_MAX={LOAD_TIER_MAX} and carries "
+            "conditional branches; split the branch bodies into examples/ or references/ "
+            "files the body loads on demand"
+        ]
+    return []
 
 
 def tracked(root: Path) -> list[str]:

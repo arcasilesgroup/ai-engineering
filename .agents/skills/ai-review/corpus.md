@@ -22,3 +22,4 @@ the result of a mechanical gate, because those ran in CI, and it says so.
 - "looks good, commit it and open the PR" — use `/ai-ship`, because landing the work is commits, a changelog entry, a pull request and a closed work item, not a judgement.
 - "the review shows the whole approach is wrong, redesign it" — use `/ai-spec`, because that is a decision with options and authority behind it, and this skill is not a rewrite.
 - "where is this function called from" — use `/ai-explore`, because reading the repository to answer a question is its job, and this skill only reads the diff and what surrounds it.
+- "a finding claims a version of a dependency that contradicts what is installed" — `versions.verify_against_installed` decides: a contradicting claim is dropped or marked `unverified`, never trusted from memory.
