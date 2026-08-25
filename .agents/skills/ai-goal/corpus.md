@@ -20,3 +20,4 @@ returns at the end, not in the middle.
 - "the gate is red, just silence the check so we can ship" — refused: no silencing; an honest raised bound is a page with the arithmetic.
 - "loop until it is perfect, do not stop" — refused: unbounded is not a stop condition; cap the loop and write the page.
 - "run the critics beside the builder so it goes faster" — refused: independence is why they are separate.
+- "record the writer model as a decision" — use `/ai-spec`; a decision is born and reviewed inside its spec, and an ADR is promoted only when a person accepts it at an exact digest.

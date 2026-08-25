@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Research citado para el goal: registrar el modelo de escritura de ai-goal como decisión gobernada y verificada. Cada afirmación lleva su fuente; lo no comprobable queda marcado.">
+<title>ai-engineering | 016 · research del goal de registro del modelo de escritura</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+main{max-width:900px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:28px;line-height:1.2;margin:8px 0 6px}h2{font-size:21px;margin:30px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.date{color:var(--muted);font-size:13px;margin-bottom:24px}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em;overflow-wrap:break-word}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.good{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+ol,ul{margin:.4rem 0}.cite{color:var(--muted);font-size:13px;margin-top:4px}
+</style>
+</head>
+<body>
+<main>
+<p class="kicker">Research · objetivo: registrar el modelo de escritura de ai-goal</p>
+<h1>El modelo de escritura, verificado contra el árbol</h1>
+<p class="sub">Qué cambiaría según la respuesta: registrar como decisión gobernada (ADR propuesto + rechazo en el corpus de ai-goal) que el modelo de hoy es un solo writer implementando un plan aprobado a digest exacto, y que la fórmula <code>1 task = 1 branch = 1 worktree = 1 writer</code> es el target futuro de P3 (spec 013), no el modelo actual. Sin cambiar la regla de un escritor.</p>
+<p class="date">2026-08-25 · herramientas usadas: árbol local, git, <code>ai-eng</code> · herramientas ausentes: web, Tavily, Exa, NotebookLM (<code>degraded-tool: web</code>)</p>
+
+<h2>Qué decide este research</h2>
+<p>Es la evidencia para la spec 028. Cada afirmación que la spec hace sobre «el modelo de hoy» y «el target de P3» se ejecutó aquí:</p>
+<ul>
+<li>La <strong>regla de un escritor</strong> está en <code>.ai/intent.md</code> (aprobado, digest <code>ae523990</code>): «Until a separately approved P3 plan proves safe coordination, one writer owns repository changes» [1].</li>
+<li>The <strong>orden gobernado</strong> está en <code>policy/skill-sequence.toml</code>: <code>[gate] approval</code> = «a human approval record carrying the specification's exact digest», y <code>[parallel] policy</code> = «fork contexts only; task-level parallelism inside ai-build per the approved plan» [2].</li>
+<li><code>ai-build/SKILL.md</code> paso 1 exige <em>plan aprobado a digest exacto</em>: «If the task is not in a plan, or the plan is not approved, stop here: nothing to execute» [3].</li>
+<li>La <strong>fórmula de 4 términos</strong> es el diseño de la spec 013 (draft): «One remote branch, one worktree, one writer. Reviewers may be many; writers may not» [4].</li>
+<li>La maquinaria de coordinación parcial ya existe: <code>refs/ai-eng/claims/{item}</code> en <code>src/ai_engineering/claim.py</code>, el subcomando <code>spec claim|wave|checkpoint</code>, <code>merge_group</code> en <code>check.yml</code>, y <code>tests/test_coordination_shape.py</code> que prohíbe force desnudo, rebase en background, publicación por commit, ownership store, heartbeat y TTL [7][6].</li>
+</ul>
+<p>Conclusión verificada: <strong>un writer implementa lo aprobado; no se cambió nada; 013 sigue siendo el target gateado esperando P3</strong> [1][2][3][4].</p>
+
+<h2>Lo que no pude comprobar (y queda marcado)</h2>
+<ul>
+<li><code>[unsourced]</code> — que un lector futuro «hará la misma pregunta otra vez y nada habrá cambiado». Es una inferencia sobre personas, no un hecho del árbol; la spec 028 lo trata como motivo plausible, no como prueba.</li>
+<li><code>[unsourced]</code> — «la tercera vez que el juicio se resuelve igual debería ser un script». Es la regla 12 de AGENTS.md, pero su aplicación a este caso concreto es una recomendación, no una medición.</li>
+</ul>
+
+<h2>Qué conflictos hay (y cuál tomo)</h2>
+<p>No hay conflicto entre las fuentes: la intent [1], la secuencia [2], ai-build [3] y 013 [4] coinciden. La única tensión es entre el <em>target futuro</em> (013) y el <em>modelo actual</em> (intent+secuencia+build). Tomo el modelo actual como la verdad de hoy: es lo que está aprobado y lo que un writer puede ejecutar ahora; 013 es explícitamente draft (no concede autoridad) [4].</p>
+
+<h2>Tres direcciones (citadas)</h2>
+<ol>
+<li>Aprobar la spec 028 como la <em>primera</em> materialización de regla 12: registrar el modelo en un ADR propuesto y un rechazo de corpus medible por <code>skill_eval</code>, sin tocar intent/013 [1][2][3].</li>
+<li>Que el gate que esta casa pueda mostrar honestamente sea el techo heredado: el rojo de <code>tests/test_madr.py</code> (ADR 0025 de 026, en histórico) está documentado en el reporte 014; cualquier declaración de «gate verde» para este goal es imposible hasta que un bloque autorizado repare esa historia [5].</li>
+<li>Mantener el paralelismo de <em>contextos fork</em> (challenge, council, review, verify, security) y el <em>escritor único</em> como las dos mitades que no se tocan: eso es exactamente lo que la secuencia registra y lo que la spec 028 debe dejar intacto [2][4].</li>
+</ol>
+
+<p class="cite"><strong>Fuentes.</strong>
+[1] <code>.ai/intent.md</code> — <code>fixed_constraints</code>, aprobado digest <code>ae523990</code>.<br>
+[2] <code>policy/skill-sequence.toml</code> — <code>[gate]</code> y <code>[parallel]</code>.<br>
+[3] <code>.agents/skills/ai-build/SKILL.md</code> — paso 1.<br>
+[4] <code>specs/013-origin-first-coordination/spec.md</code> — draft, «One remote branch, one worktree, one writer».<br>
+[5] <code>.ai/reports/014-027-build-not-green.html</code> — el rojo heredado de 026/ADR 0025.<br>
+[6] <code>tests/test_coordination_shape.py</code> — EP-190/191/192/193.<br>
+[7] <code>src/ai_engineering/claim.py</code>, <code>cli.py</code>, <code>.github/workflows/check.yml</code> — maquinaria de coordinación.</p>
+</main>
+</body>
+</html>

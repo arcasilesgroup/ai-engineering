@@ -238,6 +238,16 @@ search for.
   goal (acceptance criteria written into the spec, judged met-or-not by a critic with no
   memory of the builder's reasoning). The loop is bounded — two attempts per task and
   failing recipe, a fixed cap and a no-progress guard, then a page a person can act on —
+- Spec 028 records the writer model of `/ai-goal` as a governed decision: today one
+  writer — the invoked agent — implements only a spec/plan approved at its exact digest,
+  and the four-term formula `1 task = 1 branch = 1 worktree = 1 writer` is the gated
+  future P3 target of spec 013, not the current model. The record sits in
+  `specs/028-writer-model-recorded/` (spec, plan, challenge, council, blocked page); the
+  proposed ADR 0028 that would seal it is gated on `madr.validate`, which this tree has
+  red since ADR 0025 of spec 026, and `blocked.md` names the approved repair that
+  unblocks it. The `ai-goal` corpus gains the refusal «record the writer model as a
+  decision» → `/ai-spec`, and the `skill-routing` baseline moves 349→350 with the reason
+  written beside it in `policy/pilot-register.toml`.
   and simplicity (KISS, YAGNI, DRY, SOLID, BDD, TDD, Clean Code, Clean Architecture) is
   the standing bar. It is the gauntlet-loop half of what `ai-cycle` deliberately is not:
   `/ai-cycle` stops at the brief, `/ai-goal` stops at the green gate. The routing
