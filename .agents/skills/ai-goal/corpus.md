@@ -10,7 +10,7 @@ returns at the end, not in the middle.
 - "/ai-goal harden this api and prove it" — the same, with quality and security as the bar.
 - "run everything on this and show me the green gate at the end" — both bars run and shown.
 - "take this idea to a tested, shipped change without asking me again" — the standing-approval form.
-- "loop it until the acceptance criteria are met, then hand it back" — the bounded loop.
+- "run the whole cycle on a machine with no web keys and no NotebookLM" — every stage degrades to the local floor and the cycle still finishes; the report names the tools that were not there.
 
 ## Refuses
 

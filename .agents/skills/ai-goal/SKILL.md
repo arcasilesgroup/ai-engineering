@@ -28,6 +28,15 @@ continue — the order is data, not prose. Load each stage's own skill and follo
 `/ai-research`, `/ai-spec`, `/ai-challenge`, `/ai-council`, `/ai-build`, `/ai-review`,
 `/ai-verify`, `/ai-security`, the audit verb, then `/ai-ship`.
 
+## Tools are whatever the client has
+
+The cycle uses only the tools present on this machine: the local floor (the repository,
+the IDE and the assigned surface, the `ai-eng` harness, the model available) is always on,
+and a web provider or NotebookLM is used only when the client configured it. An absent tool
+degrades the stage that would use it — the research stage names `degraded-tool: <name>`
+and carries on with the local floor. Nothing in this skill depends on a tool the client
+does not have.
+
 ## Two bars, both green, neither negotiated
 
 1. The governed gate: run `ai-eng audit verify` and show its output. Nothing silenced, no
