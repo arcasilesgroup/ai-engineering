@@ -1,0 +1,50 @@
+# The governed cycle's order, as data.
+#
+# One checked copy of which stage follows which. This used to be prose in
+# `ai-cycle/SKILL.md`, which no test read — a renamed stage would fail the corpus
+# refusals that name it while the cycle's own sequence rotted in silence. A decision
+# that always comes out the same is code with a check, not a prompt (AGENTS.md rule 12),
+# so the order lives here, `tests/test_skill_sequence.py` refuses a map that stops
+# matching the tree, and the routers a person meets show what follows.
+#
+# The forks are a claim, checked against each stage's frontmatter: a stage marked
+# `fork` here must carry `context: fork` + `background: false` in its SKILL.md, because a
+# forked skill runs in its own context and its verdict lands without /rewind. Spec 025.
+schema = "urn:ai-engineering:skill-sequence:1"
+schema_version = "1"
+
+# Up to the person: research, then the decision record, then the two independent critics.
+# Both halves kept above the tables below: in TOML a key after a table header belongs to
+# that table, so a half declared under [gate] would vanish from the top level.
+first_half = ["ai-research", "ai-spec", "ai-challenge", "ai-council"]
+
+# After the person. `audit` is a verb, not a skill: `ai-eng audit verify` walks the
+# whole chain. The other stages are skills in `.agents/skills/`.
+second_half = ["ai-build", "ai-review", "ai-verify", "ai-security", "audit", "ai-ship"]
+
+[gate]
+# The line between the halves. The first half stops at a brief a person reads; the
+# second half runs only once an approval record carrying the specification's exact
+# digest exists. Until that record exists, the second half has nothing to run against.
+approval = "a human approval record carrying the specification's exact digest"
+
+[stages]
+# fork declares the stage runs in its own context for independence; the test checks it
+# agrees with each SKILL.md's frontmatter, so this file and the tree cannot disagree.
+ai-research = { fork = true }
+ai-spec = { fork = false }
+ai-challenge = { fork = true }
+ai-council = { fork = true }
+ai-build = { fork = false }
+ai-review = { fork = true }
+ai-verify = { fork = true }
+ai-security = { fork = true }
+audit = { verb = "ai-eng audit verify" }
+ai-ship = { fork = false }
+
+[parallel]
+# What concurrency the cycle allows, recorded as data instead of prose. Stage-level
+# parallelism is refused: one writer owns the commits, and the critics run apart for
+# independence rather than for speed. The only concurrency is fork contexts, plus the
+# task-level parallelism the approved plan allows inside ai-build.
+policy = "fork contexts only; task-level parallelism inside ai-build per the approved plan"

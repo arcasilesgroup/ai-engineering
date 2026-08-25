@@ -14,20 +14,18 @@ disable-model-invocation: true
 
 # Two halves, and a person between them
 
-Not an engine. Each stage below is a skill with its own file; load that file and follow it,
-the way the generated slash command already says. There is no state file, no new verb and
+Not an engine. Each stage is a skill with its own file; load that file and follow it, the
+way the generated slash command already says. There is no state file, no new verb and
 nothing here that decides anything a stage would not decide on its own.
 
 ## First half — up to the person
 
 `/ai-cycle <what you want>`
 
-1. `ai-research` — find out, and write `.ai/reports/NNN-name.html`.
-2. `ai-spec` — one specification, with its own "Challenged once" section.
-3. `ai-challenge` — a different reader executes the specification's sentences.
-4. `ai-council` — lenses that never see each other say what is absent.
-5. A brief, published as a page: what is proposed, what was refuted, what is missing, and
-   what it costs. Then **stop**.
+The order of the halves is data, not prose here: read `policy/skill-sequence.toml` and
+follow it. First half — research, then spec, then challenge, then council, then a brief
+published as a page: what is proposed, what was refuted, what is missing, and what it
+costs. Then **stop**.
 
 Stopping is the whole of this half. `ai-eng report blocked` already lists a drafted
 specification nobody has approved, so the halt exists and fires; this hands the person the
@@ -39,11 +37,13 @@ nothing to run against — the task envelope refuses outright when the bytes mov
 
 `/ai-cycle build <NNN>`
 
-6. `ai-build` — one task at a time, through `ai-eng spec show <NNN> --task <n>`. Two
-   kilobytes, not the whole plan. Where the plan's order allows two tasks at once and the
-   host can start two agents, start two; where it cannot, do them in turn.
-7. `ai-review`, `ai-verify`, `ai-security` — the critics, each in its own context.
-8. `ai-eng audit verify`, then `ai-ship`.
+The same map's second half, in order, once an approval record carrying the
+specification's exact digest exists — the map's `[gate]` section is the line between the
+halves. Inside `ai-build`, run one task at a time through `ai-eng spec show <NNN>
+--task <n>`: two kilobytes, not the whole plan. Where the plan's order allows two tasks
+at once and the host can start two agents, start two; where it cannot, do them in turn.
+The critics — review, verify, security — run each in its own context, then `ai-eng audit
+verify`, then `ai-ship`.
 
 ## When the gate goes red
 
