@@ -63,7 +63,7 @@ adds a file that is not the skill's own.
    `ai-/references/`, `specs/`) without an existence check and a fail-closed sentence is
    reported, and one that checks is not.
 
-3. [ ] **Forced-output rule in `contract.audit_one`** —
+3. [x] <!--t:5d1ce5949544--> **Forced-output rule in `contract.audit_one`** —
    **file**: `src/ai_engineering/contract.py`.
    **check**: `uv run --with pytest python -m pytest -q tests/test_contract_smells.py -k forced`
    **rollback**: `git revert <commit>`.

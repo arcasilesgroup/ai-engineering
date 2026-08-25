@@ -54,6 +54,24 @@ _GIT_GREP = re.compile(r"\bgit\s+grep\b")
 _EXIST_ROOTS = re.compile(r"`((?:policy|hooks|specs|docs)/[^`]+)`|`(CONSTITUTION\.md)`|`([a-z][a-z0-9-]*/references/[^`]+)`")
 _FAIL_CLOSED = re.compile(r"\b(absent|missing|does not exist|fail(?:s)? closed|refus(?:es|e)|when it is not there)\b", re.I)
 
+# A cross-file reference a skill body makes to a path the wheel does not guarantee beside
+# the skill. The skill's own `references/` subfolder ships with it and is not a dependency;
+# every other root — policy/, hooks/, specs/, docs/, CONSTITUTION.md and a sibling skill's
+# references/ — is a file the stranger's repo may not have unless the skill says so and
+# fails closed when it does not.
+# A "Done when" clause that requires an artifact a reader can verify. The taxonomy's
+# Forced-Output Verification Gate exists because a mere "verify" instruction is skipped.
+_ARTIFACT = re.compile(
+    r"`[^`]+\.(?:md|html|json|toml|txt|log)`|`[^`]*(?:output|digest|receipt|report)"
+    r"|printed|paste the output|show (?:its|the)? ?output|committed|the output is shown|"
+    r"a page|checklist|status table|file signature|output is in the conversation",
+    re.I,
+)
+_WEAK_OUTPUT = re.compile(
+    r"\b(verif(?:y|ied|ies)|ensure|makes? sure|check that|confirm(?:ed)?)\b|\w+ approval is the gate",
+    re.I,
+)
+
 # The catalogue budget, not the file budget: the open Agent Skills specification and each
 # surface load a catalogue, and a skill that silently does not fit is a skill that silently
 # does not exist there. 50 000 is the smallest documented budget (Zed's 50 KB, spec 024
@@ -155,6 +173,7 @@ def audit_one(path: Path) -> list[str]:
             found.append(f"{name}: {word!r} — write it so somebody who does not code can follow")
     found.extend(_portable_problems(path.parent, name))
     found.extend(_existence_problems(path.parent, name))
+    found.extend(_forced_output_problems(path.parent, name))
     found.extend(_corpus_problems(path.parent, name))
     return found
 
@@ -202,8 +221,34 @@ def _existence_problems(folder: Path, name: str) -> list[str]:
     return problems
 
 
-ROUTES = "## Routes here"
-REFUSES = "## Refuses"
+def _forced_output_problems(folder: Path, name: str) -> list[str]:
+    """A skill whose exit says only "verify" without naming a kept artifact.
+
+    Spec 027 D-027-01: every skill must end with a "Done when" clause naming the
+    artifact it produces — a status table, a printed digest, a committed file — or the
+    exact command whose output it keeps. A mere "verify" or "the approval is the gate"
+    is the Forced-Output smell: a workflow that just tells the agent to ensure done is
+    the one most often skipped. The artifact must appear in the same section as the
+    weak phrase, not somewhere the reader would have to search for it.
+    """
+
+    problems = []
+    for doc in (folder / "SKILL.md", folder / "corpus.md"):
+        if not doc.exists():
+            continue
+        body = doc.read_text(encoding="utf-8")
+        done = body.partition("## Done when")[2].partition("\n## ")[0]
+        if not done:
+            continue
+        weak = _WEAK_OUTPUT.search(done)
+        if weak and not _ARTIFACT.search(done):
+            problems.append(
+                f"{name}: {doc.name} 'Done when' says only {weak.group(0)!r} — "
+                f"name the artifact it produces (a committed file, a printed digest, a "
+                f"status table) or the exact command whose output it keeps. A mere "
+                f"'verify' is skipped."
+            )
+    return problems
 
 
 def _portable_problems(folder: Path, name: str) -> list[str]:

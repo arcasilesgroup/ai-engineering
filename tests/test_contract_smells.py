@@ -117,11 +117,46 @@ def test_existence_rule_checks_corpus_md_and_sibling_references(tmp_path):
     assert any("fail-closed" in p and "testing.md" in p for p in problems), problems
 
 
-def test_existence_rule_passes_a_skills_own_references_subfolder(tmp_path):
-    """The skill's own references/ ships with it and is not a dependency."""
+# --- Task 3: forced-output rule ---------------------------------------------
+
+
+def test_forced_output_rule_rejects_a_bare_verify_exit(tmp_path):
+    """A 'Done when' that only says verify, with no artifact, refuses."""
     skill = _skill(
         tmp_path,
-        SKILL_HEADER + "\n## Steps\n\n1. Work the checklists in `references/`.\n",
+        SKILL_HEADER + "\n## Done when\n\nThe change is verified and the check passes.\n",
     )
     problems = contract.audit_one(skill)
-    assert not any("fail-closed" in p for p in problems), problems
+    assert any("Done when" in p and "artifact" in p for p in problems), problems
+
+
+def test_forced_output_rule_rejects_the_approval_is_the_gate_exit(tmp_path):
+    """The ai-plan pattern — 'the approval is the gate' alone — refuses."""
+    skill = _skill(
+        tmp_path,
+        SKILL_HEADER + "\n## Done when\n\nThe person has approved it. That approval is the gate.\n",
+    )
+    problems = contract.audit_one(skill)
+    assert any("Done when" in p and "artifact" in p for p in problems), problems
+
+
+def test_forced_output_rule_passes_a_committed_artifact(tmp_path):
+    """A 'Done when' naming a committed file passes."""
+    skill = _skill(
+        tmp_path,
+        SKILL_HEADER
+        + "\n## Done when\n\n`specs/NNN-slug/challenge.md` is committed with the verdicts.\n",
+    )
+    problems = contract.audit_one(skill)
+    assert not any("Done when" in p and "artifact" in p for p in problems), problems
+
+
+def test_forced_output_rule_passes_a_printed_command_output(tmp_path):
+    """A 'Done when' naming the exact command whose output is kept passes."""
+    skill = _skill(
+        tmp_path,
+        SKILL_HEADER
+        + "\n## Done when\n\nRun `ai-eng audit verify` and paste its output.\n",
+    )
+    problems = contract.audit_one(skill)
+    assert not any("Done when" in p and "artifact" in p for p in problems), problems
