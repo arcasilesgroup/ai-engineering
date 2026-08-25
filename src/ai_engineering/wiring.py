@@ -550,25 +550,6 @@ def router_body(name: str, description: str, phase: str = "", case: str = "") ->
         example=f"Say something like: “{case}”" if case else "",
         follows=line,
     )
-    """One router, generated from the skill it routes to.
-
-    A router is a convenience and not a second copy: it names the skill and forwards the
-    request, and every instruction still lives in one `SKILL.md`. A router that restated any
-    of it would be the second normative layer `EP-071` forbids, kept up to date by hand.
-
-    The phase and the example are not a restatement for the same reason the description is
-    not: every one of them is read from a file that already holds it — the manifest and the
-    labelled corpus — and written with a digest beside it. Without them a person meeting the
-    catalogue on their own surface got a wall of commands with no map, which is the thing
-    `EP-135` names, and the map was being printed only where the gate runs.
-    """
-
-    return ROUTER.format(
-        name=name,
-        description=description.strip().replace("\n", " "),
-        phase=phase or "phase not declared",
-        example=f"Say something like: “{case}”" if case else "",
-    )
 
 
 def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
