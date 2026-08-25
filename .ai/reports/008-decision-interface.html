@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Análisis de la arquitectura de interfaz de decisión (BLUF, tablas comparativas, CTA, XML) y cómo implementarla en ai-engineering: qué sostiene la evidencia y qué no, y el coste real de wiring en el framework.">
+  <title>ai-engineering | Arquitectura de interfaz de decisión: evidencia e implementación</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --bg: #fafaf8; --fg: #1a1a18; --muted: #5c5c55; --line: #e3e3dc;
+      --accent: #7a4df0; --accent-soft: #f0ebfc; --good: #1e7d3c; --good-soft: #e5f3ea;
+      --warn: #a86e00; --warn-soft: #fdf3dc; --bad: #b02a2a; --bad-soft: #fbe9e9;
+      --code: #f2f1ec;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #171714; --fg: #eaeae4; --muted: #9a9a90; --line: #2c2c28;
+        --accent: #a88cf8; --accent-soft: #241f3d; --good: #5bc47e; --good-soft: #14301f;
+        --warn: #e0a93c; --warn-soft: #33270d; --bad: #ef7a7a; --bad-soft: #3a1515;
+        --code: #20201c;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--fg);
+      font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    a { color: var(--accent); }
+    .skip-link {
+      position: absolute; left: -999px; top: 0; background: var(--accent); color: #fff;
+      padding: 8px 14px; border-radius: 0 0 6px 0; z-index: 10;
+    }
+    .skip-link:focus { left: 0; }
+    .topbar {
+      position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px;
+      padding: 10px 22px; background: var(--bg); border-bottom: 1px solid var(--line);
+    }
+    .topbar .brand { font-weight: 700; text-decoration: none; color: var(--fg); font-size: 15px; }
+    .topbar .brand small { color: var(--muted); font-weight: 400; }
+    .top-actions { margin-left: auto; }
+    .report-shell { display: grid; grid-template-columns: 240px 1fr; gap: 0; max-width: 1180px; margin: 0 auto; }
+    .toc {
+      padding: 28px 20px 28px 28px; border-right: 1px solid var(--line); font-size: 14px;
+      position: sticky; top: 53px; align-self: start; max-height: calc(100vh - 60px); overflow: auto;
+    }
+    .toc-title { font-weight: 700; text-transform: uppercase; letter-spacing: .05em; font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+    .toc nav a { display: block; padding: 4px 0; color: var(--muted); text-decoration: none; }
+    .toc nav a:hover { color: var(--fg); }
+    .toc-meta { margin-top: 18px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+    main { padding: 40px 48px 80px; min-width: 0; }
+    .mobile-jump { display: none; }
+    @media (max-width: 900px) {
+      .report-shell { grid-template-columns: 1fr; }
+      .toc { display: none; }
+      .mobile-jump { display: block; padding: 18px 20px 0; }
+      main { padding: 24px 20px 60px; }
+    }
+    .kicker { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: var(--accent); font-weight: 700; }
+    h1 { font-size: 32px; line-height: 1.2; margin: 8px 0 10px; }
+    .sub { color: var(--muted); font-size: 17px; margin: 0 0 6px; }
+    .date { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+    h2 { font-size: 22px; margin: 44px 0 12px; padding-top: 16px; }
+    h3 { font-size: 17px; margin: 26px 0 8px; }
+    p { margin: 10px 0; }
+    .verdict-box {
+      border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px;
+      background: var(--accent-soft); padding: 14px 18px; margin: 16px 0;
+    }
+    .v-good { border-left-color: var(--good); background: var(--good-soft); }
+    .v-warn { border-left-color: var(--warn); background: var(--warn-soft); }
+    .v-bad { border-left-color: var(--bad); background: var(--bad-soft); }
+    .verdict-box strong { display: block; margin-bottom: 4px; }
+    table { border-collapse: collapse; width: 100%; margin: 14px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+    th { background: var(--code); font-weight: 700; }
+    code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+    pre {
+      background: var(--code); border: 1px solid var(--line); border-radius: 8px;
+      padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.5;
+    }
+    blockquote { border-left: 3px solid var(--line); margin: 12px 0; padding: 2px 16px; color: var(--muted); }
+    ul, ol { margin: 10px 0; padding-left: 24px; }
+    li { margin: 6px 0; }
+    .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 10px; margin-right: 6px; vertical-align: middle; }
+    .tag-v { background: var(--good-soft); color: var(--good); }
+    .tag-p { background: var(--warn-soft); color: var(--warn); }
+    .tag-u { background: var(--bad-soft); color: var(--bad); }
+    .cite { font-size: 12px; color: var(--muted); }
+    .cite a { color: var(--muted); text-decoration: none; border-bottom: 1px dotted var(--muted); }
+    footer {
+      max-width: 1180px; margin: 0 auto; padding: 18px 48px 30px; border-top: 1px solid var(--line);
+      color: var(--muted); font-size: 13px;
+    }
+    #fuentes ol { font-size: 13px; color: var(--muted); }
+    #fuentes li { margin: 5px 0; }
+    @media (max-width: 900px) { footer { padding: 18px 20px 30px; } }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+  <header class="topbar">
+    <div class="topbar-inner" style="display:flex;align-items:center;gap:12px;width:100%;">
+      <a class="brand" href="#inicio">ai-engineering <small>· informe de investigación</small></a>
+      <div class="top-actions"><a href="#fuentes" style="font-size:13px;color:var(--muted);">Fuentes</a></div>
+    </div>
+  </header>
+
+  <div class="report-shell">
+    <aside class="toc" aria-label="Índice del informe">
+      <p class="toc-title">Contenido</p>
+      <nav>
+        <a href="#inicio">Resumen ejecutivo</a>
+        <a href="#veredicto">Veredicto</a>
+        <a href="#metodo">Método y fuentes</a>
+        <a href="#radiografia">Radiografía de la evidencia</a>
+        <a href="#pilares">Pilares</a>
+        <a href="#sostiene">Lo que sostiene y lo que no</a>
+        <a href="#tension">Tensión con la constitución</a>
+        <a href="#implementacion">Implementación en ai-engineering</a>
+        <a href="#presupuesto">Coste del wiring</a>
+        <a href="#decisiones">Decisiones abiertas</a>
+        <a href="#direcciones">Tres direcciones</a>
+        <a href="#addenda">Addenda</a>
+        <a href="#fuentes">Fuentes</a>
+      </nav>
+      <div class="toc-meta">
+        <p>Fecha: 2026-08-25</p>
+        <p>Artefacto: informe standalone, sin recursos externos</p>
+      </div>
+    </aside>
+
+    <main id="contenido">
+      <div class="mobile-jump">
+        <a href="#fuentes">Saltar a fuentes</a>
+      </div>
+
+      <section class="hero" id="inicio" aria-labelledby="hero-title">
+        <p class="kicker">Investigación · decisión de producto</p>
+        <h1 id="hero-title">Arquitectura de interfaz de decisión: evidencia e implementación</h1>
+        <p class="sub">Análisis del documento de referencia (notebook de Google, 31 fuentes) sobre prompts de sistema orientados a la decisión humana — BLUF, tablas comparativas, CTA, envoltorio XML — y del coste real de llevarlo a <strong>ai-engineering</strong>.</p>
+        <p class="date">2026-08-25 · Informe <span class="mono">008</span> de `<span class="mono">.ai/reports/`</span></p>
+      </section>
+
+      <section class="section" id="veredicto" aria-labelledby="veredicto-title">
+        <h2 id="veredicto-title">Veredicto</h2>
+        <div class="verdict-box v-warn">
+          <strong>La dirección es correcta; la mayor parte de la evidencia cuantitativa del documento no lo está.</strong>
+          <span>Verifiqué cada pilar contra su fuente primaria: tres pilares se sostienen (carga cognitiva documentada en HBR [1], instrucciones afirmativas frente a negativas según la documentación oficial de Anthropic [5], y la economía de prompt caching a 0,1× [3]); el resto son extrapolaciones, cifras promocionales o una única prueba anecdótica de Reddit. La tabla estrella del documento (16.180 → 3.150 tokens, −80,5%) no aparece en ninguna de sus fuentes citadas; mi propia medición da un ahorro real de 79–92% en páginas introductorias reales, pero el número exacto es <span class="tag tag-u">[unsourced]</span>.</span>
+        </div>
+        <div class="verdict-box">
+          <strong>En ai-engineering, implementarlo no es «añadir una skill».</strong>
+          <span>El árbol de skills valida <span class="mono">ai-*/SKILL.md</span> contra un contrato (fog ≤ 11,03, descripción ≤ 1.000 caracteres, catálogo ≤ 50.000) y cada skill debe existir como capability con fase y modo en <span class="mono">policy/capabilities.toml</span> y en el <strong>enum cerrado</strong> de <span class="mono">capability-manifest.schema.json</span> [repo]. Una skill nueva toca: fondo, capabilities, schema + digest, absorption map, corpus con rutas/rechazos, tests de skill_eval y el docstring «sixteen skills» de AGENTS.md. Es un cambio de especificación previa (regla 1 de AGENTS.md), no un commit de un archivo.</span>
+        </div>
+        <div class="verdict-box v-bad">
+          <strong>La plantilla no debe transplantarse tal cual.</strong>
+          <span>El documento ordena «expón siempre el veredicto definitivo» y «un CTA por alternativa». La constitución de ai-engineering exige lo contrario cuando no hay ganador honesto: «Candour — say what is unknown… expose silent harm and false green results». Un BLUF obligatorio con CTA inventa un veredicto donde la evidencia no lo da — exactamente el falso verde que esta casa prohíbe [2]. La skill implementable es la <em>parte condicional</em>: veredicto primero <em>si existe</em>; si no existe, decirlo.</span>
+        </div>
+      </section>
+
+      <section class="section" id="metodo" aria-labelledby="metodo-title">
+        <h2 id="metodo-title">Método y fuentes</h2>
+        <p>Fui a la fuente primaria de cada afirmación: la documentación oficial de Anthropic para caching y mejores prácticas, el artículo de HBR original [1], Liu et al. 2023 (arXiv 2307.03172) para la curva de atención [8], el informe de Kevin Indig sobre citas [10] y el artículo de Better Stack sobre ahorro de tokens [14]. Verifiqué números <strong>ejecutándolos</strong>: tokenicé dos páginas reales (HTML crudo vs. versión limpia) con <span class="mono">tiktoken o200k_base</span>.</p>
+        <ul>
+          <li><strong>Fecha de corte:</strong> 2026-08-25. Todo lo que se cita de un año o versión distinta está fechado en la fuente.</li>
+          <li><strong>Fuentes que no pude abrir:</strong> el texto completo de HBR (paywall; verifiqué título, autores y fecha, y el resumen; las cifras 19/14/33 las leo en la fuente secundaria [1b] que lo cita), las métricas de Indig (artículo de pago; el 44,2% lo leo en [10] que lo cita) y el hilo de Reddit de 36 tests (bloqueado a scraping; las puntuaciones 8,75/9,67/9,75 las leo solo en el documento de origen).</li>
+          <li><strong>Lo verificado yo mismo:</strong> medición de tokens HTML vs Markdown en dos páginas reales (91,6% y 79,4% de ahorro), tabla de precios de caching en la doc oficial de Anthropic (0,1×), y las reglas del repo (contract.py, schema de capabilities, tests).</li>
+        </ul>
+      </section>
+
+      <section class="section" id="radiografia" aria-labelledby="radiografia-title">
+        <h2 id="radiografia-title">Radiografía de la evidencia</h2>
+        <p class="cite">Leyenda: <span class="tag tag-v">verificado</span> la afirmación resiste la fuente primaria · <span class="tag tag-p">parcial</span> dirección real, número o alcance distinto · <span class="tag tag-u">unsourced</span> no encontré fuente o la fuente citada no lo respalda.</p>
+        <table>
+          <thead>
+            <tr><th>Pilar del documento</th><th>Estado</th><th>Qué dice la fuente primaria</th><th>Fuente</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>HBR: +19% sobrecarga, +14% esfuerzo, +33% fatiga con supervisión IA</td>
+              <td><span class="tag tag-v">verificado</span></td>
+              <td>El artículo HBR «When Using AI Leads to "Brain Fry"» existe (Bedard, Kropp, Hsu, Karaman, Hawes, Kellerman; 2026-03-05) y documenta fatiga cognitiva por supervisión de agentes. Las cifras exactas las cita [1b] (AgentMail) atribuyéndolas al estudio HBR; el texto completo HBR está tras paywall.</td>
+              <td>[1], [1b]</td>
+            </tr>
+            <tr>
+              <td>«Curva de rampa de esquí»: pico inicial, zona muerta del 80%, repunte final</td>
+              <td><span class="tag tag-p">parcial</span></td>
+              <td>Liu et al. 2023 (Lost in the Middle): el rendimiento de recuperación desde contexto largo es máximo al inicio y al final, y cae en el medio. Pero es una propiedad de <strong>lectura de contexto de entrada</strong>, no de la atención sobre la <em>salida generada</em>. La metáfora «rampa de esquí» procede de un blog de SEO que la extiende a citas; el documento la aplica a formatear la salida del modelo — extrapolación sin fuente.</td>
+              <td>[8], [8b]</td>
+            </tr>
+            <tr>
+              <td>44,2% de citas del primer 30% y 2,4–4,4% del 10% final</td>
+              <td><span class="tag tag-p">parcial</span></td>
+              <td>El número procede del análisis de Kevin Indig sobre ~21K–1,2M citas de ChatGPT (Growth Memo, 2026-03). Es análisis propio de un practicante, no estudio revisado por pares; y describe de qué parte de un <em>documento citado</em> salen las referencias (lado RAG/entrada), no la estructura de salida del modelo.</td>
+              <td>[10]</td>
+            </tr>
+            <tr>
+              <td>Restricciones afirmativas &gt; negativas («eco de restricción negativa»)</td>
+              <td><span class="tag tag-v">verificado</span></td>
+              <td>La doc oficial de Anthropic: «Tell Claude what to do instead of what not to do» — instrucciones positivas superan a las negativas para formato y tono. El ancla psicológica es la teoría del proceso irónico (Wegner, 1987). Matiz de la propia fuente: «la negación funciona en reglas, se rompe en creatividad» — el documento lo presenta como absoluto y no lo es.</td>
+              <td>[5], [11]</td>
+            </tr>
+            <tr>
+              <td>Puntuaciones 8,75 / 9,67 / 9,75 y «tasa de fallo crítico»</td>
+              <td><span class="tag tag-u">unsourced</span></td>
+              <td>La tabla procede de un hilo de Reddit (r/PromptEngineering) con <strong>36 autocontroles de un usuario</strong>: muestra anecdótica, un solo modelo, sin metodología publicada. No es un «análisis empírico» en el sentido del documento, y no puedo verificar los números desde aquí.</td>
+              <td>[6]</td>
+            </tr>
+            <tr>
+              <td>Reducción de tokens de salida 65–75%</td>
+              <td><span class="tag tag-p">parcial</span></td>
+              <td>Better Stack mide <strong>45%</strong> de reducción sobre línea base y 39% frente a «sé conciso»; «hasta 75%» es el techo promocional del skill Caveman, no la medición. Además: en consulta única la skill es ~10% <em>más cara</em> (el prompt grande se paga entero); el ahorro solo domina en sesión multi-turno con caching (~39% total). El documento omite ambas condiciones.</td>
+              <td>[14]</td>
+            </tr>
+            <tr>
+              <td>Prompt caching ≈ 10% de la tarifa base</td>
+              <td><span class="tag tag-v">verificado</span></td>
+              <td>Doc oficial de Anthropic, tabla de precios: «Cache read tokens are 0.1× the base input tokens price» (p.ej. Sonnet 5: 2 $/MTok base → 0,20 $/MTok caché). Exacto.</td>
+              <td>[3]</td>
+            </tr>
+            <tr>
+              <td>Markdown: 16.180 vs 3.150 tokens, −80,5%</td>
+              <td><span class="tag tag-u">unsourced</span></td>
+              <td>Esa tabla no está en ninguna de las dos fuentes citadas: AgentMail dice «~68% fewer tokens» [1b] y SearchCans dice explícitamente que «la diferencia depende de la fuente y el conversor» [15]. Medición propia (2026-08-25): 91,6% y 79,4% de ahorro en dos páginas reales. La <strong>dirección y magnitud</strong> se sostienen; los números exactos del documento no.</td>
+              <td>[1b], [15], propio</td>
+            </tr>
+            <tr>
+              <td>Cinco bloques del system prompt (identidad, tono, reglas, XML, few-shot)</td>
+              <td><span class="tag tag-p">parcial</span></td>
+              <td>Estructura coherente y respaldada por la doc de Anthropic (rol, contexto, normas, formato de salida, ejemplos) y por la práctica común [13, 26, 27]. El «exactamente cinco bloques» es la taxonomía de un blog proveedor (AICredits), no un estándar.</td>
+              <td>[13], [5]</td>
+            </tr>
+            <tr>
+              <td>Envoltorio XML para salida parseable</td>
+              <td><span class="tag tag-v">verificado</span></td>
+              <td>La doc oficial de Anthropic recomienda etiquetas XML para estructurar salidas; confirmado también en análisis independientes [19].</td>
+              <td>[5], [19]</td>
+            </tr>
+            <tr>
+              <td>Botones CTA mediante enlaces Markdown, renderizados por el cliente</td>
+              <td><span class="tag tag-p">parcial</span></td>
+              <td>«Un enlace puede ser un botón» es cierto en algunos clientes de chat (que estilizan enlaces), pero el documento lo sostiene con fuentes que no demuestran el mecanismo: la doc de Braze [22] trata formato de mensajes WhatsApp y CopilotKit A2UI [24] es un sistema de UI estructurada por schema, no renderizado de enlaces Markdown como botones. Como afirmación general, sin fuente directa.</td>
+              <td>[22], [24]</td>
+            </tr>
+            <tr>
+              <td>BLUF como norma militar de redacción funcional</td>
+              <td><span class="tag tag-v">verificado</span></td>
+              <td>Origen militar/policial documentado (Wikipedia BLUF; doctrina de redacción funcional). Es un hecho histórico, no una afirmación sobre LLMs.</td>
+              <td>[7]</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section" id="pilares" aria-labelledby="pilares-title">
+        <h2 id="pilares-title">Los tres pilares que sí resisten</h2>
+        <ol>
+          <li><strong>El problema es real.</strong> HBR (2026-03) documenta fatiga cognitiva —«brain fry»— asociada a supervisar y usar IAs [1]. El diagnóstico de sobrecarga informativa no depende de ningún número discutido.</li>
+          <li><strong>Instrucciones afirmativas.</strong> La fuente que en la práctica manda (el proveedor del modelo) lo prescribe: «dile qué hacer, no qué no hacer» [5]. Esto es directamente implementable y barato.</li>
+          <li><strong>La economía de tokens favorece prompts de sistema estables.</strong> A 0,1× en caché, un prompt de sistema compacto y repetido es regalado; el ahorro dominante está en limitar <em>salida</em>, no entrada [3, 14].</li>
+        </ol>
+        <p>Y un hallazgo que el documento no menciona y que refuerza su tesis desde otro lado: el artículo de Better Stack cita «Brevity Constraints Reverse Performance Hierarchies in Language Models», donde limitar la longitud <em>mejora la exactitud</em> hasta +26 puntos en ciertos benchmarks (precisión por encima de la verbosidad espontánea de los modelos grandes) [14b].</p>
+      </section>
+
+      <section class="section" id="sostiene" aria-labelledby="sostiene-title">
+        <h2 id="sostiene-title">Lo que el documento sostiene y no sostiene</h2>
+        <h3>Sí se sostiene</h3>
+        <ul>
+          <li>Conclusiones primero para humanos bajo presión: evidencia directa [1] + historia militar [7].</li>
+          <li>Preferir instrucciones afirmativas y pocas prohibiciones específicas [5].</li>
+          <li>Markdown como formato de salida de bajo coste y alta parseabilidad frente a HTML [1b, 15] (con el matiz de que para <em>sesiones interactivas</em> HTML tiene un caso real — debate AgentMail/Claude Code [1b]).</li>
+          <li>Estructurar con etiquetas XML y ejemplos few-shot [5, 19].</li>
+          <li>El prompt de sistema es el cableado de persistencia de caché; pagar tokens de entrada bien invertidos se amortiza [3].</li>
+        </ul>
+        <h3>No se sostiene (o está sobredimensionado)</h3>
+        <ul>
+          <li><strong>Cifras:</strong> 16.180→3.150 tokens (−80,5%) [unsourced — mi medición: 79–92%, misma dirección, otro número]; 65–75% de ahorro de salida (medido: ~45%, y negativo en consulta única) [14]; puntuaciones 8,75/9,67/9,75 (36 autocontroles de un usuario de Reddit) [6]; 44,2% de citas (análisis propio de un practicante, lado de entrada) [10].</li>
+          <li><strong>La «curva de rampa de esquí» aplicada a la salida del modelo:</strong> la evidencia académica real (Lost in the Middle, Liu et al.) describe la recuperación desde el <em>contexto de entrada</em>, no la atención sobre el texto generado. Formatear la salida con BLUF tiene beneficios humanos y de recuperación RAG [8, 10]; «maximizar densidad semántica en el pico de atención del modelo» es una metáfora, no un mecanismo demostrado.</li>
+          <li><strong>«Un CTA por alternativa»:</strong> sin evidencia; es decididamente una elección de producto comercial. Para un framework de gobernanza es más un riesgo de <em>false green</em> que una mejora.</li>
+        </ul>
+      </section>
+
+      <section class="section" id="tension" aria-labelledby="tension-title">
+        <h2 id="tension-title">Tensión con la constitución de ai-engineering</h2>
+        <p>El documento de referencia está escrito para una interfaz de venta/consultoría: «Comprar Ahora», «Elegir Plan», «Prunar Base de Datos». ai-engineering es un framework de gobernanza que <em>falla cerrado</em>, no vende: «Never claim a gate result this code did not observe», «Candour — say what is unknown, incomplete or unproven without softening it», «expose silent harm and false green results rather than hide either one» [2].</p>
+        <blockquote>«Expón siempre el veredicto definitivo en la primera oración» (documento) es compatible con la candidatura solo si el veredicto <em>existe</em>. Donde no existe (evidencia contradictoria, dato no verificado, información faltante), la constitución ordena decirlo — y ese «no hay veredicto aún» debe poder ser la primera oración sin violar el formato.</blockquote>
+        <p>La skill resultante no impone «ganador + CTA»; impone estructura y franqueza: BLUF <em>si hay BLUF</em>, tabla comparativa <em>si hay alternativas reales</em>, y marcado explícito cuando no las hay. Así el formato sirve a la candidatura en lugar de competir con ella.</p>
+      </section>
+
+      <section class="section" id="implementacion" aria-labelledby="implementacion-title">
+        <h2 id="implementacion-title">Implementación en ai-engineering</h2>
+        <p>El repo ya muerde esto: la skill <span class="mono">ai-research</span> obliga a BLUF de citas y «tres direcciones», el tono del producto es «evidence-first terse». Lo que el documento añade es una <em>skill de estilo de salida</em> reutilizable: <span class="mono">ai-decision</span> (o <span class="mono">ai-answer</span>), que reescribe cómo se presentan las respuestas del modelo en cualquier superficie que la invoque.</p>
+        <h3>Forma recomendada (skill condicional, no plantilla rígida)</h3>
+        <pre># .agents/skills/ai-decision/SKILL.md  (borrador conceptual — la redacción final la valida el fog gate)
+
+name: ai-decision
+description: >-
+  Presenta respuestas orientadas a decisión humana: veredicto primero cuando existe,
+  tabla comparativa de máx. 3 opciones y 4 columnas, un CTA enlazado por alternativa,
+  envoltorio XML para parseo, instrucciones afirmativas. Si no hay veredicto honesto,
+  se dice y se marca lo no verificado. Trigger para "recomiéndame", "compara", "cuál
+  elijo", "decisión". No para el que pregunta dónde está algo (ai-explore) ni para
+  decidir qué construir (ai-spec) ni para evidencia externa (ai-research).
+license: Apache-2.0
+compatibility: cualquier superficie de chat o agente que renderice Markdown
+</pre>
+        <p>El contrato que debe cumplir (verificado en <span class="mono">src/ai_engineering/contract.py</span>): nombre <span class="mono">ai-*</span>, frontmatter con <span class="mono">name, description, license, compatibility</span> (+ extensiones opcionales), descripción ≤ 1.000 caracteres, catálogo total ≤ 50.000, prosa con Gunning fog ≤ 11,03, y <span class="mono">corpus.md</span> con las secciones <span class="mono">## Routes here</span> y <span class="mono">## Refuses</span>, donde cada rechazo nombra la skill a la que se deriva (skill_eval suma ≥ 70 tomas, ≥ 80 derivaciones y ≥ 30 rechazos en todo el árbol, sin situaciones duplicadas) [repo, tests].</p>
+      </section>
+
+      <section class="section" id="presupuesto" aria-labelledby="presupuesto-title">
+        <h2 id="presupuesto-title">Coste real del wiring</h2>
+        <p>Lo que cuesta añadir la skill <span class="mono">ai-decision</span>, archivo por archivo — verificado leyendo el repo:</p>
+        <table>
+          <thead>
+            <tr><th>Archivo</th><th>Cambio</th><th>Por qué</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="mono">.agents/skills/ai-decision/SKILL.md</span> + <span class="mono">corpus.md</span></td><td>nuevo</td><td>el audit globbea <span class="mono">ai-*/SKILL.md</span>; ship automático por hatch force-include de <span class="mono">.agents/skills</span> [repo, pyproject]</td></tr>
+            <tr><td><span class="mono">policy/capabilities.toml</span></td><td>nuevo <span class="mono">[[capabilities]]</span> <span class="mono">id = "ai-decision"</span> con fase y &lt;span class="mono"&gt;modes&lt;/span&gt;</td><td>toda skill debe existir como capability; <span class="mono">test_threat_model.py</span> exige fase por skill; el absorption map cruza skills↔capabilities↔fases [repo]</td></tr>
+            <tr><td><span class="mono">policy/capability-manifest.schema.json</span></td><td>añadir <span class="mono">"ai-decision"</span> a los dos enums de id + digest</td><td>el enum es cerrado; <span class="mono">_EXPECTED_SCHEMA_DIGEST</span> cambia y hay tests de mutación que lo verifican [repo]</td></tr>
+            <tr><td><span class="mono">tests/</span> (skill_eval, contracts, caps)</td><td>actualizar totales e invariantes</td><td>los mínimos globales (tomas/rechazos) y el cruce capability↔skill son invariantes; hay que extenderlos, no romperlos</td></tr>
+            <tr><td><span class="mono">AGENTS.md</span></td><td>docstring: «sixteen skills» → «seventeen skills»</td><td>el número es descrito en prosa y el texto está capado por <span class="mono">DOCTRINE_CEILING</span> [repo]</td></tr>
+            <tr><td><span class="mono">specs/</span> nueva spec + decisión</td><td>previa al código</td><td>regla 1 de AGENTS.md: más de tres archivos exige spec y plan aprobados; un commit, un cambio</td></tr>
+          </tbody>
+        </table>
+        <div class="verdict-box v-warn">
+          <strong>Alternativa de menor coste si el objetivo es «mejorar nuestras respuestas» y no «enviar una skill nueva»:</strong>
+          <span>fusión en la skill existente <span class="mono">ai-report</span> (misma fase <span class="mono">verify</span>, mismo estilo) o en el canon de tono del producto — sin tocar schema, manifest ni digest. Si la audiencia es externa (una skill que otros instalan), el camino completo de capability es el correcto y cuesta una spec.</span>
+        </div>
+      </section>
+
+      <section class="section" id="decisiones" aria-labelledby="decisiones-title">
+        <h2 id="decisiones-title">Decisiones abiertas</h2>
+        <ul>
+          <li><strong>Alcance:</strong> ¿skill de producto nueva (<span class="mono">ai-decision</span>, 17ª) o canon de tono dentro de <span class="mono">ai-report</span>/tono del producto? Cambia el coste en un orden de magnitud.</li>
+          <li><strong>CTA:</strong> ¿enlaces-botón incluidos o excluidos? La evidencia no los respalda; la constitución desaconseja fabricar acción donde no hay veredicto. Mi recomendación: un CTA <em>opcional</em> y solo donde hay una acción real verificable.</li>
+          <li><strong>Fase capability:</strong> «decide» (apoyo a decisiones) o «verify» (presentación de resultados). El schema admite cinco fases; la skill cruza, así que la decisión es de gobernanza, no técnica.</li>
+          <li><strong>Condición de BLUF:</strong> ¿«veredicto primero siempre» o «veredicto primero cuando existe»? Recomiendo la condicional; es la única compatible con la constitución.</li>
+        </ul>
+      </section>
+
+      <section class="section" id="direcciones" aria-labelledby="direcciones-title">
+        <h2 id="direcciones-title">Tres direcciones</h2>
+        <ol>
+          <li><strong>Abrir la spec de <span class="mono">ai-decision</span> como skill de estilo de salida condicional</strong> (BLUF-si-existe, tabla ≤3×4, XML envelope, afirmativas, CTA opcional), con el wiring completo de capability ya enumerado aquí: schema enum + digest, absorption, corpus con rutas/rechazos y tests. La redacción debe pasar el fog gate (≤ 11,03) y el presupuesto de catálogo (≤ 50.000), igual que las 16 actuales [repo]. Es la dirección que responde al documento sin importar su retórica de ventas: sus dos pilares verificables (afirmativas [5] y economía de caché [3]) se aprovechan igual.</li>
+          <li><strong>Si el objetivo es solo «nuestras respuestas», no enviar una skill nueva:</strong> incorporar el canon a <span class="mono">ai-report</span> (misma fase verify) y al tono del producto, con un test de skill_eval que fije el comportamiento (veredicto-primero-condicional, marcado de no verificado). Cero cambios de schema; un commit; una decisión en <span class="mono">docs/adr/</span>. Verificar luego contra el «Brevity Constraints» paper: limitar salida puede mejorar exactitud, no solo coste [14b].</li>
+          <li><strong>Antes de prometer ahorros, medir con la cinta métrica del repo:</strong> el ahorro de tokens de salida es ~45% medido (no 65–75%) y negativo en consulta única [14]; el de entrada HTML→Markdown lo acabo de medir en 79–92% en dos páginas reales (el documento decía 80,5% sin fuente). Un benchmark de la skill —antes/después sobre 10 respuestas del producto, contando tokens de salida y sesiones con caché— es exactamente el tipo de «gate que ejecuta, no que afirma» que la regla 11 de AGENTS.md exige. La skill no se promociona a «recomendada» hasta que ese benchmark exista.</li>
+        </ol>
+      </section>
+
+      <section class="section" id="addenda" aria-labelledby="addenda-title">
+        <h2 id="addenda-title">Addenda 2026-08-25 — decisión posterior</h2>
+        <div class="verdict-box">
+          <strong>Este informe no se contradice con lo decidido después; quedó desplazado por un hallazgo anterior del dogfooding.</strong>
+          <span>La sesión que siguió a este informe reveló que el hueco práctico más caro de ai-engineering no era el formato de salida, sino el <em>orden de las skills</em>: «cuál usar antes, cuál después, cómo se conectan». La decisión posterior — spec <span class="mono">025-skill-sequence-map</span>, hoy en <span class="mono">specs/025-skill-sequence-map/spec.md</span> — convierte el ciclo gobernado (research → spec → challenge → council → gate humano → build → review → verify → security → audit → ship) en un mapa de datos comprobado por test y visible en los routers. Eso es un requisito previo de navegación, no un formato de respuesta.</span>
+        </div>
+        <ul>
+          <li><strong>La dirección 1 de este informe («abrir ai-decision como skill 17») queda en suspenso</strong>, no decidida: la evidencia de aquí no obligaba a abrir una skill nueva, y la prioridad pasó al mapa de secuencia. La skill de estilo de salida sigue siendo una opción abierta para más adelante.</li>
+          <li><strong>Las capas baratas siguen vigentes y sin ejecutar:</strong> la línea de persona en el harness (BLUF condicional + marcar lo no verificado) y el canon en <span class="mono">ai-report</span>. Son el camino si el objetivo es «nuestras respuestas» y no «un componente vendible».</li>
+          <li><strong>La evidencia de este informe no cambia:</strong> los pilares verificados (afirmativas [5], caché 0,1× [3], BLUF [7]) y los números marcados [unsourced] (80,5%, 65–75%, 8,75/9,67/9,75) siguen siendo lo que eran el día que se midieron. El 025 la cita como fuente de contexto, no como autoridad de la secuencia.</li>
+        </ul>
+      </section>
+
+      <section class="section" id="fuentes" aria-labelledby="fuentes-title">
+        <h2 id="fuentes-title">Fuentes</h2>
+        <p class="cite">Numeración del documento de referencia donde procede; [repo] indica archivos verificados en este repositorio (2026-08-25). Verifiqué directamente: [1b], [3], [5] (resumen oficial vía búsqueda), [7], [8b] (arXiv), [10], [13], [14], [14b] (mención en [14]), [15], [19]. No pude abrir: [1] texto completo (paywall), [6] (Reddit, bloqueado), [8] y [10] originales de pago — citados a través de las fuentes que los referencian.</p>
+        <ol>
+          <li>HBR, «When Using AI Leads to "Brain Fry"» — Bedard, Kropp, Hsu, Karaman, Hawes, Kellerman (2026-03-05) · <a href="https://hbr.org/2026/03/when-using-ai-leads-to-brain-fry">hbr.org/2026/03/when-using-ai-leads-to-brain-fry</a> · (texto completo tras paywall; título, autores y resumen verificados)</li>
+          <li>CONSTITUTION.md de ai-engineering — este repo (leído 2026-08-25) · <a href="../../CONSTITUTION.md">CONSTITUTION.md</a></li>
+          <li>Anthropic, «Prompt caching» — tabla de precios: cache reads 0,1× base · <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">platform.claude.com/docs/en/build-with-claude/prompt-caching</a> · (verificado directo, 2026-08-25)</li>
+          <li>Documento de referencia (notebook de Google, sin autor/URL pública) — síntesis de 31 fuentes con citas [1]–[31]</li>
+          <li>Anthropic, «Prompting best practices» — «Tell Claude what to do instead of what not to do» · <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">platform.claude.com/docs/…/claude-prompting-best-practices</a> · (resumen verificado vía búsqueda, 2026-08-25)</li>
+          <li>Reddit r/PromptEngineering, «Don't do X can throw X into the CENTER of the output. In 36 tests…» (2025-02, aprox.) · <a href="https://www.reddit.com/r/PromptEngineering/comments/1suh2nh/">reddit.com/r/PromptEngineering/comments/1suh2nh/</a> · (bloqueado a scraping; citado a través del documento de referencia y de [11])</li>
+          <li>Wikipedia, «BLUF (communication)» · <a href="https://en.wikipedia.org/wiki/BLUF_(communication)">en.wikipedia.org/wiki/BLUF_(communication)</a> · (verificado directo, 2026-08-25)</li>
+          <li>MintCopy, «BLUF: The "Ski Ramp" Content Strategy» (Sheetal Pinto, 2026-03-17) · <a href="https://mintcopy.com/content-marketing-blog/content-strategy-for-ai-attention-put-the-bluf-first/">mintcopy.com/…</a> · (verificado directo; fuente del concepto «ski ramp», que remite a Kevin Indig)</li>
+          <li>Liu, Lin, Hewitt, Paranjape, Bevilacqua, Petroni, Liang, «Lost in the Middle: How Language Models Use Long Contexts» (arXiv 2307.03172, 2023) · <a href="https://arxiv.org/abs/2307.03172">arxiv.org/abs/2307.03172</a> · (verificado directo, 2026-08-25)</li>
+          <li>Peace Akinwale, «How to Optimize B2B SaaS Content for AEO» (2026-04-14) — cita el análisis de citas de Kevin Indig (44,2% / 2,4–4,4%) · <a href="https://peaceakinwale.com/how-to-optimize-for-aeo">peaceakinwale.com/how-to-optimize-for-aeo</a> · (verificado directo)</li>
+          <li>dev.to (S. Kulkarni), «The Pink Elephant Problem in AI» — teoría del proceso irónico (Wegner, 1987) y matiz reglas vs. creatividad · <a href="https://dev.to/smkulkarni/the-pink-elephant-problem-in-ai-why-dont-do-this-makes-llms-do-exactly-that-31lo">dev.to/smkulkarni/…-31lo</a> · (verificado directo, 2026-08-25)</li>
+          <li>AgentMail (B. Perera), «HTML vs Markdown for AI agents» (2026-05-25) — «~68% fewer tokens», cita HBR 2026 y el debate thariq/Karpathy · <a href="https://www.agentmail.to/blog/html-vs-markdown-for-ai-agents">agentmail.to/blog/html-vs-markdown-for-ai-agents</a> · (verificado directo)</li>
+          <li>AICredits, «System Prompt Engineering: The Complete Guide to Controlling LLM Behavior» — anatomía de 5 bloques · <a href="https://aicredits.in/blog/system-prompt-engineering-best-practices">aicredits.in/blog/system-prompt-engineering-best-practices</a> · (verificado directo)</li>
+          <li>Better Stack, «Caveman: Reducing LLM Output Tokens by up to 75% with a Prompt Skill» — medido: 45% vs. base, 39% vs. terse; coste +10% en consulta única; ~39% total con caché · <a href="https://betterstack.com/community/guides/ai/caveman-llm/">betterstack.com/community/guides/ai/caveman-llm/</a> · (verificado directo)</li>
+          <li>SearchCans, «Why Markdown is the Preferred LLM Output Format in 2026» (2026-04-22) — explícito: la diferencia de tokens «depende de la fuente y el conversor» · <a href="https://www.searchcans.com/blog/markdown-llm-output-benefits/">searchcans.com/blog/markdown-llm-output-benefits/</a> · (verificado directo)</li>
+          <li>dev.to (G. Anhaia), «JSON or XML Tags for LLM Output» — XML robusto bajo presión · <a href="https://dev.to/gabrielanhaia/json-or-xml-tags-for-llm-output-the-format-that-holds-under-pressure-3ki8">dev.to/gabrielanhaia/…-3ki8</a> · (no releído en esta sesión; dirección coherente con [5])</li>
+          <li>IBM, «What is few shot prompting?» · <a href="https://www.ibm.com/think/topics/few-shot-prompting">ibm.com/think/topics/few-shot-prompting</a> · (práctica estándar)</li>
+          <li>Braze, «WhatsApp user messages» — cita del documento para «enlaces como botones»; no demuestra el mecanismo · <a href="https://www.braze.com/docs/user_guide/channels/whatsapp/message_processing/messaging_users">braze.com/docs/…</a></li>
+          <li>CopilotKit, «Dynamic Schema A2UI» — UI estructurada por schema; no renderiza enlaces Markdown como botones · <a href="https://docs.copilotkit.ai/mastra/generative-ui/a2ui/dynamic-schema">docs.copilotkit.ai/…a2ui/dynamic-schema</a></li>
+          <li>Medición propia (2026-08-25): <span class="mono">tiktoken o200k_base</span> sobre HTML crudo vs. versión limpia — agentmail.to: 81.962 → 6.910 tokens (−91,6%); Wikipedia «LLM»: 330.911 → 68.046 (−79,4%). Script en /tmp, desechable.</li>
+        </ol>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    Artefacto local y standalone. No carga recursos externos ni modifica el producto. Informe de investigación 008,
+    producido con la skill ai-research (evidencia citada o marcada, tres direcciones). No es una spec aprobada:
+    cualquier cambio que exceda tres archivos requiere spec y plan aprobados antes de código, según AGENTS.md regla 1.
+  </footer>
+</body>
+</html>
