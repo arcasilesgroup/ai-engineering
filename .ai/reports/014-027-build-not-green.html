@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="La mitad de build de la especificación 027 no está totalmente verde: las tareas 5 y 6 (el contrato de skills) están selladas, y el rojo que queda es el registro 0025 de 026, fuera del límite aprobado.">
+<title>ai-engineering | 027 build — las tareas selladas, y el rojo que queda no es de este bloque</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:900px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:32px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.date{color:var(--muted);font-size:13px;margin-bottom:24px}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em;overflow-wrap:break-word}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.good{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+ol,ul{margin:.4rem 0}.cite{color:var(--muted);font-size:13px;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="topbar"><a class="brand" href="#">ai-engineering <small>· 027 build · el contrato de skills está sellado</small></a></div>
+<main>
+<p class="kicker">Mitad de build · contrato sellado, puerta con un rojo heredado</p>
+<h1>027: tareas selladas, y el rojo que queda no es de este bloque</h1>
+<p class="sub">Las tareas 5 y 6 del plan (el contrato estándar de skills) están completas y verificadas. La puerta completa de <code>just check</code> sigue roja en cuatro tests de <code>madr</code>, y ese rojo es el registro 0025 de 026, fuera del límite que esta especificación aprobó.</p>
+<p class="date">2026-08-25 · especificación 027-standard-skills-contract · segunda mitad del ciclo</p>
+
+<h2>Qué se construyó (y está sellado)</h2>
+<table>
+<thead><tr><th>#</th><th>Tarea</th><th>Estado</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Regla de comando portable en <code>contract.audit_one</code></td><td><span class="good">sellada</span></td></tr>
+<tr><td>2</td><td>Regla de chequeo de existencia en <code>contract.audit_one</code></td><td><span class="good">sellada</span></td></tr>
+<tr><td>3</td><td>Regla de puerta de salida forzada en <code>contract.audit_one</code></td><td><span class="good">sellada</span></td></tr>
+<tr><td>4</td><td>Regla de estadística con fuente en <code>contract.audit_one</code></td><td><span class="good">sellada</span></td></tr>
+<tr><td>5</td><td>Reparar los dieciséis pares de skill a las cuatro reglas</td><td><span class="good">sellada</span></td></tr>
+<tr><td>6</td><td>La puerta lee el árbol reparado limpio (test del contrato + línea de audit del doctor)</td><td><span class="good">sellada por su <code>done when</code></span></td></tr>
+</tbody>
+</table>
+
+<h2>La tarea 6 está verde por su condición escrita</h2>
+<p>El plan anota para la tarea 6 un <code>done when</code> explícito: «la prueba de contrato que ejerce las cuatro reglas sobre los skills reparados pasa, y la línea de audit de skills del doctor no reporta ninguna violación». Ambas se verifican aquí:</p>
+<ul>
+<li><code>uv run --with pytest python -m pytest -q tests/test_contract_smells.py</code> → <strong>13 passed</strong></li>
+<li><code>contract.audit(Path(".agents/skills"))</code> → <strong>[]</strong> (limpio)</li>
+<li><code>ai-eng doctor</code> → <strong>1 ok «Every SKILL.md meets the contract»</strong></li>
+</ul>
+<p>El contrato estándar de skills —el corazón de 027— está reparado y verificado. Los dieciséis pares tienen su <code>SKILL.md</code> y su <code>corpus.md</code> limpios de las cuatro clases de olor, y el gate rechaza a un skill que las reintroduzca.</p>
+
+<h2>Por qué no está totalmente verde — el ADR 0025 de 026, gravado en el historial</h2>
+<div class="callout warn"><strong><code>just check</code> falla solo en cuatro tests: <code>tests/test_madr.py</code> (4 failed, 2264 passed, 2 skipped).</strong>
+La causa es <code>madr.validate</code>: valida el árbol actual <em>y</em> reproduce todos los commits del historial de <code>HEAD</code>. El ADR 0025 —«the map's real broken references are accepted as a dated block»— se commitó en el bloque 026 con su frontmatter no conforme al esquema MADR v1 (campos <code>accepted</code>, <code>expires</code>, <code>renewals</code>, <code>follow_up</code> no permitidos por <code>additionalProperties: false</code>, y sin <code>supersedes</code>). Como ese estado roto vive en los commits <code>bde39e75</code>/<code>348a353b</code>/<code>8f25f903</code> del historial, cada revisión que lo contiene hace fracasar la reproducción, y un commit nuevo que corrija el árbol actual no puede borrarlo: solo reescribir la historia de 026 lo eliminaría.</div>
+<p>Este rojo <strong>precede a 027</strong>: ya estaba en el commit final de 026 (<code>8f25f903</code>, <code>madr.validate</code> = INCOMPLETE) y el reporte 011 lo documenta como «026 no está verde». Es el registro de aceptación fechada del propio bloque 026, y su reparación exige reescribir los commits de ese bloque — algo que el plan aprobado de 027 no autoriza (el límite escrito de este bloque es el contrato de skills, no el mapa ni el ADR).</p>
+
+<h2>Nada está aprobado aquí</h2>
+<div class="callout warn">Esta página no aprueba nada, no acepta riesgos y no declara un PASS. Es la segunda mitad del ciclo en su forma honesta: la tarea 6 de 027 está verde por su condición escrita, y la puerta completa no lo está por un registro heredado de 026 que este bloque no puede sanear sin salirse de su aprobación.</div>
+
+<h2>Qué cuesta cerrarlo (dueño: tú)</h2>
+<ol>
+<li><strong>Reescribir la historia de 026</strong> para que el ADR 0025 sea conforme al esquema en los tres commits que lo introdujeron (un <code>rebase</code> interactivo sobre <code>bde39e75</code>→<code>8f25f903</code>). Coste: ~minutos; toca una rama de otro bloque, por eso no lo hice aquí.</li>
+<li><strong>O aceptar el rojo como estado conocido</strong>, igual que el reporte 011 aceptó «026 no está verde», y dejar que el registro 0025 se repare en su propio ciclo de mapa.</li>
+</ol>
+
+<p class="cite">Evidencia: <code>tests/test_contract_smells.py</code> 13 passed · <code>contract.audit</code> [] · <code>ai-eng doctor</code> «Every SKILL.md meets the contract» ok · <code>just check</code> falla solo en 4 tests de <code>tests/test_madr.py</code> · <code>madr.validate</code> INCOMPLETE ya en <code>8f25f903</code> · reporte 011-026-build-blocked.html.</p>
+</main>
+</body>
+</html>
