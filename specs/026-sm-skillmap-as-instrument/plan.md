@@ -65,7 +65,7 @@ it stays out of the receipt and the commit.
 
 ## Block B — the honest inputs (Task 3)
 
-3. [ ] **The template-hole exclusion and the real-defect acceptance become data the gate reads** —
+3. [x] <!--t:b1ae14bff503--> **The template-hole exclusion and the real-defect acceptance become data the gate reads** —
    **file** `policy/skill-map-exclusions.toml` (new), a dated acceptance record for the ~47
    real broken references under `docs/adr/`, and `tests/test_skill_map.py` (new).
    **check**: `uv run --with pytest python -m pytest -q tests/test_skill_map.py`
