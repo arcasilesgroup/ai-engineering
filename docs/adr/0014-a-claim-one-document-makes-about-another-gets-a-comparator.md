@@ -6,7 +6,10 @@ id: "0014"
 title: "A claim one document makes about another gets a comparator"
 date: "2026-08-19"
 spec: "010"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-24T23:57:42Z"
 supersedes: ""
 ---
 

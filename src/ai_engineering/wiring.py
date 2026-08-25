@@ -404,6 +404,7 @@ description: {description}
 
 {example}
 
+{follows}
 Use the `{name}` skill to handle this request. The canonical skill body lives in the shared
 skills root this framework installed; load it and follow it. Everything after the command
 name is the request, forwarded verbatim.
@@ -480,6 +481,47 @@ def phase_map() -> list[tuple[str, list[str]]]:
     return ordered
 
 
+def skill_sequence() -> dict:
+    """The governed cycle's order, read from the one data file that owns it.
+
+    Bare prose in `ai-cycle/SKILL.md` was the only declaration of which stage follows
+    which, and nothing in the gate read it — a renamed stage would fail the corpus
+    refusals that name it while the cycle's own sequence rotted in silence. It is data
+    now, `policy/skill-sequence.toml`, so a rename, a backwards phase or a fork flag the
+    frontmatter does not carry fails a test instead of rotting. A second copy here would
+    be a second answer within a week.
+    """
+
+    try:
+        declared = tomllib.loads(paths.policy("skill-sequence.toml").read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    return declared
+
+
+def next_stage(name: str) -> str:
+    """The stage that follows `name` in the cycle, in words a person reads.
+
+    The gate is a line, not a stage: the last stage of the first half hands over to the
+    human approval the map's `[gate]` section declares, and the last stage of the cycle
+    hands over to the end. A skill that is not in the cycle returns the empty string, and
+    the absence of a "Sigue" line on its router says it is standalone — which is how a
+    router tells a person the map rather than a second copy of it.
+    """
+
+    declared = skill_sequence()
+    first = declared.get("first_half", [])
+    order = first + declared.get("second_half", [])
+    if name not in order:
+        return ""
+    position = order.index(name)
+    if position == len(order) - 1:
+        return "fin del ciclo"
+    if position == len(first) - 1:
+        return "la aprobación humana del brief"
+    return order[position + 1]
+
+
 def router_body(name: str, description: str, phase: str = "", case: str = "") -> str:
     """One router, generated from the skill it routes to.
 
@@ -494,11 +536,19 @@ def router_body(name: str, description: str, phase: str = "", case: str = "") ->
     `EP-135` names, and the map was being printed only where the gate runs.
     """
 
+    follows = next_stage(name)
+    if follows in ("la aprobación humana del brief", "fin del ciclo"):
+        line = f"Sigue: {follows}"
+    elif follows:
+        line = f"Sigue en el ciclo: {follows}"
+    else:
+        line = ""
     return ROUTER.format(
         name=name,
         description=description.strip().replace("\n", " "),
         phase=phase or "phase not declared",
         example=f"Say something like: “{case}”" if case else "",
+        follows=line,
     )
 
 

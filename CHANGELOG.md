@@ -231,6 +231,21 @@ search for.
 
 ### Changes
 
+- The governed cycle's order is now checked data. `policy/skill-sequence.toml` is the one
+  copy of which stage follows which — first half `ai-research` → `ai-spec` →
+  `ai-challenge` → `ai-council`, a human gate, then `ai-build` → `ai-review` →
+  `ai-verify` → `ai-security` → `ai-eng audit verify` → `ai-ship` — with a per-stage
+  `fork` marker checked against each SKILL.md's `context: fork` + `background: false`
+  frontmatter, and the stage-level parallel refusal recorded as data instead of prose.
+  `wiring.next_stage` renders a "Sigue en el ciclo: …" line into the generated `/ai-*`
+  routers (the last stage of the first half reads "Sigue: la aprobación humana del
+  brief", and a skill outside the cycle carries no line), and `ai-cycle` stops restating
+  the numbered list and points at the map. `tests/test_skill_sequence.py` fails the gate
+  on a stage that exists nowhere, phases running backwards, a fork flag the frontmatter
+  does not carry, an empty gate or a duplicate stage. What changes for you: **a `/ai-*`
+  router may now print what follows, regenerating routers changes their bytes once, and
+  adding a stage to the cycle means recording it in the map.** Recorded in
+  `specs/025-skill-sequence-map`.
 - Rule 1 of `AGENTS.md` now reads "No code before an approved spec and plan", and the
   delivered doctrine matches it: the `AGENTS.md` skeleton `init` writes, the `EP-324`
   ledger subject and the `test_record` docstring that quotes it. The rule had always

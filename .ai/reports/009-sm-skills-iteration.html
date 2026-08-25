@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Evidencia de skill-map.ai (sm) aplicado a ai-engineering: qué mide, qué encontró en este árbol, qué es defecto real y qué es falso positivo, y el coste de integrarlo en la puerta.">
+<title>ai-engineering | skill-map.ai (sm) como instrumento: evidencia y decisión</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:960px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:36px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.date{color:var(--muted);font-size:13px;margin-bottom:28px}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.good{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+.cite{color:var(--muted);font-size:13px;margin-top:4px}
+ol.src{margin:6px 0 4px;padding-left:22px}ol.src li{font-size:14px;margin:3px 0}
+.verdict{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.05em}
+.v-wrong{background:var(--bad-soft);color:var(--bad)}.v-unproven{background:var(--warn-soft);color:var(--warn)}.v-ok{background:var(--good-soft);color:var(--good)}
+</style>
+</head>
+<body>
+<div class="topbar"><a class="brand" href="#">ai-engineering <small>· investigación · sm (skill-map.ai) como instrumento</small></a></div>
+<main>
+<p class="kicker">Investigación · ciclo gobernado</p>
+<h1>skill-map.ai (<code>sm</code>) como instrumento del ciclo</h1>
+<p class="sub">Qué mide, qué encontró en este árbol, qué es defecto real y qué es falso positivo, y qué costaría envolverlo en la puerta.</p>
+<p class="date">2026-08-25 · reporte 009</p>
+
+<p>La petición es apoyarse en <code>sm</code> (skill-map.ai, v1.12.2) para crear las mejores skills del proyecto: sus dependencias, integraciones, formatos y estándares, de forma iterativa. Esta investigación establece qué <code>sm</code> puede y no puede decir, y separa lo que encontró en este repositorio en defecto real frente a ruido de análisis.</p>
+
+<h2>Qué decide esta investigación</h2>
+<p>Si adoptamos <code>sm</code> como instrumento del ciclo, cada ejecución del mapa es una decisión: un hallazgo entra a la puerta o se descarta. La investigación fija el criterio antes de que el modelo decida, porque un hallazgo correcto según un mal criterio es un falso verde. Lo que cambia con la respuesta: (a) si <code>sm scan/check</code> se integra en <code>just check</code>, (b) cómo se etiquetan los falsos positivos de plantilla (<code>NNN-slug</code>), y (c) si los defectos reales se corrigen ahora o se aceptan con evidencia.</p>
+
+<h2>Lo que <code>sm</code> mide</h2>
+<p>Verificado en esta sesión: <code>sm scan</code> recorre las raíces del proyecto, extrae nodos markdown (skills, corpus, specs, ADRs, docs), corre analizadores deterministas (referencias rotas, referencias redundantes) y almacena el grafo en <code>.skill-map/skill-map.db</code>. <code>sm check</code> imprime los hallazgos ordenados. <code>sm orphans</code> lista renombrados huérfanos. El analizador <code>reference-broken</code> compara cada enlace de cada nodo contra el grafo y el disco.</p>
+<p>Rutas usadas como evidencia primaria: <code>sm --version</code> (1.12.2), <code>sm scan</code> (156 nodos, 57 hallazgos), <code>sm check --json</code> (desglose por analizador y severidad), y el conteo real frente al patrón <code>NNN-slug</code> (13 de 53 errores apuntan a plantilla inexistente).</p>
+
+<h2>Qué encontró en esta sesión</h2>
+<table>
+<thead><tr><th>Categoría</th><th>Conteo</th><th>Significado</th></tr></thead>
+<tbody>
+<tr><td><span class="verdict v-wrong">ERROR</span>&nbsp;<code>reference-broken</code>&nbsp;real</td><td>40</td><td>Apunta a un fichero que no existe en el grafo ni en disco: defecto real de referencia.</td></tr>
+<tr><td><span class="verdict v-unproven">ERROR</span>&nbsp;<code>reference-broken</code>&nbsp;plantilla</td><td>13</td><td>Apunta a <code>specs/NNN-slug/spec.md</code> u otro patrón de plantilla; <code>NNN-slug</code> es un hueco de demostración, no un destino real.</td></tr>
+<tr><td><span class="verdict v-ok">INFO</span>&nbsp;<code>reference-redundant</code></td><td>4</td><td>Un mismo destino alcanzado dos veces desde un nodo; solapamiento deliberado.</td></tr>
+</tbody>
+</table>
+
+<div class="callout bad"><strong>Defectos reales (40).</strong> La mayoría apuntan a ficheros ausentes en <code>docs/</code> y <code>specs/NNN-*/</code>: p.ej. <code>CHANGELOG.md → plan.md/spec.md</code>, <code>docs/audit → docs/specs/010/plan.md</code>, y decenas de <code>specs/NNN-*/SKILL.md</code> que no existen en el árbol (solo <code>spec.md</code>). Son roturas reales que un lector humano encontraría al seguir el enlace.</div>
+
+<div class="callout warn"><strong>Falsos positivos de plantilla (13).</strong> Los enlaces a <code>specs/NNN-slug/spec.md</code>, <code>specs/NNN-slug/plan.md</code>, <code>council.md</code> y otros con <code>NNN-slug</code> son plantillas de demostración en SKILL.md y corpus.md del framework, no destinos que deban existir. Un analizador determinista no puede saber que <code>NNN-slug</code> es un hueco sin una lista de exclusión; sin ella, la puerta acusaría cada vez.</div>
+
+<h2>Lo que se verificó y cómo</h2>
+<ol class="src">
+<li><code>sm --version</code> → <code>1.12.2</code>. <span class="cite">[1]</span></li>
+<li><code>sm scan</code> → 156 nodos, opera sin errores y escribe una base de datos de grafo. <span class="cite">[2]</span></li>
+<li><code>sm check</code> → 53 errores + 4 info; desglose por severidad confirmado con <code>--json</code>. <span class="cite">[3]</span></li>
+<li>Conteo real vs <code>NNN-slug</code>: 40 de 53 errores son destinos reales inexistentes; 13 son plantilla. Verificado generando el desglose en JSON. <span class="cite">[3]</span></li>
+</ol>
+<p>Lo que <em>no</em> se verificó: ninguno de los 40 defectos se abrió con <code>read</code> (cada uno exige su propio archivo; el diagnóstico se basa en el grafo de <code>sm</code>). Se asumen como defectos reales porque el analizador comprueba el disco, no solo el grafo.</p>
+
+<h2>Lo que queda sin fuente</h2>
+<p>El criterio de exclusión de plantillas (<code>NNN-slug</code> = hueco de demostración) es el patrón propio de este repo; no hay una norma externa que lo defina. <span class="verdict v-unproven">UNPROVEN</span> quedó marcado en el informe y se mantiene.</p>
+
+<h2>Cómo se usa</h2>
+<p>La respuesta corta: <code>sm</code> ya está funcionando en este repo (base de datos local, no versionada). El siguiente paso del ciclo es la especificación 026, que decide <em>si</em> y <em>cómo</em> se adopta como criterio de puerta y que ordena las 40 correcciones con su evidencia.</p>
+
+<h2>Tres direcciones citadas (para mañana)</h2>
+<ol class="src">
+<li><strong>Adoptar <code>sm scan/check</code> como paso de puerta</strong>, con una lista de exclusión explícita para el patrón <code>NNN-slug</code>. Evidencia: scan limpio ya existe; la exclusión es un archivo de datos, no una supresión. <span class="cite">[2][3]</span></li>
+<li><strong>Corregir los 40 defectos de referencia reales</strong> como un bloque con su propia especificación, no mezclado con el instrumento de la puerta. Evidencia: todos son enlaces a fichero ausente; la mayoría en <code>docs/</code> y <code>specs/NNN-*</code>. <span class="cite">[3]</span></li>
+<li><strong>Etiquetar los 4 redundantes como deliberados</strong>, no corregirlos: el propio <code>specs/023</code> declara el solape a propósito. Evidencia: <code>severity=info</code> y la lectura del corpus. <span class="cite">[4]</span></li>
+</ol>
+
+<hr>
+<h2>Fuentes</h2>
+<ol class="src">
+<li>skill-map CLI v1.12.2 — <code>sm --version</code>, ejecutado local. [1]</li>
+<li><code>sm scan</code> — reescaneo completo del árbol, 156 nodos. [2]</li>
+<li><code>sm check --json</code> — 57 hallazgos, desglose real vs plantilla. [3]</li>
+<li>Corpus <code>specs/023/council.md</code> — los 4 redundantes declarados deliberados. [4]</li>
+</ol>
+<p class="cite">Reporte verificado localmente, no publicado. Mientras no haya un gate firmado, esto es evidencia de lectura, no de control.</p>
+</main>
+</body>
+</html>
