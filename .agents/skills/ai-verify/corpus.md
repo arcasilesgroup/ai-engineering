@@ -12,6 +12,7 @@ observes and never accepts: incomplete is the answer to a box or an example with
 - "check the acceptance criteria pass" — each Given/When/Then run as a command, marked pass, fail or incomplete.
 - "apply the spec's answer key" — the decided standard, read from `answer-key.yaml` beside the approved spec: each binary check is re-executed (`--recheck`) and marked pass, fail or `BLOCKED: U<n>`; a touched unknown is never scored.
 - "what does the answer key say about this deliverable" — the same application, from a reader's question rather than a gate.
+- "verify this cold" — read-only verifier, no write tools, never the constructor's conversation: applies the answer key with `--recheck` and reports what it saw, not what the builder said. An uncertain check is a fail.
 
 ## Refuses
 
@@ -22,3 +23,4 @@ observes and never accepts: incomplete is the answer to a box or an example with
 - "open the pull request now the boxes are ticked" — use `/ai-ship`, because publishing is a separate authority and this accepts nothing.
 - "just mark it green, the gate passed locally" — refused: a box carries the command that ticked it, and on a draft nothing but the writer is checking, because assertion 19 only reads a shipped spec.
 - "judge the deliverable by taste" — use `/ai-spec`; a decided standard is written at spec time. If none exists, the honest answer is `BLOCKED`, not an invented opinion.
+- "review it warm" — use `/ai-review`; a review that sees the constructor's reasoning defends the work. Cold-read is read-only and never sees it.

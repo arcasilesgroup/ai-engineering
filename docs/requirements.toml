@@ -273,7 +273,7 @@ verdict = "INCOMPLETE"
 mover = "owner"
 subject = "a skill evaluation against an approved corpus, with a named approver, format, location and command"
 evidence = "python tests/skill_eval.py; grep -n 'baseline' policy/pilot-register.toml"
-note = "four of the five exist: the corpus is the labelled cases beside every skill, the format is the two headings the admission gate demands, the location is `corpus.md` in each skill directory, and the command is `python tests/skill_eval.py` with a lower bound of 351 it is compared against. The approver is the fifth and is the same gap as EP-289 — a name nobody typed"
+note = "four of the five exist: the corpus is the labelled cases beside every skill, the format is the two headings the admission gate demands, the location is `corpus.md` in each skill directory, and the command is `python tests/skill_eval.py` with a lower bound of 353 it is compared against. The approver is the fifth and is the same gap as EP-289 — a name nobody typed"
 
 [[requirement]]
 id = "EP-030"
@@ -2108,7 +2108,7 @@ verdict = "INCOMPLETE"
 mover = "owner"
 subject = "a skill-evaluation delta with a baseline, a margin and a named approver"
 evidence = "python tests/skill_eval.py | grep baseline; pytest tests/test_skill_eval.py -k baseline"
-note = "two of the three exist and execute. The baseline is 351 in policy/pilot-register.toml and the run prints its delta; the margin is zero, argued rather than assumed — the evaluation is deterministic, so a band around the number would be a tolerance for variance that does not exist and what it would hide is deleted cases. Before this the corpus could have fallen from 254 to 3 and the run would have exited zero. The third half is a named approver: the field is empty on purpose rather than carrying a name nobody typed, and the row reopens when somebody with authority puts theirs there"
+note = "two of the three exist and execute. The baseline is 353 in policy/pilot-register.toml and the run prints its delta; the margin is zero, argued rather than assumed — the evaluation is deterministic, so a band around the number would be a tolerance for variance that does not exist and what it would hide is deleted cases. Before this the corpus could have fallen from 254 to 3 and the run would have exited zero. The third half is a named approver: the field is empty on purpose rather than carrying a name nobody typed, and the row reopens when somebody with authority puts theirs there"
 
 [[requirement]]
 id = "EP-290"
