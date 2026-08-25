@@ -1278,6 +1278,13 @@ def test_assertion_1_a_skill_that_breaks_the_contract_is_named_on_the_users_mach
         "# Corpus\n\n## Routes here\n\n- a thing — it is the thing\n\n"
         "## Refuses\n\n- another thing — use `/ai-y`\n"
     )
+    # The skill must also read as craft-clean (spec 032): an artifact it produces and an
+    # anti-rationalization entry, or the doctor reports the craft rules, not None.
+    skill.write_text(
+        "---\nname: ai-thing\ndescription: does things. Not for x — use /ai-y\n---\n"
+        "# Do the thing\n\n## What it produces\n\n`out/result.md`\n\n## What this is not\n\n"
+        '- "It\'s simple" — then it is fast to prove; do it now.\n'
+    )
     assert doctor.skills_contract(None) is None
 
 

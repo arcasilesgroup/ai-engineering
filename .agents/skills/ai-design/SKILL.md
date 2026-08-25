@@ -68,7 +68,7 @@ colour, type scale or layout declared universal.
 
 ## What this is not
 
-- "The stylesheet says it, so the accessibility list can be ticked from the CSS" — verify measures the rendered result over the real background, not the declared CSS, and every accessibility line names a command or a person and a date.
+- "It compiles, so it is accessible" — view the result; keep a receipt.
 
 ## Done when
 

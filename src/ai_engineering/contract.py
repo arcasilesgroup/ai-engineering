@@ -427,8 +427,10 @@ _ANTI_ENTRY = re.compile(r"^- .*— .+", re.M)
 def _anti_rationalization_problems(folder: Path, name: str) -> list[str]:
     body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
     if not _ANTI_SECTION.search(body):
-        return [f"{name}: has no anti-rationalization section (## What this is not or "
-                "## Anti-rationalizations) naming an excuse and answering it"]
+        return [
+            f"{name}: has no anti-rationalization section (## What this is not or "
+            "## Anti-rationalizations) naming an excuse and answering it"
+        ]
     entries = _ANTI_ENTRY.findall(body)
     if not entries:
         return [f"{name}: the anti-rationalization section names no excuse-and-answer entry"]
@@ -483,8 +485,10 @@ def _load_tier_problems(folder: Path, name: str) -> list[str]:
             "a surface reads it partially. Split references/ or move scripts to scripts/"
         )
     if _INLINE_SCRIPT.search(body):
-        problems.append(f"{name}: carries an inline script body; move it to scripts/ so it "
-                        "is executed, never read into context")
+        problems.append(
+            f"{name}: carries an inline script body; move it to scripts/ so it "
+            "is executed, never read into context"
+        )
     return problems
 
 

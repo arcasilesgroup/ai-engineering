@@ -619,6 +619,9 @@ AI_SPEC_SECTIONS = {
     "What this is not": (
         "Not a discussion transcript, implementation or risk acceptance. Delete empty ceremony; "
         "keep the evidence and decisions a future reader must be able to audit.",
+        '- "Only one option is worth considering, so two options would be theatre" — the '
+        "procedure demands at least two real options and forbids inventing a weak one to lose, "
+        "because the comparison is what makes the recommendation auditable.",
     ),
 }
 
@@ -1542,13 +1545,13 @@ the design does not
 # went through.
 GOVERNING_SKILL_TEXT = {
     ".agents/skills/ai-build/SKILL.md": (
-        "384da915470e713edb18af3dff261c25cc0b2690a0c576791d95baf5374abbd1"
+        "649fbf1b2e0ee2d7b60ecca42bfbb253f83829b88f08ff06594172a78b395815"
     ),
     ".agents/skills/ai-build/corpus.md": (
         "576cf03621aace434ca300bcb136538097f21e0f050fb8a0280913e590457880"
     ),
     ".agents/skills/ai-spec/SKILL.md": (
-        "8a47ea152b1902c9a030a001e70615b42db63bc74909b863cddffe94bb33ea58"
+        "0acfd72068573131981c13791b7b6451f6fd10ba55a831325f645a32aa8311b4"
     ),
 }
 

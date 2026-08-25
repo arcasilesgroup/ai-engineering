@@ -23,12 +23,12 @@ def _skill(tmp_path: Path, name: str, body: str, *, description: str = "") -> Pa
     p = d / "SKILL.md"
     desc = description or "Does X. Not for Y — use /ai-other."
     p.write_text(
-        f'---\nname: {name}\ndescription: >-\n  {desc}\nlicense: Apache-2.0\n---\n\n{body}',
+        f"---\nname: {name}\ndescription: >-\n  {desc}\nlicense: Apache-2.0\n---\n\n{body}",
         encoding="utf-8",
     )
     (d / "corpus.md").write_text(
-        "# Corpus: " + name + "\n\n## Routes here\n\n- \"a job for this skill\" — taken.\n\n"
-        "## Refuses\n\n- \"a job for another skill\" — use /ai-other.\n",
+        "# Corpus: " + name + '\n\n## Routes here\n\n- "a job for this skill" — taken.\n\n'
+        '## Refuses\n\n- "a job for another skill" — use /ai-other.\n',
         encoding="utf-8",
     )
     return p
@@ -50,7 +50,7 @@ def test_anti_section_that_answers_an_excuse_passes(tmp_path):
         tmp_path,
         "ai-demo",
         "# Do the thing\n\n## What it produces\n\n`out/result.md`\n\n"
-        "## What this is not\n\n- \"It's simple\" — then it is fast to prove; do it now.\n",
+        '## What this is not\n\n- "It\'s simple" — then it is fast to prove; do it now.\n',
     )
     problems = contract.audit_one(p)
     assert not any("anti" in prob or "rationaliz" in prob for prob in problems), problems
@@ -62,7 +62,7 @@ def test_output_contract_names_no_artifact_is_refused(tmp_path):
         tmp_path,
         "ai-demo",
         "# Do the thing\n\n## What it produces\n\nVerify the change is correct.\n\n"
-        "## What this is not\n\n- \"It's simple\" — then it is fast to prove; do it now.\n",
+        '## What this is not\n\n- "It\'s simple" — then it is fast to prove; do it now.\n',
     )
     problems = contract.audit_one(p)
     assert any("artifact" in prob or "produces" in prob for prob in problems), problems
@@ -73,7 +73,7 @@ def test_output_contract_naming_a_path_passes(tmp_path):
         tmp_path,
         "ai-demo",
         "# Do the thing\n\n## What it produces\n\n`out/result.md`\n\n"
-        "## What this is not\n\n- \"It's simple\" — then it is fast to prove; do it now.\n",
+        '## What this is not\n\n- "It\'s simple" — then it is fast to prove; do it now.\n',
     )
     problems = contract.audit_one(p)
     assert not any("artifact" in prob for prob in problems), problems
@@ -86,7 +86,7 @@ def test_rules_section_without_pair_is_refused(tmp_path):
         "ai-demo",
         "# Do the thing\n\n## What it produces\n\n`out/result.md`\n\n"
         "## Rules\n\nUse semantic tokens.\n\n"
-        "## What this is not\n\n- \"It's simple\" — then it is fast to prove; do it now.\n",
+        '## What this is not\n\n- "It\'s simple" — then it is fast to prove; do it now.\n',
     )
     problems = contract.audit_one(p)
     assert any("incorrect" in prob or "pair" in prob for prob in problems), problems
@@ -97,9 +97,9 @@ def test_rules_section_with_pair_passes(tmp_path):
         tmp_path,
         "ai-demo",
         "# Do the thing\n\n## What it produces\n\n`out/result.md`\n\n## Rules\n\n"
-        "### Incorrect\n\n```tsx\n<div style=\"color: red\">T</div>\n```\n\n"
-        "### Correct\n\n```tsx\n<div className=\"text-red-500\">T</div>\n```\n\n"
-        "## What this is not\n\n- \"It's simple\" — then it is fast to prove; do it now.\n",
+        '### Incorrect\n\n```tsx\n<div style="color: red">T</div>\n```\n\n'
+        '### Correct\n\n```tsx\n<div className="text-red-500">T</div>\n```\n\n'
+        '## What this is not\n\n- "It\'s simple" — then it is fast to prove; do it now.\n',
     )
     problems = contract.audit_one(p)
     assert not any("incorrect" in prob or "pair" in prob for prob in problems), problems
@@ -111,7 +111,7 @@ def test_rules_absent_passes(tmp_path):
         tmp_path,
         "ai-demo",
         "# Do the thing\n\n## What it produces\n\n`out/result.md`\n\n"
-        "## What this is not\n\n- \"It's simple\" — then it is fast to prove; do it now.\n",
+        '## What this is not\n\n- "It\'s simple" — then it is fast to prove; do it now.\n',
     )
     problems = contract.audit_one(p)
     assert not any("incorrect" in prob or "pair" in prob for prob in problems), problems
@@ -125,7 +125,7 @@ def test_body_over_500_lines_is_refused(tmp_path):
     p = _skill(
         tmp_path,
         "ai-demo",
-        body + "## What this is not\n\n- \"It's simple\" — then it is fast to prove; do it now.\n",
+        body + '## What this is not\n\n- "It\'s simple" — then it is fast to prove; do it now.\n',
     )
     problems = contract.audit_one(p)
     assert any("500" in prob or "load" in prob for prob in problems), problems
@@ -136,7 +136,7 @@ def test_body_under_bound_with_scripts_dir_passes(tmp_path):
         tmp_path,
         "ai-demo",
         "# Do the thing\n\n## What it produces\n\n`out/result.md`\n\n"
-        "## What this is not\n\n- \"It's simple\" — then it is fast to prove; do it now.\n",
+        '## What this is not\n\n- "It\'s simple" — then it is fast to prove; do it now.\n',
     )
     problems = contract.audit_one(p)
     assert not any("500" in prob or "load" in prob for prob in problems), problems
