@@ -151,12 +151,38 @@ def test_forced_output_rule_passes_a_committed_artifact(tmp_path):
     assert not any("Done when" in p and "artifact" in p for p in problems), problems
 
 
-def test_forced_output_rule_passes_a_printed_command_output(tmp_path):
-    """A 'Done when' naming the exact command whose output is kept passes."""
+# --- Task 4: sourced-statistic rule -----------------------------------------
+
+
+def test_sourced_rule_rejects_an_unsourced_statistic(tmp_path):
+    """A bare '66.5% of the time' with no source refuses."""
     skill = _skill(
         tmp_path,
         SKILL_HEADER
-        + "\n## Done when\n\nRun `ai-eng audit verify` and paste its output.\n",
+        + "\n## Done when\n\nA right answer turns wrong 66.5% of the time.\n",
     )
     problems = contract.audit_one(skill)
-    assert not any("Done when" in p and "artifact" in p for p in problems), problems
+    assert any("statistic" in p and "66.5" in p for p in problems), problems
+
+
+def test_sourced_rule_passes_a_sourced_statistic(tmp_path):
+    """A statistic with a source beside it passes."""
+    skill = _skill(
+        tmp_path,
+        SKILL_HEADER
+        + "\n## Done when\n\nA right answer turns wrong 66.5% of the time [arXiv:2607.01456].\n",
+    )
+    problems = contract.audit_one(skill)
+    assert not any("statistic" in p for p in problems), problems
+
+
+def test_sourced_rule_checks_ratios_and_percentage_ranges(tmp_path):
+    """A '14 vs 9' ratio or a '22% to 5.3%' range with no source refuses."""
+    skill = _skill(
+        tmp_path,
+        SKILL_HEADER
+        + "\n## Done when\n\nReaders raise 14 issues a session against 9, and false "
+        + "alarms fall 22% to 5.3%.\n",
+    )
+    problems = contract.audit_one(skill)
+    assert any("statistic" in p for p in problems), problems

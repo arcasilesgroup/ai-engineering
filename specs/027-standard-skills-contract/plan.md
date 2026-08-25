@@ -70,7 +70,7 @@ adds a file that is not the skill's own.
    **done when**: a skill whose exit says only "verify" or "the approval is the gate" is
    reported, and one that names a printed artifact or a committed file is not.
 
-4. [ ] **Sourced-statistic rule in `contract.audit_one`** —
+4. [x] <!--t:6e6f0fe766af--> **Sourced-statistic rule in `contract.audit_one`** —
    **file**: `src/ai_engineering/contract.py`.
    **check**: `uv run --with pytest python -m pytest -q tests/test_contract_smells.py -k sourced`
    **rollback**: `git revert <commit>`.

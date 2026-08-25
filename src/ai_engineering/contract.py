@@ -72,6 +72,14 @@ _WEAK_OUTPUT = re.compile(
     re.I,
 )
 
+# A statistic that claims a number without naming where it came from. The taxonomy's
+# sourced-statistic smell: a percentage or a ratio with no source is an assertion the
+# reader cannot check, and this framework's whole discipline is that every claim carries
+# evidence. A bare percentage/ratio with no `[N]`, `(report NNN)`, `arXiv:`, `Measured on`
+# or `report 00N` beside it on the same line refuses.
+_STAT = re.compile(r"\b\d+(?:\.\d+)?%(?:\s*[–-]\s*\d+(?:\.\d+)?%)?|\b\d+(?:\.\d+)?\s*(?:vs|to|against)\s+\d+(?:\.\d+)?\b|\b(?:0\.\d{2})\b|\bfive of twenty\b|\bfour of twenty\b")
+_STAT_SOURCE = re.compile(r"\b(?:arXiv|report\s+00?\d|Measured on)\b|`\[source:[^\]]+`|\[\d+\]")
+
 # The catalogue budget, not the file budget: the open Agent Skills specification and each
 # surface load a catalogue, and a skill that silently does not fit is a skill that silently
 # does not exist there. 50 000 is the smallest documented budget (Zed's 50 KB, spec 024
@@ -174,6 +182,7 @@ def audit_one(path: Path) -> list[str]:
     found.extend(_portable_problems(path.parent, name))
     found.extend(_existence_problems(path.parent, name))
     found.extend(_forced_output_problems(path.parent, name))
+    found.extend(_sourced_statistic_problems(path.parent, name))
     found.extend(_corpus_problems(path.parent, name))
     return found
 
@@ -247,6 +256,38 @@ def _forced_output_problems(folder: Path, name: str) -> list[str]:
                 f"name the artifact it produces (a committed file, a printed digest, a "
                 f"status table) or the exact command whose output it keeps. A mere "
                 f"'verify' is skipped."
+            )
+    return problems
+
+
+def _sourced_statistic_problems(folder: Path, name: str) -> list[str]:
+    """A numeric statistic that carries no source.
+
+    Spec 027 D-027-01: any statistic in a skill body carries the source, or is deleted.
+    `ai-council` and `ai-challenge` state numbers with no anchor; each must get its
+    source beside it (the arithmetic resolves in `.ai/reports/003-council-peer-review-
+    evidence.html`) or be struck. A percentage or a ratio with a source on its own line
+    passes; one with no source anywhere near it refuses.
+
+    Reads `SKILL.md` only: `corpus.md` is routing cases, not claims, so a statistic in
+    a refusal example is prose, not a citation obligation.
+    """
+
+    problems = []
+    for doc in (folder / "SKILL.md",):
+        if not doc.exists():
+            continue
+        body = doc.read_text(encoding="utf-8")
+        for line_no, line in enumerate(body.splitlines()):
+            if not _STAT.search(line):
+                continue
+            if _STAT_SOURCE.search(line):
+                continue
+            problems.append(
+                f"{name}: {doc.name} line {line_no + 1} carries a statistic "
+                f"({_STAT.findall(line)[0]!r}) with no source. Anchor it "
+                f"(`[arXiv:...]`, `report 00N`, or 'Measured on ...') or strike it — "
+                f"an unsourced number is an assertion the reader cannot check."
             )
     return problems
 
