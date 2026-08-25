@@ -148,3 +148,26 @@ def test_the_lane_refuses_without_packs(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(score, "EVALS", tmp_path / "empty")
     assert score.main([]) == 1
     assert "no packs" in capsys.readouterr().out
+
+def test_a_reporter_reading_outside_declared_coverage_is_refused(tmp_path):
+    """Spec 030 / B-030-2: a pack whose reporter reads outside its coverage roots fails."""
+    fixture = tmp_path / "fixture"
+    (fixture / "src").mkdir(parents=True)
+    (fixture / "src" / "app.py").write_text("x = 1\n", encoding="utf-8")
+    (fixture / "outside.py").write_text("y = 2\n", encoding="utf-8")
+    pack = _mk_pack(
+        tmp_path,
+        "out-of-coverage",
+        'skill = "demo"\nreporter = "scan.py"\nclean = false\n\n'
+        "[coverage]\nroots = [\"src\"]\n\n"
+        '[[defects]]\nid = "d1"\ntier = 1\nfile = "src/app.py"\nfind = "x"\nreplace = "y"\n',
+        "from pathlib import Path\n"
+        "def find_findings(root):\n"
+        "    out = []\n"
+        "    for p in (root).glob('*.py'):\n"
+        "        if 'y = 2' in p.read_text():\n"
+        "            out.append({'file': 'outside.py', 'finding': 'escaped'})\n"
+        "    return out\n",
+    )
+    report = score.score_one(pack, fixture)
+    assert any("coverage" in p for p in report.problems), report.problems

@@ -9,7 +9,8 @@ is scored on what it reports, never on the key. The three tiers are load-bearing
   positive and fails precision.
 
 A skill that reports nothing on a non-empty pack is FAIL. A clean control (no defects) that
-fires is FAIL (astryx `clean-stays-quiet`).
+fires is FAIL (astryx `clean-stays-quiet`). Spec 030 / B-030-2 adds: a pack declaring
+coverage roots must not have a reporter reading outside them.
 """
 
 from __future__ import annotations
@@ -78,6 +79,12 @@ def _fresh_work(pack_name: str) -> Path:
     return work
 
 
+def _coverage_problem(report: Report, outside: list[str]) -> None:
+    report.problems.append(
+        f"finding(s) outside declared coverage roots: {sorted(set(outside))}"
+    )
+
+
 def score_one(pack: Path, fixture: Path) -> Report:
     spec = tomllib.loads((pack / "pack.toml").read_text(encoding="utf-8"))
     report = Report(skill=spec.get("skill", "?"), pack=pack.name, clean=bool(spec.get("clean")))
@@ -94,7 +101,7 @@ def score_one(pack: Path, fixture: Path) -> Report:
             report.problems.append("fired on a clean control")
         return report
 
-    # Non-clean: plant into the work copy, graded key OUTSIDE it (KEY_ROOT under .ai/).
+    # Non-clean: plant into a fresh copy with the graded key OUTSIDE the work tree.
     from plant import apply_pack
 
     work = _fresh_work(pack.name)
@@ -116,6 +123,29 @@ def score_one(pack: Path, fixture: Path) -> Report:
             report.trap_hits += 1
         else:
             report.spurious += 1
+
+    # Spec 030 / B-030-2: a pack that declares coverage roots must not have a reporter
+    # reading outside them — a finding outside the declared roots is a coverage escape.
+    # The pack's coverage is data owned by the pack: write it beside the work and
+    # validate findings against that declared set, not the repository's policy dir.
+    coverage_roots = spec.get("coverage", {}).get("roots", [])
+    if coverage_roots:
+        from ai_engineering import coverage as cov
+
+        cov_dir = WORK_ROOT / "coverage"
+        cov_dir.mkdir(parents=True, exist_ok=True)
+        (cov_dir / f"{pack.name}.toml").write_text(
+            'schema = "urn:ai-engineering:coverage:1"\nschema_version = "1"\n\n'
+            + "".join(f'roots = ["{r}"]\n' for r in coverage_roots),
+            encoding="utf-8",
+        )
+        outside = [
+            f["file"]
+            for f in report.findings
+            if not cov.may_scan(str(f.get("file", "")), policy_dir=cov_dir)
+        ]
+        if outside:
+            _coverage_problem(report, outside)
 
     if report.must_find and report.found == 0:
         report.problems.append("reports nothing on a non-empty pack")
