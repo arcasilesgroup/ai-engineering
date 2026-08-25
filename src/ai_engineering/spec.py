@@ -764,6 +764,39 @@ def examples_section(text: str) -> str:
 
     return ("\n" + text).partition("\n" + EXAMPLES)[2].split("\n## ", 1)[0].replace("\r\n", "\n")
 
+# Conversation leaks that make a spec unreadable by a builder who receives only the file.
+# A spec is the whole interface to its builder (spec 031 / B-031-3): "as we discussed"
+# cannot be resolved from the bytes alone, so the record is not governed.
+_LEAKS = (
+    "as we discussed",
+    "as discussed",
+    "the remaining work",
+    "per our conversation",
+    "like we said",
+)
+
+
+def self_contained(text: str) -> list[str]:
+    """Every conversation leak the spec carries, or an empty list when self-contained."""
+    folded = text.casefold()
+    return [leak for leak in _LEAKS if leak in folded]
+
+
+def section(text: str, number: int) -> str:
+    """The Nth ## heading's body, resolved by position, or empty when out of range.
+
+    Position-based: the first `## ` heading is section 1. Duplicating a spec's content to
+    reference a part is how two copies drift; this resolves the part deterministically.
+    """
+    heads = [m for m in re.finditer(r"^## (.+)$", text, re.M)]
+    if number < 1 or number > len(heads):
+        return ""
+    start = heads[number - 1].start()
+    end = heads[number].start() if number < len(heads) else len(text)
+    return text[start:end]
+
+
+
 
 def examples_facts(text: str) -> tuple[int, int, int, int]:
     """(given, when, then, thens that name a command and the output beside it).

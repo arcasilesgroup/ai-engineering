@@ -14,6 +14,7 @@ and not permission the agent gave itself.
 - "I'm thinking about splitting the worker into two services" — a half-formed intention is exactly where the fixed constraints, the intended outcome and the harm of leaving it unchanged get written down.
 - "we need to decide whether the CLI or the hook owns the check" — a decision that constrains later work belongs in a record with named assumptions and unresolved risks, not in a conversation nobody can audit.
 - "write the spec for the new export format" — asked for by name, and the authority basis has to be named or the result is `INCOMPLETE`.
+- "the spec must stand alone" — the record is the whole interface to the builder: no "as discussed", no "the remaining work", no conversation leaks; `self_contained` refuses them and `section` resolves a part by number.
 
 ## Refuses
 
@@ -24,3 +25,4 @@ and not permission the agent gave itself.
 - "CI is failing on main, why?" — use `/ai-debug`, because broken behaviour needs a cause named at `file:line` before anybody decides what to build.
 - "save this, the settings writers merge rather than replace" — use `/ai-note`, because a non-obvious behaviour that cost real time is a committed note stamped with its commit, not a project decision.
 - "ship it and open the PR" — use `/ai-ship`, because landing the work is commits, a changelog entry and a pull request, none of which a decision record contains.
+- "write the spec as a note to ourselves, the conversation has the details" — refused: a spec that leans on the conversation cannot be the interface to a builder who reads only the file; the record must carry the whole job or it is not governed.
