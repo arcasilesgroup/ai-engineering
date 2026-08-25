@@ -56,7 +56,7 @@ it stays out of the receipt and the commit.
    and a `map`: recipe that runs `sm scan` then `sm check --json`, printing "map not
    exercised; sm missing" when the binary is absent instead of failing the stranger gate.
 
-2. [ ] **The `.venv` copy of the wheel's skills is excluded from the map** —
+2. [x] <!--t:c5ec9ff6b23e--> **The `.venv` copy of the wheel's skills is excluded from the map** —
    **file** the map's root/ignore config so the source tree scans once.
    **check**: `uv run python -c "import sys,subprocess;r=subprocess.run(['sm','list'],capture_output=True,text=True).stdout;sys.exit(0 if '.venv/' not in r else 1)"`
    **rollback**: `git revert <commit>`.
