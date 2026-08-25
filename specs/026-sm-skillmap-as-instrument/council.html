@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Consejo de la especificación 026: cinco lentes leyeron spec.md sin verse; la lectura cruzada halló tres vacíos nuevos y refutó dos. Página que una persona lee.">
+<title>ai-engineering | Consejo 026 — skill-map como instrumento</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:900px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:32px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.date{color:var(--muted);font-size:13px;margin-bottom:24px}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}
+.callout{border-radius:8px;padding:12px 16px;margin:14px 0}
+.good{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+ol li{margin:8px 0}
+.cite{color:var(--muted);font-size:13px;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="topbar"><a class="brand" href="#">ai-engineering <small>· consejo 026 · skill-map como instrumento</small></a></div>
+<main>
+<p class="kicker">Consejo · especificación 026 · sin aprobación</p>
+<h1>Consejo de la especificación 026</h1>
+<p class="sub">Cinco lentes leyeron <code>spec.md</code> sin verse; la lectura cruzada encontró tres vacíos que ninguna lente nombró sola y refutó dos hallazgos.</p>
+<p class="date">2026-08-25 · transcript <code>specs/026-sm-skillmap-as-instrument/council.md</code> · contador: 3 nuevos · 2 eliminados</p>
+
+<p>La especificación propone adoptar <code>sm</code> (skill-map.ai) como instrumento de integridad de referencias: una receta <code>just map</code> que corre <code>sm scan && sm check --json</code>, una lista de datos para excluir el hueco de plantilla <code>NNN-slug</code>, y el registro de los defectos reales que el mapa ya midió.</p>
+
+<h2>En lo que las lentes coinciden</h2>
+<ul>
+<li>El instrumento ya funciona en este árbol: <code>sm scan</code> cuenta ~157 nodos y <code>sm check --json</code> separa defectos reales de huecos de plantilla. La recomendación — usar el mapa determinista, excluir la plantilla, registrar los rotos — es sólida.</li>
+<li>El hueco de plantilla debe ser dato, no supresión: el analizador sigue corriendo y la exclusión es una lista cargable.</li>
+<li>Los defectos reales no deben mezclarse con el enzalamiento de la puerta; su arreglo es un bloque de trabajo con evidencia por enlace.</li>
+</ul>
+
+<h2>Dónde chocan</h2>
+<ul>
+<li><strong>Los números del documento son medidas de un árbol anterior, no constantes.</strong> El documento escribe 40/13/53+4; el árbol vivo, al momento de escribir, imprime 49 reales, 15 plantilla, 64 errores. La conclusión se sostiene; las cifras exactas no.</li>
+<li><strong>La puerta verde, tal como se especifica, no es alcanzable hoy.</strong> La decisión dice que <code>just map</code> devuelve 0 con exclusiones, y a la vez dice que los 49 no se arreglan en este viaje. Hasta que los 49 se arreglen o se acepten con registro fechado, la receta no puede pasar.</li>
+<li><strong>El versionado de <code>sm</code> no está anclado.</strong> Toda herramienta externa de la Justfile está fijada por versión (gitleaks, trivy, semgrep, ruff, mypy, pytest); <code>sm</code> no, y el verde depende de una herramienta que puede moverse.</li>
+</ul>
+
+<h2>Los vacíos que solo la lectura cruzada vio</h2>
+<ol>
+<li>El 0 prometido por la decisión contradice el 49 real del árbol: el verde exigido no está arreglado ni aceptado.</li>
+<li>La versión de <code>sm</code> no se fija, a diferencia de cada motor analítico del Justfile.</li>
+<li>La lista de exclusión se afirma "13" y ya se recomputa "15" entre informe y decisión; la forma honesta es una lista que aprende su propia huella en cada corrida, no una cifra fija.</li>
+</ol>
+
+<h2>Recomendación</h2>
+<p>Adoptar la dirección, corregir la forma: (1) los conteos del informe y la especificación se calculan en la puerta y se renderizan en el digest, en vez de escribirse como constantes; (2) la puerta verde exige que cada hallazgo real esté arreglado o aceptado con registro fechado — prose no acepta; (3) anclar <code>sm</code> por versión como el resto de los motores. El instrumento es correcto; el verde que promete aún no lo ha ganado.</p>
+
+<div class="callout warn"><strong>Nada aquí aprueba.</strong> Este consejo concluye y recomienda; no escribe una aprobación, un PASS, un resultado de puerta ni un riesgo aceptado. La aprobación es un registro con el digest exacto de la especificación, y no existe todavía.</div>
+
+<p class="cite">Conteos verificados por <code>python tests/council_counts.py</code> (RAN council=14/5). Transcript íntegro en <code>council.md</code>.</p>
+</main>
+</body>
+</html>
