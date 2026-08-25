@@ -41,7 +41,11 @@ PORTABLE_BANNED = ("just ", "semgrep", "gitleaks", "trivy", "git grep")
 # Cues that turn a mention of a banned binary into an instruction to run it. A bare
 # noun ("the `just` recipe") is a reference; "Run `just check`" is a command. The rule
 # refuses the command and passes the reference.
-_RUN_CUES = re.compile(r"\b(?:run|running|execute|executes|execution|drive|via)\b(?<!\bwas )(?<!\bis )", re.I)
+_RUN_CUES = re.compile(
+    r"\b(?:run|running|execute|executes|execution|drive|via)\b"
+    r"(?<!\bwas )(?<!\bis )",
+    re.I,
+)
 _SPAN = re.compile(r"`([^`]+)`")
 _JUST = re.compile(r"\bjust [a-z-]+")
 _GIT_GREP = re.compile(r"\bgit\s+grep\b")
@@ -55,8 +59,15 @@ _GIT_GREP = re.compile(r"\bgit\s+grep\b")
 # its own `references/` subfolder. The skill's own output namespace is excluded — a skill
 # writing `specs/NNN-slug/council.md` or `docs/notes/<slug>.md` creates that path, it does
 # not depend on it, so demanding an existence check for its own artifact is noise.
-_EXIST_ROOTS = re.compile(r"`((?:policy|hooks)/[^`]+|specs/(?!NNN-slug)[^`]+)`|`(CONSTITUTION\.md)`|`([a-z][a-z0-9-]*/references/[^`]+)`")
-_FAIL_CLOSED = re.compile(r"\b(absent|missing|does not exist|fail(?:s)? closed|refus(?:es|e)|when it is not there)\b", re.I)
+_EXIST_ROOTS = re.compile(
+    r"`((?:policy|hooks)/[^`]+|specs/(?!NNN-slug)[^`]+)`"
+    r"|`(CONSTITUTION\.md)`|`([a-z][a-z0-9-]*/references/[^`]+)`"
+)
+_FAIL_CLOSED = re.compile(
+    r"\b(absent|missing|does not exist|fail(?:s)? closed|refus(?:es|e)"
+    r"|when it is not there)\b",
+    re.I,
+)
 
 # A cross-file reference a skill body makes to a path the wheel does not guarantee beside
 # the skill. The skill's own `references/` subfolder ships with it and is not a dependency;
@@ -72,7 +83,8 @@ _ARTIFACT = re.compile(
     re.I,
 )
 _WEAK_OUTPUT = re.compile(
-    r"\b(verif(?:y|ied|ies)|ensure|makes? sure|check that|confirm(?:ed)?)\b|\w+ approval is the gate",
+    r"\b(verif(?:y|ied|ies)|ensure|makes? sure|check that|confirm(?:ed)?)\b"
+    r"|\w+ approval is the gate",
     re.I,
 )
 
@@ -81,7 +93,11 @@ _WEAK_OUTPUT = re.compile(
 # reader cannot check, and this framework's whole discipline is that every claim carries
 # evidence. A bare percentage/ratio with no `[N]`, `(report NNN)`, `arXiv:`, `Measured on`
 # or `report 00N` beside it on the same line refuses.
-_STAT = re.compile(r"\b\d+(?:\.\d+)?%(?:\s*[–-]\s*\d+(?:\.\d+)?%)?|\b\d+(?:\.\d+)?\s*(?:vs|to|against)\s+\d+(?:\.\d+)?\b|\b(?:0\.\d{2})\b|\bfive of twenty\b|\bfour of twenty\b")
+_STAT = re.compile(
+    r"\b\d+(?:\.\d+)?%(?:\s*[–-]\s*\d+(?:\.\d+)?%)?"
+    r"|\b\d+(?:\.\d+)?\s*(?:vs|to|against)\s+\d+(?:\.\d+)?\b"
+    r"|\b(?:0\.\d{2})\b|\bfive of twenty\b|\bfour of twenty\b"
+)
 _STAT_SOURCE = re.compile(r"\b(?:arXiv|report\s+00?\d|Measured on)\b|`\[source:[^\]]+`|\[\d+\]")
 
 # The catalogue budget, not the file budget: the open Agent Skills specification and each
@@ -216,15 +232,18 @@ def _existence_problems(folder: Path, name: str) -> list[str]:
             if not _EXIST_ROOTS.search(line):
                 continue
             target = next(
-                group
-                for match in _EXIST_ROOTS.finditer(line)
-                for group in match.groups()
-                if group
+                group for match in _EXIST_ROOTS.finditer(line) for group in match.groups() if group
             )
+
             # The fail-closed clause must sit with the reference — the same paragraph, not
             # two sections away: this line, or up to three lines around it.
-            def boundary(k: int) -> bool:
-                return k < 0 or k >= len(all_lines) or not all_lines[k].strip() or all_lines[k].lstrip().startswith("#")
+            def boundary(k: int, all_lines=all_lines) -> bool:
+                return (
+                    k < 0
+                    or k >= len(all_lines)
+                    or not all_lines[k].strip()
+                    or all_lines[k].lstrip().startswith("#")
+                )
 
             start = line_no
             while not boundary(start - 1) and line_no - start < 3:
@@ -340,7 +359,12 @@ def _portable_problems(folder: Path, name: str) -> list[str]:
                     mech = _SPAN.search(line)
                     prefix = line[: mech.start()] if mech else ""
                     tail = re.split(r"[.;:|\n]", prefix)[-1].strip().lower()
-                    if re.search(r"\b(?:run|running|execute|executes|drive|via)(?:\s+(?:the|a|an|its|your|our|their|these|those|this|repo(?:sitory)?'?s))?\s*$", tail):
+                    if re.search(
+                        r"\b(?:run|running|execute|executes|drive|via)"
+                        r"(?:\s+(?:the|a|an|its|your|our|their|these|those|this"
+                        r"|repo(?:sitory)?'?s))?\s*$",
+                        tail,
+                    ):
                         found_this_line.add(lowered)
             for command in sorted(found_this_line):
                 problems.append(

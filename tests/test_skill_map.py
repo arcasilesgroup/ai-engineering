@@ -60,10 +60,7 @@ def test_every_template_hole_in_the_tree_is_declared():
     declared = _exclusions()
     assert declared, "the exclusion list is empty; every template hole would red the gate"
     for target in _template_targets():
-        covered = any(
-            target == prefix or target.startswith(prefix)
-            for prefix in declared
-        )
+        covered = any(target == prefix or target.startswith(prefix) for prefix in declared)
         assert covered, f"the tree writes template hole {target!r} and the list does not name it"
 
 

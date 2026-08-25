@@ -58,15 +58,11 @@ def test_portable_rule_rejects_a_bare_just_recipe(tmp_path):
 
 def test_portable_rule_rejects_a_bare_scanner(tmp_path):
     """A skill that runs bare semgrep or git grep refuses."""
-    skill = _skill(
-        tmp_path, SKILL_HEADER + "\n## Done when\n\nRun `semgrep` over the tree.\n"
-    )
+    skill = _skill(tmp_path, SKILL_HEADER + "\n## Done when\n\nRun `semgrep` over the tree.\n")
     problems = contract.audit_one(skill)
     assert any("repo-specific command" in p and "semgrep" in p for p in problems), problems
 
-    skill2 = _skill(
-        tmp_path, SKILL_HEADER + "\n## Done when\n\nRun `git grep` over docs/notes/.\n"
-    )
+    skill2 = _skill(tmp_path, SKILL_HEADER + "\n## Done when\n\nRun `git grep` over docs/notes/.\n")
     problems2 = contract.audit_one(skill2)
     assert any("repo-specific command" in p for p in problems2), problems2
 
@@ -100,7 +96,8 @@ def test_existence_rule_passes_a_ref_with_a_fail_closed_clause(tmp_path):
     skill = _skill(
         tmp_path,
         SKILL_HEADER
-        + "\n## Steps\n\n1. Read `policy/threat-model.toml`; if it is absent, refuse to continue.\n",
+        + "\n## Steps\n\n1. Read `policy/threat-model.toml`; if it is absent, refuse to\n"
+        + "continue.\n",
     )
     problems = contract.audit_one(skill)
     assert not any("fail-closed" in p for p in problems), problems
@@ -111,7 +108,10 @@ def test_existence_rule_checks_corpus_md_and_sibling_references(tmp_path):
     skill = _skill(
         tmp_path,
         SKILL_HEADER + "\n## Done when\n\nRun `ai-eng audit verify`.\n",
-        corpus="## Routes here\n\n- read `ai-review/references/testing.md`\n\n## Refuses\n\n- refuse it\n",
+        corpus=(
+            "## Routes here\n\n- read `ai-review/references/testing.md`\n\n"
+            "## Refuses\n\n- refuse it\n"
+        ),
     )
     problems = contract.audit_one(skill)
     assert any("fail-closed" in p and "testing.md" in p for p in problems), problems
@@ -158,8 +158,7 @@ def test_sourced_rule_rejects_an_unsourced_statistic(tmp_path):
     """A bare '66.5% of the time' with no source refuses."""
     skill = _skill(
         tmp_path,
-        SKILL_HEADER
-        + "\n## Done when\n\nA right answer turns wrong 66.5% of the time.\n",
+        SKILL_HEADER + "\n## Done when\n\nA right answer turns wrong 66.5% of the time.\n",
     )
     problems = contract.audit_one(skill)
     assert any("statistic" in p and "66.5" in p for p in problems), problems
