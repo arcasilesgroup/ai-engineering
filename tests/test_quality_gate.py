@@ -811,8 +811,8 @@ GATE_CONTROLS = {
     "disagrees with the gate that enforces it, and a tree git cannot list — because this "
     "recipe's whole value is the page it refuses to call fresh",
     "map": "tests/test_skill_map.py walks the tree and refuses a template hole nobody "
-        "declared or a real target hidden behind one — the two failure modes the recipe's "
-        "`sm scan` and `ai_engineering.skillmap` exist to catch",
+    "declared or a real target hidden behind one — the two failure modes the recipe's "
+    "`sm scan` and `ai_engineering.skillmap` exist to catch",
     "ran": "and its second half prints the commits carrying no receipt, with a case holding "
     "the inversion that would have made that report exactly backwards — a present trailer "
     "splitting its own line. tests/test_ran_receipt.py is a table of unusable receipts and four "
