@@ -1,0 +1,10 @@
+# The cost calibration gate's declared numbers (spec 029 / B-029-4).
+#
+# Data, not code: `src/ai_engineering/cost.py` reads these, and `tests/test_cost_gate.py`
+# holds the reader to them. The threshold is what an expensive lane may cost before it
+# must ask; the limit is how many units a bounded sample may cover before its projection
+# is believed. Both fail closed when consent is absent in non-interactive mode.
+schema = "urn:ai-engineering:cost-thresholds:1"
+schema_version = "1"
+threshold_usd = 25.0
+limit = 50

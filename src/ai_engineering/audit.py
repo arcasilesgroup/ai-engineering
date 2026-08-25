@@ -427,7 +427,32 @@ def main(argv: list[str]) -> outcome.Result:
     parser.add_argument("--why", help="why those links are there")
     parser.add_argument("--by", help="the person answering for them")
     parser.add_argument("--session")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="bounded sample size; gates the lane behind the cost policy",
+    )
     args = parser.parse_args(argv)
+
+    # The cost gate (spec 029 B-029-4): a bounded sample before an expensive lane. Without
+    # `--limit` the flow runs exactly as before; with it, the lane first checks its
+    # prerequisites and refuses without consent above the declared threshold.
+    if args.limit is not None:
+        from ai_engineering import cost
+
+        missing = cost.doctor_prereqs()
+        if missing:
+            for line in missing:
+                print(f"  INCOMPLETE {line}")
+            return outcome.result("INCOMPLETE")
+        _total, projected, ok = cost.calibrate(args.limit, [(0.01, 35.0)], interactive=False)
+        if not ok:
+            print(
+                f"  INCOMPLETE [COST_UNCONSENTED]: the lane would project ~$"
+                f"{projected:.2f} over a {args.limit}-unit run; re-run with consent."
+            )
+            return outcome.result("INCOMPLETE")
 
     if args.action == "account" and not (args.range and args.why and args.by):
         parser.error("account requires --range FIRST-LAST, --why and --by")
