@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Auditoría de los 16 skills de ai-engineering contra el estándar SKILL.md y la taxonomía de skill smells: qué cumple ya, qué huele, cuánto costaría estandarizarlos.">
+<title>ai-engineering | Estandarización de skills: auditoría contra SKILL.md y skill smells</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:960px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:36px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.date{color:var(--muted);font-size:13px;margin-bottom:28px}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.good{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+.cite{color:var(--muted);font-size:13px;margin-top:4px}
+ol.src{margin:6px 0 4px;padding-left:22px}ol.src li{font-size:14px;margin:3px 0}
+.verdict{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.05em}
+.v-wrong{background:var(--bad-soft);color:var(--bad)}.v-unproven{background:var(--warn-soft);color:var(--warn)}.v-ok{background:var(--good-soft);color:var(--good)}
+</style>
+</head>
+<body>
+<div class="topbar"><a class="brand" href="#">ai-engineering <small>· investigación · estandarización de skills</small></a></div>
+<main>
+<p class="kicker">Investigación · ciclo gobernado</p>
+<h1>Auditoría de los 16 skills contra el estándar SKILL.md y la taxonomía de skill smells</h1>
+<p class="sub">Qué cumple ya el corpus, qué huele según la investigación de NotebookLM, y qué costaría dejar los 16 con una definición estándar y bien delimitada.</p>
+<p class="date">2026-08-25 · reporte 012</p>
+
+<p>La petición: «revisa, audita, analiza todos los skills que tenemos y adapta a esta manera de hacer las cosas — skills estándares y bien definidos de lo que hace cada uno».</p>
+<p>Esta investigación mide el corpus contra el estándar SKILL.md y contra los <em>skill smells</em> del estudio empírico de arXiv:2607.01456, que define 26 olores en 10 categorías detectados en más del 99% de los skills públicos (mediana ~10.5 por fichero). El resultado: el corpus de ai-engineering ya cumple la mayor parte del estándar; quedan olores concretos — comandos concretos incrustados, dependencias cruzadas sin chequeo de existencia, puertas de salida que no fuerzan artefacto visible y estadísticas sin fuente — que son exactamente los que la taxonomía clasifica.</p>
+
+<h2>Qué decide esta investigación</h2>
+<p>Qué se toca, y qué no, al «adaptar los skills al research». Tres cosas cambian según la respuesta: (a) si los comandos concretos de los skills se sustituyen por slots abstractos, (b) si cada referencia a otro fichero del repo lleva chequeo de existencia, y (c) si cada skill termina con una puerta de salida que fuerce un artefacto visible. Esto alimenta la especificación 027.</p>
+
+<h2>Lo que el corpus ya cumple (verificado en esta sesión)</h2>
+<div class="callout good">
+<p><strong>Los 16 skills tienen ya la forma del estándar.</strong> Cada uno es <code>.agents/skills/NOMBRE/SKILL.md</code> + <code>corpus.md</code>, con frontmatter YAML (name, description, license, compatibility, disable-model-invocation, y context:fork + background:false para los cinco críticos). Las descripciones llevan trigger y negativo. El contrato <code>contract.py</code> ya impone por script: límite de niebla lectora (SKILL_FOG_CEILING 11.03), presupuesto de catálogo (CATALOG_MAX 50&nbsp;000), distinción de descripción entre vecinos y la regla fork/background. Verificado: los 16 <code>SKILL.md</code> y <code>corpus.md</code> existen.</p>
+</div>
+
+<h2>Los olores que quedan (medidos)</h2>
+<table>
+<thead><tr><th>Olor (taxonomía)</th><th>Skills afectados</th><th>Evidencia</th></tr></thead>
+<tbody>
+<tr><td><strong>Series of Commands</strong> — comandos concretos incrustados</td><td>12 de 16</td><td>8 skills fijan <code>ai-eng</code>/verbos; 6 fijan <code>just check/council/security</code>; <code>ai-security</code> fija semgrep, gitleaks, trivy; <code>ai-note</code> fija <code>git grep</code>.</td></tr>
+<tr><td><strong>Dependencia cruzada sin chequeo</strong> — referencia a otro fichero sin verificar que existe</td><td>6</td><td><code>ai-build</code>→hooks/no_verify_guard.py; <code>ai-cycle</code>→policy/skill-sequence.toml; <code>ai-review</code>→references/; <code>ai-security</code>→policy/*; <code>ai-verify</code>→ai-review/references/testing.md; <code>ai-plan</code>→specs/. Solo <code>ai-spec</code> comprueba (CONSTITUTION.md).</td></tr>
+<tr><td><strong>Puerta de salida débil</strong> — sin artefacto visible forzado</td><td>9</td><td><code>ai-build</code> «el check que nombra pasa»; <code>ai-plan</code> «la aprobación es la puerta»; <code>ai-explore</code> sin artefacto; <code>ai-design</code>/<code>ai-review</code>/<code>ai-research</code>/<code>ai-debug</code>/<code>ai-challenge</code>/<code>ai-spec</code> sin impresión forzada.</td></tr>
+<tr><td><strong>Estadística sin fuente</strong> — atribución vaga</td><td>2</td><td><code>ai-council</code> cita 6 cifras (66.5%, 10.3%, 14 vs 9, 22%→5.3%, 0.70→0.34, 0.511→0.82-0.97); <code>ai-challenge</code> «four of twenty specs».</td></tr>
+<tr><td><strong>Prosa ceremoniosa / cuerpo largo</strong></td><td>2</td><td><code>ai-council</code> 99 líneas; <code>ai-spec</code> 80, ambos con prosa de justificación.</td></tr>
+</tbody>
+</table>
+
+<h2>El hallazgo que decide el enfoque</h2>
+<div class="callout bad"><strong>Los comandos concretos son un defecto de portabilidad, no solo estético.</strong> El árbol <code>.agents/skills/</code> se empaqueta y se instala en el repo de destino (<code>pyproject.toml</code> fuerza <code>.agents/skills → ai_engineering/skills</code>). Un <code>just check</code> escrito en <code>ai-ship</code>/<code>ai-verify</code>/<code>ai-council</code>/<code>ai-security</code> asume que el repo de destino tiene una Justfile con esas recetas — un repo externo puede no tenerla, y el skill que llegó con la rueda se rompe. Los verbos <code>ai-eng</code> siempre existen (la rueda los instala); <code>just</code> no. La investigación del estándar recomienda slots abstractos (cmdTest, cmdLint) resueltos en la configuración central; aqui el slot abstracto ya es el verbo <code>ai-eng</code>, y lo que falta es que <em>solo</em> se use ese verbo, nunca un motor del repo de destino.</div>
+
+<h2>Lo que se verificó y cómo</h2>
+<ol class="src">
+<li><code>wc -l .agents/skills/*/SKILL.md</code> → 1&nbsp;027 líneas totales; cada skill tiene <code>SKILL.md</code> y <code>corpus.md</code>. <span class="cite">[1]</span></li>
+<li><code>grep -rln "just \|ai-eng\|semgrep\|gitleaks\|trivy\|git grep\|pytest" .agents/skills/*/SKILL.md</code> → 12 de 16 skills con comando concreto. <span class="cite">[2]</span></li>
+<li>Desglose por skill: <code>grep</code> específico de <code>just</code> (6 skills) y de <code>ai-eng</code> (8 skills), separados. <span class="cite">[2]</span></li>
+<li>Existencia de cada dependencia cruzada: <code>hooks/no_verify_guard.py</code>, <code>policy/skill-sequence.toml</code>, <code>policy/threat-model.toml</code>, <code>policy/semgrep.yml</code>, <code>ai-review/references/</code> (10 ficheros) — todos existen; el olor es la ausencia de chequeo, no la referencia rota. <span class="cite">[1]</span></li>
+<li>Taxonomía de olores: arXiv:2607.01456v2, tabla III (26 olores, 10 categorías). <span class="cite">[3]</span></li>
+<li>Requisito de slots abstractos y chequeo de existencia: investigación SKILL.md de NotebookLM y artefactos del estándar. <span class="cite">[4][5]</span></li>
+</ol>
+<p>No se empaquetó ni instaló la rueda en un repo externo de prueba en esta sesión; el defecto de portabilidad de <code>just</code> se infiere del empaquetado (force-include) y de que <code>just</code> no es un binario que la rueda garantice. <span class="verdict v-unproven">UNPROVEN</span> el caso exacto de fallo en instalación real.</p>
+
+<h2>Lo que queda sin fuente</h2>
+<p>Las seis cifras de <code>ai-council</code> y la de <code>ai-challenge</code> existen en el historial de investigación del repo (reporte 003), pero el skill no las referencia; tal como están en el skill, son <span class="verdict v-unproven">UNPROVEN</span> hasta que se ancle la fuente o se borren.</p>
+
+<h2>Cómo se usa</h2>
+<p>La respuesta corta: el corpus ya está cerca del estándar; la adaptación es cerrar cuatro olores medidos — sustituir comandos de repo de destino por verbos <code>ai-eng</code> o slots, añadir chequeos de existencia a las seis dependencias cruzadas, forzar artefacto visible en las nueve puertas débiles y anclar o borrar las estadísticas sin fuente. La especificación 027 decide el alcance exacto.</p>
+
+<h2>Tres direcciones citadas (para mañana)</h2>
+<ol class="src">
+<li><strong>Estandarizar con el contrato, no a mano.</strong> Ampliar <code>contract.py</code> para que la puerta rechace un skill con comando concreto inválido, referencia cruzada sin chequeo o puerta sin artefacto; así la estandarización de los 16 es reproducible y no un pase de edición una sola vez. Evidencia: el contrato ya audita los skills por script; añadirle los tres olores lo cierra. <span class="cite">[1][3]</span></li>
+<li><strong>Sustituir <code>just</code> y motores por verbos <code>ai-eng</code> o slots abstractos.</strong> Los 6 skills que fijan <code>just check/council/security</code> rompen en un repo externo sin Justfile; el verbo <code>ai-eng</code> o la configuración central la resuelven. Evidencia: 6 skills con <code>just</code> + empaquetado force-include. <span class="cite">[2]</span></li>
+<li><strong>Anclar o borrar las estadísticas sin fuente de <code>ai-council</code> y <code>ai-challenge</code>.</strong> El estándar valora la evidencia trazable; una cifra sin fuente es un olor de atribución. Evidencia: reporte 003 del repo y taxonomía 2607.01456. <span class="cite">[3]</span></li>
+</ol>
+
+<hr>
+<h2>Fuentes</h2>
+<ol class="src">
+<li>Árbol <code>.agents/skills/</code> + <code>contract.py</code> — lectura y conteos locales, 2026-08-25. [1]</li>
+<li><code>grep</code> sobre los 16 SKILL.md — comandos concretos por skill, 2026-08-25. [2]</li>
+<li>Hong, Imani, Ahmed — «From Anatomy to Smells: An Empirical Study of SKILL.md in Agent Skills», arXiv:2607.01456v2 — taxonomía de 26 skill smells. [3]</li>
+<li>Investigación NotebookLM provista por el usuario — estandarización SKILL.md, slots abstractos, puertas de salida. [4]</li>
+<li>Especificación 026 y reportes 009-011 del repo — contexto de instrumentos de skills. [5]</li>
+</ol>
+<p class="cite">Reporte verificado localmente, no publicado. Mientras no haya un gate firmado, esto es evidencia de lectura, no de control.</p>
+</main>
+</body>
+</html>
