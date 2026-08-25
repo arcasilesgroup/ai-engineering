@@ -8,9 +8,9 @@ is real, unaccepted breakage — the map prints it and exits non-zero.
 
 This is the instrument the council asked for: the counts are computed from `sm check
 --json` on every run, never read from a fixed number in a document. The two policy files
-are data, not code: adding a target to the accepted set extends an acceptance that needs
-its own dated record (docs/adr/0025), and the test suite refuses a template hole that is
-not declared.
+are data, not code: adding to the accepted set extends an acceptance that needs its own
+dated record (docs/adr/0025), and the test suite refuses a template hole that is not
+declared.
 """
 
 from __future__ import annotations
@@ -25,14 +25,30 @@ from ai_engineering import paths
 _FAILURE = 1
 _PASS = 0
 
+# The version the recipe checks too (justfile `sm := "1.12.2"`). The module checks it as
+# well rather than trusting the recipe's shell line alone, because the module can be
+# reached directly (`uv run python -m ai_engineering.skillmap`, tests, a debugger) where
+# the shell test has not run. A map from an engine of an untested version is not evidence.
+SM_VERSION = "1.12.2"
+
 
 def _load_toml(name: str) -> dict:
     return tomllib.loads(paths.policy(name).read_text(encoding="utf-8"))
 
 
-def accepted_set() -> set[str]:
-    """The dated accepted targets from policy, as an exact-target set."""
-    return set(_load_toml("skill-map-accepted.toml").get("targets", []))
+def accepted_pairs() -> set[tuple[str, str]]:
+    """The dated accepted (node, target) pairs from policy.
+
+    Each entry is `node -> target` and only an exact pair is exempt, never a bare target
+    name — a bare `SKILL.md` would forgive any future link with that name anywhere.
+    """
+
+    out: set[tuple[str, str]] = set()
+    for entry in _load_toml("skill-map-accepted.toml").get("accepted", []):
+        node, _, target = entry.partition(" -> ")
+        if node and target:
+            out.add((node.strip(), target.strip()))
+    return out
 
 
 def template_prefixes() -> list[str]:
@@ -57,11 +73,25 @@ def is_template(target: str, prefixes: list[str]) -> bool:
 
 def main() -> int:
     prefixes = template_prefixes()
-    accepted = accepted_set()
+    accepted = accepted_pairs()
 
-    # `sm` is the instrument; calling it is the point. A missing binary means the recipe
-    # is suppressed upstream (the stranger path), but a scan that returns no JSON is a
-    # failure we must not read as green.
+    # `sm` is the instrument; calling it is the point. Refuse the wrong version here rather
+    # than trusting the recipe's shell line alone, and refuse a scan that returns nothing
+    # usable: an empty scan voting green is the exact false-green the gate exists to stop.
+    try:
+        version = subprocess.run(
+            ["sm", "--version"], capture_output=True, text=True, timeout=30
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError) as why:
+        print(f"skill-map: sm could not run ({why})", file=sys.stderr)
+        return _FAILURE
+    if version != SM_VERSION:
+        print(
+            f"skill-map: sm is {version!r}, this gate is written for {SM_VERSION!r}",
+            file=sys.stderr,
+        )
+        return _FAILURE
+
     try:
         check = subprocess.run(
             ["sm", "check", "--json"], capture_output=True, text=True, timeout=300
@@ -83,16 +113,18 @@ def main() -> int:
     for finding in findings:
         if finding.get("analyzerId") != "reference-broken":
             continue
+        node = finding["nodeIds"][0]
         target = finding["data"].get("target", "")
         if is_template(target, prefixes):
             templates += 1
             continue
-        if target in accepted:
+        if (node, target) in accepted:
             continue
-        real_remaining.append((finding["nodeIds"][0], target))
+        real_remaining.append((node, target))
 
     # The digest: what remains is what the gate is against, not a total that hides new
-    # breakage. Every accepted target is skipped because it is in the record.
+    # breakage. Node and target are repr'd so control bytes from a hostile scan cannot
+    # reach the terminal or the log as escape sequences.
     print(
         f"skillmap: {len(findings)} findings | "
         f"{templates} template holes declared, "
@@ -100,7 +132,7 @@ def main() -> int:
         f"{len(real_remaining)} real-and-unaccepted"
     )
     for node, target in sorted(set(real_remaining)):
-        print(f"  REAL  {node} -> {target}")
+        print(f"  REAL  {node!r} -> {target!r}")
     print("REAL_AND_UNACCEPTED=" + str(len(set(real_remaining))))
     if real_remaining:
         return _FAILURE
