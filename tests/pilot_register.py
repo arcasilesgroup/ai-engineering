@@ -36,7 +36,7 @@ sys.path.insert(0, str(ROOT / "src"))
 # it was commissioned to measure and had never listed. Five rows were added — conflicts was
 # already tracked as `coordination_overlap` and a second row for it would be two homes for
 # one number, which is the defect this file was written to stop.
-INDICATORS = 18
+INDICATORS = 19
 PROHIBITIONS = 14
 
 
