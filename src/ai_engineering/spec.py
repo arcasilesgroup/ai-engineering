@@ -764,6 +764,7 @@ def examples_section(text: str) -> str:
 
     return ("\n" + text).partition("\n" + EXAMPLES)[2].split("\n## ", 1)[0].replace("\r\n", "\n")
 
+
 # Conversation leaks that make a spec unreadable by a builder who receives only the file.
 # A spec is the whole interface to its builder (spec 031 / B-031-3): "as we discussed"
 # cannot be resolved from the bytes alone, so the record is not governed.
@@ -794,8 +795,6 @@ def section(text: str, number: int) -> str:
     start = heads[number - 1].start()
     end = heads[number].start() if number < len(heads) else len(text)
     return text[start:end]
-
-
 
 
 def examples_facts(text: str) -> tuple[int, int, int, int]:
