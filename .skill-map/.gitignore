@@ -1,0 +1,21 @@
+# Managed by skill-map (spec/cli-contract.md, Scope ignore file).
+# Everything below is machine-generated and per-machine: it must not
+# travel via the shared repo. Missing entries are topped up on the
+# next scan, so to keep one of these files tracked (e.g. to share the
+# database with your team) re-include it with a negation instead of
+# deleting the line:
+#
+#   !skill-map.db
+#
+# settings.json and plugins/ are deliberately absent: those are yours.
+
+settings.local.json
+skill-map.db
+skill-map.db-wal
+skill-map.db-shm
+serve.json
+scope.lock.json
+operations.log*
+backups/
+activity/
+sessions/

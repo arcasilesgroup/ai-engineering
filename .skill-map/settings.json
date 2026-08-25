@@ -1,0 +1,9 @@
+{
+  "activeProvider": "agent-skills",
+  "activeProviderMarkers": [
+    "agent-skills"
+  ],
+  "scan": {
+    "respectGitignore": true
+  }
+}
