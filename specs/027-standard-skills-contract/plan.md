@@ -46,7 +46,7 @@ adds a file that is not the skill's own.
 
 ## Block A — the contract rules (Tasks 1–4)
 
-1. [ ] **Portable-command rule in `contract.audit_one`** —
+1. [x] <!--t:abf4787afc4d--> **Portable-command rule in `contract.audit_one`** —
    **file** `src/ai_engineering/contract.py` (extend `audit_one`), and a new test
    `tests/test_contract_smells.py`.
    **check**: `uv run --with pytest python -m pytest -q tests/test_contract_smells.py -k portable`

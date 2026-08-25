@@ -31,6 +31,21 @@ JARGON = (
 )
 DESCRIPTION_MAX = 1000
 
+# A repo-specific tool a shipped skill must not invoke as a required command. The wheel
+# guarantees only the commands it installs (`ai-eng` verbs) and the outputs a gate keeps;
+# a skill that tells a downstream repo to run a `just` recipe or a bare scanner assumes the
+# stranger has the tool, which is the behavioural half of the taxonomy's Series of Commands
+# smell. `just` remains the maintainer's local orchestrator and is never named by a skill.
+PORTABLE_BANNED = ("just ", "semgrep", "gitleaks", "trivy", "git grep")
+
+# Cues that turn a mention of a banned binary into an instruction to run it. A bare
+# noun ("the `just` recipe") is a reference; "Run `just check`" is a command. The rule
+# refuses the command and passes the reference.
+_RUN_CUES = re.compile(r"\b(run|running|execute|executes|execution|drive|via)\b", re.I)
+_SPAN = re.compile(r"`([^`]+)`")
+_JUST = re.compile(r"\bjust [a-z-]+")
+_GIT_GREP = re.compile(r"\bgit\s+grep\b")
+
 # The catalogue budget, not the file budget: the open Agent Skills specification and each
 # surface load a catalogue, and a skill that silently does not fit is a skill that silently
 # does not exist there. 50 000 is the smallest documented budget (Zed's 50 KB, spec 024
@@ -130,12 +145,54 @@ def audit_one(path: Path) -> list[str]:
     for word in JARGON:
         if word in body:
             found.append(f"{name}: {word!r} — write it so somebody who does not code can follow")
+    found.extend(_portable_problems(path.parent, name))
     found.extend(_corpus_problems(path.parent, name))
     return found
 
 
 ROUTES = "## Routes here"
 REFUSES = "## Refuses"
+
+
+def _portable_problems(folder: Path, name: str) -> list[str]:
+    """A skill that names a repo-specific tool as a required command.
+
+    Spec 027 D-027-02: a shipped skill names only portable commands — an `ai-eng` verb,
+    or the output of a tool kept as the gate's evidence. A skill that tells a downstream
+    repo to `just check` or run a bare scanner assumes the stranger has the tool, which
+    is the Series of Commands smell of arXiv:2607.01456: a concrete toolchain command
+    dies the moment the tree it was written for is not the tree it runs in. Both files
+    of the pair are read, because `corpus.md` ships verbatim beside `SKILL.md` and the
+    council's finding was that the smells live in both.
+
+    A mention is not a command: "the `just` recipe" is a reference and passes, "Run
+    `just check`" is an instruction and refuses. The run cues are the line's own words,
+    so a skill that merely names a tool as evidence a gate keeps is not punished for
+    saying which tool it keeps the output of.
+    """
+
+    problems = []
+    for doc in (folder / "SKILL.md", folder / "corpus.md"):
+        if not doc.exists():
+            continue
+        for line in doc.read_text(encoding="utf-8").splitlines():
+            if not _RUN_CUES.search(line):
+                continue
+            for span in _SPAN.findall(line):
+                lowered = span.strip().lower()
+                if lowered.startswith(PORTABLE_BANNED):
+                    problems.append(
+                        f"{name}: {doc.name} runs {lowered!r} — a repo-specific command "
+                        f"the wheel does not guarantee on the stranger's machine. Name an "
+                        f"`ai-eng` verb, or keep the tool only as the output the gate holds."
+                    )
+            if _GIT_GREP.search(line) or _JUST.search(line):
+                problems.append(
+                    f"{name}: {doc.name} names {line.strip()!r} — a repo-specific command "
+                    f"the wheel does not guarantee on the stranger's machine. Name an "
+                    f"`ai-eng` verb, or keep the tool only as the output the gate holds."
+                )
+    return problems
 
 
 def _corpus_problems(folder: Path, name: str) -> list[str]:
