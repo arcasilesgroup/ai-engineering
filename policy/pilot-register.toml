@@ -326,7 +326,7 @@ enforced_by = "ai_engineering.report.BYPASSES_WORTH_A_LOOK, printed by `ai-eng r
 
 [[baseline]]
 id = "skill-routing"
-measured = 332
+measured = 347
 margin = 0
 command = "python tests/skill_eval.py"
 approved_by = ""
@@ -334,6 +334,13 @@ reopen_when = "somebody with authority names themselves here, which closes EP-28
 why = """The count is claims plus refusals plus the labelled cases on both sides. Falling \
 means a skill stopped declaring what it routes or a corpus lost cases; rising means the \
 opposite. Both are worth a sentence, and neither should happen without one.
+
+332 to 347: `/ai-goal` ships as a skill. Situations routed 79 to 81, hand-offs 40 to 42, \
+labelled cases 213 to 224 — two claims, two refusals, five takes and six sends. 81+42+224 \
+is 347. It is the governed cycle in one pass: the invocation is the standing approval, so \
+"finish this without me, give me something to test" routes here and not to `/ai-cycle`, \
+whose halt is the brief and whose refusal to approve anything is a field it cannot write — \
+the person already said go, and only a green gate and a handover end it.
 
 326 to 332: `/ai-council` gains a second and third round, and its corpus stops refusing what \
 it now does. Situations routed 77 to 79, hand-offs 39 to 40, labelled cases 210 to 213 — two \
