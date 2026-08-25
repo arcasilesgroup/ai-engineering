@@ -46,6 +46,14 @@ _SPAN = re.compile(r"`([^`]+)`")
 _JUST = re.compile(r"\bjust [a-z-]+")
 _GIT_GREP = re.compile(r"\bgit\s+grep\b")
 
+# A cross-file reference a skill body makes to a path the wheel does not guarantee beside
+# the skill. The skill's own `references/` subfolder ships with it and is not a dependency;
+# every other root — policy/, hooks/, specs/, docs/, CONSTITUTION.md and a sibling skill's
+# references/ — is a file the stranger's repo may not have unless the skill says so and
+# fails closed when it does not.
+_EXIST_ROOTS = re.compile(r"`((?:policy|hooks|specs|docs)/[^`]+)`|`(CONSTITUTION\.md)`|`([a-z][a-z0-9-]*/references/[^`]+)`")
+_FAIL_CLOSED = re.compile(r"\b(absent|missing|does not exist|fail(?:s)? closed|refus(?:es|e)|when it is not there)\b", re.I)
+
 # The catalogue budget, not the file budget: the open Agent Skills specification and each
 # surface load a catalogue, and a skill that silently does not fit is a skill that silently
 # does not exist there. 50 000 is the smallest documented budget (Zed's 50 KB, spec 024
@@ -146,8 +154,52 @@ def audit_one(path: Path) -> list[str]:
         if word in body:
             found.append(f"{name}: {word!r} — write it so somebody who does not code can follow")
     found.extend(_portable_problems(path.parent, name))
+    found.extend(_existence_problems(path.parent, name))
     found.extend(_corpus_problems(path.parent, name))
     return found
+
+
+ROUTES = "## Routes here"
+REFUSES = "## Refuses"
+
+
+def _existence_problems(folder: Path, name: str) -> list[str]:
+    """A cross-file reference without a fail-closed clause for when it is absent.
+
+    Spec 027 D-027-01: every reference a skill body makes to another path must be
+    accompanied by a check that the path exists and a fail-closed sentence when it does
+    not. `ai-spec`'s handling of CONSTITUTION.md is the pattern. A skill that names
+    `policy/threat-model.toml` as if the file is always there silently stops fitting on
+    the machine that lacks it; one that says "if `policy/threat-model.toml` is absent,
+    refuse to continue" stays honest. Both files of the pair are read, for the same
+    reason the portable rule reads both.
+    """
+
+    problems = []
+    for doc in (folder / "SKILL.md", folder / "corpus.md"):
+        if not doc.exists():
+            continue
+        all_lines = doc.read_text(encoding="utf-8").splitlines()
+        for line_no, line in enumerate(all_lines):
+            if not _EXIST_ROOTS.search(line):
+                continue
+            target = next(
+                group
+                for match in _EXIST_ROOTS.finditer(line)
+                for group in match.groups()
+                if group
+            )
+            # The fail-closed clause must sit with the reference, not two sections away:
+            # this line, or a line immediately before or after it.
+            around = "\n".join(all_lines[max(0, line_no - 1) : line_no + 2])
+            if not _FAIL_CLOSED.search(around):
+                problems.append(
+                    f"{name}: {doc.name} line {line_no + 1} references `{target}` without "
+                    f"a fail-closed sentence for when that path is absent. Add an existence "
+                    f"check and a refusal beside the reference, the way ai-spec handles "
+                    f"CONSTITUTION.md."
+                )
+    return problems
 
 
 ROUTES = "## Routes here"

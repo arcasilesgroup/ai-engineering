@@ -82,11 +82,46 @@ def test_portable_rule_checks_corpus_md_too(tmp_path):
     assert any("corpus.md" in p and "repo-specific command" in p for p in problems), problems
 
 
-def test_portable_rule_passes_a_bare_mention_without_a_run_cue(tmp_path):
-    """'the just recipe' is a reference, not a command, and passes."""
+# --- Task 2: existence-check rule -------------------------------------------
+
+
+def test_existence_rule_rejects_a_ref_without_a_fail_closed_clause(tmp_path):
+    """A skill that names policy/threat-model.toml as if it is always there refuses."""
     skill = _skill(
         tmp_path,
-        SKILL_HEADER + "\n## Done when\n\nThe `just` recipe stays with the maintainer.\n",
+        SKILL_HEADER + "\n## Steps\n\n1. Read `policy/threat-model.toml` for the boundary.\n",
     )
     problems = contract.audit_one(skill)
-    assert not any("repo-specific command" in p for p in problems), problems
+    assert any("fail-closed" in p and "policy/threat-model.toml" in p for p in problems), problems
+
+
+def test_existence_rule_passes_a_ref_with_a_fail_closed_clause(tmp_path):
+    """The ai-spec pattern — ref plus 'if absent, refuse' — passes."""
+    skill = _skill(
+        tmp_path,
+        SKILL_HEADER
+        + "\n## Steps\n\n1. Read `policy/threat-model.toml`; if it is absent, refuse to continue.\n",
+    )
+    problems = contract.audit_one(skill)
+    assert not any("fail-closed" in p for p in problems), problems
+
+
+def test_existence_rule_checks_corpus_md_and_sibling_references(tmp_path):
+    """corpus.md refs and ai-/references/ cross-skill refs are read too."""
+    skill = _skill(
+        tmp_path,
+        SKILL_HEADER + "\n## Done when\n\nRun `ai-eng audit verify`.\n",
+        corpus="## Routes here\n\n- read `ai-review/references/testing.md`\n\n## Refuses\n\n- refuse it\n",
+    )
+    problems = contract.audit_one(skill)
+    assert any("fail-closed" in p and "testing.md" in p for p in problems), problems
+
+
+def test_existence_rule_passes_a_skills_own_references_subfolder(tmp_path):
+    """The skill's own references/ ships with it and is not a dependency."""
+    skill = _skill(
+        tmp_path,
+        SKILL_HEADER + "\n## Steps\n\n1. Work the checklists in `references/`.\n",
+    )
+    problems = contract.audit_one(skill)
+    assert not any("fail-closed" in p for p in problems), problems

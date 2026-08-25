@@ -55,7 +55,7 @@ adds a file that is not the skill's own.
    `semgrep`, `gitleaks`, `trivy` or `git grep` as a required command, and passes a skill
    that names only an `ai-eng` verb or the output of a tool kept as evidence.
 
-2. [ ] **Existence-check rule in `contract.audit_one`** —
+2. [x] <!--t:b96909f5c61b--> **Existence-check rule in `contract.audit_one`** —
    **file**: `src/ai_engineering/contract.py`.
    **check**: `uv run --with pytest python -m pytest -q tests/test_contract_smells.py -k existence`
    **rollback**: `git revert <commit>`.
