@@ -38,8 +38,14 @@ def test_a_touched_file_that_keeps_the_trigger_is_incomplete():
 def test_a_file_not_touched_stays_open():
     finding = _finding("password = getenv('DB_PASS', 'root')")
     # No diff at all for this file: nothing was corrected.
-    assert revalidate.apply(finding, "password = getenv('DB_PASS', 'root')\n",
-                            "password = getenv('DB_PASS', 'root')\n") is False
+    assert (
+        revalidate.apply(
+            finding,
+            "password = getenv('DB_PASS', 'root')\n",
+            "password = getenv('DB_PASS', 'root')\n",
+        )
+        is False
+    )
 
 
 def test_a_finding_whose_trigger_was_never_present_is_incomplete():

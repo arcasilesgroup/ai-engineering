@@ -442,9 +442,7 @@ def main(argv: list[str]) -> outcome.Result:
         help="revalidate one finding at finding granularity (spec 030 B-030-3)",
     )
     parser.add_argument("--file", default=None, help="the file the finding lives in")
-    parser.add_argument(
-        "--trigger", default=None, help="the exact substring the finding flagged"
-    )
+    parser.add_argument("--trigger", default=None, help="the exact substring the finding flagged")
     args = parser.parse_args(argv)
 
     # Revalidation (spec 030 B-030-3): re-read the specific file's diff and mark the finding

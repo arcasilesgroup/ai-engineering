@@ -29,7 +29,7 @@ def _key(tmp_path: Path, *, unknown: bool = False) -> Path:
     unknown_block = 'unknowns = ["U1"]\n' if unknown else ""
     key.write_text(
         'schema = "urn:ai-engineering:answer-key:1"\nschema_version = "1"\nspec = "010"\n'
-        f"spec_digest = \"sha256:{'0' * 64}\"\n{unknown_block}{checks}",
+        f'spec_digest = "sha256:{"0" * 64}"\n{unknown_block}{checks}',
         encoding="utf-8",
     )
     return key

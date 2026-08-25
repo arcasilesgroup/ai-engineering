@@ -80,9 +80,7 @@ def _fresh_work(pack_name: str) -> Path:
 
 
 def _coverage_problem(report: Report, outside: list[str]) -> None:
-    report.problems.append(
-        f"finding(s) outside declared coverage roots: {sorted(set(outside))}"
-    )
+    report.problems.append(f"finding(s) outside declared coverage roots: {sorted(set(outside))}")
 
 
 def score_one(pack: Path, fixture: Path) -> Report:
