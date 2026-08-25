@@ -36,7 +36,7 @@ Approved at these exact bytes:
 | file | SHA-256 |
 |---|---|
 | `specs/026-sm-skillmap-as-instrument/spec.md` | `0ce52d25d266db4a2738f6c64e34ea3a06f62ea50a08b49c27f10dd8f45e8684` |
-| `specs/026-sm-skillmap-as-instrument/plan.md` | `6b4a0cfc963d6de9975331ae3ed8f051108e88b3fd382a14f18c468ac591d202` |
+| `specs/026-sm-skillmap-as-instrument/plan.md` | `28fe22309ac78de54bb6cbbf6725b31c360a439379658287de2bec2829e37211` |
 
 The recommendation stands: `sm` is the reference-integrity instrument. The plan's five tasks
 are authorized as the exact work this record approves; nothing past task 5 is opened, and
