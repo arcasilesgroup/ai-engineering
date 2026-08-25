@@ -6,7 +6,10 @@ id: "0010"
 title: "A scanner finding is answered in the scanner"
 date: "2026-08-16"
 spec: "010"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-24T23:58:28Z"
 supersedes: ""
 ---
 
