@@ -36,18 +36,21 @@ def _skill(tmp_path: Path, body: str) -> Path:
 
 def _craft_clean() -> str:
     return (
-        "## What it produces\n\n`out.md`\n\n"
-        "## What this is not\n\n- \"Nah\" — do it; it is fast.\n"
+        '## What it produces\n\n`out.md`\n\n## What this is not\n\n- "Nah" — do it; it is fast.\n'
     )
 
 
 def test_a_branchbloated_body_is_refused(tmp_path):
     """Branches present and body over the tier bound must split into on-demand files."""
-    body = _craft_clean() + "\n## Procedure\n\n1. Do A. When the target is X, run the X\n" + (
-        "branch that follows: use the X flow in the explanation of what X needs, and then\n"
-        "the second branch for Y as well, and the third branch for Z over there, and the\n"
-        "fourth branch for W across the board, and enough padding to cross five hundred\n"
-        "lines of body text easily and surely.\n" * 550
+    body = (
+        _craft_clean()
+        + "\n## Procedure\n\n1. Do A. When the target is X, run the X\n"
+        + (
+            "branch that follows: use the X flow in the explanation of what X needs, and then\n"
+            "the second branch for Y as well, and the third branch for Z over there, and the\n"
+            "fourth branch for W across the board, and enough padding to cross five hundred\n"
+            "lines of body text easily and surely.\n" * 550
+        )
     )
     p = _skill(tmp_path, body)
     problems = contract.audit_one(p)
