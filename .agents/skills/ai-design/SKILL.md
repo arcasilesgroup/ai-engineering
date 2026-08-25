@@ -66,6 +66,10 @@ nowhere to live is a judgement nobody applies: fixed dials, randomisation, a man
 AIDA or GSAP, "the agency look", perpetual motion, a double bezel, pills everywhere, and one
 colour, type scale or layout declared universal.
 
+## What this is not
+
+- "The stylesheet says it, so the accessibility list can be ticked from the CSS" — verify measures the rendered result over the real background, not the declared CSS, and every accessibility line names a command or a person and a date.
+
 ## Done when
 
 - Every component has its states, in true content, and the small screen was the first one.

@@ -49,6 +49,10 @@ disable-model-invocation: true
    on its own terms. A learning store inside the framework would be a second source of
    truth for something git already versions, and the second one is always the stale one.
 
+## What this is not
+
+- "It was quick but painful, so it deserves a note" — the bar is thirty minutes: a note about something that took less is noise that hides the ones that matter.
+
 ## Done when
 
 - The header names a commit and the files the note describes.

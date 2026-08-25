@@ -16,7 +16,7 @@ disable-model-invocation: true
 
 ## What it produces
 
-Commits, a changelog entry, a pull request, and a branch that gets deleted after it merges.
+Commits, a changelog entry, a pull request on `origin/<branch>`, and a branch that gets deleted after it merges.
 
 ## Steps
 
@@ -56,3 +56,5 @@ Commits, a changelog entry, a pull request, and a branch that gets deleted after
 
 Not a place to fix review findings quietly. A finding gets its own commit, with its own
 message, so the diff of the fix can be read on its own.
+
+- "The change is tiny, so one commit that says the whole thing is enough" — one commit per change: a subject that needs the word 'and' is two commits, and a finding gets its own commit so its diff can be read on its own.

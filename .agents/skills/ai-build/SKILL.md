@@ -17,7 +17,7 @@ disable-model-invocation: true
 
 ## What it produces
 
-Code and tests for one task, and one commit nobody has reviewed yet.
+Code and tests for one task, and one commit nobody has reviewed yet — `HEAD`.
 
 ## Steps
 
@@ -48,6 +48,10 @@ Code and tests for one task, and one commit nobody has reviewed yet.
    nobody can see is a halt nobody acts on, and the person is not at the keyboard. Say what
    is missing; never that it arrived. Then escalate to `/ai-spec`. Continuing on a plan you
    have privately rewritten is the failure this skill exists to prevent.
+
+## What this is not
+
+- "The change is small and the check is green, so I can approve it myself" — the hand-off has to say `UNREVIEWED` until somebody else has reviewed it: work approved by the hands that wrote it is the loop this step exists to break.
 
 ## Done when
 

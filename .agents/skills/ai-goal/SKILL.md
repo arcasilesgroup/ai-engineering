@@ -21,6 +21,12 @@ in one pass and the person comes back only when there is a finished thing to tes
 invocation is the standing approval; you never ask again, and you never claim an approval
 you did not earn.
 
+## What it produces
+
+The finished thing handed to the person: the change committed at `HEAD`, the
+`ai-eng audit verify` gate output shown in full, and the acceptance checklist the person
+runs against the real artifact.
+
 ## The order
 
 Read `policy/skill-sequence.toml` and follow it; if that file is absent, refuse to
@@ -61,6 +67,10 @@ costs. Never a silent stop, and never "until perfect" — that is not a stop con
 KISS, YAGNI, DRY, SOLID, BDD, TDD, Clean Code, Clean Architecture. When two answers both
 work, the smaller one wins. Keep the change the smallest thing that works and delete what
 the change obsoletes. A simpler path exists and you did not take it — that is a defect.
+
+## What this is not
+
+- "The gate is green, so the critic's verdict is redundant" — the bars are two and neither is negotiated: an independent critic with no memory of your reasoning must compare the real artifact against the acceptance criteria.
 
 ## Done when — stop, and hand over
 

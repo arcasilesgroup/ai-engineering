@@ -90,6 +90,10 @@ unreadable file, not a zero. Then `## The two counts`, with exactly these two li
 Do not write the totals you wanted. Write what is in the file. The check counts; it does not
 read your number.
 
+## What this is not
+
+- "The spec is short, so one careful read is enough" — measured on report 003, most real findings are seen by exactly one reader, which is why the five lenses and the cross-read exist.
+
 ## Done when
 
 Every lens has a section. Every finding carries a command. Every refutation carries one that

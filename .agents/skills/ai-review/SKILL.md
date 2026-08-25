@@ -63,3 +63,5 @@ Findings, each one at `file:line`, each with the smallest change that would reso
 
 Not a rewrite. If your finding is "I would have built it differently", it is a comment, not
 a blocker, and it says so.
+
+- "I skimmed the last hunks; the important parts are covered" — a truncated pass reads exactly like a complete one: if the diff does not fit in one pass, say so in the first line of the report.

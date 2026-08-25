@@ -44,6 +44,10 @@ but you.
    keyboard, and then says there is nowhere to send: no destination is configured and this
    package has no transport. Take the previewed bytes to the route your organisation uses.
 
+## What this is not
+
+- "The fault is obvious, so the report needs no reproduction steps" — a report of something that happened once is a report the person reading it cannot act on, and the steps field is what makes the difference.
+
 ## Done when
 
 - Every field is a sentence you wrote, and nothing in the payload was collected.
