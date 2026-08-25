@@ -15,6 +15,10 @@ semgrep := "semgrep==1.172.0"
 gitleaks_version := "8.30.1"
 trivy_version := "0.73.0"
 coverage := "coverage==7.15.4"
+# `sm` (skill-map.ai) is the same kind of pin as gitleaks and trivy above: a binary this
+# project does not install, whose version the machine may carry differently. Spec 026 makes
+# it the reference-integrity instrument; `map` below asks it what it is before trusting it.
+sm := "1.12.2"
 # The suite runs across the machine's cores. Measured on this tree: 158.89 s serial against
 # 61.80-66.05 s at the detected count over three runs, the same passed/skipped/failed counts,
 # and a coverage total that does not move. Never a literal above the core count — sixteen
@@ -232,7 +236,18 @@ unreviewed base="main":
 # and nothing measured it — so a sentence about one commit stood in for a hundred and ninety.
 # Reports and never blocks: the exception cannot be recognised mechanically, and a gate that
 # failed here would assert a judgement it cannot make.
-homes base="main":
-    @uv run python tests/one_home.py --since {{base}}
+# The reference-integrity instrument (spec 026). `sm scan && sm check --json` is a
+# deterministic sweep over the markdown tree, and `map` is where the gate meets it. Every
+# other external engine here is version-checked before it is trusted; same rule: ask `sm`
+# what it is first, because a map from an engine whose findings shape we did not test is a
+# map whose green is an assertion. A machine with no `sm` (a stranger install of the wheel)
+# is bracketed the same way the security engines are: print the gap and stay green, because
+# the instrument is the maintainer's habit and not a dependency the stranger must carry.
+map:
+    @if ! command -v sm >/dev/null 2>&1; then \
+        echo "map not exercised; sm missing"; exit 0; fi
+    @test "$(sm --version)" = "{{sm}}" || { echo "sm is $(sm --version)$(true) and this gate is written for {{sm}}. An untested map engine's answer is not evidence."; exit 1; }
+    sm scan
+    sm check --json
 
-check: build sbom lint typecheck test cover security register skilleval counts intent-page lenses council ran
+check: build sbom lint typecheck test cover security register skilleval counts intent-page lenses council map ran
