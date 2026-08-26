@@ -208,9 +208,20 @@ def model() -> str:
     own process emits; a separate process (cli.py) gets the value only from its own
     environment. An event written before this field existed has no `model` key at all;
     readers count that as the `missing` state, distinct from `undetermined`.
+
+    The value is sanitised here, at the record edge, so every consumer — the chain, the
+    digest, the report's print — inherits the same clean identifier: a model name has no
+    business carrying a control character, and one smuggled in would land in a line an
+    operator reads on a console (a terminal escape) and in a reason the record preserves.
+    The cap keeps a hostile value from distorting the digest's layout; the honest
+    `undetermined` marker is far shorter than it.
     """
 
-    return os.environ.get("AI_ENG_MODEL") or UNDETERMINED
+    value = os.environ.get("AI_ENG_MODEL") or UNDETERMINED
+    if value == UNDETERMINED:
+        return value
+    clean = "".join(ch if ch.isprintable() else "?" for ch in value)
+    return clean[:120]
 
 
 def digest(event: dict) -> str:
