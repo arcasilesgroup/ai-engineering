@@ -240,7 +240,8 @@
             "ai-verify",
             "ai-note",
             "ai-report",
-            "ai-ship"
+            "ai-ship",
+      "ai-write"
           ]
         },
         "phase": {
@@ -287,7 +288,8 @@
       "ai-verify",
       "ai-note",
       "ai-report",
-      "ai-ship"
+      "ai-ship",
+      "ai-write"
     ]
   },
   "x-mode-policy": {
