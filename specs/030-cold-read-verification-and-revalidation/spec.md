@@ -208,13 +208,15 @@ silently going green.
 
 ## Production-ready
 
-Nothing gets a URL until every box is ticked, and each one is ticked by a command.
+Nothing gets a URL until every box is ticked, and each one is ticked by a command. This
+specification changes the verification flow and the guard coverage model; it adds no
+service, no URL and no second hop, so the service-shaped boxes are `not applicable`.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check` runs the three behaviours on every push (`.github/workflows/check.yml`); the cold-read runner and the coverage rules are gate lanes, and nothing here is deployed
+- [x] Logs — not applicable, and that is the rule: this spec adds a verifier runner and data files; every verb still emits the one JSON line `ai-eng digest` reads
+- [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
+- [x] Errors — not applicable: the new code paths fail closed — a cold-read verifier with write access or with the constructor's reasoning is refused by the guard shape, and a coverage rule that escapes its declared roots is `INCOMPLETE`
+- [x] Health and data age — the coverage policy files are read by the guards at every run and asserted by `tests/test_cold_read.py` inside `just test`, so a scan surface cannot drift out of its declaration without the gate saying so
+- [x] External check — `.github/workflows/check.yml` runs the gate on every push, and the negative fixture proves the framework refuses a warm or writable verifier; `verify_cold` is the external reader that never sees the constructor's reasoning
+- [x] Second path — `verify_cold` (applies the answer key with `--recheck`) and `tests/test_cold_read.py` (asserts the same rules) share no line; the coverage declaration lives in policy data and the guard reads it at run time, so prompt and surface cannot drift
+- [x] Security — `just security`: gitleaks, semgrep and trivy on every push, over a change that adds no dependency and no network call

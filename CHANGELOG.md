@@ -248,6 +248,14 @@ search for.
   unblocks it. The `ai-goal` corpus gains the refusal «record the writer model as a
   decision» → `/ai-spec`, and the `skill-routing` baseline moves 349→350 with the reason
   written beside it in `policy/pilot-register.toml`.
+- Verification is now cold, and coverage is declared as data. `verify_cold` reads only
+  the spec/answer key and the delivered files — never the constructor's conversation,
+  never the plan's rationale — with **no write tools**, and "an uncertain check is a
+  fail"; every guard whose scan surface can change declares its roots in a
+  `policy/coverage/*.toml` per guard (a coverage rule that escapes the declared roots is
+  `INCOMPLETE`); and revalidation runs at **finding granularity**, re-executing each
+  finding's command independently. Recorded in `specs/030-cold-read-verification-and-
+  revalidation`.
   and simplicity (KISS, YAGNI, DRY, SOLID, BDD, TDD, Clean Code, Clean Architecture) is
   the standing bar. It is the gauntlet-loop half of what `ai-cycle` deliberately is not:
   `/ai-cycle` stops at the brief, `/ai-goal` stops at the green gate. The routing
