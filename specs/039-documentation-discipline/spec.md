@@ -35,8 +35,8 @@ technical-writer decision, and states the file governance.
   (context vs cognitive), leading words, pruning, or completion criteria; and, outside this
   spec and the user-provided texts, controlled language (ASD-STE100) appears nowhere in the
   repo. A spec or skill can be mechanically green and still hard for an agent to use.
-- The candidate tools exist outside: `/Users/soydachi/repos/claude-agents/product/
-  technical-writer.md` is a general documentation agent (API refs, READMEs, ADRs, Keep-a-
+- The candidate tools exist outside: `claude-agents/product/technical-writer.md` is a
+  general documentation agent (API refs, READMEs, ADRs, Keep-a-
   Changelog) — it contains **no STE100**; the `writing-for-agents` skill the owner pasted
   codifies the agent-document levers; ASD-STE100 is the aerospace controlled-language
   standard. The NotebookLM research the owner cited is not reachable from this machine
