@@ -54,9 +54,13 @@ It is a decision record, not code, a plan or permission the agent gave itself.
    dependency, a duplicated source of truth or the cost of reversing it decides between two
    options, say so in the option that carries it. A separate architectural opinion nobody
    has to answer is the advisor this project chose not to build.
-10. Keep decisions in their spec unless they constrain future specs. For those, record a
-   proposed `ai-eng decide --madr "<title>"`; proposal is not approval. Leave every
-   production-ready box unticked until the named command supplies fresh evidence.
+10. Keep decisions in their spec unless they constrain future specs. For the ones that do
+   — architectural and cross-cutting: a boundary (API, auth, storage) or a global
+   convention later specs must know and respect — list them under `## Decisions` marked
+   `- [X]` and promote with `ai-eng decide "<title>"`; the
+   verb promotes only marked titles, and proposal is not approval. Everything else stays
+   inside the spec, which is its record. Leave every production-ready box unticked until
+   the named command supplies fresh evidence.
 
 ## Authority boundary
 

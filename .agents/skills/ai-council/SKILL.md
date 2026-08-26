@@ -86,9 +86,14 @@ unreadable file, not a zero. Then `## The two counts`, with exactly these two li
 - Findings deleted, for carrying no command or for being refuted: **N**
 ```
 
-`just council` counts the bullets again and fails when its count and those totals disagree.
-Do not write the totals you wanted. Write what is in the file. The check counts; it does not
-read your number.
+## The loop is bounded
+
+At most two rounds against the same spec digest — the canonical bytes `ai-eng spec show`
+prints. A revision changes the digest and reopens the count; the second round against an
+unchanged digest is the last. At the ceiling, write the outstanding findings worst first
+and hand the page to the person. `loopgate` is the orchestrator's instrument, not yours:
+the skill layer's bound is this one, and the two-identical-greens rule is what an
+automated cycle runs when it exists.
 
 ## What this is not
 

@@ -505,6 +505,20 @@ def main(argv: list[str]) -> outcome.Result:
     except LookupError as why:
         print(f"  {why}")
         return outcome.result("INCOMPLETE")
+    # The promotion trigger, read from the record instead of inferred from the word at
+    # promotion time. A decision is born inside its spec; the `[X]` marker under
+    # `## Decisions` is the author's own claim that it constrains specs that do not exist
+    # yet, and this verb promotes only marked entries. The refusal comes before the graph
+    # and before any write, so an unmarked title costs nothing and writes nothing.
+    marked = specs.marked_decisions(target.read_text(encoding="utf-8"))
+    if not any(title == args.title for _, title in marked):
+        print(
+            f"  INCOMPLETE [DECISION_UNMARKED]: {title!r} is not marked `[X]` under "
+            f"## Decisions in {target.relative_to(root)}. A decision is born inside its "
+            "spec and is promoted only when it earns it: record it there and mark it "
+            "`[X]` when it constrains specs that do not exist yet. Nothing was written."
+        )
+        return outcome.result("INCOMPLETE")
     existing = madr.validate(root)
     if existing.outcome != "PASS":
         return _refuse_invalid(existing)

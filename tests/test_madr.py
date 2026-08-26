@@ -537,8 +537,27 @@ def _git_status(root: Path) -> list[str]:
 def _repository_with_spec(root: Path) -> None:
     specification = root / "specs" / "010-governed-foundation" / "spec.md"
     specification.parent.mkdir(parents=True)
+    # Every title these decide tests promote or deliberately run past the promotion
+    # trigger, marked `[X]` so the verb reaches the graph/write behaviour each test
+    # asserts. A title the test expects to be refused comes back unmarked where needed.
+    marked = (
+        "Keep authority outside the agent",
+        "Reject an orphan",
+        "Do not write through ambiguity",
+        "Concurrent decision",
+        "Partial decision",
+        "Stay inside the repository",
+        "Stay descriptor relative",
+        "Require anchored writes",
+        "Close on success",
+        "Close on failure",
+        "Orphan",
+        "Ñ決定",
+        "a" * 59 + " separator",
+    )
+    lines = "\n".join(f"- [X] **D-010-01 — {title}**" for title in marked)
     specification.write_text(
-        '---\nid: "010"\nstatus: draft\n---\n\n# Governed foundation\n',
+        f'---\nid: "010"\nstatus: draft\n---\n\n# Governed foundation\n\n## Decisions\n\n{lines}\n',
         encoding="utf-8",
     )
     _commit(root, "record specification")

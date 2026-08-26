@@ -123,7 +123,10 @@ not code can follow.
 ## Decision
 
 TODO: the one chosen, and why the others were not. If this decision constrains specs
-that do not exist yet, give it a record of its own: `ai-eng decide "<title>"`.
+
+that do not exist yet, mark it `[X]` under ## Decisions and give it a record of its own:
+`ai-eng decide "<title>"`.
+
 
 ## Challenged once
 
@@ -147,7 +150,10 @@ of an example a script can re-run and the half a vague one cannot fake.
 ## Decisions
 
 <!-- One `**D-NNN-NN — <the decision>**` per line, each with a `**Rationale:**` under it.
+     Prefix a line with `- [X]` to claim the decision earns promotion: it constrains
+     specs that do not exist yet, and `ai-eng decide` promotes only marked lines.
      `ai-eng decide` does not write here: it writes a record under docs/adr/. -->
+
 
 ## Accepted risks
 
@@ -781,6 +787,42 @@ def self_contained(text: str) -> list[str]:
     """Every conversation leak the spec carries, or an empty list when self-contained."""
     folded = text.casefold()
     return [leak for leak in _LEAKS if leak in folded]
+
+
+_DECISIONS_HEADING = re.compile(r"^## Decisions[ \t]*$", re.M)
+# One marked decision entry under ## Decisions: `- [X] **D-NNN-NN — the decision**`.
+# The marker is the author's claim that the decision earns promotion; the dash may be
+# written as — – - or :, and any amount of space around the identifier is accepted.
+_MARKED_DECISION = re.compile(
+    r"^\s*[-*]\s+\[[xX]\]\s+\*\*(D-\d{3}-\d{2}(?:-\d+)?)[ \t]*[—–:-][ \t]*(.+?)\*\*",
+    re.M,
+)
+_HEADING_ANY = re.compile(r"^#{1,6} ", re.M)
+
+
+def _decisions_body(text: str) -> str:
+    """The lines under the first `## Decisions` heading, or empty when there is none.
+
+    The section ends at the next heading of any depth; a second `## Decisions` later in
+    the document is not the decision record and is not part of it."""
+    start = _DECISIONS_HEADING.search(text)
+    if not start:
+        return ""
+    next_heading = _HEADING_ANY.search(text, start.end())
+    return text[start.end() : next_heading.start() if next_heading else len(text)]
+
+
+def marked_decisions(text: str) -> list[tuple[str, str]]:
+    """Every decision the author marked `[X]` under ## Decisions, as `(id, title)`.
+
+    The marker is the author's claim that the decision constrains specs that do not
+    exist yet — the promotion condition `ai-eng decide` asks. The parser returns only
+    marked lines, so the filter a verb applies is the record's own claim, never an
+    inference about the author's intent."""
+    return [
+        (match.group(1), match.group(2).strip())
+        for match in _MARKED_DECISION.finditer(_decisions_body(text))
+    ]
 
 
 def section(text: str, number: int) -> str:

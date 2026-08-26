@@ -42,8 +42,14 @@ claims in one of them were false, and executing them is what found it.
 4. Write the findings, worst first. `WRONG` when the tree says otherwise, `UNPROVEN` when
    nothing in the tree can decide it, and say which — those are different problems for the
    author.
-5. Say what you could not test and why. A challenge that reports only what it managed to
-   check reads as a clean bill of health.
+## The loop is bounded
+
+At most two rounds against the same spec digest — the canonical bytes `ai-eng spec show`
+prints. A revision changes the digest and reopens the count; the second round against an
+unchanged digest is the last. At the ceiling, write the outstanding findings worst first
+and hand the page to the person. `loopgate` is the orchestrator's instrument, not yours:
+the skill layer's bound is this one, and the two-identical-greens rule is what an
+automated cycle runs when it exists.
 
 ## What this is not
 
