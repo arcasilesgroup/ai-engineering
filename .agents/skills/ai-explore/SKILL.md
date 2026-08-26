@@ -57,3 +57,5 @@ guess.
 
 Not a design review, not a refactor, and not an opinion about quality. If you spot
 something genuinely dangerous, say it in one line at the end and move on.
+
+- "I read the file names, so I can summarise the flow" — a flow summarised from file names alone is the single most common way this goes wrong; follow one real path end to end.

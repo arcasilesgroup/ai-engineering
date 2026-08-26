@@ -55,3 +55,5 @@ disable-model-invocation: true
 Not an estimate, not a schedule, and not a place to redesign. If planning uncovers that
 the spec is wrong, stop and go back to `/ai-spec`. Re-planning around a wrong spec is the
 most expensive mistake available here.
+
+- "A check that reads 'the agent decides X' is honest for this task" — a check is a command, never a judgement: if you cannot say why a script cannot decide it, write the script instead.

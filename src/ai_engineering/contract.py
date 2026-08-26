@@ -204,6 +204,12 @@ def audit_one(path: Path) -> list[str]:
     found.extend(_forced_output_problems(path.parent, name))
     found.extend(_sourced_statistic_problems(path.parent, name))
     found.extend(_corpus_problems(path.parent, name))
+    # Spec 032: the craft rules — anti-rationalization, output contract, Incorrect/Correct
+    # pairs (where a rules section exists) and load tiers, one refuser each.
+    found.extend(_anti_rationalization_problems(path.parent, name))
+    found.extend(_output_contract_problems(path.parent, name))
+    found.extend(_incorrect_correct_problems(path.parent, name))
+    found.extend(_load_tier_problems(path.parent, name))
     return found
 
 
@@ -403,6 +409,86 @@ def _corpus_problems(folder: Path, name: str) -> list[str]:
             line for line in section.splitlines() if line.strip().startswith("- ")
         ]:
             problems.append(f"{name}: corpus.md has no cases under {heading!r}")
+    return problems
+
+
+# ── spec 032 craft rules ──────────────────────────────────────────────────────
+# Four checked authoring rules, added the way spec 027 added its smell rules: a script
+# refuses the shape, so the discipline is enforced rather than requested. Each rule names
+# the fix beside the refusal, so a person who reads the problem reads the answer.
+
+# B-032-1: a skill must carry an anti-rationalization section (## What this is not or
+# ## Anti-rationalizations) that names at least one excuse and answers it factually in
+# the same entry. An excuse with no counter is a skipped step wearing a name.
+_ANTI_SECTION = re.compile(r"^## (?:What this is not|Anti-rationalizations)", re.M)
+_ANTI_ENTRY = re.compile(r"^- .*— .+", re.M)
+
+
+def _anti_rationalization_problems(folder: Path, name: str) -> list[str]:
+    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    if not _ANTI_SECTION.search(body):
+        return [
+            f"{name}: has no anti-rationalization section (## What this is not or "
+            "## Anti-rationalizations) naming an excuse and answering it"
+        ]
+    entries = _ANTI_ENTRY.findall(body)
+    if not entries:
+        return [f"{name}: the anti-rationalization section names no excuse-and-answer entry"]
+    return []
+
+
+# B-032-2: ## What it produces must name the artifact (a path, a file, a record, a
+# verdict), not a "verify"-style instruction. A prose exit is not an output.
+_PRODUCES = "## What it produces"
+_ARTIFACT = re.compile(r"`[^`]+`|(?:path|file|record|verdict|report|receipt)\b", re.I)
+
+
+def _output_contract_problems(folder: Path, name: str) -> list[str]:
+    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    if _PRODUCES not in body:
+        return [f"{name}: no '## What it produces' section naming the artifact it exits"]
+    section = body.partition(_PRODUCES)[2].partition("\n## ")[0]
+    if not _ARTIFACT.search(section):
+        return [f"{name}: '## What it produces' names no artifact (path/file/record/verdict)"]
+    return []
+
+
+# B-032-3: a skill with a ## Rules section must state each rule as an Incorrect/Correct
+# pair; bare prose rules are a source of interpretation. A skill with no rules section
+# passes — the rule fires where rules exist, never forcing fake pairs.
+_RULES = re.compile(r"^## Rules", re.M)
+_PAIR = re.compile(r"^### Incorrect.*?^### Correct", re.M | re.S)
+
+
+def _incorrect_correct_problems(folder: Path, name: str) -> list[str]:
+    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    if not _RULES.search(body):
+        return []  # no rules section: scoped out
+    if not _PAIR.search(body):
+        return [f"{name}: '## Rules' states rules without an Incorrect/Correct pair"]
+    return []
+
+
+# B-032-4: the body must sit within the load tier the surfaces give it — 500 lines, with
+# long embedded scripts moved to scripts/ (executed, never read into context).
+LOAD_TIER_MAX = 500
+_INLINE_SCRIPT = re.compile(r"^(?:python3?|bash|sh)\s+-|<<['\"]?EOF", re.M)
+
+
+def _load_tier_problems(folder: Path, name: str) -> list[str]:
+    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    size = body.count("\n") + 1
+    problems: list[str] = []
+    if size > LOAD_TIER_MAX:
+        problems.append(
+            f"{name}: body is {size} lines, over LOAD_TIER_MAX={LOAD_TIER_MAX}; "
+            "a surface reads it partially. Split references/ or move scripts to scripts/"
+        )
+    if _INLINE_SCRIPT.search(body):
+        problems.append(
+            f"{name}: carries an inline script body; move it to scripts/ so it "
+            "is executed, never read into context"
+        )
     return problems
 
 

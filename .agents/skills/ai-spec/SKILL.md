@@ -80,3 +80,5 @@ project identity is cross-cutting and requires the same authority. Never overwri
 
 Not a discussion transcript, implementation or risk acceptance. Delete empty ceremony;
 keep the evidence and decisions a future reader must be able to audit.
+
+- "Only one option is worth considering, so two options would be theatre" — the procedure demands at least two real options and forbids inventing a weak one to lose, because the comparison is what makes the recommendation auditable.

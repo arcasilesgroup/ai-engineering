@@ -51,6 +51,8 @@ It is not an approval and not a rejection. It never edits the specification: an 
 rewrites the charge is not one. And it is not a second opinion — a finding either carries a
 command somebody else can run, or it does not exist.
 
+- "Every sentence checked out, so the spec is true" — a challenge reports what it could not test too; only what it managed to check reads as a clean bill of health.
+
 ## Done when
 
 Every checkable sentence has a verdict beside the command that produced it, the untested ones

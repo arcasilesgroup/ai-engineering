@@ -788,7 +788,13 @@ VALID_HEADER = "name: ai-thing\ndescription: Does one thing. Not for two — use
 
 
 def _skill(
-    root: Path, header: str = VALID_HEADER, body: str = "A body.\n", corpus: bool = True
+    root: Path,
+    header: str = VALID_HEADER,
+    body: str = (
+        "A body.\n\n## What it produces\n\n`out/result.md`\n\n## What this is not\n\n"
+        '- "It\'s simple" — then it is fast to prove; do it now.\n'
+    ),
+    corpus: bool = True,
 ) -> Path:
     folder = root / "ai-thing"
     folder.mkdir(exist_ok=True)
@@ -837,7 +843,10 @@ def test_each_banned_word_is_caught_wherever_it_sits(tmp_path, word):
     """Rule 9: written so somebody who does not code can follow. A check that only looked
     at the description would let the same word through in the body underneath it."""
     found = contract.audit_one(_skill(tmp_path, body=f"We {word.upper()} the thing.\n"))
-    assert len(found) == 1 and repr(word) in found[0]
+    # The fixture body is deliberately minimal (not craft-compliant), so only the banned
+    # word's problem is asserted — the craft rules may also fire on it, and filtering by
+    # the word keeps this test about the word, not about the skill-craft contract.
+    assert any(repr(word) in line for line in found), found
 
 
 def test_a_skill_with_no_header_is_reported_and_not_read_further(tmp_path):

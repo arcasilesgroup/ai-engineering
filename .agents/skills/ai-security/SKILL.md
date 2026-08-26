@@ -67,6 +67,10 @@ control is only half built.
    person, a reason and an expiry date. Compliance is a claim about an organisation and this
    skill has no standing to make one.
 
+## What this is not
+
+- "Every scanner came back clean, so the surface is safe" — a scanner that is absent or the wrong version is INCOMPLETE, never PASS, and no pinned scanner touches a running service.
+
 ## Done when
 
 - The boundary and the data are written down, not implied.

@@ -62,3 +62,5 @@ that ticked it, and an acceptance table where every example carries its verdict.
 
 Not a gate. `just check` is the gate and it runs in CI; this reads what it said. Not a
 review — `/ai-review` judges a diff, and this judges whether a claim about one is true.
+
+- "Somebody described a green run, so the box can be ticked on their word" — never tick a box on the strength of a run somebody described: every ticked box carries the command that ticked it and its output.

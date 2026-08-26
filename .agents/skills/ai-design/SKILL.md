@@ -66,6 +66,10 @@ nowhere to live is a judgement nobody applies: fixed dials, randomisation, a man
 AIDA or GSAP, "the agency look", perpetual motion, a double bezel, pills everywhere, and one
 colour, type scale or layout declared universal.
 
+## What this is not
+
+- "It compiles, so it is accessible" — view the result; keep a receipt.
+
 ## Done when
 
 - Every component has its states, in true content, and the small screen was the first one.

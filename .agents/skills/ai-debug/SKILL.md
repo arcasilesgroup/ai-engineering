@@ -43,6 +43,10 @@ Read both sides for intent before touching either. Lock files and generated file
 regenerated, never merged by hand. Migrations are ordered, not combined. If two people
 meant different things, that is a conversation, not a resolution.
 
+## What this is not
+
+- "I know what the bug is even though I cannot reproduce it" — a cause you cannot reproduce is a guess: the next useful thing is a way to reproduce it, not a change.
+
 ## Done when
 
 - The cause is named at `file:line` and a person could disagree with it.
