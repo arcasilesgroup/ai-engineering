@@ -18,6 +18,14 @@ disable-model-invocation: true
 
 # Say what is exposed, run what can be run, and never call the rest green
 
+## The tier to ask for
+
+Security is the highest-stakes reasoning in the cycle; ask the **top** tier, the model
+the repository's `[models]` section configures for it — never a model name coded here,
+and never a provider the repository did not choose. `model_router` maps security to the
+top tier; if the pin leaves it unconfigured, fall back to `default_tier`. Say which tier
+you ran on so the command event's `tier_model` can be read against reality.
+
 ## What it produces
 
 A threat and data model in the spec, and a list of findings where each one names the

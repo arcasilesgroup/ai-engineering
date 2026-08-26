@@ -15,10 +15,14 @@ disable-model-invocation: true
 
 # Write the spec
 
-## What it produces
+## The tier to ask for
 
-`specs/NNN-slug/spec.md`, committed in the user's repository and visible in their diff.
-It is a decision record, not code, a plan or permission the agent gave itself.
+Spec writing is mechanical once the research has done the hard thinking; ask the **low**
+tier, the model the repository's `[models]` section configures for it — never a model
+name coded here, and never a provider the repository did not choose. `model_router` maps
+research and spec to the low tier; if the pin leaves it unconfigured, fall back to
+`default_tier`. Say which tier you ran on so the command event's `tier_model` can be
+read against reality.
 
 ## Procedure
 
