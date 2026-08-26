@@ -7,6 +7,9 @@ description: >-
   "review this", "any issues with this", "is this merge-ready", "look over my PR", "what
   would you change". Not for running the gates — that is just check in CI. Not for finding
   why something is broken — use /ai-debug. Not for landing the work — use /ai-ship.
+  Not for deciding a request that falls outside a declared boundary — use /ai-verify,
+  because a decision that cannot classify itself reports CANNOT DECIDE and blocks, and a
+  review is not where an out-of-boundary decision gets made.
 license: Apache-2.0
 compatibility: needs git
 context: fork

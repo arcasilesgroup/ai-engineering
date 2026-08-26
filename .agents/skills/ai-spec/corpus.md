@@ -15,6 +15,7 @@ and not permission the agent gave itself.
 - "we need to decide whether the CLI or the hook owns the check" — a decision that constrains later work belongs in a record with named assumptions and unresolved risks, not in a conversation nobody can audit.
 - "write the spec for the new export format" — asked for by name, and the authority basis has to be named or the result is `INCOMPLETE`.
 - "the spec must stand alone" — the record is the whole interface to the builder: no "as discussed", no "the remaining work", no conversation leaks; `self_contained` refuses them and `section` resolves a part by number.
+- "this asks me to decide something outside what I'm allowed to decide" — refuse and report `CANNOT DECIDE`, because an out-of-boundary request is a blocked decision, not a spec to write (use /ai-verify to read the boundary).
 
 ## Refuses
 

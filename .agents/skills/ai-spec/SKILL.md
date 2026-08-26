@@ -7,7 +7,9 @@ description: >-
   "how should we handle", "what's the best approach", "I'm thinking about", "what should
   we build for", "write the spec". Not for turning an approved spec into tasks — use
   /ai-plan. Not for writing code — use /ai-plan after approval. Not for judging a diff —
-  use /ai-review.
+  use /ai-review. Not for deciding a request that falls outside a declared boundary — use
+  /ai-verify, because a decision that cannot classify itself is a blocked decision, not a
+  guessed one.
 license: Apache-2.0
 compatibility: needs git; needs the ai-eng CLI on PATH
 disable-model-invocation: true

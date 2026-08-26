@@ -7,7 +7,9 @@ description: >-
   "check the acceptance criteria". Not for judging a diff — use /ai-review, which reads a
   change and this reads a claim. Not for finding a cause — use /ai-debug. It observes and
   never accepts: incomplete is the answer to every box and every example with no command
-  pasted beside it.
+  pasted beside it. Not for deciding a request that falls outside a declared boundary —
+  report CANNOT DECIDE and block, because a decision that cannot classify itself is not a
+  decision this skill can take.
 license: Apache-2.0
 compatibility: needs git; needs the ai-eng CLI on PATH
 context: fork

@@ -329,10 +329,9 @@ enforced_by = "ai_engineering.report.BYPASSES_WORTH_A_LOOK, printed by `ai-eng r
 # So it moves in a commit that says why. That commit is the approval. What it is not is a
 # named person, and `EP-289` asks for one — the row stays open on that and the field says so
 # rather than carrying a name nobody typed.
-
 [[baseline]]
 id = "skill-routing"
-measured = 363
+measured = 369
 margin = 0
 command = "python tests/skill_eval.py"
 approved_by = ""
@@ -340,6 +339,9 @@ reopen_when = "somebody with authority names themselves here, which closes EP-28
 why = """The count is claims plus refusals plus the labelled cases on both sides. Falling \
 means a skill stopped declaring what it routes or a corpus lost cases; rising means the \
 opposite. Both are worth a sentence, and neither should happen without one.
+
+
+363 to 369: spec 036 adds the decision-boundary rule to `/ai-spec`, `/ai-review` and `/ai-verify`. Situations routed 81 to 81, hand-offs 42 to 42, labelled cases 240 to 246 — one route and one refusal each added: a request that falls outside a declared boundary reports `CANNOT DECIDE` and blocks (the route refuses into `/ai-verify` / `/ai-ship` / `/ai-spec`, and the descriptions carry the `Not for ... — ...` refusal so the harness parses it). 81+42+246 is 369. Nothing was withdrawn; the six rows are the decision-boundary routing the wayfinder W-02 gap was missing.
 
 359 to 363: spec 034 adds named decision frameworks to `/ai-report` and `/ai-review`. Situations routed 81 to 81, hand-offs 42 to 42, labelled cases 236 to 240 — one route and one refusal each added: a ranking that names a framework (RICE, Effort/Value, Kano) is applied and the framework said; a bare "ranked by impact" with no method is refused into `/ai-spec`. 81+42+240 is 363. Nothing was withdrawn; the four rows are the named-framework routing the methodless-decision gap was missing.
 
