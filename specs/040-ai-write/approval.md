@@ -17,7 +17,7 @@ approval_ref: "conversation-2026-08-26-040"
 
 `specs/040-ai-write/spec.md` adds the framework's technical-documentation surface:
 **B-040-1** the `ai-write` skill (model-invoked, under the audit contract, pointing at
-`references/documentation-writer.md` (039) as its single standard, no-cache and checkable
+`.agents/skills/ai-report/references/documentation-writer.md` (039) as its single standard, no-cache and checkable
 completion criteria), **B-040-2** routing without duplicating (changelog→/ai-ship,
 spec→/ai-spec, note→/ai-note, issue→/ai-report, and the reverse routes into ai-write),
 **B-040-3** a verification gate (real files, no environment restatement, checkable

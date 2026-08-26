@@ -49,7 +49,7 @@ repo. Each commit is atomic with its fixture.
    **done when**: the fixture runs and fails for the right reason (no reference, no routes).
 
 2. [ ] **The documentation-writer reference (B-039-1)** —
-   **file** `.agents/skills/ai-report/references/documentation-writer.md` (new: the
+   **file** `.agents/skills/ai-report/.agents/skills/ai-report/references/documentation-writer.md` (new: the
    writing-for-agents levers and the STE100 controlled-language rules, as the single source
    of the discipline), plus the `reference` case green.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_039_documentation.py -k reference`

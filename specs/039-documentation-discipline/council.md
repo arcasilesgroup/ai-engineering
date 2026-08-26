@@ -14,10 +14,10 @@ What does this change cost, and is the cost claim measurable at the moment of si
 - **Finding A1 — the advertised cost is a promise over objects that do not exist.** Option
   1 prices the change as "one reference, three corpus additions, one fixture", but none of
   the three is in the tree: no `tests/test_039_documentation.py`, no
-  `references/documentation-writer.md` beside ai-report, and `ai-report` has no
+  `.agents/skills/ai-report/references/documentation-writer.md` beside ai-report, and `ai-report` has no
   `references/` directory at all (only `ai-design` and `ai-review` do). The only present
   cost a reader can pay is one failed run per receipt checked.
-  Command: `test -f tests/test_039_documentation.py; echo $?; test -f .agents/skills/ai-report/references/documentation-writer.md; echo $?`
+  Command: `test -f tests/test_039_documentation.py; echo $?; test -f .agents/skills/ai-report/.agents/skills/ai-report/references/documentation-writer.md; echo $?`
     ```
     1
     1
@@ -69,7 +69,7 @@ What is hard to un-write?
 
 - **Finding B2 — D-039-02 says the spec "does not move or add a home", but B-039-1 adds
   the first `references/` directory ai-report has ever had.** The governance statement
-  claims no home is added; placing `references/documentation-writer.md` "beside ai-report"
+  claims no home is added; placing `.agents/skills/ai-report/references/documentation-writer.md` "beside ai-report"
   creates a `references/` home for a skill that currently has none (only `ai-design` and
   `ai-review` carry one). Adding a skill's first `references/` folder is adding a home, and
   B-039-2 makes three other skills depend on it.
@@ -87,7 +87,7 @@ Which claim cannot be decided from the spec as written?
   implements or defines a pointer.** B-039-1: "It is loaded by the authoring skills through
   a pointer only when they write a document — never always-loaded". No skill, corpus line,
   `src/` module or test names `documentation-writer` or a load-on-demand mechanism; the
-  route text itself ("load `references/documentation-writer.md` before authoring") is the
+  route text itself ("load `.agents/skills/ai-report/references/documentation-writer.md` before authoring") is the
   only "pointer", and nothing in the harness executes it.
   Command: `grep -rn "documentation-writer" src/ tests/ .agents/skills/*/SKILL.md .agents/skills/*/corpus.md | wc -l`
     ```
@@ -99,7 +99,7 @@ Which claim cannot be decided from the spec as written?
   against it by the existing craft lanes plus the reading human, not by a new hard-coded
   prose rule". The craft lanes in `src/ai_engineering/contract.py` audit only
   `SKILL.md`/`corpus.md` text (fog, load tiers, output contract, Incorrect/Correct); none
-  of them opens `references/documentation-writer.md`, so nothing mechanical can check a
+  of them opens `.agents/skills/ai-report/references/documentation-writer.md`, so nothing mechanical can check a
   document "against the reference" — the only live check is the reading human, which is
   exactly the "checked, or it rots" failure the Problem section names.
   Command: `sed -n '132,136p' src/ai_engineering/contract.py`
@@ -281,7 +281,7 @@ governance claim misdescribes two instruments, and the central "grep zero" measu
 invalidated by the spec's own presence. Nothing here grants anything.
 
 **Recommendation.** Before signing, land `tests/test_039_documentation.py` and
-`references/documentation-writer.md` (and the `ai-report/references/` home) so the
+`.agents/skills/ai-report/references/documentation-writer.md` (and the `ai-report/references/` home) so the
 examples are runnable; state that the three corpus routes must be worded differently per
 skill so they do not fork `tests/skill_eval.py`, or accept a shared situation and resolve
 the fork rule; correct the roadmap citation (rows 8/10 are not documentation rows) or
@@ -289,7 +289,7 @@ drop it; and re-word the "grep zero" claim so it does not commit the very file t
 mentions STE100. The "checked against by the existing craft lanes" sentence should be
 either removed or backed by the follow-up measurement it already promises.
 
-**One first step.** Write `references/documentation-writer.md` beside ai-report, add
+**One first step.** Write `.agents/skills/ai-report/references/documentation-writer.md` beside ai-report, add
 `tests/test_039_documentation.py` carrying the `-k reference` and `-k bare_bound` cases
 against it, and phrase the three corpus routes differently per skill — then the spec's own
 receipts can be run for the first time.
@@ -316,7 +316,7 @@ the two totals stated at the bottom; the counts were recomputed rather than beli
 - **M2 — the "checked halfway" is not one fixture: the reference and the routes are two
   artifacts asserted by two instruments, and the spec assigns both to a single fixture.**
   The Success example has `-k reference` assert the reference *and* the route together
-  ("load `references/documentation-writer.md` before authoring"), while B-039-2 says the
+  ("load `.agents/skills/ai-report/references/documentation-writer.md` before authoring"), while B-039-2 says the
   routes are asserted by `tests/skill_eval.py`. The fixture and the eval are two different
   readers of two different files, and the spec never says which of the two asserts the
   lineage from route to reference — a broken pointer would pass a reference-only fixture

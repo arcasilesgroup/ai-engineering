@@ -158,13 +158,13 @@ What is asserted that a reader is asked to take without checking?
     ```
 
 - **Finding D4 — the single standard's path does not resolve from the skill's home.** The
-  skill's body is told to use `references/documentation-writer.md` (spec 039), and the
+  skill's body is told to use `.agents/skills/ai-report/references/documentation-writer.md` (spec 039), and the
   unresolved risk asserts "ai-docs's references point at real files". The file is real only
-  at `.agents/skills/ai-report/references/documentation-writer.md`; from
+  at `.agents/skills/ai-report/.agents/skills/ai-report/references/documentation-writer.md`; from
   `.agents/skills/ai-docs/`, the path as written is a 404, and the skill-map instrument
   counts a broken reference rather than forgiving it. The assertion is true only if the
   body writes the cross-skill relative path the spec never writes.
-  Command: `test -f .agents/skills/ai-docs/references/documentation-writer.md; echo $?; test -f .agents/skills/ai-report/references/documentation-writer.md; echo $?`
+  Command: `test -f .agents/skills/ai-docs/.agents/skills/ai-report/references/documentation-writer.md; echo $?; test -f .agents/skills/ai-report/.agents/skills/ai-report/references/documentation-writer.md; echo $?`
     ```
     1
     0
@@ -232,12 +232,12 @@ taken. Refutations carry commands that were run.
 
 - ~~**R2 — C2's strong form: "the no-cache refusal has no decision procedure, so nothing
   can ever be refused".**~~ Refuted by the standard's own completion-criterion machinery:
-  `references/documentation-writer.md` requires every step to end on a condition that is
+  `.agents/skills/ai-report/references/documentation-writer.md` requires every step to end on a condition that is
   "checkable and exhaustive", and hand-authored fixture cases are exactly how the framework
   pins judgment boundaries — the 037 and 038 fixtures did this. What survives is the
   narrower core: the boundary between "documents a command" and "restates the environment"
   is never written down; the fixture authors it silently.
-  Command: `sed -n '23,25p' .agents/skills/ai-report/references/documentation-writer.md`
+  Command: `sed -n '23,25p' .agents/skills/ai-report/.agents/skills/ai-report/references/documentation-writer.md`
     ```
     4. **Completion criterion** — every step ends on a condition that is *checkable and
        exhaustive*. A vague bound ("understanding reached") invites premature completion:
@@ -259,7 +259,7 @@ Nobody here knows which lens said what. This is new text, not a ranking.
 **What the lenses agree on.** The need is real and measured: seventeen skills ship in
 `.agents/skills/`, none owns README, wiki or product documentation; `ai-report`'s own corpus
 refuses everything but its one draft — "there is no field for a log or a diff"; and the 039
-standard exists (`references/documentation-writer.md` beside ai-report), carrying the
+standard exists (`.agents/skills/ai-report/references/documentation-writer.md` beside ai-report), carrying the
 context pointer, the two loads, leading words, pruning, completion criteria and STE100. The
 chosen shape — one skill reusing that standard, one capability entry, routing refusals, one
 fixture — is the right size, and declining to port the claude-agents agent is supported:
@@ -299,7 +299,7 @@ reader. Nothing here grants anything.
 **Recommendation.** Before signing, land the skill directory, its corpus and
 `tests/test_040_ai_docs.py` together, with the capability entry filled to all nine schema
 fields (`enforcement` and `proof_requirements` included) and the 039 standard referenced at
-the path that resolves (`../ai-report/references/documentation-writer.md`); word the four
+the path that resolves (`../ai-report/.agents/skills/ai-report/references/documentation-writer.md`); word the four
 reverse routes distinctly and run them through `tests/skill_eval.py`'s fork and containment
 rules before landing; address the absorbed-name record, either acknowledging the lineage or
 choosing a fresh name; correct or drop the rows 8/10 anchor and the research classification;
@@ -411,7 +411,7 @@ the two totals stated at the bottom; the counts were recomputed rather than beli
 
 - ~~**R2 — C2's strong form: "the no-cache refusal has no decision procedure, so nothing
   can ever be refused".**~~ — refuted by
-  `sed -n '23,25p' .agents/skills/ai-report/references/documentation-writer.md`, which shows
+  `sed -n '23,25p' .agents/skills/ai-report/.agents/skills/ai-report/references/documentation-writer.md`, which shows
   the standard's completion-criterion machinery ("every step ends on a condition that is
   checkable and exhaustive") — the checkable-section rule is the procedure the refusal sits
   on, and the framework pins judgment boundaries with hand-authored fixture cases (the 037

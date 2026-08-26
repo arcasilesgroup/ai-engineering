@@ -58,7 +58,7 @@ technical-writer question answered, and the file governance stated.
 
 ## Options considered
 
-1. **One references/documentation-writer.md + parseable corpus routes + the technical-writer
+1. **One .agents/skills/ai-report/references/documentation-writer.md + parseable corpus routes + the technical-writer
    decision recorded (chosen shape).** The reference carries writing-for-agents levers and
    STE100 rules; `ai-spec`, `ai-plan` and `ai-report` corpora gain a quoted route + refusal
    pointing at it (the parseable shape the harness reads); the technical-writer agent stays
@@ -79,7 +79,7 @@ technical-writer question answered, and the file governance stated.
 
 ### B-039-1 — The documentation discipline, as a reference
 
-`references/documentation-writer.md` beside `ai-report` (the surface that already owns
+`.agents/skills/ai-report/references/documentation-writer.md` beside `ai-report` (the surface that already owns
 writing and reporting): the writing-for-agents levers (context pointers and their wording,
 context load vs cognitive load, leading words, pruning/single-source-of-truth, completion
 criteria that are checkable and exhaustive, positive prompting over negation) plus the
@@ -151,7 +151,7 @@ principle does. This spec names the principle and the reference keeps the concre
 
 ## Examples somebody can check
 
-- **Success, reference:** Given `references/documentation-writer.md`, When `ai-report` loads
+- **Success, reference:** Given `.agents/skills/ai-report/references/documentation-writer.md`, When `ai-report` loads
   it before authoring, Then it names context pointers, the two loads, leading words, pruning
   and the STE100 one-idea-one-sentence rule (`uv run --with pytest==9.1.1 pytest -q
   tests/test_039_documentation.py -k reference` → `1 passed`).

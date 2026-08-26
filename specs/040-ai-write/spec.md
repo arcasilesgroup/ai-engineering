@@ -19,14 +19,14 @@ via ai-report) but the kind it produces most often — technical documentation �
 skill and no gates**: it is done by the session model unprompted, against no standard, with
 no check that the document is true (names real files), lean (does not restate the
 environment) or complete (every section ends checkably). Spec 039 gave the framework the
-writing standard (`references/documentation-writer.md`: writing-for-agents + STE100); this
+writing standard (`.agents/skills/ai-report/references/documentation-writer.md`: writing-for-agents + STE100); this
 spec gives it the surface that applies that standard with gates — the `ai-write` skill.
 
 ## Context and problem
 
 **What is true today, measured in this tree on 2026-08-26:**
 
-- The writing standard exists: `references/documentation-writer.md` beside `ai-report`
+- The writing standard exists: `.agents/skills/ai-report/references/documentation-writer.md` beside `ai-report`
   (spec 039) names context pointers, the two loads, leading words, pruning, completion
   criteria and the STE100 rules; `ai-spec`, `ai-plan` and `ai-report` route their own
   authoring to it.
@@ -71,7 +71,7 @@ against the repository before it calls it done.
 ## Options considered
 
 1. **A new model-invoked `ai-write` skill (chosen shape).** A skill in `.agents/skills/`
-   under the existing contract (frontmatter + `corpus.md` Routes/Refuses), pointing at the
+   under the existing contract (frontmatter + `corpus.md` (its Routes/Refuses)), pointing at the
    039 reference as its single standard, routing changelog/spec/note/report to their
    existing homes, and verifying every document it writes (real files, no-cache, checkable
    sections, `not-covered` when something cannot be verified). A complete capability entry
@@ -97,7 +97,7 @@ against the repository before it calls it done.
 
 A model-invoked skill (description carries the trigger branches: "write the README",
 "update the wiki", "document this API", "write a technical post about") whose body uses
-`references/documentation-writer.md` (spec 039) as its single source of the writing
+`.agents/skills/ai-report/references/documentation-writer.md` (spec 039) as its single source of the writing
 standard — progressive disclosure, no-cache (a doc never restates `--help` or config the
 environment already carries), leading words, and every section ending on a checkable
 completion criterion (STE100 one-idea-one-sentence). It writes into the homes the user
@@ -107,7 +107,7 @@ from seventeen to eighteen; README.md ("Seventeen written procedures") and AGENT
 
 ### B-040-2 — Routing without duplicating
 
-`ai-write`'s `corpus.md` carries the refusal half that keeps it apart: a changelog routes
+`ai-write`'s corpus carries the refusal half that keeps it apart: a changelog routes
 to `/ai-ship`, a spec or ADR to `/ai-spec`, a finding to `/ai-note`, an issue to
 `/ai-report` — and those four skills' corpora gain the reverse route (a request for
 README/wiki/product docs routes to `/ai-write`), so the routing harness sees distinct

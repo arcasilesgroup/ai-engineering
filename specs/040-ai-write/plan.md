@@ -55,7 +55,7 @@ references.
 2. [ ] **The ai-write skill + corpus (B-040-1/2)** —
    **file** `.agents/skills/ai-write/SKILL.md` (new, model-invoked, under the audit
    contract: frontmatter + `## What it produces` + `## Steps` + `## What this is not` +
-   `## Done when`, pointing at `references/documentation-writer.md` (039) as its single
+   `## Done when`, pointing at `.agents/skills/ai-report/references/documentation-writer.md` (039) as its single
    standard, no-cache and completion-criteria rules, verifying against the tree and exiting
    `not-covered`) + `.agents/skills/ai-write/corpus.md` (new: `## Routes here` with the
    taken docs cases, `## Refuses` routing changelog→/ai-ship, spec→/ai-spec, note→/ai-note,
