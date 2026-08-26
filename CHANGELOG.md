@@ -244,10 +244,11 @@ search for.
   future P3 target of spec 013, not the current model. The record sits in
   `specs/028-writer-model-recorded/` (spec, plan, challenge, council, blocked page); the
   proposed ADR 0028 that would seal it is gated on `madr.validate`, which this tree has
-  red since ADR 0025 of spec 026, and `blocked.md` names the approved repair that
-  unblocks it. The `ai-goal` corpus gains the refusal «record the writer model as a
-  decision» → `/ai-spec`, and the `skill-routing` baseline moves 349→350 with the reason
-  written beside it in `policy/pilot-register.toml`.
+  red since ADR 0025 of spec 026, and
+  `specs/028-writer-model-recorded/blocked.md` names the approved repair that unblocks
+  it. The `ai-goal` corpus gains the refusal «record the writer model as a decision» →
+  `/ai-spec`, and the `skill-routing` baseline moves 349→350 with the reason written
+  beside it in `policy/pilot-register.toml`.
   and simplicity (KISS, YAGNI, DRY, SOLID, BDD, TDD, Clean Code, Clean Architecture) is
   the standing bar. It is the gauntlet-loop half of what `ai-cycle` deliberately is not:
   `/ai-cycle` stops at the brief, `/ai-goal` stops at the green gate. The routing
@@ -268,6 +269,15 @@ search for.
   router may now print what follows, regenerating routers changes their bytes once, and
   adding a stage to the cycle means recording it in the map.** Recorded in
   `specs/025-skill-sequence-map`.
+- Evidence is now executed, and the answer is decided before a gate runs. The `evals`
+  lane plants an independently-graded defect pack (answer key outside the fixture tree)
+  and scores each review skill per-skill with recall **and** precision; the `ai-spec`
+  flow emits an immutable **answer key** — each observable requirement a binary check
+  with `judged_by`, and an unknown observable reports `BLOCKED: U<n>` instead of an
+  invented score; verification gains `--recheck`, which ignores claims and re-executes
+  the named command against the named digests; and costly lanes get a bounded-sample
+  calibration with a `doctor` pre-run. Recorded in `specs/029-evidence-executed-and-
+  answer-keys`.
 - Rule 1 of `AGENTS.md` now reads "No code before an approved spec and plan", and the
   delivered doctrine matches it: the `AGENTS.md` skeleton `init` writes, the `EP-324`
   ledger subject and the `test_record` docstring that quotes it. The rule had always
