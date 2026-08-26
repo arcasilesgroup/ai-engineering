@@ -79,22 +79,50 @@ def _verdict_counts(events: list[dict]) -> Counter:
     """One key per judgement-and-reason, so two refusals for different reasons stay two."""
 
     return Counter(
-        f"{str(e['name'])[:64]} · {str((e.get('data') or {}).get('reason', ''))[:50]}"
+        _verdict_key(e)
         for e in events
         if e.get("cls") in ("blocked", "bypassed")
+    )
+
+
+def _verdict_key(e: dict) -> str:
+    """The key `_verdict_counts` assigns one denial — shared so two counters can subtract."""
+
+    return f"{str(e['name'])[:64]} · {str((e.get('data') or {}).get('reason', ''))[:50]}"
+
+
+def _scripted(events: list[dict]) -> Counter:
+    """Rule 12's output, not its debt: denials the guard itself marked as the escalation
+    (loop_guard's rule-12 moment, spec 042 / B-042-4). Keyed exactly like `_verdict_counts`
+    so `repeats` can subtract the scripted judgements from the owed-ones pool, then print
+    them relabelled — the escalation *is* the script the rule owes, and re-flagging it as
+    a fresh debt would be the same judgement counted twice."""
+
+    return Counter(
+        _verdict_key(e)
+        for e in events
+        if e.get("cls") in ("blocked", "bypassed") and (e.get("data") or {}).get("escalated")
     )
 
 
 def repeats(events: list[dict]) -> list[str]:
     """Rule 12's trigger, measured rather than felt: the same judgement resolving the
     same way three times or more is owed a script, and the prompt that made it goes away
-    in the same commit."""
-    seen = _verdict_counts(events)
-    return [
+    in the same commit. A judgement the guard already escalated is the script, not the
+    debt, so it prints as scripted rather than owed."""
+    scripted = _scripted(events)
+    owed = _verdict_counts(events) - scripted
+    rows = [
         f"    {label} {count}× same verdict each time → owed a script"
-        for label, count in seen.most_common()
+        for label, count in owed.most_common()
         if count >= OWED_A_SCRIPT
     ]
+    rows += [
+        f"    {label[:64]} {count}× → the script the guard owes (already escalated)"
+        for label, count in scripted.most_common()
+        if count >= OWED_A_SCRIPT
+    ]
+    return rows
 
 
 def measured_repeats(events: list[dict]) -> tuple[list[str], int, int]:

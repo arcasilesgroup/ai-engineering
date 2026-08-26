@@ -294,8 +294,37 @@ no sentence ever claims more repeats than the window allows:
 [loop_guard] BLOCKED: Bash:pytest — this exact call has been denied 3 times in the last
 6. The loop is bounded; retrying returns what it returned before, and a denial has
 already been issued for this call in this window. Hand it to a person:
-ai-eng exception --skip "<reason>" --guard loop_guard
 ```
+
+## Examples somebody can check
+
+- **Event field (B-042-2):** Given a surface that exports `AI_ENG_MODEL=nan/deepseek-v4-flash`,
+  When a command event is emitted, Then the event's `model` equals that value, and a
+  surface that does not export it gets `undetermined`
+  (`uv run --with pytest==9.1.1 pytest -q tests/test_model_event.py -k emit` → `2 passed`).
+- **Tier-model on both paths (B-042-1):** Given a repository whose pin routes `audit` to
+  the top model string and `report` to the medium one, When the real `ai-eng` runs
+  `report surfaces` in plain mode and in `--json` mode, Then both command events carry
+  `tier_model` — the pin's value for each verb
+  (`uv run --with pytest==9.1.1 pytest -q tests/test_model_event.py -k real_cli` → `1 passed`).
+- **Cycle tiers (B-042-1):** Given `model_router`'s step sets, When `test_cycle_tiers.py`
+  reads the cycle skills' own words, Then every skill asks for the tier the router maps
+  its step to (`uv run --with pytest==9.1.1 pytest -q tests/test_cycle_tiers.py`
+  → `4 passed`).
+- **Orphan register (B-042-3):** Given `policy/module-status.toml` and
+  `wiring.module_status()`, When the refusal suite walks the AST import graph, Then every
+  `consumer` row is imported by a production file, every `orchestrator-future` reason
+  cites a real spec, and no register row drifts
+  (`uv run --with pytest==9.1.1 pytest -q tests/test_orphan_register.py` → `5 passed`).
+- **Escalation (B-042-4):** Given five identical `Bash` calls in one session, When the
+  third one is denied, Then the denial names `Bash:pytest` and the
+  `ai-eng exception --skip "<reason>" --guard loop_guard` recipe, and every repeat is
+  still denied (`uv run --with pytest==9.1.1 pytest -q tests/test_loop_guard_escalation.py`
+  → `4 passed`).
+- **Digest distribution:** Given a window whose command events carry `model` and
+  `tier_model`, When `ai-eng report digest` runs, Then the Models lines name the state
+  each is counting and never merge `missing`/`undetermined`/actual/intent
+  (`uv run --with pytest==9.1.1 pytest -q tests/test_mut_record.py` → `39 passed`).
 
 ## Challenged once
 

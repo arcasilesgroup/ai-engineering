@@ -105,9 +105,30 @@ def run(payload: dict) -> str | None:
     call = exact(payload)
     state["recent"] = (state["recent"] + [call])[-window:]
     save(state)
-
     seen = state["recent"].count(call)
     if seen >= repeats:
+        # A repetition count per window, carried in the state so the third identical
+        # denial (rule 12: the same judgement has resolved the same way three times)
+        # escalates instead of restating the identical verdict for the thousandth time.
+        # The verdict is the script's first run; the escalation is the script itself,
+        # naming the person channel (_wrap.py's bypass recipe) so the loop is handed to
+        # somebody who can decide. Every repeat is still denied — fails closed.
+        denials = state.setdefault("denials", {}).get(call, 0) + 1
+        state["denials"][call] = denials
+        state["denials"] = dict(list(state["denials"].items())[-window:])
+        save(state)
+        if denials >= 3:
+            who = signature(payload)
+            # The event says this denial is the escalation, so the digest can show it as
+            # the script rule 12 owes instead of re-flagging it as a fresh owed script.
+            payload["_escalated"] = True
+            return (
+                f"BLOCKED: {who} — this exact call has been denied {denials} times in "
+                f"the last {window}. The loop is bounded; retrying returns what it "
+                f"returned before, and a denial has already been issued for this call in "
+                f"this window. Hand it to a person: "
+                f'ai-eng exception --skip "<reason>" --guard loop_guard'
+            )
         return (
             f"this exact call has been made {seen} times in the last {window}. Repeating "
             f"it will return what it returned before. Say what you expected and what you "

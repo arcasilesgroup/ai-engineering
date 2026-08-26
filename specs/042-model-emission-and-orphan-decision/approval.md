@@ -43,8 +43,19 @@ at these exact bytes (canonical — the plan's tick column is masked before sign
 
 | file | SHA-256 |
 |---|---|
-| `specs/042-model-emission-and-orphan-decision/spec.md` | `4ae25465240e7e55db7044b284fc7f959350876abd79d640673be53d44645b4e` |
+| `specs/042-model-emission-and-orphan-decision/spec.md` | `00908f1a5454734298a5e40bc951e90483c7c1dafa30ed221bc6ccda61cc6b82` |
 | `specs/042-model-emission-and-orphan-decision/plan.md` | `77015bbd6a2cb222e53e66b537a4d3ec931d84710184ca4e985a458a687a8d2c` |
+
+### Amendment (same date, same authority)
+
+The spec digest moved once after the two critic rounds: the gate's
+`test_a_specification_carries_examples_somebody_can_check` requires the canonical
+`## Examples somebody can check` section with Given/When/Then bullets (the round-two
+digest carried the worked examples under a non-canonical heading, which zeroed the
+counts at the gate). The amendment adds the canonical examples section — six
+Given/When/Then pairs, each naming the exact suite and pass count for the behaviour it
+checks — and changes nothing else. The plan digest is unaffected. This record approves
+the amended bytes in the table above.
 
 ## The two critic rounds, and what they changed
 
