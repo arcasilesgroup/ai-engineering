@@ -15,7 +15,8 @@ The repository owner and the stranger who installs the wheel and runs `/ai-goal`
 own repository. Today the framework does one thing the research (`.ai/research`, spec
 035-036) explicitly marked as missing: **it does not route work by model cost/capability**
 (model-router MR-01/02/03, deepsec D-01's calibration, and the "context an agent pays for"
-economy). A stranger on a tight budget runs every step of the governed cycle on the same
+economy; the vendor-lock rejection's sharpest form is spec 035's "What is not adopted at
+all" and spec 036's validation of it). A stranger on a tight budget runs every step of the governed cycle on the same
 model, paying frontier prices for a rename. And the first prompt of a new goal is
 unvalidated: ai-spec crawls into discovery with whatever shape the user happened to type,
 so half-built intent lands as a half-built spec. This spec gives the framework a
@@ -27,8 +28,9 @@ minimal shape.
 
 **What is true today, measured in this tree on 2026-08-26:**
 
-- `.ai/config.toml` (the pin) carries `[guards]` and `[observability]` but **no model
-  section**; `policy/cost-thresholds.toml` gates *whether* a costly lane may run, but no
+- Before this spec, `.ai/config.toml` (the pin) carried `[guards]` and `[observability]`
+  with **no model section**; `policy/cost-thresholds.toml` gates *whether* a costly lane may
+  run, but no
   code maps *a step of the cycle to a model tier*.
 - `cost.py` (spec 029) provides the calibration ritual (bounded-sample `calibrate`) but has
   no tier→model table and no route-down/route-up function; the model-router reference
@@ -36,7 +38,8 @@ minimal shape.
   pre-flight as the gap.
 - `ai-spec` (spec 019 era) requires asking only questions that change the decision, but
   nothing *validates the intake*: there is no template, no required fields, no
-  well-formedness check on the user's opening request.
+  well-formedness check on the user's opening request. The discipline is wayfinder's — a
+  check only means what its input defined it to mean — not a citation of its numbered items.
 - The user's concrete machine has `qwen3.6` (cheap), `deepseek-v4-flash` (top/medium) and
   the nan.builders OpenAI-compatible endpoint `https://api.nan.builders/v1` — a per-repo
   config must accept exactly this, and any other provider, without code change.
@@ -167,6 +170,39 @@ Rationale: the user's "input validation of an API" analogy is right: validate th
 three fields exist, refuse only when they do not, and let a well-formed free request pass
 unencumbered.
 
+**D-037-04 — the sixteen reviewed points are recorded here, so the approved roadmap is a
+commit, not a conversation; only P0 is this spec's scope.**
+Rationale: the owner approved the reviewed roadmap and asked that nothing already approved
+be forgotten. This spec's "Roadmap registrado" table records every point's state — covered,
+P0 (this spec), P1/P2 (next specs), or rejected with reason — so the decision survives the
+session. Nothing outside P0 (B-037-1/2/3) is authorised by this record; the P1/P2 rows are
+candidate specs, not scope.
+
+## Roadmap registrado — los dieciséis puntos revisados
+
+Esta especificación es además el registro de la revisión de los dieciséis puntos del
+roadmap que el owner aprobó el 2026-08-26, para que ninguna decisión quede solo en una
+conversación. Cada punto queda anotado con su estado; los que son trabajo pendiente se
+convierten en las próximas especificaciones candidatas, y los rechazos quedan con su razón.
+
+| # | Punto | Estado | Dónde vive |
+|---|---|---|---|
+| 1 | claude-agents (catálogo) | Rechazado (contenido inflado, tools decorativos, KISS ❌ — research hoja 12) | este registro |
+| 2 | unlazy (gates/planes) | P1 — gate-check-runner CLI; plan boxes ya corregidos (`5783fcd0`) | spec candidata |
+| 3 | model-router tiers | **P0 — esta spec (B-037-1/2)** | specs/037 |
+| 4 | Loop-Engineering | Ya cubierto (ai-goal + ai-cycle + verify_cold adversary) | registro |
+| 5 | wayfinder answer-key | Ya cubierto (answer-key.yaml + verify_cold) | registro |
+| 6 | al-design-system | P2 — solo si producimos UI (spec 038) | spec candidata |
+| 7 | headstart intake | P1 — intake ≤7 preguntas (con #14, B-037-3) | specs/037 |
+| 8 | code-simplifier/refactor | P2 — skill de refactor KISS/DRY/YAGNI, no hook auto | spec candidata |
+| 9 | okf | Rechazado (YAGNI: convertir a OKF no resuelve una falta de sistema) | este registro |
+| 10 | large-codebases CLAUDE.md | P2 — template por-área si onboarding | spec candidata |
+| 11 | deepsec | P1 — two-job CI gate (era R1 de 035) | spec candidata |
+| 12-13 | skillify | Ya cubierto (skillify.py spec 033 + corpus lo rutea); exponer CLI = P2 | registro |
+| 14 | spec-planner/grill/intake | P1 — B-037-3 (paso 0 de ai-spec) | specs/037 |
+| 15 | template de prompt inicial | **P0 — esta spec (B-037-3)** | specs/037 |
+| 16 | AL-Design / a11y | P2 — guard de a11y en diseño (spec 038) | spec candidata |
+
 ## Accepted risks
 
 <!-- ai-eng accept writes yaml blocks here -->
@@ -178,10 +214,10 @@ specification adds one config section, one stdlib module, one validator and one 
 no service, no URL, no second hop — the service-shaped boxes are `not applicable`.
 
 - [x] CI/CD — `just check` runs the new fixtures on every push (`.github/workflows/check.yml`); nothing deployed
-- [x] Logs — not applicable: every verb still emits the one JSON line `ai-eng digest` reads
+- [x] Logs — not applicable: every verb still emits the one JSON line `ai-eng report digest` reads
 - [x] Traces — not applicable: one process, no second hop
 - [x] Errors — not applicable: the new paths fail closed (missing model → `default_tier`, malformed intake → `INCOMPLETE` with fields)
-- [x] Health and data age — `tests/test_037_model_router.py` and `tests/test_037_intake.py` run in `just test` on every gate
+- [x] Health and data age — `tests/test_037_model_router.py` and `tests/test_037_intake.py` run in the gate's pytest half (`just cover`'s `not fast_enough` collection) on every push
 - [x] External check — `.github/workflows/check.yml` runs the whole gate on every push; the router and intake are additionally asserted by their fixtures, the independent route
-- [x] Second path — the router is read by its fixture and the config schema by `tests/test_contracts.py` with no shared line
+- [x] Second path — the router is read by its fixture and the config schema by the schema reader and fixture this spec's build adds, with no shared line
 - [x] Security — `just security`: gitleaks, semgrep, trivy on every push, over a change that adds no dependency and no network call

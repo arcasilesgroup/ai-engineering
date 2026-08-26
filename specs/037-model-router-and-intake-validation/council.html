@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council — 037 model router and intake validation</title>
+<style>
+  body { max-width: 72ch; margin: 2rem auto; padding: 0 1rem; font: 16px/1.55 -apple-system, "Segoe UI", sans-serif; color: #1a1a1a; }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.9em; }
+  pre { background: #f5f5f4; border: 1px solid #ddd; padding: .6rem .8rem; overflow-x: auto; white-space: pre; }
+  h2 { margin-top: 2.2rem; border-top: 2px solid #e5e5e4; padding-top: 1.2rem; }
+  h3 { margin-top: 1.6rem; }
+  li { margin-bottom: 1rem; }
+  s { color: #6b6b6b; }
+  ul { padding-left: 1.3rem; }
+  .note { color: #555; }
+</style>
+</head>
+<body>
+<h1>Council — 037 model router and intake validation</h1>
+<p>A five-lens read of <code>spec.md</code>, then a cross-read, then a chairman. The lenses never see
+each other in round one; in round two each sees the four others relabelled and not its own.
+Every finding and every refutation carries a command that was run; its output is written
+down below it. Nothing here grants anything.</p>
+
+<h2>Round one — five lenses, each alone</h2>
+
+<h3>Cost</h3>
+<p>What does this change cost, and is the cost claim measurable at the moment of signing?</p>
+<ul>
+  <li><strong>Finding A1 — the economy claim is asserted, not measurable: every example that would quantify it dies before asserting anything.</strong>
+    The headline promise ("a stranger on a tight budget pays frontier prices for a rename") and the receipt "2 passed" both depend on fixtures that do not exist in this tree.
+    The cost of a reader verifying Example 1 is one failed run.
+    <pre>no tests ran in 0.00s
+ERROR: file or directory not found: tests/test_037_model_router.py
+
+=== exit: 4</pre>
+    <code>Command: uv run --with pytest==9.1.1 pytest -q tests/test_037_model_router.py</code></li>
+  <li><strong>Finding A2 — the measurable economy is thinner than the headline on this machine.</strong>
+    The pin maps <code>top = "deepseek-v4-flash"</code> and <code>medium = "deepseek-v4-flash"</code>, so <code>route()</code> can return at most two distinct model strings.
+    "Per-repository model tiering" is a two-name relabel until a third distinct model is configured.
+    <pre>[models]
+# Per-repository model tiers (spec 037). Any provider name fits; `default_tier` is used
+top = "deepseek-v4-flash"
+medium = "deepseek-v4-flash"
+low = "qwen3.6"</pre>
+    <code>Command: sed -n '/\[models\]/,+8p' .ai/config.toml</code></li>
+  <li><strong>Finding A3 — the gate that would make the economy durable is not wired.</strong>
+    The Production-ready "CI/CD" box says <code>just check</code> runs "the new fixtures on every push", but the workflow never names them.
+    <pre>0</pre>
+    <code>Command: grep -c '037\|intake\|model_router\|models\.schema' .github/workflows/check.yml</code></li>
+</ul>
+
+<h3>Reversibility</h3>
+<p>What is hard to un-write?</p>
+<ul>
+  <li><strong>Finding B1 — the only edit to an existing governed flow is committed to paper before any consumer exists.</strong>
+    B-037-3 changes <code>ai-spec</code>'s procedure (step 0) while deferring the wiring; no skill in the corpus mentions intake. The additive <code>[models]</code> section is the most reversible piece.
+    <pre>0</pre>
+    <code>Command: grep -c 'validate_intake\|step 0\|intake' .agents/skills/ai-spec/SKILL.md</code></li>
+</ul>
+
+<h3>The undecidable path</h3>
+<p>Which claim cannot be decided from the spec as written?</p>
+<ul>
+  <li><strong>Finding C1 — <code>default_tier</code> has no value anywhere.</strong>
+    The pin writes no <code>default_tier</code> key, the spec never gives a fallback literal, and the fixture that would pin one does not exist.
+    <pre># Per-repository model tiers (spec 037). Any provider name fits; `default_tier` is used</pre>
+    <code>Command: sed -n '/default_tier/p' .ai/config.toml</code></li>
+  <li><strong>Finding C2 — the step→tier mapping is only partially pinned.</strong>
+    The examples fix <code>research→low</code>, <code>security→top</code>, <code>build→(default_tier)</code>; the other six steps are "the rest to medium". The one command that would decide it exits 4.
+    <pre>no tests ran in 0.00s
+ERROR: file or directory not found: tests/test_037_model_router.py
+
+=== exit: 4</pre>
+    <code>Command: uv run --with pytest==9.1.1 pytest -q tests/test_037_model_router.py -k default_tier</code></li>
+  <li><strong>Finding C3 — <code>bail_out(request)</code>'s predicate has no criterion.</strong>
+    "small enough to handle inline" carries no bound; MR-01's real criteria live in the cited report, not in this spec or any fixture.
+    <pre>### B-037-2 — Step router and cost honesty
+`bail_out(request)` returns whether the work is small enough to handle inline (model-router
+MR-01). The router is a pure function over config, so it is testable without a provider; it</pre>
+    <code>Command: sed -n '/### B-037-2/,+7p' specs/037-model-router-and-intake-validation/spec.md</code></li>
+  <li><strong>Finding C4 — the validator's "acceptance signal" is never defined.</strong>
+    The four required fields are named, but nothing says what counts as "names an acceptance signal".
+    <pre>### B-037-3 — Validated intake template
+`specs/new-goal-template.md` (a copy-paste template) + `src/ai_engineering/intake.py`:
+`validate_intake(text)` returns `PASS` when the opening request names the goal, the
+constraints, the intended outcome and an acceptance signal, and `INCOMPLETE` with the
+missing fields when it does not.</pre>
+    <code>Command: sed -n '/### B-037-3/,+6p' specs/037-model-router-and-intake-validation/spec.md</code></li>
+</ul>
+
+<h3>Taken on trust</h3>
+<p>What is asserted that a reader is asked to take without checking?</p>
+<ul>
+  <li><strong>Finding D1 — a citation is wrong in an author-level detail.</strong>
+    The reference is said to name "MR-01/02/03 and the deepsec pre-flight as the gap". It names the MR rows, but never mentions deepsec.
+    <pre>0</pre>
+    <code>Command: grep -ci deepsec .ai/research/reports/02-model-router/report.md</code></li>
+  <li><strong>Finding D2 — the example receipts are asserted numbers for files that do not exist.</strong>
+    <pre>1</pre>
+    <code>Command: test -f tests/test_037_model_router.py; echo $?</code></li>
+  <li><strong>Finding D3 — the schema's "Second path" is not what the box claims.</strong>
+    <code>tests/test_contracts.py</code>'s only two "models" hits are governance-agent sentences.
+    <pre>2208: models "never grant authority or accept risk"
+2283: models "may investigate, propose and review; they never grant</pre>
+    <code>Command: grep -n 'models' tests/test_contracts.py</code></li>
+</ul>
+<p class="note">Verified, not trusted: <code>cost.py</code> holds no tier/route code and the pin carries <code>[models]</code> (commit <code>30f8ec1e</code>).</p>
+
+<h3>The example nobody wrote</h3>
+<p>Which example is asserted but not written?</p>
+<ul>
+  <li><strong>Finding E1 — the four Examples are unwritten promises.</strong> Every "Then" is backed by a command that dies "file or directory not found".
+    <pre>no tests ran in 0.00s
+ERROR: file or directory not found: tests/test_037_intake.py
+
+=== exit: 4</pre>
+    <code>Command: uv run --with pytest==9.1.1 pytest -q tests/test_037_intake.py -k incomplete</code></li>
+  <li><strong>Finding E2 — the template example is doubly unwritten.</strong> <code>specs/new-goal-template.md</code> does not exist.
+    <pre>1</pre>
+    <code>Command: test -f specs/new-goal-template.md; echo $?</code></li>
+  <li><strong>Finding E3 — no example or fixture exercises the <code>PASS</code> branch at all.</strong>
+    <pre>1</pre>
+    <code>Command: test -f tests/test_037_intake.py; echo $?</code></li>
+</ul>
+
+<h2>Round two — the cross-read, relabelled, and none sees its own</h2>
+
+<h3>What the cross-read struck through</h3>
+<ul>
+  <li><s><strong>Finding R1 — the spec is fiction: the pin never gained <code>[models]</code>.</strong></s> — refuted by
+    <code>sed -n '/\[models\]/,+8p' .ai/config.toml</code> (section present, commit <code>30f8ec1e</code>).
+    <pre>[models]
+# Per-repository model tiers (spec 037). Any provider name fits; `default_tier` is used
+top = "deepseek-v4-flash"
+medium = "deepseek-v4-flash"
+low = "qwen3.6"</pre></li>
+  <li><s><strong>Finding R2 — the cited model-router report does not exist.</strong></s> — refuted by
+    <code>test -f .ai/research/reports/02-model-router/report.md</code>.
+    <pre>present</pre></li>
+  <li><s><strong>Finding R3 — the step→tier mapping appears nowhere, so nothing of the reference's content is preserved.</strong></s> — refuted in part by
+    <code>sed -n '100,105p' .ai/research/reports/02-model-router/report.md</code>.
+    <pre>4. MR-03 → Fan-out con model-per-chunk: cuando se fan-out, cada chunk lleva su model
+   asignado según su naturaleza (mecánico → cheap, reasoning → expensive).</pre></li>
+  <li><s><strong>Finding R4 — the "Second path" box is backed: <code>tests/test_contracts.py</code> already reads the models schema.</strong></s> — refuted by
+    <code>grep -n 'models' tests/test_contracts.py</code>: hits at lines 2208 and 2283 are governance wording.
+    <pre>2208: models "never grant authority or accept risk"
+2283: models "may investigate, propose and review; they never grant</pre></li>
+</ul>
+
+<h2>Round three — the chairman wrote this</h2>
+<p>Nobody here knows which lens said what. This is new text, not a ranking.</p>
+<p><strong>What the lenses agree on.</strong> The chosen shape is small and reversible: one config section, one stdlib module, one template and validator, no new dependency and no network call. The reference's real routing content is genuinely preserved in spirit. The pin change is real and verified, as is the in-code claim about <code>cost.py</code>. The intake idea (validate shape, not form) is sound and matches the user's API-input analogy. And every "measured" example receipt in the spec is currently unverifiable.</p>
+<p><strong>Where they clash.</strong> Whether the missing artifacts make the spec <em>not ready</em> or merely <em>unwritten</em>. Whether the economy is a real saving or, on a machine whose <code>top</code> and <code>medium</code> are the same model, a two-name relabel. Whether the silent drop of MR-03 and MR-05 is an honest scope choice or an overreaching "the reference's real content is preserved".</p>
+<p><strong>Blind spots the cross-read caught.</strong> The <code>PASS</code> branch of the intake has no example and no fixture. <code>bail_out</code> cannot be imported at all today. MR-03/MR-05 disappear while a section claims the reference is preserved. The pin changed while the schema that should describe that section does not exist. One lens nearly reported the missing "Second path" as wired because <code>grep -c</code> returns a nonzero 2 on <code>test_contracts.py</code> — the two hits say nothing about a schema.</p>
+<p><strong>Verdict.</strong> The design is right and small, but the evidence layer the reader is asked to sign describes artifacts that are not in this tree: all four example commands exit 4, and the schema, template and module are all absent. The claims that could be checked did check out; one citation (deepsec in the model-router report) is wrong; and at least two reference findings (MR-03, MR-05) are dropped without a word. Read as a design, this is sound. Read as a <em>measured</em> specification, as its receipts insist, it does not yet stand.</p>
+<p><strong>Recommendation.</strong> Land the artifacts and their fixtures before the "Examples somebody can check" receipts are claimed. Correct the deepsec attribution or move the pre-flight citation to the document that carries it. Decide MR-03 and MR-05 explicitly — carry them or mark them out of scope — instead of silently dropping them under a "preserved" claim. Pin <code>default_tier</code>'s fallback value in both the config and the degraded example before the "never empty" promise can be tested.</p>
+<p><strong>One first step.</strong> Ship <code>policy/models.schema.json</code> and a <code>tests/test_037_model_router.py</code> containing the three example cases, keeping the <code>-k default_tier</code> degraded receipt intact so Example 1's "2 passed" stops being unmeasurable; if fixtures must lag, demote the Examples section from measured language to intended.</p>
+
+ <p>The three sections below are the only ones a script reads. Their bullet counts must equal the two totals stated at the bottom; the counts were recomputed rather than trusted.</p>
+
+<h3>Gaps no single lens named</h3>
+<ul>
+  <li><strong>M1 — no example or fixture exercises the <code>PASS</code> branch of <code>validate_intake</code>.</strong>
+    Every lens reasoned around the denial example without noticing the success path was never written.
+    <pre>no tests ran in 0.00s
+ERROR: file or directory not found: tests/test_037_intake.py
+
+=== exit: 4</pre>
+    <code>Command: uv run --with pytest==9.1.1 pytest -q tests/test_037_intake.py -k pass</code></li>
+  <li><strong>M2 — the cited reference's MR-03 and MR-05 are silently dropped</strong> while the Decision claims "the reference's real content … is preserved".
+    <pre>2
+0</pre>
+    <code>Command: grep -c 'MR-03' .ai/research/reports/02-model-router/report.md; grep -ci 'fan-out\|fanout\|per-chunk' specs/037-model-router-and-intake-validation/spec.md</code></li>
+  <li><strong>M3 — <code>bail_out</code> cannot be exercised today.</strong>
+    <pre>Traceback (most recent call last):
+  File "&lt;string&gt;", line 1, in &lt;module&gt;
+ModuleNotFoundError: No module named 'ai_engineering.model_router'</pre>
+    <code>Command: uv run python -c "from ai_engineering.model_router import bail_out; print(bail_out('fix a typo'))"</code></li>
+  <li><strong>M4 — the pin changed and the schema that is supposed to describe the change does not.</strong>
+    An early adopter configuring <code>[models]</code> is told to mirror a schema that is nowhere in the tree.
+    <pre>1</pre>
+    <code>Command: test -f policy/models.schema.json; echo $?</code></li>
+</ul>
+
+<h3>Findings cut for carrying no command</h3>
+<ul>
+  <li><strong>Cut1 — the router is called "read once per goal" yet also declared a pure function.</strong> A reading-level tension no single command demonstrates, so it was cut in round one.</li>
+  <li><strong>Cut2 — "any provider fits, no vendor lock-in" is unfalsifiable today.</strong> Cut for carrying no runnable command.</li>
+</ul>
+
+<h3>Findings the cross-read refuted, with the command that refuted them</h3>
+<ul>
+  <li><s><strong>Finding R1 — the spec is fiction: the pin never gained <code>[models]</code>.</strong></s> — refuted by <code>sed -n '/\[models\]/,+8p' .ai/config.toml</code>.
+    <pre>[models]
+# Per-repository model tiers (spec 037). Any provider name fits; `default_tier` is used
+top = "deepseek-v4-flash"
+medium = "deepseek-v4-flash"
+low = "qwen3.6"</pre></li>
+  <li><s><strong>Finding R2 — the cited model-router report does not exist.</strong></s> — refuted by <code>test -f .ai/research/reports/02-model-router/report.md</code>.
+    <pre>present</pre></li>
+  <li><s><strong>Finding R3 — the step→tier mapping appears nowhere, so nothing of the reference's content is preserved.</strong></s> — refuted in part by <code>sed -n '100,105p' .ai/research/reports/02-model-router/report.md</code>.
+    <pre>4. MR-03 → Fan-out con model-per-chunk: cuando se fan-out, cada chunk lleva su model
+   asignado según su naturaleza (mecánico → cheap, reasoning → expensive).</pre></li>
+  <li><s><strong>Finding R4 — the "Second path" box is backed: <code>tests/test_contracts.py</code> already reads the models schema.</strong></s> — refuted by <code>grep -n 'models' tests/test_contracts.py</code>: hits are governance wording.
+    <pre>2208: models "never grant authority or accept risk"
+2283: models "may investigate, propose and review; they never grant</pre></li>
+</ul>
+
+<h2>The two counts</h2>
+<ul>
+  <li>Gaps that appeared only after the cross-read: <strong>4</strong></li>
+  <li>Findings deleted, for carrying no command or for being refuted: <strong>6</strong></li>
+</ul>
+</body>
+</html>

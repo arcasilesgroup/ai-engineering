@@ -18,6 +18,7 @@ design_budget = 3
 top = "deepseek-v4-flash"
 medium = "deepseek-v4-flash"
 low = "qwen3.6"
+default_tier = "deepseek-v4-flash"
 
 [observability]
 # Where a person looks. Leave endpoint empty and only the local record is written.
