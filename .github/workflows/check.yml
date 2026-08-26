@@ -92,8 +92,8 @@ jobs:
         run: |
           curl -sSfL -o node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz"
           echo "${NODE_SHA256}  node.tar.gz" | sha256sum -c -
-          tar -xzf node.tar.gz --strip-components=1 -C /usr/local
-          npm install --global "@skill-map/cli@${SM_VERSION}"
+          sudo tar -xzf node.tar.gz --strip-components=1 -C /usr/local
+          sudo npm install --global "@skill-map/cli@${SM_VERSION}"
           sm --version
 
       # Two readers, because they disagree on purpose. actionlint knows what GitHub will
