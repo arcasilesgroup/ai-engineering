@@ -196,13 +196,15 @@ not a budget to spend.
 
 ## Production-ready
 
-Nothing gets a URL until every box is ticked, and each one is ticked by a command.
+Nothing gets a URL until every box is ticked, and each one is ticked by a command. This
+specification adds four checked craft rules to the skill audit; it adds no service, no URL
+and no second hop, so the service-shaped boxes are `not applicable`.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check` runs the four rules on every push (`.github/workflows/check.yml`); `contract.audit_one` applies them inside `just lint`/`test`, and nothing here is deployed
+- [x] Logs — not applicable, and that is the rule: this spec adds audit rules; every verb still emits the one JSON line `ai-eng digest` reads
+- [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
+- [x] Errors — not applicable: the new code paths are audit rules — a skill without an anti-rationalization table, an output contract, a rule pair or a load-tier body is refused (fails closed), never warned
+- [x] Health and data age — `tests/test_craft_contract.py` runs in `just test` on every gate and asserts the four rules against crafted fixtures, so a shipped skill cannot drift out of the contract without the gate saying so
+- [x] External check — `.github/workflows/check.yml` runs the gate on every push to this repository, and the repaired skills ship verbatim in the wheel tested by `install-matrix.yml` on three platforms
+- [x] Second path — the four rules are read by two routes that share no line: `contract.audit_one` applies them to the tree and `tests/test_craft_contract.py` asserts the same rules against fixtures, so the rule and its fixture cannot drift
+- [x] Security — `just security`: gitleaks, semgrep and trivy on every push, over a change that adds no dependency and no network call

@@ -205,13 +205,16 @@ of review noise; `importlib.metadata` makes the rule deterministic and testable.
 
 ## Production-ready
 
-Nothing gets a URL until every box is ticked, and each one is ticked by a command.
+Nothing gets a URL until every box is ticked, and each one is ticked by a command. This
+specification adds a context trimmer, a skill extractor, a dispatcher craft rule and an
+installed-version rule; it adds no service, no URL and no second hop, so the
+service-shaped boxes are `not applicable`.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check` runs the four behaviours on every push (`.github/workflows/check.yml`); the modules and the craft rule are gate lanes, and nothing here is deployed
+- [x] Logs — not applicable, and that is the rule: this spec adds modules and a corpus rule; every verb still emits the one JSON line `ai-eng digest` reads
+- [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
+- [x] Errors — not applicable: the new code paths fail closed — a dispatcher body past the tier bound without split branches is refused, and a version claim that contradicts or cannot resolve is `unverified`/`mismatch`, never trusted from memory
+- [x] Health and data age — `tests/test_trim.py`, `tests/test_skillify.py`, `tests/test_dispatcher_craft.py` and `tests/test_versions.py` run in `just test` on every gate, so the four behaviours cannot drift without the gate saying so
+- [x] External check — `.github/workflows/check.yml` runs the whole gate on every push; the versions module resolves claims against `importlib.metadata`, which the fixture monkeypatches deterministically, so a contradicting claim is refused by the same test in CI
+- [x] Second path — each behaviour is read by its module and its fixture with no shared line (`trim_output` vs `tests/test_trim.py`; `skillify` vs `tests/test_skillify.py`; `verify_against_installed` vs `tests/test_versions.py`), and the corpus rules are asserted by `tests/skill_eval.py`
+- [x] Security — `just security`: gitleaks, semgrep and trivy on every push, over a change that adds no dependency and no network call
