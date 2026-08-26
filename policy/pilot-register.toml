@@ -331,7 +331,7 @@ enforced_by = "ai_engineering.report.BYPASSES_WORTH_A_LOOK, printed by `ai-eng r
 # rather than carrying a name nobody typed.
 [[baseline]]
 id = "skill-routing"
-measured = 368
+measured = 369
 margin = 0
 command = "python tests/skill_eval.py"
 approved_by = ""
@@ -340,6 +340,8 @@ why = """The count is claims plus refusals plus the labelled cases on both sides
 means a skill stopped declaring what it routes or a corpus lost cases; rising means the \
 opposite. Both are worth a sentence, and neither should happen without one.
 
+
+368 to 369: spec 037 adds intake validation to `/ai-spec`. Situations routed 81 to 81, hand-offs 44 to 44, labelled cases 243 to 244 — one quoted corpus case added: "here's my idea, write me a spec" routes through intake validation first and asks for the missing field, because a malformed goal produces a malformed spec. 81+44+244 is 369. Nothing was withdrawn; the one row is the intake routing the unvalidated-goal gap was missing.
 
 363 to 368: spec 036 adds the decision-boundary rule to `/ai-review` and `/ai-verify` (a request that falls outside a declared boundary reports `CANNOT DECIDE` and blocks; the refusing descriptions route into `/ai-verify`, and `/ai-spec` keeps its closed-contract frontmatter untouched — its corpus carries the quoted route instead). Situations routed 81 to 81, hand-offs 42 to 44, labelled cases 240 to 243 — two refusals and three quoted corpus cases added. 81+44+243 is 368. Nothing was withdrawn; the five rows are the decision-boundary routing the wayfinder W-02 gap was missing.
 
