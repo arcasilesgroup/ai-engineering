@@ -7,13 +7,14 @@ reader, mirroring `skill_sequence()`) give each exactly one checked status: `con
 orchestrator spec), or `deferred` (kept, tested, not wired, with a reason). No status,
 a consumer with no import, a status naming a missing consumer, and an
 orchestrator-future row citing no spec are all refused — the register cannot drift from
-the tree.
+the tree, and a module that has no caller and no row cannot float silently.
 """
 
 from __future__ import annotations
 
 import ast
 import sys
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,23 +23,6 @@ sys.path.insert(0, str(ROOT / "src"))
 from ai_engineering import wiring  # noqa: E402
 
 REGISTER = ROOT / "policy" / "module-status.toml"
-
-# The modules this register exists to decide, measured on the tree before this test:
-# these ship with tests and no import in src/ or hooks/. revalidate/cost are consumer
-# (audit.py imports them); model_router is consumer once cli.py imports it (B-042-1).
-ORPHANS = {
-    "lane_merge",
-    "loopgate",
-    "skillify",
-    "verify_cold",
-    "evidencing",
-    "trim",
-    "decision_fw",
-    "intake",
-    "model_router",
-    "revalidate",
-    "cost",
-}
 
 
 def _imports(module: str, root: Path) -> list[str]:
@@ -70,16 +54,30 @@ def _imports(module: str, root: Path) -> list[str]:
     return found
 
 
-def _names(register: Path) -> set[str]:
-    import tomllib
+def _src_modules(root: Path) -> set[str]:
+    """Every module in src/ai_engineering, by file name — the population the register
+    must not let float."""
+    return {file.stem for file in (root / "src" / "ai_engineering").glob("*.py")}
 
-    data = tomllib.loads(register.read_text(encoding="utf-8"))
-    return {row["name"] for row in data.get("module", [])}
 
+def test_every_caller_less_module_in_src_has_a_status_in_the_register():
+    """Active omission detection, not a hardcoded list: any src module that no production
+    file imports and that has no register row is a floating decision, refused here. CLI
+    verbs are exempt: cli.py dispatches them by name via importlib, so their wiring is a
+    `VERBS` entry and a dynamic import, never a static one — importing the dispatcher is
+    the caller."""
+    from ai_engineering import cli
 
-def test_every_known_orphan_has_a_status_in_the_register():
+    verbs = set(cli.VERBS)
     rows = wiring.module_status()
-    assert set(rows) >= ORPHANS, ORPHANS - set(rows)
+    for module in sorted(_src_modules(ROOT)):
+        if module.startswith("_"):
+            continue
+        if module in verbs:
+            continue  # a CLI verb: dispatched by name from cli.VERBS
+        if _imports(module, ROOT):
+            continue  # has a production caller, so it is not an orphan
+        assert module in rows, f"{module} has no production caller and no register status"
 
 
 def test_a_consumer_must_be_imported_by_a_production_file():
@@ -102,9 +100,6 @@ def test_a_status_naming_a_missing_consumer_is_refused():
     rows = wiring.module_status()
     for name, row in rows.items():
         consumer = str(row.get("consumer") or "")
-        if not name or consumer in ("", "NONE", "none"):
-            continue
-        # A consumer that names a file must be a file that exists in the tree.
         for candidate in consumer.split(","):
             candidate = candidate.strip()
             if candidate and not (ROOT / candidate).is_file():
@@ -128,8 +123,15 @@ def test_an_orchestrator_future_row_cites_the_orchestrator_spec():
 
 
 def test_every_module_name_in_the_register_is_unique():
-    import tomllib
-
     data = tomllib.loads(REGISTER.read_text(encoding="utf-8"))
     names = [row["name"] for row in data.get("module", [])]
     assert len(names) == len(set(names)), "duplicate module row in the register"
+
+
+def test_the_three_late_orphans_are_deferred_with_reasons():
+    """answer_key, constellation and decision_boundary were found caller-less by the
+    omission scan; their rows must be deferred with reasons, not silently consumer."""
+    rows = wiring.module_status()
+    for name in ("answer_key", "constellation", "decision_boundary"):
+        assert rows.get(name, {}).get("status") == "deferred", f"{name} should be deferred"
+        assert rows[name]["reason"], f"{name} deferred without a reason"

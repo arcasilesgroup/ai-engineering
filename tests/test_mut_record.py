@@ -492,3 +492,67 @@ def test_a_horizontal_rule_in_the_body_does_not_end_the_frontmatter(tmp_path):
     path = tmp_path / "SKILL.md"
     path.write_text("---\nname: ai-thing\n---\nbody\n\n---\n\nmore body\n", encoding="utf-8")
     assert text.frontmatter(path) == {"name": "ai-thing"}
+
+
+def test_the_digest_prints_the_model_distribution_with_four_states_named(report):
+    """Spec 042 / B-042-1, B-042-2: the Models lines print what the events carry, and
+    name which state they are counting — reported (`model`) and routed (`tier_model`) —
+    with `missing` for events that predate the field. The states are never merged."""
+
+    # The real _emit writes `model` at the top of the event and `tier_model` inside
+    # `data`; the fixture's _event helper puts kwargs in data, so build the events in the
+    # shape the product writes.
+    def command(name, model=None, tier=None):
+        event = _event(name, "command", data={"verb": name})
+        if model is not None:
+            event["model"] = model
+        if tier is not None:
+            event["data"]["tier_model"] = tier
+        return event
+
+    report.events = [
+        command("audit", model="nan/deepseek-v4-flash", tier="deepseek-v4-flash"),
+        command("report", model="undetermined", tier="qwen3.8-flash"),
+        command("spec"),  # no model key at all — the missing state
+    ]
+    printed = report.run()
+    reported = next(line for line in printed if line.startswith("  Models, reported"))
+    routed = next(line for line in printed if line.startswith("  Models, routed"))
+    assert "nan/deepseek-v4-flash 1" in reported
+    assert "undetermined 1" in reported
+    assert "missing 1" in reported
+    assert "deepseek-v4-flash 1" in routed
+    assert "qwen3.8-flash 1" in routed
+    assert "missing 1" in routed
+
+
+def test_the_rule_twelve_row_relabels_the_escalation_as_already_scripted(report):
+    """Spec 042 / B-042-4: a denial the guard marked escalated=True is the script rule 12
+    owes, so it prints as 'already escalated' and is subtracted from the owed-ones pool —
+    the same judgement is never counted twice."""
+    report.events = (
+        [
+            _event("loop_guard", "blocked", reason="this exact call has been made 3 times")
+            for _ in range(3)
+        ]
+        + [
+            _event("loop_guard", "blocked", reason="Bash:pytest — denied", escalated=True)
+            for _ in range(10)
+        ]
+        + [
+            _event("loop_guard", "blocked", reason="Bash:pytest — denied", escalated=True)
+            for _ in range(5)
+        ]
+    )
+    printed = report.run()
+    rows = [line for line in printed if "owed a script" in line or "already escalated" in line]
+    assert any("same verdict each time → owed a script" in line for line in rows)
+    assert any("already escalated" in line for line in rows)
+    # The 15 escalated denials all carry the same key; they must appear as ONE relabelled
+    # row, and the owed pool must not contain them.
+    scripted_rows = [line for line in rows if "already escalated" in line]
+    assert any("15×" in line for line in scripted_rows)
+    owed = [line for line in rows if "same verdict each time" in line]
+    assert not any("Bash:pytest" in line for line in owed), (
+        "the escalated judgement must not also appear in the owed-ones pool"
+    )

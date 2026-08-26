@@ -26,8 +26,56 @@ schema_version = "1"
 [[module]]
 name = "model_router"
 status = "consumer"
-consumer = "src/ai_engineering/cli.py, src/ai_engineering/model_router.py"
+consumer = "src/ai_engineering/cli.py"
 reason = "spec 042 / B-042-1: cli.py imports it to record tier_model on every command event"
+
+[[module]]
+name = "answer_key"
+status = "deferred"
+consumer = ""
+reason = "spec 030 / B-030-2: the answer key ships for cold-read verification; no verb applies it yet"
+
+[[module]]
+name = "constellation"
+status = "deferred"
+consumer = ""
+reason = "spec 034 / B-034-3: the constellation reader ships for cross-spec references; no verb renders it yet"
+
+[[module]]
+name = "decision_boundary"
+status = "deferred"
+consumer = ""
+reason = "spec 036 / B-036-2: the decision-boundary checker ships for the adoption validation; no verb invokes it yet"
+
+[[module]]
+name = "coverage"
+status = "deferred"
+consumer = ""
+reason = "spec 030 / B-030-2: the coverage rules module ships for guard scanning; its docstring claims the guard reads it by path but nothing imports it; it waits for a consumer"
+
+[[module]]
+name = "sbom"
+status = "deferred"
+consumer = ""
+reason = "EP-047/EP-280: the SBOM builder ships for published-artefact releases (a release is what it names); no local command invokes it yet"
+
+[[module]]
+name = "scan"
+status = "deferred"
+consumer = ""
+reason = "the semgrep wrapper ships for the security baseline; `just security` runs the engine directly, this module waits for a verb"
+
+[[module]]
+name = "skillmap"
+status = "deferred"
+consumer = ""
+reason = "the skill-map check ships to quantify broken references (just map runs sm directly); no module imports it yet"
+
+[[module]]
+name = "versions"
+status = "deferred"
+consumer = ""
+reason = "the installed-versions verifier ships for the wheel gate; nothing imports it today"
 
 [[module]]
 name = "revalidate"

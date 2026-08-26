@@ -126,7 +126,11 @@ def run(payload: dict) -> str | None:
         # The verdict is the script's first run; the escalation is the script itself,
         # naming the person channel (_wrap.py's bypass recipe) so the loop is handed to
         # somebody who can decide. Every repeat is still denied — fails closed.
-        denials = state.setdefault("denials", {}).get(call, 0) + 1
+        # Capped at the window: the sentence claims "denied N times in the last {window}",
+        # and N can never exceed what the window holds — a 15-hit session must not read
+        # "denied 13 times in the last 6". The escalation threshold (3) is far below the
+        # cap, so the rule-12 moment is unchanged.
+        denials = min(state.setdefault("denials", {}).get(call, 0) + 1, window)
         state["denials"][call] = denials
         state["denials"] = dict(list(state["denials"].items())[-window:])
         save(state)
@@ -135,11 +139,13 @@ def run(payload: dict) -> str | None:
             # The event says this denial is the escalation, so the digest can show it as
             # the script rule 12 owes instead of re-flagging it as a fresh owed script.
             payload["_escalated"] = True
+            # No "BLOCKED:" prefix here: `_wrap`'s refuse wraps the returned text as
+            # "BLOCKED: {reason}", so a prefix here would double it on the model's screen.
             return (
-                f"BLOCKED: {who} — this exact call has been denied {denials} times in "
-                f"the last {window}. The loop is bounded; retrying returns what it "
-                f"returned before, and a denial has already been issued for this call in "
-                f"this window. Hand it to a person: "
+                f"{who} — this exact call has been denied {denials} times in the last "
+                f"{window}. The loop is bounded; retrying returns what it returned "
+                f"before, and a denial has already been issued for this call in this "
+                f"window. Hand it to a person: "
                 f'ai-eng exception --skip "<reason>" --guard loop_guard'
             )
         return (

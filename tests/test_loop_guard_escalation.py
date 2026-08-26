@@ -10,8 +10,7 @@ The window is per-session (`state["recent"]` is session-scoped); a fresh window 
 the count; a different call is unaffected; every denial still denies.
 """
 
-from __future__ import annotations
-
+import re
 import sys
 from pathlib import Path
 
@@ -95,3 +94,23 @@ def test_the_blocked_count_is_preserved_every_denial_denies(tmp_path, monkeypatc
     denials = _drive(monkeypatch, tmp_path, [_call(1), _call(2), _call(3), _call(4), _call(5)])
     assert denials[0] is None and denials[1] is None  # below the repeats threshold
     assert all(d is not None for d in denials[2:]), "every repeat is still denied"
+
+
+def test_the_escalation_never_claims_more_repeats_than_the_window(tmp_path, monkeypatch):
+    """The sentence says 'denied N times in the last {window}', so N can never exceed the
+    window — a 15-hit session must not read 'denied 13 times in the last 6'. Measured on
+    this machine, 583 sessions hit the same verdict 15 times, so this is the real shape."""
+    denials = _drive(monkeypatch, tmp_path, [_call(n) for n in range(1, 16)])
+    escalations = [d for d in denials if d is not None and "Hand it to a person" in d]
+    assert escalations, "the 15-hit session must escalate"
+    # The count grows to the window and stops there; it must never exceed it. The first
+    # escalation legitimately says "denied 3"; the later ones must not keep climbing past
+    # "denied 6". Extracting the claimed number checks the bound without overpinning.
+    claimed = [
+        int(m.group(1))
+        for sentence in escalations
+        for m in [re.search(r"denied (\d+) times in the last (\d+)", sentence)]
+        if m
+    ]
+    assert claimed, "the escalation sentences must state a count"
+    assert max(claimed) == 6, f"the count must cap at the window, not climb past it: {claimed}"
