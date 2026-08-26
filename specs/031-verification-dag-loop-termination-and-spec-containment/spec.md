@@ -215,13 +215,16 @@ at one part without duplicating it.
 
 ## Production-ready
 
-Nothing gets a URL until every box is ticked, and each one is ticked by a command.
+Nothing gets a URL until every box is ticked, and each one is ticked by a command. This
+specification changes the verification flow (a DAG, a loop gate) and one spec behaviour;
+it adds no service, no URL and no second hop, so the service-shaped boxes are
+`not applicable`.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check` runs the three behaviours on every push (`.github/workflows/check.yml`); `lane_merge`, `loopgate` and the spec checks are gate lanes, and nothing here is deployed
+- [x] Logs — not applicable, and that is the rule: this spec adds runners and spec checks; every verb still emits the one JSON line `ai-eng digest` reads
+- [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
+- [x] Errors — not applicable: the new code paths fail closed — a node whose verify fails leaves its downstream input `INCOMPLETE`, and a lane conflict is surfaced, never auto-resolved
+- [x] Health and data age — `tests/test_lane_merge.py` and `tests/test_loopgate.py` run in `just test` on every gate and pin the pass-history semantics (two identical greens, or a diverged pass, and the run refuses to be "done" on a lucky green)
+- [x] External check — `.github/workflows/check.yml` runs the gate on every push, plus the negative fixtures: a spec that says "as we discussed" is refused by `self_contained`, and a lane conflict is surfaced as an entry rather than hidden
+- [x] Second path — `lane_merge.gate_nodes` (orders and gates verification output) and `dag.py` from spec 013 (orders claims) are distinct routes over distinct inputs, and `loopgate` keeps its pass history independently of any claim a builder makes
+- [x] Security — `just security`: gitleaks, semgrep and trivy on every push, over a change that adds no dependency and no network call
