@@ -231,6 +231,18 @@ search for.
 
 ### Changes
 
+- A new skill, `/ai-goal`, runs the whole governed cycle in one pass and stops only to
+  hand over: research → spec → challenge → council → build → review → verify → security →
+  audit → ship, with the invocation as the standing approval. Two bars, both green and
+  neither negotiated: the gate (`ai-eng audit verify`, shown, nothing silenced) and the
+  goal (acceptance criteria written into the spec, judged met-or-not by a critic with no
+  memory of the builder's reasoning). The loop is bounded — two attempts per task and
+  failing recipe, a fixed cap and a no-progress guard, then a page a person can act on —
+  and simplicity (KISS, YAGNI, DRY, SOLID, BDD, TDD, Clean Code, Clean Architecture) is
+  the standing bar. It is the gauntlet-loop half of what `ai-cycle` deliberately is not:
+  `/ai-cycle` stops at the brief, `/ai-goal` stops at the green gate. The routing
+  evaluation's `skill-routing` baseline moves 332 → 347 in `policy/pilot-register.toml`,
+  and the commit that moves it is its approval, per the register's own rule.
 - The governed cycle's order is now checked data. `policy/skill-sequence.toml` is the one
   copy of which stage follows which — first half `ai-research` → `ai-spec` →
   `ai-challenge` → `ai-council`, a human gate, then `ai-build` → `ai-review` →
@@ -254,6 +266,15 @@ search for.
   alone. The two historical records that quote the older wording (`docs/adr/0016`,
   `specs/024`) are left as written, because an approval record describes the rule as it
   was when it approved that work.
+- The shipped skills are now a contract the gate checks. `contract.audit_one` applies
+  four rules to every skill pair: portable commands only (an `ai-eng` verb, or a tool
+  whose printed output the gate keeps — `just <recipe>`, bare `semgrep`/`gitleaks`/
+  `trivy` and `git grep` are replaced), an existence check beside every cross-file
+  reference, a forced-output clause in each "Done when", and a source beside every
+  statistic — and the sixteen skill pairs are repaired until the audit is green.
+  `/ai-research` and `/ai-goal` declare their external tools optional, present-or-
+  degraded; the `skill-routing` baseline moves 347 → 349 with the reason beside it in
+  `policy/pilot-register.toml`.
 
 ## 1.0.0 — 2026-08-10
 

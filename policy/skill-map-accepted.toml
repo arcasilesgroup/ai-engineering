@@ -1,0 +1,72 @@
+# The map's accepted real broken references, as data (spec 026).
+#
+# docs/adr/0025 accepts a dated class of real broken references so the instrument's green
+# is honest while they wait for their own repair block. That record names this file: it is
+# the exact set of broken (node, target) pairs `sm check --json` reported (non-template)
+# on the day the acceptance was written, so "accepted" means a real, verifiable list — a
+# reference that is neither fixed nor in this file reddens the gate.
+#
+# Each entry is bound to BOTH the node that carries the link and the target it points at.
+# Binding to the pair, not the bare target, is deliberate: a bare "SKILL.md" or "plan.md"
+# as an accepted target would silently forgive any future link with the same bare name
+# anywhere in the tree. Only the exact node+target recorded on the accept date is exempt.
+# Adding a pair here extends the acceptance, which needs its own dated record (ai-eng
+# accept); the follow-up repair is a separate spec named in ADR 0025.
+
+schema = "urn:ai-engineering:skill-map-accepted:1"
+schema_version = "1"
+accepted_until = "2026-09-30"
+
+# node -> target, as reported by sm check --json on 2026-08-25 (scan.respectGitignore,
+# template holes excluded, spec 026's own citations included).
+accepted = [
+  ".agents/skills/ai-council/SKILL.md -> .agents/skills/ai-council/council.md",
+  ".agents/skills/ai-verify/SKILL.md -> .agents/skills/ai-verify/ai-review/references/testing.md",
+  "AGENTS.md -> SKILL.md",
+  "CHANGELOG.md -> SKILL.md",
+  "CHANGELOG.md -> plan.md",
+  "CHANGELOG.md -> spec.md",
+  "CHANGELOG.md -> specs/010/plan.md",
+  "CHANGELOG.md -> specs/x/plan.md",
+  "docs/adr/0008-the-five-wave-specifications-are-approved-at-exact-digests.md -> docs/adr/spec.md",
+  "docs/adr/0009-the-current-spec-010-digests-are-approved.md -> docs/adr/plan.md",
+  "docs/adr/0011-requirement-closure-work-is-a-block-like-any-other.md -> docs/adr/specs/010/plan.md",
+  "docs/adr/0015-specifications-011-and-019-are-approved-at-exact-digests.md -> docs/adr/spec.md",
+  "docs/adr/0017-specification-022-is-approved-at-exact-digests.md -> docs/adr/spec.md",
+  "docs/adr/0021-specification-023-is-approved-at-exact-digests.md -> docs/adr/spec.md",
+  "docs/adr/0023-specification-023-is-re-approved-at-its-corrected-digests.md -> docs/adr/challenge.md",
+  "docs/adr/0023-specification-023-is-re-approved-at-its-corrected-digests.md -> docs/adr/council.md",
+  "docs/adr/0025-the-maps-real-broken-references-are-accepted-as-a-dated-record.md -> docs/adr/DESIGN.md",
+  "docs/adr/0025-the-maps-real-broken-references-are-accepted-as-a-dated-record.md -> docs/adr/SKILL.md",
+  "docs/adr/0025-the-maps-real-broken-references-are-accepted-as-a-dated-record.md -> docs/adr/corpus.md",
+  "docs/adr/0025-the-maps-real-broken-references-are-accepted-as-a-dated-record.md -> docs/adr/docs/thesis.md",
+  "docs/audit-2026-08-16.md -> docs/corpus.md",
+  "docs/audit-2026-08-16.md -> docs/spec.md",
+  "docs/audit-2026-08-16.md -> docs/specs/010/plan.md",
+  "docs/audit-2026-08-16.md -> docs/specs/014/spec.md",
+  "specs/001-v1-from-scratch/spec.md -> specs/001-v1-from-scratch/SKILL.md",
+  "specs/004-solution-intent-home/plan.md -> specs/004-solution-intent-home/SOUL.md",
+  "specs/010-governed-agentic-engineering-foundation/plan.md -> specs/010-governed-agentic-engineering-foundation/approval.md",
+  "specs/010-governed-agentic-engineering-foundation/spec.md -> specs/010-governed-agentic-engineering-foundation/specs/spec-042-note/spec.md",
+  "specs/012-seven-capabilities-with-proof/spec.md -> specs/012-seven-capabilities-with-proof/DESIGN.md",
+  "specs/012-seven-capabilities-with-proof/spec.md -> specs/012-seven-capabilities-with-proof/SKILL.md",
+  "specs/014-security-baseline-no-false-pass/spec.md -> specs/014-security-baseline-no-false-pass/ai-review/SKILL.md",
+  "specs/016-the-thesis-nobody-owns/spec.md -> specs/016-the-thesis-nobody-owns/ai-spec/SKILL.md",
+  "specs/016-the-thesis-nobody-owns/spec.md -> specs/016-the-thesis-nobody-owns/docs/thesis.md",
+  "specs/018-controls-a-reviewer-proved-were-not-controls/plan.md -> specs/018-controls-a-reviewer-proved-were-not-controls/ai-review/SKILL.md",
+  "specs/019-the-four-days-two-specs-cost/plan.md -> specs/019-the-four-days-two-specs-cost/corpus.md",
+  "specs/021-three-controls-that-could-not-say-no/spec.md -> specs/021-three-controls-that-could-not-say-no/specs/019/spec.md",
+  "specs/023-council-that-reads-itself/challenge.md -> specs/023-council-that-reads-itself/SKILL.md",
+  "specs/023-council-that-reads-itself/challenge.md -> specs/023-council-that-reads-itself/corpus.md",
+  "specs/023-council-that-reads-itself/plan.md -> specs/023-council-that-reads-itself/SKILL.md",
+  "specs/023-council-that-reads-itself/plan.md -> specs/023-council-that-reads-itself/corpus.md",
+  "specs/023-council-that-reads-itself/spec.md -> specs/023-council-that-reads-itself/corpus.md",
+  "specs/024-autonomy-and-install/spec.md -> specs/024-autonomy-and-install/tools.md",
+  "specs/025-skill-sequence-map/spec.md -> specs/025-skill-sequence-map/ai-cycle/SKILL.md",
+  "specs/026-sm-skillmap-as-instrument/spec.md -> specs/026-sm-skillmap-as-instrument/DESIGN.md",
+  "specs/026-sm-skillmap-as-instrument/spec.md -> specs/026-sm-skillmap-as-instrument/docs/adr/spec.md",
+  "specs/026-sm-skillmap-as-instrument/spec.md -> specs/026-sm-skillmap-as-instrument/docs/corpus.md",
+  "specs/026-sm-skillmap-as-instrument/spec.md -> specs/026-sm-skillmap-as-instrument/docs/specs/010/plan.md",
+  "specs/026-sm-skillmap-as-instrument/spec.md -> specs/026-sm-skillmap-as-instrument/docs/thesis.md",
+  "specs/026-sm-skillmap-as-instrument/spec.md -> specs/026-sm-skillmap-as-instrument/plan.md/spec.md",
+]

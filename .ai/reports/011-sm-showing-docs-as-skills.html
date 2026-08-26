@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>R-011 — why `sm` (skill-map) shows this repo's docs as "skills", and the fix</title>
+<style>
+  body { font: 15px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 860px; margin: 2.5em auto; padding: 0 20px; color: #1a1a1a; }
+  h1 { font-size: 1.5em; } h2 { font-size: 1.15em; margin-top: 1.8em; }
+  code { background: #f1f3f5; padding: 1px 5px; border-radius: 4px; font-size: .92em; }
+  pre { background: #f6f8fa; padding: 12px 14px; border-radius: 6px; overflow-x: auto; }
+  .kv { white-space: nowrap; }
+  .verif { background: #eefbf3; border-left: 4px solid #2f9e44; padding: 8px 12px; margin: 14px 0; }
+  .unsrc { color: #b02a37; }
+  .src { font-size: .9em; color: #444; }
+  var { font-style: normal; }
+</style>
+</head>
+<body>
+
+<h1>R-011 · «Why does <code>sm</code> (skill-map) show so many "skills" in this repo, when those files are really specs, plans and corpus?»</h1>
+<p class="date">Date: 2026-08-25 · tool verified: <code>sm</code> 1.12.2 · provider lens: <code>agent-skills</code> · repo: <code>ai-engineering</code></p>
+
+<h2>Short answer</h2>
+<p><code>sm</code> does <strong>not</strong> misclassify your specs, plans, ADRs or corpus as skills. Its own graph proves it:
+of the 161 nodes it mapped before any fix, exactly <code>16</code> are <code>kind=skill</code> — the sixteen real
+<code>.agents/skills/&lt;name&gt;/SKILL.md</code> files — and every spec/plan/ADR/corpus/AGENTS/CHANGELOG file is
+<code>kind=markdown</code> [5]. What makes the map look like a wall of "skills" is that the scan had been
+admitting <strong>garbage it should ignore</strong>: 37 of the 161 nodes (23%) came from <code>.venv/…/site-packages/ai_engineering/skills/**</code>
+(an extra copy of the skills tree that this repo's own wheel installs into its venv) plus
+<code>.pytest_cache/README.md</code>, because <code>scan.respectGitignore</code> was <code>false</code> [5].
+<code>ai-engineering</code> is not badly made: its one-skill-tree design maps 1:1 onto skill-map's model.
+The repo's own spec&nbsp;026 already adopts <code>sm</code> as its reference-integrity gate. The defect was a scan
+configuration, and it is fixed by one command.</p>
+
+<h2>What I did to answer it (verified, not assumed)</h2>
+<div class="verif">
+<p>Everything below I ran on this machine against this repo, so it is first-hand, not a blog [5]:</p>
+<ul>
+<li>Read <code>sm config list</code> → <code>activeProvider: agent-skills</code>, <code>scan.respectGitignore: false</code>.</li>
+<li>Queried the scan store <code>.skill-map/skill-map.db</code> (table <code>scan_nodes</code>): <code>('markdown', 145)</code>, <code>('skill', 16)</code>.</li>
+<li>Bucketed the 145 markdown nodes → 36 from <code>.venv/.../ai_skills/**</code>, 1 from <code>.pytest_cache/README.md</code>; the rest are real tree files (specs/, ADRs/, corpus/, top-level docs).</li>
+<li>Ran the fix <code>sm config set scan.respectGitignore true</code>, then <code>sm scan</code>, then re-queried: nodes dropped 161 → 124; <code>skill</code> still exactly 16; <code>.venv</code>/<code>.pytest_cache</code> nodes now 0.</li>
+</ul>
+</div>
+
+<h2>Why the map shows "so many" nodes at all</h2>
+<p>skill-map is a graph of <em>every</em> markdown file under the active provider lens, each tagged with a
+programmatic <code>kind</code> [1][2]. Under the <code>agent-skills</code> provider a <code>skill</code> node is only a
+<code>&lt;…/skills/&lt;name&gt;/SKILL.md</code> — the same <code>SKILL.md</code> convention the repo itself uses. Everything else
+(corpus.md, references/, specs/, docs/adr/, AGENTS.md, CONSTITUTION.md, intent.md, README.md) is classified
+<code>markdown</code> [2][1]. The UI simply lists all of those node kinds together, so a wide node board reads as
+"todos son skills" when the dashboard/per-kind filter would show exactly 16 of them tagged <code>skill</code>.</p>
+
+<p>And the cluster had been inflated by files that should never be in the map. <code>scan.respectGitignore: false</code>
+makes the walker descend into <code>.venv</code> and <code>.pytest_cache</code> even though they are gitignored [3]. Inside
+<code>.venv/lib/python&nbsp;/site-packages/ai_engineering/skills/</code> sits a second, installed copy of that skill
+tree (the wheel's packaged <code>skills/</code> sidecar — packaging residue, not a source-tree mirror), so `sm`
+double-counted roughly one extra file per skill [verified by my own scan, 5]. That is the concrete mechanic behind "muestra tantos".</p>
+
+<h2>Is <code>ai-engineering</code> wrongly made, or <code>sm</code> wrongly used?</h2>
+<p>Neither framework is wrong. The repo's structure matches skill-map's model exactly: one canonical skill
+tree <code>.agents/skills/</code>, everything else intentionally outside it, and the repo's own AGENTS.md rule "no
+mirror, no sync" (the wheels in <code>.venv</code> is packaging, not a mirror). spec&nbsp;026 (draft, dated 2026-08-25)
+belongs to this repo and definitively answers "how is <code>sm</code> supposed to be used here": as a
+<strong>reference-integrity instrument</strong> — <code>just map</code> runs <code>sm scan &amp;&amp; sm check --json</code> and fails
+the gate on a real missing-target finding, with the <code>NNN-slug</code> demo holes excluded as a data file. So
+<code>sm</code> is "fine", and the repo is not misconfigured at the directory level. The only misconfiguration was
+in the engine-local <code>.skill-map/settings.json</code> scan (gitignore not respected), which has no effect on the
+repo's own contract.</p>
+
+<h2>How to configure / use it well (with the commands I proved)</h2>
+<pre><code># 1. Stop the map admitting .venv / caches / node_modules
+sm config set scan.respectGitignore true
+#    (or pin the scan to just the skill tree: add roots/ignore inside .skill-map/settings.json)
+
+# 2. Re-emit the graph so the counter reflects only real content
+sm scan
+
+# 3. Use it as the repo's own spec 026 prescribes for the gate
+just map    # runs sm scan && sm check --json -> non-zero exit on a real broken ref</code></pre>
+
+<p>Result after the fix: the 37 junk nodes are gone, <code>skill</code> is still exactly 16, and the map now
+reflects only files actually present in this repo — your instinct was right: those weren't 160 skills,
+but the repo itself is sound; only the scan config was loose [5].</p>
+
+<div class="src">
+<h3>Sources</h3>
+<p>Each number is a source; its call is from the web deliverable — the source listed is the original web page whose content the search summary quoted, so it is secondary and unresolved: I confirmed the numbers by running <code>sm</code> 1.12.2 on the actual repo (see verified box), not from these links.</p>
+<ol>
+<li>skill-map README.md — <a href="https://github.com/crystian/skill-map/blob/main/README.md">github.com/crystian/skill-map/blob/main/README.md</a> (scanner builds nodes/links, classifies kind under a provider, deterministic).</li>
+<li>skill-map spec v0 — <a href="https://skill-map.ai/spec/v0/">skill-map.ai/spec/v0/</a> (node kinds; a provider emits skill/…/ markdown as kinds).</li>
+<li>skill-map CLI contract — <a href="https://github.com/crystian/skill-map/blob/main/spec/cli-contract.md">github.com/crystian/skill-map/blob/main/spec/cli-contract.md</a> (provider detection, <code>sm config set</code>, scan behaviour).</li>
+<li>this repo spec 026 — <code>specs/026-sm-skillmap-as-instrument/spec.md</code> (the repo's own adoption of <code>sm</code> as the gate; contains the CLI contract line, read from disk).</li>
+<li><code>sm</code> 1.12.2 run on this repo with <code>sqlite3</code> on <code>.skill-map/skill-map.db</code> — my own verification (the strongest claim; no source citation needed).</li>
+</ol>
+</div>
+</body>
+</html>

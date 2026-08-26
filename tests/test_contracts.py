@@ -564,7 +564,9 @@ AI_SPEC_SECTIONS = {
         "1. Read `CONSTITUTION.md`, the related records and repository evidence and current "
         "primary sources relevant to the decision before asking anyone. State what was read, "
         "what is true now and what remains unknown. Never infer a control from its "
-        "documentation alone.",
+        "documentation alone. If `CONSTITUTION.md` is absent or incomplete, the spec records "
+        "what is missing rather than assuming it exists — a repo without it is a repo without "
+        "the framework's identity.",
         "2. State the problem in words a non-technical reader can follow. Separate fixed "
         "constraints, current facts, intended outcomes and the harm of leaving it unchanged.",
         "3. Present at least two real options. For each, say what it gives, costs, risks and "
@@ -863,6 +865,7 @@ WORDS = {
     15: "fifteen",
     10: "ten",
     16: "sixteen",
+    17: "seventeen",
     20: "twenty",
     21: "twenty-one",
     22: "twenty-two",
@@ -1539,13 +1542,13 @@ the design does not
 # went through.
 GOVERNING_SKILL_TEXT = {
     ".agents/skills/ai-build/SKILL.md": (
-        "fa0a339491f53c56e175efcd02d829b76d5586862570979807e55063198f5cb6"
+        "384da915470e713edb18af3dff261c25cc0b2690a0c576791d95baf5374abbd1"
     ),
     ".agents/skills/ai-build/corpus.md": (
-        "a058272096e4a0d7ec48688a78d4967af715c30476dc7271b3324bbcf43b238b"
+        "576cf03621aace434ca300bcb136538097f21e0f050fb8a0280913e590457880"
     ),
     ".agents/skills/ai-spec/SKILL.md": (
-        "0eea14bec2294dc09a487f4ffb357082746e7036c302ddaf23610ce7363568ab"
+        "8a47ea152b1902c9a030a001e70615b42db63bc74909b863cddffe94bb33ea58"
     ),
 }
 

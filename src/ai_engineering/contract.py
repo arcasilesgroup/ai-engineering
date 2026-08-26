@@ -31,6 +31,75 @@ JARGON = (
 )
 DESCRIPTION_MAX = 1000
 
+# A repo-specific tool a shipped skill must not invoke as a required command. The wheel
+# guarantees only the commands it installs (`ai-eng` verbs) and the outputs a gate keeps;
+# a skill that tells a downstream repo to run a `just` recipe or a bare scanner assumes the
+# stranger has the tool, which is the behavioural half of the taxonomy's Series of Commands
+# smell. `just` remains the maintainer's local orchestrator and is never named by a skill.
+PORTABLE_BANNED = ("just ", "semgrep", "gitleaks", "trivy", "git grep")
+
+# Cues that turn a mention of a banned binary into an instruction to run it. A bare
+# noun ("the `just` recipe") is a reference; "Run `just check`" is a command. The rule
+# refuses the command and passes the reference.
+_RUN_CUES = re.compile(
+    r"\b(?:run|running|execute|executes|execution|drive|via)\b"
+    r"(?<!\bwas )(?<!\bis )",
+    re.I,
+)
+_SPAN = re.compile(r"`([^`]+)`")
+_JUST = re.compile(r"\bjust [a-z-]+")
+_GIT_GREP = re.compile(r"\bgit\s+grep\b")
+
+# A cross-file reference a skill body makes to a path the wheel does not guarantee beside
+# the skill. The skill's own `references/` subfolder ships with it and is not a dependency;
+# every other root — policy/, hooks/, specs/, docs/, CONSTITUTION.md and a sibling skill's
+# references/ — is a file the stranger's repo may not have unless the skill says so and
+# fails closed when it does not.
+# A path a shipped skill depends on: the wheel guarantees nothing beside the skill except
+# its own `references/` subfolder. The skill's own output namespace is excluded — a skill
+# writing `specs/NNN-slug/council.md` or `docs/notes/<slug>.md` creates that path, it does
+# not depend on it, so demanding an existence check for its own artifact is noise.
+_EXIST_ROOTS = re.compile(
+    r"`((?:policy|hooks)/[^`]+|specs/(?!NNN-slug)[^`]+)`"
+    r"|`(CONSTITUTION\.md)`|`([a-z][a-z0-9-]*/references/[^`]+)`"
+)
+_FAIL_CLOSED = re.compile(
+    r"\b(absent|missing|does not exist|fail(?:s)? closed|refus(?:es|e)"
+    r"|when it is not there)\b",
+    re.I,
+)
+
+# A cross-file reference a skill body makes to a path the wheel does not guarantee beside
+# the skill. The skill's own `references/` subfolder ships with it and is not a dependency;
+# every other root — policy/, hooks/, specs/, docs/, CONSTITUTION.md and a sibling skill's
+# references/ — is a file the stranger's repo may not have unless the skill says so and
+# fails closed when it does not.
+# A "Done when" clause that requires an artifact a reader can verify. The taxonomy's
+# Forced-Output Verification Gate exists because a mere "verify" instruction is skipped.
+_ARTIFACT = re.compile(
+    r"`[^`]+\.(?:md|html|json|toml|txt|log)`|`[^`]*(?:output|digest|receipt|report)"
+    r"|printed|paste the output|show (?:its|the)? ?output|committed|the output is shown|"
+    r"a page|checklist|status table|file signature|output is in the conversation",
+    re.I,
+)
+_WEAK_OUTPUT = re.compile(
+    r"\b(verif(?:y|ied|ies)|ensure|makes? sure|check that|confirm(?:ed)?)\b"
+    r"|\w+ approval is the gate",
+    re.I,
+)
+
+# A statistic that claims a number without naming where it came from. The taxonomy's
+# sourced-statistic smell: a percentage or a ratio with no source is an assertion the
+# reader cannot check, and this framework's whole discipline is that every claim carries
+# evidence. A bare percentage/ratio with no `[N]`, `(report NNN)`, `arXiv:`, `Measured on`
+# or `report 00N` beside it on the same line refuses.
+_STAT = re.compile(
+    r"\b\d+(?:\.\d+)?%(?:\s*[–-]\s*\d+(?:\.\d+)?%)?"
+    r"|\b\d+(?:\.\d+)?\s*(?:vs|to|against)\s+\d+(?:\.\d+)?\b"
+    r"|\b(?:0\.\d{2})\b|\bfive of twenty\b|\bfour of twenty\b"
+)
+_STAT_SOURCE = re.compile(r"\b(?:arXiv|report\s+00?\d|Measured on)\b|`\[source:[^\]]+`|\[\d+\]")
+
 # The catalogue budget, not the file budget: the open Agent Skills specification and each
 # surface load a catalogue, and a skill that silently does not fit is a skill that silently
 # does not exist there. 50 000 is the smallest documented budget (Zed's 50 KB, spec 024
@@ -130,12 +199,180 @@ def audit_one(path: Path) -> list[str]:
     for word in JARGON:
         if word in body:
             found.append(f"{name}: {word!r} — write it so somebody who does not code can follow")
+    found.extend(_portable_problems(path.parent, name))
+    found.extend(_existence_problems(path.parent, name))
+    found.extend(_forced_output_problems(path.parent, name))
+    found.extend(_sourced_statistic_problems(path.parent, name))
     found.extend(_corpus_problems(path.parent, name))
     return found
 
 
 ROUTES = "## Routes here"
 REFUSES = "## Refuses"
+
+
+def _existence_problems(folder: Path, name: str) -> list[str]:
+    """A cross-file reference without a fail-closed clause for when it is absent.
+
+    Spec 027 D-027-01: every reference a skill body makes to another path must be
+    accompanied by a check that the path exists and a fail-closed sentence when it does
+    not. `ai-spec`'s handling of CONSTITUTION.md is the pattern. A skill that names
+    `policy/threat-model.toml` as if the file is always there silently stops fitting on
+    the machine that lacks it; one that says "if `policy/threat-model.toml` is absent,
+    refuse to continue" stays honest. Both files of the pair are read, for the same
+    reason the portable rule reads both.
+    """
+
+    problems = []
+    for doc in (folder / "SKILL.md", folder / "corpus.md"):
+        if not doc.exists():
+            continue
+        all_lines = doc.read_text(encoding="utf-8").splitlines()
+        for line_no, line in enumerate(all_lines):
+            if not _EXIST_ROOTS.search(line):
+                continue
+            target = next(
+                group for match in _EXIST_ROOTS.finditer(line) for group in match.groups() if group
+            )
+
+            # The fail-closed clause must sit with the reference — the same paragraph, not
+            # two sections away: this line, or up to three lines around it.
+            def boundary(k: int, all_lines=all_lines) -> bool:
+                return (
+                    k < 0
+                    or k >= len(all_lines)
+                    or not all_lines[k].strip()
+                    or all_lines[k].lstrip().startswith("#")
+                )
+
+            start = line_no
+            while not boundary(start - 1) and line_no - start < 3:
+                start -= 1
+            end = line_no
+            while not boundary(end + 1) and end - line_no < 3:
+                end += 1
+            around = "\n".join(all_lines[start : end + 1])
+            if not _FAIL_CLOSED.search(around):
+                problems.append(
+                    f"{name}: {doc.name} line {line_no + 1} references `{target}` without "
+                    f"a fail-closed sentence for when that path is absent. Add an existence "
+                    f"check and a refusal beside the reference, the way ai-spec handles "
+                    f"CONSTITUTION.md."
+                )
+    return problems
+
+
+def _forced_output_problems(folder: Path, name: str) -> list[str]:
+    """A skill whose exit says only "verify" without naming a kept artifact.
+
+    Spec 027 D-027-01: every skill must end with a "Done when" clause naming the
+    artifact it produces — a status table, a printed digest, a committed file — or the
+    exact command whose output it keeps. A mere "verify" or "the approval is the gate"
+    is the Forced-Output smell: a workflow that just tells the agent to ensure done is
+    the one most often skipped. The artifact must appear in the same section as the
+    weak phrase, not somewhere the reader would have to search for it.
+    """
+
+    problems = []
+    for doc in (folder / "SKILL.md", folder / "corpus.md"):
+        if not doc.exists():
+            continue
+        body = doc.read_text(encoding="utf-8")
+        done = body.partition("## Done when")[2].partition("\n## ")[0]
+        if not done:
+            continue
+        # 'verify' inside a backticked command (`ai-eng audit verify`) is the portable
+        # verb, not a weak exit — only prose outside the backticks can be weak.
+        weak = _WEAK_OUTPUT.search(_SPAN.sub("", done))
+        if weak and not _ARTIFACT.search(done):
+            problems.append(
+                f"{name}: {doc.name} 'Done when' says only {weak.group(0)!r} — "
+                f"name the artifact it produces (a committed file, a printed digest, a "
+                f"status table) or the exact command whose output it keeps. A mere "
+                f"'verify' is skipped."
+            )
+    return problems
+
+
+def _sourced_statistic_problems(folder: Path, name: str) -> list[str]:
+    """A numeric statistic that carries no source.
+
+    Spec 027 D-027-01: any statistic in a skill body carries the source, or is deleted.
+    `ai-council` and `ai-challenge` state numbers with no anchor; each must get its
+    source beside it (the arithmetic resolves in `.ai/reports/003-council-peer-review-
+    evidence.html`) or be struck. A percentage or a ratio with a source on its own line
+    passes; one with no source anywhere near it refuses.
+
+    Reads `SKILL.md` only: `corpus.md` is routing cases, not claims, so a statistic in
+    a refusal example is prose, not a citation obligation.
+    """
+
+    problems = []
+    for doc in (folder / "SKILL.md",):
+        if not doc.exists():
+            continue
+        body = doc.read_text(encoding="utf-8")
+        for line_no, line in enumerate(body.splitlines()):
+            if not _STAT.search(line):
+                continue
+            if _STAT_SOURCE.search(line):
+                continue
+            problems.append(
+                f"{name}: {doc.name} line {line_no + 1} carries a statistic "
+                f"({_STAT.findall(line)[0]!r}) with no source. Anchor it "
+                f"(`[arXiv:...]`, `report 00N`, or 'Measured on ...') or strike it — "
+                f"an unsourced number is an assertion the reader cannot check."
+            )
+    return problems
+
+
+def _portable_problems(folder: Path, name: str) -> list[str]:
+    """A skill that names a repo-specific tool as a required command.
+
+    Spec 027 D-027-02: a shipped skill names only portable commands — an `ai-eng` verb,
+    or the output of a tool kept as the gate's evidence. A skill that tells a downstream
+    repo to `just check` or run a bare scanner assumes the stranger has the tool, which
+    is the Series of Commands smell of arXiv:2607.01456: a concrete toolchain command
+    dies the moment the tree it was written for is not the tree it runs in. Both files
+    of the pair are read, because `corpus.md` ships verbatim beside `SKILL.md` and the
+    council's finding was that the smells live in both.
+
+    A mention is not a command: "the `just` recipe" is a reference and passes, "Run
+    `just check`" is an instruction and refuses. The run cues are the line's own words,
+    so a skill that merely names a tool as evidence a gate keeps is not punished for
+    saying which tool it keeps the output of.
+    """
+
+    problems = []
+    for doc in (folder / "SKILL.md", folder / "corpus.md"):
+        if not doc.exists():
+            continue
+        for line in doc.read_text(encoding="utf-8").splitlines():
+            found_this_line: set[str] = set()
+            for span in _SPAN.findall(line):
+                lowered = span.strip().lower()
+                if lowered.startswith(PORTABLE_BANNED):
+                    # The command must be directly commanded, not merely mentioned later
+                    # in the sentence: "Run `just check`" fires, "that is just check in
+                    # CI" does not. The cue has to be the words immediately before the
+                    # span (with only a preposition or connective allowed between).
+                    mech = _SPAN.search(line)
+                    prefix = line[: mech.start()] if mech else ""
+                    tail = re.split(r"[.;:|\n]", prefix)[-1].strip().lower()
+                    if re.search(
+                        r"\b(?:run|running|execute|executes|drive|via)"
+                        r"(?:\s+(?:the|a|an|its|your|our|their|these|those|this"
+                        r"|repo(?:sitory)?'?s))?\s*$",
+                        tail,
+                    ):
+                        found_this_line.add(lowered)
+            for command in sorted(found_this_line):
+                problems.append(
+                    f"{name}: {doc.name} runs {command!r} — a repo-specific command "
+                    f"the wheel does not guarantee on the stranger's machine. Name an "
+                    f"`ai-eng` verb, or keep the tool only as the output the gate holds."
+                )
+    return problems
 
 
 def _corpus_problems(folder: Path, name: str) -> list[str]:

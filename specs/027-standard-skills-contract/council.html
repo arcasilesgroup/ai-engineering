@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Consejo sobre la especificación 027: cómo imponer un contrato estándar de skills contra la taxonomía de skill smells, qué ven las cinco lentes, dónde chocan y qué recomiendan.">
+<title>ai-engineering | Consejo · contrato estándar de skills</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:960px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:36px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}h3{font-size:17px;margin:22px 0 6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.date{color:var(--muted);font-size:13px;margin-bottom:28px}
+ul{margin:8px 0 16px;padding-left:22px}ul li{margin:5px 0}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em;overflow-wrap:break-word}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.good{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+.struck{text-decoration:line-through;color:var(--muted)}
+.cmd{background:var(--code);padding:8px 12px;border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;margin:8px 0;overflow-x:auto;white-space:pre}
+.out{color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;margin:4px 0 16px;white-space:pre-wrap}
+.verdict{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.05em}
+.v-warn{background:var(--warn-soft);color:var(--warn)}.v-ok{background:var(--good-soft);color:var(--good)}
+.meta{color:var(--muted);font-size:13px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="topbar"><a class="brand" href="#">ai-engineering <small>· consejo · especificación 027</small></a></div>
+<main>
+<p class="kicker">Consejo · ciclo gobernado · spec 027</p>
+<h1>Cómo imponer un estándar de skills que deje de responder a eufemismos</h1>
+<p class="sub">Cinco lentes leyeron solo la especificación y devolvieron hallazgos con comando ejecutable; la segunda ronda los cruzó; las cuentas están en council.md. Esta página es lo que lee una persona.</p>
+<p class="date">2026-08-25 · especificación 027 · consejo</p>
+
+<h2>Qué se propone</h2>
+<p>Convertir la estandarización de los 16 skills en un <em>contrato</em>, no en una limpieza: <code>contract.audit_one</code> gana cuatro reglas (comando portable, chequeo de existencia de referencias, puerta de salida con artefacto forzado, estadística con fuente) y los 16 <code>SKILL.md</code> se reparan hasta que el gate esté verde. Los comandos concretos de la rueda se reducen a verbos <code>ai-eng</code> o a evidencia dentro de un gate; un skill que regrese a la clase prohibida vuelve a fallar <code>ai-eng doctor</code>.</p>
+
+<h2>En qué coinciden las lentes</h2>
+<ul>
+<li><strong>La decisión es un contrato, no un gusto.</strong> Todas menos una convienden en que dejar el corpus "casi estándar" (opción 3) es el estado que permitió seis referencias sin chequeo y nueve puertas débiles; la opción 1 reproduce la estandarización.</li>
+<li><strong>Cuatro clases de olor son reales y mensurables.</strong> Se comprobó en el corpus hoy: comandos concretos incrustados, referencias a ficheros sin chequeo de existencia, puertas que no fuerzan artefacto y estadísticas sin fuente.</li>
+<li><strong>El verbo <code>ai-eng</code> es la única garantía de portabilidad, y es real.</strong> <code>which ai-eng</code> resuelve; <code>pyproject.toml</code> declara solo <code>ai-eng = "ai_engineering.cli:main"</code>.</li>
+<li><strong>La taxonomía citada existe.</strong> arXiv:2607.01456 fue comprobada por búsqueda web: 26 olores, 10 categorías, &gt;99% de prevalencia. La autoridad de las cuatro reglas no cuelga de un papel inexistente.</li>
+</ul>
+
+<h2>Dónde chocan</h2>
+<div class="callout warn">
+<p><strong>Gate que proscriba <code>just</code> en los skills mientras el propio gate se ejecuta con <code>just</code>.</strong> La línea 251 del <code>Justfile</code> (check) encadena <code>security</code>, <code>council</code>, <code>map</code>&hellip; El contrato condena a los skills a no nombrar <code>just</code>, y el mismo árbol que lo demuestra verde solo se ejecuta con <code>just check</code>. En un repo de destino, la verificación CI del skill es <code>just</code>, el mismo motor que la regla D-027-02 ha prohibido en el texto del skill. La portabilidad se repara en el skill pero sigue dependiendo del orchestrator que se declaró no portátil.</p>
+</div>
+<div class="callout warn">
+<p><strong>El árbol que se empaqueta es <code>corpus.md</code>, no solo <code>SKILL.md</code>, y ninguna regla lo lee.</strong> Las cuatro clases se miden en <code>develop audit_one</code> sobre el cuerpo SKILL; sin embargo <code>corpus.md</code> queda: <code>grep -rn "just check\|git grep\|semgrep" .agents/skills/*/corpus.md</code> devuelve «run <code>just check</code>» en <code>ai-review</code>, «git grep» en <code>ai-note</code>, y seguridad. El fichero que se instala verbatim en el repo ajeno conserva el olor que el consejo doblará por eliminado. hay quien lea el corpus al techie la reparación deja un olor declarado tres veces.</p>
+</div>
+
+<h2>Hallazgos con comando (se conservan)</h2>
+<ul>
+<li><strong>Censo que no reproduce.</strong> La especificación dice «12 de 16 fijan comando concreto; 6 fijan <code>just check/council/security</code>». Un contador independiente sobre el mismo corpus da 10 skills con comando a correr y 4 que ejecutan una receta <code>just</code> (8 usan verbos <code>ai-eng</code>) — el censo que sostiene "Context and problem" no se reproduce y debería volver a contarse.
+<div class="cmd">for s in .agents/skills/*/; do grep -lE "just (check|security|council)" "$s/SKILL.md"; done</div>
+<p class="out">→ ai-council, ai-security, ai-ship, ai-verify &nbsp;·&nbsp; (4, no 6)</p>
+</li>
+<li><strong>El riesgo abierto «anclar a reporte 003 o tachar» es decidible por comando.</strong> Las seis cifras están en <code>. ai/reports/003-council-peer-review-evidence.html</code>, no en una fosa; anclar es una cita de una línea por cifra.
+<div class="cmd">grep -c "66\.5\|10\.3\|0\.70\|0\.51\|14 vs 9" .ai/reports/003-council-peer-review-evidence.html</div>
+<p class="out">8 (66.5, 10.3, 0.70, 0.51, 14 vs 9 present)</p>
+</li>
+<li><strong>«22%» es la única cifra del enumerado que no se encontró como tal en el anclaje</strong> — con las demás cinco anclables, el «o borrar» es una elección real, no una trampa de puerta atrapada.</li>
+<li><strong>El reparo «just bracket» puede reintroducir <code>just</code> como autoridad disfrazada.</strong> <code>ai-verify</code> y <code>ai-security</code> corren hoy «just check + just security»; la adaptación dirá que su puede citarlas «como evidencia», justo el doblez que disfrazó la clase de olor.</li>
+<li><strong>El único ejemplo que decide la regla de artefacto (el fork desnudo que no imprime nada) no está escrito.</strong> Los tres ejemplos del spec son del lado autor/gate; el caso del que desafió la decisión (un market-place que nada produce) queda en riesgos y sin ejemplo Given/When/Then.</li>
+</ul>
+
+<h2>Refutaciones de la segunda ronda</h2>
+<ul>
+<li><span class="struck">La taxonomía arXiv:2607.01456 es una apuesta no comprobada.</span> → <span>Refutada:</span> <code>web search</code> devolvió el artículo real (26 olores / 10 categorías / &gt;99%). Al citarla sin locator es una pelvis de doc, no riesgo estructural.</li>
+<li><span class="struck">Adjudicar las seis cifras es un trabajo incosteado e ilimitado.</span> → <span>Refutada:</span> el reporte 003 existe y las contiene (comando arriba); anclarar es corregir la referencia mecánica, no reducir un proyecto sin presupuesto. Lo que era verdad — que «anclar o borrar» es una elección — sobrevive aparte.</li>
+</ul>
+
+<h2>Veredicto</h2>
+<p class="sub">Este consejo no aprueba ni rechaza: lo que sigue es una lectura, no un <code>PASS</code>.</p>
+<p>La opción 1 es la única que mantiene la estandarización reproducible, y las cuatro reglas son las adecuadas. Pero el gate, tal como se describe, arregla la mitad del artefacto que realmente se instala. Mientras <code>corpus.md</code> no entre en el contrato y mientras la verificación del contrato siga cuelgada del <code>just</code> que los skills tienen prohibido nombrar, el consejo encuentra la decisión completa.</p>
+
+<h2>Recomendación</h2>
+<ol>
+<li><strong>Extender la regla al árbol completo.</strong> El nuevo <code>audit_one</code> debería auditar ambos ficheros por skill (<code>SKILL.md</code> y <code>corpus.md</code>) con las mismas cuatro clases; el 016-02 lo más grande de falta es seguro.</li>
+<li><strong>Ancalar, no borrar, las cifras.</strong> Reporte 003 las contiene; citarlas (5 líneas) preserva la única evidencia medida del beneficio del council, en lugar de regalar la opción de evidencia.</li>
+<li><strong>Declarar la dependencia de <code>just</code> en el frontmatter <code>compatibility</code></strong> de los dos skills que corren recetas <code>just</code>, en lugar de hacer que el reparo finja que el prose esté en un no-mapa. Si la rueda no shipea <code>just</code>, la regla de comando debe tratarlo exactamente como al <code>git grep</code>: solo evidencia, nunca motor de puerta.</li>
+</ol>
+
+<div class="callout good">
+<h3 style="margin-top:0">Primer paso</h3>
+<p>Correr el mapeo del árbol silenciado antes de tocar la especificación:</p>
+<div class="cmd">grep -rn "just check\|just security\|git grep\|semgrep\|gitleaks\|trivy" .agents/skills/*/SKILL.md .agents/skills/*/corpus.md | sort</div>
+<p class="metate">Ese listado (duplicando lo que el spec llama «12 de 16») cierra el censo que hoy no reproduce y le da al <code>audit_one</code> su superficie exacta: los pares SKILL.md+corpus.md, no solo los SKILL.md.</p>
+</div>
+
+<h2>Cuentas</h2>
+<p class="met">Los recuentos del archivo <code>council.md</code>, tal como están escritos en él:</p>
+<ul>
+<li>Gaps que solo aparecieron tras la segunda ronda: <strong>2</strong></li>
+<li>Hallazgos eliminados (sin comando o refutados): <strong>3</strong></li>
+</ul>
+<hr>
+<p class="meta">Consejo lector de la especificación 027. Sin voto, sin ranking. Las lentes han expirado el falso pánico de la taxonomía y señalan el árbol que se instala. Evidencia, no decisión.</p>
+</main>
+</body>
+</html>

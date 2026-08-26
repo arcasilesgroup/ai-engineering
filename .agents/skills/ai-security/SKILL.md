@@ -22,8 +22,10 @@ disable-model-invocation: true
 
 A threat and data model in the spec, and a list of findings where each one names the
 command that produced it and its outcome. This framework wrote its own first, in
-`policy/threat-model.toml`: one row per boundary, each naming what an attacker controls,
-what happens with no control, the file that holds the control and the test that proves it
+`policy/threat-model.toml` — if that file is missing, the threat model is read as
+`INCOMPLETE`, never as a clean one: one row per boundary, each naming what an attacker
+controls, what happens with no control, the file that holds the control and the test that
+proves it
 can still say no. Read it as the worked example, and for the shape a row takes when the
 control is only half built.
 

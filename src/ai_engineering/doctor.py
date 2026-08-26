@@ -578,7 +578,7 @@ def buffer_sealed(root: Path | None) -> str | None:
 
 @check(23, "The record", "Declared capabilities say whether anything enforces them")
 def capabilities_enforced(root: Path | None) -> str | None:
-    """`policy/capabilities.toml` declares fifteen capabilities with read roots, write
+    """`policy/capabilities.toml` declares nineteen capabilities with read roots, write
     roots, exec allowlists, network hosts, secrets and human gates. Until `executor.py`
     existed, `capability.preflight` validated all of it and then returned
     `CAPABILITY_ENFORCEMENT_UNAVAILABLE` on every path — the honest answer, pinned by a

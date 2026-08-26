@@ -1,0 +1,20 @@
+### Gaps no single lens named
+
+- **The gate that enforces the contract is itself a `just` command.** `Justfile` line 251 has `check: build sbom lint typecheck test cover security register skilleval counts intent-page lenses council map ran` — the green ceiling the whole decision swims against is honoured only by running `just check`, i.e. `just` is the orchestrator of the very portability the contract forbids the skills to name. No lens connected "D-027-02 deletes `just` from the skills" with "the gate that runs the contract still needs `just` on the machine." The stranger who receives the wheel is told to run `just check` in the CI row while the skills themselves are forbidden to say `just`; the repair makes the corpus not portable with the mechanism that proves it portable. Command: `grep -n "^check:" Justfile`.
+
+- **The corpus holding the smells is `corpus.md`, not `SKILL.md`, and neither rule reads it.** The four smell classes were re-measured in SKILL.md only; `corpus.md` (the file that forces-install with each skill) still carries the same verbs the rules eliminate — `grep -rn "just check\|git grep\|semgrep" .agents/skills/*/corpus.md` returns `ai-review/corpus.md` ("run `just check`"), `ai-note/corpus.md` ("`git grep` over `docs/notes/`"), `ai-security/corpus.md`. D-027-01 extends `contract.audit_one`, whose subject is the SKILL drum body; nothing any lens produced for the repair ("edit the 16") or the gate names `corpus.md`, so the one file that ships verbatim with the wheel carries the exact smell the contract will be praised for killing. That the "sixteen shipped skills" are sixteen *pairs* is unread until you cross the census find with the forced-output find.
+
+### Findings cut for carrying no command
+
+- Reversing the repair is re-grinding, not revert: `ai-security` being forced to read `semgrep` as "evidence inside a gate" and `ai-note` to bracket `git grep` permanently reshapes the prose of both skills, and undoing Option 1 means re-authoring that grammar, not `git revert`-ing it. This was the reversibility lens's strongest claim and it has no single command that isolates it — a longevity judgment, not a check — so it is cut rather than forced into a command it does not have.
+
+### Findings the cross-read refuted, with the command that refuted them
+
+- ~~The whole decision rests on a taxonomy — arXiv:2607.01456: 26 smells, 10 categories, >99% prevalence — that the spec cites without a locator; if the paper were mis-summarized or absent, the four rules would be re-anchoring the corpus onto the opinion of whomever read it first.~~ Refuted by executed `web_search "arXiv 2607.01456 skill smells taxonomy"`: the paper *From Anatomy to Smells: An Empirical Study of SKILL.md in Agent Skills* (Hong, Imani, Ahmed, Irvine) is real, arXiv:2607.01456, submitted 2026-07-01, and confirms 26 smells, 10 categories, >99% prevalence. The citation's authority holds; a bare locator is then a doc nit, not a load-bearing trust.
+
+- ~~Adjudicating the six `ai-council` statistics is undigested work the report never budgets: only that the source is "open" and the command says "anchor or strike" — no line item for resolving seven numbers across two skills, and striking deletes the only measured cross-read evidence.~~ Refuted by executed command: `grep -c "66\.5\|10\.3\|0\.70\|0\.51\|14 vs 9" .ai/reports/003-council-peer-review-evidence.html` → the six statistics all resolve in a single existing report (003), so "anchor" is a mechanical per-line citation (`[[report:003]]` next to each number after a verified part), O(6) edits, minutes, not unpriced archaeology. The cost reading overstated a trivial mechanical repair; what it touched — that "anchor or strike" is a real choice — survives as a finding in its own right, but the "unbudgeted cost" framing is struck.
+
+## The two counts
+
+- Gaps that appeared only after the cross-read: **2**
+- Findings deleted, for carrying no command or for being refuted: **3**

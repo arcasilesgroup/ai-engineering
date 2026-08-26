@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Brief del ciclo para la especificación 027: estandarizar los 16 skills contra la taxonomía de skill smells — qué se propone, qué refutaron el desafío y el consejo, qué falta y qué cuesta.">
+<title>ai-engineering | 013 — Brief 027: contrato estándar de skills</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:900px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:32px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.date{color:var(--muted);font-size:13px;margin-bottom:24px}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.card{border:1px solid var(--line);border-radius:10px;padding:16px 20px;margin:16px 0}
+.card h3{margin:0 0 8px;font-size:16px}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.good{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+ol,ul{margin:.4rem 0}.cite{color:var(--muted);font-size:13px;margin-top:4px}
+.step{display:flex;gap:12px;align-items:flex-start;margin:10px 0}.step .n{background:var(--accent-soft);color:var(--accent);font-weight:700;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:13px;flex:0 0 26px}
+</style>
+</head>
+<body>
+<div class="topbar"><a class="brand" href="#">ai-engineering <small>· brief 027 · contrato estándar de skills</small></a></div>
+<main>
+<p class="kicker">Brief del ciclo</p>
+<h1>Estandarizar los skills contra la taxonomía de skill smells</h1>
+<p class="sub">Qué se propone, qué refutaron el desafío y el consejo, qué falta y qué cuesta — para que una persona decida.</p>
+<p class="date">2026-08-25 · especificación <code>027-standard-skills-contract</code> · sin aprobación</p>
+
+<p>Pediste revisar, auditar y adaptar todos los skills del framework a la investigación de NotebookLM: skills estándar y bien definidos, cada uno sabiendo exactamente qué hace. El ciclo corrió la primera decisión que eso exige: <strong>¿convertimos la estandarización en un contrato verificado por script, o en una limpieza manual?</strong> Aquí está el brief. Esta mitad del ciclo termina aquí; nadie en este proceso puede escribir la aprobación.</p>
+
+<h2>Lo que se encontró</h2>
+<p>Los 16 skills ya cumplen la forma del estándar — <code>SKILL.md</code> + <code>corpus.md</code>, frontmatter YAML, descripción con trigger y negativo. Lo que queda son cuatro clases de olores medibles (reporte 012, taxonomía arXiv:2607.01456):</p>
+<table>
+<thead><tr><th>Olor (taxonomía)</th><th>Medición</th><th>Qué es</th></tr></thead>
+<tbody>
+<tr><td>Comandos concretos incrustados</td><td>12 de 16</td><td>8 apuntan a <code>ai-eng</code> (portable); 5-6 a <code>just …</code> (no portable); <code>ai-security</code> a semgrep/gitleaks/trivy; <code>ai-note</code> a git grep.</td></tr>
+<tr><td>Referencia cruzada sin chequeo</td><td>6</td><td><code>ai-build</code>, <code>ai-cycle</code>, <code>ai-review</code>, <code>ai-security</code>, <code>ai-verify</code>, <code>ai-plan</code> nombran otro fichero sin comprobar que existe; solo <code>ai-spec</code> comprueba.</td></tr>
+<tr><td>Puerta de salida débil / sin artefacto</td><td>8</td><td><code>ai-build</code>, <code>ai-plan</code>, <code>ai-explore</code>, <code>ai-design</code>, <code>ai-review</code>, <code>ai-research</code>, <code>ai-debug</code>, <code>ai-spec</code> — «el check pasa» sin artefacto visible.</td></tr>
+<tr><td>Estadística sin fuente</td><td>≥11 + 1</td><td><code>ai-council</code> (66.5%, 10.3%, 14 vs 9, 70%, 0.70→0.34, 22%→5.3%, 0.511…); <code>ai-challenge</code> («four of twenty»).</td></tr>
+</tbody>
+</table>
+
+<h2>Lo que se propone (decisión de la especificación)</h2>
+<div class="card">
+<div class="step"><div class="n">1</div><div><strong>El contrato, no la limpieza.</strong> <code>contract.py</code> ya audita cada skill por script; se le añaden cuatro reglas de olor (comando portable, chequeo de existencia, cláusula de salida forzada, estadística con fuente) aplicadas a <code>SKILL.md</code> <em>y</em> a <code>corpus.md</code>.</div></div>
+<div class="step"><div class="n">2</div><div><strong>Solo comandos portables en los skills.</strong> El verbo portable es <code>ai-eng</code>; un motor del repo de destino (<code>just &lt;recetad</code>, semgrep, gitleaks, trivy, git grep) se sustituye o se queda solo como la evidencia que la puerta guarda.</div></div>
+<div class="step"><div class="n">3</div><div><strong>Chequeo de existencia + puerta de salida forzada.</strong> Cada referencia cruzada lleva «si falta, rechaza»; cada skill termina en un artefacto visible (archivo commitado o salida impresa).</div></div>
+<div class="step"><div class="n">4</div><div><strong>Reparar los 16 pares</strong> hasta que el audit esté verde — un pase de plan, revisado.</div></div>
+</div>
+
+<h2>Lo que refutaron el desafío y el consejo</h2>
+<div class="callout bad"><strong>1 · La cuenta de estadísticas estaba mal.</strong> La especificación escribía «6 sin fuente»; el desafío contó <strong>≥11</strong> en <code>ai-council</code>, y que <code>ai-challenge</code> pertenece al conjunto <em>con</em> artefacto, no al débil. <em>Corrección: la spec ya dice 11+ y las 8 puertas débiles correctas; el informe 012 documenta la mediación.</em></div>
+<div class="callout bad"><strong>2 · El contrato ignora <code>corpus.md</code>.</strong> El consejo encontró que <code>corpus.md</code> — el archivo que se instala verbatim con cada skill — lleva los mismos verbos prohibidos (<code>ai-review/corpus.md</code> corre <code>just check</code>, <code>ai-note/corpus.md</code> usa <code>git grep</code>) y ninguna regla lo lee. <em>Corrección: la reparación y el audit cubren ambos ficheros.</em></div>
+<div class="callout warn"><strong>3 · La puerta que valida el contrato <strong>es</strong> un comando <code>just</code>.</strong> <code>just check</code> orquesta el techo verde (<code>check: … council map ran</code>), pero los skills tienen prohibido decir <code>just</code>. <em>Corrección: <code>just</code> es el orquestador local del mantenedor; la rueda no instala una Justfile; el verbo portable del skill es <code>ai-eng</code>. El desconocido restante — qué superficies pueden imprimir el artefacto — queda registrado como riesgo, no aceptado en silencio.</em></div>
+<div class="callout good"><strong>4 · Dos hallazgos se refutaron solos.</strong> La taxonomía (2607.01456) se confirmó real por búsqueda; y las estadísticas de <code>ai-council</code> resuelven en un solo informe existente (003), así que anclarlas es O(6) ediciones mecánicas, no arqueología sin presupuesto. <em>Ambos se mantienen y se cierran con su comando.</em></div>
+
+<h2>Lo que falta</h2>
+<ul>
+<li><strong>La decisión de una persona</strong>: aprobar la dirección (contrato por script, cuatro reglas, reparar los 16 pares) con el digest exacto de la especificación, en un registro — no hay campo en este ciclo para escritura de aprobación.</li>
+<li><strong>El trabajo de reparación</strong>: aplicar las cuatro reglas a los 16 pares <code>SKILL.md</code>+<code>corpus.md</code>, incluidas las referencias de <code>ai-verify</code> a <code>ai-review/references/testing.md</code> y las de <code>ai-security</code> a <code>policy/*</code>.</li>
+<li><strong>La forma exacta del verbo portable</strong>: qué cadena permite la regla («solo <code>ai-eng</code>», o un conjunto de slots); decisión menor que la principal.</li>
+</ul>
+
+<h2>Qué cuesta</h2>
+<p>Aprobar la dirección: extender <code>contract.audit</code> con cuatro reglas y un test por regla, y un pase de edición sobre 16 pares de skills. El trabajo pesado — 16 archivos × (comando, chequeo, salida, fuente) — es el presupuesto del plan tras la aprobación; la decisión aquí no lo ejecuta, lo habilita. La rueda no cambia: no se añade ni se exige ningún motor nuevo.</p>
+
+<h2>Cómo decido</h2>
+<ol>
+<li>Lee <code>specs/027-standard-skills-contract/spec.md</code>.</li>
+<li>Lee los artefactos del rodaje: <code>.ai/reports/012-skills-standardization-research.html</code> (medición), <code>challenge.md</code> (veredictos ejecutados), <code>council.md</code> + <code>council.html</code> (lentes y presidente).</li>
+<li>Aprueba con <code>ai-eng spec approve 027</code> (registro con digest) — o di qué cambiar.</li>
+</ol>
+
+<p class="cite">Artefactos del ciclo: <code>.ai/reports/012-skills-standardization-research.html</code> (investigación) · <code>.ai/reports/013-brief-spec-027.html</code> (este brief) · <code>specs/027-standard-skills-contract/{spec.md, challenge.md, council.md, council.html}</code>. Conteos verificados: <code>python3 tests/council_counts.py</code> (RAN council=16/8, 027=2/3 coinciden).</p>
+</main>
+</body>
+</html>

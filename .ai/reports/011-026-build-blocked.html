@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="La mitad de build de la especificación 026 no está verde: por qué, qué se construyó, qué bloquea, y qué cuesta cerrarlo.">
+<title>ai-engineering | 026 build — por qué no está verde</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:900px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:32px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.date{color:var(--muted);font-size:13px;margin-bottom:24px}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.good{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+ol,ul{margin:.4rem 0}.cite{color:var(--muted);font-size:13px;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="topbar"><a class="brand" href="#">ai-engineering <small>· 026 build · el instrumento funciona, la puerta dice no</small></a></div>
+<main>
+<p class="kicker">Mitad de build · sin puerta verde</p>
+<h1>026: por qué no está verde</h1>
+<p class="sub">El instrumento se construyó y funciona. La puerta no está verde por dos motivos, y cada uno tiene su dueño.</p>
+<p class="date">2026-08-25 · bloque: commits <code>4d827579..8f25f903</code> (10 commits) · plan: 3 sellados, 2 abiertos</p>
+
+<h2>Qué se construyó (y está sellado)</h2>
+<table>
+<thead><tr><th>#</th><th>Tarea</th><th>Estado</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>sm</code> fijado a 1.12.2 y receta <code>map</code> en <code>justfile</code></td><td><span class="good">sellada</span></td></tr>
+<tr><td>2</td><td><code>.venv</code> excluido del mapa (el árbol se escanea una vez)</td><td><span class="good">sellada</span></td></tr>
+<tr><td>3</td><td>Exclusión <code>NNN-slug</code> como dato + aceptación fechada (ADR 0025) + test</td><td><span class="good">sellada</span></td></tr>
+<tr><td>4</td><td><code>skillmap.py</code>: digest real-vs-aceptado, pares nodo→objetivo, versión comprobada en el módulo</td><td><span class="warn">implementada, abierta</span></td></tr>
+<tr><td>5</td><td><code>map</code> en <code>just check</code></td><td><span class="warn">implementada, abierta</span></td></tr>
+</tbody>
+</table>
+<p>El digest funciona: <code>uv run python -m ai_engineering.skillmap</code> distingue huecos de plantilla (declarados), aceptados (ADR 0025, pares nodo→objetivo) y reales-sin-aceptar, y reddena solo sobre estos últimos. Los 49 pares aceptados se cubren; 0 reales propios del bloque quedan sin aceptar.</p>
+
+<h2>Por qué no está verde — 1: el borrador 027 del usuario, sin commitear</h2>
+<div class="callout bad"><strong>14 referencias reales sin aceptar, todas en <code>specs/027-standard-skills-contract/</code> (sin commitear, borrador tuyo).</strong>
+El instrumento reddena sobre trabajo nuevo que entró al árbol durante la construcción: la especificación 027 que escribiste tiene 14 enlaces a ficheros que no existen. Esto es el instrumento haciendo su trabajo — el ADR 0025 dice expresamente «una referencia que un scan posterior añade está fuera de esta aceptación y reddena la puerta». No puedo aceptarla yo: la aceptación es tuya (dueño del repo), y un borrador sin commitear no puede ser aceptado ni reparado por este bloque.</div>
+<p><strong>Para cerrarlo:</strong> o commiteas 027 (y decides si sus 14 referencias se arreglan o se aceptan en su propio registro fechado), o lo quitas del árbol hasta que tenga su propio ciclo. El instrumento no exige nada más: cualquier camino que deje 0 reales-sin-aceptar verde la receta.</p>
+
+<h2>Por qué no está verde — 2: el audit dice BROKEN (22 enlaces en 5 runs)</h2>
+<div class="callout warn"><strong><code>ai-eng audit verify</code> → FAIL: 22 enlaces rotos (918-923, 933-936, 946-949, 959-962, 974-977), «llegó editado antes de sellarse».</strong>
+La causa, según el propio note de <code>hooks/_emit.py</code>: una línea que un test escribe a través del buffer del clon bajo su propio <code>AI_ENGINEERING_HOME</code> llega como «editado», porque el sello no puede distinguirlo de una edición real. Durante el build, los subprocesos de <code>ai-eng spec show --tick</code> y los tests escribieron eventos en el buffer. La respuesta exige teclado: <code>ai-eng audit account --range … --why … --by 'repository owner'</code> pide escribir la frase <code>ACCOUNT 918-923 AS repository owner</code> en un terminal — no hay teclado en esta sesión.</div>
+<p><strong>Para cerrarlo:</strong> una persona en un terminal corre los cinco <code>ai-eng audit account</code> (un rango cada uno) y responde por ellos. Nada se borra; se añade el registro de que alguien miró y dijo por qué.</p>
+
+<h2>Lo que los críticos encontraron (y qué se hizo)</h2>
+<table>
+<thead><tr><th>Hallazgo</th><th>Severidad</th><th>Estado</th></tr></thead>
+<tbody>
+<tr><td><code>skill-map-accepted.toml</code> sin commitear → fresh checkout crashea</td><td>bloqueante</td><td><span class="good">corregido (commit 8f25f903)</span></td></tr>
+<tr><td>ADR 0025 corrupto (fragmentos duplicados, expiración contradictoria 09-25/09-30)</td><td>bloqueante</td><td><span class="good">corregido (reescrito, expira 2026-09-30)</span></td></tr>
+<tr><td>Aceptación por nombre desnudo (<code>SKILL.md</code> sin ruta) perdona cualquier enlace futuro con ese nombre</td><td>bloqueante</td><td><span class="good">corregido: pares nodo→objetivo</span></td></tr>
+<tr><td><code>sm</code> sin pin de integridad; el módulo invoca <code>sm</code> desnudo sin autocomprobar versión</td><td>bloqueante</td><td><span class="good">parcial: versión comprobada en el módulo; SHA256 del binario = decisión de CI</span></td></tr>
+<tr><td><code>map</code> es no-op en CI: <code>check.yml</code> no instala <code>sm</code>, la rama skip exit 0 siempre</td><td>bloqueante</td><td><span class="warn">decisión de alcance — el plan aprobado dice «No CI/CD task»; añadirla exige re-aprobación</span></td></tr>
+<tr><td>Plan: tareas 4-5 sin marcar aunque implementadas</td><td>no bloqueante</td><td><span class="warn">correcto: el tick es un comando que debe pasar; <code>just map</code> sale 1 por el 027</span></td></tr>
+</tbody>
+</table>
+
+<h2>Qué cuesta cerrarlo</h2>
+<ol>
+<li><strong>027</strong> (dueño: tú): commitearlo o sacarlo del árbol. Coste: 0 en este bloque; el ciclo de 027 decide sus 14 referencias.</li>
+<li><strong>Audit</strong> (dueño: una persona con teclado): cinco <code>ai-eng audit account</code> sobre los rangos. Coste: ~2 minutos.</li>
+<li><strong>CI</strong> (decisión de alcance, dueño: tú): el plan aprobado excluyó CI/CD; el crítico de seguridad demostró que sin <code>sm</code> en <code>check.yml</code> la receta siempre salta en CI y el instrumento nunca corre donde la puerta es real. Si decides que debe correr: instalar <code>sm</code> con pin SHA256 en el workflow, hacer la rama skip fail-closed en CI y añadir <code>map</code> a <code>anti_theatre</code>. Eso es una enmienda del plan — tu llamada.</li>
+</ol>
+
+<h2>Nada está aprobado aquí</h2>
+<div class="callout warn">Esta página no aprueba nada, no acepta riesgos y no declara un PASS. Es la segunda mitad del ciclo en su forma honesta: la puerta no está verde, y esta página dice exactamente por qué y qué cuesta cerrarla. Los commits del bloque (10) están en la rama, cada uno con su gate ejecutado en la misma cadena; los críticos (revisión y seguridad) corrieron en sus propios contextos y sus hallazgos se respondieron por commit.</div>
+
+<p class="cite">Artefactos: plan <code>specs/026-sm-skillmap-as-instrument/plan.md</code> (3 sellados, 2 abiertos) · digest <code>src/ai_engineering/skillmap.py</code> · aceptación <code>docs/adr/0025</code> + <code>policy/skill-map-accepted.toml</code> · exclusión <code>policy/skill-map-exclusions.toml</code> · commits <code>4d827579..8f25f903</code>.</p>
+</main>
+</body>
+</html>

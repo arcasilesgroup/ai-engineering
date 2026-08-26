@@ -18,7 +18,7 @@ the result of a mechanical gate, because those ran in CI, and it says so.
 
 - "CI is failing on this branch, find out why" — use `/ai-debug`, because that is a failure with a cause to name at `file:line`, not a diff to judge.
 - "this used to work last week and now it doesn't" — use `/ai-debug`, whose first step is reproducing it and whose output is a check that fails for that reason.
-- "run `just check` and tell me whether it's green" — use `/ai-ship`, which runs the gate and shows its output; this skill never stands in for a gate it did not see.
+- "run the repo's gate and tell me whether it's green" — use `/ai-ship`, which runs the gate and shows its output; this skill never stands in for a gate it did not see.
 - "looks good, commit it and open the PR" — use `/ai-ship`, because landing the work is commits, a changelog entry, a pull request and a closed work item, not a judgement.
 - "the review shows the whole approach is wrong, redesign it" — use `/ai-spec`, because that is a decision with options and authority behind it, and this skill is not a rewrite.
 - "where is this function called from" — use `/ai-explore`, because reading the repository to answer a question is its job, and this skill only reads the diff and what surrounds it.
