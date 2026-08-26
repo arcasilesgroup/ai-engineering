@@ -17,7 +17,7 @@ the wheel for a repository they are accountable for. The research goal (`.ai/res
 model-router, Loop-Engineering, wayfinder, al-design-system, headstart, graph-engineering,
 astryx, okf, deepsec, cc-creators-skill (×2), contains-studio/agents, Anthropic
 code-simplifier, addyosmani/agent-skills, make-claude-code-last-longer, AL-Design — and
-distilled roughly 190 adoptable items into eight meta-patterns. For the owner this spec
+distilled roughly 190 adoptable items into eight meta-patterns: (1) the verifier never fixes what it judges; (2) state lives in files, not memory; (3) gates are executed, not declared; (4) whatever is not verified is marked; (5) cost is projected before it is spent; (6) context is paid for; (7) verification is binary, never scored; (8) one writer holds the tree while critics read it in their own context. For the owner this spec
 locks the shape of the next build: which patterns become checked behaviours of the
 framework, in which order, and what is deliberately not adopted. For the stranger it is
 the record of why the framework grew those controls, so their boundaries are auditable
@@ -68,6 +68,10 @@ copied at all.
 
 ## Options considered
 
+The three options are compared on two axes — the scope of the authoritative change and the
+cost of reversing it — a method named explicitly so this record satisfies the named-framework
+rule (B-035-9) it adopts.
+
 1. **Adopt the eight meta-patterns as checked behaviours, sequenced R0 → R1 → R2 (chosen
    shape).** The P0 kernel (B-035-1 … B-035-9 below) becomes normative framework behaviour
    with red-fixture-first TDD tasks; the P1/P2 sets are sequenced after the kernel is
@@ -106,24 +110,34 @@ record.
   errors and warnings separated — okf OKF-03, unlazy U01/U02) becomes the gate runner.
 - **B-035-2 — Verifier isolation.** The framework's auditor runs with no edit tools and
   no capability to repair what it finds ("report, don't fix"); `NOT COVERED` is reported,
-  never a silent `PASS` (graph-eng G-17/G-09, Loop-Engineering LE-01).
+  never a silent `PASS` (graph-eng G-17/G-09, Loop-Engineering LE-01). Reconciled with the
+  one-writer rule by separation in time and pass: the auditor reports findings without edit
+  tools; the builder applies them in a fresh pass; and the auditor's verdict — never the
+  builder's self-certification — is what the gate checks, so the same isolated auditor must
+  re-verify the builder's fix before it counts.
 - **B-035-3 — Shared scope/severity/honesty contract.** A `conventions` contract every
   verification skill reads first: severity scale, false-positive gate (trigger +
-  consequence + evidence), installed-version rule, scope resolved once, criteria written
-  before code is read (graph-eng G-01/02/03/16, wayfinder W-01/02/03).
+  consequence + evidence), installed-version rule, scope resolved once, criteria written before code is read
+  (graph-eng G-01/02/03/16, wayfinder W-01/02/03). Its refusing test is one of the kernel
+  behaviours this record adopts, so enforcement arrives with the behaviour's own fixture in
+  R0 — temporal, not circular (see the wave-completion criterion).
 - **B-035-4 — Boundary classifier.** Every decision a skill may take is one of
   Always / Ask-first / Never, and a skill cannot silently widen its own boundary
   (addyosmani ASK-14).
 - **B-035-5 — Anti-rationalization + red flags + exit criteria.** Verification skills
   ship a table of common rationalizations (excuse → reality) and observable red flags, and
   finish against a checklist whose items require evidence (addyosmani ASK-02/03/04).
-- **B-035-6 — Cost pre-flight.** An operation that spends significant model work or
-  context projects its cost and requires the budget to be named before execution; work
+- **B-035-6 — Cost pre-flight.** An operation whose estimated cost crosses a configurable
+  threshold (default: more than 5 model calls or 20k output tokens) projects its cost and
+  requires the budget to be named before execution; work
   routes by model cost/capability with a bail-out before delegation (deepsec D-01,
   model-router MR-01/02).
 - **B-035-7 — Skill schema with tool gating.** Every skill declares machine-validated
-  metadata (frontmatter schema) and the tools it may use; a skill cannot run a tool outside
-  its declared set (contains-studio CS-01/02, cc-creators A-07/CC-05).
+  metadata (schema at `policy/skill-schema.json`, validator in `src/ai_engineering/`) and
+  the tools it may use; a skill cannot run a tool outside its declared set (contains-studio
+  CS-01/02, cc-creators A-07/CC-05). B-035-4's boundary vocabulary is read from this
+  validator, so B-035-4 is enforceable only once B-035-7's validator exists — the two are
+  delivered together in R0.
 - **B-035-8 — Context an agent pays for.** Long tool output is truncated/filtered before
   it enters context, and rules load by area rather than all-at-once; the framework's own
   instruction file stays minimal and non-inferable (make-claude-code-last-longer
@@ -134,6 +148,14 @@ record.
   H02, AL-Design D-01, contains-studio).
 
 ### The sequenced waves (post-kernel)
+
+**Wave-completion criterion.** A wave is green when `just check` passes with that wave's
+fixtures and corpus assertions present, and no lane in the wave is left with a pending red
+beyond the inherited `madr.validate` red. Concretely: R0 completes only when
+`tests/test_035_adoption.py` passes all seven `-k` cases and the named-framework and
+boundary corpus assertions are present in `tests/skill_eval.py`; R1 when the
+review-router/full-review fixtures pass; R2 when each validated item lands with its fixture.
+A later wave never starts while an earlier one is red.
 
 - **R1 (P0/P1, after R0 is green):** review-router and full-review with a single resolved
   scope, lane discipline and merged report (graph-eng G-04/05/06/07); context economy
@@ -199,6 +221,10 @@ duplicated, would let two lanes disagree on what `P0` or `HIGH` means.
 
 ## Examples somebody can check
 
+The `-k` commands below target `tests/test_035_adoption.py`, which does not exist until the
+approved plan writes it; each one is the wave's red-first acceptance test, and R0 is not
+adopted until the seven all pass.
+
 - **Success, executed evidence:** Given a guard whose `EXPECT` matches its executed
   `CHECK` output, When the gate runs, Then the value holds and the evidence is recorded
   (`uv run --with pytest==9.1.1 pytest -q tests/test_035_adoption.py -k evidence` →
@@ -213,12 +239,16 @@ duplicated, would let two lanes disagree on what `P0` or `HIGH` means.
   reports it cannot decide and blocks (`-k boundary_undecidable` →
   `1 passed`); a ranking with no named framework is refused (`-k unnamed_ranking` →
   `1 passed`).
+- **Anti-rationalization:** Given a verifier about to skip a red flag on a plausible excuse,
+  When the anti-rationalization table matches the excuse to its reality, Then the skip is
+  blocked and the gate fails the pass (`-k anti_rationalization` → `1 passed`).
 - **Cost, pre-flight:** Given an expensive operation, When cost pre-flight runs with no
   named budget, Then execution is refused before any model work (`-k cost_preflight` →
   `1 passed`).
-- **Tree stays green:** Given the repaired tree, When `contract.audit` runs over all
-  skills, Then the gate proves it clean — every behaviour read by both its module and its
-  fixture with no shared line, and the inherited `madr.validate` is the only unchanged red.
+- **Tree stays green:** Given the repaired tree, When `just check` passes with the wave's
+  fixtures present, Then the gate proves it clean — every behaviour read by both its module
+  and its fixture with no shared line, and the inherited `madr.validate` is the only
+  unchanged red.
 
 ## Decisions
 
@@ -272,7 +302,8 @@ second hop, so the service-shaped boxes are `not applicable`.
 - [x] Errors — not applicable: every new path fails closed (unmet evidence, verifier edit,
   out-of-boundary decision, unnamed ranking, unnamed budget)
 - [x] Health and data age — `tests/test_035_adoption.py` runs in `just test` on every gate;
-  the eval suite asserted in `tests/skill_eval.py` per B-035-9/R1
+  the eval suite asserted in `tests/skill_eval.py` — corpus assertions ship with the R0
+  kernel (wave-completion criterion)
 - [x] External check — `.github/workflows/check.yml` runs the whole gate on every push; the
   named-framework and boundary rules are additionally asserted by `tests/skill_eval.py`,
   the independent route over the same corpora
