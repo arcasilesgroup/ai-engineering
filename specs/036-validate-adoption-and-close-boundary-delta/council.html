@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Council — spec 036 (validate adoption, close the boundary delta)</title>
+<style>body{max-width:60em;margin:2em auto;padding:0 1em;font-family:Georgia,serif;line-height:1.45}pre{white-space:pre-wrap;background:#f6f6f6;padding:.6em;font-family:ui-monospace,Menlo,monospace;font-size:.9em}del{color:#666}</style>
+</head>
+<body>
+<pre>
+# Council — spec 036 (validate adoption, close the boundary delta)
+
+Independent council read at commit `b351f267` on 2026-08-26, through the three rounds of the
+ai-council skill: five lenses that read only the spec (and the tree, for commands), a
+cross-read in which each lens judges the other four without names, and a chairman who sees no
+lens names. Every command below was run on this tree and its output is pasted. The surfaces
+the earlier review flagged were re-probed with fresh commands — where a fix lands this record
+says so, and where it does not it says so. `tests/test_036_boundary.py` and
+`tests/test_036_validation.py` do not exist yet, and `skill_eval` has no boundary cases yet;
+anything attached to those objects is **UNPROVEN** and is labelled as such rather than assumed.
+
+## Round one — five lenses, and none of them sees another
+
+### Lens 1 — Cost
+
+What does this record cost, in future gates, in deferred bookkeeping, and in claims a stranger must pay for?
+
+- **C1 — &quot;uncertain check = fail&quot; overstates the module it maps.** Row B-035-2&#x27;s gloss says an uncertain check is a fail, but the row&#x27;s own contract symbol, `Verdict`, is three-valued (`PASS`/`FAIL`/`BLOCKED`), and the behaviour name in column one, `NOT COVERED`, names no symbol in either module. The third verdict is exactly the uncertain path. If B-036-3 keys on the row&#x27;s symbol, the gloss misleads the next reader about what the module contracts.
+
+```text
+$ grep -n &quot;NOT COVERED&quot; src/ai_engineering/verify_cold.py src/ai_engineering/answer_key.py
+(no matches; exit 1)
+```
+
+- **C2 — &quot;035&#x27;s digests describe seventeen tasks&quot; is an uncited count.** The record leans on the figure twice and names no digest and no plan task; a stranger auditing the adoption cannot re-derive seventeen from anything this record contains. The by-value mechanism is examined under T2. Cost: one number taken on faith.
+
+```text
+$ grep -cE &quot;[0-9a-f]{64}&quot; specs/036-validate-adoption-and-close-boundary-delta/spec.md
+0
+```
+
+### Lens 2 — Reversibility
+
+Can this record be undone, and what must have happened before it is true?
+
+- **R1 — 035&#x27;s bytes are untouched, but the supersession is a plan-time promise, not a present state.** Reversible side: `git status` shows no modification to any 035 file, and this record carries `supersedes: &quot;035&quot;` in its own front matter. Irreversible side: 035&#x27;s approval record holds no pointer to 036 and this record names no digest by value, so until the plan runs, a reader of 035 alone sees a live, approved spec. The record is honest that this is a two-stage design; the first stage is the only one that exists.
+
+```text
+$ git status --porcelain specs/035-*
+(empty)
+$ grep -n &quot;036&quot; specs/035-*/approval.md
+(no matches; exit 1)
+```
+
+- **R2 — nothing in the tree enforces the follow-up note on 035&#x27;s approval.** If the plan forgets the note, no test fails and no check notices; the one-directional link stays one-directional until a human observes it. Commands cannot see a missing sentence.
+
+```text
+$ grep -rln &quot;035&quot; tests/
+(no matches)
+```
+
+### Lens 3 — The undecidable path
+
+Which inputs leave the new machinery unable to decide, and what does it do then?
+
+- **U1 — `classify` overloads its undecidable.** The contract promises `None` when the decision falls outside the declared boundary, and the production section adds that &quot;a `None` boundary is never coerced into a guessed class&quot; — but a missing or empty declaration set collapses to the same `None`, and the report string `CANNOT DECIDE` carries neither reason nor index. The wayfinder precedent this record cites reports `U&lt;number&gt;: CANNOT JUDGE` — an *indexed* undecidable; the adopted classifier drops the index. Two undecidable causes, one signal, and no fixture tells them apart (the examples cover the out-of-declaration case only).
+
+```text
+$ grep -n &quot;None\|CANNOT DECIDE&quot; specs/036-validate-adoption-and-close-boundary-delta/spec.md
+99:    `Always` / `Ask-first` / `Never`, or `None` when the decision falls outside the declared
+100:    boundary; an out-of-declaration decision reports `CANNOT DECIDE` and blocks — it never
+176:    When `decision_boundary.classify` reads it, Then it returns `Always`, `Ask-first` or `Never`
+180:    When the classifier reads it, Then it returns `None`, reports `CANNOT DECIDE`, and blocks
+231:    fail closed (out-of-declaration ⇒ `CANNOT DECIDE`, block; a `None` boundary is never coerced)
+(trimmed: full run also matched lines 47 and 205)
+```
+
+- **U2 — `CANNOT DECIDE` is a word new to this tree.** It occurs zero times in `src/`, `tests/`, `.agents/skills/` and `.ai/research/`. The two undecided verdicts that already exist are wayfinder&#x27;s `CANNOT JUDGE` and `answer_key`/`verify_cold`&#x27;s `BLOCKED: U&lt;n&gt;`. The adopted gap introduces a third word for the one path the record most wants named. (The cross-read refutes this as a deliberate, disclosed vocabulary; see round two.)
+
+```text
+$ grep -rn &quot;CANNOT DECIDE&quot; src/ tests/ .agents/skills/ .ai/research/ 2&gt;/dev/null | wc -l
+0
+```
+
+### Lens 4 — What is taken on trust
+
+- **T1 — the &quot;five existing modules&quot; behind the name decision is wrong; the count is thirteen.** The name-collision rationale (spec 036 council, gap G1 — now cited by this record) says five modules use the word `boundary` for filesystem, word and data boundaries. The tree contains the word in thirteen module files, including scanner rows, trust boundaries and transaction boundaries, with bare-identifier uses in `contract.py` (`def boundary`) and `scan.py` (the `[boundary]` field). The direction — do not name the class `boundary` alone — survives, even strengthens; the supporting number is false as written.
+
+```text
+$ grep -rlI &quot;boundary&quot; src/ai_engineering --include=&quot;*.py&quot; --exclude-dir=&quot;__pycache__&quot; | wc -l
+13
+```
+
+- **T2 — the supersession link is claimed &quot;by value&quot;, and the value is absent.** The record says this record and its approval name 035&#x27;s digests by value. This record names none — zero 64-hex digests in `spec.md` and an empty `ref:` — while 035&#x27;s own approval record carries two digests by value today. The mechanism is real; the link is not yet written. The one-directional wrinkle (F2.1) is answered in prose, not in the tree.
+
+```text
+$ grep -cE &quot;[0-9a-f]{64}&quot; specs/036-validate-adoption-and-close-boundary-delta/spec.md
+0
+$ grep -cE &quot;[0-9a-f]{64}&quot; specs/035-*/approval.md
+2
+```
+
+- **T3 — the provenance claims that can be checked all check out (council gap G3 lands).** Every row&#x27;s module exists with its contract symbol: `verify()` / `VERIFIED` / `EVIDENCE_MISSING` / `EVIDENCE_STALE` / `EVIDENCE_DIGEST_MISMATCH` / `EVIDENCE_EXECUTED_FAIL` (evidence.py, 445 lines as stated), `Verdict` (verify_cold.py), `audit_one()` plus `_output_contract_problems`, `_load_tier_problems`, `_incorrect_correct_problems`, `_corpus_problems`, `_dispatcher_problems` and `_anti_rationalization_problems` (contract.py), `calibrate()` (cost.py), `preflight` (capability.py), `trim_output()` (trim.py), `named()` (decision_fw.py). The git dates hold — `feat(evidence): verify executable receipts` is 2026-08-14, `feat(capability): enforce declared actions` is 2026-08-13. The docstring citations hold — cost.py names deepsec and headstart, decision_fw.py names contains-studio. This is the strongest part of the record, and the earlier review&#x27;s flagged surface lands.
+
+```text
+$ git log --format=&quot;%h %ad %s&quot; -1 -- src/ai_engineering/evidence.py
+0c957767 Fri Aug 14 04:17:15 2026 +0200 feat(evidence): verify executable receipts
+$ git log --format=&quot;%h %ad %s&quot; -1 -- src/ai_engineering/capability.py
+da915827 Thu Aug 13 22:03:38 2026 +0200 feat(capability): enforce declared actions
+$ grep -n &quot;deepsec\|headstart&quot; src/ai_engineering/cost.py
+6:continue without consent above a `policy/`-declared threshold. In non-interactive mode,
+7:absent consent, it fails closed (deepsec `calibrate.sh` made mandatory, headstart&#x27;s ArXiv
+$ grep -n &quot;contains-studio&quot; src/ai_engineering/decision_fw.py
+6:supports (contains-studio).
+```
+
+### Lens 5 — The example nobody wrote
+
+- **E1 — the sentence &quot;a `None` boundary is never coerced into a guessed class&quot; has no fixture.** The red-first denial example covers the out-of-declaration decision only; empty declarations, a missing manifest or a malformed declaration set are described in prose and never exercised. (The cross-read refutes this: the capability manifest is schema-validated before the classifier reads it. See round two.)
+
+```text
+$ grep -n &quot;classify&quot; specs/036-validate-adoption-and-close-boundary-delta/spec.md
+99:    `declarations` returns one of
+176:    When `decision_boundary.classify` reads it, Then it returns `Always`, `Ask-first` or `Never`
+180:    When the classifier reads it, Then it returns `None`, reports `CANNOT DECIDE`, and blocks
+```
+
+- **E2 — no example demonstrates that 035&#x27;s bytes stay frozen after the plan runs.** The frozen-bytes invariant is the load-bearing claim of the whole supersession, and the examples verify the new module, the corpus and the table — everything except the promise that 035 is not silently edited. The best today is `git diff` against 035&#x27;s last commit, which is an observer, not a check. (The cross-read refutes this: 035&#x27;s approval digests already bind the bytes. See round two.)
+
+```text
+$ git diff aec6b54f --stat -- specs/035-*
+(empty)
+```
+
+- **Confirmed, not a finding: the red-first disclaimer is present and the &quot;not yet&quot; claims are honest.** The examples open with the disclaimer that the two test files &quot;do not exist until the approved plan writes them, and the counts are the goal, not a claim that they pass today&quot;. `tests/test_036_boundary.py` and `tests/test_036_validation.py` do not exist; `skill_eval` has no boundary cases; the harness runs green today at `RAN skilleval=363` against a baseline of 363 with margin 0, so the three corpus rows will move the baseline exactly as the example says. The record&#x27;s red-first discipline is not decorative.
+
+```text
+$ ls tests/test_036_boundary.py tests/test_036_validation.py
+ls: cannot access &#x27;tests/test_036_boundary.py&#x27;: No such file or directory
+ls: cannot access &#x27;tests/test_036_validation.py&#x27;: No such file or directory
+$ uv run python tests/skill_eval.py 2&gt;&amp;1 | tail -3
+  Nothing here evaluates whether a skill&#x27;s instructions are any good.
+RAN skilleval=363
+  baseline 363, delta +0, margin 0
+```
+
+## Round two — they read each other, and they do not rank
+
+Each lens below saw the other four answers, relabelled and shuffled, never its own, and
+answered two questions: which finding is a false alarm (with a command that was run), and
+what did all of us miss.
+
+- **Lens A** — false alarm: **U2**. The vocabulary drift is deliberate and disclosed: B-036-1&#x27;s source link quotes the report&#x27;s own word, and the record defines Always/Ask-first/Never and CANNOT DECIDE as *its own contract*, asserted by its own fixtures. No claim of identity with the precedent&#x27;s verdict string is made anywhere, so the third-word finding imputed a requirement the record never states. Miss: nobody named the parse-surface problem (gap G1 below).
+
+```text
+$ grep -rn &quot;CANNOT JUDGE&quot; specs/036-validate-adoption-and-close-boundary-delta/spec.md
+106:  (W-02, Unknown → CANNOT JUDGE)
+```
+
+- **Lens B** — false alarm: **E2**. 035&#x27;s approval record binds its spec and plan bytes by two digests, and the acceptance machinery refuses byte drift against the release it was built for; the frozen-bytes invariant the example was &quot;missing&quot; is already enforced by the record. A bespoke example would test a red the record already refuses. Miss: B-036-3&#x27;s asserted surface leaves the provenance column out of scope (gap G2 below).
+
+```text
+$ grep -cE &quot;[0-9a-f]{64}&quot; specs/035-*/approval.md
+2
+```
+
+- **Lens C** — false alarm: **C1**. Column one of the table labels 035&#x27;s kernel behaviours — `NOT COVERED ≠ PASS` is the *task name*, not a claimed symbol; the row&#x27;s contract symbol is `Verdict`, which exists, and the module&#x27;s own code maps unknown to `BLOCKED`, which is precisely &quot;not PASS&quot;. The gloss &quot;uncertain check = fail&quot; is fail-closed prose, faithful in the module&#x27;s own vocabulary. Miss: the empty-target send that `problems()` skips — counted but never asserted (gap G1 below).
+
+```text
+$ grep -n &quot;return Verdict&quot; src/ai_engineering/verify_cold.py
+55:        return Verdict.BLOCKED
+60:        return Verdict.FAIL
+61:        return Verdict.PASS
+```
+
+- **Lens D** — false alarm: **E1**. The classifier reads &quot;the skill&#x27;s machine-validated metadata (the capability.py manifest surface)&quot;; capability.py fails closed on unreadable or invalid manifests before preflight, so empty or malformed declarations cannot reach `classify`. The missing example would exercise a path the manifest validation already closes. Miss: the corpus example has no red side (gap G3 below).
+
+```text
+$ grep -n &quot;MANIFEST_INVALID\|SCHEMA_PATH\|MANIFEST_PATH&quot; src/ai_engineering/capability.py
+25:MANIFEST_INVALID = (&quot;CAPABILITY_MANIFEST_INVALID&quot;, &quot;capability manifest is invalid&quot;)
+37:SCHEMA_PATH = paths.policy(&quot;capability-manifest.schema.json&quot;)
+38:MANIFEST_PATH = paths.policy(&quot;capabilities.toml&quot;)
+```
+
+- **Lens E** — false alarm: **R2**. The record itself carries the supersession marker in its front matter (`supersedes: &quot;035&quot;`), so 035 does not read as live forever; the follow-up note is the visible cross-link whose absence any reader of 035&#x27;s approval can see, and the two-stage record is the option the record explicitly chose with the wrinkle answered in its own text. Miss: agrees with lens D — the corpus rule&#x27;s only example is green-side.
+
+```text
+$ grep -n &quot;supersedes&quot; specs/036-validate-adoption-and-close-boundary-delta/spec.md
+7:supersedes: &quot;035&quot;
+```
+
+### Gaps no single lens named
+
+- **G1 — the parseable shape B-036-2 prescribes for `corpus.md` is a shape the harness parses in `SKILL.md`, not in `corpus.md` (gap G2&#x27;s fix lands at the regex, not at the file).** `_TRIGGER` and `_REFUSAL` are applied to the folded description of each `SKILL.md` — line 81, `text = description((skill / &quot;SKILL.md&quot;)…)` — and never to `corpus.md`. The corpus files are read only by `cases()`, whose shape is `&quot;quoted situation&quot;` plus an `_SKILL_TARGET` (`/ai-…`) tail. Every one of the seventeen `corpus.md` files uses that shape today, and zero corpus rows anywhere contain `Not for`. So the rule as B-036-2 places it — &quot;the `corpus.md` files gain the rule … quoted situations and `Not for … — …` refusals, exactly as `_TRIGGER`/`_REFUSAL` admit&quot; — produces a row whose quoted shell becomes a send with an empty target: counted in `sends`, skipped by `problems()` (`if not target: continue`), and whose `Not for … — …` tail no parser reads. &quot;The boundary refusal is asserted by the same generic lane that carries the spec 034 named-framework precedent&quot; is true only if the rule goes into the `SKILL.md` descriptions (the refusals lane), which B-036-2 does not say. The named-framework precedent rides *claims*; the boundary rule is a *refusal*; the record fuses the two surfaces.
+
+```text
+$ grep -n &quot;_TRIGGER = \|_REFUSAL = \|def corpus\|def cases\|description((skill&quot; tests/skill_eval.py
+47:  _TRIGGER = re.compile(r&#x27;&quot;([^&quot;]+)&quot;&#x27;)
+55:  _REFUSAL = re.compile(r&quot;Not for ([^.]*?)\s*[—:]\s*([^.]+)&quot;)
+70:  def corpus(root: Path | None = None) -&gt; dict[str, dict]:
+81:      text = description((skill / &quot;SKILL.md&quot;).read_text(encoding=&quot;utf-8&quot;))
+98:  def cases(skill: Path) -&gt; dict[str, list]:
+$ grep -c &quot;Not for&quot; .agents/skills/ai-spec/corpus.md .agents/skills/ai-review/corpus.md .agents/skills/ai-verify/corpus.md
+.agents/skills/ai-spec/corpus.md:0
+.agents/skills/ai-review/corpus.md:0
+.agents/skills/ai-verify/corpus.md:0
+```
+
+- **G2 — B-036-3&#x27;s three asserted inputs leave the table&#x27;s provenance half unchecks, and &quot;documented responsibility&quot; is undefined as an input.** The freshness test asserts module-exists, symbol-exports, and &quot;the documented responsibility&quot;; it does not assert the evidence column — the git dates (2026-08-13/14) and the docstring citations (deepsec, headstart, contains-studio) live only in the table&#x27;s prose and in the assumptions section. A refactor that keeps every symbol while rewriting the docstrings passes the freshness test and falsifies the table&#x27;s evidence column at the same time. And the third input, responsibility, has no defined test shape — the same underspecification U1 found on the classifier&#x27;s `None`, seen from the calendar end.
+
+```text
+$ grep -n &quot;2026-08-1[34]\|deepsec\|contains-studio\|headstart&quot; specs/036-validate-adoption-and-close-boundary-delta/spec.md
+31:  …first shipped `feat(evidence): verify executable receipts` (2026-08-14)…
+35:  …its docstring cites deepsec and headstart, the same research references |
+36:  …`feat(capability): enforce declared actions` 2026-08-13)…
+38:  …its docstring cites contains-studio |
+152:  (evidence.py 2026-08-14, capability.py 2026-08-13). The challenge is the
+(abbreviated row text)
+```
+
+- **G3 — the red-first discipline stops at the corpus rule: B-036-2&#x27;s only example is green.** The classifier and the freshness test each got a red-side example (the denial case; the deleting-one-fails case) and the disclaimer that their counts are goals, not claims. The corpus example states only what happens when the rules land — &quot;the routing lane reads the new cases and the baseline moves&quot;. There is no example whose text says what fails when the boundary rows go missing or land in the wrong shape, which is the failure every other part of the record refuses to leave unexercised — and per G1, the wrong shape is not merely unasserted, it is invisible except as an empty-target send inside a total.
+
+```text
+$ grep -n &quot;Examples\|skill_eval&quot; specs/036-validate-adoption-and-close-boundary-delta/spec.md
+168:  ## Examples somebody can check
+184:    `Not for … — …` refusals in the three `corpus.md` files, When `tests/skill_eval.py` runs,
+186:    same commit (`uv run python tests/skill_eval.py` → the boundary cases are counted).
+(trimmed: lines 52, 54, 112, 116, 160 also matched &quot;skill_eval&quot;)
+```
+
+### Findings cut for carrying no command
+
+None. Every finding above carries a command, and every command shown was run on this tree.
+
+### Findings the cross-read refuted, with the command that refuted them
+
+- ~~**C1** — &quot;uncertain check = fail&quot; overstates the module it maps (`NOT COVERED` is no symbol).~~ Refuted by lens C: column one labels 035&#x27;s task names; the row&#x27;s symbol is `Verdict`; the module&#x27;s own `unknown → BLOCKED` is exactly &quot;not PASS&quot;. Command run:
+
+```text
+$ grep -n &quot;return Verdict&quot; src/ai_engineering/verify_cold.py
+55:        return Verdict.BLOCKED
+60:        return Verdict.FAIL
+61:        return Verdict.PASS
+```
+
+- ~~**U2** — CANNOT DECIDE introduces a third undecided word to the tree.~~ Refuted by lens A: the record defines its own contract vocabulary and quotes the report&#x27;s word accurately in the source link; no identity with the precedent&#x27;s verdict string is claimed. Command run:
+
+```text
+$ grep -rn &quot;CANNOT JUDGE&quot; specs/036-validate-adoption-and-close-boundary-delta/spec.md
+106:  (W-02, Unknown → CANNOT JUDGE)
+```
+
+- ~~**E2** — no example proves 035&#x27;s bytes stay frozen after the plan runs.~~ Refuted by lens B: 035&#x27;s approval record already binds spec and plan bytes by two digests, and the acceptance machinery refuses byte drift. Command run:
+
+```text
+$ grep -cE &quot;[0-9a-f]{64}&quot; specs/035-*/approval.md
+2
+```
+
+- ~~**E1** — the &quot;None boundary is never coerced&quot; sentence has no fixture (no malformed-declaration example).~~ Refuted by lens D: the classifier reads schema-validated manifest metadata; capability.py fails closed on unreadable or invalid manifests before the surface exists. Command run:
+
+```text
+$ grep -n &quot;MANIFEST_INVALID\|SCHEMA_PATH\|MANIFEST_PATH&quot; src/ai_engineering/capability.py
+25:MANIFEST_INVALID = (&quot;CAPABILITY_MANIFEST_INVALID&quot;, &quot;capability manifest is invalid&quot;)
+37:SCHEMA_PATH = paths.policy(&quot;capability-manifest.schema.json&quot;)
+38:MANIFEST_PATH = paths.policy(&quot;capabilities.toml&quot;)
+```
+
+- ~~**R2** — nothing in the tree enforces the follow-up note on 035&#x27;s approval.~~ Refuted by lens E: the record&#x27;s own front matter already marks the supersession for any reader of 036; the note is the cross-link whose absence is visible on 035&#x27;s side, and the two-stage design with the wrinkle answered is the option the record chose. Command run:
+
+```text
+$ grep -n &quot;supersedes&quot; specs/036-validate-adoption-and-close-boundary-delta/spec.md
+7:supersedes: &quot;035&quot;
+```
+
+## The two counts
+
+- Gaps that appeared only after the cross-read: **3**
+- Findings deleted, for carrying no command or for being refuted: **5**
+
+## Round three — the chairman
+
+No lens names in this room; the spec and both rounds only.
+
+**What the lenses agree on.** The table is real. Eight rows, eight modules, eight contract symbols, all present; evidence.py is 445 lines as printed; the dates 2026-08-13 and 2026-08-14 are in the git history; cost.py and decision_fw.py carry the cited research references. The central claim — that eight of the nine behaviours already ship — is the best-verified sentence in the record, and it reproduces under command. The red-first disclaimer is present and the not-yet claims are true: the two test files do not exist, the harness runs green at skilleval=363 against a margin-0 baseline that the corpus rows must move, and no module named decision_boundary exists to collide with. Avoiding the bare word *boundary* is the right instinct.
+
+**Where they clash.** Two arguments run through the rounds. The first: how much of the undecidable path must be settled in this record — one side reads the overloaded `None` as a dropped reason that will bite the first caller, the other reads the report string as the caller&#x27;s to enrich and the manifest validation as the guard that makes the empty case unreachable. The second: how much corpus mechanics the record must specify before the plan runs — one side holds that B-036-2&#x27;s prescription points at the wrong file for the shape it names, the refutations hold that the fixtures-first plan will discover and correct whatever the prose misplaces, so the cost of the mismatch is a plan-time correction rather than a broken contract.
+
+**Blind spots the cross-read caught.** The parse-surface mismatch — the `Not for … — …` shape is a SKILL.md-description shape, and placing it in corpus.md makes the tail inert while the quoted shell moves the baseline — was invisible to every lens that read the regexes without reading the file the rule lands in. The provenance half of the table lies outside the freshness test&#x27;s asserted surface, and &quot;documented responsibility&quot; has no defined test input. And the corpus example is the only one without a red side.
+
+**Verdict.** A record that is honest about what exists and what does not, whose load-bearing claims reproduce under command, and whose earlier gaps are mostly closed: the per-row symbols land, the red-first disclaimer lands, 035&#x27;s bytes are untouched, and the name avoids the collision even though the count behind it is wrong. It is not yet complete in three measurable places: the supersession link is described but not written (this record names no digest by value, and 035&#x27;s side carries no note); the corpus rule is prescribed at a location whose shape the harness does not read; and the freshness check leaves half of its own table out of scope. Each of the three is a plan-time deliverable, which is why the record survives — and none of the three should survive as prose only.
+
+**Recommendation.** Make the three promised artifacts first-class plan tasks with red-first outcomes of their own: the record that names 035&#x27;s digests by value, the note on 035&#x27;s record, and — before either — the relocation of B-036-2&#x27;s prescription to the surface the harness actually parses: a `Not for … — …` refusal in the SKILL.md descriptions if the rule is to ride the refusals lane, or a quoted corpus case with a named destination if it is to be a case at all. In the same commit, add the provenance column (dates and citations) to what the freshness test asserts, and give &quot;documented responsibility&quot; a checkable shape.
+
+**One first step.** Run the smallest experiment before the plan fixes the three corpus rows: add one `Not for decisions outside the declared boundary — blocked, never routed.` refusal to one SKILL.md description and one quoted boundary case to one `corpus.md`, run `uv run python tests/skill_eval.py`, and read which lane counts which — that one output settles whether B-036-2&#x27;s placement is a copyedit or a correction.
+</pre>
+</body>
+</html>
