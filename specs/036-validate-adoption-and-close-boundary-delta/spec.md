@@ -86,8 +86,15 @@ true in writing, not in memory.
 
 ## Decision
 
-**Option 1.** Spec 036 supersedes spec 035's implementation scope and adopts the measured
-delta. Specs 028-034, and all the modules in the table above, remain normative and are
+**Option 1.** This spec
+supersedes 035's implementation scope and adopts the measured delta. The superseded record,
+by value: `specs/035-adoption-of-reference-patterns/spec.md`
+`0bf6cb029f4c858bda7502c73b69eb72cab33f9b1b16c8962f13c62f88ca0677`,
+`plan.md` `22c24bbbb907d9cde40a7db2ba1d3e4ddbe0fe7cc0a415ed7769152bec45062d`,
+`approval.md` `33a5f58c0d19a07696f11883a5bc3889a0b925ddecc8a85d9c276979972ad805` —
+frozen, unedited, and pointed at by this record and by a follow-up note added to 035's
+`approval.md` (council F2.1 / re-council by-value gap: the link is written, not promised).
+Specs 028-034, and all the modules in the table above, remain normative and are
 **not** touched or rewritten. The behaviours 035 named are recorded here as validated —
 already shipped — which is what this repository's research should have concluded all along.
 The three additions:
@@ -95,34 +102,41 @@ The three additions:
 ### B-036-1 — Decision-boundary classifier (the wayfinder W-02 gap)
 
 A `decision_boundary` module in `src/ai_engineering/` — the name deliberately avoids the
-word `boundary` alone, which five existing modules already use for filesystem, word and data
-boundaries (spec 036 council, gap G1). `classify(decision, declarations)` returns one of
-`Always` / `Ask-first` / `Never`, or `None` when the decision falls outside the declared
-boundary; an out-of-declaration decision reports `CANNOT DECIDE` and blocks — it never
-guesses and never silently widens its own boundary. The declarations it reads come from the
-skill's machine-validated metadata (the `capability.py` manifest surface), so the classifier
-depends on the same single source of truth as tool gating. Source link recorded for
-checkability: `.ai/research/reports/04-wayfinder/report.md` (W-02, Unknown →
-CANNOT JUDGE).
+word `boundary` alone, which thirteen module files already use for filesystem, word
+  and data boundaries (spec 036 council, gap G1). `classify(decision, declarations)`
+  returns a `Classified` result — `verdict` one of `Always` / `Ask-first` / `Never` or
+  `None` when the decision falls outside the declared boundary, plus an indexed `reason`
+  (`U0` for undeclared or malformed declarations, `U1`, `U2`, … for each out-of-declaration
+  class, the wayfinder `Unknown` numbering). An out-of-declaration decision reports
+  `CANNOT DECIDE` and blocks — it never guesses, never silently widens its own boundary, and
+  it distinguishes "declared but out" from "not declared at all". The declarations it reads
+  come from the skill's machine-validated metadata (the `capability.py` manifest surface),
+  so the classifier depends on the same single source of truth as tool gating. Source link
+  recorded for checkability: `.ai/research/reports/04-wayfinder/report.md` (W-02, Unknown →
+  CANNOT JUDGE).
 
 ### B-036-2 — Corpus rule in parseable shape, and the fixtures that prove it
 
-The `ai-spec`, `ai-review` and `ai-verify` `corpus.md` files gain the rule written in the
-case shape the routing harness parses — quoted situations and `Not for … — …` refusals,
-exactly as `tests/skill_eval.py`'s `_TRIGGER`/`_REFUSAL` admit (spec 036 council, gap G2) —
-so the boundary refusal is asserted by the same generic lane that carries the spec 034
-named-framework precedent. The proof objects land first, per the council's recommendation:
-`tests/test_036_boundary.py` (in-declaration and out-of-declaration fixtures) and the
-`skill_eval` baseline move argued in the same commit that adds the corpus rows.
+The boundary rule lands on the two parse surfaces the routing harness actually admits
+(spec 036 re-council, gap G1): the `Not for … — …` refusal clause goes in each skill's
+`SKILL.md` description — the surface `tests/skill_eval.py`'s `_REFUSAL` parses — and one
+quoted boundary situation with its destination goes in each `corpus.md` — the surface
+`cases()` reads; a `Not for` row written into `corpus.md` instead is an empty-target send
+that the problems lane skips, and the fixture proves that red half. The proof objects land
+first, per the council's recommendation: `tests/test_036_boundary.py` (in-declaration and
+out-of-declaration fixtures) and the `skill_eval` baseline move argued in the same commit
+that adds the description refusals and corpus cases.
 
 ### B-036-3 — The validation freshness check
 
 A small test file (`tests/test_036_validation.py`) asserts the validation table does not
-rot: every row's module exists, exports the named contract symbol from the table above, and
-has the documented responsibility — the symbol per row is the check's input (spec 036
-council, gap G3). A future refactor that deletes or splits one of the validated modules
-fails this check with the reason to update the record first. The validation is a checked
-claim, not a memory.
+rot: every row's module exists and exports the named contract symbol from the table above —
+the symbol per row is the check's input (spec 036 council, gap G3) — and, where a row names
+a provenance marker, the module docstring's first line carries it (spec 029, spec 030,
+spec 033, spec 034, capability-era) so the provenance column is asserted, not remembered.
+"Documented responsibility" is scoped to these two checkable facts; a future refactor that
+deletes or splits one of the validated modules fails this check with the reason to update
+the record first. The validation is a checked claim, not a memory.
 
 ## Challenged once
 
@@ -180,10 +194,11 @@ objects ahead of the prose).
   When the classifier reads it, Then it returns `None`, reports `CANNOT DECIDE`, and blocks
   — it never guesses (`uv run --with pytest==9.1.1 pytest -q tests/test_036_boundary.py -k
   undecidable` → `1 passed`).
-- **Corpus, parseable shape:** Given the boundary rule written as quoted situations and
-  `Not for … — …` refusals in the three `corpus.md` files, When `tests/skill_eval.py` runs,
-  Then the routing lane reads the new cases and the baseline moves with its reason in the
-  same commit (`uv run python tests/skill_eval.py` → the boundary cases are counted).
+- **Corpus, parseable shape:** Given the boundary refusal in each `SKILL.md` description
+  and one quoted boundary case in each `corpus.md`, When `tests/skill_eval.py` runs, Then
+  the routing lane counts the new cases and the baseline moves with its reason in the same
+  commit (`uv run python tests/skill_eval.py` → the boundary cases are counted); and a
+  refusal written only in `corpus.md` is not counted — the fixture proves the red half.
 - **Validation stays true:** Given the validation table's module-and-symbol rows, When
   `tests/test_036_validation.py` runs, Then every module exists with its contract symbol
   and responsibility, and deleting one fails the check with the reason to update the record
@@ -205,7 +220,7 @@ capability manifest source of truth, under a name that does not collide.**
 Rationale: wayfinder's W-02 (out-of-declaration ⇒ CANNOT DECIDE, block) is the one proven
 gap the audit found; `capability.py`'s preflight is a different question, and the classifier
 reads the same declarations instead of creating a second permission model. The module name
-avoids the five existing uses of the word `boundary` (council G1).
+avoids the thirteen module files using the word `boundary` for other concepts (council G1).
 
 **D-036-03 — the corpus rule ships in the parseable case shape with fixtures first, and the
 freshness test makes the validation checked, not remembered.**

@@ -79,3 +79,13 @@ by the plan's gate tasks.
 - It is not a claim that the adopted behaviours exist: until `tests/test_035_adoption.py`
   passes its seven cases inside `just check`, the R0 kernel is a proposal with a
   fixture-shaped hole, exactly as the council's chairman wrote.
+---
+
+## Superseded — follow-up note (2026-08-26)
+
+A pre-build audit found eight of the nine kernel behaviours this approval authorised already
+ship in this tree (specs 013-034). Spec 036
+(`specs/036-validate-adoption-and-close-boundary-delta/`) supersedes 035's implementation
+scope; its record names the digests above by value. The spec and plan bytes this approval
+asserts remain frozen and unedited; nothing here is retracted — the build they described
+is simply not performed, per DRY and "never rewrite history".
