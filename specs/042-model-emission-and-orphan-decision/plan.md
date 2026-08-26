@@ -60,7 +60,7 @@ identical denial in a window.
 
 ## Tasks
 
-1. [ ] **Red fixture: the model field and the tier-model on the command event** —
+1. [x] <!--t:c0b694544b55--> **Red fixture: the model field and the tier-model on the command event** —
    **file** `tests/test_model_event.py` (new): a command event emitted through
    `paths.load("_emit").emit("audit", "command", verb="audit", exit=0)` carries
    `model` from the `AI_ENG_MODEL` env var when set and `UNDETERMINED` when not;
@@ -74,7 +74,7 @@ identical denial in a window.
    **done when**: the fixture is red before `_emit` and `cli.py` ship the behaviour,
    and green after — the event names the model, honestly or `UNDETERMINED`.
 
-2. [ ] **`_emit` records `model` (B-042-2)** —
+2. [x] <!--t:199731feb514--> **`_emit` records `model` (B-042-2)** —
    **file** `hooks/_emit.py` (the event dict gains `model = os.environ.get("AI_ENG_MODEL")
    or UNDETERMINED`, beside `surface` and `adapter`, read once per event; the docstring
    names the env var, the honest-unknown rule and the missing-state distinction) + the
@@ -84,7 +84,7 @@ identical denial in a window.
    **done when**: every new event carries `model`; no surface, no guess — `UNDETERMINED`;
    an event written before the change is `missing`, never conflated.
 
-3. [ ] **The chain hook passes through the payload's `model` field (B-042-2)** —
+3. [x] <!--t:a85070a7ee70--> **The chain hook passes through the payload's `model` field (B-042-2)** —
    **file** `hooks/chain.py` (when the payload the surface sent actually carries a
    `model` key, set `AI_ENG_MODEL` with `setdefault` beside `AI_ENG_SURFACE`/
    `AI_ENG_ADAPTER`; never read `sessionId` for it — that is an opaque id, always
@@ -95,7 +95,7 @@ identical denial in a window.
    **done when**: a surface that reports a `model` in its payload produces events whose
    `model` matches; a surface that does not produces `UNDETERMINED`.
 
-4. [ ] **The command event names the tier-model from the pin (B-042-1)** —
+4. [x] <!--t:7abfdb89ac40--> **The command event names the tier-model from the pin (B-042-1)** —
    **file** `src/ai_engineering/cli.py` (in **both** command-emit paths —
    `_machine_result` and the plain-mode tail of `main()` — add `tier_model` to the
    emitted command event's data: `model_router.route` for the verb — `spec`/`audit`
@@ -110,7 +110,7 @@ identical denial in a window.
    model string, an unmapped verb → `medium` when configured (else `default_tier`,
    else the empty string); nothing else changes.
 
-5. [ ] **`ai-goal` and the cycle skills name the tier each stage requests (B-042-1)** —
+5. [x] <!--t:9b94fd9b2f0d--> **`ai-goal` and the cycle skills name the tier each stage requests (B-042-1)** —
    **file** `.agents/skills/ai-goal/SKILL.md` + `.agents/skills/ai-security/SKILL.md` +
    `.agents/skills/ai-review/SKILL.md` + `.agents/skills/ai-spec/SKILL.md` + a new
    `tests/test_cycle_tiers.py` (each cycle stage's SKILL.md names the tier it requests —
@@ -122,7 +122,7 @@ identical denial in a window.
    **done when**: every stage names its tier, the test pins the router's sets against the
    skills, and the routing baseline does not move.
 
-6. [ ] **The report digest reports the model distribution with four states (B-042-1)** —
+6. [x] <!--t:f9158f23491e--> **The report digest reports the model distribution with four states (B-042-1)** —
    **file** `src/ai_engineering/report.py` (the digest prints `Models: <count> distinct`
    naming which of the four states it counts — missing / undetermined / actual (`model`)
    / intent (`tier_model`) — counting `missing` separately as predating the field, never
@@ -133,7 +133,7 @@ identical denial in a window.
    alone, names the state it is counting, and prints an honest "none observed" on an
    empty window.
 
-7. [ ] **Red fixture: the orphan register and its reader** —
+7. [x] <!--t:4bf52e11fe10--> **Red fixture: the orphan register and its reader** —
    **file** `tests/test_orphan_register.py` (new): a module with no production caller and
    no status in `policy/module-status.toml` is refused; a `consumer` row whose module no
    production file **imports** is refused; a status naming a consumer that does not exist
@@ -145,7 +145,7 @@ identical denial in a window.
    **done when**: the fixture is red before the register exists, and green after — every
    module has exactly one status, checked by all four refusals.
 
-8. [ ] **The register: `policy/module-status.toml` + the reader in `wiring` (B-042-3)** —
+8. [x] <!--t:d80b2c59a501--> **The register: `policy/module-status.toml` + the reader in `wiring` (B-042-3)** —
    **file** `policy/module-status.toml` (new: one `[[module]]` row — `lane_merge`,
    `loopgate` `orchestrator-future` (031/041); `model_router` `consumer` via
    `src/ai_engineering/cli.py`, `revalidate`/`cost` `consumer` via `audit.py`;
@@ -166,7 +166,7 @@ identical denial in a window.
    consumers), and the threat-model gate sees the new policy file has a product reader
    (its `rglob` picks the file up and `wiring` reads it).
 
-9. [ ] **The register test asserts skillify/intake are deferred, not consumer (B-042-3)** —
+9. [x] <!--t:ba2ee31f7898--> **The register test asserts skillify/intake are deferred, not consumer (B-042-3)** —
    **file** `policy/module-status.toml` (the `skillify` row is `deferred` with reason
    "CLI exposure is roadmap P2, spec 037 row 12; the ai-note corpus routes it today" and
    the `intake` row `deferred` with "ai-spec paso 0 routes it; a code consumer is the P1
@@ -181,7 +181,7 @@ identical denial in a window.
    `consumer`), their prompt routes are recorded as not-callers, and their own suites
    still pass.
 
-10. [ ] **Red fixture: loop_guard escalates the repeated verdict, count preserved** —
+10. [x] <!--t:edc6863376ac--> **Red fixture: loop_guard escalates the repeated verdict, count preserved** —
     **file** `tests/test_loop_guard_escalation.py` (new): three identical exact calls in a
     window produce three `blocked` events — the first carries the full verdict, the third
     carries the escalation text naming the call by its human-visible signature, the
@@ -193,7 +193,7 @@ identical denial in a window.
     **done when**: the fixture is red before the guard changes, and green after — every
     repeat is still denied, the message escalates from the third, the count is intact.
 
-11. [ ] **`loop_guard` escalates per window (B-042-4)** —
+11. [x] <!--t:65365ef37ba6--> **`loop_guard` escalates per window (B-042-4)** —
     **file** `hooks/loop_guard.py` (the repeats arm keeps denying every repeat; the first
     denial of a distinct exact call keeps the full verdict; the **third and every later
     identical denial in the window** return the escalation text naming the call by its
@@ -209,7 +209,7 @@ identical denial in a window.
     volume do not move, and the digest shows the escalation as the script rule 12 owes —
     not a fresh owed-a-script row.
 
-12. [ ] **The gate** —
+12. [x] <!--t:2fefa846d061--> **The gate** —
     **file** none (verification).
     **check**: `just check`
     **rollback**: `git revert <commit>`.
