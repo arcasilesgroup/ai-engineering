@@ -175,13 +175,16 @@ individual failure.
 
 ## Production-ready
 
-Nothing gets a URL until every box is ticked, and each one is ticked by a command.
+Nothing gets a URL until every box is ticked, and each one is ticked by a command. This
+specification adds an appendix rule, a decision-frameworks module and a constellation
+module; it adds no service, no URL and no second hop, so the service-shaped boxes are
+`not applicable`.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check` runs the three behaviours on every push (`.github/workflows/check.yml`); `contract._appendix_problems`, `decision_fw` and `constellation` are gate lanes, and nothing here is deployed
+- [x] Logs — not applicable, and that is the rule: this spec adds modules and a corpus rule; every verb still emits the one JSON line `ai-eng digest` reads
+- [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
+- [x] Errors — not applicable: the new code paths fail closed — a rewrite instructing ai-note is refused by `_appendix_problems`, a rationale with no named framework is refused by `decision_fw.named`, and a guard fail is never erased by `constellation`
+- [x] Health and data age — `tests/test_decision_and_notes.py` and `tests/test_constellation.py` run in `just test` on every gate, and `tests/skill_eval.py` asserts the `skill-routing` baseline moved 359 → 363 with the reason beside it
+- [x] External check — `.github/workflows/check.yml` runs the whole gate on every push; the corpus rule "when decisioning, name the framework" is asserted by `tests/skill_eval.py`, the independent route over the same corpora
+- [x] Second path — each behaviour is read by its module and its fixture with no shared line (`_appendix_problems` vs `tests/test_decision_and_notes.py`; `decision_fw` vs the same suite; `constellation.classify` vs `tests/test_constellation.py`), and the corpus rules are asserted by `tests/skill_eval.py`
+- [x] Security — `just security`: gitleaks, semgrep and trivy on every push, over a change that adds no dependency and no network call
