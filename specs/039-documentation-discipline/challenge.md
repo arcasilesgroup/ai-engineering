@@ -184,18 +184,18 @@ $ grep -rn "STE100" . | grep -v "specs/039-documentation-discipline/spec.md"
 ### technical-writer.md exists, is a general documentation agent, has the claimed frontmatter, contains no STE100
 
 ```
-$ ls /Users/soydachi/repos/claude-agents/product/technical-writer.md
--rw-r--r--  the owner 12095  /Users/soydachi/repos/claude-agents/product/technical-writer.md
+$ ls the owner/repos/claude-agents/product/technical-writer.md
+-rw-r--r--  the owner 12095  the owner/repos/claude-agents/product/technical-writer.md
 
-$ grep -n "model:\|tools:\|memory:" /Users/soydachi/repos/claude-agents/product/technical-writer.md
+$ grep -n "model:\|tools:\|memory:" the owner/repos/claude-agents/product/technical-writer.md
 model: sonnet
 tools: Write, Read, Edit, Grep, Glob, WebSearch
 memory: project
 
-$ grep -n "STE100\|Simplified Technical English" /Users/soydachi/repos/claude-agents/product/technical-writer.md
+$ grep -n "STE100\|Simplified Technical English" the owner/repos/claude-agents/product/technical-writer.md
 (no output)
 
-$ grep -c "API Documentation\|Changelog and Release Notes\|README Structure\|Architecture Decision Records" /Users/soydachi/repos/claude-agents/product/technical-writer.md
+$ grep -c "API Documentation\|Changelog and Release Notes\|README Structure\|Architecture Decision Records" the owner/repos/claude-agents/product/technical-writer.md
 4
 ```
 
