@@ -71,3 +71,17 @@ until the approved plan writes them.
   `ai-docs` name, does not clean the 208 pre-existing map reals, and does not modify
   `.ai/intent.md` (updated earlier this session), `CONSTITUTION.md` or the one-writer rule
   beyond the README/AGENTS count prose task 5 names.
+---
+
+## Revision note (2026-08-26, after build)
+
+The spec at this approval's digests was built; verification found and applied concrete
+fixes (the `ai-write` name resolved over the absorbed `ai-docs`, the capability counts
+moved to twenty, the fog trim, the map acceptances, the resolved doc-block links). The
+spec's digest moved to `779675531440fb6ebd2416c334687d6a2f80b78dec2b15765cb52716afdf2f73`
+and the plan's to `53016016ea95707ef8295aa8da38c826b5ade72dceaa043be2e7edb34d5e4cff`;
+tasks 1, 2 and 5 are ticked at those digests. The gate reads `just check` at 4 inherited
+`test_madr.py` failures / 2373 passed, and `just map` at 144 real-and-unaccepted (none
+from this block: the block's pairs are accepted, the 144 are pre-existing). `just map` and
+the account-backed `ai-eng audit verify` stay red on pre-existing state, recorded here and
+in `.ai/intent.md`, not introduced by this spec.

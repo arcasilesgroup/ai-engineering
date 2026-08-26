@@ -42,7 +42,7 @@ references.
 
 ## Tasks
 
-1. [ ] **Red fixture: verified / no-cache / not-covered / routing / count** —
+1. [x] <!--t:c3c554ace359--> **Red fixture: verified / no-cache / not-covered / routing / count** —
    **file** `tests/test_040_ai_write.py` (new): `verified` (a doc naming real files,
    checkable sections, no environment restatement passes), `no_cache` (a doc repeating the
    environment is refused), `not_covered` (an unverifiable claim exits `not-covered` with a
@@ -52,7 +52,7 @@ references.
    **rollback**: `git revert <commit>`.
    **done when**: the fixture runs and fails for the right reason (no skill, no count move).
 
-2. [ ] **The ai-write skill + corpus (B-040-1/2)** —
+2. [x] <!--t:7c27c2cbfb80--> **The ai-write skill + corpus (B-040-1/2)** —
    **file** `.agents/skills/ai-write/SKILL.md` (new, model-invoked, under the audit
    contract: frontmatter + `## What it produces` + `## Steps` + `## What this is not` +
    `## Done when`, pointing at `.agents/skills/ai-report/references/documentation-writer.md` (039) as its single
@@ -87,7 +87,7 @@ references.
    **done when**: the four reverse routes parse as distinct cases, `routing` passes, and
    the baseline moves with a stated reason.
 
-5. [ ] **Count move** —
+5. [x] <!--t:0088b23a6df8--> **Count move** —
    **file** `README.md` ("Seventeen written procedures") + `AGENTS.md` ("carries seventeen
    skills") → "Eighteen"/"eighteen", satisfying the `test_contracts.py` COUNTED pin.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_contracts.py -k count`
