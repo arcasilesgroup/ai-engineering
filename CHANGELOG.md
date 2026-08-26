@@ -248,6 +248,15 @@ search for.
   unblocks it. The `ai-goal` corpus gains the refusal «record the writer model as a
   decision» → `/ai-spec`, and the `skill-routing` baseline moves 349→350 with the reason
   written beside it in `policy/pilot-register.toml`.
+- Verification output is now a gated DAG, and a loop knows when to stop. `lane_merge`
+  orders and gates verification lanes: each node's `verify` command must pass before
+  its output feeds the next node (a failed verify leaves the downstream input
+  `INCOMPLETE`), and findings are deduped by `(file, line)` with lane conflicts surfaced
+  rather than hidden. `loopgate` ends a loop only on **two identical green runs**
+  (digest-equal), and a diverged or failed pass restarts the requirement. Specs gain
+  `self_contained` — a spec carrying "as we discussed" or "per our conversation" is
+  refused — and a deterministic `§N` section resolver. Recorded in `specs/031-
+  verification-dag-loop-termination-and-spec-containment`.
 - Verification is now cold, and coverage is declared as data. `verify_cold` reads only
   the spec/answer key and the delivered files — never the constructor's conversation,
   never the plan's rationale — with **no write tools**, and "an uncertain check is a

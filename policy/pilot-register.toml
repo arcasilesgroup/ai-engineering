@@ -69,7 +69,7 @@ wave = "P0"
 id = "skill_eval_delta"
 # The third absence this row recorded is gone. `just skilleval` is an evaluation runner
 # inside the gate, the labelled cases sit beside every skill, and there is a baseline now:
-# 353, margin zero, delta printed on every run. A register with no baseline is refused rather
+# 355, margin zero, delta printed on every run. A register with no baseline is refused rather
 # than passed.
 #
 # What is still missing is the named approver, which `EP-289` asks for and which nobody can
@@ -332,7 +332,7 @@ enforced_by = "ai_engineering.report.BYPASSES_WORTH_A_LOOK, printed by `ai-eng r
 
 [[baseline]]
 id = "skill-routing"
-measured = 353
+measured = 355
 margin = 0
 command = "python tests/skill_eval.py"
 approved_by = ""
@@ -340,6 +340,8 @@ reopen_when = "somebody with authority names themselves here, which closes EP-28
 why = """The count is claims plus refusals plus the labelled cases on both sides. Falling \
 means a skill stopped declaring what it routes or a corpus lost cases; rising means the \
 opposite. Both are worth a sentence, and neither should happen without one.
+
+353 to 355: spec 031 adds spec self-containment to `/ai-spec`. Situations routed 81 to 81, hand-offs 42 to 42, labelled cases 230 to 232 — one route ("the spec must stand alone": no conversation leaks) and one refusal ("write the spec as a note to ourselves") added: the record is the whole interface to its builder. 81+42+232 is 355. Nothing was withdrawn; the two rows are the self-containment routing the conversation-leak gap was missing.
 
 351 to 353: spec 030 adds cold-read verification to `/ai-verify`. Situations routed 81 to 81, hand-offs 42 to 42, labelled cases 228 to 230 — one route ("verify this cold": read-only, never the constructor's reasoning) and one refusal ("review it warm" → `/ai-review`) added: the cold-read verifier joins the answer-key consumer. 81+42+230 is 353. Nothing was withdrawn; the two rows are the cold-read routing the warm-review gap was missing.
 
