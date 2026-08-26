@@ -12,6 +12,12 @@ loop_window = 6
 loop_repeats = 3
 loop_failures = 5
 design_budget = 3
+[models]
+# Per-repository model tiers (spec 037). Any provider name fits; `default_tier` is used
+# when a tier is not configured. Adjust here, never in framework code.
+top = "deepseek-v4-flash"
+medium = "deepseek-v4-flash"
+low = "qwen3.6"
 
 [observability]
 # Where a person looks. Leave endpoint empty and only the local record is written.
