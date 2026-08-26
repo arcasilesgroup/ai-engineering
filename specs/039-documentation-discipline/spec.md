@@ -11,8 +11,8 @@ supersedes: ""
 
 ## Who this is for, and what it is worth to them
 
-The repository owner (roadmap rows 8/10; this is the documentation half) and every
-stranger whose skills, specs, plans and docs this framework produces. ai-engineering is a
+The repository owner (roadmap row 10; its documentation-shaped row) and every stranger
+whose skills, specs, plans and docs this framework produces. ai-engineering is a
 writing machine: it authors `spec.md`, `plan.md`, `corpus.md`, `SKILL.md`, ADRs and the
 Solution Intent page on every governed run. Those documents already pass mechanical limits
 (fog ceiling, load tiers, output contract) but nothing codifies the *writing* itself: how
@@ -32,18 +32,18 @@ technical-writer decision, and states the file governance.
   (`_output_contract_problems`), anti-rationalization, appendix, Incorrect/Correct. Docs
   cannot be too dense, too long, or output-less.
 - The **writing discipline** is absent: no reference names context pointers, the two loads
-  (context vs cognitive), leading words, pruning, or completion criteria; and no mention of
-  controlled language (ASD-STE100) exists anywhere in the repo (grep zero, verified this
-  session). A spec or skill can be mechanically green and still hard for an agent to use.
+  (context vs cognitive), leading words, pruning, or completion criteria; and, outside this
+  spec and the user-provided texts, controlled language (ASD-STE100) appears nowhere in the
+  repo. A spec or skill can be mechanically green and still hard for an agent to use.
 - The candidate tools exist outside: `/Users/soydachi/repos/claude-agents/product/
   technical-writer.md` is a general documentation agent (API refs, READMEs, ADRs, Keep-a-
   Changelog) — it contains **no STE100**; the `writing-for-agents` skill the owner pasted
   codifies the agent-document levers; ASD-STE100 is the aerospace controlled-language
   standard. The NotebookLM research the owner cited is not reachable from this machine
   (`degraded-tool: notebooklm`), so this spec proceeds on the tree + the two given texts.
-- File governance is already machine-listed: `ai-eng doctor` prints one line per file class
-  with its exact home, and the `homes` recipe + `test_contract_craft` assert it; `docs/
-  tools.md` is the human inventory. What is not stated is the *writing standard* for those
+- File governance is already machine-listed: `ai-eng doctor` reports the homes, the
+  `homes` recipe asserts the one-home-per-commit rule (PO-16), and `docs/tools.md` is the
+  human inventory. What is not stated is the *writing standard* for those
   files.
 
 **The problem, in words a non-technical reader can follow:**
@@ -84,20 +84,20 @@ writing and reporting): the writing-for-agents levers (context pointers and thei
 context load vs cognitive load, leading words, pruning/single-source-of-truth, completion
 criteria that are checkable and exhaustive, positive prompting over negation) plus the
 STE100 controlled-language rules (one idea per sentence, one meaning per word, approved
-vocabulary, short declarative sentences). It is loaded by the authoring skills through a
-pointer only when they write a document — never always-loaded (context economy, spec 033).
-The reference is the single source of the discipline; a spec, plan, corpus or skill is
-checked against it by the existing craft lanes plus the reading human, not by a new
-hard-coded prose rule.
+vocabulary, short declarative sentences). The three authoring corpus routes name it, so it
+is reached when a skill writes a document — never always-loaded (context economy, spec
+033). The reference is the single source of the discipline; a spec, plan, corpus or skill
+is read against it by whoever authors or reviews the document, beside the mechanical lanes
+a later measured need may add (this spec adds none: a hard prose parser over user repos
+violates ownership, and over our own docs the mechanical lanes already hold).
 
 ### B-039-2 — Parseable corpus routes
 
-`ai-spec`, `ai-plan` and `ai-report` gain, in the shape the harness parses (quoted
-situations and `Not for … — …` refusals): a route that "the document must be written for
-its agent-reader and its human-reader — load `references/documentation-writer.md` before
-authoring", and a refusal when a doc hands an agent a vague completion bound or restates
-what the environment already says. The corpus move is the checked half; the reference is
-the material the route points to.
+Each of `ai-spec`, `ai-plan` and `ai-report` gains its own quoted route naming the
+discipline — phrased differently per surface so the routing harness sees three distinct
+cases, not one fork — plus a `Not for … — …` refusal for a doc that hands an agent a vague
+completion bound or restates what the environment already says. The corpus move is the
+checked half; the reference is the material the routes point to.
 
 ### D-039-01 — the technical-writer agent stays an insumo; the discipline is adopted.
 
@@ -187,11 +187,11 @@ Nothing gets a URL until every box is ticked, and each one is ticked by a comman
 specification adds one reference, three corpus routes and one fixture; no service, no URL,
 no second hop — the service-shaped boxes are `not applicable`.
 
-- [x] CI/CD — `just check` runs `tests/test_039_documentation.py` on every push (`.github/workflows/check.yml`); nothing deployed
+- [ ] CI/CD — ticked by the plan's gate task: `just check` runs the 039 fixtures once they exist (`.github/workflows/check.yml`); nothing deployed
 - [x] Logs — not applicable: every verb still emits the one JSON line `ai-eng report digest` reads
 - [x] Traces — not applicable: one process, no second hop
-- [x] Errors — not applicable: the new path fails closed (a corpus route whose doc ignores the reference is refused by the route; no silent pass)
-- [x] Health and data age — the 039 fixture runs in the gate's pytest half (`just cover`) on every push; the reference is asserted by its fixture
-- [x] External check — `.github/workflows/check.yml` runs the whole gate on every push; the routes are asserted by `tests/skill_eval.py`, the independent route
-- [x] Second path — the reference is read by its fixture and the routes by `skill_eval.py`, with no shared line
+- [x] Errors — not applicable: the new path fails closed (a route whose doc ignores the discipline is refused; no silent pass)
+- [ ] Health and data age — ticked by the plan's gate: the 039 fixtures run in `just cover`'s pytest half once they exist
+- [x] External check — `.github/workflows/check.yml` runs the whole gate on every push; the routes are asserted by `tests/skill_eval.py` once the corpus move lands
+- [ ] Second path — ticked by the plan's gate: the reference read by its fixture and the routes by `skill_eval.py`, with no shared line
 - [x] Security — `just security`: gitleaks, semgrep, trivy on every push, over a change that adds no dependency and no network call
