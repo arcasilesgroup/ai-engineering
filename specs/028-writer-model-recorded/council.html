@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Council on specification 028: recording the writer model of ai-goal as a governed decision — what the five lenses saw, where they clashed, and what is recommended.">
+<title>ai-engineering | Council · writer model recorded · spec 028</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:960px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:36px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}h3{font-size:17px;margin:22px 0 6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.date{color:var(--muted);font-size:13px;margin-bottom:28px}
+ul{margin:8px 0 16px;padding-left:22px}ul li{margin:5px 0}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em;overflow-wrap:break-word}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.good{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+.struck{text-decoration:line-through;color:var(--muted)}
+.cmd{background:var(--code);padding:8px 12px;border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;margin:8px 0;overflow-x:auto;white-space:pre}
+.out{color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;margin:4px 0 16px;white-space:pre-wrap}
+.verdict{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.05em}
+.v-warn{background:var(--warn-soft);color:var(--warn)}.v-ok{background:var(--good-soft);color:var(--good)}
+.meta{color:var(--muted);font-size:13px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="topbar"><a class="brand" href="#">ai-engineering <small>· council · specification 028</small></a></div>
+<main>
+<p class="kicker">Council · governed cycle · spec 028</p>
+<h1>One reviewable home for the writer model</h1>
+<p class="sub">Five lenses read only the specification and returned findings with a runnable command; the second round crossed them; the counts live in council.md. This page is what a person reads.</p>
+<p class="date">2026-08-25 · specification 028 · council</p>
+
+<h2>What is proposed</h2>
+<p>Record the repository's writer model — one writer implementing an approved plan; the four-term formula as the gated future target of spec 013 — as a proposed Structured ADR that grants no authority, written by <code>ai-eng decide "&lt;title&gt;" --spec 028</code>. Alongside it, the <code>ai-goal</code> corpus gains a labelled refusal for the recording case that currently has no route, and the <code>skill_eval</code> baseline in <code>policy/pilot-register.toml</code> moves to 350 with the reason given. The intent, spec 013 and the one-writer rule are untouched. The promotion command is refused today while an inherited record repair from ADR 0025 of spec 026 is outstanding, and this decision does not authorize that repair.</p>
+
+<h2>Where the lenses agree</h2>
+<ul>
+<li>The blast radius is bounded and knowable: "Nothing else changes and nothing is authorized" — the whole decision is one corpus row and one register stance, and the record itself carries no authority.</li>
+<li>The change is reversible by delete-and-revert, because the model it records is already enforced by the intent, the sequence policy and the ai-build skill; the only irreversible part in view is the inherited history this decision explicitly does not touch.</li>
+<li>The corpus row's failure mode is loud: a collision is caught by <code>skill_eval</code> as a failing run, not a silent drift.</li>
+</ul>
+
+<h2>Where they clash</h2>
+<div class="callout warn">
+<p><strong>The decision's own first condition cannot be met on this tree.</strong> The first example — <code>ai-eng decide --list</code> contains <code>0028</code> with status <code>proposed</code> — is BLOCKED by the spec's own admission: line 153 of the spec pins the verb's behaviour to the byte, "refuses with <code>INCOMPLETE [MADR_SCHEMA_INVALID]</code> and writes nothing". The two priced artifacts that can land today are the corpus row and the register edit; the ADR is priced but deferred to another spec's repair.</p>
+</div>
+<div class="callout warn">
+<p><strong>The findability the decision promises rides on a bare number.</strong> The record "a reader and a gate can find" is keyed by 0028 and nothing else: the frontmatter <code>ref:</code> and <code>supersedes:</code> are both empty, so the ADR carries no pointer to the spec that gates it or the target it records. And the promised "baseline movement" is not a digit edit: the register today records <code>skill_eval</code> with no baseline, arguing a deterministic check has nothing to take a delta of — moving it to 350 is a change of stance that must be argued, not a number bump.</p>
+</div>
+
+<h2>Findings carried by commands (kept)</h2>
+<ul>
+<li><strong>Cost:</strong> two of the three priced artifacts land today; the third waits on an unapproved repair. (<code>grep -n "MADR_SCHEMA_INVALID\|refuses with" specs/028-writer-model-recorded/spec.md</code>)</li>
+<li><strong>Cost:</strong> the register's no-baseline stance for <code>skill_eval</code> makes "moved to 350" a reversal of an argued position, not an edit. (<code>grep -n "skilleval" policy/pilot-register.toml</code>)</li>
+<li><strong>Reversibility:</strong> the record grants no authority, so deleting it later changes no behavior. (<code>grep -n "grants no authority" specs/028-writer-model-recorded/spec.md</code>)</li>
+<li><strong>Reversibility:</strong> the irreversible part — ADR 0025's state in git history — is explicitly out of scope, three times. (<code>grep -n "history" specs/028-writer-model-recorded/spec.md</code>)</li>
+<li><strong>Undecidable path:</strong> the ADR title is a positional <code>&lt;title&gt;</code> never pinned, and the named person who accepts is never named. (<code>grep -n '"&lt;title&gt;"' specs/028-writer-model-recorded/spec.md</code>, <code>grep -n "named person" …</code>)</li>
+<li><strong>Trust:</strong> non-collision of the corpus row is trusted to a check that is asserted, not shown; "measured in this tree" covers quotations. (<code>grep -n "collide\|would catch it" …</code>)</li>
+<li><strong>The example nobody wrote:</strong> the only runnable example is the mechanical one; no example quotes the refusal's label, and the denial example omits two of the five fragments its own rationale names. (<code>grep -n "Denial" …</code>)</li>
+</ul>
+
+<h2>Refutations from the second round</h2>
+<ul>
+<li><span class="struck">Do-nothing is the zero-cost option.</span> Refuted by <code>grep -n "drifts silently" specs/028-writer-model-recorded/spec.md</code> → line 78: the spec itself prices the deferred cost, and silent drift across three files is the one outcome that cannot be reverted because it was never recorded.</li>
+<li><span class="struck">The intent digest <code>ae523990</code> is taken on trust.</span> Refuted by <code>grep -n "ae523990" .ai/intent.md</code> → lines 8 and 15: the digest is on disk twice; the trust is grounded, and the residue is a doc nit.</li>
+<li><span class="struck">Whether the ADR path is undecidable on this tree.</span> Refuted by <code>grep -n "Blocked —\|refuses with" specs/028-writer-model-recorded/spec.md</code> → the spec pins today's path to the byte: deterministically blocked, and the post-repair path is pinned too.</li>
+</ul>
+
+<h2>Verdict</h2>
+<p><span class="verdict v-warn">reading, not a verdict</span></p>
+<p class="sub">What follows is a reading; nothing here approves or refuses the decision.</p>
+<p>The decision is sound in shape: a record that grants no authority, a refusal that changes a measured count, and a blast radius closed by its own words. The authority of the model does not come from the record, and the record does not pretend it does. What the reading finds is that on this tree the decision delivers the refusal and the register stance today, and the ADR only after a repair no element of this decision is allowed to make — so the person who runs this goal receives the smallest half now and is told the other half is another spec's work. That is honest, and it is also the whole story that matters about this choice.</p>
+
+<h2>Recommendation</h2>
+<ol>
+<li>Land the reachable half now, in one commit: the labelled refusal in the <code>ai-goal</code> corpus for the no-route recording case, the <code>skill_eval</code> register entry argued to the 350 baseline, and the receipt that the run prints 0.</li>
+<li>Record the proposed ADR as the second step, gated on the approved repair of the inherited record — and say so in the goal's own page so the blocked step names its unblocker, as the spec already does.</li>
+<li>Leave the inherited history standing; rewriting it is not this decision's to make, and the spec's refusal to do so is the correct boundary.</li>
+</ol>
+
+<div class="callout good">
+<p><strong>One first step:</strong> add the labelled refusal for the no-route recording case to the <code>ai-goal</code> corpus and move the <code>skill_eval</code> baseline to 350 in <code>policy/pilot-register.toml</code> in the same commit, with the reason given — the only part of this decision that can be checked today.</p>
+</div>
+
+<h2>Counts</h2>
+<p class="meta">The counts of <code>council.md</code>, as written there, verified by <code>tests/council_counts.py</code>:</p>
+<ul>
+<li>Gaps that appeared only after the cross-read: <strong>2</strong></li>
+<li>Findings deleted, for carrying no command or for being refuted: <strong>4</strong></li>
+</ul>
+<hr>
+<p class="meta">Council reading of specification 028. No vote, no ranking. The lenses priced the deferred half honestly and let the check do the arguing. Evidence, not decision.</p>
+</main>
+</body>
+</html>

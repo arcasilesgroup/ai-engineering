@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Viabilidad de lanzar ai-goal en paralelo con un worktree por desarrollo: qué cambia, cómo se mergearía, y cómo se controla la orquestación multiagente en este repositorio.">
+<title>ai-engineering | 015 · worktrees por tarea y multiagente origin-first</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+main{max-width:900px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:28px;line-height:1.2;margin:8px 0 6px}h2{font-size:21px;margin:30px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.date{color:var(--muted);font-size:13px;margin-bottom:24px}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em;overflow-wrap:break-word}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.good{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+ol,ul{margin:.4rem 0}.cite{color:var(--muted);font-size:13px;margin-top:4px}
+.cite li,ol.cite li{margin-bottom:2px}
+</style>
+</head>
+<body>
+<main>
+<p class="kicker">Investigación · viabilidad de multiagente paralelo</p>
+<h1>¿Worktree por desarrollo para 3 ai-goal en paralelo?</h1>
+<p class="sub">Sí, es la forma que este repositorio ya diseñó — pero el worktree es solo la mitad «aislamiento local» de una coordinación de cuatro patas, y en <em>este</em> repositorio hoy no está aprobada: la regla de un escritor sigue viva.</p>
+<p class="date">2026-08-25 · decisión que cambia: aprobar el plan P3 (espec 013) y levantar la regla de un escritor</p>
+
+<h2>Qué cambiaría según la respuesta</h2>
+<p>No es una pregunta neutral: «¿puedo lanzar 3 ai-goal paralelos en worktrees?» decide si este repositorio levanta o no su restricción escrita de un solo escritor, que es la condición de la wave P3 <em>origin-first coordination</em>. La respuesta es <strong>de viabilidad con una puerta real</strong>, no un sí en blanco.</p>
+
+<div class="callout bad"><strong>Hoy, en este repositorio, no puedes.</strong> La restricción fija del Solution Intent (aprobado el 2026-08-15, digest <code>ae523990</code>) dice: «Until a separately approved P3 plan proves safe coordination, one writer owns repository changes» [4]. La espec 013 que la levantaría es <strong>draft</strong> y no tiene plan: <code>specs/013-origin-first-coordination/</code> contiene solo <code>spec.md</code> [3]. Un segundo escritor no está bloqueado por nada — está sin mencionar, que es el riesgo que la propia 013 identifica [3].</div>
+
+<h2>Estado medido hoy (lo que ya existe)</h2>
+<p>Parte de la maquinaria de coordinación ya está construida y es verificable, aunque el contrato P3 no esté aprobado:</p>
+<ul>
+<li><code>src/ai_engineering/claim.py</code> define <code>REF = "refs/ai-eng/claims/{item}"</code> — la rama remota es el lease del work item [8].</li>
+<li>El verbo <code>spec</code> expone <code>claim</code>, <code>wave</code> y <code>checkpoint</code>; existe <code>src/ai_engineering/checkpoint.py</code> [8].</li>
+<li><code>.github/workflows/check.yml</code> ya dispara en <code>merge_group</code>, con un comentario que copia la tesis: dos PR que pasan solos pueden fallar juntos, «one renames what the other calls» [6].</li>
+<li><code>tests/test_coordination_shape.py</code> obliga a que no aparezca ni <code>--force</code> desnudo, ni rebase en background, ni publicación por commit, ni ownership store / heartbeat / TTL takeover [7].</li>
+</ul>
+
+<h2>La respuesta corta</h2>
+<p>El worktree por tarea <strong>es</strong> la forma que esta casa diseñó — la propuesta de evolución la escribe como <code>1 task = 1 remote branch = 1 worktree = 1 writer</code> [5][3]. Pero el worktree, por sí solo, <strong>no hace seguro</strong> a 3 agentes paralelos. Es el cuarto de una coordinación de cuatro: claim/CAS contra un SHA exacto, <code>claimed_paths</code>, draft PR, CI y merge queue [3][5]. La idea de que «todo agente está siempre sincronizado» es una promesa falsa: «todo agente trabaja sobre un snapshot» [5]. El contrato correcto separa tres cosas: <em>visibilidad</em>, <em>frescura en checkpoints</em> y <em>corrección de la combinación final</em> [5].</p>
+
+<h2>Qué da un worktree, y qué no [1]</h2>
+<p>El manual de <code>git-worktree</code> (última actualización: 2.54.0, 2026-04-20) define: «Manage multiple working trees attached to the same repository», para checkout de más de una rama a la vez; los worktrees «comparten todo salvo archivos por-worktree como <code>HEAD</code>, <code>index</code>, etc.» [1].</p>
+<ul>
+<li><strong>Da</strong>: aislamiento local de la working tree, checkout simultáneo de ramas, y (según el diseño 013) un lugar limpio por tarea [1][3].</li>
+<li><strong>No da</strong>: coordinación entre escritores. Comparten el mismo object store y el mismo espacio de ramas; dos worktrees pueden pisarse igual que dos checkout en la misma máquina. Por eso el «lock» no puede vivir en el disco del escritor — un lock invisible al otro escritor no detiene a nadie [3].</li>
+</ul>
+
+<h2>Cómo se mergearía [2][3][6]</h2>
+<p>La pieza que hace seguro el paralelismo es probar la <strong>combinación final</strong>, no cada rama por separado. La merge queue de GitHub (documentación actual oficial) ensambla una rama temporal = base + todos los PR en cola, ejecuta los checks sobre ese commit agregado, y solo mergea cuando la combinación está verde [2]. Es exactamente la frase que este repositorio ya dejó escrita en <code>check.yml</code>: la puerta que solo mira cada PR «merges both and learns on main» [6].</p>
+<p>La ruta diseñada en 013: <strong>una rama remota por tarea</strong> (lease CAS contra el SHA que se fetcheó; un SHA obsoleto es una negativa, nunca un rebase silencioso), <strong>draft PR</strong> al reclamar (visible, sin declarar readiness), <strong>CI en la rama</strong> (claims, DAG, <code>just check</code> y evidencia), y <strong>merge queue</strong> que prueba el resultado combinado [3]. Sin <code>force</code> desnudo — todo push es fast-forward o CAS contra un SHA exacto [3][7].</p>
+
+<h2>Cómo se controla — la parte «compañía agéntica» [3][5][7]</h2>
+<p>La respuesta deliberada de este repositorio es <strong>no construir</strong> un authority-envelope, roles de council, ni budget/TTL — y no crear una DB de ownership, heartbeat ni takeover por TTL. La rama CAS posee el work item; una segunda fuente de verdad es una segunda fuente que puede contradecir a la rama, y entonces algo debe decidir cuál mintió [3][7]. Un hard path lease llega solo tras una colisión real entre orquestadores [3][5]. El «council» se difiere hasta que un orquestador real lo consuma <em>y</em> exista un test que el flujo simple no pueda pasar [3]. El conflicto semántico —detectar que una rama renombra lo que otra llama— no tiene detector y se queda como petición humana [3].</p>
+<p>Concretamente, el límite escrito es: <strong>la rama CAS posee el work item</strong>; <code>claimed_paths</code> y el DAG previenen solapes; «overlapping claims blocked and visible at the merge gate rather than merged» [3]. La única fuente de verdad de «quién tiene qué» es la rama remota [7].</p>
+
+<div class="callout warn"><strong>Ventaja y riesgo de la puerta.</strong> La parte fuerte: un claim perdido produce un push rechazado (un recibo), no un silencio [3]. El flanco débil que 013 nombra: <code>claimed_paths</code> lo aplica un hook (que no ve un <code>shell redirect</code>) — por eso el mismo chequeo corre en CI sobre el diff empujado [3]. Y la corrección final depende de un ajuste de plataforma (la merge queue) que <code>just check</code> no lee; si el ajuste está apagado, el resultado combinado se reporta UNPROVEN, no verde [3].</div>
+
+<h2>Qué verifiqué yo mismo, y cómo</h2>
+<ul>
+<li><strong>Local (leído en el árbol)</strong>: <code>.ai/intent.md</code> restricción de un escritor [4]; <code>specs/013/…/spec.md</code> draft sin plan [3]; el comentario de <code>merge_group</code> en <code>check.yml</code> [6]; <code>tests/test_coordination_shape.py</code> [7]; <code>src/ai_engineering/claim.py</code> <code>REF</code> [8].</li>
+<li><strong>Externo (fuentes primarias, leídas hoy)</strong>: el manual <code>git-worktree</code> en git-scm.com [1], y la documentación oficial de merge queue de GitHub [2]. No ejecuté cambios: esto es investigación, no una decisión aprobada.</li>
+</ul>
+
+<h2>Tres direcciones (citadas)</h2>
+<ol>
+<li><strong>Para lanzar de verdad 3 ai-goal en este repo</strong>: aprobar la espec 013 como plan P3 a un digest exacto y levantar la restricción de un escritor <em>en el mismo commit</em>, solo tras pasar las cinco fixtures adversariales contra un remote real (carrera a dos escritores con un único ganador, SHA obsoleto, escritura fuera de scope, dos claims disjuntos, y claims solapados bloqueados en el merge gate). Hasta ese commit: un escritor [3][4].</li>
+<li><strong>Construir la mitad que falta de coordinación</strong>: el guard de escritura en <code>claimed_paths</code> + chequeo de CI contra claims duplicados, y el DAG determinista sobre solapes/imports/lockfiles/migraciones/schemas, para que los claims que se pisan se bloqueen y sean visibles en el merge gate en lugar de mergearse [3, EP-039 / EP-188].</li>
+<li><strong>Poner la merge queue como prueba de la combinación</strong>: el disparador <code>merge_group</code> ya está en <code>check.yml</code> [6]; activar «require all queue entries to pass required checks» para que la puerta sea el resultado combinado y no cada rama, y hacer que <code>ai-eng doctor</code> lea la configuración viva de la cola o reporte el combinado UNPROVEN [2][3].</li>
+</ol>
+
+<p class="cite"><strong>Fuentes.</strong>
+[1] git-scm.com/docs/git-worktree (manual oficial; última revisión 2.54.0).<br>
+[2] docs.github.com — «Managing a merge queue» (docs oficiales actuales; semantic de <code>merge_group</code> y resultado combinado).<br>
+[3] specs/013-origin-first-coordination/spec.md (draft, 2026-08-15).<br>
+[4] .ai/intent.md — <code>fixed_constraints</code>, aprobado digest <code>ae523990</code> 2026-08-15.<br>
+[5] .ai/reports/001-evolution-proposal.html — sección «Orquestación multiagente origin-first».<br>
+[6] .github/workflows/check.yml — comentario y trigger <code>merge_group</code>.<br>
+[7] tests/test_coordination_shape.py — EP-190/191/192/193/<code>REF</code>.<br>
+[8] src/ai_engineering/claim.py y cli.py — <code>REF = "refs/ai-eng/claims/{item}"</code>, verbos <code>spec claim|wave|checkpoint</code>, checkpoint.py.</p>
+</main>
+</body>
+</html>
