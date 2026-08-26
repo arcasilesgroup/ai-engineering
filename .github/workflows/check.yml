@@ -84,6 +84,9 @@ jobs:
           curl -sSfL -o actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           echo "${ACTIONLINT_SHA256}  actionlint.tgz" | sha256sum -c -
           tar -xzf actionlint.tgz actionlint && sudo install actionlint /usr/local/bin/
+          uv tool install semgrep==1.172.0
+          uv tool install zizmor==1.17.0
+          uv tool install "rust-just==${JUST_VERSION}"
       # skill-map runs on Node, and GitHub's preinstalled node is older than sm's floor.
       # Let npm verify its own package bytes: `npm install -g @skill-map/cli@1.12.2`
       # checks dist.integrity against the registry (the sha512 pinned above) and refuses
