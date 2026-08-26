@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council — 038 design accessibility guard</title>
+<style>
+  body { max-width: 72ch; margin: 2rem auto; padding: 0 1rem; font: 16px/1.55 -apple-system, "Segoe UI", sans-serif; color: #1a1a1a; }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.9em; }
+  pre { background: #f5f5f4; border: 1px solid #ddd; padding: .6rem .8rem; overflow-x: auto; white-space: pre; }
+  h2 { margin-top: 2.2rem; border-top: 2px solid #e5e5e4; padding-top: 1.2rem; }
+  h3 { margin-top: 1.6rem; }
+  li { margin-bottom: 1rem; }
+  s { color: #6b6b6b; }
+  ul { padding-left: 1.3rem; }
+  .note { color: #555; }
+</style>
+</head>
+<body>
+<h1>Council — 038 design accessibility guard</h1>
+<p>A five-lens read of <code>spec.md</code>, then a cross-read, then a chairman. The lenses never see
+each other in round one; in round two each sees the four others relabelled and not its own.
+Every finding and every refutation carries a command that was run; its output is written
+down below it. Nothing here grants anything.</p>
+
+<h2>Round one — five lenses, each alone</h2>
+
+<h3>Cost</h3>
+<p>What does this change cost, and is the cost claim measurable at the moment of signing?</p>
+<ul>
+  <li><strong>Finding A1 — the advertised cost is a promise over objects that do not exist.</strong>
+    Option 1 prices the change as "one rule, one reference, one fixture", but none of the three is in the tree:
+    no <code>_accessibility_problems</code> lane, no <code>references/accessibility.md</code>, no
+    <code>tests/test_038_accessibility.py</code>. The only measurable cost today is one failed run per receipt checked.
+    The hidden cost: the fixture must invent a representation for "a designed surface", which nothing defines (C1).
+    <pre>1</pre>
+    <code>Command: test -f tests/test_038_accessibility.py; echo $?</code></li>
+  <li><strong>Finding A2 — the CI/CD box is ticked while nothing names the fixture anywhere.</strong>
+    The Production-ready section asserts "just check runs tests/test_038_accessibility.py on every push", but neither
+    the workflow nor the justfile mentions it.
+    <pre>.github/workflows/check.yml:0
+justfile:0</pre>
+    <code>Command: grep -c 'test_038' .github/workflows/check.yml justfile</code></li>
+  <li><strong>Finding A3 — the lane's "on every push" promise cannot land as a green claim while the inherited red is open.</strong>
+    The gate is already red in <code>tests/test_madr.py</code> on ADR 0025 (documented <code>.ai/reports/014</code>). <s>Struck in round two — R1.</s>
+    <pre>117:- Unresolved: the inherited `madr.validate` red from ADR 0025 stays open; this spec does</pre>
+    <code>Command: grep -n 'madr.validate\|ADR 0025\|stays open' specs/038-design-accessibility-guard/spec.md</code></li>
+</ul>
+
+<h3>Reversibility</h3>
+<p>What is hard to un-write?</p>
+<ul>
+  <li><strong>Finding B1 — the spec's premise mis-describes committed content, and the floor it claims to add is already written into the very skill it governs.</strong>
+    ai-design's <code>SKILL.md</code> — committed in <code>f0a7f888</code>/<code>df9f69d8</code>, both predating this draft — already carries step 5
+    "Accessibility is evidence … WCAG 2.2 AA is the release floor", and verify already measures "contrast over the real background".
+    Un-writing this floor is not additive; it is re-editing a just-settled skill or shipping a redundant lane.
+    <pre>c7e2ee17 test(contract): adapt the pins and fixtures the craft rules touch
+df9f69d8 fix(skills): repair all shipped SKILL.md to the standard-craft contract
+f0a7f888 feat(skills): ten requirements that were specified, claimed closed, and never written</pre>
+    <code>Command: git log --oneline -3 -- .agents/skills/ai-design/SKILL.md</code></li>
+  <li><strong>Finding B2 — the floor re-owns the one item two committed places delegate elsewhere.</strong>
+    B-038-1 requires <code>prefers-reduced-motion</code> respect inside ai-design's verify route, but the committed step 7 says
+    "reduced motion … is judged by <code>/ai-review</code>'s motion lens, and this skill does not own that detail".
+    <pre>7. Motion belongs to the diff that carries it. Curves, duration, gestures, interruptibility,
+   reduced motion and the performance budget are judged by `/ai-review`'s motion lens, and
+   this skill does not own that detail.</pre>
+    <code>Command: sed -n '47,51p' .agents/skills/ai-design/SKILL.md</code></li>
+</ul>
+
+<h3>The undecidable path</h3>
+<p>Which claim cannot be decided from the spec as written?</p>
+<ul>
+  <li><strong>Finding C1 — what will <code>_accessibility_problems</code> read: a designed surface or the skill?</strong>
+    B-038-1 says both. The lanes in <code>contract.py</code> read only <code>SKILL.md</code>/<code>corpus.md</code> text; no
+    "designed surface" or "verify pass" artifact exists anywhere. <s>Strong form struck in round two — R3.</s>
+    <pre>def audit(root: Path) -> list[str]:
+    skills = sorted(root.glob("ai-*/SKILL.md"))</pre>
+    <code>Command: sed -n '132,136p' src/ai_engineering/contract.py</code></li>
+  <li><strong>Finding C2 — "the same shape as <code>_incorrect_correct_problems</code>" is documented to scope out the one skill it must refuse.</strong>
+    That lane's contract states "a skill with no rules section passes", and ai-design has no <code>## Rules</code> section.
+    A faithful copy is a no-op on the target it must refuse; a divergent one is unspecified.
+    <pre>if not _RULES.search(body):
+    return []  # no rules section: scoped out</pre>
+    <code>Command: sed -n '465,468p' src/ai_engineering/contract.py</code></li>
+  <li><strong>Finding C3 — the floor's items are never levelled, under an "AA" banner that does not fit them.</strong>
+    Contrast is 1.4.3 (AA); keyboard-reachable is 2.1.1 (A); visible focus is 2.4.7 (AA);
+    <code>prefers-reduced-motion</code> corresponds to 2.3.3 (AAA) — and is already delegated by two committed places.
+    <pre>53:   closed rule on ai-design's corpus/verify: contrast ≥ WCAG AA, everything reachable by
+73:   names the a11y basics and they hold — contrast ≥ WCAG AA on text, every interactive</pre>
+    <code>Command: grep -n 'AA\|reduced-motion\|keyboard' specs/038-design-accessibility-guard/spec.md</code></li>
+</ul>
+
+<h3>Taken on trust</h3>
+<p>What is asserted that a reader is asked to take without checking?</p>
+<ul>
+  <li><strong>Finding D1 — "nothing in the framework says it" is false against this tree, twice.</strong>
+    ai-design's own step 5 names "WCAG 2.2 AA" as "the release floor" and step 4 measures "contrast over the real background";
+    and <code>ai-review/references/frontend.md</code> carries a definition-of-done checklist — "Written out because 'accessible' is a word
+    and this is a list" — ending in "Motion respects the reduced-motion preference", pinned verbatim under EP-248.
+    What is genuinely absent is narrower: no checked refusing lane, no <code>not-covered</code> exit, no keyboard/focus naming in ai-design.
+    <pre>1294:    ("EP-248", "ai-review/references/frontend.md", "Motion respects the reduced-motion preference"),</pre>
+    <code>Command: grep -n 'Motion respects' tests/test_contracts.py</code></li>
+  <li><strong>Finding D2 — one half of the citation checks out, the other names nothing.</strong>
+    The claude-agents file exists; the AL-Design report has zero a11y or accessibility mentions.
+    <pre>0</pre>
+    <code>Command: grep -ci 'a11y\|accessib' .ai/research/reports/17-AL-Design/report.md</code></li>
+  <li><strong>Finding D3 — "spec 037 roadmap table rows 6/16 recorded this" overreaches its table.</strong>
+    Rows 6 and 16 are real, but neither names <code>apple-design</code>, <code>hallmark</code>,
+    <code>high-end-visual-design</code> or <code>emil-design-eng</code>; those four appear nowhere in the repository except spec 038.
+    <pre>0</pre>
+    <code>Command: grep -c 'apple-design\|hallmark\|high-end-visual-design\|emil' specs/037-model-router-and-intake-validation/spec.md</code></li>
+  <li><strong>Finding D4 — a bullet labelled "measured in this tree on 2026-08-26" cites a file that is not in this tree.</strong>
+    The claude-agents path is outside the repository; git tracks nothing under <code>claude-agents</code>.
+    <pre>0</pre>
+    <code>Command: git ls-files | grep -c claude-agents</code></li>
+</ul>
+
+<h3>The example nobody wrote</h3>
+<p>Which example is asserted but not written?</p>
+<ul>
+  <li><strong>Finding E1 — all four Examples are unwritten promises.</strong> Every "Then" is backed by
+    <code>tests/test_038_accessibility.py</code>, which does not exist; <code>-k floor/not_covered/honest/reference</code> all exit 4.
+    <pre>no tests ran in 0.00s
+ERROR: file or directory not found: tests/test_038_accessibility.py
+
+=== exit: 4</pre>
+    <code>Command: uv run --with pytest==9.1.1 pytest -q tests/test_038_accessibility.py -k floor</code></li>
+  <li><strong>Finding E2 — the reference example is doubly unwritten: no file and no directory.</strong>
+    <code>references/accessibility.md</code> does not exist, ai-design has no <code>references/</code> directory, and the path itself is
+    ambiguous between a top-level (unshipped) <code>references/</code> and <code>ai-design/references/</code>, the namespace the contract recognises.
+    <pre>1</pre>
+    <code>Command: test -f .agents/skills/ai-design/references/accessibility.md; echo $?</code></li>
+  <li><strong>Finding E3 — no example exercises the audit-refusal half.</strong> "a design skill that omits the floor is refused
+    at audit" is the mechanism of B-038-1, yet all four examples exercise a fixture over invented surfaces.
+    <pre>78:floor is refused at audit.</pre>
+    <code>Command: grep -n 'audit' specs/038-design-accessibility-guard/spec.md</code></li>
+  <li><strong>Finding E4 — no code or test in this tree mentions the reduced-motion item.</strong> <s>Struck in round two — R2.</s>
+    <pre>5</pre>
+    <code>Command: grep -rn 'prefers-reduced-motion\|reduced-motion' src/ tests/ | wc -l</code></li>
+</ul>
+
+<h2>Round two — the cross-read, relabelled, and none sees its own</h2>
+<p>Each lens sees the other four answers, shuffled, and is asked two things: which finding is a false alarm (and what command
+shows it), and what did all of us miss. Rankings were not taken. Refutations carry commands that were run.</p>
+
+<h3>What the cross-read struck through</h3>
+<ul>
+  <li><s><strong>R1 — A3: the lane cannot land while the inherited madr red keeps the gate red.</strong></s>
+    Refuted by running the actual audit: the contract lanes are independent of the <code>tests/test_madr.py</code> history
+    reproduction, and <code>contract.audit</code> over this tree is clean. The box promises wiring, not a green gate.
+    <pre>CLEAN</pre>
+    <code>Command: uv run python -c "from pathlib import Path; from ai_engineering.contract import audit; print('\n'.join(audit(Path('.agents/skills'))) or 'CLEAN')"</code></li>
+  <li><s><strong>R2 — E4: no code or test mentions the reduced-motion item.</strong></s>
+    Refuted by the contract tests themselves: the item is pinned verbatim at <code>tests/test_contracts.py:1294</code> as EP-248
+    over <code>ai-review/references/frontend.md</code>. The item's testability exists — under the review lens, not any design-route fixture.
+    <pre>1294:    ("EP-248", "ai-review/references/frontend.md", "Motion respects the reduced-motion preference"),</pre>
+    <code>Command: grep -n 'Motion respects' tests/test_contracts.py</code></li>
+  <li><s><strong>R3 — C1's strong form: the verify route produces no artifact, so the floor has nothing to write its verdict into.</strong></s>
+    Refuted by the skill's own output contract: "## What it produces" names "an accessibility record where every line names
+    the command or the observation that satisfied it". C1 stands only in its weaker form: what the lane reads is still unpinned.
+    <pre>21:Tokens, components and their states, a mobile-first implementation, and an accessibility</pre>
+    <code>Command: grep -n 'accessibility' .agents/skills/ai-design/SKILL.md</code></li>
+</ul>
+
+<h2>Round three — the chairman wrote this</h2>
+<p>Nobody here knows which lens said what. This is new text, not a ranking.</p>
+
+<h3>Where the lenses agree</h3>
+<p>The a11y need is real and roadmap-recorded: rows 6 and 16 of the 037 roadmap both name spec 038 as their P2 home. The chosen
+shape — one contract lane, one reference, one fixture; no new agent, no dependency, no network call — is the smallest
+machine-checked form this framework lands disciplines in, matching the house pattern: a checked rule refusing omission, a
+fixture proving both halves, an honest exit instead of a bare pass. Everybody's commands collide on the same two centre facts:
+the example receipts are currently unverifiable, and at least part of the problem section mis-measures the committed tree.</p>
+
+<h3>Where they clash</h3>
+<p>Whether "nothing in the framework says it" is a fair description of a tree in which ai-design's own step 5 names "WCAG 2.2 AA"
+as "the release floor", verify already measures "contrast over the real background", and the review lens's frontend reference
+pins a thirteen-item checklist ending in "Motion respects the reduced-motion preference" — versus the narrower reading that only
+the checked, refusing floor at the design stage is missing. Whether the lane, "the same shape as
+<code>_incorrect_correct_problems</code>", would ever fire on the one skill it governs. And whether reduced-motion belongs in this
+floor at all, when two committed places delegate it to <code>/ai-review</code>'s motion lens.</p>
+
+<h3>Blind spots the cross-read caught</h3>
+<p>Only by reading the findings together did these surface: the refusal has no object — the only audited design skill already
+complies (audit is CLEAN), and the insumo skills that actually produce surfaces are never audited, so enforcement rests entirely
+on a fixture over an invented surface. The new reference would be a <em>second</em> a11y checklist beside the EP-248-pinned one
+the spec never cites. The same honesty exists in two spellings (<code>NOT COVERED</code> in the verifier machinery,
+<code>not-covered</code> with a hyphen and a reason here) and nothing binds them. Roadmap row 6's own condition —
+"P2 — solo si producimos UI" — is unmet in this tree, and the spec never engages it. And C2's trap was nearly walked into twice:
+the shape the spec copies is the one lane in the contract documented to scope its target out.</p>
+
+<h3>Verdict</h3>
+<p>The direction is coherent and the shape is minimal, but the spec is written over a mis-measurement and over artifacts that do
+not exist. The true gap is smaller and more specific than the problem section claims: the framework already says the floor in
+prose (ai-design step 5, contrast in verify, the review lens's pinned frontend checklist); what does not exist is a checked,
+refusing rule at the design/verify stage, a <code>not-covered</code> honesty exit on the design surface, keyboard/focus naming
+inside ai-design itself, and the reference. Signed as "measured in this tree", the central premise and all four example receipts
+fail; signed as a direction to land the checked floor, it is right and small. Nothing here grants anything.</p>
+
+<h3>Recommendation</h3>
+<p>Re-measure the problem section against the committed ai-design skill and the EP-248-pinned frontend checklist before signing
+the "nothing in the framework says it" claim. Pin what the lane reads (skill text or the accessibility record) and when it fires
+(the <code>## Rules</code> scope-out has to be resolved explicitly). Put the reference inside <code>ai-design/references/</code> and
+have it name the existing ai-review checklist rather than reinvent it — or say it supersedes it. Level every check (contrast AA,
+keyboard A, focus-visible AA, and reduced-motion's AAA/2.3.3 status plus its <code>/ai-review</code> delegation). Land
+<code>tests/test_038_accessibility.py</code> with exactly the four <code>-k</code> cases and one case that actually refuses a skill at
+audit. Engage row 6's "solo si producimos UI" condition instead of treating both rows as unconditional.</p>
+
+<h3>One first step</h3>
+<p>Write <code>references/accessibility.md</code> beside ai-design naming the existing <code>ai-review/references/frontend.md</code>
+checklist and the per-item levels, together with <code>tests/test_038_accessibility.py</code> carrying the four <code>-k</code> cases —
+and correct the problem section's "nothing in the framework says it" to the measured truth (prose floor exists; no checked rule).</p>
+
+<p class="note">The three sections below are the only ones a script reads. Their bullet counts equal the two totals stated at the
+bottom; the counts were recomputed rather than believed.</p>
+
+<h3>Gaps no single lens named</h3>
+<ul>
+  <li><strong>M1 — the refused-at-audit side has no object, now or soon.</strong> The audit globs only <code>ai-*/SKILL.md</code>;
+    the framework's one design gateway already names the floor (its audit result today is CLEAN), and the insumo skills the
+    reference will name are not in the tree and never audited. A guard that never fires, whose real enforcement surface is a
+    fixture over a representation nothing defines.
+    <pre>CLEAN</pre>
+    <code>Command: uv run python -c "from pathlib import Path; from ai_engineering.contract import audit; print('\n'.join(audit(Path('.agents/skills'))) or 'CLEAN')"</code></li>
+  <li><strong>M2 — one honesty, two spellings, and nothing binds them.</strong> The verifier honesty is <code>NOT COVERED</code>
+    (≠ PASS, spec 035 B-035-2), while 038 writes <code>not-covered &lt;reason&gt;</code> with a hyphen and a reason, claiming "the
+    same honesty". The two live side by side with no shared definition.
+    <pre>specs/035-adoption-of-reference-patterns/spec.md:112:  ... `NOT COVERED` is reported,
+specs/038-design-accessibility-guard/spec.md:55:   fails reports `INCOMPLETE: not-covered <reason>`, never a bare pass. Plus</pre>
+    <code>Command: grep -rn 'not-covered\|NOT COVERED' specs/035-adoption-of-reference-patterns/spec.md specs/038-design-accessibility-guard/spec.md</code></li>
+  <li><strong>M3 — the reference is a second checklist, and the spec never cites the first.</strong> The spec names "the ai-review
+    references are the worked pattern" while remaining silent that <code>ai-review/references/frontend.md</code> already carries the
+    concrete a11y definition of done, pinned item by item under EP-248. Two checklists, one contract-test-pinned and one not, is
+    the drift this repository refuses.
+    <pre>0</pre>
+    <code>Command: grep -c 'frontend' specs/038-design-accessibility-guard/spec.md</code></li>
+  <li><strong>M4 — both roadmap rows route to spec 038, but row 6 is conditional and the condition is unmet.</strong>
+    Row 6 ("al-design-system") is "P2 — solo si producimos UI (spec 038)": adoption is gated on this tree producing UI, and
+    nothing in the tree produces a UI surface for the guard to govern.
+    <pre>| 6 | al-design-system | P2 — solo si producimos UI (spec 038) | spec candidata |
+| 16 | AL-Design / a11y | P2 — guard de a11y en diseño (spec 038) | spec candidata |</pre>
+    <code>Command: sed -n '192,205p' specs/037-model-router-and-intake-validation/spec.md</code></li>
+</ul>
+
+<h3>Findings cut for carrying no command</h3>
+<ul>
+  <li><strong>Cut1 — the reference is a standing maintenance cost nobody prices:</strong> every WCAG revision and every new design
+    row the roadmap adopts extends it forever, and no command measures reference drift or its token growth against spec 033's
+    economy. Cut for carrying no runnable command.</li>
+  <li><strong>Cut2 — ai-design's verify bound ("at most two automatic rounds") caps how often the a11y outcome may be re-checked,</strong>
+    a cap tuned for visual verification, not conformance re-runs. Tension without a demonstration command; cut in round one.</li>
+</ul>
+
+<h3>Findings the cross-read refuted, with the command that refuted them</h3>
+<ul>
+  <li><s><strong>R1 — A3: the lane cannot land while the inherited madr red keeps the gate red.</strong></s> — refuted by
+    <code>uv run python -c "from pathlib import Path; from ai_engineering.contract import audit; print('\n'.join(audit(Path('.agents/skills'))) or 'CLEAN')"</code>.
+    <pre>CLEAN</pre></li>
+  <li><s><strong>R2 — E4: no code or test mentions the reduced-motion item.</strong></s> — refuted by
+    <code>grep -n 'Motion respects' tests/test_contracts.py</code>.
+    <pre>1294:    ("EP-248", "ai-review/references/frontend.md", "Motion respects the reduced-motion preference"),</pre></li>
+  <li><s><strong>R3 — C1's strong form: the verify route produces no artifact.</strong></s> — refuted by
+    <code>grep -n 'accessibility' .agents/skills/ai-design/SKILL.md</code>, which prints the accessibility record in
+    "## What it produces" and its "Done when" clause.
+    <pre>21:Tokens, components and their states, a mobile-first implementation, and an accessibility</pre></li>
+</ul>
+
+<h2>The two counts</h2>
+<ul>
+  <li>Gaps that appeared only after the cross-read: <strong>4</strong></li>
+  <li>Findings deleted, for carrying no command or for being refuted: <strong>5</strong></li>
+</ul>
+
+</body>
+</html>
