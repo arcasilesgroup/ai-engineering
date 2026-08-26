@@ -17,7 +17,7 @@ design_budget = 3
 # Per-repository model tiers (spec 037). Any provider name fits; `default_tier` is used
 # when a tier is not configured. Adjust here, never in framework code.
 top = "deepseek-v4-flash"
-medium = "nan/qwen3.8-flash:high"
+medium = "qwen3.8-flash"
 low = "qwen3.6"
 default_tier = "deepseek-v4-flash"
 
