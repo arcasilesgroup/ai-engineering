@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="Evidencia externa sobre tres decisiones del ciclo gobernado: criticos en paralelo o en serie tras build, el bucle spec &harr; challenge/council, y el umbral para promover un MADR.">
+  <title>ai-engineering | Evidencia: criticos en paralelo, loop de spec y umbral de MADR</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --bg: #f4f2eb; --surface: #fcfbf7; --surface-2: #e9e6dc;
+      --ink: #17201d; --muted: #56625c; --line: #cac7bc; --line-strong: #989c96;
+      --green: #166e52; --green-soft: #dcebe4;
+      --amber: #89570f; --amber-soft: #f2e5cc;
+      --red: #913b35; --red-soft: #f1dfdc;
+      --blue: #315e7d; --blue-soft: #dce8ef;
+      --shadow: 0 20px 54px rgba(22,31,27,.09); --radius: 14px; --max: 1120px;
+      --sans: "Avenir Next", Avenir, "Segoe UI", Inter, system-ui, sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+    html[data-theme="dark"] {
+      --bg: #0d1412; --surface: #151e1b; --surface-2: #1e2a26;
+      --ink: #eaf0ec; --muted: #a7b3ad; --line: #2d3b36; --line-strong: #52635c;
+      --green: #70d0aa; --green-soft: #17382d;
+      --amber: #efb869; --amber-soft: #3a2d19;
+      --red: #f0958c; --red-soft: #3a2422;
+      --blue: #8bc1e3; --blue-soft: #1b3040;
+      --shadow: 0 24px 60px rgba(0,0,0,.28);
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; min-width:320px; background:var(--bg); color:var(--ink);
+           font-family:var(--sans); font-size:17px; line-height:1.62; }
+    .wrap { max-width:var(--max); margin:0 auto; padding:0 22px; }
+    header { border-bottom:1px solid var(--line); padding:34px 0 26px; }
+    .kicker { font-family:var(--mono); font-size:12px; letter-spacing:.13em;
+              text-transform:uppercase; color:var(--muted); }
+    h1 { font-size:clamp(28px,4.4vw,44px); line-height:1.12; margin:12px 0 10px; letter-spacing:-.02em; }
+    .sub { color:var(--muted); max-width:62ch; margin:0; }
+    main { padding:34px 0 60px; }
+    section { margin:0 0 42px; }
+    h2 { font-size:clamp(21px,2.6vw,27px); margin:0 0 6px; letter-spacing:-.01em; }
+    h2 + .lede { color:var(--muted); margin:0 0 20px; max-width:70ch; }
+    h3 { font-size:18px; margin:26px 0 8px; }
+    .card { background:var(--surface); border:1px solid var(--line);
+            border-radius:var(--radius); padding:20px 22px; box-shadow:var(--shadow); }
+    .bluf { background:var(--surface); border:1px solid var(--line-strong);
+            border-radius:var(--radius); padding:22px 24px; box-shadow:var(--shadow); }
+    .bluf p { margin:0 0 12px; } .bluf p:last-child { margin:0; }
+    .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(255px,1fr)); }
+    .stat { background:var(--surface); border:1px solid var(--line);
+            border-radius:var(--radius); padding:16px 18px; }
+    .stat .n { font-family:var(--mono); font-size:26px; font-weight:600; display:block; line-height:1.2; }
+    .stat .lab { color:var(--muted); font-size:14px; display:block; margin-top:4px; }
+    .n.up { color:var(--green); } .n.down { color:var(--red); } .n.mid { color:var(--amber); }
+    .scroll { overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius);
+              background:var(--surface); }
+    table { border-collapse:collapse; width:100%; min-width:660px; font-size:15px; }
+    th, td { text-align:left; padding:11px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { font-family:var(--mono); font-size:11.5px; letter-spacing:.09em; text-transform:uppercase;
+         color:var(--muted); background:var(--surface-2); }
+    tr:last-child td { border-bottom:none; }
+    code { font-family:var(--mono); font-size:.88em; background:var(--surface-2);
+           padding:1px 5px; border-radius:5px; }
+    .tag { font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+           padding:2px 8px; border-radius:99px; border:1px solid currentColor; white-space:nowrap; }
+    .t-for { color:var(--green); background:var(--green-soft); }
+    .t-against { color:var(--red); background:var(--red-soft); }
+    .t-open { color:var(--amber); background:var(--amber-soft); }
+    .t-note { color:var(--blue); background:var(--blue-soft); }
+    ul, ol { padding-left:20px; } li { margin:7px 0; }
+    a { color:var(--blue); }
+    .src { font-size:13.5px; color:var(--muted); font-family:var(--mono); word-break:break-word; }
+    ol.refs li { margin:11px 0; }
+    .foot { border-top:1px solid var(--line); padding:20px 0 0; color:var(--muted); font-size:14.5px; }
+    .btn { font:inherit; font-size:14px; background:var(--surface-2); color:var(--ink);
+           border:1px solid var(--line); border-radius:9px; padding:6px 13px; cursor:pointer; }
+    .bar { display:flex; gap:8px; justify-content:flex-end; padding-top:14px; }
+    @media print { .bar { display:none; } body { background:#fff; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="bar">
+    <button class="btn" id="themeButton">Tema</button>
+    <button class="btn" id="printButton">Imprimir</button>
+  </div>
+  <p class="kicker">Informe 019 &middot; 26 de agosto de 2026 &middot; ai-research</p>
+  <h1>&iquest;Criticos en paralelo, bucle de spec acotado, y MADR solo para arquitectura?</h1>
+  <p class="sub">Tres decisiones del ciclo gobernado que se estaban debatiendo en la sesi&oacute;n de hoy,
+  buscadas contra la literatura. Cada afirmaci&oacute;n que sostiene una recomendaci&oacute;n fue verificada contra
+  su fuente primaria o se queda marcada <code>[sin fuente]</code>.</p>
+</header>
+
+<main>
+
+<section>
+  <h2>Lo que decide</h2>
+  <div class="bluf">
+    <p><strong>1. &iquest;review, verify y security en paralelo tras build? La ganancia del paralelo es wall-clock, no calidad — y review va primero.</strong>
+    El &uacute;nico experimento controlado que separa "lectores independientes" de "grupo que discute" encontr&oacute;
+    que lo independiente compra cobertura y paga en precisi&oacute;n: <strong>14 incidencias por sesi&oacute;n frente a 9
+    (+56&nbsp;%), pero 22&nbsp;% de falsos positivos frente a 5.3&nbsp;%</strong>, sin diferencia significativa en defectos
+    v&aacute;lidos [1][12]. Los tres cr&iacute;ticos del ciclo ya corren en contextos aislados (<code>fork</code>), as&iacute; que
+    el paralelo no les compra m&aacute;s independencia; solo menos espera. Y la revisi&oacute;n no entrega lo que su nombre
+    promete — defecct detection no es lo que los revisores aportan de forma fiable [2] — as&iacute; que su valor es el filtro
+    de calidad, y el filtro debe pasar <em>antes</em> de que verify/security tickeen cajas sobre bytes que todav&iacute;a pueden cambiar.</p>
+    <p><strong>2. &iquest;Challenge y council secuenciales y volviendo siempre a la spec? S&iacute;, y con tope expl&iacute;cito.</strong>
+    El "adversarial iterative refinement" converge t&iacute;picamente en <strong>3&ndash;5 rondas</strong> porque los retos
+    adversariales se saturan y el generador se estabiliza — pero no hay garant&iacute;a global de convergencia, y el proceso
+    puede <strong>oscilar o sobreajustar cuando los adversariales inventan contraejemplos divorciados de la especificaci&oacute;n
+    inicial</strong> [4]. Ese riesgo es exactamente la raz&oacute;n por la que el bucle spec&harr;cr&iacute;ticos necesita un tope
+    (m&uacute;ltiplo del de build), no "hasta que converja".</p>
+    <p><strong>3. &iquest;MADR solo para decisiones de arquitectura? La literatura est&aacute; de tu lado.</strong>
+    <em>"Even though all architectural decisions are important, not every important decision is architectural.
+    Creating separate records of architectural decisions and other important decisions helps to improve communication"</em> [5].
+    "You don't need to log every choice. Focus on the ones that are likely to be challenged, misunderstood, or reused"
+    [8]. Y los ADR logs "should not turn into epics" [7]. El propio <code>decide.py</code> de este repo ya dice
+    "a decision is born inside its spec, and is promoted only when it earns it" — el fallo no es la intenci&oacute;n,
+    es el trigger de promoci&oacute;n, demasiado f&aacute;cil de disparar.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Los n&uacute;meros que hay que llevarse</h2>
+  <div class="grid">
+    <div class="stat"><span class="n up">14 vs 9</span><span class="lab">Incidencias por sesi&oacute;n: lectores independientes contra grupo que discute, mismo experimento, mismos defectos objetivos [1][12]</span></div>
+    <div class="stat"><span class="n down">22 % vs 5.3 %</span><span class="lab">Falsos positivos: el precio de la lectura independiente sin ronda de filtrado [1][12]</span></div>
+    <div class="stat"><span class="n mid">3&ndash;5</span><span class="lab">Rondas t&iacute;picas hasta la saturaci&oacute;n en adversarial iterative refinement; sin garant&iacute;a formal de convergencia [4]</span></div>
+    <div class="stat"><span class="n mid">oscila / sobreajusta</span><span class="lab">Riesgo documentado del loop adversarial cuando los contraejemplos se divorcian de la spec inicial [4]</span></div>
+    <div class="stat"><span class="n up">1 p&aacute;gina</span><span class="lab">Brevity que pide Fowler para un ADR: "typically a single page. If there's supporting material, link to it" [6]</span></div>
+    <div class="stat"><span class="n up">66.5 %</span><span class="lab">De respuestas correctas que se vuelven err&oacute;neas solo por meter otra respuesta en el contexto (medici&oacute;n propia del 003, fuente [7] all&iacute; citada)</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Hilo 1 — review, verify y security: &iquest;en paralelo o en serie?</h2>
+  <p class="lede">La pregunta no es "&iquest;son independientes?" — ya lo son (fork contexts). Es "&iquest;qu&eacute; compra el paralelo y qu&eacute; cuesta?".</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Hallazgo</th><th>N&uacute;mero</th><th>Fuente</th></tr></thead>
+    <tbody>
+      <tr><td>Leer en solitario (el paralelo por defecto) encuentra m&aacute;s incidencias que discutir en grupo — cobertura.</td><td>14 vs 9 por sesi&oacute;n, +56&nbsp;%</td><td>[1][12]</td></tr>
+      <tr><td>Pero paga en precisi&oacute;n: sin ronda de filtrado, cuatro veces m&aacute;s falsos positivos, sin ganar defectos v&aacute;lidos.</td><td>22&nbsp;% vs 5.3&nbsp;%</td><td>[1][12]</td></tr>
+      <tr><td>Defect detection es la motivaci&oacute;n declarada de la review, pero no lo que los revisores aportan de forma fiable — estilo, mejoras menores y preguntas de intenci&oacute;n dominan el corpus.</td><td>&mdash;</td><td>[2]</td></tr>
+      <tr><td>Los revisores humanos son fiables en problemas superficiales, no en bugs l&oacute;gicos profundos; los agentes pueden razonar sobre flujo de datos exhaustivo contra la suite completa.</td><td>&mdash;</td><td>[3]</td></tr>
+      <tr><td>Veredicto del 003 propio del repo: el cross-read (una ronda de lectores que se leen entre s&iacute;) filtra falsos positivos sin perder verdaderos — la ronda de filtrado existe y debe ir <em>despu&eacute;s</em> del barrido.</td><td>22&nbsp;% &rarr; 5.3&nbsp;%</td><td>[12]</td></tr>
+    </tbody>
+  </table></div>
+  <div class="card">
+    <p><strong>Decisi&oacute;n que la evidencia sostiene:</strong> review primero, y verify+security despu&eacute;s. El paralelo
+    de los tres no mejora la calidad — su independencia ya la da el fork — y correr verify/security sobre c&oacute;digo que
+    review todav&iacute;a puede devolver al build arriesga trabajo tirado (cajas tickeadas sobre bytes que cambian; el bucle
+    de build cuenta intentos, no pasadas). El &uacute;nico caso para el paralelo es operativo: <em>si el host puede con ambos</em>,
+    verify+security como par tras review ahorra espera en la pasada limpia. No hay evidencia en contra de ese par — y no la hay
+    a favor, [sin fuente] m&aacute;s abajo. La opci&oacute;n por defecto, aburrida y acotada, sigue siendo la secuencia completa.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Hilo 2 — el bucle spec &harr; challenge/council</h2>
+  <p class="lede">Tu propuesta — secuenciales y volviendo siempre a la spec, que se actualiza — coincide con el dise&ntilde;o;
+  lo que falta es el tope del bucle, y la literatura explica por qu&eacute;.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Hallazgo</th><th>N&uacute;mero</th><th>Fuente</th></tr></thead>
+    <tbody>
+      <tr><td>Los loops adversariales de refinamiento convergen r&aacute;pido — t&iacute;picamente en 3&ndash;5 rondas en reparaci&oacute;n de software e im&aacute;genes — porque los retos se saturan y las mejoras se estabilizan.</td><td>3&ndash;5 rondas</td><td>[4]</td></tr>
+      <tr><td>Pero no hay garant&iacute;a formal de convergencia global; puede oscilar o sobreajustar si el adversario inventa contraejemplos divorciados de la spec inicial.</td><td>riesgo documentado</td><td>[4]</td></tr>
+      <tr><td>Si el mismo lector cuestiona y responde, solo razona sobre lo que ya escribi&oacute; — por eso challenge y council no pueden ser secciones internas de la spec (lo dice el propio skill, y la medici&oacute;n del 003: 4 de 20 specs, 0 con comando).</td><td>4/20</td><td>[9][12]</td></tr>
+      <tr><td>El bucle de build ya tiene su tope (2 intentos por tarea+receta, una receta verde y roja mantiene su cuenta) — el loop de spec es el &uacute;nico sin condici&oacute;n.</td><td>&mdash;</td><td>[9]</td></tr>
+    </tbody>
+  </table></div>
+  <div class="card">
+    <p><strong>La regla que la literatura apoya, espejo de la de build:</strong> <em>2 revisiones por spec-digest</em>.
+    Challenge escribe findings contra un digest; el autor revisa y el digest cambia; la siguiente pasada corre contra el
+    digest nuevo. Dos pasadas sin convergencia &rarr; escalada en p&aacute;gina (qu&eacute; fall&oacute;, qu&eacute; se intent&oacute;, cu&aacute;nto cuesta
+    el arreglo honesto). El riesgo de oscilaci&oacute;n [4] es exactamente lo que ese tope corta. Y el challenger nunca edita
+    la spec — el que la adapta es el autor —, que es justo lo que pediste: la spec es el &uacute;nico punto de mutaci&oacute;n.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Hilo 3 — MADR solo para decisiones de arquitectura</h2>
+  <p class="lede">La queja era: demasiados MADRs, no hace falta uno por spec aceptada. La literatura coincide con la distinci&oacute;n, y el repo ya declara la intenci&oacute;n correcta en <code>decide.py</code> — el trigger es lo que hay que apretar.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Hallazgo</th><th>Fuente</th></tr></thead>
+    <tbody>
+      <tr><td><em>"Not every important decision is architectural. Separate records of architectural decisions and other important decisions helps to improve communication"</em> — exactamente tu umbral.</td><td>[5]</td></tr>
+      <tr><td>"You don't need to log every choice. Focus on the ones that are likely to be challenged, misunderstood, or reused in future discussions."</td><td>[8]</td></tr>
+      <tr><td>ADR logs "should not turn into epics"; el fracaso com&uacute;n es el ADR por documentar, no por decidir.</td><td>[7]</td></tr>
+      <tr><td>Fowler: brevedad, una p&aacute;gina, link al material de apoyo; el design doc es el workings, el ADR es el output — no dos copias de lo mismo.</td><td>[6]</td></tr>
+      <tr><td>Documentar la decisi&oacute;n dentro de su spec — opciones, rationale, riesgos — ya es el registro; el ADR solo a&ntilde;ade cuando la decisi&oacute;n constri&ntilde;e specs futuras.</td><td>[10][6]</td></tr>
+      <tr><td>El propio repo: <code>decide.py</code> — "a decision is born inside its spec, and is promoted only when it earns it"; y <code>ai-spec</code> paso 10 — "keep decisions in their spec unless they constrain future specs".</td><td>[9][10]</td></tr>
+    </tbody>
+  </table></div>
+  <div class="card">
+    <p><strong>El cambio concreto que la evidencia apoya:</strong> el trigger de promoci&oacute;n pasa de "constri&ntilde;e specs
+    futuras" (demasiado amplio — casi toda decisi&oacute;n t&eacute;cnica lo hace en alg&uacute;n sentido) a "decisi&oacute;n
+    <em>arquitect&oacute;nica</em> y <em>cross-cutting</em>: un l&iacute;mite (API, auth, almacenamiento, convenci&oacute;n global) que
+    futuras specs deben conocer y respetar". Para todo lo dem&aacute;s, la spec es el registro y no se promueve nada.
+    El verbo <code>ai-eng decide --madr</code> queda como herramienta, no como paso del ciclo.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Lo que nadie ha medido</h2>
+  <p class="lede">Marcado, y se queda marcado.</p>
+  <ul>
+    <li><span class="tag t-open">sin fuente</span> <strong>Nadie ha medido si correr verify+security en paralelo con review desperdicia trabajo</strong>
+      — el riesgo es de scheduling (cajas tickeadas sobre bytes que review va a devolver), no de calidad, y no encontr&eacute;
+      ning&uacute;n estudio de ciclos de review multiagente que lo cuantifique.</li>
+    <li><span class="tag t-open">sin fuente</span> <strong>No hay comparaci&oacute;n de 2 cr&iacute;ticos vs 3 en paralelo tras build</strong>
+      (wall-clock contra calidad); el 14-vs-9 mide lectores humanos, no cr&iacute;ticos de agente sobre un mismo diff.</li>
+    <li><span class="tag t-open">sin fuente</span> <strong>Nadie ha publicado el costo de sobre-documentaci&oacute;n de ADRs</strong>
+      — cu&aacute;ntas decisiones innecesarias cuestan en mantenimiento. Todo el consejo es cualitativo [5][7][8].</li>
+    <li><span class="tag t-open">sin fuente</span> El "3&ndash;5 rondas" de convergencia [4] es de calidad de salida en dominios
+      de reparaci&oacute;n; nadie lo ha medido como pol&iacute;tica de proceso (tope por digest) en ciclos de especificaci&oacute;n.</li>
+    <li><span class="tag t-note">no ejecutado</span> <code>infog.com</code> bloque&oacute; la extracci&oacute;n completa del art&iacute;culo
+      [5]; la cita se tom&oacute; del snippet de b&uacute;squeda y debe re-verificarse contra el art&iacute;culo en vivo antes de citarla literal.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Tres direcciones que se pueden tomar ma&ntilde;ana</h2>
+  <ol>
+    <li><strong>Dejar la secuencia completa como norma; verify+security como par paralelo opcional tras review.</strong>
+      La independencia ya la pagan los fork contexts; el paralelo solo compra espera en la pasada limpia, y el filtro de
+      review debe pasar antes de tickear cajas [1][12][2]. Documentarlo en <code>skill-sequence.toml</code> como opcional, no como cambio de doctrina.</li>
+    <li><strong>Acotar el loop spec&harr;cr&iacute;ticos a 2 revisiones por digest.</strong>
+      El riesgo de oscilaci&oacute;n cuando los contraejemplos se divorcian de la spec es precisamente lo que el tope corta [4];
+      espejo del tope de build, con escalada en p&aacute;gina.</li>
+    <li><strong>Apretar el trigger de MADR a "decisi&oacute;n arquitect&oacute;nica y cross-cutting".</strong>
+      "No toda decisi&oacute;n importante es arquitect&oacute;nica" [5]; el spec es el registro de la decisi&oacute;n [10][6];
+      el ADR se promueve solo cuando futuras specs deben conocerlo. Alinear el paso 10 de <code>ai-spec</code> con el
+      docstring de <code>decide.py</code>, que ya dice "promoted only when it earns it".</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Fuentes</h2>
+  <ol class="refs">
+    <li>[1] <span class="src">Johnson &amp; Tjahjono, "Assessing software review meetings: A controlled experimental study using CSRS", Univ. of Hawaii ICS 96-06 &middot; https://csdl.ics.hawaii.edu/techreports/1996/96-06/96-06.pdf &middot; 1996</span> (versi&oacute;n de revista: EMSE 1998, "Does Every Inspection Really Need a Meeting?"). Ya citado como [12] en el informe 003.</li>
+    <li>[2] <span class="src">Bacchelli &amp; Bird, "Expectations, Outcomes, and Challenges of Modern Code Review", ICSE 2013, pp. 712&ndash;721 &middot; https://www.semanticscholar.org/paper/3ad467fe13ffa8ee705d62d8228a2c254a96f5bd &middot; 2013-05-18</span>. Confirmado el resumen (que la review "is less about defects than expected"); los porcentajes de composici&oacute;n del corpus no se re-extrajeron del PDF.</li>
+    <li>[3] <span class="src">"The End of Code Review: Coding Agents Supersede Human Inspection" &middot; https://arxiv.org/abs/2606.13175 &middot; arXiv 2606.13175v1, 2026-06-11</span> &mdash; preprint; le&iacute;do a nivel de resumen y de citas de Bacchelli &amp; Bird.</li>
+    <li>[4] <span class="src">"Adversarial Iterative Refinement" (topic summary citando a Li et al., 2025-11-20) &middot; https://www.emergentmind.com/topics/adversarial-iterative-refinement</span> &mdash; agregador de literatura; le&iacute;do a nivel de resumen tem&aacute;tico, sin abrir el trabajo de Li et al.</li>
+    <li>[5] <span class="src">"Has Your Architectural Decision Record Lost Its Purpose?" &middot; https://www.infoq.com/articles/architectural-decision-record-purpose &middot; InfoQ</span> &mdash; <strong>le&iacute;do solo a nivel de snippet</strong>: la extracci&oacute;n completa devolvi&oacute; vac&iacute;o (bloqueo del sitio); re-verificar la cita literal contra el art&iacute;culo.</li>
+    <li>[6] <span class="src">Martin Fowler, "Architecture Decision Record" &middot; https://martinfowler.com/bliki/ArchitectureDecisionRecord.html</span> &mdash; brevity, una p&aacute;gina, "if there's supporting material, link to it".</li>
+    <li>[7] <span class="src">Oliver Zimmer, "How to create Architectural Decision Records (ADRs) — and how not to" &middot; https://ozimmer.ch/practices/2023/04/03/ADRCreation.html &middot; 2023-04-03</span> &mdash; anti-patterns; "ADR logs should not turn into epics".</li>
+    <li>[8] <span class="src">"Building an Architecture Decision Record (ADR) Library" &middot; https://www.architectviewmaster.com/blog/building-architecture-decision-record-adr-library</span> &mdash; "you don't need to log every choice".</li>
+    <li>[9] <span class="src">Repositorio ai-engineering &mdash; <code>policy/skill-sequence.toml</code>, <code>src/ai_engineering/decide.py</code>, <code>.agents/skills/ai-spec/SKILL.md</code>, <code>.agents/skills/ai-challenge/SKILL.md</code> (floor local).</span></li>
+    <li>[10] <span class="src">"Architecture Decision Records: Templates and Operational Patterns for Teams That Actually Maintain Them" &middot; https://hidekazu-konishi.com/entry/architecture_decision_records_templates_and_operations.html</span> &mdash; "the ADR is the output; the design doc is the workings".</li>
+    <li>[12] <span class="src">Informe 003 de este repo &mdash; "&iquest;Una revisi&oacute;n cruzada an&oacute;nima y un veredicto mejoran lo que produce un council?", 2026-08-21 &middot; .ai/reports/003-council-peer-review-evidence.html</span> &mdash; mediciones propias (relectura en solitario, cross-read, forking) sobre 22 agentes.</li>
+  </ol>
+</section>
+
+<p class="foot">Informe de investigaci&oacute;n. No es una especificaci&oacute;n, un plan, una aprobaci&oacute;n, un PASS ni una aceptaci&oacute;n de riesgo.
+No cambia el producto. Herramientas usadas: Tavily (tvly search + extract), floor local del repositorio (reportes previos, skills, policy) y el
+buscador de la sesi&oacute;n. Herramientas ausentes, degradadas y nombradas: <code>degraded-tool: exa</code> (ning&uacute;n endpoint MCP de Exa expuesto
+en este host) y <code>degraded-tool: notebooklm</code> (doctor pasa, pero la sesi&oacute;n real expir&oacute;: requiere <code>notebooklm login</code>).
+InfoQ bloque&oacute; la extracci&oacute;n y esa cita va marcada. Lo que no pudo comprobarse desde esta m&aacute;quina sigue como <code>[sin fuente]</code>.</p>
+
+</main>
+</div>
+<script>
+  (() => {
+    const root = document.documentElement;
+    const stored = localStorage.getItem('ai-eng-report-019-theme');
+    if (stored === 'light' || stored === 'dark') root.dataset.theme = stored;
+    const themeButton = document.getElementById('themeButton');
+    const printButton = document.getElementById('printButton');
+    themeButton.addEventListener('click', () => {
+      const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      root.dataset.theme = next;
+      localStorage.setItem('ai-eng-report-019-theme', next);
+    });
+    printButton.addEventListener('click', () => window.print());
+  })();
+</script>
+</body>
+</html>
