@@ -8,6 +8,8 @@ without it.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from ai_engineering import intake
 
 GOOD = (
@@ -17,8 +19,11 @@ GOOD = (
 
 
 def test_template_example_passes():
+
+
+def test_template_example_passes():
     # The template's own example is the contract, end to end.
-    template = open("specs/new-goal-template.md").read()
+    template = Path("specs/new-goal-template.md").read_text()
     assert intake.validate_intake(template) == "PASS"
 
 
@@ -34,4 +39,4 @@ def test_missing_acceptance_is_incomplete():
 
 
 def test_empty_request_is_incomplete():
-    assert intake.validate_intake("") .startswith("INCOMPLETE")
+    assert intake.validate_intake("").startswith("INCOMPLETE")

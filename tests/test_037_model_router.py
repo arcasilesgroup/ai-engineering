@@ -11,7 +11,9 @@ from __future__ import annotations
 
 from ai_engineering import model_router as mr
 
-CONFIG = {"top": "deepseek-v4-flash", "medium": "deepseek-v4-flash", "low": "qwen3.6"}
+# The shape the pin's [models] section parses into: a dict under the "models" key.
+CONFIG = {"models": {"top": "deepseek-v4-flash", "medium": "deepseek-v4-flash", "low": "qwen3.6"}}
+CONFIG_NO_MEDIUM = {"models": {"top": "a", "default_tier": "z"}}
 
 
 def test_mechanical_steps_route_to_low():
@@ -23,11 +25,12 @@ def test_hard_reasoning_routes_to_top():
     assert mr.route("security", CONFIG) == "deepseek-v4-flash"
     assert mr.route("review", CONFIG) == "deepseek-v4-flash"
 
-
-def test_default_tier_when_tier_missing():
-    assert mr.route("build", {"top": "a", "low": "b"}) == "a"
+    assert mr.route("build", CONFIG_NO_MEDIUM) == "z"
 
 
 def test_bail_out_on_small_request():
     assert mr.bail_out("fix the typo in README") is True
-    assert mr.bail_out("redesign the auth flow across four services") is False
+    assert mr.bail_out(
+        "redesign the authentication flow across four services including rate limits and "
+        "per-service quotas"
+    ) is False
