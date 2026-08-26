@@ -84,3 +84,15 @@ them (the spec's example counts are the goal, not a claim). The inherited
 - It is not a claim that the boundary behaviour exists: until `tests/test_036_boundary.py`
   passes its two cases inside `just check`, the delta is a proposal with red fixtures
   pending, exactly as the council's chairman wrote.
+---
+
+## Revision note (2026-08-26, after verification)
+
+The spec at this approval's digests was verified; verification and review found three
+concrete edits, applied and committed (`08c7cd8d`). The spec's digest moved:
+`40491ca7199838f22f903c03ea28716589dfa0c0434a8252d34d9f0dcada130a`. The three edits:
+(1) the Success example's count corrected `2 passed` → `5 passed` (the fixture ships five
+tests; verify marked the old count stale); (2) the B-036-2 wording updated to the two real
+parse surfaces `_REFUSAL`/`cases()`; (3) no normative behaviour changed. The plan digest
+`f39a63b8` is unchanged. The build, review, verify and security records at `eecb10eb` cover
+this revised spec.
