@@ -178,6 +178,14 @@ register:
 skilleval:
     @uv run python tests/skill_eval.py
 
+# The review-skills evaluation (spec 029 B-029-1): plant a graded defect pack outside the
+# tree, run each review skill's reporter, and report recall/precision over the three tiers
+# (gimmes, near-misses, traps) with a clean control that must stay quiet. A skill reporting
+# nothing on a non-empty pack, or firing on clean code or a trap, is a FAIL. Its own checks
+# are tests/test_evals_harness.py.
+evals:
+    @uv run python tests/evals/score.py
+
 # Where things stand, from the tree, with no model doing the arithmetic. Not in `check`:
 # it asserts nothing and a report inside a gate is a report people read as a gate.
 stats:
@@ -248,4 +256,4 @@ map:
     @test "$(sm --version)" = "{{sm}}" || { echo "sm is $(sm --version) and this gate is written for {{sm}}. An untested map engine's answer is not evidence."; exit 1; }
     sm scan
     uv run python -m ai_engineering.skillmap
-check: build sbom lint typecheck test cover security register skilleval counts intent-page lenses council map ran
+check: build sbom lint typecheck test cover security register skilleval evals counts intent-page lenses council map ran

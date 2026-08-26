@@ -21,6 +21,7 @@ import json
 import os
 import re
 import stat
+import subprocess
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -427,7 +428,64 @@ def main(argv: list[str]) -> outcome.Result:
     parser.add_argument("--why", help="why those links are there")
     parser.add_argument("--by", help="the person answering for them")
     parser.add_argument("--session")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="bounded sample size; gates the lane behind the cost policy",
+    )
+    parser.add_argument(
+        "--revalidate",
+        type=str,
+        default=None,
+        metavar="FINDING_ID",
+        help="revalidate one finding at finding granularity (spec 030 B-030-3)",
+    )
+    parser.add_argument("--file", default=None, help="the file the finding lives in")
+    parser.add_argument("--trigger", default=None, help="the exact substring the finding flagged")
     args = parser.parse_args(argv)
+
+    # Revalidation (spec 030 B-030-3): re-read the specific file's diff and mark the finding
+    # fixed only when the change actually removed the trigger, without re-running the lane.
+    if args.revalidate is not None:
+        if not (args.file and args.trigger):
+            parser.error("--revalidate requires --file and --trigger")
+        from ai_engineering import revalidate
+
+        path = paths.repo_root() / args.file
+        before = subprocess.run(
+            ["git", "-C", str(paths.repo_root()), "show", f"HEAD:{args.file}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout
+        after = path.read_text(encoding="utf-8") if path.is_file() else ""
+        finding = {"id": args.revalidate, "trigger": args.trigger, "file": args.file}
+        fixed = revalidate.apply(finding, before, after)
+        print(
+            f"  {'FIXED' if fixed else 'INCOMPLETE'} {args.revalidate} "
+            f"in {args.file}: the trigger is {'gone' if fixed else 'still present'}"
+        )
+        return outcome.result("PASS" if fixed else "INCOMPLETE")
+
+    # The cost gate (spec 029 B-029-4): a bounded sample before an expensive lane. Without
+    # `--limit` the flow runs exactly as before; with it, the lane first checks its
+    # prerequisites and refuses without consent above the declared threshold.
+    if args.limit is not None:
+        from ai_engineering import cost
+
+        missing = cost.doctor_prereqs()
+        if missing:
+            for line in missing:
+                print(f"  INCOMPLETE {line}")
+            return outcome.result("INCOMPLETE")
+        _total, projected, ok = cost.calibrate(args.limit, [(0.01, 35.0)], interactive=False)
+        if not ok:
+            print(
+                f"  INCOMPLETE [COST_UNCONSENTED]: the lane would project ~$"
+                f"{projected:.2f} over a {args.limit}-unit run; re-run with consent."
+            )
+            return outcome.result("INCOMPLETE")
 
     if args.action == "account" and not (args.range and args.why and args.by):
         parser.error("account requires --range FIRST-LAST, --why and --by")

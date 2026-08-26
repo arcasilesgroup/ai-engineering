@@ -798,6 +798,9 @@ GATE_CONTROLS = {
     "register": "tests/test_pilot_register.py mutates the register and asserts each refusal",
     "skilleval": "tests/test_skill_eval.py mutates the corpus once per routing rule and "
     "asserts the harness refuses each one",
+    "evals": "tests/test_evals_harness.py plants a defect pack whose graded key lives "
+    "outside the tree, asserts recall/precision over the three tiers, a clean control "
+    "staying quiet, and an in-tree key being refused — one per B-029-1 rule",
     "counts": "test_the_counts_this_repository_states_about_itself_are_the_counts_it_has",
     "council": "test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce "
     "plants four files the script must refuse — a total nine higher than the entries "

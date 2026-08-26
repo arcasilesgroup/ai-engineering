@@ -38,7 +38,7 @@ def test_it_runs_as_a_command_and_names_every_row_that_has_no_instrument():
     )
     assert done.returncode == 0, done.stderr
     assert "no_instrument  guard_p95_ms" in done.stdout
-    assert "RAN register=32" in done.stdout
+    assert "RAN register=33" in done.stdout
 
     # The prohibitions split too, and until now nothing printed it: the only statement of
     # how many of them can fail closed was a sentence in `specs/015` — and that sentence
@@ -92,7 +92,7 @@ def test_a_prohibition_needs_either_a_check_or_a_reason_and_not_both():
 def test_a_missing_indicator_is_an_error_rather_than_a_shorter_register():
     broken = copy.deepcopy(register())
     broken["indicator"].pop()
-    assert any("17 indicators" in line for line in pilot_register.problems(broken))
+    assert any("18 indicators" in line for line in pilot_register.problems(broken))
 
 
 def test_a_completion_claim_cannot_stand_over_an_uninstrumented_row(tmp_path, monkeypatch):
@@ -147,6 +147,7 @@ def test_every_indicator_the_proposal_names_has_a_row():
         "aaa_exception_age",
         "coordination_overlap",
         "report_payload_unknown",
+        "skill_evals_recall",
     }
 
 

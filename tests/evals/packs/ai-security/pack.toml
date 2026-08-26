@@ -1,0 +1,27 @@
+skill = "ai-security"
+reporter = "scan.py"
+clean = false
+
+[coverage]
+roots = ["src"]
+
+[[defects]]
+id = "t1-secret-literal"
+tier = 1
+file = "src/conf.py"
+find = "API_KEY = \"change-me\""
+replace = "API_KEY = 'secret://EXAMPLE-deadbeef'"
+
+[[defects]]
+id = "t2-env-var-string"
+tier = 2
+file = "src/app.py"
+find = "password = getenv(\"DB_PASS\", \"root\")"
+replace = "password = getenv('DB_PASS', 'root-default')"
+
+[[defects]]
+id = "t3-secret-mask"
+tier = 3
+file = "src/helper.py"
+find = "REDACTED = '***'"
+replace = "REDACTED = 'secret://EXAMPLE-feedcafe'"

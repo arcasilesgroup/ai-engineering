@@ -51,7 +51,7 @@ same `just` recipes you run locally.
 | `just counts` | Prints verifiable proof of how many files Ruff formatted and how many tests Pytest collected. |
 | `just council` | Recounts, over each `specs/*/council.md`, how many gaps appeared only after cross-reading and how many findings were deleted, and rejects when its count does not match the total the run wrote. |
 | `just stats` | Shows repository metrics; it is a report, not a gate. Use `uv run python tests/stats.py --json` for JSON. |
-| `just check` | Local/CI gate, fourteen steps in order: `build sbom lint typecheck test cover security register skilleval counts intent-page lenses council map ran`. It does not include `just guards`, which is a separate lane and blocks from `ci-result`. |
+| `just check` | Local/CI gate, sixteen steps in order: `build sbom lint typecheck test cover security register skilleval evals counts intent-page lenses council map ran`. It does not include `just guards`, which is a separate lane and blocks from `ci-result`. |
 
 ## 5. Direct scripts and automation
 | Execution | Use |

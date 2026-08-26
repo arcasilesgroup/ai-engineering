@@ -10,8 +10,9 @@ observes and never accepts: incomplete is the answer to a box or an example with
 - "tick the boxes on spec 014" — the plain trigger: a spec with a production-ready section and nothing proving it.
 - "does the code do what the spec said" — the acceptance question, answered against the spec's own examples rather than against the diff.
 - "check the acceptance criteria pass" — each Given/When/Then run as a command, marked pass, fail or incomplete.
-- "which of these boxes can we actually claim" — the honest half: a box with no command beside it is incomplete and says so.
-- "the gate is green, are we done" — no; green is one box, and this says which of the other seven are unproven.
+- "apply the spec's answer key" — the decided standard, read from `answer-key.yaml` beside the approved spec: each binary check is re-executed (`--recheck`) and marked pass, fail or `BLOCKED: U<n>`; a touched unknown is never scored.
+- "what does the answer key say about this deliverable" — the same application, from a reader's question rather than a gate.
+- "verify this cold" — read-only verifier, no write tools, never the constructor's conversation: applies the answer key with `--recheck` and reports what it saw, not what the builder said. An uncertain check is a fail.
 
 ## Refuses
 
@@ -21,3 +22,5 @@ observes and never accepts: incomplete is the answer to a box or an example with
 - "fix the Then that turned out wrong" — use `/ai-spec`; rewriting an example here is the reader marking their own paper.
 - "open the pull request now the boxes are ticked" — use `/ai-ship`, because publishing is a separate authority and this accepts nothing.
 - "just mark it green, the gate passed locally" — refused: a box carries the command that ticked it, and on a draft nothing but the writer is checking, because assertion 19 only reads a shipped spec.
+- "judge the deliverable by taste" — use `/ai-spec`; a decided standard is written at spec time. If none exists, the honest answer is `BLOCKED`, not an invented opinion.
+- "review it warm" — use `/ai-review`; a review that sees the constructor's reasoning defends the work. Cold-read is read-only and never sees it.

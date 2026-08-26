@@ -583,6 +583,8 @@ def test_the_audit_verb_says_exactly_what_it_accepts(monkeypatch, capsys):
 
     assert _surface(monkeypatch, capsys, audit) == [
         "usage: ai-eng audit [-h] [--range RANGE] [--why WHY] [--by BY] [--session SESSION]",
+        "                    [--limit LIMIT] [--revalidate FINDING_ID] [--file FILE]",
+        "                    [--trigger TRIGGER]",
         "                    [{verify,replay,account}]",
         "",
         "positional arguments:",
@@ -594,6 +596,11 @@ def test_the_audit_verb_says_exactly_what_it_accepts(monkeypatch, capsys):
         "  --why WHY             why those links are there",
         "  --by BY               the person answering for them",
         "  --session SESSION",
+        "  --limit LIMIT         bounded sample size; gates the lane behind the cost policy",
+        "  --revalidate FINDING_ID",
+        "                        revalidate one finding at finding granularity (spec 030 B-030-3)",
+        "  --file FILE           the file the finding lives in",
+        "  --trigger TRIGGER     the exact substring the finding flagged",
     ]
 
 
