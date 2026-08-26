@@ -5,5 +5,8 @@
   ],
   "scan": {
     "respectGitignore": true
-  }
+  },
+  "ignore": [
+    ".ai/reports/*.md"
+  ]
 }

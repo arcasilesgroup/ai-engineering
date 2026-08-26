@@ -213,16 +213,13 @@ breaks on the stranger machine — the smell the taxonomy names "Series of Comma
 
 ## Production-ready
 
-Nothing gets a URL until every box is ticked, and each one is ticked by a command. This
-specification changes a CLI module (`contract.py`), a capability file and sixteen skill
-texts; it adds no service, no URL and no second hop, so the service-shaped boxes are
-`not applicable`.
+Nothing gets a URL until every box is ticked, and each one is ticked by a command.
 
-- [x] CI/CD — `just check`, run by `.github/workflows/check.yml` on every push; nothing here is deployed and `.github/workflows/release.yml` is what publishes the wheel
-- [x] Logs — not applicable, and that is the rule: this spec adds audit rules and skill texts; every verb still emits the one JSON line `ai-eng digest` reads, and no new stage writes anything
-- [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
-- [x] Errors — not applicable: the new code path is `contract.audit_one` returning problem strings for the four rules, and a question the rules cannot decide fails closed rather than passing
-- [x] Health and data age — `tests/test_contracts.py` asserts the four rules inside `just test` on every gate, so the shipped corpus cannot drift away from the audit without the gate saying so
-- [x] External check — `.github/workflows/check.yml` runs the whole gate on every push to this repository, and `install-matrix.yml` installs the built wheel on three platforms, where the repaired skills ship verbatim
-- [x] Second path — the four rules are read by two routes that share no line: `contract.audit_one` applies them to the tree and `tests/test_contracts.py` asserts the same rules against crafted fixtures, so the rule and its fixture cannot drift
-- [x] Security — `just security`: gitleaks, semgrep and trivy on every push, over a change that adds no dependency and no network call
+- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
+- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
+- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
+- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
+- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
+- [ ] External check — something outside the service verifies it and says what it could not check
+- [ ] Second path — every published number recomputed by an independent route and compared
+- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI

@@ -30,7 +30,7 @@ has no route. Nothing else changes and nothing is authorized.
   "fork contexts only; task-level parallelism inside ai-build per the approved plan", and
   its `[gate] approval` requires "a human approval record carrying the specification's
   exact digest".
-- `ai-build/SKILL.md` step 1: "Take the task, not the plan... It refuses when that digest
+- `.agents/skills/ai-build/SKILL.md` step 1: "Take the task, not the plan... It refuses when that digest
   no longer matches the file on disk... If the task is not in a plan, or the plan is not
   approved, stop here: nothing to execute."
 - `specs/013-origin-first-coordination/spec.md` (draft) records the future P3 target:

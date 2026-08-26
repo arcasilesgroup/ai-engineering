@@ -1,10 +1,10 @@
-# The map's accepted real broken references, as data (spec 026).
 #
-# docs/adr/0025 accepts a dated class of real broken references so the instrument's green
-# is honest while they wait for their own repair block. That record names this file: it is
-# the exact set of broken (node, target) pairs `sm check --json` reported (non-template)
-# on the day the acceptance was written, so "accepted" means a real, verifiable list — a
-# reference that is neither fixed nor in this file reddens the gate.
+# docs/adr/0027 accepts a second dated class: prose mentions of `SKILL.md`, `corpus.md`,
+# `ai-build/SKILL.md` and a sibling ADR in specs/027 (approved at its digests, so its
+# prose is not rewritten to satisfy the analyzer), docs/adr/0026 and a challenge that
+# quotes an ADR listing verbatim. The three mentions that pointed at a file which exists
+# elsewhere (CHANGELOG's `blocked.md`, specs/028's two `ai-build/SKILL.md`) were fixed on
+# 2026-08-25 and are not in this list.
 #
 # Each entry is bound to BOTH the node that carries the link and the target it points at.
 # Binding to the pair, not the bare target, is deliberate: a bare "SKILL.md" or "plan.md"
@@ -69,4 +69,38 @@ accepted = [
   "specs/026-sm-skillmap-as-instrument/spec.md -> specs/026-sm-skillmap-as-instrument/docs/specs/010/plan.md",
   "specs/026-sm-skillmap-as-instrument/spec.md -> specs/026-sm-skillmap-as-instrument/docs/thesis.md",
   "specs/026-sm-skillmap-as-instrument/spec.md -> specs/026-sm-skillmap-as-instrument/plan.md/spec.md",
+  # docs/adr/0026 and the specs/027 dossier — prose mention of the standard's own files.
+  "docs/adr/0026-specification-027-and-its-plan-are-approved-at-exact-digests.md -> docs/adr/SKILL.md",
+  "docs/adr/0026-specification-027-and-its-plan-are-approved-at-exact-digests.md -> docs/adr/corpus.md",
+  "specs/027-standard-skills-contract/challenge.md -> specs/027-standard-skills-contract/ai-review/references/testing.md",
+  "specs/027-standard-skills-contract/challenge.md -> specs/027-standard-skills-contract/corpus.md",
+  "specs/027-standard-skills-contract/challenge.md -> specs/027-standard-skills-contract/SKILL.md",
+  "specs/027-standard-skills-contract/challenge.md -> specs/027-standard-skills-contract/testing.md",
+  "specs/027-standard-skills-contract/council.md -> specs/027-standard-skills-contract/ai-note/corpus.md",
+  "specs/027-standard-skills-contract/council.md -> specs/027-standard-skills-contract/ai-review/corpus.md",
+  "specs/027-standard-skills-contract/council.md -> specs/027-standard-skills-contract/ai-security/corpus.md",
+  "specs/027-standard-skills-contract/council.md -> specs/027-standard-skills-contract/corpus.md",
+  "specs/027-standard-skills-contract/council.md -> specs/027-standard-skills-contract/SKILL.md",
+  "specs/027-standard-skills-contract/plan.md -> specs/027-standard-skills-contract/corpus.md",
+  "specs/027-standard-skills-contract/plan.md -> specs/027-standard-skills-contract/SKILL.md",
+  "specs/027-standard-skills-contract/spec.md -> specs/027-standard-skills-contract/ai-note/corpus.md",
+  "specs/027-standard-skills-contract/spec.md -> specs/027-standard-skills-contract/ai-review/corpus.md",
+  "specs/027-standard-skills-contract/spec.md -> specs/027-standard-skills-contract/ai-review/references/testing.md",
+  "specs/027-standard-skills-contract/spec.md -> specs/027-standard-skills-contract/corpus.md",
+  "specs/027-standard-skills-contract/spec.md -> specs/027-standard-skills-contract/SKILL.md",
+  # specs/028 challenge quotes a live ADR listing; the entry names the listing's last line.
+  "specs/028-writer-model-recorded/challenge.md -> specs/028-writer-model-recorded/0026-specification-027-and-its-plan-are-approved-at-exact-digests.md",
+  # docs/adr/0027 (this record) names the same standard files its subject discusses.
+  "docs/adr/0027-skill-map-prose-mentions-are-accepted-and-sm-is-wired-into-ci.md -> docs/adr/SKILL.md",
+  "docs/adr/0027-skill-map-prose-mentions-are-accepted-and-sm-is-wired-into-ci.md -> docs/adr/ai-build/SKILL.md",
+  "docs/adr/0027-skill-map-prose-mentions-are-accepted-and-sm-is-wired-into-ci.md -> docs/adr/blocked.md",
+  "docs/adr/0027-skill-map-prose-mentions-are-accepted-and-sm-is-wired-into-ci.md -> docs/adr/challenge.md",
+  "docs/adr/0027-skill-map-prose-mentions-are-accepted-and-sm-is-wired-into-ci.md -> docs/adr/corpus.md",
+  "docs/adr/0027-skill-map-prose-mentions-are-accepted-and-sm-is-wired-into-ci.md -> docs/adr/spec.md",
+  "docs/adr/0027-skill-map-prose-mentions-are-accepted-and-sm-is-wired-into-ci.md -> docs/adr/testing.md",
+  # specs/034 names Loop-Engineering's `NOTES.md` (research N26): a prose mention of a
+  # file that lives in the research, not in the dossier — same class as the prose mentions
+  # ADR 0027 accepts; lands with the owner's 0027 commit, not in the docs(034) commit.
+  "specs/034-appendix-notes-decision-frameworks-and-constellation/spec.md -> specs/034-appendix-notes-decision-frameworks-and-constellation/NOTES.md",
+  "specs/034-appendix-notes-decision-frameworks-and-constellation/approval.md -> specs/034-appendix-notes-decision-frameworks-and-constellation/NOTES.md",
 ]
