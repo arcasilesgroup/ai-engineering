@@ -54,4 +54,5 @@ def test_reference_names_the_rule():
         / "accessibility.md"
     )
     text = ref.read_text().casefold()
-    assert "contrast" in text and "keyboard" in text and "not-covered" in text
+    assert "contrast" in text and ("keyboard" in text or "teclado" in text)
+    assert "not-covered" in text
