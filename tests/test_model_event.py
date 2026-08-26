@@ -8,11 +8,16 @@ the surface reported, and what the pin says the verb should run on.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import runpy
 import subprocess
 import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
 
 from ai_engineering import paths  # noqa: E402
 
@@ -83,3 +88,33 @@ def test_no_pin_and_no_env_reports_nothing_invented():
     # No models configured: route falls back to the empty string (the session's own model).
     assert mr.route("audit", {}) == ""
     assert mr.route("report", {}) == ""
+
+
+# --------------------------------------------------------------------------- B-042-2 : the chain hook passes through a payload model
+
+
+def _run_chain(monkeypatch, tmp_path, body: str):
+    monkeypatch.setattr(sys, "argv", ["chain.py", "PostToolUse"])
+    monkeypatch.setattr(sys, "stdin", type("S", (), {"read": lambda self: body})())
+    monkeypatch.setenv("AI_ENGINEERING_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("AI_ENG_MODEL", raising=False)
+    with contextlib.suppress(SystemExit):
+        runpy.run_path(str(ROOT / "hooks" / "chain.py"), run_name="__main__")
+
+
+def test_chain_hook_sets_ai_eng_model_from_a_real_payload_model(tmp_path, monkeypatch):
+    """The chain hook exports AI_ENG_MODEL only when the payload actually carries a model
+    string — never from sessionId, and never an empty value. Driven by path like every
+    hook."""
+    body = json.dumps({"session_id": "s-1", "model": "nan/deepseek-v4-flash",
+                       "hook_event_name": "PostToolUse", "tool_name": "Bash"})
+    _run_chain(monkeypatch, tmp_path, body)
+    assert os.environ.get("AI_ENG_MODEL") == "nan/deepseek-v4-flash"
+
+
+def test_chain_hook_never_invents_a_model_from_session_id(tmp_path, monkeypatch):
+    """sessionId is an opaque id every surface sends; it must not become a model name."""
+    body = json.dumps({"session_id": "opaque-id-123", "hook_event_name": "PostToolUse",
+                       "tool_name": "Bash"})
+    _run_chain(monkeypatch, tmp_path, body)
+    assert os.environ.get("AI_ENG_MODEL") is None
