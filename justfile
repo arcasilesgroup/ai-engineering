@@ -124,6 +124,10 @@ cover:
     # comes from the run that happened rather than from a second one bought to print it.
     uv run --with {{coverage}} coverage run --parallel tests/adversarial/run.py
     uv run --with {{coverage}} coverage combine
+    # The parallel data-files are consumed by combine; leaving them is 139 files of
+    # one-run noise on every machine that ran a gate. Remove them now, keep only the
+    # combined .coverage the report below reads.
+    find . -maxdepth 1 -name '.coverage.*' -delete
     uv run --with {{coverage}} coverage report --fail-under=80
 
 # Coverage says a line ran. It never says anything would have noticed the line being
