@@ -219,13 +219,16 @@ one the intent already records. The promotion is blocked today by the inherited
 
 ## Production-ready
 
-Nothing gets a URL until every box is ticked, and each one is ticked by a command.
+Nothing gets a URL until every box is ticked, and each one is ticked by a command. This
+specification records a decision (the writer model of `/ai-goal`) and constrains one
+skill text; it adds no service, no URL and no second hop, so the service-shaped boxes
+are `not applicable`.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check`, run by `.github/workflows/check.yml` on every push; nothing here is deployed and `.github/workflows/release.yml` is what publishes the wheel
+- [x] Logs — not applicable, and that is the rule: this spec adds a record and a corpus refusal; every verb still emits the one JSON line `ai-eng digest` reads
+- [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
+- [x] Errors — not applicable: the change is a proposed ADR and one corpus line; there is no new runtime path for an uncaught exception to leave through
+- [x] Health and data age — `python tests/skill_eval.py` asserts the `skill-routing` baseline moved 349 → 350 and the corpus refusal routes the decision to `/ai-spec`; the record only stops being current when a person accepts the proposed `docs/adr/0028`
+- [x] External check — `.github/workflows/check.yml` runs the whole gate on every push to this repository, and what it cannot check — the ADR 0028 promotion, blocked by the inherited ADR 0025 red — is written down in `specs/028-writer-model-recorded/blocked.md`
+- [x] Second path — the same decision is recorded twice by routes that share no line: the `ai-goal` corpus refusal (read by `tests/skill_eval.py`) and the proposed `docs/adr/0028` (read by `tests/test_madr.py`), so the decision cannot drift between them
+- [x] Security — `just security`: gitleaks, semgrep and trivy on every push, over a change that adds no dependency and no network call
