@@ -96,3 +96,13 @@ tests; verify marked the old count stale); (2) the B-036-2 wording updated to th
 parse surfaces `_REFUSAL`/`cases()`; (3) no normative behaviour changed. The plan digest
 `f39a63b8` is unchanged. The build, review, verify and security records at `eecb10eb` cover
 this revised spec.
+
+---
+
+## Plan revision note (2026-08-26, post-build)
+
+The plan at the approved digest `f39a63b8` carried task lines without the `[ ]` box the
+ai-plan contract requires, so `--tick` had nothing to mark. The six task lines now carry
+`N. [ ] **Title**`; the plan digest is
+`0c351558e58acf6e84c06d0998345abb404608e18abf303b847d2c312753a633`. The six checks are
+green (build `08c7cd8d`, gate `eecb10eb`); tasks are ticked at that digest.

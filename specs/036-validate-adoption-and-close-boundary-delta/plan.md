@@ -51,7 +51,7 @@ corpus.md); a refusal in the wrong surface is the fixture's red half.
 
 ## Tasks
 
-1. **Red fixtures: boundary and validation** —
+1. [ ] **Red fixtures: boundary and validation** —
    **file** `tests/test_036_boundary.py` (new) + `tests/test_036_validation.py` (new).
    `test_036_boundary.py` covers in-declaration (Always/Ask-first/Never, deterministic),
    out-of-declaration (`None`, `U1`, `CANNOT DECIDE`, blocks), and undeclared/malformed
@@ -63,7 +63,7 @@ corpus.md); a refusal in the wrong surface is the fixture's red half.
    **done when**: both files run and fail for the right reason (no module, missing symbols)
    — the plan will turn real reds green.
 
-2. **Decision-boundary module** —
+2. [ ] **Decision-boundary module** —
    **file** `src/ai_engineering/decision_boundary.py` (new, stdlib-only: `Classified`
    (frozen dataclass: `verdict` + `reason`), `classify(decision, declarations)` returning
    Always/Ask-first/Never or `None` with `U0`/`U1..`, reading declarations from the
@@ -74,14 +74,14 @@ corpus.md); a refusal in the wrong surface is the fixture's red half.
    `None`/`U1` and blocks, undeclared/malformed returns `None`/`U0`, and a parallel test
    proves `capability.preflight` still behaves (no second model).
 
-3. **Validation freshness green** —
+3. [ ] **Validation freshness green** —
    **file** `tests/test_036_validation.py` (green half, no production change).
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_036_validation.py`
    **rollback**: `git revert <commit>`.
    **done when**: every table row's module exists with its symbol and provenance marker;
    deleting a module fails the check (the red half is proven by task 1's run).
 
-4. **Corpus and description routes for the boundary rule** —
+4. [ ] **Corpus and description routes for the boundary rule** —
    **file** `.agents/skills/ai-spec/SKILL.md`, `.agents/skills/ai-review/SKILL.md`,
    `.agents/skills/ai-verify/SKILL.md` (each gains a `Not for … — …` refusal clause naming
    the decision-boundary rule in its description) and each skill's `corpus.md` (one quoted
@@ -93,7 +93,7 @@ corpus.md); a refusal in the wrong surface is the fixture's red half.
    are read by the routing lane, the baseline moves with its reason, and a fixture proves a
    refusal written only in `corpus.md` is not counted (the red half).
 
-5. **035 supersede receipt and plan trace** —
+5. [ ] **035 supersede receipt and plan trace** —
    **file** none beyond records (verification): `ai-eng spec list` shows 036 `supersedes:
    035`; 035's approval.md carries the note and its digests are unchanged.
    **check**: `git diff 90286a0d -- specs/035-adoption-of-reference-patterns/spec.md specs/035-adoption-of-reference-patterns/plan.md` (empty)
@@ -101,7 +101,7 @@ corpus.md); a refusal in the wrong surface is the fixture's red half.
    **done when**: 035's frozen bytes are bit-identical, the supersede chain reads
    036 → 035 by value.
 
-6. **The gate** —
+6. [ ] **The gate** —
    **file** none (verification).
    **check**: `just check`
    **rollback**: `git revert <commit>`.
