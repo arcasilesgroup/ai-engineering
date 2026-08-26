@@ -455,6 +455,30 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         outcome.fact("errors", "WARN" if errors else "PASS", "Command errors", str(len(errors)))
     )
 
+    # The model distribution, from the product's own events (spec 042 / B-042-1, B-042-2).
+    # Four states, never merged: `missing` (event predates the field), `undetermined`
+    # (the surface did not say), `model` (what the surface actually reported) and
+    # `tier_model` (what the pin says the verb routes to). The line names the state it is
+    # counting, so a distribution of configured intent is never read as one of reported
+    # actual. An event with no key at all is counted as predating the field, separately.
+    command_events = [e for e in events if e.get("cls") == "command"]
+    reported = Counter(str(e.get("model") or "missing") for e in command_events)
+    routed = Counter(
+        str((e.get("data") or {}).get("tier_model") or "missing") for e in command_events
+    )
+    model_detail = (
+        "  ".join(f"{k} {v}" for k, v in reported.most_common(6)) or "none observed"
+    )
+    tier_detail = "  ".join(f"{k} {v}" for k, v in routed.most_common(6)) or "none observed"
+    print(f"\n  Models, reported (surface `model`): {model_detail}")
+    print(f"  Models, routed (pin `tier_model`): {tier_detail}")
+    check_facts.append(
+        outcome.fact("models-reported", "OBSERVED", "Models the surface reported", model_detail)
+    )
+    check_facts.append(
+        outcome.fact("models-routed", "OBSERVED", "Models the pin routes to", tier_detail)
+    )
+
     rows, counted, highest = measured_repeats(events)
     # Printed on every run, including the runs with nothing to report. It used to print only
     # when a judgement had crossed the threshold, so a reader could not tell rule 12 measured
