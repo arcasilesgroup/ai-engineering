@@ -211,6 +211,7 @@ def audit_one(path: Path) -> list[str]:
     found.extend(_incorrect_correct_problems(path.parent, name))
     found.extend(_load_tier_problems(path.parent, name))
     found.extend(_dispatcher_problems(path.parent, name))
+    found.extend(_appendix_problems(path.parent, name))
     return found
 
 
@@ -514,6 +515,27 @@ def _dispatcher_problems(folder: Path, name: str) -> list[str]:
             "files the body loads on demand"
         ]
     return []
+
+
+# B-034-1: the ai-note skill's instruction must be appendix-only — a note is appended to
+# with a date, never rewritten. A body that instructs rewriting/editing a note is a note
+# whose history can be silently rewritten, which is the rot Loop-Engineering's append-only
+# NOTES.md exists to stop.
+_APPENDIX_REWRITE = re.compile(r"\b(?:rewrite|edit|overwrite)\s+the\s+note\b", re.I)
+_APPENDIX_OK = re.compile(r"append", re.I)
+
+
+def _appendix_problems(folder: Path, name: str) -> list[str]:
+    if name != "ai-note":
+        return []
+    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    problems: list[str] = []
+    if _APPENDIX_REWRITE.search(body) and not _APPENDIX_OK.search(body):
+        problems.append(
+            f"{name}: instructs rewriting or editing the note; a note is appended to "
+            "with a date, never rewritten"
+        )
+    return problems
 
 
 def tracked(root: Path) -> list[str]:

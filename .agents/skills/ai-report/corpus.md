@@ -13,7 +13,11 @@ with their digest shown before anybody confirms anything. It sends nothing by it
 - "prepare that bug report but do not send it anywhere yet" — drafting is the whole default; sending is a separate flag and a typed phrase.
 - "what would we actually send if we reported this" — the preview is the answer, and it is the same bytes, hashed.
 
+- "rank these options by RICE and report which wins" — the named framework is the method: apply it and say which one, so the verdict is repeatable across sessions.
+
 ## Refuses
+
+- "we ranked the options by impact, no method" — use `/ai-spec`, because a decision without a named framework is not a fault report: it needs its options, its evidence and its authority.
 
 - "this is failing, work out why" — use `/ai-debug`, because a symptom needs a cause at `file:line` and a check that fails for it; a report of a fault nobody has diagnosed is a report the other side has to diagnose.
 - "save what we learned about this trap so we do not lose it again" — use `/ai-note`, because that is a finding kept in this repository, and this skill exists to send one out of it.

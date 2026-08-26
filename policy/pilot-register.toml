@@ -69,7 +69,7 @@ wave = "P0"
 id = "skill_eval_delta"
 # The third absence this row recorded is gone. `just skilleval` is an evaluation runner
 # inside the gate, the labelled cases sit beside every skill, and there is a baseline now:
-# 359, margin zero, delta printed on every run. A register with no baseline is refused rather
+# 363, margin zero, delta printed on every run. A register with no baseline is refused rather
 # than passed.
 #
 # What is still missing is the named approver, which `EP-289` asks for and which nobody can
@@ -332,7 +332,7 @@ enforced_by = "ai_engineering.report.BYPASSES_WORTH_A_LOOK, printed by `ai-eng r
 
 [[baseline]]
 id = "skill-routing"
-measured = 359
+measured = 363
 margin = 0
 command = "python tests/skill_eval.py"
 approved_by = ""
@@ -340,6 +340,8 @@ reopen_when = "somebody with authority names themselves here, which closes EP-28
 why = """The count is claims plus refusals plus the labelled cases on both sides. Falling \
 means a skill stopped declaring what it routes or a corpus lost cases; rising means the \
 opposite. Both are worth a sentence, and neither should happen without one.
+
+359 to 363: spec 034 adds named decision frameworks to `/ai-report` and `/ai-review`. Situations routed 81 to 81, hand-offs 42 to 42, labelled cases 236 to 240 — one route and one refusal each added: a ranking that names a framework (RICE, Effort/Value, Kano) is applied and the framework said; a bare "ranked by impact" with no method is refused into `/ai-spec`. 81+42+240 is 363. Nothing was withdrawn; the four rows are the named-framework routing the methodless-decision gap was missing.
 
 355 to 359: spec 033 adds context economy to `/ai-note`, `/ai-review` and `/ai-security`. Situations routed 81 to 81, hand-offs 42 to 42, labelled cases 232 to 236 — two routes (trim the evidence with `trim`; turn this session into a skill with `skillify`) and one refusal each on `/ai-review` and `/ai-security` (a version claim contradicting the installed bytes is unverified) added: attention is spent on failure lines, sessions become skills, and reviews trust the installed distribution, never memory. 81+42+236 is 359. Nothing was withdrawn; the four rows are the context-economy and installed-version routing the memory/chat/flood gaps were missing.
 

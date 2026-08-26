@@ -17,7 +17,9 @@ disable-model-invocation: true
 
 ## What it produces
 
-`docs/notes/<slug>.md`, committed, with a header that lets rot be detected.
+`docs/notes/<slug>.md`, committed, with a header that lets rot be detected. A note is
+appended to with a fresh date, never rewritten — the history a finding records cannot be
+silently edited.
 
 ## Steps
 
