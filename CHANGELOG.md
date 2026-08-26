@@ -248,6 +248,15 @@ search for.
   unblocks it. The `ai-goal` corpus gains the refusal «record the writer model as a
   decision» → `/ai-spec`, and the `skill-routing` baseline moves 349→350 with the reason
   written beside it in `policy/pilot-register.toml`.
+- Context is now a budget the framework enforces. `trim_output` keeps head and tail with
+  the elided middle marked and **never drops a failure line**; `skillify` turns a costly
+  one-off transcript into a contract-clean SKILL.md skeleton (the generalisable steps,
+  never the chat); the dispatcher craft rule refuses a body that grew past the tier bound
+  because of branches it should have split into `examples/`/`references/`; and
+  `verify_against_installed` drops or downgrades a version claim that contradicts the
+  installed distribution — never trusted from memory. The `skill-routing` baseline moves
+  355 → 359 with the reason beside it. Recorded in `specs/033-context-economy-and-skill-
+  authoring`.
   and simplicity (KISS, YAGNI, DRY, SOLID, BDD, TDD, Clean Code, Clean Architecture) is
   the standing bar. It is the gauntlet-loop half of what `ai-cycle` deliberately is not:
   `/ai-cycle` stops at the brief, `/ai-goal` stops at the green gate. The routing
