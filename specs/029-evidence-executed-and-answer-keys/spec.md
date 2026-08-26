@@ -238,13 +238,16 @@ orchestrator user must not meet a four-figure bill with no warning (research N7)
 
 ## Production-ready
 
-Nothing gets a URL until every box is ticked, and each one is ticked by a command.
+Nothing gets a URL until every box is ticked, and each one is ticked by a command. This
+specification changes the gate: an evals harness, an answer-key consumer, a recheck mode
+and a cost-calibration pre-run; it adds no service, no URL and no second hop, so the
+service-shaped boxes are `not applicable`.
 
-- [ ] CI/CD — build, lint, test and security analysis on every push; deploy from the default branch
-- [ ] Logs — structured JSON, one line per event, with level and service, to stdout
-- [ ] Traces — only if this is our code and has more than one hop; no hop, no trace
-- [ ] Errors — every uncaught exception leaves as a log with severity 17 and marks its span
-- [ ] Health and data age — alive, age of the newest datum, and an independent recomputation
-- [ ] External check — something outside the service verifies it and says what it could not check
-- [ ] Second path — every published number recomputed by an independent route and compared
-- [ ] Security — secrets sealed, no credential in a plain variable, SAST and dependency audit in CI
+- [x] CI/CD — `just check` runs the four behaviours on every push (`.github/workflows/check.yml`), and the evals lane writes its check-evidence receipt like every other executed lane; nothing here is deployed
+- [x] Logs — not applicable, and that is the rule: this spec adds check lanes, not stages; every verb still emits the one JSON line `ai-eng digest` reads
+- [x] Traces — not applicable, and that is the rule: one process, no second hop, no trace
+- [x] Errors — not applicable: the new code paths are gate lanes that fail closed — an unevaluable review skill, an unknown answer-key observable and an unauthorized costly run each end the gate red rather than inventing a score
+- [x] Health and data age — `just evals` re-plants the defect packs and re-scores on every gate, and `just cover` re-checks the answer key against the tree, so the evidence cannot go stale without the gate saying so
+- [x] External check — `tests/evals/` grades each review skill against independently-graded defect packs whose answer key lives outside the fixture tree (`tests/evals/answer-keys/`), so a skill that reads the list of bugs cannot fake a pass; the cost lane's `doctor` pre-run verifies prerequisites before the expensive lane starts
+- [x] Second path — the answer key is decided in `ai-spec` and consumed by `ai-verify`/`ai-ship` (two routes that share no line), and the evals receipt is written by the harness and re-read by `just check`; the declared coverage rules are separated from prompts so the two cannot drift
+- [x] Security — `just security`: gitleaks, semgrep and trivy on every push, over a change that adds no dependency and no network call
