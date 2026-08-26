@@ -25,3 +25,4 @@ with their digest shown before anybody confirms anything. It sends nothing by it
 - "open the pull request and close the ticket" — use `/ai-ship`, because the changelog, the pull request and the closing keyword belong to it; this skill writes one local draft and nothing else.
 - "attach the log file and the diff so they can see it" — refused outright, by the payload rather than by judgement: there is no field for a log or a diff, and adding one is a specification change and not a flag.
 - "just send it, you have my permission for everything today" — refused, because consent is to one payload: the phrase carries that payload's digest and is read from the controlling terminal, which is why a standing yes cannot supply it.
+- "describe what changed in your own words" — refused, and the write-up follows `references/documentation-writer.md`: one idea per sentence, one meaning per word, nothing the environment already says repeated.

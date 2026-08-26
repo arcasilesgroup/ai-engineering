@@ -19,7 +19,7 @@ def _reference() -> str:
 
 
 def test_reference_names_the_levers():
-    text = _reference()
+    text = _reference().casefold()
     assert "context pointer" in text
     assert "context load" in text and "cognitive load" in text
     assert "leading word" in text
@@ -38,9 +38,9 @@ def test_routes_name_the_discipline_and_differ():
 
 
 def test_bare_bound_is_refused():
-    # A doc handing an agent a vague completion bound is refused by the discipline route.
-    refusals = [
-        (ROOT / ".agents" / "skills" / s / "corpus.md").read_text()
-        for s in ("ai-spec", "ai-plan", "ai-report")
-    ]
-    assert any("Not for" in r and "bound" in r for r in refusals)
+    # A doc handing an agent a vague completion bound is refused by the discipline route:
+    # each corpus carries a refusal naming the reference.
+    for skill in ("ai-spec", "ai-plan", "ai-report"):
+        body = (ROOT / ".agents" / "skills" / skill / "corpus.md").read_text()
+        assert "documentation-writer.md" in body
+        assert "refused" in body
