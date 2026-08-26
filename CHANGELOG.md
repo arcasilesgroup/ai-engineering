@@ -276,6 +276,15 @@ search for.
   alone. The two historical records that quote the older wording (`docs/adr/0016`,
   `specs/024`) are left as written, because an approval record describes the rule as it
   was when it approved that work.
+- The shipped skills are now a contract the gate checks. `contract.audit_one` applies
+  four rules to every skill pair: portable commands only (an `ai-eng` verb, or a tool
+  whose printed output the gate keeps — `just <recipe>`, bare `semgrep`/`gitleaks`/
+  `trivy` and `git grep` are replaced), an existence check beside every cross-file
+  reference, a forced-output clause in each "Done when", and a source beside every
+  statistic — and the sixteen skill pairs are repaired until the audit is green.
+  `/ai-research` and `/ai-goal` declare their external tools optional, present-or-
+  degraded; the `skill-routing` baseline moves 347 → 349 with the reason beside it in
+  `policy/pilot-register.toml`.
 
 ## 1.0.0 — 2026-08-10
 
