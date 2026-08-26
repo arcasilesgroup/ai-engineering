@@ -212,10 +212,12 @@ def audit_one(path: Path) -> list[str]:
     found.extend(_load_tier_problems(path.parent, name))
     found.extend(_dispatcher_problems(path.parent, name))
     found.extend(_appendix_problems(path.parent, name))
-    # Spec 038: the accessibility honesty floor. A designed surface either names the a11y
-    # basics (contrast, keyboard, focus, reduced-motion) or exits not-covered with a reason;
-    # a silent pass is refused.
-    found.extend(_accessibility_problems(path.parent, name))
+    # Spec 038: the accessibility honesty floor, scoped to the design gateway — the one
+    # surface that produces designed UI. A designed surface either names the a11y basics
+    # (contrast, keyboard, focus, reduced-motion) or exits not-covered with a reason; a
+    # silent pass is refused. Other skills are not designs and are not judged by this floor.
+    if name == "ai-design":
+        found.extend(_accessibility_problems(path.parent, name))
     return found
 
 

@@ -2,7 +2,7 @@
 
 Challenge date: 2026-08-26. Attacker: `Challenge_038`.
 Method: execute every checkable sentence against this tree (work dir
-`/Users/soydachi/repos/ai-engineering`, branch `main`), paste command output, verdict
+`the repository root`, branch `main`), paste command output, verdict
 worst first (`WRONG` / `UNPROVEN` / `OK`). No edits to the spec.
 
 ---
@@ -44,7 +44,7 @@ $ grep -inE "accessib|a11y|contrast|keyboard|wcag" .ai/research/reports/17-AL-De
 
 The AL-Design research report (40 files swept, 15 adoption rows D-01…D-15) never names
 accessibility, contrast, keyboard or WCAG anywhere. The other half of the compound claim
-holds: `/Users/soydachi/repos/claude-agents/design/accessibility-auditor.md` exists and is
+holds: `the claude-agents repo/design/accessibility-auditor.md` exists and is
 entirely about WCAG/keyboard/contrast. The AL-Design row does not "name the a11y discipline".
 
 ## UNPROVEN — "The research's AL-Design and claude-agents rows … name the a11y discipline"
@@ -52,9 +52,9 @@ entirely about WCAG/keyboard/contrast. The AL-Design row does not "name the a11y
 Partial verdict recorded above; the claude-agents half:
 
 ```text
-$ ls -la /Users/soydachi/repos/claude-agents/design/accessibility-auditor.md
--rw-r--r-- 1 soydachi staff 12498 Aug 26 12:46 /Users/soydachi/repos/claude-agents/design/accessibility-auditor.md
-$ grep -cE "WCAG|keyboard|contrast" /Users/soydachi/repos/claude-agents/design/accessibility-auditor.md
+$ ls -la the claude-agents repo/design/accessibility-auditor.md
+-rw-r--r-- the owner 12498 Aug 26 12:46 the claude-agents repo/design/accessibility-auditor.md
+$ grep -cE "WCAG|keyboard|contrast" the claude-agents repo/design/accessibility-auditor.md
 (wcag+keyboard+contrast present across ~78 lines; sample verified above)
 ```
 
@@ -137,7 +137,7 @@ ai-review ai-report ai-note ai-security ai-verify ai-ship ai-spec ai-plan ai-goa
 ai-design ai-explore ai-cycle ai-debug ai-council ai-build ai-challenge ai-research   (16 skills)
 $ grep -nE "apple-design|hallmark|high-end-visual-design|emil-design-eng" specs/037-model-router-and-intake-validation/spec.md
 (no matches; exit 1)
-$ ls /Users/soydachi/.claude/skills/ | grep -E "apple-design|hallmark|high-end-visual-design|emil-design-eng"
+$ ls the skills dir/ | grep -E "apple-design|hallmark|high-end-visual-design|emil-design-eng"
 apple-design
 emil-design-eng
 hallmark
