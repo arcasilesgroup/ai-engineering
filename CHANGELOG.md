@@ -257,6 +257,14 @@ search for.
   `self_contained` — a spec carrying "as we discussed" or "per our conversation" is
   refused — and a deterministic `§N` section resolver. Recorded in `specs/031-
   verification-dag-loop-termination-and-spec-containment`.
+- Verification is now cold, and coverage is declared as data. `verify_cold` reads only
+  the spec/answer key and the delivered files — never the constructor's conversation,
+  never the plan's rationale — with **no write tools**, and "an uncertain check is a
+  fail"; every guard whose scan surface can change declares its roots in a
+  `policy/coverage/*.toml` per guard (a coverage rule that escapes the declared roots is
+  `INCOMPLETE`); and revalidation runs at **finding granularity**, re-executing each
+  finding's command independently. Recorded in `specs/030-cold-read-verification-and-
+  revalidation`.
   and simplicity (KISS, YAGNI, DRY, SOLID, BDD, TDD, Clean Code, Clean Architecture) is
   the standing bar. It is the gauntlet-loop half of what `ai-cycle` deliberately is not:
   `/ai-cycle` stops at the brief, `/ai-goal` stops at the green gate. The routing
@@ -277,6 +285,15 @@ search for.
   router may now print what follows, regenerating routers changes their bytes once, and
   adding a stage to the cycle means recording it in the map.** Recorded in
   `specs/025-skill-sequence-map`.
+- Evidence is now executed, and the answer is decided before a gate runs. The `evals`
+  lane plants an independently-graded defect pack (answer key outside the fixture tree)
+  and scores each review skill per-skill with recall **and** precision; the `ai-spec`
+  flow emits an immutable **answer key** — each observable requirement a binary check
+  with `judged_by`, and an unknown observable reports `BLOCKED: U<n>` instead of an
+  invented score; verification gains `--recheck`, which ignores claims and re-executes
+  the named command against the named digests; and costly lanes get a bounded-sample
+  calibration with a `doctor` pre-run. Recorded in `specs/029-evidence-executed-and-
+  answer-keys`.
 - Rule 1 of `AGENTS.md` now reads "No code before an approved spec and plan", and the
   delivered doctrine matches it: the `AGENTS.md` skeleton `init` writes, the `EP-324`
   ledger subject and the `test_record` docstring that quotes it. The rule had always
