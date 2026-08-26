@@ -248,6 +248,13 @@ search for.
   unblocks it. The `ai-goal` corpus gains the refusal «record the writer model as a
   decision» → `/ai-spec`, and the `skill-routing` baseline moves 349→350 with the reason
   written beside it in `policy/pilot-register.toml`.
+- Every shipped skill now answers the four craft questions or the gate refuses it. A
+  `SKILL.md` must carry an anti-rationalization table (at least one excuse the agent
+  could make to skip the work, answered factually), a `## What it produces` naming the
+  exact artifact (a path, a file, a record — not "verify"), Incorrect/Correct pairs for
+  every rule it gives, and a body within the load tier (≤500 lines, scripts moved to a
+  `scripts/` folder that is executed, never read into context). Recorded in
+  `specs/032-standard-skill-craft-contract`.
   and simplicity (KISS, YAGNI, DRY, SOLID, BDD, TDD, Clean Code, Clean Architecture) is
   the standing bar. It is the gauntlet-loop half of what `ai-cycle` deliberately is not:
   `/ai-cycle` stops at the brief, `/ai-goal` stops at the green gate. The routing
