@@ -198,6 +198,21 @@ def adapter() -> str:
     return os.environ.get("AI_ENG_ADAPTER") or UNDETERMINED
 
 
+def model() -> str:
+    """Which model this call ran on, or that the surface did not say.
+
+    Read from the environment like `surface` and `adapter`: a surface that knows its model
+    exports `AI_ENG_MODEL` to the process that emits, and a surface that does not stays
+    undetermined — never a guess, because a model the record invents is a fact somebody
+    will later cost. The chain hook passes through a payload `model` string for events its
+    own process emits; a separate process (cli.py) gets the value only from its own
+    environment. An event written before this field existed has no `model` key at all;
+    readers count that as the `missing` state, distinct from `undetermined`.
+    """
+
+    return os.environ.get("AI_ENG_MODEL") or UNDETERMINED
+
+
 def digest(event: dict) -> str:
     body = {k: v for k, v in event.items() if k != "hash"}
     return hashlib.sha256(stable_json(body).encode()).hexdigest()
@@ -349,6 +364,7 @@ def emit(name: str, cls: str, **data) -> None:
             "machine": machine_id(),
             "surface": surface(),
             "adapter": adapter(),
+            "model": model(),
             "operation_id": str(uuid.uuid4()),
             "trace_id": str(uuid.uuid4()),
             "data": data,
