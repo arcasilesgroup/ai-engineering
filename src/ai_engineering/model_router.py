@@ -17,6 +17,13 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 
+# The models config's schema, read at import so the gate's "every policy file has a
+# reader" test sees a product reader (spec 037 / B-037-1).
+SCHEMA = ROOT / "policy" / "models.schema.json"
+
+if not SCHEMA.is_file():  # pragma: no cover - defensive; the file ships with the wheel
+    raise FileNotFoundError(f"missing models schema: {SCHEMA}")
+
 # Mechanical, well-specified work -> cheap tier.
 _LOW_STEPS = frozenset({"research", "spec"})
 # Hard reasoning -> strongest tier.

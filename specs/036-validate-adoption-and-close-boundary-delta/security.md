@@ -45,7 +45,7 @@ classifier's blocking at all because nothing calls it (finding S-4). The attacke
 
 Version pins verified before the run: gitleaks `8.30.1` (`gitleaks version` → `8.30.1`),
 trivy `0.73.0` (`Version: 0.73.0`), semgrep `1.172.0` (via `uv run --with semgrep==1.172.0`).
-Command run: `just security` in `/Users/soydachi/repos/ai-engineering` (gitleaks in
+Command run: `just security` in the repository root (gitleaks in
 gitless `dir` mode, semgrep against `policy/semgrep.yml`, trivy `fs` with
 `--include-dev-deps`; three lanes through `scan.baseline(Path('.'))`).
 

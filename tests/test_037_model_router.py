@@ -30,7 +30,10 @@ def test_hard_reasoning_routes_to_top():
 
 def test_bail_out_on_small_request():
     assert mr.bail_out("fix the typo in README") is True
-    assert mr.bail_out(
-        "redesign the authentication flow across four services including rate limits and "
-        "per-service quotas"
-    ) is False
+    assert (
+        mr.bail_out(
+            "redesign the authentication flow across four services including rate limits and "
+            "per-service quotas"
+        )
+        is False
+    )
