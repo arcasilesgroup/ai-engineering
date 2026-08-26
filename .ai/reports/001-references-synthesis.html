@@ -1,0 +1,174 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Research /ai-goal — Síntesis de adopción (17 referencias)</title>
+<style>:root{--bg:#0f1115;--fg:#e6e9ef;--mut:#9aa3b2;--acc:#4f8cff;--p0:#3fb27f;--p1:#d9a441;--p2:#8b93a3;--card:#161a22;--line:#262c38}
+*{box-sizing:border-box}body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--fg);margin:0;padding:2.2rem;line-height:1.55;max-width:1000px;margin-inline:auto}
+h1{font-size:1.9rem;border-left:5px solid var(--acc);padding-left:1rem}h2{font-size:1.25rem;text-transform:uppercase;letter-spacing:.08em;color:var(--acc);margin-top:2.6rem}
+.meta{color:var(--mut);font-size:.92rem;border:1px solid var(--line);border-radius:8px;padding:.8rem 1rem;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{border:1px solid var(--line);padding:.45rem .6rem;text-align:left}th{background:var(--card);color:var(--mut)}
+.p0{color:var(--p0);font-weight:700}.p1{color:var(--p1)}.p2{color:var(--p2)}
+.tag{display:inline-block;padding:.1rem .5rem;border-radius:99px;font-size:.72rem;font-weight:700;margin-right:.3rem}
+.tP0{background:#123524;color:var(--p0)}.tP1{background:#332609;color:var(--p1)}.tP2{background:#1c2029;color:var(--p2)}
+.nocopy{border-left:3px solid #e5484d;padding:.6rem 1rem;margin:.5rem 0;background:#231014;border-radius:6px}
+.road{border-left:3px solid var(--p1);padding:.5rem 1rem;margin:.5rem 0;background:var(--card);border-radius:6px}
+pre{background:#0b0d12;border:1px solid var(--line);border-radius:8px;padding:1rem;overflow-x:auto;font-size:.85rem}
+.good{color:var(--p0)}.warn{color:var(--acc)}</style></head><body>
+
+<h1>ai-engineering · Research de referencias → adopción</h1>
+<div class="meta">
+<b>Cobertura:</b> 16 referencias · 17 hojas · 17 agentes <b>qwen3.6</b> (nan.builders, 5 concurrentes) ·
+4 oleadas · gates 17/17 PASS · <b>~190 items de adopción</b>.<br>
+<b>Herramientas usadas:</b> agentes qwen3.6 vía api.nan.builders/v1 (omp -p), lectura local/clon/URL,
+gate-check manual de cada informe. &nbsp;<span class="good">Sin tools ausentes.</span><br>
+<b>Ficheros:</b> informes en <code>.ai/research/reports/{01..17}-*/report.md</code> · síntesis en <code>.ai/research/SINTESIS.md</code>.
+</div>
+
+<h2>Meta-patrones (lo que se repite en 8 referencias)</h2>
+<ol>
+<li><b>El verificador NO arregla</b> — separar construcción de auditoría (adversary).</li>
+<li><b>Estado en ficheros, no en memoria</b> — loops re-enterables, pases desde cero.</li>
+<li><b>Los gates se ejecutan, no se declaran</b> — CHECK/EXPECT/EVIDENCE, exit codes, validate().</li>
+<li><b>Lo no verificado se marca</b> — Unknown / CANNOT JUDGE / NOT COVERED / unverified.</li>
+<li><b>El coste se proyecta antes de ejecutar</b> — budget pre-flight, modelo por tipo de trabajo.</li>
+<li><b>El contexto se paga</b> — trunca filtra output, carga por área, skills minimalistas.</li>
+<li><b>Binario sobre score</b> — verificación run it / A/B, PASS/FAIL determinista.</li>
+<li><b>Escritor único, críticos en su propio contexto</b> — confirma el dogma de ai-engineering.</li>
+</ol>
+
+<pre>
+Usuario/Orquesta ─▶ ai-engineering CLI (10 verbos)
+                        │
+      ┌────────────┬────┴────┬───────────┬──────────┬─────────┐
+      ▼            ▼         ▼           ▼          ▼         ▼
+   17 skills   4 guards   hooks      orquesta   coste/ctx  report+chain
+                  fail-     post-     loops/    router de   telemetría
+                  closed    tool     grafos     modelo
+       ▲ guard format ▲        ▲ trunca/filtra ▲ bail-out ▲ adversary
+       │ CHECK/EXPECT │        │ output       │ budget    │ sin edit
+       │ /EVIDENCE    │        │ efforLevel   │ pre-flight│ tools
+       └──────────────┴────────┴──────────────┴───────────┴─────────┘
+</pre>
+
+
+<h2>A · Guards & verificación</h2>
+<table><tr><th>ID</th><th>Patrón</th><th>Origen</th><th>P</th></tr><tr><td>G-01</td><td>CONVENTIONS.md: reglas compartidas entre skills de verificación</td><td>07 graph-eng</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>G-02</td><td>Installed-version rule — verificar contra el código instalado</td><td>07</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>U01</td><td>Formato gate CHECK/EXPECT/EVIDENCE</td><td>01 unlazy</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>U02</td><td>Checked sin evidencia = UNMET</td><td>01</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>U05</td><td>ABANDON: G&lt;n&gt; razón (salida honrosa)</td><td>01</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>W-01</td><td>Check binario (run it / A/B pick), nunca score</td><td>04 wayfinder</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>W-02</td><td>Sección Unknown → CANNOT JUDGE</td><td>04</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>W-03</td><td>Out-of-scope defensivo (anti scope-creep)</td><td>04</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>G-03</td><td>False-positive gate (trigger+consequence+evidence)</td><td>07</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>G-16</td><td>Criteria-before-code</td><td>07</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>G-17</td><td>Report, don't fix</td><td>07</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>G-09</td><td>NOT COVERED nunca PASS</td><td>07</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>ASK-02</td><td>Anti-rationalization tables (excusa → realidad)</td><td>15</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>ASK-03</td><td>Red-flags por skill</td><td>15</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>ASK-04</td><td>Exit-criteria: checklist verificable con evidencia</td><td>15</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>ASK-14</td><td>Boundary Always / Ask-first / Never</td><td>15</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>ASK-15</td><td>Stop-the-line rule</td><td>15</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>D-09</td><td>Reglas Incorrect/Correct verificables</td><td>17 AL-Design</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>D-01</td><td>Guard ground-in-real-app (nombrar shell/tokens/componentes)</td><td>17</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>D-03</td><td>4 estados obligatorios (empty/loading/error/populated)</td><td>17/05</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>CS-01</td><td>Frontmatter declarativo validado por schema</td><td>12 contains</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>CS-02</td><td>Tool-gating por skill (tools[] declarados)</td><td>12</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>CC-01</td><td>Parallel discovery (2+ tasks antes de actuar)</td><td>13</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>CC-03</td><td>Fix loop con cap de reintentos</td><td>13</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>LE-05</td><td>Give-up rule (3 strikes → stopped)</td><td>03</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>LE-06</td><td>Inventario deuda preexistente (no fix)</td><td>03</td><td><span class="tag tP1">P1</span></td></tr></table>
+
+<h2>B · Orquestación & loops</h2>
+<table><tr><th>ID</th><th>Patrón</th><th>Origen</th><th>P</th></tr><tr><td>LE-01</td><td>Adversario sin herramientas de edición</td><td>03 Loop-Eng</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>LE-02</td><td>Estado en ficheros → pases desde cero</td><td>03</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>LE-03</td><td>Spec autocontenido numerado (DoD + comandos)</td><td>03</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>G-04</td><td>Review-router: lanes según forma del diff</td><td>07</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>G-05</td><td>Full-review: scope única + fan-out + dedup</td><td>07</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>G-06</td><td>Lane discipline (un lente por agente)</td><td>07</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>G-07</td><td>Scope resolution única</td><td>07</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>ASK-01</td><td>Skill-router: árbol de decisión + fallback a spec</td><td>15</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>U06</td><td>Rolling dispatch (verificar → despachar)</td><td>01</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>U07</td><td>Disjoint ownership + Needs por ID</td><td>01</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>LE-04</td><td>Two-pass consecutivos como stop condition</td><td>03</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>LE-07</td><td>Goal-writer (condición corta)</td><td>03</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>MR-03</td><td>Fan-out con model-per-chunk</td><td>02</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>ASK-07</td><td>3 capas: skill/persona/command</td><td>15</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>ASK-13</td><td>/ship fan-out con merge + rollback</td><td>15</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>D-05</td><td>Gate de 4 puertas (perf/exp/eng/report)</td><td>17</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>ASK-05</td><td>Capability map (módulos con IDs)</td><td>15</td><td><span class="tag tP1">P1</span></td></tr></table>
+
+<h2>C · Economía de contexto & coste</h2>
+<table><tr><th>ID</th><th>Patrón</th><th>Origen</th><th>P</th></tr><tr><td>MR-01</td><td>Bail-out: filtrar antes de delegar</td><td>02 model-router</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>MR-02</td><td>Matriz coste/capacidad de modelos (configurable)</td><td>02</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>MR-05</td><td>Verificación post-delegación</td><td>02</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>D-01</td><td>Budget pre-flight antes de operación cara</td><td>10 deepsec</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>adopt-001</td><td>Hook trunca output largo (head+tail, configurable)</td><td>16</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>adopt-002</td><td>Hook filtra test-runners (parser real)</td><td>16</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>adopt-003</td><td>effortLevel medio + thinking off</td><td>16</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>U08</td><td>Token economy (checks=subprocess, evidence cap)</td><td>01</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>adopt-004</td><td>Reglas por área con carga condicional</td><td>16</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>adopt-005</td><td>CLAUDE.md minimalista &lt;300 líneas</td><td>16</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>ASK-08</td><td>Jerarquía de contexto (5 niveles)</td><td>15</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>H07</td><td>Repo-size tiers (100/500/2000)</td><td>06</td><td><span class="tag tP1">P1</span></td></tr></table>
+
+<h2>D · Seguridad</h2>
+<table><tr><th>ID</th><th>Patrón</th><th>Origen</th><th>P</th></tr><tr><td>D-05</td><td>Two-job CI gate: analyze (sin write) + comment (write)</td><td>10 deepsec</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>A-07</td><td>Allowed-tools con wildcards, mínimo privilegio</td><td>11/13</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>D-10</td><td>Exit codes semánticos (0/1/other)</td><td>10</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>D-08</td><td>Doctor script (sanity guiado)</td><td>10</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>CC-09</td><td>Wiring MCP explícito (.mcp.json)</td><td>13</td><td><span class="tag tP1">P1</span></td></tr></table>
+
+<h2>E · Memoria & conocimiento</h2>
+<table><tr><th>ID</th><th>Patrón</th><th>Origen</th><th>P</th></tr><tr><td>OKF-01</td><td>Separación mecánico (auto) / semántico (refine)</td><td>09 okf</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>OKF-02</td><td>Reporte de refinamiento (needs_refinement)</td><td>09</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>OKF-03</td><td>validate() con exit-code + errors/warns</td><td>09</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>A-04</td><td>DESIGN.md como contrato (tokens + prose)</td><td>05</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>G-10</td><td>Spec-extract con provenance (stated/implied/assumed)</td><td>07</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>OKF-04</td><td>type libre pero taxonomía coherente</td><td>09</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>CS-03</td><td>Proactive triggers por patrón de código</td><td>12</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>A-13</td><td>Evolución continua desde feedback de usuario</td><td>05</td><td><span class="tag tP1">P1</span></td></tr></table>
+
+<h2>F · Evaluación de skills</h2>
+<table><tr><th>ID</th><th>Patrón</th><th>Origen</th><th>P</th></tr><tr><td>A-14</td><td>Eval suite por skill (prompt/expected/assertions)</td><td>05</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>ASK-12</td><td>Evals 3 tiers (estructural/trigger/conductual)</td><td>15</td><td><span class="tag tP2">P2</span></td></tr>
+<tr><td>G-14</td><td>Planted-bugs eval harness</td><td>07</td><td><span class="tag tP2">P2</span></td></tr></table>
+
+<h2>G · Diseño (dominio, opcional)</h2>
+<table><tr><th>ID</th><th>Patrón</th><th>Origen</th><th>P</th></tr><tr><td>A-01</td><td>Ciclo write-audit: productor → auditor</td><td>05</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>A-02</td><td>Constellation detection (señales co-ocurrentes)</td><td>05/08</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>A-03</td><td>Three-template slop model</td><td>05</td><td><span class="tag tP0">P0</span></td></tr>
+<tr><td>A-05</td><td>Lo-fi planning first</td><td>05</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>A-06</td><td>Variation exploration (2+ direcciones)</td><td>05</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>A-08</td><td>Two-typeface + accent scarcity</td><td>05</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>D-04</td><td>Motion preservation ladder</td><td>17</td><td><span class="tag tP1">P1</span></td></tr>
+<tr><td>D-07</td><td>One signature moment + transform/opacity</td><td>17</td><td><span class="tag tP1">P1</span></td></tr></table>
+
+<h2>Qué NO copiar (transversal)</h2>
+<div class="nocopy"><b>Lock-in de proveedor:</b> Vercel, <code>claude -p</code>, SkillSpector/NVIDIA,
+Playwright única opción, <code>model: opus</code> forzoso.</div>
+<div class="nocopy"><b>Falsos verdes:</b> <code>tools:</code> decorativo sin gate real, proactividad solo en texto,
+auto-verificación sin herramienta, shared CHECK memo sin invalidación, <code>exit 0</code> silencioso.</div>
+<div class="nocopy"><b>Contenido de dominio</b> (no patrón): salones, Next.js, shadcn components, KPIs de contains-studio.</div>
+<div class="nocopy"><b>Sobre-ingeniería:</b> XLE DSL, 6 modos de preset shadcn, hash router de clonación,
+skillify 4 rounds fijos, capability map prematuro, <code>stop-hook.mjs</code> (específico CC).</div>
+
+<h2>Roadmap — todo lo que hay que hacer</h2>
+<div class="road"><b>R0 · Fundamento (sem 1-2):</b> gate format universal (U01/02/05) · CONVENTIONS.md (G-01..17) ·
+verificación binaria + Unknown (W-01..03) · adversary sin edit tools (LE-01) + estado en ficheros (LE-02) ·
+budget pre-flight + bail-out (D-01/MR-01) · schema de skill + allowed-tools (CS-01/02, A-07).</div>
+<div class="road"><b>R1 · Verificación & contexto (sem 2-4):</b> review-router + full-review scope-única (G-04..07) ·
+hooks de economía trunk/filter/effortLevel (adopt-001..004) · anti-rationalization + red-flags + exit-criteria +
+boundary classifier (ASK-02/03/04/14) · stop-the-line + spec numerado + goal-writer (ASK-15, LE-03/07) ·
+two-job CI gate (D-05) · eval suite por skill (A-14).</div>
+<div class="road"><b>R2 · Orquestación avanzada (sem 4-6):</b> rolling dispatch + disjoint ownership (U06/07) ·
+skill-router árbol de decisión (ASK-01) + fan-out model-per-chunk (MR-03) · spikes de validación /build auto y
+doubt cycle (ASK-06/09) · proactive triggers + memoria con provenance (CS-03, G-10) ·
+ciclo write-audit de diseño (A-01/02) solo si produce UI.</div>
+
+<h2>Siguiente paso en el ciclo gobernado</h2>
+<div class="meta">Esta fase es <b>ai-research</b>: decide qué necesitamos y marca TODO. El gate de aprobación
+entre primera y segunda mitad NO está cruzado (no hay spec ni decisión registrada). Continuar:
+<b>/ai-spec</b> → /ai-challenge → /ai-council → <i>record de aprobación con digest del spec</i> →
+/ai-build (oleadas R0/R1/R2) → /ai-review → /ai-verify → /ai-security → <code>ai-eng audit verify</code> → /ai-ship.</div>
+
+</body></html>
