@@ -8,6 +8,7 @@ says neither is refused: a silent pass is never the answer.
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 
 from ai_engineering import contract
@@ -23,19 +24,24 @@ NOT_COVERED = (
 SILENT = "verify: the surface looks fine."
 
 
+def _lane(verify_text: str) -> list[str]:
+    """Run the lane over a fake skill folder whose SKILL.md carries the verify text."""
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "SKILL.md").write_text(verify_text, encoding="utf-8")
+        return contract._accessibility_problems(folder, "fake-design")
+
+
 def test_floor_holds_clean():
-    problems = contract._accessibility_problems(FLOOR)
-    assert problems == []
+    assert _lane(FLOOR) == []
 
 
 def test_silent_pass_refused():
-    problems = contract._accessibility_problems(SILENT)
-    assert any("not-covered" in p for p in problems)
+    assert any("not-covered" in p for p in _lane(SILENT))
 
 
 def test_honest_exit_accepted():
-    problems = contract._accessibility_problems(NOT_COVERED)
-    assert problems == []
+    assert _lane(NOT_COVERED) == []
 
 
 def test_reference_names_the_rule():
@@ -47,5 +53,5 @@ def test_reference_names_the_rule():
         / "references"
         / "accessibility.md"
     )
-    text = ref.read_text()
+    text = ref.read_text().casefold()
     assert "contrast" in text and "keyboard" in text and "not-covered" in text
