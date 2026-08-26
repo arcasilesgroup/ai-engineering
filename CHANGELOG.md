@@ -231,6 +231,24 @@ search for.
 
 ### Changes
 
+- **Model emission, router consumption and the orphan decision (spec 042).** The `[models]`
+  section of the pin is no longer a promise with no reader: every `ai-eng` command event now
+  records `tier_model` (the model string the pin says the verb routes to, on both the plain
+  and `--json` emit paths) and every event carries a `model` field from `AI_ENG_MODEL`
+  (or `undetermined` when a surface does not report one; old events read as `missing`). The
+  `report digest` answers "how many models, what distribution" with the four states named,
+  never merged. The cycle skills name the tier each stage asks for (top for security/review/
+  plan/audit, low for research/spec, medium for the rest), pinned against the router. Every
+  caller-less module now has exactly one checked status in `policy/module-status.toml`
+  (consumer / orchestrator-future / deferred-with-reason), read by `wiring.module_status()`
+  and verified by an AST import-graph test that detects new orphans rather than a fixed list.
+  And `loop_guard` keeps failing closed but escalates the repeated verdict from the third
+  identical denial in a window, naming the call and the person channel instead of re-stating
+  the same sentence — its escalation text is capped at the window and control characters in
+  signatures and model values are sanitised at the record edge. The router's schema and pin
+  now resolve through `paths`, fixing a latent crash when the module was imported from an
+  installed wheel. The inherited `madr` red is re-attributed correctly: `MADR_HOME_INVALID`
+  from the `specs/*/approval.md` dossiers, not `MADR_SCHEMA_INVALID` from ADR 0025.
 - A new skill, `/ai-goal`, runs the whole governed cycle in one pass and stops only to
   hand over: research → spec → challenge → council → build → review → verify → security →
   audit → ship, with the invocation as the standing approval. Two bars, both green and
