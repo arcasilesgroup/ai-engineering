@@ -44,9 +44,15 @@ env:
   GITLEAKS_SHA256_DARWIN: "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5"
   GITLEAKS_SHA256_WINDOWS: "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e"
   TRIVY_SHA256: "2edd39da482bb4e9831962487b68f68e3928ec3137794757f54d00383d79547b"
-  PIP_AUDIT_VERSION: "2.10.1"
-  MYPY_VERSION: "2.3.0"
-  SNYK_VERSION: "1.1306.3"
+  # skill-map (`sm`) is the reference-integrity instrument (spec 026, ADR 0027). Unlike the
+  # scanners above it is not a native binary: it ships as the npm package `@skill-map/cli`
+  # and needs Node >= 24. The nodejs.org checksum pins the runtime's bytes the same way
+  # ACTIONLINT_SHA256 pins actionlint's, and npm's own dist.integrity (sha512) pins the
+  # package tarball. `just check` and the workflow must agree on the version (PINNED_ENGINES).
+  NODE_VERSION: "24.19.0"
+  NODE_SHA256: "f625d97cd707df4ff96254916fbc5ff014f09c09effe5a1e0ca8f6d41a8789d4"
+  SM_VERSION: "1.12.2"
+  SM_INTEGRITY: "sha512-ybV8bsFv72GtqyDKhSZcrrm2O8GWTnQVhw8pPk74M6p/Z0UZLq8JDy6oGCF0YLTtFp3ey0/F80o0oLnGeJ8j/Q=="
 
 jobs:
   check:
@@ -75,9 +81,17 @@ jobs:
           curl -sSfL -o actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           echo "${ACTIONLINT_SHA256}  actionlint.tgz" | sha256sum -c -
           tar -xzf actionlint.tgz actionlint && sudo install actionlint /usr/local/bin/
-          uv tool install semgrep==1.172.0
-          uv tool install zizmor==1.17.0
-          uv tool install "rust-just==${JUST_VERSION}"
+      # skill-map runs on Node, and GitHub's preinstalled node is older than sm's floor.
+      # Let npm verify its own package bytes: `npm install -g @skill-map/cli@1.12.2`
+      # checks dist.integrity against the registry (the sha512 pinned above) and refuses
+      # the install on a mismatch, exactly like `uv tool install` refuses a broken wheel.
+      - name: install the reference-integrity instrument (skill-map)
+        run: |
+          curl -sSfL -o node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz"
+          echo "${NODE_SHA256}  node.tar.gz" | sha256sum -c -
+          tar -xzf node.tar.gz --strip-components=1 -C /usr/local
+          npm install --global "@skill-map/cli@${SM_VERSION}"
+          sm --version
 
       # Two readers, because they disagree on purpose. actionlint knows what GitHub will
       # accept; zizmor knows what an attacker will do with what GitHub accepts.

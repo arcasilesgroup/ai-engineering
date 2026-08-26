@@ -254,6 +254,10 @@ map:
     @if ! command -v sm >/dev/null 2>&1; then \
         echo "map not exercised; sm missing"; exit 0; fi
     @test "$(sm --version)" = "{{sm}}" || { echo "sm is $(sm --version) and this gate is written for {{sm}}. An untested map engine's answer is not evidence."; exit 1; }
-    sm scan
+    # `sm scan` reports every issue in the tree — the accepted references and the declared
+    # template holes included — so its exit code can never be green here. The scan is only
+    # the sidecar-DB refresh; the gate is the digest below, which re-runs `sm check --json`
+    # and subtracts the accepted set and the template holes before it decides.
+    -sm scan
     uv run python -m ai_engineering.skillmap
 check: build sbom lint typecheck test cover security register skilleval evals counts intent-page lenses council map ran

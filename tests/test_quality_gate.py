@@ -669,7 +669,7 @@ def test_release_workflow_retains_wheel_contents_provenance_and_head_sha_receipt
 # downloads an exact release; `just security` runs whatever is on the machine — and a
 # scanner whose version we did not test is one whose answer we cannot read, in either
 # direction: a local green from an older engine, or a local red CI cannot reproduce.
-PINNED_ENGINES = ("gitleaks", "trivy", "semgrep", "mypy")
+PINNED_ENGINES = ("gitleaks", "trivy", "semgrep", "mypy", "sm")
 
 
 def _justfile() -> str:
@@ -696,6 +696,7 @@ def test_the_two_sides_of_the_gate_pin_the_same_engine_versions():
     declared = _pins(recipe, r'(\w+)_version := "([0-9][^"]*)"')
     declared["semgrep"] = re.search(r'semgrep := "semgrep==([^"]+)"', recipe).group(1)
     declared["mypy"] = re.search(r'mypy := "mypy==([^"]+)"', recipe).group(1)
+    declared["sm"] = re.search(r'^sm := "([^"]+)"', recipe, re.M).group(1)
     in_ci = _pins(workflow, r"(\w+)_VERSION: \"([^\"]+)\"".replace("\\", ""))
     in_ci = {name.lower(): version for name, version in in_ci.items()}
 

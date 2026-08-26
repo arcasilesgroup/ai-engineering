@@ -244,7 +244,7 @@ search for.
   future P3 target of spec 013, not the current model. The record sits in
   `specs/028-writer-model-recorded/` (spec, plan, challenge, council, blocked page); the
   proposed ADR 0028 that would seal it is gated on `madr.validate`, which this tree has
-  red since ADR 0025 of spec 026, and `blocked.md` names the approved repair that
+  red since ADR 0025 of spec 026, and `specs/028-writer-model-recorded/blocked.md` names the approved repair that
   unblocks it. The `ai-goal` corpus gains the refusal «record the writer model as a
   decision» → `/ai-spec`, and the `skill-routing` baseline moves 349→350 with the reason
   written beside it in `policy/pilot-register.toml`.
