@@ -19,9 +19,6 @@ GOOD = (
 
 
 def test_template_example_passes():
-
-
-def test_template_example_passes():
     # The template's own example is the contract, end to end.
     template = Path("specs/new-goal-template.md").read_text()
     assert intake.validate_intake(template) == "PASS"
