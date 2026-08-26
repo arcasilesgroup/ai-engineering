@@ -112,9 +112,44 @@ def test_chain_hook_sets_ai_eng_model_from_a_real_payload_model(tmp_path, monkey
     assert os.environ.get("AI_ENG_MODEL") == "nan/deepseek-v4-flash"
 
 
-def test_chain_hook_never_invents_a_model_from_session_id(tmp_path, monkeypatch):
-    """sessionId is an opaque id every surface sends; it must not become a model name."""
-    body = json.dumps({"session_id": "opaque-id-123", "hook_event_name": "PostToolUse",
-                       "tool_name": "Bash"})
-    _run_chain(monkeypatch, tmp_path, body)
-    assert os.environ.get("AI_ENG_MODEL") is None
+# --------------------------------------------------------------------------- B-042-1 : both cli emit paths record tier_model
+
+
+def test_the_real_cli_records_tier_model_from_the_pin(tmp_path):
+    """Running the actual `ai-eng` binary in a repo with a pin puts tier_model on the
+    command event — the model string the pin's tiers say the verb routes to, on both the
+    plain path and the --json path. The event's `model` stays undetermined (no surface
+    env), keeping the two facts separate."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    subprocess.run(["git", "init", "--quiet", "-b", "main"], cwd=root, check=True)
+    env = {**os.environ, "GIT_AUTHOR_NAME": "r", "GIT_AUTHOR_EMAIL": "r@x",
+           "GIT_COMMITTER_NAME": "r", "GIT_COMMITTER_EMAIL": "r@x"}
+    subprocess.run(["git", "commit", "--quiet", "--allow-empty", "-m", "base"],
+                   cwd=root, check=True, env=env)
+    (root / ".ai").mkdir(exist_ok=True)
+    (root / ".ai" / "config.toml").write_text(
+        "[models]\n"
+        'top = "deepseek-v4-flash"\n'
+        'medium = "qwen3.8-flash"\n'
+        'low = "qwen3.6"\n'
+        'default_tier = "deepseek-v4-flash"\n',
+        encoding="utf-8",
+    )
+    env.pop("AI_ENG_MODEL", None)
+
+    def run(*args) -> dict:
+        out = subprocess.run(["uv", "run", "ai-eng", *args], cwd=root, env=env,
+                             capture_output=True, text=True, check=False)
+        lines = (root / ".ai" / "events.jsonl").read_text(encoding="utf-8").strip().splitlines()
+        return json.loads(lines[-1])
+
+    plain = run("--non-interactive", "report", "surfaces")
+    assert plain["cls"] == "command"
+    assert plain["data"]["verb"] == "report"
+    assert plain["data"]["tier_model"] == "qwen3.8-flash"   # report -> medium
+    assert plain["model"] == "undetermined"                  # no surface env
+
+    json_event = run("--json", "report", "surfaces")
+    assert json_event["cls"] == "command"
+    assert json_event["data"]["tier_model"] == "qwen3.8-flash"

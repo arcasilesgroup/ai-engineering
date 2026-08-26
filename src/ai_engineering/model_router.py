@@ -12,14 +12,17 @@ from __future__ import annotations
 
 import tomllib
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]
+from ai_engineering import paths
 
 # The models config's schema, read at import so the gate's "every policy file has a
-# reader" test sees a product reader (spec 037 / B-037-1).
-SCHEMA = ROOT / "policy" / "models.schema.json"
+# reader" test sees a product reader (spec 037 / B-037-1). Resolved through `paths`, the
+# one layout resolver that knows both a checkout (policy/ at the repo root) and a wheel
+# install (policy/ inside the package): `parents[2]` was load-bearing in a checkout and
+# pointed at site-packages' parent in a wheel, so importing this module from cli.py (spec
+# 042 / B-042-1) would have crashed every ai-eng command on an installed wheel.
+SCHEMA = paths.policy("models.schema.json")
 
 if not SCHEMA.is_file():  # pragma: no cover - defensive; the file ships with the wheel
     raise FileNotFoundError(f"missing models schema: {SCHEMA}")
@@ -35,8 +38,9 @@ _DEFAULT_TIER = "default_tier"
 
 def _config(toml: Mapping[str, Any] | None) -> dict[str, str]:
     if toml is None:
-        pin = ROOT / ".ai" / "config.toml"
-        if not pin.is_file():
+        pin = paths.repo_root()
+        pin = (pin / ".ai" / "config.toml") if pin is not None else None
+        if pin is None or not pin.is_file():
             return {}
         toml = tomllib.loads(pin.read_text(encoding="utf-8"))
     models = toml.get("models") if isinstance(toml, dict) else None
