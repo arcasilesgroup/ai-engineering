@@ -149,7 +149,7 @@ What is asserted that a reader is asked to take without checking?
 
 - **Finding D2 — one half of the citation checks out, the other names nothing.** The
   bullet "The research's AL-Design and claude-agents rows name the a11y discipline" — the
-  claude-agents file exists (verified: `/Users/soydachi/repos/claude-agents/design/
+  claude-agents file exists (verified: `the claude-agents repo/design/
   accessibility-auditor.md` is present), but the AL-Design report has zero a11y or
   accessibility mentions; its D-01..D-15 adoption table has no accessibility row.
   Command: `grep -ci 'a11y\|accessib' .ai/research/reports/17-AL-Design/report.md`
@@ -169,7 +169,7 @@ What is asserted that a reader is asked to take without checking?
     ```
 
 - **Finding D4 — a bullet labelled "measured in this tree on 2026-08-26" cites a file
-  that is not in this tree.** The path `/Users/soydachi/repos/claude-agents/design/
+  that is not in this tree.** The path `the claude-agents repo/design/
   accessibility-auditor.md` is outside the repository; git tracks nothing under
   `claude-agents`, so a stranger fork cannot reproduce the measurement the label claims.
   Command: `git ls-files | grep -c claude-agents`
