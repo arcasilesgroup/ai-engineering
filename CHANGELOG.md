@@ -248,6 +248,14 @@ search for.
   unblocks it. The `ai-goal` corpus gains the refusal «record the writer model as a
   decision» → `/ai-spec`, and the `skill-routing` baseline moves 349→350 with the reason
   written beside it in `policy/pilot-register.toml`.
+- A note is now appended to, never rewritten — `contract._appendix_problems` refuses an
+  `ai-note` that would edit its history instead of adding a dated finding. Decisions get a
+  named framework: `decision_fw` applies RICE, Effort/Value or Kano deterministically, and
+  a bare "ranked by impact" with no method is refused. Verdicts get a lens:
+  `constellation` reads ≥2 same-class signals in one context as systemic and a lone
+  signal as isolated — and it never erases a guard's own fail. The `skill-routing`
+  baseline moves 359 → 363 with the reason beside it. Recorded in
+  `specs/034-appendix-notes-decision-frameworks-and-constellation`.
 - Context is now a budget the framework enforces. `trim_output` keeps head and tail with
   the elided middle marked and **never drops a failure line**; `skillify` turns a costly
   one-off transcript into a contract-clean SKILL.md skeleton (the generalisable steps,

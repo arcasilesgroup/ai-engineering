@@ -14,7 +14,11 @@ the result of a mechanical gate, because those ran in CI, and it says so.
 - "is there anything unsafe in this diff" — the security lens, which files a finding only when it can name the source, the sink and the missing control.
 - "we added this without tests, is that a problem" — the testing lens; a check that fails without the change either exists or the change is untested whatever coverage says.
 
+- "is this the right call, we ranked it with RICE" — judge the decision against its named framework and say which one before the verdict, so the ranking is the argument.
+
 ## Refuses
+
+- "we ranked by impact and picked this, just review it" — use `/ai-spec`, because a ranking with no named method is a decision without its authority, and a review is not where a decision gets made.
 
 - "CI is failing on this branch, find out why" — use `/ai-debug`, because that is a failure with a cause to name at `file:line`, not a diff to judge.
 - "this used to work last week and now it doesn't" — use `/ai-debug`, whose first step is reproducing it and whose output is a check that fails for that reason.
