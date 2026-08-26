@@ -560,6 +560,16 @@ AI_SPEC_SECTIONS = {
         "`specs/NNN-slug/spec.md`, committed in the user's repository and visible in their "
         "diff. It is a decision record, not code, a plan or permission the agent gave itself.",
     ),
+    "The tier to ask for": (
+        # Spec 042 / B-042-1: the cycle skills name the tier they request, pinned against
+        # model_router's own step sets by tests/test_cycle_tiers.py.
+        "Spec writing is mechanical once the research has done the hard thinking; ask the "
+        "**low** tier, the model the repository's `[models]` section configures for it — "
+        "never a model name coded here, and never a provider the repository did not "
+        "choose. `model_router` maps research and spec to the low tier; if the pin leaves "
+        "it unconfigured, fall back to `default_tier`. Say which tier you ran on so the "
+        "command event's `tier_model` can be read against reality.",
+    ),
     "Procedure": (
         "0. Validate the intake (spec 037 / B-037-3): run the opening request through "
         "`intake.validate_intake`; when it returns `INCOMPLETE` naming missing fields (goal, "
@@ -1562,7 +1572,7 @@ GOVERNING_SKILL_TEXT = {
         "576cf03621aace434ca300bcb136538097f21e0f050fb8a0280913e590457880"
     ),
     ".agents/skills/ai-spec/SKILL.md": (
-        "d1a2dfa4fc0aa76aa69488d7a03e5057bb51443873d06a537920ec0418216380"
+        "cfff4d35123c3b3fcce9e430fa7d85c2fe88cc6f0ddb800ec3d5d1e25bbb8763"
     ),
 }
 

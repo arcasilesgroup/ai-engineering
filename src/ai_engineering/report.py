@@ -78,11 +78,7 @@ def by_guard(events: list[dict], kind: str) -> Counter:
 def _verdict_counts(events: list[dict]) -> Counter:
     """One key per judgement-and-reason, so two refusals for different reasons stay two."""
 
-    return Counter(
-        _verdict_key(e)
-        for e in events
-        if e.get("cls") in ("blocked", "bypassed")
-    )
+    return Counter(_verdict_key(e) for e in events if e.get("cls") in ("blocked", "bypassed"))
 
 
 def _verdict_key(e: dict) -> str:
@@ -494,9 +490,7 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     routed = Counter(
         str((e.get("data") or {}).get("tier_model") or "missing") for e in command_events
     )
-    model_detail = (
-        "  ".join(f"{k} {v}" for k, v in reported.most_common(6)) or "none observed"
-    )
+    model_detail = "  ".join(f"{k} {v}" for k, v in reported.most_common(6)) or "none observed"
     tier_detail = "  ".join(f"{k} {v}" for k, v in routed.most_common(6)) or "none observed"
     print(f"\n  Models, reported (surface `model`): {model_detail}")
     print(f"  Models, routed (pin `tier_model`): {tier_detail}")

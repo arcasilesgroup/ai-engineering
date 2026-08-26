@@ -31,10 +31,16 @@ def _emit_model(tmp_path, monkeypatch, env_model: str | None):
     root = tmp_path / "repo"
     root.mkdir()
     subprocess.run(["git", "init", "--quiet", "-b", "main"], cwd=root, check=True)
-    env = {**os.environ, "GIT_AUTHOR_NAME": "r", "GIT_AUTHOR_EMAIL": "r@x",
-           "GIT_COMMITTER_NAME": "r", "GIT_COMMITTER_EMAIL": "r@x"}
-    subprocess.run(["git", "commit", "--quiet", "--allow-empty", "-m", "base"],
-                   cwd=root, check=True, env=env)
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "r",
+        "GIT_AUTHOR_EMAIL": "r@x",
+        "GIT_COMMITTER_NAME": "r",
+        "GIT_COMMITTER_EMAIL": "r@x",
+    }
+    subprocess.run(
+        ["git", "commit", "--quiet", "--allow-empty", "-m", "base"], cwd=root, check=True, env=env
+    )
     # The buffer exists only where a pin exists (buffer_path checks .ai/config.toml);
     # put the real pin's [models] here so the emit path and the tier reading agree.
     (root / ".ai").mkdir(exist_ok=True)
@@ -69,17 +75,23 @@ def test_emit_records_undetermined_when_surface_did_not_say(tmp_path, monkeypatc
     assert event.get("model") == "undetermined"
 
 
-# --------------------------------------------------------------------------- B-042-1 : the pin's tier, on the command event
+# ---- B-042-1 : the pin tier, on the command event ----
 
 
 def test_route_returns_model_strings_not_tier_labels():
     from ai_engineering import model_router as mr
 
-    cfg = {"models": {"top": "deepseek-v4-flash", "medium": "qwen3.8-flash",
-                      "low": "qwen3.6", "default_tier": "deepseek-v4-flash"}}
-    assert mr.route("audit", cfg) == "deepseek-v4-flash"   # top step -> top model
-    assert mr.route("report", cfg) == "qwen3.8-flash"      # unmapped verb -> medium
-    assert mr.route("spec", cfg) == "qwen3.6"              # low step -> low model
+    cfg = {
+        "models": {
+            "top": "deepseek-v4-flash",
+            "medium": "qwen3.8-flash",
+            "low": "qwen3.6",
+            "default_tier": "deepseek-v4-flash",
+        }
+    }
+    assert mr.route("audit", cfg) == "deepseek-v4-flash"  # top step -> top model
+    assert mr.route("report", cfg) == "qwen3.8-flash"  # unmapped verb -> medium
+    assert mr.route("spec", cfg) == "qwen3.6"  # low step -> low model
 
 
 def test_no_pin_and_no_env_reports_nothing_invented():
@@ -90,7 +102,7 @@ def test_no_pin_and_no_env_reports_nothing_invented():
     assert mr.route("report", {}) == ""
 
 
-# --------------------------------------------------------------------------- B-042-2 : the chain hook passes through a payload model
+# ---- B-042-2 : the chain hook passes through a payload model ----
 
 
 def _run_chain(monkeypatch, tmp_path, body: str):
@@ -106,13 +118,19 @@ def test_chain_hook_sets_ai_eng_model_from_a_real_payload_model(tmp_path, monkey
     """The chain hook exports AI_ENG_MODEL only when the payload actually carries a model
     string — never from sessionId, and never an empty value. Driven by path like every
     hook."""
-    body = json.dumps({"session_id": "s-1", "model": "nan/deepseek-v4-flash",
-                       "hook_event_name": "PostToolUse", "tool_name": "Bash"})
+    body = json.dumps(
+        {
+            "session_id": "s-1",
+            "model": "nan/deepseek-v4-flash",
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Bash",
+        }
+    )
     _run_chain(monkeypatch, tmp_path, body)
     assert os.environ.get("AI_ENG_MODEL") == "nan/deepseek-v4-flash"
 
 
-# --------------------------------------------------------------------------- B-042-1 : both cli emit paths record tier_model
+# ---- B-042-1 : both cli emit paths record tier_model ----
 
 
 def test_the_real_cli_records_tier_model_from_the_pin(tmp_path):
@@ -123,10 +141,16 @@ def test_the_real_cli_records_tier_model_from_the_pin(tmp_path):
     root = tmp_path / "repo"
     root.mkdir()
     subprocess.run(["git", "init", "--quiet", "-b", "main"], cwd=root, check=True)
-    env = {**os.environ, "GIT_AUTHOR_NAME": "r", "GIT_AUTHOR_EMAIL": "r@x",
-           "GIT_COMMITTER_NAME": "r", "GIT_COMMITTER_EMAIL": "r@x"}
-    subprocess.run(["git", "commit", "--quiet", "--allow-empty", "-m", "base"],
-                   cwd=root, check=True, env=env)
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "r",
+        "GIT_AUTHOR_EMAIL": "r@x",
+        "GIT_COMMITTER_NAME": "r",
+        "GIT_COMMITTER_EMAIL": "r@x",
+    }
+    subprocess.run(
+        ["git", "commit", "--quiet", "--allow-empty", "-m", "base"], cwd=root, check=True, env=env
+    )
     (root / ".ai").mkdir(exist_ok=True)
     (root / ".ai" / "config.toml").write_text(
         "[models]\n"
@@ -139,16 +163,22 @@ def test_the_real_cli_records_tier_model_from_the_pin(tmp_path):
     env.pop("AI_ENG_MODEL", None)
 
     def run(*args) -> dict:
-        out = subprocess.run(["uv", "run", "ai-eng", *args], cwd=root, env=env,
-                             capture_output=True, text=True, check=False)
+        subprocess.run(
+            ["uv", "run", "ai-eng", *args],
+            cwd=root,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         lines = (root / ".ai" / "events.jsonl").read_text(encoding="utf-8").strip().splitlines()
         return json.loads(lines[-1])
 
     plain = run("--non-interactive", "report", "surfaces")
     assert plain["cls"] == "command"
     assert plain["data"]["verb"] == "report"
-    assert plain["data"]["tier_model"] == "qwen3.8-flash"   # report -> medium
-    assert plain["model"] == "undetermined"                  # no surface env
+    assert plain["data"]["tier_model"] == "qwen3.8-flash"  # report -> medium
+    assert plain["model"] == "undetermined"  # no surface env
 
     json_event = run("--json", "report", "surfaces")
     assert json_event["cls"] == "command"

@@ -15,6 +15,11 @@ disable-model-invocation: true
 
 # Write the spec
 
+## What it produces
+
+`specs/NNN-slug/spec.md`, committed in the user's repository and visible in their diff.
+It is a decision record, not code, a plan or permission the agent gave itself.
+
 ## The tier to ask for
 
 Spec writing is mechanical once the research has done the hard thinking; ask the **low**

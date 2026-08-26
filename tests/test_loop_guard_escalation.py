@@ -37,9 +37,11 @@ def _drive(monkeypatch, tmp_path, payloads: list[dict]) -> list[str | None]:
     denial text each payload received (None for allowed)."""
     monkeypatch.setenv("AI_ENGINEERING_HOME", str(tmp_path))
     (tmp_path / "cache" / "loop").mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(lg, "config", lambda root=None: {
-        "guards": {"loop_window": 6, "loop_repeats": 3, "loop_failures": 5}
-    })
+    monkeypatch.setattr(
+        lg,
+        "config",
+        lambda root=None: {"guards": {"loop_window": 6, "loop_repeats": 3, "loop_failures": 5}},
+    )
     monkeypatch.setenv("AI_ENG_SESSION", "test-session")
     monkeypatch.setattr(_wrap, "deny", lambda name, message, structured=False: None)
     for payload in payloads:
@@ -91,5 +93,5 @@ def test_the_blocked_count_is_preserved_every_denial_denies(tmp_path, monkeypatc
     # from the third on is denied, and the third call's denial is the escalation —
     # the blocked count is preserved (no denial ever becomes allowed).
     denials = _drive(monkeypatch, tmp_path, [_call(1), _call(2), _call(3), _call(4), _call(5)])
-    assert denials[0] is None and denials[1] is None      # below the repeats threshold
+    assert denials[0] is None and denials[1] is None  # below the repeats threshold
     assert all(d is not None for d in denials[2:]), "every repeat is still denied"

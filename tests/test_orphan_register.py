@@ -27,8 +27,17 @@ REGISTER = ROOT / "policy" / "module-status.toml"
 # these ship with tests and no import in src/ or hooks/. revalidate/cost are consumer
 # (audit.py imports them); model_router is consumer once cli.py imports it (B-042-1).
 ORPHANS = {
-    "lane_merge", "loopgate", "skillify", "verify_cold", "evidencing",
-    "trim", "decision_fw", "intake", "model_router", "revalidate", "cost",
+    "lane_merge",
+    "loopgate",
+    "skillify",
+    "verify_cold",
+    "evidencing",
+    "trim",
+    "decision_fw",
+    "intake",
+    "model_router",
+    "revalidate",
+    "cost",
 }
 
 
@@ -99,9 +108,7 @@ def test_a_status_naming_a_missing_consumer_is_refused():
         for candidate in consumer.split(","):
             candidate = candidate.strip()
             if candidate and not (ROOT / candidate).is_file():
-                raise AssertionError(
-                    f"{name}: consumer {candidate!r} does not exist in the tree"
-                )
+                raise AssertionError(f"{name}: consumer {candidate!r} does not exist in the tree")
 
 
 def test_an_orchestrator_future_row_cites_the_orchestrator_spec():
@@ -113,9 +120,7 @@ def test_an_orchestrator_future_row_cites_the_orchestrator_spec():
             assert cited, f"{name}: orchestrator-future with no spec cited in its reason"
             for spec_id in cited:
                 spec_dir = next((ROOT / "specs").glob(f"{spec_id}-*"), None)
-                assert spec_dir is not None, (
-                    f"{name}: cites spec {spec_id} which does not exist"
-                )
+                assert spec_dir is not None, f"{name}: cites spec {spec_id} which does not exist"
                 home = spec_dir / "spec.md"
                 assert home.is_file() and name in home.read_text(encoding="utf-8"), (
                     f"{name}: spec {spec_id} never mentions it"
