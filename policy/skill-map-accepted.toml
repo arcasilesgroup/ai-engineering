@@ -190,6 +190,6 @@ accepted = [
   "specs/040-ai-write/council.md -> specs/ai-report/.agents/skills/ai-report/references/documentation-writer.md",
   "specs/040-ai-write/plan.md -> specs/040-ai-write/documentation-writer.md",
   "specs/040-ai-write/spec.md -> specs/040-ai-write/claude-agents/product/technical-writer.md",
-  "specs/040-ai-write/spec.md -> specs/040-ai-write/corpus.md",
+  "specs/040-ai-write/spec.md -> specs/040-ai-write/corpus.md",  "specs/040-ai-write/challenge.md -> specs/040-ai-write/owner/repos/claude-agents/product/technical-writer.md",
   "specs/034-appendix-notes-decision-frameworks-and-constellation/approval.md -> specs/034-appendix-notes-decision-frameworks-and-constellation/NOTES.md",
 ]
