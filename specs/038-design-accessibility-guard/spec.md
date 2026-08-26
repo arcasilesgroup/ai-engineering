@@ -7,113 +7,110 @@ ref: ""
 supersedes: ""
 ---
 
-# Design accessibility guard
+# Design accessibility honesty floor
 
 ## Who this is for, and what it is worth to them
 
-The repository owner (roadmap row 16: "AL-Design a11y — P2 — guard de a11y en diseño") and
-the stranger whose framework produces a web UI, a dashboard or a component. Today
-`ai-design` (the framework's design gateway) has four routes — shape, build, imagery,
-verify — with no accessibility floor: a design can be "verified against the rendered
-thing" while every interactive element fails contrast or keyboard navigation, and nothing
-in the framework says it. This spec adds the missing floor as a checked rule inside
-ai-design's verify route (not a new agent, per the owner's "no sea agente sino que esté
-dentro de ai-engineering"), plus a reference the design skills can load, so every design
-the framework produces is accessible or explicitly marked not-covered.
+The repository owner (roadmap row 16) and the stranger whose framework produces a web UI,
+a dashboard or a component. Today `ai-design` already carries most of the accessibility
+floor: its verify route measures contrast over the real background, its step 5 names
+`WCAG 2.2 AA` as the release floor, the `ai-review` motion lens respects reduced-motion
+(EP-248-pinned 13-item checklist), and `contract.audit` reports this tree CLEAN. The one
+discipline **missing** is honesty at the edge: a designed surface that **cannot** meet the
+floor — a deliberately low-contrast editorial look, a canvas game, a chart with complex
+keyboard needs — has no explicit `not-covered` exit, so it either stalls or passes
+silently. This spec adds that floor as a checked rule inside ai-design's verify route (not
+a new agent), plus the keyboard/focus item the floor does not yet name.
 
 ## Context and problem
 
 **What is true today, measured in this tree on 2026-08-26:**
 
-- `ai-design` routes creating/extending/redesigning a web, mobile, native or CLI
-  experience and "verifies the rendered result rather than the declared CSS", but its
-  verify route has no WCAG floor: no contrast check, no keyboard check, no focus-visible
-  check, no reduced-motion respect.
-- The research's AL-Design and claude-agents rows (`.ai/research/reports/17-AL-Design/
-  report.md`, `/Users/soydachi/repos/claude-agents/design/accessibility-auditor.md`)
-  name the a11y discipline; `ai-design` itself (`.agents/skills/ai-design/SKILL.md`)
-  imposes **no style and never requires generated imagery** — the right shape to carry a
-  floor without imposing a look.
-- `contract.py`'s audit lanes prove the pattern: a checked rule (`_incorrect_correct_
-  problems`, `_anti_rationalization_problems`) refuses a skill that omits a discipline.
-  ai-design has no such lane for a11y.
+- ai-design `SKILL.md` step 5: `WCAG 2.2 AA is the release floor`; verify step 7 measures
+  `contrast over the real background`; `ai-review/references/frontend.md` carries the
+  EP-248-pinned 13-item a11y checklist ending in `Motion respects the reduced-motion
+  preference` (`tests/test_contracts.py:1294`). So the contrast/motion floor **exists**.
+- The floor does **not** name keyboard reachability or visible focus, and — the real gap —
+  nothing gives a surface that deliberately cannot meet the floor an honest exit:
+  `INCOMPLETE: a11y not-covered <reason>`, the same honesty the framework demands of
+  verifiers (`NOT COVERED ≠ PASS`).
+- The roadmap's design rows (apple-design, hallmark, high-end-visual-design,
+  emil-design-eng in `~/.claude/skills`) and any future design skills are *insumos* the
+  design skill may load, never skills of the framework itself (spec 037 roadmap rows 6/16,
+  recorded as the insumo doctrine); no design skill other than ai-design is audited.
 
 **The problem, in words a non-technical reader can follow:**
 
-A framework that designs interfaces should never hand back an interface a person who
-cannot use a mouse, or who needs the screen-reader, cannot use. Today the design skill can
-call a design "verified" while failing the most basic checks. This spec adds one checked
-floor: every design the framework produces either meets the accessibility basics (contrast,
-keyboard, focus, reduced-motion) or is explicitly marked `not-covered` with why — the same
-honesty the framework already demands of verifiers (`NOT COVERED ≠ PASS`).
+The accessibility floor is there and most of it is enforced. What is missing is the edge:
+when a design *intentionally* cannot meet a check (a deliberately artistic low-contrast
+page, an interactive canvas), the framework today has no way to say "this is not covered,
+and here is why" — so the choice is stall or a silent pass. This spec adds that honest
+exit plus the keyboard/focus check the floor has not yet named.
 
 ## Options considered
 
-1. **An a11y floor inside ai-design's verify route + a reference (chosen shape).** A
-   closed rule on ai-design's corpus/verify: contrast ≥ WCAG AA, everything reachable by
-   keyboard, visible focus, `prefers-reduced-motion` respected; a designed surface that
-   fails reports `INCOMPLETE: not-covered <reason>`, never a bare pass. Plus
-   `references/accessibility.md` naming the checks the design skills load. Gives: the
-   floor where design is verified, no new agent, no style imposition. Costs: one rule, one
-   reference, one fixture.
-2. **A standalone `ai-accessibility` skill.** Gives: a dedicated auditor. Costs: a new
-   skill (the framework's fifteen-skill target is deliberate; the owner asked "no sea
-   agente"), a second consumer, and the same isolation the verify route already provides.
-   Rejected on the owner's own framing.
-3. **Prompt-only guidance (no rule).** Gives: zero code. Costs: exactly the gap — a hint
-   in prose is the "checked, or it rots" failure the framework refuses everywhere else.
+1. **Honesty-floor rule + keyboard/focus item + one reference (chosen shape).** A closed
+   rule on ai-design's verify: a surface passes only when it names the a11y basics — then
+   contrast/motion that the existing steps already verify, **plus keyboard reachability and
+   visible focus** — or it exits `INCOMPLETE: a11y not-covered <reason>`, never a bare pass.
+   `references/accessibility.md` names the checks and the `not-covered` rule. Gives: the
+   missing edge and the missing item, checked; no new agent; no style imposition. Costs:
+   one rule, one reference, one fixture.
+2. **A full standalone `ai-accessibility` skill.** Gives: a dedicated auditor. Costs: a new
+   skill (the fifteen-skill target is deliberate), a second consumer, and — as the council
+   showed — its audit would find this tree already CLEAN. Rejected on evidence.
+3. **Prompt-only guidance.** Gives: zero code. Costs: exactly the gap — the "checked, or it
+   rots" failure the framework refuses.
 
 ## Decision
 
 **Option 1.** Spec 038 adds two behaviours:
 
-### B-038-1 — Accessibility floor in ai-design's verify route
+### B-038-1 — Accessibility honesty floor in ai-design's verify route
 
 ai-design's verify route gains a closed rule: a designed surface passes only when it
-names the a11y basics and they hold — contrast ≥ WCAG AA on text, every interactive
-element keyboard-reachable with visible focus, `prefers-reduced-motion` respected. A
-surface that cannot be verified reports `INCOMPLETE: a11y not-covered <reason>`, never a
-bare pass. The rule lives as a contract lane `_accessibility_problems` over the ai-design
-skill, the same shape as `_incorrect_correct_problems`, so a design skill that omits the
-floor is refused at audit.
+either (a) names the a11y basics — contrast ≥ WCAG AA, keyboard reachability, visible
+focus, reduced-motion respected — and the existing verify steps confirm them, or (b)
+exits `INCOMPLETE: a11y not-covered <reason>` when it deliberately cannot. A surface that
+says neither is refused: a silent pass is never the answer. The rule is a contract lane
+`_accessibility_problems` over the ai-design skill, in the shape of the other audit lanes;
+a design that omits the floor is refused at audit.
 
-### B-038-2 — The accessibility reference
+### B-038-2 — The keyboard/focus item and the accessibility reference
 
-`references/accessibility.md` beside ai-design (the skill anatomy allows references,
-templates, scripts; the ai-review references are the worked pattern): the concrete checks
-(contrast ratios, keyboard/focus, reduced-motion, landmarks), the `not-covered` honesty
-rule, and where the design skills it advertises (`apple-design`, `hallmark`,
-`high-end-visual-design`, `emil-design-eng`, and the other design skills in the roadmap's
-design rows) plug in — as *insumos* the design skill may load, never as skills of the
-framework itself (spec 037 roadmap table rows 6/16 recorded this). The reference is loaded
-only when a verify pass runs, keeping the context economy (spec 033).
+The floor gains the two checks it does not yet name — keyboard reachability and visible
+focus — and `references/accessibility.md` beside ai-design carries them plus the
+`not-covered` rule and the concrete checks (contrast ratios, keyboard, focus,
+reduced-motion, landmarks). The reference is loaded only when a verify pass runs (context
+economy, spec 033); the roadmap's design skills plug into it as insumos the design skill
+may load, never as framework skills.
 
 ## Challenged once
 
-**"A WCAG rule in a design skill is the style-imposition the skill explicitly refuses
-('imposes no style')."** The refusal is about *style* — fonts, palettes, layout taste — not
-about *accessibility*, which is a functional floor: contrast, keyboard reachability and
-reduced-motion are not a look, they are whether people with disabilities can use the
-thing. The rule checks the floor and marks `not-covered`; it never says a surface must look
-a certain way. The clean control: an "editorial" design with low-contrast text styled
-*deliberately* still fails the floor unless it says why (and a `not-covered` with a reason
-is the honest exit, never a silent pass).
+**"A blanket a11y rule in a design skill re-owns what ai-design and the motion lens
+already delegate; it is redundant."** The delegation is *verified* for contrast and motion,
+but it is not *complete*: keyboard and focus are absent from every step, and — the load-
+bearing half — there is no honest `not-covered` exit for a surface that deliberately
+cannot comply. This rule is the completion of the floor, not its duplication: (a)/(b) are
+the two legal exits, and a surface claiming neither is refused. The fixture proves the
+three states.
 
-**"Another contract lane grows contract.py; is a11y really the framework's problem?"**
-The framework's mission includes governed work on regulated companies; an interface the
-framework produces that fails basic a11y is a compliance risk it handed the stranger. The
-lane is one function in the existing audit, and the fixture proves both halves (floor
-holds / not-covered with reason). This is the smallest checked form of the discipline.
+**"'INCOMPLETE: a11y not-covered' is a second spelling of the verifier's `NOT COVERED`; it
+will drift."** The two are the same discipline at two surfaces — the cold verifier's
+`NOT COVERED` for lanes that did not run, the design verify's `not-covered` for a surface
+that cannot meet the floor. The reference names both, and D-038-02 binds the spelling;
+a later spec may unify them into one constant if a second surface needs it.
 
 ## Assumptions and unresolved risks
 
-- Assumption: contrast ≥ WCAG AA and the keyboard/focus/reduced-motion set is the right
-  first floor; a later measured need may add landmarks, screen-reader labels or more —
-  config/rule growth, not a new architecture.
-- Assumption: `references/accessibility.md` loaded only on verify keeps the context
-  economy; a design that never reaches verify never pays the reference's tokens.
-- Unresolved: ai-design is the design gateway today; whether a11y also needs a lane on
-  other producing surfaces (marketing, docs) is a later measured need, not this spec.
+- Assumption: WCAG AA + keyboard + focus + reduced-motion is the right first floor; later
+  measured need may add landmarks, screen-reader labels or more — rule/config growth, not
+  a new architecture.
+- Assumption: the reference laden only on verify keeps the context economy; a design that
+  never reaches verify never pays its tokens.
+- Unresolved: whether the `not-covered` spelling and the verifier's `NOT COVERED` should
+  become one shared constant; this spec records the two as the same discipline and binds
+  the spelling, and unifies only when a second surface needs it.
 - Unresolved: the inherited `madr.validate` red from ADR 0025 stays open; this spec does
   not authorise rewriting that history.
 
@@ -123,29 +120,30 @@ holds / not-covered with reason). This is the smallest checked form of the disci
   keyboard reachability, visible focus and reduced-motion, When `_accessibility_problems`
   reads it, Then it returns no problems (`uv run --with pytest==9.1.1 pytest -q
   tests/test_038_accessibility.py -k floor` → `1 passed`).
-- **Denial, silent pass:** Given a designed surface whose verify pass omits the a11y basics,
-  When the rule reads it, Then it is refused with `INCOMPLETE: a11y not-covered <reason>`,
-  never a bare pass (`-k not_covered` → `1 passed`).
-- **Honest exit:** Given a surface that deliberately cannot meet a check, When it says
-  `not-covered: <reason>`, Then the rule accepts it with the reason recorded (`-k honest`
-  → `1 passed`).
-- **Reference loads:** Given `references/accessibility.md`, When a verify pass needs it,
-  Then it names the concrete checks and the `not-covered` rule (`-k reference` →
+- **Denial, silent pass:** Given a surface whose verify pass omits the a11y basics and
+  names no `not-covered`, When the rule reads it, Then it is refused (`-k silent` →
   `1 passed`).
+- **Honest exit:** Given a surface that deliberately cannot meet a check and says
+  `not-covered: <reason>`, When the rule reads it, Then it passes with the reason recorded
+  (`-k honest` → `1 passed`).
+- **Reference loads:** Given `references/accessibility.md`, When a verify pass needs it,
+  Then it names the checks and the `not-covered` rule (`-k reference` → `1 passed`).
 
 ## Decisions
 
-**D-038-01 — accessibility is a functional floor in ai-design's verify route, never a
-style imposition.**
-Rationale: the skill's "imposes no style" refusal covers look, not disability; the floor
-(contrast/keyboard/focus/reduced-motion) is checked by a contract lane exactly like the
-other disciplines, and a surface that cannot meet it exits honestly with `not-covered`.
+**D-038-01 — the accessibility floor is completed, not invented: ai-design already verifies
+contrast and motion, so this spec adds keyboard, visible focus and the honest
+`not-covered` exit.**
+Rationale: the council proved the premise "nothing says it" false (WCAG 2.2 AA + contrast
+are already the release floor); the real gap is the edge and the two missing checks. A
+rule that repeats what already holds would be a no-op; one that completes it is the delta.
 
-**D-038-02 — the a11y discipline ships as one reference beside ai-design, laden only on
-verify; the design skills of the roadmap stay insumos, not framework skills.**
-Rationale: skill anatomy allows references (the ai-review pattern), context economy says
-load on demand, and the roadmap already records the design rows as insumos the design
-skill may use — not as fifteen more skills.
+**D-038-02 — a designed surface either names the basics (confirmed by the existing verify
+steps) or exits `INCOMPLETE: a11y not-covered <reason>`; a silent pass is refused, and the
+same-spelling discipline binds the verifier's `NOT COVERED`.**
+Rationale: the honesty rule is the framework's own (`NOT COVERED ≠ PASS`); the design
+floor gets the same shape, so an intentionally non-compliant surface is a recorded,
+reasoned exit, never a silent one.
 
 ## Accepted risks
 
@@ -160,7 +158,7 @@ no second hop — the service-shaped boxes are `not applicable`.
 - [x] CI/CD — `just check` runs `tests/test_038_accessibility.py` on every push (`.github/workflows/check.yml`); nothing deployed
 - [x] Logs — not applicable: every verb still emits the one JSON line `ai-eng report digest` reads
 - [x] Traces — not applicable: one process, no second hop
-- [x] Errors — not applicable: the new path fails closed (a silent pass is refused; `not-covered` with reason is the honest exit)
+- [x] Errors — not applicable: the new path fails closed (silent pass refused; `not-covered` with reason is the honest exit)
 - [x] Health and data age — the 038 fixture runs in the gate's pytest half (`just cover`'s `not fast_enough` collection) on every push
 - [x] External check — `.github/workflows/check.yml` runs the whole gate on every push; the floor is additionally asserted by its fixture, the independent route
 - [x] Second path — the lane is read by its fixture and the reference by the same fixture, with no shared line
