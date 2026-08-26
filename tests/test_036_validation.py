@@ -23,8 +23,9 @@ ROWS = [
     ("evidence", "verify", None),
     ("verify_cold", "Verdict", "spec 030"),
     ("contract", "audit_one", None),
+    ("contract", "_anti_rationalization_problems", None),
     ("cost", "calibrate", "spec 029"),
-    ("capability", "Action", None),
+    ("capability", "preflight", None),
     ("trim", "trim_output", "spec 033"),
     ("decision_fw", "named", "spec 034"),
 ]

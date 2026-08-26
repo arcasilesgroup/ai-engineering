@@ -189,7 +189,7 @@ objects ahead of the prose).
 - **Success, classified:** Given a decision inside the declared boundary, When
   `decision_boundary.classify` reads it, Then it returns `Always`, `Ask-first` or `Never`
   deterministically (`uv run --with pytest==9.1.1 pytest -q tests/test_036_boundary.py` →
-  `2 passed`).
+  `5 passed`).
 - **Denial, out-of-declaration:** Given a requested decision outside the declared boundary,
   When the classifier reads it, Then it returns `None`, reports `CANNOT DECIDE`, and blocks
   — it never guesses (`uv run --with pytest==9.1.1 pytest -q tests/test_036_boundary.py -k

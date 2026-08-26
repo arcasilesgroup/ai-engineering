@@ -57,3 +57,20 @@ def test_capability_manifest_surface_maps_gate_to_class():
     mapping = db.from_capability_manifest(manifest)
     assert mapping["ai-explore:default"] == "Always"
     assert mapping["ai-research:cited-web"] == "Ask-first"
+
+
+def test_unknown_or_missing_gate_maps_to_none_and_blocks():
+    # A gate outside the declared vocabulary must not be decided as a class: it is the
+    # caller's U0, matching capability.py's fail-closed posture on the same input.
+    manifest = {
+        "schema": "urn:ai-engineering:capability-manifest:1",
+        "schema_version": "1",
+        "capabilities": [
+            {"id": "ai-x", "modes": [{"id": "m", "human_gate": "soemtimes"}]},
+            {"id": "ai-y", "modes": [{"id": "m"}]},
+        ],
+    }
+    mapping = db.from_capability_manifest(manifest)
+    assert mapping["ai-x:m"] is None
+    assert mapping["ai-y:m"] is None
+    assert db.classify("ai-x:m", {"ai-x:m": mapping["ai-x:m"]}).reason == "U0"
