@@ -143,11 +143,11 @@ different reason ("contenido inflado, tools decorativos, KISS ❌ — research h
 Spec, "Context": the claude-agents bullet sits inside "**What is true today, measured in
 this tree on 2026-08-26:**".
 
-Command: `git ls-files | grep -c claude-agents`; `ls /Users/soydachi/repos/claude-agents/product/technical-writer.md`
+Command: `git ls-files | grep -c claude-agents`; `ls the owner/repos/claude-agents/product/technical-writer.md`
 
 ```text
 0
-/Users/soydachi/repos/claude-agents/product/technical-writer.md
+the owner/repos/claude-agents/product/technical-writer.md
 ```
 
 The file is not in this tree (git tracks nothing under `claude-agents`); it exists on the
