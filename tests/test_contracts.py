@@ -561,6 +561,12 @@ AI_SPEC_SECTIONS = {
         "diff. It is a decision record, not code, a plan or permission the agent gave itself.",
     ),
     "Procedure": (
+        "0. Validate the intake (spec 037 / B-037-3): run the opening request through "
+        "`intake.validate_intake`; when it returns `INCOMPLETE` naming missing fields (goal, "
+        "constraints, acceptance), ask those intake questions first — capped, the way the "
+        "research's grill recommends — before any discovery. `specs/new-goal-template.md` is "
+        "the copy-paste fallback; a well-formed free request passes without it. The input is "
+        "the contract: a malformed goal produces a malformed spec.",
         "1. Read `CONSTITUTION.md`, the related records and repository evidence and current "
         "primary sources relevant to the decision before asking anyone. State what was read, "
         "what is true now and what remains unknown. Never infer a control from its "
@@ -1551,7 +1557,7 @@ GOVERNING_SKILL_TEXT = {
         "576cf03621aace434ca300bcb136538097f21e0f050fb8a0280913e590457880"
     ),
     ".agents/skills/ai-spec/SKILL.md": (
-        "0acfd72068573131981c13791b7b6451f6fd10ba55a831325f645a32aa8311b4"
+        "de1d194fd50c33fef341eb1d5c1ef152dff58b3beed40e498d0b174d49ddf0ad"
     ),
 }
 
