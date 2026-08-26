@@ -456,3 +456,18 @@ secrets = ["github.token"]
 human_gate = "before_publish"
 enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.network", "preflight.secrets", "preflight.human-gate"]
 proof_requirements = { allow = ["ai-ship.pull-request.allow"], deny = ["ai-ship.pull-request.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-write"
+phase = "verify"
+
+[[capabilities.modes]]
+id = "default"
+read_roots = ["."]
+write_roots = ["docs", "README.md"]
+exec_allowlist = [{ executable = "git", argument_pattern = "scoped.change" }]
+network = []
+secrets = []
+human_gate = "before_write"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-write.default.allow"], deny = ["ai-write.default.deny"], installed_artifact = true }

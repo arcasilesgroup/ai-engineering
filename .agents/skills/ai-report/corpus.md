@@ -10,6 +10,7 @@ with their digest shown before anybody confirms anything. It sends nothing by it
 - "the guard denies a write it should allow, and it does it every time" — reproducible, in our code, and the four fields are already in the sentence.
 - "file an issue upstream about doctor saying ok while audit verify exits 1" — the exact shape this exists for, and the steps are two commands and a comparison.
 - "I found a way to make the guard allow something it must deny" — routes here as `--kind security`, which refuses the public route and prints the private one before asking anything.
+- "also publish a technical post about this work" — use `/ai-write`, because a post is a document that must verify against the tree; this skill writes the report and nothing else.
 - "prepare that bug report but do not send it anywhere yet" — drafting is the whole default; sending is a separate flag and a typed phrase.
 - "what would we actually send if we reported this" — the preview is the answer, and it is the same bytes, hashed.
 

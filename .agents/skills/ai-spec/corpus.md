@@ -12,6 +12,7 @@ and not permission the agent gave itself.
 - "how should we handle sessions that expire mid-upload?" — the question is which behaviour is right rather than which file to touch, so it needs at least two real options and one recommendation, not a task list.
 - "what's the best approach for storing the audit trail?" — asking for an approach is asking for a recommendation that has been challenged once with its strongest realistic failure case.
 - "I'm thinking about splitting the worker into two services" — a half-formed intention is exactly where the fixed constraints, the intended outcome and the harm of leaving it unchanged get written down.
+- "also draft the wiki page for this feature" — use `/ai-write`, because documentation of what will exist is a document, and the spec's job is the decision, not the prose.
 - "we need to decide whether the CLI or the hook owns the check" — a decision that constrains later work belongs in a record with named assumptions and unresolved risks, not in a conversation nobody can audit.
 - "write the spec for the new export format" — asked for by name, and the authority basis has to be named or the result is `INCOMPLETE`.
 - "the spec must stand alone" — the record is the whole interface to the builder: no "as discussed", no "the remaining work", no conversation leaks; `self_contained` refuses them and `section` resolves a part by number.

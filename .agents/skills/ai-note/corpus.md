@@ -10,6 +10,7 @@ the files it describes, so it can be detected as stale later. It searches those 
 - "write down what we learned, that cost us the whole afternoon" — exactly the bar: a finding that will cost the same again if nobody writes it down.
 - "note that the settings writer merges instead of replacing, we lost an hour to that" — a non-obvious behaviour, written as what you expected, what happened, and what to do about it.
 - "remember this workaround and why we still need it" — a workaround also records what would remove the need for it and where that fix would live.
+- "and turn that into a section of the handbook" — use `/ai-write`, because the note stays a finding and the handbook gets a document written against the tree.
 - "do we have notes on the plugin loader" — searching the notes is part of this skill, and `git grep` over `docs/notes/` is the whole query engine.
 - "what did we find about the hook timeout last time" — the same search, and the answer starts by checking the note's `still_true_when` before anybody acts on it.
 - "the log is huge, keep the note small" — trim the evidence with `trim`: head and tail, the elided middle marked, failure lines never dropped.

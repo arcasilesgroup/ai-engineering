@@ -10,6 +10,7 @@ each, the work item closed by a keyword in the body, and the branch cleaned up a
 - "commit this and open a PR" — the commits get the shape the change actually has, one commit per change, and never with the hooks skipped.
 - "I'm ready for review" — the pull request opens with what changed in plain words, then the spec link, then what you are least confident about.
 - "merge it and close the ticket" — the closing keyword goes in the body, and the pull request has to target the default branch or nothing gets linked or closed.
+- "rewrite my README before the release" — use `/ai-write`, because a document written against the tree is not part of landing this change unless it is the changelog, which is.
 - "the changelog and the production-ready boxes still need doing before this goes out" — each box is ticked beside the command that ticked it, or it fails the gate.
 - "it merged, tidy the branch up" — the branch is deleted and one line says what is now true that was not true before.
 

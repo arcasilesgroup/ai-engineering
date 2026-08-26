@@ -875,6 +875,7 @@ WORDS = {
     10: "ten",
     16: "sixteen",
     17: "seventeen",
+    18: "eighteen",
     20: "twenty",
     21: "twenty-one",
     22: "twenty-two",
