@@ -27,7 +27,7 @@ TODAY = date.today().isoformat()
 INTENT_FIXTURE = Path(__file__).parent / "fixtures" / "intent-v1.json"
 
 
-def _fixture_spec(root: Path, slug: str, ref: str = "") -> Path:
+def _fixture_spec(root: Path, slug: str, ref: str = "", marked: tuple[str, ...] = ()) -> Path:
     home = root / "specs"
     home.mkdir(exist_ok=True)
     identifiers = [
@@ -38,7 +38,14 @@ def _fixture_spec(root: Path, slug: str, ref: str = "") -> Path:
     number = f"{max(identifiers, default=0) + 1:03d}"
     target = home / f"{number}-{slug}" / "spec.md"
     target.parent.mkdir()
-    target.write_bytes(spec._render(number, slug, ref))
+    if marked:
+        lines = "\n".join(f"- [X] **D-{number}-01 — {title}**" for title in marked)
+        body = (
+            f'---\nid: "{number}"\nstatus: draft\n---\n\n# {slug}\n\n## Decisions\n\n{lines}\n'
+        ).encode()
+    else:
+        body = spec._render(number, slug, ref)
+    target.write_bytes(body)
     return target
 
 
@@ -336,7 +343,7 @@ def test_an_adr_listing_shows_the_status_of_every_file_including_the_broken_ones
 def test_decide_madr_writes_the_file_and_says_it_grants_no_authority(repo, capsys):
     """A promoted decision is proposed, not accepted: the second line is what stops a
     reader treating a freshly written MADR as something the team agreed to."""
-    _fixture_spec(repo, "queue")
+    _fixture_spec(repo, "queue", marked=("Use one queue",))
     result = decide.main(["Use one queue"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
@@ -352,7 +359,7 @@ def test_decide_madr_writes_the_file_and_says_it_grants_no_authority(repo, capsy
 
 def test_proposing_a_supersession_does_not_rewrite_or_authorize_the_old_madr(repo):
     """A proposal may point at the old MADR, but only human authority can transition it."""
-    _fixture_spec(repo, "queue")
+    _fixture_spec(repo, "queue", marked=("Use one queue", "Use two queues"))
     result = decide.main(["Use one queue"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
@@ -368,7 +375,7 @@ def test_proposing_a_supersession_does_not_rewrite_or_authorize_the_old_madr(rep
 
 def test_a_madr_proposal_writes_nothing_outside_its_canonical_home(repo):
     """Proposal must not turn a spec edit into authority or create a second record."""
-    path = _fixture_spec(repo, "a-thing")
+    path = _fixture_spec(repo, "a-thing", marked=("Use one queue",))
     before = path.read_bytes()
     result = decide.main(["Use one queue"])
     assert type(result) is outcome.Result
@@ -383,7 +390,7 @@ def test_decide_list_prints_one_row_per_adr_and_says_so_when_there_are_none(repo
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     assert capsys.readouterr().out == "  no MADRs yet — most decisions never need one\n"
-    _fixture_spec(repo, "decisions")
+    _fixture_spec(repo, "decisions", marked=("One", "Two"))
     result = decide.main(["One"])
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"

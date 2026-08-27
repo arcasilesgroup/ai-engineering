@@ -1249,6 +1249,8 @@ def test_decide_returns_canonical_outcome_after_madr_validation(
     )
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     specification = root / "specs" / "010-governed-foundation" / "spec.md"
+    granted = "\n## Decisions\n\n- [X] **D-010-01 — Keep authority outside the proposal**\n"
+    specification.write_text(specification.read_text(encoding="utf-8") + granted, encoding="utf-8")
     spec_bytes = specification.read_bytes()
     sentinel = tmp_path / "outside-decision-scope"
     sentinel.write_bytes(b"foreign sentinel\n")

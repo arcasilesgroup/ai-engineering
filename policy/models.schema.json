@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-engineering:models:1",
+  "title": "ai-engineering model tiers v1",
+  "description": "Per-repository model tiers: top/medium/low each a model identifier (any provider name), plus the default tier used when a tier is missing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "top": { "type": "string", "minLength": 1 },
+    "medium": { "type": "string", "minLength": 1 },
+    "low": { "type": "string", "minLength": 1 },
+    "default_tier": { "type": "string", "minLength": 1 }
+  }
+}

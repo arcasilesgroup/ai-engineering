@@ -274,6 +274,14 @@ def main() -> int:
     if payload["_structured"]:
         os.environ.setdefault("AI_ENG_SURFACE", "claude-code")
         os.environ.setdefault("AI_ENG_ADAPTER", adapter_version("claude-code"))
+    # Which model this call ran on, when the surface says so. Telemetry observes and never
+    # decides: `sessionId` is an opaque id every surface sends and is never a model name,
+    # and `setdefault` with a non-string would raise where a hook must not crash, so only a
+    # genuine `model` string value passes through. A surface that does not report one stays
+    # `undetermined` in the event. The env change covers events this hook process emits;
+    # cli.py runs in a separate process and reads its own environment.
+    if isinstance(payload.get("model"), str) and payload["model"]:
+        os.environ.setdefault("AI_ENG_MODEL", payload["model"])
     event = sys.argv[1] if len(sys.argv) > 1 else payload.get("hook_event_name", "")
     tool = payload.get("tool_name", "")
     fp = fingerprint(payload)

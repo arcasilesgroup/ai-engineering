@@ -43,7 +43,10 @@ record where every line names the command or the observation that satisfied it.
    the command that satisfied it or the observation somebody made, and a manual item names
    the person and the date. WCAG 2.2 AA is the release floor and the only level anything
    blocks on. An AAA criterion that is not viable is recorded with reason, owner, expiry and
-   its AA evidence beside it.
+   its AA evidence beside it. The floor names the basics: contrast over the real background,
+   keyboard reachability, visible focus and reduced motion (spec 038). A surface that
+   deliberately cannot meet one exits `not-covered: <reason>`; a silent pass is never the
+   answer.
 6. A scanner is a filter, not a verdict. Axe output and a contrast ratio together do not
    declare conformance; they narrow what a person still has to look at.
 7. Motion belongs to the diff that carries it. Curves, duration, gestures, interruptibility,

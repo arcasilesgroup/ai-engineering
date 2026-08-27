@@ -1,0 +1,142 @@
+# The status of every module that has no production caller, decided in one place.
+#
+# Data, not code: the reader is `wiring.module_status()` and the refusal suite is
+# `tests/test_orphan_register.py`, both picked up by `just check`. A module with no status,
+# a `consumer` whose file no production module imports (AST-verified), a status naming a
+# consumer that does not exist, and an `orchestrator-future` row citing no orchestrator
+# spec are all refused — the register cannot drift from the tree (spec 042 / B-042-3).
+#
+# Statuses:
+#   consumer            — imported by a production file in src/ or hooks/ (AST, not prose).
+#   orchestrator-future — an orchestrator instrument; the reason cites the spec that
+#                         records the orchestrator (031/041) and that spec names the module.
+#   deferred            — kept, tested, not wired, with the reason it exists.
+#
+# A production caller is an `import`/`from` statement binding the module — never a
+# docstring mention, a comment, a prompt route or a sentence in a SKILL.md. Measured on
+# this tree: `evidencing` appears in verify_cold.py's docstring and `trim` in
+# loop_guard.py's comment, and neither is an import, which is exactly the false positive
+# a text grep would count.
+
+schema = "urn:ai-engineering:module-status:1"
+schema_version = "1"
+
+# --- consumer: imported by a production file ---
+
+[[module]]
+name = "model_router"
+status = "consumer"
+consumer = "src/ai_engineering/cli.py"
+reason = "spec 042 / B-042-1: cli.py imports it to record tier_model on every command event"
+
+[[module]]
+name = "answer_key"
+status = "deferred"
+consumer = ""
+reason = "spec 030 / B-030-2: the answer key ships for cold-read verification; no verb applies it yet"
+
+[[module]]
+name = "constellation"
+status = "deferred"
+consumer = ""
+reason = "spec 034 / B-034-3: the constellation reader ships for cross-spec references; no verb renders it yet"
+
+[[module]]
+name = "decision_boundary"
+status = "deferred"
+consumer = ""
+reason = "spec 036 / B-036-2: the decision-boundary checker ships for the adoption validation; no verb invokes it yet"
+
+[[module]]
+name = "coverage"
+status = "deferred"
+consumer = ""
+reason = "spec 030 / B-030-2: the coverage rules module ships for guard scanning; its docstring claims the guard reads it by path but nothing imports it; it waits for a consumer"
+
+[[module]]
+name = "sbom"
+status = "deferred"
+consumer = ""
+reason = "EP-047/EP-280: the SBOM builder ships for published-artefact releases (a release is what it names); no local command invokes it yet"
+
+[[module]]
+name = "scan"
+status = "deferred"
+consumer = ""
+reason = "the semgrep wrapper ships for the security baseline; `just security` runs the engine directly, this module waits for a verb"
+
+[[module]]
+name = "skillmap"
+status = "deferred"
+consumer = ""
+reason = "the skill-map check ships to quantify broken references (just map runs sm directly); no module imports it yet"
+
+[[module]]
+name = "versions"
+status = "deferred"
+consumer = ""
+reason = "the installed-versions verifier ships for the wheel gate; nothing imports it today"
+
+[[module]]
+name = "revalidate"
+status = "consumer"
+consumer = "src/ai_engineering/audit.py"
+reason = "spec 030 / B-030-3: audit.py --revalidate consumes it"
+
+[[module]]
+name = "cost"
+status = "consumer"
+consumer = "src/ai_engineering/audit.py"
+reason = "spec 029 / B-029-4: audit.py's bounded-sample lane is gated by it"
+
+# --- orchestrator-future: the orchestrator's instruments, per specs 031 and 041 ---
+
+[[module]]
+name = "lane_merge"
+status = "orchestrator-future"
+consumer = ""
+reason = "spec 031 / B-031-1 and 041 record it as the orchestrator's verification-DAG merge; no orchestrator exists yet"
+
+[[module]]
+name = "loopgate"
+status = "orchestrator-future"
+consumer = ""
+reason = "spec 031 / B-031-2 and 041 record it as the orchestrator's loop terminator; no orchestrator exists yet"
+
+# --- deferred: kept, tested, not wired, with a reason ---
+
+[[module]]
+name = "skillify"
+status = "deferred"
+consumer = ""
+reason = "spec 033 / B-033-2; CLI exposure is roadmap P2 (spec 037 row 12); ai-note corpus routes it today, a prompt route not a production caller"
+
+[[module]]
+name = "intake"
+status = "deferred"
+consumer = ""
+reason = "spec 037 / B-037-3; ai-spec paso 0 routes it, a skill instruction not code; a code consumer is the P1 headstart-intake row (spec 037 rows 7/14)"
+
+[[module]]
+name = "verify_cold"
+status = "deferred"
+consumer = ""
+reason = "spec 030 / B-030-1; the cold-read verifier ships for reviewers; no verb invokes it yet"
+
+[[module]]
+name = "evidencing"
+status = "deferred"
+consumer = ""
+reason = "spec 029 / B-029-3; rechecking a claim's evidence ships for the verifier; no caller yet — verify_cold's docstring names it, its imports do not"
+
+[[module]]
+name = "trim"
+status = "deferred"
+consumer = ""
+reason = "spec 033 / B-033-1; trims skill text for the context budget; loop_guard's comment names it, nothing imports it"
+
+[[module]]
+name = "decision_fw"
+status = "deferred"
+consumer = ""
+reason = "spec 034 / B-034-1; the decision framework ships for appendix decisions; no appender yet"

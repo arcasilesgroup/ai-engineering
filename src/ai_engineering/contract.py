@@ -212,6 +212,12 @@ def audit_one(path: Path) -> list[str]:
     found.extend(_load_tier_problems(path.parent, name))
     found.extend(_dispatcher_problems(path.parent, name))
     found.extend(_appendix_problems(path.parent, name))
+    # Spec 038: the accessibility honesty floor, scoped to the design gateway — the one
+    # surface that produces designed UI. A designed surface either names the a11y basics
+    # (contrast, keyboard, focus, reduced-motion) or exits not-covered with a reason; a
+    # silent pass is refused. Other skills are not designs and are not judged by this floor.
+    if name == "ai-design":
+        found.extend(_accessibility_problems(path.parent, name))
     return found
 
 
@@ -475,6 +481,39 @@ def _incorrect_correct_problems(folder: Path, name: str) -> list[str]:
 # long embedded scripts moved to scripts/ (executed, never read into context).
 LOAD_TIER_MAX = 500
 _INLINE_SCRIPT = re.compile(r"^(?:python3?|bash|sh)\s+-|<<['\"]?EOF", re.M)
+
+
+# B-038-1: a designed surface passes the accessibility floor only when its verify pass
+# names the a11y basics (contrast >= WCAG AA, keyboard reachability, visible focus,
+# reduced-motion) or exits `not-covered: <reason>`. A surface that does neither is refused
+# — a silent pass is never the answer (spec 038, and the framework's own NOT COVERED
+# discipline applied to design).
+# `reduced-motion` normalises to `reduced` so the required-basics set stays four words.
+_A11Y_BASICS = re.compile(r"(contrast|keyboard|focus|reduced[- ]?motion)", re.I)
+
+
+def _a11y_labels(text: str) -> set[str]:
+    labels = {m.casefold() for m in _A11Y_BASICS.findall(text)}
+    return {"reduced" if label.startswith("reduced") else label for label in labels}
+
+
+def _accessibility_problems(folder: Path, name: str) -> list[str]:
+    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    if "not-covered" in body:
+        return []  # the honest exit: a deliberate non-compliance with a reason
+    labels = _a11y_labels(body)
+    required = {"contrast", "keyboard", "focus", "reduced"}
+    if not labels:
+        return [
+            f"{name}: its verify pass names none of the a11y basics (contrast/keyboard/"
+            f"focus/reduced-motion) and no not-covered exit — a silent pass is refused"
+        ]
+    missing = required - labels
+    if missing:
+        return [
+            f"{name}: the verify pass names the a11y basics except {', '.join(sorted(missing))}"
+        ]
+    return []
 
 
 def _load_tier_problems(folder: Path, name: str) -> list[str]:

@@ -118,12 +118,18 @@ cover:
     #!/usr/bin/env bash
     set -euo pipefail
     export COVERAGE_FILE="$PWD/.coverage"
+    # Clean both ends so a red run does not leave the parallel data-files behind: they are
+    # consumed by combine, and a run that dies before the find has no right to litter 139
+    # one-run files on the machine. EXIT keeps it true whether cover green, red or killed.
+    trap 'find . -maxdepth 1 -name ".coverage.*" -delete' EXIT
     rm -f "$COVERAGE_FILE"*
     uv run --with {{coverage}} --with {{pytest}} --with {{xdist}} coverage run --parallel -m pytest -q -n auto -k "not fast_enough"
     # The count this gate owes anti_theatre. `cover` is the only full pass now, so the line
     # comes from the run that happened rather than from a second one bought to print it.
     uv run --with {{coverage}} coverage run --parallel tests/adversarial/run.py
     uv run --with {{coverage}} coverage combine
+    # The parallel data-files are consumed by combine; the EXIT trap removes any that remain,
+    # so keep only the combined .coverage the report below reads.
     uv run --with {{coverage}} coverage report --fail-under=80
 
 # Coverage says a line ran. It never says anything would have noticed the line being

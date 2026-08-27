@@ -7,6 +7,9 @@ description: >-
   "review this", "any issues with this", "is this merge-ready", "look over my PR", "what
   would you change". Not for running the gates — that is just check in CI. Not for finding
   why something is broken — use /ai-debug. Not for landing the work — use /ai-ship.
+  Not for deciding a request that falls outside a declared boundary — use /ai-verify,
+  because a decision that cannot classify itself reports CANNOT DECIDE and blocks, and a
+  review is not where an out-of-boundary decision gets made.
 license: Apache-2.0
 compatibility: needs git
 context: fork
@@ -15,6 +18,15 @@ disable-model-invocation: true
 ---
 
 # Judge the diff
+
+## The tier to ask for
+
+Review is hard reasoning about a stranger's change; ask the **top** tier, the model the
+repository's `[models]` section configures for it — never a model name coded here, and
+never a provider the repository did not choose. `model_router` maps review (and plan and
+audit) to the top tier; if the pin leaves it unconfigured, fall back to `default_tier`.
+Say which tier you ran on so the command event's `tier_model` can be read against
+reality.
 
 ## What it produces
 

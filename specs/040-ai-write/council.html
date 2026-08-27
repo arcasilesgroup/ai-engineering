@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council — 040 ai-docs</title>
+<style>
+  body { max-width: 72ch; margin: 2rem auto; padding: 0 1rem; font: 16px/1.55 -apple-system, "Segoe UI", sans-serif; color: #1a1a1a; }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.9em; }
+  pre { background: #f5f5f4; border: 1px solid #ddd; padding: .6rem .8rem; overflow-x: auto; white-space: pre; }
+  h2 { margin-top: 2.2rem; border-top: 2px solid #e5e5e4; padding-top: 1.2rem; }
+  h3 { margin-top: 1.6rem; }
+  li { margin-bottom: 1rem; }
+  s { color: #6b6b6b; }
+  ul { padding-left: 1.3rem; }
+  .note { color: #555; }
+</style>
+</head>
+<body>
+<h1>Council — 040 ai-docs</h1>
+<p>A five-lens read of <code>spec.md</code>, then a cross-read, then a chairman. The lenses never see
+each other in round one; in round two each sees the four others relabelled and not its own.
+Every finding and every refutation carries a command that was run; its output is written
+down below it. Nothing here grants anything.</p>
+
+<h2>Round one — five lenses, each alone</h2>
+
+<h3>Cost</h3>
+<p>What does this change cost, and is the cost claim measurable at the moment of signing?</p>
+<ul>
+  <li><strong>Finding A1 — the advertised cost is a promise over three objects that do not exist.</strong>
+    The chosen shape prices "one skill directory + one capability entry + the routing cases", but none of the three is
+    in the tree: no <code>.agents/skills/ai-docs/</code>, no <code>tests/test_040_ai_docs.py</code>, no ai-docs
+    capability in <code>policy/capabilities.toml</code>. The only cost a reader can actually pay today is exit 4 per
+    receipt checked.
+    <pre>ls: cannot access '.agents/skills/ai-docs': No such file or directory
+ls: cannot access 'tests/test_040_ai_docs.py': No such file or directory
+---
+0</pre>
+    <code>Command: ls -d .agents/skills/ai-docs tests/test_040_ai_docs.py 2&gt;&amp;1; echo "---"; grep -c "ai-docs" policy/capabilities.toml</code></li>
+  <li><strong>Finding A2 — the "External check" box is ticked today over a corpus move that does not exist.</strong>
+    The Production-ready section marks <code>[x] External check</code> because "the routing refusals are asserted by
+    <code>tests/skill_eval.py</code> once the corpus move lands" — but the move has not landed: none of the four
+    corpora that B-040-2 says gain the reverse route mentions <code>ai-docs</code> at all. A ticked box whose
+    substance is conditional on unshipped work is a cost the spec has already collected.
+    <pre>.agents/skills/ai-ship/corpus.md:0
+.agents/skills/ai-spec/corpus.md:0
+.agents/skills/ai-note/corpus.md:0
+.agents/skills/ai-report/corpus.md:0</pre>
+    <code>Command: grep -c "ai-docs" .agents/skills/ai-ship/corpus.md .agents/skills/ai-spec/corpus.md .agents/skills/ai-note/corpus.md .agents/skills/ai-report/corpus.md</code></li>
+</ul>
+
+<h3>Reversibility</h3>
+<p>What is hard to un-write?</p>
+<ul>
+  <li><strong>Finding B1 — a document verified at write time ages false, and the age box measures the fixture, not
+    any written document.</strong> B-040-3 verifies the document "before done"; the "Health and data age" box then
+    defers to "the 040 fixture runs in <code>just cover</code>'s pytest half once it exists" — which measures the
+    fixture's synthetic documents, never a README the skill actually wrote. The guarantee is a snapshot; nothing
+    re-checks a written document against the changed tree, so the guarantee unwinds silently with no scheduled repair.
+    <pre>190:- [ ] Health and data age — ticked by the plan's gate: the 040 fixture runs in `just cover`'s pytest half once it exists</pre>
+    <code>Command: grep -n "Health and data age" specs/040-ai-docs/spec.md</code></li>
+  <li><strong>Finding B2 — D-040-01's ground lives in another repository, outside every check this tree runs.</strong>
+    The decision "the agent stays an insumo" is pinned to <code>claude-agents/product/technical-writer.md</code>,
+    and 039's challenge verified it only as a file in the owner's separate repository. The framework's own checks
+    read this tree only; if the vendor repo moves, is renamed or dies, nothing here notices, and the decision's ground
+    becomes unpinnable without a record that says so.
+    <pre>$ ls the owner/repos/claude-agents/product/technical-writer.md
+-rw-r--r--  the owner 12095  the owner/repos/claude-agents/product/technical-writer.md</pre>
+    <code>Command: sed -n '187,188p' specs/039-documentation-discipline/challenge.md</code></li>
+</ul>
+
+<h3>The undecidable path</h3>
+<p>Which claim cannot be decided from the spec as written?</p>
+<ul>
+  <li><strong>Finding C1 — B-040-2's four reverse routes fork the harness the spec says asserts them.</strong>
+    "Those four skills' corpora gain the reverse route" is one composite sentence; all four corpora already carry
+    <code>## Routes here</code> sections, and <code>tests/skill_eval.py</code> reds two skills taking the same quoted
+    case. One identical route sentence added to all four is six fork pairs; the containment clause reds near-misses
+    too ("update the wiki" is contained in "update the wiki page"). The spec's "so the routing harness sees distinct
+    cases, never a fork" is a conclusion with no stated mechanism: nothing says the four routes must be worded
+    differently, or how distinct they must be under the containment rule. The containment rule, shown for the
+    near-miss shape: <code>'update the wiki' in 'update the wiki page': True</code>.
+    <pre>ai-ship and ai-spec both take the case "update the wiki"
+ai-ship and ai-note both take the case "update the wiki"
+ai-ship and ai-report both take the case "update the wiki"
+ai-spec and ai-note both take the case "update the wiki"
+ai-spec and ai-report both take the case "update the wiki"
+ai-note and ai-report both take the case "update the wiki"</pre>
+    <code>Command: python3 -c "routes=['update the wiki']*4; sk=['ai-ship','ai-spec','ai-note','ai-report']; [print(f'{sk[i]} and {sk[j]} both take the case \"update the wiki\"') for i in range(4) for j in range(i+1,4)]"</code></li>
+  <li><strong>Finding C2 — the no-cache refusal has no decision procedure.</strong> B-040-3 refuses a doc that
+    "restates what the environment already says (no-cache)", but nothing in the tree defines the boundary between
+    "documents a command" and "restates the environment": <code>no-cache</code> appears in zero <code>src/</code> or
+    <code>tests/</code> files. The fixture — which does not exist — will author the boundary by hand; until then,
+    whether a passage gets refused is the reader's judgment, not the spec's. <s>Strong form struck in round two —
+    R2.</s>
+    <pre>0</pre>
+    <code>Command: grep -rn "no-cache" src/ tests/ | wc -l</code></li>
+  <li><strong>Finding C3 — the verification root for "a wiki dir" is unstated.</strong> B-040-1 names the homes
+    "README.md, docs/, a wiki dir"; B-040-3 verifies "every named file in the document exists in the tree". A wiki is
+    commonly a separate repository with no path into this tree; the spec never says which tree a wiki home verifies
+    against, or against what root the document's relative file names resolve.
+    <pre>`ai-docs`'s procedure verifies before done: every named file in the document exists in the
+tree, no passage restates what the environment already says (no-cache), and each section
+---
+89:names (README.md, docs/, a wiki dir) and none other without consent; a document it cannot</pre>
+    <code>Command: sed -n '103,104p' specs/040-ai-docs/spec.md; grep -n "a wiki dir" specs/040-ai-docs/spec.md</code></li>
+</ul>
+
+<h3>Taken on trust</h3>
+<p>What is asserted that a reader is asked to take without checking?</p>
+<ul>
+  <li><strong>Finding D1 — "roadmap rows 8/10 folded here" cites rows that are not this surface.</strong>
+    The opening line folds roadmap rows 8 and 10 into this spec. Row 8 is code-simplifier/refactor (a refactor skill,
+    KISS/DRY/YAGNI) and row 10 is large-codebases CLAUDE.md (an onboarding template); neither is the
+    README/wiki/product-docs surface B-040-1 builds. The folding claim is not checkable from the roadmap table the
+    spec points at.
+    <pre>| 8 | code-simplifier/refactor | P2 — skill de refactor KISS/DRY/YAGNI, no hook auto | spec candidata |
+| 10 | large-codebases CLAUDE.md | P2 — template por-área si onboarding | spec candidata |</pre>
+    <code>Command: sed -n '197p;199p' specs/037-model-router-and-intake-validation/spec.md</code></li>
+  <li><strong>Finding D2 — "the research classifies claude-agents as adopt-the-pattern-not-the-content" is repeated
+    as fact after a sibling challenge marked it UNPROVEN.</strong> 039's challenge already checked this exact sentence
+    and recorded "### UNPROVEN — the research already classifies claude-agents as
+    adopt-the-pattern-not-the-content", with the reason "The research tree never names claude-agents". No research
+    file in this tree contains the classification. The spec 040 restates it as the grounds for D-040-01.
+    <pre>### UNPROVEN — "the research already classifies claude-agents as adopt-the-pattern-not-the-content"
+
+Spec: D-039-01 rationale and Decision. The research tree never names claude-agents. The
+closest text is a generic principle about domain content.
+---
+0</pre>
+    <code>Command: sed -n '109,112p' specs/039-documentation-discipline/challenge.md; echo "---"; grep -rln "adopt-the-pattern" .ai/research/ | wc -l</code></li>
+  <li><strong>Finding D3 — the <code>not-covered</code> exit is cited to 036/039, and neither file contains
+    it.</strong> The spec says anything unverifiable "exits <code>not-covered: &lt;reason&gt;</code> ... exactly as
+    036/039 do". No file under specs/036 or specs/039 contains the word <code>not-covered</code>; the exit vocabulary
+    the tree actually uses is <code>INCOMPLETE</code> (and <code>FAIL</code>), so the precedent cited for the honest
+    exit does not exist.
+    <pre>0</pre>
+    <code>Command: grep -rn "not-covered" specs/036-validate-adoption-and-close-boundary-delta/ specs/039-documentation-discipline/ | wc -l</code></li>
+  <li><strong>Finding D4 — the single standard's path does not resolve from the skill's home.</strong>
+    The skill's body is told to use <code>references/documentation-writer.md</code> (spec 039), and the unresolved
+    risk asserts "ai-docs's references point at real files". The file is real only at
+    <code>.agents/skills/ai-report/references/documentation-writer.md</code>; from
+    <code>.agents/skills/ai-docs/</code>, the path as written is a 404, and the skill-map instrument counts a broken
+    reference rather than forgiving it. The assertion is true only if the body writes the cross-skill relative path
+    the spec never writes.
+    <pre>1
+0</pre>
+    <code>Command: test -f .agents/skills/ai-docs/references/documentation-writer.md; echo $?; test -f .agents/skills/ai-report/references/documentation-writer.md; echo $?</code></li>
+</ul>
+
+<h3>The example nobody wrote</h3>
+<p>Which example is asserted but not written?</p>
+<ul>
+  <li><strong>Finding E1 — all four receipts run against <code>tests/test_040_ai_docs.py</code>, which does not
+    exist.</strong> "Success, verified doc", "Denial, no-cache", "Honest exit" and "Routing" each promise a
+    <code>-k &lt;case&gt;</code> receipt from the same file; the literal Success command exits 4, and the other three
+    share the file.
+    <pre>no tests ran in 0.00s
+ERROR: file or directory not found: tests/test_040_ai_docs.py
+
+=== exit: 4</pre>
+    <code>Command: uv run --with pytest==9.1.1 pytest -q tests/test_040_ai_docs.py -k verified</code></li>
+  <li><strong>Finding E2 — the routing examples cover ai-docs's own corpus only; the four reverse routes have no
+    receipt.</strong> All four examples are <code>-k</code> cases against the one fixture (four of them), while
+    B-040-2's contract is the reverse route added to four skills' corpora — each of which already has a
+    <code>## Routes here</code> section the harness parses. The fixture case in ai-docs's own test file cannot
+    exercise the other four corpora's new routes, and no example names them; the routing half that B-040-2 is about
+    is asserted, never demonstrated.
+    <pre>4
+.agents/skills/ai-ship/corpus.md:1
+.agents/skills/ai-spec/corpus.md:1
+.agents/skills/ai-note/corpus.md:1
+.agents/skills/ai-report/corpus.md:1</pre>
+    <code>Command: grep -c -- "-k " specs/040-ai-docs/spec.md; grep -c "## Routes here" .agents/skills/ai-ship/corpus.md .agents/skills/ai-spec/corpus.md .agents/skills/ai-note/corpus.md .agents/skills/ai-report/corpus.md</code></li>
+</ul>
+
+<h2>Round two — the cross-read, relabelled, and none sees its own</h2>
+<p>Each lens sees the other four answers, shuffled, and is asked two things: which finding is a false alarm (and what
+command shows it), and what did all of us miss. Rankings were not taken. Refutations carry commands that were run.</p>
+
+<h3>What the cross-read struck through</h3>
+<ul>
+  <li><s><strong>R1 — D2's strong form: "the technical-writer's claimed frontmatter (<code>model: sonnet</code>,
+    <code>memory: project</code>) and its zero STE100 are asserted with nothing checkable".</strong></s> Refuted by
+    the executed record at specs/039-documentation-discipline/challenge.md:187-196, which ran the checks against the
+    owner's separate repository: the file exists (12095 bytes), carries <code>model: sonnet</code> and
+    <code>memory: project</code>, and greps empty for STE100. The frontmatter claims were verified; what survives is
+    the narrower core D2 already states: the research <em>classification</em> is UNPROVEN, and 040 repeats it as fact.
+    <pre>$ ls the owner/repos/claude-agents/product/technical-writer.md
+-rw-r--r--  the owner 12095  the owner/repos/claude-agents/product/technical-writer.md
+
+$ grep -n "model:\|tools:\|memory:" the owner/repos/claude-agents/product/technical-writer.md
+model: sonnet
+tools: Write, Read, Edit, Grep, Glob, WebSearch
+memory: project
+
+$ grep -n "STE100\|Simplified Technical English" the owner/repos/claude-agents/product/technical-writer.md
+(no output)</pre>
+    <code>Command: sed -n '187,196p' specs/039-documentation-discipline/challenge.md</code></li>
+  <li><s><strong>R2 — C2's strong form: "the no-cache refusal has no decision procedure, so nothing can ever be
+    refused".</strong></s> Refuted by the standard's own completion-criterion machinery:
+    <code>references/documentation-writer.md</code> requires every step to end on a condition that is "checkable and
+    exhaustive", and hand-authored fixture cases are exactly how the framework pins judgment boundaries — the 037 and
+    038 fixtures did this. What survives is the narrower core: the boundary between "documents a command" and
+    "restates the environment" is never written down; the fixture authors it silently.
+    <pre>4. **Completion criterion** — every step ends on a condition that is *checkable and
+   exhaustive*. A vague bound ("understanding reached") invites premature completion:
+   sharpen the bound first; hide later steps only across a real context boundary.</pre>
+    <code>Command: sed -n '23,25p' .agents/skills/ai-report/references/documentation-writer.md</code></li>
+</ul>
+
+<h3>What the cross-read caught</h3>
+<p>The misses, written down so the count can be recomputed rather than believed (listed under their own heading
+below). Two of them — the absorbed skill name and the schema-shaped capability — were found only because the four
+corpora, the contract suite, spec 010 and the manifest schema were read alongside the spec; none of the five
+single-lens reads opened those files.</p>
+
+<h2>Round three — the chairman wrote this</h2>
+<p>Nobody here knows which lens said what. This is new text, not a ranking.</p>
+
+<h3>What the lenses agree on</h3>
+<p>The need is real and measured: seventeen skills ship in <code>.agents/skills/</code>, none owns README, wiki or
+product documentation; <code>ai-report</code>'s own corpus refuses everything but its one draft — "there is no field
+for a log or a diff"; and the 039 standard exists (<code>references/documentation-writer.md</code> beside ai-report),
+carrying the context pointer, the two loads, leading words, pruning, completion criteria and STE100. The chosen shape
+— one skill reusing that standard, one capability entry, routing refusals, one fixture — is the right size, and
+declining to port the claude-agents agent is supported: its frontmatter was executed and verified by 039's challenge
+(<code>model: sonnet</code>, <code>memory: project</code>, no STE100). The <code>not-covered</code> honest exit
+points the right way: refuse rather than print a false green.</p>
+
+<h3>Where they clash</h3>
+<p>Whether the change costs "one skill directory + one capability entry" or is a promise over three nonexistent
+objects whose single standard's path does not resolve from the skill's home. Whether the four reverse routes land
+green or red: "the routing harness sees distinct cases, never a fork" is asserted, while the harness's fork rule reds
+an identical case six times and its containment rule reds near-misses. Whether the honest exit has precedent ("exactly
+as 036/039 do") or invents its vocabulary. And whether the verification of a finished document is a check with a
+second reader or a procedure the writing model follows once and nothing reads again.</p>
+
+<h3>Blind spots the cross-read caught</h3>
+<p>Only by reading the findings together did these surface: <code>ai-docs</code> is a name the framework has already
+tried and recorded as absorbed — spec 010's table lists it among the nineteen absorbed skills, and
+<code>tests/test_contracts.py</code>'s EP-344 record pins "a docs lens in ai-review and docs tasks in ai-ship, and
+the lens was the empty half" — yet the spec resurrects the exact name and its rebuttal answers ai-report, never that
+record. The roadmap anchor (rows 8/10) repeats a citation an earlier council already flagged, and the research
+classification a sibling challenge marked UNPROVEN is repeated here as fact. The capability entry, priced as a
+one-liner, omits two of the nine mode fields the manifest schema requires and every existing capability carries. And
+the exit the whole honest half of the spec leans on is a vocabulary the tree has never seen.</p>
+
+<h3>Verdict</h3>
+<p>The direction — a checked, routed home for the one writing kind the framework does not govern — is right, and
+declining to port the vendor agent is backed by evidence. But the spec is written over three artifacts that do not
+exist (skill, fixture, capability), names its single standard at a path that does not resolve from the skill's home,
+resurrects a skill name the framework recorded as absorbed, cites a roadmap anchor and a research classification that
+do not support it, and proposes a capability entry that does not meet the manifest schema. The verification it
+promises for finished documents has no second reader. Nothing here grants anything.</p>
+
+<h3>Recommendation</h3>
+<p>Before signing, land the skill directory, its corpus and <code>tests/test_040_ai_docs.py</code> together, with the
+capability entry filled to all nine schema fields (<code>enforcement</code> and <code>proof_requirements</code>
+included) and the 039 standard referenced at the path that resolves
+(<code>../ai-report/references/documentation-writer.md</code>); word the four reverse routes distinctly and run them
+through <code>tests/skill_eval.py</code>'s fork and containment rules before landing; address the absorbed-name
+record, either acknowledging the lineage or choosing a fresh name; correct or drop the rows 8/10 anchor and the
+research classification; and define the <code>not-covered</code> exit against the existing <code>INCOMPLETE</code>
+vocabulary rather than citing 036/039.</p>
+
+<h3>One first step</h3>
+<p>Write <code>.agents/skills/ai-docs/SKILL.md</code> and its corpus with the standard referenced at the path that
+resolves, then <code>tests/test_040_ai_docs.py</code> carrying the three states, and run
+<code>tests/skill_eval.py</code> against four distinctly-worded reverse routes before touching
+<code>policy/capabilities.toml</code>.</p>
+
+<p class="note">The three sections below are the only ones a script reads. Their bullet counts equal the two totals
+stated at the bottom; the counts were recomputed rather than believed.</p>
+
+<h3>Gaps no single lens named</h3>
+<ul>
+  <li><strong>M1 — <code>ai-docs</code> is a recorded absorbed skill name, and the spec resurrects it without a word
+    about the record.</strong> No single lens read spec 010 or the contract suite. Spec 010's absorption table lists
+    <code>ai-docs</code> among the nineteen skills absorbed "into target skill or deterministic code", and
+    <code>tests/test_contracts.py</code>'s EP-344 pins record what became of it: "<code>ai-docs</code> was absorbed as
+    'a docs lens in ai-review and docs tasks in ai-ship', and the lens was the empty half". This spec proposes a
+    fresh skill under the exact absorbed name, and its "Challenged once" rebuttal answers ai-report while never
+    answering the framework's own prior absorption of the docs skill. The cost lens priced a new directory; the
+    example lens saw only the missing fixture; nobody saw the name was already tried and recorded dead.
+    <pre>414:| Absorb into target skill or deterministic code (19) | `ai-advise`, `ai-brainstorm`, `ai-commit`, `ai-constitution`, `ai-docs`, `ai-explain`, `ai-governance`, `ai-ide-audit`, `ai-learn`, `ai-mcp-audit`, `ai-onboard`, `ai-pipeline`, `ai-pr`, `ai-reliability-eval`, `ai-resolve-conflicts`, `ai-simplify`, `ai-spec-draft`, `ai-start`, `ai-visual` |
+tests/test_contracts.py:1335:    # Two more absorptions that named two homes each and filled one. `ai-docs` was absorbed as</pre>
+    <code>Command: grep -n "ai-docs" specs/010-governed-agentic-engineering-foundation/spec.md tests/test_contracts.py</code>
+    <pre>    # "a docs lens in ai-review and docs tasks in ai-ship", and the lens was the empty half.
+    # `ai-resolve-conflicts` as "resolution by intent belongs to ai-ship and ai-debug", and</pre>
+    <code>Command: sed -n '1336,1337p' tests/test_contracts.py</code></li>
+  <li><strong>M2 — the capability entry is under-specified against the manifest schema.</strong> The manifest's mode
+    object requires <code>id</code>, <code>read_roots</code>, <code>write_roots</code>, <code>exec_allowlist</code>,
+    <code>network</code>, <code>secrets</code>, <code>human_gate</code>, <code>enforcement</code> and
+    <code>proof_requirements</code>; the spec's "(read the repo, write <code>docs/</code> + <code>README.md</code>,
+    <code>before_write</code>)" names three of the nine. All nineteen existing capabilities carry both
+    <code>enforcement</code> and <code>proof_requirements</code> (twenty-five of each — one per mode), so an entry
+    built from the description alone would be the first that fails the schema. No lens opened the schema; the cost
+    lens priced the entry as a one-liner.
+    <pre>['id', 'read_roots', 'write_roots', 'exec_allowlist', 'network', 'secrets', 'human_gate', 'enforcement', 'proof_requirements']
+19
+25</pre>
+    <code>Command: python3 -c "import json; s=json.load(open('policy/capability-manifest.schema.json')); print(s['\$defs']['mode']['required'])"; grep -c "^\[\[capabilities\]\]" policy/capabilities.toml; grep -c "enforcement = " policy/capabilities.toml</code></li>
+  <li><strong>M3 — the honest exit's vocabulary is invented in the same commit that claims it.</strong>
+    The <code>not-covered</code> exit is cited to 036/039, which contain the word nowhere, while the tree's actual
+    exit vocabulary is <code>FAIL</code> and <code>INCOMPLETE</code> (CONSTITUTION.md). The example lens saw only a
+    missing file; the taken-on-trust lens saw only the false citation; the synthesis is that even the exit's shape is
+    unestablished — the fixture's <code>-k not_covered</code> case will define the vocabulary by fiat as it writes
+    it, which is exactly the "receipt promises a vocabulary that must be invented" pattern the small print forbids.
+    <pre>57:`FAIL`, `INCOMPLETE` and missing authority block; prose, metadata or a reviewer's</pre>
+    <code>Command: grep -n "INCOMPLETE\|FAIL" CONSTITUTION.md | head -2</code></li>
+  <li><strong>M4 — the finished document has no second reader.</strong> B-040-3's verification is performed by the
+    skill's own procedure — the model following skill text, at write time. The only verifier-shaped instrument in the
+    tree, <code>ai-verify</code>, walks a spec's examples against real commands; it does not read finished documents.
+    The fixture proves the skill's procedure on a synthetic document, and nothing reads the written README again. The
+    cost lens saw "no new machinery" as a virtue; the reversibility lens saw the ageing snapshot; the synthesis is
+    that the machinery-free verification is precisely a procedure, unmeasured, which is the "checked, or it rots"
+    failure the spec's own problem section names.
+    <pre>  Runs the gate and the security lane and ticks each production-ready box beside the command
+  that ticked it, or walks a spec's examples and marks each one against a real command.</pre>
+    <code>Command: sed -n '4,5p' .agents/skills/ai-verify/SKILL.md</code></li>
+</ul>
+
+<h3>Findings cut for carrying no command</h3>
+<ul>
+  <li><strong>Cut1 — "a post is never refused for being a post" (the second challenge answer)</strong> is a statement
+    of intent about what the skill will do, not a gap a command can show. A claim about the refusal's philosophy,
+    with no artifact to run; cut in round one.</li>
+  <li><strong>Cut2 — "<code>docs/tools.md</code> (the human inventory) is updated by this spec's build"</strong>
+    names a file that exists; whether it gains an ai-docs row is a build sequencing choice, not a gap a command can
+    demonstrate. A scheduling claim about a present file; cut.</li>
+</ul>
+
+<h3>Findings the cross-read refuted, with the command that refuted them</h3>
+<ul>
+  <li><s><strong>R1 — D2's strong form: "the technical-writer's claimed frontmatter (<code>model: sonnet</code>,
+    <code>memory: project</code>) and its zero STE100 are asserted with nothing checkable".</strong></s> — refuted by
+    <code>sed -n '187,196p' specs/039-documentation-discipline/challenge.md</code>, which shows the executed
+    verification against the owner's separate repository: the file exists (12095 bytes), carries
+    <code>model: sonnet</code> and <code>memory: project</code>, and greps empty for STE100 — so the frontmatter
+    claims were checked; the surviving core is that the research classification is UNPROVEN and 040 repeats it as
+    fact.
+    <pre>$ ls the owner/repos/claude-agents/product/technical-writer.md
+-rw-r--r--  the owner 12095  the owner/repos/claude-agents/product/technical-writer.md
+
+$ grep -n "model:\|tools:\|memory:" the owner/repos/claude-agents/product/technical-writer.md
+model: sonnet
+tools: Write, Read, Edit, Grep, Glob, WebSearch
+memory: project
+
+$ grep -n "STE100\|Simplified Technical English" the owner/repos/claude-agents/product/technical-writer.md
+(no output)</pre></li>
+  <li><s><strong>R2 — C2's strong form: "the no-cache refusal has no decision procedure, so nothing can ever be
+    refused".</strong></s> — refuted by
+    <code>sed -n '23,25p' .agents/skills/ai-report/references/documentation-writer.md</code>, which shows the
+    standard's completion-criterion machinery ("every step ends on a condition that is checkable and exhaustive") —
+    the checkable-section rule is the procedure the refusal sits on, and the framework pins judgment boundaries with
+    hand-authored fixture cases (the 037 and 038 fixtures did this); the surviving core is that the boundary between
+    "documents a command" and "restates the environment" is never written down and the fixture authors it silently.
+    <pre>4. **Completion criterion** — every step ends on a condition that is *checkable and
+   exhaustive*. A vague bound ("understanding reached") invites premature completion:
+   sharpen the bound first; hide later steps only across a real context boundary.</pre></li>
+</ul>
+
+<h2>The two counts</h2>
+<ul>
+  <li>Gaps that appeared only after the cross-read: <strong>4</strong></li>
+  <li>Findings deleted, for carrying no command or for being refuted: <strong>4</strong></li>
+</ul>
+
+</body>
+</html>

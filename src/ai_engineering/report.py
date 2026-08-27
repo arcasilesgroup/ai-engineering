@@ -78,23 +78,47 @@ def by_guard(events: list[dict], kind: str) -> Counter:
 def _verdict_counts(events: list[dict]) -> Counter:
     """One key per judgement-and-reason, so two refusals for different reasons stay two."""
 
+    return Counter(_verdict_key(e) for e in events if e.get("cls") in ("blocked", "bypassed"))
+
+
+def _verdict_key(e: dict) -> str:
+    """The key `_verdict_counts` assigns one denial — shared so two counters can subtract."""
+
+    return f"{str(e['name'])[:64]} · {str((e.get('data') or {}).get('reason', ''))[:50]}"
+
+
+def _scripted(events: list[dict]) -> Counter:
+    """Rule 12's output, not its debt: denials the guard itself marked as the escalation
+    (loop_guard's rule-12 moment, spec 042 / B-042-4). Keyed exactly like `_verdict_counts`
+    so `repeats` can subtract the scripted judgements from the owed-ones pool, then print
+    them relabelled — the escalation *is* the script the rule owes, and re-flagging it as
+    a fresh debt would be the same judgement counted twice."""
+
     return Counter(
-        f"{str(e['name'])[:64]} · {str((e.get('data') or {}).get('reason', ''))[:50]}"
+        _verdict_key(e)
         for e in events
-        if e.get("cls") in ("blocked", "bypassed")
+        if e.get("cls") in ("blocked", "bypassed") and (e.get("data") or {}).get("escalated")
     )
 
 
 def repeats(events: list[dict]) -> list[str]:
     """Rule 12's trigger, measured rather than felt: the same judgement resolving the
     same way three times or more is owed a script, and the prompt that made it goes away
-    in the same commit."""
-    seen = _verdict_counts(events)
-    return [
+    in the same commit. A judgement the guard already escalated is the script, not the
+    debt, so it prints as scripted rather than owed."""
+    scripted = _scripted(events)
+    owed = _verdict_counts(events) - scripted
+    rows = [
         f"    {label} {count}× same verdict each time → owed a script"
-        for label, count in seen.most_common()
+        for label, count in owed.most_common()
         if count >= OWED_A_SCRIPT
     ]
+    rows += [
+        f"    {label[:64]} {count}× → the script the guard owes (already escalated)"
+        for label, count in scripted.most_common()
+        if count >= OWED_A_SCRIPT
+    ]
+    return rows
 
 
 def measured_repeats(events: list[dict]) -> tuple[list[str], int, int]:
@@ -453,6 +477,28 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     print(f"  Errors: {len(errors)}" + (f" ({error_detail})" if error_detail else ""))
     check_facts.append(
         outcome.fact("errors", "WARN" if errors else "PASS", "Command errors", str(len(errors)))
+    )
+
+    # The model distribution, from the product's own events (spec 042 / B-042-1, B-042-2).
+    # Four states, never merged: `missing` (event predates the field), `undetermined`
+    # (the surface did not say), `model` (what the surface actually reported) and
+    # `tier_model` (what the pin says the verb routes to). The line names the state it is
+    # counting, so a distribution of configured intent is never read as one of reported
+    # actual. An event with no key at all is counted as predating the field, separately.
+    command_events = [e for e in events if e.get("cls") == "command"]
+    reported = Counter(str(e.get("model") or "missing") for e in command_events)
+    routed = Counter(
+        str((e.get("data") or {}).get("tier_model") or "missing") for e in command_events
+    )
+    model_detail = "  ".join(f"{k} {v}" for k, v in reported.most_common(6)) or "none observed"
+    tier_detail = "  ".join(f"{k} {v}" for k, v in routed.most_common(6)) or "none observed"
+    print(f"\n  Models, reported (surface `model`): {model_detail}")
+    print(f"  Models, routed (pin `tier_model`): {tier_detail}")
+    check_facts.append(
+        outcome.fact("models-reported", "OBSERVED", "Models the surface reported", model_detail)
+    )
+    check_facts.append(
+        outcome.fact("models-routed", "OBSERVED", "Models the pin routes to", tier_detail)
     )
 
     rows, counted, highest = measured_repeats(events)

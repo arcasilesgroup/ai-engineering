@@ -34,6 +34,17 @@ continue — the order is data, not prose. Load each stage's own skill and follo
 `/ai-research`, `/ai-spec`, `/ai-challenge`, `/ai-council`, `/ai-build`, `/ai-review`,
 `/ai-verify`, `/ai-security`, the audit verb, then `/ai-ship`.
 
+## Tiers, per the repository's pin
+
+Each stage runs on the tier the repository's `[models]` section configures — never a
+model name coded into this skill, and never a provider the repository did not choose.
+Ask the tier the stage deserves, matching `model_router`'s own mapping: research and
+spec run on the **low** tier, security, review, plan and audit on the **top** tier, and
+build, verify, ship (and everything the pin leaves untiered) on **medium**, falling back
+to `default_tier` when a tier is not configured. The command event records which model
+the pin says each verb routes to (`tier_model`) and what the surface actually ran
+(`model`); the two are different facts and the run never conflates them.
+
 ## Tools are whatever the client has
 
 The cycle uses only the tools present on this machine: the local floor (the repository,

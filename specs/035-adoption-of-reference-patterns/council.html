@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council — spec 035, adoption of reference patterns</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.55; max-width: 46rem; margin: 2rem auto; padding: 0 1.25rem; }
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.2rem; margin-top: 2.2rem; border-bottom: 1px solid; padding-bottom: .25rem; }
+  h3 { font-size: 1.05rem; margin-top: 1.6rem; }
+  pre { overflow-x: auto; padding: .6rem .8rem; border-radius: .4rem; font-size: .85rem; background: rgba(127,127,127,.12); }
+  code { font-size: .9em; }
+  .cut { text-decoration: line-through; color: rgba(127,127,127,.9); }
+  .note { font-style: italic; color: rgba(127,127,127,.9); }
+  ul { padding-left: 1.25rem; }
+  .count { font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Council — spec 035, adoption of reference patterns</h1>
+<p>Read of <code>specs/035-adoption-of-reference-patterns/spec.md</code> through the five-lens
+council, on 2026-08-26, on branch <code>main</code>. Five lenses read the spec separately
+(round one), then read each other&#8217;s answers without names (round two), then a chairman
+read both rounds and wrote new text (round three). Every finding and every refutation below
+carries a command that was run in this tree; the output is written beneath it. No lens read
+the author&#8217;s plan, the challenge, or any other spec&#8217;s reasoning, though a few
+commands consult other files of this repository as evidence.</p>
+
+<p class="note">One honesty note carried through the whole council: the spec&#8217;s own fixture
+file <code>tests/test_035_adoption.py</code> does <strong>not</strong> exist yet (it is named
+in the spec&#8217;s examples and in the brief as expected-but-absent). Every behaviour the
+spec asserts through that file is therefore <strong>unproven / not-yet-existing</strong> as of
+this reading. That is reported as fact, never faked, and it shapes several findings below.</p>
+
+<h2>Round one — five lenses, each alone</h2>
+
+<h3>Lens: Cost</h3>
+<p>The lens asks one question: what does this record cost, in what units, and is the cost
+projected before it is spent, as the spec itself demands?</p>
+<ul>
+  <li><strong>C1 — The cost trigger is an undefined adjective.</strong> B-035-6 makes &#8220;an
+  operation that spends <strong>significant</strong> model work&#8221; the thing that must project
+  its cost, but &#8220;significant&#8221; is never given a number, a unit, or a threshold anywhere.
+  A reader cannot tell whether any given operation is pre-flighted until the (missing) fixture
+  defines it.
+<pre>$ grep -n "significant" specs/035-adoption-of-reference-patterns/spec.md
+120:- **B-035-6 — Cost pre-flight.** An operation that spends significant model work or</pre>
+  <span class="note">Output: the word appears exactly once — in the behaviour&#8217;s own name
+  line — and is never defined.</span></li>
+
+  <li><strong>C2 — The cost-pre-flight example is unrunable today.</strong> The one worked cost
+  example (<code>-k cost_preflight</code> → <code>1 passed</code>) points at a file this tree
+  does not have.
+<pre>$ test -f tests/test_035_adoption.py &amp;&amp; echo EXISTS || echo MISSING
+MISSING</pre></li>
+
+  <li><strong>C3 — No context/token baseline exists to be economised against.</strong> B-035-8
+  promises truncation and area-gated loading, but this record never states a current context
+  figure, a token budget, or any number a reader could compare &#8220;before&#8221; and
+  &#8220;after&#8221; against.
+<pre>$ grep -in "tokens\b\|context window\|128k\|200k\|budget" specs/035-adoption-of-reference-patterns/spec.md
+(no output)</pre>
+  <span class="note">Output: empty — no number anywhere in this record is offered as the
+  baseline.</span></li>
+</ul>
+
+<h3>Lens: Reversibility</h3>
+<p>The lens asks: if this decision is wrong, how expensive is it to unwind, and is that unwind
+mechanism written down here or merely promised?</p>
+<ul>
+  <li><strong>R1 — The reversibility argument is deferred to a plan this record does not
+  hold.</strong> The spec mitigates the wide block with &#8220;wave order R0→R1→R2 and
+  one-commit-per-task&#8221;, and with &#8220;every behaviour shipping a red fixture first&#8221;,
+  but line 98 states the wave order, task breakdown and exact fixtures &#8220;belong to the
+  approved plan (the <code>/ai-plan</code> stage after approval), <strong>not to this
+  record</strong>&#8221;. The reader of <em>this</em> record cannot see the ordering or commit
+  discipline that are supposed to make the adoption reversible.
+<pre>$ grep -n "not to this record\|/ai-plan\|one-commit" specs/035-adoption-of-reference-patterns/spec.md
+77:   R2 order and one-commit-per-task mitigate it.
+98: fixtures belong to the approved plan (the `/ai-plan` stage after approval), not to this
+169: authorised by this record's decisions beyond its own scope), by one-commit-per-task in the</pre></li>
+
+  <li><strong>R2 — The kernel normatises behaviours whose own asserters arrive in a later
+  wave.</strong> B-035-9 and the boundary rules are P0 kernel, but the spec&#8217;s own
+  Production-ready section asserts them through <code>tests/skill_eval.py</code> &#8220;per
+  B-035-9/R1&#8221; — R1, not R0.
+<pre>$ grep -n "tests/skill_eval.py\|per B-035-9/R1" specs/035-adoption-of-reference-patterns/spec.md
+275:   the eval suite asserted in `tests/skill_eval.py` per B-035-9/R1
+277:   named-framework and boundary rules are additionally asserted by `tests/skill_eval.py`,
+281:   the corpus rules are asserted by `tests/skill_eval.py`</pre></li>
+</ul>
+
+<h3>Lens: The undecidable path</h3>
+<p>The lens asks: when a decision genuinely cannot be made, what mechanism refuses it, and is
+that mechanism real?</p>
+<ul>
+  <li><strong>U1 — &#8220;Cannot decide and blocks&#8221; has no mechanism named, only a missing
+  fixture.</strong> B-035-4 says an out-of-declaration decision &#8220;reports it cannot decide and
+  blocks&#8221;, and B-035-7 is the only place a skill&#8217;s declared boundary could live — but
+  B-035-7 names no validator, no schema path, no format. The only enforcement cited is
+  <code>-k boundary_undecidable</code>, in a file that does not exist.
+<pre>$ grep -n "Always / Ask-first\|boundary classifier\|cannot decide" specs/035-adoption-of-reference-patterns/spec.md
+115:  Always / Ask-first / Never, and a skill cannot silently widen its own boundary
+211:- **Undecidable, boundary classifier:** Given a decision outside the skill's
+213:  reports it cannot decide and blocks (`-k boundary_undecidable` →</pre></li>
+
+  <li><strong>U2 — This record&#8217;s own central decision would be refused by the rule it
+  adopts.</strong> B-035-9 / D-035-04 require a ranking to name its method or be refused. The
+  &#8220;Options considered&#8221; table ranks three options and names no RICE, Effort/Value,
+  Kano, only bullet-pointed &#8220;Gives:&#8221; and &#8220;Costs:&#8221;.
+<pre>$ sed -n '64,86p' specs/035-adoption-of-reference-patterns/spec.md | grep -n "method\|RICE\|Kano\|score\|weight"
+(no output — none of the three options names a method)</pre></li>
+</ul>
+
+<h3>Lens: What is taken on trust</h3>
+<p>The lens asks: what is this record asking its reader to believe without a path back to evidence?</p>
+<ul>
+  <li><strong>T1 — &#8220;Eight meta-patterns&#8221; is asserted here and appears nowhere in the
+  cited source.</strong> SINTESIS.md has the &#8220;~190&#8221; (line 15) but no &#8220;eight&#8221;,
+  no &#8220;meta-pattern&#8221;, no enumeration — the spec&#8217;s central organising claim cannot
+  be reconstructed from the registry it tells the reader to trust.
+<pre>$ grep -ic "meta-pattern\|ocho\b\|eight\b" .ai/research/SINTESIS.md
+0</pre></li>
+
+  <li><strong>T2 — A cited item ID is absent from the registry the spec calls
+  &#8220;full&#8221;.</strong> B-035-9 names headstart H02, and SINTESIS.md is &#8220;the full
+  registry of 190 items&#8221;. <code>H02</code> appears zero times in SINTESIS.md.
+<pre>$ grep -c "H02" .ai/research/SINTESIS.md
+0</pre></li>
+</ul>
+
+<h3>Lens: The example nobody wrote</h3>
+<p>The lens asks: of the behaviours this record adopts, which ones have a worked, runable example
+a stranger can execute to see them hold?</p>
+<ul>
+  <li><strong>E1 — Every example runs a file that does not exist.</strong> The
+  &#8220;Examples somebody can check&#8221; all invoke <code>-k evidence</code>,
+  <code>-k evidence_unmet</code>, <code>-k verifier_no_edit</code>,
+  <code>-k not_covered</code>, <code>-k boundary_undecidable</code>,
+  <code>-k unnamed_ranking</code>, <code>-k cost_preflight</code> against
+  <code>tests/test_035_adoption.py</code>, which is absent. The examples are not checks — they
+  are the one page of the spec that claims to prove the rest, and it cannot be run.
+<pre>$ uv run --with pytest==9.1.1 pytest -q tests/test_035_adoption.py -k evidence 2>&amp;1 | tail -3
+no tests ran in 0.00s
+ERROR: file or directory not found: tests/test_035_adoption.py</pre></li>
+
+  <li><strong>E2 — &#8220;Tree stays green&#8221; names a checker with no runable recipe.</strong>
+  There is no <code>contract.audit</code> recipe in the Justfile; the symbol exists only as a
+  Python function inside <code>tests/stats.py</code> and <code>tests/test_contract_craft.py</code>,
+  not as an invocation this record or the gate exposes.
+<pre>$ just --list | grep -i "contract.audit\|contract\b"
+(no output)</pre></li>
+
+  <li><strong>E3 — Anti-rationalization and red flags never get a worked example.</strong>
+  B-035-5 is adopted with a rationalization table and red flags, the behaviour whose whole value
+  is contending with <em>why</em> a verifier would rationalise — and the Examples section has
+  nothing for it.
+<pre>$ grep -n "anti-rational\|red flag" specs/035-adoption-of-reference-patterns/spec.md
+47:    classifier Always/Ask-first/Never (addyosmani ASK-14), and anti-rationalization tables
+117:- **B-035-5 — Anti-rationalization + red flags + exit criteria.** Verification skills
+118:  ship a table of common rationalizations (excuse → reality) and observable red flags, and</pre>
+  <span class="note">Output: the terms appear only in the Context prose (47) and the behaviour&#8217;s
+  own definition (117–118); no example follows.</span></li>
+</ul>
+
+<h2>Round two — the cross-read</h2>
+<p>Each lens was given the other four answers, relabelled and shuffled, its own removed, and
+answered two questions: <em>which is a false alarm, and what command shows it</em>, and
+<em>what did all of us miss</em>. The false alarms that the command actually cleared are struck
+through and kept below; where one lens called a finding a false alarm and the command did not
+clear it, the finding stands.</p>
+<ul>
+  <li><strong>Lens Cost</strong> named R1 as its false-alarm candidate; the command did not clear
+  it — D-035-06 is decision-level reversibility, while the execution ordering the stranger must
+  audit is still not in this record. R1 survives as far as it goes. Cost contributed <strong>NEW-A</strong>.</li>
+  <li><strong>Lens Reversibility</strong> refuted C3: context economy is explicitly sequenced to
+  R1 and adopt-005 is &#8220;sequenced, not assumed done in R0&#8221;, so a R0 kernel with no
+  numeric baseline was never promised. Refuted, struck, kept.</li>
+  <li><strong>Lens The undecidable path</strong> refuted T2: <code>H02</code> is present in the
+  in-tree headstart leaf report, so the source is findable in this repository — only the one file
+  the spec calls &#8220;the registry&#8221; lacks it. Refuted, struck, kept.</li>
+  <li><strong>Lens What is taken on trust</strong> named R2 as a false-alarm candidate; the command
+  did not clear it (skill_eval.py is genuinely asserted &#8220;per B-035-9/R1&#8221;). R2 stands.
+  Trust contributed <strong>NEW-C</strong>.</li>
+  <li><strong>Lens The example nobody wrote</strong> named T1 as a false-alarm candidate; the
+  command did not clear it (<code>grep -c</code> for the eight returns 0 in SINTESIS). T1 stands.
+  Example contributed <strong>NEW-D</strong>.</li>
+</ul>
+
+<h3>Gaps no single lens named</h3>
+<p>Gaps that surfaced only in the cross-read — no lens named them in round one; each emerged from
+one lens seeing another&#8217;s material.</p>
+<ul>
+  <li><strong>NEW-A — No wave-completion criterion, so the sequencing is unverifiable as done.</strong>
+  R1 begins &#8220;after R0 is green&#8221; and R2 &#8220;after R1&#8221;, but nothing says which lane
+  or test defines &#8220;green&#8221; for a wave.
+<pre>$ grep -n "after R0\|after R1\|is green" specs/035-adoption-of-reference-patterns/spec.md
+138:- **R1 (P0/P1, after R0 is green):** review-router and full-review with a single resolved
+144:- **R2 (P1/P2, after R1):** rolling dispatch and disjoint file ownership (unlazy U06/U07);</pre>
+  Only &#8220;green&#8221;, never the test or lane that produces it.</li>
+
+  <li><strong>NEW-B — B-035-4 is unenforceable until B-035-7&#8217;s schema exists.</strong>
+  &#8220;A skill cannot silently widen its own boundary&#8221; presupposes a machine-validated
+  declaration of a skill&#8217;s boundary — exactly what B-035-7 promises, but B-035-7 names no
+  validator, schema location or format.
+<pre>$ grep -rn "frontmatter\|front-matter\|schema" specs/035-adoption-of-reference-patterns/spec.md
+124:- **B-035-7 — Skill schema with tool gating.** Every skill declares machine-validated
+125:  metadata (frontmatter schema) and the tools it may use; a skill cannot run a tool outside</pre>
+  The only &#8220;schema&#8221; in the record is the frontmatter promise; no path, no validator.</li>
+
+  <li><strong>NEW-C — The guard against the second-source-of-truth risk is the very test being
+  adopted.</strong> The second &#8220;Challenged once&#8221; exchange answers the risk with &#8220;a
+  test refuses a skill that redefines a scale&#8221; — a test that is one of the kernel behaviours
+  this record is proposing. The guarantee is circular: the risk of duplicate scales is answered by
+  a check that does not exist until the behaviour it guards does.
+<pre>$ grep -n "test refuses\|redefines a scale" specs/035-adoption-of-reference-patterns/spec.md
+178: and evidence scale, referenced by every verification skill, and a test refuses a skill that
+179: redefines a scale instead of reading the shared one — DRY over the one place that, if</pre></li>
+
+  <li><strong>NEW-D — &#8220;One writer&#8221; and &#8220;the auditor never edits&#8221; are never
+  reconciled.</strong> The spec keeps the one-writer rule (line 94) while adopting verifier
+  isolation (B-035-2: auditor runs with no edit tools). If the only writer is the builder and the
+  auditor cannot write, the auditor&#8217;s findings must be applied by the very builder being
+  judged — reinstating the self-verification bias B-035-2 exists to remove.
+<pre>$ grep -n "one-writer rule\|one writer\|auditor runs with no edit" specs/035-adoption-of-reference-patterns/spec.md
+30:- The framework already has the backbone the references keep confirming: one writer makes
+94: guard, never changes `.ai/intent.md` or `CONSTITUTION.md`, and keeps the one-writer rule.
+107:- **B-035-2 — Verifier isolation.** The framework's auditor runs with no edit tools and</pre>
+  Line 94 and line 107 both describe a writer and a non-writing auditor; nothing reconciles them.</li>
+</ul>
+
+<h3>Findings cut for carrying no command</h3>
+<p>Round-one observations that could not be shown by a command a reader can run, dropped before
+their lens section, written down so the second total below is honest about both causes.</p>
+<ul>
+  <li>A finding that the &#8220;Challenged once&#8221; section might be steelmanning the objections
+  rather than reporting real ones. No runable command demonstrates the author&#8217;s intent — cut
+  for no command.</li>
+  <li>A finding that the spec&#8217;s prose density assumes research literacy, so a stranger without
+  it cannot follow the wave boundaries. Length and readability are not demonstrable by a command —
+  cut for no command.</li>
+</ul>
+
+<h3>Findings the cross-read refuted, with the command that refuted them</h3>
+<p>Each is struck through and kept: a real gap killed by a good-looking answer must leave more than
+a number. The command beneath each is the one actually run.</p>
+<ul>
+  <li><span class="cut"><strong>C3 — No context/token baseline exists to be economised against.</strong></span>
+  <strong>Refuted (by Lens Reversibility).</strong> The record never promised a numeric baseline in R0:
+  context economy is sequenced to R1 and adopt-005 is explicitly &#8220;sequenced, not assumed done in
+  R0&#8221;.
+<pre>$ grep -n "context economy\|sequenced, not assumed" specs/035-adoption-of-reference-patterns/spec.md
+138:- **R1 (P0/P1, after R0 is green):** review-router and full-review with a single resolved
+139:  scope, lane discipline and merged report (graph-eng G-04/05/06/07); context economy
+194:- Unresolved: the framework's own instruction surface (CLAUDE.md / AGENTS.md) is large; the</pre></li>
+
+  <li><span class="cut"><strong>T2 — A cited item ID is absent from the registry the spec calls
+  &#8220;full&#8221;; the reader cannot find the source of a normatised behaviour.</strong></span>
+  <strong>Refuted (by Lens The undecidable path).</strong> The source <em>is</em> in this repository —
+  <code>H02</code> lives in the in-tree headstart leaf report; only the one file the spec names as the
+  registry lacks it.
+<pre>$ grep -rn "H02" .ai/research/ | head -2
+.ai/research/reports/06-headstart/report.md:59: | H02 | **"Un camino, no una shortlist"** — tras evaluar opciones, comprometer UNA recomendación ... | Orquestación / Recomendación | P0 | ...
+.ai/research/reports/06-headstart/report.md:102:2. **Adoptar H02 (Un camino)** → Integrar en el motor de recomendación de ai-engineering ...</pre></li>
+
+  <li><span class="cut"><strong>R1 — The reversibility argument is deferred to a plan this record
+  does not hold.</strong></span> <strong>Refuted (by Lens Cost), in part.</strong> This record
+  <em>does</em> encode decision-level reversibility (D-035-06 keeps un-spiked R2 items as evidence and
+  a promotion &#8220;is a new spec change, never a silent edit&#8221;); what R1 over-stated was the
+  word &#8220;none&#8221;. The surviving core — the stranger cannot audit the execution ordering from
+  this record — is covered by NEW-A.
+<pre>$ grep -n "never a silent edit\|does not authorise\|not authorise" specs/035-adoption-of-reference-patterns/spec.md
+187:   decision (a promotion is a new spec change, never a silent edit of this record).
+192:   state risk; this record does not authorise them — an owned spike must validate before</pre></li>
+</ul>
+
+<h2>The two counts</h2>
+<ul>
+  <li class="count">Gaps that appeared only after the cross-read: 4</li>
+  <li class="count">Findings deleted, for carrying no command or for being refuted: 5</li>
+</ul>
+
+<h2>Round three — the chairman</h2>
+<p>No lens names here. The chairman read the spec and both rounds and writes new text, not a winner.</p>
+
+<p><strong>What the lenses agree on.</strong> All five converge on the same spine: this record is a
+<em>shape</em> document — it decides what is normative, in which waves, and what is deliberately not
+adopted — and as a record of decisions it is unusually honest about its own limits: D-035-06 keeps
+un-spiked items as evidence, the &#8220;What is not adopted at all&#8221; section forces a decision
+rather than an omission, and the two &#8220;Challenged once&#8221; exchanges concede real risks. The
+lenses also agree on where the record is weakest: <strong>the enforcement it promises for R0 is
+entirely asserted through a single fixture file, <code>tests/test_035_adoption.py</code>, that does
+not exist yet, and every worked example is therefore unrunable.</strong> No lens found a different page
+of the spec that could back a kernel behaviour independently of that file.</p>
+
+<p><strong>Where they clash.</strong> The sharpest clash is between the reversibility lens and the cost
+lens over the deferral of wave order to <code>/ai-plan</code>. Reversibility read the deferral as the
+record handing away its own safety; cost read the same lines and found D-035-06 already leaves
+decision-level reversibility in place, with task-level ordering correctly left to the plan. The
+chairman&#8217;s reading: both are half-right — the record legitimately does not hold the plan, but a
+stranger auditing <em>this</em> spec has no way to confirm the sequencing was ever executed as drawn,
+which is precisely what NEW-A names and neither lens could resolve alone.</p>
+
+<p><strong>Blind spots the cross-read caught.</strong> Four gaps no single lens found on its own: no
+definition of what makes a wave &#8220;green&#8221; (NEW-A), the unenforceable dependency of the
+boundary classifier (B-035-4) on a schema (B-035-7) that is itself only a promise (NEW-B), the circular
+guard against the second-source-of-truth risk (NEW-C), and the unreconciled &#8220;one writer&#8221;
+versus &#8220;auditor never edits&#8221; (NEW-D). These are the invisible majority of the findings, and
+they all appeared only after a lens met another lens&#8217;s material.</p>
+
+<p><strong>Verdict.</strong> As a <em>record of decisions and rationale</em>, this spec is coherent,
+self-aware and well-evidenced against the in-tree research. As a <em>promise of checked behaviour</em>,
+it is currently unproven: its R0 kernel behaviours and every one of its examples rest on a fixture
+suite that has not been written, and a rule that &#8220;checked, or it can rot&#8221; is here offered to
+the framework with no check yet standing behind it. That is not a contradiction — it is the normal shape
+of a spec written before its plan — but it means the spec&#8217;s own criterion for trust (&#8220;a
+check that is not run ... is how done drifts into a feeling&#8221;) applies to this spec itself until the
+fixtures exist.</p>
+
+<p><strong>Recommendation.</strong> Do not treat the R0 kernel as green on the strength of this record.
+Write <code>tests/test_035_adoption.py</code> — or its successor — first, and let the seven example
+commands in this record pass before the kernel is considered adopted; until then the kernel is a proposal
+with a fixture-shaped hole, not a checked behaviour. Name a wave-completion criterion for R0 (which gate
+lane must go green) so that &#8220;after R0 is green&#8221; is a checkable condition rather than a phrase.
+Add one sentence to B-035-7/B-035-4 naming the schema location and validator, and one to B-035-2
+reconciling who applies an isolated auditor&#8217;s findings with the one-writer rule.</p>
+
+<p><strong>One first step.</strong> Run the spec&#8217;s own first example —
+<code>uv run --with pytest==9.1.1 pytest -q tests/test_035_adoption.py -k evidence</code> — and treat its
+current failure (&#8220;file or directory not found&#8221;) as the first acceptance test of the adoption:
+the kernel is not real until that one command passes.</p>
+
+</body>
+</html>

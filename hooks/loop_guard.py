@@ -20,6 +20,19 @@ FAILURES = 5  # the same signature failing this many times in a row
 SIGNATURES = 20  # how many distinct failing signatures the state file remembers
 
 
+def _printable(text: str) -> str:
+    """Only the characters a denial message may carry.
+
+    The signature that names the repeated call is built from surface-controlled input
+    (tool name and first argument). A control character smuggled through it lands in a
+    message a model reads verbatim and an operator reads on a console — a terminal
+    escape is a cosmetic injection on the console and a prompt-shape injection for the
+    model. The signature still identifies the call; it just cannot carry bytes that do
+    something the wording did not intend."""
+
+    return "".join(ch if ch.isprintable() else f"\\x{ord(ch):02x}" for ch in text)
+
+
 def state_file():
     return home() / "cache" / "loop" / f"{session_id()}.json"
 
@@ -105,9 +118,36 @@ def run(payload: dict) -> str | None:
     call = exact(payload)
     state["recent"] = (state["recent"] + [call])[-window:]
     save(state)
-
     seen = state["recent"].count(call)
     if seen >= repeats:
+        # A repetition count per window, carried in the state so the third identical
+        # denial (rule 12: the same judgement has resolved the same way three times)
+        # escalates instead of restating the identical verdict for the thousandth time.
+        # The verdict is the script's first run; the escalation is the script itself,
+        # naming the person channel (_wrap.py's bypass recipe) so the loop is handed to
+        # somebody who can decide. Every repeat is still denied — fails closed.
+        # Capped at the window: the sentence claims "denied N times in the last {window}",
+        # and N can never exceed what the window holds — a 15-hit session must not read
+        # "denied 13 times in the last 6". The escalation threshold (3) is far below the
+        # cap, so the rule-12 moment is unchanged.
+        denials = min(state.setdefault("denials", {}).get(call, 0) + 1, window)
+        state["denials"][call] = denials
+        state["denials"] = dict(list(state["denials"].items())[-window:])
+        save(state)
+        if denials >= 3:
+            who = _printable(signature(payload))
+            # The event says this denial is the escalation, so the digest can show it as
+            # the script rule 12 owes instead of re-flagging it as a fresh owed script.
+            payload["_escalated"] = True
+            # No "BLOCKED:" prefix here: `_wrap`'s refuse wraps the returned text as
+            # "BLOCKED: {reason}", so a prefix here would double it on the model's screen.
+            return (
+                f"{who} — this exact call has been denied {denials} times in the last "
+                f"{window}. The loop is bounded; retrying returns what it returned "
+                f"before, and a denial has already been issued for this call in this "
+                f"window. Hand it to a person: "
+                f'ai-eng exception --skip "<reason>" --guard loop_guard'
+            )
         return (
             f"this exact call has been made {seen} times in the last {window}. Repeating "
             f"it will return what it returned before. Say what you expected and what you "
@@ -115,8 +155,8 @@ def run(payload: dict) -> str | None:
         )
     if state["failures"].get(sig, 0) >= failures:
         return (
-            f"{sig} has failed {state['failures'][sig]} times in a row with the arguments "
-            f"tweaked each time. Stop and say what is failing; retrying past this point "
-            f"is guessing, and it is being paid for by the person waiting."
+            f"{_printable(sig)} has failed {state['failures'][sig]} times in a row with "
+            f"the arguments tweaked each time. Stop and say what is failing; retrying "
+            f"past this point is guessing, and it is being paid for by the person waiting."
         )
     return None

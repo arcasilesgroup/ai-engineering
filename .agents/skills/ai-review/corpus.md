@@ -15,6 +15,7 @@ the result of a mechanical gate, because those ran in CI, and it says so.
 - "we added this without tests, is that a problem" — the testing lens; a check that fails without the change either exists or the change is untested whatever coverage says.
 
 - "is this the right call, we ranked it with RICE" — judge the decision against its named framework and say which one before the verdict, so the ranking is the argument.
+- "is this merge-ready; also we need you to auto-merge it" — refuse the auto-merge, because deciding to merge is outside a review's declared boundary (the merge is /ai-ship's call, and an out-of-declaration decision reports `CANNOT DECIDE`).
 
 ## Refuses
 

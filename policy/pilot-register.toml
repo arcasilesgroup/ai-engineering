@@ -69,7 +69,7 @@ wave = "P0"
 id = "skill_eval_delta"
 # The third absence this row recorded is gone. `just skilleval` is an evaluation runner
 # inside the gate, the labelled cases sit beside every skill, and there is a baseline now:
-# 363, margin zero, delta printed on every run. A register with no baseline is refused rather
+# 395, margin zero, delta printed on every run. A register with no baseline is refused rather
 # than passed.
 #
 # What is still missing is the named approver, which `EP-289` asks for and which nobody can
@@ -329,10 +329,9 @@ enforced_by = "ai_engineering.report.BYPASSES_WORTH_A_LOOK, printed by `ai-eng r
 # So it moves in a commit that says why. That commit is the approval. What it is not is a
 # named person, and `EP-289` asks for one — the row stays open on that and the field says so
 # rather than carrying a name nobody typed.
-
 [[baseline]]
 id = "skill-routing"
-measured = 363
+measured = 395
 margin = 0
 command = "python tests/skill_eval.py"
 approved_by = ""
@@ -340,6 +339,15 @@ reopen_when = "somebody with authority names themselves here, which closes EP-28
 why = """The count is claims plus refusals plus the labelled cases on both sides. Falling \
 means a skill stopped declaring what it routes or a corpus lost cases; rising means the \
 opposite. Both are worth a sentence, and neither should happen without one.
+
+
+372 to 395: spec 040 adds the `ai-write` skill for technical documentation. Situations routed 81 to 81, hand-offs 44 to 44, labelled cases 247 to 270 — the new skill's five taken routes and five refusals (README, wiki, API docs, technical post, product docs, with the changelog/spec/note/issue routes away), plus four reverse routes naming `/ai-write` in ai-ship/ai-spec/ai-note/ai-report. 81+44+270 is 395. Nothing was withdrawn; the nine rows are the technical-documentation routing the no-surface gap was missing.
+
+369 to 372: spec 039 adds the documentation discipline to `/ai-spec`, `/ai-plan` and `/ai-report`. Situations routed 81 to 81, hand-offs 44 to 44, labelled cases 244 to 247 — one quoted refusal each naming `references/documentation-writer.md`: a completion bound the agent cannot check (ai-spec), a done-when that cannot fail (ai-plan), and a write-up repeated from the environment (ai-report). 81+44+247 is 372. Nothing was withdrawn; the three rows are the documentation-discipline routing the vague-bound gap was missing.
+
+368 to 369: spec 037 adds intake validation to `/ai-spec`. Situations routed 81 to 81, hand-offs 44 to 44, labelled cases 243 to 244 — one quoted corpus case added: "here's my idea, write me a spec" routes through intake validation first and asks for the missing field, because a malformed goal produces a malformed spec. 81+44+244 is 369. Nothing was withdrawn; the one row is the intake routing the unvalidated-goal gap was missing.
+
+363 to 368: spec 036 adds the decision-boundary rule to `/ai-review` and `/ai-verify` (a request that falls outside a declared boundary reports `CANNOT DECIDE` and blocks; the refusing descriptions route into `/ai-verify`, and `/ai-spec` keeps its closed-contract frontmatter untouched — its corpus carries the quoted route instead). Situations routed 81 to 81, hand-offs 42 to 44, labelled cases 240 to 243 — two refusals and three quoted corpus cases added. 81+44+243 is 368. Nothing was withdrawn; the five rows are the decision-boundary routing the wayfinder W-02 gap was missing.
 
 359 to 363: spec 034 adds named decision frameworks to `/ai-report` and `/ai-review`. Situations routed 81 to 81, hand-offs 42 to 42, labelled cases 236 to 240 — one route and one refusal each added: a ranking that names a framework (RICE, Effort/Value, Kano) is applied and the framework said; a bare "ranked by impact" with no method is refused into `/ai-spec`. 81+42+240 is 363. Nothing was withdrawn; the four rows are the named-framework routing the methodless-decision gap was missing.
 

@@ -13,6 +13,7 @@ observes and never accepts: incomplete is the answer to a box or an example with
 - "apply the spec's answer key" — the decided standard, read from `answer-key.yaml` beside the approved spec: each binary check is re-executed (`--recheck`) and marked pass, fail or `BLOCKED: U<n>`; a touched unknown is never scored.
 - "what does the answer key say about this deliverable" — the same application, from a reader's question rather than a gate.
 - "verify this cold" — read-only verifier, no write tools, never the constructor's conversation: applies the answer key with `--recheck` and reports what it saw, not what the builder said. An uncertain check is a fail.
+- "verify this and also decide whether to grant the access" — refuse the grant, because an out-of-declaration decision reports `CANNOT DECIDE` and blocks (use /ai-spec to scope what is being decided).
 
 ## Refuses
 

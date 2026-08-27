@@ -12,7 +12,7 @@ The second command asks before it touches anything, and every default destroys n
 
 ## What it is
 
-Seventeen written procedures, four guards, and a command-line tool with ten verbs. `init`
+Eighteen written procedures, four guards, and a command-line tool with ten verbs. `init`
 places the procedures and registers the guards in the settings file each agent surface
 already reads, so they are present in every project on your machine without a single file
 landing in any of them. The package carries the record: it writes specs, plans, decisions

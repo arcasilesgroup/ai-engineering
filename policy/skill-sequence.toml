@@ -45,6 +45,7 @@ ai-ship = { fork = false }
 [parallel]
 # What concurrency the cycle allows, recorded as data instead of prose. Stage-level
 # parallelism is refused: one writer owns the commits, and the critics run apart for
-# independence rather than for speed. The only concurrency is fork contexts, plus the
-# task-level parallelism the approved plan allows inside ai-build.
-policy = "fork contexts only; task-level parallelism inside ai-build per the approved plan"
+# independence rather than for speed (report 019: independence is what forking buys, not
+# wall-clock). The order between the post-build critics is data too: review is the quality
+# filter, and verify and security only tick boxes on bytes review has not sent back.
+policy = "fork contexts only; ai-review runs before ai-verify and ai-security, which may pair as fork contexts once review is green and the host can run both; task-level parallelism inside ai-build per the approved plan"

@@ -176,6 +176,20 @@ def _timestamp() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
+def _tier_for(verb: str) -> str:
+    """The model string the pin's [models] tiers say this verb should route to (B-042-1).
+
+    Imported at the call site, not at module top: `model_router` reads the policy schema
+    at import, which is cheap, but this path runs on every ai-eng invocation and a
+    hot-path import of the package costs ~110 ms. The value is what the *pin* says — a
+    configured intent, recorded alongside the surface's own report (`model`) — and takes
+    `route()`'s fallback chain when a tier is absent: medium when configured, else
+    default_tier, else the empty string (the session's own model)."""
+    from ai_engineering import model_router
+
+    return model_router.route(verb)
+
+
 @contextlib.contextmanager
 def _silence():
     """Discard child prose without retaining an unbounded or privacy-bearing buffer."""
@@ -235,6 +249,7 @@ def _machine_result(
                 verb=command,
                 exit=execution.exit_code if process_exit is None else process_exit,
                 outcome=execution.outcome,
+                tier_model=_tier_for(command),
             )
     finished_at = _timestamp()
     payload = _envelope(command, execution, started_at, finished_at)
@@ -536,7 +551,12 @@ def main(argv: list[str] | None = None) -> int:
     if not helping:
         ui.running(reached, len(STAGES), STAGES[3])
     paths.load("_emit").emit(
-        verb, "command", verb=verb, exit=code, ms=int((time.perf_counter() - started) * 1000)
+        verb,
+        "command",
+        verb=verb,
+        exit=code,
+        ms=int((time.perf_counter() - started) * 1000),
+        tier_model=_tier_for(verb),
     )
     if interrupted:
         sys.stderr.write("\ninterrupted; nothing was written.\n")

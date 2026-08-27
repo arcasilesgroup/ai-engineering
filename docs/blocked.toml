@@ -14,3 +14,10 @@ what = "dos sesiones escriben en ledger-and-records y el techo se movio 2.736 li
 since = "2026-08-19"
 why = "el Intent dice que un solo escritor posee los cambios del repositorio. La otra sesion commiteo 619e24c7 a las 23:01 y dejo docs/solution-intent.html en el index; sellar ahora hornearia sus lineas dentro de mi techo, que es el incidente que contract.py ya registra"
 action = "git log --format='%h %ad %s' --date=format:'%H:%M' -6 && decidir que sesion sigue en esta rama"
+
+[[stop]]
+id = "ai-eng-audit-verify-fail-22-broken-chain-8e420481"
+what = "ai-eng audit verify FAIL: 22 broken chain links (918-923 933-936 946-949 959-962 974-977) \"arrived edited before it was sealed\" across 5 runs of the 036 cycle"
+since = "2026-08-26"
+why = "The cycle wrote spec records across staged commits with retouches before sealing (the same pattern the 028-034 blocks ran under; hooks/_emit.py notes the in-clone buffer cannot be told from a real edit). The audit therefore cannot verify the chain until a person at a keyboard answers: ai-eng audit account --range 918-977 --by dachi"
+action = "A named person runs ai-eng audit account --range 918-977 (the typed confirmation the verb requires) so the 22 links read ACCOUNTED; then ai-eng audit verify passes"

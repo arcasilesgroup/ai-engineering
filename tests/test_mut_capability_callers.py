@@ -125,7 +125,11 @@ def test_the_count_of_capabilities_with_a_caller_is_published_and_does_not_drop(
         pytest.skip("this tree is not a git repository, so the committed source is unreadable")
     known, taken = declared(), callers()
 
-    assert len(known) == 19, f"{len(known)} capabilities are declared and the audit measured 19"
+    # ai-write (spec 040) is model-invoked with no executor caller yet; the declared count
+    # is twenty and one capability (ai-report) has a caller today. EP-078's plural bars the
+    # gap widening, so adding declared capabilities without callers is visible here.
+    assert len(known) == 20, f"{len(known)} capabilities are declared and the audit measured 20"
+    assert len(taken) >= 1, f"{len(taken)} capabilities have a caller; ai-write has none yet"
     assert taken, (
         "no capability has a caller at all. The manifest would then be nineteen declarations "
         "and nothing that resolves against them, which is the state EP-078 was filed for"

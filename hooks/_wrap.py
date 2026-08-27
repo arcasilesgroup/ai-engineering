@@ -174,7 +174,15 @@ def guard(name: str):
                 if granted is not None:
                     emit(name, "bypassed", reason=reason, granted_for=granted, fp=fp)
                     return
-            emit(name, "blocked", reason=reason, fp=fp)
+            # A guard may mark the denial as the escalation (loop_guard's rule-12 moment,
+            # spec 042 / B-042-4): the event then says so, so the digest counts it as the
+            # script rule 12 owes rather than re-flagging the same judgement afresh. The
+            # field is added only when the guard set it, so a normal denial's event keeps
+            # its exact shape ({reason, fp}) and nothing downstream that pins it breaks.
+            if payload.get("_escalated"):
+                emit(name, "blocked", reason=reason, fp=fp, escalated=True)
+            else:
+                emit(name, "blocked", reason=reason, fp=fp)
             refuse(f"BLOCKED: {reason}")
 
         run.hook_class = "guard"

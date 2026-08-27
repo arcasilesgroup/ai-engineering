@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council — spec 042 (revision) — round two</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --muted:#6a6a6a; --line:#e3e3e3; --bg:#fcfcfc;
+    --accent:#0b6bcb; --strike:#9a9a9a; --code:#f2f2f7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       color:var(--ink);background:var(--bg);}
+  main{max-width:880px;margin:0 auto;padding:40px 22px 80px;}
+  h1{font-size:1.7rem;line-height:1.25;letter-spacing:-.01em;border-bottom:2px solid var(--ink);
+     padding-bottom:12px;}
+  h2{font-size:1.25rem;margin-top:2.2rem;border-bottom:1px solid var(--line);padding-bottom:6px;}
+  h3{font-size:1.05rem;margin-top:1.8rem;color:#111;}
+  h4{font-size:.95rem;margin-top:1.4rem;text-transform:uppercase;letter-spacing:.04em;
+     color:var(--muted);}
+  p{margin:.65rem 0;}
+  ul{margin:.5rem 0 .5rem 0;padding-left:1.15rem;}
+  li{margin:.35rem 0;}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em;
+       background:var(--code);padding:1px 4px;border-radius:3px;}
+  pre{background:#101418;color:#e8e8ea;padding:12px 14px;border-radius:6px;overflow-x:auto;
+      font-size:.82rem;line-height:1.5;}
+  pre code{background:none;color:inherit;padding:0;}
+  s{color:var(--strike);text-decoration-thickness:1px;}
+  .counts{background:#f4f6f9;border:1px solid var(--line);border-radius:6px;padding:14px 18px;
+          margin-top:1.4rem;}
+  .counts li{list-style:none;margin:.2rem 0;font-weight:600;}
+  .lede{color:var(--muted);}
+  .verdict{border-left:3px solid var(--accent);padding-left:14px;margin:1rem 0;}
+</style>
+</head>
+<body>
+<main>
+
+<h1>Council — spec 042 (revision)<br>"Model emission, consumer wiring and the orphan decision"</h1>
+
+<p class="lede">Round two of the council on the REVISED specification (spec digest
+2026-08-26, second round against it). The round-one gaps were checked one by one against
+the revision, and the revision's new material — the example event, the example register,
+the example escalation, the deferred statuses, the chain-hook pass-through — was read by
+the five lenses again, alone, then cross-read. Every finding carries a command; <strong>[run]</strong>
+marks the ones this council ran, with the output recorded beside them. Refuted findings
+are struck through, never erased. The last round is a chairman who never learns which lens
+wrote what. Nothing in this file grants anything.</p>
+
+<h2>Round one — five lenses on the revision, each alone</h2>
+
+<h3>The five round-one gaps, verified against the revision</h3>
+<ul>
+  <li><strong>G-1 — event-volume honesty: CLOSED.</strong> B-042-4 says it plainly:
+    "every denial still blocks the call … (8,745 blocked events stay 8,745)" (line 207).
+    <strong>[run]</strong> counts unchanged: 12,575 loop_guard events, 11,075 blocked,
+    8,745 identical verdicts; 10,908 blocked in the 14-day window.</li>
+  <li><strong>G-2 — four states named, not merged: CLOSED.</strong> B-042-2 names all
+    four — <code>missing</code>, <code>undetermined</code>, actual (<code>model</code>),
+    intent (<code>tier_model</code>) — says the digest line names the state it counts,
+    and excludes <code>missing</code> events, counted separately.</li>
+  <li><strong>G-3 — owed-a-script relabel, escalation as the script: PARTIALLY
+    CLOSED.</strong> The relabel direction and the "escalation is the script" claim are
+    now stated — but the relabel depends on an <code>escalated</code> field no behaviour
+    creates, and it consumes the rule-12 forcing signal (see G-R2). Carrier missing.</li>
+  <li><strong>G-4 — consumer defined mechanically: CLOSED.</strong> "an
+    <code>import</code>/<code>from</code> statement in <code>src/</code> or
+    <code>hooks/</code> that binds the module, verified by an AST import-graph walk" (line
+    170). The example's <code>consumer = "src/ai_engineering/audit.py"</code> rows match
+    real function-local imports (<strong>[run]</strong> <code>audit.py:453,475</code>).</li>
+  <li><strong>G-5 — tier_model is a model string, not a tier label: CLOSED.</strong>
+    "the router returns model strings, never tier labels"; lowercasing belongs to the
+    <em>step</em> sets internally; the recorded value is verbatim from the pin. And the
+    fallback sentence is now accurate against the router: <strong>[run]</strong>
+    <code>route()</code> over the ten CLI verbs on this tree's pin →
+    <code>init/doctor/update/decide/accept/report/exception/uninstall</code> →
+    <code>qwen3.8-flash</code> (medium), <code>spec</code> → <code>qwen3.6</code> (low),
+    <code>audit</code> → <code>deepseek-v4-flash</code> (top) — <code>default_tier</code>
+    is reached only when <code>medium</code> is absent, exactly as B-042-1 now says.</li>
+</ul>
+
+<h3>Lens 1 — What does this increment cost?</h3>
+<ul>
+  <li><strong>C-1 — The digest arithmetic is off by one: after B-042-4 the repeats family
+    still has three rows, not "two stable rows".</strong> The escalation begins at the
+    <strong>third</strong> identical denial; the guard denies from <code>seen &gt;= 3</code>,
+    so denial #1 renders "made 3 times", denial #2 "made 4 times", denial #3+ escalates.
+    <strong>[run]</strong> simulation over the machine's chain:</li>
+<pre><code>repeats-family blocked events simulated: 11024
+ 9468  escalation
+  804  full verdict (denial #1, "made 3 times")
+  752  full verdict (denial #2, "made 4 times")
+=&gt; distinct rows after B-042-4 (repeats family): 3, not 2</code></pre>
+  <li>Add the unchanged failure arm and loop_guard carries <strong>four</strong> rows after
+    the change. The worked sentence carries the same error: 15 hits "get 1 full verdict +
+    13 escalations" (lines 293-294) — actually 2 full + 13 escalations.</li>
+  <li><strong>C-2 — The marquee deliverable ships as a column of zeros, and its enabling
+    change is not in the increment.</strong> Every one of the 63,847 durable-chain events
+    predates the field. <strong>[run]</strong> <code>grep -c '"model"' …/ad36fa1441e9.jsonl</code>
+    → <code>0</code>. The first post-ship digest reads <code>missing: 63847</code>;
+    everything new reads <code>undetermined</code> until an adapter change the spec names
+    but neither prices nor schedules. (Cross-read refutes the "the spec hides it" edition.)</li>
+  <li><strong>C-3 — One behaviour's digest dependency is a new report.py change the spec
+    never lists as code.</strong> The four-state distribution and the "stop flagging
+    escalated events" relabel are product changes to <code>report.py</code> delivered as
+    prose, with no post-change shape (see E-4) and no worked count.</li>
+</ul>
+
+<h3>Lens 2 — Can we get out of this, and does it stay honest going back?</h3>
+<ul>
+  <li><strong>R-1 — The "already scripted" relabel consumes the only forcing signal rule 12
+    has, and is expensive to walk back.</strong> Today the digest prints a rule-12 row
+    "loop_guard · this exact call … 8745× same verdict each time → owed a script" — 2,915×
+    over threshold. After the relabel that row leaves the flagging set and reads
+    "escalated", which reads as <em>handled</em>; AGENTS.md rule 12's "goes away in the
+    same commit" commit never appears.</li>
+  <li><strong>R-2 — One model-less event freezes the variable for the process under the
+    literal <code>setdefault</code> line.</strong> <code>setdefault</code> sets the key even
+    when the default is <code>None</code>, so a later model-carrying payload can never
+    overwrite it. Two facts limit the blast radius — the hook is a per-event fresh process,
+    and <code>_emit</code> reads <code>… or UNDETERMINED</code> — but the real defect is
+    worse than poisoning (see G-R1).</li>
+  <li><strong>R-3 — The example register is not the register: five rows for eleven named
+    modules.</strong> B-042-3 enumerates eleven; the example file holds five
+    (<strong>[run]</strong> <code>grep -c "\[\[module\]\]" spec.md</code> → 5). A verbatim
+    copy fails refusal (a) for six modules, and hides the two rows that teach the
+    disambiguation: <code>cost</code> and <code>lane_merge</code>.</li>
+</ul>
+
+<h3>Lens 3 — The undecidable path</h3>
+<ul>
+  <li><strong>U-1 — The escalation names the person channel; it still does not reach a
+    person. PARTIALLY CLOSED.</strong> The revision names the <code>ai-eng exception
+    --skip "&lt;reason&gt;" --guard loop_guard</code> recipe verbatim, and it exists in the
+    tree (<strong>[run]</strong> <code>hooks/_wrap.py:124</code>). What survives: the denial
+    is a <code>user_message</code> to the model, so the recipient of "hand it to a person"
+    is the entity that cannot; a human is reached only if already watching.</li>
+  <li><strong>U-2 — The digest's relabel depends on an <code>escalated</code> field that no
+    behaviour paragraph creates.</strong> Every blocked event in the cited chain carries
+    exactly <code>(fp, reason)</code>. <strong>[run]</strong>
+    <code>Counter(…data keys for blocked…)</code> → <code>(('fp', 'reason'), 18650)</code>.
+    The sentence that would create the flag is absent.</li>
+  <li><strong>U-3 — For command events, the "actual" state is undetermined-by-construction
+    on the only wired surface.</strong> The chain hook is a per-event subprocess whose env
+    never reaches the <code>cli.py</code> subprocess that emits command events.
+    <strong>[run]</strong> newest command event reads <code>surface: undetermined,
+    adapter: undetermined</code>; <code>cli.py</code> has no <code>environ</code> handling.
+    <code>tier_model</code> lands; <code>model</code> cannot.</li>
+</ul>
+
+<h3>Lens 4 — What is taken on trust?</h3>
+<ul>
+  <li><strong>T-1 — The founding numbers still re-derive; the honesty fixes hold.
+    CLOSED.</strong> <strong>[run]</strong> 63,847 / 12,575 / 11,075 / 8,745; 14-day 10,908 /
+    8,745; ratio 18,650/38,925 = 47.9% (now stated with its caveat); 8,745 ⩾ 3 →
+    "2915 times over". And the by_reason counter: <strong>[run]</strong> 11,075 blocked →
+    <strong>5</strong> distinct rows, top 8,745 — "the digest never printed 8,745 rows" is
+    exactly right; "4 rows today" for the variant sentences is exactly right.</li>
+  <li><strong>T-2 — The quoted chain-hook line cannot run as written:
+    <code>setdefault</code> rejects <code>None</code>.</strong>
+    <code>os.environ.setdefault("AI_ENG_MODEL", payload.get("model"))</code> raises
+    <code>TypeError: str expected, not NoneType</code> on every model-less payload — the
+    only payload the wired surface produces. <strong>[run]</strong> demo →
+    <code>TypeError: str expected, not NoneType</code>. A hook that crashes is a hook that
+    denies (<code>chain.py:242-253</code>); the guarding sentence ("only when the payload
+    actually carries one") is a conditional the shown code does not perform.</li>
+  <li><strong>T-3 — The per-session repeat numbers are honest now. CLOSED.</strong>
+    <strong>[run]</strong> 830 sessions with loop_guard blocks; 583 sessions with the
+    identical verdict, all ≥ 3; max 15.</li>
+</ul>
+
+<h3>Lens 5 — The example nobody wrote (now written; what the new examples decide)</h3>
+<ul>
+  <li><strong>E-1 — The register example decides less than it pretends.</strong> Written:
+    file name, TOML shape, schema header, five rows; <code>loopgate</code>'s reason is
+    machine-checkable (<strong>[run]</strong> <code>specs/031…:108</code> B-031-2;
+    <code>specs/041…:26,66</code>). But it is five of eleven rows (R-3), and the two statuses
+    that need disambiguating — <code>cost</code>, <code>lane_merge</code> — are the ones cut.</li>
+  <li><strong>E-2 — The example command event shows a <code>model</code> value no described
+    mechanism can place on a command event.</strong> It shows <code>surface:"claude-code"</code>,
+    <code>model:"deepseek-v4-flash"</code>; its own section says "A surface that sends no
+    model reports <code>model:"undetermined"</code>" (line 230). <strong>[run]</strong> the
+    newest real command event reads <code>surface: undetermined</code>; no command event
+    carries a model key.</li>
+  <li><strong>E-3 — The example escalation's numbers cannot be produced by the guard it
+    illustrates.</strong> "made 7 times in the last 6 — the third identical denial"
+    (line 269). The window is 6 and the count is <code>state["recent"].count(call)</code>
+    over <code>[-window:]</code> — never more than 6. <strong>[run]</strong>
+    <code>grep -n "WINDOW = \|\[-window:\]\|seen = state" hooks/loop_guard.py</code> →
+    <code>WINDOW = 6</code>, <code>seen = state["recent"].count(call)</code>. And the third
+    identical denial occurs at seen = 5, not 7.</li>
+  <li><strong>E-4 — Still no example of the digest output, where the revision makes its
+    strongest claims.</strong> The four-state line, "escalated to a person N times",
+    "two stable rows" — none has a worked post-change line. The context section quotes
+    today's digest verbatim; the revision never quotes the tomorrow it promises.</li>
+</ul>
+
+<h2>Round two — the cross-read (each lens sees the other four, shuffled, never its own)</h2>
+
+<h4>Lens A</h4>
+<ul>
+  <li><strong>False alarm?</strong> C-2's "the spec hides a zero column" — refuted: the
+    caveat is verbatim. <strong>[run]</strong> <code>grep -n "honestly blank" spec.md</code> →
+    line 155. Survivor: the enabling adapter change is unscheduled (→ G-R3).</li>
+  <li><strong>What we all missed:</strong> the chain hook's per-event subprocess shape —
+    T-2 saw a crashing line, R-2 a poisoning, U-3 an env gap; nobody had all three plus the
+    fail-closed doctrine. [→ G-R1]</li>
+</ul>
+
+<h4>Lens B</h4>
+<ul>
+  <li><strong>False alarm?</strong> U-1's "the escalation cannot reach a person" — refuted
+    by design: the recipe is verbatim and is the product's only person channel.
+    <strong>[run]</strong> <code>grep -n "A person" hooks/_wrap.py</code> → line 124.
+    Residue (a person is reached only if already watching) is no longer hidden.</li>
+  <li><strong>What we all missed:</strong> the <code>escalated</code> flag is a dependency
+    of the digest's relabel and nothing creates it; crossing U-2 with R-1 shows the hole is
+    double — no field, and no person-action to replace the retired flag. [→ G-R2]</li>
+</ul>
+
+<h4>Lens C</h4>
+<ul>
+  <li><strong>False alarm?</strong> T-2's "the line crashes and disables the product" — the
+    same sentence quotes the guarding form ("only when the payload actually carries one").
+    Refuting command <strong>[run]</strong> <code>grep -n "only when the payload actually
+    carries one" spec.md</code> → the guard's intent is in the spec. Survivor: the quoted
+    code and its guard sentence disagree (→ G-R1).</li>
+  <li><strong>What we all missed:</strong> "1 full verdict + 13 escalations" and "two stable
+    rows" are the same arithmetic error in two places — the first two denials still render
+    distinct verdict strings. [→ G-R4]</li>
+</ul>
+
+<h4>Lens D</h4>
+<ul>
+  <li><strong>False alarm?</strong> E-2's "the example value contradicts the wired surface"
+    — disarmed by the example's own caption ("after B-042-1/B-042-2"; "A surface that sends
+    no model reports <code>model:"undetermined"</code>"). Refuting command
+    <strong>[run]</strong> the example block's caption. Survivor: for a <em>command</em>
+    event no setter exists at all (→ G-R3).</li>
+  <li><strong>What we all missed:</strong> the <code>ms</code> field the spec says does not
+    exist. <strong>[run]</strong> 8,010 durable events carry <code>data.ms</code> (spec
+    4749, doctor 2020, audit 586, chain 199, accept 185); what is absent is first-response
+    latency and any percentile. [→ G-R5]</li>
+</ul>
+
+<h4>Lens E</h4>
+<ul>
+  <li><strong>False alarm?</strong> R-3's "the example register is broken if copied" — a
+    copied register fails refusal (a) loudly, at test time; the reader test's whole point is
+    to refuse exactly this. The finding narrows to clarity, not breakage.</li>
+  <li><strong>What we all missed:</strong> E-3's impossible counts and C-1's off-by-one rows
+    are the same disease — the message renders window-bound <code>seen</code>, not a denial
+    index. [→ G-R4]</li>
+</ul>
+
+<h3>Gaps no single lens named <em>(the cross-read's blind-spot harvest)</em></h3>
+<ul>
+  <li><strong>G-R1 — The chain hook's pass-through cannot run as quoted, and a literal
+    reading is product-disabling.</strong>
+    <code>os.environ.setdefault("AI_ENG_MODEL", payload.get("model"))</code> raises
+    <code>TypeError</code> on every model-less payload; the hook's fail-closed doctrine
+    turns that into denied tool calls. The guard sentence and the quoted line cannot both be
+    true; the spec must show the <code>if "model" in payload:</code> form.
+    <em>Command:</em> the T-2 demo — <strong>[run]</strong>
+    <code>TypeError: str expected, not NoneType</code>.</li>
+  <li><strong>G-R2 — The digest's "already scripted" relabel depends on a field no behaviour
+    creates, and retires the only forcing signal rule 12 has.</strong> Blocked events carry
+    only <code>(fp, reason)</code> (<strong>[run]</strong> <code>(('fp','reason'), 18650)</code>);
+    the relabel needs <code>escalated=True</code> that no sentence adds; AGENTS.md rule 12's
+    commit never appears.</li>
+  <li><strong>G-R3 — "actual" (<code>model</code>) on command events is
+    undetermined-by-construction, and the example event dresses it as populated.</strong>
+    The distribution's two reachable states on the wired chain are <code>missing</code>
+    (the 63,847-event backfile) and <code>undetermined</code> (everything new);
+    <strong>[run]</strong> newest command event <code>surface: undetermined</code>.</li>
+  <li><strong>G-R4 — Every arithmetic claim in B-042-4 is off the guard's real counting.</strong>
+    "7 times in the last 6" (window-bounded at 6), "third identical denial" ↔ seen 5,
+    "1 full verdict + 13 escalations" (actually 2 + 13), "two stable rows" (actually 3).
+    <em>Command:</em> the C-1 simulation — <strong>[run]</strong> <code>9468 escalation /
+    804 "3 times" / 752 "4 times"</code>.</li>
+  <li><strong>G-R5 — "no latency field exists" is contradicted by the file the sentence
+    cites.</strong> 8,010 durable events carry <code>data.ms</code> —
+    <strong>[run]</strong> by name: spec 4749, doctor 2020, audit 586, chain 199, accept 185.
+    What is genuinely absent is first-response latency and any percentile.</li>
+</ul>
+
+<h3>Findings cut for carrying no command</h3>
+<p><em>None fell to the cut rule: every round-one finding above carries a command the reader
+can run (marked <strong>[run]</strong> where this council actually ran it).</em></p>
+
+<h3>Findings the cross-read refuted, with the command that refuted them</h3>
+<ul>
+  <li><s><strong>T-2, severity edition — "implemented literally, the chain line disables the
+    product."</strong></s> Refuted: the same sentence states the guard ("only when the
+    payload actually carries one", line 151); the prescription is the guarded form.
+    Refuting command <strong>[run]</strong> <code>grep -n "only when the payload actually
+    carries one" spec.md</code>. Survivor: the code/sentence disagreement → G-R1.</li>
+  <li><s><strong>E-2, contradiction edition — "the example says the wired surface reports a
+    model."</strong></s> Refuted by the example's own caption ("after B-042-1/B-042-2"; "A
+    surface that sends no model reports <code>model:"undetermined"</code>", lines 220, 230).
+    Refuting command <strong>[run]</strong> the example block's caption. Survivor: command
+    events have no model source at all → G-R3.</li>
+  <li><s><strong>C-2, honesty edition — "the spec sells a distribution it knows is
+    blank."</strong></s> Refuted: B-042-2 states the blankness verbatim ("honestly blank for
+    those that do not", line 155). Refuting command <strong>[run]</strong>
+    <code>grep -n "honestly blank" spec.md</code>. Survivor: the adapter change is unscheduled
+    → G-R3.</li>
+</ul>
+
+<h2>Round three — the chairman</h2>
+
+<div class="verdict">
+<p>The lenses agree on five things. First: every round-one gap is closed or honestly narrowed
+— the volume sentence is exact, the four model states are named and separately counted, the
+rule-12 relabel is the right direction, the consumer definition is mechanical, and
+<code>tier_model</code> is a model string. Second: the tree facts re-derive byte-for-byte.
+Third: the fallback sentence in B-042-1 is now exactly what the router does (<code>medium</code>
+when configured, else <code>default_tier</code>, else the empty string). Fourth: the register
+follows the <code>skill-sequence.toml</code> pattern and its reason citations check out
+(031/B-031-2, 041, 037 rows 7 and 14). Fifth: the fail-closed commitment is kept everywhere.</p>
+
+<p>Where they clash: whether the model distribution is a deliverable or a placeholder at ship.
+One reading: the spec says honestly blank, so a column of <code>missing</code>/
+<code>undetermined</code> is correct first output. The other: the marquee claim is repeated
+without the blankness in the same breath, and the enabling adapter change is owned by nobody
+in the increment. They also split on the escalation's reach: the person channel is named and
+real, but "hands the decision to a person" is still a message to the machine.</p>
+
+<p>The blind spots the cross-read caught: the chain-hook <code>setdefault</code> line raises
+<code>TypeError</code> on the only payload that exists today (G-R1); the digest's relabel
+depends on an <code>escalated=True</code> field no behaviour creates while retiring the only
+forcing signal rule 12 has (G-R2); command events' <code>model</code> is undetermined-by-
+construction and the example event dresses it as populated (G-R3); every arithmetic claim in
+B-042-4 is off the guard's real counting (G-R4); and "no latency field exists" is
+contradicted by the 8,010 events that carry <code>data.ms</code> (G-R5).</p>
+
+<p><strong>Verdict:</strong> the revision closes the five round-one gaps and its honesty
+fixes are real — but the new material introduces five defects of the same family: the spec's
+own examples and arithmetic contradict the mechanisms they illustrate. A reader copying the
+examples into tests or implementations carries the contradictions in.</p>
+
+<p><strong>Recommendation:</strong> keep the four behaviours as shaped; fix the new material.
+In B-042-2 replace the quoted line with the guarded form and say explicitly that the
+reported-actual state on command events reads <code>undetermined</code> on the wired surface
+until an adapter change this spec names but does not make. In B-042-4 add one sentence
+declaring the blocked event's data carries <code>escalated=True</code>, and re-derive the
+digest claim from the guard's denial index (three rows, not two). In the examples, make the
+escalation's count window-bounded and its signature tool-prefixed, and show one post-change
+digest line. Leave the rule-12 flag in place until a person-action exists to replace it.</p>
+
+<p><strong>First step:</strong> two lines — the guarded <code>model</code> pass-through in
+B-042-2, and the <code>escalated=True</code> field on the denied event in B-042-4 — because
+until those two lines exist, the chain half of the distribution cannot run and the digest's
+relabel reads a field no event carries.</p>
+</div>
+
+<h2>The two counts</h2>
+<div class="counts">
+<ul>
+  <li>Gaps that appeared only after the cross-read: <strong>5</strong></li>
+  <li>Findings deleted, for carrying no command or for being refuted: <strong>3</strong></li>
+</ul>
+</div>
+
+</main>
+</body>
+</html>

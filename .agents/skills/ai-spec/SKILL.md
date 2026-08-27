@@ -20,7 +20,23 @@ disable-model-invocation: true
 `specs/NNN-slug/spec.md`, committed in the user's repository and visible in their diff.
 It is a decision record, not code, a plan or permission the agent gave itself.
 
+## The tier to ask for
+
+Spec writing is mechanical once the research has done the hard thinking; ask the **low**
+tier, the model the repository's `[models]` section configures for it — never a model
+name coded here, and never a provider the repository did not choose. `model_router` maps
+research and spec to the low tier; if the pin leaves it unconfigured, fall back to
+`default_tier`. Say which tier you ran on so the command event's `tier_model` can be
+read against reality.
+
 ## Procedure
+
+0. Validate the intake (spec 037 / B-037-3): run the opening request through
+   `intake.validate_intake`; when it returns `INCOMPLETE` naming missing fields (goal,
+   constraints, acceptance), ask those intake questions first — capped, the way the
+   research's grill recommends — before any discovery. `specs/new-goal-template.md` is the
+   copy-paste fallback; a well-formed free request passes without it. The input is the
+   contract: a malformed goal produces a malformed spec.
 
 1. Read `CONSTITUTION.md`, the related records and repository evidence and current primary
    sources relevant to the decision before asking anyone. State what was read, what is true
@@ -47,9 +63,13 @@ It is a decision record, not code, a plan or permission the agent gave itself.
    dependency, a duplicated source of truth or the cost of reversing it decides between two
    options, say so in the option that carries it. A separate architectural opinion nobody
    has to answer is the advisor this project chose not to build.
-10. Keep decisions in their spec unless they constrain future specs. For those, record a
-   proposed `ai-eng decide --madr "<title>"`; proposal is not approval. Leave every
-   production-ready box unticked until the named command supplies fresh evidence.
+10. Keep decisions in their spec unless they constrain future specs. For the ones that do
+   — architectural and cross-cutting: a boundary (API, auth, storage) or a global
+   convention later specs must know and respect — list them under `## Decisions` marked
+   `- [X]` and promote with `ai-eng decide "<title>"`; the
+   verb promotes only marked titles, and proposal is not approval. Everything else stays
+   inside the spec, which is its record. Leave every production-ready box unticked until
+   the named command supplies fresh evidence.
 
 ## Authority boundary
 
