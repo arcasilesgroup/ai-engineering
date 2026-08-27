@@ -231,6 +231,16 @@ search for.
 
 ### Changes
 
+- **The pin's model tiers retuned against a live benchmark (dogfooding).** `medium` moves
+  from `qwen3.8-flash` to `glm5.3-flash` and `low` from `qwen3.6` to `qwen3.8-flash`,
+  measured on 2026-08-27 against `api.nan.builders/v1` (latency, tok/s, tool calling,
+  vision, and a ~300K-token needle probe on all six chat models). Build/verify/ship now
+  burn the tier with the 500M-token monthly allowance, and research/spec gain vision and
+  262K context. `qwen3.6` leaves the tier table (still in the catalog, fastest measured at
+  ~129 tok/s); roles outside the three tiers — audio on `mimo-v2.5`, extraction on
+  `gemma4`, RAG on `qwen3-embedding` + `rerank` — are documented as pin comments that no
+  code reads. Nothing changes for installers: the pin is per-repository, the wheel ships
+  no model names, and the framework still never hardcodes one.
 - **Model emission, router consumption and the orphan decision (spec 042).** The `[models]`
   section of the pin is no longer a promise with no reader: every `ai-eng` command event now
   records `tier_model` (the model string the pin says the verb routes to, on both the plain
