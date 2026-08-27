@@ -3,7 +3,7 @@ name: ai-write
 description: >-
   Writes technical documentation for this repository: a README, a wiki page, product
   documentation, API docs or a technical post. Applies the framework's single writing
-  standard (references/documentation-writer.md, spec 039) and verifies every document
+  standard (`.agents/skills/ai-report/references/documentation-writer.md`, spec 039) and verifies every document
   against the tree. Trigger for "write the README", "update the wiki", "document this
   API", "write a technical post about", "refresh the docs". Not for the changelog — use
   /ai-ship. Not for a spec or an ADR — use /ai-spec. Not for a finding — use /ai-note.
@@ -23,7 +23,7 @@ a checkable completion criterion. A document that cannot be verified exits `not-
 
 ## Steps
 
-1. Read the writing standard (spec 039): `references/documentation-writer.md` beside
+1. Read the writing standard (spec 039): `.agents/skills/ai-report/references/documentation-writer.md` beside
    `ai-report`. If it is missing, stop and say `INCOMPLETE: writing standard absent`.
 2. Read the tree the document is about. Not from memory, not `--help`. The README names
    commands that exist. The API doc names endpoints in the code. The wiki names

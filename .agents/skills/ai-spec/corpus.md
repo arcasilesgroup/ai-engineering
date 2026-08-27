@@ -18,7 +18,7 @@ and not permission the agent gave itself.
 - "the spec must stand alone" — the record is the whole interface to the builder: no "as discussed", no "the remaining work", no conversation leaks; `self_contained` refuses them and `section` resolves a part by number.
 - "this asks me to decide something outside what I'm allowed to decide" — refuse and report `CANNOT DECIDE`, because an out-of-boundary request is a blocked decision, not a spec to write (use /ai-verify to read the boundary).
 - "here's my idea, write me a spec" — run it through intake validation first and ask for the missing field (goal/constraints/acceptance) before discovery, because a malformed goal produces a malformed spec.
-- "the acceptance criteria is that it works" — refused, and the spec is written against `references/documentation-writer.md` before a word is set: a completion bound an agent cannot check is a spec that will be declared done early.
+- "the acceptance criteria is that it works" — refused, and the spec is written against `.agents/skills/ai-report/references/documentation-writer.md` before a word is set: a completion bound an agent cannot check is a spec that will be declared done early.
 
 ## Refuses
 

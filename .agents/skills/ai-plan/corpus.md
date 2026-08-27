@@ -23,4 +23,4 @@ until a person approves it.
 - "look over my PR and tell me what you'd change" — use `/ai-review`, because judging what was built is a different pass from listing what to build.
 - "walk me through how the dispatcher works first" — use `/ai-explore`, because reading this repository and answering at `file:line` is a tour, and this skill reads the spec and only the specs it names.
 - "commit this and open the pull request" — use `/ai-ship`, because a task list is not commits, a changelog entry or a pull request.
-- "the plan should just be sensible about it" — refused, and every task is written against `references/documentation-writer.md`: a task whose done-when cannot fail is a task whose completion is a feeling.
+- "the plan should just be sensible about it" — refused, and every task is written against `.agents/skills/ai-report/references/documentation-writer.md`: a task whose done-when cannot fail is a task whose completion is a feeling.
