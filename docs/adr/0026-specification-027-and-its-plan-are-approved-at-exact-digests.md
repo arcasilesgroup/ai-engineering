@@ -9,6 +9,8 @@ spec: "027"
 status: "accepted"
 authority_role: "repository owner"
 approval_ref: "ae523990"
+approved_at: "2026-08-25T09:40:45Z"
+supersedes: ""
 ---
 
 # 0026. Specification 027 and its plan are approved at exact digests
@@ -31,6 +33,13 @@ surface includes `corpus.md` (which ships the same smells while no rule reads it
 is the maintainer's local orchestrator, never named by a shipped skill, with the portable
 verb being `ai-eng`. The plan is ordered so the contract rules land before any skill is
 repaired, so a rule failure is caught early.
+
+## Considered options
+
+1. **Approve the specification and its plan at their exact bytes.** The same binding the
+   earlier approval records carry, so a digest move refuses instead of sliding.
+2. **Approve the direction and leave the plan open.** Rejected: an unbound plan is an
+   unmeasured promise, and this record exists to make the promise checkable.
 
 ## Decision outcome
 

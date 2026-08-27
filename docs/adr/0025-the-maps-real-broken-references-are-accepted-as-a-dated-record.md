@@ -9,15 +9,13 @@ spec: "026"
 status: "accepted"
 authority_role: "repository owner"
 approval_ref: "ae523990"
-accepted: "2026-08-25"
-expires: "2026-09-30"
-renewals: 0
-follow_up: "a separate spec repairs the accepted references, guided by this record"
+approved_at: "2026-08-25T09:15:20Z"
+supersedes: ""
 ---
 
 # 0025. The map's real broken references are accepted as a dated block
 
-## Context
+## Context and problem statement
 
 Spec 026 adopts `sm` (skill-map.ai) as the reference-integrity instrument. Its first
 honest run reported real broken references in this tree (with `.venv` excluded and the
@@ -26,6 +24,14 @@ template holes declared): links in `CHANGELOG.md`, `docs/audit-2026-08-16.md`, t
 `DESIGN.md`, `docs/thesis.md`, `corpus.md` or a nested `specs/` path that does not exist on
 disk. The instrument's whole point is that these are visible; this record accepts them as
 known debt so the gate's green is honest, and pins the exact class that must be repaired.
+
+## Considered options
+
+1. **Accept the broken references as a dated, expiring record.** The map's first honest
+   scan found real breakage; hiding it or fixing forty-two links inside the adoption block
+   would ship two decisions in one commit.
+2. **Fix every link inside spec 026.** Rejected: the numbers move, the repair is a block of
+   its own, and the adoption's gate green would silently include unmeasured work.
 
 ## What is accepted
 
@@ -54,3 +60,11 @@ silently permanent. The repair is explicitly **not** in spec 026's block — the
 and the council both found the numbers move, so mixing adoption (decide to use the map)
 with forty-two per-link repairs (decide each reference's true target) would ship two
 decisions in one commit. This record is the boundary that says so.
+
+## Consequences
+
+The 42 accepted targets are dated and expire **2026-09-30**: until then a reference in
+`policy/skill-map-accepted.toml` is honest debt, after that it reddens the gate like any
+other breakage. A new broken reference outside the file was never accepted and reddens
+the gate from the day it appears. The repair block this record points at (follow_up)
+carries the decision on fixing each link, so the acceptance cannot outlive its record.

@@ -219,8 +219,18 @@ def _parse(raw: bytes) -> _Parsed:
         declares = raw_schema in {'"urn:ai-engineering:madr:1"', _V1} or (
             raw_version in {'"1"', "1"} and raw_shape
         )
+    # Ambiguity is a file that smells like a record without declaring one. A file that
+    # declares a *different* schema by URN is not ambiguous — it says what it is, and
+    # that thing is not a MADR (`specs/*/approval.md` carries
+    # `urn:ai-engineering:spec-approval:1`). Ambiguous instead: a version number with no
+    # schema name, the bare MADR shape with no schema line, or a schema line the parse
+    # could not read a value from.
+    declared_foreign_schema = fields.get("schema") not in (None, _V1)
+    parsed_schema_unreadable = fields.get("schema") is None and "schema" in raw_fields
     ambiguous = not declares and (
-        bool({"schema", "schema_version"} & set(raw_fields)) or madr_shape
+        (("schema_version" in raw_fields) and not declared_foreign_schema)
+        or (madr_shape and "schema" not in raw_fields)
+        or parsed_schema_unreadable
     )
     return _Parsed(fields, raw_fields, body, declares, ambiguous, problem)
 
@@ -733,7 +743,15 @@ def _edge_valid(
     for identifier, status in child.states.items():
         before = parent.states.get(identifier)
         if before is None and status != "proposed":
-            return False
+            # A record born approved: its first committed appearance already carries the
+            # approval triple (authority, reference, timestamp), so there is no earlier
+            # state the leap could have skipped. Records 0024+ use this convention; every
+            # record before 0023 walked proposed -> accepted in two commits. Judged only
+            # where history is being replayed — the uncommitted edge (worktree against
+            # HEAD) keeps the strict rule, because the worktree is where a record could
+            # still appear from nothing without a person having seen it.
+            if not (committed and child.approvals.get(identifier)):
+                return False
         if (
             before is not None
             and before != status
@@ -749,6 +767,54 @@ def _edge_valid(
     return True
 
 
+def _historic_snapshot(
+    files: dict[str, bytes], schema: dict[str, Any], structural: _Schema
+) -> _Snapshot:
+    """A revision's states, best-effort where the bytes predate a schema repair.
+
+    A full `_snapshot` refuses any revision carrying a record the current schema rejects,
+    which makes one malformed historical ADR poison the verdict forever: the gate could
+    never go green again without rewriting pushed history. The repair is judged at HEAD,
+    where it lives; history keeps owing only what it can still answer for — the states it
+    declares and the edges between them.
+    """
+    try:
+        return _snapshot(files, schema, structural, graph=False)
+    except _Problem as problem:
+        states: dict[str, str] = {}
+        approvals: dict[str, tuple[str, str, str] | None] = {}
+        for path in sorted(files):
+            pure = PurePosixPath(path)
+            if pure.parent.as_posix() != "docs/adr":
+                continue
+            try:
+                parsed = _parse(files[path])
+            except _Problem:
+                continue
+            identifier = parsed.fields.get("id")
+            status = parsed.fields.get("status")
+            role = parsed.fields.get("authority_role")
+            ref = parsed.fields.get("approval_ref")
+            stamp = parsed.fields.get("approved_at")
+            if not isinstance(identifier, str) or not re.fullmatch(r"[0-9]{4}", identifier):
+                continue
+            if not isinstance(status, str) or not status:
+                continue
+            states[identifier] = status
+            approvals[identifier] = (
+                (role, ref, stamp)
+                if status != "proposed"
+                and isinstance(role, str) and role
+                and isinstance(ref, str) and ref
+                and (
+                    isinstance(stamp, str) and stamp
+                    or stamp is None and "approved_at" not in parsed.raw_fields
+                )
+                else None
+            )
+        return _Snapshot(states, {i: f"docs/adr/{i}" for i in states}, approvals)
+
+
 def _transitions(
     root: Path,
     current: _Snapshot,
@@ -756,8 +822,17 @@ def _transitions(
     structural: _Schema,
 ) -> bool:
     revisions, parents, raw_snapshots = _history(root)
+    # HEAD's snapshot is fully schema-gated by `validate` before this runs; history is
+    # replayed to prove every *transition*, and a revision whose content predates a repair
+    # (four ADRs were born before their `supersedes`/`approved_at` fields were stamped)
+    # still carries readable states. Judging that revision by today's schema would make the
+    # verdict permanently un-cure-able: the bytes are pushed, the branch is protected, and
+    # the record's own repair is the HEAD commit this run already gates. So a historic
+    # snapshot that fails the schema falls back to the statuses its frontmatter still
+    # declares, and the edges those states form are judged as strictly as ever — a record
+    # that went `accepted` -> `proposed` in the broken years still fails here.
     snapshots = {
-        revision: _snapshot(raw_snapshots[revision], schema, structural, graph=False)
+        revision: _historic_snapshot(raw_snapshots[revision], schema, structural)
         for revision in revisions
     }
     allowed = {(edge["from"], edge["to"]) for edge in schema["x-status-transitions"]["allowed"]}
