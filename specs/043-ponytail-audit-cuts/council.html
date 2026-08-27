@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council — Spec 043 · Ponytail audit cuts · Round 1</title>
+<style>
+  :root { --ink: #1a1a1a; --muted: #6b6b6b; --rule: #e2e0da; --accent: #b3541e; --bg: #fbfaf7; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.65 Georgia, "Times New Roman", serif; }
+  main { max-width: 46rem; margin: 0 auto; padding: 3.5rem 1.5rem 5rem; }
+  header { border-bottom: 3px solid var(--ink); padding-bottom: 1.25rem; margin-bottom: 2.25rem; }
+  h1 { font-size: 1.9rem; margin: 0 0 .35rem; line-height: 1.2; }
+  .meta { color: var(--muted); font-size: .9rem; margin: 0; font-style: italic; }
+  h2 { font-size: 1.15rem; text-transform: uppercase; letter-spacing: .06em;
+       margin: 2.6rem 0 .9rem; padding-top: .4rem; border-top: 1px solid var(--rule); }
+  h2 span { color: var(--accent); }
+  ul, ol { padding-left: 1.35rem; margin: 0; }
+  li { margin: 0 0 .8rem; }
+  code { font: .85em/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+         background: #efede6; padding: .08em .35em; border-radius: 3px; }
+  strong { font-weight: 700; }
+  .count { font-variant-numeric: tabular-nums; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule);
+           color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Spec 043 — Ponytail audit cuts</h1>
+  <p class="meta">Council round 1 · chairman's report. Anonymous by design: findings are
+  cited by subject, never by who raised them.</p>
+</header>
+
+<section id="agreement">
+<h2><span>01</span> · Where the council agrees</h2>
+<ul>
+  <li>The duplication is real and mostly checks out number for number. Four
+  <strong>byte-identical</strong> 170-byte <code>_canonical_json</code> copies — same
+  SHA-256 across capability, evidence, madr and outcome. Six frontmatter parse sites once
+  inline recognizers count. The drift the spec claims is measurable: <code>loop_guard</code>
+  escapes unprintables as hex, <code>_emit</code> replaces them with <code>?</code>.
+  The motivation for the cut survives verification.</li>
+  <li>The retraction discipline is genuine: four of seven dead-code targets were withdrawn
+  on evidence, and the withdrawals match the deferred rows in
+  <code>policy/module-status.toml</code>.</li>
+  <li>Reversibility of the code itself is good — clean tree, deleted modules return by git
+  in minutes. The reversibility problem here is documentary, not mechanical.</li>
+</ul>
+</section>
+
+<section id="clashes">
+<h2><span>02</span> · Where they clash</h2>
+<ol>
+  <li><strong>The ticked box versus the tree.</strong> D-043-01 reads
+  <code>[X] … applied in four ordered commits</code> while the spec directory is untracked,
+  no 043 commit exists, and all four canonical-JSON copies stand in place. Front-matter
+  says <code>status: draft</code>. The box certifies a HEAD that does not exist.</li>
+  <li><strong>The Windows exclusion versus its cited shelter.</strong> The spec keeps the
+  ~810-line Windows transaction backend because of a "spec-010 dated risk record".
+  Spec-010's own risk section reads <em>None</em>, and no versioned record names the
+  backend. The strongest deference-to-authority claim in the document rests on a record
+  the cited file denies.</li>
+  <li><strong>The denial path versus the tool it names.</strong> The example promises
+  <code>ai-eng doctor</code> fails closed, naming the missing symbol. Doctor runs 26
+  checks; none imports the package's modules. The mechanism does not exist yet.</li>
+  <li><strong>The citation versus the source.</strong> The constitution sentence quoted in
+  parentheses: its first half is verbatim at line 76; its second half — that undoing a
+  risk decision needs the same authority — appears nowhere in the file.</li>
+</ol>
+</section>
+
+<section id="blind-spots">
+<h2><span>03</span> · Blind spots — visible only after the cross-read</h2>
+<ul>
+  <li>Nothing in the check stack verifies the cut's own criterion: <code>just check</code>
+  runs sixteen recipes, none reads "each primitive lives once"; the grep still counts
+  <span class="count">4</span> homes today.</li>
+  <li><code>tests/test_orphan_register.py</code> calls <code>wiring.module_status()</code>
+  three times. The success example wants that symbol to raise after the cut — then the
+  governance test goes red and <code>just check</code> fails — or the example is false.
+  The spec plans for neither branch.</li>
+  <li>The register defers a third module, <code>constellation</code>, absent from the
+  spec's lists; the delete stage and the register disagree in writing.</li>
+  <li>Rule 4, quoted as the spec's defense, carries a duty the plan omits: hard renames
+  say it in the changelog. The word appears <span class="count">0</span> times in a spec
+  scheduling four hard-deletion commits — in a repo that just made a changelog commit for
+  a model-tier tune.</li>
+  <li>The audit's authority — the 41-finding list and the research note behind the
+  retractions — lives in a gitignored directory. The documentary half of this change is
+  the half that cannot come back by git.</li>
+</ul>
+</section>
+
+<section id="verdict">
+<h2><span>04</span> · Verdict</h2>
+<p>Round one closes with the engineering case standing and the certification case not
+standing. Of the spec's checkable sentences, the duplication counts are true or
+near-true and the dead-code grep claims are true; but the three load-bearing
+sentences — the applied box, the dated risk record behind the Windows keep, and the
+doctor denial path — are false or unreachable as written. The council's reading: the
+cut list is workable, the document certifying it is not.</p>
+</section>
+
+<section id="recommendation">
+<h2><span>05</span> · Recommendation before round two</h2>
+<ol>
+  <li>Un-tick D-043-01, or land the four commits and re-verify; a box must not certify a
+  HEAD that does not exist.</li>
+  <li>Produce the dated risk record for the Windows backend, or move the item onto the
+  spec's own undecidable path with a real evidence command.</li>
+  <li>Rewrite the denial-path example around a probe that will exist — a doctor check
+  that imports the package and names orphaned symbols — or around the actual first
+  signal, the broken test, and say so plainly.</li>
+  <li>Add the missing verification line: a command reading <code>1</code> beside each
+  primitive's home, and a changelog step inside D-043-01.</li>
+  <li>Name constellation in the keep/defer table, and state what happens to the register
+  fixture when the register reader moves.</li>
+  <li>Mark the constitution paraphrase as a paraphrase, and give the 41-finding list a
+  committed witness — a copy or a hash — so the audit's authority is versioned too.</li>
+</ol>
+</section>
+
+<section id="first-step">
+<h2><span>06</span> · First step</h2>
+<p>One pair of commands, ten minutes: <code>grep -n "\[X\]" specs/043-ponytail-audit-cuts/spec.md</code>
+beside <code>git log --oneline --all --grep 043</code>. If the author leaves the box
+ticked, round two should treat every other unverified number in the document as
+provisional; if it is un-ticked, the rest is worth re-reading with commands — because
+the one claim that was byte-checked, checked out.</p>
+</section>
+
+<footer>
+Counts as measured by <code>tests/council_counts.py</code> against this round's
+<code>council.md</code>: 4 gaps found only by the cross-read · 7 findings deleted for
+carrying no command or being refuted. The receipt write was blocked in this sandbox;
+the figures above are the script's stdout, not an estimate.
+</footer>
+</main>
+</body>
+</html>
