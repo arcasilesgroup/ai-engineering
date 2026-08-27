@@ -63,7 +63,8 @@ def redact(event: dict) -> dict:
     could not see it. The first token is the program, which is never an argument, and it
     still answers the question the field was added for: what ran.
 
-    A `mode` parameter was read and ignored here until its callers stopped passing it: `"none"` used to send every unlisted field verbatim and it was
+    A `mode` parameter was read and ignored here until its callers stopped passing it:
+    `"none"` used to send every unlisted field verbatim and it was
     a supported value in the pin: a configuration that disables a privacy control is a
     control whoever runs the exporter can switch off, and nothing downstream could tell a
     machine that had redacted from one that had been told not to. Deleted under spec 014
