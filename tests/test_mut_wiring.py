@@ -322,7 +322,8 @@ def test_forgetting_a_row_leaves_every_other_row_and_the_head_fields(machine):
     wiring.forget(rows[:2])
     data = json.loads(wiring.receipt_path().read_text())
     assert data["wrote"] == rows[2:], "forget took the wrong rows"
-    assert data["machine_id"] and data["version"] == __version__, "forget ate the head fields"
+    assert data["machine_id"]
+    assert data["version"] == __version__, "forget ate the head fields"
 
 
 def test_forgetting_matches_on_the_same_key_record_deduplicates_by(machine):
@@ -652,7 +653,8 @@ def test_paths_prints_the_record_of_the_repository_doctor_actually_found(
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
 
     result = doctor.main(["--paths"])
-    assert type(result) is outcome.Result and result.outcome == "PASS"
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     out = capsys.readouterr().out
     assert f"  record        {emit.chain_path(root)}" in out
     assert str(emit.chain_path(None)) not in out
@@ -789,7 +791,8 @@ def test_a_router_is_generated_hashed_and_recorded_for_the_surface_that_declares
     for row in written:
         assert row["kind"] == "router"
         target = Path(row["path"])
-        assert target.is_file() and target.parent == commands
+        assert target.is_file()
+        assert target.parent == commands
         marker, _, digest = row["how"].partition(" ")
         assert marker == "generated" and len(digest) == 64
         body = target.read_text(encoding="utf-8")

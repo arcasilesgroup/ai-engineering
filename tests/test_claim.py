@@ -56,7 +56,8 @@ def test_exactly_one_of_two_writers_wins_the_same_work_item(tmp_path, remote):
 
     one, two = tmp_path / "one", tmp_path / "two"
     base = claim.base(one)
-    assert base and base == claim.base(two)
+    assert base
+    assert base == claim.base(two)
 
     outcomes = [
         claim.take(where, "work-42", base, ["src/thing.py"], role)
@@ -131,7 +132,8 @@ def test_a_winning_claim_leaves_the_file_the_guard_reads_and_a_losing_one_does_n
     first = claim.take(one, "work-46", base, ["src/thing.py"], "writer-one")
     second = claim.take(two, "work-46", base, ["src/thing.py"], "writer-two")
 
-    assert first.outcome == "PASS" and second.outcome == "INCOMPLETE"
+    assert first.outcome == "PASS"
+    assert second.outcome == "INCOMPLETE"
     assert (one / claim.IN_FORCE).is_file()
     assert not (two / claim.IN_FORCE).exists(), "the loser was left believing it holds the work"
 
@@ -201,7 +203,8 @@ def test_every_refusal_a_claim_can_give_says_its_own_code_sentence_and_cure(tmp_
     # And the race, which git answers rather than we do. The loser is told to take another
     # task, not to retry — a retry here is two writers taking turns at the same work.
     fresh = claim.base(one)
-    assert fresh and fresh != good
+    assert fresh
+    assert fresh != good
     won = claim.take(one, "work-92", fresh, ["src/thing.py"], "one")
     assert won.result.outcome == "PASS"
     lost = claim.take(two, "work-92", fresh, ["src/other.py"], "two")
@@ -302,4 +305,5 @@ def test_a_claim_file_nobody_can_read_is_the_same_refusal(tmp_path, remote):
     refused = claim.take(root, "work-beta", claim.base(root), ["docs"], "writer")
 
     assert refused.outcome == "INCOMPLETE"
-    assert refused.error is not None and refused.error.code == "CLAIM_TREE_BUSY"
+    assert refused.error is not None
+    assert refused.error.code == "CLAIM_TREE_BUSY"

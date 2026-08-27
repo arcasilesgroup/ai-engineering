@@ -212,7 +212,8 @@ def test_execution_facts_are_bounded_without_widening_the_result_schema() -> Non
     assert execution.result.as_dict() == terminal.as_dict()
     assert set(execution.result.as_dict()) == set(json.loads(SCHEMA_PATH.read_text())["required"])
     assert len(bounded.summary) == 512
-    assert "\x1b" not in bounded.detail and "\n" not in bounded.detail
+    assert "\x1b" not in bounded.detail
+    assert "\n" not in bounded.detail
     assert execution.error is None
 
     failed = outcome.execution(outcome.result("FAIL"))

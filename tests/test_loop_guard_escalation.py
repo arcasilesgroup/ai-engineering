@@ -56,7 +56,9 @@ def test_three_identical_calls_deny_all_and_the_third_escalates(tmp_path, monkey
     first = denials[2]  # the 3rd call: first denial
     second = denials[3]  # the 4th call: second denial
     third = denials[4]  # the 5th call: third denial
-    assert first is not None and second is not None and third is not None
+    assert first is not None
+    assert second is not None
+    assert third is not None
     # Two full verdicts first (the judgement resolving), then the escalation.
     assert "this exact call has been made 3 times in the last 6" in first
     assert "this exact call has been made 4 times in the last 6" in second

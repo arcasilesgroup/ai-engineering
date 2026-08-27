@@ -127,7 +127,8 @@ def test_cli_noninteractive_json_is_one_object_and_never_null(monkeypatch, capsy
     behavior["main"] = successful
     assert cli.main(["doctor", "--json"]) == 0
     rendered = capsys.readouterr()
-    assert rendered.err == "" and rendered.out.count("\n") == 1
+    assert rendered.err == ""
+    assert rendered.out.count("\n") == 1
     assert "child" not in rendered.out and "\x1b[" not in rendered.out
     payload = json.loads(rendered.out)
     # `schema` first, and it is new. The envelope carried a version number for a document

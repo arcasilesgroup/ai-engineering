@@ -464,7 +464,8 @@ def test_acceptance_corpus_covers_valid_adversarial_and_privacy_cases() -> None:
     legacy = corpus["legacy_blocks"]
     assert [block["id"] for block in legacy] == LEGACY_CASES
     for block in legacy:
-        assert block["block"].startswith("```yaml\n") and block["block"].endswith("\n```")
+        assert block["block"].startswith("```yaml\n")
+        assert block["block"].endswith("\n```")
         assert block["expected"] in {"PASS", "INCOMPLETE", "IGNORED"}, block["id"]
         assert block["home"].startswith("specs/") and block["home"].endswith("/spec.md")
     id_less = next(block for block in legacy if block["id"] == "legacy-id-less")
@@ -660,7 +661,8 @@ def test_gitleaks_gate_requires_exact_version_and_three_clean_results(
     # itself. It runs against somewhere else, which is why the third cwd is not `tmp_path`.
     assert calls[:2] == [(("gitleaks", "version"), tmp_path), (privacy.GITLEAKS_ARGV, tmp_path)]
     assert len(calls) == 3, calls
-    assert calls[2][0] == privacy.GITLEAKS_ARGV and calls[2][1] != tmp_path
+    assert calls[2][0] == privacy.GITLEAKS_ARGV
+    assert calls[2][1] != tmp_path
     assert privacy.GITLEAKS_ARGV == (
         "gitleaks",
         "dir",

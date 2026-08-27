@@ -146,7 +146,8 @@ def test_a_cycle_is_incomplete_and_names_what_is_in_it(tmp_path):
     result = dag.order(tmp_path, [task("work-one", "src/one.py"), task("work-two", "src/two.py")])
 
     assert result.outcome == "INCOMPLETE"
-    assert result.error is not None and result.error.code == "DAG_CYCLE"
+    assert result.error is not None
+    assert result.error.code == "DAG_CYCLE"
     assert "work-one" in result.error.message and "work-two" in result.error.message
 
 
@@ -264,7 +265,8 @@ def test_a_wave_of_claims_that_depend_on_each_other_says_so_by_type(tmp_path):
 
     with pytest.raises(dag.Cycle) as refused:
         dag.wave(tmp_path, tasks)
-    assert "work-a" in str(refused.value) and "work-b" in str(refused.value)
+    assert "work-a" in str(refused.value)
+    assert "work-b" in str(refused.value)
 
     # And it is still caught by anything reading for an unreadable graph.
     assert issubclass(dag.Cycle, dag.Unreadable)

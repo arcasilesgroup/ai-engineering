@@ -91,7 +91,8 @@ def test_an_emoji_in_the_reason_does_not_brick_the_ledger(repo):
     assert ran.outcome == "PASS", ran
 
     rows, dropped = blocked.stops(repo)
-    assert len(rows) == 1 and dropped == []
+    assert len(rows) == 1
+    assert dropped == []
     assert "\U0001f6ab" in rows[0].why
     assert "\t" in rows[0].why
     assert '"quote"' in rows[0].why

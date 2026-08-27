@@ -409,4 +409,5 @@ def test_the_ledger_can_actually_be_committed(tmp_path):
     assert not any(line.rstrip() != line for line in body.splitlines()), "no trailing spaces"
     # And it still parses as two rows, so the fix did not eat a separator.
     rows, dropped = blocked.stops(tmp_path)
-    assert len(rows) == 2 and dropped == []
+    assert len(rows) == 2
+    assert dropped == []

@@ -316,7 +316,8 @@ def test_an_unknown_verb_complains_on_stderr_and_leaves_the_list_on_stdout(capsy
     code, out, err = _ran(["notaverb"], capsys)
 
     assert code == 2
-    assert "there is no verb" in err and "notaverb" in err
+    assert "there is no verb" in err
+    assert "notaverb" in err
     assert "doctor" in out and "there is no verb" not in out
 
 

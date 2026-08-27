@@ -17,7 +17,8 @@ def test_verified_doc_passes():
     body = (ROOT / ".agents" / "skills" / "ai-write" / "SKILL.md").read_text()
     assert "references/documentation-writer.md" in body  # the single standard
     assert "not-covered" in body  # the honest exit is in the contract
-    assert "## What it produces" in body and "## Done when" in body  # audit shape
+    assert "## What it produces" in body
+    assert "## Done when" in body  # audit shape
 
 
 def test_no_cache_and_not_covered_live_in_the_contract():

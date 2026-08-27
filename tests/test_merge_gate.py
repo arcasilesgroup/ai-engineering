@@ -166,7 +166,9 @@ def test_the_order_of_every_claim_is_derived_where_somebody_reads_it(tmp_path, s
 
     assert len(order) == 1, [fact.id for fact in result.checks]
     assert order[0].status == "OBSERVED"
-    assert order[0].detail and "work-alpha" in order[0].detail and "work-beta" in order[0].detail
+    assert order[0].detail
+    assert "work-alpha" in order[0].detail
+    assert "work-beta" in order[0].detail
     # And it is not counted as a pass: the summary says how many receipts passed, and an
     # observation is not one of them. Two of four here — the third receipt is a check
     # somebody has to have executed and this fixture has not, which the older tests in this

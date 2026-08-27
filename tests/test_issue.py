@@ -129,7 +129,8 @@ def test_a_forbidden_class_stops_the_report(tmp_path, monkeypatch, field, value,
     assert refused, "a forbidden class reached the payload and the scan called it clean"
     assert any(code in finding.code for finding in refused), [f.code for f in refused]
     assert not issue.draft_path(root).exists()
-    assert calls and calls[-1][0] == acceptance_privacy.GITLEAKS_ARGV, "the scanner was skipped"
+    assert calls
+    assert calls[-1][0] == acceptance_privacy.GITLEAKS_ARGV, "the scanner was skipped"
 
 
 def test_a_scanner_that_cannot_answer_refuses_rather_than_passing(tmp_path, monkeypatch):
@@ -301,7 +302,8 @@ def test_submit_without_the_typed_confirmation_sends_nothing(tmp_path, monkeypat
     drafted = json.loads(issue.draft_path(root).read_text(encoding="utf-8"))
     assert issue.confirmation(drafted)[:20] in asked[0]
     assert issue.digest(drafted)[:16] in asked[0]
-    assert drafted["kind"] == "bug" and drafted["title"] == CLEAN["title"]
+    assert drafted["kind"] == "bug"
+    assert drafted["title"] == CLEAN["title"]
 
 
 def test_a_confirmed_submit_stops_at_the_destination_that_does_not_exist(

@@ -1285,7 +1285,8 @@ def test_decide_madr_creation_is_exclusive_and_cleans_partial_writes(
     assert result.outcome == "INCOMPLETE"
     output = capsys.readouterr().out
     collided = collision / "docs" / "adr" / "0001-concurrent-decision.md"
-    assert "INCOMPLETE" in output and "MADR_WRITE_FAILED" in output
+    assert "INCOMPLETE" in output
+    assert "MADR_WRITE_FAILED" in output
     assert "Nothing was written" not in output and "remains" in output
     assert collided.read_bytes() == colliding_bytes
 
@@ -1434,7 +1435,8 @@ def test_decide_madr_creation_stays_anchored_when_home_is_swapped(
     assert type(result) is outcome.Result
     assert result.outcome == "INCOMPLETE"
     output = capsys.readouterr().out
-    assert exchanged and "INCOMPLETE" in output
+    assert exchanged
+    assert "INCOMPLETE" in output
     assert "MADR_HOME_INVALID" in output and "remains" in output
     assert list(outside.iterdir()) == []
     held = root / ("docs-held/adr" if swapped == "docs" else "docs/adr-held")
