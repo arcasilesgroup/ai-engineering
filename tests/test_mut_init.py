@@ -116,7 +116,7 @@ def test_out_ends_every_line_and_an_empty_call_prints_only_the_newline(capsys):
 
 def test_the_banner_stays_out_of_logs_and_ci_transcripts(capsys):
     """Catches the banner being printed when stderr is a pipe rather than a terminal."""
-    init.banner()
+    init.ui.banner()
     assert capsys.readouterr().err == ""
 
 
@@ -127,7 +127,7 @@ def test_the_banner_names_the_product_and_this_version_on_a_terminal(monkeypatch
     monkeypatch.delenv("NO_COLOR", raising=False)
     monkeypatch.setenv("FORCE_COLOR", "1")
     init.ui.reset()
-    init.banner()
+    init.ui.banner()
     written = capsys.readouterr().err
     assert "e n g i n e e r i n g" in written
     assert f"v{__version__} · AI Governance Framework" in written

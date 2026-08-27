@@ -179,18 +179,18 @@ version = "{version}"
 loop_window = 6
 loop_repeats = 3
 loop_failures = 5
-design_budget = 3
 
 [observability]
 # Where a person looks. Leave endpoint empty and only the local record is written.
 provider = ""
 endpoint = ""
 signals = []
-encoding = "json"
 auth_header = ""
 auth_env = ""
 # `redact` is gone: the exporter always redacts, and there was never a second thing to
 # choose. It used to accept "none", which sent every unlisted field verbatim.
+# `design_budget` and `encoding` were keys with no reader anywhere in the tree and are
+# gone with this file's next shipped diff — a knob nobody turns is a claim nobody checks.
 """
 
 AI_GITIGNORE = """*

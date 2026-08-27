@@ -90,12 +90,6 @@ def _incomplete(problem: tuple[str, str]) -> intent.Validation:
     return intent.Validation("INCOMPLETE", *problem)
 
 
-def _canonical_json(value: Any) -> bytes:
-    return json.dumps(
-        value, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-    ).encode()
-
-
 class _Schema(intent._Schema):
     _KEYWORDS = intent._Schema._KEYWORDS | {
         "anyOf",
@@ -134,7 +128,7 @@ def _load_schema() -> tuple[dict[str, Any], _Schema]:
             raise ValueError("schema is not an object")
         import hashlib
 
-        if hashlib.sha256(_canonical_json(schema)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
+        if hashlib.sha256(intent.canonical_json(schema)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
             raise ValueError("MADR v1 policy differs from its approved contract")
         structural = _Schema(schema)
     except (OSError, RecursionError, TypeError, ValueError, re.error, intent._UnsupportedSchema):

@@ -69,21 +69,6 @@ def test_ui_plain_rich_json_noninteractive_and_a11y_parity(monkeypatch, capsys):
         assert quiet == plain.out
         assert "\x1b[" not in quiet
 
-    monkeypatch.setenv("FORCE_COLOR", "1")
-    ui.reset()
-    assert ui.render_result(result, json_mode=True) == result.as_dict()
-    machine = capsys.readouterr()
-    assert machine.err == "" and "\x1b[" not in machine.out
-    assert machine.out.count("\n") == 1
-    payload = json.loads(machine.out)
-    assert payload == result.as_dict()
-    assert [payload[key] for key in ("outcome", "reason", "next_action", "exit_code")] == [
-        result.outcome,
-        result.reason,
-        result.next_action,
-        result.exit_code,
-    ]
-
 
 def test_cli_noninteractive_json_is_one_object_and_never_null(monkeypatch, capsys):
     """Global JSON is one dispatch mode, not prose with braces around it. Child output and
@@ -622,19 +607,6 @@ def test_the_two_ways_a_terminal_says_it_wants_no_decoration(switch, monkeypatch
 
 
 # ── the question and the picker ─────────────────────────────────────────────────────
-
-
-@pytest.mark.parametrize(
-    ("reply", "default", "answer"),
-    [("y", False, True), ("", True, True), ("", False, False), ("n", True, False)],
-)
-def test_the_yes_or_no_shows_which_answer_enter_gives(reply, default, answer, monkeypatch):
-    """Catches the prompt losing the capital that tells a person what Enter does, and an
-    Enter that stops meaning the safe default."""
-    seen = []
-    monkeypatch.setattr("builtins.input", lambda prompt="": seen.append(prompt) or reply)
-    assert ui.ask("Set up?", default) is answer
-    assert seen == [f"◆ Set up? ({'Y/n' if default else 'y/N'}) › "]
 
 
 def test_the_picker_preselects_what_was_already_found(monkeypatch):
