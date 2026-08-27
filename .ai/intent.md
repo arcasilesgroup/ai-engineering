@@ -35,8 +35,8 @@
   "schema_version": "1",
   "solution_intent": {
     "current_facts": [
-      "Spec 010's P0 wave landed; 035-038 record the reference-adoption block (035 superseded by 036; 037 the P0 roadmap rows: model tiers, step router, validated intake, 16-point roadmap; 038 the accessibility floor in the design gateway).",
-      "The gate runs 2365 passed with only the four inherited test_madr.py failures (ADR 0025); the audit chain carries 22 broken links that keep ai-eng audit verify FAIL until a person at a keyboard accounts for them."
+      "The reference-adoption block and the writing surfaces are shipped: 035 superseded by 036, 037 (model tiers, router, intake), 038 (accessibility floor), 039-040 (writing discipline, ai-write).",
+      "The gate runs 2373 passed with the four inherited test_madr.py failures (ADR 0025); 22 audit broken links keep ai-eng audit verify FAIL until ai-eng audit account runs."
     ],
     "fixed_constraints": [
       "Guards fail closed; telemetry observes and never decides.",
