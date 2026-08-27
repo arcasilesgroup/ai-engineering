@@ -40,7 +40,9 @@ def test_trim_never_elides_a_failure_line():
 
 def test_trim_is_deterministic():
     text = _long_output(150)
-    assert trim.trim_output(text, max_lines=80) == trim.trim_output(text, max_lines=80)
+    first = trim.trim_output(text, max_lines=80)
+    second = trim.trim_output(text, max_lines=80)
+    assert first == second
 
 
 def test_short_output_is_untouched():

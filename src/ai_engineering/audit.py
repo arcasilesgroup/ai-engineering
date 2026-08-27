@@ -25,7 +25,7 @@ import subprocess
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from ai_engineering import accept, outcome, paths
 
@@ -452,9 +452,12 @@ def main(argv: list[str]) -> outcome.Result:
             parser.error("--revalidate requires --file and --trigger")
         from ai_engineering import revalidate
 
-        path = paths.repo_root() / args.file
+        relative = PurePosixPath(args.file)
+        if relative.is_absolute() or ".." in relative.parts:
+            parser.error("--file must be a repository-relative path")
+        path = paths.repo_root() / relative
         before = subprocess.run(
-            ["git", "-C", str(paths.repo_root()), "show", f"HEAD:{args.file}"],
+            ["git", "-C", str(paths.repo_root()), "show", f"HEAD:{relative}"],
             capture_output=True,
             text=True,
             check=False,
