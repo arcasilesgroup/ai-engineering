@@ -208,7 +208,7 @@ def test_a_block_that_cannot_be_read_is_undecidable_and_never_invisible():
     the exact shape of a false green. The message names the file, or whoever reads the
     refusal is told a record somewhere cannot be read and not which one."""
     body = "```yaml\n  broken\n```\n\ntext\n\n```yaml\nfinding: F-1\nexpires: 2030-01-01\n```\n"
-    with pytest.raises(ValueError, match="specs/001-a/spec.md cannot be read: indented line"):
+    with pytest.raises(ValueError, match=r"specs/001-a/spec.md cannot be read: indents a line with no key above"):
         text.yaml_blocks(body, "specs/001-a/spec.md")
     with pytest.raises(ValueError, match="^a record block cannot be read: "):
         text.yaml_blocks(body)  # called without a name, it still says what happened

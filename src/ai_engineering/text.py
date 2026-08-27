@@ -18,9 +18,13 @@ from pathlib import Path
 KEY = re.compile(r"^([a-zA-Z][\w.-]*):\s*(.*)$")
 
 
-def flat_yaml(text: str) -> dict:
+def flat_yaml(text: str, *, strict: bool = False) -> dict:
     """Flat mappings, one level, with folded scalars. Anything else raises, because the
-    formats this reads are ones we defined and a surprise in them is a defect."""
+    formats this reads are ones we defined and a surprise in them is a defect.
+
+    `strict` adds the acceptance recognizer's refusals: a container (`-`, `?`, `[`, `{`)
+    where a value belongs, and a repeated key. The frozen acceptance blocks are parsed
+    with the same loop the record reads with, so the two cannot drift (spec 044)."""
     data: dict[str, str] = {}
     key = None
     for raw in text.splitlines():
@@ -28,13 +32,19 @@ def flat_yaml(text: str) -> dict:
             continue
         if raw.startswith((" ", "\t")):
             if key is None:
-                raise ValueError(f"indented line with no key above it: {raw.strip()!r}")
+                raise ValueError(f"indents a line with no key above: {raw.strip()!r}")
+            if strict and raw.lstrip().startswith(("-", "?")):
+                raise ValueError(f"holds a container where a value: {raw.strip()!r}")
             data[key] = (data[key] + " " + raw.strip()).strip()
             continue
         found = KEY.match(raw)
         if not found:
-            raise ValueError(f"not a key: {raw!r}")
+            raise ValueError(f"holds a line that is not a key: {raw!r}")
         key, value = found.group(1), found.group(2).strip()
+        if strict and key in data:
+            raise ValueError(f"repeats the key {key}")
+        if strict and value.startswith(("[", "{")):
+            raise ValueError(f"holds a container where a value: {raw.strip()!r}")
         data[key] = "" if value in (">", ">-", "|", "|-") else value.strip("\"'")
     return data
 

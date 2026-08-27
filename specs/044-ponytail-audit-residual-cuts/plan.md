@@ -46,7 +46,7 @@ idiom. The critique after build reads the whole branch as one diff.
 
 ## Tasks
 
-1. [ ] <!--t:044a00000001--> **Family (a): delete the orphan layer** —
+1. [ ] **Family (a): delete the orphan layer** —
    **file** `src/ai_engineering/{constellation,decision_fw,decision_boundary,intake,
    trim,versions,lane_merge,loopgate,skillify,verify_cold,evidencing,answer_key}.py`
    (twelve modules) + test files importing any of them:
@@ -64,7 +64,7 @@ idiom. The critique after build reads the whole branch as one diff.
    `ModuleNotFoundError`; `test ! -f policy/module-status.toml` exits `0`; the named
    check suites are green.
 
-2. [ ] <!--t:044a00000008--> **Family (b): one digest-pinned policy loader** —
+2. [ ] **Family (b): one digest-pinned policy loader** —
    **file** `src/ai_engineering/` modules carrying `_EXPECTED*_DIGEST` readers
    (`acceptance.py`, `capability.py`, `evidence.py`, `madr.py`, `outcome.py`) + the
    shared home (new function beside `intent.canonical_json` in `intent.py` or a new
@@ -75,7 +75,7 @@ idiom. The critique after build reads the whole branch as one diff.
    all five suites green; refusal messages byte-identical on the fragments the
    mutation suite asserts.
 
-3. [ ] <!--t:044a00000002--> **Family (b): acceptance._parse_legacy delegates to text.flat_yaml** —
+3. [ ] **Family (b): acceptance._parse_legacy delegates to text.flat_yaml** —
    **file** `src/ai_engineering/acceptance.py` (the shared home absorbs the container
    checks, duplicate-key refusal and finding/expires gate; error type as parameter per
    D-044-03) + `src/ai_engineering/text.py` if the refusals need new optional
@@ -85,7 +85,7 @@ idiom. The critique after build reads the whole branch as one diff.
    **done when**: `_parse_legacy`'s body is a thin call into `text.flat_yaml`; the
    refusal tests stay green unchanged.
 
-4. [ ] <!--t:044a00000003--> **Family (b): one ls-files reader, one git wrapper, cli_answers behind doctor** —
+4. [ ] **Family (b): one ls-files reader, one git wrapper, cli_answers behind doctor** —
    **file** `src/ai_engineering/{doctor,contract,evidence,madr}.py` (ls-files),
    `src/ai_engineering/{doctor,checkpoint,claim,madr,uninstall}.py` (git -C argv
    builder where the return contracts allow; per 043's ruling, runners with differing
@@ -97,7 +97,7 @@ idiom. The critique after build reads the whole branch as one diff.
    **done when**: one ls-files helper exists; `doctor._run_cli` is a two-line wrapper;
    the five suites green.
 
-5. [ ] <!--t:044a00000004--> **Family (c): delete zero-caller dead weight, fold the one-caller relics** —
+5. [ ] **Family (c): delete zero-caller dead weight, fold the one-caller relics** —
    **file** `src/ai_engineering/spec.py` (`self_contained`+`_LEAKS` die with
    `tests/test_spec_containment.py`; `_document_relations` inlines at its one use),
    `src/ai_engineering/model_router.py` (`bail_out` + its test),
@@ -115,7 +115,7 @@ idiom. The critique after build reads the whole branch as one diff.
    **done when**: each named symbol greps zero in src/; the suites stay green; the
    Windows backend untouched.
 
-6. [ ] <!--t:044a00000005--> **Family (d): kill the `noqa: E402` idiom in test modules** —
+6. [ ] **Family (d): kill the `noqa: E402` idiom in test modules** —
    **file** the 15 surviving test modules carrying `sys.path.insert(ROOT/"src")` +
    `# noqa: E402` (pyproject `pythonpath = ["src","hooks","tests"]` already covers
    them) + `tests/evals/score.py` and `tests/test_evals_harness.py` only if their
@@ -126,7 +126,7 @@ idiom. The critique after build reads the whole branch as one diff.
    **rollback**: `git revert <commit>`.
    **done when**: the grep count is `0` and the spot suites are green.
 
-7. [ ] <!--t:044a00000006--> **Family (d): shared test fixtures and the schema reader** —
+7. [ ] **Family (d): shared test fixtures and the schema reader** —
    **file** `tests/conftest.py` (promote `home`/`machine`/`repo` fixtures),
    a shared `tests/schema_reader.py` for the six JSON-Schema-subset validators, the
    lifecycle-dict helper `activate_intent(root)`, `git_identity_env()` +
@@ -140,7 +140,7 @@ idiom. The critique after build reads the whole branch as one diff.
    four-site lifecycle literal is one helper, and `grep -rn "json.loads(json.dumps"
    tests/ --include="test_*.py" | wc -l` reads 0 in the files touched.
 
-8. [ ] <!--t:044a00000007--> **Block close: the gate over the whole branch** —
+8. [ ] **Block close: the gate over the whole branch** —
    `just check` at the head commit on this branch, output shown in full; the
    `test_one_home` expectation satisfied because this is the block-close run where the
    branch's multi-home history is the point (if the recipe refuses the branch shape,
