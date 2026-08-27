@@ -504,7 +504,7 @@ def test_replay_names_the_reason_the_error_or_the_verb_of_every_event(anchored):
         event["data"] = data
         event["hash"] = emit.digest(event)
     _write_chain(emit, events, anchored)
-    assert audit.replay(anchored, "") == [
+    assert audit._replay(audit.read(anchored), "") == [
         "  t1  allowed   a-hook           a reason",
         "  t2  allowed   a-hook           an error",
         "  t3  allowed   a-hook           a verb",

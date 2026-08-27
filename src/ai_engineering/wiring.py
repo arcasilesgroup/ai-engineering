@@ -706,7 +706,7 @@ def wire_git(root: Path) -> str:
     the three keys is written unless it did."""
 
     try:
-        proved = cli_answers()
+        proved = cli_answers("--version")
     except (OSError, subprocess.SubprocessError) as why:
         raise Unreadable(
             f"the CLI this install would record could not be executed: {why.__class__.__name__}"

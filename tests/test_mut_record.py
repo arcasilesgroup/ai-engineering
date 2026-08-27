@@ -470,7 +470,7 @@ def test_a_tab_continues_the_line_above_it():
 def test_a_stray_indented_line_says_what_is_wrong_with_it():
     """The parser is strict so a malformed block fails now rather than in front of a
     person six weeks later, and that only helps if the error names the line."""
-    with pytest.raises(ValueError, match="indented line with no key above it"):
+    with pytest.raises(ValueError, match="indents a line with no key above"):
         text.flat_yaml("  orphan\n")
 
 
