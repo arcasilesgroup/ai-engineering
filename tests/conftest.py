@@ -67,7 +67,7 @@ def answering_anchor(monkeypatch):
     monkeypatch.setattr(
         wiring,
         "cli_answers",
-        lambda: subprocess.CompletedProcess([], 0, f"ai-engineering {__version__}\n", ""),
+        lambda *a, **k: subprocess.CompletedProcess([], 0, f"ai-engineering {__version__}\n", ""),
     )
 
 

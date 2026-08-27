@@ -10,10 +10,9 @@ per-surface rewrite layer, which is the machinery this product exists to delete.
 from __future__ import annotations
 
 import re
-import subprocess
 from pathlib import Path
 
-from ai_engineering import text
+from ai_engineering import paths, text
 
 SPEC_FIELDS = {"name", "description", "license", "compatibility", "allowed-tools", "version"}
 SKILL_FILE = "SKILL.md"
@@ -580,9 +579,7 @@ def _appendix_problems(folder: Path, name: str) -> list[str]:
 
 
 def tracked(root: Path) -> list[str]:
-    names = subprocess.run(
-        ["git", "-C", str(root), "ls-files"], capture_output=True, text=True, timeout=30
-    ).stdout.split()
+    names = paths.git_lines(root)
     if not names:
         raise ValueError(f"git listed no files under {root}, so this counted zero lines")
     return names

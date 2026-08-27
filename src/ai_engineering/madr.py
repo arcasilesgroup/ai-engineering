@@ -376,15 +376,11 @@ def _root(repository: Path) -> Path:
 def _worktree_files(root: Path) -> dict[str, bytes]:
     files: dict[str, bytes] = {}
     try:
-        visible = _git(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z")
-        ignored = _git(root, "ls-files", "--others", "--ignored", "--exclude-standard", "-z")
-        visible_paths = set(visible.rstrip(b"\0").split(b"\0")) if visible else set()
-        ignored_paths = set(ignored.rstrip(b"\0").split(b"\0")) if ignored else set()
-        for raw_path in sorted(visible_paths | ignored_paths):
-            try:
-                relative = raw_path.decode("utf-8")
-            except UnicodeDecodeError as error:
-                raise _Problem(UNREADABLE) from error
+        visible = paths.git_lines(root, "--cached", "--others", "--exclude-standard")
+        ignored = paths.git_lines(root, "--others", "--ignored", "--exclude-standard")
+        visible_paths = set(visible)
+        ignored_paths = set(ignored)
+        for relative in sorted(visible_paths | ignored_paths):
             pure = PurePosixPath(relative)
             if pure.is_absolute() or ".." in pure.parts or pure.as_posix() != relative:
                 raise _Problem(UNREADABLE)
@@ -406,7 +402,7 @@ def _worktree_files(root: Path) -> dict[str, bytes]:
                 exact_candidate = pure.parent.as_posix() == ADR_HOME or (
                     len(pure.parts) == 3 and pure.parts[0] == "specs" and pure.name == SPEC_MD
                 )
-                if raw_path in ignored_paths and not exact_candidate:
+                if relative in ignored_paths and not exact_candidate:
                     with path.open("rb") as stream:
                         prefix = stream.read(_DISCOVERY_LIMIT + 1)
                     beginning = prefix.removeprefix(b"\xef\xbb\xbf")

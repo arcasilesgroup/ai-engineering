@@ -499,7 +499,6 @@ def skill_sequence() -> dict:
     return declared
 
 
-
 def next_stage(name: str) -> str:
     """The stage that follows `name` in the cycle, in words a person reads.
 
@@ -661,10 +660,10 @@ def prior_hooks_path(root: Path) -> str:
     ).stdout.strip()
 
 
-def cli_answers() -> subprocess.CompletedProcess[str]:
-    """Ask this interpreter whether it can run the product, and hand back what it said.
+def cli_answers(*arguments: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    """Ask this interpreter's own CLI a question, and hand back what it said.
 
-    It was called `anchor_answers` and never checked an anchor: it runs `--version`.
+    It was called `anchor_answers` and never checked an anchor: it ran `--version`.
     Specification 022 deleted the anchor and the name went with it, in one pass, because
     `tests/conftest.py` captures this function at import — so a half-done rename reds the
     whole suite during collection rather than in one test.
@@ -676,15 +675,17 @@ def cli_answers() -> subprocess.CompletedProcess[str]:
     canonical homes down with it, so the mutation gate could not collect a baseline at all.
 
     `-m` puts the working directory on `sys.path`, so without `PYTHONSAFEPATH` the module
-    that answers is whichever `ai_engineering/` the installer happened to be standing in.
-    A review planted one and watched it satisfy this check."""
+    that answers is whichever `ai_engineering/` the caller happened to be standing in.
+    A review planted one and watched it satisfy this check. Spec 044: `doctor` shares the
+    probe, passing its own arguments, so the two cannot drift."""
 
     return subprocess.run(
-        [sys.executable, "-m", "ai_engineering.cli", "--version"],
+        [sys.executable, "-m", "ai_engineering.cli", *arguments],
         capture_output=True,
         text=True,
         timeout=30,
         check=False,
+        cwd=str(cwd) if cwd is not None else None,
         env={**os.environ, "PYTHONSAFEPATH": "1"},
     )
 

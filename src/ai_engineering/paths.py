@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import stat
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -107,3 +108,24 @@ def read_bounded(path: Path, maximum: int, subject: str) -> bytes:
     finally:
         if descriptor >= 0:
             os.close(descriptor)
+
+
+def git_lines(root: Path, *flags: str) -> list[str]:
+    """`git -C root ls-files <flags>` as decoded names: the one reader under the four the
+    audit counted (doctor's inventory, contract's tracked set, evidence's listing, madr's
+    visible set). NUL-separated by request, so names with spaces survive. The caller owns
+    the failure vocabulary: OSError is raised raw and each caller wraps it as its own."""
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(root), "ls-files", *flags, "-z"],
+            capture_output=True,
+            timeout=60,
+            check=False,
+        )
+    except OSError:
+        raise
+    except subprocess.SubprocessError as error:
+        raise OSError(f"git ls-files {' '.join(flags)} failed: {error}") from error
+    if done.returncode:
+        raise OSError(f"git ls-files {' '.join(flags)} exited {done.returncode}")
+    return [name.decode("utf-8", "surrogateescape") for name in done.stdout.split(b"\0") if name]
