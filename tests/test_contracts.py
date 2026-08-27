@@ -1065,7 +1065,7 @@ def test_nothing_free_text_leaves_the_machine():
                 "data": {"reason": canary, "command": f"git push {canary}"},
             }
         ],
-        )
+    )
     assert canary not in json.dumps(body), "a free-text field left the machine unhashed"
 
 
