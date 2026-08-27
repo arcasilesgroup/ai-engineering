@@ -11,7 +11,6 @@ anchor_commits = true
 loop_window = 6
 loop_repeats = 3
 loop_failures = 5
-design_budget = 3
 
 [models]
 # Per-repository model tiers (spec 037). Any provider name fits; `default_tier` is used

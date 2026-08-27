@@ -202,14 +202,11 @@ def _guard_owned(row: dict) -> bool:
     target = wiring.expand(row["path"])
     if not os.path.lexists(target):
         return True
-    try:
-        info = target.lstat()
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-            return False
-    except OSError:
-        return False
     if row["how"] == "ts_opencode":
-        return target.read_text(encoding="utf-8") == wiring.opencode_source()
+        try:
+            return target.read_text(encoding="utf-8") == wiring.opencode_source()
+        except (OSError, UnicodeError, ValueError):
+            return False
     try:
         data = json.loads(target.read_text(encoding="utf-8"))
         return isinstance(data, dict) and _json_guard_owned(data, row["how"])

@@ -289,11 +289,9 @@ class _Schema:
             self.valid(instance, child, references) for child in schema["anyOf"]
         ):
             return False
-        if (
-            isinstance(instance, int)
-            and not isinstance(instance, bool)
-            and (instance < schema.get("minimum", instance))
-        ):
+        if isinstance(instance, int) and (instance < schema.get("minimum", instance)):
+            # bool is an int in Python; evidence's original check counted it, so a
+            # bool against `minimum` fails here exactly as it did before the merge.
             return False
         if "format" in schema and not _iso_value(instance, schema["format"]):
             return False

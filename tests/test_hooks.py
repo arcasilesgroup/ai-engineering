@@ -1101,8 +1101,9 @@ def test_redaction_cannot_be_turned_off_by_configuration():
     a word nobody recognises is the strict one."""
 
     event = {"cls": "blocked", "data": {"reason": "plain"}}
-    for mode in ("none", "off", "strict", "", "anything at all"):
-        assert _otlp.redact(event)["data"]["reason"] != "plain", mode
+    # There is no mode parameter any more — the signature itself is the proof the escape
+    # hatch is gone. One call asserts the behaviour; there is nothing left to loop.
+    assert _otlp.redact(event)["data"]["reason"] != "plain"
 
 
 def test_an_event_carries_its_severity_and_its_five_attributes(repo):
