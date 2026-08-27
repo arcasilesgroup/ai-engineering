@@ -207,10 +207,10 @@ def schema() -> dict[str, Any]:
     """The one canonical contract, read from its file so this code cannot drift from it,
     and refused when its bytes are not the bytes this release was built against."""
 
-    from ai_engineering import capability
+    from ai_engineering import intent
 
     loaded = json.loads(paths.policy("risk-acceptance-v1.schema.json").read_text(encoding="utf-8"))
-    if sha256(capability._canonical_json(loaded)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
+    if sha256(intent.canonical_json(loaded)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
         raise Refusal(
             "ACCEPTANCE_CONTRACT_UNRECOGNISED",
             "the risk-acceptance contract is not the one this release was built against",

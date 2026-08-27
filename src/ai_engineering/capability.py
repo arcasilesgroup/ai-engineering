@@ -8,10 +8,7 @@ INCOMPLETE until a later installed executor can bind the decision to the operati
 
 from __future__ import annotations
 
-import json
-import os
 import re
-import stat
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -71,11 +68,11 @@ class _Problem(ValueError):
 
 class _Schema(intent._Schema):
     _KEYWORDS = intent._Schema._KEYWORDS | {
-        "anyOf",
         "x-capability-policy",
         "x-mode-policy",
     }
-    _SCHEMA_LISTS = intent._Schema._SCHEMA_LISTS | {"anyOf"}
+    # The base refuses `boolean` on purpose — a type name whose check is not written is a
+    # rule nobody applies. This policy needs it, so the check lives here where it is used.
     _TYPES = intent._Schema._TYPES | {"boolean"}
 
     @staticmethod
@@ -83,19 +80,6 @@ class _Schema(intent._Schema):
         if expected == "boolean":
             return isinstance(instance, bool)
         return intent._Schema._matches_type(instance, expected)
-
-    def valid(
-        self,
-        instance: Any,
-        schema: dict[str, Any] | None = None,
-        references: tuple[str, ...] = (),
-    ) -> bool:
-        active = self.root if schema is None else schema
-        if not super().valid(instance, active, references):
-            return False
-        return "anyOf" not in active or any(
-            self.valid(instance, child, references) for child in active["anyOf"]
-        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,58 +113,19 @@ class Action:
         return cls("secret", secret=secret)
 
 
-def _canonical_json(value: Any) -> bytes:
-    return json.dumps(
-        value, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-    ).encode()
-
-
-def _read(path: Path, problem: tuple[str, str]) -> bytes:
-    descriptor = -1
-    close_failed = False
+def _bounded_read(path: Path, problem: tuple[str, str], subject: str) -> bytes:
     try:
-        before = path.lstat()
-        if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
-            raise OSError("policy path is not a regular file")
-        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_BINARY", 0)
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        descriptor = os.open(path, flags)
-        opened = os.fstat(descriptor)
-        identity = (opened.st_dev, opened.st_ino)
-        if not stat.S_ISREG(opened.st_mode) or identity != (before.st_dev, before.st_ino):
-            raise OSError("policy identity changed while opening")
-        chunks: list[bytes] = []
-        remaining = _MAX_POLICY_BYTES + 1
-        while remaining:
-            chunk = os.read(descriptor, min(65_536, remaining))
-            if not chunk:
-                break
-            chunks.append(chunk)
-            remaining -= len(chunk)
-        after = path.lstat()
-        if identity != (after.st_dev, after.st_ino):
-            raise OSError("policy identity changed while reading")
-        raw = b"".join(chunks)
+        return paths.read_bounded(path, _MAX_POLICY_BYTES, subject)
     except OSError as error:
         raise _Problem(problem) from error
-    finally:
-        if descriptor >= 0:
-            try:
-                os.close(descriptor)
-            except OSError:
-                close_failed = True
-    if close_failed or len(raw) > _MAX_POLICY_BYTES:
-        raise _Problem(problem)
-    return raw
 
 
 def _load_schema() -> tuple[dict[str, Any], _Schema]:
     try:
-        schema = intent._json(_read(SCHEMA_PATH, SCHEMA_UNSUPPORTED))
+        schema = intent._json(_bounded_read(SCHEMA_PATH, SCHEMA_UNSUPPORTED, "capability policy"))
         if not isinstance(schema, dict):
             raise ValueError("schema is not an object")
-        if sha256(_canonical_json(schema)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
+        if sha256(intent.canonical_json(schema)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
             raise ValueError("capability policy differs from its approved contract")
         structural = _Schema(schema)
     except _Problem:
@@ -193,7 +138,7 @@ def _load_schema() -> tuple[dict[str, Any], _Schema]:
 def _load_manifest(source: Mapping[str, Any] | Path | None) -> dict[str, Any]:
     if isinstance(source, Mapping):
         try:
-            materialized = intent._json(_canonical_json(dict(source)))
+            materialized = intent._json(intent.canonical_json(dict(source)))
         except (RecursionError, TypeError, ValueError):
             raise _Problem(MANIFEST_INVALID) from None
         if not isinstance(materialized, dict):
@@ -203,7 +148,9 @@ def _load_manifest(source: Mapping[str, Any] | Path | None) -> dict[str, Any]:
     if not isinstance(path, Path):
         raise _Problem(MANIFEST_INVALID)
     try:
-        value = tomllib.loads(_read(path, MANIFEST_UNREADABLE).decode("utf-8"))
+        value = tomllib.loads(
+            _bounded_read(path, MANIFEST_UNREADABLE, "capability manifest").decode("utf-8")
+        )
     except _Problem:
         raise
     except (UnicodeDecodeError, tomllib.TOMLDecodeError):
@@ -228,10 +175,10 @@ def _semantic_valid(manifest: dict[str, Any], schema: dict[str, Any]) -> bool:
         if len(mode_ids) != len(set(mode_ids)):
             return False
         permissions = [
-            _canonical_json(
+            intent.canonical_json(
                 {
                     field: (
-                        sorted(mode[field], key=_canonical_json)
+                        sorted(mode[field], key=intent.canonical_json)
                         if field in _DIMENSIONS
                         else mode[field]
                     )
