@@ -376,8 +376,20 @@ def _root(repository: Path) -> Path:
 def _worktree_files(root: Path) -> dict[str, bytes]:
     files: dict[str, bytes] = {}
     try:
-        visible = paths.git_lines(root, "--cached", "--others", "--exclude-standard")
-        ignored = paths.git_lines(root, "--others", "--ignored", "--exclude-standard")
+        visible = [
+            name.decode("utf-8", "surrogateescape")
+            for name in _git(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z")
+            .rstrip(b"\0")
+            .split(b"\0")
+            if name
+        ]
+        ignored = [
+            name.decode("utf-8", "surrogateescape")
+            for name in _git(root, "ls-files", "--others", "--ignored", "--exclude-standard", "-z")
+            .rstrip(b"\0")
+            .split(b"\0")
+            if name
+        ]
         visible_paths = set(visible)
         ignored_paths = set(ignored)
         for relative in sorted(visible_paths | ignored_paths):

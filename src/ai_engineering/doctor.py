@@ -173,7 +173,7 @@ def git(root: Path, *args: str) -> str:
 def tracked_files(root: Path) -> list[str]:
     """The tracked repository inventory, or no answer rather than an empty inventory."""
     try:
-        return paths.git_lines(root, "--cached")
+        return paths.git_lines(root, "--cached", timeout=10)
     except OSError as error:
         raise Undecidable(INVENTORY_FAIL) from error
 
