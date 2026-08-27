@@ -57,7 +57,9 @@ def test_a_png_loses_its_text_and_exif_and_keeps_being_a_png():
 
     assert clean.startswith(imagery.PNG), "the stripped file is no longer a PNG"
     assert b"somebody" not in clean
-    assert b"tEXt" not in clean and b"eXIf" not in clean and b"tIME" not in clean
+    assert b"tEXt" not in clean
+    assert b"eXIf" not in clean
+    assert b"tIME" not in clean
     assert b"IHDR" in clean and b"IDAT" in clean and b"IEND" in clean
     assert imagery.findings(clean) == []
 
@@ -231,7 +233,8 @@ def test_every_shape_of_executable_svg_is_named_by_the_thing_it_is():
     ]
 
     clean = imagery.stripped(carried)
-    assert b"foreignObject" not in clean and b"onCLICK" not in clean
+    assert b"foreignObject" not in clean
+    assert b"onCLICK" not in clean
     assert b"rect" in clean, "the element was removed with its handler"
 
 

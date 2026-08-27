@@ -464,7 +464,9 @@ def test_every_field_of_a_recorded_decision_is_what_happened(tmp_path):
 
     # The timestamp is a real instant to the second, in UTC, with the Z spelling the chain
     # uses. A record whose time is a local clock cannot be compared with anything.
-    assert len(allowed["ts"]) == 20 and allowed["ts"][10] == "T" and allowed["ts"].endswith("Z")
+    assert len(allowed["ts"]) == 20
+    assert allowed["ts"][10] == "T"
+    assert allowed["ts"].endswith("Z")
 
     # And with no corpus configured, nothing is written and nothing raises: the corpus is
     # optional and the decision is not.

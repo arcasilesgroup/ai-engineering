@@ -99,7 +99,10 @@ def test_every_assertion_has_a_unique_number_a_family_and_a_sentence():
     # ceiling, and the test plane owns that assertion now.
     assert sorted(numbers) == [n for n in range(1, 28) if n != 5]
     for number, family, title, in_ci, fn in doctor.CHECKS:
-        assert family and title and callable(fn) and isinstance(in_ci, bool), number
+        assert family
+        assert title
+        assert callable(fn)
+        assert isinstance(in_ci, bool), number
 
 
 def test_each_family_is_printed_once_and_in_the_declared_order(home, repo, monkeypatch, capsys):
@@ -269,7 +272,8 @@ def test_the_two_readers_of_the_chain_reach_the_same_verdict(
     problems = audit.verify(repo)
     assert "INTENT_HOME_MISSING" in problems[-1]
     chain_problems = " ".join(problems[:-1])
-    assert (audit_says in chain_problems) and bool(chain_problems) == bool(audit_says)
+    assert audit_says in chain_problems
+    assert bool(chain_problems) == bool(audit_says)
 
 
 def test_a_half_written_last_line_is_reported_by_both_readers_of_the_chain(home, repo):
@@ -322,7 +326,8 @@ def test_doctor_cannot_call_a_chain_intact_that_the_verifier_calls_broken(home, 
     path.write_text("".join(json.dumps(row) + "\n" for row in rows))
 
     said = doctor.chain_intact(repo)
-    assert said and "link 2" in said, f"doctor called a sealed-as-edited chain intact: {said!r}"
+    assert said
+    assert "link 2" in said, f"doctor called a sealed-as-edited chain intact: {said!r}"
     assert [w for w in audit.verify(repo) if "link 2" in w], "the verifier agrees"
 
 
@@ -1057,7 +1062,8 @@ def test_which_cures_fix_may_run_is_decided_by_the_verb_and_survives_a_short_one
     verb is ever looked up. A cure of one word must answer no rather than index past the end
     of it, and a cure of exactly two words — the shortest real one — must still answer yes,
     or `--fix` silently stops repairing the thing it says it repairs."""
-    assert doctor.unattended("ai-eng init") and doctor.unattended(doctor.FIXES[2])
+    assert doctor.unattended("ai-eng init")
+    assert doctor.unattended(doctor.FIXES[2])
     assert not doctor.unattended("ai-eng update")
     assert not doctor.unattended("init") and not doctor.unattended("")
 
@@ -1621,7 +1627,8 @@ def test_a_router_somebody_edited_or_removed_is_reported_and_never_repaired(
     said = doctor.routers_intact(repo)
 
     assert isinstance(said, tuple)
-    assert "1 removed" in said[0] and "1 edited" in said[0]
+    assert "1 removed" in said[0]
+    assert "1 edited" in said[0]
     assert str(len(written)) in said[0]
 
 
@@ -1662,7 +1669,8 @@ def test_a_receipt_pointing_somewhere_else_is_reported_and_never_opened(
 
     said = doctor.routers_intact(repo)
     assert isinstance(said, tuple)
-    assert "outside" in said[0] and "id_rsa" in said[0]
+    assert "outside" in said[0]
+    assert "id_rsa" in said[0]
 
     # And a link wearing a router's name is refused for the same reason.
     link = commands / "ai-linked.md"
@@ -1715,7 +1723,8 @@ def test_a_second_handler_for_a_declared_capability_is_named_and_a_clean_reposit
     git(repo, "add", "-A")
     got, detail = verdict(doctor.one_handler_each, repo)
     assert got == "fail"
-    assert "ai-spec" in detail and ".claude/skills/ai-spec/SKILL.md" in detail
+    assert "ai-spec" in detail
+    assert ".claude/skills/ai-spec/SKILL.md" in detail
     assert "search order" in detail
 
     # Found by the name it calls itself, not by the directory it sits in: a directory renamed

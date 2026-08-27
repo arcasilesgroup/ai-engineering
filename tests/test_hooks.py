@@ -81,7 +81,8 @@ def test_a_guard_that_crashes_denies_rather_than_waving_the_call_through(repo, c
     assert stop.value.code == 2
     assert "BLOCKED" in capsys.readouterr().err
     recorded = links()[-1]
-    assert recorded["cls"] == "error" and recorded["data"]["outcome"] == "blocked"
+    assert recorded["cls"] == "error"
+    assert recorded["data"]["outcome"] == "blocked"
 
 
 @pytest.mark.parametrize("blow_up", [ValueError, TypeError, OSError, AttributeError])
@@ -585,7 +586,8 @@ def test_an_edited_buffer_is_sealed_as_the_error_that_says_it_was_edited(repo):
     assert "arrived edited" in " ".join(audit.verify(repo))
 
     key = _emit.home() / "buffer.key"
-    assert repo not in key.parents and (key.stat().st_mode & 0o077) == 0
+    assert repo not in key.parents
+    assert (key.stat().st_mode & 0o077) == 0
     assert _emit.stamp(sealed) != _emit.digest(sealed)  # a mark anything can make is a checksum
 
 
@@ -1675,7 +1677,8 @@ def test_a_structured_denial_that_cannot_be_written_leaves_as_a_denial():
 
     # And with somewhere to write, both protocols are exactly what they were.
     kept = leaving(True, closed=False)
-    assert kept.returncode == 0 and '"permissionDecision": "deny"' in kept.stdout
+    assert kept.returncode == 0
+    assert '"permissionDecision": "deny"' in kept.stdout
     plain = leaving(False, closed=False)
     assert plain.returncode == 2 and '"permission": "deny"' in plain.stdout
 

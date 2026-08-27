@@ -292,7 +292,8 @@ def test_a_continued_value_is_joined_with_one_space_however_it_was_indented():
 
     read = _read("finding: a finding\n    that continues\n\there\nexpires: 2026-11-14\n")
 
-    assert read is not None and read["finding"] == "a finding that continues here"
+    assert read is not None
+    assert read["finding"] == "a finding that continues here"
 
 
 def test_an_indented_line_before_any_key_is_refused_rather_than_dropped():
@@ -423,7 +424,9 @@ def test_the_optional_fields_are_only_checked_when_they_are_there():
 
     record = _normal()
 
-    assert record["accepted"] == "" and record["id"] == "" and record["evidence"] == ""
+    assert record["accepted"] == ""
+    assert record["id"] == ""
+    assert record["evidence"] == ""
     assert _normal(evidence="specs/010-x/spec.md@sha256:" + "a" * 64)["evidence"]
 
 

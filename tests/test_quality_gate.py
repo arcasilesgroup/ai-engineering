@@ -860,7 +860,8 @@ def test_every_recipe_the_gate_runs_is_named_here_with_its_control_or_its_reason
         "there, and the case that executes them names exactly these two"
     )
     reasons = [name for name in ordered if name == "build"]
-    assert len(reasons) == 1 and len(ordered) - len(reasons) >= 12, (
+    assert len(reasons) == 1
+    assert len(ordered) - len(reasons) >= 12, (
         f"{len(reasons)} of {len(ordered)} recipes are held by a reason alone. That is "
         "allowed and it is the number worth watching: a gate whose recipes are mostly "
         "argued is a gate mostly nobody has seen refuse"

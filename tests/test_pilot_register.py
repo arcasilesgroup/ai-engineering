@@ -227,7 +227,9 @@ def test_a_requirement_nobody_will_gate_says_what_would_change_that():
 
     for row in rows:
         assert str(row["id"]).startswith("EP-"), row
-        assert row["asks"].strip() and row["reason"].strip() and row["reopen_when"].strip()
+        assert row["asks"].strip()
+        assert row["reason"].strip()
+        assert row["reopen_when"].strip()
 
     # Each of the three fields is required, and the reader is shown refusing each absence.
     for missing in ("asks", "reason", "reopen_when"):

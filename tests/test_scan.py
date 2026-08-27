@@ -87,7 +87,8 @@ def test_a_crash_is_incomplete_and_not_a_finding(tmp_path):
     fact = scan.run(lane, tmp_path, ["src/thing.py"])
 
     assert fact.status == "INCOMPLETE"
-    assert "LANE_CRASHED" in fact.detail and "97" in fact.detail
+    assert "LANE_CRASHED" in fact.detail
+    assert "97" in fact.detail
 
 
 def test_a_timeout_is_incomplete_and_the_lane_says_how_long_it_waited(tmp_path):
@@ -284,7 +285,8 @@ def test_the_dependency_answer_names_the_stacks_it_was_about(tmp_path, capsys):
     # And a repository with neither says so rather than printing nothing.
     bare = tmp_path / "bare"
     bare.mkdir()
-    assert scan.stacks(bare) == [] and scan.images(bare) == []
+    assert scan.stacks(bare) == []
+    assert scan.images(bare) == []
 
 
 # EP-043 and the standing overclaim beside it. `ai-security` defines a finding as seven
@@ -528,7 +530,8 @@ def test_sarif_shaped_differently_yields_findings_or_none_and_never_a_traceback(
     lane = scan.Lane("odd", writer(tmp_path, body), sarif=("--out", "{}"))
     for finding in scan.report(lane, tmp_path, ["src/thing.py"]):
         assert finding.state == "INCOMPLETE", name
-        assert isinstance(finding.effect, str) and isinstance(finding.decided_by, str)
+        assert isinstance(finding.effect, str)
+        assert isinstance(finding.decided_by, str)
 
 
 def test_a_manifest_one_directory_down_is_covered_by_the_file_the_engine_read(tmp_path):
@@ -613,7 +616,8 @@ def test_the_gate_asks_the_cross_checks_and_does_not_only_declare_them(
     )
     assert scan.baseline(tmp_path) == 1
     printed = capsys.readouterr().out
-    assert "INCOMPLETE  second-opinion" in printed and "LANE_CRASHED" in printed
+    assert "INCOMPLETE  second-opinion" in printed
+    assert "LANE_CRASHED" in printed
 
 
 def only_the_report(monkeypatch):
@@ -1044,7 +1048,8 @@ def test_the_security_lane_prints_every_finding_a_failing_engine_gave_it(
     printed = capsys.readouterr().out
     assert "FAIL        semantic      it ran over 1 input(s) and found something" in printed
     assert "INCOMPLETE  semantic      a real hit" in printed
-    assert "decided by" in printed and "a.py:3" in printed
+    assert "decided by" in printed
+    assert "a.py:3" in printed
     assert "nobody has answered: boundary, attacker_controls, refutation, closed_by" in printed
 
 

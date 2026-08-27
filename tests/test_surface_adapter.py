@@ -388,7 +388,8 @@ def test_surface_proof_reports_three_states_and_invents_none(tmp_path, monkeypat
 
     # Unproven anywhere means unproven overall. One receipt does not make a surface proved.
     assert result.outcome == "INCOMPLETE"
-    assert "claude-code" in printed and "discovery" in printed
+    assert "claude-code" in printed
+    assert "discovery" in printed
     assert "7200s" in printed, "the age of the proof is printed beside it"
     for state in surface.STATES:
         assert state in printed, state
@@ -942,7 +943,8 @@ def test_an_adapter_past_its_first_version_carries_that_version_in_its_receipt_i
     said = surface.receipt_binds_version(
         {"adapter_version": "2", "proof": {"receipt_id": "claude-code.enforcement"}}
     )
-    assert "version 2" in said and "claude-code.enforcement" in said
+    assert "version 2" in said
+    assert "claude-code.enforcement" in said
     assert "still proves this one" in said
 
 

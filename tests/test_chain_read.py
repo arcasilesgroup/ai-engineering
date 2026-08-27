@@ -121,7 +121,8 @@ def test_a_line_repeating_a_json_key_is_ambiguous_and_the_link_says_so(chain):
     assert events[1]["_audit_kind"] == "INCOMPLETE"
     assert "CHAIN_AMBIGUOUS" in events[1]["_audit_problem"]
     assert "line 2" in events[1]["_audit_problem"]
-    assert events[0]["name"] == "first" and events[2]["name"] == "third"
+    assert events[0]["name"] == "first"
+    assert events[2]["name"] == "third"
 
 
 def test_a_line_that_is_not_one_json_object_is_reported_in_place(chain):

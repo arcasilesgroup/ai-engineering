@@ -21,7 +21,8 @@ def _reference() -> str:
 def test_reference_names_the_levers():
     text = _reference().casefold()
     assert "context pointer" in text
-    assert "context load" in text and "cognitive load" in text
+    assert "context load" in text
+    assert "cognitive load" in text
     assert "leading word" in text
     assert "prun" in text
     assert "one idea" in text  # STE100: one idea per sentence

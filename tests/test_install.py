@@ -379,7 +379,8 @@ def test_uninstall_gives_back_the_hooks_path_the_repository_had_before_us(
     assert git_get(repo, "core.hooksPath") == str(paths.git_hooks())
     monkeypatch.chdir(repo)
     result = uninstall.main(["--project", "-y"])
-    assert type(result) is outcome.Result and result.outcome == "PASS"
+    assert type(result) is outcome.Result
+    assert result.outcome == "PASS"
     assert git_get(repo, "core.hooksPath") == "--their/hooks"
     assert git_get(repo, "ai.managed") == ""
 

@@ -32,7 +32,9 @@ def test_the_hand_offs_are_read_from_the_record_and_not_written_here():
 
     assert len(found) >= 3, f"{found} — three blocks have closed and each names both ends"
     for name, base, head, looked in found:
-        assert name and base and head, (name, base, head)
+        assert name
+        assert base
+        assert head, (name, base, head)
         assert looked, f"Block {name}'s hand-off names no reviewer"
 
 
@@ -81,4 +83,5 @@ def test_the_words_for_nobody_having_looked_include_the_empty_cell():
     with the row left to fill in. It must read as nobody, not as an answer nobody parsed."""
 
     assert "" in unreviewed.NOBODY
-    assert "none" in unreviewed.NOBODY and "pending" in unreviewed.NOBODY
+    assert "none" in unreviewed.NOBODY
+    assert "pending" in unreviewed.NOBODY

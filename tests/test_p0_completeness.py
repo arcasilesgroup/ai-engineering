@@ -261,4 +261,5 @@ def test_the_gate_checks_the_page_is_about_this_tree():
     assert "\nintent-page:\n" in recipe
     # And it is the module's own answer, not a second implementation of freshness.
     body = recipe.split("\nintent-page:\n", 1)[1].split("\n\n", 1)[0]
-    assert "solution_intent" in body and "--check" in body
+    assert "solution_intent" in body
+    assert "--check" in body

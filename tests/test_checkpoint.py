@@ -246,7 +246,8 @@ def test_a_failing_receipt_is_not_masked_by_a_passing_one_that_sorts_later(worki
     fact = checkpoint._executed(working)
 
     assert fact.status == "FAIL", fact
-    assert fact.detail and "adversarial-attacks" in fact.detail
+    assert fact.detail
+    assert "adversarial-attacks" in fact.detail
 
 
 def test_the_snapshot_the_checkpoint_is_taken_against_changes_what_it_sees(working):
@@ -271,7 +272,9 @@ def test_the_snapshot_the_checkpoint_is_taken_against_changes_what_it_sees(worki
     git(working, "commit", "-m", "feat: a commit this branch made")
     behind = git(working, "rev-parse", "HEAD~1").stdout.strip()
     head = git(working, "rev-parse", "HEAD").stdout.strip()
-    assert behind and head and behind != head
+    assert behind
+    assert head
+    assert behind != head
 
     # No snapshot: only what is staged right now, and nothing is.
     assert checkpoint.staged(working) == []
@@ -364,7 +367,8 @@ def test_a_receipt_taken_before_the_staged_change_is_incomplete(working):
     stage(working, "src/thing.py", "VALUE = 3\n")
     stale = checkpoint._executed(working)
     assert stale.status == "INCOMPLETE", stale
-    assert stale.cure and "quick" in stale.cure
+    assert stale.cure
+    assert "quick" in stale.cure
 
     # A digest receipt that is present and wrong outranks a fresh aged one that says PASS:
     # the aged one proves a run happened somewhere, and this one proves it was not here.

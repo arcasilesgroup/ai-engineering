@@ -117,7 +117,8 @@ def test_an_orchestrator_future_row_cites_the_orchestrator_spec():
                 spec_dir = next((ROOT / "specs").glob(f"{spec_id}-*"), None)
                 assert spec_dir is not None, f"{name}: cites spec {spec_id} which does not exist"
                 home = spec_dir / "spec.md"
-                assert home.is_file() and name in home.read_text(encoding="utf-8"), (
+                assert home.is_file()
+                assert name in home.read_text(encoding="utf-8"), (
                     f"{name}: spec {spec_id} never mentions it"
                 )
 

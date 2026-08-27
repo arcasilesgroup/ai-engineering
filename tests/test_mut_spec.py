@@ -160,7 +160,9 @@ def test_a_spec_whose_bytes_are_not_utf8_still_appears_in_the_listing(tmp_path):
     folder.mkdir(parents=True)
     (folder / "spec.md").write_bytes(b"---\nstatus: draft\n---\n\n# Caf\xe9 plan\n")
     (row,) = spec.listing(tmp_path, False)
-    assert row.split()[0] == "001-a" and " draft " in row and row.endswith("plan")
+    assert row.split()[0] == "001-a"
+    assert " draft " in row
+    assert row.endswith("plan")
 
 
 def test_a_spec_with_no_status_and_no_title_lists_under_its_own_folder_name(tmp_path):
@@ -197,7 +199,8 @@ def test_spec_new_records_the_work_item_named_on_the_flag_and_prefills_nothing(
     assert result.outcome == "PASS"
     assert capsys.readouterr().out == "  ✓ specs/001-a-thing/spec.md\n"
     body = (approved_repo / "specs" / "001-a-thing" / "spec.md").read_text()
-    assert "# A thing" in body and 'ref: "owner/repo#45"' in body
+    assert "# A thing" in body
+    assert 'ref: "owner/repo#45"' in body
     assert "TODO: what is true today" in body
 
 
@@ -212,7 +215,8 @@ def test_spec_show_prints_every_directory_that_matches_and_names_each_one(repo, 
     assert type(result) is outcome.Result
     assert result.outcome == "PASS"
     out = capsys.readouterr().out
-    assert "001-thing" in out and "002-other-thing" in out
+    assert "001-thing" in out
+    assert "002-other-thing" in out
     assert out.count("## Production-ready") == 2
     result = spec.main(["show", "001"])
     assert type(result) is outcome.Result
@@ -353,7 +357,8 @@ def test_decide_madr_writes_the_file_and_says_it_grants_no_authority(repo, capsy
     ]
     body = (repo / "docs" / "adr" / "0001-use-one-queue.md").read_text()
     assert "# 0001. Use one queue" in body
-    assert 'status: "proposed"' in body and 'spec: "001"' in body
+    assert 'status: "proposed"' in body
+    assert 'spec: "001"' in body
     assert 'supersedes: ""' in body and "authority_role:" not in body
 
 
@@ -490,10 +495,12 @@ def test_a_granted_bypass_is_one_file_one_event_and_says_who_took_it(home, monke
         "  ✓ granted. The next loop_guard block passes, once, and the record says why."
     )
     names = sorted(path.name for path in paths.home().iterdir())
-    assert "cache" in names and "CACHE" not in names
+    assert "cache" in names
+    assert "CACHE" not in names
     assert [path.name for path in (paths.home() / "cache").iterdir()] == ["bypass.json"]
     grant = json.loads((paths.home() / "cache" / "bypass.json").read_text())
-    assert grant["guard"] == "loop_guard" and grant["reason"] == "in a hurry"
+    assert grant["guard"] == "loop_guard"
+    assert grant["reason"] == "in a hurry"
     event = json.loads(home.chain_path(None).read_text().splitlines()[-1])
     assert event["name"] == "loop_guard" and event["cls"] == "bypassed"
     assert event["data"] == {"reason": "in a hurry", "granted": "by a person"}
@@ -587,7 +594,8 @@ def test_the_refusal_names_which_two_values_disagree():
     approval = {"approval_ref": "abc"}
 
     asleep = spec._why_not_authority("draft", "owner", "owner", transition, approval)
-    assert "'draft'" in asleep and "active" in asleep
+    assert "'draft'" in asleep
+    assert "active" in asleep
 
     mismatched = spec._why_not_authority(
         "active", "repository owner", "maintainer", transition, approval

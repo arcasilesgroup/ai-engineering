@@ -176,7 +176,8 @@ def test_a_row_that_changed_makes_the_page_stale(tmp_path):
 
     tree = solution_intent.read(ROOT)
     payload = solution_intent.digested(tree)
-    assert "blocked" in payload and "considered" in payload
+    assert "blocked" in payload
+    assert "considered" in payload
 
     assert tree.blocked, "this tree has unapproved drafts and BLOCKED verdicts"
     assert tree.considered >= len(tree.blocked)

@@ -131,7 +131,8 @@ def test_the_router_a_person_meets_names_the_phase_and_shows_an_example():
         assert f"# {skill.name} · {phase}" in body
         assert case in body
         # And still no second copy of the instructions: the router routes.
-        assert "$ARGUMENTS" in body and "## Steps" not in body
+        assert "$ARGUMENTS" in body
+        assert "## Steps" not in body
 
 
 def test_a_skill_with_no_declared_phase_says_so_rather_than_reading_as_one():

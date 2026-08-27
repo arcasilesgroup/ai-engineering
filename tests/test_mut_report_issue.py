@@ -70,7 +70,9 @@ def test_the_draft_carries_the_digest_of_what_was_built(tmp_path: Path, capsys):
     capsys.readouterr()
 
     digests = [fact.detail for fact in done.checks if fact.id == "digest"]
-    assert digests and len(digests[0]) == 64 and int(digests[0], 16) >= 0
+    assert digests
+    assert len(digests[0]) == 64
+    assert int(digests[0], 16) >= 0
 
 
 def test_a_finding_in_the_bytes_stops_the_report_and_leaves_no_file(tmp_path: Path, capsys):
@@ -213,7 +215,8 @@ def test_the_cure_tells_a_person_what_to_type_and_where(tmp_path, monkeypatch):
     done = report.submit(_payload(), tmp_path / "draft.json")
     cures = [fact.cure for fact in done.checks if fact.id == "consent"]
 
-    assert cures and "at a terminal" in cures[0]
+    assert cures
+    assert "at a terminal" in cures[0]
     assert issue.digest(_payload())[:16] in cures[0]
 
 
@@ -330,4 +333,5 @@ def test_rule_twelve_counts_a_reason_and_not_only_a_guard():
 
     assert counted == 2, "one guard, two reasons, two judgements"
     assert highest == 3, "blocked and bypassed are the same judgement resolving"
-    assert len(rows) == 1 and "3×" in rows[0]
+    assert len(rows) == 1
+    assert "3×" in rows[0]

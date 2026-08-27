@@ -88,7 +88,8 @@ def test_the_width_is_one_while_the_intent_says_one_writer(coordinated):
     assert result.outcome == "PASS"
     assert result.summary == "width: 1"
     assert ".ai/intent.md" in facts["one-writer"]
-    assert "work-alpha" in facts["wave"] and "work-beta" in facts["wave"]
+    assert "work-alpha" in facts["wave"]
+    assert "work-beta" in facts["wave"]
     assert "4" in facts["declared-width"]
     # Observations, never a verdict about the branch.
     assert {fact.status for fact in result.checks} == {"OBSERVED"}

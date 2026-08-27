@@ -122,7 +122,8 @@ def test_a_traceback_is_bounded_into_four_fields_unless_debug_is_asked_for():
 
     assert quiet.code == "UNEXPECTED_ERROR"
     assert quiet.retryable is False
-    assert quiet.cure and "--debug" in quiet.cure
+    assert quiet.cure
+    assert "--debug" in quiet.cure
     assert "RuntimeError" not in quiet.message
     assert "/Users/somebody" not in quiet.message
 

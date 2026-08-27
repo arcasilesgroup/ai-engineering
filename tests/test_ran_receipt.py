@@ -181,7 +181,8 @@ def test_the_cheap_recipe_records_only_after_the_suite_passes():
     assert len(body) == 2, f"the recipe is {len(body)} lines and the order below reads two"
     assert "pytest" in body[0], "the suite does not run first, so nothing is being recorded"
     assert "ran_receipt.py record" in body[1], "nothing records the pass"
-    assert "||" not in body[1] and body[1][:1] != "-", (
+    assert "||" not in body[1]
+    assert body[1][:1] != "-", (
         "the record line is written so it survives the line above failing, which makes the "
         "receipt a claim about a suite that did not pass"
     )
@@ -202,7 +203,8 @@ def test_the_digest_the_receipt_carries_comes_from_the_package(repository: Path)
     from ai_engineering import evidence
 
     spec = importlib.util.spec_from_file_location("ran_receipt_probe", SCRIPT)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     script = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(script)
 

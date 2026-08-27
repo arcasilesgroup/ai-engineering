@@ -60,7 +60,8 @@ SIGNED = [
 def completed(execution):
     assert type(execution) is outcome.Execution
     assert execution.result == outcome.result("PASS")
-    assert execution.changes and execution.changes[0].status == "APPLIED"
+    assert execution.changes
+    assert execution.changes[0].status == "APPLIED"
     return execution
 
 
@@ -398,7 +399,8 @@ def test_an_earlier_acceptance_of_the_same_finding_counts_as_the_first_renewal(
     assert renewal["renews_digest"].startswith("sha256:")
     # The record it renews is left exactly as it was published.
     original = next(record for record in published if record["renewals"] == 0)
-    assert original["id"] == "R-001-01" and original["renews"] == ""
+    assert original["id"] == "R-001-01"
+    assert original["renews"] == ""
 
 
 def test_the_spec_is_never_opened_for_write_whatever_it_contains(repo, capsys, monkeypatch):

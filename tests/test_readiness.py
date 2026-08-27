@@ -224,7 +224,8 @@ def test_adversarial_runner_records_denials_and_clean_control(tmp_path, monkeypa
     monkeypatch.setenv("AI_ENGINEERING_HOME", str(tmp_path / "home"))
     adversarial = _adversarial()
     caught, version = adversarial.probe(["git", "--version"])
-    assert caught and version.startswith("git version ")
+    assert caught
+    assert version.startswith("git version ")
     absent, nothing = adversarial.probe([str(tmp_path / "no-such-tool"), "--version"])
     assert (absent, nothing) == (False, "")
 

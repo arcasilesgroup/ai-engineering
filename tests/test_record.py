@@ -85,7 +85,8 @@ def _fixture_spec(root: Path, slug: str, ref: str = "") -> Path:
 def completed(execution):
     assert type(execution) is outcome.Execution
     assert execution.result == outcome.result("PASS")
-    assert execution.changes and execution.changes[0].status == "APPLIED"
+    assert execution.changes
+    assert execution.changes[0].status == "APPLIED"
     return execution
 
 
@@ -690,7 +691,8 @@ def test_proposing_a_supersession_preserves_the_old_madr_and_the_spec(tmp_path):
     assert second.name == "0002-use-two-queues.md"
     assert first.read_bytes() == first_before
     header = text.flat_yaml(second.read_text().split("---\n", 1)[1].split("---\n", 1)[0])
-    assert header["spec"] == "001" and header["supersedes"] == "0001"
+    assert header["spec"] == "001"
+    assert header["supersedes"] == "0001"
     assert header["status"] == "proposed" and header["date"] == TODAY
     assert target.read_bytes() == spec_before
     assert [row.split()[0] for row in decide.listing(tmp_path)] == [
@@ -1045,7 +1047,8 @@ def test_a_verb_that_blows_up_is_recorded_before_the_person_is_told(home, monkey
     monkeypatch.setattr(exception, "main", boom)
     assert cli.main(["exception"]) == 1
     printed = capsys.readouterr().err
-    assert "UNEXPECTED_ERROR" in printed and "Traceback" not in printed
+    assert "UNEXPECTED_ERROR" in printed
+    assert "Traceback" not in printed
     assert "RuntimeError" not in printed
     events = [json.loads(line) for line in home.chain_path(None).read_text().splitlines()]
     assert [event["cls"] for event in events] == ["error", "command"]
@@ -1151,7 +1154,8 @@ def test_a_broken_link_is_printed_with_the_command_that_answers_it():
     assert "ai-eng audit account --range FIRST-LAST" in said
     assert "never erased" in said
     # And it names the likeliest innocent cause without deciding it is the cause.
-    assert "AI_ENGINEERING_HOME" in said and "before you decide which it was" in said
+    assert "AI_ENGINEERING_HOME" in said
+    assert "before you decide which it was" in said
 
     # A chain with nothing broken says nothing. A cure printed under a clean report is
     # noise, and noise is how the next real one gets skipped.
@@ -1203,7 +1207,8 @@ def test_every_block_hand_off_carries_a_reviewer_a_repair_and_a_gate():
         for line in table.splitlines():
             if line.startswith(("| reviewer disposition", "| gate", "| independent")):
                 cells = [one.strip() for one in line.strip("|").split("|")]
-                assert len(cells) == 2 and cells[1], f"Block {name}: {cells[0]!r} is empty"
+                assert len(cells) == 2
+                assert cells[1], f"Block {name}: {cells[0]!r} is empty"
 
 
 def test_the_account_command_says_what_to_type_before_it_waits_for_it(home, monkeypatch, capsys):
@@ -1333,7 +1338,8 @@ def test_show_hands_over_one_task_as_an_envelope(repo, capsys):
     assert "rollback: `git revert <commit>`" in out
     assert "done when: thing 2 works" in out
     # The two digests it was read under, so a hand-off names the bytes it came from.
-    assert "spec: sha256:" in out and "plan: sha256:" in out
+    assert "spec: sha256:" in out
+    assert "plan: sha256:" in out
     # And nothing else: the specification body is not printed beside it.
     assert "## Production-ready" not in out
     # Small enough to hand over — measured against the real tree, not this fixture. Task 16

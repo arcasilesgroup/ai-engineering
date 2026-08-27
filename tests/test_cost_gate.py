@@ -51,4 +51,5 @@ def test_no_samples_is_incomplete():
 def test_threshold_declared_in_policy_is_read():
     """The threshold lives in `policy/cost-thresholds.toml`, not as a literal in code."""
     raw = (ROOT / "policy" / "cost-thresholds.toml").read_text(encoding="utf-8")
-    assert "threshold_usd" in raw and "limit" in raw
+    assert "threshold_usd" in raw
+    assert "limit" in raw

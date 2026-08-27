@@ -27,7 +27,8 @@ def test_a_noted_is_a_string_and_still_distinguishable_from_a_problem():
 
     noted = doctor.Noted("nineteen files")
 
-    assert isinstance(noted, str) and noted == "nineteen files"
+    assert isinstance(noted, str)
+    assert noted == "nineteen files"
     assert isinstance(noted, doctor.Noted)
     assert not isinstance("a stray in .ai-engineering/", doctor.Noted)
 

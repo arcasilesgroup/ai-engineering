@@ -60,7 +60,8 @@ def test_a_file_that_does_not_open_with_a_fence_is_not_a_record_and_is_not_a_pro
     parsed = madr._parse(b"# just a heading\n\ntext\n")
 
     assert parsed.problem is None
-    assert parsed.fields == {} and parsed.raw_fields == {}
+    assert parsed.fields == {}
+    assert parsed.raw_fields == {}
     assert parsed.declares_v1 is False and parsed.ambiguous_candidate is False
 
 

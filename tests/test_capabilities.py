@@ -294,7 +294,8 @@ def test_capabilities_toml_declares_exactly_twenty_capabilities() -> None:
             assert set(mode["enforcement"]) == required
             proof = mode["proof_requirements"]
             assert proof["installed_artifact"] is True
-            assert proof["allow"] and proof["deny"]
+            assert proof["allow"]
+            assert proof["deny"]
 
     # By mode id, not by position. Indexing `[1]` meant a mode inserted in alphabetical
     # order silently moved which mode each assertion was about, and the failure named a
