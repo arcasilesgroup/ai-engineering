@@ -26,52 +26,66 @@ reviewer reviews is smaller.
 
 A whole-tree over-engineering audit ran on 2026-08-27 (four independent scans plus a
 verification pass; net estimate -1,900 lines src-side). Spec 043 then landed its cut
-family on this tree (commits 2f242968..6450495b): `ui.ask`, `skeletons.seed_intent`,
-the four `_canonical_json` copies, and the wrappers its challenge withdrew as
-governance-enclosed. Re-verifying the audit's remaining findings against today's HEAD
-leaves three honest classes:
-
+family on this tree (deletion commits through `fa2fb510`, docs follow-ups after):
+`ui.ask`, `skeletons.seed_intent`, the four `_canonical_json` copies, and the
+wrappers its challenge withdrew as governance-enclosed. Re-verifying the audit's
+remaining findings against today's HEAD leaves three honest classes:
 1. **The orphan layer.** Eleven src modules have zero production importers (AST sweep
    over `src/`, `hooks/`, `surfaces/`, `git-hooks/`, `justfile`, `.github/`, re-run
    2026-08-27 on this branch): `constellation`, `decision_fw`, `decision_boundary`,
    `intake`, `trim`, `versions`, `lane_merge`, `loopgate`, `skillify`, `verify_cold`,
    `evidencing`. Each is imported only by its own test module (and small neighbours).
-   `policy/module-status.toml` records every one as `deferred` or
-   `orchestrator-future` — the register exists to give that fact a checked home. Two
-   more of the register's rows died with spec 043's cuts (`answer_key`,
-   `decision_boundary` were deleted? — no: 043 kept them; only `ui.ask` and
-   `skeletons.seed_intent` died), so the register today still names thirteen
-   caller-less modules and a fourteenth contradiction: its own reader
-   (`wiring.module_status`) has no production caller either, and its refusal suite
-   (`tests/test_orphan_register.py`) hardcodes three names.
-   Research report 020 swept every dynamic-resolver site in the tree: none reaches any
-   orphan. The skills corpus names some orphans (`trim`, `skillify`, `intake`,
-   `verify_cold`, `loopgate`) as prompt-routed instruments — a prompt route is not a
-   production caller (spec 042's own definition), and the corpus text can keep naming
-   the concept while the module that would implement it waits at `git revert` distance.
-   The harm: ~1,000 lines of wheel plus their test modules run on every gate for
-   nothing a command exercises.
+   `policy/module-status.toml` records each as `deferred` or `orchestrator-future` —
+   the register exists to give that fact a checked home. A tomllib census on this
+   branch reads 19 rows, of which 16 have no production importer: the eleven above
+   plus `answer_key`, `coverage`, `sbom`, and `scan` (the remaining three rows name
+   `consumer` modules). The register was created whole by spec 042 and no 043 commit
+   touched it — `ui.ask` and `skeletons.seed_intent` were functions, never rows.
+   The register's own reader (`wiring.module_status`) has no production caller either,
+   and its refusal suite (`tests/test_orphan_register.py`) hardcodes three names.
+   Research report 020 swept the dynamic-resolver sites for 043's seven targets only;
+   its own text names the one loop that matters here, and this spec's build order
+   adopts it: `tests/test_036_validation.py` importlib-imports a hardcoded ROWS list
+   that includes `verify_cold`, `trim` and `decision_fw`, and
+   `tests/test_decision_and_notes.py` statically imports `decision_fw`. Both test
+   files die in family (a) with the modules they import — the deletion list is the
+   eleven modules plus every test file that imports one of them, enumerated by the
+   same AST sweep that proved the imports, not "their own test modules" only.
+   The skills corpus names some orphans by module (`trim`, `skillify`, `intake`,
+   `loopgate`) and names others only as concepts (`verify_cold` appears as "verify
+   this cold"; `constellation` not at all) — a prompt route is not a production
+   caller (spec 042's own definition), and the corpus text can keep naming the
+   concept while the module that would implement it waits at `git revert` distance.
+   The harm: ~650 lines of wheel (src-side total for the eleven) plus their test
+   modules run on every gate for nothing a command exercises.
 2. **Residual duplication, re-verified against 043's landings.** Still true on this
    branch: five digest-pinned policy loaders (`acceptance`, `capability`, `evidence`,
-   `madr`, `outcome`); `acceptance._parse_legacy` line-by-line cloning
-   `text.flat_yaml` (text.py:21-39 vs acceptance.py:332-357); four `git ls-files`
-   readers and four `git -C` wrappers; `doctor._run_cli` mirroring
-   `wiring.cli_answers` (same argv, same `PYTHONSAFEPATH`, same timeout); the
-   `functools.cache`-shaped `_consoles` memo in `ui.py`; the char-loop `_hex` in
-   `uninstall.py` beside a length check that makes `re.fullmatch` the native form.
-3. **Test-shaped flexibility and dead constants.** `verify_cold.verify` takes
-   `allow_write`/`constructor_reasoning` only to raise on them; `cost.calibrate`'s
-   single call site passes a hardcoded one-sample list and its samples' second field is
-   never read; `spec_transaction.publish` returns a `Published` both production callers
-   discard; `spec.self_contained`/`_LEAKS`, `model_router.bail_out`, `audit.replay`
-   (the verb path calls `_replay` directly at audit.py:549), `cli.UNEXPECTED`,
-   `solution_intent.NOT_HASHED` (empty tuple), `spec._document_relations` (one-use
-   alias), `answer_key.valid`/`apply` and root `answer-key.yaml` have zero production
-   or CLI callers. In tests: six hand-rolled JSON-Schema-subset validators, the
-   `sys.path.insert + # noqa: E402` idiom in twenty pytest modules (pyproject
-   `pythonpath` replaced it; rule 3 forbids the noqa), a 15-gram-identical lifecycle
-   dict ×4, byte-identical `home` fixtures ×4, a GIT-identity env dict ×6, five
-   identical `def git()` wrappers, and the `json.loads(json.dumps())` deep-copy idiom.
+   `madr`, `outcome`); `acceptance._parse_legacy` re-deriving `text.flat_yaml`
+   (text.py:21-39 vs acceptance.py:332-357 — the clone adds the container checks, the
+   duplicate-key refusal and the finding/expires gate, so the merge into one home
+   must absorb those, error type as parameter); four `git ls-files` readers and five
+   `git -C` wrappers (`checkpoint`, `claim`, `madr`, `uninstall`, `doctor`);
+   `doctor._run_cli` mirroring `wiring.cli_answers` (same argv, same
+   `PYTHONSAFEPATH`, same timeout); the `functools.cache`-shaped `_consoles` memo in
+   `ui.py`; the char-loop `_hex` in `uninstall.py` beside a length check that makes
+   `re.fullmatch` the native form.
+3. **Test-shaped flexibility, dead weight, and three one-caller relics.**
+   Zero-caller dead: `verify_cold.verify` takes `allow_write`/`constructor_reasoning`
+   only to raise on them; `cost.calibrate`'s single call site passes a hardcoded
+   one-sample list and its samples' second field is never read;
+   `spec_transaction.publish` returns a `Published` both production callers discard;
+   `spec.self_contained`/`_LEAKS`, `model_router.bail_out`, `audit.replay` (the verb
+   path calls `_replay` directly at audit.py:549), `answer_key.valid`/`apply` and
+   root `answer-key.yaml`. One-caller relics, folded in family (c): `cli.UNEXPECTED`
+   (read once inside `crash()`, which `main` calls once), `solution_intent.NOT_HASHED`
+   (empty tuple, read once by its own filter), `spec._document_relations` (one-use
+   alias re-export). In tests: six hand-rolled JSON-Schema-subset validators, the
+   `sys.path.insert + # noqa: E402` idiom in twenty-five pytest modules (twenty after
+   family (a) deletes the orphan suites; pyproject `pythonpath` replaced it; rule 3
+   forbids the noqa), a 15-gram-identical lifecycle dict (three exact, one with
+   differing dates), near-identical `home`/`machine` fixtures (two byte-identical
+   pairs), a GIT-identity env dict ×7, four byte-identical `def git()` wrappers plus
+   a fifth that differs, and the `json.loads(json.dumps())` deep-copy idiom.
 
 The harm of leaving it: reviewers re-review copies; the gate burns minutes on tests of
 unreachable code; and every new module reaches for its own copy of a primitive because
@@ -80,19 +94,22 @@ the shared home does not exist.
 ## Options considered
 
 1. **Apply the residual cuts as ordered, gate-green commit families on one branch
-   (chosen).** Order: (a) the orphan layer — delete the eleven modules, their test
-   modules, the register reader `wiring.module_status`, `policy/module-status.toml`,
-   and `tests/test_orphan_register.py` whose fixture hardcodes three of the deleted
+   (chosen).** Order: (a) the orphan layer — delete the eleven modules, every test
+   file the same AST sweep shows importing one of them, the register reader
+   `wiring.module_status`, `policy/module-status.toml`, and
+   `tests/test_orphan_register.py` whose fixture hardcodes three of the deleted
    names; (b) dedup helpers into shared homes (`intent.canonical_json` stays the
    canonical JSON home; one digest-pinned loader; `text.flat_yaml` behind
-   `acceptance._parse_legacy`; one ls-files reader; `wiring.cli_answers` behind
-   `doctor._run_cli`); (c) delete test-shaped flexibility and dead constants;
-   (d) migrate the test-suite duplication (shared schema reader, conftest fixtures,
-   delete the `noqa: E402` idiom). Gives: the wheel shrinks by ~1,900 lines plus
-   orphan test mass; each primitive one home; rule 3's prohibition enforced in the
-   same commits that shrink the suite. Costs: a large diff across ~50 files; risk if a
-   caller was missed (mitigated by the AST sweep, report 020's dynamic-import sweep,
-   and per-family commits so bisect stays useful).
+   `acceptance._parse_legacy` absorbing the container/duplicate-key refusals; one
+   ls-files reader; `wiring.cli_answers` behind `doctor._run_cli`); (c) delete
+   test-shaped flexibility and the zero-caller constants, folding the three
+   one-caller relics into their single callers; (d) migrate the test-suite
+   duplication (shared schema reader, conftest fixtures, delete the `noqa: E402`
+   idiom). Gives: the wheel shrinks by ~650 src lines plus orphan test mass; each
+   primitive one home; rule 3's prohibition enforced in the same commits that shrink
+   the suite. Costs: a large diff across ~50 files; risk if a caller was missed
+   (mitigated by the AST sweep, report 020's dynamic-import sweep, and per-family
+   commits so bisect stays useful).
 2. **Cut only the orphan layer; leave duplication and flexibility.** Gives: the
    biggest single win (module-status register becomes empty and can be deleted with a
    clean conscience) at a third of the diff size. Costs: keeps the five digest-pinned
@@ -116,12 +133,13 @@ records and the approval gate authorises: spec 042's register gave every orphan 
 checked status precisely so that a later record could reverse it with a command —
 `test_a_consumer_must_be_imported_by_a_production_file` enforces the AST definition,
 and deletion satisfies the register's own invariant by emptying it. The skill-corpus
-names (`trim`, `skillify`, `intake`, `verify_cold`, `loopgate`, `constellation`) stay
-in the corpus: they describe instruments a future spec may build against the same
-skill text, and `git revert` is the reinstatement path. `loopgate` keeps its mention in
-`tests/test_skill_bounds.py` (it asserts the *corpus text* names the instrument, not
-the module) — if the corpus keeps the name the test stays green; if the corpus drops
-it, that test changes in the same commit.
+module names (`trim`, `skillify`, `intake`, `loopgate`) stay in the corpus — they
+describe instruments a future spec may build against the same skill text, and
+`git revert` is the reinstatement path; names the corpus never carried
+(`verify_cold`, `constellation`) are untouched by this. `loopgate` keeps its mention
+in `tests/test_skill_bounds.py` (it asserts the *corpus text* names
+the instrument, not the module) — if the corpus keeps the name the test stays green;
+if the corpus drops it, that test changes in the same commit.
 
 **D-044-02**: The spec_transaction Windows backend stays, per 043's recorded prudence:
 it is a platform arm of spec-010's publication design decision, and its removal
@@ -149,19 +167,24 @@ tree's own answer. The case fails: proceed. One boundary respected: this spec do
 delete `docs/adr/` or any spec — the record layer is untouched.
 
 Second case: "deleting `policy/module-status.toml` breaks `wiring.module_status`
-callers you have not grepped." Verified: the reader's only consumers are
-`tests/test_orphan_register.py` and `tests/test_mut_wiring.py` (which tests the reader
-itself). Both die or shrink with the register in the same commit family.
+callers you have not grepped." Verified: the reader's only consumer is
+`tests/test_orphan_register.py` (five call sites; `tests/test_mut_wiring.py` never
+mentions it). It dies with the register in the same commit family.
 
 ## Assumptions and unresolved risks
 
 Assumptions:
-- The AST import sweep plus report 020's dynamic-resolution sweep cover every way this
-  tree can reach a module. No `pkgutil`, `entry_points`, or directory-scan loader
-  exists outside `cli.py`'s closed `VERBS` dict and `chain.py`'s closed `TABLE`.
-- The gate's baseline is the current green on `main` (b4a525c9). Any cut that turns a
-  test red without deleting that test's subject in the same commit is an incorrect cut,
-  not a tree defect.
+- Every way this tree can reach a module is covered: the AST import sweep, report
+  020's dynamic-resolution sweep (scoped to 043's targets, and itself naming the
+  `test_036_validation` ROWS loop this spec now deletes with them), and the
+  family-(a) enumeration of every test file importing an orphan. No `pkgutil`,
+  `entry_points`, or directory-scan loader exists outside `cli.py`'s closed `VERBS`
+  dict and `chain.py`'s closed `TABLE`.
+- The gate's baseline is the current green on `main` (b4a525c9). A branch-side run
+  today fails `tests/test_one_home.py` (a one-home commit is expected at block close,
+  not mid-run); the branch gates at family close on `main` after merge, and any cut
+  that turns a test red without deleting that test's subject in the same commit is an
+  incorrect cut, not a tree defect.
 - Skill corpus prose naming deleted modules stays valid as prose; no test asserts an
   import of a deleted module from skill text.
 
@@ -192,9 +215,10 @@ prints `1` or less (one shared pinned-loader home; 043 already reduced
 **The noqa criterion.** Given the test-migration family landed, When
 `grep -rn "noqa: E402" tests/ --include="test_*.py" | wc -l` runs, Then it prints `0`.
 
-**The gate path.** Given every commit in the branch, When `just check` runs at the
-head commit, Then the tail reads `0 failed` with the same `passed, skipped` shape the
-pre-cut baseline printed (minus the deleted modules' own tests).
+**The gate path.** Given the branch merged and gated on `main` (a multi-home branch
+fails `test_one_home` by design mid-run), When `just check` runs at the merge head,
+Then the tail reads `0 failed` with the same `passed, skipped` shape the pre-cut
+baseline printed (minus the deleted modules' own tests).
 
 **The undecidable path.** Given any module whose reachability the sweeps cannot decide,
 When the evidence is ambiguous, Then the module stays and its name is recorded under
@@ -202,13 +226,13 @@ this spec's Excluded list in the changelog entry — the record, not a grep, sep
 "kept after looking" from "never considered".
 
 ## Decisions
-
-- [X] **D-044-01 — Delete the eleven orphan modules, their test modules, and the orphan
-      register (reader + data + refusal suite) as one family.** **Rationale:** the
-      register exists to make orphan-status checkable; deleting the modules satisfies
-      its own invariant; reinstatement is git revert. Promotion-worthy because it
-      constrains any future orchestrator spec: new instruments get built *with* their
-      production caller in the same commit, not shipped ahead of one.
+- [X] **D-044-01 — Delete the eleven orphan modules, every test file importing one of
+      them, and the orphan register (reader + data + refusal suite) as one family.**
+      **Rationale:** the register exists to make orphan-status checkable; deleting the
+      modules satisfies its own invariant; reinstatement is git revert.
+      Promotion-worthy because it constrains any future orchestrator spec: new
+      instruments get built *with* their production caller in the same commit, not
+      shipped ahead of one.
 - [X] **D-044-03 — Shared primitive homes: one digest-pinned loader, `text.flat_yaml`
       behind `acceptance`, one ls-files/git wrapper, `wiring.cli_answers` behind
       `doctor`, `functools.cache` console memo, `re.fullmatch` hex check.**
