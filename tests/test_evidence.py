@@ -485,7 +485,9 @@ def test_a_policy_that_changes_while_it_is_read_is_refused(tmp_path, monkeypatch
 
     where = tmp_path / "policy.json"
     where.write_text("{}", encoding="utf-8")
-    real = evidence.os.fstat
+    from ai_engineering import paths
+
+    real = paths.os.fstat
 
     class Elsewhere:
         def __init__(self, base):
@@ -496,7 +498,7 @@ def test_a_policy_that_changes_while_it_is_read_is_refused(tmp_path, monkeypatch
                 return 999_999
             return getattr(self._base, name)
 
-    monkeypatch.setattr(evidence.os, "fstat", lambda fd: Elsewhere(real(fd)))
+    monkeypatch.setattr(paths.os, "fstat", lambda fd: Elsewhere(real(fd)))
     with pytest.raises(evidence._Problem) as refused:
         evidence._read_policy(where)
     assert refused.value.code == evidence.POLICY_UNSUPPORTED
