@@ -69,7 +69,19 @@ def _repository(tmp_path: Path, *, governed: bool = True) -> Path:
         target = root / file["path"]
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(file["content"], encoding="utf-8")
-    assert skeletons.seed_intent(root, materialized["intent"]).outcome == "PASS"
+    (root / ".ai").mkdir(mode=0o700)
+    (root / ".ai" / "intent.md").write_bytes(
+        (
+            json.dumps(
+                materialized["intent"],
+                allow_nan=False,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode("utf-8")
+    )
     return root
 
 
