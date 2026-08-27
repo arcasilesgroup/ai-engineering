@@ -20,6 +20,9 @@ from typing import Any
 
 from ai_engineering import intent, paths
 
+ADR_HOME = "docs/adr"
+SPEC_MD = "spec.md"
+
 SCHEMA_INVALID = ("MADR_SCHEMA_INVALID", "frontmatter does not match MADR v1")
 SCHEMA_UNSUPPORTED = ("MADR_SCHEMA_UNSUPPORTED", "MADR schema is unsupported")
 BODY_INVALID = ("MADR_BODY_INVALID", "required MADR body content is missing or ambiguous")
@@ -395,8 +398,8 @@ def _worktree_files(root: Path) -> dict[str, bytes]:
             path = root.joinpath(*pure.parts)
             if path.is_symlink():
                 if (
-                    pure.parent.as_posix() == "docs/adr"
-                    or pure.name == "spec.md"
+                    pure.parent.as_posix() == ADR_HOME
+                    or pure.name == SPEC_MD
                     or _MADR_NAME.fullmatch(pure.name) is not None
                 ):
                     raise _Problem(UNREADABLE)
@@ -407,8 +410,8 @@ def _worktree_files(root: Path) -> dict[str, bytes]:
             if not resolved.is_relative_to(root):
                 raise _Problem(UNREADABLE)
             try:
-                exact_candidate = pure.parent.as_posix() == "docs/adr" or (
-                    len(pure.parts) == 3 and pure.parts[0] == "specs" and pure.name == "spec.md"
+                exact_candidate = pure.parent.as_posix() == ADR_HOME or (
+                    len(pure.parts) == 3 and pure.parts[0] == "specs" and pure.name == SPEC_MD
                 )
                 if raw_path in ignored_paths and not exact_candidate:
                     with path.open("rb") as stream:
@@ -474,7 +477,7 @@ def _specs(files: dict[str, bytes]) -> dict[str, str]:
     for path in sorted(files):
         raw = files[path]
         pure = PurePosixPath(path)
-        if len(pure.parts) != 3 or pure.parts[0] != "specs" or pure.name != "spec.md":
+        if len(pure.parts) != 3 or pure.parts[0] != "specs" or pure.name != SPEC_MD:
             continue
         try:
             parsed = _parse(raw)
@@ -534,7 +537,7 @@ def _snapshot(
                 continue
             raise
         pure = PurePosixPath(path)
-        in_home = pure.parent.as_posix() == "docs/adr"
+        in_home = pure.parent.as_posix() == ADR_HOME
         canonical_home = in_home and _MADR_NAME.fullmatch(pure.name) is not None
         if parsed.declares_v1 or parsed.ambiguous_candidate:
             if not in_home:
@@ -712,7 +715,7 @@ def _history(
             for directory, (mode, identifier) in second_trees[specs[1]].items():
                 if mode != "40000":
                     continue
-                spec = third_trees[identifier].get("spec.md")
+                spec = third_trees[identifier].get(SPEC_MD)
                 if spec and spec[0] != "40000":
                     listing[f"specs/{directory}/spec.md"] = spec[1]
                     blobs.add(spec[1])
@@ -784,7 +787,7 @@ def _historic_snapshot(
         approvals: dict[str, tuple[str, str, str] | None] = {}
         for path in sorted(files):
             pure = PurePosixPath(path)
-            if pure.parent.as_posix() != "docs/adr":
+            if pure.parent.as_posix() != ADR_HOME:
                 continue
             try:
                 parsed = _parse(files[path])

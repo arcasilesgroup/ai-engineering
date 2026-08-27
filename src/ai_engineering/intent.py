@@ -20,6 +20,9 @@ from typing import Any
 
 from ai_engineering import paths
 
+DEFS_KEY = "$defs"
+NON_CANONICAL = "Intent path is not canonical"
+
 SCHEMA_INVALID = ("INTENT_SCHEMA_INVALID", "schema validation failed")
 # Absent is not malformed. A repository where nobody has written an Intent yet and one
 # holding an Intent that does not parse are two different states, and they were the same
@@ -128,7 +131,7 @@ def _iso_value(instance: Any, fmt: str) -> bool:
 
 class _Schema:
     _KEYWORDS = {
-        "$defs",
+        DEFS_KEY,
         "$id",
         "$ref",
         "$schema",
@@ -158,7 +161,7 @@ class _Schema:
         "uniqueItems",
         "x-canonical-home",
     }
-    _SCHEMA_MAPS = {"$defs", "properties"}
+    _SCHEMA_MAPS = {DEFS_KEY, "properties"}
     _SCHEMA_LISTS = {"allOf", "oneOf", "anyOf"}
     _SCHEMAS = {"else", "if", "items", "not", "then"}
     _TYPES = {"array", "integer", "object", "string"}
@@ -228,7 +231,7 @@ class _Schema:
         name = reference.removeprefix("#/$defs/")
         if not name or "/" in name:
             raise _UnsupportedSchema("unsupported definition reference")
-        definitions = self.root.get("$defs")
+        definitions = self.root.get(DEFS_KEY)
         if not isinstance(definitions, dict) or not isinstance(definitions.get(name), dict):
             raise _UnsupportedSchema("unknown definition reference")
         return definitions[name]
@@ -418,7 +421,7 @@ def _load_source(source: Mapping[str, Any] | Path, files: _Files, home: str) -> 
     if not isinstance(source, Path) or not isinstance(files, _RootFiles):
         raise ValueError("an Intent path requires a repository root")
     if ".." in source.parts:
-        raise ValueError("Intent path is not canonical")
+        raise ValueError(NON_CANONICAL)
     expected = files.root.joinpath(*PurePosixPath(home).parts)
     raw = source if source.is_absolute() else files.root / source
     try:
@@ -427,12 +430,12 @@ def _load_source(source: Mapping[str, Any] | Path, files: _Files, home: str) -> 
     except (OSError, RuntimeError, ValueError) as error:
         raise ValueError("Intent cannot be read") from error
     if lexical != expected:
-        raise ValueError("Intent path is not canonical")
+        raise ValueError(NON_CANONICAL)
     component = files.root
     for part in relative.parts:
         component /= part
         if component.is_symlink():
-            raise ValueError("Intent path is not canonical")
+            raise ValueError(NON_CANONICAL)
     if not expected.is_file():
         # Absent, and said so. `ValueError` here becomes `INTENT_SCHEMA_INVALID` above, which
         # sends a reader looking for a mistake in a document nobody has written.
@@ -441,7 +444,7 @@ def _load_source(source: Mapping[str, Any] | Path, files: _Files, home: str) -> 
 
 
 def _relation_patterns(schema: dict[str, Any]) -> tuple[re.Pattern[str], ...]:
-    relation = schema["$defs"]["relation"]
+    relation = schema[DEFS_KEY]["relation"]
     patterns: list[str] = []
 
     def collect(node: Any) -> None:

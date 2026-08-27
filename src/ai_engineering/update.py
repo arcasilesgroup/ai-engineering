@@ -25,6 +25,9 @@ from pathlib import Path
 
 from ai_engineering import __version__, outcome, paths, wiring
 
+CONFIG_FILE = "config.toml"
+PIN_CHANGED = "the pin changed after the update was approved"
+
 OWNED = ("justfile", "CLAUDE.md", ".ai/config.toml")
 _VERSION = re.compile(
     r'(?m)^[ \t]*version[ \t]*=[ \t]*(?P<quote>["\'])(?P<value>[^"\']*)'
@@ -173,9 +176,9 @@ def _read_pin(home_fd: int) -> tuple[os.stat_result, bytes]:
     descriptor = -1
     try:
         flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
-        descriptor = os.open("config.toml", flags, dir_fd=home_fd)
+        descriptor = os.open(CONFIG_FILE, flags, dir_fd=home_fd)
         before = os.fstat(descriptor)
-        linked = os.stat("config.toml", dir_fd=home_fd, follow_symlinks=False)
+        linked = os.stat(CONFIG_FILE, dir_fd=home_fd, follow_symlinks=False)
         if (
             not stat.S_ISREG(before.st_mode)
             or before.st_nlink != 1
@@ -262,7 +265,7 @@ def _verify_pin(snapshot: _Pin) -> None:
         or _identity(file_details) != snapshot.file_id
         or body != snapshot.before
     ):
-        raise Undecidable("the pin changed after the update was approved")
+        raise Undecidable(PIN_CHANGED)
 
 
 def _write_all(descriptor: int, body: bytes) -> None:
@@ -289,7 +292,7 @@ def _publish_pin(snapshot: _Pin) -> None:
                 or _identity(current_details) != snapshot.file_id
                 or body != snapshot.before
             ):
-                raise Undecidable("the pin changed after the update was approved")
+                raise Undecidable(PIN_CHANGED)
             flags = (
                 os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
             )
@@ -310,8 +313,8 @@ def _publish_pin(snapshot: _Pin) -> None:
                 or _identity(final_details) != snapshot.file_id
                 or final_body != snapshot.before
             ):
-                raise Undecidable("the pin changed after the update was approved")
-            os.rename(temporary, "config.toml", src_dir_fd=home_fd, dst_dir_fd=home_fd)
+                raise Undecidable(PIN_CHANGED)
+            os.rename(temporary, CONFIG_FILE, src_dir_fd=home_fd, dst_dir_fd=home_fd)
             renamed = True
             os.fsync(home_fd)
             published, published_body = _read_pin(home_fd)
@@ -377,7 +380,7 @@ def main(argv: list[str]) -> outcome.Result:
     if root is None:
         print("not inside a repository")
         return outcome.result("INCOMPLETE")
-    pin = root / ".ai" / "config.toml"
+    pin = root / ".ai" / CONFIG_FILE
     if not pin.exists() and not pin.is_symlink():
         print("  this repository is not set up. `ai-eng init` first.")
         return outcome.result("INCOMPLETE")

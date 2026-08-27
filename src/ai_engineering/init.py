@@ -23,6 +23,9 @@ from pathlib import Path
 
 from ai_engineering import __version__, capability, intent, outcome, paths, skeletons, ui, wiring
 
+INTENT_FILE = "intent.md"
+SKIPPED_LINE = "   → skipped."
+
 # Each body is asked for with the repository root, because two of the five depend on what
 # is in it: the justfile on which stacks were detected, and the workflow on the version
 # this wheel pins. The workflow used to be printed at the reader with "paste these lines
@@ -172,18 +175,18 @@ def global_step(args) -> outcome.Result:
     )
 
     if args.dry:
-        out("   → skipped.")
+        out(SKIPPED_LINE)
         return outcome.dry_run(exact_changes=True)
     if only or args.yes or not sys.stdin.isatty():
         # Named, unattended, or piped: the flags already said which surfaces, and a widget
         # with nobody in front of it is a hang.
         if not ask("Set up this machine?", True, args):
-            out("   → skipped.")
+            out(SKIPPED_LINE)
             return outcome.result("CANCELLED")
     else:
         found = surfaces_picked(found)
         if not found:
-            out("   → skipped.")
+            out(SKIPPED_LINE)
             return outcome.result("CANCELLED")
 
     written = wiring.install_skills(found)
@@ -482,7 +485,7 @@ def _project_paths_safe(root: Path) -> bool:
     files = {
         *managed_paths(root),
         *(root / name for name in PROTECTED),
-        root / ".ai" / "intent.md",
+        root / ".ai" / INTENT_FILE,
         root / ".git" / "config",
     }
     if not all(_safe_path(path, "directory") for path in directories):
@@ -565,7 +568,7 @@ def _project_preflight(args) -> tuple[Path | None, intent.Validation | None] | N
     root = Path(os.path.abspath(root))
     if not _safe_path(root, "directory") or not _project_paths_safe(root):
         return None
-    return root, intent.validate(root / ".ai" / "intent.md", root)
+    return root, intent.validate(root / ".ai" / INTENT_FILE, root)
 
 
 def project_step(args, prepared_root: Path | None = None) -> outcome.Result:
@@ -821,7 +824,7 @@ def _hooks_template_step(args) -> outcome.Result:
         ]
     )
     if args.dry:
-        out("   → skipped.")
+        out(SKIPPED_LINE)
         return outcome.dry_run(exact_changes=True)
     if (
         args.yes
@@ -903,7 +906,7 @@ def main(argv: list[str]) -> outcome.Result:
             active_root = paths.repo_root(Path(os.path.abspath(Path(args.project or "."))))
             if active_root is not None:
                 active_root = Path(os.path.abspath(active_root))
-                intent_state = intent.validate(active_root / ".ai" / "intent.md", active_root)
+                intent_state = intent.validate(active_root / ".ai" / INTENT_FILE, active_root)
         # INCOMPLETE while the Intent is missing or unreadable, which is a decision this
         # repository already took and `test_init_keeps_missing_or_invalid_intent_incomplete`
         # holds: a repository without its canonical Intent is not a governed one, and the

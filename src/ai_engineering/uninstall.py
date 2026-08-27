@@ -20,6 +20,11 @@ from pathlib import Path
 from ai_engineering import __version__, outcome, paths, wiring
 from ai_engineering import init as installer
 
+TEMPLATE_DIR_KEY = "init.templateDir"
+HOOKS_PATH_KEY = "core.hooksPath"
+MANAGED_KEY = "ai.managed"
+ENG_KEY = "ai.eng"
+
 KEEPS = ("specs/", "CONSTITUTION.md", "AGENTS.md", "docs/adr/")
 GLOBAL_KINDS = ("guard", "link", "skills", "router", "hooks-template")
 _HOOK_NAMES = ("pre-commit", "commit-msg", "pre-push")
@@ -286,7 +291,7 @@ def _owned(row: dict, root: Path | None) -> bool:
                     return False
         except (OSError, FileNotFoundError):
             return False
-        return _git_value(None, "init.templateDir") == str(target)
+        return _git_value(None, TEMPLATE_DIR_KEY) == str(target)
     if root is None:
         return False
     if kind == "project":
@@ -306,9 +311,9 @@ def _owned(row: dict, root: Path | None) -> bool:
             return False
     if kind == "repo":
         return (
-            _git_value(root, "core.hooksPath") == str(paths.git_hooks())
-            and _git_value(root, "ai.managed") == "true"
-            and _git_value(root, "ai.eng") == f"{sys.executable} -m ai_engineering.cli"
+            _git_value(root, HOOKS_PATH_KEY) == str(paths.git_hooks())
+            and _git_value(root, MANAGED_KEY) == "true"
+            and _git_value(root, ENG_KEY) == f"{sys.executable} -m ai_engineering.cli"
         )
     return False
 
@@ -416,7 +421,7 @@ def canonical(row: dict, root: Path | None) -> dict | None:
         if (
             path == str(target)
             and how == "written"
-            and _git_value(None, "init.templateDir") == str(target)
+            and _git_value(None, TEMPLATE_DIR_KEY) == str(target)
         ):
             return {"path": str(target), "kind": "hooks-template", "how": "written"}
     if root is None:
@@ -450,14 +455,14 @@ def unwire(root: Path, rows: list[dict]) -> None:
         (row["how"] for row in rows if row["kind"] == "repo" and row["path"] == str(root)), ""
     )
     restore = (
-        ["config", "--local", "--", "core.hooksPath", before]
+        ["config", "--local", "--", HOOKS_PATH_KEY, before]
         if before
-        else ["config", "--local", "--unset", "--", "core.hooksPath"]
+        else ["config", "--local", "--unset", "--", HOOKS_PATH_KEY]
     )
     for key in (
         restore,
-        ["config", "--local", "--unset", "--", "ai.managed"],
-        ["config", "--local", "--unset", "--", "ai.eng"],
+        ["config", "--local", "--unset", "--", MANAGED_KEY],
+        ["config", "--local", "--unset", "--", ENG_KEY],
     ):
         git(root, key)
 
@@ -627,14 +632,14 @@ def _removed(row: dict, root: Path | None) -> bool:
         names = _expected_skill_names()
         return names is not None and not any(os.path.lexists(target / name) for name in names)
     if kind == "hooks-template":
-        return not os.path.lexists(target) and _git_value(None, "init.templateDir") == ""
+        return not os.path.lexists(target) and _git_value(None, TEMPLATE_DIR_KEY) == ""
     if kind == "project":
         return not os.path.lexists(target)
     if kind == "repo" and root is not None:
         return (
-            _git_value(root, "core.hooksPath") == row["how"]
-            and _git_value(root, "ai.managed") == ""
-            and _git_value(root, "ai.eng") == ""
+            _git_value(root, HOOKS_PATH_KEY) == row["how"]
+            and _git_value(root, MANAGED_KEY) == ""
+            and _git_value(root, ENG_KEY) == ""
         )
     return False
 
@@ -757,7 +762,7 @@ def main(argv: list[str]) -> outcome.Result:
                 # confirmed both. The unset value is read once more at removal time: a
                 # machine changed between consent and removal is a machine this run must
                 # not silently disagree with.
-                current_value = _git_value(None, "init.templateDir")
+                current_value = _git_value(None, TEMPLATE_DIR_KEY)
                 if current_value is None:
                     raise wiring.Unreadable(
                         "git config could not be read to unset init.templateDir"
@@ -765,7 +770,7 @@ def main(argv: list[str]) -> outcome.Result:
                 shutil.rmtree(path, ignore_errors=False)
                 if current_value == str(path):
                     subprocess.run(
-                        ["git", "config", "--global", "--unset", "init.templateDir"],
+                        ["git", "config", "--global", "--unset", TEMPLATE_DIR_KEY],
                         check=True,
                         timeout=10,
                     )

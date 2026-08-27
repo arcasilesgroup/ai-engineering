@@ -217,7 +217,7 @@ def _canonical_specs(root: Path) -> list[Path]:
         folder_value = folder.lstat()
         if not stat.S_ISDIR(folder_value.st_mode) or stat.S_ISLNK(folder_value.st_mode):
             raise OSError("canonical spec entry is not one regular directory")
-        candidate = folder / "spec.md"
+        candidate = folder / SPEC_FILE
         try:
             candidate_value = candidate.lstat()
         except FileNotFoundError:
@@ -239,6 +239,10 @@ EXAMPLES = "## Examples somebody can check"
 RUNNABLE = ("ai-eng", "just", "uv", "pytest", "python3", "python", "git", "gh", "npm", "node")
 
 _SPAN = re.compile(r"`([^`]+)`")
+PLAN_FILE = "plan.md"
+SPEC_FILE = "spec.md"
+INTENT_FILE = ".ai/intent.md"
+CLAIMS_LABEL = "The claims that could start together"
 
 
 TASK_FIELDS = ("file", "check", "rollback", "done when")
@@ -337,7 +341,7 @@ def approval_bytes(path: Path) -> bytes:
     one of them ticked, it is still 7bc96b09ed43."""
 
     raw = path.read_bytes()
-    if path.name != "plan.md":
+    if path.name != PLAN_FILE:
         return raw
     try:
         body = raw.decode("utf-8")
@@ -365,11 +369,11 @@ def _envelope(home: Path, wanted: str, named: dict[str, str], tick: bool = False
     the reader has no way to tell.
     """
 
-    plan = home / "plan.md"
+    plan = home / PLAN_FILE
     if not plan.is_file():
         print(f"  no plan beside {home.name}, so there is no task to hand over")
         return outcome.result("INCOMPLETE")
-    for what, path in (("spec", home / "spec.md"), ("plan", plan)):
+    for what, path in (("spec", home / SPEC_FILE), ("plan", plan)):
         asked = named.get(what)
         if asked and asked != _digest(path):
             # The caller said which bytes this is about and it is not these. Refusing is the
@@ -408,7 +412,7 @@ def _envelope(home: Path, wanted: str, named: dict[str, str], tick: bool = False
     # so it says which of the two happened rather than refusing the ordinary case, where a
     # person reading their own plan has no digest to hand.
     print(f"  task: {found['task']}  {found['title']}")
-    for what, path in (("spec", home / "spec.md"), ("plan", plan)):
+    for what, path in (("spec", home / SPEC_FILE), ("plan", plan)):
         seal = " (verified)" if named.get(what) else ""
         print(f"  {what}: {_digest(path)}{seal}")
     for field in TASK_FIELDS:
@@ -566,7 +570,7 @@ def _progress(home: Path) -> outcome.Result:
     report that lists what happened and stays quiet about what did not is the shape of every
     green nobody earned."""
 
-    plan = home / "plan.md"
+    plan = home / PLAN_FILE
     if not plan.is_file():
         print(f"  no plan beside {home.name}, so there is no task to report on")
         return outcome.result("INCOMPLETE")
@@ -712,7 +716,7 @@ def _wave(root: Path, offered: str, remote: str) -> outcome.Execution:
             outcome.fact(
                 "wave",
                 "INCOMPLETE",
-                "The claims that could start together",
+                CLAIMS_LABEL,
                 f"no claim was read from {remote}, so nothing there is coordinated against",
                 cure="check the remote is reachable, then ask again",
             )
@@ -726,7 +730,7 @@ def _wave(root: Path, offered: str, remote: str) -> outcome.Execution:
             outcome.fact(
                 "wave",
                 "INCOMPLETE",
-                "The claims that could start together",
+                CLAIMS_LABEL,
                 f"{remote} could not be read: {refused}",
                 cure="check the remote is reachable, then ask again",
             )
@@ -736,7 +740,7 @@ def _wave(root: Path, offered: str, remote: str) -> outcome.Execution:
             outcome.fact(
                 "wave",
                 "INCOMPLETE",
-                "The claims that could start together",
+                CLAIMS_LABEL,
                 str(refused),
                 cure="split or merge the claims, or fix the file nobody can parse",
             )
@@ -746,7 +750,7 @@ def _wave(root: Path, offered: str, remote: str) -> outcome.Execution:
             outcome.fact(
                 "wave",
                 "OBSERVED",
-                "The claims that could start together",
+                CLAIMS_LABEL,
                 ", ".join(ready) or "none are claimed on the remote",
             )
         )
@@ -953,7 +957,7 @@ def _schema_invalid() -> intent.Validation:
 def _materialize(writer: Any) -> _Snapshot:
     observations: dict[str, spec_transaction.Observation] = {}
     try:
-        authority = writer.read(".ai/intent.md", maximum=_MAX_FILE_BYTES)
+        authority = writer.read(INTENT_FILE, maximum=_MAX_FILE_BYTES)
         observations[authority.path] = authority
         record = intent._json(authority.body)
         if not isinstance(record, dict) or not isinstance(record.get("relations"), list):
@@ -965,7 +969,7 @@ def _materialize(writer: Any) -> _Snapshot:
             pending.append(relation["path"])
         while pending:
             relative = pending.pop()
-            if relative == ".ai/intent.md" or relative in observations:
+            if relative == INTENT_FILE or relative in observations:
                 continue
             if len(observations) >= _MAX_GRAPH_FILES:
                 validation = intent.Validation(
@@ -1180,7 +1184,7 @@ def _new(root: Path, slug: str, ref: str) -> outcome.Execution:
     candidate_name: str | None = None
     pending: spec_transaction.Pending | None = None
     try:
-        with spec_transaction.writer(root, ".ai/intent.md", "specs") as transaction:
+        with spec_transaction.writer(root, INTENT_FILE, "specs") as transaction:
             inventory = transaction.inventory()
             number = _number(inventory)
             first = _materialize(transaction)

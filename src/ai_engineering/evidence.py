@@ -18,6 +18,8 @@ from typing import Any
 
 from ai_engineering import intent, outcome, paths
 
+UTC_SUFFIX = "+00:00"
+
 SCHEMA_PATH = paths.policy("check-evidence-v1.schema.json")
 _EXPECTED_SCHEMA_DIGEST = "692aa60b1acc55c9ff790184bc59066fdc5832fe94608c70a31f02b2845ed60c"
 _SCHEMA = "urn:ai-engineering:check-evidence:1"
@@ -215,8 +217,8 @@ def _requirement_fields(expected: dict[str, Any]) -> dict[str, Any]:
 
 def _timestamps(record: dict[str, Any], now: datetime) -> tuple[datetime, datetime] | None:
     try:
-        started = datetime.fromisoformat(record["started_at"].removesuffix("Z") + "+00:00")
-        finished = datetime.fromisoformat(record["finished_at"].removesuffix("Z") + "+00:00")
+        started = datetime.fromisoformat(record["started_at"].removesuffix("Z") + UTC_SUFFIX)
+        finished = datetime.fromisoformat(record["finished_at"].removesuffix("Z") + UTC_SUFFIX)
         if started > finished or finished > now:
             return None
         if record["kind"] in {"human", "external"}:
