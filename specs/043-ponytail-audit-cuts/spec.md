@@ -186,7 +186,7 @@ name, is what distinguishes "kept after looking" from "never considered".
 
 ## Decisions
 
-- [ ] **D-043-01 — Cut list ordered in four commits (dedup → delete → shrink → hooks), changelog entry per commit per AGENTS.md rule 4's second clause**.
+- [X] **D-043-01 — Cut list applied as ordered commits (dedup → delete → shrink → hooks), changelog entry per rule 4's second clause**.
       **Rationale:** one pass per primitive class keeps the diff reviewable while producing a bisect-friendly history; excluded items carry explicit rationale tied to spec-010's design decision and the orphan register. Box stays unticked until the commits land; promotion waits for a named person (`ai-eng decide`).
 
 ## Accepted risks

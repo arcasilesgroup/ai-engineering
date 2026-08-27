@@ -6,6 +6,36 @@ search for.
 
 ## [Unreleased]
 
+### Removed (spec 043 — ponytail audit cuts)
+
+- `skeletons.seed_intent` and its `_seed_incomplete`/`_path_identity`/`_same_identity`/
+  `_remove_owned` helpers, the `INTENT_*` result constants and `import secrets` are
+  hard-deleted with their two test suites (`test_skeleton_seed_is_write_once`,
+  `test_skeleton_seed_cleans_failed_publication`). Nothing in the product called it:
+  `init` writes `.ai/intent.md` directly. A checkout that seeded an Intent through it
+  writes the file itself or pins the old wheel; there is no shim.
+- `ui.ask` is hard-deleted with its parametrized suite; nothing imported it, and
+  `init.ask` owns its own prompt.
+- `surface.Standing.as_dict`/`Report.as_dict` are deleted; no caller rendered a surface
+  report through them.
+- `[guards] design_budget` and `[observability] encoding` in the skeleton
+  `.ai/config.toml` are gone: no line of code read either key, so deleting one could not
+  break anything that existed.
+- `hooks/_otlp.redact(event, mode)` / `as_logs(events, mode)` lost the `mode`
+  parameter (`redact = "strict"` config keys were already unread) and `post(signal, …)`
+  lost the `signal` parameter (the exporter has exactly one lane, logs). Callers passing
+  either now raise `TypeError`; pin the wheel version before upgrading any external
+  caller.
+- The duplicated primitives collapsed to shared homes this pass:
+  `paths.read_bounded` (was four byte-identical O_NOFOLLOW readers),
+  `intent.canonical_json` (was four private copies), `intent._Schema` now carries
+  `anyOf`/`format`/`minimum` so `capability._Schema`/`evidence._SchemaValidator`/
+  `madr._Schema` keep only their policy keywords, and `loop_guard` uses `_emit.printable`
+  instead of its own sanitizer. Behavior is unchanged where tests observe it; three audit
+  proposals that would have changed defended behavior (per-revision `git ls-tree`
+  history walks, caching the outcome-policy mapping, inlining the chain matcher table)
+  were declined because the contract tests refused them.
+
 ### Breaking changes
 
 - `contract.CEILING` is hard-deleted, and with it the length branch in
