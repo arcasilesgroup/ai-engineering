@@ -499,33 +499,6 @@ def skill_sequence() -> dict:
     return declared
 
 
-def module_status() -> dict[str, dict[str, str]]:
-    """Every caller-less module's exactly one status, read from the register (spec 042).
-
-    Modules that shipped with tests and no production caller float — a decision deferred,
-    not an infrastructure lane — until this register says which is which: `consumer`
-    (imported by a production file), `orchestrator-future` (an orchestrator instrument,
-    reason cites the orchestrator spec), or `deferred` (kept, tested, not wired, with a
-    reason). A second copy here would be a second answer within a week; the refusal suite
-    (`tests/test_orphan_register.py`) holds the register to the tree, and the threat-model
-    gate sees this reader as the product consumer of the new policy file.
-    """
-
-    try:
-        declared = tomllib.loads(paths.policy("module-status.toml").read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError):
-        return {}
-    rows = declared.get("module", [])
-    return {
-        str(row.get("name")): {
-            "status": str(row.get("status") or ""),
-            "consumer": str(row.get("consumer") or ""),
-            "reason": str(row.get("reason") or ""),
-        }
-        for row in rows
-        if row.get("name")
-    }
-
 
 def next_stage(name: str) -> str:
     """The stage that follows `name` in the cycle, in words a person reads.

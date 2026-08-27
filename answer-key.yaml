@@ -1,9 +1,0 @@
-schema = "urn:ai-engineering:answer-key:1"
-schema_version = "1"
-spec = "010"
-spec_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-[[checks]]
-id = "c1"
-statement = "the file exists"
-judged_by = "run it"
-command = "test -f src/app.py"
