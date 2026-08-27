@@ -482,7 +482,7 @@ def _incorrect_correct_problems(folder: Path, name: str) -> list[str]:
 # B-032-4: the body must sit within the load tier the surfaces give it — 500 lines, with
 # long embedded scripts moved to scripts/ (executed, never read into context).
 LOAD_TIER_MAX = 500
-_INLINE_SCRIPT = re.compile(r"^(?:python3?|bash|sh)\s+-|<<['\"]?EOF", re.M)
+_INLINE_SCRIPT = re.compile(r"(?:(?:python3?|bash|sh)\s+-)|(?:<<['\"]?EOF)", re.M)
 
 
 # B-038-1: a designed surface passes the accessibility floor only when its verify pass
