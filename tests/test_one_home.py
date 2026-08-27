@@ -13,13 +13,11 @@ that touched it reads as narrower than it was.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "tests"))
+import one_home
 
-import one_home  # noqa: E402 — the reader under test, beside this file
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_a_path_outside_the_known_homes_becomes_its_own():

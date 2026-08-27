@@ -8,13 +8,11 @@ wall-time from observed samples, and refuses to continue without consent above a
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+from ai_engineering import cost
 
-from ai_engineering import cost  # noqa: E402
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_a_bounded_sample_projects_and_stays_under_threshold(monkeypatch):

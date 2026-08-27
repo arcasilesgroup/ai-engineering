@@ -11,14 +11,12 @@ the count; a different call is unaffected; every denial still denies.
 """
 
 import re
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "hooks"))
+import _wrap
+import loop_guard as lg
 
-import _wrap  # noqa: E402
-import loop_guard as lg  # noqa: E402
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _call(number: int) -> dict:

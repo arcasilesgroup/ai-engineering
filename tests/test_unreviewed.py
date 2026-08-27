@@ -15,13 +15,11 @@ its most reassuring exactly when it knew least.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "tests"))
+import unreviewed
 
-import unreviewed  # noqa: E402 — the reader under test, beside this file
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_the_hand_offs_are_read_from_the_record_and_not_written_here():

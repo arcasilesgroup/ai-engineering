@@ -16,10 +16,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+from ai_engineering import paths
 
-from ai_engineering import paths  # noqa: E402
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _last_buffered(repodir: Path) -> dict:

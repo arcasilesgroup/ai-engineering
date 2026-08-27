@@ -8,15 +8,13 @@ The evals harness reporters become the first consumers.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+from ai_engineering import coverage
 
-from ai_engineering import coverage  # noqa: E402
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _coverage_file(tmp_path: Path, roots: list[str]) -> Path:

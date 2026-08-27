@@ -9,20 +9,14 @@ fire; a clean control with no defects must stay quiet (astryx `clean-stays-quiet
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
+from evals import plant, score
 
 ROOT = Path(__file__).resolve().parents[1]
 EVALS = ROOT / "tests" / "evals"
 PACKS = EVALS / "packs"
-
-if str(EVALS) not in sys.path:
-    sys.path.insert(0, str(EVALS))
-
-import plant  # noqa: E402
-import score  # noqa: E402
 
 
 def _mk_pack(root: Path, name: str, toml: str, reporter: str) -> Path:
