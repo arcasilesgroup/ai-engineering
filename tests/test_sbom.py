@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import zipfile
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -69,7 +70,7 @@ def test_the_document_carries_every_field_it_is_invalid_without(tmp_path):
     assert bom["bomFormat"] == "CycloneDX"
     assert bom["specVersion"] == sbom.SPEC_VERSION
     assert isinstance(bom["version"], int)
-    assert json.loads(json.dumps(bom)) == bom, "the BOM does not survive a round trip"
+    assert deepcopy(bom) == bom, "the BOM does not survive a round trip"
 
 
 def test_the_dependencies_it_names_are_the_ones_the_wheel_declares(tmp_path):

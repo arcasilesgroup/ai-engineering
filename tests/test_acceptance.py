@@ -15,6 +15,7 @@ import json
 import os
 import re
 import subprocess
+from copy import deepcopy
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -355,7 +356,7 @@ ENFORCERS = {"schema", "reader", "register", "writer"}
 
 
 def _apply(record: dict[str, Any], mutations: list[dict[str, Any]]) -> dict[str, Any]:
-    mutated = json.loads(json.dumps(record))
+    mutated = deepcopy(record)
     for mutation in mutations:
         target, *rest = mutation["path"]
         node, key = mutated, target
@@ -713,7 +714,7 @@ def _bound(root: Path, slug: str, **overrides: Any) -> dict[str, Any]:
 
     from ai_engineering import acceptance
 
-    record = json.loads(json.dumps(_corpus()["base"]["record"]))
+    record = deepcopy(_corpus()["base"]["record"])
     record.update(overrides)
     spec = root / "specs" / slug / "spec.md"
     evidence_path = f"specs/{slug}/durability.md"
@@ -996,7 +997,7 @@ def test_no_acceptance_result_can_change_another_checks_status(tmp_path) -> None
     assert acceptance.expired(root).entries == ()
     assert acceptance.read(root).outcome == "PASS"
 
-    gone = json.loads(json.dumps(live))
+    gone = deepcopy(live)
     gone["expires"] = "2020-01-01"
     gone["accepted"] = "2019-01-01"
     gone["record_digest"] = acceptance.record_digest(gone)

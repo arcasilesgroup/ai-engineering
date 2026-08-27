@@ -1596,7 +1596,7 @@ def test_decide_accept_takes_its_authority_from_the_approved_intent(tmp_path, mo
     assert decide.main(["--accept", "0009"]).outcome == "INCOMPLETE"
     assert decision.read_text(encoding="utf-8") == proposed
 
-    write_intent(json.loads(json.dumps(_ACTIVE_LIFECYCLE)))
+    write_intent(deepcopy(_ACTIVE_LIFECYCLE))
     assert intent.validate(root / ".ai" / "intent.md", root).outcome == "PASS"
     assert decide.main(["--accept", "0009"]).outcome == "PASS"
 
