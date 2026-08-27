@@ -742,16 +742,21 @@ def _edge_valid(
         return False
     for identifier, status in child.states.items():
         before = parent.states.get(identifier)
-        if before is None and status != "proposed":
-            # A record born approved: its first committed appearance already carries the
-            # approval triple (authority, reference, timestamp), so there is no earlier
-            # state the leap could have skipped. Records 0024+ use this convention; every
-            # record before 0023 walked proposed -> accepted in two commits. Judged only
-            # where history is being replayed — the uncommitted edge (worktree against
-            # HEAD) keeps the strict rule, because the worktree is where a record could
-            # still appear from nothing without a person having seen it.
-            if not (committed and child.approvals.get(identifier)):
-                return False
+        if (
+            before is None
+            and status != "proposed"
+            and not (
+                # A record born approved: its first committed appearance already carries the
+                # approval triple (authority, reference, timestamp), so there is no earlier
+                # state the leap could have skipped. Records 0024+ use this convention; every
+                # record before 0023 walked proposed -> accepted in two commits. Judged only
+                # where history is being replayed — the uncommitted edge (worktree against
+                # HEAD) keeps the strict rule, because the worktree is where a record could
+                # still appear from nothing without a person having seen it.
+                committed and child.approvals.get(identifier)
+            )
+        ):
+            return False
         if (
             before is not None
             and before != status
@@ -780,7 +785,7 @@ def _historic_snapshot(
     """
     try:
         return _snapshot(files, schema, structural, graph=False)
-    except _Problem as problem:
+    except _Problem:
         states: dict[str, str] = {}
         approvals: dict[str, tuple[str, str, str] | None] = {}
         for path in sorted(files):
@@ -801,17 +806,22 @@ def _historic_snapshot(
             if not isinstance(status, str) or not status:
                 continue
             states[identifier] = status
-            approvals[identifier] = (
-                (role, ref, stamp)
-                if status != "proposed"
-                and isinstance(role, str) and role
-                and isinstance(ref, str) and ref
-                and (
-                    isinstance(stamp, str) and stamp
-                    or stamp is None and "approved_at" not in parsed.raw_fields
-                )
-                else None
-            )
+            # The stored approval triple is typed `tuple[str, str, str]`; a record born
+            # before the timestamp field existed is still approved by role and reference,
+            # so the missing stamp stores as the empty string. None is the proposed state's
+            # no-approval, and conflating the two would let a proposed record look
+            # born-approved.
+            approved: tuple[str, str, str] | None = None
+            if (
+                status != "proposed"
+                and isinstance(role, str)
+                and role
+                and isinstance(ref, str)
+                and ref
+                and (isinstance(stamp, str) or "approved_at" not in parsed.raw_fields)
+            ):
+                approved = (role, ref, stamp if isinstance(stamp, str) else "")
+            approvals[identifier] = approved
         return _Snapshot(states, {i: f"docs/adr/{i}" for i in states}, approvals)
 
 
