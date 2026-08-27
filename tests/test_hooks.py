@@ -1037,7 +1037,7 @@ def test_a_field_nobody_thought_of_still_leaves_as_a_hash(repo, field):
     later — by us or by a guard — must leave as a hash and a length, or the first person to
     add one ships their user's file contents to a collector."""
     canary = "correct-horse-battery-staple"
-    body = _otlp.as_logs([{"cls": "blocked", "data": {field: canary}}], "strict")
+    body = _otlp.as_logs([{"cls": "blocked", "data": {field: canary}}])
     text = json.dumps(body)
     assert canary not in text
     assert _otlp.opaque(canary)["sha256"] in text
@@ -1070,7 +1070,7 @@ def test_the_allow_list_is_exactly_what_passes_through_in_the_clear(field):
     deleted field quietly delete its own test, and `fp` and `id` are the two the record
     is correlated by — lose either and the digest still renders and says nothing."""
     assert _otlp.KEEP_DATA == IN_THE_CLEAR
-    out = _otlp.redact({"cls": "blocked", "data": {field: "plain"}}, "strict")
+    out = _otlp.redact({"cls": "blocked", "data": {field: "plain"}})
     assert out["data"][field] == "plain"
 
 
@@ -1086,7 +1086,7 @@ def test_only_the_first_two_words_of_a_command_leave():
     """A command line is where the secrets are: a token in an argument, a private path, a
     branch name that names a customer. The verb and its subcommand are enough to read the
     record by."""
-    out = _otlp.redact({"data": {"command": "git push origin secret-customer-branch"}}, "strict")
+    out = _otlp.redact({"data": {"command": "git push origin secret-customer-branch"}})
     assert out["data"]["command"] == "git"
 
 
@@ -1102,14 +1102,14 @@ def test_redaction_cannot_be_turned_off_by_configuration():
 
     event = {"cls": "blocked", "data": {"reason": "plain"}}
     for mode in ("none", "off", "strict", "", "anything at all"):
-        assert _otlp.redact(event, mode)["data"]["reason"] != "plain", mode
+        assert _otlp.redact(event)["data"]["reason"] != "plain", mode
 
 
 def test_an_event_carries_its_severity_and_its_five_attributes(repo):
     """A collector routes on severity and filters on attributes. Send everything as INFO
     and the errors are in the pile nobody alerts on."""
     records = _otlp.as_logs(
-        [{"cls": "error", "name": "chain", "session": "s", "repo": "r", "machine": "m"}], "strict"
+        [{"cls": "error", "name": "chain", "session": "s", "repo": "r", "machine": "m"}]
     )["resourceLogs"][0]["scopeLogs"][0]["logRecords"]
     assert (records[0]["severityText"], records[0]["severityNumber"]) == ("ERROR", 17)
     assert [a["key"] for a in records[0]["attributes"]] == [
@@ -1119,7 +1119,7 @@ def test_an_event_carries_its_severity_and_its_five_attributes(repo):
         "aieng.repo",
         "aieng.machine",
     ]
-    info = _otlp.as_logs([{"cls": "allowed"}], "strict")["resourceLogs"][0]["scopeLogs"][0]
+    info = _otlp.as_logs([{"cls": "allowed"}])["resourceLogs"][0]["scopeLogs"][0]
     assert info["logRecords"][0]["severityText"] == "INFO"
 
 
@@ -1168,7 +1168,7 @@ def test_nothing_is_sent_anywhere_until_a_destination_is_configured(repo, monkey
         raise AssertionError("a request left the machine with no endpoint configured")
 
     monkeypatch.setattr(_otlp.urllib.request, "urlopen", refuse)
-    assert _otlp.post("logs", {}) == (0, 0, "no endpoint configured")
+    assert _otlp.post({}) == (0, 0, "no endpoint configured")
     assert _otlp.send_tail(5) == (0, 0, "logs not in the configured signals")
     assert _otlp.probe() == (False, "no response, 0 rejected no endpoint configured")
 
@@ -1583,7 +1583,7 @@ def test_an_endpoint_with_no_stated_retention_receives_nothing(tmp_path, monkeyp
     )
 
     configured('[observability]\nendpoint = "http://collector.invalid:4318"\n')
-    status, rejected, detail = _otlp.post("logs", {})
+    status, rejected, detail = _otlp.post({})
     assert (status, rejected) == (0, 0)
     assert "nobody has decided how long this is kept" in detail
 
@@ -1591,12 +1591,12 @@ def test_an_endpoint_with_no_stated_retention_receives_nothing(tmp_path, monkeyp
         configured(
             f'[observability]\nendpoint = "http://collector.invalid:4318"\nretention_days = {bad}\n'
         )
-        assert "nobody has decided" in _otlp.post("logs", {})[2], bad
+        assert "nobody has decided" in _otlp.post({})[2], bad
 
     # And with the decision made it gets past this gate and fails on the network instead,
     # which is the honest next answer for a host that does not exist.
     configured('[observability]\nendpoint = "http://collector.invalid:4318"\nretention_days = 30\n')
-    assert "nobody has decided" not in _otlp.post("logs", {})[2]
+    assert "nobody has decided" not in _otlp.post({})[2]
 
 
 def test_a_dispatcher_that_cannot_read_a_call_denies_it(tmp_path):
