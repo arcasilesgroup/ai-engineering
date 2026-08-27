@@ -420,8 +420,6 @@ def _json_dispatch(verb: str, rest: list[str], *, debug: bool = False) -> int:
     return process_exit
 
 
-
-
 def crash(exc: BaseException, *, debug: bool) -> outcome.Error:
     """One bounded error for an unexpected failure, or the traceback if it was asked for.
 
