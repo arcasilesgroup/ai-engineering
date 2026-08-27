@@ -16,8 +16,27 @@ design_budget = 3
 [models]
 # Per-repository model tiers (spec 037). Any provider name fits; `default_tier` is used
 # when a tier is not configured. Adjust here, never in framework code.
+#
+# Measured on api.nan.builders/v1, 2026-08-27 (live probes: latency, tok/s, tool calls,
+# vision, needle-in-haystack at ~300K prompt tokens):
+#   top    deepseek-v4-flash — hardest reasoning; the 1M-context needle passed at 328K;
+#     thinking-heavy (~25 reasoning tokens per visible one). Quota 2B/mo, resets Sep 1.
+#   medium glm5.3-flash    — agent bulk work; 500M monthly quota on this tier; always
+#     give max_tokens >= 8192 (verified: thinking can exhaust a tight cap and return
+#     empty content). Slowest measured (~49 tok/s) — quality over speed.
+#   low    qwen3.6         — fastest measured (129 tok/s), unmetered, reliable tool
+#     calling, vision-capable.
+#
+# Roles outside the three tiers, for whoever reads the pin (no code reads these; the
+# skills pick tiers, never names):
+#   vision  qwen3.8-flash  — best image descriptions of the six in the probe; 262K ctx.
+#   audio   mimo-v2.5      — the only omnimodal input; TTFT 16-42s measured, never for
+#                            agent loops.
+#   extract gemma4         — most concise, fastest TTFT (1.3s); short JSON and
+#                            classification.
+#   rag     qwen3-embedding + rerank — 4096 dims, verified live.
 top = "deepseek-v4-flash"
-medium = "qwen3.8-flash"
+medium = "glm5.3-flash"
 low = "qwen3.6"
 default_tier = "deepseek-v4-flash"
 
