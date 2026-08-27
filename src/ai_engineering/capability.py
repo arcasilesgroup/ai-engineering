@@ -12,7 +12,6 @@ import re
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
-from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -122,15 +121,11 @@ def _bounded_read(path: Path, problem: tuple[str, str], subject: str) -> bytes:
 
 def _load_schema() -> tuple[dict[str, Any], _Schema]:
     try:
-        schema = intent._json(_bounded_read(SCHEMA_PATH, SCHEMA_UNSUPPORTED, "capability policy"))
-        if not isinstance(schema, dict):
-            raise ValueError("schema is not an object")
-        if sha256(intent.canonical_json(schema)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
-            raise ValueError("capability policy differs from its approved contract")
+        schema = intent.pinned_policy(
+            SCHEMA_PATH, _EXPECTED_SCHEMA_DIGEST, bounded=_MAX_POLICY_BYTES
+        )
         structural = _Schema(schema)
-    except _Problem:
-        raise
-    except (RecursionError, TypeError, ValueError, re.error, intent._UnsupportedSchema):
+    except (OSError, RecursionError, TypeError, ValueError, re.error, intent._UnsupportedSchema):
         raise _Problem(SCHEMA_UNSUPPORTED) from None
     return schema, structural
 

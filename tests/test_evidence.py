@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from ai_engineering import evidence, outcome
+from ai_engineering import evidence, outcome, paths
 
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "check-evidence-v1.schema.json"
@@ -420,7 +420,8 @@ def test_evidence_verifier_fails_closed_when_canonical_policy_changes(
 def test_the_policy_is_read_from_one_bounded_regular_file_and_nothing_else(tmp_path):
     """Forty-seven mutants lived in the reader that decides which policy is in force.
 
-    `_read_policy` is the same hardened shape as `update._read_pin`, and for the same reason:
+    The shared `paths.read_bounded` is the same hardened shape as
+    `update._read_pin`, and for the same reason:
     the bytes it returns decide what counts as evidence, so a file swapped underneath it is a
     way to change the rules a gate applies. Every refusal it can make is its own case here,
     because one wrong file and one refusal passes with the other conditions deleted.
@@ -436,38 +437,39 @@ def test_the_policy_is_read_from_one_bounded_regular_file_and_nothing_else(tmp_p
 
     good = tmp_path / "policy.json"
     good.write_text("{}", encoding="utf-8")
-    assert evidence._read_policy(good) == b"{}"
+    assert paths.read_bounded(good, 1_000, "evidence policy") == b"{}"
 
     # A symlink, even one pointing at a perfectly good policy. `O_NOFOLLOW` and the `S_ISLNK`
-    # check together, because a platform without the flag still has the stat.
+    # check together, because a platform without the flag still has the stat. The shared
+    # reader raises OSError naming what happened; the caller wraps it as its problem.
     linked = tmp_path / "linked.json"
     linked.symlink_to(good)
-    with pytest.raises(evidence._Problem) as refused:
-        evidence._read_policy(linked)
-    assert refused.value.code == evidence.POLICY_UNSUPPORTED
+    with pytest.raises(OSError):
+        paths.read_bounded(linked, 1_000, "evidence policy")
 
     # A directory is not a file, and the refusal must come from the mode rather than from
     # whatever a read of a directory does on this platform.
     folder = tmp_path / "folder.json"
     folder.mkdir()
-    with pytest.raises(evidence._Problem):
-        evidence._read_policy(folder)
+    with pytest.raises(OSError):
+        paths.read_bounded(folder, 1_000, "evidence policy")
 
     # Absent is refused rather than read as an empty policy — an empty policy is one that
     # requires nothing, which is the most dangerous thing this file could return.
-    with pytest.raises(evidence._Problem):
-        evidence._read_policy(tmp_path / "absent.json")
+    with pytest.raises(OSError):
+        paths.read_bounded(tmp_path / "absent.json", 1_000, "evidence policy")
 
     # And over the bound. The reader takes one byte more than the bound and refuses if it
     # arrives, so a policy exactly at the bound is still read.
     over = tmp_path / "over.json"
     over.write_bytes(b"x" * (evidence._MAX_POLICY_BYTES + 1))
-    with pytest.raises(evidence._Problem):
-        evidence._read_policy(over)
+    with pytest.raises(OSError):
+        paths.read_bounded(over, evidence._MAX_POLICY_BYTES, "evidence policy")
 
     exact = tmp_path / "exact.json"
     exact.write_bytes(b"x" * evidence._MAX_POLICY_BYTES)
-    assert len(evidence._read_policy(exact)) == evidence._MAX_POLICY_BYTES
+    raw = paths.read_bounded(exact, evidence._MAX_POLICY_BYTES, "evidence policy")
+    assert len(raw) == evidence._MAX_POLICY_BYTES
 
     # A device or socket is neither a link nor a regular file, and the check is written as
     # "is regular" rather than "is not a link" for exactly that reason.
@@ -499,6 +501,5 @@ def test_a_policy_that_changes_while_it_is_read_is_refused(tmp_path, monkeypatch
             return getattr(self._base, name)
 
     monkeypatch.setattr(paths.os, "fstat", lambda fd: Elsewhere(real(fd)))
-    with pytest.raises(evidence._Problem) as refused:
-        evidence._read_policy(where)
-    assert refused.value.code == evidence.POLICY_UNSUPPORTED
+    with pytest.raises(OSError):
+        paths.read_bounded(where, evidence._MAX_POLICY_BYTES, "evidence policy")

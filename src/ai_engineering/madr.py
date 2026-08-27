@@ -125,14 +125,7 @@ class _Schema(intent._Schema):
 
 def _load_schema() -> tuple[dict[str, Any], _Schema]:
     try:
-        raw = SCHEMA_PATH.read_bytes()
-        schema = intent._json(raw)
-        if not isinstance(schema, dict):
-            raise ValueError("schema is not an object")
-        import hashlib
-
-        if hashlib.sha256(intent.canonical_json(schema)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
-            raise ValueError("MADR v1 policy differs from its approved contract")
+        schema = intent.pinned_policy(SCHEMA_PATH, _EXPECTED_SCHEMA_DIGEST)
         structural = _Schema(schema)
     except (OSError, RecursionError, TypeError, ValueError, re.error, intent._UnsupportedSchema):
         raise _Problem(SCHEMA_UNSUPPORTED) from None
