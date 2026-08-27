@@ -1908,9 +1908,8 @@ def test_the_tracked_inventory_is_refused_rather_than_returned_short(tmp_path, m
     `paths.git_lines` (spec 044); the refusals below run it directly, and the wrapper's own
     translation is exercised beside them.
     """
-    from ai_engineering import doctor as under, paths as product_paths
-
-    real_run = under.subprocess.run
+    from ai_engineering import doctor as under
+    from ai_engineering import paths as product_paths
 
     def answers(stdout=b"", code=0, error=None):
         def run(argv, **kwargs):
@@ -1952,36 +1951,12 @@ def test_the_inventory_asks_about_the_repository_it_was_handed(tmp_path, monkeyp
     for a diagnosis run from inside one repository about another, is a report about the wrong
     tree that looks exactly like a report about the right one.
     """
-    from ai_engineering import doctor as under, paths as product_paths
+    from ai_engineering import doctor as under
+    from ai_engineering import paths as product_paths
 
     seen = []
     monkeypatch.setattr(
         product_paths.subprocess,
-        "run",
-        lambda argv, **kw: (
-            seen.append(argv) or SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
-        ),
-    )
-
-    under.tracked_files(tmp_path)
-
-    assert seen[0][:4] == ["git", "-C", str(tmp_path), "ls-files"]
-    assert "-z" in seen[0], "the separator that makes a newline in a name safe is gone"
-    assert "--cached" in seen[0]
-
-
-def test_the_inventory_asks_about_the_repository_it_was_handed(tmp_path, monkeypatch):
-    """`-C <root>`, and it is the argument that decides which repository is answered about.
-
-    Without it this reads whatever repository the process happens to be standing in — which,
-    for a diagnosis run from inside one repository about another, is a report about the wrong
-    tree that looks exactly like a report about the right one.
-    """
-    from ai_engineering import doctor as under
-
-    seen = []
-    monkeypatch.setattr(
-        under.subprocess,
         "run",
         lambda argv, **kw: (
             seen.append(argv) or SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
