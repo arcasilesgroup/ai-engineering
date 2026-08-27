@@ -31,6 +31,11 @@ from ai_engineering import __version__, audit, outcome, paths, readiness, ui, wi
 # and a module that shadows a local is a module somebody silently reads the wrong one of.
 from ai_engineering import surface as surfaces
 
+INIT_PROJECT_HINT = "ai-eng init --project"
+INIT_GLOBAL_HINT = "ai-eng init --global --no-project"
+INVENTORY_FAIL = "git could not inventory tracked files"
+NOT_IN_REPO = "not inside a repository"
+
 # A problem, or a problem and the cure that is not the one FIXES holds for this number.
 # One check needs the second form: a pin can be wrong two ways and they are two commands.
 Assertion = Callable[[Path | None], "str | tuple[str, str] | None"]
@@ -97,10 +102,10 @@ OPEN = (
 # hook Codex will only run once a person has approved it, and a branch protected on a
 # server this machine cannot reach are not things a wheel gets to do for you.
 FIXES = {
-    2: "ai-eng init --global --no-project",
-    11: "ai-eng init --project",
-    12: "ai-eng init --global --no-project",
-    13: "ai-eng init --global --no-project",
+    2: INIT_GLOBAL_HINT,
+    11: INIT_PROJECT_HINT,
+    12: INIT_GLOBAL_HINT,
+    13: INIT_GLOBAL_HINT,
 }
 
 # The verbs `--fix` may run itself, and what it appends so each runs with nobody in front of
@@ -175,20 +180,20 @@ def tracked_files(root: Path) -> list[str]:
             timeout=10,
         )
     except (OSError, subprocess.SubprocessError) as error:
-        raise Undecidable("git could not inventory tracked files") from error
+        raise Undecidable(INVENTORY_FAIL) from error
     if result.returncode:
-        raise Undecidable("git could not inventory tracked files")
+        raise Undecidable(INVENTORY_FAIL)
     try:
         rendered = result.stdout.decode("utf-8")
     except UnicodeDecodeError as error:
-        raise Undecidable("git could not inventory tracked files") from error
+        raise Undecidable(INVENTORY_FAIL) from error
     if not rendered:
         return []
     if not rendered.endswith("\0"):
-        raise Undecidable("git could not inventory tracked files")
+        raise Undecidable(INVENTORY_FAIL)
     files = rendered.removesuffix("\0").split("\0")
     if any(not name for name in files):
-        raise Undecidable("git could not inventory tracked files")
+        raise Undecidable(INVENTORY_FAIL)
     return files
 
 
@@ -232,7 +237,7 @@ def suite_result() -> dict:
 @check(12, "The pin", "What runs is what is pinned")
 def pin_matches(root: Path | None) -> str | tuple[str, str] | None:
     if root is None:
-        raise Undecidable("not inside a repository")
+        raise Undecidable(NOT_IN_REPO)
     emit = paths.load("_emit")
     pinned = emit.config(root).get("framework", {}).get("version")
     if not pinned:
@@ -315,7 +320,7 @@ def classes_are_honest(root: Path | None) -> str | None:
 @check(11, "The wiring", "A git hook actually fires", in_ci=False)
 def git_hook_fires(root: Path | None) -> str | tuple[str, str] | None:
     if root is None:
-        raise Undecidable("not inside a repository")
+        raise Undecidable(NOT_IN_REPO)
     configured = git(root, "config", "--get", "core.hooksPath")
     if not configured:
         raise Undecidable("core.hooksPath is not set here: this repository has no floor")
@@ -336,7 +341,7 @@ def git_hook_fires(root: Path | None) -> str | tuple[str, str] | None:
         return (
             f"core.hooksPath points at {configured}, which is not the directory this "
             f"install wires. Something lives there; none of it is ours.",
-            "ai-eng init --project",
+            INIT_PROJECT_HINT,
         )
     return _cli_answers(root)
 
@@ -345,7 +350,7 @@ def git_hook_fires(root: Path | None) -> str | tuple[str, str] | None:
 # to hold: a configured value that is executed is a configured value that can be anything, on
 # a machine that may already be doing what an injected instruction told it to.
 _CLI_TAIL = ["-m", "ai_engineering.cli"]
-_CLI_CURE = "ai-eng init --project"
+_CLI_CURE = INIT_PROJECT_HINT
 
 
 def _interpreter_of(configured: str) -> str:
@@ -778,7 +783,7 @@ def acceptances_current(root: Path | None) -> str | None:
     from ai_engineering import accept
 
     if root is None:
-        raise Undecidable("not inside a repository")
+        raise Undecidable(NOT_IN_REPO)
     try:
         stale = accept.expired(root)
     except ValueError as why:
@@ -793,7 +798,7 @@ def acceptances_current(root: Path | None) -> str | None:
 @check(17, "The record", "The record is committed and the state is not")
 def polarity(root: Path | None) -> str | None:
     if root is None:
-        raise Undecidable("not inside a repository")
+        raise Undecidable(NOT_IN_REPO)
     intent_home = ".ai/intent.md"
     tracked = {name for name in tracked_files(root) if name.startswith(".ai/")}
     # The pin, plus the research documents this repository's work is judged against. Those
@@ -847,7 +852,7 @@ def data_is_yours(root: Path | None) -> str | None:
     from ai_engineering import intent
 
     if root is None:
-        raise Undecidable("not inside a repository")
+        raise Undecidable(NOT_IN_REPO)
     homes = (".ai/", "specs/", "docs/adr/")
     problems = []
     tracked = tracked_files(root)
@@ -908,7 +913,7 @@ def one_handler_each(root: Path | None) -> str | None:
     """
 
     if root is None:
-        raise Undecidable("not inside a repository")
+        raise Undecidable(NOT_IN_REPO)
     from ai_engineering import capability
 
     try:
@@ -1084,7 +1089,7 @@ def accessibility_floor(root: Path | None) -> str | None:
 @check(4, "The context", "The doctrine is short, present and filled in")
 def doctrine(root: Path | None) -> str | None:
     if root is None:
-        raise Undecidable("not inside a repository")
+        raise Undecidable(NOT_IN_REPO)
     problems = []
     agents = root / "AGENTS.md"
     if not agents.exists():
@@ -1111,7 +1116,7 @@ def doctrine(root: Path | None) -> str | None:
 @check(14, "The outside", "T0: the default branch is protected on the server")
 def branch_protection(root: Path | None) -> str | None:
     if root is None:
-        raise Undecidable("not inside a repository")
+        raise Undecidable(NOT_IN_REPO)
     if shutil.which("gh") is None:
         raise Undecidable("gh is not installed, so the server could not be asked")
     branch = git(root, "rev-parse", "--abbrev-ref", "origin/HEAD").rsplit("/", 1)[-1] or "main"
@@ -1151,7 +1156,7 @@ def production_ready(root: Path | None) -> str | None:
     of the eight boxes in this repository's own shipped spec claimed a control and named no
     command. A backtick proves something was named, never that it passed."""
     if root is None:
-        raise Undecidable("not inside a repository")
+        raise Undecidable(NOT_IN_REPO)
     bad = []
     for spec in sorted((root / "specs").glob("*/spec.md")) if (root / "specs").exists() else []:
         text = spec.read_text(errors="replace")

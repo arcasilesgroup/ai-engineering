@@ -22,6 +22,12 @@ from types import ModuleType
 
 from ai_engineering import __version__, outcome, paths
 
+EXEC_FACTS_FAIL = "The command failed before producing bounded execution facts"
+RECEIPT_NOUN = "the receipt"
+RECORDS_NOUN = "this repository's records"
+SURFACE_SETTINGS = "surface settings"
+JSON_HELP_HINT = "run ai-eng --json --help"
+
 VERBS: dict[str, str] = {
     "init": "Set up this machine, and this repository if you say yes.",
     "doctor": "The 26 assertions and the coverage line. Is the system healthy now?",
@@ -54,19 +60,19 @@ VERBS: dict[str, str] = {
 SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] = {
     "init": (
         "set this machine up, and this repository if you say yes",
-        ("the receipt", "each agent surface's settings"),
-        ("the application home", "surface settings", "git config", "this repository's records"),
+        (RECEIPT_NOUN, "each agent surface's settings"),
+        ("the application home", SURFACE_SETTINGS, "git config", RECORDS_NOUN),
         (),
     ),
     "doctor": (
         "run the assertions and report what they observed",
-        ("the receipt", "surface settings", "this repository's records"),
+        (RECEIPT_NOUN, SURFACE_SETTINGS, RECORDS_NOUN),
         ("the files each --fix repairs, when --fix is given",),
         ("the configured observability endpoint, when one is configured",),
     ),
     "update": (
         "rewrite the pin and run the forward migrations",
-        ("the pin", "the receipt"),
+        ("the pin", RECEIPT_NOUN),
         ("the pin", "the files each migration names"),
         (),
     ),
@@ -102,25 +108,25 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
     ),
     "audit": (
         "walk the chain and say whether it holds",
-        ("the chain", "this repository's records"),
+        ("the chain", RECORDS_NOUN),
         (),
         (),
     ),
     "report": (
         "produce the local governed report",
-        ("the events", "this repository's records"),
+        ("the events", RECORDS_NOUN),
         ("the local digest read receipt", "the Solution Intent page under docs/"),
         ("the configured observability endpoint, when one is configured",),
     ),
     "exception": (
         "record one design exception, at a keyboard",
-        ("the application home", "this repository's records"),
+        ("the application home", RECORDS_NOUN),
         ("one time-limited grant in the application home",),
         (),
     ),
     "uninstall": (
         "undo everything the receipt lists",
-        ("the receipt", "surface settings"),
+        (RECEIPT_NOUN, SURFACE_SETTINGS),
         ("only what the receipt records this install as having written",),
         (),
     ),
@@ -379,10 +385,10 @@ def _json_dispatch(verb: str, rest: list[str], *, debug: bool = False) -> int:
                     traceback.print_exc(file=reachable)
                 execution = outcome.execution(
                     outcome.result("INCOMPLETE"),
-                    summary="The command failed before producing bounded execution facts",
+                    summary=EXEC_FACTS_FAIL,
                     execution_error=outcome.error(
                         "UNEXPECTED_ERROR",
-                        "The command failed before producing bounded execution facts",
+                        EXEC_FACTS_FAIL,
                         False,
                     ),
                 )
@@ -414,7 +420,7 @@ def _json_dispatch(verb: str, rest: list[str], *, debug: bool = False) -> int:
     return process_exit
 
 
-UNEXPECTED = "The command failed before producing bounded execution facts"
+UNEXPECTED = EXEC_FACTS_FAIL
 
 
 def crash(exc: BaseException, *, debug: bool) -> outcome.Error:
@@ -450,19 +456,17 @@ def main(argv: list[str] | None = None) -> int:
             return _invalid_json("ai-eng", "--json may be specified once")
         if not argv:
             return _invalid_json(
-                "ai-eng", "JSON mode requires one canonical command", "run ai-eng --json --help"
+                "ai-eng", "JSON mode requires one canonical command", JSON_HELP_HINT
             )
         if "--adr" in argv:
-            return _invalid_json(
-                "invalid", "The option --adr does not exist", "run ai-eng --json --help"
-            )
+            return _invalid_json("invalid", "The option --adr does not exist", JSON_HELP_HINT)
         if argv[0] in ("-h", "--help", "help"):
             return _global_json("help")
         if argv[0] in ("-V", "--version", "version"):
             return _global_json("version")
         verb, rest = argv[0], argv[1:]
         if verb not in VERBS:
-            return _invalid_json("invalid", "Unknown command", "run ai-eng --json --help")
+            return _invalid_json("invalid", "Unknown command", JSON_HELP_HINT)
         return _json_dispatch(verb, rest, debug=debug)
     if "--adr" in argv:
         sys.stderr.write("ai-eng: there is no option '--adr'.\n")

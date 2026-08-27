@@ -18,6 +18,10 @@ from pathlib import Path
 
 from ai_engineering import outcome
 
+REQUIREMENTS_FILE = "requirements.txt"
+GOMOD_FILE = "go.mod"
+POM_FILE = "pom.xml"
+
 MISSING_ENGINE = "LANE_ENGINE_MISSING"
 MISSING_RULES = "LANE_RULES_MISSING"
 TAMPERED_RULES = "LANE_RULES_TAMPERED"
@@ -198,12 +202,12 @@ BASELINE = (
 # "it ran and found nothing" into an answer somebody can check.
 MANIFESTS = (
     "pyproject.toml",
-    "requirements.txt",
+    REQUIREMENTS_FILE,
     "package.json",
     "Cargo.toml",
-    "go.mod",
+    GOMOD_FILE,
     "Gemfile",
-    "pom.xml",
+    POM_FILE,
     "build.gradle",
     "composer.json",
 )
@@ -216,13 +220,13 @@ IMAGES = ("Dockerfile", "Containerfile")
 # Measured on this repository: `pyproject.toml` with no lock produced "Not scanned", and
 # `package-lock.json` was excluded entirely because its packages are all development ones.
 READS = {
-    "pyproject.toml": ("uv.lock", "poetry.lock", "pdm.lock", "requirements.txt"),
-    "requirements.txt": ("requirements.txt",),
+    "pyproject.toml": ("uv.lock", "poetry.lock", "pdm.lock", REQUIREMENTS_FILE),
+    REQUIREMENTS_FILE: (REQUIREMENTS_FILE,),
     "package.json": ("package-lock.json", "pnpm-lock.yaml", "yarn.lock"),
     "Cargo.toml": ("Cargo.lock",),
-    "go.mod": ("go.mod", "go.sum"),
+    GOMOD_FILE: (GOMOD_FILE, "go.sum"),
     "Gemfile": ("Gemfile.lock",),
-    "pom.xml": ("pom.xml",),
+    POM_FILE: (POM_FILE,),
     "build.gradle": ("gradle.lockfile",),
     "composer.json": ("composer.lock",),
 }

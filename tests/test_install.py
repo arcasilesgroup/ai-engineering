@@ -1472,7 +1472,6 @@ def test_the_config_template_renders_to_toml_carrying_the_version(home):
         "loop_window",
         "loop_repeats",
         "loop_failures",
-        "design_budget",
     }
 
 

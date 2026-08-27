@@ -19,7 +19,6 @@ suite drives, so every assertion in it holds the bytes a person with no colour s
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from collections.abc import Sequence
@@ -111,18 +110,9 @@ def write(text: str = "", style: str = "", data: bool = False) -> None:
     console(data).print(Text(text, style=style) if style else Text(text))
 
 
-def render_result(result: Result, *, json_mode: bool = False) -> dict[str, str | int]:
+def render_result(result: Result) -> dict[str, str | int]:
     """Render one canonical result without changing its semantics or asking a question."""
     payload = result.as_dict()
-    if json_mode:
-        sys.stdout.write(
-            json.dumps(
-                payload, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-            )
-            + "\n"
-        )
-        return payload
-
     mark, style = RESULT_MARKS[result.outcome]
     body = Text(f"{mark} {result.outcome}", style=style)
     for label, value in (
@@ -345,13 +335,6 @@ def report(headline: str, waiting: list[str], nexts: list[tuple[str, str]]) -> N
         body.append(command, style="cmd")
         body.append(f"\n     {why}", style="muted")
     console().print(Panel(body, title="Done", border_style=BRAND, title_align="left"))
-
-
-def ask(question: str, default: bool) -> bool:
-    """A yes or no, with the answer Enter gives shown in capitals. The caller decides
-    whether there is a person to ask; this only draws it."""
-    reply = input(f"◆ {question} ({'Y/n' if default else 'y/N'}) › ").strip().lower()
-    return default if not reply else reply.startswith("y")
 
 
 def pick(question: str, rows: list[tuple[str, str]], checked: set[str]) -> list[str] | None:

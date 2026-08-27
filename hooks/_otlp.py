@@ -51,7 +51,7 @@ def opaque(value) -> dict:
     return {"sha256": hashlib.sha256(text.encode()).hexdigest()[:16], "len": len(text)}
 
 
-def redact(event: dict, mode: str) -> dict:
+def redact(event: dict) -> dict:
     """Everything outside the two allow-lists leaves as a hash and a length.
 
     `command` keeps its first token and nothing else. It used to keep the first two,
@@ -63,8 +63,8 @@ def redact(event: dict, mode: str) -> dict:
     could not see it. The first token is the program, which is never an argument, and it
     still answers the question the field was added for: what ran.
 
-    `mode` is read and ignored, and it stays in the signature only so a caller passing the
-    old value still redacts. `"none"` used to send every unlisted field verbatim and it was
+    A `mode` parameter was read and ignored here until its callers stopped passing it:
+    `"none"` used to send every unlisted field verbatim and it was
     a supported value in the pin: a configuration that disables a privacy control is a
     control whoever runs the exporter can switch off, and nothing downstream could tell a
     machine that had redacted from one that had been told not to. Deleted under spec 014
@@ -82,12 +82,12 @@ def redact(event: dict, mode: str) -> dict:
     return out
 
 
-def as_logs(events: list[dict], mode: str) -> dict:
+def as_logs(events: list[dict]) -> dict:
     """OTLP in JSON. The field names are lowerCamelCase, not snake_case: a destination
     that receives snake_case answers 200 and keeps nothing."""
     records = []
     for event in events:
-        body = redact(event, mode)
+        body = redact(event)
         records.append(
             {
                 "timeUnixNano": "0",
@@ -116,9 +116,11 @@ def as_logs(events: list[dict], mode: str) -> dict:
     }
 
 
-def post(signal: str, body: dict) -> tuple[int, int, str]:
+def post(body: dict) -> tuple[int, int, str]:
     """Returns (status, rejected, detail). Rejected comes out of the successful
-    response, which is where the protocol puts it."""
+    response, which is where the protocol puts it. One lane exists, logs; the `signal`
+    parameter was generality for a traces-and-metrics exporter nobody configured."""
+    signal = "logs"
     settings = config().get("observability", {})
     endpoint = str(settings.get("endpoint", "")).rstrip("/")
     if not endpoint:
@@ -166,7 +168,7 @@ def send_tail(count: int) -> tuple[int, int, str]:
     except OSError:
         return 0, 0, "no chain to send"
     events = [json.loads(line) for line in lines if line.strip()]
-    return post("logs", as_logs(events, str(settings.get("redact", "strict"))))
+    return post(as_logs(events))
 
 
 def probe() -> tuple[bool, str]:
@@ -185,8 +187,8 @@ def probe() -> tuple[bool, str]:
         "hash": "",
         "data": {"id": canary},
     }
-    body = as_logs([event], str(config().get("observability", {}).get("redact", "strict")))
-    status, rejected, detail = post("logs", body)
+    body = as_logs([event])
+    status, rejected, detail = post(body)
     if 200 <= status < 300 and rejected == 0:
         return True, f"{status}, 0 rejected"
     return False, f"{status or 'no response'}, {rejected} rejected {detail}".strip()

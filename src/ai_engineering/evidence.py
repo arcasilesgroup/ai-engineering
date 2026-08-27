@@ -7,10 +7,7 @@ freshness window or digests.  Labels are considered only after those facts are p
 
 from __future__ import annotations
 
-import json
-import os
 import re
-import stat
 import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -20,6 +17,8 @@ from pathlib import Path
 from typing import Any
 
 from ai_engineering import intent, outcome, paths
+
+UTC_SUFFIX = "+00:00"
 
 SCHEMA_PATH = paths.policy("check-evidence-v1.schema.json")
 _EXPECTED_SCHEMA_DIGEST = "692aa60b1acc55c9ff790184bc59066fdc5832fe94608c70a31f02b2845ed60c"
@@ -61,39 +60,11 @@ class _Problem(ValueError):
 
 
 class _SchemaValidator(intent._Schema):
-    _KEYWORDS = intent._Schema._KEYWORDS | {
-        "anyOf",
-        "format",
-        "minimum",
-        "x-evidence-policy",
-    }
-    _SCHEMA_LISTS = intent._Schema._SCHEMA_LISTS | {"anyOf"}
+    """The base now carries anyOf, format (UTC RFC3339) and minimum; this subclass only
+    opens the policy's own x-evidence-policy keyword. `_valid_format` below stays: the
+    loader validates raw records with it before any schema sees them."""
 
-    def _check_scalars(self, schema: dict[str, Any]) -> None:
-        super()._check_scalars(schema)
-        if "format" in schema and schema["format"] not in {"date", "date-time"}:
-            raise intent._UnsupportedSchema("unsupported string format")
-        if "minimum" in schema and (
-            not isinstance(schema["minimum"], int) or isinstance(schema["minimum"], bool)
-        ):
-            raise intent._UnsupportedSchema("invalid minimum")
-
-    def valid(
-        self,
-        instance: Any,
-        schema: dict[str, Any] | None = None,
-        references: tuple[str, ...] = (),
-    ) -> bool:
-        active = self.root if schema is None else schema
-        if not super().valid(instance, active, references):
-            return False
-        if "anyOf" in active and not any(
-            self.valid(instance, child, references) for child in active["anyOf"]
-        ):
-            return False
-        if "minimum" in active and isinstance(instance, int) and instance < active["minimum"]:
-            return False
-        return "format" not in active or _valid_format(instance, active["format"])
+    _KEYWORDS = intent._Schema._KEYWORDS | {"x-evidence-policy"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,45 +110,11 @@ def _verification(status: str, code: str) -> Verification:
     return Verification(outcome.result(status), code)
 
 
-def _canonical_json(value: Any) -> bytes:
-    return json.dumps(
-        value, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-    ).encode()
-
-
 def _read_policy(path: Path) -> bytes:
-    descriptor = -1
-    close_failed = False
-    raw = b""
     try:
-        before = path.lstat()
-        if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
-            raise OSError("evidence policy is not a regular file")
-        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_BINARY", 0)
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        descriptor = os.open(path, flags)
-        opened = os.fstat(descriptor)
-        identity = (opened.st_dev, opened.st_ino)
-        if not stat.S_ISREG(opened.st_mode) or identity != (before.st_dev, before.st_ino):
-            raise OSError("evidence policy changed while opening")
-        raw = os.read(descriptor, _MAX_POLICY_BYTES + 1)
-        if os.read(descriptor, 1):
-            raise OSError("evidence policy exceeds its bound")
-        after = path.lstat()
-        if identity != (after.st_dev, after.st_ino):
-            raise OSError("evidence policy changed while reading")
+        return paths.read_bounded(path, _MAX_POLICY_BYTES, "evidence policy")
     except OSError as error:
         raise _Problem(POLICY_UNSUPPORTED) from error
-    finally:
-        if descriptor >= 0:
-            try:
-                os.close(descriptor)
-            except OSError:
-                close_failed = True
-    if close_failed or len(raw) > _MAX_POLICY_BYTES:
-        raise _Problem(POLICY_UNSUPPORTED)
-    return raw
 
 
 def _load_schema() -> tuple[dict[str, Any], _SchemaValidator, dict[str, Any]]:
@@ -185,7 +122,7 @@ def _load_schema() -> tuple[dict[str, Any], _SchemaValidator, dict[str, Any]]:
         schema = intent._json(_read_policy(SCHEMA_PATH))
         if not isinstance(schema, dict):
             raise ValueError("schema is not an object")
-        if sha256(_canonical_json(schema)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
+        if sha256(intent.canonical_json(schema)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
             raise ValueError("evidence policy differs from its approved contract")
         structural = _SchemaValidator(schema)
         policy = schema["x-evidence-policy"]
@@ -213,27 +150,13 @@ def _load_schema() -> tuple[dict[str, Any], _SchemaValidator, dict[str, Any]]:
     return schema, structural, policy
 
 
-def _valid_format(value: Any, name: str) -> bool:
-    if not isinstance(value, str):
-        return False
-    try:
-        if name == "date":
-            return date.fromisoformat(value).isoformat() == value
-        if _RFC3339_UTC.fullmatch(value) is None:
-            return False
-        parsed = datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
-        return parsed.utcoffset() == timedelta(0)
-    except (OverflowError, ValueError):
-        return False
-
-
 def _parse(source: object) -> dict[str, Any]:
     try:
         if isinstance(source, Mapping):
             materialized = dict(source)
             if not all(isinstance(key, str) for key in materialized):
                 raise ValueError("evidence keys must be strings")
-            raw = _canonical_json(materialized)
+            raw = intent.canonical_json(materialized)
         elif isinstance(source, str):
             raw = source.encode("utf-8")
         elif isinstance(source, bytes):
@@ -294,8 +217,8 @@ def _requirement_fields(expected: dict[str, Any]) -> dict[str, Any]:
 
 def _timestamps(record: dict[str, Any], now: datetime) -> tuple[datetime, datetime] | None:
     try:
-        started = datetime.fromisoformat(record["started_at"].removesuffix("Z") + "+00:00")
-        finished = datetime.fromisoformat(record["finished_at"].removesuffix("Z") + "+00:00")
+        started = datetime.fromisoformat(record["started_at"].removesuffix("Z") + UTC_SUFFIX)
+        finished = datetime.fromisoformat(record["finished_at"].removesuffix("Z") + UTC_SUFFIX)
         if started > finished or finished > now:
             return None
         if record["kind"] in {"human", "external"}:
@@ -329,7 +252,7 @@ def verify(
         ):
             return _verification("INCOMPLETE", REQUIREMENT_INVALID)
         now = now.astimezone(UTC)
-        requirement = intent._json(_canonical_json(_expectation_record(expected)))
+        requirement = intent._json(intent.canonical_json(_expectation_record(expected)))
         if not isinstance(requirement, dict) or not structural.valid(requirement):
             return _verification("INCOMPLETE", REQUIREMENT_INVALID)
     except Exception:

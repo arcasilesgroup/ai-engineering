@@ -16,6 +16,8 @@ from pathlib import Path
 from ai_engineering import text
 
 SPEC_FIELDS = {"name", "description", "license", "compatibility", "allowed-tools", "version"}
+SKILL_FILE = "SKILL.md"
+CORPUS_FILE = "corpus.md"
 EXTENSIONS = {"disable-model-invocation", "context", "background"}
 JARGON = (
     "leverage",
@@ -238,7 +240,7 @@ def _existence_problems(folder: Path, name: str) -> list[str]:
     """
 
     problems = []
-    for doc in (folder / "SKILL.md", folder / "corpus.md"):
+    for doc in (folder / SKILL_FILE, folder / CORPUS_FILE):
         if not doc.exists():
             continue
         all_lines = doc.read_text(encoding="utf-8").splitlines()
@@ -288,7 +290,7 @@ def _forced_output_problems(folder: Path, name: str) -> list[str]:
     """
 
     problems = []
-    for doc in (folder / "SKILL.md", folder / "corpus.md"):
+    for doc in (folder / SKILL_FILE, folder / CORPUS_FILE):
         if not doc.exists():
             continue
         body = doc.read_text(encoding="utf-8")
@@ -322,7 +324,7 @@ def _sourced_statistic_problems(folder: Path, name: str) -> list[str]:
     """
 
     problems = []
-    for doc in (folder / "SKILL.md",):
+    for doc in (folder / SKILL_FILE,):
         if not doc.exists():
             continue
         body = doc.read_text(encoding="utf-8")
@@ -358,7 +360,7 @@ def _portable_problems(folder: Path, name: str) -> list[str]:
     """
 
     problems = []
-    for doc in (folder / "SKILL.md", folder / "corpus.md"):
+    for doc in (folder / SKILL_FILE, folder / CORPUS_FILE):
         if not doc.exists():
             continue
         for line in doc.read_text(encoding="utf-8").splitlines():
@@ -403,7 +405,7 @@ def _corpus_problems(folder: Path, name: str) -> list[str]:
     refusal half is the one that matters — "what it does" is in every description ever
     written, and "what it must not do" is the half that stops the wrong skill firing."""
 
-    corpus = folder / "corpus.md"
+    corpus = folder / CORPUS_FILE
     if not corpus.exists():
         return [
             f"{name}: no corpus.md. A skill needs a case it must take and a case it must "
@@ -433,7 +435,7 @@ _ANTI_ENTRY = re.compile(r"^- .*— .+", re.M)
 
 
 def _anti_rationalization_problems(folder: Path, name: str) -> list[str]:
-    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    body = (folder / SKILL_FILE).read_text(encoding="utf-8", errors="replace")
     if not _ANTI_SECTION.search(body):
         return [
             f"{name}: has no anti-rationalization section (## What this is not or "
@@ -452,7 +454,7 @@ _ARTIFACT = re.compile(r"`[^`]+`|(?:path|file|record|verdict|report|receipt)\b",
 
 
 def _output_contract_problems(folder: Path, name: str) -> list[str]:
-    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    body = (folder / SKILL_FILE).read_text(encoding="utf-8", errors="replace")
     if _PRODUCES not in body:
         return [f"{name}: no '## What it produces' section naming the artifact it exits"]
     section = body.partition(_PRODUCES)[2].partition("\n## ")[0]
@@ -469,7 +471,7 @@ _PAIR = re.compile(r"^### Incorrect.*?^### Correct", re.M | re.S)
 
 
 def _incorrect_correct_problems(folder: Path, name: str) -> list[str]:
-    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    body = (folder / SKILL_FILE).read_text(encoding="utf-8", errors="replace")
     if not _RULES.search(body):
         return []  # no rules section: scoped out
     if not _PAIR.search(body):
@@ -498,7 +500,7 @@ def _a11y_labels(text: str) -> set[str]:
 
 
 def _accessibility_problems(folder: Path, name: str) -> list[str]:
-    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    body = (folder / SKILL_FILE).read_text(encoding="utf-8", errors="replace")
     if "not-covered" in body:
         return []  # the honest exit: a deliberate non-compliance with a reason
     labels = _a11y_labels(body)
@@ -517,7 +519,7 @@ def _accessibility_problems(folder: Path, name: str) -> list[str]:
 
 
 def _load_tier_problems(folder: Path, name: str) -> list[str]:
-    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    body = (folder / SKILL_FILE).read_text(encoding="utf-8", errors="replace")
     size = body.count("\n") + 1
     problems: list[str] = []
     if size > LOAD_TIER_MAX:
@@ -543,7 +545,7 @@ _BRANCH_CUE = re.compile(
 
 
 def _dispatcher_problems(folder: Path, name: str) -> list[str]:
-    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    body = (folder / SKILL_FILE).read_text(encoding="utf-8", errors="replace")
     size = body.count("\n") + 1
     if size <= LOAD_TIER_MAX:
         return []  # under the bound: even branches are affordable on-demand reads
@@ -567,7 +569,7 @@ _APPENDIX_OK = re.compile(r"append", re.I)
 def _appendix_problems(folder: Path, name: str) -> list[str]:
     if name != "ai-note":
         return []
-    body = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    body = (folder / SKILL_FILE).read_text(encoding="utf-8", errors="replace")
     problems: list[str] = []
     if _APPENDIX_REWRITE.search(body) and not _APPENDIX_OK.search(body):
         problems.append(

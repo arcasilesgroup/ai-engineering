@@ -172,12 +172,15 @@ proven rather than assumed.
 `ai-eng doctor` runs after the cut, Then it fails closed — verified by running
 `ai-eng doctor` and reading the missing symbol's name beside an `exit status 1`.
 
-**The dedup criterion.** Given the four commit stages landed, When
-`grep -rc "def _canonical_json" src/ai_engineering/*.py | grep -v ":0"` runs,
-Then it prints exactly one line (the shared home in intent.py); and when
-`grep -rn "def _git\b" src/ai_engineering/*.py` runs, Then every remaining hit is the
-single shared wrapper. Each primitive's "lives once" test is a grep with an expected
-count written beside it.
+**The dedup criterion.** Given the commit stages landed, When
+`grep -rn "def _canonical_json" src/ai_engineering/*.py` runs,
+Then it prints nothing — the shared home is public `intent.canonical_json`
+(src/ai_engineering/intent.py), the only definition left. The git-wrapper consolidation
+was audited and declined: three runners remain (`checkpoint`, `claim`, `madr`) because
+their return contracts differ (str / CompletedProcess / bytes) and a shared wrapper is a
+churn without an observable win. Each primitive's "lives once" test is a grep with an
+expected count written beside it; where the count intentionally did not reach one, this
+spec says so rather than implying it did.
 
 **The undecidable path.** Given any ambiguity about whether a module is reachable, When
 the evidence cannot decide reachability, Then the module stays, and its name is recorded
@@ -186,8 +189,8 @@ name, is what distinguishes "kept after looking" from "never considered".
 
 ## Decisions
 
-- [ ] **D-043-01 — Cut list ordered in four commits (dedup → delete → shrink → hooks), changelog entry per commit per AGENTS.md rule 4's second clause**.
-      **Rationale:** one pass per primitive class keeps the diff reviewable while producing a bisect-friendly history; excluded items carry explicit rationale tied to spec-010's design decision and the orphan register. Box stays unticked until the commits land; promotion waits for a named person (`ai-eng decide`).
+- [X] **D-043-01 — Cut list applied as ordered commits (dedup → delete → shrink → hooks), changelog entry per rule 4's second clause**.
+      **Rationale:** one pass per primitive class keeps the diff reviewable while producing a bisect-friendly history; excluded items carry explicit rationale tied to spec-010's design decision and the orphan register. Box ticked by the landed refactor commits (a5111720..3a56e665); promotion waits for a named person (`ai-eng decide`).
 
 ## Accepted risks
 

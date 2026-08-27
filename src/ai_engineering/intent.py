@@ -13,11 +13,15 @@ import re
 import unicodedata
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from ai_engineering import paths
+
+DEFS_KEY = "$defs"
+NON_CANONICAL = "Intent path is not canonical"
 
 SCHEMA_INVALID = ("INTENT_SCHEMA_INVALID", "schema validation failed")
 # Absent is not malformed. A repository where nobody has written an Intent yet and one
@@ -95,22 +99,55 @@ def _json(payload: str | bytes) -> Any:
     )
 
 
+def canonical_json(value: Any) -> bytes:
+    """The digest input every pinned policy agrees on. Four modules carried byte-identical
+    copies of this under private names; the pin only means something if every reader
+    hashes the same bytes, so the helper lives where the JSON vocabulary lives."""
+    return json.dumps(
+        value, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode()
+
+
+_RFC3339_UTC = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z$")
+
+
+def _iso_value(instance: Any, fmt: str) -> bool:
+    """RFC3339 shape for "date" / UTC-only "date-time". Three validators carried private
+    copies of this; one is enough. The date half is the fromisoformat round-trip, which
+    refuses everything a `YYYY-MM-DD` can be misspelled as."""
+    if not isinstance(instance, str):
+        return False
+    try:
+        if fmt == "date":
+            return date.fromisoformat(instance).isoformat() == instance
+        if _RFC3339_UTC.fullmatch(instance) is None:
+            return False
+        return datetime.fromisoformat(
+            instance.removesuffix("Z") + "+00:00"
+        ).utcoffset() == timedelta(0)
+    except (OverflowError, ValueError):
+        return False
+
+
 class _Schema:
     _KEYWORDS = {
-        "$defs",
+        DEFS_KEY,
         "$id",
         "$ref",
         "$schema",
         "additionalProperties",
         "allOf",
+        "anyOf",
         "const",
         "description",
         "else",
         "enum",
+        "format",
         "if",
         "items",
         "maxItems",
         "maxLength",
+        "minimum",
         "minItems",
         "minLength",
         "not",
@@ -124,8 +161,8 @@ class _Schema:
         "uniqueItems",
         "x-canonical-home",
     }
-    _SCHEMA_MAPS = {"$defs", "properties"}
-    _SCHEMA_LISTS = {"allOf", "oneOf"}
+    _SCHEMA_MAPS = {DEFS_KEY, "properties"}
+    _SCHEMA_LISTS = {"allOf", "oneOf", "anyOf"}
     _SCHEMAS = {"else", "if", "items", "not", "then"}
     _TYPES = {"array", "integer", "object", "string"}
 
@@ -181,6 +218,12 @@ class _Schema:
             schema["additionalProperties"], bool
         ):
             raise _UnsupportedSchema("unsupported additionalProperties")
+        if "minimum" in schema and (
+            not isinstance(schema["minimum"], int) or isinstance(schema["minimum"], bool)
+        ):
+            raise _UnsupportedSchema("invalid minimum")
+        if "format" in schema and schema["format"] not in {"date", "date-time"}:
+            raise _UnsupportedSchema("unsupported string format")
 
     def _reference(self, reference: Any) -> dict[str, Any]:
         if not isinstance(reference, str) or not reference.startswith("#/$defs/"):
@@ -188,7 +231,7 @@ class _Schema:
         name = reference.removeprefix("#/$defs/")
         if not name or "/" in name:
             raise _UnsupportedSchema("unsupported definition reference")
-        definitions = self.root.get("$defs")
+        definitions = self.root.get(DEFS_KEY)
         if not isinstance(definitions, dict) or not isinstance(definitions.get(name), dict):
             raise _UnsupportedSchema("unknown definition reference")
         return definitions[name]
@@ -245,6 +288,16 @@ class _Schema:
             ):
                 return False
 
+        if "anyOf" in schema and not any(
+            self.valid(instance, child, references) for child in schema["anyOf"]
+        ):
+            return False
+        if isinstance(instance, int) and (instance < schema.get("minimum", instance)):
+            # bool is an int in Python; evidence's original check counted it, so a
+            # bool against `minimum` fails here exactly as it did before the merge.
+            return False
+        if "format" in schema and not _iso_value(instance, schema["format"]):
+            return False
         if "allOf" in schema and not all(
             self.valid(instance, child, references) for child in schema["allOf"]
         ):
@@ -368,7 +421,7 @@ def _load_source(source: Mapping[str, Any] | Path, files: _Files, home: str) -> 
     if not isinstance(source, Path) or not isinstance(files, _RootFiles):
         raise ValueError("an Intent path requires a repository root")
     if ".." in source.parts:
-        raise ValueError("Intent path is not canonical")
+        raise ValueError(NON_CANONICAL)
     expected = files.root.joinpath(*PurePosixPath(home).parts)
     raw = source if source.is_absolute() else files.root / source
     try:
@@ -377,12 +430,12 @@ def _load_source(source: Mapping[str, Any] | Path, files: _Files, home: str) -> 
     except (OSError, RuntimeError, ValueError) as error:
         raise ValueError("Intent cannot be read") from error
     if lexical != expected:
-        raise ValueError("Intent path is not canonical")
+        raise ValueError(NON_CANONICAL)
     component = files.root
     for part in relative.parts:
         component /= part
         if component.is_symlink():
-            raise ValueError("Intent path is not canonical")
+            raise ValueError(NON_CANONICAL)
     if not expected.is_file():
         # Absent, and said so. `ValueError` here becomes `INTENT_SCHEMA_INVALID` above, which
         # sends a reader looking for a mistake in a document nobody has written.
@@ -391,7 +444,7 @@ def _load_source(source: Mapping[str, Any] | Path, files: _Files, home: str) -> 
 
 
 def _relation_patterns(schema: dict[str, Any]) -> tuple[re.Pattern[str], ...]:
-    relation = schema["$defs"]["relation"]
+    relation = schema[DEFS_KEY]["relation"]
     patterns: list[str] = []
 
     def collect(node: Any) -> None:

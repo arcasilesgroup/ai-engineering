@@ -23,6 +23,9 @@ from pathlib import Path
 
 from ai_engineering import __version__, capability, intent, outcome, paths, skeletons, ui, wiring
 
+INTENT_FILE = "intent.md"
+SKIPPED_LINE = "   → skipped."
+
 # Each body is asked for with the repository root, because two of the five depend on what
 # is in it: the justfile on which stacks were detected, and the workflow on the version
 # this wheel pins. The workflow used to be printed at the reader with "paste these lines
@@ -49,9 +52,6 @@ def out(text: str = "") -> None:
     printed the workflow at the reader; that caller writes a file now, and a parameter with
     no caller left is a second way for this to behave that nothing exercises."""
     ui.write(text)
-
-
-banner = ui.banner  # one drawing of the product's face, and it lives with the rest of it
 
 
 def ask(question: str, default: bool, args) -> bool:
@@ -175,18 +175,18 @@ def global_step(args) -> outcome.Result:
     )
 
     if args.dry:
-        out("   → skipped.")
+        out(SKIPPED_LINE)
         return outcome.dry_run(exact_changes=True)
     if only or args.yes or not sys.stdin.isatty():
         # Named, unattended, or piped: the flags already said which surfaces, and a widget
         # with nobody in front of it is a hang.
         if not ask("Set up this machine?", True, args):
-            out("   → skipped.")
+            out(SKIPPED_LINE)
             return outcome.result("CANCELLED")
     else:
         found = surfaces_picked(found)
         if not found:
-            out("   → skipped.")
+            out(SKIPPED_LINE)
             return outcome.result("CANCELLED")
 
     written = wiring.install_skills(found)
@@ -399,14 +399,10 @@ def stacks(root: Path) -> list[str]:
     return sorted({name for marker, name in markers.items() if any(root.glob(marker))})
 
 
-def _lexical_path(path: Path) -> Path:
-    return Path(os.path.abspath(path))
-
-
 def _safe_path(path: Path, kind: str | None = None) -> bool:
     """Reject aliases and special files before a bounded install can follow them."""
     try:
-        lexical = _lexical_path(path)
+        lexical = Path(os.path.abspath(path))
         if lexical.resolve(strict=False) != lexical:
             return False
         if not os.path.lexists(lexical):
@@ -489,7 +485,7 @@ def _project_paths_safe(root: Path) -> bool:
     files = {
         *managed_paths(root),
         *(root / name for name in PROTECTED),
-        root / ".ai" / "intent.md",
+        root / ".ai" / INTENT_FILE,
         root / ".git" / "config",
     }
     if not all(_safe_path(path, "directory") for path in directories):
@@ -563,22 +559,22 @@ def _global_paths_safe(args) -> list[Path] | None:
 def _project_preflight(args) -> tuple[Path | None, intent.Validation | None] | None:
     if args.skip_project:
         return None, None
-    where = _lexical_path(Path(args.project or "."))
+    where = Path(os.path.abspath(Path(args.project or ".")))
     if not _safe_path(where, "directory"):
         return None
     root = paths.repo_root(where)
     if root is None:
         return None, None
-    root = _lexical_path(root)
+    root = Path(os.path.abspath(root))
     if not _safe_path(root, "directory") or not _project_paths_safe(root):
         return None
-    return root, intent.validate(root / ".ai" / "intent.md", root)
+    return root, intent.validate(root / ".ai" / INTENT_FILE, root)
 
 
 def project_step(args, prepared_root: Path | None = None) -> outcome.Result:
     if args.skip_project:
         return outcome.result("READY")
-    where = _lexical_path(Path(args.project or "."))
+    where = Path(os.path.abspath(Path(args.project or ".")))
     root = prepared_root or paths.repo_root(where)
     if root is None:
         ui.section(f"◇ Project   {where}   not a git repository")
@@ -592,7 +588,7 @@ def project_step(args, prepared_root: Path | None = None) -> outcome.Result:
         subprocess.run(["git", "-C", str(where), "init", "-b", "main"], check=True, timeout=10)
         ui.step("ok", "git init  ", f"→ {where}")
         root = where  # git init put .git directly here, so there is nothing to walk up to
-    root = _lexical_path(root)
+    root = Path(os.path.abspath(root))
     if not _safe_path(root, "directory") or not _project_paths_safe(root):
         return outcome.result("INCOMPLETE")
     pinned = root / ".ai" / "config.toml"
@@ -828,7 +824,7 @@ def _hooks_template_step(args) -> outcome.Result:
         ]
     )
     if args.dry:
-        out("   → skipped.")
+        out(SKIPPED_LINE)
         return outcome.dry_run(exact_changes=True)
     if (
         args.yes
@@ -885,7 +881,7 @@ def main(argv: list[str]) -> outcome.Result:
                 )
             theirs = collided
 
-        banner()
+        ui.banner()
         # Before anything is written, because it changes what the counts below mean. A
         # skills root is shared with the person and with every other publisher, and the
         # reader has to be able to tell "we skipped one of yours" from "one is missing".
@@ -907,10 +903,10 @@ def main(argv: list[str]) -> outcome.Result:
             "INCOMPLETE",
         }
         if project_ran and intent_state is None:
-            active_root = paths.repo_root(_lexical_path(Path(args.project or ".")))
+            active_root = paths.repo_root(Path(os.path.abspath(Path(args.project or "."))))
             if active_root is not None:
-                active_root = _lexical_path(active_root)
-                intent_state = intent.validate(active_root / ".ai" / "intent.md", active_root)
+                active_root = Path(os.path.abspath(active_root))
+                intent_state = intent.validate(active_root / ".ai" / INTENT_FILE, active_root)
         # INCOMPLETE while the Intent is missing or unreadable, which is a decision this
         # repository already took and `test_init_keeps_missing_or_invalid_intent_incomplete`
         # holds: a repository without its canonical Intent is not a governed one, and the

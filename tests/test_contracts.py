@@ -1065,7 +1065,6 @@ def test_nothing_free_text_leaves_the_machine():
                 "data": {"reason": canary, "command": f"git push {canary}"},
             }
         ],
-        "strict",
     )
     assert canary not in json.dumps(body), "a free-text field left the machine unhashed"
 
@@ -1100,7 +1099,6 @@ def test_a_two_word_command_does_not_carry_its_argument_off_the_machine():
                     "data": {"verb": "audit", "command": command},
                 }
             ],
-            "strict",
         )
         assert canary not in json.dumps(body), f"the argument left the machine: {command}"
 

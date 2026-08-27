@@ -85,15 +85,6 @@ class Standing:
     code: str
     age_seconds: int | None
 
-    def as_dict(self) -> dict[str, object]:
-        return {
-            "surface": self.surface,
-            "state": self.state,
-            "outcome": self.outcome,
-            "code": self.code,
-            "age_seconds": self.age_seconds,
-        }
-
 
 @dataclass(frozen=True, slots=True)
 class Report:
@@ -107,9 +98,6 @@ class Report:
             if row.surface == surface and row.state == state:
                 return row
         raise KeyError(f"{surface}.{state} is not one of the states this reads")
-
-    def as_dict(self) -> dict[str, object]:
-        return {"result": self.result.as_dict(), "rows": [row.as_dict() for row in self.rows]}
 
 
 @cache

@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import os
-import stat
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -30,44 +27,11 @@ class OutcomePolicyError(RuntimeError):
     """The canonical outcome policy cannot be trusted."""
 
 
-def _canonical_json(value: Any) -> bytes:
-    return json.dumps(
-        value, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-    ).encode()
-
-
 def _read_policy(path: Path) -> bytes:
-    descriptor = -1
-    close_failed = False
     try:
-        before = path.lstat()
-        if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
-            raise OSError("outcome policy is not a regular file")
-        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_BINARY", 0)
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        descriptor = os.open(path, flags)
-        opened = os.fstat(descriptor)
-        identity = (opened.st_dev, opened.st_ino)
-        if not stat.S_ISREG(opened.st_mode) or identity != (before.st_dev, before.st_ino):
-            raise OSError("outcome policy changed while opening")
-        raw = os.read(descriptor, _MAX_POLICY_BYTES + 1)
-        if os.read(descriptor, 1):
-            raise OSError("outcome policy exceeds its bound")
-        after = path.lstat()
-        if identity != (after.st_dev, after.st_ino):
-            raise OSError("outcome policy changed while reading")
+        return paths.read_bounded(path, _MAX_POLICY_BYTES, "outcome policy")
     except OSError as error:
         raise OutcomePolicyError("outcome policy cannot be read") from error
-    finally:
-        if descriptor >= 0:
-            try:
-                os.close(descriptor)
-            except OSError:
-                close_failed = True
-    if close_failed or len(raw) > _MAX_POLICY_BYTES:
-        raise OutcomePolicyError("outcome policy cannot be read")
-    return raw
 
 
 def _mapping() -> tuple[dict[str, tuple[int, str, str]], dict[str, Any]]:
@@ -75,7 +39,7 @@ def _mapping() -> tuple[dict[str, tuple[int, str, str]], dict[str, Any]]:
         schema = intent._json(_read_policy(SCHEMA_PATH))
         if not isinstance(schema, dict):
             raise ValueError("policy is not an object")
-        digest = sha256(_canonical_json(schema)).hexdigest()
+        digest = sha256(intent.canonical_json(schema)).hexdigest()
         if digest != _EXPECTED_SCHEMA_DIGEST:
             raise ValueError("outcome policy differs from its approved contract")
         policy = schema["x-outcome-policy"]

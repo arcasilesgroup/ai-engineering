@@ -17,6 +17,12 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+DIR_IDENTITY = "pending directory identity changed"
+FILE_IDENTITY = "pending file identity changed"
+NON_CANONICAL_PATH = "path is not a canonical relative path"
+READ_BOUND = "regular file exceeds its read bound"
+CHANGED_WHILE_READ = "regular file changed while it was read"
+
 
 class TransactionError(RuntimeError):
     """A native transaction boundary could not be proved safe."""
@@ -113,16 +119,16 @@ _INVENTORY_LIMIT = 4_096
 
 def _parts(value: str) -> tuple[str, ...]:
     if not isinstance(value, str) or not value or "\\" in value or "\x00" in value:
-        raise Unsafe("path is not a canonical relative path")
+        raise Unsafe(NON_CANONICAL_PATH)
     # Read the spelling before PurePosixPath normalizes it. `a/./b` and `a//b` drop their
     # empty and dot segments during parsing, so the check below would never see a spelling
     # this module exists to refuse.
     if any(segment in {"", ".", ".."} for segment in value.split("/")):
-        raise Unsafe("path is not a canonical relative path")
+        raise Unsafe(NON_CANONICAL_PATH)
     path = PurePosixPath(value)
     parts = path.parts
     if path.is_absolute() or not parts or any(part in {"", ".", ".."} for part in parts):
-        raise Unsafe("path is not a canonical relative path")
+        raise Unsafe(NON_CANONICAL_PATH)
     return parts
 
 
@@ -463,7 +469,7 @@ class _PosixWriter:
             ):
                 raise Unsafe("read did not use the locked canonical authority")
             if before.size > maximum:
-                raise Unsafe("regular file exceeds its read bound")
+                raise Unsafe(READ_BOUND)
             chunks: list[bytes] = []
             remaining = maximum + 1
             while remaining:
@@ -481,7 +487,7 @@ class _PosixWriter:
                 or len(body) != before.size
                 or self._parent_generations(canonical) != parents
             ):
-                raise Unsafe("regular file changed while it was read")
+                raise Unsafe(CHANGED_WHILE_READ)
             return Observation(canonical, body, after, parents, maximum)
         except BlockingIOError as error:
             raise Unsafe("regular file read would block") from error
@@ -602,7 +608,7 @@ class _PosixWriter:
         try:
             directory_value = os.fstat(pending_fd)
             if (directory_value.st_dev, directory_value.st_ino) != pending.directory_identity:
-                raise Unsafe("pending directory identity changed")
+                raise Unsafe(DIR_IDENTITY)
             names = _bounded_directory_names(pending_fd)
             if names != (pending.filename,):
                 raise Unsafe("pending directory contents changed")
@@ -619,7 +625,7 @@ class _PosixWriter:
                 or (file_value.st_dev, file_value.st_ino) != pending.file_identity
                 or file_value.st_size != len(pending.body)
             ):
-                raise Unsafe("pending file identity changed")
+                raise Unsafe(FILE_IDENTITY)
             if _read_exact_posix(file_fd, len(pending.body)) != pending.body:
                 raise Unsafe("pending file bytes changed")
         finally:
@@ -645,7 +651,7 @@ class _PosixWriter:
         try:
             value = os.fstat(pending_fd)
             if (value.st_dev, value.st_ino) != pending.directory_identity:
-                raise Unsafe("pending directory identity changed")
+                raise Unsafe(DIR_IDENTITY)
             try:
                 os.unlink(pending.filename, dir_fd=pending_fd)
             except OSError as error:
@@ -1208,7 +1214,7 @@ if sys.platform == "win32":
         if not _kernel32.GetFileSizeEx(handle, ctypes.byref(size)):
             raise _win_error("regular file size could not be read")
         if size.value < 0 or size.value > maximum:
-            raise Unsafe("regular file exceeds its read bound")
+            raise Unsafe(READ_BOUND)
         body = bytearray()
         while len(body) <= maximum:
             wanted = min(65_536, maximum + 1 - len(body))
@@ -1222,7 +1228,7 @@ if sys.platform == "win32":
                 break
             body.extend(buffer.raw[: read.value])
         if len(body) > maximum or len(body) != size.value:
-            raise Unsafe("regular file changed while it was read")
+            raise Unsafe(CHANGED_WHILE_READ)
         return bytes(body)
 
     def _win_publish(handle: int, home_handle: int, final: str) -> None:
@@ -1424,11 +1430,11 @@ if sys.platform == "win32":
                 ):
                     raise Unsafe("read did not use the locked canonical authority")
                 if before.size > maximum:
-                    raise Unsafe("regular file exceeds its read bound")
+                    raise Unsafe(READ_BOUND)
                 body = _win_read(handle, maximum)
                 after = _win_generation(handle, canonical)
                 if before != after or self._parent_generations(canonical) != parents:
-                    raise Unsafe("regular file changed while it was read")
+                    raise Unsafe(CHANGED_WHILE_READ)
                 return Observation(canonical, body, after, parents, maximum)
             finally:
                 if not owned:
@@ -1526,7 +1532,7 @@ if sys.platform == "win32":
                 _win_generation(state.directory, pending.name).identity
                 != pending.directory_identity
             ):
-                raise Unsafe("pending directory identity changed")
+                raise Unsafe(DIR_IDENTITY)
             if not state.child:
                 # A refused publication closes the child before its rename. The file is
                 # still there, and a directory with a file in it cannot be marked for
@@ -1537,7 +1543,7 @@ if sys.platform == "win32":
                     state.directory, pending.filename, directory=False, delete=True
                 )
             if _win_generation(state.child, pending.filename).identity != pending.file_identity:
-                raise Unsafe("pending file identity changed")
+                raise Unsafe(FILE_IDENTITY)
 
             def _mark(handle: int) -> None:
                 disposition = ctypes.c_byte(1)
@@ -1570,11 +1576,11 @@ if sys.platform == "win32":
                 _win_generation(state.directory, pending.name).identity
                 != pending.directory_identity
             ):
-                raise Unsafe("pending directory identity changed")
+                raise Unsafe(DIR_IDENTITY)
             if _win_directory_names(state.directory) != (pending.filename,):
                 raise Unsafe("pending directory contents changed")
             if _win_generation(state.child, pending.filename).identity != pending.file_identity:
-                raise Unsafe("pending file identity changed")
+                raise Unsafe(FILE_IDENTITY)
             if _win_read(state.child, len(pending.body)) != pending.body:
                 raise Unsafe("pending file bytes changed")
             self._require_canonical_home()

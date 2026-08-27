@@ -20,6 +20,11 @@ from pathlib import Path
 from ai_engineering import __version__, outcome, paths, wiring
 from ai_engineering import init as installer
 
+TEMPLATE_DIR_KEY = "init.templateDir"
+HOOKS_PATH_KEY = "core.hooksPath"
+MANAGED_KEY = "ai.managed"
+ENG_KEY = "ai.eng"
+
 KEEPS = ("specs/", "CONSTITUTION.md", "AGENTS.md", "docs/adr/")
 GLOBAL_KINDS = ("guard", "link", "skills", "router", "hooks-template")
 _HOOK_NAMES = ("pre-commit", "commit-msg", "pre-push")
@@ -144,18 +149,6 @@ def _skills_owned(root: Path, how: str) -> bool:
     return True
 
 
-def _opencode_source() -> str:
-    """What the installer would write, asked of the installer.
-
-    This was a second copy of the substitution, and `_guard_owned` compares the installed
-    bytes to it. When the writer was corrected and this was not, they disagreed — and a
-    mismatch here aborts the entire uninstall, not the plugin row: skills, git config and
-    every other surface stay put, reported as "nothing removed". A reconstruction that can
-    drift from the thing it reconstructs is not a check, it is a second bug waiting."""
-
-    return wiring.opencode_source()
-
-
 def _json_guard_owned(data: dict, how: str) -> bool:
     # Entries of ours found anywhere in the settings tree. `dict` and not `object`: every
     # one of them is rendered as JSON below, and a list that could hold anything is a list
@@ -214,12 +207,12 @@ def _guard_owned(row: dict) -> bool:
     target = wiring.expand(row["path"])
     if not os.path.lexists(target):
         return True
-    try:
-        info = target.lstat()
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+    if row["how"] == "ts_opencode":
+        try:
+            return target.read_text(encoding="utf-8") == wiring.opencode_source()
+        except (OSError, UnicodeError, ValueError):
             return False
-        if row["how"] == "ts_opencode":
-            return target.read_text(encoding="utf-8") == _opencode_source()
+    try:
         data = json.loads(target.read_text(encoding="utf-8"))
         return isinstance(data, dict) and _json_guard_owned(data, row["how"])
     except (OSError, UnicodeError, ValueError):
@@ -237,32 +230,18 @@ def _project_body(path: Path, root: Path) -> str | None:
     }.get(name)
 
 
-def _git_value(root: Path, key: str) -> str | None:
+def _git_value(root: Path | None, key: str) -> str | None:
+    """One config read, two scopes: a root reads `--local` against that repository and
+    root=None reads the machine's `--global`. The string is empty when unset; `None`
+    means the question could not be asked, which is a stop: uninstall must not unset a
+    key it could not read first."""
+    command = (
+        ["git", "-C", str(root), "config", "--local", "--get", key]
+        if root is not None
+        else ["git", "config", "--global", "--get", key]
+    )
     try:
-        read = subprocess.run(
-            ["git", "-C", str(root), "config", "--local", "--get", key],
-            timeout=10,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if read.returncode not in (0, 1):
-        return None
-    return read.stdout.strip() if read.returncode == 0 else ""
-
-
-def _git_value_global(key: str) -> str | None:
-    """The machine-scope value, as a string that is empty when unset. `None` means the
-    question could not be asked, which is a stop: uninstall must not unset a key it could
-    not read first."""
-    try:
-        read = subprocess.run(
-            ["git", "config", "--global", "--get", key],
-            timeout=10,
-            capture_output=True,
-            text=True,
-        )
+        read = subprocess.run(command, timeout=10, capture_output=True, text=True)
     except (OSError, subprocess.SubprocessError):
         return None
     if read.returncode not in (0, 1):
@@ -312,7 +291,7 @@ def _owned(row: dict, root: Path | None) -> bool:
                     return False
         except (OSError, FileNotFoundError):
             return False
-        return _git_value_global("init.templateDir") == str(target)
+        return _git_value(None, TEMPLATE_DIR_KEY) == str(target)
     if root is None:
         return False
     if kind == "project":
@@ -332,23 +311,11 @@ def _owned(row: dict, root: Path | None) -> bool:
             return False
     if kind == "repo":
         return (
-            _git_value(root, "core.hooksPath") == str(paths.git_hooks())
-            and _git_value(root, "ai.managed") == "true"
-            and _git_value(root, "ai.eng") == f"{sys.executable} -m ai_engineering.cli"
+            _git_value(root, HOOKS_PATH_KEY) == str(paths.git_hooks())
+            and _git_value(root, MANAGED_KEY) == "true"
+            and _git_value(root, ENG_KEY) == f"{sys.executable} -m ai_engineering.cli"
         )
     return False
-
-
-def remove_plugin(path: Path) -> bool:
-    """The OpenCode plugin is a file this installer wrote whole, so it is removed rather
-    than edited. It used to be sent to the JSON stripper below, which found the signature
-    inside the TypeScript, handed the TypeScript to a JSON parser and raised — uncaught,
-    and mid-loop, so every surface after it stayed wired by the one verb whose whole pitch
-    is that governance comes out cleanly."""
-    if not path.exists():
-        return False
-    path.unlink()
-    return True
 
 
 def strip_entries(path: Path) -> bool:
@@ -454,7 +421,7 @@ def canonical(row: dict, root: Path | None) -> dict | None:
         if (
             path == str(target)
             and how == "written"
-            and _git_value_global("init.templateDir") == str(target)
+            and _git_value(None, TEMPLATE_DIR_KEY) == str(target)
         ):
             return {"path": str(target), "kind": "hooks-template", "how": "written"}
     if root is None:
@@ -488,14 +455,14 @@ def unwire(root: Path, rows: list[dict]) -> None:
         (row["how"] for row in rows if row["kind"] == "repo" and row["path"] == str(root)), ""
     )
     restore = (
-        ["config", "--local", "--", "core.hooksPath", before]
+        ["config", "--local", "--", HOOKS_PATH_KEY, before]
         if before
-        else ["config", "--local", "--unset", "--", "core.hooksPath"]
+        else ["config", "--local", "--unset", "--", HOOKS_PATH_KEY]
     )
     for key in (
         restore,
-        ["config", "--local", "--unset", "--", "ai.managed"],
-        ["config", "--local", "--unset", "--", "ai.eng"],
+        ["config", "--local", "--unset", "--", MANAGED_KEY],
+        ["config", "--local", "--unset", "--", ENG_KEY],
     ):
         git(root, key)
 
@@ -665,14 +632,14 @@ def _removed(row: dict, root: Path | None) -> bool:
         names = _expected_skill_names()
         return names is not None and not any(os.path.lexists(target / name) for name in names)
     if kind == "hooks-template":
-        return not os.path.lexists(target) and _git_value_global("init.templateDir") == ""
+        return not os.path.lexists(target) and _git_value(None, TEMPLATE_DIR_KEY) == ""
     if kind == "project":
         return not os.path.lexists(target)
     if kind == "repo" and root is not None:
         return (
-            _git_value(root, "core.hooksPath") == row["how"]
-            and _git_value(root, "ai.managed") == ""
-            and _git_value(root, "ai.eng") == ""
+            _git_value(root, HOOKS_PATH_KEY) == row["how"]
+            and _git_value(root, MANAGED_KEY) == ""
+            and _git_value(root, ENG_KEY) == ""
         )
     return False
 
@@ -767,7 +734,11 @@ def main(argv: list[str]) -> outcome.Result:
         path = Path(row["path"])
         try:
             if row["kind"] == "guard" and row.get("how") == "ts_opencode":
-                done = remove_plugin(wiring.expand(row["path"]))
+                plugin = wiring.expand(row["path"])
+                done = False
+                if plugin.exists():
+                    plugin.unlink()
+                    done = True
                 print(f"  ✓ plugin removed: {path}" if done else f"  → {path} was already gone")
             elif row["kind"] == "guard":
                 done = strip_entries(wiring.expand(row["path"]))
@@ -791,7 +762,7 @@ def main(argv: list[str]) -> outcome.Result:
                 # confirmed both. The unset value is read once more at removal time: a
                 # machine changed between consent and removal is a machine this run must
                 # not silently disagree with.
-                current_value = _git_value_global("init.templateDir")
+                current_value = _git_value(None, TEMPLATE_DIR_KEY)
                 if current_value is None:
                     raise wiring.Unreadable(
                         "git config could not be read to unset init.templateDir"
@@ -799,7 +770,7 @@ def main(argv: list[str]) -> outcome.Result:
                 shutil.rmtree(path, ignore_errors=False)
                 if current_value == str(path):
                     subprocess.run(
-                        ["git", "config", "--global", "--unset", "init.templateDir"],
+                        ["git", "config", "--global", "--unset", TEMPLATE_DIR_KEY],
                         check=True,
                         timeout=10,
                     )

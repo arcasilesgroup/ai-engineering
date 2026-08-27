@@ -19,6 +19,11 @@ from pathlib import Path
 
 from ai_engineering import acceptance_privacy, claim, dag, evidence, outcome
 
+STAGED_ROW = "The staged content"
+CLAIM_ROW = "The claim in force"
+CHECKS_ROW = "The checks this diff affects"
+ORDER_ROW = "The order the claims run in"
+
 RECEIPTS = Path(".ai") / "receipts"
 MAX_STAGED_BYTES = 400_000
 
@@ -76,7 +81,7 @@ def _privacy(root: Path, base: str = "") -> outcome.Fact:
         return outcome.fact(
             "staged-privacy",
             "INCOMPLETE",
-            "The staged content",
+            STAGED_ROW,
             str(refused),
             cure="give a base this repository has, then check again",
         )
@@ -87,9 +92,7 @@ def _privacy(root: Path, base: str = "") -> outcome.Fact:
     ]
     body = "\n".join(added)[:MAX_STAGED_BYTES]
     if not body.strip():
-        return outcome.fact(
-            "staged-privacy", "SKIPPED", "The staged content", "nothing is staged to scan"
-        )
+        return outcome.fact("staged-privacy", "SKIPPED", STAGED_ROW, "nothing is staged to scan")
     for verdict in (
         acceptance_privacy.acceptance_machine_path_v1(body),
         acceptance_privacy.acceptance_pii_v1(body),
@@ -98,14 +101,14 @@ def _privacy(root: Path, base: str = "") -> outcome.Fact:
             return outcome.fact(
                 "staged-privacy",
                 "FAIL" if verdict.outcome == "FAIL" else "INCOMPLETE",
-                "The staged content",
+                STAGED_ROW,
                 f"{verdict.code}: {verdict.reason}",
                 cure="unstage it and say the same thing without the value it carried",
             )
     return outcome.fact(
         "staged-privacy",
         "PASS",
-        "The staged content",
+        STAGED_ROW,
         "no machine path and no personal datum in the staged diff",
     )
 
@@ -128,7 +131,7 @@ def _inside(root: Path, base: str = "", claimed: list[str] | None = None) -> out
         return outcome.fact(
             "claimed-paths",
             "SKIPPED",
-            "The claim in force",
+            CLAIM_ROW,
             "no claim is held here, so there is no scope to stay inside",
         )
     try:
@@ -138,7 +141,7 @@ def _inside(root: Path, base: str = "", claimed: list[str] | None = None) -> out
         return outcome.fact(
             "claimed-paths",
             "INCOMPLETE",
-            "The claim in force",
+            CLAIM_ROW,
             f"{claim.IN_FORCE} exists and could not be read",
             cure="fix or remove the claim file, then check again",
         )
@@ -158,7 +161,7 @@ def _compare(root: Path, base: str, claimed: list[str], named: str) -> outcome.F
         return outcome.fact(
             "claimed-paths",
             "INCOMPLETE",
-            "The claim in force",
+            CLAIM_ROW,
             str(refused),
             cure="give a base this repository has, then check again",
         )
@@ -171,12 +174,12 @@ def _compare(root: Path, base: str, claimed: list[str], named: str) -> outcome.F
         return outcome.fact(
             "claimed-paths",
             "FAIL",
-            "The claim in force",
+            CLAIM_ROW,
             f"{named} does not cover: {', '.join(sorted(outside))}",
             cure="unstage them, or widen the claim and take it again",
         )
     return outcome.fact(
-        "claimed-paths", "PASS", "The claim in force", f"every changed path is inside {claimed}"
+        "claimed-paths", "PASS", CLAIM_ROW, f"every changed path is inside {claimed}"
     )
 
 
@@ -216,7 +219,7 @@ def _bound_to_this_tree(root: Path, folder: Path) -> outcome.Fact | None:
         return outcome.fact(
             "checks-executed",
             "INCOMPLETE",
-            "The checks this diff affects",
+            CHECKS_ROW,
             f"the receipt names bytes and this tree could not be read: {refused}",
             cure="check the repository is readable, then check again",
         )
@@ -224,13 +227,13 @@ def _bound_to_this_tree(root: Path, folder: Path) -> outcome.Fact | None:
         return outcome.fact(
             "checks-executed",
             "PASS",
-            "The checks this diff affects",
+            CHECKS_ROW,
             f"{suite} ran over exactly these bytes",
         )
     return outcome.fact(
         "checks-executed",
         "INCOMPLETE",
-        "The checks this diff affects",
+        CHECKS_ROW,
         f"{suite} ran over {recorded[:12]} and this tree is {measured[:12]}",
         cure=f"run `just {suite.replace(':', ' ')}` again, then check again",
     )
@@ -274,7 +277,7 @@ def _executed(root: Path, now: datetime | None = None) -> outcome.Fact:
         return outcome.fact(
             "checks-executed",
             "INCOMPLETE",
-            "The checks this diff affects",
+            CHECKS_ROW,
             "no receipt from a check that ran recently enough to be about this code",
             cure="run the gate, and check again",
         )
@@ -283,13 +286,11 @@ def _executed(root: Path, now: datetime | None = None) -> outcome.Fact:
         return outcome.fact(
             "checks-executed",
             "FAIL",
-            "The checks this diff affects",
+            CHECKS_ROW,
             f"{name} ran and reported {said}",
             cure="fix what it found and run it again",
         )
-    return outcome.fact(
-        "checks-executed", "PASS", "The checks this diff affects", f"{name} ran and reported PASS"
-    )
+    return outcome.fact("checks-executed", "PASS", CHECKS_ROW, f"{name} ran and reported PASS")
 
 
 def _ordered(root: Path, remote: str) -> outcome.Fact:
@@ -312,7 +313,7 @@ def _ordered(root: Path, remote: str) -> outcome.Fact:
         return outcome.fact(
             "claim-order",
             "INCOMPLETE",
-            "The order the claims run in",
+            ORDER_ROW,
             f"the claims on {remote} could not be listed",
             cure="check the remote is reachable, then derive the order again",
         )
@@ -320,7 +321,7 @@ def _ordered(root: Path, remote: str) -> outcome.Fact:
         return outcome.fact(
             "claim-order",
             "SKIPPED",
-            "The order the claims run in",
+            ORDER_ROW,
             f"no claim is held on {remote}, so there is no order to derive",
         )
     derived = dag.order(root, tasks)
@@ -328,14 +329,14 @@ def _ordered(root: Path, remote: str) -> outcome.Fact:
         return outcome.fact(
             "claim-order",
             "INCOMPLETE",
-            "The order the claims run in",
+            ORDER_ROW,
             derived.summary,
             cure="break the cycle, or exclude the file whose imports cannot be read",
         )
     return outcome.fact(
         "claim-order",
         "OBSERVED",
-        "The order the claims run in",
+        ORDER_ROW,
         ", ".join(dag.sequence(derived)),
     )
 

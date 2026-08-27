@@ -31,6 +31,8 @@ from typing import Any
 
 from ai_engineering import paths
 
+SHA256_PREFIX = "sha256:"
+
 # Every bound the specification states. Reaching one is `INCOMPLETE`; a reader that stops at
 # a bound and reports what it managed to see has invented a clean register.
 MAX_SPEC_DIRECTORIES = 1_000
@@ -207,10 +209,10 @@ def schema() -> dict[str, Any]:
     """The one canonical contract, read from its file so this code cannot drift from it,
     and refused when its bytes are not the bytes this release was built against."""
 
-    from ai_engineering import capability
+    from ai_engineering import intent
 
     loaded = json.loads(paths.policy("risk-acceptance-v1.schema.json").read_text(encoding="utf-8"))
-    if sha256(capability._canonical_json(loaded)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
+    if sha256(intent.canonical_json(loaded)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
         raise Refusal(
             "ACCEPTANCE_CONTRACT_UNRECOGNISED",
             "the risk-acceptance contract is not the one this release was built against",
@@ -430,7 +432,7 @@ def record_digest(record: dict[str, Any]) -> str:
     rewrite the value and the checksum together."""
 
     without = {name: value for name, value in record.items() if name != "record_digest"}
-    return "sha256:" + sha256(canonical_bytes(without)).hexdigest()
+    return SHA256_PREFIX + sha256(canonical_bytes(without)).hexdigest()
 
 
 def _validate_field(
@@ -594,7 +596,7 @@ def _legacy_entries(directory: Path, device: int, budget: _Budget) -> list[tuple
                     renewals=record["renewals"],
                     renews="",
                     renews_digest="",
-                    digest="sha256:" + sha256(body[start:end]).hexdigest(),
+                    digest=SHA256_PREFIX + sha256(body[start:end]).hexdigest(),
                 ),
                 start,
             )
@@ -634,7 +636,7 @@ def _record_entries(
                 renewals=record["renewals"],
                 renews=record["renews"],
                 renews_digest=record["renews_digest"],
-                digest="sha256:" + sha256(body).hexdigest(),
+                digest=SHA256_PREFIX + sha256(body).hexdigest(),
                 spec_digest=record["spec_digest"],
                 evidence_path=record["evidence"]["path"],
                 evidence_digest=record["evidence"]["content_digest"],
@@ -861,12 +863,12 @@ def _anchored(root: Path, relative: str, device: int) -> Path:
 def _require_binding(root: Path, entry: Entry, device: int, budget: _Budget) -> None:
     spec = root / "specs" / entry.home.split("/")[1] / "spec.md"
     body = _read(spec, MAX_SPEC_BYTES, device, budget)
-    if "sha256:" + sha256(body).hexdigest() != entry.spec_digest:
+    if SHA256_PREFIX + sha256(body).hexdigest() != entry.spec_digest:
         raise Refusal(
             "ACCEPTANCE_BINDING_STALE", f"{entry.id} no longer matches the spec it was bound to"
         )
     held = _read(_anchored(root, entry.evidence_path, device), MAX_EVIDENCE_BYTES, device, budget)
-    if "sha256:" + sha256(held).hexdigest() != entry.evidence_digest:
+    if SHA256_PREFIX + sha256(held).hexdigest() != entry.evidence_digest:
         raise Refusal(
             "ACCEPTANCE_BINDING_STALE", f"{entry.id} no longer matches the evidence it was bound to"
         )
