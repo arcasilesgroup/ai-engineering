@@ -41,7 +41,7 @@ baked into that block's history `bde39e75`→`8f25f903`, documented in `.ai/repo
 This record is therefore the dossier-level approval at exact digests, and the MADR
 promotion is the single re-runnable step after an approved block repairs ADR 0025. Until
 then, this goal claims no ADR promotion and adds no new MADR failure; unlike spec 028 there
-is no `blocked.md` because the work itself is not blocked — only the formal promotion is.
+is no blocked-record file here because the work itself is not blocked — only the formal promotion is.
 
 ## What this approval does not do
 

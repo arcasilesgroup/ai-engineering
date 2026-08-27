@@ -12,7 +12,7 @@ import json
 import tomllib
 from pathlib import Path
 
-from _types import Defect, Key
+from eval_types import Defect, Key
 
 _REFUSE_IN_TREE = "the graded key must live outside the fixture tree being scored"
 _REFUSE_ABS = "defect paths and key dirs must be inside their declared roots"

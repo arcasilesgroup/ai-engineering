@@ -1,0 +1,21 @@
+# The secrets lane's config. `extend.useDefault` keeps gitleaks' own rule set and adds
+# this repository's allowlist beside it; an untested scanner's answer is not evidence, so
+# the version pin lives in the justfile and the lane reads this file by path.
+#
+# Why the allowlist is paths, not fingerprints: the only finding this tree ever produced
+# was the serve daemon's per-machine runtime state (`.skill-map/serve.json`), whose token
+# rotates on every start — a fingerprint allowlist would redden on the next restart and
+# teach somebody to click through it. The path is gitignored, machine-local by the
+# generator's own contract (`.skill-map/.gitignore`: "must not travel via the shared
+# repo"), and the hooks that actually gate history (`gitleaks git --staged`, pre-push's
+# committed range) never read it. What changes for you: nothing you commit is allowlisted;
+# only a file git will never carry is.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "per-machine runtime state that never travels in git"
+paths = [
+  '''(^|/)\.skill-map/serve\.json$''',
+]

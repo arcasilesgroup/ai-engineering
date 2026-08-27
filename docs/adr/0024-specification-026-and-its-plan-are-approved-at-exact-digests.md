@@ -9,6 +9,8 @@ spec: "026"
 status: "accepted"
 authority_role: "repository owner"
 approval_ref: "ae523990"
+approved_at: "2026-08-25T08:41:12Z"
+supersedes: ""
 ---
 
 # 0024. Specification 026 and its plan are approved at exact digests
@@ -28,6 +30,14 @@ unreachable while the real references stood unaccepted; the council (5 lenses + 
 The plan is ordered to make those real before the recipe promises an honest 0: pin `sm` and
 define `map` first, exclude `.venv` second, accept the real defects third, carry the
 template exclusion fourth, and wire the whole into `just check` fifth.
+
+## Considered options
+
+1. **Approve the specification and its plan at their exact bytes.** What `0009`, `0013`,
+   `0015`, `0017` and `0021` do: the digests bind what a person read, and `ai-eng spec show`
+   refuses when either file moves.
+2. **Approve the specification and let the plan follow unbound.** Rejected: approving an
+   unknown approves whatever the plan later turns out to be.
 
 ## Decision outcome
 

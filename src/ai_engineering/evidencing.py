@@ -9,6 +9,7 @@ child's summary (unlazy `--recheck`, model-router "verification stays with you")
 from __future__ import annotations
 
 import hashlib
+import shlex
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -36,8 +37,18 @@ class Check:
 
 
 def _run(command: str) -> tuple[int, str]:
-    """Run a command the way `just check` runs its lanes, with a bounded timeout."""
-    done = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=900)
+    """Run a command the way `just check` runs its lanes, with a bounded timeout.
+
+    The thresholds file carries shell-free word lists; they are split with `shlex` and
+    passed as argv so no string in the policy file can grow into a second interpreter.
+    """
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return 1, ""
+    if not argv:
+        return 1, ""
+    done = subprocess.run(argv, capture_output=True, text=True, timeout=900, check=False)
     return done.returncode, done.stdout[-160:]
 
 
@@ -64,7 +75,7 @@ def artifact_digest(path: Path) -> str:
     return _digest(path.read_bytes())
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     import argparse
 
     p = argparse.ArgumentParser("recheck")

@@ -22,7 +22,7 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from _types import Defect, Key
+from eval_types import Defect, Key
 
 ROOT = Path(__file__).resolve().parents[2]
 EVALS = ROOT / "tests" / "evals"

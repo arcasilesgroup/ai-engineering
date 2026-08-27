@@ -149,7 +149,7 @@ def valid(payload: dict) -> bool:
     return validate(payload) == []
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     import sys
     import tomllib
 

@@ -1,2 +1,2 @@
 # src/helper.py
-REDACTED = "***"
+REDACTED = '***'

@@ -79,6 +79,12 @@ source = ["src", "hooks"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# `tests/evals/fixtures/` are graded inputs: their bytes are the contract the packs'
+# `find` fields match against, and one `ruff format` pass reformatted a fixture's quotes
+# and broke the harness until the pack's `find` no longer existed in the file it named.
+# Fixture trees are fixture trees, not house style.
+extend-exclude = ["tests/evals/fixtures/*"]
+force-exclude = true
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
