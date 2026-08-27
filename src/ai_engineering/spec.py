@@ -1162,19 +1162,6 @@ def _transaction_incomplete(
     )
 
 
-def _publication_reports(pending: str) -> dict[str, _Report]:
-    problems: dict[str, spec_transaction.TransactionError] = {
-        "busy": spec_transaction.Busy(),
-        "unsupported": spec_transaction.Unsupported(),
-        "collision": spec_transaction.Collision(),
-        "unsafe": spec_transaction.Unsafe(),
-    }
-    return {
-        kind: _transaction_incomplete(problem, proven_pending=pending)
-        for kind, problem in problems.items()
-    }
-
-
 def _new(root: Path, slug: str, ref: str) -> outcome.Execution:
     # The Intent is this transaction's anchor, and a repository that has never had one is
     # the ordinary state of every repository on its first day. Without this the writer
@@ -1192,7 +1179,6 @@ def _new(root: Path, slug: str, ref: str) -> outcome.Execution:
 
     candidate_name: str | None = None
     pending: spec_transaction.Pending | None = None
-    publication_reports: dict[str, _Report] | None = None
     try:
         with spec_transaction.writer(root, ".ai/intent.md", "specs") as transaction:
             inventory = transaction.inventory()
@@ -1246,8 +1232,6 @@ def _new(root: Path, slug: str, ref: str) -> outcome.Execution:
                 "Solution Intent authority changed before publication",
                 proven_pending=pending.name,
             )
-            publication_reports = _publication_reports(pending.name)
-
             second = _materialize(transaction)
             second_authority = _authority(second)
             same = _same_snapshot(first, second, pending)
@@ -1258,9 +1242,7 @@ def _new(root: Path, slug: str, ref: str) -> outcome.Execution:
                 print(success_line)
             return completed
     except spec_transaction.TransactionError as problem:
-        if publication_reports is not None:
-            report = publication_reports[_transaction_kind(problem)]
-        elif pending is not None:
+        if pending is not None:
             report = _transaction_incomplete(problem, proven_pending=pending.name)
         else:
             report = _transaction_incomplete(problem, possible_pending=candidate_name)
