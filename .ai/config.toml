@@ -24,12 +24,11 @@ design_budget = 3
 #   medium glm5.3-flash    — agent bulk work; 500M monthly quota on this tier; always
 #     give max_tokens >= 8192 (verified: thinking can exhaust a tight cap and return
 #     empty content). Slowest measured (~49 tok/s) — quality over speed.
-#   low    qwen3.6         — fastest measured (129 tok/s), unmetered, reliable tool
-#     calling, vision-capable.
+#   low    qwen3.8-flash   — 262K ctx, vision-capable, reliable tool calling; ~88 tok/s
+#     measured, unmetered.
 #
 # Roles outside the three tiers, for whoever reads the pin (no code reads these; the
 # skills pick tiers, never names):
-#   vision  qwen3.8-flash  — best image descriptions of the six in the probe; 262K ctx.
 #   audio   mimo-v2.5      — the only omnimodal input; TTFT 16-42s measured, never for
 #                            agent loops.
 #   extract gemma4         — most concise, fastest TTFT (1.3s); short JSON and
@@ -37,7 +36,7 @@ design_budget = 3
 #   rag     qwen3-embedding + rerank — 4096 dims, verified live.
 top = "deepseek-v4-flash"
 medium = "glm5.3-flash"
-low = "qwen3.6"
+low = "qwen3.8-flash"
 default_tier = "deepseek-v4-flash"
 
 [observability]
