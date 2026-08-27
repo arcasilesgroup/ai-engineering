@@ -313,6 +313,7 @@ def _owned(row: dict, root: Path | None) -> bool:
             and _git_value(root, "ai.managed") == "true"
             and _git_value(root, "ai.eng") == f"{sys.executable} -m ai_engineering.cli"
         )
+    return False
 
 
 def strip_entries(path: Path) -> bool:
@@ -732,7 +733,10 @@ def main(argv: list[str]) -> outcome.Result:
         try:
             if row["kind"] == "guard" and row.get("how") == "ts_opencode":
                 plugin = wiring.expand(row["path"])
-                done = plugin.exists() and plugin.unlink() is None
+                done = False
+                if plugin.exists():
+                    plugin.unlink()
+                    done = True
                 print(f"  ✓ plugin removed: {path}" if done else f"  → {path} was already gone")
             elif row["kind"] == "guard":
                 done = strip_entries(wiring.expand(row["path"]))
