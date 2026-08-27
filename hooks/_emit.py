@@ -220,8 +220,14 @@ def model() -> str:
     value = os.environ.get("AI_ENG_MODEL") or UNDETERMINED
     if value == UNDETERMINED:
         return value
-    clean = "".join(ch if ch.isprintable() else "?" for ch in value)
-    return clean[:120]
+    return printable(value)[:120]
+
+
+def printable(text: str) -> str:
+    """Only characters a denial message or a record line may carry. Control bytes are
+    escaped rather than dropped, so the value still identifies what it names without
+    carrying bytes that do something the wording did not intend."""
+    return "".join(ch if ch.isprintable() else f"\\x{ord(ch):02x}" for ch in text)
 
 
 def digest(event: dict) -> str:
