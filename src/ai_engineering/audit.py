@@ -455,7 +455,16 @@ def main(argv: list[str]) -> outcome.Result:
         relative = PurePosixPath(args.file)
         if relative.is_absolute() or ".." in relative.parts:
             parser.error("--file must be a repository-relative path")
-        path = paths.repo_root() / relative
+        root = paths.repo_root()
+        if root is None:
+            parser.error("--revalidate runs inside a repository")
+        path = root / relative
+        before = subprocess.run(
+            ["git", "-C", str(root), "show", f"HEAD:{relative}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout
         before = subprocess.run(
             ["git", "-C", str(paths.repo_root()), "show", f"HEAD:{relative}"],
             capture_output=True,
