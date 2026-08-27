@@ -18,60 +18,44 @@ ROOT = Path(__file__).resolve().parents[2]
 THRESHOLDS = ROOT / "policy" / "cost-thresholds.toml"
 
 
-class _Policy(dict):
-    """The declared gate numbers; a missing or stale policy is INCOMPLETE, never a guess."""
-
-    def __init__(self, raw: dict) -> None:
-        super().__init__(raw)
-        if not isinstance(raw.get("threshold_usd"), (int, float)) or raw["threshold_usd"] <= 0:
-            raise ValueError(
-                f"policy/cost-thresholds.toml must declare threshold_usd > 0, "
-                f"got {raw.get('threshold_usd')!r}"
-            )
-        if not isinstance(raw.get("limit"), int) or raw["limit"] <= 0:
-            raise ValueError(
-                f"policy/cost-thresholds.toml must declare limit > 0, got {raw.get('limit')!r}"
-            )
+def _checked(raw: dict) -> dict:
+    """The declared gate numbers, validated; a stale policy is INCOMPLETE, never a guess."""
+    if not isinstance(raw.get("threshold_usd"), (int, float)) or raw["threshold_usd"] <= 0:
+        raise ValueError(
+            f"policy/cost-thresholds.toml must declare threshold_usd > 0, "
+            f"got {raw.get('threshold_usd')!r}"
+        )
+    if not isinstance(raw.get("limit"), int) or raw["limit"] <= 0:
+        raise ValueError(
+            f"policy/cost-thresholds.toml must declare limit > 0, got {raw.get('limit')!r}"
+        )
+    return raw
 
 
-def policy() -> _Policy:
+def policy() -> dict:
     try:
         raw = tomllib.loads(THRESHOLDS.read_text(encoding="utf-8"))
     except OSError as exc:  # an unreadable thresholds file is not a guessed answer
         raise ValueError(f"cannot read {THRESHOLDS}: {exc}") from exc
     if raw.get("schema") != "urn:ai-engineering:cost-thresholds:1":
         raise ValueError(f"unknown schema in {THRESHOLDS}: {raw.get('schema')!r}")
-    return _Policy(raw)
+    return _checked(raw)
 
 
-def calibrate(
-    limit: int,
-    samples: list[tuple[float, float]],
-    *,
-    threshold_usd: float | None = None,
-    interactive: bool = False,
-) -> tuple[int, float | None, bool]:
+def calibrate(limit: int, samples: list[float]) -> tuple[int, float | None, bool]:
     """Return (limit, projected_total_usd, may_run).
 
-    `samples` is the observed per-unit (cost_usd, wall_seconds) from the bounded batch;
-    `threshold_usd` overrides the declared policy number only under a direct call (tests);
-    the gate itself always reads `policy()`.
+    `samples` is the observed per-unit cost_usd from the bounded batch; the gate always
+    reads its threshold from `policy()`. Over threshold it fails closed: consent is a
+    person at a keyboard, and this gate has none.
     """
-    threshold = threshold_usd if threshold_usd is not None else policy()["threshold_usd"]
+    threshold = policy()["threshold_usd"]
     if not samples:
         return limit, None, False
 
-    cost_per_unit = sum(c for c, _ in samples) / len(samples)
-    projected = cost_per_unit * limit
+    projected = sum(samples) / len(samples) * limit
 
-    if projected < threshold:
-        return limit, projected, True
-
-    # Over threshold: consent is required. In non-interactive mode absent consent, fail
-    # closed. An interactive caller that answers yes may continue.
-    if interactive:
-        return limit, projected, True
-    return limit, projected, False
+    return limit, projected, projected < threshold
 
 
 def doctor_prereqs() -> list[str]:

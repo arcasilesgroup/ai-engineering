@@ -34,7 +34,6 @@ _MAX_FILE_BYTES = 100_000
 _MAX_GRAPH_FILES = 128
 _MAX_SLUG = 80
 _MAX_REF = 256
-_document_relations = intent._document_relations
 _MISSING_AUTHORITY = intent.Validation(
     "INCOMPLETE",
     "INTENT_AUTHORITY_MISSING",
@@ -775,24 +774,6 @@ def examples_section(text: str) -> str:
     return ("\n" + text).partition("\n" + EXAMPLES)[2].split("\n## ", 1)[0].replace("\r\n", "\n")
 
 
-# Conversation leaks that make a spec unreadable by a builder who receives only the file.
-# A spec is the whole interface to its builder (spec 031 / B-031-3): "as we discussed"
-# cannot be resolved from the bytes alone, so the record is not governed.
-_LEAKS = (
-    "as we discussed",
-    "as discussed",
-    "the remaining work",
-    "per our conversation",
-    "like we said",
-)
-
-
-def self_contained(text: str) -> list[str]:
-    """Every conversation leak the spec carries, or an empty list when self-contained."""
-    folded = text.casefold()
-    return [leak for leak in _LEAKS if leak in folded]
-
-
 _DECISIONS_HEADING = re.compile(r"^## Decisions[ \t]*$", re.M)
 # One marked decision entry under ## Decisions: `- [X] **D-NNN-NN — the decision**`.
 # The marker is the author's claim that the decision earns promotion; the dash may be
@@ -952,6 +933,14 @@ class _Snapshot:
 
 def _schema_invalid() -> intent.Validation:
     return intent.Validation("INCOMPLETE", *intent.SCHEMA_INVALID)
+
+
+def _document_relations(content: bytes) -> list[str]:
+    """The spec-facing half of the relation walk: which documents this document links.
+    Kept as a named seam (spec 044): tests patch *this* to simulate a broken graph while
+    `intent.validate` still walks the real one, and the alias-vs-wrapper distinction is
+    what the green path depends on."""
+    return intent._document_relations(content)
 
 
 def _materialize(writer: Any) -> _Snapshot:

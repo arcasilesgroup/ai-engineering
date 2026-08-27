@@ -579,7 +579,10 @@ def _appendix_problems(folder: Path, name: str) -> list[str]:
 
 
 def tracked(root: Path) -> list[str]:
-    names = paths.git_lines(root)
+    try:
+        names = paths.git_lines(root)
+    except OSError as error:
+        raise ValueError(f"git listed no files under {root}: {error}") from error
     if not names:
         raise ValueError(f"git listed no files under {root}, so this counted zero lines")
     return names

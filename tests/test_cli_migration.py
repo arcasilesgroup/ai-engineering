@@ -869,7 +869,7 @@ def test_spec_materializes_valid_transitive_relation_graph(
     _transitive_intent_graph(disabled_root)
     with monkeypatch.context() as disabled_patch:
         disabled_patch.setattr(paths, "repo_root", lambda start=None: disabled_root)
-        disabled_patch.setattr(spec, "_document_relations", lambda body: [], raising=False)
+        disabled_patch.setattr(spec, "_document_relations", lambda content: [])
 
         disabled = spec.main(["new", "transitive-disabled"])
 

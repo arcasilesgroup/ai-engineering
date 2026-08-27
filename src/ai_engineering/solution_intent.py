@@ -293,14 +293,11 @@ def read(root: Path, *, now: datetime | None = None) -> Tree:
 # commit changing nothing visible would not red the gate — and that gap is precisely what
 # stopped `staleness` comparing the page itself. The stamp went instead of the exclusion:
 # provenance is the digest, and when the page was written is what `git log` is for.
-NOT_HASHED: tuple[str, ...] = ()
-
-
 def digested(tree: Tree) -> dict:
     """The payload the digest is taken over. Exposed so a test can ask what it covers
     rather than re-deriving the answer the code already knows."""
 
-    return {name: value for name, value in asdict(tree).items() if name not in NOT_HASHED}
+    return asdict(tree)
 
 
 def digest(tree: Tree) -> str:

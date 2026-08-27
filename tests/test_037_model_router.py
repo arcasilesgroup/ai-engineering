@@ -2,7 +2,7 @@
 
 route(step, config) maps each step of the governed cycle to a configured model tier —
 mechanical work to low, hard reasoning to top, the rest to medium — falling back to
-default_tier when a tier is missing. bail_out(request) returns whether the work is small
+default_tier when a tier is missing.
 enough to handle inline (model-router MR-01). A pure function over config; never calls a
 model.
 """
@@ -26,14 +26,3 @@ def test_hard_reasoning_routes_to_top():
     assert mr.route("review", CONFIG) == "deepseek-v4-flash"
 
     assert mr.route("build", CONFIG_NO_MEDIUM) == "z"
-
-
-def test_bail_out_on_small_request():
-    assert mr.bail_out("fix the typo in README") is True
-    assert (
-        mr.bail_out(
-            "redesign the authentication flow across four services including rate limits and "
-            "per-service quotas"
-        )
-        is False
-    )

@@ -512,8 +512,8 @@ def test_replay_filters_to_one_session(home, tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(home, "repo_id", lambda root=None: "no-repo")
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     _write(home, events)
-    assert len(audit.replay(None, "")) == 2
-    rows = audit.replay(None, "bbb")
+    assert len(audit._replay(audit.read(None), "")) == 2
+    rows = audit._replay(audit.read(None), "bbb")
     assert len(rows) == 1 and "the reason" in rows[0]
     assert audit.main(["replay", "--session", "nobody"]) == outcome.result("PASS")
     assert "nothing recorded" in capsys.readouterr().out

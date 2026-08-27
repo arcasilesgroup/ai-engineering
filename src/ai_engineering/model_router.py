@@ -2,7 +2,7 @@
 
 route(step, config) maps each step of the governed cycle to a configured model tier —
 mechanical work to low, hard reasoning to top, the rest to medium — falling back to
-default_tier when a tier is missing. bail_out(request) returns whether the work is small
+default_tier when a tier is missing.
 enough to handle inline (model-router MR-01). A pure function over config: it reads the
 pin's [models] section, never a vendor table, and never calls a model (the surface that
 calls it picks the model string).
@@ -59,9 +59,3 @@ def route(step: str, config: Mapping[str, Any] | None = None) -> str:
     if step in _TOP_STEPS and tiers.get("top"):
         return tiers["top"]
     return tiers.get("medium") or tiers.get(_DEFAULT_TIER) or ""
-
-
-def bail_out(request: str) -> bool:
-    """True when the request is small enough to handle inline (model-router MR-01)."""
-    words = len(request.split())
-    return words < 6 or len(request) < 60
