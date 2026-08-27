@@ -24,7 +24,7 @@ from ai_engineering import paths
 # 042 / B-042-1) would have crashed every ai-eng command on an installed wheel.
 SCHEMA = paths.policy("models.schema.json")
 
-if not SCHEMA.is_file():  # pragma: no cover - defensive; the file ships with the wheel
+if not SCHEMA.is_file():  # the file ships with the wheel; a missing one is a broken install
     raise FileNotFoundError(f"missing models schema: {SCHEMA}")
 
 # Mechanical, well-specified work -> cheap tier.

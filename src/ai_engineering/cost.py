@@ -37,7 +37,7 @@ class _Policy(dict):
 def policy() -> _Policy:
     try:
         raw = tomllib.loads(THRESHOLDS.read_text(encoding="utf-8"))
-    except OSError as exc:  # pragma: no cover - defensive
+    except OSError as exc:  # an unreadable thresholds file is not a guessed answer
         raise ValueError(f"cannot read {THRESHOLDS}: {exc}") from exc
     if raw.get("schema") != "urn:ai-engineering:cost-thresholds:1":
         raise ValueError(f"unknown schema in {THRESHOLDS}: {raw.get('schema')!r}")
@@ -90,7 +90,7 @@ def doctor_prereqs() -> list[str]:
     return found
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     import argparse
 
     p = argparse.ArgumentParser("ai-eng cost")

@@ -11,6 +11,7 @@ via `evidencing` (spec 029 B-029-3) — a claim that merely says it passed is no
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 import tomllib
 from enum import StrEnum
@@ -24,8 +25,20 @@ class Verdict(StrEnum):
 
 
 def _run(command: str, cwd: Path) -> bool:
-    """Run a check command inside `cwd`; a non-zero exit is a fail, never a guess."""
-    done = subprocess.run(command, shell=True, cwd=str(cwd), capture_output=True, text=True)
+    """Run a check command inside `cwd`; a non-zero exit is a fail, never a guess.
+
+    The key's commands are shell-free word lists ("test -f src/app.py"), split with
+    `shlex` and passed as argv: no shell, so no string the key carries can grow into a
+    second interpreter. A command that genuinely needs one can still ask for it
+    explicitly (`bash -c "..."`) — visible in the key, reviewable as such.
+    """
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return False
+    if not argv:
+        return False
+    done = subprocess.run(argv, cwd=str(cwd), capture_output=True, text=True, check=False)
     return done.returncode == 0
 
 
