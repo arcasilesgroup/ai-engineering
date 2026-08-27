@@ -37,12 +37,19 @@ remaining findings against today's HEAD leaves three honest classes:
    `evidencing`. Each is imported only by its own test module (and small neighbours).
    `policy/module-status.toml` records each as `deferred` or `orchestrator-future` —
    the register exists to give that fact a checked home. A tomllib census on this
-   branch reads 19 rows, of which 16 have no production importer: the eleven above
-   plus `answer_key`, `coverage`, `sbom`, and `scan` (the remaining three rows name
-   `consumer` modules). The register was created whole by spec 042 and no 043 commit
-   touched it — `ui.ask` and `skeletons.seed_intent` were functions, never rows.
-   The register's own reader (`wiring.module_status`) has no production caller either,
-   and its refusal suite (`tests/test_orphan_register.py`) hardcodes three names.
+   branch reads 19 rows, of which 16 have status ≠ `consumer`: the eleven above plus
+   `answer_key`, `coverage`, `skillmap`, `sbom`, and `scan` (the remaining three rows
+   name `consumer` modules). Three of those five extra rows are stale, not deletions:
+   `sbom`, `scan` and `skillmap` have gate-time callers (`just sbom` runs
+   `python -m ai_engineering.sbom`, justfile:47; `just security` imports `scan`,
+   justfile:107; `just map` runs `python -m ai_engineering.skillmap`, justfile:268) —
+   the audit's own "no module imports it" definition misses `python -m` entry points,
+   which is exactly the gap the register's AST definition exists to close. `coverage`
+   is likewise alive: `tests/evals/score.py:131` imports it under the `just evals`
+   lane. The register's thirteenth true caller-less row is `answer_key`, which dies
+   with the eleven. The register's own reader (`wiring.module_status`) has no
+   production caller either, and its refusal suite (`tests/test_orphan_register.py`)
+   hardcodes three names.
    Research report 020 swept the dynamic-resolver sites for 043's seven targets only;
    its own text names the one loop that matters here, and this spec's build order
    adopts it: `tests/test_036_validation.py` importlib-imports a hardcoded ROWS list
@@ -80,13 +87,13 @@ remaining findings against today's HEAD leaves three honest classes:
    (read once inside `crash()`, which `main` calls once), `solution_intent.NOT_HASHED`
    (empty tuple, read once by its own filter), `spec._document_relations` (one-use
    alias re-export). In tests: six hand-rolled JSON-Schema-subset validators, the
-   `sys.path.insert + # noqa: E402` idiom in twenty-five pytest modules (twenty after
-   family (a) deletes the orphan suites; pyproject `pythonpath` replaced it; rule 3
-   forbids the noqa), a 15-gram-identical lifecycle dict (three exact, one with
-   differing dates), near-identical `home`/`machine` fixtures (two byte-identical
-   pairs), a GIT-identity env dict ×7, four byte-identical `def git()` wrappers plus
-   a fifth that differs, and the `json.loads(json.dumps())` deep-copy idiom.
-
+   `sys.path.insert + # noqa: E402` idiom in twenty-five pytest modules (fifteen after
+   family (a) deletes the ten orphan-importing suites; pyproject `pythonpath`
+   replaced it; rule 3 forbids the noqa), a 15-gram-identical lifecycle dict (three
+   exact, one with differing dates), near-identical `home`/`machine` fixtures (two
+   byte-identical pairs), a GIT-identity env dict ×7, four byte-identical `def git()`
+   wrappers plus a fifth that differs, and the `json.loads(json.dumps())` deep-copy
+   idiom.
 The harm of leaving it: reviewers re-review copies; the gate burns minutes on tests of
 unreachable code; and every new module reaches for its own copy of a primitive because
 the shared home does not exist.
@@ -114,7 +121,7 @@ the shared home does not exist.
    biggest single win (module-status register becomes empty and can be deleted with a
    clean conscience) at a third of the diff size. Costs: keeps the five digest-pinned
    loaders and the noqa idiom — the classes 043's council already measured as real
-   (C-1 verified four byte-identical copies) — and leaves rule 3 violated in twenty
+   (C-1 verified four byte-identical copies) — and leaves rule 3 violated in fifteen
    files for another cycle.
 3. **Defer everything pending an owner decision on the register.** Gives: zero
    governance tension. Costs: preserves 100% of the weight; the audit's findings rot
@@ -149,8 +156,10 @@ named evidence), `surface.receipt_binds_version` (EP-016), `executor.Sandbox.con
 withdrew as governance-enclosed.
 
 **D-044-03**: Every dedup preserves the public behaviour the gate already holds: same
-exit codes, same refusal messages (the messages are contractual — several are asserted
-byte-for-byte), same fail-closed arms. Where two error types differ, the shared home
+exit codes, same refusal messages (the contract the suite actually asserts: codes in
+one suite, message fragments in another — test_acceptance asserts the code,
+test_mut_acceptance asserts fragments with `in str(...)`, nothing holds whole-string
+text), same fail-closed arms. Where two error types differ, the shared home
 takes the error as a parameter, not a union.
 
 ## Challenged once
@@ -159,7 +168,8 @@ Strongest realistic failure case: "the orphan modules are the product's roadmap
 (specs 030/031/033/034/037/042 cite each as *the* instrument for a planned verb);
 deleting them throws away paid-for design work and forces a rewrite when the orchestrator
 lands." Answer: the design work lives in the specs and the git history, not in the
-bytes — a spec is the record, and `git revert` restores any module in one command.
+bytes — a spec is the record, and `git revert` restores a module's commit family
+(module, tests, register row) as one operation.
 Keeping ~1,000 lines plus their suites compiled, packaged, linted and tested on every
 gate *is* the cost; the roadmap pays it every day until the verbs land, and rule 4
 (hard delete, changelog names it) plus rule 5 (delete before you abstract) are the
@@ -221,15 +231,17 @@ Then the tail reads `0 failed` with the same `passed, skipped` shape the pre-cut
 baseline printed (minus the deleted modules' own tests).
 
 **The undecidable path.** Given any module whose reachability the sweeps cannot decide,
-When the evidence is ambiguous, Then the module stays and its name is recorded under
-this spec's Excluded list in the changelog entry — the record, not a grep, separates
-"kept after looking" from "never considered".
+When the evidence is ambiguous, Then the module stays, its name appears in the
+changelog entry's `### Removed` section as "kept, reason recorded here" — the record,
+not a grep, separates "kept after looking" from "never considered".
 
 ## Decisions
-- [X] **D-044-01 — Delete the eleven orphan modules, every test file importing one of
-      them, and the orphan register (reader + data + refusal suite) as one family.**
+- [X] **D-044-01 — Delete the twelve true caller-less modules (the eleven plus
+      answer_key), every test file importing one of them, and the orphan register
+      (reader + data + refusal suite) as one family; correct the stale register rows
+      for sbom/scan/skillmap/coverage by deleting those rows, not the modules.**
       **Rationale:** the register exists to make orphan-status checkable; deleting the
-      modules satisfies its own invariant; reinstatement is git revert.
+      modules satisfies its own invariant; reinstatement is a commit-family revert.
       Promotion-worthy because it constrains any future orchestrator spec: new
       instruments get built *with* their production caller in the same commit, not
       shipped ahead of one.
@@ -237,7 +249,7 @@ this spec's Excluded list in the changelog entry — the record, not a grep, sep
       behind `acceptance`, one ls-files/git wrapper, `wiring.cli_answers` behind
       `doctor`, `functools.cache` console memo, `re.fullmatch` hex check.**
       **Rationale:** the variation between copies is only the error type, which is a
-      parameter; the gate already holds the messages byte-for-byte.
+      parameter; the gate holds codes and message fragments, which the dedup keeps.
 
 ## Accepted risks
 
