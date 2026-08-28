@@ -2,7 +2,7 @@
 name: ai-spec
 description: >-
   Writes the governed record of a decision before code exists: evidence, the problem,
-  at least two real options, one recommendation and self-challenge, assumptions, unresolved
+  three real options, one recommendation and self-challenge, assumptions, unresolved
   risks, observable examples and the authority for proceeding. Trigger for "let's add",
   "how should we handle", "what's the best approach", "I'm thinking about", "what should
   we build for", "write the spec". Not for turning an approved spec into tasks — use
@@ -45,8 +45,8 @@ read against reality.
    than assuming it exists — a repo without it is a repo without the framework's identity.
 2. State the problem in words a non-technical reader can follow. Separate fixed
    constraints, current facts, intended outcomes and the harm of leaving it unchanged.
-3. Present at least two real options. For each, say what it gives, costs, risks and rules
-   out; do not invent a weak option merely to lose.
+3. Present exactly three real options. For each, say what it gives, costs, risks and
+   rules out; do not invent a weak option merely to lose.
 4. Recommend one, explain why the others lose, then challenge the recommendation once with
    the strongest realistic failure case. Revise it or keep it and say why.
 5. Record assumptions and unresolved risks separately. Do not turn either into fact or an
@@ -66,10 +66,14 @@ read against reality.
 10. Keep decisions in their spec unless they constrain future specs. For the ones that do
    — architectural and cross-cutting: a boundary (API, auth, storage) or a global
    convention later specs must know and respect — list them under `## Decisions` marked
-   `- [X]` and promote with `ai-eng decide "<title>"`; the
-   verb promotes only marked titles, and proposal is not approval. Everything else stays
-   inside the spec, which is its record. Leave every production-ready box unticked until
-   the named command supplies fresh evidence.
+   `- [X]` and promote with `ai-eng decide "<title>"`; the verb promotes only marked
+   titles, and proposal is not approval. Everything else stays inside the spec, which is
+   its record. Leave every production-ready box unticked until the named command supplies
+   fresh evidence.
+11. When the critics report, fold them in place: the grill's questions into `## Grill`
+   and the council's gaps, cuts and refutations into `## Council`, each section opening
+   with its `ran: round <n>, <date> — <n> min` declaration, and revise the options,
+   decision and risks those findings attacked rather than answering beside them.
 
 ## Authority boundary
 
@@ -101,4 +105,4 @@ project identity is cross-cutting and requires the same authority. Never overwri
 Not a discussion transcript, implementation or risk acceptance. Delete empty ceremony;
 keep the evidence and decisions a future reader must be able to audit.
 
-- "Only one option is worth considering, so two options would be theatre" — the procedure demands at least two real options and forbids inventing a weak one to lose, because the comparison is what makes the recommendation auditable.
+- "Only one option is worth considering, so two options would be theatre" — the procedure demands exactly three real options and forbids inventing a weak one to lose, because the comparison is what makes the recommendation auditable.

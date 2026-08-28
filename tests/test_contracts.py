@@ -545,7 +545,7 @@ AI_SPEC_FRONTMATTER = (
     "name: ai-spec",
     "description: >-",
     "  Writes the governed record of a decision before code exists: evidence, the problem,",
-    "  at least two real options, one recommendation and self-challenge, assumptions, unresolved",
+    "  three real options, one recommendation and self-challenge, assumptions, unresolved",
     '  risks, observable examples and the authority for proceeding. Trigger for "let\'s add",',
     '  "how should we handle", "what\'s the best approach", "I\'m thinking about", "what should',
     '  we build for", "write the spec". Not for turning an approved spec into tasks — use',
@@ -585,7 +585,7 @@ AI_SPEC_SECTIONS = {
         "the framework's identity.",
         "2. State the problem in words a non-technical reader can follow. Separate fixed "
         "constraints, current facts, intended outcomes and the harm of leaving it unchanged.",
-        "3. Present at least two real options. For each, say what it gives, costs, risks and "
+        "3. Present exactly three real options. For each, say what it gives, costs, risks and "
         "rules out; do not invent a weak option merely to lose.",
         "4. Recommend one, explain why the others lose, then challenge the recommendation once "
         "with the strongest realistic failure case. Revise it or keep it and say why.",
@@ -615,6 +615,11 @@ AI_SPEC_SECTIONS = {
         "titles, and proposal is not approval. Everything else stays inside the spec, which is "
         "its record. Leave every production-ready box unticked until the named command supplies "
         "fresh evidence.",
+        "11. When the critics report, fold them in place: the grill's questions into "
+        "`## Grill` and the council's gaps, cuts and refutations into `## Council`, each "
+        "section opening with its `ran: round <n>, <date> — <n> min` declaration, and revise "
+        "the options, decision and risks those findings attacked rather than answering "
+        "beside them.",
     ),
     "Authority boundary": (
         "Without a person, choose only a reversible, least-scope option within existing "
@@ -640,8 +645,8 @@ AI_SPEC_SECTIONS = {
         "Not a discussion transcript, implementation or risk acceptance. Delete empty ceremony; "
         "keep the evidence and decisions a future reader must be able to audit.",
         '- "Only one option is worth considering, so two options would be theatre" — the '
-        "procedure demands at least two real options and forbids inventing a weak one to lose, "
-        "because the comparison is what makes the recommendation auditable.",
+        "procedure demands exactly three real options and forbids inventing a weak one to "
+        "lose, because the comparison is what makes the recommendation auditable.",
     ),
 }
 
@@ -1570,7 +1575,7 @@ GOVERNING_SKILL_TEXT = {
         "576cf03621aace434ca300bcb136538097f21e0f050fb8a0280913e590457880"
     ),
     ".agents/skills/ai-spec/SKILL.md": (
-        "00a7804face00f1167296fe2e1f87663989dfb7a67b671db65ca6a79c4bef06c"
+        "07a9a17b4bd2d2b49c0ec37f13258fee55bc83333c61feaf66e33f559ddaa364"
     ),
 }
 

@@ -117,7 +117,9 @@ not code can follow.
 ## Options considered
 
 1. TODO: the first real option, and what it costs.
-2. TODO: the second. At least two, and the losers are killed in writing here.
+2. TODO: the second. Exactly three real options, and the losers are killed in writing here.
+3. TODO: the third. The honest baseline — defer, or do nothing — is allowed to be one,
+   and then it must be named for why it loses.
 
 ## Decision
 
@@ -131,6 +133,34 @@ that do not exist yet, mark it `[X]` under ## Decisions and give it a record of 
 
 TODO: the strongest realistic case that the decision above is wrong. Then either revise
 it or keep it and say why the case fails. A challenge nobody could lose to is not one.
+
+## Grill
+
+TODO: when a grill round lands, replace this prompt with its declaration on its own
+line — `ran: round <n>, <ISO date> — <n> min` — then one `### Q` per question with its
+`**A:**` answer beside it, and what it changed. A round that attacked and found nothing
+says `nothing checkable failed`. While this prompt stands undeclared, the critic step
+reads the grill as not run.
+
+## Council
+
+TODO: when the council pass lands, replace this prompt with its declaration on its own
+line — `ran: round <n>, <ISO date> — <n> min` — and name the lenses that read:
+`lenses: cost, reversibility, undecidable, trust, example`. The shape below is what the
+critic step reads — top-level bullets only, each heading carrying bullets or a literal
+`none` line, every finding and every refutation carrying a command. The pass may
+conclude; it may not approve.
+
+### Gaps no single lens named
+
+### Findings cut for carrying no command
+
+### Findings the cross-read refuted, with the command that refuted them
+
+### The two counts
+
+- Gaps that appeared only after the cross-read: **N**
+- Findings deleted, for carrying no command or for being refuted: **N**
 
 ## Assumptions and unresolved risks
 
