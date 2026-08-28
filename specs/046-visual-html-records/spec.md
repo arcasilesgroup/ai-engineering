@@ -111,7 +111,7 @@ Option 3. Precisely:
   **canonical** digests — the same values `_digest` computes and the ADR signs — plus the
   date and the `file://` path.
 - **Two skills, four page types.** `ai-visual-plan` turns a plan — a pasted text plan,
-  another agent's plan, or `specs/NNN/plan.md` — into the visual review page; `ai-visual-
+  another agent's plan, or a `specs/NNN-slug/plan.md` — into the visual review page; `ai-visual-
   recap` turns a branch, commit, PR diff or finished work unit into a recap page. The cycle
   verbs call them at their natural step (ai-spec/ai-plan offer the view for the gate;
   ai-build/ai-goal/ai-ship produce the recap at the hand-off). Research keeps writing
@@ -332,6 +332,13 @@ Unresolved risks (not accepted — `ai-eng accept` is the only thing that accept
   Pages-served recap. **Rationale:** comments cannot render an interactive page, and the
   publishing scope is a human privacy decision, so the job degrades to an artifact link
   until that decision exists.
+
+- [X] **D-046-05 — A correction to an approved spec moves its digest and is re-signed.**
+  When the map finds a real broken reference inside approved bytes, the reference is
+  fixed in the spec and a new MADR re-approves the corrected digest, superseding the old
+  approval. **Rationale:** the alternative — accepting the broken pair in the map's dated
+  set — keeps a false statement in the record to protect a signature; ADR 0023 is the
+  precedent that the digest moves and the re-approval is the honest artifact.
 
 ## Accepted risks
 

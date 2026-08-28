@@ -76,7 +76,7 @@ a fenced `**check**:` into the command a tick would execute.
 
 ## What a page is not
 
-Not an approval. The ADR at the canonical digests of `spec.md` and `plan.md` is the gate
+Not an approval. The ADR at the canonical digests of the spec and the plan is the gate
 (D-046-01); a view prints those digests so a stale page is identifiable from its header,
 and a recap records bytes already approved. Not a second source of truth: the Markdown is
 the record, the page is a reading of it, and the fix for an ugly page is this file or the
