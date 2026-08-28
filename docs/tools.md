@@ -49,7 +49,7 @@ same `just` recipes you run locally.
 | `just guards [FILTER]` | Introduces deliberate defects into the guards and fails if the tests do not catch them. Two halves: fifteen hand-written rows with a floor of 100, and the mutants generated over the blocking surface, with a floor of 90. It is the slowest recipe. |
 | `just quick MODULE` | One module's suite and its receipt, which is what the commit hook writes into the `Ai-Eng-Ran:` trailer. **It is no substitute** for the full gate. |
 | `just counts` | Prints verifiable proof of how many files Ruff formatted and how many tests Pytest collected. |
-| `just council` | Recounts, over each `specs/*/council.md`, how many gaps appeared only after cross-reading and how many findings were deleted, and rejects when its count does not match the total the run wrote. |
+| `just council` | The critic step. Recounts, over each `specs/*/council.md` and each `## Council` section inside `specs/*/spec.md`, how many gaps appeared only after cross-reading and how many findings were deleted, refuses a declared critic section that carries the template's prompt, an empty heading that never said `none`, a malformed `ran:` round line or a grill question without its answer, and rejects when its count does not match the total the run wrote. |
 | `just stats` | Shows repository metrics; it is a report, not a gate. Use `uv run python tests/stats.py --json` for JSON. |
 | `just check` | Local/CI gate, sixteen steps in order: `build sbom lint typecheck test cover security register skilleval evals counts intent-page lenses council map ran`. It does not include `just guards`, which is a separate lane and blocks from `ci-result`. |
 

@@ -6,6 +6,33 @@ search for.
 
 ## [Unreleased]
 
+### Changed (spec 045 — critics inside the spec)
+
+- `/ai-challenge` is the grill: at most ten `### Q` findings per round, each decided
+  by executing its command, returned to the session; the author folds the round into
+  the specification's new `## Grill` section and revises the attacked sentences in
+  place. The exhaustive every-sentence sweep is retired with it.
+- `/ai-council` runs one pass: five named lenses plus the anonymous cross-read in a
+  single fork; the chairman's separate round and its page are folded into the
+  author's verdict, and the result lands in the specification's `## Council`
+  section. No `council.md` and no `council.html` are created for new specs.
+- The `ai-eng spec new` template carries `## Grill` and `## Council` after
+  `## Challenged once` and demands exactly three real options under `## Options
+  considered`; `ai-spec` gained step 11, the fold-in-place rule.
+- `just council` is the critic step over both shapes: historical `specs/*/council.md`
+  files keep their counts, and a declared critic section in a `spec.md` is refused
+  for carrying the template's prompt, an empty heading without `none`, a malformed
+  `ran: round <n>, <date> — <n> min` line, or a `### Q` without its `**A:**`. A
+  section that declares no round still reads "has not run", as before.
+- The no-authority test scopes to `## Council` bodies for the new shape; the
+  file-wide rule over historical councils is unchanged.
+- `specs/*/approval.md` is no longer created: the approval record returns to
+  `docs/adr/` as a digest-approval MADR, the series resumed by ADR 0028 after the
+  gap since 0026. The fifteen historical dossiers stay exactly where they are.
+- A behaviour change for consumer repositories that pinned the wheel: the two
+  critic skills now end with sections inside the specification instead of files
+  beside it, and their `## What it produces` lines name those sections.
+
 ### Removed (spec 044 — ponytail audit residual cuts)
 
 - The orphan layer is deleted: twelve src modules with zero production callers —
