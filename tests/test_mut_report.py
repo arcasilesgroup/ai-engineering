@@ -109,3 +109,22 @@ def test_a_missing_spec_refuses_and_writes_no_page(changed_repo):
     )
     assert result.outcome == "INCOMPLETE"
     assert not list(root.glob(".ai/reports/*-recap-*.html"))
+
+
+def test_a_base_that_is_an_option_is_refused_before_git_sees_it(changed_repo):
+    """S8705, closed by refusing the class rather than by trusting the probe.
+
+    `--base=--output=<path>` reaches `git rev-parse` as an argument, and a scanner —
+    or a reviewer — cannot tell whether the probe catches it; the guard must. The
+    written-file check is the point: a refusal that still wrote the payload is no
+    refusal. The last row proves the refusal is about the shape and not the fixture:
+    the same well-formed base the other tests recap passes the guard.
+    """
+    root, base = changed_repo
+    # The path git would write is relative to its cwd, which is `root` — checking
+    # tmp_path instead would pass even if the guard leaked.
+    evil = root / "evil"
+    assert _recap(root, f"--output={evil}").outcome == "INCOMPLETE"
+    assert not evil.exists(), "git wrote the option's file despite the refusal"
+    assert _recap(root, "HEAD --output=x").outcome == "INCOMPLETE"
+    assert _recap(root, base).outcome == "PASS", "a well-formed rev still passes the guard"

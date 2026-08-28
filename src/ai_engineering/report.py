@@ -422,6 +422,22 @@ def render_view(root: Path, args: argparse.Namespace) -> outcome.Result:
     return outcome.result("PASS")
 
 
+def _rev_or_incomplete(base: str) -> str | None:
+    """Why this `--base` is not a revision, or None when it is a well-formed one.
+
+    Sonar's S8705 is right about the shape: text off the command line reaches `git`
+    argv, and a value that starts with `-` is not a commit anybody meant — it is an
+    option git would obey (`--output=…` and friends). The probe cannot catch that
+    either, because `git rev-parse --verify -- --output=x` fails for the wrong reason.
+    So the class is refused before any subprocess sees it, and the whitespace rule is
+    the same one `git rev-parse --verify` cannot express: a rev is one token.
+    """
+
+    if not base or base.startswith("-") or re.search(r"\s", base):
+        return f"  INCOMPLETE  --base {base!r} is not a revision: no option, no whitespace"
+    return None
+
+
 def _diff_hunks(root: Path, base: str, path: str, budget: int) -> str:
     """A real diff for one path, cut to the excerpt budget at hunk boundaries."""
 
@@ -457,6 +473,9 @@ def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
     home = _spec_home(root, args.spec)
     if home is None:
         return outcome.result("INCOMPLETE")
+    if (why := _rev_or_incomplete(args.base)) is not None:
+        print(why)
+        return outcome.result("INCOMPLETE")
     probe = subprocess.run(
         ["git", "rev-parse", "--verify", f"{args.base}^{{commit}}"],
         capture_output=True,
@@ -469,7 +488,7 @@ def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
         print(f"  INCOMPLETE  --base {args.base!r} is not a commit here")
         return outcome.result("INCOMPLETE")
     named = subprocess.run(
-        ["git", "diff", "--name-status", args.base],
+        ["git", "diff", "--name-status", args.base, "--"],
         capture_output=True,
         text=True,
         cwd=str(root),
@@ -494,7 +513,7 @@ def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
     # dump. A recap over the cap stops being a summary; under the floor, it says the
     # change is small and prints the tree instead.
     sizes = subprocess.run(
-        ["git", "diff", "--numstat", args.base],
+        ["git", "diff", "--numstat", args.base, "--"],
         capture_output=True,
         text=True,
         cwd=str(root),
