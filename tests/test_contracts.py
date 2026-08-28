@@ -2381,22 +2381,34 @@ def test_a_council_reviews_and_never_approves():
         import council_counts
     finally:
         sys.path.pop(0)
+    # D-045-01 lands the grill's answers verbatim in `## Grill`, and the skill still
+    # says the challenger never approves — so the boundary covers both new sections,
+    # not only the council's. Executed on this tree: a grill-scoped pass fires on zero
+    # corpus files, so the extension is free.
     for produced in sorted(ROOT.glob("specs/*/spec.md")):
-        section = council_counts._top_section(
-            produced.read_text(encoding="utf-8"), council_counts.COUNCIL_SECTION
-        )
-        if section is None:
-            continue
-        fields = _verdict_fields(section)
-        if fields:
-            said.append(f"{produced.parent.name} ## Council: {', '.join(fields)}")
+        full = produced.read_text(encoding="utf-8")
+        for name in (council_counts.COUNCIL_SECTION, council_counts.GRILL_SECTION):
+            section = council_counts._top_section(full, name)
+            if section is None:
+                continue
+            fields = _verdict_fields(section)
+            if fields:
+                said.append(f"{produced.parent.name} {name}: {', '.join(fields)}")
     # The direction the scoping must not lose: a grant inside a section body still
-    # refuses, fixture or file alike.
-    grant = (
-        "## Council\n\n`ran: round 1, 2026-08-28 — 5 min`\n\n## The two counts\n\n"
+    # refuses — asserted through the same `_top_section`→`_verdict_fields` pipeline the
+    # loop runs, not the regex alone. A review found the old fixture vacuous: it placed
+    # `## Council` at position 0 with an h2 totals heading, the two shapes `_top_section`
+    # returns empty for, so a regression in the scoping would have kept it green.
+    grant_body = (
+        "# Probe\n\n## Council\n\n`ran: round 1, 2026-08-28 — 5 min`\n\n"
+        "### Gaps no single lens named\n\nnone\n\n### Findings cut for carrying no command\n\nnone\n\n"
+        "### Findings the cross-read refuted, with the command that refuted them\n\nnone\n\n"
+        "### The two counts\n\n- Gaps that appeared only after the cross-read: **0**\n"
+        "- Findings deleted, for carrying no command or for being refuted: **0**\n\n"
         "Verdict: the specification is approved and may be signed\n"
     )
-    assert _verdict_fields(grant), "a council inside the spec could grant"
+    scoped = council_counts._top_section(grant_body, council_counts.COUNCIL_SECTION)
+    assert scoped and _verdict_fields(scoped), "the scoped pipeline missed a grant in a section body"
     assert not said, (
         "a council granted authority: " + "; ".join(said) + ". It may name what is absent "
         "and it may not say whether the specification is good — that belongs to a person"
