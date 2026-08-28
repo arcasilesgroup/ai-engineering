@@ -25,7 +25,7 @@ env:
   # which branch protection requires — reported startup_failure with no logs to read.
   JUST_VERSION: "1.58.0"
   GITLEAKS_VERSION: "8.30.1"
-  TRIVY_VERSION: "0.73.0"
+  TRIVY_VERSION: "0.74.0"
   ACTIONLINT_VERSION: "1.7.12"
   # The linux_amd64 line from the official actionlint_1.7.12_checksums.txt. The version
   # says which release we asked for; the checksum says the bytes we got are that release.
@@ -43,7 +43,9 @@ env:
   # has no business being the exception.
   GITLEAKS_SHA256_DARWIN: "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5"
   GITLEAKS_SHA256_WINDOWS: "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e"
-  TRIVY_SHA256: "2edd39da482bb4e9831962487b68f68e3928ec3137794757f54d00383d79547b"
+  # Re-read from the publisher's own checksums on 2026-08-28, the day homebrew moved the
+  # local trivy to 0.74.0 and the gate refused the untested version — the pin's whole job.
+  TRIVY_SHA256: "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
   # skill-map (`sm`) is the reference-integrity instrument (spec 026, ADR 0027). Unlike the
   # scanners above it is not a native binary: it ships as the npm package `@skill-map/cli`
   # and needs Node >= 24. The nodejs.org checksum pins the runtime's bytes the same way

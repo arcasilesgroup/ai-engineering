@@ -13,7 +13,7 @@ semgrep := "semgrep==1.172.0"
 # green from an older engine, or a local red CI cannot reproduce. A test holds these equal
 # to the workflow's own pins, so drift on either side turns the build red naming the engine.
 gitleaks_version := "8.30.1"
-trivy_version := "0.73.0"
+trivy_version := "0.74.0"
 coverage := "coverage==7.15.4"
 # `sm` (skill-map.ai) is the same kind of pin as gitleaks and trivy above: a binary this
 # project does not install, whose version the machine may carry differently. Spec 026 makes
