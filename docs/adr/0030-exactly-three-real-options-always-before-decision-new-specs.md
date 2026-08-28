@@ -6,7 +6,10 @@ id: "0030"
 title: "Exactly three real options, always, before Decision; new specs only, history frozen; critics revise them in place; a decision earns a MADR only when it constrains future specs."
 date: "2026-08-28"
 spec: "045"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-28T12:36:28Z"
 supersedes: ""
 ---
 

@@ -6,7 +6,10 @@ id: "0029"
 title: "The template carries Grill and Council; the sidecar convention dies forward; the critic step reads both shapes, refuses emptiness, prompt and malformed ran: lines with fixtures, scopes no-authority to section bodies, and returns the approval record to docs/adr/."
 date: "2026-08-28"
 spec: "045"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-28T12:36:28Z"
 supersedes: ""
 ---
 
