@@ -407,10 +407,12 @@ Assumptions:
   pinned strings (`tests/test_skill_bounds.py` — `"two rounds"`, `"digest"`, `"hand
   the page to the person"`, `"loopgate"`, which names an instrument whose module died
   in 044 and must be named by the new text or the bounds test moves in the same
-  commit), the `council` GATE_CONTROLS row, `docs/tools.md`, and the skill-map
-  accepted pairs. The block reverts with one `git revert`; none of it reverts alone.
-  D-045-04 is the only decision independently reversible (three verbatim pins, three
-  skill sentences, two template lines — all prose, no arithmetic).
+  commit), `docs/tools.md`, and the skill-map accepted pairs. The plan reverts the
+  block task by task in reverse order (per-task `git revert`); what none of the
+  reverts yields is independence — each revert re-edits the others' pins. D-045-04
+  shares the template commit with D-045-03's headings, so its "independently
+  reversible" first reading was wrong: it was reverted *alone in prose* (pins, skill
+  sentences), never *alone in a commit*. Found by the block review.
 
 Unresolved risks:
 - The ten-question cap may under-cover a spec with more checkable sentences than
@@ -438,9 +440,10 @@ Unresolved risks:
 **The empty-grill path.** Given the built critic step, and a spec whose `## Grill`
 holds neither a `### Q` with its `**A:**` nor the line `nothing checkable failed`,
 When `just council` runs, Then it exits non-zero naming that spec — the planted
-fixture in `tests/council_counts.py`'s suite is the proof; today nothing reads
-`### Q` anywhere (`grep -rn '### Q' src tests hooks | wc -l` prints `0`, which is the
-absence this example exists to close).
+fixture in `tests/test_contracts.py` is the proof. (The first draft of this example
+claimed no code read `### Q` at all; the reader shipped in the same block, so the
+baseline moved — corrected at the review fold, which moved the spec's digest with
+it. `grep -rn '### Q' tests | wc -l` prints non-zero today by design.)
 
 **The ran-line path.** Given a `## Council` whose header reads ``ran: pending — …``,
 When `just council` runs, Then it exits non-zero naming that spec; and given the

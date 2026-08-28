@@ -62,18 +62,19 @@ Approved at these exact bytes:
 
 | file | SHA-256 |
 |---|---|
-| `specs/045-critics-inside-spec/spec.md` | `b84af3f60fe8de05c15b44366247eb185fb1001cac4f87822ed931cd5a118ea9` |
+| `specs/045-critics-inside-spec/spec.md` | `25096dcffefd52dec6792daacde6fb7745b2a04861c2a48c3327ca15b27ccf95` |
 | `specs/045-critics-inside-spec/plan.md` | `27ab8a15d235630e6f45fc41102844763d20d9fe85150b9230995dd3ebbf2421` |
 
-Both digests are the bytes after three record-coherence reflows, none of which
-changed a decision, a task or its command: the marked-decision lines moved onto
-single lines (the wrapping made them unparseable by `ai-eng decide`; spec moved
-from `7888877b…`), every `check` was reshaped to name exactly one command because
-`--tick` executes the single command a box carries (plan moved from `fae01029…`),
-and task 1's title closed its bold on the line the parser cannot read (plan moved
-from `dd757776…`). The tick column is masked before the digest is taken, so the
-seals themselves do not move these numbers. The approval names the bytes the
-promotions and the ticks actually read.
+The spec digest is the bytes after the block review's fold of two findings into this
+file's own record (the coupled-rollback assumption and one example's baseline, both
+corrected by the review); the plan digest is unchanged by it, because the plan was
+already final. Earlier in the block the spec moved from `7888877b…` and the plan from
+`fae01029…` and then `dd757776…` through record-coherence reflows that changed no
+decision or task: the marked-decision lines moved onto single lines (the wrapping made
+them unparseable by `ai-eng decide`), every `check` was reshaped to name exactly one
+command because `--tick` executes the single command a box carries, and task 1's title
+closed its bold on a line the parser cannot read. The tick column is masked before the
+digest, so the seals themselves do not move these numbers.
 
 The plan's nine tasks are the exact authorised work: the dual-glob critic reader with
 its four refusal fixtures and one clean control, the scoped no-authority pass, the
