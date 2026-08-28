@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import subprocess
 import sys
 import time
 from collections import Counter
@@ -17,11 +19,14 @@ from pathlib import Path
 
 from ai_engineering import (
     accept,
+    contract,
     doctor,
     issue,
     outcome,
+    pages,
     paths,
     solution_intent,
+    spec,
     surface,
 )
 from ai_engineering import (
@@ -342,11 +347,235 @@ def record_stop(root: Path | None, args: argparse.Namespace) -> outcome.Result:
     return outcome.result("PASS")
 
 
+# ---------------------------------------------------------------------------
+# The visual records of specification 046: `report view` and `report recap`.
+# ---------------------------------------------------------------------------
+
+_SECRET_SHAPES = re.compile(
+    r"(?i)(api[_-]?key|token|secret|password|private[_-]?key)"
+    r"(\s*[:=]\s*)([^\s\"']{8,})"
+)
+_PEM = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----")
+
+
+def redact(text: str) -> str:
+    """The last gate before a diff excerpt reaches a page. gitleaks guards commits;
+    this guards the rendered view of one, because a page can be opened by a person
+    whose machine has no scanner and whose clipboard has no redaction.
+    """
+
+    text = _PEM.sub("[redacted private key]", text)
+    return _SECRET_SHAPES.sub(lambda hit: f"{hit.group(1)}{hit.group(2)}[redacted]", text)
+
+
+def _spec_home(root: Path, wanted: str) -> Path | None:
+    """The one directory whose identifier is `wanted`, or None, said loudly."""
+
+    for folder in sorted((root / "specs").glob("*/")):
+        if folder.name[:3] == wanted.zfill(3) and (folder / spec.SPEC_FILE).is_file():
+            return folder
+    print(f"  INCOMPLETE  no spec {wanted.zfill(3)} under specs/, so there is nothing to render")
+    return None
+
+
+def render_view(root: Path, args: argparse.Namespace) -> outcome.Result:
+    """The spec and plan of one record as one self-contained review page.
+
+    The page is a view, never an approval: it prints the canonical digests of the exact
+    bytes it rendered — the same numbers `_digest` computes and the ADR signs — so a
+    stale page is identifiable from its own header, and regenerating it is one command.
+    Two runs over unchanged bytes leave the file byte-identical.
+    """
+
+    home = _spec_home(root, args.spec)
+    if home is None:
+        return outcome.result("INCOMPLETE")
+    spec_body = (home / spec.SPEC_FILE).read_text(encoding="utf-8")
+    plan_file = home / spec.PLAN_FILE
+    plan_body = plan_file.read_text(encoding="utf-8") if plan_file.is_file() else ""
+    title = next(
+        (line[2:].strip() for line in spec_body.splitlines() if line.startswith("# ")),
+        home.name,
+    )
+    meta = (
+        f"spec {spec._digest(home / spec.SPEC_FILE)} · plan "
+        f"{spec._digest(plan_file) if plan_file.is_file() else 'no plan'} · rendered "
+        f"{date.today().isoformat()} · a view, not an approval"
+    )
+    body = pages.render_document(
+        spec_body + "\n\n" + plan_body,
+        kicker=f"spec {args.spec} · review surface",
+        title=title[: contract.PAGE_TITLE_MAX],
+        sub="The approved bytes and their tasks, rendered from the Markdown they were signed as.",
+        meta=pages.esc(meta),
+    )
+    views = root / ".ai" / "views"
+    views.mkdir(parents=True, exist_ok=True)
+    where = views / f"{home.name[:3]}-{home.name[4:]}.html"
+    written = where.read_text(encoding="utf-8") if where.is_file() else None
+    if written != body:
+        where.write_text(body, encoding="utf-8")
+    print(f"  {'unchanged' if written == body else 'wrote'} {where.relative_to(root)}")
+    print(f"  link: {where.resolve().as_uri()}")
+    for line in meta.split(" · ")[:2]:
+        print(f"  {line}")
+    return outcome.result("PASS")
+
+
+def _diff_hunks(root: Path, base: str, path: str, budget: int) -> str:
+    """A real diff for one path, cut to the excerpt budget at hunk boundaries."""
+
+    out = subprocess.run(
+        ["git", "diff", "--unified=2", base, "--", path],
+        capture_output=True,
+        text=True,
+        cwd=str(root),
+        check=False,
+        timeout=60,
+    )
+    if out.returncode:
+        raise ValueError(
+            f"git diff {base} -- {path} exited {out.returncode}: {out.stderr.strip()[:80]}"
+        )
+    kept: list[str] = []
+    for line in out.stdout.splitlines():
+        if line.startswith("@@") and len(kept) >= budget:
+            break  # a later hunk will not fit; keep whole hunks, never half a line
+        kept.append(line)
+    return "\n".join(kept[:budget] if len(kept) > budget else kept)
+
+
+def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
+    """What a finished build changed, as one record page.
+
+    The file-tree and every diff excerpt come from `git diff` over the named range —
+    mechanically, never reconstructed — because the harvested grounding rule says a
+    recap block is a fact from the diff or it is not in the recap. The narrative is the
+    caller's prose; the shape is this command's.
+    """
+
+    home = _spec_home(root, args.spec)
+    if home is None:
+        return outcome.result("INCOMPLETE")
+    probe = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{args.base}^{{commit}}"],
+        capture_output=True, text=True, cwd=str(root), check=False, timeout=30,
+    )
+    if probe.returncode:
+        print(f"  INCOMPLETE  --base {args.base!r} is not a commit here")
+        return outcome.result("INCOMPLETE")
+    named = subprocess.run(
+        ["git", "diff", "--name-status", args.base],
+        capture_output=True, text=True, cwd=str(root), check=False, timeout=60,
+    )
+    if named.returncode:
+        print("  INCOMPLETE  git diff could not read the range")
+        return outcome.result("INCOMPLETE")
+    changed: list[tuple[str, str]] = []
+    for line in named.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            changed.append((parts[0][0], parts[-1]))
+    if not changed:
+        print(
+            f"  INCOMPLETE  the range {args.base}..working tree changes nothing; a recap "
+            "of nothing is a page of lies"
+        )
+        return outcome.result("INCOMPLETE")
+    # Key changes: the most-touched files, capped by the contract's budget, never a
+    # dump. A recap over the cap stops being a summary; under the floor, it says the
+    # change is small and prints the tree instead.
+    sizes = subprocess.run(
+        ["git", "diff", "--numstat", args.base],
+        capture_output=True, text=True, cwd=str(root), check=False, timeout=60,
+    )
+    weight: dict[str, int] = {}
+    for line in sizes.stdout.splitlines():
+        cols = line.split("\t")
+        if len(cols) >= 3:
+            added = int(cols[0]) if cols[0].isdigit() else 0
+            removed = int(cols[1]) if cols[1].isdigit() else 0
+            weight[cols[-1]] = added + removed
+    order = sorted((p for _, p in changed), key=lambda p: -weight.get(p, 0))
+    picks = order[: contract.RECAP_TABS_MAX]
+    if len(picks) < contract.RECAP_TABS_MIN and len(picks) < len(order):
+        picks = order[: contract.RECAP_TABS_MIN]
+    excerpts = []
+    for path in picks:
+        try:
+            text = _diff_hunks(root, args.base, path, contract.RECAP_EXCERPT_LINES_MAX)
+        except ValueError as refused:
+            print(f"  INCOMPLETE  {refused}")
+            return outcome.result("INCOMPLETE")
+        if text.strip():
+            excerpts.append(
+                {
+                    "block": "diff",
+                    "path": path,
+                    "text": redact(text),
+                    "summary": f"{weight.get(path, 0)} lines changed",
+                }
+            )
+    tree = {
+        "block": "file-tree",
+        "title": "What changed",
+        "entries": [{"path": path, "change": flag} for flag, path in changed],
+    }
+    blocks: list[dict] = [tree, {"block": "narrative", "text": args.summary}, *excerpts]
+    spec_digest = spec._digest(home / spec.SPEC_FILE)
+    meta = (
+        f"spec {spec_digest} · base {args.base} · {len(changed)} files · rendered "
+        f"{date.today().isoformat()}"
+    )
+    title = next(
+        (
+            line[2:].strip()
+            for line in (home / spec.SPEC_FILE).read_text(encoding="utf-8").splitlines()
+            if line.startswith("# ")
+        ),
+        home.name,
+    )
+    page = pages.render_page(
+        kicker=f"spec {args.spec} · recap",
+        title=f"Recap: {title}"[: contract.PAGE_TITLE_MAX],
+        sub="What this work unit changed, derived from the diff and nothing else.",
+        meta=pages.esc(meta),
+        body="".join(pages.render_block(one) for one in blocks),
+        warnings=[],
+    )
+    reports = root / ".ai" / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    # Deterministic naming: the recap of one spec lives in one file, overwritten by its
+    # own rerun. A fresh number per run would scatter a dozen half-truths across the
+    # reports home and make "which recap is current" unanswerable.
+    named = sorted(reports.glob(f"???-recap-{home.name[4:]}.html"))
+    if named:
+        where = named[0]
+    else:
+        taken = {p.name[:3] for p in reports.glob("[0-9][0-9][0-9]-*") if p.name[:3].isdigit()}
+        number = max((int(n) for n in taken), default=0) + 1
+        where = reports / f"{number:03d}-recap-{home.name[4:]}.html"
+    where.write_text(page, encoding="utf-8")
+    print(f"  wrote {where.relative_to(root)}")
+    print(f"  link: {where.resolve().as_uri()}")
+    print(f"  {meta}")
+    return outcome.result("PASS")
+
+
 def main(argv: list[str]) -> outcome.Result | outcome.Execution:
     parser = argparse.ArgumentParser(prog="ai-eng report")
     commands = parser.add_subparsers(dest="command")
     digest = commands.add_parser("digest")
     digest.add_argument("--weeks", type=int, default=1)
+    # `view` and `recap` write pages, so each names the spec it renders and `recap` names
+    # the base its diff runs against — the two things that make a rendered page auditable
+    # rather than decorative (spec 046, D-046-01/02).
+    view = commands.add_parser("view")
+    view.add_argument("--spec", required=True, type=_filled)
+    recap = commands.add_parser("recap")
+    recap.add_argument("--spec", required=True, type=_filled)
+    recap.add_argument("--base", required=True, type=_filled)
+    recap.add_argument("--summary", required=True, type=_filled)
     report = commands.add_parser("issue")
     report.add_argument("--kind", choices=issue.KINDS, required=True)
     report.add_argument("--title", required=True)
@@ -396,6 +625,12 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         return outcome.result("INCOMPLETE")
     if args.command == "issue":
         return report_issue(paths.repo_root(), args)
+    if args.command in ("view", "recap"):
+        root = paths.repo_root()
+        if root is None:
+            print("  INCOMPLETE  this is not a git repository, so there is no tree to render")
+            return outcome.result("INCOMPLETE")
+        return render_view(root, args) if args.command == "view" else render_recap(root, args)
 
     root = paths.repo_root()
     events = within(doctor.events(root), 7 * args.weeks)
