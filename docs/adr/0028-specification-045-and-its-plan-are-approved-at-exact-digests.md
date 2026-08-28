@@ -6,7 +6,10 @@ id: "0028"
 title: "Specification 045 and its plan are approved at exact digests"
 date: "2026-08-28"
 spec: "045"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-28T02:36:47Z"
 supersedes: ""
 ---
 
