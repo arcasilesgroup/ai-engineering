@@ -23,20 +23,26 @@ are bounded instruments: at most ten questions, one pass, counts a script checks
 
 What is true today, measured on this tree:
 
-- Since spec 023, every spec that went through the full cycle carries up to four files
-  beside `spec.md`: `challenge.md` (3,445 lines across 20 specs), `council.md` (4,290
-  lines across 20), `council.html` (216 KB across 12), and `approval.md` (one per spec
-  since 010). `challenge.md` has no reader at all — ADR 0023 says so in its own words.
+- Four sidecar files sit beside `spec.md` for the specs that went through the full
+  critic cycle: `challenge.md` (3,445 lines across 14 specs), `council.md` (4,290 lines
+  across 14), `council.html` (216 KB across 12) and `approval.md` (15 specs, 029
+  onward). `challenge.md` has no reader at all — ADR 0023 says so in its own words.
   `council.md` has exactly two: `tests/council_counts.py` counts its bullets and
   `tests/test_contracts.py` refuses its verdict fields. Neither opens a finding.
-  `approval.md` has no mechanical reader either: `madr.validate` refuses it as a MADR
-  (`src/ai_engineering/madr.py:214` — it declares `urn:ai-engineering:spec-approval:1`),
-  and the canonical approval at exact digests already lives in the `docs/adr/` records
-  that verb does validate.
-- `ai-challenge`'s procedure is an exhaustive sweep: execute every checkable sentence in
-  the spec. On 044 that meant dozens of real commands over the whole tree from cold
-  context — 70 minutes — to find 2 load-bearing findings among 10, against a spec the
-  author had already verified once.
+  `approval.md` has no mechanical reader either: a live call into `madr.validate`
+  returns `INCOMPLETE [MADR_UNREADABLE]` for every one of the fifteen (a file
+  declaring the foreign schema `urn:ai-engineering:spec-approval:1` is read as not a
+  MADR, `src/ai_engineering/madr.py:218-224`), and the tree-wide validation passes
+  without reading any of them — `docs/adr/` is the only home it opens. The canonical
+  approval at exact digests already lives in the `docs/adr/` records that verb does
+  validate.
+- `ai-challenge`'s procedure is an exhaustive sweep: execute every checkable sentence
+  in the spec. On 044 it returned ten `WRONG` verdicts and seven `UNPROVEN`
+  (`specs/044-ponytail-audit-residual-cuts/challenge.md:244-248`); the owner named two
+  of the ten load-bearing — the incomplete deletion list and the wrong register census
+  — against a spec the author had already verified once. Its 70 minutes are
+  owner-reported and instrumented by nothing in this tree, which the `ran:` lines of
+  D-045-05 exist to change.
 - `ai-council` runs three sequential fork rounds: five lenses, then the anonymous
   cross-read, then a blind chairman — plus a `council.html` page written for a person.
   The measured mechanism is the first two rounds (report 003: independent readers raise
@@ -77,10 +83,11 @@ files a reviewer must open one by one to reconstruct.
    without touching artifacts or skills. Costs: report 019 marks critic-parallel
    wall-clock `[sin fuente]` — the 14-vs-9 measurement is human readers, not agents;
    the dominant cost is each fork re-reading the tree cold, which parallelism
-   multiplies rather than removes (Anthropic measures an orchestrator-with-subagents at
-   roughly 15× the tokens of a single chat [5]); it adds orchestration the one-writer
-   rule and rule 11 never asked for; and the artifact surface — the cost paid in every
-   later session — does not shrink at all.
+   multiplies rather than removes (Anthropic measured an orchestrator-with-subagents
+   run at roughly 15× the tokens of a single chat — "How we built our multi-agent
+   research system", 2025-06); it adds orchestration the one-writer rule and rule 11
+   never asked for; and the artifact surface — the cost paid in every later session —
+   does not shrink at all.
 
 Option 2 loses: it keeps the second and third home of the same decision, the exact
 failure rule 4 names. Option 3 loses: it buys an unmeasured benefit with real machinery
@@ -93,7 +100,10 @@ a time, each naming the sentence it attacks and carrying the command that decide
 with the verdict written beside the output (`WRONG`, `UNPROVEN`, or holds). The fork
 discipline is unchanged: read only the spec and the tree, never the plan or the chat.
 The two-rounds-per-digest bound is unchanged; the cap bounds round one, and round two
-exists for what the cap made round one miss. The challenger never writes the spec; it
+exists for what the cap made round one miss. An empty `## Grill` is a grill that did
+not run: the section's rule is one bullet per question plus, when the round genuinely
+found nothing to attack, one `**A:**` line reading `nothing checkable failed` — the
+reader refuses a `## Grill` with neither. The challenger never writes the spec; it
 returns the Q&A to the author, who folds it into `## Grill` and corrects the attacked
 sentences in place — a spec is revised, never appended-contradictory.
 
@@ -103,18 +113,47 @@ cross-read happen inside one pass; the blind-chairman round folds into the autho
 verdict paragraph, because the author is the one who must answer the findings anyway.
 Independence rules, the command rule and the no-authority boundary are unchanged: it
 may conclude, it may not approve. No `council.html`; the transcript shape survives as
-the `## Council` section's machine-readable part.
+the `## Council` section's machine-readable part. The rule that a lens must have run
+moves from the old skill into the section: its header names the five lenses and marks
+any that returned nothing — `lenses: cost, reversibility, undecidable, trust, example`
+by name, never `3 of 5`, which the no-authority tally check would refuse as arithmetic
+about members (`tests/test_contracts.py:2235`). A finding the cross-read refutes and
+another lens upholds stays in `### Gaps no single lens named` and is *not* also listed
+under the refuted heading — one heading owns one finding, or the two counts
+double-count what the counter exists to keep honest.
 
 **D-045-03 — the spec template carries the critics, and the sidecar files die.** The
 template gains `## Grill` and `## Council` (the three bullet headings plus `### The two
 counts`), placed after `## Challenged once` and before `## Assumptions and unresolved
 risks`. For new specs, `challenge.md`, `council.md`, `council.html` and `approval.md`
 are never created; the historical sidecar files stay exactly where they are — written
-records are not rewritten. The counters retarget the in-spec sections and fail closed
-on the template's own TODO prompt under those headings. Approval content stays
-canonical in `docs/adr/` MADRs, which are the records `madr.validate` already reads;
-what `approval.md` uniquely carried — the summary of what the critics changed — is what
-`## Grill` and `## Council` now record.
+records are not rewritten. `tests/council_counts.py` becomes a **dual-glob,
+dual-shape** reader: it reads `specs/*/council.md` (historical, totals heading `## The
+two counts`) and, beside it, any `specs/*/spec.md` that carries a `## Council` section
+(new, totals heading `### The two counts`), summing both into one receipt — executed:
+the old shape yields `(8, 13)` and the new yields its own counts, while a single-glob
+retarget makes all 45 specs raise `Unreadable` and turns the mixed tree red on day
+one). A section that is *present but empty* is a refusal, not a `(0, 0)` green: each
+of the three bullet headings carries at least one entry or one explicit `none` bullet,
+because `counts()` is arithmetic agreement between bullets and totals and an empty
+agreement is the indistinguishable byte state every "did the critic run" question
+reduces to. It fails closed on the template's own TODO prompt under those headings —
+and this fail-closed is the counter's, not doctor's `MARKER`, which only fires on a
+`status: shipped` spec and so could never guard a draft
+(`src/ai_engineering/doctor.py:1137`; all fourteen sidecar-bearing specs and 045
+itself are `draft`). The approval gate is what refuses a draft whose `## Council`
+still carries the prompt: a digest cannot be signed over an un-run council. Approval
+content stays canonical in `docs/adr/` MADRs, which are the records `madr.validate`
+already reads; what `approval.md` uniquely carried — the summary of what the critics
+changed — is what `## Grill` and `## Council` now record.
+
+**D-045-05 — every critic run records its own minutes.** The header line of `## Grill`
+and of `## Council` carries `ran: <date> — <n> min`, written by the author when the
+fold lands. The 70 and 36 minutes that motivated this spec are owner-reported and
+instrumented by nothing; a design that cuts a cost it cannot measure is a design whose
+own claim nobody can check, and `tests/council_counts.py` — which already recomputes
+what a council wrote rather than believing it — reads the line and refuses a section
+without it.
 
 **D-045-04 — three options, always, before the decision.** `ai-spec` demands exactly
 three real options under `## Options considered`, positioned before `## Decision`
@@ -146,8 +185,7 @@ non-verdict `council_counts.py` gives an absent `council.md` today.
 
 ## Grill
 
-Ran once, 2026-08-27, in session with the owner — the intake message was the grill.
-Five questions, each with the answer and what it changed.
+`ran: 2026-08-27 — 5 questions, owner-side, uninstrumented before D-045-05 existed`
 
 ### Q1 — ¿Hace falta approval.md, o va dentro de spec y plan?
 **A:** No hace falta como fichero: ningún código lo lee — `madr.validate` lo rechaza
@@ -169,6 +207,7 @@ auditable. El instinto apunta a algo real — los críticos re-evalúan las opci
 resuelve revisándolas in situ, nunca añadiendo una contradicción debajo; `## Grill` y
 `## Council` registran qué movió. Cambió D-045-04; el orden del template queda intacto.
 
+
 ### Q5 — ¿Diagramas dentro de la spec?
 **A:** No en el template: los headings ya son el esquema que los scripts leen, y un
 diagrama duplicaría el orden lineal que el template impone. Un diagrama entra en una
@@ -177,6 +216,7 @@ spec 031). No cambió nada.
 
 ## Council
 
+`ran: pending — the pass runs once before approval; this line appears with its minutes`
 TODO: runs once on this draft before approval — five forked lenses (cost, reversibility,
 the undecidable path, what is taken on trust, the example nobody wrote) and the
 cross-read inside the same pass; the author writes the verdict and one first step. Every
@@ -213,6 +253,14 @@ Assumptions:
 - Historical sidecar files stay untouched; skill-corpus arithmetic that pins the
   skills' text moves in the same commits as the skill edits, which the corpus tests
   already enforce.
+- D-045-01, 02 and 03 are **one coupled rollback block, not three independent
+  reverts** (LensReversibility L-4): `tests/test_skill_bounds.py:34` byte-pins
+  `"hand the page to the person"` and `"loopgate"` in both critic skills — a module
+  `ai-challenge`/`ai-council` name as the orchestrator's instrument even though the
+  `loopgate` module itself died in 044's family (a) — and `tests/test_quality_gate.py`'s
+  GATE row plus `docs/tools.md:52` quote the `just council` recipe. Backing any one of
+  the three decisions out re-edits all of them; the plan must land them in one commit
+  family with a single `git revert`, not as separable tasks.
 
 Unresolved risks:
 - The ten-question cap may under-cover a spec with more than ten checkable sentences;
@@ -221,6 +269,14 @@ Unresolved risks:
 - The transcript's audit value is lost for future specs; the counts remain
   script-checked, the lenses were never named, and a session that needs the full lens
   output keeps it in the session record, not in `specs/`.
+- Inserting two `##` headings moves every later section's **position-based number**
+  (`src/ai_engineering/spec.py:813` `section()`, sold by D-031-03 as "resolve a part by
+  number"). Executed: 044's `## Assumptions` is section 6, 045's is section 8. No
+  `section()` call site exists in `src/` or `tests/` today, so the cost is nil by
+  absence-of-callers, not by design (LensReversibility L-5). If a stored numeric
+  reference is ever added, old and new corpora disagree permanently; the mitigation,
+  if that day comes, is name-based resolution, and this spec records the shift so the
+  next author sees the two regimes rather than rediscovering it.
 
 ## Examples somebody can check
 
@@ -239,6 +295,12 @@ answer and what it changed.
 own council fills `## Council`, Then it prints the two counts read from the section and
 exits `0`; and given a spec still carrying the template's TODO prompt under
 `## Council`, When the same command runs, Then it exits non-zero naming that spec.
+
+**The history-stays-guarded path.** Given the dual-shape reader, When `just council`
+runs against `specs/044-ponytail-audit-residual-cuts/council.md`, Then it still prints
+`8` and `13` (executed: the old h2 shape returns `(8, 13)`), and the new h3 template
+shape returns a count rather than the `Unreadable` a single-mode reader raises — so
+the 4,290 historical lines keep their guard after the retarget.
 
 **The undecidable path.** Given a grill question no tree command can decide, When the
 author folds it, Then the answer line reads `**A:** UNPROVEN — <why>` and the sentence
@@ -272,6 +334,9 @@ nothing else — the approval record is the `docs/adr/` MADR `madr.validate` rea
 - **D-045-02 — ai-council runs once: five lenses + cross-read in a single pass, author
   writes the verdict, no HTML page.** **Rationale:** the measured mechanism is the
   lens/cross-read pair; the third round and the page duplicated the author's fold.
+- **D-045-05 — every critic run records its own minutes in the section header.**
+  **Rationale:** a cost the design claims to cut must be measurable on the artifact
+  the design produces; owner-reported timings alone are the fiction rule 11 refuses.
 
 ## Accepted risks
 
