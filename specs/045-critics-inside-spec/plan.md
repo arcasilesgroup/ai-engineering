@@ -47,7 +47,7 @@ promotion-marked decisions become MADRs and the approval record cites them (task
 
 ## Tasks
 
-1. [ ] **The critic reader: dual glob, emptiness, declared-prompt, ran-grammar, with planted fixtures** —
+1. [x] <!--t:526b472732a7--> **The critic reader: dual glob, emptiness, declared-prompt, ran-grammar, with planted fixtures** —
    **file** `tests/council_counts.py` (+ its refusals in `tests/test_contracts.py`,
    `test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce` and the
    planted-refusal test extended). The reader counts `specs/*/council.md` (h2
@@ -74,7 +74,7 @@ promotion-marked decisions become MADRs and the approval record cites them (task
    **rollback**: `git revert <commit>`.
    **done when**: both directions (green on the tree, red on the plant) assert inside
    the one test and the real suite passes.
-3. [ ] **The template prints the critics, and three options** —
+3. [x] <!--t:7b594084a0b8--> **The template prints the critics, and three options** —
    **file** `src/ai_engineering/spec.py` (`TEMPLATE`: insert `## Grill` and
    `## Council` with their prompts and the exact machine shape after `## Challenged
    once`; replace the two-option prompt with three numbered prompts) +
@@ -88,7 +88,7 @@ promotion-marked decisions become MADRs and the approval record cites them (task
    **done when**: `ai-eng spec new` output for a probe slug carries both critic
    headings, the numbered-option count in the template is `3`, and the joint
    skill↔template test is green.
-4. [ ] **ai-challenge becomes the grill** —
+4. [x] <!--t:1bde82364f47--> **ai-challenge becomes the grill** —
    **file** `.agents/skills/ai-challenge/SKILL.md` (+ `corpus.md` where routing text
    moves). ≤10 `### Q` entries per round, one at a time, command-and-verdict per
    question, empty-section and `nothing checkable failed` rules, `ran: round` lines,
@@ -101,7 +101,7 @@ promotion-marked decisions become MADRs and the approval record cites them (task
    **rollback**: `git revert <commit>`.
    **done when**: bounds tests green on the new text and `just skilleval` routes
    without a new dead end.
-5. [ ] **ai-council runs once** —
+5. [x] <!--t:5d2fc5f471f7--> **ai-council runs once** —
    **file** `.agents/skills/ai-council/SKILL.md` (+ `corpus.md`). One pass: five named
    lenses + anonymous cross-read, author writes the verdict into `## Council`, the
    three headings and two counts survive as section shape, lens names never a tally,
@@ -113,7 +113,7 @@ promotion-marked decisions become MADRs and the approval record cites them (task
    **rollback**: `git revert <commit>`.
    **done when**: the audit suite is green against the rewritten text and the
    no-granting boundary test passes on its own terms.
-6. [ ] **Policy: the dead template holes** —
+6. [x] <!--t:4dc181be4486--> **Policy: the dead template holes** —
    **file** `policy/skill-map-exclusions.toml` (drop the `council.html`
    template-hole row — no shipped skill names it anymore — and keep the
    `challenge.md`/`council.md` holes, which frozen historical records still
@@ -123,7 +123,7 @@ promotion-marked decisions become MADRs and the approval record cites them (task
    **check**: `just map`
    **rollback**: `git revert <commit>`.
    **done when**: `just map` prints `REAL_AND_UNACCEPTED=0`.
-7. [ ] **Docs: the row and the record** —
+7. [x] <!--t:6b1b95c4b41c--> **Docs: the row and the record** —
    **file** `docs/tools.md` (`just council` description: sections and sidecars both;
    step list unchanged) + `CHANGELOG.md` (behaviour change for consumer repos: new
    specs carry `## Grill`/`## Council`, sidecars are not created, approval resumes in
@@ -140,7 +140,7 @@ promotion-marked decisions become MADRs and the approval record cites them (task
    commit family.
    **done when**: the run exits 0 with every step green including `council`, `map`,
    `skilleval`.
-9. [ ] **Promotion and the approval record** —
+9. [x] <!--t:75194897cf70--> **Promotion and the approval record** —
    **file** `docs/adr/0028-…` (+ the two promoted records via `ai-eng decide`).
    Promote D-045-03 and D-045-04 (marked `[X]` in the spec); write the approval ADR
    at the exact spec and plan digests — the first digest approval since ADR 0026, in
