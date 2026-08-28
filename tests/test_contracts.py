@@ -2408,7 +2408,9 @@ def test_a_council_reviews_and_never_approves():
         "Verdict: the specification is approved and may be signed\n"
     )
     scoped = council_counts._top_section(grant_body, council_counts.COUNCIL_SECTION)
-    assert scoped and _verdict_fields(scoped), "the scoped pipeline missed a grant in a section body"
+    assert scoped and _verdict_fields(scoped), (
+        "the scoped pipeline missed a grant in a section body"
+    )
     assert not said, (
         "a council granted authority: " + "; ".join(said) + ". It may name what is absent "
         "and it may not say whether the specification is good — that belongs to a person"
