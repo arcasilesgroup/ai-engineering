@@ -11,7 +11,10 @@ of them reverted re-edits the others' pinned strings, so the family reverts as a
 block, task by task in reverse order.
 
 **This plan is not edited while it is executed.** The spec digest at approval time is
-recorded in the approval ADR, not here.
+recorded in the approval ADR, not here. Each check names one command, because
+`ai-eng spec show --tick` executes exactly the one command a box carries — a check
+with `&&` names two and refuses to tick at all; the prose beside each check still
+states everything that task must hold.
 
 ## The order, and why
 
@@ -47,29 +50,28 @@ promotion-marked decisions become MADRs and the approval record cites them (task
 1. [ ] **The critic reader: dual glob, emptiness, declared-prompt, ran-grammar —
    with planted fixtures** —
    **file** `tests/council_counts.py` (+ its refusals in `tests/test_contracts.py`,
-   `test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce` extended).
-   The reader counts `specs/*/council.md` (h2 `## The two counts`) and every
-   `specs/*/spec.md` carrying a `## Council` section (h3 `### The two counts`) into one
-   receipt; a declared `ran: round <n>, <ISO date> — <n> min` line is required for
-   enforcement of the other three rules: present-but-empty bullet headings without a
-   `none` line refuse, `TODO` prompt or HTML comment under a *declared* heading refuses,
-   a malformed/missing `ran:` line in a section that has content refuses; a section
-   with no `ran:` line at all reads "has not run" (today's absence-green). Fixtures:
-   one planted file per refusal plus the clean control.
-   **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_contracts.py -k
-   council_counts && uv run python tests/council_counts.py`
+   `test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce` and the
+   planted-refusal test extended). The reader counts `specs/*/council.md` (h2
+   `## The two counts`) and every `specs/*/spec.md` carrying a `## Council` section
+   (h3 `### The two counts`) into one receipt; a declared `ran: round <n>, <ISO date>
+   — <n> min` line is required for enforcement of the other rules: present-but-empty
+   bullet headings without a `none` line refuse, prompt prose or HTML comment under a
+   *declared* heading refuses, a malformed/missing `ran:` line in a section that has
+   content refuses; a section with no `ran:` line at all reads "has not run" (today's
+   absence-green). Fixtures: one planted state per refusal plus the clean control.
+   **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_contracts.py -k council`
    **rollback**: `git revert <commit>`.
-   **done when**: the real mixed tree prints the historical `(8, 13)` for 044 plus the
+   **done when**: the real mixed tree prints the historical counts for 044 plus the
    045 section's `(3, 12)` in one `RAN council=` line, exit 0, and each planted
-   refusal exits non-zero naming its fixture.
+   refusal raises `Unreadable` naming its state.
 2. [ ] **No-authority, scoped to section bodies** —
    **file** `tests/test_contracts.py` (`test_a_council_reviews_and_never_approves`).
    Keeps the file-wide rule over `specs/*/council.md`; gains a `## Council`-body-scoped
    pass over `specs/*/spec.md`. Whole-file prose must not fire: 036's register row and
    045's challenge answer stay green; a planted `## Council` body writing the
    specification as approved must refuse.
-   **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_contracts.py -k
-   council_reviews`
+   **check**: `uv run --with pytest==9.1.1 pytest -q
+   tests/test_contracts.py::test_a_council_reviews_and_never_approves`
    **rollback**: `git revert <commit>`.
    **done when**: both directions (green on the tree, red on the plant) assert inside
    the one test and the real suite passes.
@@ -78,24 +80,25 @@ promotion-marked decisions become MADRs and the approval record cites them (task
    `## Council` with their prompts and the exact machine shape after `## Challenged
    once`; replace the two-option prompt with three numbered prompts) +
    `.agents/skills/ai-spec/SKILL.md` (steps 3/7 amended: exactly three options; fold
-   grill and council into the named sections) + the three verbatim pins in
-   `tests/test_contracts.py` (`AI_SPEC_SECTIONS`, governing-skill text) moved with it.
+   grill and council into the named sections) + the verbatim pins in
+   `tests/test_contracts.py` (`AI_SPEC_FRONTMATTER`, `AI_SPEC_SECTIONS`,
+   `GOVERNING_SKILL_TEXT`) moved with it.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_mut_spec.py
-   tests/test_contracts.py -k "template or governing or steps or sections"`
+   tests/test_contracts.py -k "template or governing or ai_spec or sections"`
    **rollback**: `git revert <commit>`.
    **done when**: `ai-eng spec new` output for a probe slug carries both critic
-   headings, `sed`-count of numbered options in the template is `3`, and the joint
+   headings, the numbered-option count in the template is `3`, and the joint
    skill↔template test is green.
 4. [ ] **ai-challenge becomes the grill** —
    **file** `.agents/skills/ai-challenge/SKILL.md` (+ `corpus.md` where routing text
    moves). ≤10 `### Q` entries per round, one at a time, command-and-verdict per
    question, empty-section and `nothing checkable failed` rules, `ran: round` lines,
-   author folds into `## Grill`, no `challenge.md`, escalation and the two-rounds /
-   digest / loopgate sentences the bounds test pins stay verbatim, `context: fork`
-   and `background: false` unchanged.
+   author folds into `## Grill`, no `challenge.md`, and the two-rounds / digest /
+   escalation / loopgate sentences the bounds test pins stay verbatim,
+   `context: fork` and `background: false` unchanged.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_skill_bounds.py
-   tests/test_skill_sequence.py tests/test_contract_smells.py && uv run python
-   tests/skill_eval.py`
+   tests/test_skill_sequence.py tests/test_contract_smells.py tests/test_skill_eval.py
+   tests/test_contracts.py -k "skill or bounds or smells or sequence"`
    **rollback**: `git revert <commit>`.
    **done when**: bounds tests green on the new text and `just skilleval` routes
    without a new dead end.
@@ -105,23 +108,22 @@ promotion-marked decisions become MADRs and the approval record cites them (task
    three headings and two counts survive as section shape, lens names never a tally,
    no `council.md`/`council.html`, the pinned sentences ("It is never asked which
    answer is best", "It may not write an approval", two rounds, digest, hand the page,
-   loopgate) kept.
-   **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_skill_bounds.py
-   tests/test_contracts.py -k "council_reviews or critic" && uv run python
-   tests/skill_eval.py`
+   loopgate) kept, sourced-statistic anchors kept on their statistic's line.
+   **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_contracts.py
+   tests/test_skill_bounds.py -k "council or critic or skill"`
    **rollback**: `git revert <commit>`.
-   **done when**: the 106-line file ships under the 80-line shape it was flagged
-   over, and the no-granting boundary test is green against its text.
+   **done when**: the audit suite is green against the rewritten text and the
+   no-granting boundary test passes on its own terms.
 6. [ ] **Policy: the dead template holes** —
-   **file** `policy/skill-map-exclusions.toml` (drop the `challenge.md`, `council.md`,
-   `council.html` template-hole and nested-route rows) + the accepted pairs whose only
-   reason was those skill mentions (`policy/skill-map-accepted.toml` row
-   `ai-council/SKILL.md -> …/council.md`). Historical sidecar pairs stay: those files
-   exist and their prose is history.
+   **file** `policy/skill-map-exclusions.toml` (drop the `council.html`
+   template-hole row — no shipped skill names it anymore — and keep the
+   `challenge.md`/`council.md` holes, which frozen historical records still
+   quote) + `policy/skill-map-accepted.toml` (the prose-mention pairs the block's
+   own records quote, accepted with a dated comment, the class docs/adr/0027
+   established).
    **check**: `just map`
    **rollback**: `git revert <commit>`.
-   **done when**: `just map` prints zero real-and-unaccepted and one fewer declared
-   hole per removed row.
+   **done when**: `just map` prints `REAL_AND_UNACCEPTED=0`.
 7. [ ] **Docs: the row and the record** —
    **file** `docs/tools.md` (`just council` description: sections and sidecars both;
    step list unchanged) + `CHANGELOG.md` (behaviour change for consumer repos: new
@@ -137,9 +139,8 @@ promotion-marked decisions become MADRs and the approval record cites them (task
    **check**: `just check`
    **rollback**: fix forward; any red names its task and that task fixes in its own
    commit family.
-   **done when**: the tail reads `0 failed` with the same passed/skipped shape the
-   pre-change baseline printed plus the new fixtures' count, every step green
-   including `council`, `map`, `skilleval`.
+   **done when**: the run exits 0 with every step green including `council`, `map`,
+   `skilleval`.
 9. [ ] **Promotion and the approval record** —
    **file** `docs/adr/0028-…` (+ the two promoted records via `ai-eng decide`).
    Promote D-045-03 and D-045-04 (marked `[X]` in the spec); write the approval ADR

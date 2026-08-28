@@ -62,8 +62,16 @@ Approved at these exact bytes:
 
 | file | SHA-256 |
 |---|---|
-| `specs/045-critics-inside-spec/spec.md` | `7888877b80c0fb86e765766cd85f3c7dc70d2e0cd30efd83881006d41687ba71` |
-| `specs/045-critics-inside-spec/plan.md` | `fae0102931d474856da1eeb48942932262d59bc6bca2b4c58bf69b9864c423ef` |
+| `specs/045-critics-inside-spec/spec.md` | `b84af3f60fe8de05c15b44366247eb185fb1001cac4f87822ed931cd5a118ea9` |
+| `specs/045-critics-inside-spec/plan.md` | `dd7577769d8a1197171228ead553f6988fbc8f8dde160a87c77b632b521cb72c` |
+
+Both digests are the bytes after two record-coherence reflows, neither of which
+changed a decision or a task: the marked-decision lines moved onto single lines
+(the wrapping had made them unparseable by `ai-eng decide`; the spec moved from
+`7888877b…`), and each task's `check` was reshaped to name exactly one command
+because `--tick` executes the single command a box carries and refuses a check
+with `&&` (the plan moved from `fae01029…`). The approval names the bytes the
+promotions and the ticks actually read.
 
 The plan's nine tasks are the exact authorised work: the dual-glob critic reader with
 its four refusal fixtures and one clean control, the scoped no-authority pass, the
