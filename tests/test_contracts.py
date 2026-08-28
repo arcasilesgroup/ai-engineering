@@ -2401,7 +2401,8 @@ def test_a_council_reviews_and_never_approves():
     # returns empty for, so a regression in the scoping would have kept it green.
     grant_body = (
         "# Probe\n\n## Council\n\n`ran: round 1, 2026-08-28 — 5 min`\n\n"
-        "### Gaps no single lens named\n\nnone\n\n### Findings cut for carrying no command\n\nnone\n\n"
+        "### Gaps no single lens named\n\nnone\n\n"
+        "### Findings cut for carrying no command\n\nnone\n\n"
         "### Findings the cross-read refuted, with the command that refuted them\n\nnone\n\n"
         "### The two counts\n\n- Gaps that appeared only after the cross-read: **0**\n"
         "- Findings deleted, for carrying no command or for being refuted: **0**\n\n"
