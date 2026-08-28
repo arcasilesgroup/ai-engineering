@@ -11,15 +11,12 @@ to frontend and not to motion. Everything else is scaffolding around that.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
+import review_lenses
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "tests"))
-
-import review_lenses  # noqa: E402 — the reader under test, beside this file
 
 
 def by_id(name: str) -> dict:

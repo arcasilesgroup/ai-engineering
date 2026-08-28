@@ -12,13 +12,11 @@ report a green nobody earned, and they arrive from opposite directions.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "tests"))
+import own_head_receipts
 
-import own_head_receipts  # noqa: E402 — the reader under test, beside this file
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _row(sha: str, workflow: str, status: str = "completed", conclusion: str = "success") -> dict:

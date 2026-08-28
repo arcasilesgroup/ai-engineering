@@ -211,13 +211,14 @@ def schema() -> dict[str, Any]:
 
     from ai_engineering import intent
 
-    loaded = json.loads(paths.policy("risk-acceptance-v1.schema.json").read_text(encoding="utf-8"))
-    if sha256(intent.canonical_json(loaded)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
+    try:
+        contract = paths.policy("risk-acceptance-v1.schema.json")
+        return intent.pinned_policy(contract, _EXPECTED_SCHEMA_DIGEST)
+    except ValueError as error:
         raise Refusal(
             "ACCEPTANCE_CONTRACT_UNRECOGNISED",
             "the risk-acceptance contract is not the one this release was built against",
-        )
-    return loaded
+        ) from error
 
 
 def _device(root: Path) -> int:
@@ -331,29 +332,18 @@ def _identity(stored: str, where: str) -> re.Match[str]:
 
 def _parse_legacy(block: str, where: str) -> dict[str, str] | None:
     """The frozen recognizer. A block is an acceptance only when `finding` and `expires` are
-    both present; anything else in the file is somebody else's YAML and is left alone."""
+    both present; anything else in the file is somebody else's YAML and is left alone.
 
-    fields: dict[str, str] = {}
-    key: str | None = None
-    for line in block.splitlines():
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        if line.startswith((" ", "\t")):
-            if key is None:
-                raise Refusal("ACCEPTANCE_MALFORMED", f"{where} indents a line with no key above")
-            if line.lstrip().startswith(("-", "?")):
-                raise Refusal("ACCEPTANCE_MALFORMED", f"{where} holds a container where a value")
-            fields[key] = f"{fields[key]} {line.strip()}".strip()
-            continue
-        found = _KEY.match(line)
-        if not found:
-            raise Refusal("ACCEPTANCE_MALFORMED", f"{where} holds a line that is not a key")
-        key, value = found.group(1), found.group(2).strip()
-        if key in fields:
-            raise Refusal("ACCEPTANCE_MALFORMED", f"{where} repeats the key {key}")
-        if value.startswith(("[", "{")):
-            raise Refusal("ACCEPTANCE_MALFORMED", f"{where} holds a container where a value")
-        fields[key] = "" if value in (">", ">-", "|", "|-") else value.strip("\"'")
+    The parse itself is `text.flat_yaml(strict=True)` — the same loop the record reads
+    with, so the two cannot drift — with each refusal translated to this module's
+    vocabulary, naming the block it came from."""
+
+    from ai_engineering import text
+
+    try:
+        fields = text.flat_yaml(block, strict=True)
+    except ValueError as why:
+        raise Refusal("ACCEPTANCE_MALFORMED", f"{where} {why}") from why
     if "finding" not in fields or "expires" not in fields:
         return None
     return fields

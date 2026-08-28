@@ -125,14 +125,7 @@ class _Schema(intent._Schema):
 
 def _load_schema() -> tuple[dict[str, Any], _Schema]:
     try:
-        raw = SCHEMA_PATH.read_bytes()
-        schema = intent._json(raw)
-        if not isinstance(schema, dict):
-            raise ValueError("schema is not an object")
-        import hashlib
-
-        if hashlib.sha256(intent.canonical_json(schema)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
-            raise ValueError("MADR v1 policy differs from its approved contract")
+        schema = intent.pinned_policy(SCHEMA_PATH, _EXPECTED_SCHEMA_DIGEST)
         structural = _Schema(schema)
     except (OSError, RecursionError, TypeError, ValueError, re.error, intent._UnsupportedSchema):
         raise _Problem(SCHEMA_UNSUPPORTED) from None
@@ -383,15 +376,23 @@ def _root(repository: Path) -> Path:
 def _worktree_files(root: Path) -> dict[str, bytes]:
     files: dict[str, bytes] = {}
     try:
-        visible = _git(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z")
-        ignored = _git(root, "ls-files", "--others", "--ignored", "--exclude-standard", "-z")
-        visible_paths = set(visible.rstrip(b"\0").split(b"\0")) if visible else set()
-        ignored_paths = set(ignored.rstrip(b"\0").split(b"\0")) if ignored else set()
-        for raw_path in sorted(visible_paths | ignored_paths):
-            try:
-                relative = raw_path.decode("utf-8")
-            except UnicodeDecodeError as error:
-                raise _Problem(UNREADABLE) from error
+        visible = [
+            name.decode("utf-8", "surrogateescape")
+            for name in _git(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z")
+            .rstrip(b"\0")
+            .split(b"\0")
+            if name
+        ]
+        ignored = [
+            name.decode("utf-8", "surrogateescape")
+            for name in _git(root, "ls-files", "--others", "--ignored", "--exclude-standard", "-z")
+            .rstrip(b"\0")
+            .split(b"\0")
+            if name
+        ]
+        visible_paths = set(visible)
+        ignored_paths = set(ignored)
+        for relative in sorted(visible_paths | ignored_paths):
             pure = PurePosixPath(relative)
             if pure.is_absolute() or ".." in pure.parts or pure.as_posix() != relative:
                 raise _Problem(UNREADABLE)
@@ -413,7 +414,7 @@ def _worktree_files(root: Path) -> dict[str, bytes]:
                 exact_candidate = pure.parent.as_posix() == ADR_HOME or (
                     len(pure.parts) == 3 and pure.parts[0] == "specs" and pure.name == SPEC_MD
                 )
-                if raw_path in ignored_paths and not exact_candidate:
+                if relative in ignored_paths and not exact_candidate:
                     with path.open("rb") as stream:
                         prefix = stream.read(_DISCOVERY_LIMIT + 1)
                     beginning = prefix.removeprefix(b"\xef\xbb\xbf")

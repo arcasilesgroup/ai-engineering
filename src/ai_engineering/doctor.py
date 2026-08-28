@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -174,27 +173,9 @@ def git(root: Path, *args: str) -> str:
 def tracked_files(root: Path) -> list[str]:
     """The tracked repository inventory, or no answer rather than an empty inventory."""
     try:
-        result = subprocess.run(
-            ["git", "-C", str(root), "ls-files", "--cached", "-z"],
-            capture_output=True,
-            timeout=10,
-        )
-    except (OSError, subprocess.SubprocessError) as error:
+        return paths.git_lines(root, "--cached", timeout=10)
+    except OSError as error:
         raise Undecidable(INVENTORY_FAIL) from error
-    if result.returncode:
-        raise Undecidable(INVENTORY_FAIL)
-    try:
-        rendered = result.stdout.decode("utf-8")
-    except UnicodeDecodeError as error:
-        raise Undecidable(INVENTORY_FAIL) from error
-    if not rendered:
-        return []
-    if not rendered.endswith("\0"):
-        raise Undecidable(INVENTORY_FAIL)
-    files = rendered.removesuffix("\0").split("\0")
-    if any(not name for name in files):
-        raise Undecidable(INVENTORY_FAIL)
-    return files
 
 
 def intent_homes(files: list[str]) -> list[str]:
@@ -376,18 +357,11 @@ def _run_cli(root: Path, arguments: list[str]) -> subprocess.CompletedProcess[st
     repository — so a repository holding a top-level `ai_engineering/` package had its own
     `cli.py` executed by `ai-eng doctor`, and could print a well-formed footer to make this
     assertion pass. A review planted exactly that and watched it work. The flag stops the
-    implicit path entry, so the module that answers is the installed one.
+    implicit path entry, so the module that answers is the installed one. The probe itself
+    is `wiring.cli_answers` (spec 044): one builder, `doctor` adding only the repository
+    the child runs in.
     """
-
-    return subprocess.run(
-        [sys.executable, *_CLI_TAIL, *arguments],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
-        env={**os.environ, "PYTHONSAFEPATH": "1"},
-    )
+    return wiring.cli_answers(*arguments, cwd=None if Path.cwd() == root else root)
 
 
 def _cli_answers(root: Path) -> str | tuple[str, str] | None:

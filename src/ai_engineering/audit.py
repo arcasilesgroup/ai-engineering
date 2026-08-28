@@ -386,10 +386,6 @@ def _replay(events: list[dict] | tuple[dict, ...], session: str) -> list[str]:
     return rows
 
 
-def replay(root: Path | None, session: str) -> list[str]:
-    return _replay(read(root), session)
-
-
 def account(root: Path | None, *, first: int, last: int, why: str, by: str) -> outcome.Result:
     """Answer for a named range of broken links, as a new link.
 
@@ -491,7 +487,7 @@ def main(argv: list[str]) -> outcome.Result:
             for line in missing:
                 print(f"  INCOMPLETE {line}")
             return outcome.result("INCOMPLETE")
-        _total, projected, ok = cost.calibrate(args.limit, [(0.01, 35.0)], interactive=False)
+        _total, projected, ok = cost.calibrate(args.limit, [0.01])
         if not ok:
             print(
                 f"  INCOMPLETE [COST_UNCONSENTED]: the lane would project ~$"

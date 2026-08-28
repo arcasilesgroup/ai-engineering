@@ -65,7 +65,7 @@ include = ["src", "hooks", "surfaces", "git-hooks", "policy", "migrations", ".ag
 # with `sys.path.insert` plus an import underneath is E402 again. I wrote that exemption
 # into `tests/test_anti_theatre.py` and the process audit found it two hours later, in the
 # repository whose rule 3 is never to silence a linter.
-pythonpath = ["src", "hooks", "tests"]
+pythonpath = ["src", "hooks", "tests", "tests/evals"]
 
 [tool.coverage.run]
 # The guards run by path in a subprocess, so without patch the suite that fires every one

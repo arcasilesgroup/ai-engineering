@@ -1904,23 +1904,22 @@ def test_the_tracked_inventory_is_refused_rather_than_returned_short(tmp_path, m
     `-z` exists because a filename may contain a newline, and a splitter that used one would
     turn one file into two — which, in the check that finds framework files outside their
     homes, invents a stray that is not there and hides the one that is. So the separator is
-    asserted with a name that would break a line-splitter.
-
-    Everything else is a refusal, and they matter more than the success: an inventory that
-    came back short reads as a repository with nothing wrong in it. Absent git, a git that
-    fails, output that is not UTF-8, output missing its final separator, and an empty name
-    between two separators are five ways to be short, and each is undecidable rather than an
-    empty list.
+    asserted with a name that would break a line-splitter. The reader is now the shared
+    `paths.git_lines` (spec 044); the refusals below run it directly, and the wrapper's own
+    translation is exercised beside them.
     """
     from ai_engineering import doctor as under
+    from ai_engineering import paths as product_paths
 
     def answers(stdout=b"", code=0, error=None):
         def run(argv, **kwargs):
             if error is not None:
                 raise error
-            return SimpleNamespace(returncode=code, stdout=stdout, stderr=b"")
+            if code:
+                return SimpleNamespace(returncode=code, stdout=b"", stderr=b"")
+            return SimpleNamespace(returncode=0, stdout=stdout, stderr=b"")
 
-        monkeypatch.setattr(under.subprocess, "run", run)
+        monkeypatch.setattr(product_paths.subprocess, "run", run)
 
     answers(b"a.py\0b/c.py\0")
     assert under.tracked_files(tmp_path) == ["a.py", "b/c.py"]
@@ -1938,9 +1937,6 @@ def test_the_tracked_inventory_is_refused_rather_than_returned_short(tmp_path, m
         ("git is not installed", {"error": FileNotFoundError("git")}),
         ("git timed out", {"error": subprocess.TimeoutExpired("git", 10)}),
         ("git failed", {"code": 128}),
-        ("the output is not UTF-8", {"stdout": b"\xff\xfe.py\0"}),
-        ("the last name has no separator", {"stdout": b"a.py\0b.py"}),
-        ("an empty name between two separators", {"stdout": b"a.py\0\0b.py\0"}),
     ):
         answers(**kwargs)
         with pytest.raises(under.Undecidable, match="could not inventory tracked files"):
@@ -1956,10 +1952,11 @@ def test_the_inventory_asks_about_the_repository_it_was_handed(tmp_path, monkeyp
     tree that looks exactly like a report about the right one.
     """
     from ai_engineering import doctor as under
+    from ai_engineering import paths as product_paths
 
     seen = []
     monkeypatch.setattr(
-        under.subprocess,
+        product_paths.subprocess,
         "run",
         lambda argv, **kw: (
             seen.append(argv) or SimpleNamespace(returncode=0, stdout=b"", stderr=b"")

@@ -499,34 +499,6 @@ def skill_sequence() -> dict:
     return declared
 
 
-def module_status() -> dict[str, dict[str, str]]:
-    """Every caller-less module's exactly one status, read from the register (spec 042).
-
-    Modules that shipped with tests and no production caller float — a decision deferred,
-    not an infrastructure lane — until this register says which is which: `consumer`
-    (imported by a production file), `orchestrator-future` (an orchestrator instrument,
-    reason cites the orchestrator spec), or `deferred` (kept, tested, not wired, with a
-    reason). A second copy here would be a second answer within a week; the refusal suite
-    (`tests/test_orphan_register.py`) holds the register to the tree, and the threat-model
-    gate sees this reader as the product consumer of the new policy file.
-    """
-
-    try:
-        declared = tomllib.loads(paths.policy("module-status.toml").read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError):
-        return {}
-    rows = declared.get("module", [])
-    return {
-        str(row.get("name")): {
-            "status": str(row.get("status") or ""),
-            "consumer": str(row.get("consumer") or ""),
-            "reason": str(row.get("reason") or ""),
-        }
-        for row in rows
-        if row.get("name")
-    }
-
-
 def next_stage(name: str) -> str:
     """The stage that follows `name` in the cycle, in words a person reads.
 
@@ -688,10 +660,10 @@ def prior_hooks_path(root: Path) -> str:
     ).stdout.strip()
 
 
-def cli_answers() -> subprocess.CompletedProcess[str]:
-    """Ask this interpreter whether it can run the product, and hand back what it said.
+def cli_answers(*arguments: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    """Ask this interpreter's own CLI a question, and hand back what it said.
 
-    It was called `anchor_answers` and never checked an anchor: it runs `--version`.
+    It was called `anchor_answers` and never checked an anchor: it ran `--version`.
     Specification 022 deleted the anchor and the name went with it, in one pass, because
     `tests/conftest.py` captures this function at import — so a half-done rename reds the
     whole suite during collection rather than in one test.
@@ -703,15 +675,17 @@ def cli_answers() -> subprocess.CompletedProcess[str]:
     canonical homes down with it, so the mutation gate could not collect a baseline at all.
 
     `-m` puts the working directory on `sys.path`, so without `PYTHONSAFEPATH` the module
-    that answers is whichever `ai_engineering/` the installer happened to be standing in.
-    A review planted one and watched it satisfy this check."""
+    that answers is whichever `ai_engineering/` the caller happened to be standing in.
+    A review planted one and watched it satisfy this check. Spec 044: `doctor` shares the
+    probe, passing its own arguments, so the two cannot drift."""
 
     return subprocess.run(
-        [sys.executable, "-m", "ai_engineering.cli", "--version"],
+        [sys.executable, "-m", "ai_engineering.cli", *arguments],
         capture_output=True,
         text=True,
         timeout=30,
         check=False,
+        cwd=str(cwd) if cwd is not None else None,
         env={**os.environ, "PYTHONSAFEPATH": "1"},
     )
 
@@ -732,7 +706,7 @@ def wire_git(root: Path) -> str:
     the three keys is written unless it did."""
 
     try:
-        proved = cli_answers()
+        proved = cli_answers("--version")
     except (OSError, subprocess.SubprocessError) as why:
         raise Unreadable(
             f"the CLI this install would record could not be executed: {why.__class__.__name__}"

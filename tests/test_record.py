@@ -208,7 +208,7 @@ def test_a_block_that_cannot_be_read_is_undecidable_and_never_invisible():
     the exact shape of a false green. The message names the file, or whoever reads the
     refusal is told a record somewhere cannot be read and not which one."""
     body = "```yaml\n  broken\n```\n\ntext\n\n```yaml\nfinding: F-1\nexpires: 2030-01-01\n```\n"
-    with pytest.raises(ValueError, match="specs/001-a/spec.md cannot be read: indented line"):
+    with pytest.raises(ValueError, match="cannot be read: indents a line with no key"):
         text.yaml_blocks(body, "specs/001-a/spec.md")
     with pytest.raises(ValueError, match="^a record block cannot be read: "):
         text.yaml_blocks(body)  # called without a name, it still says what happened
@@ -512,8 +512,8 @@ def test_replay_filters_to_one_session(home, tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(home, "repo_id", lambda root=None: "no-repo")
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
     _write(home, events)
-    assert len(audit.replay(None, "")) == 2
-    rows = audit.replay(None, "bbb")
+    assert len(audit._replay(audit.read(None), "")) == 2
+    rows = audit._replay(audit.read(None), "bbb")
     assert len(rows) == 1 and "the reason" in rows[0]
     assert audit.main(["replay", "--session", "nobody"]) == outcome.result("PASS")
     assert "nothing recorded" in capsys.readouterr().out

@@ -420,9 +420,6 @@ def _json_dispatch(verb: str, rest: list[str], *, debug: bool = False) -> int:
     return process_exit
 
 
-UNEXPECTED = EXEC_FACTS_FAIL
-
-
 def crash(exc: BaseException, *, debug: bool) -> outcome.Error:
     """One bounded error for an unexpected failure, or the traceback if it was asked for.
 
@@ -434,7 +431,9 @@ def crash(exc: BaseException, *, debug: bool) -> outcome.Error:
 
     if debug:
         raise exc
-    return outcome.error("UNEXPECTED_ERROR", UNEXPECTED, False, "rerun with --debug for the trace")
+    return outcome.error(
+        "UNEXPECTED_ERROR", EXEC_FACTS_FAIL, False, "rerun with --debug for the trace"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

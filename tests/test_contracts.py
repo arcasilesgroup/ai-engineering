@@ -571,12 +571,12 @@ AI_SPEC_SECTIONS = {
         "command event's `tier_model` can be read against reality.",
     ),
     "Procedure": (
-        "0. Validate the intake (spec 037 / B-037-3): run the opening request through "
-        "`intake.validate_intake`; when it returns `INCOMPLETE` naming missing fields (goal, "
-        "constraints, acceptance), ask those intake questions first — capped, the way the "
-        "research's grill recommends — before any discovery. `specs/new-goal-template.md` is "
-        "the copy-paste fallback; a well-formed free request passes without it. The input is "
-        "the contract: a malformed goal produces a malformed spec.",
+        "0. Validate the intake (spec 037 / B-037-3): the opening request must name its goal, "
+        "its constraints and its acceptance; when one is missing, ask those intake questions "
+        "first — capped, the way the research's grill recommends — before any discovery. "
+        "`specs/new-goal-template.md` is the copy-paste fallback; a well-formed free request "
+        "passes without it. The input is the contract: a malformed goal produces a malformed "
+        "spec.",
         "1. Read `CONSTITUTION.md`, the related records and repository evidence and current "
         "primary sources relevant to the decision before asking anyone. State what was read, "
         "what is true now and what remains unknown. Never infer a control from its "
@@ -1570,7 +1570,7 @@ GOVERNING_SKILL_TEXT = {
         "576cf03621aace434ca300bcb136538097f21e0f050fb8a0280913e590457880"
     ),
     ".agents/skills/ai-spec/SKILL.md": (
-        "cfff4d35123c3b3fcce9e430fa7d85c2fe88cc6f0ddb800ec3d5d1e25bbb8763"
+        "00a7804face00f1167296fe2e1f87663989dfb7a67b671db65ca6a79c4bef06c"
     ),
 }
 

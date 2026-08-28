@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council — Spec 044 · Ponytail audit residual cuts · Round 1</title>
+<style>
+  :root { --ink: #1a1a1a; --muted: #6b6b6b; --rule: #e2e0da; --accent: #b3541e; --bg: #fbfaf7; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.65 Georgia, "Times New Roman", serif; }
+  main { max-width: 46rem; margin: 0 auto; padding: 3.5rem 1.5rem 5rem; }
+  header { border-bottom: 3px solid var(--ink); padding-bottom: 1.25rem; margin-bottom: 2.25rem; }
+  h1 { font-size: 1.9rem; margin: 0 0 .35rem; line-height: 1.2; }
+  .meta { color: var(--muted); font-size: .9rem; margin: 0; font-style: italic; }
+  h2 { font-size: 1.15rem; text-transform: uppercase; letter-spacing: .06em;
+       margin: 2.6rem 0 .9rem; padding-top: .4rem; border-top: 1px solid var(--rule); }
+  h2 span { color: var(--accent); }
+  ul, ol { padding-left: 1.35rem; margin: 0; }
+  li { margin: 0 0 .8rem; }
+  code { font: .85em/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+         background: #efede6; padding: .08em .35em; border-radius: 3px; }
+  strong { font-weight: 700; }
+  .count { font-variant-numeric: tabular-nums; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule);
+           color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Spec 044 — Ponytail audit residual cuts</h1>
+  <p class="meta">Council round 1 · chairman's report. Anonymous by design: findings are
+  cited by subject, never by who raised them.</p>
+</header>
+
+<section id="agreement">
+<h2><span>01</span> · Where the council agrees</h2>
+<ul>
+  <li>The weight is real and measured. The eleven orphan modules carry
+  <strong>645 src lines</strong> against the claimed ~650; 25 test files still carry the
+  <code>sys.path.insert + # noqa: E402</code> idiom; the five digest-pinned loaders and
+  the single <code>_parse_legacy</code> are exactly where the spec says. The orphans'
+  test coupling is wide: <span class="count">13</span> static import lines across a
+  dozen test files, plus a dynamic <code>ROWS</code> loop the spec deletes with them.</li>
+  <li>The keep-list is anchored. EP-016, EP-176 and EP-254 are committed rows in
+  <code>docs/requirements.toml</code>; every orphan's design provenance is a dedicated
+  feat commit citing its spec. What this spec refuses to delete, it cites to committed
+  records.</li>
+  <li>Reinstatement is a multi-file restore, not one command — the corpus, the register
+  row and the test files come back separately — and the council agrees the spec should
+  say so rather than lean on the one-command sentence.</li>
+</ul>
+</section>
+
+<section id="clashes">
+<h2><span>02</span> · Where they clash</h2>
+<ol>
+  <li><strong>The census sentence versus the justfile.</strong> "16 of 19 rows have no
+  production importer" — yet <code>just sbom</code> runs
+  <code>python -m ai_engineering.sbom</code> and <code>just security</code> imports
+  <code>scan</code>, both inside the sweep's declared scope. Two register rows say
+  "waits for a verb" while the gate invokes them every push.</li>
+  <li><strong>The dedup contract versus the gate.</strong> D-044-03 says refusal
+  messages are "asserted byte-for-byte". The acceptance suite asserts error codes; the
+  mutation suite asserts message fragments; nothing asserts a whole string. A dedup that
+  reworded a message would pass today's gate.</li>
+  <li><strong>The reversibility sentence versus the tree.</strong> "git revert restores
+  any module in one command" meets a dozen orphan-coupled test files, a register row and
+  pythonpath wiring. The direction is right; the unit is wrong.</li>
+  <li><strong>The noqa arithmetic.</strong> The spec reads 25 → 20 after family (a);
+  the sweep reaches 10 orphan-coupled files, so 15 survive. Five files the spec still
+  counts are already dead by its own rule.</li>
+</ol>
+</section>
+
+<section id="blind-spots">
+<h2><span>03</span> · Blind spots — visible only after the cross-read</h2>
+<ul>
+  <li><code>skillmap</code> is the sixteenth no-consumer row and the spec's prose names
+  only fifteen. The count is right; the list is short by the module whose reader the
+  spec is deleting.</li>
+  <li>No seat had named <code>tests/test_037_intake.py</code> or
+  <code>tests/test_036_boundary.py</code> until a cross-reader re-ran the sweep —
+  completeness was asserted, never re-shown, and no example re-runs it.</li>
+  <li>The reachability assumption names cli VERBS and <code>chain.py</code>'s TABLE and
+  misses <code>paths.load</code>, the by-path loader 043's own record knew about. It
+  reads only <code>hooks/*.py</code>, so no orphan is reachable through it — but the
+  sentence is false as written.</li>
+  <li>The second discarded <code>publish</code> — accept.py:249 — completed the "both
+  production callers" count only when a cross-reader went hunting for it.</li>
+  <li>The undecidable path's Excluded list exists in no changelog and no tool enforces
+  it; two seats found the same hole independently.</li>
+  <li>The corpus coupling is a hard string-match for <code>loopgate</code> and nothing
+  at all for <code>verify_cold</code>; the spec assigns every name the same soft-prose
+  logic, so the reinstatement cost differs per name and the record never says so.</li>
+  <li>Family (a) deletes two mixed test files (test_skillify.py, test_decision_and_notes.py)
+  without saying so. The census shows contract.audit_one coverage survives in seven
+  other files — no cliff, but the rule is silent on mixed files.</li>
+  <li>Five findings carried no runnable command — CI wall-clock, the ~50-file diff, the
+  baseline green, future agent behavior, the −1,900-line estimate — and were cut to
+  keep the count honest.</li>
+</ul>
+</section>
+
+<section id="verdict">
+<h2><span>04</span> · Verdict</h2>
+<p>Round one closes with the cut list standing and the census prose dented. The numbers
+that carry the decision — 645 lines, 25 noqa files, five loaders, four ls-files readers,
+ten argv-form <code>git -C</code> sites (an under-count in the spec's favor) — are true
+or truer than written. What does not hold as written: the 16-orphan sentence (two of the
+sixteen have callers at gate time), the byte-for-byte claim behind D-044-03, the
+one-command revert sentence, and the twenty-after-family-(a) arithmetic. The engineering
+case survives verification; four sentences in it need re-derivation before they are the
+record of a cut.</p>
+</section>
+
+<section id="recommendation">
+<h2><span>05</span> · Recommendation before round two</h2>
+<ol>
+  <li>Reconcile the register with the justfile: either move <code>sbom</code> and
+  <code>scan</code> out of the caller-less census or amend the census sentence — and
+  decide whether <code>just sbom</code>/<code>just security</code> are the production
+  callers the register says do not exist.</li>
+  <li>Re-derive the noqa arithmetic in the text: 25 − 10 = 15, and name the ten files
+  family (a) deletes.</li>
+  <li>Soften D-044-03 to what the gate holds — codes byte-exact, messages by fragment —
+  or add the byte-for-byte assertions the dedup then must keep green.</li>
+  <li>Replace the one-command revert sentence with the real reinstatement surface:
+  module + test files + register row + pythonpath, restored by the family's own
+  commits.</li>
+  <li>Name <code>skillmap</code> in the orphan prose, and add a sweep re-run to the
+  examples so completeness is shown, not remembered.</li>
+  <li>Create the Excluded list the undecidable path depends on — a changelog convention
+  or a checked file — before the first cut claims a module was "kept after looking".</li>
+<section id="first-step">
+<h2><span>06</span> · First step</h2>
+<p>One command, one minute: <code>grep -n 'ai_engineering.sbom\|from ai_engineering
+import scan' justfile</code> beside <code>policy/module-status.toml</code>'s own reasons
+for those two rows. If the author agrees the gate calls them, the census sentence and
+the two register rows change in the same edit; if not, the sweep's scope definition is
+the sentence that needs fixing — and everything downstream of "16 have no production
+importer" re-reads from there.</p>
+</section>
+
+<footer>
+Counts as measured by <code>tests/council_counts.py</code> against this round's
+<code>council.md</code>: 8 gaps found only by the cross-read · 13 findings deleted for
+carrying no command or being refuted. The figures above are the script's stdout, not an
+estimate.
+</footer>
+</main>
+</body>
+</html>

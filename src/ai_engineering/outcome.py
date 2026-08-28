@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from hashlib import sha256
-from pathlib import Path
 from typing import Any
 
 from ai_engineering import intent, paths
@@ -27,21 +25,11 @@ class OutcomePolicyError(RuntimeError):
     """The canonical outcome policy cannot be trusted."""
 
 
-def _read_policy(path: Path) -> bytes:
-    try:
-        return paths.read_bounded(path, _MAX_POLICY_BYTES, "outcome policy")
-    except OSError as error:
-        raise OutcomePolicyError("outcome policy cannot be read") from error
-
-
 def _mapping() -> tuple[dict[str, tuple[int, str, str]], dict[str, Any]]:
     try:
-        schema = intent._json(_read_policy(SCHEMA_PATH))
-        if not isinstance(schema, dict):
-            raise ValueError("policy is not an object")
-        digest = sha256(intent.canonical_json(schema)).hexdigest()
-        if digest != _EXPECTED_SCHEMA_DIGEST:
-            raise ValueError("outcome policy differs from its approved contract")
+        schema = intent.pinned_policy(
+            SCHEMA_PATH, _EXPECTED_SCHEMA_DIGEST, bounded=_MAX_POLICY_BYTES
+        )
         policy = schema["x-outcome-policy"]
         ordered = policy["ordered_outcomes"]
         branches = {
@@ -66,8 +54,8 @@ def _mapping() -> tuple[dict[str, tuple[int, str, str]], dict[str, Any]]:
             or policy["dry_run_undecidable"] != "INCOMPLETE"
         ):
             raise ValueError("outcome policy is inconsistent")
-    except OutcomePolicyError:
-        raise
+    except OSError as error:
+        raise OutcomePolicyError("outcome policy cannot be read") from error
     except (KeyError, RecursionError, TypeError, ValueError):
         raise OutcomePolicyError("outcome policy is unsupported") from None
     return branches, policy

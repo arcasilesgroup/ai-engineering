@@ -110,20 +110,11 @@ def _verification(status: str, code: str) -> Verification:
     return Verification(outcome.result(status), code)
 
 
-def _read_policy(path: Path) -> bytes:
-    try:
-        return paths.read_bounded(path, _MAX_POLICY_BYTES, "evidence policy")
-    except OSError as error:
-        raise _Problem(POLICY_UNSUPPORTED) from error
-
-
 def _load_schema() -> tuple[dict[str, Any], _SchemaValidator, dict[str, Any]]:
     try:
-        schema = intent._json(_read_policy(SCHEMA_PATH))
-        if not isinstance(schema, dict):
-            raise ValueError("schema is not an object")
-        if sha256(intent.canonical_json(schema)).hexdigest() != _EXPECTED_SCHEMA_DIGEST:
-            raise ValueError("evidence policy differs from its approved contract")
+        schema = intent.pinned_policy(
+            SCHEMA_PATH, _EXPECTED_SCHEMA_DIGEST, bounded=_MAX_POLICY_BYTES
+        )
         structural = _SchemaValidator(schema)
         policy = schema["x-evidence-policy"]
         if (
@@ -145,7 +136,15 @@ def _load_schema() -> tuple[dict[str, Any], _SchemaValidator, dict[str, Any]]:
             raise ValueError("evidence policy is inconsistent")
     except _Problem:
         raise
-    except (KeyError, RecursionError, TypeError, ValueError, re.error, intent._UnsupportedSchema):
+    except (
+        OSError,
+        KeyError,
+        RecursionError,
+        TypeError,
+        ValueError,
+        re.error,
+        intent._UnsupportedSchema,
+    ):
         raise _Problem(POLICY_UNSUPPORTED) from None
     return schema, structural, policy
 

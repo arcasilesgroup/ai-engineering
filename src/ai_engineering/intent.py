@@ -108,6 +108,21 @@ def canonical_json(value: Any) -> bytes:
     ).encode()
 
 
+def pinned_policy(path: Path, digest: str, *, bounded: int | None = None) -> dict[str, Any]:
+    """Read a policy file, parse it strictly, and refuse unless its canonical digest is
+    the one this release was built against. Five modules carried the same five-step
+    reader (read, parse, object-check, canonical digest, one-line refusal) differing
+    only in the error each raises; the error stays the caller's, so this raises
+    ValueError on every refusal and the caller translates. Spec 044 / D-044-03."""
+    raw = paths.read_bounded(path, bounded, "policy") if bounded is not None else path.read_bytes()
+    loaded = _json(raw)
+    if not isinstance(loaded, dict):
+        raise ValueError("policy is not an object")
+    if sha256(canonical_json(loaded)).hexdigest() != digest:
+        raise ValueError("policy differs from its approved contract")
+    return loaded
+
+
 _RFC3339_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
 
 

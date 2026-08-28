@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -370,7 +371,7 @@ def inside(path: str, root: Path) -> bool:
 
 
 def _hex(value: str) -> bool:
-    return all(character in "0123456789abcdef" for character in value)
+    return re.fullmatch(r"[0-9a-f]*", value) is not None
 
 
 def canonical(row: dict, root: Path | None) -> dict | None:

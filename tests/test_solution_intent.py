@@ -91,13 +91,7 @@ def test_every_fact_the_page_renders_is_a_fact_the_digest_covers():
 
     covered = set(solution_intent.digested(_tree()))
     every = {field.name for field in dataclasses.fields(solution_intent.Tree)}
-
-    escaped = sorted(every - covered - set(solution_intent.NOT_HASHED))
-    assert every - covered == set(solution_intent.NOT_HASHED), (
-        f"these fields are rendered and not hashed: {escaped}"
-    )
-    # And the one exclusion is argued rather than assumed.
-    assert solution_intent.NOT_HASHED == ()
+    assert covered == every, f"these fields are rendered and not hashed: {sorted(every - covered)}"
 
 
 def test_the_numbers_the_page_prints_are_the_numbers_the_gate_enforces():

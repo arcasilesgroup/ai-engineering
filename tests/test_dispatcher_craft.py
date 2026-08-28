@@ -8,13 +8,11 @@ where the bloat is real: branches present and the body over the tier bound.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+from ai_engineering import contract
 
-from ai_engineering import contract  # noqa: E402
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _skill(tmp_path: Path, body: str) -> Path:

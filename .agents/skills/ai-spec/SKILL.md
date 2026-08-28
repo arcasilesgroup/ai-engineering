@@ -31,12 +31,12 @@ read against reality.
 
 ## Procedure
 
-0. Validate the intake (spec 037 / B-037-3): run the opening request through
-   `intake.validate_intake`; when it returns `INCOMPLETE` naming missing fields (goal,
-   constraints, acceptance), ask those intake questions first — capped, the way the
-   research's grill recommends — before any discovery. `specs/new-goal-template.md` is the
-   copy-paste fallback; a well-formed free request passes without it. The input is the
-   contract: a malformed goal produces a malformed spec.
+0. Validate the intake (spec 037 / B-037-3): the opening request must name its goal,
+   its constraints and its acceptance; when one is missing, ask those intake questions
+   first — capped, the way the research's grill recommends — before any discovery.
+   `specs/new-goal-template.md` is the copy-paste fallback; a well-formed free request
+   passes without it. The input is the contract: a malformed goal produces a malformed
+   spec.
 
 1. Read `CONSTITUTION.md`, the related records and repository evidence and current primary
    sources relevant to the decision before asking anyone. State what was read, what is true

@@ -374,7 +374,7 @@ def test_surface_proof_reports_three_states_and_invents_none(tmp_path, monkeypat
 
     from ai_engineering import paths, report, surface
 
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(microsecond=0)
     fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
     root = tmp_path / "repository"
     (root / surface.RECEIPTS).mkdir(parents=True)
@@ -382,6 +382,16 @@ def test_surface_proof_reports_three_states_and_invents_none(tmp_path, monkeypat
         json.dumps(_receipt("claude-code", "discovery", finished=fresh)), encoding="utf-8"
     )
     monkeypatch.setattr(paths, "repo_root", lambda start=None: root)
+
+    # The clock is frozen for the read as well as the write. The receipt stamp is
+    # second-truncated, so a real `now` taken later can cross a boundary and print
+    # 7201s beside a proof written for exactly 7200 — the age is asserted, not sampled.
+    class _Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now if tz is not None else now.replace(tzinfo=None)
+
+    monkeypatch.setattr(report, "datetime", _Clock)
 
     result = report.main(["surfaces"])
     printed = capsys.readouterr().out

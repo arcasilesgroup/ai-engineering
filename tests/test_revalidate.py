@@ -8,13 +8,11 @@ fixed (deepsec's `revalidate`).
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+from ai_engineering import revalidate
 
-from ai_engineering import revalidate  # noqa: E402
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _finding(trigger: str) -> dict:

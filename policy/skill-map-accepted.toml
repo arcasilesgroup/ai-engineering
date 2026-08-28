@@ -215,4 +215,11 @@ accepted = [
   "specs/043-ponytail-audit-cuts/challenge.md -> specs/043-ponytail-audit-cuts/.ai/reports/020-dead-module-removal-research.md",
   "specs/043-ponytail-audit-cuts/council.md -> specs/043-ponytail-audit-cuts/.ai/reports/020-dead-module-removal-research.md",
   "specs/043-ponytail-audit-cuts/spec.md -> specs/043-ponytail-audit-cuts/.ai/reports/020-dead-module-removal-research.md",
+  "specs/044-ponytail-audit-residual-cuts/challenge.md -> specs/044-ponytail-audit-residual-cuts/.ai/reports/020-dead-module-removal-research.md",
+  "specs/044-ponytail-audit-residual-cuts/challenge.md -> specs/044-ponytail-audit-residual-cuts/ai-verify/corpus.md",
+  "specs/044-ponytail-audit-residual-cuts/council.md -> specs/044-ponytail-audit-residual-cuts/.ai/reports/020-dead-module-removal-research.md",
+  "specs/045-critics-inside-spec/spec.md -> specs/045-critics-inside-spec/approval.md",
+  "specs/045-critics-inside-spec/spec.md -> specs/045-critics-inside-spec/challenge.md",
+  "specs/045-critics-inside-spec/spec.md -> specs/045-critics-inside-spec/council.md",
+  "specs/045-critics-inside-spec/spec.md -> specs/045-critics-inside-spec/plan.md",
 ]

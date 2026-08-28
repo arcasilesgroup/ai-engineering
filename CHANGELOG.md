@@ -6,6 +6,54 @@ search for.
 
 ## [Unreleased]
 
+### Removed (spec 044 — ponytail audit residual cuts)
+
+- The orphan layer is deleted: twelve src modules with zero production callers —
+  `constellation`, `decision_fw`, `decision_boundary`, `intake`, `trim`, `versions`,
+  `lane_merge`, `loopgate`, `skillify`, `verify_cold`, `evidencing`, `answer_key` —
+  with the fourteen test suites that were their only callers. `git revert` reinstates
+  any of them; the design records live in specs 030-042.
+- The orphan register goes with them: `policy/module-status.toml`,
+  `wiring.module_status()` and `tests/test_orphan_register.py`. With no caller-less
+  module left the register had nothing to register. The stale rows for `sbom`, `scan`,
+  `skillmap` and `coverage` are removed with the file; those four modules are KEPT —
+  the gate itself calls them (`just sbom`, `just security`, `just map`, the evals lane)
+  and the register rows saying otherwise were wrong.
+- Root `answer-key.yaml` (a sample with a zeroed digest, read by nothing) and
+  `policy/answer-key-v1.schema.json` (its schema) are deleted with the module.
+- Zero-caller dead weight: `spec.self_contained`/`_LEAKS` (with
+  `tests/test_spec_containment.py`), `model_router.bail_out` (with its test),
+  `audit.replay` (the wrapper; `audit replay` the verb always used `_replay` directly),
+  the root sample file.
+- One-caller relics folded: `cli.UNEXPECTED` → `EXEC_FACTS_FAIL` inline;
+  `solution_intent.NOT_HASHED` → the digest filter itself; `spec._document_relations`
+  is a named seam wrapper, not a bare alias.
+- Test-shaped flexibility: `cost.calibrate` loses its `threshold_usd` and `interactive`
+  overrides — the gate reads `policy()` and fails closed over threshold, always;
+  `cost._Policy` becomes a validating function. `spec_transaction.publish` keeps its
+  return; the Windows publication arm is untouched (spec 010's platform contract).
+
+### Changed (spec 044)
+
+- `intent.pinned_policy(path, digest, *, bounded)` is the one digest-pinned policy
+  loader; `acceptance`, `capability`, `evidence`, `madr` and `outcome` now delegate to
+  it and keep their own refusal vocabularies. `evidence._read_policy` and
+  `outcome._read_policy` are deleted.
+- `acceptance._parse_legacy` delegates to `text.flat_yaml(strict=True)`; the strict
+  refusals (containers, repeated keys) live in the shared parser, so the record reader
+  and the acceptance reader cannot drift.
+- `paths.git_lines(root, *flags, timeout=60)` is the shared `git ls-files` reader;
+  `doctor.tracked_files` (timeout=10), `contract.tracked` and `madr._worktree_files`
+  use it. `madr` passes its listings through its own `_git` so the GIT_* sanitizer
+  still holds. `evidence` keeps its bytes-level reader deliberately (receipt digest).
+- `wiring.cli_answers(*arguments, cwd=None)` is the one CLI probe; `doctor._run_cli`
+  delegates to it.
+- `uninstall._hex` uses `re.fullmatch` instead of a character loop.
+- The `sys.path.insert` + `# noqa: E402` idiom is removed from every pytest module
+  (pyproject `pythonpath` covers it; `tests/evals` joins the path). Kept modules whose
+  register rows died: `sbom`, `scan`, `skillmap`, `coverage` — kept, reason recorded
+  here, because the gate reaches them.
+
 ### Removed (spec 043 — ponytail audit cuts)
 
 - `skeletons.seed_intent` and its `_seed_incomplete`/`_path_identity`/`_same_identity`/
