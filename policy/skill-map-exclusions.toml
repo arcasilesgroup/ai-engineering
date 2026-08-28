@@ -24,7 +24,6 @@ template = [
   "specs/NNN-slug/plan.md",
   "specs/NNN-slug/challenge.md",
   "specs/NNN-slug/council.md",
-  "specs/NNN-slug/council.html",
   "docs/specs/NNN-slug/spec.md",
 ]
 
