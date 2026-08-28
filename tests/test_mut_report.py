@@ -24,7 +24,7 @@ def _git(root: Path, *args: str) -> str:
     return out.stdout
 
 
-@pytest.fixture()
+@pytest.fixture
 def changed_repo(tmp_path: Path) -> tuple[Path, str]:
     """A repository with one commit of work over a named base, as the real flow leaves it."""
 

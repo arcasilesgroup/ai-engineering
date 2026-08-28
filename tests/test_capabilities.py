@@ -338,7 +338,8 @@ def test_the_report_verb_declares_every_writer_its_banner_names() -> None:
     banner = " ".join(cli.SCOPE["report"][2])
     for root in (".ai/views", ".ai/reports", "docs/"):
         assert root.rstrip("/") in banner, f"the banner hides the writer of {root}"
-    assert ".ai/views" in declared and ".ai/reports" in declared
+    assert ".ai/views" in declared, "the view page has no declared write root"
+    assert ".ai/reports" in declared, "the recap page has no declared write root"
     assert {"view", "recap"} <= set(modes), "a page writer has no declared mode"
 
 

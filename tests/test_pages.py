@@ -40,7 +40,8 @@ def test_malformed_json_in_a_fence_warns_and_renders_the_rest():
     text = 'Before.\n\n```visual\n{"block": "diagram", \n```\n\nAfter.\n'
     page = pages.render_document(text, kicker="t", title="A page", sub="", meta="")
     assert "not valid JSON" in page
-    assert "Before." in page and "After." in page, "one bad block swallowed the document"
+    assert "Before." in page, "one bad block swallowed the document"
+    assert "After." in page, "one bad block swallowed the document"
 
 
 def test_a_wireframe_cannot_carry_script_or_an_external_reference():
