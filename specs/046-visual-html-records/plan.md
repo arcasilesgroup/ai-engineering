@@ -180,7 +180,7 @@ gate.
     **done when**: the next real PR carries the summary-plus-link comment, and no public
     URL appears before the human Pages decision named in the spec's risks.
 
-14. [ ] **End-to-end smoke and the changelog** —
+14. [x] <!--t:f6bc83a01ddd--> **End-to-end smoke and the changelog** —
     **file**: `CHANGELOG.md` — run the whole flow on spec 046 itself: `report view`,
     `report recap` over this branch's range, open both pages, confirm the digest headers
     against `spec show`, confirm both links open in the browser, confirm `doctor` green.
