@@ -133,7 +133,7 @@ promotion-marked decisions become MADRs and the approval record cites them (task
    **rollback**: `git revert <commit>`.
    **done when**: the comparator test that pins the tools table to the justfile is
    green and the changelog names every shipped behaviour change.
-8. [ ] **The gate, once, whole** —
+8. [x] <!--t:d00967b2d1f2--> **The gate, once, whole** —
    **file** none.
    **check**: `just check`
    **rollback**: fix forward; any red names its task and that task fixes in its own
