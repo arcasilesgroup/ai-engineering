@@ -78,7 +78,7 @@ gate.
    **done when**: known blocks render, the unknown block warns on the page, and a test
    proves no page carries an inline `<script>` or external URL.
 
-5. [ ] **`ai-eng report view` — the spec/plan review page** —
+5. [x] <!--t:bc5bda6f6d7a--> **`ai-eng report view` — the spec/plan review page** —
    **file**: `src/ai_engineering/report.py` — subcommand `view --spec NNN` inside the
    existing family: renders `specs/NNN-slug/spec.md` + `plan.md` through `pages.py` to
    `.ai/views/<NNN>-<slug>.html`; header carries the canonical `_digest` values of both
@@ -90,7 +90,7 @@ gate.
    equal `ai-eng spec show 046 --task 1`'s named digests, and `--spec 999` refuses without
    writing.
 
-6. [ ] **`ai-eng report recap` — the post-build visual record** —
+6. [x] <!--t:5d235f5cbff3--> **`ai-eng report recap` — the post-build visual record** —
    **file**: `src/ai_engineering/report.py` and `src/ai_engineering/pages.py` — subcommand
    `recap --spec NNN --base <ref> --summary <text>`: file-tree with change flags and 3–8
    key-change diff excerpts derived mechanically from `git diff` against the base (an
