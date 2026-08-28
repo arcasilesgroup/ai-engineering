@@ -1,7 +1,7 @@
 # Corpus: ai-spec
 
-Writes the governed record of a decision before code exists: the evidence, the problem, at
-least two real options, one recommendation and the self-challenge against it, the
+Writes the governed record of a decision before code exists: the evidence, the problem,
+three real options, one recommendation and the self-challenge against it, the
 assumptions, the unresolved risks, observable examples and the authority for proceeding. It
 produces `specs/NNN-slug/spec.md` in the user's repository, and it is not code, not a plan,
 and not permission the agent gave itself.
@@ -9,7 +9,7 @@ and not permission the agent gave itself.
 ## Routes here
 
 - "let's add rate limiting to the public API" — something that does not exist yet needs its options weighed and a recommendation recorded before anybody opens an editor, which is this skill and not /ai-plan.
-- "how should we handle sessions that expire mid-upload?" — the question is which behaviour is right rather than which file to touch, so it needs at least two real options and one recommendation, not a task list.
+- "how should we handle sessions that expire mid-upload?" — the question is which behaviour is right rather than which file to touch, so it needs exactly three real options and one recommendation, not a task list.
 - "what's the best approach for storing the audit trail?" — asking for an approach is asking for a recommendation that has been challenged once with its strongest realistic failure case.
 - "I'm thinking about splitting the worker into two services" — a half-formed intention is exactly where the fixed constraints, the intended outcome and the harm of leaving it unchanged get written down.
 - "also draft the wiki page for this feature" — use `/ai-write`, because documentation of what will exist is a document, and the spec's job is the decision, not the prose.

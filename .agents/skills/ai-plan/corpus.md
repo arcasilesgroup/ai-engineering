@@ -17,7 +17,7 @@ until a person approves it.
 
 ## Refuses
 
-- "what's the best approach for this?" — use `/ai-spec`, because there is nothing to plan until at least two real options have been weighed and a person approved the recommendation.
+- "what's the best approach for this?" — use `/ai-spec`, because there is nothing to plan until exactly three real options have been weighed and a person approved the recommendation.
 - "actually I think we picked the wrong storage engine" — use `/ai-spec`, because re-planning around a wrong spec is the most expensive mistake available here.
 - "the deploy is failing, plan the fix" — use `/ai-debug`, because a cause has to be named at `file:line` and a failing check written before there is a fix to break into tasks.
 - "look over my PR and tell me what you'd change" — use `/ai-review`, because judging what was built is a different pass from listing what to build.
