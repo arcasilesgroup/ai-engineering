@@ -21,7 +21,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from ai_engineering import intent, outcome, paths, spec_transaction
 
@@ -117,7 +117,9 @@ not code can follow.
 ## Options considered
 
 1. TODO: the first real option, and what it costs.
-2. TODO: the second. At least two, and the losers are killed in writing here.
+2. TODO: the second. Exactly three real options, and the losers are killed in writing here.
+3. TODO: the third. The honest baseline — defer, or do nothing — is allowed to be one,
+   and then it must be named for why it loses.
 
 ## Decision
 
@@ -131,6 +133,34 @@ that do not exist yet, mark it `[X]` under ## Decisions and give it a record of 
 
 TODO: the strongest realistic case that the decision above is wrong. Then either revise
 it or keep it and say why the case fails. A challenge nobody could lose to is not one.
+
+## Grill
+
+TODO: when a grill round lands, replace this prompt with its declaration on its own
+line — `ran: round <n>, <ISO date> — <n> min` — then one `### Q` per question with its
+`**A:**` answer beside it, and what it changed. A round that attacked and found nothing
+says `nothing checkable failed`. While this prompt stands undeclared, the critic step
+reads the grill as not run.
+
+## Council
+
+TODO: when the council pass lands, replace this prompt with its declaration on its own
+line — `ran: round <n>, <ISO date> — <n> min` — and name the lenses that read:
+`lenses: cost, reversibility, undecidable, trust, example`. The shape below is what the
+critic step reads — top-level bullets only, each heading carrying bullets or a literal
+`none` line, every finding and every refutation carrying a command. The pass may
+conclude; it may not approve.
+
+### Gaps no single lens named
+
+### Findings cut for carrying no command
+
+### Findings the cross-read refuted, with the command that refuted them
+
+### The two counts
+
+- Gaps that appeared only after the cross-read: **N**
+- Findings deleted, for carrying no command or for being refuted: **N**
 
 ## Assumptions and unresolved risks
 
@@ -244,6 +274,101 @@ INTENT_FILE = ".ai/intent.md"
 CLAIMS_LABEL = "The claims that could start together"
 
 
+# The fence protocol, shared by every reader of a plan. CommonMark's shape: an opening
+# run of three or more backticks or tildes, indented at most three spaces, closed by a
+# matching run of the same character and no shorter. `madr.py` already parses fences this
+# way for validation; this is the same rule where offsets must survive, because the
+# readers below match against the original text and mask around the matches rather than
+# deleting lines.
+# One shared indent anchor and one trailing `$`. Two repairs: `[ ]{0,3}` was a
+# character class around one space, and `(~{3,})(.*)` let the engine split a run of
+# tildes between marker and info in exponentially many ways on a failing line — the
+# `(?!~)` pins the marker to the maximal run, which is what CommonMark means anyway.
+# Group order (marker, info, marker, info) is unchanged.
+_FENCE_OPEN = re.compile(r"^ {0,3}(?:(`{3,})([^`]*)|(~{3,})(?!~)(.*))$", re.M)
+
+
+class Fence(NamedTuple):
+    """One fenced block: its span, its info string, and where its body starts."""
+
+    start: int
+    info: str
+    body: int
+    end: int
+
+
+def fence_records(text: str) -> list[Fence]:
+    """One record per fenced block, delimiters included.
+
+    Specification 046 puts `visual` blocks inside plans, and grill round 1 executed what a
+    fence-blind reader makes of that: a numbered bold line inside a fence became a real
+    task, and a bold check-field inside one replaced the command `--tick` executes — an
+    approved signature over prose nobody approved. Every reader of plan bytes asks these
+    records first: is the match inside a fence? If yes, it is content, not structure.
+    """
+
+    found: list[Fence] = []
+    at, open_start, open_info, open_body, marker, length = 0, -1, "", 0, "", 0
+    for line in text.splitlines(keepends=True):
+        body = line.rstrip("\n")
+        if open_start < 0:
+            hit = _FENCE_OPEN.match(body)
+            if hit:
+                # The pattern already carries the CommonMark rule: a backtick fence's info
+                # string holds no backtick (`[^`]*`), a tilde fence's holds anything.
+                fence = hit.group(1) or hit.group(3)
+                marker, length = fence[0], len(fence)
+                open_start = at
+                open_info = (hit.group(2) or hit.group(4) or "").strip()
+                open_body = at + len(line)
+        else:
+            closing = re.fullmatch(rf"[ ]{{0,3}}{re.escape(marker)}{{{length},}}[ \t]*", body)
+            if closing:
+                found.append(Fence(open_start, open_info, open_body, at + len(line)))
+                open_start, marker, length = -1, "", 0
+        at += len(line)
+    if open_start >= 0:
+        # An unclosed fence runs to the end of the file: content stays content.
+        found.append(Fence(open_start, open_info, open_body, len(text)))
+    return found
+
+
+def fence_spans(text: str) -> list[tuple[int, int]]:
+    """Half-open ranges covering each fenced block, delimiters included."""
+
+    return [(one.start, one.end) for one in fence_records(text)]
+
+
+def in_fence(spans: list[tuple[int, int]], offset: int) -> bool:
+    """Whether one offset falls inside one fenced range."""
+
+    return any(start <= offset < end for start, end in spans)
+
+
+def mask_fences(text: str) -> str:
+    """The same bytes with every fenced line replaced by spaces of equal length.
+
+    Offsets and line boundaries survive, so a pattern searched over the mask reports
+    positions that read against the original; and a fenced line cannot match anything, so
+    the box counters and field extractors can run over the mask unchanged. The digest is
+    never taken over the mask — fenced bytes are signed exactly as they stand.
+    """
+
+    out = list(text)
+    for start, end in fence_spans(text):
+        for i in range(start, end):
+            if text[i] != "\n":
+                out[i] = " "
+    return "".join(out)
+
+
+def outside_fences(pattern: re.Pattern[str], text: str):
+    """Every match of one pattern that is not inside a fence, in order."""
+
+    spans = fence_spans(text)
+    return (hit for hit in pattern.finditer(text) if not in_fence(spans, hit.start()))
+
+
 TASK_FIELDS = ("file", "check", "rollback", "done when")
 
 # The tick column: what a command may write between a task's number and its bold title, and
@@ -282,10 +407,16 @@ def plan_tasks(text: str) -> list[dict[str, str]]:
     parser that fills in blanks is a parser that hides them."""
 
     found: list[dict[str, str]] = []
-    marks = list(_TASK.finditer(text))
+    spans = fence_spans(text)
+    marks = [hit for hit in _TASK.finditer(text) if not in_fence(spans, hit.start())]
+    masked = mask_fences(text)
     for at, mark in enumerate(marks):
         end = marks[at + 1].start() if at + 1 < len(marks) else len(text)
-        block = text[mark.start() : end]
+        # The masked slice is the block's structure: headings stop it and fields are read
+        # off it, so a fenced `# heading` neither truncates the task nor donates a field.
+        # Grill round 1 executed the donation this closes — a fenced `**check**:` reached
+        # the argv `--tick` would run.
+        block = masked[mark.start() : end]
         # And it stops at a heading too. A task's block ran to the next numbered item, so an
         # amendment section or a block heading between two tasks sat inside the first one —
         # and a `**file**` written in that prose was read as the task's file. No plan donates
@@ -312,7 +443,10 @@ def runs_something(value: str) -> bool:
 
 
 # The gap between a task's number and its bold title, which is the only part of a plan a
-# command is allowed to write. Everything else in the file is signed as it stands.
+# command is allowed to write. Everything else in the file is signed as it stands — and
+# the masking stops at a fence: a box planted inside fenced content is signed, because no
+# command ever writes there and the grill's probe showed the invisible column reaching
+# into a fence and hiding a planted `[x]` from the approval.
 _TASK_GAP = re.compile(r"^([ \t]*\d+[a-z]*\.) " + _COLUMN + r"(?=\*\*)", re.M)
 
 
@@ -348,7 +482,12 @@ def approval_bytes(path: Path) -> bytes:
         # A plan that is not text is not a plan this can canonicalise, and guessing at its
         # bytes would change what was signed. Sign what is there and let the reader fail.
         return raw
-    return _TASK_GAP.sub(r"\1 ", body).encode("utf-8")
+    spans = fence_spans(body)
+
+    def untick(hit: re.Match[str]) -> str:
+        return hit.group(0) if in_fence(spans, hit.start()) else f"{hit.group(1)} "
+
+    return _TASK_GAP.sub(untick, body).encode("utf-8")
 
 
 def _digest(path: Path) -> str:
@@ -470,7 +609,14 @@ def _write_tick(plan: Path, task: str, mark: str) -> bool:
     # reads that as a field to substitute and raises on the twelfth positional argument
     # nobody passed.
     line = re.compile(r"^([ \t]*" + re.escape(task) + r"\.) " + _COLUMN + r"(?=\*\*)", re.M)
-    written = line.sub(lambda hit: f"{hit.group(1)} {mark}", body, count=1)
+    spans = fence_spans(body)
+    # The first match *outside a fence*, not the first match: a `visual` block may show a
+    # task line as content, and a writer that ticked the example and left the real task
+    # open would seal a box nobody ran.
+    hit = next((h for h in line.finditer(body) if not in_fence(spans, h.start())), None)
+    if hit is None:
+        return False
+    written = body[: hit.start()] + f"{hit.group(1)} {mark}" + body[hit.end() :]
     if written == body:
         return False
     plan.write_text(written, encoding="utf-8")
@@ -578,7 +724,11 @@ def _progress(home: Path) -> outcome.Result:
     if not tasks:
         print(f"  {home.name} has a plan with no numbered tasks a script can enumerate")
         return outcome.result("INCOMPLETE")
-    boxes = {hit.group(1): (hit.group(2) or "", hit.group(3)) for hit in _SEALED.finditer(body)}
+    # Outside fences only: a `visual` block may show a ticked box as content, and a dict
+    # keyed by task number would let the example overwrite the real task's state.
+    boxes = {
+        hit.group(1): (hit.group(2) or "", hit.group(3)) for hit in outside_fences(_SEALED, body)
+    }
     ran = _receipts(home.parents[1], home.name[:3])
     counted = {"sealed": 0, "receipt": 0, "open": 0}
     for task in tasks:

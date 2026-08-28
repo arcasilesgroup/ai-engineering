@@ -405,7 +405,7 @@ def _report_help(monkeypatch, capsys, *argv: str) -> list[str]:
     return [" ".join(usage), *lines]
 
 
-def test_the_report_verb_declares_exactly_these_five_subcommands(monkeypatch, capsys):
+def test_the_report_verb_declares_exactly_these_seven_subcommands(monkeypatch, capsys):
     """Two hundred and fifty-two mutants lived in this verb, more than any other in the tree,
     and its declared surface is most of them.
 
@@ -415,15 +415,17 @@ def test_the_report_verb_declares_exactly_these_five_subcommands(monkeypatch, ca
     choice list widened is invisible to a test that passes valid arguments and reads the
     outcome, which is what every fixture here did.
 
-    Five since specification 020. `blocked` writes one committed file and sends nothing, and
-    it is here rather than under its own verb because what it records is a report about this
-    run — the one report whose reader is a person who is not at the keyboard.
+    Five since specification 020; seven since specification 046, which added the two page
+    writers. `blocked` writes one committed file and sends nothing, and it is here rather
+    than under its own verb because what it records is a report about this run — the one
+    report whose reader is a person who is not at the keyboard. `view` and `recap` render
+    pages from bytes already on disk and send nothing either.
     """
     assert _report_help(monkeypatch, capsys) == [
-        "usage: ai-eng report [-h] {digest,issue,surfaces,intent,blocked} ...",
+        "usage: ai-eng report [-h] {digest,view,recap,issue,surfaces,intent,blocked} ...",
         "",
         "positional arguments:",
-        "  {digest,issue,surfaces,intent,blocked}",
+        "  {digest,view,recap,issue,surfaces,intent,blocked}",
         "",
         "options:",
         "  -h, --help            show this help message and exit",

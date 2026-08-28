@@ -439,9 +439,9 @@ def _ci_result_contract(workflow: str) -> None:
     # The lanes the plan requires, still present and still needed by the aggregate.
     aggregate = _child_block(lines, "  ci-result:")
     text = "\n".join(aggregate)
-    for lane in ("check", "suite", "guards", "typecheck", "platforms", "sonar", "snyk"):
+    for lane in ("check", "suite", "guards", "typecheck", "platforms", "sonar", "snyk", "recap"):
         assert f"{lane}=${{{{ needs.{lane}.result }}}}" in text, lane
-    assert "needs: [check, suite, guards, typecheck, platforms, sonar, snyk]" in text
+    assert "needs: [check, suite, guards, typecheck, platforms, sonar, snyk, recap]" in text
     assert "if: always()" in text
 
     # A skipped job is a failure, which is what makes a deleted or renamed lane visible.
@@ -496,7 +496,7 @@ def test_check_workflow_marks_missing_or_skipped_evidence_incomplete():
         ('echo "evidence=ran" >> "$GITHUB_OUTPUT"', ""),
         ('echo "evidence=unavailable" >> "$GITHUB_OUTPUT"', ""),
         ('[ "${pair##*=}" = "success" ] || failed=1', ""),
-        ("needs: [check, suite, guards, typecheck, platforms, sonar, snyk]", ""),
+        ("needs: [check, suite, guards, typecheck, platforms, sonar, snyk, recap]", ""),
         ("evidence: ${{ steps.scan.outputs.evidence || 'unavailable' }}", ""),
         ("check=${{ needs.check.result }}", ""),
         ("platforms=${{ needs.platforms.result }}", ""),
@@ -805,8 +805,12 @@ GATE_CONTROLS = {
     "counts": "test_the_counts_this_repository_states_about_itself_are_the_counts_it_has",
     "council": "test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce "
     "plants four files the script must refuse — a total nine higher than the entries "
-    "beneath it, a missing heading, a missing totals section and one total absent — "
-    "because this recipe's whole value is refusing a number the run wrote about itself",
+    "beneath it, a missing heading, a missing totals section and one total absent — and "
+    "test_the_critic_step_refuses_every_declared_state_that_did_not_run plants the "
+    "declared-section refusals: an empty heading that never said `none`, the template "
+    "prompt under a declared round, a malformed or decorated `ran:` line and a grill "
+    "question without its answer, because this recipe's whole value is refusing a "
+    "number the run wrote about itself",
     "lenses": "tests/test_review_lenses.py plants the case the requirement is about — a "
     "stylesheet with no movement in it — and asserts it routes to frontend and not to motion, "
     "plus the inverse, plus a lens file with no row and a row with two rules",

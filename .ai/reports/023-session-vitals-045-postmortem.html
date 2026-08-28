@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Postmortem: la sesión de 19h42m del bloque 045 — dónde se fue el tiempo y qué cambia</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:960px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:36px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.meta{color:var(--muted);font-size:13px;margin-bottom:28px;font-family:var(--mono)}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+code,pre{font-family:var(--mono)}code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}
+pre{background:var(--code);padding:12px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.callout.bad{background:var(--bad-soft);border:1px solid var(--bad)}
+.callout.warn{background:var(--warn-soft);border:1px solid var(--warn)}
+.callout.good{background:var(--good-soft);border:1px solid var(--good)}
+.num{font-family:var(--mono);white-space:nowrap}
+sup a{text-decoration:none;color:var(--accent)}
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand">ai-engineering <small>· informes</small></span></header>
+<main>
+<p class="kicker">Postmortem de sesión · v2 con el feedback del autor · 2026-08-28</p>
+<h1>19 h 42 min para un bloque de 9 tareas: qué era trabajo, qué estaba parado, y qué cambia</h1>
+<p class="sub">La sesión <code>omp:01a0445e</code> (agentsview) del bloque 045 <em>critics-inside-spec</em>. Toda la evidencia es local: la base de datos de agentsview, los transcripts de los forks, el git log con marcas de tiempo y las skills tal como están en el árbol hoy.</p>
+<p class="meta">herramientas usadas: la base de datos local de agentsview (tablas de sesiones, mensajes y llamadas a herramienta con su resultado), los transcripts de forks del almacén de sesiones del host, git log/reflog, sqlite3, python3 · herramientas ausentes o no usadas: búsqueda web (ninguna afirmación depende de nada fuera de esta máquina), NotebookLM (doctor en verde; no lanzado: pregunta forense sobre datos locales) · fecha del análisis: 2026-08-28 · v2: corregido C2 (el <code>decide</code> no esperaba el teclado), sacada la colisión de escritores por decisión del autor, contrastado qué está ya arreglado en la versión actual</p>
+
+<h2>1. La mitad del reloj no fue trabajo</h2>
+<p>El panel atribuye el tiempo al <em>turno</em> anterior al siguiente mensaje, no a la herramienta: infla la "Tool time" con tiempo de modelo y con tiempo muerto <sup><a href="#s1">[1]</a></sup>. Los huecos grandes, verificados uno a uno contra el git log y contra el resultado real de cada comando:</p>
+<table>
+<tr><th>hueco</th><th class="num">min</th><th>qué era en realidad</th></tr>
+<tr><td>2026-08-28 02:24Z → 08:55Z</td><td class="num">≈ 340</td><td><b>sesión colgada.</b> El <code>ai-eng decide</code> de 04:13:52Z devolvió en <b>0,21 s</b> — no había ningún teclado esperando. Desde 04:14Z no hay ni un commit ni un evento hasta que el usuario escribió «puedes seguir?» a las 08:55Z <sup><a href="#s1">[1]</a></sup>. Dos huecos de reloj muerto el mismo día, ambos reanimados por una persona.</td></tr>
+<tr><td>2026-08-27 18:57Z → 00:31Z</td><td class="num">334</td><td>noche: el informe 021 cerró y el /ai-goal no se lanzó hasta las 00:31Z. Reloj, no máquina.</td></tr>
+</table>
+<p>Descontando el reloj muerto, el trabajo activo del bloque fue <b>≈ 9 h 20 min</b>. Y el hallazgo corregido: <b>no hubo un humano bloqueando el lazo con una tecla; hubo una sesión que se paró dos veces y necesitó que un humano la reanimara</b> — que es exactamente lo que un <code>/ai-goal</code> autónomo no puede hacer.</p>
+
+<h2>2. Dónde se fue el tiempo activo (≈ 9 h 20 m)</h2>
+<table>
+<tr><th>coste</th><th class="num">min</th><th>evidencia</th></tr>
+<tr><td>Críticos en fork: Grill-ronda-2 + 5 lentes del council + BlockReview + BlockVerify + BlockSecurity</td><td class="num">≈ 400</td><td>spans de los 10 transcripts de fork <sup><a href="#s1">[1]</a></sup>: lentes 32–88 min (paralelos, pared 88), Grill 75, Review 212, Verify 47, Security 102 y muerto sin veredicto</td></tr>
+<tr><td><code>just check</code> completo local (16 pasos, 2 347 tests) — 12 ejecuciones</td><td class="num">≈ 121</td><td>agrupado en los gaps de bash; cada pasada ≈ 13 min; CI (18 min, ya existe) no corrió nunca sobre estos 47 commits <sup><a href="#s1">[1]</a></sup></td></tr>
+</table>
+<p>≈ 7 de cada 10 minutos activos los consumieron los críticos y la ceremonia de registro, no escribir el código. El código del bloque son ~2 000 líneas diff; los registros a su alrededor son la mayor parte de los 45 commits.</p>
+<p class="meta">Fuera de este estudio por decisión del autor: la colisión con la segunda sesión escritora (046 en el mismo árbol, ~60–90 min de reprocesos y el ship bloqueado). Fue un fallo de operación nuestro, no del proceso medido; se trata aparte.</p>
+
+<h2>3. Qué está ya arreglado en la versión actual, y qué no</h2>
+<table>
+<tr><th>defecto</th><th>¿resuelto hoy?</th><th>evidencia en el árbol</th></tr>
+<tr><td>Grill sobre-elaborado (el barrido exhaustivo de cada frase)</td><td><b>Sí</b></td><td>ai-challenge/SKILL.md:25-29: «The exhaustive sweep of every sentence is what this replaced: 044's challenge executed every one, spent 70 minutes…»; tope de 10 hallazgos, respuestas una a una, ≤2 rondas por digest (líneas 30-38, 47-49)</td></tr>
+<tr><td>Council de 3 rondas + HTML aparte</td><td><b>Sí</b></td><td>ai-council reescrito a una pasada con plegado en <code>## Council</code> dentro del spec (045 lo shippeó); el <code>council.html</code> ya no existe: <code>grep -rn council.html .agents/skills/ → 0</code></td></tr>
+<tr><td>Hallazgos que no vuelven al hilo principal</td><td><b>Sí, por contrato</b></td><td>ai-goal: «A red bar sends the work back through build and the critics»; ai-challenge: «The author folds each finding into <code>## Grill</code> and revises the attacked sentences in place»; y se ejecutó: los commits <code>6361a4b8</code> (fold review findings) y <code>2b535e6b</code> (fold grill+council) lo prueban en este mismo bloque</td></tr>
+<tr><td>Crítico sin presupuesto ni contrato de E/S</td><td><b>No</b></td><td>ninguna de las 4 skills de crítico (review/verify/security/council) menciona timebox, tope de minutos ni «no escribes disco»: <code>grep -inE 'timebox|minutes|budget|never write' → 0 hits</code>. BlockSecurity es la prueba: 102 min quemando vueltas contra denegaciones de escritura del sandbox y su transcript muere a las 15:36:54Z <b>sin entregar veredicto</b> — la barra de seguridad quedó sin cubrir <sup><a href="#s1">[1]</a></sup></td></tr>
+<tr><td>Review en serie con verify+security</td><td><b>Parcial</b></td><td>skill-sequence.toml:45-51 ya permite emparejarlas («which may pair as fork contexts once review is green») — pero nada obliga a lanzarlas al terminar el review, y el review de 212 min corrió solo porque la secuencia lo sitúa delante</td></tr>
+<tr><td>Sesión que se para y espera a un humano</td><td><b>No</b></td><td>no hay watchdog: los dos huecos muertos de 02:24→08:55 no dispararon nada; el <code>/ai-goal</code> actual no tiene paso «si llevas N min sin avanzar, di BLOCKED y cierra el turno»</td></tr>
+</table>
+
+<h2>4. Los cuellos que quedan, en orden de coste</h2>
+<div class="callout bad"><b>B1 — Críticos sin presupuesto, sin contrato de E/S y sin veredicto garantizado.</b> Review 212 min solo en serie; Security 102 min y cero veredicto. El plegado al hilo principal funciona cuando el crítico sobrevive (B-evidencia arriba); lo que falta es garantizar que <em>siempre</em> devuelve algo accionable: timebox duro, «no tocas disco», veredicto parcial etiquetado <code>TIMEBOXED</code> al vencer — mejor un 70 % de un crítico que un 100 % de un zombie — y lanzar verify+security en pareja con review cuando el host pueda.</div>
+<div class="callout bad"><b>B2 — El lazo puede pararse horas sin que nadie lo sepa.</b> Dos huecos de reloj muerto el mismo día, ambos reanimados por el usuario. Un <code>/ai-goal</code> 100 % autónomo necesita: (a) prohibición de esperar a una persona — si un comando se niega (p. ej. <code>DECISION_UNMARKED</code>), el agente repara el precondition él mismo (marca la decisión en el spec) y reintenta, o cierra el turno con <code>BLOCKED: &lt;hecho&gt; — unblock: &lt;acción&gt;</code>; (b) watchdog: N minutos sin evento y con forks vivos → el recap lo dice sin que nadie pregunte.</div>
+<div class="callout warn"><b>B3 — Ceremonia por commit, no por tarea.</b> La página de intent y las aceptaciones del mapa se re-forjaron 6 y 5 veces por sellos parciales. Una re-forja por sello de tarea; el resto, barato.</div>
+<div class="callout warn"><b>B4 — El gate completo corre local y su fail-fast serializa los errores.</b> 47 commits sin verificador externo; 12 pasadas de <code>just check</code> ≈ 121 min. Peor: <code>just check</code> para en el primer paso rojo, así que k defectos independientes cuestan k pasadas de 13 min — medido: 3 gates enteros entre 03:59 y 04:06Z, y a las 12:38 el gate falló por 1 error de lint, se arregló UN fichero y se relanzó el gate entero solo para descubrir el siguiente <sup><a href="#s1">[1]</a></sup>. Los tests unitarios dirigidos ya son baratos (23 ejecuciones, la mayoría 1–4 s): el bucle uno-a-uno vive en el gate, no en pytest. La salida: una receta <code>check-all</code> que corre los 16 pasos con el prefijo <code>-</code> de just (verificado en 1.58: sigue tras el fallo), acumula los nombres de paso rojos y sale no-cero al final con la lista completa — k defectos, 1 pasada. Y el gate completo, además, en CI en cada push (18 min, ya existe).</div>
+<div class="callout warn"><b>B5 — La métrica miente.</b> agentsview cuenta el hueco hasta el siguiente mensaje como «tiempo de la herramienta»: un <code>sed</code> trivial aparece como llamada más lenta (339 min) y «Slowest call hub · 30m56s» era un <code>hub wait</code> legítimo. Sin separar <em>tool-wait / model / idle-or-hung</em>, se optimiza el componente equivocado.</div>
+<div class="callout warn"><b>B6 — Las superficies de enseñanza cuentan batallas, no comportamiento.</b> Auditoría del 2026-08-28 sobre el árbol: narrativa histórica («used to…», «was tried and deleted», «what this replaced: 044's challenge spent 70 minutes», «cost the operator five attempts») en <b>24 ficheros de <code>src/</code>, 76 de <code>tests/</code>, 3 de <code>hooks/</code>, 2 skills, <code>AGENTS.md</code> y <code>policy/</code></b>. Un consumidor externo no necesita saber qué dolía antes; necesita saber qué hace ahora. El registro (<code>specs/</code>, <code>docs/adr/</code>, <code>CHANGELOG.md</code>, <code>docs/requirements.toml</code>) SÍ es historia legítima y queda fuera — ahí vive el «por qué» con fecha y firma. La regla que lo mantiene: un comentario describe qué hace el código y qué invariante protege; si necesita un «antes», ese «antes» pertenece al changelog.</div>
+
+<h2>5. Carga útil del próximo /ai-goal (spec 047), con su precio</h2>
+<table>
+<tr><th>#</th><th>cambio</th><th>cierra</th><th class="num">ahorro estimado</th></tr>
+<tr><td>1</td><td><b><code>/ai-goal</code> sin humano en el lazo:</b> regla + prueba — ningún paso espera entrada; refusals de comandos se reparan o cierran el turno con <code>BLOCKED</code> nombrado; watchdog de sesión (último evento &gt; N min con forks vivos → lo dice el recap).</td><td>B2</td><td class="num">≈ 340 min de reloj muerto por caso</td></tr>
+<tr><td>2</td><td><b>Contrato de crítico:</b> timebox duro (min de reloj + tope de llamadas) en las 4 skills de crítico; contrato de E/S «devuelves el veredicto en el resultado, no escribes disco»; al vencer, veredicto parcial <code>TIMEBOXED</code>; verify+security se lanzan en pareja con review cuando el host puede.</td><td>B1</td><td class="num">≈ 100–150 min/bloque + la barra de seguridad siempre cubierta</td></tr>
+<tr><td>3</td><td><b>Ceremonia por tarea:</b> re-forja de página de intent y aceptaciones del mapa solo en sellos de tarea; pre-commit local pasa a <code>just fast</code>.</td><td>B3</td><td class="num">≈ 120–180 min/bloque</td></tr>
+<tr><td>4</td><td><b>Gate en CI en cada push, y local sin fail-fast-ciego:</b> rama + push al empezar el build; el gate completo vive en GitHub (18 min). Local: receta <code>check-all</code> (pasos con prefijo <code>-</code>, que en just 1.58 sigue tras el fallo — verificado; <code>just -a</code> y <code>--ignore-errors</code> NO existen, nota del autor para el que lo implemente) que lista TODOS los pasos rojos de una vez; se arreglan en lote y se relanza una sola pasada. Antes de tocar un lector compartido (<code>spec.py</code>, <code>madr</code>, <code>contract</code>, el template), el agente enumera en el mismo plan qué tests leen sus salidas y los actualiza en el mismo commit — el red se anticipa, no se descubre.</td><td>B4</td><td class="num">≈ 95 min/bloque + k pasadas → 1</td></tr>
+<tr><td>5</td><td><b>Recap honesto:</b> el recap de sesión (046, en construcción) separa <code>tool-wait / model / idle-or-hung</code>.</td><td>B5</td><td class="num">deja de culpar al componente equivocado</td></tr>
+<tr><td>6</td><td><b>Regla de loteo en ai-build/ai-goal:</b> prohibido relanzar el gate tras arreglar un solo fallo — un rojo nuevo se acumula con los demás y se repara en lote; pytest dirigido solo para el test que se está escribiendo (ya es barato: 1–4 s), nunca como sustituto de la pasada completa.</td><td>B4</td><td class="num">los 3 gates en 8 min → 1</td></tr>
+<tr><td>7</td><td><b>Pasada de des-narrativización:</b> en <code>src/</code>, <code>hooks/</code>, <code>tests/</code>, <code>policy/</code>, skills y <code>AGENTS.md</code>, todo comentario que explique «qué se cambió y por qué» se reescribe a «qué es y qué protege», o se borra (el porqué ya está en el registro). El gate no cambia: <code>just check</code> sigue verde al final de cada commit de la pasada. No se toca <code>specs/</code>, <code>docs/adr/</code>, <code>CHANGELOG.md</code> ni <code>requirements.toml</code>.</td><td>B6</td><td class="num">≈ 100 ficheros más simples; cero líneas de historia en el camino de lectura</td></tr>
+</table>
+<p>Los siete son código o contrato, no prompts vagos (regla 12): el timebox es un parámetro del fork, el watchdog es un check con salida no-cero, <code>just fast</code> y el loteo son recetas y una línea en ai-goal, la regla de autonomía es una línea con su prueba adversarial («a refusal must be repaired or reported, never waited on»; «a red is batched, never chased one at a time»), y la pasada 7 es un grep que falla cerrado: <code>grep -rlE "used to (be|write|live|ship)|was tried and deleted|what this replaced" src hooks tests policy .agents/skills AGENTS.md</code> con salida vacía.</p>
+
+<h2>6. Cómo lanzarlo</h2>
+<pre>/ai-goal finish this without me: spec 047 "autonomous loop, budgeted critics, batched gate"
+— payload: the seven changes in .ai/reports/023-session-vitals-045-postmortem.html §5,
+each with its refusal test; the report is the evidence base, do not re-derive it.</pre>
+<p class="meta">Si 046 sigue abierto cuando se lance, la decisión de un árbol por escritor se toma entonces — queda fuera de este payload por la decisión del autor (§2).</p>
+
+<h2 id="s1">Fuentes</h2>
+<ol>
+<li>La base de datos local de agentsview — tabla de mensajes (gaps por turno; sesión <code>omp:01a0445e…</code>: started 2026-08-27T17:57:01Z, ended 2026-08-28T15:34:40Z, 405 mensajes) y de llamadas a herramienta (441, con su <code>result_content</code>: el <code>decide</code> de 04:13:52Z devolvió en 0,21 s; los 12 <code>just check</code> ≈ 121 min y sus timestamps — tres gates completos entre 03:59 y 04:06Z, y el ciclo de 12:38: gate rojo por 1 error de lint → se arregla un fichero → se relanza el gate entero → <code>gate-exit=1</code> otra vez; 23 pytest dirigidos con mayoría de devoluciones en 1–4 s). Transcripts de forks en el almacén de sesiones del host, carpeta de esta sesión (spans del primer/último timestamp; BlockSecurity termina 15:36:54Z sin veredicto). Git: <code>git log --format=%ad</code> y <code>git reflog</code> (cero commits 04:59→11:04 local). Skills actuales: <code>.agents/skills/ai-challenge/SKILL.md:25-49</code>, <code>policy/skill-sequence.toml:45-51</code>, grep de timebox/presupuesto sobre las 4 skills de crítico (0 hits). Veredicto de BlockVerify: <code>agent://BlockVerify</code> (tabla de ejemplos, cajas production-ready, CI 18m55s verde en origin/main). Capturas del panel facilitadas por el usuario (19h42m, 409 llamadas, hub·30m56s).</li>
+</ol>
+<p class="meta">Ninguna afirmación es [unsourced]. Corrección registrada respecto a v1: C2 decía «<code>ai-eng decide</code> bloqueado esperando una tecla»; el resultado del comando dice que devolvió en 0,21 s — el hueco era sesión colgada, y eso convierte B2 en watchdog + autonomía, no en un flags de CLI. La barra de seguridad de 045 sigue sin cubrirse: BlockSecurity no entregó veredicto y este informe lo deja dicho en lugar de taparlo.</p>
+</main>
+</body>
+</html>

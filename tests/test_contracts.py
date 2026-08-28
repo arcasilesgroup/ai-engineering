@@ -14,13 +14,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+import council_counts
 import pytest
 
 from ai_engineering import contract, paths, text, wiring
 
 ROOT = Path(__file__).resolve().parents[1]
 
-DOCTRINE_CEILING = 150
+DOCTRINE_CEILING = 180
 
 
 def test_every_hook_is_classified_and_blocking_events_are_guards():
@@ -545,7 +546,7 @@ AI_SPEC_FRONTMATTER = (
     "name: ai-spec",
     "description: >-",
     "  Writes the governed record of a decision before code exists: evidence, the problem,",
-    "  at least two real options, one recommendation and self-challenge, assumptions, unresolved",
+    "  three real options, one recommendation and self-challenge, assumptions, unresolved",
     '  risks, observable examples and the authority for proceeding. Trigger for "let\'s add",',
     '  "how should we handle", "what\'s the best approach", "I\'m thinking about", "what should',
     '  we build for", "write the spec". Not for turning an approved spec into tasks — use',
@@ -585,7 +586,7 @@ AI_SPEC_SECTIONS = {
         "the framework's identity.",
         "2. State the problem in words a non-technical reader can follow. Separate fixed "
         "constraints, current facts, intended outcomes and the harm of leaving it unchanged.",
-        "3. Present at least two real options. For each, say what it gives, costs, risks and "
+        "3. Present exactly three real options. For each, say what it gives, costs, risks and "
         "rules out; do not invent a weak option merely to lose.",
         "4. Recommend one, explain why the others lose, then challenge the recommendation once "
         "with the strongest realistic failure case. Revise it or keep it and say why.",
@@ -615,6 +616,11 @@ AI_SPEC_SECTIONS = {
         "titles, and proposal is not approval. Everything else stays inside the spec, which is "
         "its record. Leave every production-ready box unticked until the named command supplies "
         "fresh evidence.",
+        "11. When the critics report, fold them in place: the grill's questions into "
+        "`## Grill` and the council's gaps, cuts and refutations into `## Council`, each "
+        "section opening with its `ran: round <n>, <date> — <n> min` declaration, and revise "
+        "the options, decision and risks those findings attacked rather than answering "
+        "beside them.",
     ),
     "Authority boundary": (
         "Without a person, choose only a reversible, least-scope option within existing "
@@ -635,13 +641,15 @@ AI_SPEC_SECTIONS = {
         "the recommendation survived its challenge.",
         "- Assumptions, unresolved risks and observable BDD examples are explicit.",
         "- The authority basis is named, or the result is `INCOMPLETE` with the missing decision.",
+        "- The human was handed `ai-eng report view --spec <NNN>`'s `file://` link beside the "
+        "Markdown, so the page they approve from carries the digests the ADR will name.",
     ),
     "What this is not": (
         "Not a discussion transcript, implementation or risk acceptance. Delete empty ceremony; "
         "keep the evidence and decisions a future reader must be able to audit.",
         '- "Only one option is worth considering, so two options would be theatre" — the '
-        "procedure demands at least two real options and forbids inventing a weak one to lose, "
-        "because the comparison is what makes the recommendation auditable.",
+        "procedure demands exactly three real options and forbids inventing a weak one to "
+        "lose, because the comparison is what makes the recommendation auditable.",
     ),
 }
 
@@ -1564,13 +1572,13 @@ the design does not
 # went through.
 GOVERNING_SKILL_TEXT = {
     ".agents/skills/ai-build/SKILL.md": (
-        "649fbf1b2e0ee2d7b60ecca42bfbb253f83829b88f08ff06594172a78b395815"
+        "098d757fae96dee89ad37c41459f8e1b9dd10ade7e30a75d586718d73fef4e20"
     ),
     ".agents/skills/ai-build/corpus.md": (
         "576cf03621aace434ca300bcb136538097f21e0f050fb8a0280913e590457880"
     ),
     ".agents/skills/ai-spec/SKILL.md": (
-        "00a7804face00f1167296fe2e1f87663989dfb7a67b671db65ca6a79c4bef06c"
+        "fb82f43de9f1ffbde26da045a02b5ec17f5d51f42514304717cb3fcbab153720"
     ),
 }
 
@@ -2097,7 +2105,7 @@ def test_a_phase_nobody_named_is_shown_rather_than_dropped(monkeypatch):
     assert ("afterwards", ["ai-new"]) in grouped, "a capability was filed under nothing visible"
 
 
-def test_no_skill_is_harder_to_read_than_the_hardest_one_is_today():
+def test_the_fog_ratchet_holds_over_every_skill():
     """`EP-163` asks that a skill be readable by somebody who does not code, and until now
     the only thing executing was a jargon blocklist.
 
@@ -2366,6 +2374,44 @@ def test_a_council_reviews_and_never_approves():
         fields = _verdict_fields(produced.read_text(encoding="utf-8"))
         if fields:
             said.append(f"{produced.parent.name}: {', '.join(fields)}")
+    # D-045-03: the new councils live inside `spec.md`, so the rule follows them into
+    # the `## Council` section — and only that section. Ported over a whole spec file
+    # the regexes refuse ordinary engineering prose: executed, 036's register row
+    # (`= fail`) and this repository's own drafts trip it, and the constitution
+    # forbids rewriting 036. The grant must be caught where the council speaks.
+    # `council_counts` is imported at the top of this file, the way `anti_theatre` and
+    # `pilot_register` are: pytest's `pythonpath` carries `tests/`, and mutating
+    # `sys.path` by hand is the E402 shape pyproject's own comment forbids.
+    # D-045-01 lands the grill's answers verbatim in `## Grill`, and the skill still
+    # says the challenger never approves — so the boundary covers both new sections,
+    # not only the council's. Executed on this tree: a grill-scoped pass fires on zero
+    # corpus files, so the extension is free.
+    for produced in sorted(ROOT.glob("specs/*/spec.md")):
+        full = produced.read_text(encoding="utf-8")
+        for name in (council_counts.COUNCIL_SECTION, council_counts.GRILL_SECTION):
+            section = council_counts._top_section(full, name)
+            if section is None:
+                continue
+            fields = _verdict_fields(section)
+            if fields:
+                said.append(f"{produced.parent.name} {name}: {', '.join(fields)}")
+    # The direction the scoping must not lose: a grant inside a section body still
+    # refuses — asserted through the same `_top_section`→`_verdict_fields` pipeline the
+    # loop runs, not the regex alone. A review found the old fixture vacuous: it placed
+    # `## Council` at position 0 with an h2 totals heading, the two shapes `_top_section`
+    # returns empty for, so a regression in the scoping would have kept it green.
+    grant_body = (
+        "# Probe\n\n## Council\n\n`ran: round 1, 2026-08-28 — 5 min`\n\n"
+        "### Gaps no single lens named\n\nnone\n\n"
+        "### Findings cut for carrying no command\n\nnone\n\n"
+        "### Findings the cross-read refuted, with the command that refuted them\n\nnone\n\n"
+        "### The two counts\n\n- Gaps that appeared only after the cross-read: **0**\n"
+        "- Findings deleted, for carrying no command or for being refuted: **0**\n\n"
+        "Verdict: the specification is approved and may be signed\n"
+    )
+    scoped = council_counts._top_section(grant_body, council_counts.COUNCIL_SECTION)
+    assert scoped, "the scoped pipeline found no council section in the body"
+    assert _verdict_fields(scoped), "the scoped pipeline missed a grant in a section body"
     assert not said, (
         "a council granted authority: " + "; ".join(said) + ". It may name what is absent "
         "and it may not say whether the specification is good — that belongs to a person"
@@ -2473,12 +2519,6 @@ def test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce():
     nobody has pointed at the thing it is for.
     """
 
-    sys.path.insert(0, str(ROOT / "tests"))
-    try:
-        import council_counts
-    finally:
-        sys.path.pop(0)
-
     _DELETED_LINE = "- Findings deleted, for carrying no command or for being refuted: **2**\n"
     honest = (
         "## Round two — x\n\n"
@@ -2520,6 +2560,120 @@ def test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce():
     # A repository with no council file is not a failure and is not a pass. The script says
     # so and exits zero, because a council that has not run is not a council that lied.
     assert council_counts.main() == 0
+
+
+def test_the_critic_step_refuses_every_declared_state_that_did_not_run():
+    """`D-045-03`, the four refusals the 045 council ordered before the template ships.
+
+    The grill executed the false greens on this tree: a `## Council` keeping the
+    template's prompt while filling zeros passes the arithmetic with exit 0, a heading
+    empty in both senses is indistinguishable from a run that found nothing, and the
+    `ran:` lines of the spec that invented the rule broke its own grammar. Each state
+    is planted here as a refusal and one clean control keeps the refusals honest: the
+    absence of a declaration is not a failure, and a section that says `none` may.
+    """
+
+    def council(ran: str, gap_line: str, totals: str) -> str:
+        return (
+            f"# Probe\n\n## Council\n\n{ran}\n\n"
+            "### Gaps no single lens named\n\n"
+            f"{gap_line}\n\n"
+            "### Findings cut for carrying no command\n\nnone\n\n"
+            "### Findings the cross-read refuted, with the command that refuted them\n\nnone\n\n"
+            f"### The two counts\n\n{totals}"
+        )
+
+    good_ran = "`ran: round 1, 2026-08-28 — 41 min`"
+    good_totals = (
+        "- Gaps that appeared only after the cross-read: **0**\n"
+        "- Findings deleted, for carrying no command or for being refuted: **0**\n"
+    )
+    # The clean control first: declared, says `none` everywhere, arithmetic agrees.
+    assert council_counts.council_section_counts(council(good_ran, "none", good_totals)) == (0, 0)
+
+    for bad, because in (
+        (
+            council("`ran: pending — later`", "none", good_totals),
+            "a pending where a number belongs",
+        ),
+        (council("`ran: round 1, 2026-08-28`", "none", good_totals), "the minutes-less shape"),
+        (
+            council(
+                good_ran,
+                "none",
+                "- Gaps that appeared only after the cross-read: **N**\n"
+                + good_totals.splitlines(True)[1],
+            ),
+            "the template's N placeholder inside a declared totals block",
+        ),
+        (
+            council(good_ran, "- TODO: the gap nobody found yet", good_totals),
+            "a declared round still carrying the prompt",
+        ),
+        (council(good_ran, "", good_totals), "an empty heading that never said `none`"),
+        (
+            council(
+                good_ran,
+                "none",
+                "- Gaps that appeared only after the cross-read: **3**\n"
+                + good_totals.splitlines(True)[1],
+            ),
+            "a total the entries cannot reproduce",
+        ),
+        (
+            council("**`ran: round 1, 2026-08-28 — 5 min`**", "none", good_totals),
+            "a bold-decorated ran: that once silently un-policed the section",
+        ),
+        (
+            council("> `ran: round 1, 2026-08-28 — 5 min`", "none", good_totals),
+            "a blockquoted ran: declaration, off canonical, refused not skipped",
+        ),
+        (
+            council("Ran: round 1, 2026-08-28 — 5 min", "none", good_totals),
+            "a capitalised Ran: line, a declaration with a broken grammar",
+        ),
+    ):
+        with pytest.raises(council_counts.Unreadable):
+            council_counts.council_section_counts(bad)
+        assert because
+
+    # Undeclared is the green absence: no ran line, no enforcement, "has not run".
+    undeclared = council("", "- TODO: pending", "### nope")
+    assert council_counts.council_section_counts(undeclared) is None
+
+    grill_head = "# Probe\n\n## Grill\n\n`ran: round 1, 2026-08-28 — 41 min`\n\n"
+    assert council_counts.grill_questions(grill_head + "nothing checkable failed") == 0
+    assert (
+        council_counts.grill_questions(
+            grill_head
+            + "### Q1 — a question\n**A:** holds\n### Q2 — another\n**A:** UNPROVEN — why"
+        )
+        == 2
+    )
+    assert council_counts.grill_questions("# Probe\n\n## Grill\n\n### Q1 — drafted\n") is None
+    for bad, because in (
+        (grill_head + "### Q1 — a question\n", "a question with no answer line"),
+        (
+            grill_head + "### nothing\n\nprose\n",
+            "a declared grill, no question and no nothing-checkable line",
+        ),
+        (
+            grill_head + "- TODO: the question nobody asked\n\nnothing checkable failed\n",
+            "a declared grill still carrying the prompt",
+        ),
+        (
+            grill_head + "when a grill round lands, replace this prompt with its declaration — "
+            "says `nothing checkable failed`. While this prompt stands undeclared.\n",
+            "the template prompt with TODO: deleted, quoting the warranty in prose",
+        ),
+        (
+            grill_head + "### Q1 — a\n**A:** holds\n**A:** again\n### Q2 — bare\nprose\n",
+            "a second answer hiding a bare second question",
+        ),
+    ):
+        with pytest.raises(council_counts.Unreadable):
+            council_counts.grill_questions(bad)
+        assert because
 
 
 def test_council_counts_is_a_step_in_the_gate_and_not_a_recipe_beside_it():

@@ -1438,3 +1438,100 @@ def test_the_tick_column_is_invisible_to_an_approval_and_nothing_else_is():
         )
     finally:
         shutil.rmtree(apart, ignore_errors=True)
+
+
+def test_a_task_line_inside_a_fence_adds_no_task_and_donates_no_command():
+    """The fence is a wall for the task parser, proved before any `visual` block exists.
+
+    Specification 046 puts fenced `visual` blocks inside plans, and grill round 1 executed
+    what a fence-blind parser makes of that: a numbered bold line inside a fence became a
+    real task that won the envelope collision, and a bold check-field inside a fence
+    replaced the command `--tick` executes — a signed path to running fenced prose. The
+    refusal is the precondition (D-046-02): nothing inside a fence is a task, a field or a
+    command, whatever it is made to look like.
+    """
+
+    from ai_engineering import spec
+
+    real = (
+        "1. [ ] **Real task** —\n"
+        "   **file**: `a.py`\n"
+        "   **check**: `uv run true`\n"
+        "   **rollback**: `git revert`\n"
+        "   **done when**: green.\n"
+    )
+    phantom = (
+        "```visual\n"
+        '{"block": "diagram"}\n'
+        "1. [ ] **Phantom** —\n"
+        "   **file**: `evil`\n"
+        "   **check**: `uv run rm -rf /tmp/proof`\n"
+        "   **done when**: runs\n"
+        "```\n"
+    )
+    tasks = spec.plan_tasks(real + phantom)
+    assert [t["task"] for t in tasks] == ["1"], (
+        f"the fence donated tasks: {[t['task'] for t in tasks]}"
+    )
+    assert tasks[0]["check"] == "`uv run true`", (
+        f"a fenced check-field rewrote the command an approval would execute: {tasks[0]['check']!r}"
+    )
+    assert "rm -rf" not in json.dumps(tasks), "fenced prose reached the parsed fields"
+
+
+def test_a_tick_inside_a_fence_is_signed_and_a_task_tick_still_is_not(tmp_path):
+    """The masking stops at the fence, so the signature sees anything fenced.
+
+    The canonical digest hides a task's tick column because a command writes it. Grill
+    round 1 found the same invisibility falling on fenced boxes, where no command ever
+    writes anything: flip a box inside a fence and the sealed value did not move. After
+    the precondition, fenced bytes are signed as they stand, and the real column keeps
+    its exemption.
+    """
+
+    import hashlib
+
+    from ai_engineering import spec
+
+    base = "# Plan\n\n1. [ ] **Real** —\n   **file**: `a.py`\n"
+    plan = tmp_path / "plan.md"
+    plan.write_text(base, encoding="utf-8")
+    sealed = hashlib.sha256(spec.approval_bytes(plan)).hexdigest()
+
+    # The grill's exact probe, box open then closed inside one fence: the two files differ
+    # by the tick alone, and the signature must see even that. Before the precondition the
+    # `_TASK_GAP` lookahead reached into the fence and masked it, so both digests equalled
+    # each other and a planted task was invisible to the approval.
+    plan.write_text(base + "```\n3. [ ] **Faked** —\n```\n", encoding="utf-8")
+    open_fenced = hashlib.sha256(spec.approval_bytes(plan)).hexdigest()
+    plan.write_text(base + "```\n3. [x] **Faked** —\n```\n", encoding="utf-8")
+    assert hashlib.sha256(spec.approval_bytes(plan)).hexdigest() != open_fenced, (
+        "a box flipped inside a fence left the sealed digest identical — the masking "
+        "reaches into fences and a planted tick is invisible to the approval"
+    )
+
+    # The real task's column keeps its exemption, or every approval in the tree would
+    # have to be re-signed on the first tick.
+    plan.write_text(base.replace("1. [ ] ", "1. [x] <!--t:0123456789ab--> "), encoding="utf-8")
+    assert hashlib.sha256(spec.approval_bytes(plan)).hexdigest() == sealed, (
+        "the real task's tick column stopped being invisible"
+    )
+
+
+def test_checked_boxes_inside_a_fence_move_no_counter():
+    """The intent page counts a plan's boxes outside fences only.
+
+    Council round 1's cross-read probed five `- [x]` lines inside one fence and the
+    published counter moved to 5/5 — a fenced example could report a plan complete. The
+    counter and the parser must agree about what is a box, or the page lies with the
+    parser's numbers and the fence's contents at once.
+    """
+
+    from ai_engineering import solution_intent
+
+    body = (
+        "- [ ] Real box\n\n"
+        "```visual\n- [x] one\n- [x] two\n- [x] three\n- [x] four\n- [x] five\n```\n"
+    )
+    done, total = solution_intent._box_counts(body)
+    assert (done, total) == (0, 1), f"the fence moved the counter to {done}/{total}"

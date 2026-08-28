@@ -21,3 +21,12 @@
 # `0001-four.html` and any loose directory.
 !reports/
 !reports/[0-9][0-9][0-9]-*.html
+#
+# `views/` are derived, the same shape one level over: three digits, a hyphen, a name,
+# `.html`. The line names the shape so the home is visible in the file that governs this
+# directory — naming it is not an invitation to commit it. A view is a reading of bytes
+# the ADR already signed; the day one reaches the index, `doctor`'s one-home check fails
+# it, and the fix is `git rm --cached`, not an exception. Regenerate instead:
+# `ai-eng report view --spec NNN`.
+!views/
+!views/[0-9][0-9][0-9]-*.html

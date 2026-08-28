@@ -49,6 +49,8 @@ disable-model-invocation: true
 - Every task has a file, a check, a rollback and a "done when".
 - The deployable tasks exist if the spec is deployable, and are absent if it is not.
 - The person has approved it, recorded as an ADR at the spec and plan digests. That record is the gate: no code before it.
+- The reviewer got `ai-eng report view --spec <NNN>`'s `file://` link beside the Markdown;
+  the ADR at the two digests stays the gate, and the page is how it is read.
 
 ## What this is not
 

@@ -1530,6 +1530,10 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
         # moved and the fresh rows in 0023 carry the bytes that are there now.
         ("specs/023-council-that-reads-itself/spec.md", "862372fb0e24"),
         ("specs/023-council-that-reads-itself/plan.md", "821b48e6cf6c"),
+        # 0031 approved spec 046 at bytes the map then found to carry three real broken
+        # references; 0032 corrected them and re-approved at the corrected digest, so
+        # 0031's spec row legitimately moved and 0032's rows carry the bytes there now.
+        ("specs/046-visual-html-records/spec.md", "b7e60a1af2fe"),
     }
 
     rows = []

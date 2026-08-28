@@ -76,6 +76,8 @@ absent, because what could not be checked is part of the evidence.
   was available.
 - The sources are named well enough that the person can open them.
 - The file is committed at `.ai/reports/NNN-a-name.html`.
+- The answer in the conversation carries the report's `file://` URL, so the reader opens
+  the page rather than asking where it went.
 
 ## What this is not
 

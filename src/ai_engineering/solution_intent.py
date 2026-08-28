@@ -99,6 +99,22 @@ def _frontmatter(body: str) -> dict[str, str]:
     return {key: value.strip() for key, value in _FIELD.findall(found.group(1))}
 
 
+def _box_counts(plan_body: str) -> tuple[int, int]:
+    """A plan's (ticked, total) list checkboxes, outside fences only.
+
+    Council round 1's cross-read probed five `- [x]` lines inside one fence and the
+    published counter moved to 5/5: a fenced example could report a plan complete. The
+    mask is the same one `plan_tasks` reads through, so the page's two counters agree on
+    what is a box — parser and page cannot lie with different halves of the file.
+    """
+
+    outside = spec.mask_fences(plan_body)
+    return (
+        len(re.findall(r"^\s*[-*]\s*\[x\]", outside, re.M | re.I)),
+        len(re.findall(r"^\s*[-*]\s*\[[ x]\]", outside, re.M | re.I)),
+    )
+
+
 def _title(body: str) -> str:
     for line in body.splitlines():
         if line.startswith("# "):
@@ -119,6 +135,7 @@ def _specs(root: Path, tracked: set[str]) -> list[Spec]:
         front = _frontmatter(body)
         plan_file = folder / "plan.md"
         plan_body = _text(plan_file) if plan_file.is_file() else ""
+        done, total = _box_counts(plan_body)
         rows.append(
             Spec(
                 ident=front.get("id", folder.name.split("-")[0]),
@@ -128,8 +145,8 @@ def _specs(root: Path, tracked: set[str]) -> list[Spec]:
                 date=front.get("date", ""),
                 supersedes=front.get("supersedes", ""),
                 has_plan=bool(plan_body),
-                done=len(re.findall(r"^\s*[-*]\s*\[x\]", plan_body, re.M | re.I)),
-                total=len(re.findall(r"^\s*[-*]\s*\[[ x]\]", plan_body, re.M | re.I)),
+                done=done,
+                total=total,
                 # Counted by the module that owns the definition. Reading it here with a
                 # third regex made this page say eleven where `plan_tasks` says fifteen —
                 # and two of the last three blocks closed a two-definitions defect by name.

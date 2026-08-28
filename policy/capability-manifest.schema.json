@@ -241,7 +241,9 @@
             "ai-note",
             "ai-report",
             "ai-ship",
-      "ai-write"
+      "ai-write",
+      "ai-visual-plan",
+      "ai-visual-recap"
           ]
         },
         "phase": {
@@ -289,7 +291,9 @@
       "ai-note",
       "ai-report",
       "ai-ship",
-      "ai-write"
+      "ai-write",
+      "ai-visual-plan",
+      "ai-visual-recap"
     ]
   },
   "x-mode-policy": {

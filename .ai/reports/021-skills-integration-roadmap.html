@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Auditoría del checkout local de `skills` y de agent-native contra las restricciones del framework: qué se integra, por qué, cómo, y qué queda excluido. Roadmap en cuatro fases.">
+<title>ai-engineering | Roadmap de integración: skills externos → ciclo gobernado</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:960px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:36px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+h3{font-size:17px;margin:24px 0 6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.date{color:var(--muted);font-size:13px;margin-bottom:28px}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}
+pre{background:var(--code);padding:12px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.good{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+.cite{color:var(--muted);font-size:13px;margin-top:4px}
+ol.src{margin:6px 0 4px;padding-left:22px}ol.src li{font-size:14px;margin:3px 0}
+.verdict{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.05em}
+.v-ok{background:var(--good-soft);color:var(--good)}.v-warn{background:var(--warn-soft);color:var(--warn)}.v-bad{background:var(--bad-soft);color:var(--bad)}
+</style>
+</head>
+<body>
+<div class="topbar"><a class="brand" href="#">ai-engineering <small>· investigación · roadmap de integración de skills externos</small></a></div>
+<main>
+<p class="kicker">Investigación · ciclo gobernado</p>
+<h1>Qué vale la pena traer de <code>~/repos/skills</code> y de agent-native, y cómo</h1>
+<p class="sub">Auditoría de 12 skills externos + 2 skills de agent-native + su <code>AGENTS.md</code>, contra la regla del usuario: sin agent-native, sin dependencias raras, todo agentic y portable.</p>
+<p class="date">2026-08-28 · reporte 021 · herramientas usadas: lectura directa de las dos repos (2 scouts de sólo-lectura), fetch de GitHub raw y de mdxjs.com · degraded-tool: tavily, exa, notebooklm (no configurados/autenticados desde esta máquina)</p>
+
+<h2>Qué decide esto</h2>
+<p>Qué skills se integran al ciclo (research→spec→challenge→council→gate→build→review→verify→ship), cuáles se minan como prosa MIT, cuáles se excluyen, y en qué orden. Cada ítem lleva <em>por qué</em>, <em>cómo</em> y su <em>comprobación</em>. La restricción que corta el árbol: <strong>cero npm, cero MCP hospedado, cero apps privativas en la ruta de ejecución</strong>.<sup>[1][2]</sup></p>
+
+<h2>El hallazgo principal: MDX es la respuesta equivocada a una pregunta buena</h2>
+<div class="callout bad">
+<p><strong>No usar MDX ni para el plan visual ni para el recap.</strong> MDX es markdown + JSX con <code>import</code>/<code>export</code>: necesita un compilador y un framework (React/Preact/Vue) para renderizar — es decir, una toolchain npm.<sup>[5]</sup> Y el camino «oficial» para verlo enriquecido es justo lo prohibido: el modo local-files de visual-plan, aunque autoría MDX en el repo, sigue necesitando <code>npx @agent-native/core@latest</code> para <code>plan blocks/check/serve/verify</code>, y su visor <em>se renderiza en la app hospedada de agent-native leyendo un bridge localhost</em> — offline real sólo corriendo la app completa del monorepo.<sup>[1][7]</sup></p>
+<p>La alternativa ya existe en este repo y está blindada por <code>doctor</code>: <strong>HTML autocontenido en <code>.ai/reports/NNN-nombre.html</code></strong> — cero dependencias, abre en el navegador y en la preview del IDE, y es la convención de los 21 reportes previos.<sup>[2]</sup> La riqueza visual (diagramas SVG inline, file-trees, diffs anotados, checklist, open-questions) se cosecha de la taxonomía de bloques de visual-plan/recap como <em>estándar editorial</em>, no como formato de archivo.<sup>[1][6]</sup></p>
+</div>
+<p>Segunda razón, más de fondo: la aprobación del ciclo es un <strong>ADR sobre el digest exacto de <code>spec.md</code>/<code>plan.md</code></strong>.<sup>[2]</sup> Un MDX/HTML paralelo como fuente de verdad derivaría del digest. El artefacto visual debe ser <em>vista regenerable</em> (con el digest impreso en la cabecera), nunca el objeto aprobado. Spec 045 ya consolidó los sidecars <code>challenge.md</code>/<code>council.md</code> dentro del spec por exactamente este motivo.<sup>[2]</sup></p>
+
+<h2>Veredictos, skill por skill</h2>
+<table>
+<thead><tr><th>Candidato</th><th>Veredicto</th><th>Qué se trae y a dónde</th></tr></thead>
+<tbody>
+<tr><td><code>read-the-damn-docs</code><sup>[1][6]</sup></td><td><span class="verdict v-ok">tal-cual</span></td><td>Disciplina docs-first: triggers, ranking de autoridad (repo → docs oficiales → fuente), <code>npm view</code> antes de imports, escape honesto si no hay red. Cero dependencias. → fusionar en <code>ai-research</code> (peldaño local de su escalera ya lo pide) y como paso de evidencia en <code>ai-spec</code>/<code>ai-build</code>.</td></tr>
+<tr><td><code>plan-arbiter</code><sup>[1][6]</sup></td><td><span class="verdict v-ok">tal-cual</span></td><td>Memo de decisión Adopt/Hybrid/Revise con orden de desempate explícito y sección «Rejected con razones». → nuevo <code>ai-arbitrate</code> después de challenge+council: pliega los veredictos de los críticos en el spec definitivo <em>antes</em> de pedir el ADR de aprobación. El gate humano sigue siendo la última palabra.</td></tr>
+<tr><td><code>agent-watchdog</code><sup>[1][6]</sup></td><td><span class="verdict v-ok">tal-cual (1 línea a reescribir)</span></td><td>Sí es posible sin Codex ni Claude: el acoplamiento es sólo vocabulario del frontmatter; el cuerpo resuelve artefactos con «las herramientas nativas de historial del host».<sup>[1]</sup> → nuevo <code>ai-watchdog</code>: watch / audit / audit-and-fix / compare, contrato reconstruido desde el spec, clasificación Gap/Bug/Verification-miss/Scope-drift, resolución sobre <code>history://</code>·git·CI según harness. Sirve a los objetivos «robusto, resiliente, con control y revisión».</td></tr>
+<tr><td><code>reporting-progress</code> (agent-native)<sup>[3]</sup></td><td><span class="verdict v-ok">prosa</span></td><td>Turno termina en <em>Done con artefacto</em> o <em>BLOCKED con unline de desbloqueo</em>; delta no heartbeat; lista de 5 cosas que agotar antes de escribir BLOCKED (medido: «perseguir el estatus» fue la corrección nº1, 86 en dos semanas<sup>[3]</sup> — [unsourced: la métrica es autoinforme de agent-native, no verificable desde aquí]). → regla AGENTS.md + sección en <code>ai-goal</code>/<code>ai-cycle</code>. Encaja con el <code>ai-eng report blocked</code> existente: el line BLOCKED es la comunicación; la página sigue siendo la escalada.</td></tr>
+<tr><td><code>quick-recap</code> / Final Status Block<sup>[1][4]</sup></td><td><span class="verdict v-ok">prosa</span></td><td>Una línea 🟢/🟡/🔴 al final de cada respuesta, ≤100 chars, con el pendiente legible sin preguntar. → regla AGENTS.md. Compatible con la Constitución («el spec es la única casa del estado de fase»<sup>[2]</sup>): es formato de comunicación por respuesta, no estado persistido.</td></tr>
+<tr><td>AGENTS.md de agent-native: Always-On<sup>[4]</sup></td><td><span class="verdict v-ok">ampliar techo</span></td><td>Sí: «escala el esfuerzo a la tarea»; «haz el trabajo en vez de preguntar si lo haces — pregunta sólo por credencial ausente, decisión humana o acción destructiva»; «un catch que devuelve un valor indistinguible de éxito es un bug» (hermana de nuestros guards fail-closed); «comenta restricciones, no lo obvio»; «verifica la versión actual antes de fijar una dependencia» (= read-the-damn-docs). No: todo lo de Netlify/i18n/worktrees/Drizzle — verdades de <em>su</em> repo. <strong>Decisión del usuario (2026-08-28): el techo <code>DOCTRINE_CEILING</code> se amplía 150→180 para meter las reglas importantes<sup>[8]</sup>.</strong></td></tr>
+<tr><td>AGENTS.md de agent-native: Checks/friction-report<sup>[4]</sup></td><td><span class="verdict v-warn">ya existe, mejor</span></td><td>«Antes de añadir una regla, mide la fricción; si la regla ya falló dos veces, sustitúyela por un mecanismo, no la reescribas» es literalmente nuestra regla 12 + <code>just check</code> + skilleval. No duplicar. El tri-state de guards (0/1/2, exit 2 ≠ pasó) sí es una lección concreta: comprobar si nuestros 4 guards distinguen «no pudo ejecutar» de «pasó». [INFERENCE: probablemente sí — fail-closed lo exige — pero hay que verificarlo, no afirmarlo.]</td></tr>
+<tr><td><code>visual-plan</code> / <code>visual-recap</code> / <code>visual-edit</code> / <code>rewind</code><sup>[1]</sup></td><td><span class="verdict v-warn">inspirarse, no instalar</span></td><td>Los cuatro son espejos sincronizados de agent-native (script + workflow auto-fusionado<sup>[1]</sup>) y dependen del Plan/Design MCP hospedado, <code>npx @agent-native/core</code>, o Clips Desktop privativa. <strong>Decisión del usuario (2026-08-28): los quiero, pero como skills propios que SIEMPRE generan HTML con templates y referencias del repo — los html de research, spec, plan y recap, entregados siempre como link <code>file://</code>/URL que abre el navegador<sup>[8]</sup>.</strong> Se cosecha la prosa MIT: disciplina de plan, <code>wireframe.md</code>, <code>document-quality.md</code>, el <em>Diff → Block mapping</em> y sus presupuestos (3–8 pestañas de key-changes, ≤~150 líneas/tab, título ≤70 chars, bloques extraídos del diff real, nunca inventados, secretos redactados).</td></tr>
+<tr><td><code>plow-ahead</code>, <code>efficient-frontier</code>/<code>fable</code>, <code>stay-within-limits</code><sup>[1]</sup></td><td><span class="verdict v-warn">fusión, no skill nuevo</span></td><td>Contrato de autonomía (6 condiciones de parada + decision log), economía de delegación (el modelo caro gasta tokens en juicio; el peso va a subagentes acotados con handoff packets), y gobernanza de presupuesto (pausa al 95%, resume autocontenido). Cero dependencias técnicas los tres. → se pliegan en <code>ai-goal</code>/<code>ai-build</code> y en <code>skill-sequence.toml [parallel]</code>, no como skills separados — regla 5: borrar antes de abstractar, y ai-goal ya es el verbo de autonomía.</td></tr>
+</tbody>
+</table>
+
+<h2>Procedencia y licencia</h2>
+<div class="callout warn">
+<p><code>~/repos/skills</code> es MIT, (c) 2026 Builder.io<sup>[1]</sup> — base legal limpia para cosechar prosa al wheel, <strong>conservando la atribución</strong> (añadir un <code>NOTICE</code> con el aviso MIT por cada bloque de texto cosechado). Los cuatro skills visuales además están marcados en el repo como mirror auto-sincronizado de BuilderIO/agent-native<sup>[1]</sup>; nada de eso impide el uso del texto MIT, pero sí confirma que su arquitectura apunta al producto hospedado — otra razón para no vendorizarlos enteros.</p>
+</div>
+
+<h2>Roadmap</h2>
+<h3>Fase 1 · prosa en el doctrine y los skills existentes (1 commit por ítem, gate verde tras cada uno)</h3>
+<table>
+<thead><tr><th>#</th><th>Cambio</th><th>Comprobación</th></tr></thead>
+<tbody>
+<tr><td>1.1</td><td>AGENTS.md: +3 reglas always-on (escala el esfuerzo; haz-no-preguntes con los 3 bloqueos legítimos; fin de turno = Done-con-artefacto o BLOCKED-de-una-línea) + línea de estado final 🟢/🟡/🔴. Budget: ≤150 líneas.</td><td><code>just check</code> (test del techo); revisión humana de que cada regla es «verdadera en cada sesión».</td></tr>
+<tr><td>1.2</td><td>read-the-damn-docs fusionado: triggers docs-first al peldaño local de <code>ai-research</code>; paso «nombra los docs leídos» en <code>ai-spec</code> (evidence read) y <code>ai-build</code>.</td><td><code>just check</code> (fog ≤11.03, corpus routes) + <code>just skilleval</code>.</td></tr>
+<tr><td>1.3</td><td>ai-goal/ai-build: contrato de autonomía de plow-ahead (parada sólo en credencial/destructivo/decisión humana), packets de delegación de efficient-frontier, pausa-presupuesto de stay-within-limits (adaptada a la herramienta de uso del host, sin ccusage).</td><td><code>just check</code>; dry-run: un <code>/ai-goal</code> de verdad reportando deltas, no heartbeats.</td></tr>
+</tbody>
+</table>
+<h3>Fase 2 · dos skills nuevos (pasan el contrato: frontmatter allowlist, corpus Routes/Refuses, «Done when» con artefacto)</h3>
+<table>
+<thead><tr><th>#</th><th>Cambio</th><th>Comprobación</th></tr></thead>
+<tbody>
+<tr><td>2.1</td><td><code>ai-arbitrate</code> (context: fork, background: false): consume ## Grill + ## Council + propuestas en conflicto; emite memo Adopt/Hybrid/Revise con «Rejected con razones»; el autor pliega el spec definitivo <em>antes</em> del ADR de aprobación. Tie-break: corrección → grounding → corte-más-simple-no-bloqueante → validación/rollback → coste.</td><td><code>just check</code> (test de skill-sequence si entra como etapa; decisión: NO entra — sustituye el pliegue manual de ai-spec, no una etapa nueva). Prueba: arbitrar un spec real con council y grill divergentes.</td></tr>
+<tr><td>2.2</td><td><code>ai-watchdog</code>: 4 modos; resuelve sesión/transcript/PR/rama/CI con las primitivas del harness local (history/agent/artifact, git, gh); reconstruye el contrato desde el spec (la petición del usuario es la verdad, no el resumen del agente observado); informe Gap/Bug/Verification-miss/Scope-drift escrito a <code>.ai/reports/NNN-watchdog-*.html</code>; fixes sólo en modo autorizado y estrechos.</td><td><code>just check</code>; prueba: auditar oneshot un run de subagente terminado y que el informe cite file:line reales.</td></tr>
+</tbody>
+</table>
+<h3>Fase 3 · páginas visuales in-repo — <strong>aprobada y convertida en spec 046</strong><sup>[8]</sup></h3>
+<div class="callout good">
+<p><strong>Enmienda 2026-08-28:</strong> el usuario aprobó la dirección y amplió el techo de doctrina. Esto dejó de ser roadmap y es <code>specs/046-visual-html-records/</code> (spec + plan, 12 tareas): dos skills nuevos (<code>ai-visual-plan</code>, <code>ai-visual-recap</code>) que autorían bloques <code>visual</code> dentro del Markdown existente, un renderer stdlib <code>ai-eng report view|recap</code> que produce el HTML autocontenido con el digest impreso, el link <code>file://</code> obligatorio en chat, y <strong>PR review visual</strong>: job de CI que genera el recap del PR, lo publica vía GitHub Pages (decisión de privacidad pendiente del humano; mientras, artifact) y deja en el PR un comentario-resumen con el enlace — la forma de la captura de agent-native, con generador propio.</p>
+</div>
+<h3>Queda de la Fase 3 original (fusionada en 046 o aplazada)</h3>
+<table>
+<thead><tr><th>#</th><th>Cambio</th><th>Estado</th></tr></thead>
+<tbody>
+<tr><td>3.1</td><td><code>ai-eng report recap --spec NNN</code> — página HTML post-implementación con file-tree, key-changes y digest.</td><td>→ tarea 5 del plan 046.</td></tr>
+<tr><td>3.2</td><td><code>ai-eng report view --spec NNN</code> — vista regenerable del spec/plan aprobado.</td><td>→ tarea 4 del plan 046.</td></tr>
+<tr><td>3.3</td><td>Enganche al ciclo (recap en hand-off, vista en el gate).</td><td>→ tareas 8–10 del plan 046.</td></tr>
+</tbody>
+</table>
+<h3>Excluidos, con la razón dicha</h3>
+<p><code>rewind</code> (Clips Desktop privativa firmada, MCP privativo), <code>visual-edit</code> (manual de la app Design hospedada), el modo hosted <em>y</em> el local-files de visual-plan/recap (npm en runtime + renderer hospedado<sup>[1][7]</sup>), y la infraestructura de friction-report de agent-native (este repo ya tiene la suya: skilleval, <code>just stats</code>, RAN receipts<sup>[2]</sup>).</p>
+
+<h2>Tres direcciones que valen la pena mañana</h2>
+<ol>
+<li><strong>Fase 1 completa primero</strong> — es prosa MIT sin riesgo, y las tres cosas que más duele hoy (pedirle al usuario que pregunte «cómo vas», respuestas sin una línea de estado, integrar librerías de memoria) son exactamente las que cierra.<sup>[1][3]</sup></li>
+<li><strong>Las páginas visuales ya tienen spec: 046</strong> — el usuario las priorizó el 2026-08-28<sup>[8]</sup>: <code>specs/046-visual-html-records/</code> lleva spec + plan de 12 tareas (renderer, dos skills, PR review). Ejecutar su Fase de tareas 1–5 primero: doctrine + constantes + renderer + dos comandos.<sup>[8]</sup></li>
+<li><strong><code>ai-arbitrate</code> y <code>ai-watchdog</code> quedan como Fase 2 del roadmap original</strong> — el hueco post-council (memo de decisión con «Rejected» registrado) y la auditoría cross-agente siguen abiertos; spec separados, no mezclados con 046.<sup>[2][6]</sup></li>
+</ol>
+
+<h2>Fuentes</h2>
+<ol class="src">
+<li>[1] Auditoría read-only scout del <code>skills</code> clonado local (SkillsAudit): portabilidad, dependencias y procedencia por skill, con file:line (p. ej. visual-plan/SKILL.md:113-128 «never-inline», references/local-files.md:23-68 dependencias npx, scripts/sync-agent-native-skills.mjs, LICENSE MIT (c) 2026 Builder.io).</li>
+<li>[2] Auditoría read-only scout de este repositorio (FrameworkAudit): policy/skill-sequence.toml, contract.py:18/21/128/683 (SKILL_FOG_CEILING=11.03, TEST_RATIO_MAX=2.3), tests/test_contracts.py:23 (DOCTRINE_CEILING=150), doctor.py:789-795 (regex de .ai/reports), specs/045-critics-inside-spec, CONSTITUTION.md:82, justfile <code>check</code>.</li>
+<li>[3] <code>https://github.com/BuilderIO/agent-native/blob/main/.agents/skills/reporting-progress/SKILL.md</code> (fetch 2026-08-28): dos formas legales de turno, delta-vs-heartbeat, la lista de 5 antes de BLOCKED.</li>
+<li>[4] <code>https://github.com/BuilderIO/agent-native/blob/main/AGENTS.md</code> (fetch 2026-08-28): Always-On Rules, Final Status Block, Checks (guards tri-state, friction-report antes de regla nueva).</li>
+<li>[5] <code>https://mdxjs.com/docs/what-is-mdx/</code> (fetch 2026-08-28): MDX = markdown+JSX+ESM; requiere compilador y framework de componentes para renderizar.</li>
+<li>[6] <code>~/repos/skills/skills/{read-the-damn-docs,plan-arbiter,agent-watchdog}/SKILL.md</code> — leídos directamente en esta sesión.</li>
+<li>[7] <code>~/repos/skills/skills/visual-plan/references/local-files.md</code> — leído directamente: el visor local abre la UI hospedada sobre un bridge localhost (líneas 55-65).</li>
+<li>[8] Decisión del usuario, 2026-08-28 (hilo de esta sesión): ampliar <code>DOCTRINE_CEILING</code>; visual-plan/visual-recap como skills propios que siempre generan HTML con templates del repo; link que abre el navegador en cada entrega; PR review visual. Registrada en <code>specs/046-visual-html-records/spec.md</code>.</li>
+</ol>
+</main>
+</body>
+</html>

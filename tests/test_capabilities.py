@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 
 from ai_engineering import capability as capability_contract
+from ai_engineering import cli
 
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "capability-manifest.schema.json"
@@ -156,7 +157,7 @@ def test_capability_schema_is_closed_and_permission_distinct() -> None:
 
     capability_policy = schema["x-capability-policy"]
     allowed_ids = capability_policy["allowed_ids"]
-    assert len(allowed_ids) == len(set(allowed_ids)) == 20
+    assert len(allowed_ids) == len(set(allowed_ids)) == 22
     assert capability_policy == {
         "id_field": "id",
         "ids_unique": True,
@@ -243,7 +244,7 @@ def test_capability_schema_is_closed_and_permission_distinct() -> None:
     assert not _manifest_accepts(duplicate_permissions, schema)
 
 
-def test_capabilities_toml_declares_exactly_twenty_capabilities() -> None:
+def test_capabilities_toml_declares_exactly_twenty_two_capabilities() -> None:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     manifest = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))
     assert _manifest_accepts(manifest, schema)
@@ -251,7 +252,7 @@ def test_capabilities_toml_declares_exactly_twenty_capabilities() -> None:
     capabilities = manifest["capabilities"]
     expected = schema["x-capability-policy"]["allowed_ids"]
     assert [capability["id"] for capability in capabilities] == expected
-    assert len(capabilities) == 20
+    assert len(capabilities) == 22
     declared_modes = {
         capability["id"]: [mode["id"] for mode in capability["modes"]]
         for capability in capabilities
@@ -274,9 +275,11 @@ def test_capabilities_toml_declares_exactly_twenty_capabilities() -> None:
         "ai-review": ["default"],
         "ai-verify": ["default"],
         "ai-note": ["default"],
-        "ai-report": ["digest", "intent", "blocked", "issue"],
+        "ai-report": ["digest", "view", "recap", "intent", "blocked", "issue"],
         "ai-ship": ["commit", "pull-request"],
         "ai-write": ["default"],
+        "ai-visual-plan": ["default"],
+        "ai-visual-recap": ["default"],
     }
 
     dimensions = {
@@ -309,8 +312,35 @@ def test_capabilities_toml_declares_exactly_twenty_capabilities() -> None:
     assert by_id["ai-research"]["local"]["network"] == []
     assert by_id["ai-research"]["cited-web"]["human_gate"] == "before_network"
     assert by_id["ai-report"]["digest"]["network"] == []
+    assert by_id["ai-report"]["view"]["write_roots"] == [".ai/views"]
+    assert by_id["ai-report"]["recap"]["write_roots"] == [".ai/reports"]
     assert by_id["ai-report"]["issue"]["human_gate"] == "before_publish"
     assert by_id["ai-ship"]["pull-request"]["human_gate"] == "before_publish"
+
+
+def test_the_report_verb_declares_every_writer_its_banner_names() -> None:
+    """The banner and the manifest are one statement about the same run (spec 046).
+
+    Council round 1's second gap: `report view` and `report recap` write pages, and a
+    `will` that omits a writer is a false statement printed before the write. The test
+    reads both sources and refuses the drift in either direction — a banner line naming
+    a root no mode declares is as much a lie as a writer the banner hides.
+    """
+
+    manifest = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))
+    modes = {
+        mode["id"]: mode
+        for capability in manifest["capabilities"]
+        if capability["id"] == "ai-report"
+        for mode in capability["modes"]
+    }
+    declared = {root for mode in modes.values() for root in mode["write_roots"]}
+    banner = " ".join(cli.SCOPE["report"][2])
+    for root in (".ai/views", ".ai/reports", "docs/"):
+        assert root.rstrip("/") in banner, f"the banner hides the writer of {root}"
+    assert ".ai/views" in declared, "the view page has no declared write root"
+    assert ".ai/reports" in declared, "the recap page has no declared write root"
+    assert {"view", "recap"} <= set(modes), "a page writer has no declared mode"
 
 
 def test_capability_manifest_rejects_modes_that_only_reorder_set_like_permissions() -> None:

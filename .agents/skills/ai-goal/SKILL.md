@@ -88,3 +88,7 @@ the change obsoletes. A simpler path exists and you did not take it — that is 
 Both bars are green, the committed change and its gate output are shown, and the person
 holds the acceptance checklist to test the handover like a client. You do not approve the
 work and you do not claim a green you did not produce — you finish, then you hand over.
+
+The handover carries the `file://` link of `ai-eng report recap --spec <NNN> --base
+<approval commit>` — the person tests the work against a page that says what changed,
+not against your memory of it.

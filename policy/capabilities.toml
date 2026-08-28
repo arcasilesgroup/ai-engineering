@@ -347,6 +347,36 @@ enforcement = ["preflight.read", "preflight.write", "preflight.human-gate"]
 proof_requirements = { allow = ["ai-report.digest.allow"], deny = ["ai-report.digest.deny"], installed_artifact = true }
 
 [[capabilities.modes]]
+id = "view"
+# One page rendered from the committed bytes of one spec, written under `.ai/views/`.
+# The same argument `intent` carries: a document generated from files the ADR already
+# signed needs no keyboard, and the page prints the digests it was rendered from, so a
+# stale view is identifiable from its own header. No network, no secrets, no exec.
+read_roots = ["specs"]
+write_roots = [".ai/views"]
+exec_allowlist = []
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.write"]
+proof_requirements = { allow = ["ai-report.view.allow"], deny = ["ai-report.view.deny"], installed_artifact = true }
+
+[[capabilities.modes]]
+id = "recap"
+# The record of what a range changed, written beside the research reports under
+# `.ai/reports/`. Its file-tree and excerpts come from `git diff` over the named base —
+# read-only git, the same repository.read pattern `intent` uses — and the page is a
+# record, not an approval, so no keyboard stands between a finished build and its recap.
+read_roots = ["."]
+write_roots = [".ai/reports"]
+exec_allowlist = [{ executable = "git", argument_pattern = "repository.read" }]
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec"]
+proof_requirements = { allow = ["ai-report.recap.allow"], deny = ["ai-report.recap.deny"], installed_artifact = true }
+
+[[capabilities.modes]]
 id = "intent"
 # It reads the records and writes one page from them. No network, no secrets, no keyboard:
 # the page asserts nothing a person has to agree to, and a human gate on a document
@@ -471,3 +501,45 @@ secrets = []
 human_gate = "before_write"
 enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
 proof_requirements = { allow = ["ai-write.default.allow"], deny = ["ai-write.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-visual-plan"
+phase = "plan"
+
+[[capabilities.modes]]
+id = "default"
+# The skill's own write is to the plan Markdown under specs/, and its page comes from
+# `report view`, whose mode `ai-report view` declares separately. What this row governs
+# is the authoring step: read the tree it plans against, edit the plan file, and nothing
+# else. The human gate is the ADR the page prints the digests of — the skill presents;
+# the person approves.
+read_roots = ["."]
+write_roots = ["specs"]
+exec_allowlist = [{ executable = "ai-eng", argument_pattern = "report.render" }]
+network = []
+secrets = []
+human_gate = "before_write"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec", "preflight.human-gate"]
+proof_requirements = { allow = ["ai-visual-plan.default.allow"], deny = ["ai-visual-plan.default.deny"], installed_artifact = true }
+
+[[capabilities]]
+id = "ai-visual-recap"
+phase = "verify"
+
+[[capabilities.modes]]
+id = "default"
+# Reads the range and writes one record page; the diff it is built from is read-only git.
+# The sibling mode `ai-report recap` declares the same write root because that is the
+# command this skill runs — the skill's row governs the authoring session, the verb's
+# row governs the render, and the page they agree on is the proof.
+read_roots = ["."]
+write_roots = [".ai/reports"]
+exec_allowlist = [
+  { executable = "git", argument_pattern = "read-only" },
+  { executable = "ai-eng", argument_pattern = "report.render" },
+]
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec"]
+proof_requirements = { allow = ["ai-visual-recap.default.allow"], deny = ["ai-visual-recap.default.deny"], installed_artifact = true }

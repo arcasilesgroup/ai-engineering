@@ -59,3 +59,5 @@ Code and tests for one task, and one commit nobody has reviewed yet — `HEAD`.
 - The approved plan hashes to what it hashed to before the task started.
 - The hand-off says `UNREVIEWED`, and nothing was published, deployed, merged or approved
   by the same hands that wrote it.
+- The hand-off carries the `file://` link of `ai-eng report recap --spec <NNN> --base
+  <approval commit>`, so the reviewer reads what changed before they read the diff.

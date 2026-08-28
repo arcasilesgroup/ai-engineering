@@ -25,7 +25,7 @@ env:
   # which branch protection requires — reported startup_failure with no logs to read.
   JUST_VERSION: "1.58.0"
   GITLEAKS_VERSION: "8.30.1"
-  TRIVY_VERSION: "0.73.0"
+  TRIVY_VERSION: "0.74.0"
   ACTIONLINT_VERSION: "1.7.12"
   # The linux_amd64 line from the official actionlint_1.7.12_checksums.txt. The version
   # says which release we asked for; the checksum says the bytes we got are that release.
@@ -43,7 +43,9 @@ env:
   # has no business being the exception.
   GITLEAKS_SHA256_DARWIN: "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5"
   GITLEAKS_SHA256_WINDOWS: "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e"
-  TRIVY_SHA256: "2edd39da482bb4e9831962487b68f68e3928ec3137794757f54d00383d79547b"
+  # Re-read from the publisher's own checksums on 2026-08-28, the day homebrew moved the
+  # local trivy to 0.74.0 and the gate refused the untested version — the pin's whole job.
+  TRIVY_SHA256: "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
   # skill-map (`sm`) is the reference-integrity instrument (spec 026, ADR 0027). Unlike the
   # scanners above it is not a native binary: it ships as the npm package `@skill-map/cli`
   # and needs Node >= 24. The nodejs.org checksum pins the runtime's bytes the same way
@@ -529,10 +531,102 @@ jobs:
           uv run --python 3.14 --with pytest==9.1.1 --with pytest-xdist==3.8.0 pytest -q -n auto tests/
           --deselect tests/test_contracts.py::test_the_guards_start_fast_enough_to_be_guards
 
+  # The visual record of a pull request, rendered from the diff itself (spec 046, D-046-04).
+  # It gates: a PR whose recap the renderer refuses — a hunk that is not a real hunk — is a
+  # PR whose record cannot be read, and that is a red, not a shrug.
+  #
+  # Not conditioned on the event name: the workflow's own contract refuses that, because a
+  # lane the merge queue skips is a skipped job and a skipped job is a failure in CI Result.
+  # So it runs everywhere and says "not applicable" out loud on a push, the same way the
+  # claim step says it on a branch that holds no claim — a quiet pass and a real one look
+  # identical in a log six weeks later.
+  #
+  # GitHub Pages is off for this repository (a 404 is the measurement), so the page is
+  # uploaded as a run artifact and the comment says so. The enabled branch fails loudly
+  # rather than printing a URL nothing published: the public-URL privacy decision belongs
+  # to a person, and a bot that guesses it publishes to the wrong audience.
+  #
+  # `pull-requests: write` is scoped to this job alone against the workflow's
+  # `contents: read` default, and everything interpolated into the comment is sanitised
+  # or passed through the environment — the spec title is text from the pull request's
+  # own diff, and a bot that pastes attacker Markdown into a comment is a phishing
+  # surface with a green tick. On a fork the token is read-only whatever this header
+  # says; the comment then warns instead of failing, because the artifact is still there.
+  recap:
+    name: recap the pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      - name: install the CLI the page is rendered by
+        run: uv tool install --editable .
+      - name: render the recap from the real range
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -z "$BASE_SHA" ]; then
+            echo "this event is not a pull request: the recap is not applicable"
+            exit 0
+          fi
+          SPEC=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" \
+            | sed -n 's|^specs/\([0-9][0-9][0-9]\)-.*|\1|p' | sort -u | tail -1)
+          if [ -z "$SPEC" ]; then
+            echo "no spec is touched by this pull request: the recap is not applicable"
+            exit 0
+          fi
+          # Only the marker crosses into the next steps; the SHAs are this step's own env.
+          { echo "SPEC=$SPEC"; } >> "$GITHUB_ENV"
+          ai-eng report recap --spec "$SPEC" --base "$BASE_SHA" \
+            --summary "CI recap of pull request $HEAD_SHA, rendered from git diff $BASE_SHA..$HEAD_SHA by the check workflow's recap job."
+      - name: the page must exist, or this lane is theatre
+        if: env.SPEC != ''
+        run: ls .ai/reports/*-recap-*.html
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: env.SPEC != ''
+        with:
+          name: recap-page
+          path: .ai/reports/*-recap-*.html
+          if-no-files-found: error
+      - name: one link, and the honest one
+        if: env.SPEC != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if gh api "repos/$REPO/pages" >/dev/null 2>&1; then
+            echo "::error title=Pages is on::this workflow uploads artifacts and does not publish to Pages; publishing is the human decision spec 046 names, so wire it deliberately rather than let a bot guess the audience."
+            exit 1
+          fi
+          TITLE=$(sed -n 's|^# ||p' "specs/$SPEC"*/spec.md 2>/dev/null | head -1 | tr -d '<>`' | cut -c1-120)
+          FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | wc -l | tr -d ' ')
+          BODY="### Recap: ${TITLE:-spec $SPEC}
+
+          - range \`$BASE_SHA..$HEAD_SHA\` — **$FILES files** changed
+          - rendered by \`ai-eng report recap\` from the diff and nothing else
+          - GitHub Pages is off for this repository, so the page is a run artifact: [open the recap run]($RUN_URL)"
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$BODY" \
+            || echo "::warning title=recap comment skipped::the token cannot comment on a fork pull request; the artifact is still uploaded."
   ci-result:
     name: CI Result
     if: always()
-    needs: [check, suite, guards, typecheck, platforms, sonar, snyk]
+    needs: [check, suite, guards, typecheck, platforms, sonar, snyk, recap]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -555,6 +649,7 @@ jobs:
             platforms=${{ needs.platforms.result }}
             sonar=${{ needs.sonar.result }}
             snyk=${{ needs.snyk.result }}
+            recap=${{ needs.recap.result }}
         run: |
           failed=0 ran=0
           for pair in $RESULTS; do

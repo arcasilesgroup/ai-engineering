@@ -6,6 +6,86 @@ search for.
 
 ## [Unreleased]
 
+### Added (spec 046 — visual HTML records)
+
+- The cycle's review surfaces are pages now, rendered in this repository and nowhere
+  else. `ai-eng report view --spec NNN` renders a spec and its plan — their prose and
+  their fenced `visual` blocks — into one self-contained file under `.ai/views/`;
+  `ai-eng report recap --spec NNN --base <ref>` derives a record of what a range
+  changed under `.ai/reports/NNN-recap-<slug>.html` from `git diff --name-status` and
+  real hunks only. Both print the page as a `file://` link beside the canonical
+  digests they rendered. The block grammar, the diff→block mapping and the editorial
+  bar are harvested from Builder.io's visual-plan and visual-recap skills (MIT,
+  attributed in `policy/visual-pages.md`); the hosted Plan MCP, the `@agent-native/core`
+  npm CLI and MDX are not, by the owner's constraint and the audit in
+  `.ai/reports/021-skills-integration-roadmap.html`.
+- Two skills ship with them: `/ai-visual-plan` turns a plan into the page a human
+  approves from, `/ai-visual-recap` turns a finished work unit into the page a reviewer
+  reads before the raw diff. The tree carries twenty procedures and the manifest
+  declares twenty-two capabilities; the capability schema's digest moved for the two
+  new ids, from `80c5de63…` to `ba21fa3d…`.
+- The six cycle skills gained a link duty: ai-spec and ai-plan hand over the view link
+  beside the Markdown, ai-build and ai-goal put the recap link in the hand-off, ai-ship
+  carries it into the pull-request body, and ai-research prints the `file://` URL of
+  the report it already wrote. A turn that ends in a page ends with its link.
+- `.github/workflows/check.yml` gained a `recap` job: on a pull request it renders the
+  page from the real range, uploads it as a run artifact, and comments exactly one
+  link — GitHub Pages is off for this repository (a 404 is the measurement), and the
+  job fails loudly if Pages is ever enabled under it, because publishing is the
+  owner's privacy decision, not a bot's default. The job runs on every event and
+  says "not applicable" on a push, the way the claim step does: the workflow's own
+  contract refuses a lane conditioned on the event name.
+- `pyyaml` joined the dev dependency group, pinned: the gate's task checks prove a
+  workflow parses, and a check that cannot import its tool is a check that cannot fail.
+
+### Changed (spec 046 — the clean cut)
+
+- Views are derived, recaps are records, and neither is an approval: the ADR at the
+  canonical digests of `spec.md` and `plan.md` is still the sole gate (D-046-01), and
+  a page prints those digests so a stale one is identifiable from its own header.
+  Page content is authored as `visual` blocks in the Markdown and rendered by a
+  command, never written as HTML by prose (D-046-02).
+- The fence is a wall: `spec.fence_records` keeps the task parser, the approval digest
+  and the intent counter from reading inside a fenced block, which is what makes a
+  `**check**:` line safe to put in one. Grill round 1 executed the injection path
+  first; the ordering is the precondition, not a warning.
+- The doctrine ceiling moved 150 → 180 by the owner's explicit authorization, so the
+  four always-on rules and the link duty join the twelve.
+- `report` is seven subcommands now — `digest view recap issue surfaces intent
+  blocked` — and the verb's `will` banner names both page writers beside the digest
+  receipt and the Intent page.
+- A correction to an approved spec moves its digest and is re-signed, never accepted
+  around (D-046-05): the map found three real broken references in 046's own approved
+  bytes, the references were fixed, and ADR 0032 re-approved the specification at
+  its corrected digest, superseding ADR 0031. `docs/adr/0023` is the precedent.
+
+### Changed (spec 045 — critics inside the spec)
+
+- `/ai-challenge` is the grill: at most ten `### Q` findings per round, each decided
+  by executing its command, returned to the session; the author folds the round into
+  the specification's new `## Grill` section and revises the attacked sentences in
+  place. The exhaustive every-sentence sweep is retired with it.
+- `/ai-council` runs one pass: five named lenses plus the anonymous cross-read in a
+  single fork; the chairman's separate round and its page are folded into the
+  author's verdict, and the result lands in the specification's `## Council`
+  section. No `council.md` and no `council.html` are created for new specs.
+- The `ai-eng spec new` template carries `## Grill` and `## Council` after
+  `## Challenged once` and demands exactly three real options under `## Options
+  considered`; `ai-spec` gained step 11, the fold-in-place rule.
+- `just council` is the critic step over both shapes: historical `specs/*/council.md`
+  files keep their counts, and a declared critic section in a `spec.md` is refused
+  for carrying the template's prompt, an empty heading without `none`, a malformed
+  `ran: round <n>, <date> — <n> min` line, or a `### Q` without its `**A:**`. A
+  section that declares no round still reads "has not run", as before.
+- The no-authority test scopes to `## Council` bodies for the new shape; the
+  file-wide rule over historical councils is unchanged.
+- `specs/*/approval.md` is no longer created: the approval record returns to
+  `docs/adr/` as a digest-approval MADR, the series resumed by ADR 0028 after the
+  gap since 0026. The fifteen historical dossiers stay exactly where they are.
+- A behaviour change for consumer repositories that pinned the wheel: the two
+  critic skills now end with sections inside the specification instead of files
+  beside it, and their `## What it produces` lines name those sections.
+
 ### Removed (spec 044 — ponytail audit residual cuts)
 
 - The orphan layer is deleted: twelve src modules with zero production callers —

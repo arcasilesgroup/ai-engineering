@@ -113,9 +113,14 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
         (),
     ),
     "report": (
-        "produce the local governed report",
-        ("the events", RECORDS_NOUN),
-        ("the local digest read receipt", "the Solution Intent page under docs/"),
+        "produce the local governed report and the cycle's visual records",
+        ("the events", RECORDS_NOUN, "the spec and plan bytes a page renders from"),
+        (
+            "the local digest read receipt",
+            "the Solution Intent page under docs/",
+            "the spec/plan view under .ai/views",
+            "the recap page under .ai/reports",
+        ),
         ("the configured observability endpoint, when one is configured",),
     ),
     "exception": (
