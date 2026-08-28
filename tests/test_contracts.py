@@ -2522,6 +2522,105 @@ def test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce():
     assert council_counts.main() == 0
 
 
+def test_the_critic_step_refuses_every_declared_state_that_did_not_run():
+    """`D-045-03`, the four refusals the 045 council ordered before the template ships.
+
+    The grill executed the false greens on this tree: a `## Council` keeping the
+    template's prompt while filling zeros passes the arithmetic with exit 0, a heading
+    empty in both senses is indistinguishable from a run that found nothing, and the
+    `ran:` lines of the spec that invented the rule broke its own grammar. Each state
+    is planted here as a refusal and one clean control keeps the refusals honest: the
+    absence of a declaration is not a failure, and a section that says `none` may.
+    """
+
+    sys.path.insert(0, str(ROOT / "tests"))
+    try:
+        import council_counts
+    finally:
+        sys.path.pop(0)
+
+    def council(ran: str, gap_line: str, totals: str) -> str:
+        return (
+            f"# Probe\n\n## Council\n\n{ran}\n\n"
+            "### Gaps no single lens named\n\n"
+            f"{gap_line}\n\n"
+            "### Findings cut for carrying no command\n\nnone\n\n"
+            "### Findings the cross-read refuted, with the command that refuted them\n\nnone\n\n"
+            f"### The two counts\n\n{totals}"
+        )
+
+    good_ran = "`ran: round 1, 2026-08-28 — 41 min`"
+    good_totals = (
+        "- Gaps that appeared only after the cross-read: **0**\n"
+        "- Findings deleted, for carrying no command or for being refuted: **0**\n"
+    )
+    # The clean control first: declared, says `none` everywhere, arithmetic agrees.
+    assert council_counts.council_section_counts(council(good_ran, "none", good_totals)) == (0, 0)
+
+    for bad, because in (
+        (
+            council("`ran: pending — later`", "none", good_totals),
+            "a pending where a number belongs",
+        ),
+        (council("`ran: round 1, 2026-08-28`", "none", good_totals), "the minutes-less shape"),
+        (
+            council(
+                good_ran,
+                "none",
+                "- Gaps that appeared only after the cross-read: **N**\n"
+                + good_totals.splitlines(True)[1],
+            ),
+            "the template's N placeholder inside a declared totals block",
+        ),
+        (
+            council(good_ran, "- TODO: the gap nobody found yet", good_totals),
+            "a declared round still carrying the prompt",
+        ),
+        (council(good_ran, "", good_totals), "an empty heading that never said `none`"),
+        (
+            council(
+                good_ran,
+                "none",
+                "- Gaps that appeared only after the cross-read: **3**\n"
+                + good_totals.splitlines(True)[1],
+            ),
+            "a total the entries cannot reproduce",
+        ),
+    ):
+        with pytest.raises(council_counts.Unreadable):
+            council_counts.council_section_counts(bad)
+        assert because
+
+    # Undeclared is the green absence: no ran line, no enforcement, "has not run".
+    undeclared = council("", "- TODO: pending", "### nope")
+    assert council_counts.council_section_counts(undeclared) is None
+
+    grill_head = "# Probe\n\n## Grill\n\n`ran: round 1, 2026-08-28 — 41 min`\n\n"
+    assert council_counts.grill_questions(grill_head + "nothing checkable failed") == 0
+    assert (
+        council_counts.grill_questions(
+            grill_head
+            + "### Q1 — a question\n**A:** holds\n### Q2 — another\n**A:** UNPROVEN — why"
+        )
+        == 2
+    )
+    assert council_counts.grill_questions("# Probe\n\n## Grill\n\n### Q1 — drafted\n") is None
+    for bad, because in (
+        (grill_head + "### Q1 — a question\n", "a question with no answer line"),
+        (
+            grill_head + "### nothing\n\nprose\n",
+            "a declared grill, no question and no nothing-checkable line",
+        ),
+        (
+            grill_head + "- TODO: the question nobody asked\n\nnothing checkable failed\n",
+            "a declared grill still carrying the prompt",
+        ),
+    ):
+        with pytest.raises(council_counts.Unreadable):
+            council_counts.grill_questions(bad)
+        assert because
+
+
 def test_council_counts_is_a_step_in_the_gate_and_not_a_recipe_beside_it():
     """A control outside `just check` is a control that runs when somebody remembers.
 
