@@ -49,14 +49,14 @@ summary{cursor:pointer;padding:8px 0;font-weight:600;font-size:14px}
 <p class="kicker">spec 046 · recap</p>
 <h1>Recap: Visual HTML records: pages for research, spec, plan and recap, </h1>
 <p class="sub">What this work unit changed, derived from the diff and nothing else.</p>
-<p class="meta">spec sha256:b7e60a1af2fe834e336d92fc6b6ea0ef577b22819216a91d9a311a855e2cd779 · base a54b8eaa · 42 files · rendered 2026-08-28</p>
+<p class="meta">spec sha256:e9fb5a119f704ccd838f2985d1f873e4da0a9b7b52f783592288dcfac9bf3200 · base a54b8eaa · 56 files · rendered 2026-08-28</p>
 
-<h2>What changed</h2><ul class='tree'><li><span class='flag f-A'>A</span>.agents/skills/ai-visual-plan/SKILL.md</li><li><span class='flag f-A'>A</span>.agents/skills/ai-visual-plan/corpus.md</li><li><span class='flag f-A'>A</span>.agents/skills/ai-visual-recap/SKILL.md</li><li><span class='flag f-A'>A</span>.agents/skills/ai-visual-recap/corpus.md</li><li><span class='flag f-M'>M</span>.ai/.gitignore</li><li><span class='flag f-M'>M</span>.ai/reports/021-skills-integration-roadmap.html</li><li><span class='flag f-A'>A</span>.ai/reports/022-recap-visual-html-records.html</li><li><span class='flag f-M'>M</span>AGENTS.md</li><li><span class='flag f-M'>M</span>README.md</li><li><span class='flag f-M'>M</span>docs/adr/0028-specification-045-and-its-plan-are-approved-at-exact-digests.md</li><li><span class='flag f-M'>M</span>docs/adr/0029-the-template-carries-grill-and-council-the-sidecar-conventio.md</li><li><span class='flag f-M'>M</span>docs/adr/0030-exactly-three-real-options-always-before-decision-new-specs.md</li><li><span class='flag f-A'>A</span>docs/adr/0031-specification-046-and-its-plan-are-approved-at-exact-digests.md</li><li><span class='flag f-M'>M</span>docs/solution-intent.html</li><li><span class='flag f-M'>M</span>policy/capabilities.toml</li><li><span class='flag f-M'>M</span>policy/capability-manifest.schema.json</li><li><span class='flag f-M'>M</span>policy/skill-map-accepted.toml</li><li><span class='flag f-A'>A</span>policy/visual-pages.md</li><li><span class='flag f-M'>M</span>specs/045-critics-inside-spec/spec.md</li><li><span class='flag f-M'>M</span>specs/046-visual-html-records/plan.md</li><li><span class='flag f-M'>M</span>specs/046-visual-html-records/spec.md</li><li><span class='flag f-M'>M</span>src/ai_engineering/capability.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/cli.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/contract.py</li><li><span class='flag f-A'>A</span>src/ai_engineering/pages.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/report.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/skeletons.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/solution_intent.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/spec.py</li><li><span class='flag f-A'>A</span>src/ai_engineering/templates/page.html</li><li><span class='flag f-M'>M</span>src/ai_engineering/wiring.py</li><li><span class='flag f-M'>M</span>tests/council_counts.py</li><li><span class='flag f-M'>M</span>tests/test_040_ai_write.py</li><li><span class='flag f-M'>M</span>tests/test_capabilities.py</li><li><span class='flag f-M'>M</span>tests/test_contracts.py</li><li><span class='flag f-M'>M</span>tests/test_doctor.py</li><li><span class='flag f-M'>M</span>tests/test_intent.py</li><li><span class='flag f-M'>M</span>tests/test_mut_capability_callers.py</li><li><span class='flag f-A'>A</span>tests/test_mut_report.py</li><li><span class='flag f-M'>M</span>tests/test_mut_spec.py</li><li><span class='flag f-A'>A</span>tests/test_pages.py</li><li><span class='flag f-M'>M</span>tests/test_quality_gate.py</li></ul><p>Spec 046 shipped the visual record layer the skills roadmap (report 021) asked for, without the agent-native dependency the user ruled out. src/ai_engineering/pages.py is the one renderer: fenced visual blocks in the plan&#x27;s own Markdown become one self-contained page, and ai-eng report view renders a spec/plan page under .ai/views while ai-eng report recap derives a change record under .ai/reports from git diff --name-status and real hunks only — a fabricated excerpt is refused, not padded. The fence wall that makes this safe is spec.fence_records: the task parser, the approval digest and the intent counter all stop at fences, because grill round 1 executed that a fence-blind parser turns a fenced check: line into the command a tick would run. The record side moved with it: the views home is re-allowed in skeletons.AI_GITIGNORE beside the reports shape, the report verb&#x27;s will banner and policy/capabilities.toml name both writers, and ai-visual-plan plus ai-visual-recap ship as declared capabilities with the schema digest moved for them. policy/visual-pages.md carries the harvested block taxonomy and editorial bar from the MIT upstream, attributed, with every budget pointing at contract.py rather than restating a number.</p><h3><code>.ai/reports/022-recap-visual-html-records.html</code></h3><p class='sub'>1181 lines changed</p><pre class='diff'>diff --git a/.ai/reports/022-recap-visual-html-records.html b/.ai/reports/022-recap-visual-html-records.html
+<h2>What changed</h2><ul class='tree'><li><span class='flag f-M'>M</span>.agents/skills/ai-build/SKILL.md</li><li><span class='flag f-M'>M</span>.agents/skills/ai-goal/SKILL.md</li><li><span class='flag f-M'>M</span>.agents/skills/ai-plan/SKILL.md</li><li><span class='flag f-M'>M</span>.agents/skills/ai-research/SKILL.md</li><li><span class='flag f-M'>M</span>.agents/skills/ai-ship/SKILL.md</li><li><span class='flag f-M'>M</span>.agents/skills/ai-spec/SKILL.md</li><li><span class='flag f-A'>A</span>.agents/skills/ai-visual-plan/SKILL.md</li><li><span class='flag f-A'>A</span>.agents/skills/ai-visual-plan/corpus.md</li><li><span class='flag f-A'>A</span>.agents/skills/ai-visual-recap/SKILL.md</li><li><span class='flag f-A'>A</span>.agents/skills/ai-visual-recap/corpus.md</li><li><span class='flag f-M'>M</span>.ai/.gitignore</li><li><span class='flag f-M'>M</span>.ai/reports/021-skills-integration-roadmap.html</li><li><span class='flag f-A'>A</span>.ai/reports/022-recap-visual-html-records.html</li><li><span class='flag f-A'>A</span>.ai/reports/023-session-vitals-045-postmortem.html</li><li><span class='flag f-M'>M</span>.github/workflows/check.yml</li><li><span class='flag f-M'>M</span>AGENTS.md</li><li><span class='flag f-M'>M</span>README.md</li><li><span class='flag f-M'>M</span>docs/adr/0028-specification-045-and-its-plan-are-approved-at-exact-digests.md</li><li><span class='flag f-M'>M</span>docs/adr/0029-the-template-carries-grill-and-council-the-sidecar-conventio.md</li><li><span class='flag f-M'>M</span>docs/adr/0030-exactly-three-real-options-always-before-decision-new-specs.md</li><li><span class='flag f-A'>A</span>docs/adr/0031-specification-046-and-its-plan-are-approved-at-exact-digests.md</li><li><span class='flag f-A'>A</span>docs/adr/0032-a-correction-to-an-approved-spec-moves-its-digest-and-is-re.md</li><li><span class='flag f-M'>M</span>docs/requirements.toml</li><li><span class='flag f-M'>M</span>docs/solution-intent.html</li><li><span class='flag f-M'>M</span>policy/capabilities.toml</li><li><span class='flag f-M'>M</span>policy/capability-manifest.schema.json</li><li><span class='flag f-M'>M</span>policy/pilot-register.toml</li><li><span class='flag f-M'>M</span>policy/skill-map-accepted.toml</li><li><span class='flag f-A'>A</span>policy/visual-pages.md</li><li><span class='flag f-M'>M</span>pyproject.toml</li><li><span class='flag f-M'>M</span>specs/045-critics-inside-spec/spec.md</li><li><span class='flag f-M'>M</span>specs/046-visual-html-records/plan.md</li><li><span class='flag f-M'>M</span>specs/046-visual-html-records/spec.md</li><li><span class='flag f-M'>M</span>src/ai_engineering/capability.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/cli.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/contract.py</li><li><span class='flag f-A'>A</span>src/ai_engineering/pages.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/report.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/skeletons.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/solution_intent.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/spec.py</li><li><span class='flag f-A'>A</span>src/ai_engineering/templates/page.html</li><li><span class='flag f-M'>M</span>src/ai_engineering/wiring.py</li><li><span class='flag f-M'>M</span>tests/council_counts.py</li><li><span class='flag f-M'>M</span>tests/test_040_ai_write.py</li><li><span class='flag f-M'>M</span>tests/test_capabilities.py</li><li><span class='flag f-M'>M</span>tests/test_contracts.py</li><li><span class='flag f-M'>M</span>tests/test_doctor.py</li><li><span class='flag f-M'>M</span>tests/test_intent.py</li><li><span class='flag f-M'>M</span>tests/test_issue.py</li><li><span class='flag f-M'>M</span>tests/test_mut_capability_callers.py</li><li><span class='flag f-A'>A</span>tests/test_mut_report.py</li><li><span class='flag f-M'>M</span>tests/test_mut_spec.py</li><li><span class='flag f-A'>A</span>tests/test_pages.py</li><li><span class='flag f-M'>M</span>tests/test_quality_gate.py</li><li><span class='flag f-M'>M</span>uv.lock</li></ul><p>Spec 046 shipped the visual record layer the skills roadmap (report 021) asked for, without the agent-native dependency the user ruled out. src/ai_engineering/pages.py is the one renderer: fenced visual blocks in the plan&#x27;s own Markdown become one self-contained page, and ai-eng report view renders a spec/plan page under .ai/views while ai-eng report recap derives a change record under .ai/reports from git diff --name-status and real hunks only — a fabricated excerpt is refused, not padded. The fence wall that makes this safe is spec.fence_records: the task parser, the approval digest and the intent counter all stop at fences, because grill round 1 executed that a fence-blind parser turns a fenced check: line into the command a tick would run. The record side moved with it: the views home is re-allowed in skeletons.AI_GITIGNORE beside the reports shape, the report verb&#x27;s will banner and policy/capabilities.toml name both writers, and ai-visual-plan plus ai-visual-recap ship as declared capabilities with the schema digest moved for them. policy/visual-pages.md carries the harvested block taxonomy and editorial bar from the MIT upstream, attributed, with every budget pointing at contract.py rather than restating a number.</p><h3><code>.ai/reports/022-recap-visual-html-records.html</code></h3><p class='sub'>1226 lines changed</p><pre class='diff'>diff --git a/.ai/reports/022-recap-visual-html-records.html b/.ai/reports/022-recap-visual-html-records.html
 new file mode 100644
-index 00000000..2ce74381
+index 00000000..48b4e8d8
 --- /dev/null
 +++ b/.ai/reports/022-recap-visual-html-records.html
-<span class='hunk'>@@ -0,0 +1,1181 @@</span>
+<span class='hunk'>@@ -0,0 +1,1226 @@</span>
 <span class='add'>+&lt;!doctype html&gt;</span>
 <span class='add'>+&lt;html lang=&quot;en&quot;&gt;</span>
 <span class='add'>+&lt;head&gt;</span>
@@ -108,105 +108,105 @@ index 00000000..2ce74381
 <span class='add'>+&lt;p class=&quot;kicker&quot;&gt;spec 046 · recap&lt;/p&gt;</span>
 <span class='add'>+&lt;h1&gt;Recap: Visual HTML records: pages for research, spec, plan and recap, &lt;/h1&gt;</span>
 <span class='add'>+&lt;p class=&quot;sub&quot;&gt;What this work unit changed, derived from the diff and nothing else.&lt;/p&gt;</span>
-<span class='add'>+&lt;p class=&quot;meta&quot;&gt;spec sha256:b7e60a1af2fe834e336d92fc6b6ea0ef577b22819216a91d9a311a855e2cd779 · base a54b8eaa · 41 files · rendered 2026-08-28&lt;/p&gt;</span>
+<span class='add'>+&lt;p class=&quot;meta&quot;&gt;spec sha256:b7e60a1af2fe834e336d92fc6b6ea0ef577b22819216a91d9a311a855e2cd779 · base a54b8eaa · 42 files · rendered 2026-08-28&lt;/p&gt;</span>
 <span class='add'>+</span>
-<span class='add'>+&lt;h2&gt;What changed&lt;/h2&gt;&lt;ul class=&#x27;tree&#x27;&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.agents/skills/ai-visual-plan/SKILL.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.agents/skills/ai-visual-plan/corpus.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.agents/skills/ai-visual-recap/SKILL.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.agents/skills/ai-visual-recap/corpus.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;.ai/.gitignore&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;.ai/reports/021-skills-integration-roadmap.html&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;AGENTS.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;README.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;docs/adr/0028-specification-045-and-its-plan-are-approved-at-exact-digests.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;docs/adr/0029-the-template-carries-grill-and-council-the-sidecar-conventio.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;docs/adr/0030-exactly-three-real-options-always-before-decision-new-specs.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;docs/adr/0031-specification-046-and-its-plan-are-approved-at-exact-digests.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;docs/solution-intent.html&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;policy/capabilities.toml&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;policy/capability-manifest.schema.json&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;policy/skill-map-accepted.toml&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;policy/visual-pages.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;specs/045-critics-inside-spec/spec.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;specs/046-visual-html-records/plan.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;specs/046-visual-html-records/spec.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/capability.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/cli.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/contract.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;src/ai_engineering/pages.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/report.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/skeletons.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/solution_intent.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/spec.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;src/ai_engineering/templates/page.html&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/wiring.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/council_counts.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_040_ai_write.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_capabilities.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_contracts.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_doctor.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_intent.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_mut_capability_callers.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;tests/test_mut_report.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_mut_spec.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;tests/test_pages.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_quality_gate.py&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Spec 046 shipped the visual record layer the skills roadmap (report 021) asked for, without the agent-native dependency the user ruled out. src/ai_engineering/pages.py is the one renderer: fenced visual blocks in the plan&amp;#x27;s own Markdown become one self-contained page, and ai-eng report view renders a spec/plan page under .ai/views while ai-eng report recap derives a change record under .ai/reports from git diff --name-status and real hunks only — a fabricated excerpt is refused, not padded. The fence wall that makes this safe is spec.fence_records: the task parser, the approval digest and the intent counter all stop at fences, because grill round 1 executed that a fence-blind parser turns a fenced check: line into the command a tick would run. The record side moved with it: the views home is re-allowed in skeletons.AI_GITIGNORE beside the reports shape, the report verb&amp;#x27;s will banner and policy/capabilities.toml name both writers, and ai-visual-plan plus ai-visual-recap ship as declared capabilities with the schema digest moved for them. policy/visual-pages.md carries the harvested block taxonomy and editorial bar from the MIT upstream, attributed, with every budget pointing at contract.py rather than restating a number.&lt;/p&gt;&lt;h3&gt;&lt;code&gt;src/ai_engineering/pages.py&lt;/code&gt;&lt;/h3&gt;&lt;p class=&#x27;sub&#x27;&gt;433 lines changed&lt;/p&gt;&lt;pre class=&#x27;diff&#x27;&gt;diff --git a/src/ai_engineering/pages.py b/src/ai_engineering/pages.py</span>
+<span class='add'>+&lt;h2&gt;What changed&lt;/h2&gt;&lt;ul class=&#x27;tree&#x27;&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.agents/skills/ai-visual-plan/SKILL.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.agents/skills/ai-visual-plan/corpus.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.agents/skills/ai-visual-recap/SKILL.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.agents/skills/ai-visual-recap/corpus.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;.ai/.gitignore&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;.ai/reports/021-skills-integration-roadmap.html&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.ai/reports/022-recap-visual-html-records.html&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;AGENTS.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;README.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;docs/adr/0028-specification-045-and-its-plan-are-approved-at-exact-digests.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;docs/adr/0029-the-template-carries-grill-and-council-the-sidecar-conventio.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;docs/adr/0030-exactly-three-real-options-always-before-decision-new-specs.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;docs/adr/0031-specification-046-and-its-plan-are-approved-at-exact-digests.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;docs/solution-intent.html&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;policy/capabilities.toml&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;policy/capability-manifest.schema.json&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;policy/skill-map-accepted.toml&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;policy/visual-pages.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;specs/045-critics-inside-spec/spec.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;specs/046-visual-html-records/plan.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;specs/046-visual-html-records/spec.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/capability.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/cli.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/contract.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;src/ai_engineering/pages.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/report.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/skeletons.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/solution_intent.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/spec.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;src/ai_engineering/templates/page.html&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/wiring.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/council_counts.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_040_ai_write.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_capabilities.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_contracts.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_doctor.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_intent.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_mut_capability_callers.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;tests/test_mut_report.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_mut_spec.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;tests/test_pages.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_quality_gate.py&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Spec 046 shipped the visual record layer the skills roadmap (report 021) asked for, without the agent-native dependency the user ruled out. src/ai_engineering/pages.py is the one renderer: fenced visual blocks in the plan&amp;#x27;s own Markdown become one self-contained page, and ai-eng report view renders a spec/plan page under .ai/views while ai-eng report recap derives a change record under .ai/reports from git diff --name-status and real hunks only — a fabricated excerpt is refused, not padded. The fence wall that makes this safe is spec.fence_records: the task parser, the approval digest and the intent counter all stop at fences, because grill round 1 executed that a fence-blind parser turns a fenced check: line into the command a tick would run. The record side moved with it: the views home is re-allowed in skeletons.AI_GITIGNORE beside the reports shape, the report verb&amp;#x27;s will banner and policy/capabilities.toml name both writers, and ai-visual-plan plus ai-visual-recap ship as declared capabilities with the schema digest moved for them. policy/visual-pages.md carries the harvested block taxonomy and editorial bar from the MIT upstream, attributed, with every budget pointing at contract.py rather than restating a number.&lt;/p&gt;&lt;h3&gt;&lt;code&gt;.ai/reports/022-recap-visual-html-records.html&lt;/code&gt;&lt;/h3&gt;&lt;p class=&#x27;sub&#x27;&gt;1181 lines changed&lt;/p&gt;&lt;pre class=&#x27;diff&#x27;&gt;diff --git a/.ai/reports/022-recap-visual-html-records.html b/.ai/reports/022-recap-visual-html-records.html</span>
 <span class='add'>+new file mode 100644</span>
-<span class='add'>+index 00000000..8ed4383e</span>
+<span class='add'>+index 00000000..2ce74381</span>
 <span class='add'>+--- /dev/null</span>
-++++ b/src/ai_engineering/pages.py
-<span class='add'>+&lt;span class=&#x27;hunk&#x27;&gt;@@ -0,0 +1,433 @@&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;quot;&amp;quot;&amp;quot;The renderer behind `ai-eng report view|recap`: fenced `visual` blocks to one page.&lt;/span&gt;</span>
+++++ b/.ai/reports/022-recap-visual-html-records.html
+<span class='add'>+&lt;span class=&#x27;hunk&#x27;&gt;@@ -0,0 +1,1181 @@&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;!doctype html&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;html lang=&amp;quot;en&amp;quot;&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;head&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;meta charset=&amp;quot;utf-8&amp;quot;&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;meta name=&amp;quot;viewport&amp;quot; content=&amp;quot;width=device-width, initial-scale=1&amp;quot;&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;meta name=&amp;quot;color-scheme&amp;quot; content=&amp;quot;light dark&amp;quot;&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;title&amp;gt;Recap: Visual HTML records: pages for research, spec, plan and recap, &amp;lt;/title&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;link rel=&amp;quot;icon&amp;quot; href=&amp;quot;data:,&amp;quot;&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;style&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,&amp;quot;Segoe UI&amp;quot;,Roboto,Helvetica,Arial,sans-serif}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+main{max-width:960px;margin:0 auto;padding:40px 28px 80px}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:36px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.meta{color:var(--muted);font-size:13px;margin-bottom:28px;font-family:var(--mono)}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+code,pre{font-family:var(--mono)}code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+pre{background:var(--code);padding:12px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+pre.diff .add{color:var(--good);display:block}pre.diff .del{color:var(--bad);display:block}pre.diff .hunk{color:var(--accent);display:block}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.ok{background:var(--good-soft);border-left:3px solid var(--good)}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.flag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:6px;font-family:var(--mono)}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.f-A{background:var(--good-soft);color:var(--good)}.f-M{background:var(--warn-soft);color:var(--warn)}.f-D{background:var(--bad-soft);color:var(--bad)}.f-R{background:var(--accent-soft);color:var(--accent)}.f-C{background:var(--code);color:var(--muted)}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+ul.tree{list-style:none;padding-left:18px;margin:4px 0;font-family:var(--mono);font-size:14px}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+ul.tree ul{padding-left:20px}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.wireframe{border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0;background:var(--bg)}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.wf-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+@media (max-width:760px){.wf-pair{grid-template-columns:1fr}}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.wf-pair h3{margin:4px 0;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.wireframe .wf-body{border:1px dashed var(--line);border-radius:8px;padding:12px;overflow:hidden}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.wf-body table,.wf-body pre{max-width:100%}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+details{margin:8px 0;border:1px solid var(--line);border-radius:8px;padding:0 12px}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+summary{cursor:pointer;padding:8px 0;font-weight:600;font-size:14px}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.checklist li{margin:3px 0}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.checklist .done{color:var(--muted);text-decoration:line-through}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+.meta a{color:var(--accent)}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;/style&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;/head&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;body&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;div class=&amp;quot;topbar&amp;quot;&amp;gt;&amp;lt;a class=&amp;quot;brand&amp;quot; href=&amp;quot;#&amp;quot;&amp;gt;ai-engineering &amp;lt;small&amp;gt;· spec 046 · recap&amp;lt;/small&amp;gt;&amp;lt;/a&amp;gt;&amp;lt;/div&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;main&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;p class=&amp;quot;kicker&amp;quot;&amp;gt;spec 046 · recap&amp;lt;/p&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;h1&amp;gt;Recap: Visual HTML records: pages for research, spec, plan and recap, &amp;lt;/h1&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;p class=&amp;quot;sub&amp;quot;&amp;gt;What this work unit changed, derived from the diff and nothing else.&amp;lt;/p&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;p class=&amp;quot;meta&amp;quot;&amp;gt;spec sha256:b7e60a1af2fe834e336d92fc6b6ea0ef577b22819216a91d9a311a855e2cd779 · base a54b8eaa · 41 files · rendered 2026-08-28&amp;lt;/p&amp;gt;&lt;/span&gt;</span>
 <span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+Specification 046 puts the review surfaces of the cycle — spec, plan, recap — into&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+self-contained HTML, and grill round 1 decided the shape of this module: the skills author&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+content, this file owns the *form*, and nothing authored here may execute. The output is&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+one HTML document with no `&amp;lt;script&amp;gt;`, no external URL and no network; it opens from disk&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+in any browser and it renders the same in five years, because it depends on no toolchain&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+that can move under it.&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+The grammar is a fenced block inside ordinary Markdown::&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    ```visual&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    {&amp;quot;block&amp;quot;: &amp;quot;diagram&amp;quot;, &amp;quot;title&amp;quot;: &amp;quot;…&amp;quot;, &amp;quot;steps&amp;quot;: […]}&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    ```&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+A plain reader sees a fenced JSON note; this module sees a surface. An unknown block name&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+is never dropped: it lands in a visible warning section on the page, because a renderer&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+that quietly loses a block is the silent-coercion bug this repository exists to delete.&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;quot;&amp;quot;&amp;quot;&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+from __future__ import annotations&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+import html&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+import json&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+import re&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+from importlib import resources&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+from typing import Any&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+from . import contract, spec&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+# The block vocabulary, one renderer each. Harvested from the MIT block taxonomy of&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+# Builder.io&amp;#x27;s visual-plan/visual-recap skills (attribution in policy/visual-pages.md);&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+# the budgets are `contract`&amp;#x27;s, never numbers repeated here.&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+KNOWN_BLOCKS = frozenset(&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    {&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;diagram&amp;quot;,&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;file-tree&amp;quot;,&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;decision-table&amp;quot;,&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;open-questions&amp;quot;,&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;checklist&amp;quot;,&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;wireframe-before-after&amp;quot;,&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;diff&amp;quot;,&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;narrative&amp;quot;,&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    }&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+)&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+class PageError(ValueError):&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    &amp;quot;&amp;quot;&amp;quot;A page that cannot be rendered honestly. Never a partial page, never a warning.&amp;quot;&amp;quot;&amp;quot;&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+def _is_visual(info: str) -&amp;gt; bool:&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    return info.split()[0] == &amp;quot;visual&amp;quot; if info.split() else False&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+def visual_blocks(text: str) -&amp;gt; tuple[list[dict[str, Any]], list[str]]:&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    &amp;quot;&amp;quot;&amp;quot;The `visual` blocks one document carries, and the warnings their flaws earned.&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    The fence walk is `spec.fence_records` — the same CommonMark-aware reader the plan&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    parser uses, so a `visual` example shown inside an ordinary fence stays content and&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    an unclosed fence runs to the end instead of swallowing a closing delimiter. A&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    malformed JSON body is a warning, not a crash — one bad block must not swallow the&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    page — and an unknown block name keeps its raw payload for the warning section, so&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    the reader sees what was dropped rather than trusting that nothing was.&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    &amp;quot;&amp;quot;&amp;quot;&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    blocks: list[dict[str, Any]] = []&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    warnings: list[str] = []&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    for record in spec.fence_records(text):&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        if not _is_visual(record.info):&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            continue&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        body = text[record.body : record.end]&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        # Drop the closing fence line, if the record carries one.&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        closing = re.search(r&amp;quot;\n[ ]{0,3}(`{3,}|~{3,})[ \t]*$&amp;quot;, body)&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        if closing:&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            body = body[: closing.start()]&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        try:&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            payload = json.loads(body)&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        except json.JSONDecodeError as bad:&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            warnings.append(f&amp;quot;a `visual` block is not valid JSON ({bad}): rendering nothing&amp;quot;)&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            continue&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        if not isinstance(payload, dict) or not isinstance(payload.get(&amp;quot;block&amp;quot;), str):&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            warnings.append(&amp;#x27;a `visual` block carries no `&amp;quot;block&amp;quot;` name: rendering nothing&amp;#x27;)&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            continue&lt;/span&gt;</span>
-<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        if payload[&amp;quot;block&amp;quot;] not in KNOWN_BLOCKS:&lt;/span&gt;</span>
-</pre><h3><code>src/ai_engineering/pages.py</code></h3><p class='sub'>437 lines changed</p><pre class='diff'>diff --git a/src/ai_engineering/pages.py b/src/ai_engineering/pages.py
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;h2&amp;gt;What changed&amp;lt;/h2&amp;gt;&amp;lt;ul class=&amp;#x27;tree&amp;#x27;&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-A&amp;#x27;&amp;gt;A&amp;lt;/span&amp;gt;.agents/skills/ai-visual-plan/SKILL.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-A&amp;#x27;&amp;gt;A&amp;lt;/span&amp;gt;.agents/skills/ai-visual-plan/corpus.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-A&amp;#x27;&amp;gt;A&amp;lt;/span&amp;gt;.agents/skills/ai-visual-recap/SKILL.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-A&amp;#x27;&amp;gt;A&amp;lt;/span&amp;gt;.agents/skills/ai-visual-recap/corpus.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;.ai/.gitignore&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;.ai/reports/021-skills-integration-roadmap.html&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;AGENTS.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;README.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;docs/adr/0028-specification-045-and-its-plan-are-approved-at-exact-digests.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;docs/adr/0029-the-template-carries-grill-and-council-the-sidecar-conventio.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;docs/adr/0030-exactly-three-real-options-always-before-decision-new-specs.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-A&amp;#x27;&amp;gt;A&amp;lt;/span&amp;gt;docs/adr/0031-specification-046-and-its-plan-are-approved-at-exact-digests.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;docs/solution-intent.html&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;policy/capabilities.toml&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;policy/capability-manifest.schema.json&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;policy/skill-map-accepted.toml&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-A&amp;#x27;&amp;gt;A&amp;lt;/span&amp;gt;policy/visual-pages.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;specs/045-critics-inside-spec/spec.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;specs/046-visual-html-records/plan.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;specs/046-visual-html-records/spec.md&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;src/ai_engineering/capability.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;src/ai_engineering/cli.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;src/ai_engineering/contract.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-A&amp;#x27;&amp;gt;A&amp;lt;/span&amp;gt;src/ai_engineering/pages.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;src/ai_engineering/report.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;src/ai_engineering/skeletons.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;src/ai_engineering/solution_intent.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;src/ai_engineering/spec.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-A&amp;#x27;&amp;gt;A&amp;lt;/span&amp;gt;src/ai_engineering/templates/page.html&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;src/ai_engineering/wiring.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;tests/council_counts.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;tests/test_040_ai_write.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;tests/test_capabilities.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;tests/test_contracts.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;tests/test_doctor.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;tests/test_intent.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;tests/test_mut_capability_callers.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-A&amp;#x27;&amp;gt;A&amp;lt;/span&amp;gt;tests/test_mut_report.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;tests/test_mut_spec.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-A&amp;#x27;&amp;gt;A&amp;lt;/span&amp;gt;tests/test_pages.py&amp;lt;/li&amp;gt;&amp;lt;li&amp;gt;&amp;lt;span class=&amp;#x27;flag f-M&amp;#x27;&amp;gt;M&amp;lt;/span&amp;gt;tests/test_quality_gate.py&amp;lt;/li&amp;gt;&amp;lt;/ul&amp;gt;&amp;lt;p&amp;gt;Spec 046 shipped the visual record layer the skills roadmap (report 021) asked for, without the agent-native dependency the user ruled out. src/ai_engineering/pages.py is the one renderer: fenced visual blocks in the plan&amp;amp;#x27;s own Markdown become one self-contained page, and ai-eng report view renders a spec/plan page under .ai/views while ai-eng report recap derives a change record under .ai/reports from git diff --name-status and real hunks only — a fabricated excerpt is refused, not padded. The fence wall that makes this safe is spec.fence_records: the task parser, the approval digest and the intent counter all stop at fences, because grill round 1 executed that a fence-blind parser turns a fenced check: line into the command a tick would run. The record side moved with it: the views home is re-allowed in skeletons.AI_GITIGNORE beside the reports shape, the report verb&amp;amp;#x27;s will banner and policy/capabilities.toml name both writers, and ai-visual-plan plus ai-visual-recap ship as declared capabilities with the schema digest moved for them. policy/visual-pages.md carries the harvested block taxonomy and editorial bar from the MIT upstream, attributed, with every budget pointing at contract.py rather than restating a number.&amp;lt;/p&amp;gt;&amp;lt;h3&amp;gt;&amp;lt;code&amp;gt;src/ai_engineering/pages.py&amp;lt;/code&amp;gt;&amp;lt;/h3&amp;gt;&amp;lt;p class=&amp;#x27;sub&amp;#x27;&amp;gt;433 lines changed&amp;lt;/p&amp;gt;&amp;lt;pre class=&amp;#x27;diff&amp;#x27;&amp;gt;diff --git a/src/ai_engineering/pages.py b/src/ai_engineering/pages.py&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+new file mode 100644&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+index 00000000..8ed4383e&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+--- /dev/null&lt;/span&gt;</span>
++++++ b/src/ai_engineering/pages.py
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;hunk&amp;#x27;&amp;gt;@@ -0,0 +1,433 @@&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+&amp;amp;quot;&amp;amp;quot;&amp;amp;quot;The renderer behind `ai-eng report view|recap`: fenced `visual` blocks to one page.&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+Specification 046 puts the review surfaces of the cycle — spec, plan, recap — into&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+self-contained HTML, and grill round 1 decided the shape of this module: the skills author&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+content, this file owns the *form*, and nothing authored here may execute. The output is&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+one HTML document with no `&amp;amp;lt;script&amp;amp;gt;`, no external URL and no network; it opens from disk&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+in any browser and it renders the same in five years, because it depends on no toolchain&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+that can move under it.&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+The grammar is a fenced block inside ordinary Markdown::&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+    ```visual&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+    {&amp;amp;quot;block&amp;amp;quot;: &amp;amp;quot;diagram&amp;amp;quot;, &amp;amp;quot;title&amp;amp;quot;: &amp;amp;quot;…&amp;amp;quot;, &amp;amp;quot;steps&amp;amp;quot;: […]}&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+    ```&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+A plain reader sees a fenced JSON note; this module sees a surface. An unknown block name&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+is never dropped: it lands in a visible warning section on the page, because a renderer&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+that quietly loses a block is the silent-coercion bug this repository exists to delete.&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+&amp;amp;quot;&amp;amp;quot;&amp;amp;quot;&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+from __future__ import annotations&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+import html&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+import json&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+import re&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;lt;span class=&amp;#x27;add&amp;#x27;&amp;gt;+from importlib import resources&amp;lt;/span&amp;gt;&lt;/span&gt;</span>
+</pre><h3><code>src/ai_engineering/pages.py</code></h3><p class='sub'>425 lines changed</p><pre class='diff'>diff --git a/src/ai_engineering/pages.py b/src/ai_engineering/pages.py
 new file mode 100644
-index 00000000..b0de2e36
+index 00000000..fa1bf0d3
 --- /dev/null
 +++ b/src/ai_engineering/pages.py
-<span class='hunk'>@@ -0,0 +1,437 @@</span>
+<span class='hunk'>@@ -0,0 +1,425 @@</span>
 <span class='add'>+&quot;&quot;&quot;The renderer behind `ai-eng report view|recap`: fenced `visual` blocks to one page.</span>
 <span class='add'>+</span>
 <span class='add'>+Specification 046 puts the review surfaces of the cycle — spec, plan, recap — into</span>
@@ -352,7 +352,7 @@ index 00000000..b0de2e36
 <span class='add'>+    list_open = False</span>
 <span class='add'>+</span>
 </pre><h3><code>specs/046-visual-html-records/plan.md</code></h3><p class='sub'>312 lines changed</p><pre class='diff'>diff --git a/specs/046-visual-html-records/plan.md b/specs/046-visual-html-records/plan.md
-index 19953d2b..ca6e5903 100644
+index 19953d2b..70a2a9b3 100644
 --- a/specs/046-visual-html-records/plan.md
 +++ b/specs/046-visual-html-records/plan.md
 <span class='hunk'>@@ -9,156 +9,186 @@ ref: &quot;&quot;</span>
@@ -501,8 +501,8 @@ index 19953d2b..ca6e5903 100644
 <span class='add'>+   unchanged (fence-blind behaviour only changes for files carrying fences, of which there</span>
 <span class='add'>+   are none yet).</span>
 
-</pre><h3><code>specs/046-visual-html-records/spec.md</code></h3><p class='sub'>260 lines changed</p><pre class='diff'>diff --git a/specs/046-visual-html-records/spec.md b/specs/046-visual-html-records/spec.md
-index a90e8158..01274594 100644
+</pre><h3><code>specs/046-visual-html-records/spec.md</code></h3><p class='sub'>269 lines changed</p><pre class='diff'>diff --git a/specs/046-visual-html-records/spec.md b/specs/046-visual-html-records/spec.md
+index a90e8158..0ecf08e6 100644
 --- a/specs/046-visual-html-records/spec.md
 +++ b/specs/046-visual-html-records/spec.md
 <span class='hunk'>@@ -29,25 +29,37 @@ html` (audits `SkillsAudit`, `FrameworkAudit`):</span>
@@ -580,7 +580,7 @@ index a90e8158..01274594 100644
 <span class='add'>+   tests, skill edits, and a Pages decision that is not ours to make.</span>
 
  ## Decision
-<span class='hunk'>@@ -80,16 +92,23 @@ html` (audits `SkillsAudit`, `FrameworkAudit`):</span>
+<span class='hunk'>@@ -80,41 +92,51 @@ html` (audits `SkillsAudit`, `FrameworkAudit`):</span>
  Option 3. Precisely:
 
 <span class='del'>-- **The block grammar is fenced directives inside the Markdown.** A plan carries</span>
@@ -615,8 +615,10 @@ index a90e8158..01274594 100644
 <span class='add'>+  **canonical** digests — the same values `_digest` computes and the ADR signs — plus the</span>
 <span class='add'>+  date and the `file://` path.</span>
  - **Two skills, four page types.** `ai-visual-plan` turns a plan — a pasted text plan,
-   another agent&#x27;s plan, or `specs/NNN/plan.md` — into the visual review page; `ai-visual-
-<span class='hunk'>@@ -98,23 +117,26 @@ Option 3. Precisely:</span>
+<span class='del'>-  another agent&#x27;s plan, or `specs/NNN/plan.md` — into the visual review page; `ai-visual-</span>
+<span class='add'>+  another agent&#x27;s plan, or a `specs/NNN-slug/plan.md` — into the visual review page; `ai-visual-</span>
+   recap` turns a branch, commit, PR diff or finished work unit into a recap page. The cycle
+   verbs call them at their natural step (ai-spec/ai-plan offer the view for the gate;
    ai-build/ai-goal/ai-ship produce the recap at the hand-off). Research keeps writing
    `.ai/reports/` directly. So: research, spec, plan, recap — all HTML, all in-repo.
 <span class='del'>-- **The link duty.** Every command that writes a page prints its absolute `file://` URL,</span>
@@ -649,10 +651,8 @@ index a90e8158..01274594 100644
 <span class='add'>+  is a privacy decision (rule 8); it is an open question for the human, not a default.</span>
  - **Doctrine.** `DOCTRINE_CEILING` rises 150 → 180 (user-authorized), and `AGENTS.md` gains
    four always-on rules: (a) a turn ends as Done-with-the-artifact-that-proves-it or as one
-   line `BLOCKED: &lt;what&gt; — unblock: &lt;one thing under a minute&gt;`; (b) every final response
-<span class='del'>-  ends with the one-line status `🟢/🟡/🔴`, and a 🟡 names its pending item legibly; (c)</span>
-</pre><h3><code>src/ai_engineering/report.py</code></h3><p class='sub'>235 lines changed</p><pre class='diff'>diff --git a/src/ai_engineering/report.py b/src/ai_engineering/report.py
-index d7bd8179..adb0362b 100644
+</pre><h3><code>src/ai_engineering/report.py</code></h3><p class='sub'>247 lines changed</p><pre class='diff'>diff --git a/src/ai_engineering/report.py b/src/ai_engineering/report.py
+index d7bd8179..41ebab72 100644
 --- a/src/ai_engineering/report.py
 +++ b/src/ai_engineering/report.py
 <span class='hunk'>@@ -10,4 +10,6 @@ from __future__ import annotations</span>
@@ -675,7 +675,7 @@ index d7bd8179..adb0362b 100644
 <span class='add'>+    spec,</span>
      surface,
  )
-<span class='hunk'>@@ -343,4 +348,219 @@ def record_stop(root: Path | None, args: argparse.Namespace) -&gt; outcome.Result:</span>
+<span class='hunk'>@@ -343,4 +348,231 @@ def record_stop(root: Path | None, args: argparse.Namespace) -&gt; outcome.Result:</span>
 
 
 <span class='add'>+# ---------------------------------------------------------------------------</span>
@@ -790,23 +790,23 @@ index d7bd8179..adb0362b 100644
 <span class='add'>+        return outcome.result(&quot;INCOMPLETE&quot;)</span>
 <span class='add'>+    probe = subprocess.run(</span>
 <span class='add'>+        [&quot;git&quot;, &quot;rev-parse&quot;, &quot;--verify&quot;, f&quot;{args.base}^{{commit}}&quot;],</span>
-<span class='add'>+        capture_output=True, text=True, cwd=str(root), check=False, timeout=30,</span>
+<span class='add'>+        capture_output=True,</span>
+<span class='add'>+        text=True,</span>
+<span class='add'>+        cwd=str(root),</span>
+<span class='add'>+        check=False,</span>
+<span class='add'>+        timeout=30,</span>
 <span class='add'>+    )</span>
 <span class='add'>+    if probe.returncode:</span>
 <span class='add'>+        print(f&quot;  INCOMPLETE  --base {args.base!r} is not a commit here&quot;)</span>
 <span class='add'>+        return outcome.result(&quot;INCOMPLETE&quot;)</span>
 <span class='add'>+    named = subprocess.run(</span>
 <span class='add'>+        [&quot;git&quot;, &quot;diff&quot;, &quot;--name-status&quot;, args.base],</span>
-<span class='add'>+        capture_output=True, text=True, cwd=str(root), check=False, timeout=60,</span>
-<span class='add'>+    )</span>
-<span class='add'>+    if named.returncode:</span>
-<span class='add'>+        print(&quot;  INCOMPLETE  git diff could not read the range&quot;)</span>
-</pre><h3><code>tests/test_pages.py</code></h3><p class='sub'>171 lines changed</p><pre class='diff'>diff --git a/tests/test_pages.py b/tests/test_pages.py
+</pre><h3><code>tests/test_pages.py</code></h3><p class='sub'>167 lines changed</p><pre class='diff'>diff --git a/tests/test_pages.py b/tests/test_pages.py
 new file mode 100644
-index 00000000..7f790bbb
+index 00000000..1f82092a
 --- /dev/null
 +++ b/tests/test_pages.py
-<span class='hunk'>@@ -0,0 +1,171 @@</span>
+<span class='hunk'>@@ -0,0 +1,167 @@</span>
 <span class='add'>+&quot;&quot;&quot;The pages module&#x27;s contract, proved where the renderer could quietly break it.</span>
 <span class='add'>+</span>
 <span class='add'>+Specification 046 makes this file the only door a review page passes through, so the tests</span>
@@ -837,9 +837,7 @@ index 00000000..7f790bbb
 <span class='add'>+    &quot;&quot;&quot;</span>
 <span class='add'>+</span>
 <span class='add'>+    text = &quot;Intro prose.\n\n&quot; + _fence({&quot;block&quot;: &quot;gantt-chart&quot;, &quot;rows&quot;: []})</span>
-<span class='add'>+    page = pages.render_document(</span>
-<span class='add'>+        text, kicker=&quot;test&quot;, title=&quot;A page&quot;, sub=&quot;&quot;, meta=&quot;&quot;</span>
-<span class='add'>+    )</span>
+<span class='add'>+    page = pages.render_document(text, kicker=&quot;test&quot;, title=&quot;A page&quot;, sub=&quot;&quot;, meta=&quot;&quot;)</span>
 <span class='add'>+    assert &quot;gantt-chart&quot; in page, &quot;an unknown block vanished without a trace&quot;</span>
 <span class='add'>+    assert &quot;could not render everything&quot; in page</span>
 <span class='add'>+    assert &quot;&lt;table&quot; not in page.split(&quot;could not render everything&quot;)[1], (</span>
@@ -848,7 +846,7 @@ index 00000000..7f790bbb
 <span class='add'>+</span>
 <span class='add'>+</span>
 <span class='add'>+def test_malformed_json_in_a_fence_warns_and_renders_the_rest():</span>
-<span class='add'>+    text = &quot;Before.\n\n```visual\n{\&quot;block\&quot;: \&quot;diagram\&quot;, \n```\n\nAfter.\n&quot;</span>
+<span class='add'>+    text = &#x27;Before.\n\n```visual\n{&quot;block&quot;: &quot;diagram&quot;, \n```\n\nAfter.\n&#x27;</span>
 <span class='add'>+    page = pages.render_document(text, kicker=&quot;t&quot;, title=&quot;A page&quot;, sub=&quot;&quot;, meta=&quot;&quot;)</span>
 <span class='add'>+    assert &quot;not valid JSON&quot; in page</span>
 <span class='add'>+    assert &quot;Before.&quot; in page and &quot;After.&quot; in page, &quot;one bad block swallowed the document&quot;</span>
@@ -872,9 +870,7 @@ index 00000000..7f790bbb
 <span class='add'>+            &quot;&lt;p style=&#x27;color:red&#x27;&gt;new&lt;/p&gt;&lt;a href=&#x27;javascript:alert(1)&#x27;&gt;go&lt;/a&gt;&lt;/div&gt;&quot;</span>
 <span class='add'>+        },</span>
 <span class='add'>+    }</span>
-<span class='add'>+    page = pages.render_document(</span>
-<span class='add'>+        _fence(payload), kicker=&quot;t&quot;, title=&quot;A page&quot;, sub=&quot;&quot;, meta=&quot;&quot;</span>
-<span class='add'>+    )</span>
+<span class='add'>+    page = pages.render_document(_fence(payload), kicker=&quot;t&quot;, title=&quot;A page&quot;, sub=&quot;&quot;, meta=&quot;&quot;)</span>
 <span class='add'>+    for forbidden in (&quot;onclick&quot;, &quot;evil.test&quot;, &quot;&lt;script&quot;, &quot;javascript:&quot;):</span>
 <span class='add'>+        assert forbidden not in page, f&quot;a wireframe carried {forbidden} into the page&quot;</span>
 <span class='add'>+    assert &quot;color:red&quot; in page, &quot;the filter removed the inline style a mockup needs&quot;</span>
@@ -951,8 +947,12 @@ index 00000000..7f790bbb
 <span class='add'>+            &quot;after&quot;: {&quot;html&quot;: &quot;&lt;p&gt;new&lt;/p&gt;&quot;},</span>
 <span class='add'>+        },</span>
 <span class='add'>+        {</span>
-</pre><h3><code>src/ai_engineering/spec.py</code></h3><p class='sub'>130 lines changed</p><pre class='diff'>diff --git a/src/ai_engineering/spec.py b/src/ai_engineering/spec.py
-index 27eff385..fff5d281 100644
+<span class='add'>+            &quot;block&quot;: &quot;diff&quot;,</span>
+<span class='add'>+            &quot;path&quot;: &quot;a.py&quot;,</span>
+<span class='add'>+            &quot;text&quot;: &quot;@@ -1 +1 @@\n-old\n+new&quot;,</span>
+<span class='add'>+            &quot;summary&quot;: &quot;one line&quot;,</span>
+</pre><h3><code>src/ai_engineering/spec.py</code></h3><p class='sub'>129 lines changed</p><pre class='diff'>diff --git a/src/ai_engineering/spec.py b/src/ai_engineering/spec.py
+index 27eff385..440a66c2 100644
 --- a/src/ai_engineering/spec.py
 +++ b/src/ai_engineering/spec.py
 <span class='hunk'>@@ -22,5 +22,5 @@ from dataclasses import dataclass</span>
@@ -1101,12 +1101,12 @@ index 27eff385..fff5d281 100644
      line = re.compile(r&quot;^([ \t]*&quot; + re.escape(task) + r&quot;\.) &quot; + _COLUMN + r&quot;(?=\*\*)&quot;, re.M)
 <span class='del'>-    written = line.sub(lambda hit: f&quot;{hit.group(1)} {mark}&quot;, body, count=1)</span>
 <span class='add'>+    spans = fence_spans(body)</span>
-</pre><h3><code>tests/test_mut_report.py</code></h3><p class='sub'>113 lines changed</p><pre class='diff'>diff --git a/tests/test_mut_report.py b/tests/test_mut_report.py
+</pre><h3><code>tests/test_mut_report.py</code></h3><p class='sub'>111 lines changed</p><pre class='diff'>diff --git a/tests/test_mut_report.py b/tests/test_mut_report.py
 new file mode 100644
-index 00000000..3edfb246
+index 00000000..a80001c2
 --- /dev/null
 +++ b/tests/test_mut_report.py
-<span class='hunk'>@@ -0,0 +1,113 @@</span>
+<span class='hunk'>@@ -0,0 +1,111 @@</span>
 <span class='add'>+&quot;&quot;&quot;`report recap`&#x27;s promises, pinned where the renderer could quietly break them.</span>
 <span class='add'>+</span>
 <span class='add'>+Specification 046 sells the recap as the page a reviewer trusts: its file-tree and every</span>
@@ -1129,9 +1129,7 @@ index 00000000..3edfb246
 <span class='add'>+</span>
 <span class='add'>+</span>
 <span class='add'>+def _git(root: Path, *args: str) -&gt; str:</span>
-<span class='add'>+    out = subprocess.run(</span>
-<span class='add'>+        [&quot;git&quot;, *args], cwd=str(root), capture_output=True, text=True, check=True</span>
-<span class='add'>+    )</span>
+<span class='add'>+    out = subprocess.run([&quot;git&quot;, *args], cwd=str(root), capture_output=True, text=True, check=True)</span>
 <span class='add'>+    return out.stdout</span>
 <span class='add'>+</span>
 <span class='add'>+</span>
