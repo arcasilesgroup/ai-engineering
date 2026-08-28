@@ -533,6 +533,12 @@ jobs:
   # It gates: a PR whose recap the renderer refuses — a hunk that is not a real hunk — is a
   # PR whose record cannot be read, and that is a red, not a shrug.
   #
+  # Not conditioned on the event name: the workflow's own contract refuses that, because a
+  # lane the merge queue skips is a skipped job and a skipped job is a failure in CI Result.
+  # So it runs everywhere and says "not applicable" out loud on a push, the same way the
+  # claim step says it on a branch that holds no claim — a quiet pass and a real one look
+  # identical in a log six weeks later.
+  #
   # GitHub Pages is off for this repository (a 404 is the measurement), so the page is
   # uploaded as a run artifact and the comment says so. The enabled branch fails loudly
   # rather than printing a URL nothing published: the public-URL privacy decision belongs
@@ -546,7 +552,6 @@ jobs:
   # says; the comment then warns instead of failing, because the artifact is still there.
   recap:
     name: recap the pull request
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -569,36 +574,40 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          if [ -z "$BASE_SHA" ]; then
+            echo "this event is not a pull request: the recap is not applicable"
+            exit 0
+          fi
           SPEC=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" \
             | sed -n 's|^specs/\([0-9][0-9][0-9]\)-.*|\1|p' | sort -u | tail -1)
           if [ -z "$SPEC" ]; then
             echo "no spec is touched by this pull request: the recap is not applicable"
             exit 0
           fi
-          echo "SPEC=$SPEC" >> "$GITHUB_ENV"
+          # Only the marker crosses into the next steps; the SHAs are this step's own env.
+          { echo "SPEC=$SPEC"; } >> "$GITHUB_ENV"
           ai-eng report recap --spec "$SPEC" --base "$BASE_SHA" \
             --summary "CI recap of pull request $HEAD_SHA, rendered from git diff $BASE_SHA..$HEAD_SHA by the check workflow's recap job."
       - name: the page must exist, or this lane is theatre
+        if: env.SPEC != ''
         run: ls .ai/reports/*-recap-*.html
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: env.SPEC != ''
         with:
           name: recap-page
           path: .ai/reports/*-recap-*.html
           if-no-files-found: error
       - name: one link, and the honest one
+        if: env.SPEC != ''
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [ -z "${SPEC:-}" ]; then
-            echo "no spec, no page, no comment"
-            exit 0
-          fi
           if gh api "repos/$REPO/pages" >/dev/null 2>&1; then
             echo "::error title=Pages is on::this workflow uploads artifacts and does not publish to Pages; publishing is the human decision spec 046 names, so wire it deliberately rather than let a bot guess the audience."
             exit 1
@@ -630,7 +639,6 @@ jobs:
         env:
           SNYK_EVIDENCE: ${{ needs.snyk.outputs.evidence }}
           FORK: ${{ github.event.pull_request.head.repo.fork }}
-          EVENT: ${{ github.event_name }}
           RESULTS: >-
             check=${{ needs.check.result }}
             suite=${{ needs.suite.result }}
@@ -643,17 +651,9 @@ jobs:
         run: |
           failed=0 ran=0
           for pair in $RESULTS; do
-            name="${pair%%=*}"; res="${pair##*=}"
-            printf '  %-12s %s\n' "$name" "$res"
+            printf '  %-12s %s\n' "${pair%%=*}" "${pair##*=}"
             ran=$((ran + 1))
-            # `recap` is conditional by design and skipped outside pull requests; a skip
-            # there is the job saying "not my event". On a pull_request it must not be
-            # skipped, and the line below refuses the silence the same way it refuses a
-            # deleted lane.
-            if [ "$name" = recap ] && [ "$res" = skipped ] && [ "$EVENT" != pull_request ]; then
-              continue
-            fi
-            [ "$res" = "success" ] || failed=1
+            [ "${pair##*=}" = "success" ] || failed=1
           done
           if [ "$failed" -ne 0 ]; then
             echo "::error title=CI Result::a job did not report success. A skipped job counts as a failure: a gate nobody notices stopping is a gate that is already gone."
