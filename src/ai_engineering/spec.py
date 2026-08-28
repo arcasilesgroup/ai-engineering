@@ -280,10 +280,12 @@ CLAIMS_LABEL = "The claims that could start together"
 # way for validation; this is the same rule where offsets must survive, because the
 # readers below match against the original text and mask around the matches rather than
 # deleting lines.
-# One shared indent anchor and one trailing `$`: the old two-alternative form repeated
-# both, and `[ ]{0,3}` is a character class around a single character — the engine paid
-# for a set to match one space. Group order (marker, info, marker, info) is unchanged.
-_FENCE_OPEN = re.compile(r"^ {0,3}(?:(`{3,})([^`]*)|(~{3,})(.*))$", re.M)
+# One shared indent anchor and one trailing `$`. Two repairs: `[ ]{0,3}` was a
+# character class around one space, and `(~{3,})(.*)` let the engine split a run of
+# tildes between marker and info in exponentially many ways on a failing line — the
+# `(?!~)` pins the marker to the maximal run, which is what CommonMark means anyway.
+# Group order (marker, info, marker, info) is unchanged.
+_FENCE_OPEN = re.compile(r"^ {0,3}(?:(`{3,})([^`]*)|(~{3,})(?!~)(.*))$", re.M)
 
 
 class Fence(NamedTuple):
