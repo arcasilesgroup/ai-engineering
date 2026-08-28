@@ -14,6 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import council_counts
 import pytest
 
 from ai_engineering import contract, paths, text, wiring
@@ -2378,11 +2379,9 @@ def test_a_council_reviews_and_never_approves():
     # the regexes refuse ordinary engineering prose: executed, 036's register row
     # (`= fail`) and this repository's own drafts trip it, and the constitution
     # forbids rewriting 036. The grant must be caught where the council speaks.
-    sys.path.insert(0, str(ROOT / "tests"))
-    try:
-        import council_counts
-    finally:
-        sys.path.pop(0)
+    # `council_counts` is imported at the top of this file, the way `anti_theatre` and
+    # `pilot_register` are: pytest's `pythonpath` carries `tests/`, and mutating
+    # `sys.path` by hand is the E402 shape pyproject's own comment forbids.
     # D-045-01 lands the grill's answers verbatim in `## Grill`, and the skill still
     # says the challenger never approves — so the boundary covers both new sections,
     # not only the council's. Executed on this tree: a grill-scoped pass fires on zero
@@ -2411,9 +2410,8 @@ def test_a_council_reviews_and_never_approves():
         "Verdict: the specification is approved and may be signed\n"
     )
     scoped = council_counts._top_section(grant_body, council_counts.COUNCIL_SECTION)
-    assert scoped and _verdict_fields(scoped), (
-        "the scoped pipeline missed a grant in a section body"
-    )
+    assert scoped, "the scoped pipeline found no council section in the body"
+    assert _verdict_fields(scoped), "the scoped pipeline missed a grant in a section body"
     assert not said, (
         "a council granted authority: " + "; ".join(said) + ". It may name what is absent "
         "and it may not say whether the specification is good — that belongs to a person"
@@ -2521,12 +2519,6 @@ def test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce():
     nobody has pointed at the thing it is for.
     """
 
-    sys.path.insert(0, str(ROOT / "tests"))
-    try:
-        import council_counts
-    finally:
-        sys.path.pop(0)
-
     _DELETED_LINE = "- Findings deleted, for carrying no command or for being refuted: **2**\n"
     honest = (
         "## Round two — x\n\n"
@@ -2580,12 +2572,6 @@ def test_the_critic_step_refuses_every_declared_state_that_did_not_run():
     is planted here as a refusal and one clean control keeps the refusals honest: the
     absence of a declaration is not a failure, and a section that says `none` may.
     """
-
-    sys.path.insert(0, str(ROOT / "tests"))
-    try:
-        import council_counts
-    finally:
-        sys.path.pop(0)
 
     def council(ran: str, gap_line: str, totals: str) -> str:
         return (
