@@ -31,6 +31,13 @@ dependencies = [
   "questionary>=2.0,<3.0",
 ]
 
+# Not a wheel dependency: nothing under src/ or hooks/ imports yaml. It is the gate's own
+# reader — the task check `uv run python -c "import yaml; yaml.safe_load(...)"` proves a
+# workflow parses before it ships, and a check that cannot import its tool is a check that
+# cannot fail. Pinned exactly, like every dependency this tree locks.
+[dependency-groups]
+dev = ["pyyaml==6.0.3"]
+
 [project.urls]
 Homepage = "https://github.com/arcasilesgroup/ai-engineering"
 Source = "https://github.com/arcasilesgroup/ai-engineering"
