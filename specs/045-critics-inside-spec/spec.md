@@ -491,15 +491,10 @@ series continuing, which `madr.validate` reads and the old dossier never was.
      specs that do not exist yet, and `ai-eng decide` promotes only marked lines.
      `ai-eng decide` does not write here: it writes a record under docs/adr/. -->
 
-- [X] **D-045-03 — The spec template carries `## Grill` and `## Council`; the sidecar
-      convention dies forward; the critic step reads both counter shapes, refuses
-      emptiness, prompt and malformed `ran:` lines with fixtures, scopes no-authority
-      to section bodies, and returns the approval record to `docs/adr/`.**
+- [X] **D-045-03 — The template carries Grill and Council; the sidecar convention dies forward; the critic step reads both shapes, refuses emptiness, prompt and malformed ran: lines with fixtures, scopes no-authority to section bodies, and returns the approval record to docs/adr/.**
       **Rationale:** one decision, one file; the gate reads sections the way it read
       files, and written history is never rewritten.
-- [X] **D-045-04 — Exactly three real options, always, before `## Decision`; new specs
-      only, history frozen; critics revise them in place; a decision earns a MADR only
-      when it constrains future specs.**
+- [X] **D-045-04 — Exactly three real options, always, before Decision; new specs only, history frozen; critics revise them in place; a decision earns a MADR only when it constrains future specs.**
       **Rationale:** three keeps the comparison honest without theatre; the position
       before the decision is what makes the recommendation auditable.
 - **D-045-01 — ai-challenge becomes the grill: ≤10 command-backed `### Q` entries per
