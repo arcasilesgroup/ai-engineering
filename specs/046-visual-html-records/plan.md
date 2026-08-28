@@ -103,7 +103,7 @@ gate.
    `git diff --name-status` for the range, budgets come from constants, and a fabricated
    hunk is refused.
 
-7. [ ] **The views home in the shipped pin** —
+7. [x] <!--t:91b47c7e09d9--> **The views home in the shipped pin** —
    **file**: `src/ai_engineering/skeletons.py` — `AI_GITIGNORE` re-allows
    `!views/[0-9][0-9][0-9]-*.html` the way the local `.ai/.gitignore` re-allows reports;
    doctor does not grow (it inspects tracked files only, and views are never tracked —
@@ -112,7 +112,7 @@ gate.
    **rollback**: `git revert`; fresh installs stop re-allowing views, which is the pre-state.
    **done when**: a fresh `ai-eng init` tree can hold a view page without `git add -f`.
 
-8. [ ] **The banner and the manifest describe the new writers** —
+8. [x] <!--t:2d1781aa7ede--> **The banner and the manifest describe the new writers** —
    **file**: `src/ai_engineering/report.py` (the `will` banner: the verb now also writes
    `.ai/views/` pages and `.ai/reports/NNN-recap-*.html`) and `policy/capabilities.toml`
    (the declared write roots beside the digest mode) — council gap 2: a writer the banner
@@ -122,7 +122,7 @@ gate.
    **done when**: `ai-eng report --help` names both page writers and the capability test
    proves the manifest agrees.
 
-9. [ ] **The harvested guidance, attributed** —
+9. [x] <!--t:4dd8d8e3d30d--> **The harvested guidance, attributed** —
    **file**: `policy/visual-pages.md` (new) — the condensed block taxonomy, the diff→block
    mapping, the grounding rules (blocks derived from real diff lines, no boilerplate,
    before/after comparability, real content not lorem), every budget referenced as
@@ -132,7 +132,7 @@ gate.
    **rollback**: `git revert`; runtime code never reads this file.
    **done when**: the file exists, attributes, and carries zero loose budget numbers.
 
-10. [ ] **`ai-visual-plan` — the skill that turns any plan into the review page** —
+10. [x] <!--t:35b59e5adb2d--> **`ai-visual-plan` — the skill that turns any plan into the review page** —
     **file**: `.agents/skills/ai-visual-plan/SKILL.md` (with `corpus.md` in the same
     commit — the contract refuses a skill without both). Trigger: "make this plan visual",
     "rich review surface", a pasted or foreign text plan needing approval review.
@@ -144,7 +144,7 @@ gate.
     **done when**: the skill passes the contract and its `## Done when` is the printed link
     plus the rendered page.
 
-11. [ ] **`ai-visual-recap` — the skill that turns a diff into the recap page** —
+11. [x] <!--t:71dd68dbc6fc--> **`ai-visual-recap` — the skill that turns a diff into the recap page** —
     **file**: `.agents/skills/ai-visual-recap/SKILL.md` + `corpus.md`. Trigger: "recap
     this PR/branch/work unit", "what did this change", the post-build hand-off. Procedure:
     scope the whole work unit, run `ai-eng report recap` with the real base, add narrative
@@ -155,7 +155,7 @@ gate.
     **done when**: contract-green, and one real recap page rendered through it over this
     branch's own range.
 
-12. [ ] **The cycle verbs point at the pages** —
+12. [x] <!--t:bd16f1214de1--> **The cycle verbs point at the pages** —
     **file**: `.agents/skills/ai-spec/SKILL.md` (same commit edits `ai-plan`, `ai-build`,
     `ai-goal`, `ai-ship`, `ai-research` — one edit family, link duty only). ai-spec/
     ai-plan: after writing, call `report view` and hand the human the link beside the
