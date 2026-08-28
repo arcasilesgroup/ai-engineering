@@ -63,14 +63,16 @@ Approved at these exact bytes:
 | file | SHA-256 |
 |---|---|
 | `specs/045-critics-inside-spec/spec.md` | `b84af3f60fe8de05c15b44366247eb185fb1001cac4f87822ed931cd5a118ea9` |
-| `specs/045-critics-inside-spec/plan.md` | `dd7577769d8a1197171228ead553f6988fbc8f8dde160a87c77b632b521cb72c` |
+| `specs/045-critics-inside-spec/plan.md` | `27ab8a15d235630e6f45fc41102844763d20d9fe85150b9230995dd3ebbf2421` |
 
-Both digests are the bytes after two record-coherence reflows, neither of which
-changed a decision or a task: the marked-decision lines moved onto single lines
-(the wrapping had made them unparseable by `ai-eng decide`; the spec moved from
-`7888877b…`), and each task's `check` was reshaped to name exactly one command
-because `--tick` executes the single command a box carries and refuses a check
-with `&&` (the plan moved from `fae01029…`). The approval names the bytes the
+Both digests are the bytes after three record-coherence reflows, none of which
+changed a decision, a task or its command: the marked-decision lines moved onto
+single lines (the wrapping made them unparseable by `ai-eng decide`; spec moved
+from `7888877b…`), every `check` was reshaped to name exactly one command because
+`--tick` executes the single command a box carries (plan moved from `fae01029…`),
+and task 1's title closed its bold on the line the parser cannot read (plan moved
+from `dd757776…`). The tick column is masked before the digest is taken, so the
+seals themselves do not move these numbers. The approval names the bytes the
 promotions and the ticks actually read.
 
 The plan's nine tasks are the exact authorised work: the dual-glob critic reader with

@@ -47,8 +47,7 @@ promotion-marked decisions become MADRs and the approval record cites them (task
 
 ## Tasks
 
-1. [ ] **The critic reader: dual glob, emptiness, declared-prompt, ran-grammar —
-   with planted fixtures** —
+1. [ ] **The critic reader: dual glob, emptiness, declared-prompt, ran-grammar, with planted fixtures** —
    **file** `tests/council_counts.py` (+ its refusals in `tests/test_contracts.py`,
    `test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce` and the
    planted-refusal test extended). The reader counts `specs/*/council.md` (h2
@@ -64,7 +63,7 @@ promotion-marked decisions become MADRs and the approval record cites them (task
    **done when**: the real mixed tree prints the historical counts for 044 plus the
    045 section's `(3, 12)` in one `RAN council=` line, exit 0, and each planted
    refusal raises `Unreadable` naming its state.
-2. [ ] **No-authority, scoped to section bodies** —
+2. [x] <!--t:02f83a9f90d3--> **No-authority, scoped to section bodies** —
    **file** `tests/test_contracts.py` (`test_a_council_reviews_and_never_approves`).
    Keeps the file-wide rule over `specs/*/council.md`; gains a `## Council`-body-scoped
    pass over `specs/*/spec.md`. Whole-file prose must not fire: 036's register row and
