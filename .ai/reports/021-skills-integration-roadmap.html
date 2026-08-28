@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="Auditoría de /Users/soydachi/repos/skills y de agent-native contra las restricciones del framework: qué se integra, por qué, cómo, y qué queda excluido. Roadmap en cuatro fases.">
+<meta name="description" content="Auditoría del checkout local de `skills` y de agent-native contra las restricciones del framework: qué se integra, por qué, cómo, y qué queda excluido. Roadmap en cuatro fases.">
 <title>ai-engineering | Roadmap de integración: skills externos → ciclo gobernado</title>
 <link rel="icon" href="data:,">
 <style>
@@ -115,8 +115,8 @@ ol.src{margin:6px 0 4px;padding-left:22px}ol.src li{font-size:14px;margin:3px 0}
 
 <h2>Fuentes</h2>
 <ol class="src">
-<li>[1] Auditoría read-only scout de <code>/Users/soydachi/repos/skills</code> (SkillsAudit): portabilidad, dependencias y procedencia por skill, con file:line (p. ej. visual-plan/SKILL.md:113-128 «never-inline», references/local-files.md:23-68 dependencias npx, scripts/sync-agent-native-skills.mjs, LICENSE MIT (c) 2026 Builder.io).</li>
-<li>[2] Auditoría read-only scout de <code>/Users/soydachi/repos/ai-engineering</code> (FrameworkAudit): policy/skill-sequence.toml, contract.py:18/21/128/683 (SKILL_FOG_CEILING=11.03, TEST_RATIO_MAX=2.3), tests/test_contracts.py:23 (DOCTRINE_CEILING=150), doctor.py:789-795 (regex de .ai/reports), specs/045-critics-inside-spec, CONSTITUTION.md:82, justfile <code>check</code>.</li>
+<li>[1] Auditoría read-only scout del <code>skills</code> clonado local (SkillsAudit): portabilidad, dependencias y procedencia por skill, con file:line (p. ej. visual-plan/SKILL.md:113-128 «never-inline», references/local-files.md:23-68 dependencias npx, scripts/sync-agent-native-skills.mjs, LICENSE MIT (c) 2026 Builder.io).</li>
+<li>[2] Auditoría read-only scout de este repositorio (FrameworkAudit): policy/skill-sequence.toml, contract.py:18/21/128/683 (SKILL_FOG_CEILING=11.03, TEST_RATIO_MAX=2.3), tests/test_contracts.py:23 (DOCTRINE_CEILING=150), doctor.py:789-795 (regex de .ai/reports), specs/045-critics-inside-spec, CONSTITUTION.md:82, justfile <code>check</code>.</li>
 <li>[3] <code>https://github.com/BuilderIO/agent-native/blob/main/.agents/skills/reporting-progress/SKILL.md</code> (fetch 2026-08-28): dos formas legales de turno, delta-vs-heartbeat, la lista de 5 antes de BLOCKED.</li>
 <li>[4] <code>https://github.com/BuilderIO/agent-native/blob/main/AGENTS.md</code> (fetch 2026-08-28): Always-On Rules, Final Status Block, Checks (guards tri-state, friction-report antes de regla nueva).</li>
 <li>[5] <code>https://mdxjs.com/docs/what-is-mdx/</code> (fetch 2026-08-28): MDX = markdown+JSX+ESM; requiere compilador y framework de componentes para renderizar.</li>
