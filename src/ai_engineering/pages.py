@@ -409,7 +409,7 @@ def render_page(
         .joinpath("templates/page.html")
         .read_text(encoding="utf-8")
     )
-    return (
+    page = (
         template.replace("@@KICKER@@", esc(kicker))
         .replace("@@TITLE@@", esc(title))
         .replace("@@SUB@@", esc(sub))
@@ -417,6 +417,10 @@ def render_page(
         .replace("@@WARNINGS@@", warnings_section(warnings))
         .replace("@@BODY@@", body)
     )
+    # A diff's empty context line is one space, and a page that carries it fails the
+    # repository's own whitespace gate on the way in — the record of a change cannot be
+    # committed. Trailing blanks end a rendered line; nothing here needs them.
+    return "\n".join(line.rstrip(" \t") for line in page.split("\n"))
 
 
 def render_document(text: str, kicker: str, title: str, sub: str, meta: str) -> str:

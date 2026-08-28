@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Recap: Visual HTML records: pages for research, spec, plan and recap, </title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:960px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:36px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.meta{color:var(--muted);font-size:13px;margin-bottom:28px;font-family:var(--mono)}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+code,pre{font-family:var(--mono)}code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}
+pre{background:var(--code);padding:12px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
+pre.diff .add{color:var(--good);display:block}pre.diff .del{color:var(--bad);display:block}pre.diff .hunk{color:var(--accent);display:block}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.ok{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+.flag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:6px;font-family:var(--mono)}
+.f-A{background:var(--good-soft);color:var(--good)}.f-M{background:var(--warn-soft);color:var(--warn)}.f-D{background:var(--bad-soft);color:var(--bad)}.f-R{background:var(--accent-soft);color:var(--accent)}.f-C{background:var(--code);color:var(--muted)}
+ul.tree{list-style:none;padding-left:18px;margin:4px 0;font-family:var(--mono);font-size:14px}
+ul.tree ul{padding-left:20px}
+.wireframe{border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0;background:var(--bg)}
+.wf-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:760px){.wf-pair{grid-template-columns:1fr}}
+.wf-pair h3{margin:4px 0;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.wireframe .wf-body{border:1px dashed var(--line);border-radius:8px;padding:12px;overflow:hidden}
+.wf-body table,.wf-body pre{max-width:100%}
+details{margin:8px 0;border:1px solid var(--line);border-radius:8px;padding:0 12px}
+summary{cursor:pointer;padding:8px 0;font-weight:600;font-size:14px}
+.checklist li{margin:3px 0}
+.checklist .done{color:var(--muted);text-decoration:line-through}
+.meta a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="topbar"><a class="brand" href="#">ai-engineering <small>· spec 046 · recap</small></a></div>
+<main>
+<p class="kicker">spec 046 · recap</p>
+<h1>Recap: Visual HTML records: pages for research, spec, plan and recap, </h1>
+<p class="sub">What this work unit changed, derived from the diff and nothing else.</p>
+<p class="meta">spec sha256:b7e60a1af2fe834e336d92fc6b6ea0ef577b22819216a91d9a311a855e2cd779 · base a54b8eaa · 42 files · rendered 2026-08-28</p>
+
+<h2>What changed</h2><ul class='tree'><li><span class='flag f-A'>A</span>.agents/skills/ai-visual-plan/SKILL.md</li><li><span class='flag f-A'>A</span>.agents/skills/ai-visual-plan/corpus.md</li><li><span class='flag f-A'>A</span>.agents/skills/ai-visual-recap/SKILL.md</li><li><span class='flag f-A'>A</span>.agents/skills/ai-visual-recap/corpus.md</li><li><span class='flag f-M'>M</span>.ai/.gitignore</li><li><span class='flag f-M'>M</span>.ai/reports/021-skills-integration-roadmap.html</li><li><span class='flag f-A'>A</span>.ai/reports/022-recap-visual-html-records.html</li><li><span class='flag f-M'>M</span>AGENTS.md</li><li><span class='flag f-M'>M</span>README.md</li><li><span class='flag f-M'>M</span>docs/adr/0028-specification-045-and-its-plan-are-approved-at-exact-digests.md</li><li><span class='flag f-M'>M</span>docs/adr/0029-the-template-carries-grill-and-council-the-sidecar-conventio.md</li><li><span class='flag f-M'>M</span>docs/adr/0030-exactly-three-real-options-always-before-decision-new-specs.md</li><li><span class='flag f-A'>A</span>docs/adr/0031-specification-046-and-its-plan-are-approved-at-exact-digests.md</li><li><span class='flag f-M'>M</span>docs/solution-intent.html</li><li><span class='flag f-M'>M</span>policy/capabilities.toml</li><li><span class='flag f-M'>M</span>policy/capability-manifest.schema.json</li><li><span class='flag f-M'>M</span>policy/skill-map-accepted.toml</li><li><span class='flag f-A'>A</span>policy/visual-pages.md</li><li><span class='flag f-M'>M</span>specs/045-critics-inside-spec/spec.md</li><li><span class='flag f-M'>M</span>specs/046-visual-html-records/plan.md</li><li><span class='flag f-M'>M</span>specs/046-visual-html-records/spec.md</li><li><span class='flag f-M'>M</span>src/ai_engineering/capability.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/cli.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/contract.py</li><li><span class='flag f-A'>A</span>src/ai_engineering/pages.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/report.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/skeletons.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/solution_intent.py</li><li><span class='flag f-M'>M</span>src/ai_engineering/spec.py</li><li><span class='flag f-A'>A</span>src/ai_engineering/templates/page.html</li><li><span class='flag f-M'>M</span>src/ai_engineering/wiring.py</li><li><span class='flag f-M'>M</span>tests/council_counts.py</li><li><span class='flag f-M'>M</span>tests/test_040_ai_write.py</li><li><span class='flag f-M'>M</span>tests/test_capabilities.py</li><li><span class='flag f-M'>M</span>tests/test_contracts.py</li><li><span class='flag f-M'>M</span>tests/test_doctor.py</li><li><span class='flag f-M'>M</span>tests/test_intent.py</li><li><span class='flag f-M'>M</span>tests/test_mut_capability_callers.py</li><li><span class='flag f-A'>A</span>tests/test_mut_report.py</li><li><span class='flag f-M'>M</span>tests/test_mut_spec.py</li><li><span class='flag f-A'>A</span>tests/test_pages.py</li><li><span class='flag f-M'>M</span>tests/test_quality_gate.py</li></ul><p>Spec 046 shipped the visual record layer the skills roadmap (report 021) asked for, without the agent-native dependency the user ruled out. src/ai_engineering/pages.py is the one renderer: fenced visual blocks in the plan&#x27;s own Markdown become one self-contained page, and ai-eng report view renders a spec/plan page under .ai/views while ai-eng report recap derives a change record under .ai/reports from git diff --name-status and real hunks only — a fabricated excerpt is refused, not padded. The fence wall that makes this safe is spec.fence_records: the task parser, the approval digest and the intent counter all stop at fences, because grill round 1 executed that a fence-blind parser turns a fenced check: line into the command a tick would run. The record side moved with it: the views home is re-allowed in skeletons.AI_GITIGNORE beside the reports shape, the report verb&#x27;s will banner and policy/capabilities.toml name both writers, and ai-visual-plan plus ai-visual-recap ship as declared capabilities with the schema digest moved for them. policy/visual-pages.md carries the harvested block taxonomy and editorial bar from the MIT upstream, attributed, with every budget pointing at contract.py rather than restating a number.</p><h3><code>.ai/reports/022-recap-visual-html-records.html</code></h3><p class='sub'>1181 lines changed</p><pre class='diff'>diff --git a/.ai/reports/022-recap-visual-html-records.html b/.ai/reports/022-recap-visual-html-records.html
+new file mode 100644
+index 00000000..2ce74381
+--- /dev/null
++++ b/.ai/reports/022-recap-visual-html-records.html
+<span class='hunk'>@@ -0,0 +1,1181 @@</span>
+<span class='add'>+&lt;!doctype html&gt;</span>
+<span class='add'>+&lt;html lang=&quot;en&quot;&gt;</span>
+<span class='add'>+&lt;head&gt;</span>
+<span class='add'>+&lt;meta charset=&quot;utf-8&quot;&gt;</span>
+<span class='add'>+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;</span>
+<span class='add'>+&lt;meta name=&quot;color-scheme&quot; content=&quot;light dark&quot;&gt;</span>
+<span class='add'>+&lt;title&gt;Recap: Visual HTML records: pages for research, spec, plan and recap, &lt;/title&gt;</span>
+<span class='add'>+&lt;link rel=&quot;icon&quot; href=&quot;data:,&quot;&gt;</span>
+<span class='add'>+&lt;style&gt;</span>
+<span class='add'>+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}</span>
+<span class='add'>+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}</span>
+<span class='add'>+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,Roboto,Helvetica,Arial,sans-serif}</span>
+<span class='add'>+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}</span>
+<span class='add'>+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}</span>
+<span class='add'>+main{max-width:960px;margin:0 auto;padding:40px 28px 80px}</span>
+<span class='add'>+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}</span>
+<span class='add'>+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:36px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}</span>
+<span class='add'>+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.meta{color:var(--muted);font-size:13px;margin-bottom:28px;font-family:var(--mono)}</span>
+<span class='add'>+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}</span>
+<span class='add'>+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}</span>
+<span class='add'>+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}</span>
+<span class='add'>+code,pre{font-family:var(--mono)}code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}</span>
+<span class='add'>+pre{background:var(--code);padding:12px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}</span>
+<span class='add'>+pre.diff .add{color:var(--good);display:block}pre.diff .del{color:var(--bad);display:block}pre.diff .hunk{color:var(--accent);display:block}</span>
+<span class='add'>+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}</span>
+<span class='add'>+.ok{background:var(--good-soft);border-left:3px solid var(--good)}</span>
+<span class='add'>+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}</span>
+<span class='add'>+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}</span>
+<span class='add'>+.flag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:6px;font-family:var(--mono)}</span>
+<span class='add'>+.f-A{background:var(--good-soft);color:var(--good)}.f-M{background:var(--warn-soft);color:var(--warn)}.f-D{background:var(--bad-soft);color:var(--bad)}.f-R{background:var(--accent-soft);color:var(--accent)}.f-C{background:var(--code);color:var(--muted)}</span>
+<span class='add'>+ul.tree{list-style:none;padding-left:18px;margin:4px 0;font-family:var(--mono);font-size:14px}</span>
+<span class='add'>+ul.tree ul{padding-left:20px}</span>
+<span class='add'>+.wireframe{border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0;background:var(--bg)}</span>
+<span class='add'>+.wf-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}</span>
+<span class='add'>+@media (max-width:760px){.wf-pair{grid-template-columns:1fr}}</span>
+<span class='add'>+.wf-pair h3{margin:4px 0;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}</span>
+<span class='add'>+.wireframe .wf-body{border:1px dashed var(--line);border-radius:8px;padding:12px;overflow:hidden}</span>
+<span class='add'>+.wf-body table,.wf-body pre{max-width:100%}</span>
+<span class='add'>+details{margin:8px 0;border:1px solid var(--line);border-radius:8px;padding:0 12px}</span>
+<span class='add'>+summary{cursor:pointer;padding:8px 0;font-weight:600;font-size:14px}</span>
+<span class='add'>+.checklist li{margin:3px 0}</span>
+<span class='add'>+.checklist .done{color:var(--muted);text-decoration:line-through}</span>
+<span class='add'>+.meta a{color:var(--accent)}</span>
+<span class='add'>+&lt;/style&gt;</span>
+<span class='add'>+&lt;/head&gt;</span>
+<span class='add'>+&lt;body&gt;</span>
+<span class='add'>+&lt;div class=&quot;topbar&quot;&gt;&lt;a class=&quot;brand&quot; href=&quot;#&quot;&gt;ai-engineering &lt;small&gt;· spec 046 · recap&lt;/small&gt;&lt;/a&gt;&lt;/div&gt;</span>
+<span class='add'>+&lt;main&gt;</span>
+<span class='add'>+&lt;p class=&quot;kicker&quot;&gt;spec 046 · recap&lt;/p&gt;</span>
+<span class='add'>+&lt;h1&gt;Recap: Visual HTML records: pages for research, spec, plan and recap, &lt;/h1&gt;</span>
+<span class='add'>+&lt;p class=&quot;sub&quot;&gt;What this work unit changed, derived from the diff and nothing else.&lt;/p&gt;</span>
+<span class='add'>+&lt;p class=&quot;meta&quot;&gt;spec sha256:b7e60a1af2fe834e336d92fc6b6ea0ef577b22819216a91d9a311a855e2cd779 · base a54b8eaa · 41 files · rendered 2026-08-28&lt;/p&gt;</span>
+<span class='add'>+</span>
+<span class='add'>+&lt;h2&gt;What changed&lt;/h2&gt;&lt;ul class=&#x27;tree&#x27;&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.agents/skills/ai-visual-plan/SKILL.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.agents/skills/ai-visual-plan/corpus.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.agents/skills/ai-visual-recap/SKILL.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;.agents/skills/ai-visual-recap/corpus.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;.ai/.gitignore&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;.ai/reports/021-skills-integration-roadmap.html&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;AGENTS.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;README.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;docs/adr/0028-specification-045-and-its-plan-are-approved-at-exact-digests.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;docs/adr/0029-the-template-carries-grill-and-council-the-sidecar-conventio.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;docs/adr/0030-exactly-three-real-options-always-before-decision-new-specs.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;docs/adr/0031-specification-046-and-its-plan-are-approved-at-exact-digests.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;docs/solution-intent.html&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;policy/capabilities.toml&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;policy/capability-manifest.schema.json&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;policy/skill-map-accepted.toml&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;policy/visual-pages.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;specs/045-critics-inside-spec/spec.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;specs/046-visual-html-records/plan.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;specs/046-visual-html-records/spec.md&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/capability.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/cli.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/contract.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;src/ai_engineering/pages.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/report.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/skeletons.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/solution_intent.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/spec.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;src/ai_engineering/templates/page.html&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;src/ai_engineering/wiring.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/council_counts.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_040_ai_write.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_capabilities.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_contracts.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_doctor.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_intent.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_mut_capability_callers.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;tests/test_mut_report.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_mut_spec.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-A&#x27;&gt;A&lt;/span&gt;tests/test_pages.py&lt;/li&gt;&lt;li&gt;&lt;span class=&#x27;flag f-M&#x27;&gt;M&lt;/span&gt;tests/test_quality_gate.py&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;Spec 046 shipped the visual record layer the skills roadmap (report 021) asked for, without the agent-native dependency the user ruled out. src/ai_engineering/pages.py is the one renderer: fenced visual blocks in the plan&amp;#x27;s own Markdown become one self-contained page, and ai-eng report view renders a spec/plan page under .ai/views while ai-eng report recap derives a change record under .ai/reports from git diff --name-status and real hunks only — a fabricated excerpt is refused, not padded. The fence wall that makes this safe is spec.fence_records: the task parser, the approval digest and the intent counter all stop at fences, because grill round 1 executed that a fence-blind parser turns a fenced check: line into the command a tick would run. The record side moved with it: the views home is re-allowed in skeletons.AI_GITIGNORE beside the reports shape, the report verb&amp;#x27;s will banner and policy/capabilities.toml name both writers, and ai-visual-plan plus ai-visual-recap ship as declared capabilities with the schema digest moved for them. policy/visual-pages.md carries the harvested block taxonomy and editorial bar from the MIT upstream, attributed, with every budget pointing at contract.py rather than restating a number.&lt;/p&gt;&lt;h3&gt;&lt;code&gt;src/ai_engineering/pages.py&lt;/code&gt;&lt;/h3&gt;&lt;p class=&#x27;sub&#x27;&gt;433 lines changed&lt;/p&gt;&lt;pre class=&#x27;diff&#x27;&gt;diff --git a/src/ai_engineering/pages.py b/src/ai_engineering/pages.py</span>
+<span class='add'>+new file mode 100644</span>
+<span class='add'>+index 00000000..8ed4383e</span>
+<span class='add'>+--- /dev/null</span>
+++++ b/src/ai_engineering/pages.py
+<span class='add'>+&lt;span class=&#x27;hunk&#x27;&gt;@@ -0,0 +1,433 @@&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;quot;&amp;quot;&amp;quot;The renderer behind `ai-eng report view|recap`: fenced `visual` blocks to one page.&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+Specification 046 puts the review surfaces of the cycle — spec, plan, recap — into&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+self-contained HTML, and grill round 1 decided the shape of this module: the skills author&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+content, this file owns the *form*, and nothing authored here may execute. The output is&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+one HTML document with no `&amp;lt;script&amp;gt;`, no external URL and no network; it opens from disk&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+in any browser and it renders the same in five years, because it depends on no toolchain&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+that can move under it.&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+The grammar is a fenced block inside ordinary Markdown::&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    ```visual&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    {&amp;quot;block&amp;quot;: &amp;quot;diagram&amp;quot;, &amp;quot;title&amp;quot;: &amp;quot;…&amp;quot;, &amp;quot;steps&amp;quot;: […]}&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    ```&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+A plain reader sees a fenced JSON note; this module sees a surface. An unknown block name&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+is never dropped: it lands in a visible warning section on the page, because a renderer&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+that quietly loses a block is the silent-coercion bug this repository exists to delete.&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&amp;quot;&amp;quot;&amp;quot;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+from __future__ import annotations&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+import html&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+import json&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+import re&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+from importlib import resources&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+from typing import Any&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+from . import contract, spec&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+# The block vocabulary, one renderer each. Harvested from the MIT block taxonomy of&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+# Builder.io&amp;#x27;s visual-plan/visual-recap skills (attribution in policy/visual-pages.md);&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+# the budgets are `contract`&amp;#x27;s, never numbers repeated here.&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+KNOWN_BLOCKS = frozenset(&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    {&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;diagram&amp;quot;,&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;file-tree&amp;quot;,&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;decision-table&amp;quot;,&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;open-questions&amp;quot;,&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;checklist&amp;quot;,&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;wireframe-before-after&amp;quot;,&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;diff&amp;quot;,&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        &amp;quot;narrative&amp;quot;,&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    }&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+)&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+class PageError(ValueError):&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    &amp;quot;&amp;quot;&amp;quot;A page that cannot be rendered honestly. Never a partial page, never a warning.&amp;quot;&amp;quot;&amp;quot;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+def _is_visual(info: str) -&amp;gt; bool:&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    return info.split()[0] == &amp;quot;visual&amp;quot; if info.split() else False&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+def visual_blocks(text: str) -&amp;gt; tuple[list[dict[str, Any]], list[str]]:&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    &amp;quot;&amp;quot;&amp;quot;The `visual` blocks one document carries, and the warnings their flaws earned.&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    The fence walk is `spec.fence_records` — the same CommonMark-aware reader the plan&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    parser uses, so a `visual` example shown inside an ordinary fence stays content and&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    an unclosed fence runs to the end instead of swallowing a closing delimiter. A&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    malformed JSON body is a warning, not a crash — one bad block must not swallow the&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    page — and an unknown block name keeps its raw payload for the warning section, so&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    the reader sees what was dropped rather than trusting that nothing was.&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    &amp;quot;&amp;quot;&amp;quot;&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    blocks: list[dict[str, Any]] = []&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    warnings: list[str] = []&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+    for record in spec.fence_records(text):&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        if not _is_visual(record.info):&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            continue&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        body = text[record.body : record.end]&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        # Drop the closing fence line, if the record carries one.&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        closing = re.search(r&amp;quot;\n[ ]{0,3}(`{3,}|~{3,})[ \t]*$&amp;quot;, body)&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        if closing:&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            body = body[: closing.start()]&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        try:&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            payload = json.loads(body)&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        except json.JSONDecodeError as bad:&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            warnings.append(f&amp;quot;a `visual` block is not valid JSON ({bad}): rendering nothing&amp;quot;)&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            continue&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        if not isinstance(payload, dict) or not isinstance(payload.get(&amp;quot;block&amp;quot;), str):&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            warnings.append(&amp;#x27;a `visual` block carries no `&amp;quot;block&amp;quot;` name: rendering nothing&amp;#x27;)&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+            continue&lt;/span&gt;</span>
+<span class='add'>+&lt;span class=&#x27;add&#x27;&gt;+        if payload[&amp;quot;block&amp;quot;] not in KNOWN_BLOCKS:&lt;/span&gt;</span>
+</pre><h3><code>src/ai_engineering/pages.py</code></h3><p class='sub'>437 lines changed</p><pre class='diff'>diff --git a/src/ai_engineering/pages.py b/src/ai_engineering/pages.py
+new file mode 100644
+index 00000000..b0de2e36
+--- /dev/null
++++ b/src/ai_engineering/pages.py
+<span class='hunk'>@@ -0,0 +1,437 @@</span>
+<span class='add'>+&quot;&quot;&quot;The renderer behind `ai-eng report view|recap`: fenced `visual` blocks to one page.</span>
+<span class='add'>+</span>
+<span class='add'>+Specification 046 puts the review surfaces of the cycle — spec, plan, recap — into</span>
+<span class='add'>+self-contained HTML, and grill round 1 decided the shape of this module: the skills author</span>
+<span class='add'>+content, this file owns the *form*, and nothing authored here may execute. The output is</span>
+<span class='add'>+one HTML document with no `&lt;script&gt;`, no external URL and no network; it opens from disk</span>
+<span class='add'>+in any browser and it renders the same in five years, because it depends on no toolchain</span>
+<span class='add'>+that can move under it.</span>
+<span class='add'>+</span>
+<span class='add'>+The grammar is a fenced block inside ordinary Markdown::</span>
+<span class='add'>+</span>
+<span class='add'>+    ```visual</span>
+<span class='add'>+    {&quot;block&quot;: &quot;diagram&quot;, &quot;title&quot;: &quot;…&quot;, &quot;steps&quot;: […]}</span>
+<span class='add'>+    ```</span>
+<span class='add'>+</span>
+<span class='add'>+A plain reader sees a fenced JSON note; this module sees a surface. An unknown block name</span>
+<span class='add'>+is never dropped: it lands in a visible warning section on the page, because a renderer</span>
+<span class='add'>+that quietly loses a block is the silent-coercion bug this repository exists to delete.</span>
+<span class='add'>+&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+from __future__ import annotations</span>
+<span class='add'>+</span>
+<span class='add'>+import html</span>
+<span class='add'>+import json</span>
+<span class='add'>+import re</span>
+<span class='add'>+from importlib import resources</span>
+<span class='add'>+from typing import Any</span>
+<span class='add'>+</span>
+<span class='add'>+from . import contract, spec</span>
+<span class='add'>+</span>
+<span class='add'>+# The block vocabulary, one renderer each. Harvested from the MIT block taxonomy of</span>
+<span class='add'>+# Builder.io&#x27;s visual-plan/visual-recap skills (attribution in policy/visual-pages.md);</span>
+<span class='add'>+# the budgets are `contract`&#x27;s, never numbers repeated here.</span>
+<span class='add'>+KNOWN_BLOCKS = frozenset(</span>
+<span class='add'>+    {</span>
+<span class='add'>+        &quot;diagram&quot;,</span>
+<span class='add'>+        &quot;file-tree&quot;,</span>
+<span class='add'>+        &quot;decision-table&quot;,</span>
+<span class='add'>+        &quot;open-questions&quot;,</span>
+<span class='add'>+        &quot;checklist&quot;,</span>
+<span class='add'>+        &quot;wireframe-before-after&quot;,</span>
+<span class='add'>+        &quot;diff&quot;,</span>
+<span class='add'>+        &quot;narrative&quot;,</span>
+<span class='add'>+    }</span>
+<span class='add'>+)</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+class PageError(ValueError):</span>
+<span class='add'>+    &quot;&quot;&quot;A page that cannot be rendered honestly. Never a partial page, never a warning.&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def _is_visual(info: str) -&gt; bool:</span>
+<span class='add'>+    return info.split()[0] == &quot;visual&quot; if info.split() else False</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def visual_blocks(text: str) -&gt; tuple[list[dict[str, Any]], list[str]]:</span>
+<span class='add'>+    &quot;&quot;&quot;The `visual` blocks one document carries, and the warnings their flaws earned.</span>
+<span class='add'>+</span>
+<span class='add'>+    The fence walk is `spec.fence_records` — the same CommonMark-aware reader the plan</span>
+<span class='add'>+    parser uses, so a `visual` example shown inside an ordinary fence stays content and</span>
+<span class='add'>+    an unclosed fence runs to the end instead of swallowing a closing delimiter. A</span>
+<span class='add'>+    malformed JSON body is a warning, not a crash — one bad block must not swallow the</span>
+<span class='add'>+    page — and an unknown block name keeps its raw payload for the warning section, so</span>
+<span class='add'>+    the reader sees what was dropped rather than trusting that nothing was.</span>
+<span class='add'>+    &quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    blocks: list[dict[str, Any]] = []</span>
+<span class='add'>+    warnings: list[str] = []</span>
+<span class='add'>+    for record in spec.fence_records(text):</span>
+<span class='add'>+        if not _is_visual(record.info):</span>
+<span class='add'>+            continue</span>
+<span class='add'>+        body = text[record.body : record.end]</span>
+<span class='add'>+        # Drop the closing fence line, if the record carries one.</span>
+<span class='add'>+        closing = re.search(r&quot;\n[ ]{0,3}(`{3,}|~{3,})[ \t]*$&quot;, body)</span>
+<span class='add'>+        if closing:</span>
+<span class='add'>+            body = body[: closing.start()]</span>
+<span class='add'>+        try:</span>
+<span class='add'>+            payload = json.loads(body)</span>
+<span class='add'>+        except json.JSONDecodeError as bad:</span>
+<span class='add'>+            warnings.append(f&quot;a `visual` block is not valid JSON ({bad}): rendering nothing&quot;)</span>
+<span class='add'>+            continue</span>
+<span class='add'>+        if not isinstance(payload, dict) or not isinstance(payload.get(&quot;block&quot;), str):</span>
+<span class='add'>+            warnings.append(&#x27;a `visual` block carries no `&quot;block&quot;` name: rendering nothing&#x27;)</span>
+<span class='add'>+            continue</span>
+<span class='add'>+        if payload[&quot;block&quot;] not in KNOWN_BLOCKS:</span>
+<span class='add'>+            warnings.append(</span>
+<span class='add'>+                f&quot;unknown visual block `{payload[&#x27;block&#x27;]}`: kept visible, rendered nowhere&quot;</span>
+<span class='add'>+            )</span>
+<span class='add'>+            blocks.append({&quot;block&quot;: &quot;!unknown&quot;, &quot;name&quot;: payload[&quot;block&quot;], &quot;raw&quot;: payload})</span>
+<span class='add'>+        else:</span>
+<span class='add'>+            blocks.append(payload)</span>
+<span class='add'>+    return blocks, warnings</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def strip_visual_fences(text: str) -&gt; str:</span>
+<span class='add'>+    &quot;&quot;&quot;The document with its `visual` fences removed, so prose renders without them.&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    out, cut = [], 0</span>
+<span class='add'>+    for record in spec.fence_records(text):</span>
+<span class='add'>+        if not _is_visual(record.info):</span>
+<span class='add'>+            continue</span>
+<span class='add'>+        out.append(text[cut : record.start])</span>
+<span class='add'>+        cut = record.end</span>
+<span class='add'>+    out.append(text[cut:])</span>
+<span class='add'>+    return &quot;&quot;.join(out)</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def esc(value: Any) -&gt; str:</span>
+<span class='add'>+    return html.escape(str(value), quote=True)</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+_INLINE = re.compile(r&quot;`([^`]+)`|\*\*([^*]+)\*\*|\*([^*\n]+)\*&quot;)</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def _span(line: str) -&gt; str:</span>
+<span class='add'>+    &quot;&quot;&quot;One line to markup: escaped first, then the four inline shapes, nothing else.&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    result, at = [], 0</span>
+<span class='add'>+    for hit in _INLINE.finditer(line):</span>
+<span class='add'>+        result.append(esc(line[at : hit.start()]))</span>
+<span class='add'>+        code, strong, em = hit.groups()</span>
+<span class='add'>+        if code is not None:</span>
+<span class='add'>+            result.append(f&quot;&lt;code&gt;{esc(code)}&lt;/code&gt;&quot;)</span>
+<span class='add'>+        elif strong is not None:</span>
+<span class='add'>+            result.append(f&quot;&lt;strong&gt;{esc(strong)}&lt;/strong&gt;&quot;)</span>
+<span class='add'>+        else:</span>
+<span class='add'>+            result.append(f&quot;&lt;em&gt;{esc(em)}&lt;/em&gt;&quot;)</span>
+<span class='add'>+        at = hit.end()</span>
+<span class='add'>+    result.append(esc(line[at:]))</span>
+<span class='add'>+    return &quot;&quot;.join(result)</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def _render_markdown(text: str) -&gt; str:</span>
+<span class='add'>+    &quot;&quot;&quot;A deliberate markdown subset: paragraphs, headings, lists, quotes, inline marks.</span>
+<span class='add'>+</span>
+<span class='add'>+    Not a dependency. The narrative a skill writes is a few paragraphs and a list; a</span>
+<span class='add'>+    general parser would be a second source of truth about what renders, and this one is</span>
+<span class='add'>+    forty lines a reviewer can read whole. Everything escapes before any markup is</span>
+<span class='add'>+    assembled, so no authored string reaches the page as markup except the shapes below.</span>
+<span class='add'>+    &quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    out: list[str] = []</span>
+<span class='add'>+    list_open = False</span>
+<span class='add'>+</span>
+</pre><h3><code>specs/046-visual-html-records/plan.md</code></h3><p class='sub'>312 lines changed</p><pre class='diff'>diff --git a/specs/046-visual-html-records/plan.md b/specs/046-visual-html-records/plan.md
+index 19953d2b..ca6e5903 100644
+--- a/specs/046-visual-html-records/plan.md
++++ b/specs/046-visual-html-records/plan.md
+<span class='hunk'>@@ -9,156 +9,186 @@ ref: &quot;&quot;</span>
+ # Plan: visual HTML records
+
+<span class='del'>-Implements `specs/046-visual-html-records/spec.md`. Nothing here gets a URL the framework</span>
+<span class='del'>-controls: the Pages job (task 11) publishes to GitHub&#x27;s own host and is gated on a human</span>
+<span class='del'>-decision, so the CI/CD and observability tasks the plan skill makes mandatory for</span>
+<span class='del'>-URL-bearing specs are covered by that task itself plus task 12&#x27;s degradation, and this</span>
+<span class='del'>-line is the reason: the only externally-addressable artifact is explicitly held behind the</span>
+<span class='del'>-privacy decision named in the spec&#x27;s unresolved risks.</span>
+<span class='add'>+## Authority and atomicity gate</span>
+
+<span class='del'>-Order: doctrine (1) and constants (2) first — everything later cites them; the renderer</span>
+<span class='del'>-(3–5) before anything calls it; skills (7–9) after the commands exist so they can name real</span>
+<span class='del'>-verbs; the PR job (11) last because it consumes the recap.</span>
+<span class='add'>+No implementation starts until the accountable role approves **this exact `spec.md` and</span>
+<span class='add'>+this exact `plan.md`**, recorded at their canonical digests in their own `docs/adr/`</span>
+<span class='add'>+record. One repository writer, on one branch. Each task is one atomic commit; rollback for</span>
+<span class='add'>+every task is `git revert &lt;commit&gt;`. Tasks 1–3 are the coupled precondition family: the</span>
+<span class='add'>+doctrine room, the constants, and fence-awareness — no `visual` block may be authored into</span>
+<span class='add'>+any approved plan before task 3 lands, per D-046-02.</span>
+
+<span class='del'>-1. [ ] **Doctrine room and the four always-on rules** —</span>
+<span class='del'>-   file: `tests/test_contracts.py` (one commit with `AGENTS.md`: cap and text move</span>
+<span class='del'>-   together). Raise `DOCTRINE_CEILING` 150 → 180; append to AGENTS.md the four rules from</span>
+<span class='del'>-   the spec&#x27;s Decision (turn = Done-with-artifact or one-line `BLOCKED: … — unblock: …`;</span>
+<span class='del'>-   🟢//🔴 status line with legible 🟡; scale effort; do-the-work-not-ask) plus the link</span>
+<span class='del'>-   duty (&quot;a command that writes a page prints its absolute URL; the skill shows it&quot;).</span>
+<span class='del'>-   check: `uv run pytest tests/test_contracts.py -k doctrine` — fails today (new AGENTS.md</span>
+<span class='del'>-   exceeds 150), green after the constant moves.</span>
+<span class='del'>-   rollback: `git revert` the one commit; both files return together.</span>
+<span class='del'>-   done when: AGENTS.md ≤180 lines carries the four rules and the link duty, and the</span>
+<span class='del'>-   ceiling test is green.</span>
+<span class='add'>+**This plan is not edited while it is executed.** Each check names exactly one command,</span>
+<span class='add'>+because `ai-eng spec show --tick` executes the one command a box carries; the prose beside</span>
+<span class='add'>+each check states everything else the task must hold.</span>
+
+<span class='del'>-2. [ ] **Budget constants** —</span>
+<span class='del'>-   file: `src/ai_engineering/contract.py`. Add `RECAP_TABS_MIN = 3`, `RECAP_TABS_MAX = 8`,</span>
+<span class='del'>-   `RECAP_EXCERPT_LINES_MAX = 150`, `PAGE_TITLE_MAX = 70` beside `SKILL_FOG_CEILING`;</span>
+<span class='del'>-   harvested from the MIT visual-recap budgets (attribution arrives with task 6).</span>
+<span class='del'>-   check: `uv run python -c &quot;from ai_engineering import contract; print(contract.RECAP_TABS_MAX)&quot;`</span>
+<span class='del'>-   prints `8` — fails today (AttributeError).</span>
+<span class='del'>-   rollback: `git revert`; no reader exists yet.</span>
+<span class='del'>-   done when: the four names import and print.</span>
+<span class='add'>+## The order, and why</span>
+
+<span class='del'>-3. [ ] **The visual block grammar and its loud-ignorance rule** —</span>
+<span class='del'>-   file: `src/ai_engineering/pages.py` (new module: fenced ` ```visual ` JSON block</span>
+<span class='del'>-   extraction from Markdown, the block vocabulary, unknown-block warning section, HTML</span>
+<span class='del'>-   escaping, and the shared self-contained page template authored via</span>
+<span class='del'>-   `importlib.resources` — stdlib only).</span>
+<span class='del'>-   check: `uv run python -m pytest tests/test_pages.py -k visual_block` over a new</span>
+<span class='del'>-   `tests/test_pages.py` that feeds one known block and one unknown block — fails today</span>
+<span class='del'>-   (no module), green after; the unknown block must appear in a warning section, never</span>
+<span class='del'>-   vanish.</span>
+<span class='del'>-   rollback: `git revert` both files; nothing imports the module yet.</span>
+<span class='del'>-   done when: extraction, escaping, budgets-as-constants and the loud unknown-block path</span>
+<span class='del'>-   all have passing tests.</span>
+<span class='add'>+Grill round 1 executed that the tree&#x27;s Markdown readers are fence-blind and the grammar</span>
+<span class='add'>+lands inside their input, so fence-awareness (3) precedes the renderer (4) and every</span>
+<span class='add'>+authoring skill (10–12). The two commands (5, 6) precede the homes they write (7) and the</span>
+<span class='add'>+banner that must describe them (8). Guidance (9) precedes the skills that cite it. The PR</span>
+<span class='add'>+job (13) is last of the machinery because it consumes the recap; the smoke (14) closes the</span>
+<span class='add'>+gate.</span>
+
+<span class='del'>-4. [ ] **`ai-eng report view` — the spec/plan review page** —</span>
+<span class='del'>-   file: `src/ai_engineering/report.py` (subcommand `view`, inside the existing family —</span>
+<span class='del'>-   report.py:139-143 is why this is not an eleventh verb). Renders</span>
+<span class='del'>-   `specs/NNN-slug/spec.md` + `plan.md` through `pages.py` to</span>
+<span class='del'>-   `.ai/views/&lt;NNN&gt;-&lt;slug&gt;.html`; header carries the sha256 digest and date of the exact</span>
+<span class='del'>-   bytes rendered; prints the absolute `file://` URL; missing spec → `INCOMPLETE`,</span>
+<span class='del'>-   nonzero, no file.</span>
+<span class='del'>-   check: `uv run ai-eng report view --spec 046 &amp;&amp; uv run ai-eng report view --spec 046 &amp;&amp;</span>
+<span class='del'>-   shasum -a 256 .ai/views/046-visual-html-records.html` twice shows one identical hash,</span>
+<span class='del'>-   and `uv run ai-eng report view --spec 999` exits nonzero naming the missing spec.</span>
+<span class='del'>-   rollback: `git revert`; subcommand and its tests leave together.</span>
+<span class='del'>-   done when: two runs are byte-identical, the URL prints, the digest header matches the</span>
+<span class='del'>-   spec bytes, and the refusal path writes nothing.</span>
+<span class='add'>+## Tasks</span>
+
+<span class='del'>-5. [ ] **`ai-eng report recap` — the post-build visual record** —</span>
+<span class='del'>-   file: `src/ai_engineering/report.py` + `src/ai_engineering/pages.py`. Builds</span>
+<span class='del'>-   `.ai/reports/NNN-recap-&lt;slug&gt;.html` (existing doctor regex admits the shape): file-tree</span>
+<span class='del'>-   with change flags and 3–8 key-change diff excerpts **derived mechanically from `git</span>
+<span class='del'>-   diff --name-status/-U&lt;…&gt;` against `--base`** (a diff block that is not a real hunk</span>
+<span class='del'>-   refuses), 1–3 paragraph narrative from `--summary` or a `visual` narrative block, the</span>
+<span class='del'>-   spec digest, the verification commands it is told, and secret redaction before writing.</span>
+<span class='del'>-   check: `uv run ai-eng report recap --spec 046 --base $(git rev-parse HEAD~1) --summary</span>
+<span class='del'>-   &quot;…&quot;` exits 0; the page&#x27;s file list equals `git diff --name-status &lt;base&gt;`; excerpt count</span>
+<span class='del'>-   ≤ 8 and each ≤ 150 lines — fails today (no subcommand).</span>
+<span class='del'>-   rollback: `git revert`.</span>
+<span class='del'>-   done when: a recap of a real range renders, every budget comes from `contract.py`, and</span>
+<span class='del'>-   a fabricated diff block is refused by test.</span>
+<span class='add'>+1. [x] &lt;!--t:898ccdc23073--&gt; **Doctrine room and the four always-on rules** —</span>
+<span class='add'>+   **file**: `AGENTS.md` (same commit as `tests/test_contracts.py`: cap and text move</span>
+<span class='add'>+   together — append the rules first, watch the doctrine test go red, then raise</span>
+<span class='add'>+   `DOCTRINE_CEILING` 150 → 180 in the same commit). The four rules from the spec&#x27;s</span>
+<span class='add'>+   Decision: turn = Done-with-artifact or one line `BLOCKED: … — unblock: …`; the</span>
+<span class='add'>+   🟢//🔴 status line with a legible 🟡; scale effort to the task; do the work instead of</span>
+<span class='add'>+   asking. Plus the link duty: a command that writes a page prints its absolute URL, and</span>
+<span class='add'>+   the skill shows it in chat.</span>
+<span class='add'>+   **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_contracts.py -k doctrine`</span>
+<span class='add'>+   **rollback**: `git revert &lt;commit&gt;`; both files return together.</span>
+<span class='add'>+   **done when**: AGENTS.md is ≤180 lines, carries the four rules and the link duty, and</span>
+<span class='add'>+   the doctrine test is green.</span>
+
+<span class='del'>-6. [ ] **The views home in the one-home gate** —</span>
+<span class='del'>-   file: `src/ai_engineering/doctor.py` (grow the allowed shape beside the reports regex</span>
+<span class='del'>-   at doctor.py:789-795) and the shipped `.ai/.gitignore` template (find it via the</span>
+<span class='del'>-   template that re-allows `!reports/…`; the pin and doctor must agree).</span>
+<span class='del'>-   check: `uv run ai-eng doctor` green with `.ai/views/046-visual-html-records.html` on</span>
+<span class='del'>-   disk; a stray `.ai/views/notes.txt` makes it fail — today doctor flags the directory.</span>
+<span class='del'>-   rollback: `git revert` both files; views become violations again, the pre-state.</span>
+<span class='del'>-   done when: doctor accepts exactly `views/[0-9][0-9][0-9]-*.html` and nothing else there.</span>
+<span class='add'>+2. [x] &lt;!--t:6f769487b495--&gt; **Budget constants** —</span>
+<span class='add'>+   **file**: `src/ai_engineering/contract.py` — add `RECAP_TABS_MIN = 3`,</span>
+<span class='add'>+   `RECAP_TABS_MAX = 8`, `RECAP_EXCERPT_LINES_MAX = 150`, `PAGE_TITLE_MAX = 70` beside</span>
+<span class='add'>+   `SKILL_FOG_CEILING`, each with the upstream source named in its comment.</span>
+<span class='add'>+   **check**: `uv run python -c &quot;from ai_engineering import contract; print(contract.RECAP_TABS_MAX)&quot;`</span>
+<span class='add'>+   **rollback**: `git revert`; no reader exists yet.</span>
+<span class='add'>+   **done when**: the four names import and print, and they are the only place the numbers</span>
+<span class='add'>+   live.</span>
+
+<span class='del'>-7. [ ] **The harvested guidance, attributed** —</span>
+<span class='del'>-   file: `policy/visual-pages.md` (new: the condensed block taxonomy, diff→block mapping,</span>
+<span class='del'>-   grounding rules, no-boilerplate, before/after comparability, budgets referenced only as</span>
+<span class='del'>-   &quot;`contract.py` names&quot;) headed with the Builder.io MIT (c) 2026 attribution and the</span>
+<span class='del'>-   report-021 derivation note.</span>
+<span class='del'>-   check: `uv run python -c &quot;import pathlib; t=pathlib.Path(&#x27;policy/visual-pages.md&#x27;).read_text(); assert &#x27;MIT&#x27; in t and &#x27;Builder&#x27; in t and &#x27;contract.py&#x27; in t&quot;`.</span>
+<span class='del'>-   rollback: `git revert`; runtime code never reads this file — it is the authoring</span>
+<span class='del'>-   reference for tasks 8–10&#x27;s skills.</span>
+<span class='del'>-   done when: the file exists, attributes, and carries zero loose budget numbers.</span>
+<span class='add'>+3. [x] &lt;!--t:a065b4d0d56b--&gt; **Fence-awareness before the first block** —</span>
+<span class='add'>+   **file**: `src/ai_engineering/spec.py` (shared fence-aware line stop for the task</span>
+<span class='add'>+   parser and the approval-bytes mask, reusing the pattern `contract.py` already owns)</span>
+<span class='add'>+   with matching stops in `src/ai_engineering/solution_intent.py` — three refusal tests</span>
+<span class='add'>+   land in `tests/test_mut_spec.py` first: a numbered bold task line inside a fence adds</span>
+<span class='add'>+   no task, a bold check-field inside a fence donates no command, and checked-box lines</span>
+<span class='add'>+   inside a fence move no counter.</span>
+<span class='add'>+   **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_mut_spec.py -k fence`</span>
+<span class='add'>+   **rollback**: `git revert`; the grammar simply cannot ship without this, which is the</span>
+<span class='add'>+   point of ordering it first.</span>
+<span class='add'>+   **done when**: all three refusals pass and every existing digest on the 16 plans is</span>
+<span class='add'>+   unchanged (fence-blind behaviour only changes for files carrying fences, of which there</span>
+<span class='add'>+   are none yet).</span>
+
+</pre><h3><code>specs/046-visual-html-records/spec.md</code></h3><p class='sub'>260 lines changed</p><pre class='diff'>diff --git a/specs/046-visual-html-records/spec.md b/specs/046-visual-html-records/spec.md
+index a90e8158..01274594 100644
+--- a/specs/046-visual-html-records/spec.md
++++ b/specs/046-visual-html-records/spec.md
+<span class='hunk'>@@ -29,25 +29,37 @@ html` (audits `SkillsAudit`, `FrameworkAudit`):</span>
+   pinned by `doctor` (`src/ai_engineering/doctor.py:795`) and `.ai/.gitignore`. This is the
+   home new pages join.
+<span class='del'>-- Spec and plan are plain committed Markdown under `specs/NNN-slug/`; the approval gate is</span>
+<span class='del'>-  an ADR at the **exact digests** of those two files (`policy/skill-sequence.toml [gate]`).</span>
+<span class='add'>+- Spec and plan are plain committed Markdown under `specs/NNN-slug/`. The gate authority</span>
+<span class='add'>+  names the spec&#x27;s digest (`policy/skill-sequence.toml [gate]`: &quot;a human approval record</span>
+<span class='add'>+  carrying the specification&#x27;s exact digest&quot;); the two-file practice — spec **and** plan</span>
+<span class='add'>+  digests — lives in the ADR series (`docs/adr/0008`, `docs/adr/0009`), and the digest a</span>
+<span class='add'>+  plan is signed under is the **canonical** one, taken with the tick column masked</span>
+<span class='add'>+  (`src/ai_engineering/spec.py` `approval_bytes`/`_digest`).</span>
+ - `docs/solution-intent.html` is already committed HTML this framework shows a human to
+   act on — the precedent that a rendered page can live in the tree.
+ - The external visual-plan/visual-recap skills are MIT prose mirrored from
+<span class='del'>-  BuilderIO/agent-native. Their mechanism (hosted Plan MCP, or `npx @agent-native/core`</span>
+<span class='del'>-  plus a renderer living on agent-native.com even in &quot;local-files&quot; mode) is excluded by the</span>
+<span class='del'>-  user&#x27;s constraint; their craft — block taxonomy, diff→block mapping, budgets (3–8</span>
+<span class='del'>-  key-change tabs, ~150 excerpt lines, title ≤70 chars), grounding rules (&quot;blocks derived</span>
+<span class='del'>-  mechanically from the real diff, never invented&quot;; &quot;no boilerplate prose blocks&quot;) — is</span>
+<span class='del'>-  harvestable and is what the screenshots show.</span>
+<span class='add'>+  BuilderIO/agent-native — verified from upstream this session, not from this tree:</span>
+<span class='add'>+  `BuilderIO/skills` `LICENSE` is MIT (c) 2026 Builder.io, `scripts/sync-agent-native-</span>
+<span class='add'>+  skills.mjs` copies the four visual skills verbatim from an agent-native checkout, and</span>
+<span class='add'>+  `.github/workflows/update-agent-native-plan-skills.yml` keeps them synced. Their</span>
+<span class='add'>+  mechanism (hosted Plan MCP, or `npx @agent-native/core` plus a renderer living on</span>
+<span class='add'>+  agent-native.com even in &quot;local-files&quot; mode) is excluded by the user&#x27;s constraint; their</span>
+<span class='add'>+  craft — block taxonomy, diff→block mapping, budgets (3–8 key-change tabs, ~150 excerpt</span>
+<span class='add'>+  lines, title ≤70 chars), grounding rules (&quot;blocks derived mechanically from the real</span>
+<span class='add'>+  diff, never invented&quot;; &quot;no boilerplate prose blocks&quot;) — is harvestable.</span>
+ - MDX is markdown + JSX + ESM: it needs a compiler and a component framework to render,
+   i.e. an npm toolchain. Not the answer.
+<span class='del'>-- GitHub comments render Markdown and a limited HTML subset (e.g. `&lt;picture&gt;`, custom</span>
+<span class='del'>-  anchors) but not an interactive page — so a &quot;visual PR review&quot; on GitHub is necessarily a</span>
+<span class='del'>-  **link from the comment to a published page**, which is exactly the shape agent-native&#x27;s</span>
+<span class='del'>-  own PR action uses. [unsourced: the exact tag-sanitization list was not read from a</span>
+<span class='del'>-  primary source this session; the link-not-inline conclusion holds under any subset.]</span>
+<span class='del'>-- The remote is `github.com/arcasilesgroup/ai-engineering`; GitHub Pages serves committed</span>
+<span class='del'>-  HTML from the repo as a project site. Whether Pages is enabled, and whether published</span>
+<span class='del'>-  pages are acceptable as public URLs, is a human/infra decision, not a code fact.</span>
+<span class='add'>+- GitHub comments render Markdown and a limited HTML subset but not an interactive page —</span>
+<span class='add'>+  so a &quot;visual PR review&quot; on GitHub is necessarily a **link from the comment to a published</span>
+<span class='add'>+  page**. [unsourced: GitHub&#x27;s exact tag-sanitization list was not read from a primary</span>
+<span class='add'>+  source this session; the link-not-inline conclusion holds under any subset.]</span>
+<span class='add'>+- GitHub Pages is **not enabled** for `arcasilesgroup/ai-engineering` (measured round 1:</span>
+<span class='add'>+  `gh api repos/arcasilesgroup/ai-engineering/pages` → 404). `.github/workflows/check.yml`</span>
+<span class='add'>+  runs with global `permissions: contents: read`, so a PR-commenting job needs a named</span>
+<span class='add'>+  permission escalation and the `ci-result` gate job lists its needs explicitly.</span>
+<span class='add'>+- The Markdown readers in this tree are **fence-blind today** (measured round 1):</span>
+<span class='add'>+  `plan_tasks` parses a numbered bold line inside a fence as a real task, a `**check**:`</span>
+<span class='add'>+  span inside a fence can rewrite the command `--tick` executes, and</span>
+<span class='add'>+  `solution_intent._specs` counts `- [x]` lines anywhere in the body. `contract.py` already</span>
+<span class='add'>+  owns a fence-aware line reader; `spec.py` does not use it.</span>
+ - `AGENTS.md` is capped by `tests/test_contracts.DOCTRINE_CEILING` = 150 lines and stands
+   at 104; the user explicitly authorized raising the ceiling to carry the important
+<span class='hunk'>@@ -67,12 +79,12 @@ html` (audits `SkillsAudit`, `FrameworkAudit`):</span>
+    (`ai-visual-plan`, `ai-visual-recap`, and the cycle verbs that call them) author content
+    as fenced `visual` directive blocks **inside the existing Markdown** — spec.md, plan.md,
+<span class='del'>-   or the recap&#x27;s narrative input — using a block vocabulary documented in</span>
+<span class='del'>-   `policy/visual-pages.md`. A stdlib renderer (`ai-eng report view|recap`) extracts those</span>
+<span class='del'>-   blocks plus the mechanical facts (file-tree and diff excerpts from `git`, digests from</span>
+<span class='del'>-   the bytes) and emits one self-contained HTML page from a repo-owned template. Markdown</span>
+<span class='del'>-   stays the sole approval object — no sidecar to drift, no second digest. The PR review is</span>
+<span class='del'>-   the same recap page published through GitHub Pages and linked from a bot comment. Cost:</span>
+<span class='del'>-   one module, one template set, a block grammar with a checker, tests, skill edits, and a</span>
+<span class='del'>-   Pages decision that is not ours to make.</span>
+<span class='add'>+   or the recap narrative — using a block vocabulary documented in `policy/visual-pages.md`.</span>
+<span class='add'>+   A stdlib renderer (`ai-eng report view|recap`) extracts those blocks plus the mechanical</span>
+<span class='add'>+   facts (file-tree and diff excerpts from `git`, canonical digests from the bytes) and</span>
+<span class='add'>+   emits one self-contained HTML page from a repo-owned template. Markdown stays the sole</span>
+<span class='add'>+   approval object — no sidecar to drift, no second digest. The PR review is the same recap</span>
+<span class='add'>+   page published through GitHub Pages and linked from a bot comment. Cost: one module, one</span>
+<span class='add'>+   template set, a block grammar **with the tree&#x27;s existing readers made fence-aware first**,</span>
+<span class='add'>+   tests, skill edits, and a Pages decision that is not ours to make.</span>
+
+ ## Decision
+<span class='hunk'>@@ -80,16 +92,23 @@ html` (audits `SkillsAudit`, `FrameworkAudit`):</span>
+ Option 3. Precisely:
+
+<span class='del'>-- **The block grammar is fenced directives inside the Markdown.** A plan carries</span>
+<span class='del'>-  ` ```visual { &quot;block&quot;: &quot;diagram&quot;, … } ``` ` segments (diagram, file-tree, decision-table,</span>
+<span class='del'>-  open-questions, wireframe-before-after, checklist); a plain-Markdown reader sees a fenced</span>
+<span class='del'>-  block, a browser sees a rendered surface. The renderer ignores unknown blocks loudly</span>
+<span class='del'>-  (prints them as a warning section) rather than dropping them silently — a page that</span>
+<span class='del'>-  quietly loses a block is the silent-coercion bug in a new costume.</span>
+<span class='del'>-- **Homes.** Recap pages are records: `.ai/reports/NNN-recap-&lt;slug&gt;.html`, the existing</span>
+<span class='del'>-  doctor-pinned shape — no new regex. Spec/plan views are derived: `.ai/views/&lt;NNN&gt;-&lt;slug&gt;.</span>
+<span class='del'>-  html`, gitignored, regenerated by one command, never approved; `doctor`&#x27;s one-home check</span>
+<span class='del'>-  grows that shape, and the shipped `.ai/.gitignore` template re-allows it. The view header</span>
+<span class='del'>-  prints the digest and date of the exact bytes it rendered, so staleness is checkable from</span>
+<span class='del'>-  the page itself.</span>
+<span class='add'>+- **The block grammar is fenced directives inside the Markdown, and fence-awareness is its</span>
+<span class='add'>+  precondition, not a follow-up.** A plan carries ` ```visual { &quot;block&quot;: &quot;diagram&quot;, … } ```</span>
+<span class='add'>+  ` segments (diagram, file-tree, decision-table, open-questions, wireframe-before-after,</span>
+<span class='add'>+  checklist). Before any block is authored into an approved plan, the three fence-blind</span>
+<span class='add'>+  readers — `plan_tasks`, `approval_bytes`, `solution_intent._specs` — stop at fences (one</span>
+<span class='add'>+  shared helper, reusing the pattern `contract.py` already owns), each with a refusal test:</span>
+<span class='add'>+  a numbered bold line, a `**check**:` span and a `- [x]` line inside a fence must be</span>
+<span class='add'>+  invisible to task parsing, field donation and intent counting respectively. The renderer</span>
+<span class='add'>+  ignores unknown blocks loudly (a visible warning section naming them) rather than dropping</span>
+<span class='add'>+  them silently — a page that quietly loses a block is the silent-coercion bug in a new</span>
+<span class='add'>+  costume.</span>
+<span class='add'>+- **Homes.** Recap pages are records: `.ai/reports/NNN-recap-&lt;slug&gt;.html`, matched by</span>
+<span class='add'>+  `doctor`&#x27;s existing regex (verified: the shape already fits — no new regex). Spec/plan</span>
+<span class='add'>+  views are derived: `.ai/views/&lt;NNN&gt;-&lt;slug&gt;.html`, **gitignored and never committed**, so</span>
+<span class='add'>+  `doctor`&#x27;s one-home check (which inspects tracked files only) has nothing to grow; the</span>
+<span class='add'>+  shipped pin is `skeletons.AI_GITIGNORE`, which must re-allow the views shape the same way</span>
+<span class='add'>+  the locally-grown `.ai/.gitignore` re-allows reports. The view header prints the</span>
+<span class='add'>+  **canonical** digests — the same values `_digest` computes and the ADR signs — plus the</span>
+<span class='add'>+  date and the `file://` path.</span>
+ - **Two skills, four page types.** `ai-visual-plan` turns a plan — a pasted text plan,
+   another agent&#x27;s plan, or `specs/NNN/plan.md` — into the visual review page; `ai-visual-
+<span class='hunk'>@@ -98,23 +117,26 @@ Option 3. Precisely:</span>
+   ai-build/ai-goal/ai-ship produce the recap at the hand-off). Research keeps writing
+   `.ai/reports/` directly. So: research, spec, plan, recap — all HTML, all in-repo.
+<span class='del'>-- **The link duty.** Every command that writes a page prints its absolute `file://` URL,</span>
+<span class='del'>-  and every skill must show that link in chat as the last line about the artifact — one</span>
+<span class='del'>-  click opens the browser. In CI the same duty prints the published URL instead.</span>
+<span class='add'>+- **The link duty.** Every command that writes a page prints its absolute `file://` URL</span>
+<span class='add'>+  and the canonical digests it rendered, and every skill must show that link in chat as the</span>
+<span class='add'>+  last line about the artifact — one click opens the browser. The printed digest is the</span>
+<span class='add'>+  recomputation: the second path is &quot;re-run the command and diff the pages&quot;, which the</span>
+<span class='add'>+  byte-identical example below pins. In CI the same duty prints the published URL instead.</span>
+ - **Budgets as constants, guidance as policy.** `RECAP_TABS_MIN/MAX`,
+   `RECAP_EXCERPT_LINES_MAX`, `PAGE_TITLE_MAX` live in `contract.py` beside the other
+   numbers; the harvested editorial rules (grounding, no-boilerplate, before/after
+<span class='del'>-  comparability, real content not lorem) live in `policy/visual-pages.md` with the</span>
+<span class='del'>-  Builder.io MIT attribution beside the text derived from it.</span>
+<span class='add'>+  comparability, real content not lorem) live in `policy/visual-pages.md` with the Builder.io</span>
+<span class='add'>+  MIT attribution beside the text derived from it.</span>
+ - **Visual PR review.** A CI job on `pull_request` runs `ai-eng report recap` against the
+   PR base, publishes the page through GitHub Pages, and a bot comment posts a short
+<span class='del'>-  Markdown summary (title, one-paragraph outcome, file count) plus the link — the exact</span>
+<span class='del'>-  shape of the screenshot, with our generator instead of the hosted Plan app. Until Pages</span>
+<span class='del'>-  is confirmed for this repo, the job degrades honestly: the page is uploaded as an</span>
+<span class='del'>-  Actions artifact and the comment says so. Publishing internal records to a public site is</span>
+<span class='del'>-  a privacy decision (rule 8); it is an open question for the human, not a default.</span>
+<span class='add'>+  Markdown summary (title, one-paragraph outcome, file count) plus the link. The job needs</span>
+<span class='add'>+  `pull-requests: write` scoped to itself against the workflow&#x27;s `contents: read` default,</span>
+<span class='add'>+  and it is added to `ci-result`&#x27;s needs list so it gates like everything else. Pages is</span>
+<span class='add'>+  not enabled today, so the job&#x27;s first shipped shape is the honest degradation: artifact</span>
+<span class='add'>+  upload plus a comment saying Pages is off. Publishing internal records to a public site</span>
+<span class='add'>+  is a privacy decision (rule 8); it is an open question for the human, not a default.</span>
+ - **Doctrine.** `DOCTRINE_CEILING` rises 150 → 180 (user-authorized), and `AGENTS.md` gains
+   four always-on rules: (a) a turn ends as Done-with-the-artifact-that-proves-it or as one
+   line `BLOCKED: &lt;what&gt; — unblock: &lt;one thing under a minute&gt;`; (b) every final response
+<span class='del'>-  ends with the one-line status `🟢/🟡/🔴`, and a 🟡 names its pending item legibly; (c)</span>
+</pre><h3><code>src/ai_engineering/report.py</code></h3><p class='sub'>235 lines changed</p><pre class='diff'>diff --git a/src/ai_engineering/report.py b/src/ai_engineering/report.py
+index d7bd8179..adb0362b 100644
+--- a/src/ai_engineering/report.py
++++ b/src/ai_engineering/report.py
+<span class='hunk'>@@ -10,4 +10,6 @@ from __future__ import annotations</span>
+ import argparse
+ import json
+<span class='add'>+import re</span>
+<span class='add'>+import subprocess</span>
+ import sys
+ import time
+<span class='hunk'>@@ -18,9 +20,12 @@ from pathlib import Path</span>
+ from ai_engineering import (
+     accept,
+<span class='add'>+    contract,</span>
+     doctor,
+     issue,
+     outcome,
+<span class='add'>+    pages,</span>
+     paths,
+     solution_intent,
+<span class='add'>+    spec,</span>
+     surface,
+ )
+<span class='hunk'>@@ -343,4 +348,219 @@ def record_stop(root: Path | None, args: argparse.Namespace) -&gt; outcome.Result:</span>
+
+
+<span class='add'>+# ---------------------------------------------------------------------------</span>
+<span class='add'>+# The visual records of specification 046: `report view` and `report recap`.</span>
+<span class='add'>+# ---------------------------------------------------------------------------</span>
+<span class='add'>+</span>
+<span class='add'>+_SECRET_SHAPES = re.compile(</span>
+<span class='add'>+    r&quot;(?i)(api[_-]?key|token|secret|password|private[_-]?key)&quot;</span>
+<span class='add'>+    r&quot;(\s*[:=]\s*)([^\s\&quot;&#x27;]{8,})&quot;</span>
+<span class='add'>+)</span>
+<span class='add'>+_PEM = re.compile(r&quot;-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----&quot;)</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def redact(text: str) -&gt; str:</span>
+<span class='add'>+    &quot;&quot;&quot;The last gate before a diff excerpt reaches a page. gitleaks guards commits;</span>
+<span class='add'>+    this guards the rendered view of one, because a page can be opened by a person</span>
+<span class='add'>+    whose machine has no scanner and whose clipboard has no redaction.</span>
+<span class='add'>+    &quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    text = _PEM.sub(&quot;[redacted private key]&quot;, text)</span>
+<span class='add'>+    return _SECRET_SHAPES.sub(lambda hit: f&quot;{hit.group(1)}{hit.group(2)}[redacted]&quot;, text)</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def _spec_home(root: Path, wanted: str) -&gt; Path | None:</span>
+<span class='add'>+    &quot;&quot;&quot;The one directory whose identifier is `wanted`, or None, said loudly.&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    for folder in sorted((root / &quot;specs&quot;).glob(&quot;*/&quot;)):</span>
+<span class='add'>+        if folder.name[:3] == wanted.zfill(3) and (folder / spec.SPEC_FILE).is_file():</span>
+<span class='add'>+            return folder</span>
+<span class='add'>+    print(f&quot;  INCOMPLETE  no spec {wanted.zfill(3)} under specs/, so there is nothing to render&quot;)</span>
+<span class='add'>+    return None</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def render_view(root: Path, args: argparse.Namespace) -&gt; outcome.Result:</span>
+<span class='add'>+    &quot;&quot;&quot;The spec and plan of one record as one self-contained review page.</span>
+<span class='add'>+</span>
+<span class='add'>+    The page is a view, never an approval: it prints the canonical digests of the exact</span>
+<span class='add'>+    bytes it rendered — the same numbers `_digest` computes and the ADR signs — so a</span>
+<span class='add'>+    stale page is identifiable from its own header, and regenerating it is one command.</span>
+<span class='add'>+    Two runs over unchanged bytes leave the file byte-identical.</span>
+<span class='add'>+    &quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    home = _spec_home(root, args.spec)</span>
+<span class='add'>+    if home is None:</span>
+<span class='add'>+        return outcome.result(&quot;INCOMPLETE&quot;)</span>
+<span class='add'>+    spec_body = (home / spec.SPEC_FILE).read_text(encoding=&quot;utf-8&quot;)</span>
+<span class='add'>+    plan_file = home / spec.PLAN_FILE</span>
+<span class='add'>+    plan_body = plan_file.read_text(encoding=&quot;utf-8&quot;) if plan_file.is_file() else &quot;&quot;</span>
+<span class='add'>+    title = next(</span>
+<span class='add'>+        (line[2:].strip() for line in spec_body.splitlines() if line.startswith(&quot;# &quot;)),</span>
+<span class='add'>+        home.name,</span>
+<span class='add'>+    )</span>
+<span class='add'>+    meta = (</span>
+<span class='add'>+        f&quot;spec {spec._digest(home / spec.SPEC_FILE)} · plan &quot;</span>
+<span class='add'>+        f&quot;{spec._digest(plan_file) if plan_file.is_file() else &#x27;no plan&#x27;} · rendered &quot;</span>
+<span class='add'>+        f&quot;{date.today().isoformat()} · a view, not an approval&quot;</span>
+<span class='add'>+    )</span>
+<span class='add'>+    body = pages.render_document(</span>
+<span class='add'>+        spec_body + &quot;\n\n&quot; + plan_body,</span>
+<span class='add'>+        kicker=f&quot;spec {args.spec} · review surface&quot;,</span>
+<span class='add'>+        title=title[: contract.PAGE_TITLE_MAX],</span>
+<span class='add'>+        sub=&quot;The approved bytes and their tasks, rendered from the Markdown they were signed as.&quot;,</span>
+<span class='add'>+        meta=pages.esc(meta),</span>
+<span class='add'>+    )</span>
+<span class='add'>+    views = root / &quot;.ai&quot; / &quot;views&quot;</span>
+<span class='add'>+    views.mkdir(parents=True, exist_ok=True)</span>
+<span class='add'>+    where = views / f&quot;{home.name[:3]}-{home.name[4:]}.html&quot;</span>
+<span class='add'>+    written = where.read_text(encoding=&quot;utf-8&quot;) if where.is_file() else None</span>
+<span class='add'>+    if written != body:</span>
+<span class='add'>+        where.write_text(body, encoding=&quot;utf-8&quot;)</span>
+<span class='add'>+    print(f&quot;  {&#x27;unchanged&#x27; if written == body else &#x27;wrote&#x27;} {where.relative_to(root)}&quot;)</span>
+<span class='add'>+    print(f&quot;  link: {where.resolve().as_uri()}&quot;)</span>
+<span class='add'>+    for line in meta.split(&quot; · &quot;)[:2]:</span>
+<span class='add'>+        print(f&quot;  {line}&quot;)</span>
+<span class='add'>+    return outcome.result(&quot;PASS&quot;)</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def _diff_hunks(root: Path, base: str, path: str, budget: int) -&gt; str:</span>
+<span class='add'>+    &quot;&quot;&quot;A real diff for one path, cut to the excerpt budget at hunk boundaries.&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    out = subprocess.run(</span>
+<span class='add'>+        [&quot;git&quot;, &quot;diff&quot;, &quot;--unified=2&quot;, base, &quot;--&quot;, path],</span>
+<span class='add'>+        capture_output=True,</span>
+<span class='add'>+        text=True,</span>
+<span class='add'>+        cwd=str(root),</span>
+<span class='add'>+        check=False,</span>
+<span class='add'>+        timeout=60,</span>
+<span class='add'>+    )</span>
+<span class='add'>+    if out.returncode:</span>
+<span class='add'>+        raise ValueError(</span>
+<span class='add'>+            f&quot;git diff {base} -- {path} exited {out.returncode}: {out.stderr.strip()[:80]}&quot;</span>
+<span class='add'>+        )</span>
+<span class='add'>+    kept: list[str] = []</span>
+<span class='add'>+    for line in out.stdout.splitlines():</span>
+<span class='add'>+        if line.startswith(&quot;@@&quot;) and len(kept) &gt;= budget:</span>
+<span class='add'>+            break  # a later hunk will not fit; keep whole hunks, never half a line</span>
+<span class='add'>+        kept.append(line)</span>
+<span class='add'>+    return &quot;\n&quot;.join(kept[:budget] if len(kept) &gt; budget else kept)</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def render_recap(root: Path, args: argparse.Namespace) -&gt; outcome.Result:</span>
+<span class='add'>+    &quot;&quot;&quot;What a finished build changed, as one record page.</span>
+<span class='add'>+</span>
+<span class='add'>+    The file-tree and every diff excerpt come from `git diff` over the named range —</span>
+<span class='add'>+    mechanically, never reconstructed — because the harvested grounding rule says a</span>
+<span class='add'>+    recap block is a fact from the diff or it is not in the recap. The narrative is the</span>
+<span class='add'>+    caller&#x27;s prose; the shape is this command&#x27;s.</span>
+<span class='add'>+    &quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    home = _spec_home(root, args.spec)</span>
+<span class='add'>+    if home is None:</span>
+<span class='add'>+        return outcome.result(&quot;INCOMPLETE&quot;)</span>
+<span class='add'>+    probe = subprocess.run(</span>
+<span class='add'>+        [&quot;git&quot;, &quot;rev-parse&quot;, &quot;--verify&quot;, f&quot;{args.base}^{{commit}}&quot;],</span>
+<span class='add'>+        capture_output=True, text=True, cwd=str(root), check=False, timeout=30,</span>
+<span class='add'>+    )</span>
+<span class='add'>+    if probe.returncode:</span>
+<span class='add'>+        print(f&quot;  INCOMPLETE  --base {args.base!r} is not a commit here&quot;)</span>
+<span class='add'>+        return outcome.result(&quot;INCOMPLETE&quot;)</span>
+<span class='add'>+    named = subprocess.run(</span>
+<span class='add'>+        [&quot;git&quot;, &quot;diff&quot;, &quot;--name-status&quot;, args.base],</span>
+<span class='add'>+        capture_output=True, text=True, cwd=str(root), check=False, timeout=60,</span>
+<span class='add'>+    )</span>
+<span class='add'>+    if named.returncode:</span>
+<span class='add'>+        print(&quot;  INCOMPLETE  git diff could not read the range&quot;)</span>
+</pre><h3><code>tests/test_pages.py</code></h3><p class='sub'>171 lines changed</p><pre class='diff'>diff --git a/tests/test_pages.py b/tests/test_pages.py
+new file mode 100644
+index 00000000..7f790bbb
+--- /dev/null
++++ b/tests/test_pages.py
+<span class='hunk'>@@ -0,0 +1,171 @@</span>
+<span class='add'>+&quot;&quot;&quot;The pages module&#x27;s contract, proved where the renderer could quietly break it.</span>
+<span class='add'>+</span>
+<span class='add'>+Specification 046 makes this file the only door a review page passes through, so the tests</span>
+<span class='add'>+here are not coverage for its functions but for its promises: nothing authored reaches the</span>
+<span class='add'>+browser as executable markup, an unknown block stays visible instead of vanishing, and the</span>
+<span class='add'>+budgets come from `contract` rather than from a number repeated in a string. Each test</span>
+<span class='add'>+names one way the renderer could report a page that lies.</span>
+<span class='add'>+&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+from __future__ import annotations</span>
+<span class='add'>+</span>
+<span class='add'>+import json</span>
+<span class='add'>+</span>
+<span class='add'>+import pytest</span>
+<span class='add'>+</span>
+<span class='add'>+from ai_engineering import contract, pages</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def _fence(payload: dict) -&gt; str:</span>
+<span class='add'>+    return &quot;```visual\n&quot; + json.dumps(payload) + &quot;\n```\n&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def test_an_unknown_block_stays_visible_instead_of_being_dropped():</span>
+<span class='add'>+    &quot;&quot;&quot;The silent-coercion bug, refused at the renderer.</span>
+<span class='add'>+</span>
+<span class='add'>+    A page that quietly loses a block reports a plan it never rendered. The unknown name</span>
+<span class='add'>+    must appear in the warning section, and its payload must not reach the body.</span>
+<span class='add'>+    &quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    text = &quot;Intro prose.\n\n&quot; + _fence({&quot;block&quot;: &quot;gantt-chart&quot;, &quot;rows&quot;: []})</span>
+<span class='add'>+    page = pages.render_document(</span>
+<span class='add'>+        text, kicker=&quot;test&quot;, title=&quot;A page&quot;, sub=&quot;&quot;, meta=&quot;&quot;</span>
+<span class='add'>+    )</span>
+<span class='add'>+    assert &quot;gantt-chart&quot; in page, &quot;an unknown block vanished without a trace&quot;</span>
+<span class='add'>+    assert &quot;could not render everything&quot; in page</span>
+<span class='add'>+    assert &quot;&lt;table&quot; not in page.split(&quot;could not render everything&quot;)[1], (</span>
+<span class='add'>+        &quot;an unknown block rendered into the body despite having no renderer&quot;</span>
+<span class='add'>+    )</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def test_malformed_json_in_a_fence_warns_and_renders_the_rest():</span>
+<span class='add'>+    text = &quot;Before.\n\n```visual\n{\&quot;block\&quot;: \&quot;diagram\&quot;, \n```\n\nAfter.\n&quot;</span>
+<span class='add'>+    page = pages.render_document(text, kicker=&quot;t&quot;, title=&quot;A page&quot;, sub=&quot;&quot;, meta=&quot;&quot;)</span>
+<span class='add'>+    assert &quot;not valid JSON&quot; in page</span>
+<span class='add'>+    assert &quot;Before.&quot; in page and &quot;After.&quot; in page, &quot;one bad block swallowed the document&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def test_a_wireframe_cannot_carry_script_or_an_external_reference():</span>
+<span class='add'>+    &quot;&quot;&quot;The one block whose payload is markup is filtered, not trusted.</span>
+<span class='add'>+</span>
+<span class='add'>+    A mockup is HTML, so the renderer accepts markup here — and this is the only place in</span>
+<span class='add'>+    the cycle where text authored by an agent reaches a browser as markup. An event</span>
+<span class='add'>+    handler, a script or a remote `src` must not survive the filter, or a review page</span>
+<span class='add'>+    becomes a way to run something on the reviewer&#x27;s machine from a file on disk.</span>
+<span class='add'>+    &quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    payload = {</span>
+<span class='add'>+        &quot;block&quot;: &quot;wireframe-before-after&quot;,</span>
+<span class='add'>+        &quot;title&quot;: &quot;Login&quot;,</span>
+<span class='add'>+        &quot;before&quot;: {&quot;html&quot;: &quot;&lt;div onclick=\&quot;fetch(&#x27;https://evil.test&#x27;)\&quot;&gt;old&lt;/div&gt;&quot;},</span>
+<span class='add'>+        &quot;after&quot;: {</span>
+<span class='add'>+            &quot;html&quot;: &quot;&lt;div&gt;&lt;script&gt;alert(1)&lt;/script&gt;&lt;img src=&#x27;https://evil.test/x.png&#x27;&gt;&quot;</span>
+<span class='add'>+            &quot;&lt;p style=&#x27;color:red&#x27;&gt;new&lt;/p&gt;&lt;a href=&#x27;javascript:alert(1)&#x27;&gt;go&lt;/a&gt;&lt;/div&gt;&quot;</span>
+<span class='add'>+        },</span>
+<span class='add'>+    }</span>
+<span class='add'>+    page = pages.render_document(</span>
+<span class='add'>+        _fence(payload), kicker=&quot;t&quot;, title=&quot;A page&quot;, sub=&quot;&quot;, meta=&quot;&quot;</span>
+<span class='add'>+    )</span>
+<span class='add'>+    for forbidden in (&quot;onclick&quot;, &quot;evil.test&quot;, &quot;&lt;script&quot;, &quot;javascript:&quot;):</span>
+<span class='add'>+        assert forbidden not in page, f&quot;a wireframe carried {forbidden} into the page&quot;</span>
+<span class='add'>+    assert &quot;color:red&quot; in page, &quot;the filter removed the inline style a mockup needs&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def test_narrative_text_cannot_escape_into_markup():</span>
+<span class='add'>+    page = pages.render_document(</span>
+<span class='add'>+        &quot;A &lt;script&gt;alert(1)&lt;/script&gt; claim and an &lt;img src=x onerror=alert(1)&gt; one.\n&quot;,</span>
+<span class='add'>+        kicker=&quot;t&quot;,</span>
+<span class='add'>+        title=&quot;A page&quot;,</span>
+<span class='add'>+        sub=&quot;&quot;,</span>
+<span class='add'>+        meta=&quot;&quot;,</span>
+<span class='add'>+    )</span>
+<span class='add'>+    assert &quot;&lt;script&gt;&quot; not in page</span>
+<span class='add'>+    assert &quot;onerror=&quot; not in page or &quot;&amp;lt;img&quot; in page, &quot;prose reached the page as markup&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def test_a_diff_excerpt_over_the_budget_refuses_the_page():</span>
+<span class='add'>+    &quot;&quot;&quot;The budget is `contract`&#x27;s, and exceeding it is a refusal, not a truncation.</span>
+<span class='add'>+</span>
+<span class='add'>+    A recap that silently cut an excerpt would report a change it did not show. The</span>
+<span class='add'>+    renderer has no licence to drop lines, so it declines the page instead.</span>
+<span class='add'>+    &quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    over = &quot;\n&quot;.join(&quot;+x&quot; for _ in range(contract.RECAP_EXCERPT_LINES_MAX + 1))</span>
+<span class='add'>+    with pytest.raises(pages.PageError) as refused:</span>
+<span class='add'>+        pages.render_block({&quot;block&quot;: &quot;diff&quot;, &quot;path&quot;: &quot;a.py&quot;, &quot;text&quot;: over})</span>
+<span class='add'>+    assert str(contract.RECAP_EXCERPT_LINES_MAX) in str(refused.value), (</span>
+<span class='add'>+        &quot;the refusal quoted a number that is not the contract&#x27;s&quot;</span>
+<span class='add'>+    )</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def test_a_title_over_the_budget_refuses_the_page():</span>
+<span class='add'>+    long = &quot;x&quot; * (contract.PAGE_TITLE_MAX + 1)</span>
+<span class='add'>+    with pytest.raises(pages.PageError):</span>
+<span class='add'>+        pages.render_page(kicker=&quot;t&quot;, title=long, sub=&quot;&quot;, meta=&quot;&quot;, body=&quot;&quot;, warnings=[])</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def test_every_page_carries_no_external_reference_and_no_script():</span>
+<span class='add'>+    &quot;&quot;&quot;The self-contained promise, checked on a page using every block.</span>
+<span class='add'>+</span>
+<span class='add'>+    The renderer&#x27;s whole argument is that a review page needs no network and no toolchain.</span>
+<span class='add'>+    One block that smuggled a remote asset would break the promise for every page that</span>
+<span class='add'>+    uses it, so the sweep covers the vocabulary rather than the samples above.</span>
+<span class='add'>+    &quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    blocks = [</span>
+<span class='add'>+        {&quot;block&quot;: &quot;diagram&quot;, &quot;title&quot;: &quot;Flow&quot;, &quot;steps&quot;: [{&quot;label&quot;: &quot;a&quot;, &quot;note&quot;: &quot;n&quot;}, &quot;b&quot;]},</span>
+<span class='add'>+        {</span>
+<span class='add'>+            &quot;block&quot;: &quot;file-tree&quot;,</span>
+<span class='add'>+            &quot;entries&quot;: [</span>
+<span class='add'>+                {&quot;path&quot;: &quot;src&quot;, &quot;change&quot;: &quot;M&quot;, &quot;children&quot;: [{&quot;path&quot;: &quot;a.py&quot;, &quot;change&quot;: &quot;A&quot;}]}</span>
+<span class='add'>+            ],</span>
+<span class='add'>+        },</span>
+<span class='add'>+        {</span>
+<span class='add'>+            &quot;block&quot;: &quot;decision-table&quot;,</span>
+<span class='add'>+            &quot;headers&quot;: [&quot;Option&quot;, &quot;Cost&quot;],</span>
+<span class='add'>+            &quot;rows&quot;: [{&quot;Option&quot;: &quot;a&quot;, &quot;Cost&quot;: &quot;b&quot;}],</span>
+<span class='add'>+        },</span>
+<span class='add'>+        {</span>
+<span class='add'>+            &quot;block&quot;: &quot;open-questions&quot;,</span>
+<span class='add'>+            &quot;questions&quot;: [</span>
+<span class='add'>+                {</span>
+<span class='add'>+                    &quot;title&quot;: &quot;Which?&quot;,</span>
+<span class='add'>+                    &quot;options&quot;: [{&quot;label&quot;: &quot;a&quot;, &quot;detail&quot;: &quot;d&quot;}],</span>
+<span class='add'>+                    &quot;recommendation&quot;: &quot;a&quot;,</span>
+<span class='add'>+                }</span>
+<span class='add'>+            ],</span>
+<span class='add'>+        },</span>
+<span class='add'>+        {&quot;block&quot;: &quot;checklist&quot;, &quot;items&quot;: [{&quot;label&quot;: &quot;done thing&quot;, &quot;done&quot;: True}, &quot;open thing&quot;]},</span>
+<span class='add'>+        {</span>
+<span class='add'>+            &quot;block&quot;: &quot;wireframe-before-after&quot;,</span>
+<span class='add'>+            &quot;before&quot;: {&quot;html&quot;: &quot;&lt;p&gt;old&lt;/p&gt;&quot;},</span>
+<span class='add'>+            &quot;after&quot;: {&quot;html&quot;: &quot;&lt;p&gt;new&lt;/p&gt;&quot;},</span>
+<span class='add'>+        },</span>
+<span class='add'>+        {</span>
+</pre><h3><code>src/ai_engineering/spec.py</code></h3><p class='sub'>130 lines changed</p><pre class='diff'>diff --git a/src/ai_engineering/spec.py b/src/ai_engineering/spec.py
+index 27eff385..fff5d281 100644
+--- a/src/ai_engineering/spec.py
++++ b/src/ai_engineering/spec.py
+<span class='hunk'>@@ -22,5 +22,5 @@ from dataclasses import dataclass</span>
+ from datetime import date
+ from pathlib import Path
+<span class='del'>-from typing import Any</span>
+<span class='add'>+from typing import Any, NamedTuple</span>
+
+ from ai_engineering import intent, outcome, paths, spec_transaction
+<span class='hunk'>@@ -275,4 +275,94 @@ CLAIMS_LABEL = &quot;The claims that could start together&quot;</span>
+
+
+<span class='add'>+# The fence protocol, shared by every reader of a plan. CommonMark&#x27;s shape: an opening</span>
+<span class='add'>+# run of three or more backticks or tildes, indented at most three spaces, closed by a</span>
+<span class='add'>+# matching run of the same character and no shorter. `madr.py` already parses fences this</span>
+<span class='add'>+# way for validation; this is the same rule where offsets must survive, because the</span>
+<span class='add'>+# readers below match against the original text and mask around the matches rather than</span>
+<span class='add'>+# deleting lines.</span>
+<span class='add'>+_FENCE_OPEN = re.compile(r&quot;^[ ]{0,3}(`{3,})([^`]*)$|^[ ]{0,3}(~{3,})(.*)$&quot;, re.M)</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+class Fence(NamedTuple):</span>
+<span class='add'>+    &quot;&quot;&quot;One fenced block: its span, its info string, and where its body starts.&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    start: int</span>
+<span class='add'>+    info: str</span>
+<span class='add'>+    body: int</span>
+<span class='add'>+    end: int</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def fence_records(text: str) -&gt; list[Fence]:</span>
+<span class='add'>+    &quot;&quot;&quot;One record per fenced block, delimiters included.</span>
+<span class='add'>+</span>
+<span class='add'>+    Specification 046 puts `visual` blocks inside plans, and grill round 1 executed what a</span>
+<span class='add'>+    fence-blind reader makes of that: a numbered bold line inside a fence became a real</span>
+<span class='add'>+    task, and a bold check-field inside one replaced the command `--tick` executes — an</span>
+<span class='add'>+    approved signature over prose nobody approved. Every reader of plan bytes asks these</span>
+<span class='add'>+    records first: is the match inside a fence? If yes, it is content, not structure.</span>
+<span class='add'>+    &quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    found: list[Fence] = []</span>
+<span class='add'>+    at, open_start, open_info, open_body, marker, length = 0, -1, &quot;&quot;, 0, &quot;&quot;, 0</span>
+<span class='add'>+    for line in text.splitlines(keepends=True):</span>
+<span class='add'>+        body = line.rstrip(&quot;\n&quot;)</span>
+<span class='add'>+        if open_start &lt; 0:</span>
+<span class='add'>+            hit = _FENCE_OPEN.match(body)</span>
+<span class='add'>+            if hit:</span>
+<span class='add'>+                # The pattern already carries the CommonMark rule: a backtick fence&#x27;s info</span>
+<span class='add'>+                # string holds no backtick (`[^`]*`), a tilde fence&#x27;s holds anything.</span>
+<span class='add'>+                fence = hit.group(1) or hit.group(3)</span>
+<span class='add'>+                marker, length = fence[0], len(fence)</span>
+<span class='add'>+                open_start = at</span>
+<span class='add'>+                open_info = (hit.group(2) or hit.group(4) or &quot;&quot;).strip()</span>
+<span class='add'>+                open_body = at + len(line)</span>
+<span class='add'>+        else:</span>
+<span class='add'>+            closing = re.fullmatch(rf&quot;[ ]{{0,3}}{re.escape(marker)}{{{length},}}[ \t]*&quot;, body)</span>
+<span class='add'>+            if closing:</span>
+<span class='add'>+                found.append(Fence(open_start, open_info, open_body, at + len(line)))</span>
+<span class='add'>+                open_start, marker, length = -1, &quot;&quot;, 0</span>
+<span class='add'>+        at += len(line)</span>
+<span class='add'>+    if open_start &gt;= 0:</span>
+<span class='add'>+        # An unclosed fence runs to the end of the file: content stays content.</span>
+<span class='add'>+        found.append(Fence(open_start, open_info, open_body, len(text)))</span>
+<span class='add'>+    return found</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def fence_spans(text: str) -&gt; list[tuple[int, int]]:</span>
+<span class='add'>+    &quot;&quot;&quot;Half-open ranges covering each fenced block, delimiters included.&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    return [(one.start, one.end) for one in fence_records(text)]</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def in_fence(spans: list[tuple[int, int]], offset: int) -&gt; bool:</span>
+<span class='add'>+    &quot;&quot;&quot;Whether one offset falls inside one fenced range.&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    return any(start &lt;= offset &lt; end for start, end in spans)</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def mask_fences(text: str) -&gt; str:</span>
+<span class='add'>+    &quot;&quot;&quot;The same bytes with every fenced line replaced by spaces of equal length.</span>
+<span class='add'>+</span>
+<span class='add'>+    Offsets and line boundaries survive, so a pattern searched over the mask reports</span>
+<span class='add'>+    positions that read against the original; and a fenced line cannot match anything, so</span>
+<span class='add'>+    the box counters and field extractors can run over the mask unchanged. The digest is</span>
+<span class='add'>+    never taken over the mask — fenced bytes are signed exactly as they stand.</span>
+<span class='add'>+    &quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    out = list(text)</span>
+<span class='add'>+    for start, end in fence_spans(text):</span>
+<span class='add'>+        for i in range(start, end):</span>
+<span class='add'>+            if text[i] != &quot;\n&quot;:</span>
+<span class='add'>+                out[i] = &quot; &quot;</span>
+<span class='add'>+    return &quot;&quot;.join(out)</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def outside_fences(pattern: re.Pattern[str], text: str):</span>
+<span class='add'>+    &quot;&quot;&quot;Every match of one pattern that is not inside a fence, in order.&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    spans = fence_spans(text)</span>
+<span class='add'>+    return (hit for hit in pattern.finditer(text) if not in_fence(spans, hit.start()))</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+ TASK_FIELDS = (&quot;file&quot;, &quot;check&quot;, &quot;rollback&quot;, &quot;done when&quot;)
+
+<span class='hunk'>@@ -313,8 +403,14 @@ def plan_tasks(text: str) -&gt; list[dict[str, str]]:</span>
+
+     found: list[dict[str, str]] = []
+<span class='del'>-    marks = list(_TASK.finditer(text))</span>
+<span class='add'>+    spans = fence_spans(text)</span>
+<span class='add'>+    marks = [hit for hit in _TASK.finditer(text) if not in_fence(spans, hit.start())]</span>
+<span class='add'>+    masked = mask_fences(text)</span>
+     for at, mark in enumerate(marks):
+         end = marks[at + 1].start() if at + 1 &lt; len(marks) else len(text)
+<span class='del'>-        block = text[mark.start() : end]</span>
+<span class='add'>+        # The masked slice is the block&#x27;s structure: headings stop it and fields are read</span>
+<span class='add'>+        # off it, so a fenced `# heading` neither truncates the task nor donates a field.</span>
+<span class='add'>+        # Grill round 1 executed the donation this closes — a fenced `**check**:` reached</span>
+<span class='add'>+        # the argv `--tick` would run.</span>
+<span class='add'>+        block = masked[mark.start() : end]</span>
+         # And it stops at a heading too. A task&#x27;s block ran to the next numbered item, so an
+         # amendment section or a block heading between two tasks sat inside the first one —
+<span class='hunk'>@@ -343,5 +439,8 @@ def runs_something(value: str) -&gt; bool:</span>
+
+ # The gap between a task&#x27;s number and its bold title, which is the only part of a plan a
+<span class='del'>-# command is allowed to write. Everything else in the file is signed as it stands.</span>
+<span class='add'>+# command is allowed to write. Everything else in the file is signed as it stands — and</span>
+<span class='add'>+# the masking stops at a fence: a box planted inside fenced content is signed, because no</span>
+<span class='add'>+# command ever writes there and the grill&#x27;s probe showed the invisible column reaching</span>
+<span class='add'>+# into a fence and hiding a planted `[x]` from the approval.</span>
+ _TASK_GAP = re.compile(r&quot;^([ \t]*\d+[a-z]*\.) &quot; + _COLUMN + r&quot;(?=\*\*)&quot;, re.M)
+
+<span class='hunk'>@@ -379,5 +478,10 @@ def approval_bytes(path: Path) -&gt; bytes:</span>
+         # bytes would change what was signed. Sign what is there and let the reader fail.
+         return raw
+<span class='del'>-    return _TASK_GAP.sub(r&quot;\1 &quot;, body).encode(&quot;utf-8&quot;)</span>
+<span class='add'>+    spans = fence_spans(body)</span>
+<span class='add'>+</span>
+<span class='add'>+    def untick(hit: re.Match[str]) -&gt; str:</span>
+<span class='add'>+        return hit.group(0) if in_fence(spans, hit.start()) else f&quot;{hit.group(1)} &quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    return _TASK_GAP.sub(untick, body).encode(&quot;utf-8&quot;)</span>
+
+
+<span class='hunk'>@@ -501,5 +605,12 @@ def _write_tick(plan: Path, task: str, mark: str) -&gt; bool:</span>
+     # nobody passed.
+     line = re.compile(r&quot;^([ \t]*&quot; + re.escape(task) + r&quot;\.) &quot; + _COLUMN + r&quot;(?=\*\*)&quot;, re.M)
+<span class='del'>-    written = line.sub(lambda hit: f&quot;{hit.group(1)} {mark}&quot;, body, count=1)</span>
+<span class='add'>+    spans = fence_spans(body)</span>
+</pre><h3><code>tests/test_mut_report.py</code></h3><p class='sub'>113 lines changed</p><pre class='diff'>diff --git a/tests/test_mut_report.py b/tests/test_mut_report.py
+new file mode 100644
+index 00000000..3edfb246
+--- /dev/null
++++ b/tests/test_mut_report.py
+<span class='hunk'>@@ -0,0 +1,113 @@</span>
+<span class='add'>+&quot;&quot;&quot;`report recap`&#x27;s promises, pinned where the renderer could quietly break them.</span>
+<span class='add'>+</span>
+<span class='add'>+Specification 046 sells the recap as the page a reviewer trusts: its file-tree and every</span>
+<span class='add'>+excerpt are facts from `git diff`, its budgets are the contract&#x27;s, and its narrative is</span>
+<span class='add'>+the only part a human authored. Each test below names one way the command could report a</span>
+<span class='add'>+change it did not measure — a file list that drifted from the range, a secret that reached</span>
+<span class='add'>+the page, an empty range dressed as a summary — and refuses it on a real temporary</span>
+<span class='add'>+repository.</span>
+<span class='add'>+&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+from __future__ import annotations</span>
+<span class='add'>+</span>
+<span class='add'>+import subprocess</span>
+<span class='add'>+from argparse import Namespace</span>
+<span class='add'>+from pathlib import Path</span>
+<span class='add'>+</span>
+<span class='add'>+import pytest</span>
+<span class='add'>+</span>
+<span class='add'>+from ai_engineering import contract, report</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def _git(root: Path, *args: str) -&gt; str:</span>
+<span class='add'>+    out = subprocess.run(</span>
+<span class='add'>+        [&quot;git&quot;, *args], cwd=str(root), capture_output=True, text=True, check=True</span>
+<span class='add'>+    )</span>
+<span class='add'>+    return out.stdout</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+@pytest.fixture()</span>
+<span class='add'>+def changed_repo(tmp_path: Path) -&gt; tuple[Path, str]:</span>
+<span class='add'>+    &quot;&quot;&quot;A repository with one commit of work over a named base, as the real flow leaves it.&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    root = tmp_path / &quot;work&quot;</span>
+<span class='add'>+    root.mkdir()</span>
+<span class='add'>+    _git(root, &quot;init&quot;, &quot;-q&quot;, &quot;-b&quot;, &quot;main&quot;)</span>
+<span class='add'>+    _git(root, &quot;config&quot;, &quot;user.email&quot;, &quot;t.test&quot;)</span>
+<span class='add'>+    _git(root, &quot;config&quot;, &quot;user.name&quot;, &quot;t&quot;)</span>
+<span class='add'>+    (root / &quot;a.py&quot;).write_text(&quot;one\ntwo\nthree\n&quot;, encoding=&quot;utf-8&quot;)</span>
+<span class='add'>+    home = root / &quot;specs&quot; / &quot;001-sample&quot;</span>
+<span class='add'>+    home.mkdir(parents=True)</span>
+<span class='add'>+    (home / &quot;spec.md&quot;).write_text(&quot;# Sample\n\nBody.\n&quot;, encoding=&quot;utf-8&quot;)</span>
+<span class='add'>+    (root / &quot;.ai&quot;).mkdir()</span>
+<span class='add'>+    (root / &quot;.ai&quot; / &quot;.gitignore&quot;).write_text(&quot;*\n!.gitignore\n&quot;, encoding=&quot;utf-8&quot;)</span>
+<span class='add'>+    _git(root, &quot;add&quot;, &quot;-A&quot;)</span>
+<span class='add'>+    _git(root, &quot;commit&quot;, &quot;-qm&quot;, &quot;base&quot;)</span>
+<span class='add'>+    base = _git(root, &quot;rev-parse&quot;, &quot;HEAD&quot;).strip()</span>
+<span class='add'>+    # The real flow: the build commits its work, and the recap runs over that range.</span>
+<span class='add'>+    (root / &quot;a.py&quot;).write_text(&quot;one\nTWO changed\nthree\nfour added\n&quot;, encoding=&quot;utf-8&quot;)</span>
+<span class='add'>+    (root / &quot;b.md&quot;).write_text(&quot;new file\n&quot;, encoding=&quot;utf-8&quot;)</span>
+<span class='add'>+    _git(root, &quot;add&quot;, &quot;-A&quot;)</span>
+<span class='add'>+    _git(root, &quot;commit&quot;, &quot;-qm&quot;, &quot;work&quot;)</span>
+<span class='add'>+    return root, base</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def _recap(root: Path, base: str, summary: str = &quot;Narrative sentence.&quot;):</span>
+<span class='add'>+    return report.render_recap(root, Namespace(spec=&quot;001&quot;, base=base, summary=summary))</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def test_the_page_lists_exactly_the_files_the_range_changed(changed_repo, capsys):</span>
+<span class='add'>+    root, base = changed_repo</span>
+<span class='add'>+    assert _recap(root, base).outcome == &quot;PASS&quot;</span>
+<span class='add'>+    printed = capsys.readouterr().out</span>
+<span class='add'>+    page = next(root.glob(&quot;.ai/reports/*-recap-*.html&quot;), None)</span>
+<span class='add'>+    assert page is not None, &quot;no recap page was written&quot;</span>
+<span class='add'>+    body = page.read_text(encoding=&quot;utf-8&quot;)</span>
+<span class='add'>+    for path in _git(root, &quot;diff&quot;, &quot;--name-only&quot;, base).splitlines():</span>
+<span class='add'>+        assert path in body, f&quot;the range changed {path} and the page does not list it&quot;</span>
+<span class='add'>+    assert &quot;file://&quot; in printed, &quot;the link duty was not printed&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def test_a_recap_of_an_empty_range_refuses_instead_of_writing_a_page(changed_repo):</span>
+<span class='add'>+    root, base = changed_repo</span>
+<span class='add'>+    assert _recap(root, &quot;HEAD&quot;).outcome == &quot;INCOMPLETE&quot;</span>
+<span class='add'>+    assert not list(root.glob(&quot;.ai/reports/*-recap-*.html&quot;)), (</span>
+<span class='add'>+        &quot;an empty range still wrote a page: a recap of nothing is a page of lies&quot;</span>
+<span class='add'>+    )</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def test_a_secret_in_a_diff_excerpt_never_reaches_the_page(changed_repo):</span>
+<span class='add'>+    root, base = changed_repo</span>
+<span class='add'>+    (root / &quot;c.env&quot;).write_text(&quot;API_KEY = [redacted]&quot;, encoding=&quot;utf-8&quot;)</span>
+<span class='add'>+    _git(root, &quot;add&quot;, &quot;-A&quot;)</span>
+<span class='add'>+    _git(root, &quot;commit&quot;, &quot;-qm&quot;, &quot;config&quot;)</span>
+<span class='add'>+    assert _recap(root, base, summary=&quot;Added config.&quot;).outcome == &quot;PASS&quot;</span>
+<span class='add'>+    body = next(root.glob(&quot;.ai/reports/*-recap-*.html&quot;)).read_text(encoding=&quot;utf-8&quot;)</span>
+<span class='add'>+    assert &quot;supersecretvalue123&quot; not in body, &quot;a secret crossed from the diff into the page&quot;</span>
+<span class='add'>+    assert &quot;redacted&quot; in body</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def test_excerpt_budgets_come_from_the_contract(changed_repo):</span>
+<span class='add'>+    &quot;&quot;&quot;A recap that ignored the budget would be a dump wearing a summary&#x27;s clothes.&quot;&quot;&quot;</span>
+<span class='add'>+</span>
+<span class='add'>+    root, base = changed_repo</span>
+<span class='add'>+    big = &quot;\n&quot;.join(f&quot;line {n} changed&quot; for n in range(contract.RECAP_EXCERPT_LINES_MAX + 40))</span>
+<span class='add'>+    (root / &quot;a.py&quot;).write_text(big + &quot;\n&quot;, encoding=&quot;utf-8&quot;)</span>
+<span class='add'>+    _git(root, &quot;add&quot;, &quot;-A&quot;)</span>
+<span class='add'>+    _git(root, &quot;commit&quot;, &quot;-qm&quot;, &quot;big&quot;)</span>
+<span class='add'>+    assert _recap(root, base, summary=&quot;Big change.&quot;).outcome == &quot;PASS&quot;</span>
+<span class='add'>+    body = next(root.glob(&quot;.ai/reports/*-recap-*.html&quot;)).read_text(encoding=&quot;utf-8&quot;)</span>
+<span class='add'>+    for block in body.split(&quot;&lt;pre class=&#x27;diff&#x27;&gt;&quot;)[1:]:</span>
+<span class='add'>+        excerpt = block.split(&quot;&lt;/pre&gt;&quot;)[0]</span>
+<span class='add'>+        assert excerpt.count(&quot;\n&quot;) &lt;= contract.RECAP_EXCERPT_LINES_MAX, (</span>
+<span class='add'>+            &quot;a diff excerpt ran past the budget the contract names&quot;</span>
+<span class='add'>+        )</span>
+<span class='add'>+</span>
+<span class='add'>+</span>
+<span class='add'>+def test_a_missing_spec_refuses_and_writes_no_page(changed_repo):</span>
+<span class='add'>+    root, base = changed_repo</span>
+<span class='add'>+    result = report.render_recap(</span>
+<span class='add'>+        root, Namespace(spec=&quot;999&quot;, base=base, summary=&quot;Nothing to recap.&quot;)</span>
+<span class='add'>+    )</span>
+<span class='add'>+    assert result.outcome == &quot;INCOMPLETE&quot;</span>
+<span class='add'>+    assert not list(root.glob(&quot;.ai/reports/*-recap-*.html&quot;))</span>
+</pre>
+</main>
+</body>
+</html>
