@@ -77,7 +77,7 @@ _DELETED_TOTAL = re.compile(r"^- Findings deleted[^:]*: \*\*(\d+)\*\*$", re.M)
 # unless it is canonical. Treating `**ran:**` as prose instead was the false green a
 # review executed — the author believes they declared a round, the reader believes the
 # critics never ran, and a planted bogus total passes exit-0 un-policed.
-_RAN_LINE = re.compile(r"^\s*[`*_\"']*ran:", re.M)
+_RAN_LINE = re.compile(r"^\s*[>\s``*_\"'-]*ran:", re.M | re.I)
 _RAN_GRAMMAR = re.compile(
     r"^`?ran: round [0-9]+, [0-9]{4}-[0-9]{2}-[0-9]{2} — [0-9]+ min`?([ ].*)?$"
 )

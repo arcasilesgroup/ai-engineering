@@ -2632,6 +2632,18 @@ def test_the_critic_step_refuses_every_declared_state_that_did_not_run():
             ),
             "a total the entries cannot reproduce",
         ),
+        (
+            council("**`ran: round 1, 2026-08-28 — 5 min`**", "none", good_totals),
+            "a bold-decorated ran: that once silently un-policed the section",
+        ),
+        (
+            council("> `ran: round 1, 2026-08-28 — 5 min`", "none", good_totals),
+            "a blockquoted ran: declaration, off canonical, refused not skipped",
+        ),
+        (
+            council("Ran: round 1, 2026-08-28 — 5 min", "none", good_totals),
+            "a capitalised Ran: line, a declaration with a broken grammar",
+        ),
     ):
         with pytest.raises(council_counts.Unreadable):
             council_counts.council_section_counts(bad)
@@ -2660,6 +2672,15 @@ def test_the_critic_step_refuses_every_declared_state_that_did_not_run():
         (
             grill_head + "- TODO: the question nobody asked\n\nnothing checkable failed\n",
             "a declared grill still carrying the prompt",
+        ),
+        (
+            grill_head + "when a grill round lands, replace this prompt with its declaration — "
+            "says `nothing checkable failed`. While this prompt stands undeclared.\n",
+            "the template prompt with TODO: deleted, quoting the warranty in prose",
+        ),
+        (
+            grill_head + "### Q1 — a\n**A:** holds\n**A:** again\n### Q2 — bare\nprose\n",
+            "a second answer hiding a bare second question",
         ),
     ):
         with pytest.raises(council_counts.Unreadable):
