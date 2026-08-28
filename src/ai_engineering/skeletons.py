@@ -198,6 +198,21 @@ AI_GITIGNORE = """*
 !config.toml
 !intent.md
 !readiness.json
+# Two shapes, both rules a reader can apply from the name, not lists of files.
+#
+# `reports/` are records: three digits, a hyphen, a name, `.html`, directly in the
+# directory. Research reports and recaps are committed there and `doctor`'s one-home
+# check reads them. Without this line a fresh install ignores its own evidence and
+# every report lives only on the machine that made it.
+!reports/
+!reports/[0-9][0-9][0-9]-*.html
+#
+# `views/` are derived: the same shape, and the pin names it so the home is visible
+# in the file that governs this directory. Naming the shape is not an invitation to
+# commit it — a view is a reading of bytes the ADR already signed, and `doctor` fails
+# the day one is tracked. Regenerate it instead: `ai-eng report view --spec NNN`.
+!views/
+!views/[0-9][0-9][0-9]-*.html
 """
 
 CHECK_YML = """name: check
