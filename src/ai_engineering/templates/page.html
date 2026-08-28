@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>@@TITLE@@</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:960px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:36px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.meta{color:var(--muted);font-size:13px;margin-bottom:28px;font-family:var(--mono)}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+code,pre{font-family:var(--mono)}code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}
+pre{background:var(--code);padding:12px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
+pre.diff .add{color:var(--good);display:block}pre.diff .del{color:var(--bad);display:block}pre.diff .hunk{color:var(--accent);display:block}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.ok{background:var(--good-soft);border-left:3px solid var(--good)}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+.bad{background:var(--bad-soft);border-left:3px solid var(--bad)}
+.flag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:6px;font-family:var(--mono)}
+.f-A{background:var(--good-soft);color:var(--good)}.f-M{background:var(--warn-soft);color:var(--warn)}.f-D{background:var(--bad-soft);color:var(--bad)}.f-R{background:var(--accent-soft);color:var(--accent)}.f-C{background:var(--code);color:var(--muted)}
+ul.tree{list-style:none;padding-left:18px;margin:4px 0;font-family:var(--mono);font-size:14px}
+ul.tree ul{padding-left:20px}
+.wireframe{border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0;background:var(--bg)}
+.wf-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:760px){.wf-pair{grid-template-columns:1fr}}
+.wf-pair h3{margin:4px 0;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.wireframe .wf-body{border:1px dashed var(--line);border-radius:8px;padding:12px;overflow:hidden}
+.wf-body table,.wf-body pre{max-width:100%}
+details{margin:8px 0;border:1px solid var(--line);border-radius:8px;padding:0 12px}
+summary{cursor:pointer;padding:8px 0;font-weight:600;font-size:14px}
+.checklist li{margin:3px 0}
+.checklist .done{color:var(--muted);text-decoration:line-through}
+.meta a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="topbar"><a class="brand" href="#">ai-engineering <small>· @@KICKER@@</small></a></div>
+<main>
+<p class="kicker">@@KICKER@@</p>
+<h1>@@TITLE@@</h1>
+<p class="sub">@@SUB@@</p>
+<p class="meta">@@META@@</p>
+@@WARNINGS@@
+@@BODY@@
+</main>
+</body>
+</html>

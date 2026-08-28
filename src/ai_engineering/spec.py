@@ -21,7 +21,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from ai_engineering import intent, outcome, paths, spec_transaction
 
@@ -283,38 +283,55 @@ CLAIMS_LABEL = "The claims that could start together"
 _FENCE_OPEN = re.compile(r"^[ ]{0,3}(`{3,})([^`]*)$|^[ ]{0,3}(~{3,})(.*)$", re.M)
 
 
-def fence_spans(text: str) -> list[tuple[int, int]]:
-    """Half-open ranges covering each fenced block, delimiters included.
+class Fence(NamedTuple):
+    """One fenced block: its span, its info string, and where its body starts."""
+
+    start: int
+    info: str
+    body: int
+    end: int
+
+
+def fence_records(text: str) -> list[Fence]:
+    """One record per fenced block, delimiters included.
 
     Specification 046 puts `visual` blocks inside plans, and grill round 1 executed what a
     fence-blind reader makes of that: a numbered bold line inside a fence became a real
     task, and a bold check-field inside one replaced the command `--tick` executes — an
-    approved signature over prose nobody approved. Every reader of plan bytes asks this
-    first: is the match inside a fence? If yes, it is content, not structure.
+    approved signature over prose nobody approved. Every reader of plan bytes asks these
+    records first: is the match inside a fence? If yes, it is content, not structure.
     """
 
-    spans: list[tuple[int, int]] = []
-    at, open_at, marker, length = 0, None, "", 0
+    found: list[Fence] = []
+    at, open_start, open_info, open_body, marker, length = 0, -1, "", 0, "", 0
     for line in text.splitlines(keepends=True):
         body = line.rstrip("\n")
-        if open_at is None:
+        if open_start < 0:
             hit = _FENCE_OPEN.match(body)
             if hit:
                 # The pattern already carries the CommonMark rule: a backtick fence's info
                 # string holds no backtick (`[^`]*`), a tilde fence's holds anything.
-                marker = (hit.group(1) or hit.group(3))[0]
-                length = len(hit.group(1) or hit.group(3))
-                open_at = at
+                fence = hit.group(1) or hit.group(3)
+                marker, length = fence[0], len(fence)
+                open_start = at
+                open_info = (hit.group(2) or hit.group(4) or "").strip()
+                open_body = at + len(line)
         else:
             closing = re.fullmatch(rf"[ ]{{0,3}}{re.escape(marker)}{{{length},}}[ \t]*", body)
             if closing:
-                spans.append((open_at, at + len(line)))
-                open_at, marker, length = None, "", 0
+                found.append(Fence(open_start, open_info, open_body, at + len(line)))
+                open_start, marker, length = -1, "", 0
         at += len(line)
-    if open_at is not None:
+    if open_start >= 0:
         # An unclosed fence runs to the end of the file: content stays content.
-        spans.append((open_at, len(text)))
-    return spans
+        found.append(Fence(open_start, open_info, open_body, len(text)))
+    return found
+
+
+def fence_spans(text: str) -> list[tuple[int, int]]:
+    """Half-open ranges covering each fenced block, delimiters included."""
+
+    return [(one.start, one.end) for one in fence_records(text)]
 
 
 def in_fence(spans: list[tuple[int, int]], offset: int) -> bool:
