@@ -71,10 +71,13 @@ COUNCIL_HEADINGS = (NEW_HEADING, CUT_HEADING, REFUTED_HEADING)
 _NEW_TOTAL = re.compile(r"^- Gaps that appeared only after the cross-read: \*\*(\d+)\*\*$", re.M)
 _DELETED_TOTAL = re.compile(r"^- Findings deleted[^:]*: \*\*(\d+)\*\*$", re.M)
 
-# A `ran:` declaration (D-045-05) is a line that *opens* with the word, in prose or in
-# backticks. Prose mentioning the word mid-line is not a declaration, which is what
-# keeps this section's own documentation of the rule from vouching for a run.
-_RAN_LINE = re.compile(r"^\s*`?ran:", re.M)
+# A `ran:` declaration (D-045-05) is a line that *opens* with the word, possibly
+# markdown-decorated. Decoration is deliberately accepted into declaration here: a
+# line that looks like `ran:` is treated as one and then refused by `_RAN_GRAMMAR`
+# unless it is canonical. Treating `**ran:**` as prose instead was the false green a
+# review executed — the author believes they declared a round, the reader believes the
+# critics never ran, and a planted bogus total passes exit-0 un-policed.
+_RAN_LINE = re.compile(r"^\s*[`*_\"']*ran:", re.M)
 _RAN_GRAMMAR = re.compile(
     r"^`?ran: round [0-9]+, [0-9]{4}-[0-9]{2}-[0-9]{2} — [0-9]+ min`?([ ].*)?$"
 )
@@ -114,13 +117,18 @@ def _top_section(body: str, heading: str) -> str | None:
     """The whole of one `## ` section, subsections included, or None when absent.
 
     Absence is the green that must stay green: a spec whose critics have not run has no
-    section to vouch for it, and no rule here may call that a lie about a run."""
+    section to vouch for it, and no rule here may call that a lie about a run. The scan
+    is a regex, not a string partition: a heading with trailing spaces and a heading at
+    file position 0 are both real sections, and the partition form silently returned
+    None and `""` for them — a review executed the first, and `_section`'s own docstring
+    names the second the fail-open shape it exists to avoid."""
 
-    marker = "\n" + heading + "\n"
-    if not (body.startswith(heading + "\n") or marker in body):
+    match = re.search(r"(?m)^" + re.escape(heading) + r"[ \t]*$", body)
+    if match is None:
         return None
-    found = body.partition(marker)[2] if marker in body else body.partition("\n" + heading)[2]
-    return re.split(r"\n## ", found, maxsplit=1)[0]
+    rest = body[match.end() :]
+    stop = re.search(r"(?m)^## ", rest)
+    return rest[: stop.start()] if stop else rest
 
 
 def entries(section: str) -> int:
