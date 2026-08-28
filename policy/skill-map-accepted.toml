@@ -236,4 +236,7 @@ accepted = [
   "specs/045-critics-inside-spec/plan.md -> specs/045-critics-inside-spec/council.md",
   "specs/045-critics-inside-spec/spec.md -> specs/045-critics-inside-spec/ai-spec/SKILL.md",
   "specs/045-critics-inside-spec/spec.md -> specs/045-critics-inside-spec/probe-045/spec.md",
+  # The changelog names the file class it retires — a prose mention, the class
+  # docs/adr/0027 accepted: a record describing a convention has to say its name.
+  "CHANGELOG.md -> council.md",
 ]
