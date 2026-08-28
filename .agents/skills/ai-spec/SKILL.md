@@ -99,6 +99,8 @@ project identity is cross-cutting and requires the same authority. Never overwri
   recommendation survived its challenge.
 - Assumptions, unresolved risks and observable BDD examples are explicit.
 - The authority basis is named, or the result is `INCOMPLETE` with the missing decision.
+- The human was handed `ai-eng report view --spec <NNN>`'s `file://` link beside the
+  Markdown, so the page they approve from carries the digests the ADR will name.
 
 ## What this is not
 

@@ -640,6 +640,8 @@ AI_SPEC_SECTIONS = {
         "the recommendation survived its challenge.",
         "- Assumptions, unresolved risks and observable BDD examples are explicit.",
         "- The authority basis is named, or the result is `INCOMPLETE` with the missing decision.",
+        "- The human was handed `ai-eng report view --spec <NNN>`'s `file://` link beside the "
+        "Markdown, so the page they approve from carries the digests the ADR will name.",
     ),
     "What this is not": (
         "Not a discussion transcript, implementation or risk acceptance. Delete empty ceremony; "
@@ -1569,13 +1571,13 @@ the design does not
 # went through.
 GOVERNING_SKILL_TEXT = {
     ".agents/skills/ai-build/SKILL.md": (
-        "649fbf1b2e0ee2d7b60ecca42bfbb253f83829b88f08ff06594172a78b395815"
+        "098d757fae96dee89ad37c41459f8e1b9dd10ade7e30a75d586718d73fef4e20"
     ),
     ".agents/skills/ai-build/corpus.md": (
         "576cf03621aace434ca300bcb136538097f21e0f050fb8a0280913e590457880"
     ),
     ".agents/skills/ai-spec/SKILL.md": (
-        "07a9a17b4bd2d2b49c0ec37f13258fee55bc83333c61feaf66e33f559ddaa364"
+        "fb82f43de9f1ffbde26da045a02b5ec17f5d51f42514304717cb3fcbab153720"
     ),
 }
 
@@ -2102,7 +2104,7 @@ def test_a_phase_nobody_named_is_shown_rather_than_dropped(monkeypatch):
     assert ("afterwards", ["ai-new"]) in grouped, "a capability was filed under nothing visible"
 
 
-def test_no_skill_is_harder_to_read_than_the_hardest_one_is_today():
+def test_the_fog_ratchet_holds_over_every_skill():
     """`EP-163` asks that a skill be readable by somebody who does not code, and until now
     the only thing executing was a jargon blocklist.
 

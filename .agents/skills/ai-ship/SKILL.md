@@ -51,6 +51,8 @@ Commits, a changelog entry, a pull request on `origin/<branch>`, and a branch th
 - The gate is green and its output is in the conversation.
 - The pull request explains itself to somebody who was not here.
 - Every production-ready box is ticked, each beside the command that ticked it.
+- The pull-request body carries the recap page's link when one exists, so the reviewer
+  opens the record of the range before the diff.
 
 ## What this is not
 
