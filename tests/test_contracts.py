@@ -2366,6 +2366,32 @@ def test_a_council_reviews_and_never_approves():
         fields = _verdict_fields(produced.read_text(encoding="utf-8"))
         if fields:
             said.append(f"{produced.parent.name}: {', '.join(fields)}")
+    # D-045-03: the new councils live inside `spec.md`, so the rule follows them into
+    # the `## Council` section — and only that section. Ported over a whole spec file
+    # the regexes refuse ordinary engineering prose: executed, 036's register row
+    # (`= fail`) and this repository's own drafts trip it, and the constitution
+    # forbids rewriting 036. The grant must be caught where the council speaks.
+    sys.path.insert(0, str(ROOT / "tests"))
+    try:
+        import council_counts
+    finally:
+        sys.path.pop(0)
+    for produced in sorted(ROOT.glob("specs/*/spec.md")):
+        section = council_counts._top_section(
+            produced.read_text(encoding="utf-8"), council_counts.COUNCIL_SECTION
+        )
+        if section is None:
+            continue
+        fields = _verdict_fields(section)
+        if fields:
+            said.append(f"{produced.parent.name} ## Council: {', '.join(fields)}")
+    # The direction the scoping must not lose: a grant inside a section body still
+    # refuses, fixture or file alike.
+    grant = (
+        "## Council\n\n`ran: round 1, 2026-08-28 — 5 min`\n\n## The two counts\n\n"
+        "Verdict: the specification is approved and may be signed\n"
+    )
+    assert _verdict_fields(grant), "a council inside the spec could grant"
     assert not said, (
         "a council granted authority: " + "; ".join(said) + ". It may name what is absent "
         "and it may not say whether the specification is good — that belongs to a person"
