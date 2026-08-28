@@ -216,24 +216,39 @@ def council_section_counts(body: str) -> tuple[int, int] | None:
 def grill_questions(body: str) -> int | None:
     """The declared `## Grill`'s question count, or None before it declares a round.
 
-    D-045-01: a declared grill with no `### Q` must say `nothing checkable failed`, and
-    every question owes an `**A:**` answer line."""
+    D-045-01: a declared grill with no `### Q` must carry the literal line `nothing
+    checkable failed`, and every question owes its own `**A:**` answer line. The
+    warranty is a line test, not a substring: the shipped template's own prompt says
+    the phrase in prose, and a review executed the false green that left — delete the
+    leading `TODO:` and the prompt paragraph vouches for a grill that ran nothing. The
+    answers are paired per question for the same reason two totals happened to agree:
+    two `**A:**` lines under Q1 hid a missing one under Q2."""
 
     section = _top_section(body, GRILL_SECTION)
     if section is None or not _rounds(section):
         return None
     _refuse_prompt(section, "## Grill")
-    questions = sum(1 for line in section.splitlines() if line.startswith("### Q"))
-    answered = sum(1 for line in section.splitlines() if line.lstrip().startswith("**A:**"))
+    questions = 0
+    answered = False
+    for line in section.splitlines():
+        if line.startswith("### Q"):
+            if questions and not answered:
+                raise Unreadable(f"## Grill: question {questions} carries no `**A:**` line")
+            questions += 1
+            answered = False
+        elif line.lstrip().startswith("**A:**") and questions:
+            answered = True
+    if questions and not answered:
+        raise Unreadable(f"## Grill: question {questions} carries no `**A:**` line")
     if questions == 0:
-        if "nothing checkable failed" not in section:
+        if not any(
+            line.strip().strip("`*") == "nothing checkable failed" for line in section.splitlines()
+        ):
             raise Unreadable(
                 "## Grill declares a round with no `### Q` entry and no `nothing checkable "
                 "failed` line: an empty grill is a grill that did not run"
             )
         return 0
-    if answered < questions:
-        raise Unreadable(f"## Grill carries {questions} questions and {answered} answers")
     return questions
 
 
