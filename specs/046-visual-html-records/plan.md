@@ -167,7 +167,7 @@ gate.
     **done when**: six skills name the command they run and the link they show, and the
     fog ratchet is green over all of them.
 
-13. [ ] **The visual PR-review job, degrading honestly** —
+13. [x] <!--t:ce170cfe9207--> **The visual PR-review job, degrading honestly** —
     **file**: `.github/workflows/check.yml` — a `recap` job on `pull_request`: run
     `ai-eng report recap` against the PR base; `permissions: { pull-requests: write }`
     scoped to the job against the workflow's `contents: read` default; add the job to
