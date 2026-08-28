@@ -6,7 +6,10 @@ id: "0032"
 title: "A correction to an approved spec moves its digest and is re-signed."
 date: "2026-08-28"
 spec: "046"
-status: "proposed"
+status: "accepted"
+authority_role: "repository owner"
+approval_ref: "ae523990"
+approved_at: "2026-08-28T16:35:28Z"
 supersedes: "0031"
 ---
 
