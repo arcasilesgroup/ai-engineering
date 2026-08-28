@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Postmortem: la sesión de 19h42m del bloque 045 — dónde se fue el tiempo</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fafaf8;--fg:#1a1a18;--muted:#5c5c55;--line:#e3e3dc;--accent:#7a4df0;--accent-soft:#f0ebfc;--good:#1e7d3c;--good-soft:#e5f3ea;--warn:#a86e00;--warn-soft:#fdf3dc;--bad:#b02a2a;--bad-soft:#fbe9e9;--code:#f2f1ec;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme: dark){:root{--bg:#171714;--fg:#eaeae4;--muted:#9a9a90;--line:#2c2c28;--accent:#a88cf8;--accent-soft:#241f3d;--good:#5bc47e;--good-soft:#14301f;--warn:#e0a93c;--warn-soft:#33270d;--bad:#ef7a7a;--bad-soft:#3a1515;--code:#20201c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.topbar{position:sticky;top:0;display:flex;align-items:center;gap:12px;padding:10px 22px;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:700;text-decoration:none;color:var(--fg)}.topbar small{color:var(--muted);font-weight:400}
+main{max-width:960px;margin:0 auto;padding:40px 28px 80px}
+.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--accent);font-weight:700}
+h1{font-size:30px;line-height:1.2;margin:8px 0 6px}h2{font-size:22px;margin:36px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.sub{color:var(--muted);font-size:17px;margin:0 0 4px}.meta{color:var(--muted);font-size:13px;margin-bottom:28px;font-family:var(--mono)}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+code,pre{font-family:var(--mono)}code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}
+pre{background:var(--code);padding:12px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0}
+.callout.bad{background:var(--bad-soft);border:1px solid var(--bad)}
+.callout.warn{background:var(--warn-soft);border:1px solid var(--warn)}
+.callout.good{background:var(--good-soft);border:1px solid var(--good)}
+.num{font-family:var(--mono);white-space:nowrap}
+sup a{text-decoration:none;color:var(--accent)}
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand">ai-engineering <small>· informes</small></span></header>
+<main>
+<p class="kicker">Postmortem de sesión · 2026-08-28</p>
+<h1>19 h 42 min para un bloque que era de 9 tareas: dónde estuvo realmente el cuello</h1>
+<p class="sub">La sesión <code>omp:01a0445e</code> (agentsview) del bloque 045 <em>critics-inside-spec</em>. Toda la evidencia es local: la base de datos de agentsview, los transcripts de los forks, el git log con marcas de tiempo y la hoja de registro del propio agente.</p>
+<p class="meta">herramientas usadas: la base de datos local de agentsview (tablas de sesiones, mensajes y llamadas a herramienta), los transcripts de forks del almacén de sesiones del host, git log/reflog, sqlite3, python3 · herramientas ausentes o no usadas: búsqueda web (degradada a no usada — ninguna afirmación de este informe depende de nada fuera de esta máquina), NotebookLM (doctor en verde; no lanzado: la pregunta es forense sobre datos locales, no de estado del arte) · fecha del análisis: 2026-08-28</p>
+
+<h2>1. Lo que dice el panel, y lo que el panel no dice</h2>
+<p>El panel de agentsview atribuye el tiempo al <em>turno</em> que precede al siguiente mensaje, no a la herramienta. Eso infla la "Tool time" con tiempo de modelo y, lo peor, con tiempo muerto. Los tres huecos grandes, verificados contra el git log y la interacción con el usuario <sup><a href="#s1">[1]</a></sup>:</p>
+<table>
+<tr><th>hueco</th><th class="num">min</th><th>qué era en realidad</th></tr>
+<tr><td>2026-08-28 02:24:41Z → 08:55Z</td><td class="num">339</td><td>pendiente atribuido a un <code>git commit --amend</code> trivial (un <code>sed</code> de una línea). Entre medias no hay ni un commit hasta las 11:04 local. La sesión estaba colgada o sin atención; el usuario tuvo que escribir «puedes seguir?».</td></tr>
+<tr><td>2026-08-27 18:57Z → 00:31Z</td><td class="num">334</td><td>noche: el informe 021 cerró y el usuario no lanzó /ai-goal hasta las 00:31Z. Tiempo de reloj, no de trabajo.</td></tr>
+<tr><td>2026-08-28 14:00:46Z → 18:43Z (local)</td><td class="num">283</td><td>un <code>ai-eng decide</code> interactivo (prompt de teclado) bloqueado esperando una tecla que nadie iba a pulsar, <em>con el ADR 0029 ya escrito en el árbol</em>. El humano ya había decidido; el comando no lo sabía.</td></tr>
+</table>
+<p>Descontando los huecos que son reloj muerto o espera de tecla, el trabajo activo del bloque 045 fue <b>≈ 9 h 20 min</b>, no 19 h 42 min. La primera corrección del diagnóstico: <b>la mitad del "tiempo de sesión" no fue la máquina pensando; fue la máquina parada y el panel contándolo como trabajo.</b></p>
+
+<h2>2. Dónde se fue el tiempo activo</h2>
+<table>
+<tr><th>coste</th><th class="num">min</th><th>evidencia</th></tr>
+<tr><td>Críticos en fork: Grill-ronda-2 + 5 lentes del council + BlockReview + BlockVerify + BlockSecurity</td><td class="num">≈ 400</td><td>spans de los 10 transcripts de fork <sup><a href="#s1">[1]</a></sup>: lentes 32–88 min (paralelos, pared 88 min), Grill 75, Review 212, Verify 47, Security 102+ y vivo</td></tr>
+<tr><td>Espera de tecla dentro de sesión (<code>ai-eng decide</code>)</td><td class="num">283</td><td>gap de turno 14:00:46Z; commit <code>768b8629</code> a las 14:36 local; el ADR ya existía en el árbol</td></tr>
+<tr><td>Ceremonia por commit: 45 commits del bloque, cada uno con cadena de audit + re-forja de la página de intent + mapa aceptado</td><td class="num">≈ 120–180</td><td>los mensajes <code>docs(045): re-forge the intent page</code> se repiten 6 veces; el agrupado lento de bash: commits 414 min brutos <sup><a href="#s1">[1]</a></sup></td></tr>
+<tr><td><code>just check</code> completo local (16 pasos, 2 347 tests) — 8 ejecuciones</td><td class="num">≈ 108</td><td>agrupado en los gaps de bash; cada pasada ≈ 13 min</td></tr>
+<tr><td>Colisión con el segundo escritor (046 en el mismo árbol): gate rojo por <em>sus</em> líneas sin commitear, relecturas del <code>accepted.toml</code> bajo las manos, 4 ficheros de formato ajenos que bloquean mi lint</td><td class="num">≈ 60–90</td><td>BlockVerify: «RED at lint: 24 F821 en <code>report.py</code> — la edición a medias de la sesión 046 concurrente»; «4 files would be reformatted — todos líneas de 046» <sup><a href="#s1">[1]</a></sup></td></tr>
+</table>
+<p>Es decir: <b>≈ 7 de cada 10 minutos activos los consumieron los críticos y la ceremonia de registro, no escribir el código</b>. El código del bloque (plantilla, lector de secciones, dos skills, scripts) son ~2 000 líneas diff; los registros a su alrededor (spec plegada dos veces, plan re-sellado, ADRs, changelog, página de intent re-forjada 6 veces, aceptaciones del mapa) son la mayor parte de los 45 commits.</p>
+
+<h2>3. Los cinco cuellos, en orden de coste</h2>
+<div class="callout bad"><b>C1 — Dos escritores, un árbol.</b> La sesión 046 y esta compartían <code>main</code> y el working tree. El gate no podía ponerse verde: fallaba por ficheros ajenos sin commitear. El <code>accepted.toml</code> cambió de hash entre mi lectura y mi escritura (la edición fue rechazada; hubo que releer y re-aplicar). Cada colisión es un ciclo completo de releer–re-verificar. Esta es la causa raíz de la parte «no ha podido ni terminar» del ship: un PR limpio exige un árbol limpio, y compartido no lo hay.</div>
+<div class="callout bad"><b>C2 — Un humano en el lazo sin saberlo.</b> <code>ai-eng decide</code> es interactivo; un agente en background no pulsa teclas. 4 h 43 min de reloj bloqueados esperando una respuesta que <em>ya estaba escrita</em> en el propio ADR del árbol. Un comando que escribe un registro que ya existe no debe preguntar.</div>
+<div class="callout warn"><b>C3 — Críticos sin presupuesto ni contrato de salida.</b> BlockReview: 212 min en serie (verify+security no se emparejaron con él porque la secuencia los sitúa tras el review verde). BlockSecurity: sigue vivo a las 102+ min quemando vueltas contra denegaciones de escritura del sandbox — su contrato nunca dijo «devuelve los hallazgos por el resultado, no escribas ficheros». Un crítico sin límite de tiempo ni E/S declarado se convierte en un segundo escritor fantasma.</div>
+<div class="callout warn"><b>C4 — Ceremonia por commit, no por tarea.</b> Cada commit dispara la cadena de audit, y los sellos parciales obligaron a re-forjar la página de intent 6 veces y a re-aceptar pares del mapa en 5 commits distintos. La verificación es barata una vez por tarea; multiplicada por 45 es un segundo gate en el lazo crítico.</div>
+<div class="callout warn"><b>C5 — La métrica miente.</b> agentsview cuenta el hueco hasta el siguiente mensaje como «tiempo de la herramienta»: un <code>sed</code> trivial aparece como la llamada más lenta (339 min), y «Slowest call hub · 30m56s» es un <code>hub wait</code> legítimo. Sin separar <em>espera de herramienta / tiempo de modelo / reloj muerto</em>, cualquier optimización se hace a ciegas — y el panel invita a culpar a la herramienta equivocada.</div>
+
+<h2>4. Lo que funcionó (para no tirarlo con el agua)</h2>
+<div class="callout good">Los lentes del council fueron <b>rápidos y paralelos</b> (32–88 min, pared 88) y encontraron defectos reales que corrigieron el plan (los 3 módulos huérfanos importados dinámicamente; el censo 16≠13). BlockVerify hizo su trabajo de observador sin tocar el árbol, en worktree de un solo uso, y su tabla de ejemplos (8 PASS / 1 indecidible) es exactamente el producto que la regla «observa y no acepta» promete. El gate local catcheó los F821 y el formato ajeno — el problema no fue el gate, fue que el gate verde era inalcanzable por diseño en un árbol compartido.</div>
+
+<h2>5. Qué cambiar en ai-engineering, con el coste que cada uno paga</h2>
+<table>
+<tr><th>#</th><th>cambio</th><th>qué cuello cierra</th><th class="num">ahorro estimado</th></tr>
+<tr><td>1</td><td><b>Un árbol, un escritor.</b> Cada spec vive en su propio worktree desde el primer commit; <code>/ai-goal</code> y <code>/ai-build</code> verifican antes de arrancar que el working tree está limpio y que no hay otra sesión escribiendo en él (un <code>git worktree list</code> + un lock por spec), y se niegan con una línea.</td><td>C1, y el ship bloqueado</td><td class="num">≈ 60–90 min/bloque + la mitad de los reprocesos</td></tr>
+<tr><td>2</td><td><b><code>ai-eng decide --from-record</code></b> (o no-prompt si el ADR ya contiene la respuesta): lee el cuerpo del registro, no el teclado; y en cualquier caso tiempo de espera acotado con salida no-cero nombrada.</td><td>C2</td><td class="num">4 h 43 min por caso</td></tr>
+<tr><td>3</td><td><b>Presupuesto de crítico:</b> todo fork de revisión lleva pared dura (min de reloj y tope de llamadas) y contrato de E/S: «no escribes disco; devuelves el veredicto en el resultado». Al vencer: veredicto parcial etiquetado <code>TIMEBOXED</code> — mejor un 70 % de un crítico que un 100 % de un zombie. Emparejar review con verify+security cuando el host pueda.</td><td>C3</td><td class="num">≈ 100–150 min/bloque</td></tr>
+<tr><td>4</td><td><b>Ceremonia por tarea:</b> la página de intent y las aceptaciones del mapa se re-forjan una vez por sello de tarea, no por commit; el pre-commit local deja de correr la cadena completa (pasa a <code>just fast</code>: lint de los ficheros tocados + mapa) y el gate completo vive en CI en cada push — hoy 47 commits no han visto CI nunca, así que todo el coste del gate es local por defecto.</td><td>C4, y parte de C5</td><td class="num">≈ 120 min/bloque</td></tr>
+<tr><td>5</td><td><b>Medición honesta:</b> el recap de sesión separa <code>tool-wait / model / idle-or-hung</code> (los gaps &gt; umbral sin actividad de git se etiquetan idle, no herramienta). Y un watchdog de sesión: si el último evento es &gt; N min y hay forks vivos, el recap lo dice.</td><td>C5</td><td class="num">evita culpar al componente equivocado</td></tr>
+</table>
+<p>Los puntos 1 y 2 son código, no prompts (regla 12): un <code>decide</code> que lee su propio registro y un prefight de árbol limpio fallan cerrados por naturaleza. El 3 es mitad contrato de skill, mitad runtime del host. El 4 toca el justfile y los hooks; el 5 toca el recap de 046 que está construyéndose ahora mismo — encajarlo ahí es casi gratis.</p>
+
+<h2>6. Tres direcciones que se pueden tomar mañana</h2>
+<ol>
+<li><b>Abrir el spec 047 «one writer, one tree»</b> con los cambios 1 y 2 como carga útil: el prefight de <code>/ai-goal</code> y <code>decide --from-record</code>, cada uno con su prueba de rechazo. Es el que más minutos paga y el que desbloquea el ship de 045, que hoy está en manos del ciclo de 046. <i>(evidencia: C1/C2 arriba; BlockVerify «the only gate reds at HEAD are 046-owned».)</i></li>
+<li><b>En 046, mientras su recap sigue abierto:</b> encajar el timebox de crítico (cambio 3) y la medición idle/model/tool (cambio 5) en el mismo ciclo — BlockSecurity es el caso de estudio en vivo: 102+ min, contrato de salida no declarado, y el panel lo habría contado como «Task · 1m1s».</li>
+<li><b>Push verde antes que más gate local:</b> crear la rama del bloque 045 y dejar que CI (18 min, ya existe) sea el verificador externo en lugar de 8 pasadas de <code>just check</code> local (≈ 108 min) — el paso «CI/CD en cada push» de la caja de producción está sin tickar precisamente porque nadie empuja <sup><a href="#s1">[1]</a></sup>.</li>
+</ol>
+
+<h2 id="s1">Fuentes</h2>
+<ol>
+<li>La base de datos local de agentsview — tabla de mensajes (gaps por turno, sesión <code>omp:01a0445e…</code>: started 2026-08-27T17:57:01Z, ended 2026-08-28T15:34:40Z, 405 mensajes) y de llamadas a herramienta (441). Transcripts de forks en el almacén de sesiones del host, carpeta de esta sesión (spans calculados del primer/último timestamp). Git: <code>git log --since=2026-08-27 --format=%ad</code> y <code>git reflog</code> para la ventana 02:24→11:04 sin commits. Veredictos de críticos: <code>agent://BlockVerify</code> (gate rojo 046-owneado, cajas production-ready, tabla de ejemplos) y <code>history://BlockReview</code>. Capturas del panel facilitadas por el usuario (19h42m, 409 llamadas, hub·30m56s).</li>
+</ol>
+<p class="meta">Ninguna afirmación de este informe es [unsourced]: todo número sale de una consulta o un timestamp citable. Lo que no se pudo comprobar: si el hueco de 02:24→08:55 fue suspensión del portátil o una espera colgada — el árbol no registra eventos en esa ventana, y se etiqueta como reloj muerto en ambos casos.</p>
+</main>
+</body>
+</html>
