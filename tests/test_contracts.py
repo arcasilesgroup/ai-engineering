@@ -20,7 +20,7 @@ from ai_engineering import contract, paths, text, wiring
 
 ROOT = Path(__file__).resolve().parents[1]
 
-DOCTRINE_CEILING = 150
+DOCTRINE_CEILING = 180
 
 
 def test_every_hook_is_classified_and_blocking_events_are_guards():

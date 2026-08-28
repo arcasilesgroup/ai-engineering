@@ -95,6 +95,23 @@ from 528 files, which is where the previous version ended up.
   read from a receipt and there is no field left that can assert it. A green nobody has
   earned is the failure this product cures.
 
+## Every session
+
+- A turn ends in one of two shapes: **done**, with the artifact that proves it — a command's
+  output, a digest, a link; or one line `BLOCKED: <what is stopping you> — unblock: <one
+  thing the user can do in under a minute>`. Anything else is a stall, and a sentence
+  describing a check you would run is not an artifact.
+- Every final response ends with one status line: 🟢 the work unit is finished on this
+  branch, 🟡 something non-routine is pending and the line names it legibly, 🔴 blocked on
+  the user. It is a response's shape, not phase state — the spec remains the sole home of
+  the second.
+- Scale effort to the task. A small, well-specified change is a short read, the edit and
+  the existing checks; deep exploration is for ambiguous or cross-cutting work.
+- Do the work instead of asking whether to do it. Ask only for a missing credential, a
+  decision only a human can make, or a destructive action.
+- A command that writes a page prints its absolute URL; the skill that ran it shows that
+  link in chat. A page nobody can click is a file, not a review surface.
+
 ## How to run it
 
 ```
