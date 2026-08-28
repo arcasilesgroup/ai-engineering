@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 
 from ai_engineering import capability as capability_contract
+from ai_engineering import cli
 
 ROOT = Path(__file__).parents[1]
 SCHEMA_PATH = ROOT / "policy" / "capability-manifest.schema.json"
@@ -313,6 +314,30 @@ def test_capabilities_toml_declares_exactly_twenty_capabilities() -> None:
     assert by_id["ai-report"]["recap"]["write_roots"] == [".ai/reports"]
     assert by_id["ai-report"]["issue"]["human_gate"] == "before_publish"
     assert by_id["ai-ship"]["pull-request"]["human_gate"] == "before_publish"
+
+
+def test_the_report_verb_declares_every_writer_its_banner_names() -> None:
+    """The banner and the manifest are one statement about the same run (spec 046).
+
+    Council round 1's second gap: `report view` and `report recap` write pages, and a
+    `will` that omits a writer is a false statement printed before the write. The test
+    reads both sources and refuses the drift in either direction — a banner line naming
+    a root no mode declares is as much a lie as a writer the banner hides.
+    """
+
+    manifest = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))
+    modes = {
+        mode["id"]: mode
+        for capability in manifest["capabilities"]
+        if capability["id"] == "ai-report"
+        for mode in capability["modes"]
+    }
+    declared = {root for mode in modes.values() for root in mode["write_roots"]}
+    banner = " ".join(cli.SCOPE["report"][2])
+    for root in (".ai/views", ".ai/reports", "docs/"):
+        assert root.rstrip("/") in banner, f"the banner hides the writer of {root}"
+    assert ".ai/views" in declared and ".ai/reports" in declared
+    assert {"view", "recap"} <= set(modes), "a page writer has no declared mode"
 
 
 def test_capability_manifest_rejects_modes_that_only_reorder_set_like_permissions() -> None:
