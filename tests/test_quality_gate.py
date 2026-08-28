@@ -805,8 +805,12 @@ GATE_CONTROLS = {
     "counts": "test_the_counts_this_repository_states_about_itself_are_the_counts_it_has",
     "council": "test_council_counts_recomputes_and_refuses_a_total_it_cannot_reproduce "
     "plants four files the script must refuse — a total nine higher than the entries "
-    "beneath it, a missing heading, a missing totals section and one total absent — "
-    "because this recipe's whole value is refusing a number the run wrote about itself",
+    "beneath it, a missing heading, a missing totals section and one total absent — and "
+    "test_the_critic_step_refuses_every_declared_state_that_did_not_run plants the "
+    "declared-section refusals: an empty heading that never said `none`, the template "
+    "prompt under a declared round, a malformed or decorated `ran:` line and a grill "
+    "question without its answer, because this recipe's whole value is refusing a "
+    "number the run wrote about itself",
     "lenses": "tests/test_review_lenses.py plants the case the requirement is about — a "
     "stylesheet with no movement in it — and asserts it routes to frontend and not to motion, "
     "plus the inverse, plus a lens file with no row and a row with two rules",
