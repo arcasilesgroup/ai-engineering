@@ -71,7 +71,7 @@ def visual_blocks(text: str) -> tuple[list[dict[str, Any]], list[str]]:
             continue
         body = text[record.body : record.end]
         # Drop the closing fence line, if the record carries one.
-        closing = re.search(r"\n[ ]{0,3}(`{3,}|~{3,})[ \t]*$", body)
+        closing = re.search(r"\n {0,3}(`{3,}|~{3,})[ \t]*$", body)
         if closing:
             body = body[: closing.start()]
         try:

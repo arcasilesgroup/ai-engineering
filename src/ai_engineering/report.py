@@ -372,7 +372,7 @@ def _spec_home(root: Path, wanted: str) -> Path | None:
     """The one directory whose identifier is `wanted`, or None, said loudly."""
 
     for folder in sorted((root / "specs").glob("*/")):
-        if folder.name[:3] == wanted.zfill(3) and (folder / spec.SPEC_FILE).is_file():
+        if folder.name.startswith(wanted.zfill(3)) and (folder / spec.SPEC_FILE).is_file():
             return folder
     print(f"  INCOMPLETE  no spec {wanted.zfill(3)} under specs/, so there is nothing to render")
     return None
