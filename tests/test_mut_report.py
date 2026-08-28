@@ -20,9 +20,7 @@ from ai_engineering import contract, report
 
 
 def _git(root: Path, *args: str) -> str:
-    out = subprocess.run(
-        ["git", *args], cwd=str(root), capture_output=True, text=True, check=True
-    )
+    out = subprocess.run(["git", *args], cwd=str(root), capture_output=True, text=True, check=True)
     return out.stdout
 
 

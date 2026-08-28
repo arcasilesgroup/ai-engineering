@@ -459,14 +459,22 @@ def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
         return outcome.result("INCOMPLETE")
     probe = subprocess.run(
         ["git", "rev-parse", "--verify", f"{args.base}^{{commit}}"],
-        capture_output=True, text=True, cwd=str(root), check=False, timeout=30,
+        capture_output=True,
+        text=True,
+        cwd=str(root),
+        check=False,
+        timeout=30,
     )
     if probe.returncode:
         print(f"  INCOMPLETE  --base {args.base!r} is not a commit here")
         return outcome.result("INCOMPLETE")
     named = subprocess.run(
         ["git", "diff", "--name-status", args.base],
-        capture_output=True, text=True, cwd=str(root), check=False, timeout=60,
+        capture_output=True,
+        text=True,
+        cwd=str(root),
+        check=False,
+        timeout=60,
     )
     if named.returncode:
         print("  INCOMPLETE  git diff could not read the range")
@@ -487,7 +495,11 @@ def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
     # change is small and prints the tree instead.
     sizes = subprocess.run(
         ["git", "diff", "--numstat", args.base],
-        capture_output=True, text=True, cwd=str(root), check=False, timeout=60,
+        capture_output=True,
+        text=True,
+        cwd=str(root),
+        check=False,
+        timeout=60,
     )
     weight: dict[str, int] = {}
     for line in sizes.stdout.splitlines():
@@ -548,9 +560,9 @@ def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
     # Deterministic naming: the recap of one spec lives in one file, overwritten by its
     # own rerun. A fresh number per run would scatter a dozen half-truths across the
     # reports home and make "which recap is current" unanswerable.
-    named = sorted(reports.glob(f"???-recap-{home.name[4:]}.html"))
-    if named:
-        where = named[0]
+    current = sorted(reports.glob(f"???-recap-{home.name[4:]}.html"))
+    if current:
+        where = current[0]
     else:
         taken = {p.name[:3] for p in reports.glob("[0-9][0-9][0-9]-*") if p.name[:3].isdigit()}
         number = max((int(n) for n in taken), default=0) + 1

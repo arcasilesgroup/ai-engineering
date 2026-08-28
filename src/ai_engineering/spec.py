@@ -722,8 +722,7 @@ def _progress(home: Path) -> outcome.Result:
     # Outside fences only: a `visual` block may show a ticked box as content, and a dict
     # keyed by task number would let the example overwrite the real task's state.
     boxes = {
-        hit.group(1): (hit.group(2) or "", hit.group(3))
-        for hit in outside_fences(_SEALED, body)
+        hit.group(1): (hit.group(2) or "", hit.group(3)) for hit in outside_fences(_SEALED, body)
     }
     ran = _receipts(home.parents[1], home.name[:3])
     counted = {"sealed": 0, "receipt": 0, "open": 0}

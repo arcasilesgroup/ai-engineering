@@ -194,9 +194,7 @@ def sanitize_fragment(fragment: str) -> str:
         fragment,
         flags=re.I,
     )
-    fragment = re.sub(
-        r"\son[a-z]+\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", "", fragment, flags=re.I
-    )
+    fragment = re.sub(r"\son[a-z]+\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", "", fragment, flags=re.I)
     fragment = re.sub(
         r"\s(src|href|srcset|formaction|action|data|background)\s*="
         r"(\"[^\"]*\"|'[^']*'|[^\s>]+)",
@@ -219,11 +217,7 @@ def _block_diagram(data: dict[str, Any]) -> str:
     for at, step in enumerate(steps):
         label = esc(step.get("label", "")) if isinstance(step, dict) else esc(step)
         note = esc(step.get("note", "")) if isinstance(step, dict) else ""
-        arrow = (
-            ""
-            if at == len(steps) - 1
-            else "<div class='sub' style='text-align:center'>↓</div>"
-        )
+        arrow = "" if at == len(steps) - 1 else "<div class='sub' style='text-align:center'>↓</div>"
         rows.append(
             "<div class='callout ok' style='border-left-color:var(--accent)'>"
             f"<strong>{at + 1}. {label}</strong>"
@@ -240,9 +234,7 @@ def _block_file_tree(data: dict[str, Any]) -> str:
         for entry in entries:
             flag = (entry.get("change") or " ")[0].upper()
             badge = (
-                f"<span class='flag f-{esc(flag)}'>{esc(flag)}</span>"
-                if flag in "AMRDCT"
-                else ""
+                f"<span class='flag f-{esc(flag)}'>{esc(flag)}</span>" if flag in "AMRDCT" else ""
             )
             rows.append(f"<li>{badge}{esc(entry.get('path', ''))}</li>")
             children = entry.get("children") or []
@@ -259,9 +251,7 @@ def _block_decision_table(data: dict[str, Any]) -> str:
         list(rows[0].keys()) if rows and isinstance(rows[0], dict) else []
     )
     out = [
-        "<table><thead><tr>"
-        + "".join(f"<th>{esc(h)}</th>" for h in head)
-        + "</tr></thead><tbody>"
+        "<table><thead><tr>" + "".join(f"<th>{esc(h)}</th>" for h in head) + "</tr></thead><tbody>"
     ]
     for row in rows:
         cells = [row.get(h, "") for h in head] if isinstance(row, dict) else list(row)
@@ -287,8 +277,7 @@ def _block_open_questions(data: dict[str, Any]) -> str:
             for o in question.get("options") or []
         )
         rec = (
-            "<p class='sub'>Recommended: <strong>"
-            f"{esc(question['recommendation'])}</strong></p>"
+            f"<p class='sub'>Recommended: <strong>{esc(question['recommendation'])}</strong></p>"
             if question.get("recommendation")
             else ""
         )
@@ -401,8 +390,7 @@ def render_page(
 
     if len(title) > contract.PAGE_TITLE_MAX:
         raise PageError(
-            f"a page title carries {len(title)} chars, over the budget of "
-            f"{contract.PAGE_TITLE_MAX}"
+            f"a page title carries {len(title)} chars, over the budget of {contract.PAGE_TITLE_MAX}"
         )
     template = (
         resources.files("ai_engineering")

@@ -282,7 +282,6 @@ def test_capabilities_toml_declares_exactly_twenty_two_capabilities() -> None:
         "ai-visual-recap": ["default"],
     }
 
-
     dimensions = {
         "read_roots": "preflight.read",
         "write_roots": "preflight.write",

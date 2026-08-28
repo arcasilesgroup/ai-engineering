@@ -28,9 +28,7 @@ def test_an_unknown_block_stays_visible_instead_of_being_dropped():
     """
 
     text = "Intro prose.\n\n" + _fence({"block": "gantt-chart", "rows": []})
-    page = pages.render_document(
-        text, kicker="test", title="A page", sub="", meta=""
-    )
+    page = pages.render_document(text, kicker="test", title="A page", sub="", meta="")
     assert "gantt-chart" in page, "an unknown block vanished without a trace"
     assert "could not render everything" in page
     assert "<table" not in page.split("could not render everything")[1], (
@@ -39,7 +37,7 @@ def test_an_unknown_block_stays_visible_instead_of_being_dropped():
 
 
 def test_malformed_json_in_a_fence_warns_and_renders_the_rest():
-    text = "Before.\n\n```visual\n{\"block\": \"diagram\", \n```\n\nAfter.\n"
+    text = 'Before.\n\n```visual\n{"block": "diagram", \n```\n\nAfter.\n'
     page = pages.render_document(text, kicker="t", title="A page", sub="", meta="")
     assert "not valid JSON" in page
     assert "Before." in page and "After." in page, "one bad block swallowed the document"
@@ -63,9 +61,7 @@ def test_a_wireframe_cannot_carry_script_or_an_external_reference():
             "<p style='color:red'>new</p><a href='javascript:alert(1)'>go</a></div>"
         },
     }
-    page = pages.render_document(
-        _fence(payload), kicker="t", title="A page", sub="", meta=""
-    )
+    page = pages.render_document(_fence(payload), kicker="t", title="A page", sub="", meta="")
     for forbidden in ("onclick", "evil.test", "<script", "javascript:"):
         assert forbidden not in page, f"a wireframe carried {forbidden} into the page"
     assert "color:red" in page, "the filter removed the inline style a mockup needs"

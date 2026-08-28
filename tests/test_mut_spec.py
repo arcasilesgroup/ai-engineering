@@ -1474,8 +1474,7 @@ def test_a_task_line_inside_a_fence_adds_no_task_and_donates_no_command():
         f"the fence donated tasks: {[t['task'] for t in tasks]}"
     )
     assert tasks[0]["check"] == "`uv run true`", (
-        "a fenced check-field rewrote the command an approval would execute: "
-        f"{tasks[0]['check']!r}"
+        f"a fenced check-field rewrote the command an approval would execute: {tasks[0]['check']!r}"
     )
     assert "rm -rf" not in json.dumps(tasks), "fenced prose reached the parsed fields"
 
