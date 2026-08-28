@@ -19,10 +19,11 @@ supersedes: "0031"
 
 `0031` approved specification 046 and its plan at exact bytes on 2026-08-28, and the map
 (`just map`, spec 026) found three real broken references in the bytes that approval
-covered: `policy/visual-pages.md` cited bare `spec.md` and `plan.md`, and the approved
-specification cited `specs/NNN/plan.md` — a template hole spelled without its `-slug`, so
-the analyzer could not read it as one. All three are prose pointers that were never meant
-as file links, and the reference-integrity gate refuses the tree while they stand.
+covered: `policy/visual-pages.md` cited the bare filenames "spec.md" and "plan.md", and
+the approved specification cited "specs/NNN/plan.md" — a template hole spelled without
+its `-slug`, so the analyzer could not read it as one. All three are prose pointers that
+were never meant as file links, and the reference-integrity gate refuses the tree while
+they stand.
 
 Two ways out existed. The map's dated accepted set (`policy/skill-map-accepted.toml`, the
 ADR 0025 mechanism) could carry the three node+target pairs and the bytes would not move —
@@ -35,7 +36,7 @@ superseding the old approval rather than annotating around it.
 ## Considered options
 
 1. **Accept the three pairs in the map's dated set.** No signature moves, and the
-   specification keeps a typo (`specs/NNN/plan.md`) and `policy/visual-pages.md` keeps two
+   specification keeps a typo ("specs/NNN/plan.md") and `policy/visual-pages.md` keeps two
    citations that resolve to nothing, now blessed by an acceptance record until
    2026-09-30. Refused: the accepted set exists for prose that is true and unresolvable by
    the analyzer, not for bytes that are wrong.
@@ -61,7 +62,7 @@ The plan digest is unchanged from `0031` — the canonical value, tick column ma
 as that record printed it. What changed in the specification's bytes from what `0031`
 approved, so a reader does not have to diff to find out:
 
-- One citation corrected: `specs/NNN/plan.md` became `specs/NNN-slug/plan.md`, the spelling
+- One citation corrected: "specs/NNN/plan.md" became `specs/NNN-slug/plan.md`, the spelling
   the map's template-hole convention (`policy/skill-map-exclusions.toml`) recognises.
 - Decision `D-046-05` added: a correction to an approved spec moves its digest and is
   re-signed, never accepted around. The plan's tasks and checks are untouched.
