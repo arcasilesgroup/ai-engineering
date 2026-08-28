@@ -422,27 +422,42 @@ def render_view(root: Path, args: argparse.Namespace) -> outcome.Result:
     return outcome.result("PASS")
 
 
-def _rev_or_incomplete(base: str) -> str | None:
-    """Why this `--base` is not a revision, or None when it is a well-formed one.
+def _git_diff(root: Path, base: str, flag: str) -> list[str] | None:
+    """One `git diff` over the range, its lines or None when git refused.
 
-    Sonar's S8705 is right about the shape: text off the command line reaches `git`
-    argv, and a value that starts with `-` is not a commit anybody meant — it is an
-    option git would obey (`--output=…` and friends). The probe cannot catch that
-    either, because `git rev-parse --verify -- --output=x` fails for the wrong reason.
-    So the class is refused before any subprocess sees it, and the whitespace rule is
-    the same one `git rev-parse --verify` cannot express: a rev is one token.
+    The whitelist is inline for the reason `render_recap`'s docstring gives: a
+    scanner reads the proof where the argument enters argv, not two calls away.
     """
 
-    if not base or base.startswith("-") or re.search(r"\s", base):
-        return f"  INCOMPLETE  --base {base!r} is not a revision: no option, no whitespace"
-    return None
+    match = re.fullmatch(r"[0-9a-fA-F]{7,40}", base)
+    if match is None:
+        return None
+    out = subprocess.run(
+        ["git", "diff", flag, match.group(0), "--"],
+        capture_output=True,
+        text=True,
+        cwd=str(root),
+        check=False,
+        timeout=60,
+    )
+    return out.stdout.splitlines() if out.returncode == 0 else None
 
 
 def _diff_hunks(root: Path, base: str, path: str, budget: int) -> str:
-    """A real diff for one path, cut to the excerpt budget at hunk boundaries."""
+    """A real diff for one path, cut to the excerpt budget at hunk boundaries.
 
+    The fullmatch is repeated here rather than trusted from the caller on purpose:
+    Sonar's S8705 taint engine reads an inline whitelist as the sanitizer, and an
+    argument that left a helper as `str` is unsanitized as far as any scanner —
+    or any future caller — is concerned. The rule is also the invariant: this
+    function has no business diffing anything that is not a commit SHA.
+    """
+
+    match = re.fullmatch(r"[0-9a-fA-F]{7,40}", base)
+    if match is None:
+        raise ValueError(f"no diff over a base that is not a commit SHA: {base!r}")
     out = subprocess.run(
-        ["git", "diff", "--unified=2", base, "--", path],
+        ["git", "diff", "--unified=2", match.group(0), "--", path],
         capture_output=True,
         text=True,
         cwd=str(root),
@@ -473,11 +488,19 @@ def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
     home = _spec_home(root, args.spec)
     if home is None:
         return outcome.result("INCOMPLETE")
-    if (why := _rev_or_incomplete(args.base)) is not None:
-        print(why)
+    # The whitelist is inline, in the same function as the subprocess below: a scanner
+    # — and a future caller — reads the proof where the value enters argv, not one
+    # call away. A recap names the commit its range starts from, and a symbolic ref
+    # like `main` moves under the page that cites it; seven hex digits is git's floor.
+    if (match := re.fullmatch(r"[0-9a-fA-F]{7,40}", args.base)) is None:
+        print(
+            f"  INCOMPLETE  --base {args.base!r} is not a commit SHA: seven to forty "
+            "hex digits, the approval commit or the merge base, never a moving ref"
+        )
         return outcome.result("INCOMPLETE")
+    base = match.group(0)
     probe = subprocess.run(
-        ["git", "rev-parse", "--verify", f"{args.base}^{{commit}}"],
+        ["git", "rev-parse", "--verify", f"{base}^{{commit}}"],
         capture_output=True,
         text=True,
         cwd=str(root),
@@ -485,48 +508,26 @@ def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
         timeout=30,
     )
     if probe.returncode:
-        print(f"  INCOMPLETE  --base {args.base!r} is not a commit here")
+        print(f"  INCOMPLETE  --base {base!r} is not a commit here")
         return outcome.result("INCOMPLETE")
-    named = subprocess.run(
-        ["git", "diff", "--name-status", args.base, "--"],
-        capture_output=True,
-        text=True,
-        cwd=str(root),
-        check=False,
-        timeout=60,
-    )
-    if named.returncode:
+    if (named := _git_diff(root, base, "--name-status")) is None:
         print("  INCOMPLETE  git diff could not read the range")
         return outcome.result("INCOMPLETE")
     changed: list[tuple[str, str]] = []
-    for line in named.stdout.splitlines():
+    for line in named:
         parts = line.split("\t")
         if len(parts) >= 2:
             changed.append((parts[0][0], parts[-1]))
     if not changed:
         print(
-            f"  INCOMPLETE  the range {args.base}..working tree changes nothing; a recap "
+            f"  INCOMPLETE  the range {base}..working tree changes nothing; a recap "
             "of nothing is a page of lies"
         )
         return outcome.result("INCOMPLETE")
     # Key changes: the most-touched files, capped by the contract's budget, never a
     # dump. A recap over the cap stops being a summary; under the floor, it says the
     # change is small and prints the tree instead.
-    sizes = subprocess.run(
-        ["git", "diff", "--numstat", args.base, "--"],
-        capture_output=True,
-        text=True,
-        cwd=str(root),
-        check=False,
-        timeout=60,
-    )
-    weight: dict[str, int] = {}
-    for line in sizes.stdout.splitlines():
-        cols = line.split("\t")
-        if len(cols) >= 3:
-            added = int(cols[0]) if cols[0].isdigit() else 0
-            removed = int(cols[1]) if cols[1].isdigit() else 0
-            weight[cols[-1]] = added + removed
+    weight = _diff_weights(root, base)
     order = sorted((p for _, p in changed), key=lambda p: -weight.get(p, 0))
     picks = order[: contract.RECAP_TABS_MAX]
     if len(picks) < contract.RECAP_TABS_MIN and len(picks) < len(order):
@@ -534,7 +535,7 @@ def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
     excerpts = []
     for path in picks:
         try:
-            text = _diff_hunks(root, args.base, path, contract.RECAP_EXCERPT_LINES_MAX)
+            text = _diff_hunks(root, base, path, contract.RECAP_EXCERPT_LINES_MAX)
         except ValueError as refused:
             print(f"  INCOMPLETE  {refused}")
             return outcome.result("INCOMPLETE")
@@ -553,11 +554,35 @@ def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
         "entries": [{"path": path, "change": flag} for flag, path in changed],
     }
     blocks: list[dict] = [tree, {"block": "narrative", "text": args.summary}, *excerpts]
+    page, meta = _recap_page(home, args, base, blocks, len(changed))
+    where = _recap_target(root, home)
+    where.write_text(page, encoding="utf-8")
+    print(f"  wrote {where.relative_to(root)}")
+    print(f"  link: {where.resolve().as_uri()}")
+    print(f"  {meta}")
+    return outcome.result("PASS")
+
+
+def _diff_weights(root: Path, base: str) -> dict[str, int]:
+    """Lines touched per file, from `git diff --numstat`; unreadable counts as zero."""
+
+    weight: dict[str, int] = {}
+    for line in _git_diff(root, base, "--numstat") or []:
+        cols = line.split("\t")
+        if len(cols) >= 3:
+            added = int(cols[0]) if cols[0].isdigit() else 0
+            removed = int(cols[1]) if cols[1].isdigit() else 0
+            weight[cols[-1]] = added + removed
+    return weight
+
+
+def _recap_page(
+    home: Path, args: argparse.Namespace, base: str, blocks: list[dict], files: int
+) -> tuple[str, str]:
+    """The filled template and the meta line printed with it, from the real bytes."""
+
     spec_digest = spec._digest(home / spec.SPEC_FILE)
-    meta = (
-        f"spec {spec_digest} · base {args.base} · {len(changed)} files · rendered "
-        f"{date.today().isoformat()}"
-    )
+    meta = f"spec {spec_digest} · base {base} · {files} files · rendered {date.today().isoformat()}"
     title = next(
         (
             line[2:].strip()
@@ -574,23 +599,25 @@ def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
         body="".join(pages.render_block(one) for one in blocks),
         warnings=[],
     )
+    return page, meta
+
+
+def _recap_target(root: Path, home: Path) -> Path:
+    """The one file this spec's recap lives in, created numbered if it is new.
+
+    Deterministic naming: the recap of one spec is one file, overwritten by its own
+    rerun. A fresh number per run would scatter a dozen half-truths across the reports
+    home and make "which recap is current" unanswerable.
+    """
+
     reports = root / ".ai" / "reports"
     reports.mkdir(parents=True, exist_ok=True)
-    # Deterministic naming: the recap of one spec lives in one file, overwritten by its
-    # own rerun. A fresh number per run would scatter a dozen half-truths across the
-    # reports home and make "which recap is current" unanswerable.
     current = sorted(reports.glob(f"???-recap-{home.name[4:]}.html"))
     if current:
-        where = current[0]
-    else:
-        taken = {p.name[:3] for p in reports.glob("[0-9][0-9][0-9]-*") if p.name[:3].isdigit()}
-        number = max((int(n) for n in taken), default=0) + 1
-        where = reports / f"{number:03d}-recap-{home.name[4:]}.html"
-    where.write_text(page, encoding="utf-8")
-    print(f"  wrote {where.relative_to(root)}")
-    print(f"  link: {where.resolve().as_uri()}")
-    print(f"  {meta}")
-    return outcome.result("PASS")
+        return current[0]
+    taken = {p.name[:3] for p in reports.glob("[0-9][0-9][0-9]-*") if p.name[:3].isdigit()}
+    number = max((int(n) for n in taken), default=0) + 1
+    return reports / f"{number:03d}-recap-{home.name[4:]}.html"
 
 
 def main(argv: list[str]) -> outcome.Result | outcome.Execution:
