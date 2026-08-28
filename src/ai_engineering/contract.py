@@ -681,3 +681,13 @@ def fog(body: str) -> float:
 
 
 SKILL_FOG_CEILING = 11.03
+
+# The budgets a visual recap must obey, harvested from the block taxonomy of Builder.io's
+# MIT-licensed visual-recap skill (upstream `skills/visual-recap/SKILL.md`, mirrored from
+# BuilderIO/agent-native; attribution in `policy/visual-pages.md`). They live here because
+# this repository stores every number in one home and the doctrine names only the home:
+# a renderer that inlined them would be a renderer nobody could audit against the gate.
+RECAP_TABS_MIN = 3
+RECAP_TABS_MAX = 8
+RECAP_EXCERPT_LINES_MAX = 150
+PAGE_TITLE_MAX = 70
