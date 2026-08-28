@@ -239,4 +239,11 @@ accepted = [
   # The changelog names the file class it retires — a prose mention, the class
   # docs/adr/0027 accepted: a record describing a convention has to say its name.
   "CHANGELOG.md -> council.md",
+  # ADR 0029's filled body names the retired file classes it replaces — prose
+  # mentions, the class docs/adr/0027 established: a retirement record must say the
+  # names of what it retires.
+  "docs/adr/0029-the-template-carries-grill-and-council-the-sidecar-conventio.md -> docs/adr/approval.md",
+  "docs/adr/0029-the-template-carries-grill-and-council-the-sidecar-conventio.md -> docs/adr/challenge.md",
+  "docs/adr/0029-the-template-carries-grill-and-council-the-sidecar-conventio.md -> docs/adr/council.md",
+  "docs/adr/0029-the-template-carries-grill-and-council-the-sidecar-conventio.md -> docs/adr/spec.md",
 ]
