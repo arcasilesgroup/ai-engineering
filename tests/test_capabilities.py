@@ -157,7 +157,7 @@ def test_capability_schema_is_closed_and_permission_distinct() -> None:
 
     capability_policy = schema["x-capability-policy"]
     allowed_ids = capability_policy["allowed_ids"]
-    assert len(allowed_ids) == len(set(allowed_ids)) == 20
+    assert len(allowed_ids) == len(set(allowed_ids)) == 22
     assert capability_policy == {
         "id_field": "id",
         "ids_unique": True,
@@ -244,7 +244,7 @@ def test_capability_schema_is_closed_and_permission_distinct() -> None:
     assert not _manifest_accepts(duplicate_permissions, schema)
 
 
-def test_capabilities_toml_declares_exactly_twenty_capabilities() -> None:
+def test_capabilities_toml_declares_exactly_twenty_two_capabilities() -> None:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     manifest = tomllib.loads((ROOT / "policy" / "capabilities.toml").read_text(encoding="utf-8"))
     assert _manifest_accepts(manifest, schema)
@@ -252,7 +252,7 @@ def test_capabilities_toml_declares_exactly_twenty_capabilities() -> None:
     capabilities = manifest["capabilities"]
     expected = schema["x-capability-policy"]["allowed_ids"]
     assert [capability["id"] for capability in capabilities] == expected
-    assert len(capabilities) == 20
+    assert len(capabilities) == 22
     declared_modes = {
         capability["id"]: [mode["id"] for mode in capability["modes"]]
         for capability in capabilities
@@ -278,7 +278,10 @@ def test_capabilities_toml_declares_exactly_twenty_capabilities() -> None:
         "ai-report": ["digest", "view", "recap", "intent", "blocked", "issue"],
         "ai-ship": ["commit", "pull-request"],
         "ai-write": ["default"],
+        "ai-visual-plan": ["default"],
+        "ai-visual-recap": ["default"],
     }
+
 
     dimensions = {
         "read_roots": "preflight.read",

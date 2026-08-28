@@ -3,7 +3,7 @@
 Verified doc (names real files, no environment restatement, checkable sections) passes;
 no-cache (repeating the environment) is refused; an unverifiable claim exits
 `not-covered: <reason>`; routing keeps ai-write apart from the four existing surfaces; the
-count pin moves to eighteen.
+count pin moves with the tree.
 """
 
 from __future__ import annotations
@@ -41,8 +41,8 @@ def test_capability_entry():
     assert 'id = "ai-write"' in caps
 
 
-def test_count_pin_moves_to_eighteen():
+def test_count_pin_moves_with_the_tree():
     readme = (ROOT / "README.md").read_text()
     agents = (ROOT / "AGENTS.md").read_text()
-    assert "Eighteen written procedures" in readme
-    assert "eighteen skills" in agents
+    assert "Twenty written procedures" in readme
+    assert "twenty skills" in agents

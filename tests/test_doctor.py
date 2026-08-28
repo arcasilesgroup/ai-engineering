@@ -361,8 +361,8 @@ def test_a_buffer_that_stopped_being_sealed_is_reported(home, repo):
     assert "2020-01-01" in said, said
 
 
-def test_twenty_declared_capabilities_report_which_half_of_them_is_enforced(home, repo):
-    """`policy/capabilities.toml` declares twenty capabilities with read roots, write
+def test_the_declared_capabilities_report_which_half_of_them_is_enforced(home, repo):
+    """`policy/capabilities.toml` declares the capabilities with read roots, write
     roots, exec allowlists, network hosts, secrets and human gates, and for a long time
     `preflight` validated every one of them and then refused, because no executor existed.
 
@@ -383,7 +383,7 @@ def test_twenty_declared_capabilities_report_which_half_of_them_is_enforced(home
     # a red nobody can clear and so a red everybody learns to scroll past.
     got, detail = verdict(doctor.capabilities_enforced, repo)
     assert got == "undecidable"
-    assert detail.startswith("20 "), detail
+    assert detail.startswith("22 "), detail
 
     # Both halves, in one sentence. Either alone is a claim a reader would act wrongly on.
     assert "only this framework's own actions are enforced" in detail, detail

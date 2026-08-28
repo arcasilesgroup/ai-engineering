@@ -126,9 +126,10 @@ def test_the_count_of_capabilities_with_a_caller_is_published_and_does_not_drop(
     known, taken = declared(), callers()
 
     # ai-write (spec 040) is model-invoked with no executor caller yet; the declared count
-    # is twenty and one capability (ai-report) has a caller today. EP-078's plural bars the
-    # gap widening, so adding declared capabilities without callers is visible here.
-    assert len(known) == 20, f"{len(known)} capabilities are declared and the audit measured 20"
+    # is twenty-two (spec 046 added the two visual-page skills) and one capability
+    # (ai-report) has a caller today. EP-078's plural bars the gap widening, so adding
+    # declared capabilities without callers is visible here.
+    assert len(known) == 22, f"{len(known)} capabilities are declared and the audit measured 22"
     assert len(taken) >= 1, f"{len(taken)} capabilities have a caller; ai-write has none yet"
     assert taken, (
         "no capability has a caller at all. The manifest would then be nineteen declarations "
