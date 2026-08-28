@@ -32,7 +32,7 @@ gate.
 
 ## Tasks
 
-1. [ ] **Doctrine room and the four always-on rules** —
+1. [x] <!--t:898ccdc23073--> **Doctrine room and the four always-on rules** —
    **file**: `AGENTS.md` (same commit as `tests/test_contracts.py`: cap and text move
    together — append the rules first, watch the doctrine test go red, then raise
    `DOCTRINE_CEILING` 150 → 180 in the same commit). The four rules from the spec's
@@ -45,7 +45,7 @@ gate.
    **done when**: AGENTS.md is ≤180 lines, carries the four rules and the link duty, and
    the doctrine test is green.
 
-2. [ ] **Budget constants** —
+2. [x] <!--t:6f769487b495--> **Budget constants** —
    **file**: `src/ai_engineering/contract.py` — add `RECAP_TABS_MIN = 3`,
    `RECAP_TABS_MAX = 8`, `RECAP_EXCERPT_LINES_MAX = 150`, `PAGE_TITLE_MAX = 70` beside
    `SKILL_FOG_CEILING`, each with the upstream source named in its comment.
@@ -54,7 +54,7 @@ gate.
    **done when**: the four names import and print, and they are the only place the numbers
    live.
 
-3. [ ] **Fence-awareness before the first block** —
+3. [x] <!--t:a065b4d0d56b--> **Fence-awareness before the first block** —
    **file**: `src/ai_engineering/spec.py` (shared fence-aware line stop for the task
    parser and the approval-bytes mask, reusing the pattern `contract.py` already owns)
    with matching stops in `src/ai_engineering/solution_intent.py` — three refusal tests
