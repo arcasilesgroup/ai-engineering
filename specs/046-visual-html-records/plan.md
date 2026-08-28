@@ -68,7 +68,7 @@ gate.
    unchanged (fence-blind behaviour only changes for files carrying fences, of which there
    are none yet).
 
-4. [ ] **The pages module: extraction, loud ignorance, template** —
+4. [x] <!--t:e86c3014b7db--> **The pages module: extraction, loud ignorance, template** —
    **file**: `src/ai_engineering/pages.py` (new) — fenced ` ```visual ` JSON extraction,
    the block vocabulary, HTML escaping, the shared self-contained page template via
    `importlib.resources`, budgets read from `contract.py`, and the unknown-block rule: an
