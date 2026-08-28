@@ -347,6 +347,36 @@ enforcement = ["preflight.read", "preflight.write", "preflight.human-gate"]
 proof_requirements = { allow = ["ai-report.digest.allow"], deny = ["ai-report.digest.deny"], installed_artifact = true }
 
 [[capabilities.modes]]
+id = "view"
+# One page rendered from the committed bytes of one spec, written under `.ai/views/`.
+# The same argument `intent` carries: a document generated from files the ADR already
+# signed needs no keyboard, and the page prints the digests it was rendered from, so a
+# stale view is identifiable from its own header. No network, no secrets, no exec.
+read_roots = ["specs"]
+write_roots = [".ai/views"]
+exec_allowlist = []
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.write"]
+proof_requirements = { allow = ["ai-report.view.allow"], deny = ["ai-report.view.deny"], installed_artifact = true }
+
+[[capabilities.modes]]
+id = "recap"
+# The record of what a range changed, written beside the research reports under
+# `.ai/reports/`. Its file-tree and excerpts come from `git diff` over the named base —
+# read-only git, the same repository.read pattern `intent` uses — and the page is a
+# record, not an approval, so no keyboard stands between a finished build and its recap.
+read_roots = ["."]
+write_roots = [".ai/reports"]
+exec_allowlist = [{ executable = "git", argument_pattern = "repository.read" }]
+network = []
+secrets = []
+human_gate = "never"
+enforcement = ["preflight.read", "preflight.write", "preflight.exec"]
+proof_requirements = { allow = ["ai-report.recap.allow"], deny = ["ai-report.recap.deny"], installed_artifact = true }
+
+[[capabilities.modes]]
 id = "intent"
 # It reads the records and writes one page from them. No network, no secrets, no keyboard:
 # the page asserts nothing a person has to agree to, and a human gate on a document

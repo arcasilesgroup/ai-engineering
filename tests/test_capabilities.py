@@ -274,7 +274,7 @@ def test_capabilities_toml_declares_exactly_twenty_capabilities() -> None:
         "ai-review": ["default"],
         "ai-verify": ["default"],
         "ai-note": ["default"],
-        "ai-report": ["digest", "intent", "blocked", "issue"],
+        "ai-report": ["digest", "view", "recap", "intent", "blocked", "issue"],
         "ai-ship": ["commit", "pull-request"],
         "ai-write": ["default"],
     }
@@ -309,6 +309,8 @@ def test_capabilities_toml_declares_exactly_twenty_capabilities() -> None:
     assert by_id["ai-research"]["local"]["network"] == []
     assert by_id["ai-research"]["cited-web"]["human_gate"] == "before_network"
     assert by_id["ai-report"]["digest"]["network"] == []
+    assert by_id["ai-report"]["view"]["write_roots"] == [".ai/views"]
+    assert by_id["ai-report"]["recap"]["write_roots"] == [".ai/reports"]
     assert by_id["ai-report"]["issue"]["human_gate"] == "before_publish"
     assert by_id["ai-ship"]["pull-request"]["human_gate"] == "before_publish"
 
