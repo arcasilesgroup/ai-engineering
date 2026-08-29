@@ -384,3 +384,57 @@ def test_uninstall_removes_the_hooks_template_and_global_key(stranger, monkeypat
     assert not template.exists()
     assert _global_git("init.templateDir") == ""
     assert all(row["kind"] != "hooks-template" for row in wiring.receipt().get("wrote", []))
+
+
+def test_a_refused_repository_path_names_the_symlink_it_refused(stranger, monkeypatch, capsys):
+    """The refusal a stranger hit twice in report 026's live run is now followable.
+
+    `init` correctly refuses to write through a symlinked path component — macOS temp
+    directories sit behind `/var -> /private/var` — but it used to answer "check that no
+    directory in the path is a symlink" without saying which one, advice nobody can act on
+    when the offending link belongs to the operating system. The message must name the
+    component and its target."""
+
+    alias = stranger.parent / "alias"
+    (alias / "repo").mkdir(parents=True)
+    link = stranger.parent / "via-link"
+    link.symlink_to(alias / "repo", target_is_directory=True)
+
+    result = init.main(["--no-global", "--project", str(link), "-y"])
+    printed = capsys.readouterr().err
+    assert result.outcome == "INCOMPLETE", result.as_dict()
+    assert "cannot be followed safely" in printed
+    assert str(link) in printed, printed[-600:]
+
+
+def test_a_router_skipped_for_a_foreign_folder_is_named_in_the_output(
+    stranger, monkeypatch, capsys
+):
+    """The second half of report 026's broken-advice finding.
+
+    `doctor` assertion 24 told a person to run `ai-eng init` to rewrite a missing router,
+    and `init` skipped it again in silence because the skill's name was taken by a foreign
+    folder in the surface's skills root — the FAIL could never be repaired by the thing
+    that named the fix. The skip is correct; it is no longer invisible."""
+
+    from ai_engineering import paths, wiring
+
+    commands = stranger.parent / "cmds"
+    skills = stranger.parent / "skillsroot"
+    surface = {
+        "id": "invented",
+        "name": "Invented",
+        "commands": str(commands),
+        "skills": str(skills),
+        "writer": "none",
+        "settings": "",
+    }
+    taken = next(iter(sorted(p.name for p in paths.skills().glob("ai-*"))))
+    (skills / taken).mkdir(parents=True)
+    (skills / taken / "someone-else.md").write_text("theirs\n", encoding="utf-8")
+    monkeypatch.setattr(wiring, "table", lambda: {"surface": [surface]})
+
+    seen: list[tuple[str, str, str]] = []
+    written = wiring.install_routers([surface], skip=lambda *row: seen.append(row))
+    assert taken not in {Path(row["path"]).stem for row in written}
+    assert any(name == taken and reason == "foreign skill folder" for _, name, reason in seen), seen

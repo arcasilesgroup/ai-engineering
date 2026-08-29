@@ -686,7 +686,9 @@ def routers_intact(root: Path | None) -> str | tuple[str, str] | None:
         )
     return (
         f"of {len(recorded)} routers, {' and '.join(said)}",
-        "`ai-eng init` writes them again; an edited one is left alone by `uninstall`",
+        "`ai-eng init` writes them again, unless a skill folder of that name is foreign to "
+        "this install (see the `skipped (foreign)` line in the output — remove or rename "
+        "that folder, then `ai-eng init` again); an edited one is left alone by `uninstall`",
     )
 
 

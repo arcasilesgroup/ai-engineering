@@ -13,6 +13,7 @@ fires nothing, and lets the commit through without a complaint. It is measured.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 import json
 import os
 import re
@@ -552,7 +553,9 @@ def router_body(name: str, description: str, phase: str = "", case: str = "") ->
     )
 
 
-def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
+def install_routers(
+    surfaces: list[dict] | None = None, skip: Callable[[str, str, str], None] | None = None
+) -> list[dict]:
     """A `/ai-*` command per skill, into the surfaces that declare where those live.
 
     Generated, hashed and recorded — those three together are what makes this an install
@@ -564,6 +567,12 @@ def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
     router into a directory whose convention was guessed at is worse than not writing it:
     the file lands somewhere a person did not expect, does nothing, and has to be found by
     hand. The absence is reported by `doctor` rather than filled in by the installer.
+
+    `skip` hears about the one absence the installer can see and `doctor` could only report
+    as broken advice: a skill whose router never landed because its name is taken by a
+    foreign folder in the surface's skills root. The skip itself is right — the folder is
+    theirs — but until it was printed, `doctor` said "`ai-eng init` writes them again", init
+    ran twice and wrote nothing, and the FAIL was unfixable by the thing that named the fix.
     """
 
     rows = table()["surface"] if surfaces is None else surfaces
@@ -589,10 +598,14 @@ def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
         )
         for skill in sorted(paths.skills().glob("ai-*")):
             if skill.name in theirs:
+                if skip:
+                    skip(surface["id"], skill.name, "foreign skill folder")
                 continue
             if (where / f"{skill.name}.md").exists() and str(
                 where / f"{skill.name}.md"
             ) not in mine:
+                if skip:
+                    skip(surface["id"], skill.name, "a file nobody recorded writing")
                 continue
             body = router_body(
                 skill.name, _described(skill), placed.get(skill.name, ""), example(skill)

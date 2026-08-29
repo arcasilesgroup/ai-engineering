@@ -207,11 +207,14 @@ def global_step(args) -> outcome.Result:
     # declared command root is not a failure and is not silence either: it is the reason
     # `/ai-spec` works on one surface and not on the next, and a person deciding whether
     # they are set up deserves the number rather than the discovery.
-    routers = wiring.install_routers(found)
+    skipped: list[str] = []
+    routers = wiring.install_routers(found, skip=lambda sid, name, reason: skipped.append(name))
     written.extend(routers)
     without = [s["id"] for s in found if not s.get("commands")]
     if routers:
         ui.step("ok", f"{len(routers)} routers".ljust(10), f"→ /{'ai-*'} on 1 surface")
+    if skipped:
+        ui.step("warn", "routers".ljust(10), f"skipped (foreign): {', '.join(sorted(skipped))}")
     if without:
         ui.step("would", "routers".ljust(10), f"no command root declared: {', '.join(without)}")
     pending_approval = False
@@ -399,38 +402,59 @@ def stacks(root: Path) -> list[str]:
 
 
 def _safe_path(path: Path, kind: str | None = None) -> bool:
-    """Reject aliases and special files before a bounded install can follow them."""
+    return _symlink_offender(path, kind) is None
+
+
+def _symlink_offender(path: Path, kind: str | None = None) -> str | None:
+    """Why this path is not the thing it says it is, or None when it is.
+
+    The refusal used to answer "check that no directory in the path is a symlink" over a
+    path whose offending link was one the operating system owns and nobody must fix — on
+    macOS every temporary directory sits behind `/var → /private/var`, and a stranger hit
+    that refusal twice in report 026's live run with no advice to follow. Same decision,
+    one more fact: name the component and its target, so the remedy is a different path
+    rather than a scavenger hunt.
+    """
+
     try:
         lexical = Path(os.path.abspath(path))
-        if lexical.resolve(strict=False) != lexical:
-            return False
+        resolved = lexical.resolve(strict=False)
+        if resolved != lexical:
+            # Walk down from the shortest prefix and name the first component that is a
+            # link — the shortest one whose own lstat is a symlink is the offender; a path
+            # that merely contains one further down resolves to the same answer.
+            for parts in range(1, len(lexical.parts) + 1):
+                step = Path(*lexical.parts[:parts])
+                if step.is_symlink():
+                    return f"{step} is a symlink to {step.resolve(strict=False)}"
+            return f"{lexical} resolves to {resolved}"
         if not os.path.lexists(lexical):
-            return True
+            return None
         info = lexical.lstat()
         if stat.S_ISLNK(info.st_mode):
-            return False
+            return f"{lexical} is a symlink to {lexical.resolve(strict=False)}"
         if kind == "directory" and not stat.S_ISDIR(info.st_mode):
-            return False
+            return f"{lexical} is not a directory"
         if kind == "file" and not stat.S_ISREG(info.st_mode):
-            return False
+            return f"{lexical} is not a regular file"
         required = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
         if not info.st_mode & required:
-            return False
+            return f"{lexical} cannot be read"
         if stat.S_ISDIR(info.st_mode):
             searchable = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-            return bool(info.st_mode & searchable)
+            return None if info.st_mode & searchable else f"{lexical} cannot be entered"
         if stat.S_ISREG(info.st_mode):
             with lexical.open("rb") as stream:
                 stream.read(1)
-            return True
+            return None
         # Neither a directory nor a regular file: a socket, a device, a named pipe. This
         # used to answer `kind is None`, so a caller that asked for no particular kind was
         # told a named pipe was safe — while the line above this function says it rejects
         # special files. Every caller in the product passes a kind, so nothing changes for
         # anybody; what changes is that the sentence is now true.
-        return False
-    except OSError:
-        return False
+        return f"{lexical} is neither a directory nor a regular file"
+    except OSError as why:
+        return f"{lexical} could not be inspected: {why.strerror}"
 
 
 def _receipt_state() -> dict | None:
@@ -472,7 +496,9 @@ def _record(entries: list[dict]) -> None:
     wiring.record(entries)
 
 
-def _project_paths_safe(root: Path) -> bool:
+def _project_paths_refusal(root: Path) -> str | None:
+    """The first path under this repository that is not ours to write, named."""
+
     directories = {
         root,
         root / ".ai",
@@ -487,14 +513,19 @@ def _project_paths_safe(root: Path) -> bool:
         root / ".ai" / INTENT_FILE,
         root / ".git" / "config",
     }
-    if not all(_safe_path(path, "directory") for path in directories):
-        return False
-    if not all(_safe_path(path, "file") for path in files):
-        return False
-    receipt = wiring.receipt_path()
-    if not _safe_path(receipt.parent, "directory") or not _safe_path(receipt, "file"):
-        return False
-    return _receipt_state() is not None
+    for path in sorted(directories, key=str) + [wiring.receipt_path().parent]:
+        why = _symlink_offender(path, "directory")
+        if why:
+            return why
+    for path in sorted(files, key=str) + [wiring.receipt_path()]:
+        why = _symlink_offender(path, "file")
+        if why:
+            return why
+    return None if _receipt_state() is not None else "the install receipt is malformed"
+
+
+def _project_paths_safe(root: Path) -> bool:
+    return _project_paths_refusal(root) is None
 
 
 def _global_paths_safe(args) -> list[Path] | None:
@@ -555,19 +586,29 @@ def _global_paths_safe(args) -> list[Path] | None:
     return sorted(set(theirs))
 
 
-def _project_preflight(args) -> tuple[Path | None, intent.Validation | None] | None:
+def _project_preflight(args) -> tuple[Path | None, intent.Validation | None, str | None]:
+    """The repository root and its Intent, or the reason this path cannot be followed.
+
+    The reason is what the refusal prints. "Check that no directory in the path is a
+    symlink" was advice a stranger could not follow twice in report 026's live run: on
+    macOS the link is `/var → /private/var`, owned by the operating system, and the only
+    remedy is to ask from a real path. So the refusal names the component and its target.
+    """
+
     if args.skip_project:
-        return None, None
+        return None, None, None
     where = Path(os.path.abspath(Path(args.project or ".")))
-    if not _safe_path(where, "directory"):
-        return None
+    why = _symlink_offender(where, "directory")
+    if why:
+        return None, None, why
     root = paths.repo_root(where)
     if root is None:
-        return None, None
+        return None, None, None
     root = Path(os.path.abspath(root))
-    if not _safe_path(root, "directory") or not _project_paths_safe(root):
-        return None
-    return root, intent.validate(root / ".ai" / INTENT_FILE, root)
+    why = _symlink_offender(root, "directory") or _project_paths_refusal(root)
+    if why:
+        return None, None, why
+    return root, intent.validate(root / ".ai" / INTENT_FILE, root), None
 
 
 def project_step(args, prepared_root: Path | None = None) -> outcome.Result:
@@ -863,13 +904,12 @@ def main(argv: list[str]) -> outcome.Result:
             # not care what repository (if any) the person is standing in, so it runs
             # before the project preflight and is not blocked by it.
             return _hooks_template_step(args)
-        prepared = _project_preflight(args)
-        if prepared is None:
+        root, intent_state, why = _project_preflight(args)
+        if why is not None:
             return _refused(
                 "this repository's path cannot be followed safely",
-                "check that no directory in the path is a symlink, and that it is readable",
+                f"{why}; ask from a real path, or run `ai-eng doctor` to see what it names",
             )
-        root, intent_state = prepared
         theirs: list[Path] = []
         if not args.skip_global:
             collided = _global_paths_safe(args)
