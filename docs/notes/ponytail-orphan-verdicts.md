@@ -17,7 +17,7 @@ recorded so the next agent does not resurrect one by reflex:
 
 - **Stay dead — the rule survives, the module was the scaffolding:**
   - `trim` — the discipline (never drop a failure line) is a one-line habit the
-    agent can follow in prose; `ai-note/corpus.md` now states it without the module.
+    agent can follow in prose; `.agents/skills/ai-note/corpus.md` now states it without the module.
   - `versions` — "the installed version decides, never trusted from memory" is a
     corpus rule (ai-review, ai-security), not a Python call; `uv pip show` is the
     command.
