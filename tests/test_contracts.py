@@ -1572,7 +1572,11 @@ the design does not
 # went through.
 GOVERNING_SKILL_TEXT = {
     ".agents/skills/ai-build/SKILL.md": (
-        "098d757fae96dee89ad37c41459f8e1b9dd10ade7e30a75d586718d73fef4e20"
+        # spec 047 moved this: step 5 now names `just check-all` at block close (the batch
+        # rule), and the reading that keeps the pin honest — step 7 still records the stop
+        # before stopping, and nothing in the diff lets a halt go unrecorded or a
+        # conversation grant authority.
+        "9d83df386954f201d7bcf5be424bac5d5818e3bc7be9341270502498f547fe67"
     ),
     ".agents/skills/ai-build/corpus.md": (
         "576cf03621aace434ca300bcb136538097f21e0f050fb8a0280913e590457880"
