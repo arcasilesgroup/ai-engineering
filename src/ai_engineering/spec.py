@@ -1016,9 +1016,9 @@ def status_of(path: Path) -> str:
 
 
 def target(root: Path, named: str = "") -> Path:
-    """The spec a record verb writes to. It used to be whichever directory sorted last,
-    and that is not a guess anybody can check: writing spec 003, two decisions landed in
-    another session's spec because a fourth directory appeared between two commands.
+    """The spec a record verb writes to. Guessing by directory order is not available
+    here: the sort can change between two commands, and a write that lands in another
+    session's spec is not something anybody can check after the fact.
     Named, it is the one you named. Unnamed, it is the only candidate there is — the
     drafts if there are any, everything otherwise — and where there is more than one
     there is no answer to guess at, so it refuses and says which ones it saw."""

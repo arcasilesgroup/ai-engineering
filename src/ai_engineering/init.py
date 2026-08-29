@@ -28,9 +28,9 @@ SKIPPED_LINE = "   → skipped."
 
 # Each body is asked for with the repository root, because two of the five depend on what
 # is in it: the justfile on which stacks were detected, and the workflow on the version
-# this wheel pins. The workflow used to be printed at the reader with "paste these lines
-# into" above it — the one file this product asked a person to install by hand, and the
-# one step of the install nothing could verify afterwards.
+# this wheel pins. The workflow is written to disk, never printed at the reader with
+# "paste these lines into" above it: a file a person installs by hand is the one step
+# of the install nothing can verify afterwards.
 OFFERS = {
     "CLAUDE.md": ("one line: @./AGENTS.md", lambda root: skeletons.CLAUDE_MD),
     "AGENTS.md": ("skeleton, ~48 lines, TODO marker per section", lambda root: skeletons.AGENTS_MD),
@@ -102,12 +102,12 @@ def parse(argv: list[str]) -> argparse.Namespace:
 def global_ready() -> bool:
     """Ready when every surface here that takes a guard has one, and at least one does.
 
-    It used to be `the receipt is not empty and its version matches` — a log of writes read
-    as the state of the machine. So `ai-eng uninstall` followed by `ai-eng init` printed
-    `Global ready · 4 links, 4 guards` over a machine measured at zero of both, and then
-    declined to rewire it, because only `--global` forces past this. The receipt shrinking
-    fixes that one sequence; asking the machine fixes every other way it can go stale, and
-    a settings file edited by hand is not a rare one.
+    A non-empty receipt with a matching version is not readiness: the receipt is a log of
+    writes, and reading it as the state of the machine lets `init` print `Global ready`
+    over a machine measured at zero links and zero guards — an `uninstall` followed by an
+    `init` does exactly that — and then decline to rewire it, because only `--global`
+    forces past this. Asking the machine directly covers every way the receipt can go
+    stale, and a settings file edited by hand is not a rare one.
 
     The version still has to match, because an entry pointing at an older install is wired
     and is not ready — that is assertion 12, and this must not disagree with it either."""
@@ -117,15 +117,14 @@ def global_ready() -> bool:
 
 def already(data: dict) -> None:
     """What the machine half left behind on the run that did it, for the runs that have
-    nothing left to do. It was one sentence at a hundred columns — `Global ready — 8
-    skills, 9 entries, v1.0.0 (/…/machine.json)` — with the skill count written into it as
-    the literal 8, a number that could not be wrong when it was typed and cannot be right
-    after a ninth skill ships.
+    nothing left to do. One sentence at a hundred columns with the counts written into
+    it as literals cannot survive a ninth skill shipping; a literal number is only right
+    the day it is typed.
 
-    Every number here is counted from what is on the disk, and spec 007 said so a version
-    before it was true: skills was read from the store and links and guards were read off
-    the receipt, so this block reported `links 4 · guards 4` over a machine with none of
-    either. The receipt is named on its own row and no longer counted."""
+    Every number here is counted from what is on the disk at read time — skills from the
+    store, links and guards from the machine — never from the receipt, because a receipt
+    can say `links 4 · guards 4` over a machine with none of either. The receipt is named
+    on its own row and is not counted there."""
     real = paths.home() / "skills"
     on, _ = wiring.wired()
     ui.section(f"◇ Global   ready · v{data.get('version')}")
@@ -142,8 +141,8 @@ def already(data: dict) -> None:
 def global_step(args) -> outcome.Result:
     if args.skip_global or (global_ready() and not args.do_global):
         # Whether there is anything to report is the same question the block reports on, so
-        # it is asked of the disk too. It used to be "is the receipt non-empty", which is how
-        # a stripped machine got the block and a wired one with a lost receipt got silence.
+        # it is asked of the disk too. Asking the receipt instead gives a stripped machine
+        # the block and gives a wired one with a lost receipt silence.
         if wiring.wired()[0] or wiring.linked():
             already(wiring.receipt())
         return outcome.result("READY")

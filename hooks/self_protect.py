@@ -2,10 +2,10 @@
 
 The first thing an agent obeying injected text does is unhook its guards. The list is
 not maintained here: it is read from policy/surfaces.toml, which is the same file the
-installer wires from, so it cannot fall behind the wiring. That claim used to be
-aspirational — two skills roots the installer writes into appeared in no entry, and the
-wheel's own policy directory was unprotected, so one edit to the IOC catalogue disarmed
-the injection guard. The settings and skills columns are now derived rather than copied.
+installer wires from, so it cannot fall behind the wiring. A copied list can: a skills
+root the installer writes into that appears in no entry, or an unprotected policy
+directory, lets one edit to the IOC catalogue disarm the injection guard. The settings
+and skills columns are derived here, never copied.
 
 A shell command is judged one command at a time. Deciding over the whole string joined a
 protected path named in one command to a `>` belonging to another and reported a write

@@ -26,10 +26,10 @@ from ai_engineering import __version__, outcome, paths
 
 MARK = "ai-engineering"  # rendered into Codex's status message, and hashed there
 
-# What makes an entry ours, and the only string here we control. It used to be MARK, and
-# MARK can only reach an entry through the interpreter path, which spells this package
-# with an underscore under a wheel: it worked because uv tool and pipx happen to put the
-# hyphenated project name in the path of the interpreter they create, and was false
+# What makes an entry ours, and the only string here we control. MARK cannot be it:
+# MARK reaches an entry only through the interpreter path, which spells this package
+# with an underscore under a wheel. uv tool and pipx happen to put the hyphenated
+# project name in that path, so a MARK signature looks true there and is false
 # everywhere at once for anyone installing with pip into a venv named anything else.
 # The basename and never the absolute path: assertion 12 catches an entry pointing at
 # another install by asking whether the signature is present while the install path is
@@ -600,11 +600,12 @@ def install_routers(surfaces: list[dict] | None = None) -> list[dict]:
             target = where / f"{skill.name}.md"
             target.write_text(body, encoding="utf-8")
             # The bytes on disk, never the string we meant to put there. `write_text`
-            # translates `\n` to `\r\n` on Windows, so hashing `body` recorded a digest of
-            # something that was never written — and `uninstall` reads the file back with
-            # `read_bytes`, so every generated router looked edited by a stranger from the
-            # first second and refused to be removed. Hashing the file cannot desync from
-            # the file, on any platform, for any reason anybody thinks of later.
+            # translates `\n` to `\r\n` on Windows, so hashing `body` would record a
+            # digest of something that was never written — and `uninstall` reads the
+            # file back with `read_bytes`, so every generated router would look edited
+            # by a stranger from the first second and refuse removal. Hashing the file
+            # cannot desync from the file, on any platform, for any reason anybody
+            # thinks of later.
             digest = hashlib.sha256(target.read_bytes()).hexdigest()
             written.append({"path": str(target), "kind": "router", "how": f"generated {digest}"})
     return written

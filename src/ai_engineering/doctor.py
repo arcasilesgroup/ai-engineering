@@ -1036,12 +1036,11 @@ def accessibility_floor(root: Path | None) -> str | None:
     if not journeys:
         return "no critical journey is enumerated, so coverage over them is a share of nothing"
 
-    # `EP-293` asked for the age of an accessibility exception, and the answer used to be
-    # that none had ever been recorded, so there was nothing to age. There are five now, and
-    # this is what makes the date mean something: a criterion that executes is re-read by its
-    # test on every run, and one held by a sentence is re-read only when somebody decides to.
-    # A year without is not a failure — nothing broke — but it is worth a person's attention,
-    # so it says so and does not block.
+    # The age of an accessibility exception is what makes an argued criterion mean
+    # something: a criterion that executes is re-read by its test on every run, and one
+    # held by a sentence is re-read only when somebody decides to. A year without is not
+    # a failure — nothing broke — but it is worth a person's attention, so it says so
+    # and does not block.
     stale = []
     for row in criteria:
         if row.get("checked"):

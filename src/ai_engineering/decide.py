@@ -396,24 +396,21 @@ def accept(root: Path, number: str) -> outcome.Result:
         return outcome.result("INCOMPLETE")
     decision = found[0]
     raw = decision.read_bytes()
-    # Two conditions, and the second one was learned the expensive way.
+    # Two conditions on one status line, and the message names the one that fired.
     #
-    # The message here used to be "has already left `proposed`" for anything whose status was
-    # not the *quoted* literal — so the three records written before the MADR schema, which
-    # carry a bare `status: proposed`, were refused with a sentence that is not what the file
-    # says and not what happened. It cost the operator five attempts at records they were
-    # entitled to look at, and a message that states something the code did not establish is
-    # this repository's most common defect.
+    # A bare `status: proposed` is not "already accepted": the file says proposed, and a
+    # refusal that states something the code did not establish costs a person attempts at
+    # records they are entitled to look at. The refusal is right; a misnamed reason is the
+    # defect.
     #
-    # Widening it to accept both spellings was the obvious repair and it was wrong. Those
-    # three records have no MADR v1 frontmatter at all, so accepting one writes authority
-    # fields into a header the schema does not describe — and `madr.validate` then rejects
-    # the whole set. Measured: the graph went from PASS to MADR_SCHEMA_INVALID on the first
-    # acceptance. A verb that produces an invalid record is worse than one that refuses.
+    # Accepting both spellings is the obvious repair and it is wrong. Pre-schema records
+    # have no MADR v1 frontmatter at all, so accepting one writes authority fields into a
+    # header the schema does not describe — and `madr.validate` then rejects the whole
+    # set. A verb that produces an invalid record is worse than one that refuses.
     #
-    # So the refusal stands and it now says which of the two reasons it is. Accepting a
-    # pre-schema record means migrating its frontmatter first, and that is an edit to a
-    # historical record — a decision for a person, not a side effect of `--accept`.
+    # So: refuse, and say which of the two reasons it is. Accepting a pre-schema record
+    # means migrating its frontmatter first, and that is an edit to a historical record —
+    # a decision for a person, not a side effect of `--accept`.
     status = madr._parse(raw).raw_fields.get("status", "")
     header = raw.decode("utf-8")
     if status != '"proposed"':
@@ -486,16 +483,12 @@ def main(argv: list[str]) -> outcome.Result:
             return outcome.result("INCOMPLETE")
         print("\n".join(rows) if rows else "  no MADRs yet — most decisions never need one")
         return outcome.result("PASS")
-    # Named, or the only one open. It used to resolve to whichever directory sorted last,
-    # and that is how two decisions written for spec 003 landed in another session's spec,
-    # because a fourth directory appeared between two commands.
+    # Named, or the only one open. Directory order is not a safe resolver here: another
+    # spec can appear between two commands and quietly redirect the write.
     #
-    # Every decision this verb records is a record under `docs/adr/`. It used to have a
-    # second half that wrote a yaml block into the specification itself, with `--madr`
-    # choosing between them, and that half is deleted: 70 of those blocks exist, every one
-    # of them in specifications 001 to 009, none since 010 eleven specifications ago, and
-    # nothing in `src/`, `hooks/` or `tests/` ever read one. A writer with no reader is a
-    # place to put something and forget it.
+    # Every decision this verb records is a record under `docs/adr/` — one destination,
+    # no in-spec yaml twin and no flag choosing between them. A writer with no reader is
+    # a place to put something and forget it.
     # The target before the graph, and the order is the diagnostic. Validating history
     # first answered "you have no specification" with "Git history cannot prove MADR
     # transitions", which is true and useless. Resolving a target writes nothing, so

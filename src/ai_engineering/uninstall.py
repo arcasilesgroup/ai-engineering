@@ -801,7 +801,7 @@ def main(argv: list[str]) -> outcome.Result:
     if any(row["kind"] == "guard" and row["how"] == "ts_opencode" for row in gone):
         (paths.home() / "cache" / "opencode-heartbeat").unlink(missing_ok=True)
     # The record stops claiming what is no longer here. Without this the next `init` reads
-    # the log, counts four guards and four links that were removed a second ago, prints
+    # the log, counts four guards and four links this run just removed, prints
     # "Global ready", and refuses to rewire the machine it has just been asked to install.
     try:
         wiring.forget(gone)

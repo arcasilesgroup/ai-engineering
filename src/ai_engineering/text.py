@@ -58,11 +58,11 @@ def frontmatter(path: Path) -> dict:
 
 
 def yaml_blocks(text: str, where: str = "") -> list[dict]:
-    """A block that cannot be parsed raises. It used to be caught and skipped, so an
-    acceptance whose YAML was slightly wrong vanished from the expiry check that both
-    `pre-push` and `doctor` read, and the gate reported green over a risk that had run
-    out. Silence on a parse failure is the exact shape of a false green, and this product
-    is sold on not producing them: undecidable is an answer, invisible is not."""
+    """A block that cannot be parsed raises. Skipping it would hide an acceptance whose
+    YAML is slightly wrong from the expiry check that both `pre-push` and `doctor` read,
+    and the gate would report green over a risk that has run out. Silence on a parse
+    failure is the exact shape of a false green, and this product is sold on not
+    producing them: undecidable is an answer, invisible is not."""
     out = []
     for block in re.findall(r"^```yaml\n(.*?)^```", text, re.S | re.M):
         try:
