@@ -113,7 +113,7 @@ SCOPE: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]]] 
         (),
     ),
     "report": (
-        "produce the local governed report and the cycle's visual records",
+        "produce the local governed report, the cycle's visual records and its wall reading",
         ("the events", RECORDS_NOUN, "the spec and plan bytes a page renders from"),
         (
             "the local digest read receipt",

@@ -95,3 +95,23 @@ def test_no_session_match_refuses_rather_than_passing_on_emptiness():
     verdict = vitals.verdict(_stream("s4", 10.0), "someone-else")
     assert verdict["outcome"] == "INCOMPLETE"
     assert verdict["code"] == "NO_DATA"
+
+
+
+def test_the_verb_reads_the_in_clone_record(tmp_path, monkeypatch):
+    """`ai-eng report vitals` dispatches, reads `.ai/events.jsonl`, exits on the verdict.
+
+    Hermetic on purpose: the plan's first check tried a shell substitution `--tick`
+    cannot run without a shell, over a file CI does not have. A tmp root with a two-
+    line record is the same command the verb runs in production.
+    """
+
+    from ai_engineering import paths, report
+
+    monkeypatch.setattr(paths, "repo_root", lambda: tmp_path)
+    (tmp_path / ".ai").mkdir()
+    (tmp_path / ".ai" / "events.jsonl").write_text(_stream("s9", 10.0), encoding="utf-8")
+    result = report.main(["vitals", "--session", "s9"])
+    assert result.outcome == "PASS"
+    result_over = report.main(["vitals", "--session", "nobody"])
+    assert result_over.outcome == "INCOMPLETE"

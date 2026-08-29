@@ -10,14 +10,15 @@ a stream with no readable event for the session is NO_DATA, never an empty green
 """
 
 from __future__ import annotations
+
 import json
 from datetime import datetime
-from typing import cast
+from typing import Any
 
 from . import contract
 
 
-def read(raw: str, session: str) -> dict[str, object]:
+def read(raw: str, session: str) -> dict[str, Any]:
     """Wall minutes and per-`cls` minutes for one session's events, in file order."""
     stamps: list[tuple[datetime, str]] = []
     for line in raw.splitlines():
@@ -46,13 +47,13 @@ def read(raw: str, session: str) -> dict[str, object]:
     }
 
 
-def verdict(raw: str, session: str) -> dict[str, object]:
+def verdict(raw: str, session: str) -> dict[str, Any]:
     """PASS inside the budget, INCOMPLETE [OVER_BUDGET] naming the largest bucket,
     INCOMPLETE [NO_DATA] when the session has no readable pair of events."""
     seen = read(raw, session)
-    events = int(str(seen["events"]))
-    wall = float(str(seen["wall_minutes"]))
-    by_cls: dict[str, float] = cast("dict[str, float]", seen["by_cls"])
+    events: int = seen["events"]
+    wall: float = seen["wall_minutes"]
+    by_cls: dict[str, float] = seen["by_cls"]
     if events < 2:
         return {"outcome": "INCOMPLETE", "code": "NO_DATA", "wall_minutes": wall}
     if wall > contract.CYCLE_WALL_BUDGET_MINUTES:
