@@ -56,7 +56,7 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    run itself is red naming every missing half. Red for the right reasons: collectable
    shape, failing assertions, not an ImportError wearing a red.
 
-3. [ ] **The vitals reader** —
+3. [x] <!--t:6562d07c90e1--> **The vitals reader** —
    **file**: `src/ai_engineering/vitals.py` (new, stdlib-only) — reads
    `.ai/events.jsonl` for one session id, attributes minutes between consecutive `ts`
    stamps to the earlier event's `cls` (command, blocked, error, bypassed), computes
@@ -78,7 +78,7 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    **done when**: the command prints minutes and a verdict for the live session, exits
    zero inside budget, and `ai-eng report --help` lists `vitals`.
 
-5. [ ] **The critics carry their box** —
+5. [x] <!--t:6ba2e0bdb287--> **The critics carry their box** —
    **file**: `.agents/skills/ai-challenge/SKILL.md`, `ai-council`, `ai-review`,
    `ai-verify`, `ai-security` — each gains the bound in its own voice: the timebox in
    minutes and calls (read from contract by the test, written as text here), the I/O
