@@ -40,7 +40,7 @@ is two stored pins in one file. A fourth fold corrected the endorsed report numb
 died orphaned in `14eaaeb1`. The council ran once (five lenses plus cross-read): seven
 gaps survived into the fold, the worst being the headless deadlock and an invented
 `## Decisions still open` heading that the closed twelve-section template cannot
-produce; two findings were deleted, and the two counts this record's spec carries are
+produce; three findings were deleted, and the two counts this record's spec carries are
 the recompute's, not the pass's — `tests/council_counts.py` refused the inflated
 total until the bullets matched.
 
@@ -58,11 +58,15 @@ total until the bullets matched.
 Approved at these exact bytes:
 
 | file | SHA-256 |
+|---|---|
 | `specs/048-handshake-intake-mechanisms/spec.md` | `9211b8f96b1c245a7a2b35d2f328b10673f5c973b95aefb0984f393334001b8c` |
 | `specs/048-handshake-intake-mechanisms/plan.md` | `0faae11f48866e1b6b42c878494fb04eff56c37a35efed9bcc058e085bcdc67b` |
 
-The plan digest is the canonical value — the tick column masked — which is the number
-the envelope prints and every later `--tick` verifies against. The repository owner
+The plan row above names the raw SHA-256 of the plan's bytes at signing, which is not
+the canonical number `--tick` verifies — an all-`[ ]` plan canonicalises below its raw
+sha; 0037 carries the canonical digest execution checks against. This record's first
+form claimed the opposite in this sentence; the /ai-review fork caught it and this
+record was corrected rather than rewritten silently. The repository owner
 approved in conversation on 2026-08-29 ("termina con el lo que hemos hecho y lo que
 queda, vamos" as an `/ai-goal` invocation, whose frontmatter makes the invocation the
 standing approval) and directed this plan's execution in the same message. The
@@ -78,9 +82,9 @@ and the unattended read-back branch — go up as MADRs by `ai-eng decide`.
 
 ## Consequences
 
-The record that opened execution for 048. Its plan row names bytes that no longer
-exist: task checks narrowed to the single command `--tick` can execute moved the
-canonical digest, and 0037 supersedes this record for that reason. The specification
+The record that opened execution for 048. Its plan row names raw bytes that were never
+the canonical number `--tick` verifies, and the checks then narrowed to the single
+command the tick can execute; 0037 supersedes this record with the canonical digest. The specification
 row still names the bytes that are there, and both survive as the account of the
 critics' rounds. An approval that moves is not an approval that lied; it is an
 approval whose correction is on the record.

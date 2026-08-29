@@ -22,9 +22,12 @@ raw SHA-256 of the file's bytes. That is not the number `--tick` verifies: a pla
 approval digest is canonical, taken over the file with the tick column masked, because
 ticking a box moves bytes without changing what the plan says (`spec.py`'s
 `approval_bytes`). The first tick attempt exposed the mismatch and the plan's own
-defect at the same time: task 1's check named two commands and task 2's started with a
-word outside `RUNNABLE`, and `_one_command` refuses to choose or to run what it cannot
-run — a correct refusal, executed by the machine before this sentence needed writing.
+defect at the same time: task 1's check named two commands, and `_one_command` refused
+to choose — that refusal executed before this sentence was written. Task 2's first form
+was a single `git` span carrying a pipe: `git` is on `RUNNABLE`, so nothing refused it —
+the machine executed it without a shell, handed `|` to git as a literal argument, and it
+failed. Executed garbage, not a refusal; the narrowing to the `uv run python` one-shot
+guard is what made it runnable. Both halves of the refusal story belong to task 1.
 
 The plan now at `1d2391…` is the same four tasks with each check narrowed to the one
 command `--tick` executes, the removed assertions folded into the prose beside it (the
@@ -50,7 +53,7 @@ Approved at these exact bytes:
 | file | SHA-256 |
 |---|---|
 | `specs/048-handshake-intake-mechanisms/spec.md` | `9211b8f96b1c245a7a2b35d2f328b10673f5c973b95aefb0984f393334001b8c` |
-| `specs/048-handshake-intake-mechanisms/plan.md` (canonical) | `1d239107445c95b0c7dd8a257a28a535817aaa5c1fe3b0c6d4dc794e03c8b3d2` |
+| `specs/048-handshake-intake-mechanisms/plan.md` | `1d239107445c95b0c7dd8a257a28a535817aaa5c1fe3b0c6d4dc794e03c8b3d2` |
 
 The repository owner's `/ai-goal` invocation of 2026-08-29 remains the standing
 approval behind this correction; 0036's account of the critics' rounds, the four-task

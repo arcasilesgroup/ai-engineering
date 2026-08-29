@@ -17,14 +17,15 @@ Three things, each visible, none optional:
    looked up and cited at `file:line` instead of costing a question.
 3. The owner has confirmed a plain-words read-back. Until that yes exists, nothing is
    scaffolded: `ai-eng spec new` is the last move of intake, never the first. Under an
-   unattended goal there is no owner to confirm; record the read-back as unconfirmed in
-   the spec's assumptions and carry on.
+   unattended goal there is no owner to confirm; carry on, and move the read-back into
+   the scaffold's `## Assumptions and unresolved risks` as "unconfirmed", beside the
+   draft's other contents, when the scaffold is created.
 
 ## The live draft
 
 From the owner's first answer, keep a draft file on disk and update it after every
 answer, not at the end. It holds what is known, and one `TODO` line per open gap. The
-draft lives under `.ai/`, which is disposable by design. If the session dies
+draft lives at `.ai/intake-<slug>.md`, under `.ai/`, which is disposable by design. If the session dies
 mid-interview, the next one reads the remaining `TODO` lines and continues; nobody
 re-asks an answered question. Never write an answer the owner did not give. When the
 scaffold is created it writes a blank template over nothing — it does not read your
