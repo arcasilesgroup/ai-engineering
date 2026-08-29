@@ -144,16 +144,15 @@ lenses: cost, reversibility, undecidable, trust, example
 
 ### The two counts
 
-- Gaps that appeared only after the cross-read: **2** — the council returned three, and the
-  author's reconciliation moved one (`-k` selectors collect zero) to the refuted column
-  with the pytest run that refutes it. Two were carried: the Decision now names its own
-  API additions, and the cure-text contract is disclaimed below.
-- Findings deleted, for carrying no command or for being refuted: **6**
+- Gaps that appeared only after the cross-read: **2**
+- Findings deleted, for carrying no command or for being refuted: **5**
 
-Verdict (council, amended by the author's reconciliation recorded above): the Decision is
-sound — refusals keep refusing, skips keep skipping — and the two carried gaps are closed
-in this same record rather than left to a later edit. The council concludes; it does not
-approve.
+The reconciliation moved one entry the council had kept in the gaps column (the `-k`
+selector claim) into the refuted column after the pytest run listed above, which is why
+the totals read 2 and 5 against the round's original 3 and 5 — the fifth deletion is the
+refuted selector claim. Both surviving gaps are closed in this same record: the Decision
+now names its own API additions, and the cure-text contract is disclaimed below.
+The council concludes; the signing belongs to a person.
 
 ## Assumptions and unresolved risks
 
