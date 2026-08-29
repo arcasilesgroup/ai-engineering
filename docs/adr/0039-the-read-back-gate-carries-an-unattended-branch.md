@@ -43,7 +43,7 @@ mark a later reader can find.
 ## Decision outcome
 
 Option 1: "under an unattended goal the run records that read-back as unconfirmed and
-carries on" is part of the pinned step-0 text, and `references/intake.md` names where
+carries on" is part of the pinned step-0 text, and `.agents/skills/ai-spec/references/intake.md` names where
 the note lands when the scaffold arrives.
 
 ## Consequences

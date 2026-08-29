@@ -33,7 +33,7 @@ the source's license can be named, not whether copying is technically possible.
    mechanisms are ideas — a live draft, a read-back gate, fact-versus-decision routing —
    and ideas are not copyrightable expression. Costs a rewrite and one discipline: the
    rewriter must not transplant the file's examples. This is what D-048-02/03/04 shipped
-   through `references/intake.md`, with the pass/fail example pair rebuilt on a
+   through `.agents/skills/ai-spec/references/intake.md`, with the pass/fail example pair rebuilt on a
    different domain (bread offcuts at a market, not cocoa bags to cafes).
 2. **Vendor the file with a "provenance unknown" notice.** Rejected: an unknown provenance
    is not a license, and a notice does not create one; it also contradicts the CONSTITUTION's
