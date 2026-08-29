@@ -2989,3 +2989,16 @@ subject = "the projected saving is handoff arithmetic, not a measured time savin
 evidence = '''
 ! grep -rnE 'lead time|elapsed.*approv|duration.*approv' src/ hooks/ tests/ specs/
 '''
+[[commitment]]
+id = "PO-27"
+verdict = "INCOMPLETE"
+mover = "repository"
+subject = "a governed cycle from prompt to merged main fits the wall budget: 180 minutes for a giant block, far less for normal ones"
+evidence = "grep -n CYCLE_WALL_BUDGET_MINUTES src/ai_engineering/contract.py"
+note = '''the owner set the ceiling on 2026-08-29 against the measured record: the only giant block
+timed cost 19 h 42 min (report 023's postmortem), and its five bottlenecks price out to
+roughly 7.5 h after the already-designed cuts, so the remaining distance is critic pairing,
+timeboxed verdicts and the batched gate — the payload of spec 047. The row is open because
+nothing in the tree carries the number yet: the constant lives in contract.py beside the
+other named budgets, and a cycle that passes it exits red on its own recap. The clock
+disqualifies a run and never approves one, which is what PO-26 holds and this row keeps.'''
