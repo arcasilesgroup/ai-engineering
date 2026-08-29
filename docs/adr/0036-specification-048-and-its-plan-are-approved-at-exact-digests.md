@@ -23,7 +23,7 @@ external interview skill (`~/Downloads/handshake/SKILL.md`, audited in
 arrive as a 21st skill: a live crash-recovery draft under `.ai/`, a plain-words
 read-back the owner confirms before anything is scaffolded, and fact-versus-decision
 routing inside intake itself. The mechanism detail lives in a new
-`references/intake.md`; step 0 carries a self-sufficient pointer and the clauses it
+`.agents/skills/ai-spec/references/intake.md`; step 0 carries a self-sufficient pointer and the clauses it
 must enforce, with an unattended-goal branch that records an unconfirmed read-back
 instead of waiting for one (D-048-04, forced by the council's deadlock finding against
 `/ai-goal`'s no-wait rule). Harvest is by pattern only: the source file has no license

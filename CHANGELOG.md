@@ -8,13 +8,13 @@ search for.
 
 ### Changed (spec 048 — the intake reaches shared understanding)
 
-- `ai-spec` step 0 was rewritten: it now points at a new `references/intake.md` and
+- `ai-spec` step 0 was rewritten: it now points at a new `.agents/skills/ai-spec/references/intake.md` and
   enforces three clauses itself — a live crash-recovery draft under `.ai/` from the
   first answer, a plain-words read-back the owner confirms before anything is
   scaffolded, and facts looked up instead of asked. Under an unattended goal the
   read-back is recorded as unconfirmed and the run carries on; the gate never hangs
   waiting for a yes nobody is there to give (D-048-04).
-- `references/intake.md` ships with the skill: the gap order, the asking rules, the
+- `.agents/skills/ai-spec/references/intake.md` ships with the skill: the gap order, the asking rules, the
   read-back pass/fail pair, and the early-exit route — every unanswered decision to
   `## Assumptions and unresolved risks` with a recommended default, never to an
   invented heading. No `ai-handshake` skill was added, and none will be (D-048-01):
