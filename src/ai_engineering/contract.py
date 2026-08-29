@@ -691,3 +691,14 @@ RECAP_TABS_MIN = 3
 RECAP_TABS_MAX = 8
 RECAP_EXCERPT_LINES_MAX = 150
 PAGE_TITLE_MAX = 70
+
+# The cycle's wall budgets (spec 047). 180 is the owner's decision of 2026-08-29, carried
+# by PO-27 in the ledger: a governed giant block fits three hours and normal ones fit far
+# under. 40 and 120 are derived arithmetic, not measurements — 40 divides the ceiling
+# across the five critics run serially; 120 divides the postmortem's measured 409-call
+# session (report 023, the 19 h 42 min block) across the same five and rounds down. The
+# clock disqualifies a run and never approves one (PO-26): no box ever ticks because a
+# number said so.
+CYCLE_WALL_BUDGET_MINUTES = 180
+CRITIC_TIMEBOX_MINUTES = 40
+CRITIC_CALLS_MAX = 120
