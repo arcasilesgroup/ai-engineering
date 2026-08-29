@@ -42,7 +42,7 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    **done when**: the three names import and print `180 40 120`, and they are the only
    place the numbers live.
 
-2. [ ] **The red fixture: timebox pins and the vitals arithmetic** —
+2. [x] <!--t:5173586b76ec--> **The red fixture: timebox pins and the vitals arithmetic** —
    **file**: `tests/test_cycle_budget.py` — planted-fixture tests, red now: (a) each of
    the five critic skills names both bound numbers and the `TIMEBOXED` exit; (b) a
    two-hour event stream for one session parses to minutes attributed per `cls` beside
