@@ -49,10 +49,12 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    the wall time first-to-last `ts`; (c) a 200-minute stream exits `INCOMPLETE` naming
    `OVER_BUDGET`; (d) a 90-minute stream exits `PASS`; (e) an event stream with no
    session match exits `INCOMPLETE [NO_DATA]` rather than passing on emptiness.
-   **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_cycle_budget.py -k "timebox or vitals or budget"`
+   **check**: `uv run --with pytest==9.1.1 pytest -q --collect-only tests/test_cycle_budget.py`
    **rollback**: `git revert <commit>`; a red file asks nothing of CI.
-   **done when**: the file is committed and the command exits non-zero naming every
-   missing half — red for the right reasons.
+   **done when**: the file is committed, this check exits zero — the fixture collects,
+   which means every import of `vitals`/`contract` lives inside a test body — and the
+   run itself is red naming every missing half. Red for the right reasons: collectable
+   shape, failing assertions, not an ImportError wearing a red.
 
 3. [ ] **The vitals reader** —
    **file**: `src/ai_engineering/vitals.py` (new, stdlib-only) — reads
