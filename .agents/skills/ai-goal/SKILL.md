@@ -73,6 +73,18 @@ a short no-progress guard stop a loop that is not converging. When the cap or th
 fires, write a page a person can act on: what failed, what was tried, what the honest fix
 costs. Never a silent stop, and never "until perfect" — that is not a stop condition.
 
+## The cycle never waits, and the wall is measured
+
+No step of an unattended run waits for input. A command that refuses is repaired, or the
+turn closes with one line — `BLOCKED: <what is stopping you> — unblock: <one thing the
+person can do in under a minute>` — and a fork that hangs past its box is a `TIMEBOXED`
+verdict, never silence. One red never relaunches the whole gate: a new failure joins the
+others, the batch is repaired together, and `just check-all` runs once and lists every
+red step. At the close, the handover prints `ai-eng report vitals --session <id>` beside
+`ai-eng audit verify`: the wall minutes are read from the event record, the budget is
+`contract.CYCLE_WALL_BUDGET_MINUTES`, and the clock disqualifies a cycle and never
+approves one.
+
 ## Simplicity is the standing bar
 
 KISS, YAGNI, DRY, SOLID, BDD, TDD, Clean Code, Clean Architecture. When two answers both

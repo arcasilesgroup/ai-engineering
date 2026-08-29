@@ -115,3 +115,16 @@ def test_the_verb_reads_the_in_clone_record(tmp_path, monkeypatch):
     assert result.outcome == "PASS"
     result_over = report.main(["vitals", "--session", "nobody"])
     assert result_over.outcome == "INCOMPLETE"
+
+
+def test_goal_and_build_name_the_anti_stall_and_the_batch_rule():
+    """(7) the unattended cycle never waits, and one red never relaunches the gate."""
+
+    goal = (ROOT / ".agents" / "skills" / "ai-goal" / "SKILL.md").read_text(encoding="utf-8")
+    build = (ROOT / ".agents" / "skills" / "ai-build" / "SKILL.md").read_text(encoding="utf-8")
+    assert "BLOCKED:" in goal, "ai-goal closes a blocked turn with no named unblock"
+    assert "TIMEBOXED" in goal, "ai-goal never names the bounded fork exit"
+    assert "just check-all" in goal and "report vitals" in goal, (
+        "ai-goal's close prints neither the batched gate nor the wall reading"
+    )
+    assert "just check-all" in build, "ai-build still relaunches the whole gate per red"

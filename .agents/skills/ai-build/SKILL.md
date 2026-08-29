@@ -33,9 +33,12 @@ Code and tests for one task, and one commit nobody has reviewed yet — `HEAD`.
 4. One logical change per commit. A change that has outgrown the task it belongs to is two
    changes; split it and say so, rather than widening the commit around it.
 5. Run the task's own check and the test files the task names, by path. Not the whole gate:
-   that runs once at block close, over every commit in the block at once. `--no-verify` is
-   denied by `hooks/no_verify_guard.py` on the way past — if that hook file is missing,
-   stop: a repository whose hooks are not installed cannot attest what this step claims.
+   that runs once at block close, over every commit in the block at once, and at close it
+   runs as `just check-all` — one red never relaunches a full pass; a new failure joins the
+   others, the batch is repaired together, and the one pass lists every red step.
+   `--no-verify` is denied by `hooks/no_verify_guard.py` on the way past — if that hook
+   file is missing, stop: a repository whose hooks are not installed cannot attest what
+   this step claims.
 6. Label the hand-off `UNREVIEWED` and say what happened — the parts that did not, too. Say
    it in the commit message and in the hand-off, and **never by editing the plan**. The
    approved bytes are what the approval was given for, so a task that rewrites them to
