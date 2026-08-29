@@ -1539,6 +1539,10 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
         # to the singular house form and re-approved, so 0033's plan row legitimately
         # moved and 0034's row carries the bytes execution verifies against now.
         ("specs/047-autonomous-cycle-wall-budget/plan.md", "e4252e374141"),
+        # 0034's digest moved for the same reason one task later: its task 4 check was a
+        # shell substitution --tick cannot run without a shell, over a gitignored file CI
+        # does not have; 0035 corrected the check to one pytest command and re-approved.
+        ("specs/047-autonomous-cycle-wall-budget/plan.md", "ded6972988db"),
     }
 
     rows = []

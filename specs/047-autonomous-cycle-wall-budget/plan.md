@@ -73,10 +73,10 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    printing per-phase minutes and the verdict), `src/ai_engineering/cli.py` (the will
    banner names it — a writer the banner omits is a false statement about a run,
    D-046-05's rule).
-   **check**: `uv run ai-eng report vitals --session $(tail -n1 .ai/events.jsonl | uv run python -c "import json,sys; print(json.load(sys.stdin)['session'])")`
+   **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_cycle_budget.py -k verb`
    **rollback**: `git revert <commit>`; the banner and the subcommand move together.
-   **done when**: the command prints minutes and a verdict for the live session, exits
-   zero inside budget, and `ai-eng report --help` lists `vitals`.
+   **done when**: the command prints minutes and a verdict for a session it is given,
+   exits zero inside budget, and `ai-eng report --help` lists `vitals`.
 
 5. [x] <!--t:6ba2e0bdb287--> **The critics carry their box** —
    **file**: `.agents/skills/ai-challenge/SKILL.md`, `ai-council`, `ai-review`,
