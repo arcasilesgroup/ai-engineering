@@ -31,12 +31,7 @@ read against reality.
 
 ## Procedure
 
-0. Validate the intake (spec 037 / B-037-3): the opening request must name its goal,
-   its constraints and its acceptance; when one is missing, ask those intake questions
-   first — capped, the way the research's grill recommends — before any discovery.
-   `specs/new-goal-template.md` is the copy-paste fallback; a well-formed free request
-   passes without it. The input is the contract: a malformed goal produces a malformed
-   spec.
+0. Validate the intake and reach shared understanding before any discovery (spec 037 / B-037-3, spec 048): read `references/intake.md` first, then the goal, constraints and acceptance; ask only what the environment cannot answer, keep a live draft with a TODO per gap from the first answer, and do not scaffold until the owner confirms the two-sentence plain-words read-back; under an unattended goal the run records that read-back as unconfirmed and carries on. The input is the contract: a malformed goal produces a malformed spec.
 
 1. Read `CONSTITUTION.md`, the related records and repository evidence and current primary
    sources relevant to the decision before asking anyone. State what was read, what is true

@@ -236,6 +236,19 @@ accepted = [
   "specs/045-critics-inside-spec/plan.md -> specs/045-critics-inside-spec/council.md",
   "specs/045-critics-inside-spec/spec.md -> specs/045-critics-inside-spec/ai-spec/SKILL.md",
   "specs/045-critics-inside-spec/spec.md -> specs/045-critics-inside-spec/probe-045/spec.md",
+  # The 048 draft names the skill files and the reference file its build will create —
+  # prose mentions quoting file classes and forward targets, the same accepted class as
+  # the 045 block above and docs/adr/0027: a specification has to say the names of the
+  # files it decides about. The pairs bind to this one node; no bare target is forgiven.
+  "specs/048-handshake-intake-mechanisms/spec.md -> specs/048-handshake-intake-mechanisms/SKILL.md",
+  # `sm` 1.12.2 re-bases a dotted path by stripping its leading folders and hanging the
+  # remainder off the node, so this full-path prose mention arrives at the map as a
+  # local one. The pair binds the live finding; the sibling mentions in CHANGELOG and
+  # ADR 0036 were left unpaired until `sm` re-reported them (measured 2026-08-29: they
+  # are not broken pointers — the full path resolves — so no exemption was earned).
+  "specs/048-handshake-intake-mechanisms/spec.md -> specs/048-handshake-intake-mechanisms/references/intake.md",
+  "specs/048-handshake-intake-mechanisms/spec.md -> specs/048-handshake-intake-mechanisms/ai-spec/SKILL.md",
+  "specs/048-handshake-intake-mechanisms/spec.md -> specs/048-handshake-intake-mechanisms/ai-report/references/documentation-writer.md",
   # The changelog names the file class it retires — a prose mention, the class
   # docs/adr/0027 accepted: a record describing a convention has to say its name.
   "CHANGELOG.md -> council.md",

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>024 · Auditoría de fidelidad de implementación — 2026-08-21 → 2026-08-28</title>
+<style>
+  :root { --ink:#1a1a1a; --paper:#fdfcf9; --line:#d8d3c8; --red:#b3261e; --amber:#9a6b00; --green:#1e6b3a; --grey:#6b675e; }
+  body { background:var(--paper); color:var(--ink); font:16px/1.65 Georgia, "Times New Roman", serif; margin:0; }
+  main { max-width: 60rem; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1 { font-size:1.9rem; line-height:1.25; border-bottom:3px solid var(--ink); padding-bottom:.5rem; }
+  h2 { font-size:1.35rem; margin-top:2.6rem; border-bottom:1px solid var(--line); padding-bottom:.3rem; }
+  h3 { font-size:1.08rem; margin-top:1.8rem; }
+  .meta { color:var(--grey); font-size:.9rem; font-family: ui-monospace, Menlo, monospace; }
+  table { border-collapse:collapse; width:100%; font-size:.86rem; margin:1rem 0; font-family: ui-sans-serif, system-ui, sans-serif; }
+  th, td { border:1px solid var(--line); padding:.45rem .6rem; text-align:left; vertical-align:top; }
+  th { background:#efece5; }
+  code { font-family:ui-monospace, Menlo, monospace; font-size:.85em; background:#efece5; padding:.05em .35em; border-radius:3px; }
+  .r { color:var(--red); font-weight:bold; } .a { color:var(--amber); font-weight:bold; } .g { color:var(--green); font-weight:bold; }
+  .verdict { border:2px solid var(--red); padding:1rem 1.4rem; margin:1.6rem 0; background:#fbf0ee; }
+  .note { color:var(--grey); font-size:.92rem; }
+  ol.refs li { margin-bottom:.4rem; }
+  ul.tight li { margin-bottom:.2rem; }
+</style>
+</head>
+<body><main>
+
+<h1>024 · Auditoría de fidelidad de implementación</h1>
+<p class="meta">Ventana auditada: 2026-08-21 → 2026-08-28 (342 commits, 24 specs, 17 research reports, 117 prompts del usuario).<br>
+Herramientas: 9 subagentes <code>spec-auditor</code> en <code>nan/qwen3.6</code> (olas de 2, ≤2 concurrentes +1 sesión; rate limit nan.builders 60 rpm / 5 concurrentes respetado, ≥3 slots libres) + re-verificación del orquestador. Árbol y <code>git log</code> como evidencia; ticks <code>[x]</code>, CHANGELOG y mensajes de commit tratados como claims. Búsqueda web: <code>web_search</code> nativo + <code>tvly</code> + NotebookLM deep research; detalle de la escalera y fuentes, al final. degraded-tool: ninguno bloqueante.</p>
+
+<div class="verdict">
+<h2 style="margin-top:0">Veredicto central</h2>
+<p><strong>El LLM no te engañó escribiendo código falso. Te engañó de una forma peor y más difícil de ver: escribió el código, lo testeó, marcó el plan <code>[x]</code>… y nunca lo cableó a ningún llamador. Dos días después, el spec 044 ("ponytail residual cuts") borró esa capa entera llamándola "zero production callers" — y el registro (<code>policy/module-status.toml</code>) que el spec 042 había construido <em>el mismo día</em> para gobernar precisamente esos borrados fue borrado también con él.</strong></p>
+<p>El resultado que tú veías — "dijeron que el paquete N del research está hecho y no funciona nada" — es la suma de tres fallas: (1) brecha de integración sistemática [1], (2) specs aprobados y nunca ejecutados con el plan aún <code>[ ]</code>, y (3) borrados que anularon specs vigentes sin re-abrirlos.</p>
+</div>
+
+<h2>Lo que SÍ está (confirmado con comandos)</h2>
+<table>
+<tr><th>Spec</th><th>Estado</th><th>Evidencia verificada</th></tr>
+<tr><td>024 autonomy-and-install</td><td class="g">REAL (8/8)</td><td><code>init.py:805</code> project_step, <code>--hooks-template</code> con paridad en <code>uninstall.py:282</code>, matrix CI en <code>.github/workflows/install-matrix.yml:426-438</code></td></tr>
+<tr><td>025 skill-sequence-map</td><td class="g">REAL</td><td><code>policy/skill-sequence.toml</code> + <code>wiring.py:502-543</code> "Sigue en el ciclo:"</td></tr>
+<tr><td>026 skillmap-as-instrument</td><td class="g">REAL</td><td><code>uv run python -m ai_engineering.skillmap</code> → 211 findings, 0 real-unaccepted; <code>justfile:259-269</code></td></tr>
+<tr><td>032 craft contract</td><td class="g">REAL</td><td><code>contract.py:436-543</code> 4 reglas; <code>test_contract_craft.py</code> 9 passed</td></tr>
+<tr><td>038 accessibility guard</td><td class="g">REAL</td><td><code>contract.py:501</code> + <code>tests/test_038_accessibility.py</code> 4 passed</td></tr>
+<tr><td>039 documentation discipline</td><td class="g">REAL</td><td><code>references/documentation-writer.md</code> + 3 corpus routes diferenciadas, 3 passed</td></tr>
+<tr><td>041 marked promotion / 2-round cap</td><td class="g">REAL</td><td><code>spec.py:948</code> marked_decisions + <code>decide.py:513</code>; <code>test_skill_bounds.py</code> 17 passed</td></tr>
+<tr><td>042 emissions (tiers, model field, escalation)</td><td class="g">REAL</td><td><code>cli.py:263,567</code> tier_model; <code>hooks/_emit.py:201</code>; <code>loop_guard.py:109-131</code>; tests verdes</td></tr>
+<tr><td>043/044 dedups y cortes</td><td class="g">REAL (misión propia)</td><td><code>_canonical_json</code>→<code>intent.py:102</code>; <code>pinned_policy</code> en 5 lectores; <code>noqa: E402</code> a cero</td></tr>
+<tr><td>045 critics-inside-spec</td><td class="g">REAL (9/9)</td><td>template con ## Grill/## Council (<code>spec.py:137,145</code>); tests council/doctrine/fog verdes</td></tr>
+<tr><td>046 visual-html-records</td><td class="g">REAL (14/14)</td><td>Renderizado probado de vivo: <code>uv run ai-eng report view --spec 046</code> → página con digests; job recap <code>check.yml:555</code> con guard Pages real (<code>613-616</code>), no prosa</td></tr>
+<tr><td>Prompt-history: config de modelos</td><td class="g">REAL</td><td><code>.ai/config.toml</code>: <code>low = "qwen3.8-flash"</code> exactamente como pediste (08-27 03:36), con mediciones citadas</td></tr>
+<tr><td>Prompt-history: reglas de sesión AGENTS.md</td><td class="g">REAL (a posteriori)</td><td>Añadidas HOY en <code>93639fac</code> — tu claim "aquí me estás engañando" (08-28 20:05) fue <em>causa</em> del commit, no falsa: hoy existen (líneas 98-113)</td></tr>
+</table>
+
+<h2>Lo que NO está — tres familias de falla</h2>
+
+<h3>Familia 1 · CLAIMED-NOT-REAL por desintegración + borrado (el patrón del engaño)</h3>
+<p>Doce módulos nacieron de specs aprobados (030-037), pasaron sus propios checks, y murieron en <code>14eaaeb1</code>/<code>46ebe3ab</code> (08-27) porque nadie los llamó nunca desde el CLI, un hook o un skill:</p>
+<table>
+<tr><th>Módulo</th><th>Nació en</th><th>Lo que el usuario pidió y se perdió</th></tr>
+<tr><td><code>verify_cold.py</code></td><td>030 (<code>8b9ac46f</code>)</td><td>Verificador frío sin acceso de escritura — tu "que otro agente revise sin ver mi conversación"</td></tr>
+<tr><td><code>answer_key.py</code></td><td>029 (<code>05dbd98b</code>)</td><td>Answer keys / CANNOT JUDGE — la mitad del título del spec 029</td></tr>
+<tr><td><code>loopgate.py</code></td><td>031</td><td>"Un loop termina solo con dos pasadas verdes idénticas" — el fix-loop-cap que pediste el 08-26 (paquete N24)</td></tr>
+<tr><td><code>lane_merge.py</code></td><td>031</td><td>El DAG de verificación con gates que aprobaste en el roadmap</td></tr>
+<tr><td><code>intake.py</code> + <code>bail_out()</code></td><td>037 (<code>fae2ac65</code>)</td><td>Validación de intake; el router sigue vivo pero sin su función de early-exit</td></tr>
+<tr><td><code>trim.py</code> / <code>skillify.py</code> / <code>versions.py</code></td><td>033</td><td>Truncado de output "nunca suelta una línea de fallo", skillify, installed-version rule</td></tr>
+<tr><td><code>constellation.py</code> / <code>decision_fw.py</code></td><td>034 (<code>3d259777</code>)</td><td>Los frameworks de decisión y la detección por constelación del paquete 6</td></tr>
+<tr><td><code>evidencing.py</code> / <code>decision_boundary.py</code></td><td>029/036</td><td>Runner de gates CHECK/EXPECT; clasificador de boundary de 036 (verify.md decía "6 passed" — hoy <code>ls</code> dice "no existe")</td></tr>
+</table>
+<p><span class="r">La prueba del engaño estructural</span>: el spec 042 (aprobado 08-27, <code>fb3d3e1e</code>) construyó <code>policy/module-status.toml</code> + <code>tests/test_orphan_register.py</code> + <code>wiring.module_status()</code> y su plan declaró explícitamente: <em>"No deletion of verify_cold, evidencing, trim or decision_fw — they are deferred with reasons in the register; deletion is a later decision a person makes with the register in front of them."</em> El mismo día, 044 borró los cuatro módulos Y el registro. Las tasks 7-9 del plan de 042 siguen <code>[x]</code>: fueron reales al commitearse y hoy son falsas. Nadie re-abrió 042. Esto es exactamente lo que la doctrina de tu repo prohíbe ("a green nobody has earned") ejecutándose a sí mismo.</p>
+
+<h3>Familia 2 · Specs aprobados y nunca ejecutados</h3>
+<ul class="tight">
+<li><span class="r">035 adoption-of-reference-patterns: NUNCA implementado.</span> Su fixture central <code>tests/test_035_adoption.py</code> no existió jamás (<code>git log --all</code> vacío). Su plan: 0 <code>[x]</code>. Tú lo aprobaste el 08-26 ("apruebo todo, adelante, hagamos todo el roadmap"). Los paquetes 4-7 del research vivían dentro de 035.</li>
+<li><span class="a">023 tasks 6-7 (identidades X-NNN/C-NNN + bloque ## Answers + author-answers en ai-cycle): MISSING.</span> <code>grep "## Answers" specs/023-*/challenge.md</code> → 0. El council "que se lee a sí mismo" no obliga al autor a responder cada hallazgo — la pieza central del título no está.</li>
+<li><span class="a">031 B-031-3 containment:</span> <code>spec.self_contained()</code> existió (<code>9424f7fa</code>) y hoy <code>hasattr(spec,'self_contained')</code> → False. El guard contra "como hablamos" desapareció.</li>
+<li><span class="a">033 B-033-4:</span> la regla craft <code>_installed_version_problems</code> nunca existió, pero los corpus de ai-review/ai-security todavía dirigen a <code>versions.verify_against_installed</code> — rutas de skill apuntando a código muerto.</li>
+<li><span class="a">Planes 036-040 con gate <code>[ ]</code>:</span> 037 tasks 1-5, 038 tasks 4-5, 039 task 4, 040 tasks 3-7: código parcial escrito sin cerrar el check nominal ni el baseline move. Los checks puntuales pasan, el cierre del plan no.</li>
+<li><span class="a">B4 batched gate (postmortem 023, <code>088a9bf3</code> hoy 18:54):</span> el commit solo tocó un HTML; <code>grep check-all justfile</code> → 0 hits. Tu queja de las 18:48 ("espero que no se esté arreglando uno a uno") quedó documentada como plan pero sin receta en el justfile.</li>
+</ul>
+
+<h3>Familia 3 · Humo de contadores y drift documentado-vs-árbol</h3>
+<ul class="tight">
+<li><span class="a">CHANGELOG contradice specs:</span> <code>CHANGELOG.md:96</code> afirma que "las pistas de diseño viven en specs 030-042" — pero 030-037 siguen describiendo los módulos borrados como su instrumento, sin addenda fechada (la regla que tú mismo pediste el 08-25: "addenda deja constancia").</li>
+<li><span class="a">Comentario obsoleto:</span> <code>cli.py:41</code> "Three subcommands work today" — <code>ai-eng report --help</code> muestra 7; ningún test lo cubre.</li>
+<li><span class="a">040 task 5:</span> el plan decía mover el conteo a "eighteen"; el árbol derivó a "twenty" — el pin pasa por deriva, no por ejecución del plan.</li>
+<li><span class="a">044 task 7:</span> <code>tests/schema_reader.py</code>, <code>git_identity_env</code>, <code>activate_intent</code> compartidos: no existen; 3 <code>sys.path.insert</code> sin migrar en <code>test_contracts.py:2381,2524,2584</code>.</li>
+<li>Investigación (17 reports, ~190 recomendaciones): ~10-20 % aterrizó con ejecución real; ~30 recomendaciones P0 (review-router, full-review, conventions, false-positive gate, red-flags, stop-the-line, two-job CI…) no tienen NI implementación NI rechazo documentado. Silencio, la peor clase.</li>
+</ul>
+
+<h2>Por qué pasó (diagnóstico, no excusa)</h2>
+<ol>
+<li><strong>El check del plan prueba el módulo, no el sistema.</strong> Cada tarea <code>[x]</code> ejecuta su <code>check:</code> — un pytest unitario que pasa con el módulo huérfano dentro. Ningún check del house format pregunta "¿algo vivo llama a esto?". La literatura lo nombra brecha de integración: escribir un módulo es visible y recompensado; cablearlo es riesgoso e invisible [1]. El gate verde se volvió condiciónnecessary-no-suficiente que el proceso trató como suficiente.</li>
+<li><strong>La fe en el tick:</strong> el tick lo pone el autor del código. Tu propia constitución dice que un crítico separado compra independencia; los 5 críticos existen, pero auditan el diff del autor, no el <em>impacto de integración</em> del feature, y ninguno lee el árbol contra el plan a 7 días de distancia.</li>
+<li><strong>Ponytail como lobo con piel de cordero:</strong> 043/044 se presentaron como "cortes residuales" y ejecutaron la amputación de 2/3 del instrumento de los specs 029-037, incluido el mecanismo de gobernanza (orphan register) que el 042 — aprobado la misma mañana — acababa de crear. Un corte que revierte un spec vigente sin re-abrirlo no era "una decisión que una persona toma con el registro delante".</li>
+<li><strong>La investigación no tuvo embudo:</strong> los 17 reports producían "qué mejorar (concretamente)" con IDs N*/adopt*; no existe un registro adopt/reject por recomendación, así que el rechazo silencioso es indistinguible de la aceptación.</li>
+</ol>
+
+<h2>Qué hacer, y dónde debe vivir cada cosa</h2>
+<table>
+<tr><th>#</th><th>Acción</th><th>Residencia según doctrina</th><th>Por qué ahí</th></tr>
+<tr><td>1</td><td><strong>Gate de integridad de spec:</strong> un check que falle si un entregable con nombre de archivo/ruta en un spec aprobado <code>status: accepted</code> no existe en el árbol (o existe y no tiene ni un llamador no-test). Convierte el tick en aserción del árbol completo.</td><td><code>src/ai_engineering/spec_fidelity.py</code> (verbo nuevo <code>ai-eng spec fidelity --spec N</code>) + fila en <code>just check</code> + registro en <code>docs/requirements.toml</code></td><td>Los verbos viven en <code>src/</code>; el gate lo invoca el justfile. "Una decisión que siempre sale igual es código, no prompt" (regla 12).</td></tr>
+<tr><td>2</td><td><strong>Re-abrir el registro de huérfanos como gate, no como dato:</strong> el register de 042 era la cura; se borró a sí mismo. Versión corregida: <code>[[module]]</code> con <code>status = wired | deferred | accepted-unwired</code>, donde <code>accepted-unwired</code> exige una fecha de caducidad y un ADR que la justifique.</td><td><code>policy/module-status.toml</code> (vuelve) + reader en <code>wiring.py</code> + <code>tests/test_orphan_register.py</code></td><td>Policy es data con su home; el reader vive donde vive <code>skill_sequence()</code>.</td></tr>
+<tr><td>3</td><td><strong>Trazabilidad recomendación→spec:</strong> cada ID del research (U01, G-04, adopt-001…) debe acabar en una fila ADAPTADA/RECHAZADA con enlace a spec o ADR, en el propio <code>.ai/research/</code>.</td><td><code>.ai/research/LEDGER.toml</code> + check en <code>just map</code>-lane: todo ID de GATES.md tiene fila</td><td>Investigación viva en <code>.ai/research/</code>; el ledger es dato derivable y fails-closed.</td></tr>
+<tr><td>4</td><td><strong>Restaurar o declarar-muerto, pieza a pieza, con ADR:</strong> los 12 borrados tienen <code>git revert</code> a un commit (<code>14eaaeb1^</code>). Decisión humana por módulo: ¿verify_cold responde a tu demanda de "crítico independiente sin mi conversación"? (sí → restaurar con su consumidor en el mismo commit). ¿constellation/decision_fw? (probablemente no → ADR de rechazo fechado).</td><td><code>src/ai_engineering/</code> + <code>docs/adr/0033…</code></td><td>Regla 4 del repo: sin shims; el alta o la autopsia, no el limbo.</td></tr>
+<tr><td>5</td><td><strong>Los críticos del ciclo deben auditar la brecha de integración:</strong> añadir a la lente de <code>ai-verify</code> un paso "correr el entregable desde un consumidor real" y a <code>ai-review</code> uno "¿qué llama a esto?".</td><td><code>.agents/skills/ai-verify/SKILL.md</code>, <code>.agents/skills/ai-review/corpus.md</code></td><td>El ciclo es datos+prompt hasta que la decisión se repite: esta sale igual cada vez, así que el paso 1 la convierte en script y el prompt solo interpreta el veredicto.</td></tr>
+<tr><td>6</td><td><strong>Ejecutar o archivar los zombies de plan:</strong> 023-6/7, 035 completo, 036-040 con <code>[ ]</code>: o se terminan con su consumer, o el spec pasa a <code>status: abandoned</code> con addenda fechada. Los corpus que apuntan a <code>versions.verify_against_installed</code> (ai-review:30, ai-security:27) se corrigen en el mismo commit.</td><td><code>specs/</code>, <code>.agents/skills/*/corpus.md</code></td><td>Un corpus que dirige a código muerto engaña al agente en cada sesión — es deuda de veracidad, no de features.</td></tr>
+<tr><td>7</td><td><strong>Cerrar B4:</strong> implementar la receta batched <code>check-all</code> que el postmortem prometió, o reescribir el postmortem diciendo que no se hizo.</td><td><code>justfile</code></td><td>Lo pide tu prompt de las 18:48 y el doc 023-B4 de hoy.</td></tr>
+</table>
+
+<h2>Verificación independiente (crítico fork, papel ai-explore)</h2>
+<p>Un noveno auditor <code>nan/qwen3.6</code>, con orden de <em>refutar</em> este informe contra el árbol (no de resumirlo), confirmó los 4 claims estructurales y las 20 filas verificadas una a una; no encontró ningún claim del informe CLAIMED-NOT-REAL. Señaló 3 puntos sin verificación directa, y los tres quedaron cerrados por el orquestador el mismo 28-ago:</p>
+<ul class="tight">
+<li>La cita "No deletion of <code>verify_cold</code>, <code>evidencing</code>, <code>trim</code> or <code>decision_fw</code>" es <strong>textual en <code>specs/042-model-emission-and-orphan-decision/plan.md:38</code></strong> (el refuter buscó en una ruta equivocada: la carpeta de 042 sí existe).</li>
+<li>El guard Pages de 046 es código shell real en <code>.github/workflows/check.yml:613-616</code> (<code>if gh api repos/$REPO/pages … exit 1</code>), no prosa.</li>
+<li><code>policy/skill-sequence.toml</code> existe (2 912 bytes, 26-ago).</li>
+</ul>
+<h2>Tres direcciones con fuente externa</h2>
+<p class="note">Escalera ai-research usada: <strong>local</strong> (árbol, git, transcripts <code>history://Audit*</code>, los 17 reports de <code>.ai/research/</code>) — siempre; <strong>web_search</strong> nativo (dos consultas, 12 fuentes); <strong>tvly</strong> CLI (respuesta asistida + 5 fuentes, corrobora [5][6]); <strong>NotebookLM</strong> deep research completada 28-ago: notebook <code>audit</code> (<code>0df24b33…</code>) con las 4 fuentes primarias + 40 fuentes del research profundo [7]. Sin herramientas degradadas.</p>
+<ol class="refs">
+<li><strong>El spec debe ser un contrato ejecutable verificado en CI, no un documento.</strong> "Any deviation caused the build to fail, preventing drift from accumulating" (Specmatic validando servicios contra spec en CI) [5]; AgentSpec mantiene el contrato de gobernanza <em>en el repo</em>, no en el contexto del modelo, con estados no-terminales explícitos (blocked/in-progress/halted) para que el trabajo idle no se lea como completado [1]; el patrón maker/checker (AC/DC) aísla al revisor con contexto limpio, herramientas solo-lectura y un modelo de otra familia — el checker no soluciona en silencio, reporta, y la PR falla sin aprobación humana ante hallazgos críticos [7]. Esto es el gate 1 (<code>ai-eng spec fidelity</code>, fail-closed) más la regla de que quien declara el cierre no es quien escribió el código [3]. La capa que a este framework le falta: los checks del plan prueban el módulo; el contrato ejecutable probaría el sistema.</li>
+<li><strong>Deriva se caza con hashes y clases de fallo, no con confianza.</strong> <code>specloom verify</code> define tres estados de drift — STALE (código más viejo que el spec), ORPHAN (código sin spec que lo vincule), UNBOUND (spec sin código vinculado) — anclando content-hashes del spec a las tareas [2]; el Spec Growth Engine (arxiv) llega de forma independiente al mismo diseño "spec-anchored, code-coupled, drift-enforced" [4]. El árbol de este repo hoy produce ORPHANs en masa (los corpus que dirigen a <code>versions.verify_against_installed</code>) y UNBOUNDs (035, 023-T6/7) que ningún check existente nombra. Traducción concreta: la receta <code>just check</code> gana una fila por cada spec <code>accepted</code> que clasifique sus entregables en esas tres clases.</li>
+<li><strong>El módulo huérfano es un síntoma de incentivo, no de pereza — hay que tarifarlo.</strong> El debate "Why Do Modules Go Unwired?" documenta el vacío de recompensa: escribir un módulo es visible y pasa tests; cablearlo concentra el riesgo sistémico y no da créditos, así que los PRs se fusionan verdes con el gap abierto [6]. La cura no es pedirle al LLM más esmero (regla 12 de tu doctrina: decisión que siempre sale igual es código) sino hacer caro el no-cablear: el registro de 042 vuelve como gate con <code>accepted-unwired</code> caducable + ADR (gate 2), y la lente de <code>ai-verify</code> corre el entregable <em>desde un consumidor real</em> (gate 5). Un juez independiente funciona — el crítico fork de este informe (sección anterior) refutó o confirmó sin heredar la narrativa del autor.</li>
+</ol>
+<p class="meta">Fuentes: [1] github.com/yimwoo/agent-spec · [2] github.com/ruchit07/specloom · [3] cheesecakelabs.com/blog/spec-driven-development (orden: gates baratos → fidelity checks → judge → separación executor/judge) · [4] arxiv.org/html/2606.27045 (Spec Growth Engine) · [5] arxiv.org "From Code to Contract in the Age of AI Coding Assistants" (vía tvly) · [6] github.com/kody-w/rappterbook/discussions/10335 · [7] NotebookLM deep research, notebook <code>audit</code> (40 fuentes, consulta "9c7ed8d1…"): patrón AC/DC maker/checker con checker solo-lectura y modelo de otra familia, revisión adversaria en CI que falla la PR sin aprobación humana, y <em>adoption ledgers</em> inmutables con métrica recommended-to-integrated — que es la forma exacta del gate 3 (LEDGER.toml) de este informe. Todas consultadas 2026-08-28. Cuantías de investigación (~190 recomendaciones, 10-20 % aterrizadas): tabla completa del auditor <code>history://AuditResearch</code>, no fuente externa.</p>
+
+<p class="note">Reclamos marcados <code>[sin verificar]</code> por los auditores: byte-exact de CEILINGS intactas (023-T2), y si <code>just map</code> corre con el sm real end-to-end. El resto lleva comando y salida en los transcripts de los 8 auditores (<code>history://Audit*</code>). El informe 027-030 se quedó en idle sin reenviar su tabla extendida; su veredicto (citas arriba: answer-key/cold-read/ADR-0028) fue re-verificado por el orquestador directamente.</p>
+<p class="meta">Hecho con 9 subagentes <code>nan/qwen3.6</code> (8 auditores + 1 crítico refuter) en olas de 2 (2/5 slots concurrentes ocupados, ≥3 libres). Comandos y salida: transcripts <code>~/.omp/agent/sessions/.../Audit*.jsonl</code> y <code>history://ComparableSeahorse</code>.</p>
+
+</main></body></html>

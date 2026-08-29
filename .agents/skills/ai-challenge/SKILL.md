@@ -59,9 +59,15 @@ it.
 At most two rounds against the same spec digest — the canonical bytes `ai-eng spec
 show` prints. A revision changes the digest and reopens the count; the second round
 against an unchanged digest is the last. At the ceiling, write the outstanding
-findings worst first and hand the page to the person. `loopgate` is the
-orchestrator's instrument, not yours: the skill layer's bound is this one, and the
-two-identical-greens rule is what an automated cycle runs when it exists.
+findings worst first and hand the page to the person. The two-identical-greens rule is
+the orchestrator's instrument, not yours: the skill layer's bound is this one, and an
+automated cycle ends only on two digest-equal green runs when such a cycle exists.
+
+## The box
+
+40 minutes of wall time, 120 tool calls — the numbers `contract.py` owns. The verdict
+returns in your result; you write no files. When the box closes with work left, return
+what you have and mark it `TIMEBOXED`: a partial verdict is a verdict, silence is not.
 
 ## What this is not
 

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>025 · Cosecha del skill externo «handshake» — 2026-08-29</title>
+<style>
+  :root { --ink:#1a1a1a; --paper:#fdfcf9; --line:#d8d3c8; --red:#b3261e; --amber:#9a6b00; --green:#1e6b3a; --grey:#6b675e; }
+  body { background:var(--paper); color:var(--ink); font:16px/1.65 Georgia, "Times New Roman", serif; margin:0; }
+  main { max-width: 60rem; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1 { font-size:1.9rem; line-height:1.25; border-bottom:3px solid var(--ink); padding-bottom:.5rem; }
+  h2 { font-size:1.35rem; margin-top:2.6rem; border-bottom:1px solid var(--line); padding-bottom:.3rem; }
+  h3 { font-size:1.08rem; margin-top:1.8rem; }
+  .meta { color:var(--grey); font-size:.9rem; font-family: ui-monospace, Menlo, monospace; }
+  table { border-collapse:collapse; width:100%; font-size:.86rem; margin:1rem 0; font-family: ui-sans-serif, system-ui, sans-serif; }
+  th, td { border:1px solid var(--line); padding:.45rem .6rem; text-align:left; vertical-align:top; }
+  th { background:#efece5; }
+  code { font-family:ui-monospace, Menlo, monospace; font-size:.85em; background:#efece5; padding:.05em .35em; border-radius:3px; }
+  .r { color:var(--red); font-weight:bold; } .a { color:var(--amber); font-weight:bold; } .g { color:var(--green); font-weight:bold; }
+  .verdict { border:2px solid var(--green); padding:1rem 1.4rem; margin:1.6rem 0; background:#eef5ee; }
+  .note { color:var(--grey); font-size:.92rem; }
+  ol.refs li { margin-bottom:.4rem; }
+  ul.tight li { margin-bottom:.2rem; }
+</style>
+</head>
+<body><main>
+
+<h1>025 · Cosecha del skill externo «handshake»</h1>
+<p class="meta">Pregunta del usuario: «podemos coger algo de aquí?» sobre <code>~/Downloads/handshake/SKILL.md</code>.<br>
+Fecha: 2026-08-29. Herramientas usadas: suelo local (árbol, <code>.ai/reports/</code>, specs 037/045, <code>contract.fog</code> medido en vivo), <code>web_search</code> nativo, <code>gh api</code> (code search autenticado), fetch de fuentes primarias (agentskills.io, addyosmani, obra/superpowers, langfuse).<br>
+degraded-tool: notebooklm (deep research lanzada, cosecha imposible: 3 tareas en vuelo ambiguas en el notebook <code>bc861818-6ed7-405e-bfc7-fb6357a88f18</code>, poll sin selector de tarea; queda el id para una cosecha posterior), tavily (<code>tvly</code> presente pero sin salida utilizable), exa (no configurado).</p>
+
+<div class="verdict">
+<h2 style="margin-top:0">Veredicto</h2>
+<p><strong>Sí: tres mecanismos concretos valen la pena, pero como prosa cosechada dentro de <code>ai-spec</code> paso 0, no como un skill «handshake» de 21.</strong> El dominio de interview ya está gobernado aquí (intake 037 + grill 045); lo que handshake añade y aquí no existe es: (1) el portador de la comprensión, la prueba de legibilidad en lenguaje llano con ejemplo que pasa y ejemplo que falla, (2) el borrador-vivo-en-disco con <code>TODO</code> como memoria entre sesiones, (3) la separación hecho-vs-decisión que enruta lo desconocido a «preguntas abiertas para research» en vez de a otra pregunta al usuario.</p>
+<p>Advertencia de procedencia: el fichero no tiene licencia ni autor identificables — búsqueda en el código de GitHub: 0 resultados para la frase distintiva <code>"3rd grader would get it"</code>, 1 coincidencia parcial no relacionada con <code>"The idea in plain words"</code> (<code>petrsajner/marvin</code>). [unsourced: no existe fuente pública localizable desde aquí para este SKILL.md.] A diferencia de <code>~/repos/skills</code> (MIT, atribución resuelta en el reporte 021 [8]), copiar literal su prosa no es seguro; cosechar la idea, escrita con voz propia, sí lo es.</p>
+</div>
+
+<h2>Qué decide esto</h2>
+<p>Si el ciclo gana un skill nuevo o solo un paso mejorado; qué textos de handshake se pueden reproducir literal y cuáles solo como patrón; y dónde aterrizan las lagunas que la entrevista no resuelva (research vs. decisión del usuario).</p>
+
+<h2>Qué es handshake</h2>
+<p>134 líneas de prosa: interrogar al usuario una-pregunta-a-la-vez sobre una idea difusa hasta poder explicársela a un niño de 8 años, mantener un borrador en disco actualizado tras cada respuesta, y cerrar con un doc autocontenido que un agente investigador y un agente planificador puedan usar sin preguntar nada más [1]. Niebla lectora medida en esta máquina con el <code>fog()</code> del propio contrato: <strong>9.17</strong> frente a un techo <code>SKILL_FOG_CEILING = 11.03</code> [2] — la prosa pasaría el gate de legibilidad del repo sin tocarla.</p>
+
+<h2>Qué ya existe aquí (verificado en el árbol)</h2>
+<table>
+<tr><th>Mecanismo de handshake</th><th>Casa actual</th><th>Distancia real</th></tr>
+<tr><td>Entrevista capada antes de spec</td><td>spec 037 / B-037-3: <code>ai-spec</code> paso 0 valida intake (Goal/Constraints/Acceptance) y hace preguntas capadas si falta algo [3]</td><td class="a">Pequeña. Falta el orden por brechas y la recomendación adjunta a cada pregunta</td></tr>
+<tr><td>Preguntas una-a-la-vez con respuesta recomendada</td><td>spec 045 / D-045-01: grill ≤10 <code>### Q</code> por ronda, una a la vez [4]</td><td class="a">El grill ataca un <em>spec escrito</em>, con comandos; handshake interroga la <em>visión antes del spec</em>, sin comando que decida. Son dos momentos, no dos nombres del mismo</td></tr>
+<tr><td>Doc de handoff para research/planner</td><td><code>specs/NNN-slug/spec.md</code> + <code>ai-eng report view</code>; <code>.ai/intent.md</code> canónico</td><td class="g">Cubierto, con digest y ADR. No falta un formato de doc; falta un formato de <em>pre-doc</em></td></tr>
+<tr><td>Early exit con defaults recomendados</td><td>AGENTS.md: «Do the work instead of asking…»; <code>ask</code> con <code>recommended</code></td><td class="a">Existe la política; no la costura visible: «todo lo sin responder va a <code>## Decisions still open</code> con default, o a <code>## Open questions for research</code>»</td></tr>
+</table>
+
+<h2>Qué trae handshake que aquí no hay</h2>
+<ul class="tight">
+<li><strong>Prueba de lectura en voz de niño</strong> con par de ejemplos (el de las bolsitas de cacao pasa; el de «B2B wholesale channel… leveraging existing infrastructure» falla) [1]. Ningún skill del corpus fuerza a <em>decir la idea en lenguaje llano y que el usuario lo confirme</em> antes de escribir el spec. El paso 2 de <code>ai-spec</code> pide «palabras que un no-técnico pueda seguir» sobre el problema, no sobre la comprensión del goal completo.</li>
+<li><strong>Borrador-vivo-en-disco desde la primera respuesta</strong>, con cada brecha marcada <code>TODO</code> y actualizado tras cada respuesta, explícitamente para sobrevivir a la muerte de la sesión [1]. Aquí el esqueleto llega tarde: <code>ai-eng spec new</code> es el paso 8 de 11 de <code>ai-spec</code>. Una entrevista de 30 preguntas que se corta en la 12 lo pierde todo.</li>
+<li><strong>Hecho vs. decisión como regla de ruteo</strong>: si el ambiente (código, ficheros, búsqueda) puede responder, se busca; solo las visiones y decisiones se le preguntan al usuario, y las contradicciones se citan literalmente las dos [1]. Coincide con la regla 12 del repo (lo que siempre sale igual es código, no prompt) aplicada a la entrevista.</li>
+</ul>
+<h2>Qué NO coger</h2>
+<ul class="tight">
+<li>Skill nuevo <code>ai-handshake</code>: solaparía la puerta de intake de 037 y el grill de 045; regla 5 (borrar antes de abstractar) y el precedente 021: «fusión, no skill nuevo» cuando el ciclo ya tiene el verbo [8].</li>
+<li>Su path de doc <code>handshake_&lt;idea&gt;.md</code> en la raíz: choca con «every file class has one home» (pre-spec → <code>specs/</code> o <code>.ai/</code>); el pre-spec con digest aprobado es el spec mismo [2][3].</li>
+<li>Su instrucción «usa AskUserQuestion» y «/grill-me» por nombre: vocabulario de otro harness; aquí el <code>ask</code> tool y <code>/ai-challenge</code> ya son la costura.</li>
+<li>Cualquier copia literal de frases: sin licencia no hay base legal para reproducirlas en un wheel Apache-2.0 (el coste de verificar procedencia lo puso 021: MIT con NOTICE [8]; aquí no hay ni MIT que heredar).</li>
+</ul>
+
+<h2>Estado del arte externo (punta web)</h2>
+<p>El patrón «entrevista antes de spec» existe fuera en tres sabores, todos más débiles que handshake en el gate de comprensión, y todos convergentes en lo demás:</p>
+<ul class="tight">
+<li><code>addyosmani/agent-skills · interview-me</code>: una pregunta a la vez con GUESS adjunto, parada por confianza ≥95 % con test predictivo («¿puedo predecir su reacción a las próximas tres preguntas?»), restate estructurado Outcome/User/Why-now/Success/Constraint/Out-of-scope, y «whatever you think» no es un sí [5]. Aporta el criterio de parada verificable; handshake aporta el lenguaje llano. El restate de interview-me y la read-back de handshake son la misma cosa con distinto umbral.</li>
+<li><code>obra/superpowers · brainstorming</code>: HARD-GATE de aprobación antes de cualquier implementación, tres rutas (Spike/Bounded/Architectural) anunciadas en voz alta, y anti-patrón «demasiado simple para aprobar» [6]. Aquí eso ya lo hace la autoridad de <code>ai-spec</code> (Authority boundary) — nada nuevo.</li>
+<li>El estándar Agent Skills (agentskills.io): cuerpo &lt;500 líneas, carga progresiva, <code>description</code> = qué + cuándo [7]. handshake (134 líneas, description con disparador y negativo) cumple el formato; el problema nunca fue su forma.</li>
+<li>Existe una familia «grill-me» difundida (243 skills buscados por <code>gh</code> code search; ejemplos reales en <code>langfuse</code> y <code>nx</code>): 6 líneas, entrevista incesante una-a-la-vez con recomendación [9]. Es estrictamente más débil que el grill gobernado de 045 (sin comandos, sin techo, sin sección plegada).</li>
+</ul>
+
+<h2>Tres direcciones, accionables mañana</h2>
+<ol>
+<li><strong>Enriquecer <code>ai-spec</code> paso 0 con los tres mecanismos</strong> (prosa propia, no copia): (a) abrir el doc-borrador con <code>TODO</code> por brecha nada más terminar el volcado del usuario, en <code>specs/NNN</code>/<code>.ai/</code> según la regla de hogares, actualizado tras cada respuesta; (b) portar la prueba de legibilidad: el paso 0 no termina hasta que el read-back en dos frases sin sustantivos de jargon recibe un sí explícito, con el par cacao/B2B como ejemplo de contrato; (c) ruteo hecho-vs-decisión: hecho verificable → se busca (suelo local de <code>/ai-research</code>), decisión → <code>ask</code> con <code>recommended</code>. Comprobación: <code>just check</code> (fog, corpus routes, los pins <code>AI_SPEC_SECTIONS</code> de <code>tests/test_contracts.py</code> [2]) + <code>just skilleval</code>. La regla 12 obliga a preguntar: ¿la prueba de legibilidad alguna vez sale distinta? Si sale igual siempre, es texto del template, no procedimiento.</li>
+<li><strong>No crear <code>ai-handshake</code></strong> y registrar el descarte con razón en el roadmap (mismo tratamiento que 021 dio a plow-ahead/efficient-frontier: fusión en el verbo que gobierna el momento) [8].</li>
+<li><strong>Cerrar la procedencia antes de tocar una coma</strong>: preguntar al usuario de dónde salió <code>~/Downloads/handshake/</code>. Si resulta ser MIT o de dominio público, se puede citar literal con NOTICE; si no, solo patrones. [unsourced: cero resultados en code search para sus frases distintivas, autoría indeterminable desde esta máquina.] Y re-cosechar el notebook <code>bc861818</code> (deep research <code>e3e1f305</code> terminará; las tareas en vuelo ajenas bloquean el poll) cuando el embudo de tareas del perfil esté libre.</li>
+</ol>
+
+<h2>Fuentes</h2>
+<ol class="refs">
+<li>[1] <code>~/Downloads/handshake/SKILL.md</code> — lectura directa, 2026-08-29. 134 líneas, sin fichero de licencia, un solo fichero en el directorio (verificado con <code>ls</code>).</li>
+<li>[2] <code>src/ai_engineering/contract.py:660-683</code> (<code>fog()</code>, <code>SKILL_FOG_CEILING = 11.03</code>), <code>tests/test_contracts.py:24</code> (<code>DOCTRINE_CEILING = 180</code>), medición en vivo: handshake 9.17 vs. los 21 skills instalados (6.67–11.46) ejecutando el <code>fog()</code> del contrato.</li>
+<li>[3] <code>specs/037-model-router-and-intake-validation/spec.md:104-106</code> (intake capado «the way the research's grill/wayfinder recommends») y <code>specs/new-goal-template.md</code> (Goal/Constraints/Acceptance).</li>
+<li>[4] <code>specs/045-critics-inside-spec/spec.md:116-127</code> — D-045-01: grill ≤10 <code>### Q</code>/ronda, una a la vez, vacío rechazado.</li>
+<li>[5] <code>addyosmani/agent-skills · skills/interview-me/SKILL.md</code> (raw.githubusercontent.com, accedido 2026-08-29).</li>
+<li>[6] <code>obra/superpowers · skills/brainstorming/SKILL.md</code> (raw.githubusercontent.com, accedido 2026-08-29).</li>
+<li>[7] agentskills.io/specification — «Keep your main SKILL.md under 500 lines», metadata ~100 tokens (accedido 2026-08-29).</li>
+<li>[8] <code>.ai/reports/021-skills-integration-roadmap.html</code> — criterio del usuario: sin agent-native, sin dependencias raras, prosa MIT con NOTICE, «fusión, no skill nuevo».</li>
+<li>[9] <code>gh api search/code "grill me filename:SKILL.md"</code> → 243 repos (2026-08-29); <code>langfuse/langfuse · .agents/skills/grill-me/SKILL.md</code> leído en crudo.</li>
+</ol>
+
+</main></body>
+</html>

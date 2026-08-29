@@ -75,6 +75,12 @@ control is only half built.
    person, a reason and an expiry date. Compliance is a claim about an organisation and this
    skill has no standing to make one.
 
+## The box
+
+40 minutes of wall time, 120 tool calls — the numbers `contract.py` owns. The verdict
+returns in your result; you write no files. When the box closes with work left, return
+what you have and mark it `TIMEBOXED`: a partial verdict is a verdict, silence is not.
+
 ## What this is not
 
 - "Every scanner came back clean, so the surface is safe" — a scanner that is absent or the wrong version is INCOMPLETE, never PASS, and no pinned scanner touches a running service.

@@ -32,6 +32,9 @@ from ai_engineering import (
 from ai_engineering import (
     blocked as ledger,
 )
+from ai_engineering import (
+    vitals as cycle_vitals,
+)
 
 
 def within(events: list[dict], days: int) -> list[dict]:
@@ -563,6 +566,35 @@ def render_recap(root: Path, args: argparse.Namespace) -> outcome.Result:
     return outcome.result("PASS")
 
 
+def report_vitals(root: Path, args: argparse.Namespace) -> outcome.Result:
+    """Where one session's wall minutes went, read from the event record (spec 047).
+
+    The arithmetic is the whole claim: minutes between consecutive `ts` stamps, each
+    attributed to the earlier event's `cls`, compared against the budget contract.py
+    owns. A PASS here has never approved a cycle — the clock disqualifies and nothing
+    else (PO-26) — and a session with no readable pair of events is NO_DATA, never an
+    empty green.
+    """
+
+    # The in-clone record, the one D-047-03 names: `.ai/events.jsonl`. The sealed chain
+    # under the state home is the audit's input, not this reader's — vitals reports where
+    # the minutes went, and the seal answers whether the record was edited.
+    try:
+        raw = (root / ".ai" / "events.jsonl").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        raw = ""
+    seen = cycle_vitals.verdict(raw, args.session)
+    wall: float = seen["wall_minutes"]
+    by_cls: dict[str, float] = seen.get("by_cls") or {}
+    budget = contract.CYCLE_WALL_BUDGET_MINUTES
+    print(f"  session {args.session}  wall {wall:.1f} min  budget {budget} min")
+    for cls, minutes in sorted(by_cls.items(), key=lambda kv: -kv[1]):
+        print(f"    {cls:<10} {minutes:>7.1f} min")
+    if seen.get("code") == "OVER_BUDGET":
+        print(f"  OVER_BUDGET  the largest bucket is {seen['largest']!r}")
+    return outcome.result(str(seen["outcome"]))
+
+
 def _diff_weights(root: Path, base: str) -> dict[str, int]:
     """Lines touched per file, from `git diff --numstat`; unreadable counts as zero."""
 
@@ -656,6 +688,11 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
         halt.add_argument(flag, required=True, type=_filled)
     halt.add_argument("--action", required=True, type=_said)
     halt.add_argument("--since", default=date.today().isoformat(), type=_filled)
+    # `vitals` reads the event record and decides nothing about the work — the clock
+    # disqualifies and never approves (spec 047, PO-26). It names the session because a
+    # wall number without an owner is a vibe.
+    vitals = commands.add_parser("vitals")
+    vitals.add_argument("--session", required=True, type=_filled)
     args = parser.parse_args(argv)
 
     if args.command == "blocked":
@@ -689,6 +726,12 @@ def main(argv: list[str]) -> outcome.Result | outcome.Execution:
             print("  INCOMPLETE  this is not a git repository, so there is no tree to render")
             return outcome.result("INCOMPLETE")
         return render_view(root, args) if args.command == "view" else render_recap(root, args)
+    if args.command == "vitals":
+        root = paths.repo_root()
+        if root is None:
+            print("  INCOMPLETE  this is not a git repository, so there is no event record")
+            return outcome.result("INCOMPLETE")
+        return report_vitals(root, args)
 
     root = paths.repo_root()
     events = within(doctor.events(root), 7 * args.weeks)

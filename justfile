@@ -267,3 +267,32 @@ map:
     -sm scan
     uv run python -m ai_engineering.skillmap
 check: build sbom lint typecheck test cover security register skilleval evals counts intent-page lenses council map ran
+
+# The batched gate (spec 047, B4 of the 045 postmortem): every step of `check` in order,
+# each in its own process, failures collected, the full red list printed at the end, exit
+# non-zero if anything was red — k defects, one pass instead of k passes of thirteen
+# minutes. `check` itself does not change: fail-fast stays the default for the run at a
+# keyboard, and this is the shape for an unattended cycle. Each step line carries just's
+# `-` prefix — the verified 1.58 promise to continue after a failed step — and names the
+# red step into a state file, because just runs every line in its own shell and a shell
+# variable would die with the line that set it.
+check-all:
+    rm -f .ai/check-all-red.txt
+    -@just build || echo build >> .ai/check-all-red.txt
+    -@just sbom || echo sbom >> .ai/check-all-red.txt
+    -@just lint || echo lint >> .ai/check-all-red.txt
+    -@just typecheck || echo typecheck >> .ai/check-all-red.txt
+    -@just test || echo test >> .ai/check-all-red.txt
+    -@just cover || echo cover >> .ai/check-all-red.txt
+    -@just security || echo security >> .ai/check-all-red.txt
+    -@just register || echo register >> .ai/check-all-red.txt
+    -@just skilleval || echo skilleval >> .ai/check-all-red.txt
+    -@just evals || echo evals >> .ai/check-all-red.txt
+    -@just counts || echo counts >> .ai/check-all-red.txt
+    -@just intent-page || echo intent-page >> .ai/check-all-red.txt
+    -@just lenses || echo lenses >> .ai/check-all-red.txt
+    -@just council || echo council >> .ai/check-all-red.txt
+    -@just map || echo map >> .ai/check-all-red.txt
+    -@just ran || echo ran >> .ai/check-all-red.txt
+    @if [ -f .ai/check-all-red.txt ]; then echo "check-all: red steps: $(tr '\n' ' ' < .ai/check-all-red.txt)"; exit 1; fi
+    @echo "check-all: every step green"

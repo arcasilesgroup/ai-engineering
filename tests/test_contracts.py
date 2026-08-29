@@ -572,12 +572,13 @@ AI_SPEC_SECTIONS = {
         "command event's `tier_model` can be read against reality.",
     ),
     "Procedure": (
-        "0. Validate the intake (spec 037 / B-037-3): the opening request must name its goal, "
-        "its constraints and its acceptance; when one is missing, ask those intake questions "
-        "first — capped, the way the research's grill recommends — before any discovery. "
-        "`specs/new-goal-template.md` is the copy-paste fallback; a well-formed free request "
-        "passes without it. The input is the contract: a malformed goal produces a malformed "
-        "spec.",
+        "0. Validate the intake and reach shared understanding before any discovery "
+        "(spec 037 / B-037-3, spec 048): read `references/intake.md` first, then the goal, "
+        "constraints and acceptance; ask only what the environment cannot answer, keep a live "
+        "draft with a TODO per gap from the first answer, and do not scaffold until the owner "
+        "confirms the two-sentence plain-words read-back; under an unattended goal the run "
+        "records that read-back as unconfirmed and carries on. The input is the contract: a "
+        "malformed goal produces a malformed spec.",
         "1. Read `CONSTITUTION.md`, the related records and repository evidence and current "
         "primary sources relevant to the decision before asking anyone. State what was read, "
         "what is true now and what remains unknown. Never infer a control from its "
@@ -1572,13 +1573,17 @@ the design does not
 # went through.
 GOVERNING_SKILL_TEXT = {
     ".agents/skills/ai-build/SKILL.md": (
-        "098d757fae96dee89ad37c41459f8e1b9dd10ade7e30a75d586718d73fef4e20"
+        # spec 047 moved this: step 5 now names `just check-all` at block close (the batch
+        # rule), and the reading that keeps the pin honest — step 7 still records the stop
+        # before stopping, and nothing in the diff lets a halt go unrecorded or a
+        # conversation grant authority.
+        "9d83df386954f201d7bcf5be424bac5d5818e3bc7be9341270502498f547fe67"
     ),
     ".agents/skills/ai-build/corpus.md": (
         "576cf03621aace434ca300bcb136538097f21e0f050fb8a0280913e590457880"
     ),
     ".agents/skills/ai-spec/SKILL.md": (
-        "fb82f43de9f1ffbde26da045a02b5ec17f5d51f42514304717cb3fcbab153720"
+        "429dde5b799536e0bcb67bea20f24df54d382263f0c342425b3de75bb29bc589"
     ),
 }
 
@@ -2689,4 +2694,32 @@ def test_council_counts_is_a_step_in_the_gate_and_not_a_recipe_beside_it():
     assert steps.index("council") < steps.index("ran"), (
         "council runs after `ran`, which writes the receipt last, so the gate would record a "
         "run that had not finished"
+    )
+
+
+def test_check_all_batches_every_step_of_check_with_the_prefix_that_continues():
+    """Spec 047 / B4: the batched gate lists every red step in one pass (045 postmortem).
+
+    Three cheap claims, each the way the recipe could silently stop being what it
+    promises. (1) Its step list equals `check`'s dependencies, so a step added to one
+    and not the other goes red here, not in a cycle three days later. (2) Every step
+    line carries just's `-` prefix — the 1.58-verified promise to continue after a
+    failed step — because a recipe that lost its prefixes is `check` wearing a new
+    name, fail-fast back in disguise. (3) The red file is cleared before the pass, or
+    yesterday's failures join today's list.
+    """
+
+    justfile = (ROOT / "justfile").read_text(encoding="utf-8")
+    steps = re.search(r"(?m)^check:\s*(.+)$", justfile).group(1).split()
+    body = justfile.split("check-all:", 1)[1]
+    run = re.findall(
+        r"^ +-@just ([a-z][a-z0-9-]*) \|\| echo \1 >> \.ai/check-all-red\.txt$",
+        body,
+        re.M,
+    )
+    assert run == steps, (
+        f"check-all runs {run} and check runs {steps}; the two lists must be one list"
+    )
+    assert re.search(r"^ +rm -f \.ai/check-all-red\.txt$", body, re.M), (
+        "the red file is never cleared, so a stale list decides every future pass"
     )

@@ -35,8 +35,8 @@
   "schema_version": "1",
   "solution_intent": {
     "current_facts": [
-      "The reference-adoption block and the writing surfaces are shipped: 035 superseded by 036, 037 (model tiers, router, intake), 038 (accessibility floor), 039-040 (writing discipline, ai-write).",
-      "The gate runs 2373 passed with the four inherited test_madr.py failures (ADR 0025); 22 audit broken links keep ai-eng audit verify FAIL until ai-eng audit account runs."
+      "The writing and design surfaces are shipped (037-046). The orphan layer spec 042 deferred was deleted by 044; the per-module verdict with reopening conditions lives in docs/notes/ponytail-orphan-verdicts.md.",
+      "The gate is green on main: test_madr 37 passed (ADR 0025 closed), audit verify exits 0, skilleval 428 delta 0. The 024 fidelity audit records what the tree does and does not carry."
     ],
     "fixed_constraints": [
       "Guards fail closed; telemetry observes and never decides.",
@@ -45,7 +45,7 @@
       "Until a separately approved P3 plan proves safe coordination, one writer owns repository changes. Model tiers live in the repository's pin; the framework never hardcodes a model name or provider."
     ],
     "intended_outcomes": [
-      "Govern human-led and bounded autonomous engineering from Solution Intent through executed evidence and production.",
+      "Govern human-led and bounded autonomous engineering from Solution Intent through executed evidence and production; a governed cycle fits its wall budget — 180 minutes for a giant block, less for normal ones.",
       "Expose missing authority, missing evidence and false-green results as blocking INCOMPLETE or FAIL outcomes.",
       "The governed cycle routes each step to the repository's configured model tier, validates the intake, and every designed surface meets the accessibility floor or exits not-covered."
     ],

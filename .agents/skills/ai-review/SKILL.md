@@ -71,6 +71,12 @@ Findings, each one at `file:line`, each with the smallest change that would reso
 - Nothing was accepted by this review. It reports; a person or a gate decides, and a review
   that accepts its own findings is one reader agreeing with itself.
 
+## The box
+
+40 minutes of wall time, 120 tool calls — the numbers `contract.py` owns. The verdict
+returns in your result; you write no files. When the box closes with work left, return
+what you have and mark it `TIMEBOXED`: a partial verdict is a verdict, silence is not.
+
 ## What this is not
 
 Not a rewrite. If your finding is "I would have built it differently", it is a comment, not

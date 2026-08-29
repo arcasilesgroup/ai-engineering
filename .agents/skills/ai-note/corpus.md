@@ -13,8 +13,8 @@ the files it describes, so it can be detected as stale later. It searches those 
 - "and turn that into a section of the handbook" — use `/ai-write`, because the note stays a finding and the handbook gets a document written against the tree.
 - "do we have notes on the plugin loader" — searching the notes is part of this skill, and `git grep` over `docs/notes/` is the whole query engine.
 - "what did we find about the hook timeout last time" — the same search, and the answer starts by checking the note's `still_true_when` before anybody acts on it.
-- "the log is huge, keep the note small" — trim the evidence with `trim`: head and tail, the elided middle marked, failure lines never dropped.
-- "turn this session into a skill" — the session has a generalisable process: `skillify` extracts a contract-clean SKILL.md skeleton naming the steps, never the chat.
+- "the log is huge, keep the note small" — quote the head and the tail, mark the elided middle, and never drop a failure line.
+- "turn this session into a skill" — the session has a generalisable process: write the contract-clean SKILL.md skeleton naming the steps, never the chat; the craft gate judges it.
 
 ## Refuses
 

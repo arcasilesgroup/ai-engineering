@@ -1,8 +1,8 @@
 # Template de prompt inicial — ai-engineering (spec 037 / B-037-3)
 
-Copia y pega este bloque como tu primer prompt de un goal nuevo. `validate_intake` comprueba
-que las tres partes están: **Goal**, **Constraints**, **Acceptance**. Una petición libre y
-bien formada que las nombre también sirve; este es el formato de referencia.
+Copia y pega este bloque como tu primer prompt de un goal nuevo. Las tres partes deben
+estar nombradas — **Goal**, **Constraints**, **Acceptance** — y el paso 0 de `ai-spec`
+las comprueba al leerlas. Una petición libre y bien formada que las nombre también vale.
 
 ---
 

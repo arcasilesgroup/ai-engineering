@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>026 · ¿Se instala bien en máquinas ajenas? — evidencia del install para extraños</title>
+<style>
+  body{font:16px/1.6 system-ui,sans-serif;max-width:56rem;margin:3rem auto;padding:0 1.5rem;color:#1a1a1a}
+  h1{font-size:1.5rem;border-bottom:2px solid #1a1a1a;padding-bottom:.4rem}
+  h2{font-size:1.1rem;margin-top:2.2rem;text-transform:uppercase;letter-spacing:.04em}
+  .meta{color:#666;font-size:.9rem}
+  code{background:#f2f2f2;padding:.1em .3em;border-radius:3px;font-size:.88em}
+  table{border-collapse:collapse;width:100%;font-size:.92rem}
+  th,td{border:1px solid #ccc;padding:.4rem .6rem;text-align:left;vertical-align:top}
+  th{background:#f6f6f6}
+  .ok{color:#0a7a2f;font-weight:600}.bad{color:#b00020;font-weight:600}.warn{color:#8a6d00;font-weight:600}
+  blockquote{border-left:3px solid #999;margin:.6rem 0;padding:.2rem .9rem;color:#444}
+  ol.src li{font-size:.9rem;margin-bottom:.25rem}
+  .u{background:#fff3cd;padding:0 .25em}
+</style>
+</head>
+<body>
+<h1>026 · ¿Se instala bien en máquinas ajenas?</h1>
+<p class="meta">29 agosto 2026 · <code>/ai-research</code> · pregunta del maintainer: con dogfooding activo,<br>
+¿un <code>ai-eng init</code> en otro proyecto/cliente de verdad trae todas las features?</p>
+
+<p><strong>Qué cambia según la respuesta:</strong> si vendemos «gobernado en cualquier
+proyecto», la promesa es por-superficie y por-plataforma, no global. Un argumento de ventas
+o una decisión de onboarding que dependa de «todo el mundo lo tiene» queda refrendado o
+desmentido por los recibos que este informe enlaza.</p>
+
+<h2>Herramientas</h2>
+<p>Usadas: piso local (árbol, <code>doctor</code>, <code>report surfaces</code>, registros),
+más un <strong>experimento en vivo</strong>: <code>ai-eng init --global --project . -y</code>
+ejecutado hoy en una HOME y un repositorio de calendario recién creados bajo un directorio
+temporal real, seguidos de <code>ai-eng doctor</code> en ese repositorio.
+Presentes y no usadas: <code>web_search</code>, <code>tvly</code>, <code>notebooklm</code>
+(<code>doctor</code> → exit 0). Ninguna evidencia externa puede resolver una afirmación sobre
+el estado de <em>este</em> producto; subir ese peldaño habría añadido citas de blogs sobre
+nuestro propio árbol, lo cual es lectura, no investigación.</p>
+
+<h2>1. El mecanismo de install funciona en una máquina de nadie — verificado hoy [1]</h2>
+<p>En un HOME vacío y un repo con un solo commit previo, el comando exacto que documenta la
+suite (<code>init --global --project . -y</code>) terminó con la pantalla <em>Done</em>,
+8 ficheros escritos, y <code>doctor</code> respondió con la verdad, no con un verde falso:</p>
+<table>
+<tr><th>Paso</th><th>Observado</th></tr>
+<tr><td>Superficie global</td><td>Las 8 superficies detectadas como no instaladas → <em>skipped</em>; 20 skills escritas en <code>~/.ai-engineering/skills</code>; <span class="warn">0 entradas de guard</span> (ningún editor presente que las reciba)</td></tr>
+<tr><td>Medio proyecto</td><td><code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>CONSTITUTION.md</code>, <code>justfile</code>, <code>.github/workflows/check.yml</code> fijado a la versión, <code>.ai/config.toml</code>, <code>core.hooksPath</code> — los 8 escritos limpiamente [1]</td></tr>
+<tr><td><code>doctor</code> después</td><td>12 passed · 3 failed (3 para una persona: rellenar los TODO del esqueleto, confirmar el registro) · <strong>11 not evaluated con razón nombrada cada una</strong>; cobertura: las 8 superficies <code>UNPROVEN</code>. Ningún PASS regalado [2]</td></tr>
+<tr><td>Cobertura automatizada</td><td><code>tests/test_stranger_install.py</code> corre ese argv exacto con HOME aislada, y la matriz de instalación lo corre en 3 SO en push, PR, release y dispatch, incluida una guard empaquetada que <em>deniega de verdad</em> desde el wheel (<code>exit 2</code>, con el nombre de la guard comprobado) [3][4]</td></tr>
+</table>
+<p>Rugosidad medida en el experimento: dos intentos fallaron con
+<em>«this repository's path cannot be followed safely»</em> porque el temporal de macOS vive
+detrás de un symlink (<code>/var → /private/var</code>). Es el diseño (rechazar antes que
+escribir por un enlace), pero en una máquina real con el HOME normal no aparece; en rutas
+reales con enlaces (p. ej. proyectos bajo un directorio enlazado) el extraño recibe un
+INCOMPLETE con consejo genérico [1]. <span class="u">[unsourced: nunca se midió un HOME de
+cliente real con symlink en la ruta del repo]</span>.</p>
+
+<h2>2. «Todas las features para todos» es falso <em>por diseño</em>, y el producto lo dice [5]</h2>
+<p>Las capacidades no son uniformes por superficie. La tabla de cableado las separa en
+niveles y cada fila lleva su honestidad escrita:</p>
+<table>
+<tr><th>Superficie</th><th>Nivel</th><th>Qué tiene de verdad</th></tr>
+<tr><td>claude-code</td><td>T2</td><td>Guard que deniega (exit 2). <em>Coverage</em> hoy en esta máquina: <code>UNPROVEN</code> — ninguna denegación recibada en los últimos 7 días</td></tr>
+<tr><td>opencode</td><td>T2</td><td>Única fila con <code>enforcement</code> PASS en esta máquina (recibo de ~69 min); plugin malformado se descarta en silencio → por eso late <code>INERT</code> en <code>doctor</code> el día que el heartbeat caduca; sin contención PostToolUse</td></tr>
+<tr><td>codex-cli</td><td>T2</td><td>Instalada pero <span class="bad">INERT hasta que un humano escribe <code>/hooks</code></span>; un hook no aprobado se salta en silencio</td></tr>
+<tr><td>cursor</td><td>T2</td><td>Deniega, pero <em>falla abierto</em> si <code>failClosed</code> no es true — el cableado lo pone él (<code>wiring.py</code> <code>json_cursor</code>) [6]</td></tr>
+<tr><td>copilot-cli / vscode-copilot</td><td>T2</td><td>Este último sin cableado propio: lee el settings de Claude Code; «wired by name or not at all»</td></tr>
+<tr><td>pi, zed</td><td>T3</td><td><span class="warn">Solo skills y doctrina — no pueden denegar nada</span>; «enforces nothing above the git layer»</td></tr>
+<tr><td>codex-app (hosted)</td><td>—</td><td><span class="bad">Rechazada nominalmente</span>: ninguna vía para colocar skills, guards ni leer recibos</td></tr>
+</table>
+<p>Y por encima de todo, dos aperturas que <code>doctor</code> imprime sin que nadie se las
+pidiera: <code>--no-verify</code> desde el shell camina por delante de toda la tabla, y
+<code>self_protect</code> casa comandos como texto.</p>
+
+<h2>3. El registro del propio framework ya contestó la pregunta [7]</h2>
+<p><code>policy/pilot-register.toml</code> declara <code>p5_complete = false</code> — «7
+indicadores no tienen instrumento y el piloto no se ha ejecutado». La afirmación 23 de
+<code>doctor</code>: 22 capacidades declaradas y <strong>sólo las acciones propias del framework
+están forzadas</strong>; ninguna superficie ha mostrado nunca un recibo que envíe identidad de
+capacidad. Es decir: las features de capacidad son, para un cliente, promesas con esquema, no
+aplicación. Ninguna denegación de CI es duradera: el recibo <code>claude-code.enforcement</code>
+que la matriz escribe <em>«lo conserva quien sea: sin subir artefactos, sin commitear»</em>, así
+que en el portátil del cliente no queda ni ese [4].</p>
+
+<h2>Veredicto</h2>
+<p>La instalación se sostiene en una máquina ajena y responde con honestidad (INCOMPLETE con
+razón antes que verde) — eso está verificado hoy y cubierto por CI en tres SO. Pero «todas las
+features para todos los proyectos y clientes» no es cierto y no puede afirmarse: el
+<em>enforcement</em> real es T2-superficie-a-superficie, hoy con 0 filas BLOCKS en esta máquina,
+1 de 24 capacidades forzadas fuera del framework, 2 de 8 superficies sin negación posible,
+1 rechazada, y Windows con la suite completa fuera de la matriz (183 fallos medidos, no
+eximidos: solo smoke + denial empaquetada) [8]. La promesa defendible es la que el propio
+producto imprime: qué se niega, dónde, y qué no.</p>
+
+<h2>Tres direcciones, citadas</h2>
+<ol>
+<li><strong>Convertir la prueba de CI en evidencia del cliente.</strong> La matriz ya ejecuta y
+reciba una denegación por release en 3 SO y luego la tira [4]. Publicar ese recibo
+(artefacto colgado del tag, descargable por <code>doctor</code> o un chequeo externo) daría a
+cada instalación la primera fila del mapa de rutas sin fingir que el editor del cliente la
+ejecutó. Cerraría medio <code>no_instrument</code> de <code>escalations</code>/<code>defect_escape</code> [7].</li>
+<li><strong>No vender capacidades hasta cerrar la afirmación 23.</strong> Un argumento de
+«todas las features» que choca con «22 declaradas, 0 forzadas por superficie» [2] es exactamente
+el verde-no-ganado que el producto cura. El mensaje de venta es el coverage-string de
+<code>doctor</code>, literal.</li>
+<li><strong>Decidir la postura de Windows con una aceptación de riesgo fechada</strong>, no con
+un comentario en un YAML: hoy 183 fallos de suite conocidos [8] conviven con un smoke verde;
+eso es una aceptación, y la herramienta tiene el formato para decirla.</li>
+</ol>
+
+<h2>Fuentes</h2>
+<ol class="src">
+<li>Experimento en vivo 2026-08-29: <code>ai-eng init --global --project . -y</code> en HOME y repo nuevos bajo <code>/private/var/…/stranger2-*</code> (salida <em>Done · 8 files · 0 guard entries</em>), seguido de dos rechazos por symlink en ruta y un tercero en <code>/private/var</code> resueltos con <code>realpath</code>.</li>
+<li><code>ai-eng doctor</code> en ese repo (salida: 12/3/11, 8×UNPROVEN, afirmación 23 citada) y en este repo hoy (<code>report surfaces</code>: único PASS opencode, 4161 s).</li>
+<li><code>tests/test_stranger_install.py</code> (docstring: el argv exacto que la matriz corre); <code>src/ai_engineering/init.py:1-11</code>.</li>
+<li><code>.github/workflows/install-matrix.yml</code>: gatillos 7-21; paso «zero to a green doctor» 392-473; «a packaged guard actually denies» 475-547; cita del recibo efímero 518-520.</li>
+<li><code>policy/surfaces.toml</code>: filas 13-104 (niveles, notas, INERT/failClosed/PostToolUse), <code>[[refused]]</code> 111-115, aperturas OPEN del coverage de <code>doctor</code>.</li>
+<li><code>src/ai_engineering/wiring.py:193-205</code> (<code>json_cursor</code> escribe <code>failClosed: true</code> — un guard que aconseja es un guard apagado).</li>
+<li><code>policy/pilot-register.toml:12-14</code> (<code>p5_complete = false</code>) y filas <code>no_instrument</code>.</li>
+<li><code>.github/workflows/check.yml:436-475</code>: la medida «183 failed, 2,031 passed, 19 skipped» y por qué Windows no está en la matriz del suite.</li>
+</ol>
+</body>
+</html>
