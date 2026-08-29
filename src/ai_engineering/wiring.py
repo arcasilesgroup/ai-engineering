@@ -13,7 +13,6 @@ fires nothing, and lets the commit through without a complaint. It is measured.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable
 import json
 import os
 import re
@@ -21,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 
 from ai_engineering import __version__, outcome, paths
