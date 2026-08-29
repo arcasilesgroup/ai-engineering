@@ -6,6 +6,26 @@ search for.
 
 ## [Unreleased]
 
+### Changed (spec 048 — the intake reaches shared understanding)
+
+- `ai-spec` step 0 was rewritten: it now points at a new `references/intake.md` and
+  enforces three clauses itself — a live crash-recovery draft under `.ai/` from the
+  first answer, a plain-words read-back the owner confirms before anything is
+  scaffolded, and facts looked up instead of asked. Under an unattended goal the
+  read-back is recorded as unconfirmed and the run carries on; the gate never hangs
+  waiting for a yes nobody is there to give (D-048-04).
+- `references/intake.md` ships with the skill: the gap order, the asking rules, the
+  read-back pass/fail pair, and the early-exit route — every unanswered decision to
+  `## Assumptions and unresolved risks` with a recommended default, never to an
+  invented heading. No `ai-handshake` skill was added, and none will be (D-048-01):
+  the mechanisms folded into the step that already governs intake.
+- `specs/new-goal-template.md` no longer names `validate_intake` as its checker: the
+  module shipped in spec 037 and died orphaned in 044's sweep (`14eaaeb1`); the live
+  checker is step 0's prose. The word stays only in historical records.
+- Two stored pins moved with the skill body in the same commit
+  (`tests/test_contracts.py`: the verbatim step-0 entry, the whole-file digest). The
+  fog ratchet re-measured green at 10.99 against the 11.03 ceiling.
+
 ### Added (spec 047 — the cycle's wall budget)
 
 - Three named budgets join `contract.py`: `CYCLE_WALL_BUDGET_MINUTES = 180` (the owner's
