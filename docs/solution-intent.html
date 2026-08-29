@@ -79,7 +79,7 @@ color:var(--muted);font-size:.88em}
 @media print{body{font-size:11pt}.scroll{overflow:visible}th{position:static}}
 </style>
 </head>
-<body data-inputs-digest="2d9da50209f58d4f7da2c9e3efa2363560f4a2cde530567a50fc4798b6885d00">
+<body data-inputs-digest="6f1f5bb5d5d75a6c2bf8c67c03f535300ddb296a01ab89cf508c0630522521b9">
 <div class="wrap">
 <header class="hero">
   <h1>Governed agentic engineering</h1>
@@ -88,7 +88,7 @@ color:var(--muted);font-size:.88em}
   repository's files, so it cannot go stale without the gate saying so.</p>
   <div class="stamp">
     <span>Intent status: active</span>
-    <span>inputs-digest 2d9da50209f58d4f…</span>
+    <span>inputs-digest 6f1f5bb5d5d75a6c…</span>
     <span>no date and no HEAD: what cannot be signed is not printed</span>
   </div>
 </header>
@@ -103,7 +103,7 @@ color:var(--muted);font-size:.88em}
     <div class="card"><span class="n">20</span><span class="k">skills</span><span class="s">80 lines each at most</span></div>
     <div class="card"><span class="n">4</span><span class="k">fail-closed guards</span><span class="s">+2 telemetry</span></div>
     <div class="card"><span class="n">10</span><span class="k">CLI verbs</span><span class="s">src/ai_engineering/cli.py</span></div>
-    <div class="card"><span class="n">2.12:1</span><span class="k">tests against product</span><span class="s">max 2.3:1 · 39.102 / 18.441</span></div>
+    <div class="card"><span class="n">2.12:1</span><span class="k">tests against product</span><span class="s">max 2.3:1 · 39.104 / 18.441</span></div>
     <div class="card"><span class="n">0/8</span><span class="k">production boxes proven</span><span class="s">READINESS_DECLARATION_MISSING</span></div>
   </div>
 </section>
@@ -137,9 +137,9 @@ color:var(--muted);font-size:.88em}
     <div class="panel"><h3>Fixed constraints</h3>
       <ul class="plain"><li>Guards fail closed; telemetry observes and never decides.</li><li>Models may investigate, propose and review; only a human or an approved versioned policy supplies authority.</li><li>Never record, publish or transmit secrets, personal data or private material.</li><li>Until a separately approved P3 plan proves safe coordination, one writer owns repository changes. Model tiers live in the repository&#x27;s pin; the framework never hardcodes a model name or provider.</li></ul></div>
     <div class="panel"><h3>Intended outcomes</h3>
-      <ul class="plain"><li>Govern human-led and bounded autonomous engineering from Solution Intent through executed evidence and production.</li><li>Expose missing authority, missing evidence and false-green results as blocking INCOMPLETE or FAIL outcomes.</li><li>The governed cycle routes each step to the repository&#x27;s configured model tier, validates the intake, and every designed surface meets the accessibility floor or exits not-covered.</li></ul></div>
+      <ul class="plain"><li>Govern human-led and bounded autonomous engineering from Solution Intent through executed evidence and production; a governed cycle fits its wall budget — 180 minutes for a giant block, less for normal ones.</li><li>Expose missing authority, missing evidence and false-green results as blocking INCOMPLETE or FAIL outcomes.</li><li>The governed cycle routes each step to the repository&#x27;s configured model tier, validates the intake, and every designed surface meets the accessibility floor or exits not-covered.</li></ul></div>
     <div class="panel warn"><h3>Current facts</h3>
-      <ul class="plain"><li>The reference-adoption block and the writing surfaces are shipped: 035 superseded by 036, 037 (model tiers, router, intake), 038 (accessibility floor), 039-040 (writing discipline, ai-write).</li><li>The gate runs 2373 passed with the four inherited test_madr.py failures (ADR 0025); 22 audit broken links keep ai-eng audit verify FAIL until ai-eng audit account runs.</li></ul></div>
+      <ul class="plain"><li>The writing and design surfaces are shipped (037-046). The orphan layer spec 042 deferred was deleted by 044; the per-module verdict with reopening conditions lives in docs/notes/ponytail-orphan-verdicts.md.</li><li>The gate is green on main: test_madr 37 passed (ADR 0025 closed), audit verify exits 0, skilleval 428 delta 0. The 024 fidelity audit records what the tree does and does not carry.</li></ul></div>
     <div class="panel"><h3>Variables</h3>
       <ul class="plain"><li>The reviewed implementation increment may change within the normative P0-P5 target.</li><li>Tools and agent surfaces may change only while their declared capability boundaries remain truthful.</li><li>The accessibility floor (landmarks, screen-reader labels, tab order) may grow with measured need.</li></ul></div>
   </div>
