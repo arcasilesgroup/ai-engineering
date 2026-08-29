@@ -1821,20 +1821,19 @@ def test_a_record_superseded_by_another_is_named_even_when_it_does_not_say_so(
 def test_accepting_a_pre_schema_record_is_refused_for_the_reason_it_is_refused_for(
     tmp_path, monkeypatch, capsys
 ):
-    """Two refusals that used to be one sentence, and the sentence was false.
+    """A refusal must state the reason that is true of the record in front of it.
 
-    `decide --accept` compared the status against the *quoted* literal, so the three records
-    written before the MADR schema — which carry a bare `status: proposed` — were told they
-    "had already left `proposed`". They had not. The operator read that five times about
-    records they were entitled to look at, and a message stating something the code did not
-    establish is this repository's most common defect.
+    Records written before the MADR schema carry a bare `status: proposed`, so a
+    comparison against the *quoted* literal must not tell them they "had already left
+    `proposed`" — they have not. A message stating something the code did not establish
+    is this repository's most common defect.
 
-    Widening it to accept both spellings was the obvious repair and it was wrong, which is
-    why this case exists rather than a wider parser. Those records have no v1 frontmatter, so
-    accepting one writes authority fields into a header the schema does not describe — and
-    `madr.validate` then rejects the whole set. Measured on the real tree: PASS to
-    MADR_SCHEMA_INVALID on the first acceptance. A verb that produces an invalid record is
-    worse than one that refuses.
+    Widening the check to accept both spellings would be the obvious repair and it is
+    wrong, which is why this case exists rather than a wider parser: those records have
+    no v1 frontmatter, so accepting one writes authority fields into a header the schema
+    does not describe — and `madr.validate` then rejects the whole set, turning PASS into
+    MADR_SCHEMA_INVALID on the first acceptance. A verb that produces an invalid record
+    is worse than one that refuses.
     """
     from ai_engineering import decide
 

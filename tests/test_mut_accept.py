@@ -243,9 +243,10 @@ def test_the_expired_line_names_the_id_the_finding_the_date_and_the_person(repo,
 def test_the_five_flags_are_required_and_the_refusal_says_which(repo, capsys, missing):
     """Exit 2 is misuse, not failure, and the sentence is the whole argument for why the
     flags exist. Reworded into noise, the next person passes neither and reads nothing.
-    Leaving any one of the five out has to refuse: an unsigned acceptance used to be
-    written with `TODO: a person, by name` where the owner goes, and it passed every gate
-    this product has, which is the promise in the constitution the code did not keep."""
+    Leaving any one of the five out has to refuse: an unsigned acceptance carrying
+    `TODO: a person, by name` where the owner goes is exactly what the five flags make
+    unwritable, and it would pass every gate this product has — the promise in the
+    constitution the code must keep."""
     typed = {
         "--finding": "F-1",
         "--expires": TOMORROW,

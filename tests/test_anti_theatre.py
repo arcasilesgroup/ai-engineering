@@ -1,15 +1,11 @@
 """What `RAN` has to mean, as tests that fail.
 
-This file used to be the edge cases of `PARTIAL` — the compromise that let a scoped
-mutation run stand for the whole tree against a nightly receipt. The mutation lane it
-served is gone: its floor of 89 was never once met, its rows named no security guard, and
-the whole-tree run it was pacing took 121 minutes against a job capped at 30, so it was
-reported as `cancelled` on every commit for weeks. `PARTIAL` went with it.
-
-What survives is the original contract, which never needed a receipt: a gate proves it ran
-by printing a count it could only print by having read the files, a count of zero is not a
-pass, and a gate that was deleted prints no line at all — so the names are listed rather
-than inferred from what happens to be present.
+No `PARTIAL` verdict exists here and none may return: a scoped run standing for the whole
+tree against a nightly receipt is a compromise a lane that cannot meet its floor will
+reach for. What these cases hold is the contract, which needs no receipt: a gate proves
+it ran by printing a count it could only print by having read the files, a count of zero
+is not a pass, and a gate that was deleted prints no line at all — so the names are
+listed rather than inferred from what happens to be present.
 """
 
 from __future__ import annotations

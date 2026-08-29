@@ -156,14 +156,14 @@ def take(
     different machines.
     """
 
-    # One working tree, one writer, as an exit code. The file below used to be written
-    # unconditionally — no lock, no check — so two writers in one tree over different items
-    # both won their own ref, because refs are named per item, and the second silently
-    # replaced the single local file `claim_scope_guard` reads. From then on the first writer
-    # was judged against the second's paths: denied with a message naming somebody else's
-    # work item when the two are disjoint, and allowed to write outside its own claim when
-    # the second's paths were a superset. Fail closed on an unreadable file too — a scope the
-    # guard cannot see is not a scope.
+    # One working tree, one writer, as an exit code. This file is claimed, not just
+    # written: refs are named per item, so two writers in one tree over different items
+    # both win their ref, and whichever wrote last owns the file `claim_scope_guard`
+    # reads. Without the check below, the other writer is judged against paths that are
+    # not its own — denied with a message naming somebody else's work item when the two
+    # are disjoint, or allowed to write outside its own claim when the other's paths are
+    # a superset. Fail closed on an unreadable file too — a scope the guard cannot see
+    # is not a scope.
     where = root / IN_FORCE
     if where.is_file():
         try:

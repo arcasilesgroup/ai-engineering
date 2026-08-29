@@ -99,10 +99,10 @@ def test_something_that_is_neither_a_file_nor_a_directory_is_refused_when_no_kin
     tmp_path: Path,
 ):
     """A named pipe is not a settings file and is not a skills root, and reading one blocks
-    forever. With a kind named it fails the kind check. With none named it used to be
-    called safe, while the line above the function says it rejects special files — so the
-    sentence was stronger than the code. Every caller passes a kind, so nothing in the
-    product changes; the sentence is now true."""
+    forever. With a kind named it fails the kind check; with none named it must still
+    refuse, because the line above the function says it rejects special files — a sentence
+    stronger than the code is the defect. Every caller passes a kind, so nothing in the
+    product changes; the refusal makes the sentence true."""
 
     pipe = tmp_path / "pipe"
     os.mkfifo(pipe)

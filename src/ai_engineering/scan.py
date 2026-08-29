@@ -81,7 +81,7 @@ def run(lane: Lane, root: Path, inputs: list[str]) -> outcome.Fact:
                 "restore the rules file; an engine with no rules looks for nothing",
             )
         # One byte is enough. A rule deleted from the middle of a file leaves an engine that
-        # runs, exits zero, and no longer looks for the thing it was deleted for — which is
+        # runs, exits zero, and stops looking for what the deleted rule covered — which is
         # indistinguishable from a clean scan unless the bytes themselves are pinned.
         if lane.rules_digest:
             found = hashlib.sha256(where.read_bytes()).hexdigest()

@@ -261,16 +261,16 @@ def test_an_already_wired_machine_gets_the_block_it_left_behind_and_no_survey(ho
     """Catches the installer walking the whole surface table again on a machine that is
     already set up, which is how a second guard entry gets written.
 
-    Every number is counted, none is written into the sentence. The line this replaced said
-    `8 skills` as a literal, which is a fact about the wheel that shipped the line and not
-    about the machine reading it — and the count here is deliberately one guard and two
-    links against a machine that is not fully wired, because a summary that can only be
-    right on a healthy machine is a summary that hides the unhealthy one.
+    Every number is counted, none is written into the sentence: a literal like
+    `8 skills` is a fact about the wheel that shipped the line and not about the machine
+    reading it — and the count here is deliberately one guard and two links against a
+    machine that is not fully wired, because a summary that can only be right on a healthy
+    machine is a summary that hides the unhealthy one.
 
-    Every number is now read off the disk, which is what spec 007 claimed a version before
-    it was true: skills came from the store and links and guards came from the receipt, so
-    this block reported four of each over a machine `uninstall` had just emptied. The rows
-    it used to be given here — `/a`, `/b`, `/c` — were three paths that never existed."""
+    Every number is read off the disk: skills from the store, links and guards from the
+    receipt. A block fed canned rows — `/a`, `/b`, `/c`, paths that never exist — reports
+    four of each over a machine `uninstall` has just emptied, which spec 007 claims must
+    never be the case."""
     wiring.write_json(wiring.receipt_path(), {"wrote": [], "version": __version__})
     # Two skills and one directory that is not one. The count is of what is installed, so a
     # count of everything under that root is a count that goes up when a cache lands there.

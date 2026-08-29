@@ -841,9 +841,9 @@ def test_inside_answers_by_path_parts_and_never_by_string_prefix(path, expected)
     ],
 )
 def test_what_happens_to_a_row_is_decided_once_for_every_kind_there_is(home, kind, root, want):
-    """The table this verb's screen and its loop both read. They used to be two answers —
-    a list that printed every row and a loop with branches for two of the five kinds — and
-    the whole defect was that the two could disagree. Every kind is named here, so a sixth
+    """One table decides each row's fate, read by both this verb's screen and its loop:
+    printing from one answer and acting on another is how the two disagree, so the
+    decision is made once, here. Every kind is named, so a sixth
     one arriving with no fate lands on this test rather than on somebody's machine."""
     rows = {
         "guard": surface_row("claude-code")[1],

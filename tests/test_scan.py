@@ -152,7 +152,7 @@ def test_the_privacy_scanner_and_the_lane_runner_agree_on_the_vocabulary():
 
 
 def test_one_flipped_byte_in_the_rules_stops_the_lane(tmp_path):
-    """EP-051's tamper fixture, at the one artefact this repository pins today.
+    """Tamper detection, at the one artefact this repository pins today.
 
     A rule deleted from the middle of a file leaves an engine that runs, exits zero and no
     longer looks for the thing it was deleted for. That is indistinguishable from a clean

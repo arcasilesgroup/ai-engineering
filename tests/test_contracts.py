@@ -961,15 +961,14 @@ def test_the_counts_this_repository_states_about_itself_are_the_counts_it_has():
 
 
 def test_an_entry_is_ours_by_the_dispatcher_it_runs_and_not_by_this_project_s_name(tmp_path):
-    """The mark used to be the hyphenated project name, and that string can only reach an
-    entry through the interpreter's own path — which spells this package with an underscore
-    under a wheel. It worked because `uv tool` and `pipx` happen to put the hyphenated name
-    in the path of the interpreter they create, and was false everywhere at once for anyone
-    installing with `pip` into a venv named anything else: init then wrote a duplicate row
-    on every run, uninstall reported nothing of ours and left every guard wired, and doctor
-    reported no entry against a live install. The basename and never the absolute path, or
-    assertion 12 — which asks whether the signature is present while the install path is
-    not — could never fire again."""
+    """An entry is ours by the dispatcher basename it runs, never by this project's name:
+    the hyphenated name can only reach an entry through the interpreter's own path, which
+    spells this package with an underscore under a wheel, so it is false everywhere at
+    once for anyone installing with `pip` into a venv named anything else — init writes a
+    duplicate row on every run, uninstall reports nothing of ours and leaves every guard
+    wired, and doctor reports no entry against a live install. The basename and never the
+    absolute path, or assertion 12 — which asks whether the signature is present while the
+    install path is not — could never fire again."""
     underscore = f"{tmp_path}/venvs/some_env/bin/python /x/site-packages/ai_engineering/hooks"
     assert wiring.ours({"command": f'"{underscore}/chain.py" PreToolUse'})
     assert not wiring.ours({"command": "/usr/bin/python /somebody/elses/hook.py"})
@@ -2467,18 +2466,16 @@ def test_every_critic_runs_apart_and_is_marked_the_same_way():
 
 
 def test_the_reference_a_person_copies_from_names_commands_that_exist():
-    """`docs/tools.md` is where somebody copies a command from, and nothing compared it to
-    the justfile it describes.
+    """`docs/tools.md` is where somebody copies a command from, and nothing but this test
+    compares it to the justfile it describes.
 
-    Measured on 2026-08-21, before this existed: it offered `just mutate` and `just changed`,
-    **neither of which is a recipe** — the mutation lane is called `guards` and the other had
-    no successor at all — and it described `just check` as "build + lint + test + cover +
-    security + counts", which is six of the thirteen steps that recipe actually runs.
-
-    `docs/adr/0014` is the record for this defect class and states the rule: a claim one
-    document makes about another gets a comparator, and the comparator executes the sentence
-    instead of re-reading it. This is that comparator. A recipe renamed without the reference
-    following turns it red, and so does a step added to `check`.
+    A reference that offers recipes which are not recipes — `just mutate` for the lane
+    actually called `guards`, or a step list covering six of the thirteen steps `check`
+    runs — is a command a person types and gets nothing from. `docs/adr/0014` states the
+    rule for this defect class: a claim one document makes about another gets a
+    comparator, and the comparator executes the sentence instead of re-reading it. This
+    is that comparator. A recipe renamed without the reference following turns it red,
+    and so does a step added to `check`.
     """
 
     import re

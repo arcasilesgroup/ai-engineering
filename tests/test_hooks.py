@@ -199,17 +199,17 @@ def test_a_denial_is_spelled_both_ways_so_the_surfaces_that_read_json_see_it(cap
 def test_claude_gets_its_own_denial_protocol_and_everything_else_keeps_the_status(
     repo, monkeypatch, capsys
 ):
-    """A denial used to be a JSON reply and exit 2 mixed together. Claude Code ignores the
-    JSON on that exit path and reads stderr, and the model can then treat an automated gate
-    the way it treats a person refusing permission and simply stop — observed twice in one
-    session, each time with the turn-duration record three milliseconds after the denied
-    tool result and no assistant message at all.
+    """A denial must not be a JSON reply and exit 2 mixed together: Claude Code ignores
+    the JSON on that exit path and reads stderr, and the model can then treat an automated
+    gate the way it treats a person refusing permission and simply stop — a turn that ends
+    with the turn-duration record milliseconds after the denied tool result and no
+    assistant message at all.
 
-    So Claude gets the answer its own PreToolUse protocol documents: exit 0, the decision in
-    JSON, the reason it is shown. No universal `continue: false` goes with it, because that
-    is the field that ends the turn. Every other surface enforces by process status and
-    still exits 2 naming the guard. The surface is decided by a field it sends — Claude's
-    `transcript_path` — and never by where the tool was installed."""
+    So Claude gets the answer its own PreToolUse protocol documents: exit 0, the decision
+    in JSON, the reason it is shown. No universal `continue: false` goes with it, because
+    that is the field that ends the turn. Every other surface enforces by process status
+    and still exits 2 naming the guard. The surface is decided by a field it sends —
+    Claude's `transcript_path` — and never by where the tool was installed."""
     monkeypatch.setitem(chain.TABLE, "PreToolUse", [("loop_guard", r".*")])
     monkeypatch.setattr("loop_guard.run", _wrap.guard("loop_guard")(lambda payload: "go away"))
     call = {"tool_name": "Bash", "tool_input": {"command": "ls"}, "tool_use_id": "t1"}

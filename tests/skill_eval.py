@@ -426,14 +426,13 @@ def main() -> int:
     for subject, target in leaves:
         print(f"    elsewhere      {subject} — {target}")
 
-    # The map, which is the only reason the manifest carries a phase at all. It was declared
-    # for a person meeting the catalogue with no idea what any of it is for, and a field no
-    # command ever shows that person is a field that answers nobody. This is the command
-    # that shows it.
-    # Read from the product rather than rebuilt here. This runner used to be the only place
-    # the map existed, which is what `EP-135` was reopened for: a field declared for a person
-    # meeting the catalogue, shown only to a developer watching CI. `ai-eng init` prints it
-    # now, to the person who has just been handed the thirteen, and both call this.
+    # The map, which is the only reason the manifest carries a phase at all. It exists for
+    # a person meeting the catalogue with no idea what any of it is for, and a field no
+    # command ever shows that person is a field that answers nobody.
+    # Read from the product rather than rebuilt here: this runner is a developer surface,
+    # and a map shown only here is a field declared for a person and shown to a machine
+    # watching CI. `ai-eng init` prints it too, to the person who has just been handed the
+    # thirteen, and both call this.
     from ai_engineering import wiring
 
     grouped = wiring.phase_map()

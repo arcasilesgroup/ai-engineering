@@ -2383,7 +2383,7 @@ def test_a_conclusive_privacy_failure_outranks_an_undecidable_one(
     isolated_home: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The rule that used to live in a function nothing called.
+    """The precedence rule lives where the verdict is computed, not in a helper nobody calls.
 
     Text carrying both an unclear name and a machine path is already disqualified, and which
     of the two gets reported must not depend on the order of the flags. Neither publishes, so

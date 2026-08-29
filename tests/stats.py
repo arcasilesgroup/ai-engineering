@@ -13,12 +13,12 @@ not computed here; it is left behind by `just cover`, and an artifact older than
 source file it describes is reported STALE rather than reported. A number that was true
 last Tuesday is the failure this product is about.
 
-There is no mutation row. There was, reading `mutants/mutmut-cicd-stats.json` and citing
-`just mutate` — a directory nothing writes since the apparatus was deleted and a recipe
-that no longer exists — so the file whose whole purpose is refusing stale numbers was
-printing a dash and pointing at a command. `just guards` leaves its answer in a `RAN` line
-and not in an artifact, and inventing one so this could quote it would be building
-machinery to keep a report shaped the way it used to be.
+There is no mutation row. A mutation artifact would have to be a file this report quotes,
+and quoting `mutants/mutmut-cicd-stats.json` or a recipe that no longer runs is a dash
+next to a command nobody can invoke — the failure mode a report whose purpose is refusing
+stale numbers must not ship. `just guards` leaves its answer in a `RAN` line and not in an
+artifact, and inventing an artifact so this could quote one would be building machinery to
+keep a report shaped like a claim rather than like the truth.
 
 Usage: python tests/stats.py [--json]
 """
