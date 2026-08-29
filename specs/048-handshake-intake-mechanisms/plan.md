@@ -40,7 +40,7 @@ prose, marked as such.
    **done when**: `## Grill` and `## Council` carry `ran:` declarations, no template
    prompt survives inside them, and the counts script agrees with the bullets.
 
-4. [ ] **Rebuild the derived page and the changelog at the shipped bytes** —
+4. [x] <!--t:c24e356d74ff--> **Rebuild the derived page and the changelog at the shipped bytes** —
    **file**: `docs/solution-intent.html` (regenerated, never hand-edited),
    `CHANGELOG.md` (the entry naming what moved and that no new skill was added).
    **check**: `just check` — exits 0; the intent-page digest guard fails on stale
