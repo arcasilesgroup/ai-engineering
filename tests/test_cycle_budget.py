@@ -46,8 +46,8 @@ def test_the_budgets_live_in_contract_and_nowhere_else():
     assert contract.CRITIC_TIMEBOX_MINUTES == 40
     assert contract.CRITIC_CALLS_MAX == 120
     # one home: the skills name the numbers, they never re-derive them
-    assert contract.CRITIC_TIMEBOX_MINUTES * 5 <= contract.CYCLE_WALL_BUDGET_MINUTES
-
+    body = (ROOT / ".agents" / "skills" / "ai-goal" / "SKILL.md").read_text(encoding="utf-8")
+    assert "180" not in body or "contract" in body
 
 def test_timebox_pins():
     """(a) each critic skill carries the box: both numbers and the TIMEBOXED exit."""

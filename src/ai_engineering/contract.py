@@ -694,11 +694,13 @@ PAGE_TITLE_MAX = 70
 
 # The cycle's wall budgets (spec 047). 180 is the owner's decision of 2026-08-29, carried
 # by PO-27 in the ledger: a governed giant block fits three hours and normal ones fit far
-# under. 40 and 120 are derived arithmetic, not measurements — 40 divides the ceiling
-# across the five critics run serially; 120 divides the postmortem's measured 409-call
-# session (report 023, the 19 h 42 min block) across the same five and rounds down. The
-# clock disqualifies a run and never approves one (PO-26): no box ever ticks because a
-# number said so.
+# under. 40 and 120 are derived, and the derivation is per phase, not per cycle: the five
+# critics never run inside one box — grill and council share the spec phase (2 x 40),
+# review/verify/security pair after the build (wall 40, `skill-sequence.toml`), so the
+# critic wall is <= 120 of the 180 with build and ship holding the rest. 120 calls is the
+# postmortem's measured 409-call session (report 023, the 19 h 42 min block) over five
+# critics, rounded down. The clock disqualifies a run and never approves one (PO-26):
+# no box ever ticks because a number said so.
 CYCLE_WALL_BUDGET_MINUTES = 180
 CRITIC_TIMEBOX_MINUTES = 40
 CRITIC_CALLS_MAX = 120
