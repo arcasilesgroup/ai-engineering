@@ -2690,3 +2690,31 @@ def test_council_counts_is_a_step_in_the_gate_and_not_a_recipe_beside_it():
         "council runs after `ran`, which writes the receipt last, so the gate would record a "
         "run that had not finished"
     )
+
+
+def test_check_all_batches_every_step_of_check_with_the_prefix_that_continues():
+    """Spec 047 / B4: the batched gate lists every red step in one pass (045 postmortem).
+
+    Three cheap claims, each the way the recipe could silently stop being what it
+    promises. (1) Its step list equals `check`'s dependencies, so a step added to one
+    and not the other goes red here, not in a cycle three days later. (2) Every step
+    line carries just's `-` prefix — the 1.58-verified promise to continue after a
+    failed step — because a recipe that lost its prefixes is `check` wearing a new
+    name, fail-fast back in disguise. (3) The red file is cleared before the pass, or
+    yesterday's failures join today's list.
+    """
+
+    justfile = (ROOT / "justfile").read_text(encoding="utf-8")
+    steps = re.search(r"(?m)^check:\s*(.+)$", justfile).group(1).split()
+    body = justfile.split("check-all:", 1)[1]
+    run = re.findall(
+        r"^ +-@just ([a-z][a-z0-9-]*) \|\| echo \1 >> \.ai/check-all-red\.txt$",
+        body,
+        re.M,
+    )
+    assert run == steps, (
+        f"check-all runs {run} and check runs {steps}; the two lists must be one list"
+    )
+    assert re.search(r"^ +rm -f \.ai/check-all-red\.txt$", body, re.M), (
+        "the red file is never cleared, so a stale list decides every future pass"
+    )
