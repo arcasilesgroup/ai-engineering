@@ -51,7 +51,7 @@ not the record.
 
 The interview ends when you can say the whole thing back in two plain sentences the
 owner recognises as their own idea. Everyday words, one thought each, the mechanism
-visible: who does what, and what happens next. If you cannot say it that way, you have
+visible: name the actor and the action, then the outcome. If you cannot say it that way, you have
 a gap, not a style problem.
 
 **Passes:** "You want a box of bread offcuts at the market. People buy a box cheaper
