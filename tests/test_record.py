@@ -1534,6 +1534,11 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
         # references; 0032 corrected them and re-approved at the corrected digest, so
         # 0031's spec row legitimately moved and 0032's rows carry the bytes there now.
         ("specs/046-visual-html-records/spec.md", "b7e60a1af2fe"),
+        # 0033 approved spec 047's plan with two tasks naming `**files**:`, a plural key
+        # the task parser does not know, so --tick refused them; 0034 corrected the field
+        # to the singular house form and re-approved, so 0033's plan row legitimately
+        # moved and 0034's row carries the bytes execution verifies against now.
+        ("specs/047-autonomous-cycle-wall-budget/plan.md", "e4252e374141"),
     }
 
     rows = []
