@@ -29,7 +29,7 @@ prose, marked as such.
    the lie.
    **done when**: the check runs green and the tick seals this line.
 
-3. [ ] **Record the critics' verdicts in the spec** —
+3. [x] <!--t:dc06ee032ea3--> **Record the critics' verdicts in the spec** —
    **file**: `specs/048-handshake-intake-mechanisms/spec.md` (fold: grill round 1 of
    ten `### Q`, council round 1 with the recompute-refused counts, both attacked sets
    revised in place; D-048-04 added for the unattended branch the council forced).
