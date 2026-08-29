@@ -49,6 +49,7 @@ def test_the_budgets_live_in_contract_and_nowhere_else():
     body = (ROOT / ".agents" / "skills" / "ai-goal" / "SKILL.md").read_text(encoding="utf-8")
     assert "180" not in body or "contract" in body
 
+
 def test_timebox_pins():
     """(a) each critic skill carries the box: both numbers and the TIMEBOXED exit."""
     for name in CRITICS:
@@ -95,7 +96,6 @@ def test_no_session_match_refuses_rather_than_passing_on_emptiness():
     verdict = vitals.verdict(_stream("s4", 10.0), "someone-else")
     assert verdict["outcome"] == "INCOMPLETE"
     assert verdict["code"] == "NO_DATA"
-
 
 
 def test_the_verb_reads_the_in_clone_record(tmp_path, monkeypatch):
