@@ -6,6 +6,29 @@ search for.
 
 ## [Unreleased]
 
+### Added (spec 047 — the cycle's wall budget)
+
+- Three named budgets join `contract.py`: `CYCLE_WALL_BUDGET_MINUTES = 180` (the owner's
+  decision of 2026-08-29, carried by PO-27), `CRITIC_TIMEBOX_MINUTES = 40` and
+  `CRITIC_CALLS_MAX = 120` — the last two derived, and the comment says so. The clock
+  disqualifies a run and never approves one: no box ever ticks because a number said so.
+- `ai-eng report vitals --session <id>` reads `.ai/events.jsonl` and attributes the
+  minutes between `ts` stamps to the earlier event's `cls`, printing the wall time beside
+  the budget. Over it: `INCOMPLETE [OVER_BUDGET]` naming the largest bucket; no readable
+  pair of events: `INCOMPLETE [NO_DATA]`, never an empty green.
+- The five critic skills (`ai-challenge`, `ai-council`, `ai-review`, `ai-verify`,
+  `ai-security`) carry the box in their own text — 40 minutes, 120 calls, the verdict
+  returns in the result, and `TIMEBOXED` with what it has when the box closes. A partial
+  verdict is a verdict; silence is not.
+- `just check-all` runs every step of `just check` in one pass and prints the full list of
+  red steps at the end — k defects, one pass. `just check` itself is unchanged.
+- `ai-goal` closes a blocked turn with one `BLOCKED:` line naming the unblock and prints
+  `report vitals` beside `audit verify` at the handover; `ai-build` never relaunches the
+  whole gate for one red.
+- `tests/test_cycle_budget.py` is the fixture that pins all of it, red first, over the
+  approved digests (spec 047; approvals 0033, 0034, 0035 — the plan moved twice for
+  mechanical defects its own `--tick` refused, each correction re-signed).
+
 ### Added (spec 046 — visual HTML records)
 
 - The cycle's review surfaces are pages now, rendered in this repository and nowhere
