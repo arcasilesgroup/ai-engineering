@@ -2998,7 +2998,10 @@ evidence = "grep -n CYCLE_WALL_BUDGET_MINUTES src/ai_engineering/contract.py"
 note = '''the owner set the ceiling on 2026-08-29 against the measured record: the only giant block
 timed cost 19 h 42 min (report 023's postmortem), and its five bottlenecks price out to
 roughly 7.5 h after the already-designed cuts, so the remaining distance is critic pairing,
-timeboxed verdicts and the batched gate — the payload of spec 047. The row is open because
-nothing in the tree carries the number yet: the constant lives in contract.py beside the
-other named budgets, and a cycle that passes it exits red on its own recap. The clock
-disqualifies a run and never approves one, which is what PO-26 holds and this row keeps.'''
+timeboxed verdicts and the batched gate — the payload of spec 047, shipped 2026-08-29:
+the constant in contract.py, `report vitals` over the event record, the five boxes,
+`just check-all`, the goal's anti-stall rule. Which half is still open is the other half
+of the subject: no cycle has yet been MEASURED inside 180 minutes, and a budget nobody
+has met is a number, not a proof. The row closes on the first governed giant block whose
+`report vitals` prints PASS — the clock disqualifies and never approves, which is what
+PO-26 holds and this row keeps.'''
