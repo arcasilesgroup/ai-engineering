@@ -1,40 +1,40 @@
 # Accessibility — the honesty floor for designed surfaces (spec 038 / B-038-1/2)
 
-Cargada solo cuando corre un verify pass (economía de contexto, spec 033). Un diseño que
-el framework produce cumple el piso de accesibilidad o sale con `not-covered: <razón>`;
-nunca un pass silencioso.
+Loaded only when a verify pass runs (context economy, spec 033). A design the framework
+produces meets the accessibility floor or exits `not-covered: <reason>`; never a silent
+pass.
 
-## Los cuatro básicos
+## The four basics
 
-1. **Contraste** — ≥ WCAG 2.2 AA sobre el fondo real (ya lo mide el verify de ai-design
-   paso 7; no sobre CSS declarado).
-2. **Teclado** — todo elemento interactivo es alcanzable y operable solo con teclado.
-3. **Focus visible** — el foco es siempre visible al navegar por teclado.
-4. **Reduced motion** — `prefers-reduced-motion` respetado (lo delega la lente de motion
-   de ai-review; el diseño no añade movimiento que lo ignore).
+1. **Contrast** — ≥ WCAG 2.2 AA over the real background (ai-design verify step 7 already
+   measures it; never over declared CSS).
+2. **Keyboard** — every interactive element is reachable and operable by keyboard alone.
+3. **Visible focus** — focus is always visible during keyboard navigation.
+4. **Reduced motion** — `prefers-reduced-motion` respected (delegated to ai-review's motion
+   lens; the design adds no motion that ignores it).
 
-## La regla
+## The rule
 
-Un verify pass que nombre los cuatro básicos pasa. Un verify pass que **deliberadamente no
-puede** cumplir uno o más sale `not-covered: <razón>` — la salida honesta, registrada,
-nunca un pass silencioso ni un stall. Un verify pass que no nombre los básicos ni un
-`not-covered` es rechazado por `contract._accessibility_problems` (silent pass refused).
+A verify pass that names the four basics passes. A verify pass that **deliberately cannot**
+meet one or more exits `not-covered: <reason>` — the honest, recorded exit, never a silent
+pass and never a stall. A verify pass that names neither the basics nor a `not-covered` is
+refused by `contract._accessibility_problems` (silent pass refused).
 
-## Misma disciplina, dos superficies
+## Same discipline, two surfaces
 
-- `NOT COVERED` (verifier frío, spec 030): una lane que no corrió.
-- `not-covered` (diseño, spec 038): una superficie que no puede cumplir el piso.
-La misma honestidad, dos sitios; la grafía queda ligada en este reference y se unifica en
-una constante solo cuando una segunda superficie lo necesite.
+- `NOT COVERED` (cold verifier, spec 030): a lane that did not run.
+- `not-covered` (design, spec 038): a surface that cannot meet the floor.
+The same honesty, two places; the spelling stays linked in this reference and unifies into
+one constant only when a second surface needs it.
 
-## Landmarks y más allá (medida por necesidad, no hoy)
+## Landmarks and beyond (measured by need, not today)
 
-Landmarks, etiquetas de screen-reader, orden de tabulación: se añaden al piso solo cuando
-una superficie las necesite; el piso actual es el mínimo funcional (contraste, teclado,
-focus, reduced-motion).
+Landmarks, screen-reader labels, tab order: added to the floor only when a surface needs
+them; the current floor is the functional minimum (contrast, keyboard, focus,
+reduced-motion).
 
-## Insumos de diseño (spec 037 roadmap filas 6/16)
+## Design inputs (spec 037 roadmap rows 6/16)
 
-Las skills de diseño (apple-design, hallmark, high-end-visual-design, emil-design-eng, y
-las del roadmap) son insumos que esta skill de diseño puede cargar; nunca skills del
-framework. Este reference es el piso que cualquiera de ellas debe respetar.
+The design skills (apple-design, hallmark, high-end-visual-design, emil-design-eng, and
+the roadmap's) are inputs this design skill may load; never framework skills. This
+reference is the floor any of them must respect.
