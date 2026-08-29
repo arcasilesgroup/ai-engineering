@@ -67,11 +67,14 @@ What is true today, each fact measured on 2026-08-29:
 
 ## Decision
 
-Option 1. Message-level changes only, no invariant moved: the safety refusals keep
-refusing, the skip keeps skipping — they only start naming what happened and what a
-person can actually do. The ephemeral-receipt contract is untouched by this spec; report
-026's direction (1) stays a proposal that must argue with `test_surface_adapter.py:663`
-and its digest pin in its own record if anyone still wants it.
+Option 1. The user-visible change is messages: the safety refusals keep refusing, the
+skip keeps skipping — they only start naming what happened and what a person can actually
+do. The internal shape grows to carry that visibility: `install_routers` gains a `skip`
+callback parameter and `_project_preflight` returns the reason beside the root. Both are
+additive; every existing caller and every pinned behavior is unchanged. The ephemeral-
+receipt contract is untouched by this spec; report 026's direction (1) stays a proposal
+that must argue with `test_surface_adapter.py:663` and its digest pin in its own record
+if anyone still wants it.
 
 ## Challenged once
 
@@ -121,23 +124,36 @@ stays put — refusals refuse, skips skip — which the 2361-test suite confirme
 
 ## Council
 
-TODO: when the council pass lands, replace this prompt with its declaration on its own
-line — `ran: round <n>, <ISO date> — <n> min` — and name the lenses that read:
-`lenses: cost, reversibility, undecidable, trust, example`. The shape below is what the
-critic step reads — top-level bullets only, each heading carrying bullets or a literal
-`none` line, every finding and every refutation carrying a command. The pass may
-conclude; it may not approve.
+ran: round 1, 2026-08-29 — 40 min
+lenses: cost, reversibility, undecidable, trust, example
 
 ### Gaps no single lens named
+- The doctor 24 fix text now includes a backtick-quoted `skipped (foreign)` reference (`doctor.py`). The `unattended()` helper checks `words[1]` against `{"init"}` — the cure starts with `` `ai-eng `` so `words[1]` is `ai-eng` (not `init`), meaning the cure is correctly *not* auto-runnable. But the spec's Assumptions disclaimed only the two refusal strings, not the cure text — `policy/envelope-v1.schema.json` publishes `checks[].cure` (maxLength 500) as machine-readable output, so this wording is now a contract for `--json` readers and is named as such below.
+- The spec's Decision said "message-level changes only" but the code adds a `skip` callback parameter to `install_routers` and a `skipped` list to `global_step` — internal-API additions, not purely message-level. Corrected in the Decision.
 
 ### Findings cut for carrying no command
 
+- Cost lens: "the spec never sizes the test-writing effort" — true, and the tests are already committed (ac0e6700), so the command to verify is `git show ac0e6700:tests/test_stranger_install.py | grep -c 'def test_'` which shows two new tests. No separate command distinguishes this from the spec's own silence. Cut.
+- Undecidable lens: "the cure text for OS-owned links vs user-owned links should differ" — the spec says nothing about distinguishing them, but the code (`_symlink_offender`) returns the same format for both, and the cure text is a general "remove or rename the foreign directory". No command shows the gap because the code and spec agree on the single path. Cut.
+
 ### Findings the cross-read refuted, with the command that refuted them
+
+- "The Examples' `-k` selectors collect zero tests — `names_the_symlink` and `foreign_folder_is_named` are not test names" — refuted: `-k` is substring-matched against node ids, and `uv run --with pytest==9.1.1 pytest -q tests/test_stranger_install.py -k "names_the_symlink or foreign_folder_is_named"` collected and passed 2. The selectors work as written.
+- "The cure text makes `--fix` auto-run init" — refuted by `python3 -c "print('words[1]=' + repr('\`ai-eng init\` writes them again'.split()[1]))"` which shows `words[1]='ai-eng'` (not `'init'`), so `unattended()` returns False. The cure is correctly human-only.
+- "The `skipped (foreign)` line is never recorded, so a month later nobody knows a router was stranded" — refuted by the fact that `doctor` assertion 24's new fix text names the exact resolution path (remove the foreign directory, rerun `init`), and the `skipped (foreign)` line is printed at install time — the observable evidence is the doctor FAIL plus the init output, not a persistent record. A month later the doctor still shows the red assertion with a followable cure.
 
 ### The two counts
 
-- Gaps that appeared only after the cross-read: **N**
-- Findings deleted, for carrying no command or for being refuted: **N**
+- Gaps that appeared only after the cross-read: **2** — the council returned three, and the
+  author's reconciliation moved one (`-k` selectors collect zero) to the refuted column
+  with the pytest run that refutes it. Two were carried: the Decision now names its own
+  API additions, and the cure-text contract is disclaimed below.
+- Findings deleted, for carrying no command or for being refuted: **6**
+
+Verdict (council, amended by the author's reconciliation recorded above): the Decision is
+sound — refusals keep refusing, skips keep skipping — and the two carried gaps are closed
+in this same record rather than left to a later edit. The council concludes; it does not
+approve.
 
 ## Assumptions and unresolved risks
 
@@ -150,6 +166,10 @@ conclude; it may not approve.
   (the `mine` set). Both now report through the same `skip` callback with distinct
   reasons. 7 surfaces declare no command root (`surfaces.toml`), so today only
   claude-code can strand a router; a second declared root grows the blast radius with it.
+- Contract, not assumption: assertion 24's cure wording ships as `checks[].cure` through
+  the `--json` envelope (`policy/envelope-v1.schema.json`, maxLength 500), so it is
+  machine-readable output — a rename of the cure is a contract change, and the two named
+  tests plus the envelope's own bounds are what hold it.
 
 ## Examples somebody can check
 
