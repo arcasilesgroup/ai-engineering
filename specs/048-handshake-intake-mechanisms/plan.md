@@ -18,7 +18,7 @@ prose, marked as such.
    the absent reference all return together.
    **done when**: the three files are in one commit and the tick seals this line.
 
-2. [ ] **De-dangle the intake template** —
+2. [x] <!--t:129c5e165dc7--> **De-dangle the intake template** —
    **file**: `specs/new-goal-template.md` (the dead callable `validate_intake` named
    as the checker is replaced by the live step-0 prose; grill Q5's dangling reference).
    **check**: `uv run python -c "raise SystemExit('still dangling' if 'validate_intake' in open('specs/new-goal-template.md').read() else 0)"`
