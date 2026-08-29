@@ -101,6 +101,12 @@ findings worst first and hand the page to the person. The two-identical-greens r
 the orchestrator's instrument, not yours: the skill layer's bound is this one, and an
 automated cycle ends only on two digest-equal green runs when such a cycle exists.
 
+## The box
+
+40 minutes of wall time, 120 tool calls — the numbers `contract.py` owns. The verdict
+returns in your result; you write no files. When the box closes with work left, return
+what you have and mark it `TIMEBOXED`: a partial verdict is a verdict, silence is not.
+
 ## What this is not
 
 - "The spec is short, so one careful read is enough" — measured on report 003, most real findings are seen by exactly one reader, which is why the five lenses and the cross-read exist.

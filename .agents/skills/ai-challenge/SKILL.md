@@ -63,6 +63,12 @@ findings worst first and hand the page to the person. The two-identical-greens r
 the orchestrator's instrument, not yours: the skill layer's bound is this one, and an
 automated cycle ends only on two digest-equal green runs when such a cycle exists.
 
+## The box
+
+40 minutes of wall time, 120 tool calls — the numbers `contract.py` owns. The verdict
+returns in your result; you write no files. When the box closes with work left, return
+what you have and mark it `TIMEBOXED`: a partial verdict is a verdict, silence is not.
+
 ## What this is not
 
 It is not an approval and not a rejection. It never edits the specification: an

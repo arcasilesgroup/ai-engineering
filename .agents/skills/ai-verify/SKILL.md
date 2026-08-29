@@ -60,6 +60,12 @@ that ticked it, and an acceptance table where every example carries its verdict.
 - Every example carries a verdict, and the undecidable ones are counted separately.
 - Nothing was accepted. This reports; a person or a gate decides.
 
+## The box
+
+40 minutes of wall time, 120 tool calls — the numbers `contract.py` owns. The verdict
+returns in your result; you write no files. When the box closes with work left, return
+what you have and mark it `TIMEBOXED`: a partial verdict is a verdict, silence is not.
+
 ## What this is not
 
 Not a gate. `just check` is the gate and it runs in CI; this reads what it said. Not a
