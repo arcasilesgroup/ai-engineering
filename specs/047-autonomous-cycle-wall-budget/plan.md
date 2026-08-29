@@ -29,7 +29,7 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
 
 ## Tasks
 
-1. [ ] **The budgets join contract.py** —
+1. [x] <!--t:3a9b73e7df1f--> **The budgets join contract.py** —
    **file**: `src/ai_engineering/contract.py` — add `CYCLE_WALL_BUDGET_MINUTES = 180`,
    `CRITIC_TIMEBOX_MINUTES = 40`, `CRITIC_CALLS_MAX = 120` beside the other named
    budgets, each comment naming its source: 180 is the owner's decision of 2026-08-29
