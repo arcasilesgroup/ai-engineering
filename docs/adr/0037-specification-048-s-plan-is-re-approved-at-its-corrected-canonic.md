@@ -56,3 +56,12 @@ The repository owner's `/ai-goal` invocation of 2026-08-29 remains the standing
 approval behind this correction; 0036's account of the critics' rounds, the four-task
 scope and the two promoted decisions is unchanged except for the plan's number. Each
 task commit runs its named check in the same chain; nothing past task 4 is opened.
+
+## Consequences
+
+Execution of the four tasks opens against these bytes; each `--tick` re-verifies the
+canonical digest before running its check, so a plan edit past this point stops at the
+tick rather than at the reviewer. The corrected checks make the failure-before-fix
+shape executable (task 2's guard reds today and greens with its commit), which is the
+property the record was missing when it pinned the raw sha: a number nobody can tick
+with is a signature nothing can present.

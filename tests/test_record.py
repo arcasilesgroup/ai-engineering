@@ -1543,6 +1543,12 @@ def test_the_approval_record_still_names_the_bytes_that_are_there():
         # shell substitution --tick cannot run without a shell, over a gitignored file CI
         # does not have; 0035 corrected the check to one pytest command and re-approved.
         ("specs/047-autonomous-cycle-wall-budget/plan.md", "ded6972988db"),
+        # 0036 signed 048's plan at the raw sha of its bytes; `--tick` verifies the
+        # canonical digest, and the first tick attempt also narrowed two task checks to
+        # the single command it can execute; 0037 re-approved at the canonical number,
+        # so 0036's plan row legitimately moved and 0037's row carries the bytes
+        # execution verifies against now.
+        ("specs/048-handshake-intake-mechanisms/plan.md", "0faae11f4886"),
     }
 
     rows = []
