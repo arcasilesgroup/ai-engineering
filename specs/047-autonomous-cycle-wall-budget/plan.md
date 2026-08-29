@@ -90,7 +90,7 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    **done when**: the timebox pins are green, `RAN skilleval=428` still prints delta 0,
    and the fog ratchet passes.
 
-6. [ ] **The batched gate: `just check-all`** —
+6. [x] <!--t:a26a032617cd--> **The batched gate: `just check-all`** —
    **file**: `justfile` — a `check-all` recipe running every `check` step with just's
    `-` prefix (verified present in 1.58: it continues after failure), collecting the red
    step names and exiting non-zero at the end with the full list; `check` itself does
