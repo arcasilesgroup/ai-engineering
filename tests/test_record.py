@@ -202,9 +202,9 @@ def test_a_value_of_any_shape_survives_being_rendered_and_read_back(value):
 
 
 def test_a_block_that_cannot_be_read_is_undecidable_and_never_invisible():
-    """A malformed block used to be caught and skipped, so an acceptance whose YAML was a
-    little wrong disappeared from the expiry check that both `pre-push` and `doctor` read
-    — and the gate went green over a risk that had run out. Silence on a parse failure is
+    """A malformed block must refuse, not skip: skipped, an acceptance whose YAML is a
+    little wrong disappears from the expiry check that both `pre-push` and `doctor` read,
+    and the gate goes green over a risk that has run out. Silence on a parse failure is
     the exact shape of a false green. The message names the file, or whoever reads the
     refusal is told a record somewhere cannot be read and not which one."""
     body = "```yaml\n  broken\n```\n\ntext\n\n```yaml\nfinding: F-1\nexpires: 2030-01-01\n```\n"

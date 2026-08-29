@@ -221,12 +221,12 @@ def touched() -> str:
 def select(only: str) -> list[tuple[str, str, str, str]]:
     """The rows this run is about, chosen before anything is counted.
 
-    The filter used to live inside the loop as a `continue`, and the score underneath it
-    counted `MUTANTS` — so `just guards nothing` skipped every row, appended no survivor,
-    printed "16 of 16 killed" and exited 0. That is a green over zero mutants, which is
-    the shape this repository exists to refuse, and it becomes load-bearing the moment a
-    workflow passes a filter: one typo, or a rename of `hooks/`, and the gate measures
-    nothing while reading exactly as it does now.
+    The filter applies before anything is counted, and the score underneath it counts the
+    selected rows: filter inside the loop and `just guards nothing` skips every row,
+    appends no survivor, and prints "16 of 16 killed" while exiting 0. That is a green
+    over zero mutants, which is the shape this repository exists to refuse, and it becomes
+    load-bearing the moment a workflow passes a filter: one typo, or a rename of `hooks/`,
+    and the gate measures nothing while reading exactly as it does now.
     """
     return [row for row in MUTANTS if not only or only in row[0] or only in row[3]]
 

@@ -1,25 +1,24 @@
 """Accepting a decision: what is refused, and what is never typed at a person.
 
-`decide.accept` carried 54 surviving mutants. It moves one MADR out of `proposed` and
-writes three authority fields beside it — and every one of those is read or measured, never
-asked for. The role and the reference come from the approved Solution Intent; the timestamp
-is now. A verb that asked a person to type their own authority would be a verb that lets
-anybody grant it.
+`decide.accept` moves one MADR out of `proposed` and writes three authority fields
+beside it — and every one of those is read or measured, never asked for. The role and
+the reference come from the approved Solution Intent; the timestamp is now. A verb that
+asked a person to type their own authority would be a verb that lets anybody grant it.
 
-Three of its comments are apologies for defects that shipped, and each one gets a case
-here, because a comment explaining a bug is a bug nothing is watching for.
+Three safety properties, each with a case here because a comment claiming one without a
+test watching for it is a bug nothing is watching for:
 
-The path one: `--accept` takes text off the command line and this used to build a glob out
-of it, and `..` is a legal glob segment. The directory is listed and names compared now, so
-the argument never touches path construction at all.
+The path one: `--accept` takes text off the command line and must never build a glob out
+of it — `..` is a legal glob segment. The directory is listed and names compared, so the
+argument never touches path construction at all.
 
-The message one: a record whose status is a bare `proposed` was refused with "has already
-left proposed", which is not what the file says and not what happened. It cost the operator
-five attempts at records they were entitled to look at.
+The message one: a bare `status: proposed` is the pre-schema spelling, and refusing it
+with "has already left proposed" states something the file does not say and never
+happened. Each condition gets its own true reason.
 
-The escaping one: the role and reference come from a file a person edits and were
-interpolated between bare quotes, so a role holding a newline wrote its own frontmatter
-lines into the record whose whole purpose is to be the thing that cannot be forged.
+The escaping one: the role and reference come from a file a person edits, so they are
+escaped when interpolated between quotes — otherwise a role holding a newline writes its
+own frontmatter lines into the record whose whole purpose is to be unforgable.
 """
 
 from __future__ import annotations

@@ -783,9 +783,9 @@ def break_the_hooks_path(home, repo, monkeypatch) -> None:
 
 
 def break_the_skills_link(home, repo, monkeypatch) -> None:
-    """A surface that is here with a skills root holding none of ours. It used to be a
-    receipt row pointing at a directory that did not exist, which stopped being the question
-    the moment the check started looking inside the root instead of at it."""
+    """A surface that is here with a skills root holding none of ours. The check looks
+    inside the root rather than at it, so a receipt row alone — pointing anywhere — is not
+    what this assertion is about."""
     (home / ".claude" / "skills").mkdir(parents=True)
 
 
@@ -838,8 +838,9 @@ def test_every_failure_a_command_can_repair_names_that_command(
     ],
 )
 def test_a_coverage_row_takes_its_colour_from_the_word_in_it_and_not_from_a_column(line, style):
-    """The colour used to be looked up by the row's last token, so it was one column-width
-    edit away from being wrong about what the row said. Driven directly, because the suite
+    """The colour comes from the word the row carries, never from a token read at a column
+    position — last-token lookup is one column-width edit away from being wrong about what
+    the row said. Driven directly, because the suite
     reads the undecorated stream where a wrong style and a right one are the same bytes."""
     assert doctor.tint(line) == style
 
@@ -1365,14 +1366,14 @@ def test_assertion_19_reads_the_tick_and_what_was_written_beside_it(repo, body, 
         ("TODO: why this is acceptable, in one sentence", "fail"),
         ("  - TODO: what has to happen before it expires", "fail"),
         ("3. TODO: the third real option", "fail"),
-        ("`ai-eng accept` used to write `TODO: a person, by name` here", "ok"),
+        ("the template mentions `TODO: a person, by name` mid-sentence", "ok"),
     ],
     ids=["at the start", "under a list marker", "under a numbered one", "quoted inline"],
 )
 def test_a_shipped_spec_may_not_carry_a_marker_nobody_replaced(repo, line, want):
-    """The template ships a marker in every section and `ai-eng accept` used to write three
-    more into the record whenever a person or a reason was omitted, while assertion 16
-    compares only the expiry date. The second case is the one that matters: the unanchored
+    """The template ships a marker in every section, and a shipped spec must not carry one
+    nobody replaced — but a `TODO:` quoted mid-sentence is prose about the marker, not the
+    marker, so it stays ok. The second case is the one that matters: the unanchored
     form assertion 4 uses has exactly one red across every spec in this tree, and it is the
     document that proposed this rule, which quotes the literal strings as evidence. A gate
     whose only red is the spec arguing for it is a trap, not a gate."""
@@ -1405,9 +1406,9 @@ def test_no_surface_reads_as_covered_where_no_denial_has_ever_executed(home, rep
             target.write_text("{}\n")
         else:
             target.mkdir(exist_ok=True)
-    # Wired, and not merely present. Making the vendor's directory used to be enough for a
-    # row to read BLOCKS, which is how the honesty layer certified four surfaces on a
-    # machine `ai-eng uninstall` had emptied a second earlier.
+    # Wired, and not merely present: making the vendor's directory must never be enough for
+    # a row to read BLOCKS, or the honesty layer certifies surfaces on a machine
+    # `ai-eng uninstall` has just emptied.
     for surface in wiring.table()["surface"]:
         if surface["writer"] != "none":
             wiring.WRITERS[surface["writer"]](wiring.expand(surface["settings"]))

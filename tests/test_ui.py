@@ -296,8 +296,8 @@ def test_the_survey_lines_its_three_columns_up(capsys):
 def test_a_line_survives_square_brackets(capsys):
     """rich reads square brackets as style tags, so with markup left on, a line reading
     `on: [push, pull_request]` prints neither the brackets nor the two words inside them.
-    The CI block that used to be printed is a file now, and this stayed: `doctor` prints
-    paths, commands and reasons, and any of them can carry a bracket."""
+    `doctor` prints paths, commands and reasons — including from CI files written to disk —
+    and any of them can carry a bracket, so markup stays off on data lines."""
     ui.write("core.hooksPath → [managed]", data=True)
     assert capsys.readouterr().out == "core.hooksPath → [managed]\n"
 

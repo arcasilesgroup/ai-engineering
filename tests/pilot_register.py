@@ -101,9 +101,9 @@ def problems(register: dict) -> list[str]:
     # A requirement this framework will not gate owes four things, and the fourth is the one
     # worth enforcing: `reopen_when` is what would change the decision. Without it a row is a
     # permanent no, and a permanent no about somebody else's requirement is not a decision
-    # this framework is entitled to take. The reasons used to live in three specifications,
-    # two ceiling comments and a test docstring, so a reader asking whether anybody had
-    # decided at all had to find six places before they could tell.
+    # this framework is entitled to take. The register row is the single home for these
+    # reasons: scattered across specifications, comments and test docstrings, a reader
+    # asking whether anybody had decided has to find six places before they can tell.
     for row in register.get("ungated", []):
         name = str(row.get("id", "<unnamed>"))
         for field, why in (

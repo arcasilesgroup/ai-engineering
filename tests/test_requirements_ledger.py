@@ -226,10 +226,9 @@ def test_the_ledger_names_the_exact_bytes_it_was_measured_against():
     are the right totals. They are a reading. What a command *can* confirm is that the reading
     was taken against these bytes and that nobody has edited a report underneath it since.
 
-    Absence is not a pass, and it used to be a skip. The docstring here said neither report
-    was in the repository because `.ai/.gitignore` begins with `*` — and it had stopped being
-    true: both are committed through the exceptions below that line, so a fresh clone and a
-    CI runner have both. What the skip actually guarded against by then was a rename, which
+    Absence is not a pass, and it must never be a skip. Both reports are committed —
+    through the `.ai/.gitignore` exceptions below the `*` line — so a fresh clone and a
+    CI runner have both, and a skip that fires when one is missing guards a rename, which
     is the one case where silence is worst: move a report and this test goes green having
     checked nothing.
 

@@ -262,7 +262,7 @@ def test_a_spec_nobody_can_read_the_front_of_is_counted_rather_than_skipped(tmp_
 
 def test_a_draft_with_no_plan_is_counted_and_not_shown(tmp_path):
     """It is waiting on the build, not on a person, and a list of things the build owes
-    itself is the bug tracker specification 020 refused to become."""
+    itself is the bug tracker specification 020 declines to be."""
 
     (tmp_path / "docs").mkdir()
     for name, plan in (("030-with-a-plan", True), ("031-without", False)):

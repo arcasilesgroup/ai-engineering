@@ -1,9 +1,9 @@
 """The governed cycle's order, checked as data.
 
-`ai-cycle/SKILL.md` used to be the only declaration of which stage follows which, and no
-test read it — rename `ai-research` and the corpus refusals that name it would fail the
-gate while the cycle's own sequence rotted in silence. The order now lives in
-`policy/skill-sequence.toml`, and this file refuses a map that stops matching the tree:
+A prose skill file cannot be both the declaration and the readable data: rename
+`ai-research` and the corpus refusals that name it fail the gate while the cycle's own
+sequence rots in silence unchecked. The order lives in `policy/skill-sequence.toml`,
+and this file refuses a map that stops matching the tree:
 a stage that exists nowhere, phases that run backwards, a fork flag the frontmatter does
 not carry, an empty gate, or a duplicate stage. That is AGENTS.md rule 12: a decision
 that always comes out the same is code with a check, not a prompt.
