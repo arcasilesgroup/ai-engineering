@@ -100,7 +100,7 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    **rollback**: `git revert <commit>`; nothing calls the recipe yet.
    **done when**: the test is green and `just -n check-all` prints every step prefixed.
 
-7. [ ] **The goal stops waiting and says so** —
+7. [x] <!--t:472057652d48--> **The goal stops waiting and says so** —
    **file**: `.agents/skills/ai-goal/SKILL.md`, `ai-build` — the anti-stall rule: no
    step of an unattended cycle waits for input; a refused command is repaired or the
    turn closes with one `BLOCKED: <what> — unblock: <one thing>` line naming it; at the
