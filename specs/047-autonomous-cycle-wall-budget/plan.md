@@ -68,7 +68,7 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    **rollback**: `git revert <commit>`; the reader has no caller yet.
    **done when**: those tests are green and the module imports nothing outside stdlib.
 
-4. [ ] **The verb: `ai-eng report vitals`** —
+4. [x] <!--t:bf9a954e7007--> **The verb: `ai-eng report vitals`** —
    **file**: `src/ai_engineering/report.py` (subcommand `vitals --session <id>`,
    printing per-phase minutes and the verdict), `src/ai_engineering/cli.py` (the will
    banner names it — a writer the banner omits is a false statement about a run,
