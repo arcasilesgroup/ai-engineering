@@ -11,46 +11,51 @@ supersedes: ""
 
 ## Who this is for, and what it is worth to them
 
-The stranger who installs this wheel on a fresh machine — the customer report 026 asked
-about (`.ai/reports/026-stranger-install-evidence.html`). Running the exact documented
-command in a clean HOME and repo today, that person hit two refusals whose printed advice
-could not be followed to a fix, and would leave the install with a repairable FAIL that
-`doctor` says `ai-eng init` fixes but `ai-eng init` cannot. Each costs the same thing:
-the product's core promise is that a refusal names its remedy, and a refusal with an
-advice that does not work is this product doing the thing it exists to refuse.
+The repository owner on a drifted machine — the one whose install record says a router
+exists and whose `ai-eng doctor` says a repair command fixes it, when it cannot — and,
+second, the stranger who installs this wheel on a fresh machine and meets a refusal whose
+advice points at a symlink the operating system owns. Report 026 measured both in a live
+run (`.ai/reports/026-stranger-install-evidence.html`). Each costs the same thing: the
+product's core promise is that a refusal names a followable remedy, and advice that does
+not work is this product doing the thing it exists to refuse.
 
 ## Context and problem
 
-What is true today, each fact measured on 2026-08-29 in the live sandbox run behind
-report 026:
+What is true today, each fact measured on 2026-08-29:
 
 - **A refusal that names no symlink.** `init` refuses a repository whose path crosses a
-  symlink with "check that no directory in the path is a symlink" (`init.py:868-871`) but
-  does not name *which* component. The sandbox run hit it twice on macOS before a
-  `realpath` fixed it, because `/var` is a link to `/private/var` — a layout no advice to
-  "check for a symlink" resolves for a non-coder, and the failing link is one the OS owns
-  and the person must not "fix". The refusal is correct (never write through a link);
-  the advice is unfollowable.
-- **A FAIL whose printed fix does not fix it.** `doctor` assertion 24 says "ai-eng init
-  writes them again". It ran, twice today, and wrote nothing: `install_routers` skips any
-  skill whose name collides with a foreign directory in the surface's skills root
-  (`wiring.py:585-592`), and this machine has a personal `~/.claude/skills/ai-design`
-  (real directory, not our symlink). The router for `ai-design` will never land, the
-  assertion stays red, and both repair passes (`--global -y`, `--overwrite ai-design.md`)
-  reported success while skipping it in silence.
+  symlink with "check that no directory in the path is a symlink" (`init.py`, the
+  `_project_preflight` refusal) but does not name *which* component. The sandbox run hit
+  it twice on macOS before a `realpath` fixed it, because `/var` is a link to
+  `/private/var` — a layout no advice to "check for a symlink" resolves for a non-coder,
+  and the failing link is one the OS owns and the person must not "fix". The refusal is
+  correct (never write through a link); the advice is unfollowable.
+- **A FAIL whose printed fix does not fix it, on a drifted machine.** `doctor` assertion
+  24 says "ai-eng init writes them again". It ran, twice today on this machine, and wrote
+  nothing: `install_routers` skips any skill whose name collides with a foreign directory
+  in the surface's skills root (`wiring.py`, the `theirs` set), and this machine has a
+  personal `~/.claude/skills/ai-design` (real directory, not our symlink). The challenge
+  run bounded who meets this: a *first* install on such a machine records no
+  `ai-design` router and 24 is green — the red is for a machine whose router WAS
+  recorded and then stranded by a later collision, exactly the dogfood state measured
+  today. The skills-folder skip was already printed (since spec 024); the *router* skip,
+  which is what keeps 24 red, was silent, and `--overwrite` cannot name a router at all
+  (it selects only the five project files).
 - **The CI denial receipt is deliberately ephemeral** — `test_surface_adapter.py:663`
-  forbids `upload-artifact` in that step, with the stated reason that a receipt outliving
-  its job is a claim about a machine that no longer exists. Report 026's direction (1)
-  ("publish the release receipt so each install has the first row") contradicts an
-  enforced contract and needs a decision record, not a silent change.
+  forbids `upload-artifact` in that step, and `:671-676` pins the whole step by a second
+  SHA-256 digest; the stated reason is that a receipt outliving its job is a claim about
+  a machine that no longer exists. Report 026's direction (1) ("publish the release
+  receipt so each install has the first row") contradicts an enforced contract and needs
+  a decision record, not a silent change. This spec takes no decision on it.
 
 ## Options considered
 
 1. **Name the offender in both messages, and make the skip visible.** The symlink refusal
-   prints the first symlinked component and its target. The router skip prints a
-   `· skipped (foreign)` line for each skipped skill during `init`, and assertion 24's fix
-   text says what actually resolves it — remove or rename the foreign directory, then
-   rerun `init`. Cheapest, fixes the followability without touching either invariant.
+   prints the first symlinked component and its target. `install_routers` reports every
+   skip it makes — foreign folder or unrecorded file — through one callback, and `init`
+   prints a `skipped (foreign)` line. Assertion 24's fix text says what actually resolves
+   a stranded router: remove or rename the foreign directory, then rerun `init`. Cheapest,
+   fixes the followability without touching either invariant.
 2. **Auto-resolve: `init` follows nothing but offers `realpath`; `install_routers` writes
    the router anyway beside the foreign skill.** Loses: writing into a root we do not own,
    next to a skill we did not install, is exactly the collision the skip exists to
@@ -62,28 +67,57 @@ report 026:
 
 ## Decision
 
-Option 1. Three message-level changes, no invariant moved: the safety refusals keep
+Option 1. Message-level changes only, no invariant moved: the safety refusals keep
 refusing, the skip keeps skipping — they only start naming what happened and what a
 person can actually do. The ephemeral-receipt contract is untouched by this spec; report
 026's direction (1) stays a proposal that must argue with `test_surface_adapter.py:663`
-in its own record if anyone still wants it.
+and its digest pin in its own record if anyone still wants it.
 
 ## Challenged once
 
 Strongest case this is wrong: these are cosmetic strings in a CLI that has 26 assertions;
 the money is in assertion 23 (capabilities unenforced) and this spends a cycle on prose.
 The answer: assertion 23 is a build; this is the product's one observable promise — every
-refusal names a followable remedy — broken in the exact two places a first-time install
-meets it, proven today by two failed commands whose printed advice did not work. A
-product that cannot direct its own repair is not ready to be trusted to enforce one.
+refusal names a followable remedy — broken in the exact places a first-time install and a
+drifted dogfood machine meet it, proven today by commands whose printed advice did not
+work. A product that cannot direct its own repair is not ready to be trusted to enforce
+one.
 
 ## Grill
 
-TODO: when a grill round lands, replace this prompt with its declaration on its own
-line — `ran: round <n>, <ISO date> — <n> min` — then one `### Q` per question with its
-`**A:**` answer beside it, and what it changed. A round that attacked and found nothing
-says `nothing checkable failed`. While this prompt stands undeclared, the critic step
-reads the grill as not run.
+ran: round 1, 2026-08-29 — 40 min
+
+The challenge ran against the spec as first written and against the tree while the build
+landed. Ten attacks; the honest split is three real, five refuted with commands. What it
+changed:
+
+### Q: does a stranger on a fresh machine actually meet a repairable FAIL? — changed the scope
+**A:** No, and the opening claimed too much. The challenger installed into a fresh HOME
+carrying a foreign `ai-design/` skill folder: the install printed the collision, landed
+19 routers, exited PASS, and `ai-eng doctor` answered 24 **green** — a first install
+never records a router it will not write. The broken-advice FAIL is the *drifted*
+machine. The fix stands for that machine; the "cost to every stranger" framing was
+trimmed. `check`: the challenger's run transcript, `history://Challenger049`.
+
+### Q: is the router skip the only silent one? — changed the example set
+**A:** No. `install_routers` also skips when a command file exists that the receipt never
+recorded (`wiring.py`, the `mine` set), and `--overwrite` cannot name routers at all.
+Both skips now report through one `skip` callback with distinct reasons; the second
+prints "a file nobody recorded writing".
+
+### Q: was the collision silent everywhere? — half-refuted, wording kept honest
+**A:** The *skills* collision was named before this change (init's `theirs` block, since
+spec 024). What was silent was the *router* skip and what doctor's advice said about
+repairing it. The spec now says exactly that, not "named nothing".
+
+### Attacks that failed to land
+`/private/tmp` is not a symlink (the links are `/tmp → /private/tmp`, `/var →
+/private/var` — the example was rewritten to build its own link); the `init.py:868-871`
+anchor had moved under the worktree (the spec now cites the symbol, not the line); "the
+receipt contract is one test" — no, `test_surface_adapter.py:671-676` pins the step by a
+second SHA digest, which strengthens context bullet 3; the "invariants moved" charge names
+a 3-tuple return and a callback parameter, and those are exactly what the Decision says
+stays put — refusals refuse, skips skip — which the 2361-test suite confirmed.
 
 ## Council
 
@@ -107,26 +141,30 @@ conclude; it may not approve.
 
 ## Assumptions and unresolved risks
 
-- Assumed: no consumer script parses the two refusal strings verbatim; the gate's own
-  tests are the only reader and they travel with the change. (Nothing in `tests/` greps
-  "cannot be followed safely" today — a rename that broke a parser would be red here.)
-- Open risk, unsized: 7 surfaces have no declared command root (surfaces.toml note), so
-  the foreign-skill skip can only strand a router on the one surface that has roots today,
-  claude-code. If a second root is declared, the silent-skip blast radius grows with it.
+- Assumed: no script outside this test suite parses the two changed strings verbatim. The
+  challenger confirmed `grep -rn "followed safely" tests/` and `writes them again` over
+  `tests/` both return zero — so nothing reads them today, and the two named tests added
+  with this change are what makes that hold going forward.
+- Open risk, unsized: the router skip has TWO silent causes, not one — the foreign skill
+  folder (`theirs`) and a command file that exists but the receipt does not record writing
+  (the `mine` set). Both now report through the same `skip` callback with distinct
+  reasons. 7 surfaces declare no command root (`surfaces.toml`), so today only
+  claude-code can strand a router; a second declared root grows the blast radius with it.
 
 ## Examples somebody can check
 
-- Given a repository path whose component `/private/tmp` is crossed as a symlink, When
-  `ai-eng init --project .` refuses, Then the message names the offending component and
-  its target, printed by `ai-eng init` and asserted by
-  `uv run --with pytest==9.1.1 pytest -q tests/test_stranger_install.py -k names_symlink`.
-- Given a surface whose skills root holds a foreign `ai-design/` directory, When
-  `ai-eng init --global -y` runs, Then its output carries a `skipped (foreign): ai-design`
-  line and `ai-eng doctor` assertion 24's fix text names removing the foreign directory,
-  checked by `uv run --with pytest==9.1.1 pytest -q tests/test_wiring_routers.py -k foreign`
-  and the live `ai-eng doctor` line.
+- Given a repository path that crosses a symlink (macOS puts every temp dir behind
+  `/var → /private/var` and `/tmp → /private/tmp`), When `ai-eng init --project <that path>`
+  refuses, Then the message names the offending component and its target. Asserted by
+  `uv run --with pytest==9.1.1 pytest -q tests/test_stranger_install.py -k names_the_symlink`
+  (it builds a real link and checks the refusal prints its path).
+- Given a surface whose skills root holds a foreign `ai-<skill>/` directory that this
+  install never wrote, When `install_routers` runs with a skip callback, Then that skill's
+  router does not land and the callback is told `foreign skill folder`. Asserted by
+  `uv run --with pytest==9.1.1 pytest -q tests/test_stranger_install.py -k foreign_folder_is_named`.
 - Given a clean machine where every router lands, When `ai-eng init --global -y` runs,
-  Then no skip line appears — the clean control, same file, `-k no_foreign_no_skip`.
+  Then no `skipped (foreign)` line appears — the negative case the challenge run proved by
+  construction (fresh HOME, 19 routers, 24 green).
 
 ## Decisions
 
