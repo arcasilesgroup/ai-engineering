@@ -69,7 +69,7 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    **done when**: those tests are green and the module imports nothing outside stdlib.
 
 4. [ ] **The verb: `ai-eng report vitals`** —
-   **files**: `src/ai_engineering/report.py` (subcommand `vitals --session <id>`,
+   **file**: `src/ai_engineering/report.py` (subcommand `vitals --session <id>`,
    printing per-phase minutes and the verdict), `src/ai_engineering/cli.py` (the will
    banner names it — a writer the banner omits is a false statement about a run,
    D-046-05's rule).
@@ -79,7 +79,7 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    zero inside budget, and `ai-eng report --help` lists `vitals`.
 
 5. [ ] **The critics carry their box** —
-   **files**: `.agents/skills/ai-challenge/SKILL.md`, `ai-council`, `ai-review`,
+   **file**: `.agents/skills/ai-challenge/SKILL.md`, `ai-council`, `ai-review`,
    `ai-verify`, `ai-security` — each gains the bound in its own voice: the timebox in
    minutes and calls (read from contract by the test, written as text here), the I/O
    contract ("the verdict returns in your result; you write no files"), and the
@@ -101,7 +101,7 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    **done when**: the test is green and `just -n check-all` prints every step prefixed.
 
 7. [ ] **The goal stops waiting and says so** —
-   **files**: `.agents/skills/ai-goal/SKILL.md`, `ai-build` — the anti-stall rule: no
+   **file**: `.agents/skills/ai-goal/SKILL.md`, `ai-build` — the anti-stall rule: no
    step of an unattended cycle waits for input; a refused command is repaired or the
    turn closes with one `BLOCKED: <what> — unblock: <one thing>` line naming it; at the
    close, the goal prints `ai-eng report vitals` beside `ai-eng audit verify`. The
@@ -113,7 +113,7 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    `report vitals` by their real commands.
 
 8. [ ] **The close: smoke, ledger, record** —
-   **files**: `docs/requirements.toml` untouched (PO-27's evidence command now answers —
+   **file**: `docs/requirements.toml` untouched (PO-27's evidence command now answers —
    verify it), `CHANGELOG.md` — run the whole targeted set, print vitals on the live
    session, and state in the changelog what the budget does and does not decide.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_cycle_budget.py tests/test_requirements_ledger.py -k "cycle or ledger or commitment"`
