@@ -38,9 +38,9 @@ What is true today, file by file:
   `ai-security`) carry a two-round cap per digest (spec 041) but no time and no I/O
   contract. Measured: Grill 75 min, Review 212 min, Verify 47 min, Security 102 min and
   dead with no verdict delivered.
-- `.ai/events.jsonl` carries every command, block and exception with a `stamp`, a
-  `session` and an `operation_id` — 3 700+ lines and no reader that can answer "where did
-  the last six hours go".
+- `.ai/events.jsonl` carries every command, guard block and exception with an ISO `ts`
+  field and a `session` id — 7 300+ lines and no reader that can answer "where did the
+  last six hours go". (`stamp` is the chain-seal hash, not a time; the reader uses `ts`.)
 - `just check` fail-fasts: k independent defects cost k full passes of ~13 min. The
   postmortem measured three full gates burned between 03:59 and 04:06Z this way. `just
   1.58` was verified on 2026-08-28: the `-` prefix continues after a failed step; `just
@@ -95,37 +95,71 @@ budget changes what a stall costs, not what green means.
 
 ## Grill
 
-TODO: when a grill round lands, replace this prompt with its declaration on its own
-line — `ran: round <n>, <ISO date> — <n> min` — then one `### Q` per question with its
-`**A:**` answer beside it, and what it changed. A round that attacked and found nothing
-says `nothing checkable failed`. While this prompt stands undeclared, the critic step
-reads the grill as not run.
+ran: round 1, 2026-08-29 — 3 min
+
+### Q1 — The context says the event stream carries a `stamp` for wall arithmetic. Does `stamp` hold a time?
+**A:** No — `stamp` is the chain-seal hash (`_emit.stamp()` keys off the home's key); the
+time field is `ts`, ISO-8601 written by the emitting hook. The context names `ts` now and
+says what `stamp` is. This changed lines 41-43.
+
+### Q2 — Task 1 justifies `CRITIC_CALLS_MAX = 120` as "the order of magnitude Review
+burned in 212 minutes". Does the postmortem measure a per-critic call count?
+**A:** No — it measures 409 calls for the whole 19 h 42 min session. 120 is derived from
+the owner's ceiling (five critics sharing the box), not measured. The assumption now says
+which numbers are decisions and which are measurements.
+
+### Q3 — Do the examples' phase buckets (tool-wait / model / idle-or-hung) come out of
+`events.jsonl`?
+**A:** They do not — that split belongs to the host transcript, and D-047-03 refuses the
+host log. The examples now name the buckets the event stream really carries: minutes per
+`cls` (command, blocked, error, bypassed), which is what a stall looks like from inside
+the framework's own record.
+
+### Q4 — Does the line count the context cites hold?
+**A:** It was stale at write time — `wc -l .ai/events.jsonl` answers 7 323 today, not
+3 700. Fixed.
+
+### Q5 — Does anything contradict PO-26 or the doctrine?
+**A:** Nothing checkable failed on that axis: the Decision states the clock disqualifies
+and never approves, PO-26's grep still returns nothing over src/, hooks/, tests/, specs/.
 
 ## Council
 
-TODO: when the council pass lands, replace this prompt with its declaration on its own
-line — `ran: round <n>, <ISO date> — <n> min` — and name the lenses that read:
-`lenses: cost, reversibility, undecidable, trust, example`. The shape below is what the
-critic step reads — top-level bullets only, each heading carrying bullets or a literal
-`none` line, every finding and every refutation carrying a command. The pass may
-conclude; it may not approve.
+ran: round 1, 2026-08-29 — 6 min
+lenses: cost, reversibility, undecidable, trust, example
 
 ### Gaps no single lens named
 
+none
+
 ### Findings cut for carrying no command
+
+- Cost lens: "the plan has no per-task minute budget" — true, and the plan is the house
+  format, which budgets by check command, not by minutes; no command distinguishes the
+  finding from the convention. Cut.
 
 ### Findings the cross-read refuted, with the command that refuted them
 
+- "Task 4's check pipes through bare `python`, which is not on PATH" — refuted: the
+  check reads `uv run python` as written; `which python` confirms bare `python` is
+  absent, and the plan never used it.
+- "Tasks 1-8 are CLAIMED-NOT-REAL: the constants, the test file, vitals.py, check-all,
+  the timeboxes do not exist" — refuted: this is a draft whose boxes all read `[ ]`; the
+  spec's "what is true today" claims only the absence, and `grep -c '\[ \]'
+  specs/047-autonomous-cycle-wall-budget/plan.md` answers 8. A draft is not a lie.
+- "The example pytest -k timebox fails on a missing file" — refuted: task 2 is the red
+  fixture, committed red on purpose; the house order is red-then-green.
+
 ### The two counts
 
-- Gaps that appeared only after the cross-read: **N**
-- Findings deleted, for carrying no command or for being refuted: **N**
+- Gaps that appeared only after the cross-read: **0**
+- Findings deleted, for carrying no command or for being refuted: **4**
 
 ## Assumptions and unresolved risks
 
-- `.ai/events.jsonl` stamps are trustworthy enough for wall arithmetic: they are written
-  by the hooks at event time, and a cycle that forges them forges its own telemetry — the
-  risk is accepted where it lands, in the recap's honesty, not in a gate.
+- The `ts` field is written by the emitting hook at event time and the line is sealed
+  with it; a forged or edited line fails the chain check the seal exists for, and vitals
+  refuses a session whose chain is broken rather than trusting its clock.
 - `just 1.58` keeps the `-` prefix semantics through upgrades; the pin lives in the
   justfile and a recipe test asserts the prefix appears in `just -n check-all`. If a
   future just removes it, `check-all` degrades to today's `check` and nothing lies.
@@ -136,14 +170,15 @@ conclude; it may not approve.
   verb plus the recap's banner; a gate before merge needs a measured baseline of normal
   cycles first — three real cycles, not one postmortem.
 
+
 ## Examples somebody can check
 
 - Given a cycle whose events span 200 minutes of wall time, When `uv run ai-eng report
   vitals --session <id>` runs, Then it exits `INCOMPLETE` and its output names
-  `OVER_BUDGET` and the phase that holds the largest gap.
+  `OVER_BUDGET` and the `cls` bucket that holds the largest gap.
 - Given a cycle whose events span 90 minutes, When `uv run ai-eng report vitals
-  --session <id>` runs, Then it exits `PASS` and prints per-phase minutes (tool-wait,
-  model, idle-or-hung) summing to the wall time within one minute.
+  --session <id>` runs, Then it exits `PASS` and prints minutes attributed per `cls`
+  (command, blocked, error, bypassed) beside the wall time between first and last `ts`.
 - Given a critic skill with no timebox line, When `uv run --with pytest==9.1.1 pytest -q
   tests/test_cycle_budget.py -k timebox` runs, Then it fails naming the skill — the bound
   is checked text, not hope.

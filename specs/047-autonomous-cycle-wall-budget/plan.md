@@ -32,10 +32,11 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
 1. [ ] **The budgets join contract.py** —
    **file**: `src/ai_engineering/contract.py` — add `CYCLE_WALL_BUDGET_MINUTES = 180`,
    `CRITIC_TIMEBOX_MINUTES = 40`, `CRITIC_CALLS_MAX = 120` beside the other named
-   budgets, each comment naming report 023's postmortem as its source. The numbers are
-   the postmortem's own prices: a 40-minute box keeps the five critics inside the budget
-   even fully serial, and 120 calls is the order of magnitude Review burned in 212
-   minutes.
+   budgets, each comment naming its source: 180 is the owner's decision of 2026-08-29
+   (PO-27's row carries it), 40 divides the ceiling across five critics run serially,
+   120 divides the postmortem's measured 409-call session across the same five and
+   rounds down. The numbers are derived, and the comments say so — no constant pretends
+   to be a measurement it does not have.
    **check**: `uv run python -c "from ai_engineering import contract; print(contract.CYCLE_WALL_BUDGET_MINUTES, contract.CRITIC_TIMEBOX_MINUTES, contract.CRITIC_CALLS_MAX)"`
    **rollback**: `git revert <commit>`; PO-27 reopens with it, no reader exists yet.
    **done when**: the three names import and print `180 40 120`, and they are the only
@@ -44,8 +45,8 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
 2. [ ] **The red fixture: timebox pins and the vitals arithmetic** —
    **file**: `tests/test_cycle_budget.py` — planted-fixture tests, red now: (a) each of
    the five critic skills names both bound numbers and the `TIMEBOXED` exit; (b) a
-   two-hour event stream for one session parses to per-phase minutes summing to wall
-   time within 60 seconds; (c) a 200-minute stream exits `INCOMPLETE` naming
+   two-hour event stream for one session parses to minutes attributed per `cls` beside
+   the wall time first-to-last `ts`; (c) a 200-minute stream exits `INCOMPLETE` naming
    `OVER_BUDGET`; (d) a 90-minute stream exits `PASS`; (e) an event stream with no
    session match exits `INCOMPLETE [NO_DATA]` rather than passing on emptiness.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_cycle_budget.py -k "timebox or vitals or budget"`
@@ -55,11 +56,12 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
 
 3. [ ] **The vitals reader** —
    **file**: `src/ai_engineering/vitals.py` (new, stdlib-only) — reads
-   `.ai/events.jsonl` for one session id, buckets minutes per phase from the stamps
-   (command events, guard blocks, exceptions), computes wall time first-to-last stamp,
-   and returns the outcome: `PASS` inside `CYCLE_WALL_BUDGET_MINUTES`, `INCOMPLETE
-   [OVER_BUDGET]` naming the largest phase, `INCOMPLETE [NO_DATA]` when the session
-   matches nothing. Never an approval from the clock alone: it reports arithmetic.
+   `.ai/events.jsonl` for one session id, attributes minutes between consecutive `ts`
+   stamps to the earlier event's `cls` (command, blocked, error, bypassed), computes
+   wall time first-to-last `ts`, and returns the outcome: `PASS` inside
+   `CYCLE_WALL_BUDGET_MINUTES`, `INCOMPLETE [OVER_BUDGET]` naming the largest bucket,
+   `INCOMPLETE [NO_DATA]` when the session matches nothing. Never an approval from the
+   clock alone: it reports arithmetic.
    **check**: `uv run --with pytest==9.1.1 pytest -q tests/test_cycle_budget.py -k "vitals or budget or no_data"`
    **rollback**: `git revert <commit>`; the reader has no caller yet.
    **done when**: those tests are green and the module imports nothing outside stdlib.
