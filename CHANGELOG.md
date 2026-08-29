@@ -6,6 +6,22 @@ search for.
 
 ## [Unreleased]
 
+### Changed (spec 049 — a refusal names what it refused)
+
+- `ai-eng init` no longer refuses a repository path with advice nobody can follow:
+  where the path crosses a symlink, the message names the offending component and its
+  target (`/var is a symlink to /private/var; ask from a real path…`) instead of
+  "check that no directory in the path is a symlink". The refusal itself is unchanged —
+  nothing is ever written through a link.
+- A router the installer skips is now printed: `ai-eng init` answers
+  `⚠ routers skipped (foreign): ai-design` when a skill name is taken by a folder this
+  install never wrote, or `skipped: … a file nobody recorded writing` for the other
+  silent cause. Before, `doctor` assertion 24 said "`ai-eng init` writes them again"
+  and init skipped it again in silence — a FAIL no command could repair.
+- Assertion 24's cure now names the remedy that works: remove or rename the foreign
+  skill folder, then `ai-eng init` again. The cure text ships as `checks[].cure` in the
+  `--json` envelope, so treat a rename of it as a contract change.
+
 ### Changed (spec 048 — the intake reaches shared understanding)
 
 - `ai-spec` step 0 was rewritten: it now points at a new `.agents/skills/ai-spec/references/intake.md` and
