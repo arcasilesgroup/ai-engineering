@@ -7,7 +7,7 @@ Read for what the change claims, then for what it does.
   what the caller sees when the other side is down.
 - The empty case, the one-item case, the duplicate case. Most real bugs live in one of them.
 - Concurrency: two of these at once. Which write wins, and does anybody notice.
-- Behaviour that used to be true and is not any more, whether or not it was intended.
+- Behaviour that was true before the change and is not after it, whether or not it was intended.
 - Error paths run too. Read them as code, not as decoration.
 - A changed signature, return shape or precondition: grep the name and read every call
   site. The diff shows you the change and hides the callers it breaks.

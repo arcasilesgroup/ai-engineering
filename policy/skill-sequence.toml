@@ -1,8 +1,8 @@
 # The governed cycle's order, as data.
 #
-# One checked copy of which stage follows which. This used to be prose in
-# `ai-cycle/SKILL.md`, which no test read — a renamed stage would fail the corpus
-# refusals that name it while the cycle's own sequence rotted in silence. A decision
+# One checked copy of which stage follows which: the order is data with a test, not prose in
+# a router, because prose cannot be checked and a renamed stage would fail the corpus
+# refusals that name it while the sequence itself rotted unchecked. A decision
 # that always comes out the same is code with a check, not a prompt (AGENTS.md rule 12),
 # so the order lives here, `tests/test_skill_sequence.py` refuses a map that stops
 # matching the tree, and the routers a person meets show what follows.

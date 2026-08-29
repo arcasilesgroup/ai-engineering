@@ -40,10 +40,9 @@ it.
    the conversation that produced it — a challenger who reads the author's reasoning
    inherits it.
 2. Choose what to attack: the sentences whose truth changes a decision — a count, a
-   path, a behaviour, a claim about another file, a "no code reads this". The
-   exhaustive sweep of every sentence is what this replaced: 044's challenge executed
-   every one, spent 70 minutes and 28 command blocks, and made two load-bearing
-   corrections — a cap bounds what the judgement used to price.
+   path, a behaviour, a claim about another file, a "no code reads this". Do not sweep
+   every sentence: an exhaustive pass spends the round on sentences no decision turns on,
+   so the selection is the work.
 3. Run the command before asking the question. The sentence gets executed, not
    re-read: a count gets counted, a path gets opened, a behaviour gets run. Paste
    what came back, including when it agrees.

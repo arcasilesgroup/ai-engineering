@@ -81,16 +81,16 @@ from 528 files, which is where the previous version ended up.
 ## Working here
 
 - `just check` is what CI runs. Run it before saying anything is done, and show the output.
-- Size is bounded by `contract.TEST_RATIO_MAX`, and by nothing else. A total-line ceiling
-  was tried and deleted: it was obliged to follow the tree it bounded, so it moved in fifty
-  of fifty commits and never caught a defect. Every number this file needs is named here and
+- Size is bounded by `contract.TEST_RATIO_MAX`, and by nothing else. A total-line ceiling is
+  no control here: obliged to follow the tree it bounds, it moves with every commit and
+  catches no defect. Every number this file needs is named here and
   stored elsewhere; this file names the home and never the value, because a doctrine that
   quotes a number is a doctrine that goes stale without a test.
 - `AGENTS.md` is capped by a test at the length in `tests/test_contracts.DOCTRINE_CEILING`.
   Everything that is not true in every session belongs in a skill.
 - Every `SKILL.md` is bounded by how hard it reads, at `contract.SKILL_FOG_CEILING`,
-  and by nothing else. A line cap was tried and deleted: it was spent on frontmatter and
-  blank lines, it bound one file, and nothing bounds length now.
+  and by nothing else. A line cap is no control: frontmatter and blank lines spend it, it
+  binds one file, and nothing about length is left bounded.
 - No surface reads BLOCKS until a denial has receipted there, and none has. The word is
   read from a receipt and there is no field left that can assert it. A green nobody has
   earned is the failure this product cures.
