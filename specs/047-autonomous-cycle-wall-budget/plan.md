@@ -112,7 +112,7 @@ anti-stall rule names `check-all`. The close (8) is the smoke and the record.
    **done when**: the goal test is green and the two skills name `check-all` and
    `report vitals` by their real commands.
 
-8. [ ] **The close: smoke, ledger, record** —
+8. [x] <!--t:f44d4e10c160--> **The close: smoke, ledger, record** —
    **file**: `docs/requirements.toml` untouched (PO-27's evidence command now answers —
    verify it), `CHANGELOG.md` — run the whole targeted set, print vitals on the live
    session, and state in the changelog what the budget does and does not decide.
