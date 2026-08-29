@@ -32,4 +32,8 @@ def test_the_cap_names_the_escalation_not_a_silent_stop():
     for name in ("ai-challenge", "ai-council"):
         body = _body(name)
         assert "hand the page to the person" in body, name
-        assert "loopgate" in body, f"{name} should name loopgate as the orchestrator's instrument"
+        # the bound is named as a rule, not as a module: `loopgate` was deleted by spec
+        # 044, and a skill that points at the corpse is the dead reference this replaced
+        assert "digest-equal green runs" in body, (
+            f"{name} should name the two-identical-greens rule as the orchestrator's bound"
+        )

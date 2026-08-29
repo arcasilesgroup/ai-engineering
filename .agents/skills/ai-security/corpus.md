@@ -24,4 +24,4 @@ behind each answer. It accepts no risk, replaces no guard and declares no compli
 - "write the fix for the vulnerability you found" — use `/ai-build`, because implementing against a plan is its job, and the same hands that found a hole do not quietly patch it and call it reviewed.
 - "report this vulnerability upstream" — use `/ai-report`, which routes a vulnerability to private disclosure and refuses to put it in a public issue.
 - "we do not need CI, this skill checks everything" — refused: it replaces neither the guards nor CI, and a scan run once by hand is not a control.
-- "this dependency version is vulnerable, I remember the advisory" — refused: the installed version decides (`versions.verify_against_installed`); a memory claim is unverified, and a finding that contradicts the installed bytes is dropped.
+- "this dependency version is vulnerable, I remember the advisory" — refused: the installed version decides; a memory claim is unverified, and a finding that contradicts the installed bytes is dropped.
