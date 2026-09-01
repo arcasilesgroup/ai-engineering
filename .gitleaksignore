@@ -1,0 +1,8 @@
+# Gitleaks fingerprint allowlist — synthetic/historical findings only.
+# None of these are live credentials; see DECISIONS.md in v1 history.
+.ai-engineering/policies/.signatures.json:jwt:3
+0b4827d003e5d1aeb42332262336cc1ba59bf844:.gitleaksignore:generic-api-key:12
+077ea12ed3df5fbfd0fb3feb70f618714c166de6:stacks/dotnet/security.md:generic-api-key:333
+077ea12ed3df5fbfd0fb3feb70f618714c166de6:stacks/python/security.md:generic-api-key:211
+tests/unit/security/test_redactor.py:generic-api-key:345
+tests/unit/hooks/test_runtime_state.py:generic-api-key:85
