@@ -8,7 +8,7 @@ Format: skill — author — license — source — pinned version (sha256 in ai
 | Skill | Fuente (íntegra) | Autor | Licencia | URL |
 |---|---|---|---|---|
 | ai-proof | unlazy v2.1.0 (SKILL.md, references/, scripts/, templates/) | Leonxlnx | MIT | https://github.com/Leonxlnx/unlazy |
-| ai-brainstorm | handshake SKILL.md | handshake authors; obra/superpowers patterns attributed by URL | MIT | https://github.com/obra/superpowers |
+| ai-brainstorm | handshake + brainstorming (obra/superpowers, merged) + spec-document-reviewer-prompt | obra | MIT | https://github.com/obra/superpowers |
 | ai-plan | wayfinder (SKILL.md, agents/, commands/) | Matt Pocock (mattpocock) | MIT | https://github.com/mattpocock/wayfinder |
 | ai-goal | Loop-Engineering skills (new-feature, goal-writer, feature-batch) | Loop-Engineering authors | attributed — sin licencia declarada en la fuente (H4) | fuente local ~/Downloads/Loop-Engineering |
 | ai-architect | headstart (SKILL.md, agents/, references/) | headstart authors | MIT (declarado en su SKILL.md; sin archivo LICENSE en la fuente) | https://github.com/headstart |
@@ -26,6 +26,7 @@ Format: skill — author — license — source — pinned version (sha256 in ai
 | ai-visual-recap | visual-recap (~/repos/skills) | ai-engineering | Apache-2.0 | https://github.com/arcasilesgroup/skills |
 | ai-design-audit | skill instalado (SKILL.md, scripts/audit.mjs, references/) | comunidad | sin licencia — atribución (H4) | fuente local ~/.claude/skills/ai-design-audit |
 | ai-writing-behavior | writing-agent-behavior (agentbehavior) | Braintrust + Basis | Apache-2.0 | https://github.com/braintrustdata/agentbehavior |
+| ai-agents-md | agents.md convention + published sample layouts | agents.md (OpenAI/Codex et al.) | MIT | https://agents.md/ · https://github.com/agentsmd/agents.md |
 
 ## Issues H4 abiertos (upstreams sin licencia — contacto pendiente)
 - Loop-Engineering (ai-goal): sin LICENSE ni author/URL en el árbol.
