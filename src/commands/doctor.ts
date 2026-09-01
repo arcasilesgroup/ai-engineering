@@ -19,7 +19,7 @@ export type CheckResult = { name: string; status: "ok" | "warn" | "fail"; detail
 
 const CEILING_MS = 50;
 
-export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: boolean } {
+export async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[]; fail: boolean }> {
   const results: CheckResult[] = [];
   const root = repoRoot(cwd);
   const push = (name: string, status: CheckResult["status"], detail: string) => results.push({ name, status, detail });
@@ -55,6 +55,28 @@ export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: 
     existsSync(root ? join(root, ".ai-engineering", "config.toml") : "") ? "ok" : "fail",
     Array.isArray(surfaces) ? `surfaces: ${surfaces.join(", ")}` : "not parseable or missing",
   );
+  // 3b. Skill mirrors: the canon only reaches IDEs through them. A mirror dir
+  //    missing its links is the P0-1 failure mode (silent ENOENT in installCanon).
+  if (root) {
+    const { mirrorTargets } = await import("../surfaces/adapters.ts");
+    const mirrors = mirrorTargets();
+    let mirrorOK = 0;
+    let mirrorBroken = 0;
+    for (const target of mirrors) {
+      if (!existsSync(target.dir)) {
+        mirrorBroken += 1;
+        continue;
+      }
+      const links = readdirSync(target.dir, { withFileTypes: true }).filter((e) => e.isSymbolicLink());
+      if (links.length > 0) mirrorOK += 1;
+      else mirrorBroken += 1;
+    }
+    push(
+      "mirrors",
+      mirrorBroken === 0 ? "ok" : "warn",
+      mirrorBroken === 0 ? `${mirrorOK}/${mirrors.length} mirrors carry linked skills` : `${mirrorBroken}/${mirrors.length} mirrors empty or missing → ai-eng init --global`,
+    );
+  }
   // 4. Canon: the machine's ~/.ai-engineering/skills must byte-match the binary's
   //    embedded payload. The repo lock never contains skills (it lists hooks,
   //    settings, config) — the old filter-by-skills/ check counted 0 forever.
@@ -219,13 +241,13 @@ function lintBehavior(content: string, folder: string): string | null {
   return null;
 }
 
-export function doctorMain(flags: { gc?: boolean }): number {
+export async function doctorMain(flags: { gc?: boolean }): Promise<number> {
   if (flags.gc) {
     for (const line of gc()) process.stdout.write(`${line}\n`);
     return 0;
   }
-  const { results, fail } = runChecks();
   const root = repoRoot() ?? process.cwd();
+  const { results, fail } = await runChecks();
   const runtime = `bun ${typeof Bun !== "undefined" ? Bun.version : "?"}`;
   ui.frame(`Health check · ${root.split("/").pop()} · ${runtime} · ai-eng ${VERSION}`);
   let ok = 0;

@@ -23,6 +23,7 @@
       "mechanism": "ts-module",
       "can": { "deny": true, "rewriteIn": true, "rewriteOut": true, "failClosed": true },
       "pluginFile": ".agents/hooks/ai-eng.ts",
+      "chainFile": ".agents/hooks/ai-eng-chain.ts",
       "timeout": 0
     },
     {
@@ -32,6 +33,7 @@
       "mechanism": "ts-module",
       "can": { "deny": "throw", "rewriteIn": true, "rewriteOut": true, "failClosed": true },
       "pluginFile": ".opencode/plugins/ai-eng.ts",
+      "chainFile": ".opencode/plugins/ai-eng-chain.ts",
       "timeout": 0
     },
     {

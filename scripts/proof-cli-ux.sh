@@ -62,7 +62,7 @@ printf '\n\n\n' | $CLI init --yes >/dev/null 2>&1
 DOC_OUT=$($CLI doctor 2>&1)
 printf '%s\n' "$DOC_OUT" | grep -E 'canon' | sed 's/^/G5 evidence: /'
 printf '%s\n' "$DOC_OUT" | grep 'canon' | grep -q '0/92' && die "G5: canon shows 0 verified"
-printf '%s\n' "$DOC_OUT" | grep 'canon' | grep -qE '[0-9]+/92 files verified' || die "G5: canon line malformed"
+printf '%s\n' "$DOC_OUT" | grep 'canon' | grep -qE '[0-9]+/[0-9]+ files verified' || die "G5: canon line malformed"
 
 # ── G6: doctor WARNs assets-outdated when lock.version is older ────────
 sed -i '' 's/version = "2.0.0"/version = "1.9.9"/' .ai-engineering/ai-eng.lock 2>/dev/null \

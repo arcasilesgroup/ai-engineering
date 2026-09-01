@@ -57,7 +57,16 @@ if (flags.help || !verb) {
   process.exit(flags.help ? 0 : 2);
 }
 
-const surfaceList: string[] = typeof flags.surface === "string" ? [flags.surface] : [];
+// --surface accepts repetition AND comma lists: "--surface a --surface b" and
+// "--surface a,b" both reach initMain as ["a","b"]. @bomb.sh/args collapses
+// repeated string flags to the last value; raw argv is the only truth.
+const surfaceList: string[] = process.argv
+  .slice(2)
+  .flatMap((arg, i, argv) => {
+    if (arg === "--surface") return (argv[i + 1] ?? "").split(",").filter(Boolean);
+    if (arg.startsWith("--surface=")) return arg.slice("--surface=".length).split(",").filter(Boolean);
+    return [];
+  });
 
 async function main(): Promise<number> {
   switch (verb) {
@@ -80,7 +89,7 @@ async function main(): Promise<number> {
     case "init":
       { const code = await initMain({ yes: flags.yes === true, global: flags.global === true, surface: surfaceList }); if (code === 0) maybeNotice(); return code; }
     case "doctor":
-      { const code = doctorMain({ gc: flags.gc === true }); if (code === 0) maybeNotice(); return code; }
+      { const code = await doctorMain({ gc: flags.gc === true }); if (code === 0) maybeNotice(); return code; }
     case "config": {
       const configFlags: { add?: string; remove?: string } = {};
       if (typeof flags.add === "string") configFlags.add = flags.add;

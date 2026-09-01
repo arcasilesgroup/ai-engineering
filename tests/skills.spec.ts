@@ -22,7 +22,7 @@ const MACHINE_PATH = /(\/Users\/|\/private\/tmp\/|\/tmp\/ai-eng-home-test|~\/\.a
 
 function listSkillDirs(): string[] {
   return readdirSync(SKILLS, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
+    .filter((e) => e.isDirectory() && !e.name.startsWith("."))
     .map((e) => join(SKILLS, e.name));
 }
 

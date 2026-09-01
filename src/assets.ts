@@ -2,9 +2,11 @@
 // every skill and template travels inside it. Regenerate with: bun scripts/gen-assets.ts
 
 import askills_ai_verify_evals_README_md from "../skills/ai-verify/evals/README.md" with { type: "file" };
+import askills_ai_verify_evals_packs_example_node_web_answer_key_json from "../skills/ai-verify/evals/packs/example-node-web/answer-key.json" with { type: "file" };
 import askills_ai_verify_evals_scripts_plant_py from "../skills/ai-verify/evals/scripts/plant.py" with { type: "file" };
 import askills_ai_verify_evals_scripts_score_py from "../skills/ai-verify/evals/scripts/score.py" with { type: "file" };
 import askills_ai_verify_evals_bug_catalog_md from "../skills/ai-verify/evals/bug-catalog.md" with { type: "file" };
+import askills_ai_verify_evals_fixtures_node_web_package_json from "../skills/ai-verify/evals/fixtures/node-web/package.json" with { type: "file" };
 import askills_ai_verify_tiers_3_chain_build_check_SKILL_md from "../skills/ai-verify/tiers/3-chain/build-check/SKILL.md" with { type: "file" };
 import askills_ai_verify_tiers_3_chain_perf_audit_SKILL_md from "../skills/ai-verify/tiers/3-chain/perf-audit/SKILL.md" with { type: "file" };
 import askills_ai_verify_tiers_3_chain_design_check_SKILL_md from "../skills/ai-verify/tiers/3-chain/design-check/SKILL.md" with { type: "file" };
@@ -29,6 +31,7 @@ import askills_ai_security_references_AI_AND_LLM_md from "../skills/ai-security/
 import askills_ai_security_references_RECONNAISSANCE_md from "../skills/ai-security/references/RECONNAISSANCE.md" with { type: "file" };
 import askills_ai_security_references_MEMORY_SAFETY_AND_BINARY_md from "../skills/ai-security/references/MEMORY-SAFETY-AND-BINARY.md" with { type: "file" };
 import askills_ai_security_references_validate_findings_cjs from "../skills/ai-security/references/validate-findings.cjs" with { type: "file" };
+import askills_ai_security_references_report_schema_json from "../skills/ai-security/references/report-schema.json" with { type: "file" };
 import askills_ai_security_references_WEB_PROTOCOL_AND_AUTH_md from "../skills/ai-security/references/WEB-PROTOCOL-AND-AUTH.md" with { type: "file" };
 import askills_ai_security_references_ATTACK_CLASSES_md from "../skills/ai-security/references/ATTACK-CLASSES.md" with { type: "file" };
 import askills_ai_security_references_CLIENT_SIDE_md from "../skills/ai-security/references/CLIENT-SIDE.md" with { type: "file" };
@@ -86,6 +89,7 @@ import askills_ai_design_audit_scripts_audit_mjs from "../skills/ai-design-audit
 import askills_ai_design_audit_SKILL_md from "../skills/ai-design-audit/SKILL.md" with { type: "file" };
 import askills_ai_note_SKILL_md from "../skills/ai-note/SKILL.md" with { type: "file" };
 import askills_ai_read_docs_SKILL_md from "../skills/ai-read-docs/SKILL.md" with { type: "file" };
+import askills__chain_bundle_ai_eng_chain_ts from "../skills/.chain-bundle/ai-eng-chain.ts" with { type: "file" };
 import askills_ai_rtk_references_commands_md from "../skills/ai-rtk/references/commands.md" with { type: "file" };
 import askills_ai_rtk_SKILL_md from "../skills/ai-rtk/SKILL.md" with { type: "file" };
 import askills_ai_plan_agents_openai_yaml from "../skills/ai-plan/agents/openai.yaml" with { type: "file" };
@@ -110,9 +114,11 @@ import atemplates_arch_rules_json_tpl from "../templates/arch.rules.json.tpl" wi
 
 export const EMBEDDED: Record<string, string> = {
   "../skills/ai-verify/evals/README.md": askills_ai_verify_evals_README_md,
+  "../skills/ai-verify/evals/packs/example-node-web/answer-key.json": askills_ai_verify_evals_packs_example_node_web_answer_key_json,
   "../skills/ai-verify/evals/scripts/plant.py": askills_ai_verify_evals_scripts_plant_py,
   "../skills/ai-verify/evals/scripts/score.py": askills_ai_verify_evals_scripts_score_py,
   "../skills/ai-verify/evals/bug-catalog.md": askills_ai_verify_evals_bug_catalog_md,
+  "../skills/ai-verify/evals/fixtures/node-web/package.json": askills_ai_verify_evals_fixtures_node_web_package_json,
   "../skills/ai-verify/tiers/3-chain/build-check/SKILL.md": askills_ai_verify_tiers_3_chain_build_check_SKILL_md,
   "../skills/ai-verify/tiers/3-chain/perf-audit/SKILL.md": askills_ai_verify_tiers_3_chain_perf_audit_SKILL_md,
   "../skills/ai-verify/tiers/3-chain/design-check/SKILL.md": askills_ai_verify_tiers_3_chain_design_check_SKILL_md,
@@ -137,6 +143,7 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-security/references/RECONNAISSANCE.md": askills_ai_security_references_RECONNAISSANCE_md,
   "../skills/ai-security/references/MEMORY-SAFETY-AND-BINARY.md": askills_ai_security_references_MEMORY_SAFETY_AND_BINARY_md,
   "../skills/ai-security/references/validate-findings.cjs": askills_ai_security_references_validate_findings_cjs,
+  "../skills/ai-security/references/report-schema.json": askills_ai_security_references_report_schema_json,
   "../skills/ai-security/references/WEB-PROTOCOL-AND-AUTH.md": askills_ai_security_references_WEB_PROTOCOL_AND_AUTH_md,
   "../skills/ai-security/references/ATTACK-CLASSES.md": askills_ai_security_references_ATTACK_CLASSES_md,
   "../skills/ai-security/references/CLIENT-SIDE.md": askills_ai_security_references_CLIENT_SIDE_md,
@@ -194,6 +201,7 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-design-audit/SKILL.md": askills_ai_design_audit_SKILL_md,
   "../skills/ai-note/SKILL.md": askills_ai_note_SKILL_md,
   "../skills/ai-read-docs/SKILL.md": askills_ai_read_docs_SKILL_md,
+  "../skills/.chain-bundle/ai-eng-chain.ts": askills__chain_bundle_ai_eng_chain_ts,
   "../skills/ai-rtk/references/commands.md": askills_ai_rtk_references_commands_md,
   "../skills/ai-rtk/SKILL.md": askills_ai_rtk_SKILL_md,
   "../skills/ai-plan/agents/openai.yaml": askills_ai_plan_agents_openai_yaml,

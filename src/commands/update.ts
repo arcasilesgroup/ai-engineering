@@ -1,11 +1,11 @@
 // `ai-eng update` — re-plant this repo's assets from the installed binary. ZERO
 // network: the payload leaves the binary the user already installed (§14.3). What
 // is the user's (AGENTS.md, DECISIONS.md, spec/plan, arch.rules) is never touched.
-// cli-ux-14 work point 04: compute the plan first, show it, resolve conflicts
+// cli-ux-14 work point 04: compute the sync plan first, show it, resolve conflicts
 // with the human (keep-yours default), confirm Apply, then write — never the
 // reverse. Human-facing lines go through src/ui.ts.
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -116,6 +116,12 @@ export async function updateMain(): Promise<number> {
   });
   for (const [path, resolution] of resolutions) {
     if (resolution === "keep") ui.info(`${path} — kept yours`);
+  }
+  // Freshly written git shims must stay executable or git silently ignores
+  // them (measured at init; update re-plants the same paths).
+  for (const shim of ["pre-commit", "commit-msg", "pre-push"]) {
+    const shimPath = join(root, ".git", "hooks", shim);
+    if (existsSync(shimPath)) chmodSync(shimPath, 0o755);
   }
   ui.ok(`${report.written.length} assets synced · ${resolutions.size} conflict${resolutions.size === 1 ? "" : "s"} resolved · 0 files of yours touched otherwise`);
   const lock = buildLock(entries, VERSION);

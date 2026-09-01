@@ -5,11 +5,12 @@
 // class of bug a governance tool can have, so contract files survive "This
 // project" and "Everything" asks twice before it deletes them.
 
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
-import { select, isCancel } from "@clack/prompts";
+import { SURFACES } from "../surfaces/adapters.ts";
 import { repoRoot, home } from "../env.ts";
+import { select, isCancel } from "@clack/prompts";
 import * as ui from "../ui.ts";
 import { VERSION } from "../version.ts";
 import { scriptedInput } from "../ui.ts";
@@ -93,6 +94,16 @@ export async function uninstallMain(): Promise<number> {
   if (existsSync(lockPath)) unlinkSync(lockPath);
   ui.ok("ai-eng.lock deleted");
 
+  // 3b. Plugin chain files (P0-2 companions): the surface adapters know where
+  //    they live; a dead plugin that fails to import is worse than none.
+  for (const surface of SURFACES) {
+    if (!surface.chainFile) continue;
+    const chainPath = join(root, surface.chainFile);
+    if (existsSync(chainPath)) {
+      unlinkSync(chainPath);
+      ui.ok(`${surface.chainFile} removed (chain module of ${surface.label})`);
+    }
+  }
   if (scope === "everything") {
     const agents = join(root, "AGENTS.md");
     const decisions = join(root, "DECISIONS.md");

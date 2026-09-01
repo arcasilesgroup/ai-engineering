@@ -76,10 +76,18 @@ function removeSurfaceFiles(root: string, id: string): void {
   const surface = SURFACES.find((s) => s.id === id);
   if (!surface) return;
   const path = surface.settingsFile ?? surface.pluginFile;
-  if (!path) return;
-  const absolute = join(root, path);
-  if (existsSync(absolute)) unlinkSync(absolute);
-  ui.ok(`${path} removed (ai-eng entries only)`);
+  if (path) {
+    const absolute = join(root, path);
+    if (existsSync(absolute)) unlinkSync(absolute);
+    ui.ok(`${path} removed (ai-eng entries only)`);
+  }
+  if (surface.chainFile) {
+    const chainPath = join(root, surface.chainFile);
+    if (existsSync(chainPath)) {
+      unlinkSync(chainPath);
+      ui.ok(`${surface.chainFile} removed (chain module)`);
+    }
+  }
 }
 
 /** The mockup hint for config: installed-state marker + capability. */

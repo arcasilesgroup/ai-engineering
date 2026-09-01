@@ -16,6 +16,7 @@ export type Surface = {
   can: { deny: boolean; rewriteIn: boolean; rewriteOut: boolean; failClosed?: boolean | string };
   settingsFile?: string;
   pluginFile?: string;
+  chainFile?: string;
   timeout: number;
   note?: string;
 };
@@ -60,7 +61,7 @@ export function installCanon(version: string): string[] {
   writeFileSync(versionFile(), JSON.stringify({ version, ts: Date.now() }));
   lines.push("✓ ~/.ai-engineering/version.json — version + 24h cache");
   for (const target of mirrorTargets()) {
-    mkdirSync(dirname(target.dir), { recursive: true });
+    mkdirSync(target.dir, { recursive: true });
     const count = linkSkills(canonDir, target.dir);
     lines.push(`✓ Symlink → ${target.label} (${count} skills)`);
   }

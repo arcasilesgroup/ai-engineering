@@ -12,8 +12,7 @@ import { multiselect, select, groupMultiselect, isCancel } from "@clack/prompts"
 import { scriptedInput } from "../ui.ts";
 import { SURFACES, surfaceCanGovern, installCanon, type Surface } from "../surfaces/adapters.ts";
 import { plant, buildLock, lockText } from "../plant.ts";
-import { home } from "../env.ts";
-import { configMain } from "./config.ts";
+import { home, versionFile } from "../env.ts";
 import { planEntries, contractEntries } from "./init-shared.ts";
 import { updateMain } from "./update.ts";
 import { VERSION } from "../version.ts";
@@ -106,6 +105,10 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   } else {
     ui.warn(`global canon at ${home()} looks incomplete — re-installing`);
     installCanon(VERSION).forEach((line) => ui.ok(line.replace(/^✓ /, "")));
+  }
+  if (flags.global) {
+    ui.end("Machine side done. Inside a repo, ai-eng init governs the project too.");
+    return 0;
   }
   // Outside a repo: a bare folder is not a refusal — §14.1 runs init in a bare
   // folder and init creates the repo itself (confirm, or --yes to proceed).
@@ -214,11 +217,11 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   return 0;
 }
 
-/** Canon version read for doctor/notice paths. */
+/** Canon version read for doctor/notice paths. home(), not HOME — the
+ *  AI_ENG_HOME override must isolate this too, or the status line lies. */
 export function canonVersion(): string {
   try {
-    const path = join(process.env.HOME ?? "", ".ai-engineering", "version.json");
-    return String(JSON.parse(readFileSync(path, "utf8")).version ?? "unknown");
+    return String(JSON.parse(readFileSync(versionFile(), "utf8")).version ?? "unknown");
   } catch {
     return "unknown";
   }
