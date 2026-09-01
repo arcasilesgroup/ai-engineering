@@ -1,0 +1,37 @@
+name: version
+# Changesets — version PRs on merge to main; npm publish via OIDC trusted
+# publishing (ai-shell pattern). Binary releases stay in release.yml (tag-driven).
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    if: github.repository == 'arcasilesgroup/ai-engineering'
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: npm ≥ 11.5.1 (OIDC trusted publishing)
+        run: npm install -g npm@11
+      - uses: changesets/action@v2.1.1
+        with:
+          version-script: npx changeset version
+          publish-script: npx changeset publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

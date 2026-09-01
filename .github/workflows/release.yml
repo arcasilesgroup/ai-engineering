@@ -1,5 +1,5 @@
 name: release
-# tag v0.13.0 → 8 cross-compiled binaries + SBOM + npm publish with --provenance (§7.1).
+# tag v2.0.0 → 8 cross-compiled binaries + SBOM + npm publish with --provenance (§7.1).
 on:
   push:
     tags: ["v*"]

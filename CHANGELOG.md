@@ -1,11 +1,17 @@
 # Changelog — ai-engineering
 
-The only notification channel for versions: no push, no auto-update (§07).
+All notable versions land here. The only notification channel for versions: no
+push, no auto-update (§07). Versioning and changelog automation: changesets
+(see [.changeset/README.md](.changeset/README.md)).
 
-## 0.13.0 — 2026-08-31
+## 2.0.0 — 2026-09-01
 
-First v2 release (blueprint v17). Binary-only distribution: `bun add -g ai-engineering` → `ai-eng`.
+First v2 stable line (blueprint v17). Version bumps and the changelog now flow
+through changesets; tag pushes still build the 8 cross-compiled binaries + SBOM.
 
+### Changed
+- Version line jumps to 2.0.0 (the 0.x experiment is over; the surface is stable).
+- Single version source: `src/version.ts` reads package.json — no drift.
 ### Added
 - `ai-eng chain` — the guard dispatcher: no-verify, self-protect, injection, loop, wrap.
   Fail-closed on any guard crash; verdict cache keyed on one physical tool call.

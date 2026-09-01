@@ -1,5 +1,5 @@
 # ai-eng.lock — sha256 of the global canon this repo expects (§08).
-version = "0.13.0"
+version = "2.0.0"
 
 spec_sha256 = "67c3427b96d46a9252ff2620a70d0aa52b473b3fce96da3c3980472a43ec364e"
 

@@ -1,19 +1,26 @@
 {
   "name": "ai-engineering",
-  "version": "0.13.0",
+  "version": "2.0.0",
   "description": "{ai} Engineering v2 — governance floor for AI coding agents: plant, guard, prove.",
   "license": "Apache-2.0",
   "type": "module",
   "module": "src/cli.ts",
-  "bin": { "ai-eng": "src/cli.ts" },
+  "bin": {
+    "ai-eng": "src/cli.ts"
+  },
   "files": ["src", "skills", "templates", "git-hooks", "NOTICE.md", "THIRD-PARTY-NOTICES.md", "CHANGELOG.md"],
-  "engines": { "bun": ">=1.4.0" },
+  "engines": {
+    "bun": ">=1.4.0"
+  },
   "scripts": {
     "build": "bun build src/cli.ts --compile --minify --sourcemap --bytecode --outfile dist/ai-eng",
     "test": "bun test",
     "lint": "oxlint src tests",
     "typecheck": "tsgolint check src tests",
-    "arch": "bun test tests/arch.spec.ts"
+    "arch": "bun test tests/arch.spec.ts",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish"
   },
   "dependencies": {
     "@bomb.sh/args": "0.3.1",
@@ -21,10 +28,13 @@
     "@clack/prompts": "1.7.0"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "1.0.0",
+    "@changesets/cli": "3.0.1",
     "@types/bun": "latest",
     "archunit": "2.4.0",
     "dependency-cruiser": "18.2.0",
     "oxlint": "latest",
+    "oxlint-tsgolint": "7.0.2001",
     "typescript": "latest"
   }
 }

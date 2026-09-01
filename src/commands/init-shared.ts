@@ -4,9 +4,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { PlanEntry } from "../plant.ts";
+import { VERSION } from "../version.ts";
 import { embeddedTemplate, embeddedText } from "../embed.ts";
-
-export const VERSION = "0.13.0";
 
 export function repoTemplateRoot(): string {
   // src/commands → repo root is three up.
@@ -29,7 +28,7 @@ export function detectCommands(): string {
   if (existsSync(join(root, "Cargo.toml"))) return "typecheck: cargo check · lint: clippy · test: cargo test";
   if (existsSync(join(root, "go.mod"))) return "typecheck: go vet · lint: golangci-lint · test: go test";
   if (existsSync(join(root, "pyproject.toml"))) return "typecheck: mypy · lint: ruff · test: pytest";
-  return "typecheck: (detecta tu lenguaje aquí) · test: (tu runner)";
+  return "typecheck: (detect your language here) · test: (your runner)";
 }
 
 export function gitHookEntries(): PlanEntry[] {
