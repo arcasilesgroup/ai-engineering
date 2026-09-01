@@ -7,17 +7,18 @@ import { join } from "node:path";
 import { plant, buildLock, lockText, parseLock } from "../plant.ts";
 import type { PlanEntry } from "../plant.ts";
 import { repoRoot, loadConfig } from "../env.ts";
-import { planEntries, VERSION } from "./init-shared.ts";
+import { planEntries } from "./init-shared.ts";
+import { VERSION } from "../version.ts";
 
 export function updateMain(): number {
   const root = repoRoot();
   if (!root) {
-    process.stderr.write("update: no estás en un repo gobernado.\n");
+    process.stderr.write("update: you are not in a governed repo.\n");
     return 2;
   }
   const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
   if (!existsSync(lockPath)) {
-    process.stderr.write("update: sin ai-eng.lock — corre ai-eng init primero.\n");
+    process.stderr.write("update: no ai-eng.lock — run ai-eng init first.\n");
     return 2;
   }
   const previous = parseLock(readFileSync(lockPath, "utf8"));
@@ -45,15 +46,15 @@ export function updateMain(): number {
   });
   void previousOurs;
   for (const written of report.written) process.stdout.write(`✓ ${written} synced\n`);
-  for (const untouched of report.untouched) process.stdout.write(`· ${untouched} (ya actualizado o tuyo)\n`);
+  for (const untouched of report.untouched) process.stdout.write(`· ${untouched} (already current or yours)\n`);
   for (const conflict of conflicts) {
-    process.stdout.write(`⚠ ${conflict.path ?? conflict} — parcheado por ti: diff 3-vías. ¿Fusiono, dejo el tuyo, o muestro el diff?\n`);
+    process.stdout.write(`⚠ ${conflict.path ?? conflict} — patched by you: 3-way diff. Merge, keep yours, or show the diff?\n`);
   }
   process.stdout.write("untouchable (yours): AGENTS.md · DECISIONS.md · .ai-engineering/{spec,plan}.html · arch.rules.json · overrides.toml\n");
   const lock = buildLock(entries, VERSION);
   const { writeFileSync } = require("node:fs") as typeof import("node:fs");
   writeFileSync(lockPath, lockText(lock));
-  process.stdout.write(`✓ ai-eng.lock re-escrito (${Object.keys(lock.assets).length} assets)\n`);
-  process.stdout.write("Siguiente: ai-eng doctor — verify the chain still works with the new hooks\n");
+  process.stdout.write(`✓ ai-eng.lock rewritten (${Object.keys(lock.assets).length} assets)\n`);
+  process.stdout.write("Next: ai-eng doctor — verify the chain still works with the new hooks\n");
   return 0;
 }

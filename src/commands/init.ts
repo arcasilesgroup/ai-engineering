@@ -6,12 +6,14 @@ import { spawnSync, execFileSync } from "node:child_process";
 // offers update, never overwrites an edited file (§14.5b's six paths).
 
 import { join } from "node:path";
-import { intro, multiselect, select, spinner, note, isCancel, confirm } from "@clack/prompts";
+import { multiselect, select, spinner, note, isCancel, confirm } from "@clack/prompts";
 import { SURFACES, surfaceCanGovern, installCanon } from "../surfaces/adapters.ts";
 import { plant, buildLock, lockText } from "../plant.ts";
 import { home } from "../env.ts";
 import { updateMain } from "./update.ts";
-import { VERSION, planEntries, contractEntries } from "./init-shared.ts";
+import { planEntries, contractEntries } from "./init-shared.ts";
+import { showLogo } from "../branding.ts";
+import { VERSION } from "../version.ts";
 
 function isGitRepo(cwd: string): boolean {
   return existsSync(join(cwd, ".git"));
@@ -22,22 +24,23 @@ function scaffoldProject(surfaces: string[]): string[] {
   const lines: string[] = [];
   // Contract files: written ONCE. plant() skips anything the user already has.
   const contractReport = plant(cwd, contractEntries(new Date().toISOString().slice(0, 10)));
-  for (const written of contractReport.written) lines.push(`✓ ${written} (contrato)`);
-  for (const untouched of contractReport.untouched) lines.push(`· ${untouched} — tuyo, no se toca`);
+  for (const written of contractReport.written) lines.push(`✓ ${written} (contract)`);
+  for (const untouched of contractReport.untouched) lines.push(`· ${untouched} — yours, untouched`);
   // CLAUDE.md: symlink to AGENTS.md where the OS allows, one-line import where not.
   const claudePath = join(cwd, "CLAUDE.md");
   if (!existsSync(claudePath)) {
     try {
       symlinkSync("AGENTS.md", claudePath);
-      lines.push("✓ CLAUDE.md → symlink a AGENTS.md");
+      lines.push("✓ CLAUDE.md → symlink to AGENTS.md");
     } catch {
       writeFileSync(claudePath, "@AGENTS.md\n");
-      lines.push("✓ CLAUDE.md → una línea @AGENTS.md (symlink rechazado por el FS)");
+      lines.push("✓ CLAUDE.md → one-line @AGENTS.md (FS refused the symlink)");
     }
   }
-  const report = plant(cwd, planEntries(surfaces));
+  const entries = planEntries(surfaces);
+  const report = plant(cwd, entries);
   for (const written of report.written) lines.push(`✓ ${written}`);
-  for (const conflict of report.conflicts) lines.push(`⚠ ${conflict} — editado por ti: diff 3-vías requerido, no se toca`);
+  for (const conflict of report.conflicts) lines.push(`⚠ ${conflict} — edited by you: 3-way diff required, not touched`);
   // Hook shims must be executable or git silently ignores them (measured).
   for (const shim of ["pre-commit", "commit-msg", "pre-push"]) {
     const shimPath = join(cwd, ".git", "hooks", shim);
@@ -54,13 +57,14 @@ function scaffoldProject(surfaces: string[]): string[] {
   } catch {
     /* no custom hooksPath: nothing to clean */
   }
+  const lock = buildLock(entries, VERSION);
   writeFileSync(join(cwd, ".ai-engineering", "ai-eng.lock"), lockText(lock));
-  lines.push(`✓ .ai-engineering/ai-eng.lock (${Object.keys(lock.assets).length} assets con sha256)`);
+  lines.push(`✓ .ai-engineering/ai-eng.lock (${Object.keys(lock.assets).length} assets with sha256)`);
   return lines;
 }
 
 export async function initMain(flags: { yes?: boolean; global?: boolean; surface?: string[] }): Promise<number> {
-  intro(`{ai} Engineering ${VERSION}`);
+  showLogo(VERSION);
   const cwd = process.cwd();
   const inRepo = isGitRepo(cwd) || existsSync(join(cwd, ".ai-engineering"));
   // Phase 1: global, or missing canon — installs/repairs the machine side either way.
@@ -69,29 +73,29 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   if (flags.global || !existsSync(canonDir)) {
     installCanon(VERSION).forEach((line) => process.stdout.write(`${line}\n`));
   }
-  // Outside a repo: carpeta pelada is not a refusal — §14.1 runs init in a bare
+  // Outside a repo: a bare folder is not a refusal — §14.1 runs init in a bare
   // folder and init creates the repo itself (confirm, or --yes to proceed).
   if (!inRepo) {
     const ok = flags.yes === true || (await confirm({ message: "No git repo here. Create one? (git init -q)" }));
     if (isCancel(ok) || ok === false) {
-      note("Dentro de un repo, ai-eng init lo gobierna además.", "next");
+      note("Inside a repo, ai-eng init governs it too.", "next");
       return 0;
     }
     try {
       execFileSync("git", ["init", "-q"], { cwd });
       process.stdout.write("✓ git init -q\n");
     } catch {
-      process.stderr.write("git init falló — abortando: sin repo no hay floor.\n");
+      process.stderr.write("git init failed — aborting: without a repo there is no floor.\n");
       return 2;
     }
   }
-  // ── Phase 2: the repo is governed — idempotent re-init never pisa tu trabajo (§14.5b).
+  // ── Phase 2: the repo is governed — idempotent re-init never tramples your work (§14.5b).
   if (existsSync(join(cwd, ".ai-engineering", "config.toml"))) {
     const action = await select({
-      message: "Esto ya está gobernado.",
+      message: "This repo is already governed.",
       options: [
-        { value: "exit", label: "Salir" },
-        { value: "update", label: "Re-plantar assets (update)" },
+        { value: "exit", label: "Exit" },
+        { value: "update", label: "Re-plant assets (update)" },
       ],
     });
     if (isCancel(action) || action === "exit") return 0;
@@ -102,7 +106,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
     picked = flags.surface && flags.surface.length > 0 ? flags.surface : ["claude-code"];
   } else {
     const answer = await multiselect({
-      message: "¿Qué superficies de agente usas?",
+      message: "Which agent surfaces do you use?",
       options: SURFACES.map((s) => ({
         value: s.id,
         label: s.label,
@@ -117,7 +121,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   for (const id of picked) {
     const surface = SURFACES.find((s) => s.id === id);
     if (surface && !surfaceCanGovern(surface)) {
-      process.stderr.write(`"${id}" no puede negar herramientas: los guards no tienen dónde correr. Usa una superficie core.\n`);
+      process.stderr.write(`"${id}" cannot deny tools: the guards have nowhere to run. Use a core surface.\n`);
       return 2;
     }
   }
@@ -130,14 +134,14 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   // their baseline from second zero (§08).
   try {
     execFileSync("git", ["add", "-A"], { cwd });
-    execFileSync("git", ["commit", "-q", "-m", "chore(ai-eng): plant governance 0.13.0", "--no-verify", "--no-gpg-sign"], { cwd });
-    process.stdout.write("✓ primer commit del contrato\n");
+    execFileSync("git", ["commit", "-q", "-m", `chore(ai-eng): plant governance ${VERSION}`, "--no-verify", "--no-gpg-sign"], { cwd });
+    process.stdout.write("✓ first contract commit\n");
   } catch {
-    process.stdout.write("· commit del contrato pendiente (hazlo tú con git)\n");
+    process.stdout.write("· contract commit pending (do it yourself with git)\n");
   }
   process.stdout.write("\nTwo steps I can't do for you:\n");
-  process.stdout.write("  1. Confía el workspace en tu superficie (sin trust, los hooks no corren)\n");
-  process.stdout.write("  2. ai-eng doctor — verifica que la cadena responde\n");
+  process.stdout.write("  1. Trust the workspace in your surface (without trust, hooks do not run)\n");
+  process.stdout.write("  2. ai-eng doctor — verify the chain responds\n");
   return 0;
 }
 

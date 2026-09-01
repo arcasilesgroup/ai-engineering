@@ -15,12 +15,12 @@ export function lintSkill(dir: string): SkillLint {
   const problems: string[] = [];
   const skillMd = join(dir, "SKILL.md");
   if (!existsSync(skillMd)) {
-    return { skill, ok: false, problems: ["sin SKILL.md"] };
+    return { skill, ok: false, problems: ["no SKILL.md"] };
   }
   const content = readFileSync(skillMd, "utf8");
   const match = /^---\n([\s\S]*?)\n---/.exec(content);
   if (!match) {
-    return { skill, ok: false, problems: ["frontmatter ausente"] };
+    return { skill, ok: false, problems: ["frontmatter missing"] };
   }
   const body = match[1] ?? "";
   const lines = body.split("\n");
@@ -38,16 +38,16 @@ export function lintSkill(dir: string): SkillLint {
   for (const key of Object.keys(fields)) {
     if (!known.includes(key)) unknown.push(key);
   }
-  if (unknown.length > 0) problems.push(`campos extra: ${unknown.join(", ")} — un frontmatter roto es un skill invisible`);
-  if (fields["name"] !== skill) problems.push(`name=${fields["name"] ?? ""} ≠ carpeta`);
+  if (unknown.length > 0) problems.push(`extra fields: ${unknown.join(", ")} — a broken frontmatter is an invisible skill`);
+  if (fields["name"] !== skill) problems.push(`name=${fields["name"] ?? ""} ≠ folder`);
   const description = fields["description"] ?? "";
-  if (description.length === 0) problems.push("description vacía");
+  if (description.length === 0) problems.push("empty description");
   if (description.length > 1024) problems.push(`description ${description.length} > 1024 chars`);
-  if (description.includes("\\n")) problems.push("description con salto de línea artificial");
-  if (!USAGE_HINT.test(description)) problems.push("description sin verbo de uso (doctor WARN: un skill que no matchea no existe)");
+  if (description.includes("\\n")) problems.push("description with artificial line break");
+  if (!USAGE_HINT.test(description)) problems.push("description without usage verb (doctor WARN: a skill that does not match does not exist)");
   const license = fields["license"] ?? "";
   const SPDX = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "Unlicense", "CC0-1.0"];
-  if (!SPDX.includes(license)) problems.push(`license="${license}" no es un identificador SPDX conocido`);
+  if (!SPDX.includes(license)) problems.push(`license="${license}" is not a known SPDX identifier`);
   return { skill, ok: problems.length === 0, problems };
 }
 

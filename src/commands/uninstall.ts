@@ -2,7 +2,7 @@
 // keeps AGENTS.md, DECISIONS.md, spec.html, arch.rules and the skills. Deleting
 // what the user edited is the worst class of bug a governance tool can have (§14.5).
 
-import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { confirm, select, isCancel } from "@clack/prompts";
@@ -13,7 +13,7 @@ const AI_ENG_ENTRIES = ["ai-eng chain"];
 export async function uninstallMain(): Promise<number> {
   const root = repoRoot();
   if (!root) {
-    process.stderr.write("uninstall: no estás en un repo gobernado.\n");
+    process.stderr.write("uninstall: you are not in a governed repo.\n");
     return 2;
   }
   process.stdout.write("This will remove ai-eng governance from this project:\n\n");
@@ -59,9 +59,9 @@ export async function uninstallMain(): Promise<number> {
         }
       }
       writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
-      lines.push("✓ .claude/settings.json — solo entradas ai-eng eliminadas");
+      lines.push("✓ .claude/settings.json — only ai-eng entries removed");
     } catch {
-      lines.push("⚠ .claude/settings.json no parseable — no lo toco (revísalo a mano)");
+      lines.push("⚠ .claude/settings.json not parseable — leaving it alone (review by hand)");
     }
   }
   const hooksDir = join(root, ".git", "hooks");
@@ -80,14 +80,14 @@ export async function uninstallMain(): Promise<number> {
   if (scope === "everything") {
     const agents = join(root, "AGENTS.md");
     const decisions = join(root, "DECISIONS.md");
-    const confirmedAll = await confirm({ message: "Esto borra AGENTS.md y DECISIONS.md — tu trabajo. ¿Seguro?" });
+    const confirmedAll = await confirm({ message: "This deletes AGENTS.md and DECISIONS.md — your work. Sure?" });
     if (confirmedAll === true) {
       if (existsSync(agents)) unlinkSync(agents);
       if (existsSync(decisions)) unlinkSync(decisions);
       rmSync(join(root, ".ai-engineering"), { recursive: true, force: true });
-      lines.push("✓ todo lo de ai-eng eliminado (elección tuya)");
+      lines.push("✓ all ai-eng files removed (your choice)");
     } else {
-      lines.push("· conservado: AGENTS.md, DECISIONS.md, .ai-engineering/");
+      lines.push("· kept: AGENTS.md, DECISIONS.md, .ai-engineering/");
     }
   }
   for (const line of lines) process.stdout.write(`${line}\n`);

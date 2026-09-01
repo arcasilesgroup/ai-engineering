@@ -28,9 +28,9 @@ export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: 
     const content = readFileSync(agentsPath, "utf8");
     const rules = (content.match(/^\s*(?:\d+\.|-)\s+\S/gm) ?? []).length;
     const lines = content.split("\n").length;
-    push("AGENTS.md", lines <= 80 && rules >= 6 ? "ok" : "warn", `${rules} reglas · ${lines} líneas${lines > 80 ? " (over the context ceiling)" : ""}`);
+    push("AGENTS.md", lines <= 80 && rules >= 6 ? "ok" : "warn", `${rules} rules · ${lines} lines${lines > 80 ? " (over the context ceiling)" : ""}`);
   } else {
-    push("AGENTS.md", "fail", "no existe — el contrato no está plantado");
+    push("AGENTS.md", "fail", "missing — the contract is not planted");
   }
   // 2. CLAUDE.md imports AGENTS.md or is a symlink.
   const claudePath = root ? join(root, "CLAUDE.md") : null;
@@ -41,9 +41,9 @@ export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: 
     } catch {
       ok = false;
     }
-    push("CLAUDE.md", ok ? "ok" : "warn", ok ? "importa AGENTS.md" : "no referencia AGENTS.md");
+    push("CLAUDE.md", ok ? "ok" : "warn", ok ? "imports AGENTS.md" : "does not reference AGENTS.md");
   } else {
-    push("CLAUDE.md", "warn", "ausente");
+    push("CLAUDE.md", "warn", "absent");
   }
   // 3. config.toml parseable + surfaces declared.
   const config = loadConfig();
@@ -51,7 +51,7 @@ export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: 
   push(
     "config.toml",
     existsSync(root ? join(root, ".ai-engineering", "config.toml") : "") ? "ok" : "fail",
-    Array.isArray(surfaces) ? `superficies: ${surfaces.join(", ")}` : "no parseable o ausente",
+    Array.isArray(surfaces) ? `surfaces: ${surfaces.join(", ")}` : "not parseable or missing",
   );
   // 4. Canon 19/19 sha256 + mirrors resolve.
   if (root) {
@@ -71,9 +71,9 @@ export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: 
           if (hashFile(absolute) !== hash) drift += 1;
         }
       }
-      push("canon+lock", drift === 0 ? "ok" : "warn", `${checked} assets verificados · ${drift} drift`);
+      push("canon+lock", drift === 0 ? "ok" : "warn", `${checked} assets verified · ${drift} drift`);
     } else {
-      push("canon+lock", "warn", "sin lockfile — ejecuta ai-eng init");
+      push("canon+lock", "warn", "no lockfile — run ai-eng init");
     }
   }
   // 5. git floor: marker-managed shims in .git/hooks/ + gitleaks present.
@@ -95,26 +95,26 @@ export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: 
     { inProcess: true, stateDir: join(home(), "doctor") },
   );
   const ms = Date.now() - t0;
-  push("chain test", outcome.action === "deny" && ms <= CEILING_MS ? "ok" : outcome.action === "deny" ? "warn" : "fail", outcome.action === "deny" ? `payload adversarial (git commit -n) → DENY en ${ms}ms` : `payload adversarial NO negado (${outcome.action}) en ${ms}ms`);
+  push("chain test", outcome.action === "deny" && ms <= CEILING_MS ? "ok" : outcome.action === "deny" ? "warn" : "fail", outcome.action === "deny" ? `adversarial payload (git commit -n) → DENY in ${ms}ms` : `adversarial payload NOT denied (${outcome.action}) in ${ms}ms`);
   // 7. receipts aggregate vs budget.
   const summary = summarizeReceipts();
-  push("receipts", summary.p95 <= CEILING_MS ? "ok" : "warn", `${summary.total} ejecuciones · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (techo ${CEILING_MS})`);
+  push("receipts", summary.p95 <= CEILING_MS ? "ok" : "warn", `${summary.total} runs · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (ceiling ${CEILING_MS})`);
   // 8. overrides active → permanent WARN until they expire.
   const overrides = readOverrides(root);
   const active = overrides.filter((o) => overrideActive(overrides, o.name) !== null);
-  push("overrides", active.length === 0 ? "ok" : "warn", active.length === 0 ? "ninguno activo" : `${active.length} activo(s): ${active.map((o) => `${o.name} — ${o.reason.slice(0, 40)}`).join(" · ")}`);
+  push("overrides", active.length === 0 ? "ok" : "warn", active.length === 0 ? "none active" : `${active.length} active: ${active.map((o) => `${o.name} — ${o.reason.slice(0, 40)}`).join(" · ")}`);
   // 9. arch bootstrap vs active.
   const archPath = root ? join(root, ".ai-engineering", "arch.rules.json") : null;
   const hasSrc = root ? existsSync(join(root, "src")) : false;
-  push("arch", !archPath ? "warn" : hasSrc ? "ok" : "warn", !archPath ? "sin arch.rules.json" : hasSrc ? "activo — src/ presente" : "modo bootstrap — src/ vacío");
+  push("arch", !archPath ? "warn" : hasSrc ? "ok" : "warn", !archPath ? "no arch.rules.json" : hasSrc ? "active — src/ present" : "bootstrap mode — src/ empty");
   // 10. spec slot: zombie contracts.
   const specPath = root ? join(root, ".ai-engineering", "spec.html") : null;
   if (specPath && existsSync(specPath)) {
     const lockPath = join(root ?? "", ".ai-engineering", "ai-eng.lock");
     const pinned = existsSync(lockPath) ? Boolean(parseLock(readFileSync(lockPath, "utf8")).spec_sha256) : false;
-    push("spec slot", pinned ? "ok" : "warn", pinned ? "contrato aprobado (sha256 en el lock)" : "spec.html vivo SIN aprobación — PARADA 1 pendiente o contrato zombi");
+    push("spec slot", pinned ? "ok" : "warn", pinned ? "contract approved (sha256 in lock)" : "live spec.html WITHOUT approval — STOP 1 pending or zombie contract");
   } else {
-    push("spec slot", "ok", "slot limpio: 0 contratos zombi");
+    push("spec slot", "ok", "clean slot: 0 zombie contracts");
   }
   // 11. surfaces responding: settings present for declared surfaces.
   if (Array.isArray(surfaces)) {
@@ -123,7 +123,7 @@ export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: 
       if (!surface) continue;
       const path = surface.settingsFile ?? surface.pluginFile ?? "";
       const present = root !== null && path.length > 0 && existsSync(join(root, path));
-      push(`surface ${id}`, present ? "ok" : id === "claude-code" ? "fail" : "warn", present ? `${path} presente` : `${path} ausente`);
+      push(`surface ${id}`, present ? "ok" : id === "claude-code" ? "fail" : "warn", present ? `${path} present` : `${path} missing`);
     }
   }
   // 12. behaviors lint (§21.5) — same frontmatter rules as skills.
@@ -136,9 +136,9 @@ export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: 
       const lint = lintBehavior(readFileSync(behavior, "utf8"), entry);
       if (lint) bad.push(`${entry}: ${lint}`);
     }
-    push("behaviors", bad.length === 0 ? "ok" : "fail", bad.length === 0 ? "frontmatter correcto" : bad.join(" · "));
+    push("behaviors", bad.length === 0 ? "ok" : "fail", bad.length === 0 ? "frontmatter ok" : bad.join(" · "));
   } else {
-    push("behaviors", "ok", "sin behaviors declarados");
+    push("behaviors", "ok", "no behaviors declared");
   }
   return { results, fail: results.some((r) => r.status === "fail") };
 }
@@ -147,7 +147,7 @@ export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: 
 export function gc(cwd = process.cwd()): string[] {
   const root = repoRoot(cwd);
   const lines: string[] = [];
-  if (!root) return ["sin repo: nada que recolectar"];
+  if (!root) return ["no repo: nothing to collect"];
   const config = loadConfig();
   const maxFiles = Number(config["gc"]?.["max_files"] ?? 25);
   const ttlDays = Number(String(config["gc"]?.["receipts_ttl"] ?? "30d").replace("d", ""));
@@ -175,15 +175,15 @@ export function gc(cwd = process.cwd()): string[] {
       if (stale.length > 0) {
         const { writeFileSync } = require("node:fs") as typeof import("node:fs");
         writeFileSync(join(dir, "summary.json"), JSON.stringify({ ...summary, gc: new Date().toISOString() }));
-        lines.push(`✓ receipts: ${stale.length} agregados a summary.json y borrados (ttl ${ttlDays}d)`);
+        lines.push(`✓ receipts: ${stale.length} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
       }
       continue;
     }
     if (entries.length > limit) {
-      lines.push(`⚠ ${folder}/: ${entries.length} > max_files=${limit} — revisa citas antes de gc (los citados son inmunes)`);
+      lines.push(`⚠ ${folder}/: ${entries.length} > max_files=${limit} — review citations before gc (cited items are immune)`);
     }
   }
-  if (lines.length === 0) lines.push("✓ gc: nada que recolectar");
+  if (lines.length === 0) lines.push("✓ gc: nothing to collect");
   return lines;
 }
 
@@ -197,12 +197,12 @@ function statMtime(path: string): number {
 
 function lintBehavior(content: string, folder: string): string | null {
   const match = /^---\n([\s\S]*?)\n---/.exec(content);
-  if (!match) return "sin frontmatter";
+  if (!match) return "no frontmatter";
   const body = match[1] ?? "";
   const name = /^name:\s*(.+)$/m.exec(body)?.[1]?.trim();
-  if (name !== folder) return `name=${name} ≠ carpeta ${folder}`;
+  if (name !== folder) return `name=${name} ≠ folder ${folder}`;
   const description = /^description:\s*(.+)$/m.exec(body)?.[1]?.trim() ?? "";
-  if (description.length === 0 || description.length > 1024) return "description vacía o >1024";
+  if (description.length === 0 || description.length > 1024) return "description empty or >1024";
   return null;
 }
 

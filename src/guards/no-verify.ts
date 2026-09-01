@@ -96,7 +96,7 @@ export function checkContent(content: string): GuardResult {
 }
 
 const OVERRIDE_HINT =
-  "Si el skip es legítimo, abre .ai-engineering/overrides.toml con un reason — quedará en el receipt y en el commit.";
+  "If the skip is legitimate, open .ai-engineering/overrides.toml with a reason — it lands in the receipt and the commit.";
 
 export const NO_VERIFY_REASON_TAIL = OVERRIDE_HINT;
 

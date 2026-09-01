@@ -144,8 +144,8 @@ export function runSelfProtect(payload: Payload, repoRoot: string | null): Guard
   }
   const command = args["command"];
   if (typeof command === "string" && command.length > 0) {
-    // macOS: /var es un symlink de /private/var — los paths deben canonicalizarse
-    // ANTES del substring, o el agente evade escribiendo el alias del tmpdir.
+    // macOS: /var is a symlink of /private/var — paths must be canonicalized
+    // BEFORE the substring test, or the agent evades by writing the tmpdir alias.
     const { realpathSync } = require("node:fs") as typeof import("node:fs");
     const canonPath = (target: string): string => {
       // Canonicalize the longest existing prefix; a not-yet-created file inherits the

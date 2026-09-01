@@ -9,7 +9,7 @@ import { readOverrides, overrideActive } from "../chain/dialect.ts";
 export async function floor(hook: string, msgFile?: string): Promise<number> {
   const root = repoRoot();
   if (!root) {
-    process.stderr.write("ai-eng git: no hay repo gobernado desde aquí.\n");
+    process.stderr.write("ai-eng git: no governed repo from here.\n");
     return 2;
   }
   if (hook === "pre-commit") {
@@ -25,7 +25,7 @@ export async function floor(hook: string, msgFile?: string): Promise<number> {
     });
     for (const line of result.lines) process.stderr.write(`${line}\n`);
     if (!result.ok) {
-      process.stderr.write("[git floor] pre-commit: BLOQUEADO — lo que los hooks dirían es lo que hay que arreglar.\n");
+      process.stderr.write("[git floor] pre-commit: BLOCKED — what the hooks would say is what needs fixing.\n");
       return 1;
     }
     if (receipt) process.stderr.write(`[git floor] pre-commit ✓ (${Date.now() - t0}ms · ${summarizeReceipts().total} receipts)\n`);
@@ -33,7 +33,7 @@ export async function floor(hook: string, msgFile?: string): Promise<number> {
   }
   if (hook === "commit-msg") {
     if (!msgFile) {
-      process.stderr.write("uso: ai-eng git commit-msg <msgfile>\n");
+      process.stderr.write("usage: ai-eng git commit-msg <msgfile>\n");
       return 2;
     }
     const overrides = readOverrides(root);
@@ -58,6 +58,6 @@ export async function floor(hook: string, msgFile?: string): Promise<number> {
     for (const line of result.lines) process.stderr.write(`${line}\n`);
     return result.ok ? 0 : 1;
   }
-  process.stderr.write("uso: ai-eng git pre-commit|commit-msg|pre-push\n");
+  process.stderr.write("usage: ai-eng git pre-commit|commit-msg|pre-push\n");
   return 2;
 }

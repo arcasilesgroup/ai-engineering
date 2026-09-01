@@ -93,12 +93,12 @@ export function sessionContextLines(cwd: string): string[] {
   const { repoRoot } = require("../env.ts") as typeof import("../env.ts");
   const root = repoRoot(cwd);
   if (root && !existsSync(join(root, ".ai-engineering", "config.toml"))) {
-    lines.push("[ai-eng] este repo no está gobernado: ai-eng init");
+    lines.push("[ai-eng] this repo is not governed: run ai-eng init");
   }
   const { loadConfig } = require("../env.ts") as typeof import("../env.ts");
   const models = loadConfig()["models"] ?? {};
   if (typeof models["decide"] === "string") {
-    lines.push(`[ai-eng] pin de modelos — decide: ${models["decide"]} · execute: ${models["execute"]} · verify: ${models["verify"]}`);
+    lines.push(`[ai-eng] model pin — decide: ${models["decide"]} · execute: ${models["execute"]} · verify: ${models["verify"]}`);
   }
   return lines;
 }

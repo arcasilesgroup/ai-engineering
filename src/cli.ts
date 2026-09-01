@@ -6,6 +6,8 @@
 
 import { parse } from "@bomb.sh/args";
 import tabRoot from "@bomb.sh/tab";
+import { VERSION } from "./version.ts";
+import { showLogo } from "./branding.ts";
 import { chainMain } from "./chain/mod.ts";
 import { doctorMain } from "./commands/doctor.ts";
 import { initMain } from "./commands/init.ts";
@@ -18,7 +20,6 @@ import { specMain } from "./spec/index.ts";
 import { floor } from "./floor/entry.ts";
 
 const HUMAN = ["init", "doctor", "config", "update", "upgrade", "uninstall"];
-const VERSION = "0.13.0";
 
 function detectShell(): string {
   if (process.env["ZSH_VERSION"]) return "zsh";
@@ -43,14 +44,15 @@ if (flags.version) {
   process.exit(0);
 }
 if (flags.help || !verb) {
-  process.stdout.write(`{ai} Engineering ${VERSION} — plant, guard, prove.\n\n`);
-  process.stdout.write("  ai-eng init       planta gobernanza (global sin repo; contrato dentro)\n");
-  process.stdout.write("  ai-eng doctor     12 checks + prueba adversarial real + --gc\n");
-  process.stdout.write("  ai-eng config     superficies y umbrales\n");
-  process.stdout.write("  ai-eng update     re-planta assets del binario (cero red)\n");
-  process.stdout.write("  ai-eng upgrade    delega en bun/npm\n");
-  process.stdout.write("  ai-eng uninstall  revierte lo suyo, conserva lo tuyo\n\n");
-  process.stdout.write("Verbos de máquina (hooks/CI): chain · git · wrap · spec\n");
+  showLogo(VERSION);
+  process.stdout.write("\n");
+  process.stdout.write("  ai-eng init       plant governance (global without a repo; contract inside)\n");
+  process.stdout.write("  ai-eng doctor     12 checks + one real adversarial probe + --gc\n");
+  process.stdout.write("  ai-eng config     surfaces and thresholds\n");
+  process.stdout.write("  ai-eng update     re-plant binary assets (zero network)\n");
+  process.stdout.write("  ai-eng upgrade    delegate to bun/npm\n");
+  process.stdout.write("  ai-eng uninstall  revert ours, keep yours\n\n");
+  process.stdout.write("Machine verbs (hooks/CI): chain · git · wrap · spec\n");
   process.exit(flags.help ? 0 : 2);
 }
 
@@ -61,7 +63,7 @@ async function main(): Promise<number> {
     case "chain": {
       const event = String(flags._[1] ?? "");
       if (!event) {
-        process.stderr.write("uso: ai-eng chain <evento> < payload-json\n");
+        process.stderr.write("usage: ai-eng chain <event> < payload-json\n");
         return 2;
       }
       const raw = await Bun.stdin.text();
@@ -91,7 +93,7 @@ async function main(): Promise<number> {
     case "uninstall":
       return uninstallMain();
     default:
-      process.stderr.write(`verbo desconocido: ${String(verb)}\n`);
+      process.stderr.write(`unknown verb: ${String(verb)}\n`);
       return 2;
   }
 

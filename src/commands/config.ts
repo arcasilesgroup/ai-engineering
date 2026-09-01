@@ -22,7 +22,7 @@ function surfacesFromConfig(root: string): string[] {
 export async function configMain(flags: { add?: string; remove?: string }): Promise<number> {
   const root = repoRoot();
   if (!root) {
-    process.stderr.write("config: no estás en un repo gobernado.\n");
+    process.stderr.write("config: you are not in a governed repo.\n");
     return 2;
   }
   const configPath = join(root, ".ai-engineering", "config.toml");
@@ -49,7 +49,7 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   writeFileSync(configPath, serializeToml(doc));
   process.stdout.write(`✓ .ai-engineering/config.toml updated (surfaces: ${current.join(", ")})\n`);
   const mirrors = mirrorTargets().length;
-  process.stdout.write(`✓ espejos de skills verificados (${mirrors} targets)\n`);
+  process.stdout.write(`✓ skill mirrors verified (${mirrors} targets)\n`);
   process.stdout.write("✓ Done. Run ai-eng doctor to verify.\n");
   return 0;
 }
@@ -61,5 +61,5 @@ function removeSurfaceFiles(root: string, id: string): void {
   if (!path) return;
   const absolute = join(root, path);
   if (existsSync(absolute)) unlinkSync(absolute);
-  process.stdout.write(`✓ ${path} eliminado (solo entradas ai-eng)\n`);
+  process.stdout.write(`✓ ${path} removed (ai-eng entries only)\n`);
 }

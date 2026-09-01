@@ -42,7 +42,7 @@ export function wrapMain(args: string[]): number {
   if (args[0] === "--") args = args.slice(1);
   const command = args.join(" ").trim();
   if (!command) {
-    process.stderr.write("uso: ai-eng wrap test -- <comando de test>\n");
+    process.stderr.write("usage: ai-eng wrap test -- <test command>\n");
     return 2;
   }
   const runner = detectRunner(command);
@@ -55,7 +55,7 @@ export function wrapMain(args: string[]): number {
   const passedMatch = /(\d+)\s+(passed|passing)/.exec(output);
   const failedMatch = /(\d+)\s+failed/.exec(output) ?? (failures.length > 0 ? [null, String(failures.length)] : [null, "0"]);
   process.stdout.write(`${passedMatch?.[1] ?? "?"} passed · ${failedMatch?.[1] ?? failures.length} failed · ${((Date.now() - t0) / 1000).toFixed(1)}s\n`);
-  process.stdout.write(`[ai-eng] wrap: ${runner} · salida filtrada\n`);
+  process.stdout.write(`[ai-eng] wrap: ${runner} · filtered output\n`);
   writeReceipt({
     event: "PostToolUse",
     surface: "wrap",

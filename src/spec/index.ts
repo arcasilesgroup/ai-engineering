@@ -11,12 +11,13 @@ import { createHash } from "node:crypto";
 import { repoRoot, home } from "../env.ts";
 import { writeReceipt } from "../receipts.ts";
 import { parseLock, lockText } from "../plant.ts";
+import { VERSION } from "../version.ts";
 
 const SLOT_FILES = ["spec.html", "plan.html", "brainstorm.md", "recap.html"];
 
 function specGatePolicyAllowsRun(root: string): boolean {
   // A contract nobody approved does not run: the sha256 pinned in the lock at
-  // PARADA 1 is what makes the contract executable (H6 criterion).
+  // STOP 1 is what makes the contract executable (H6 criterion).
   const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
   if (!existsSync(lockPath)) return false;
   const lock = parseLock(readFileSync(lockPath, "utf8"));
@@ -31,16 +32,16 @@ function specGatePolicyAllowsRun(root: string): boolean {
 export function specRun(): number {
   const root = repoRoot();
   if (!root) {
-    process.stderr.write("spec run: no estás en un repo gobernado.\n");
+    process.stderr.write("spec run: you are not in a governed repo.\n");
     return 2;
   }
   const specPath = join(root, ".ai-engineering", "spec.html");
   if (!existsSync(specPath)) {
-    process.stderr.write("spec run: no hay spec.html en .ai-engineering/ — ningún contrato vivo.\n");
+    process.stderr.write("spec run: no spec.html in .ai-engineering/ — no live contract.\n");
     return 2;
   }
   if (!specGatePolicyAllowsRun(root)) {
-    process.stderr.write("spec run: el spec.html no está aprobado (sha256 ausente o distinto en ai-eng.lock) — no se ejecuta un contrato que nadie aprobó (§9.3).\n");
+    process.stderr.write("spec run: spec.html is not approved (sha256 missing or different in ai-eng.lock) — a contract nobody approved does not run (§9.3).\n");
     return 2;
   }
   // The real executor is ai-proof's gate-check.mjs — never reimplemented (§11.3).
@@ -55,7 +56,7 @@ export function specRun(): number {
     code = done.status ?? 1;
   } else {
     // The CHECK extraction still runs: a missing executor is a FAIL, never silence.
-    process.stderr.write("spec run: gate-check.mjs no encontrado — los checks corren con el extractor integrado.\n");
+    process.stderr.write("spec run: gate-check.mjs not found — checks run with the built-in extractor.\n");
     code = extractAndRunChecks(root, readFileSync(specPath, "utf8"));
   }
   const receipt = writeReceipt({
@@ -66,7 +67,7 @@ export function specRun(): number {
     latency_ms: Date.now() - t0,
     outcome: code === 0 ? "allow" : "deny",
   });
-  if (code !== 0) process.stderr.write(`spec run: FALLO (receipt ${receipt?.operation_id ?? "n/a"}) — check que no corre no es verde, es rojo.\n`);
+  if (code !== 0) process.stderr.write(`spec run: FAILURE (receipt ${receipt?.operation_id ?? "n/a"}) — a check that does not run is not green, it is red.\n`);
   return code;
 }
 
@@ -74,7 +75,7 @@ function extractAndRunChecks(root: string, spec: string): number {
   // Parse CHECK lines from the spec and run each as a shell command in the repo.
   const checks = [...spec.matchAll(/CHECK:\s*(.+)/g)].map((m) => m[1]!.trim());
   if (checks.length === 0) {
-    process.stderr.write("spec run: el spec no declara CHECKs ejecutables — el verde sería mentira.\n");
+    process.stderr.write("spec run: the spec declares no executable CHECKs — green would be a lie.\n");
     return 2;
   }
   let failures = 0;
@@ -82,7 +83,7 @@ function extractAndRunChecks(root: string, spec: string): number {
     const done = spawnSync("/bin/sh", ["-c", command], { cwd: root, encoding: "utf8" });
     if (done.status !== 0) {
       failures += 1;
-      process.stderr.write(`✗ CHECK falló: ${command}\n`);
+      process.stderr.write(`✗ CHECK failed: ${command}\n`);
     } else {
       process.stdout.write(`✓ CHECK: ${command}\n`);
     }
@@ -90,31 +91,31 @@ function extractAndRunChecks(root: string, spec: string): number {
   return failures === 0 ? 0 : 1;
 }
 
-/** `spec open <hito>` — claim the slot; refuse when a live contract exists (§21.2). */
+/** `spec open <milestone>` — claim the slot; refuse when a live contract exists (§21.2). */
 export function specOpen(milestone: string): number {
   const root = repoRoot();
   if (!root) {
-    process.stderr.write("spec open: no estás en un repo gobernado.\n");
+    process.stderr.write("spec open: you are not in a governed repo.\n");
     return 2;
   }
   const dir = join(root, ".ai-engineering");
   mkdirSync(dir, { recursive: true });
   for (const name of ["spec.html", "plan.html"]) {
     if (existsSync(join(dir, name))) {
-      process.stderr.write(`spec open: ya hay un contrato vivo (${name}) — ciérralo con \`ai-eng spec close\` antes de abrir otro (§21.2).\n`);
+      process.stderr.write(`spec open: a live contract already exists (${name}) — close it with \`ai-eng spec close\` before opening another (§21.2).\n`);
       return 2;
     }
   }
   const specTpl = readFileSync(join(import.meta.dir, "..", "..", "templates", "spec.html.tpl"), "utf8");
   const planTpl = readFileSync(join(import.meta.dir, "..", "..", "templates", "plan.html.tpl"), "utf8");
-  writeFileSync(join(dir, "spec.html"), specTpl.split("{{hito}}").join(milestone));
-  writeFileSync(join(dir, "plan.html"), planTpl.split("{{hito}}").join(milestone));
-  process.stdout.write(`✓ slot abierto: spec.html + plan.html para "${milestone}"\n`);
-  process.stdout.write("  PARADA 1: el humano aprueba el contrato → fija su sha256 con: ai-eng spec approve\n");
+  writeFileSync(join(dir, "spec.html"), specTpl.split("{{milestone}}").join(milestone));
+  writeFileSync(join(dir, "plan.html"), planTpl.split("{{milestone}}").join(milestone));
+  process.stdout.write(`✓ slot opened: spec.html + plan.html for "${milestone}"\n`);
+  process.stdout.write("  STOP 1: a human approves the contract → pin its sha256 with: ai-eng spec approve\n");
   return 0;
 }
 
-/** `spec approve` — PARADA 1: pin the approved spec's sha256 into the lock. Human-only:
+/** `spec approve` — STOP 1: pin the approved spec's sha256 into the lock. Human-only:
  *  the chain denies edits to an approved spec (self-protect), so approving is the
  *  moment the contract becomes immutable for the agent. */
 export function specApprove(): number {
@@ -122,15 +123,15 @@ export function specApprove(): number {
   if (!root) return 2;
   const specPath = join(root, ".ai-engineering", "spec.html");
   if (!existsSync(specPath)) {
-    process.stderr.write("spec approve: no hay spec.html que aprobar.\n");
+    process.stderr.write("spec approve: no spec.html to approve.\n");
     return 2;
   }
   const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
-  const lock = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : { version: "0.13.0", assets: {} };
-  lock.version = "0.13.0";
-  lock.spec_sha256 = createHash("sha256").update(readFileSync(specPath)).digest("hex");
+  const lock = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : { version: VERSION, assets: {} };
+  const sha = createHash("sha256").update(readFileSync(specPath)).digest("hex");
+  lock.spec_sha256 = sha;
   writeFileSync(lockPath, lockText(lock));
-  process.stdout.write(`✓ PARADA 1: sha256 del spec fijado en ai-eng.lock (${lock.spec_sha256.slice(0, 12)}…) — el contrato es ejecutable y su edición queda bloqueada por self-protect.\n`);
+  process.stdout.write(`✓ STOP 1: spec sha256 pinned in ai-eng.lock (${sha.slice(0, 12)}…) — the contract is executable and self-protect now blocks its edits.\n`);
   return 0;
 }
 
@@ -141,7 +142,7 @@ export function specClose(): number {
   const dir = join(root, ".ai-engineering");
   const specPath = join(dir, "spec.html");
   if (!existsSync(specPath)) {
-    process.stderr.write("spec close: no hay contrato vivo.\n");
+    process.stderr.write("spec close: no live contract.\n");
     return 2;
   }
   const spec = readFileSync(specPath, "utf8");
@@ -154,7 +155,7 @@ export function specClose(): number {
     if (!hasEvidence) withoutReceipt += 1;
   }
   if (withoutReceipt > 0) {
-    process.stderr.write(`spec close: ${withoutReceipt} gates sin EVIDENCE ni ABANDON — verifica primero o declara ABANDON (§9.3).\n`);
+    process.stderr.write(`spec close: ${withoutReceipt} gates without EVIDENCE or ABANDON — verify first or declare ABANDON (§9.3).\n`);
     return 2;
   }
   // Archive = git add of the four files happens by the caller's commit; here we
@@ -170,7 +171,7 @@ export function specClose(): number {
     delete lock.spec_sha256;
     writeFileSync(lockPath, lockText(lock));
   }
-  process.stdout.write("✓ contrato cerrado: spec/plan/brainstorm/recap muertos del árbol — git guarda el histórico.\n");
+  process.stdout.write("✓ contract closed: spec/plan/brainstorm/recap dead from the tree — git keeps the history.\n");
   return 0;
 }
 
@@ -178,11 +179,11 @@ export function specMain(args: string[]): number {
   const sub = args[0];
   if (sub === "run") return specRun();
   if (sub === "open") {
-    const milestone = args.slice(1).join(" ") || "hito-sin-nombre";
+    const milestone = args.slice(1).join(" ") || "unnamed-milestone";
     return specOpen(milestone);
   }
   if (sub === "approve") return specApprove();
   if (sub === "close") return specClose();
-  process.stderr.write("uso: ai-eng spec run|open|approve|close\n");
+  process.stderr.write("usage: ai-eng spec run|open|approve|close\n");
   return 2;
 }

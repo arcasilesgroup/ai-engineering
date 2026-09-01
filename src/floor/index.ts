@@ -19,7 +19,7 @@ export function preCommit(cwd = repoRoot() ?? process.cwd()): FloorResult {
   const lines: string[] = [];
   const check = git(["diff", "--cached", "--check"], cwd);
   if (check.code !== 0) {
-    lines.push("diff --check encontró problemas de whitespace:");
+    lines.push("diff --check found whitespace problems:");
     lines.push(check.out.trim());
     return { ok: false, lines };
   }
@@ -48,12 +48,12 @@ function decisionsBlock(cwd: string): FloorResult {
   if (files.length <= 10 && !dependencyTouched) return { ok: true, lines: [] };
   const decisionsPath = join(cwd, "DECISIONS.md");
   if (!existsSync(decisionsPath)) {
-    return { ok: false, lines: [`este commit toca ${files.length} archivos${dependencyTouched ? " (o una dependencia)" : ""} y exige un bloque en DECISIONS.md (§9.2) — no existe.`] };
+    return { ok: false, lines: [`this commit touches ${files.length} files${dependencyTouched ? " (or a dependency)" : ""} and requires a DECISIONS.md block (§9.2) — none exists.`] };
   }
   const content = readFileSync(decisionsPath, "utf8");
   const blocks = content.split(/^## /m).length - 1;
   if (blocks === 0) {
-    return { ok: false, lines: ["DECISIONS.md existe pero no lleva ningún bloque ## D-NNN — añade uno (≤6 líneas) o reduce el commit."] };
+    return { ok: false, lines: ["DECISIONS.md exists but carries no ## D-NNN block — add one (≤6 lines) or shrink the commit."] };
   }
   return { ok: true, lines: [] };
 }
@@ -63,7 +63,7 @@ function stageSecrets(cwd: string): FloorResult {
   if (!gitleaks) {
     return {
       ok: false,
-      lines: ["gitleaks no está instalado — HARD FAIL, no degradación silenciosa (§12.1).", "Instálalo: brew install gitleaks"],
+      lines: ["gitleaks is not installed — HARD FAIL, never silent degradation (§12.1).", "Install it: brew install gitleaks"],
     };
   }
   // v1's proven invocation: `gitleaks dir` — `git --staged` in 8.30 scans 0 commits
@@ -88,7 +88,7 @@ function stageSecrets(cwd: string): FloorResult {
       .filter((l) => l.startsWith("File:") || l.startsWith("RuleID:") || l.startsWith("Finding:"))
       .slice(0, 10)
       .join("\n");
-    return { ok: false, lines: ["gitleaks: secreto en lo staged → BLOQUEADO.", findings || out.slice(0, 800)] };
+    return { ok: false, lines: ["gitleaks: secret in the staged files → BLOCKED.", findings || out.slice(0, 800)] };
   }
 }
 /** commit-msg: convention + Receipt-Id trailer + override reason when active. */
@@ -98,13 +98,13 @@ export function commitMsg(msgFile: string, receiptId: string, overrideReason: st
   try {
     content = readFileSync(msgFile, "utf8");
   } catch {
-    return { ok: false, lines: ["commit-msg: no puedo leer el mensaje del commit."] };
+    return { ok: false, lines: ["commit-msg: cannot read the commit message."] };
   }
   const first = content.split("\n")[0] ?? "";
   if (!/^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._/-]+\))?!?: \S/.test(first)) {
     return {
       ok: false,
-      lines: [`el mensaje no sigue la convención Conventional Commits: "${first.slice(0, 72)}"`, "Formato: tipo(ámbito): descripción"],
+      lines: [`the message does not follow the Conventional Commits convention: "${first.slice(0, 72)}"`, "Format: type(scope): description"],
     };
   }
   if (!content.includes("Receipt-Id:")) {
@@ -112,7 +112,7 @@ export function commitMsg(msgFile: string, receiptId: string, overrideReason: st
     if (overrideReason) content = `${content.trimEnd()}\nOverride-Reason: ${overrideReason}\n`;
     const { writeFileSync } = require("node:fs") as typeof import("node:fs");
     writeFileSync(msgFile, content);
-    if (overrideReason) lines.push(`override activo viaja en el commit: ${overrideReason.slice(0, 80)}`);
+    if (overrideReason) lines.push(`active override travels in the commit: ${overrideReason.slice(0, 80)}`);
   }
   return { ok: true, lines };
 }
@@ -122,13 +122,13 @@ export function prePush(cwd = repoRoot() ?? process.cwd()): FloorResult {
   const lines: string[] = [];
   const gitleaks = whichGitleaks();
   if (!gitleaks) {
-    return { ok: false, lines: ["gitleaks no está instalado — HARD FAIL (§12.1). brew install gitleaks"] };
+    return { ok: false, lines: ["gitleaks is not installed — HARD FAIL (§12.1). brew install gitleaks"] };
   }
   try {
     execFileSync(gitleaks, ["git", "--redact", "-v"], { cwd, stdio: "pipe" });
   } catch (error) {
     const out = (error as { stdout?: string }).stdout ?? "";
-    return { ok: false, lines: ["gitleaks en pre-push: secreto en el histórico no pusheado → BLOQUEADO.", out.toString().slice(0, 2000)] };
+    return { ok: false, lines: ["gitleaks in pre-push: secret in the unpushed history → BLOCKED.", out.toString().slice(0, 2000)] };
   }
   return { ok: true, lines };
 }

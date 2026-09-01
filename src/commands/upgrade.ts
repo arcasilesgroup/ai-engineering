@@ -4,6 +4,7 @@
 
 import { spawnSync } from "node:child_process";
 import { select, isCancel } from "@clack/prompts";
+import { VERSION } from "../version.ts";
 
 function registryLatest(): string | null {
   const bun = spawnSync("bun", ["pm", "view", "ai-engineering", "version"], { encoding: "utf8" });
@@ -14,20 +15,19 @@ function registryLatest(): string | null {
 }
 
 export async function upgradeMain(): Promise<number> {
-  const VERSION = "0.13.0";
   const latest = registryLatest();
   if (!latest) {
-    process.stdout.write("upgrade: no pude leer la versión del registry (¿offline?) — silencio, nunca un fallo.\n");
+    process.stdout.write("upgrade: could not read the registry version (offline?) — silence, never a failure.\n");
     return 0;
   }
   if (latest === VERSION) {
-    process.stdout.write(`ai-eng ${VERSION} — ya es la última.\n`);
+    process.stdout.write(`ai-eng ${VERSION} — already the latest.\n`);
     return 0;
   }
-  process.stdout.write(`ai-eng · instalado ${VERSION} · último ${latest}\n`);
+  process.stdout.write(`ai-eng · installed ${VERSION} · latest ${latest}\n`);
   process.stdout.write("CHANGELOG: https://github.com/arcasilesgroup/ai-engineering/blob/main/CHANGELOG.md\n");
   const how = await select({
-    message: "¿Cómo lo actualizo?",
+    message: "How do you want to update?",
     options: [
       { value: "bun", label: `bun add -g ai-engineering@${latest}` },
       { value: "npm", label: `npm install -g ai-engineering@${latest}` },
@@ -44,7 +44,7 @@ export async function upgradeMain(): Promise<number> {
   const done = spawnSync(manager, command, { stdio: "inherit" });
   if (done.status !== 0) return done.status ?? 1;
   const verify = spawnSync("ai-eng", ["--version"], { encoding: "utf8" });
-  process.stdout.write(`✓ ai-eng ${verify.stdout?.trim() ?? latest} · la confianza la firma el registry, no ai-eng\n`);
-  process.stdout.write("⚠ si este repo seguía con assets de la versión anterior → ai-eng update\n");
+  process.stdout.write(`✓ ai-eng ${verify.stdout?.trim() ?? latest} · trust is signed by the registry, not by ai-eng\n`);
+  process.stdout.write("⚠ if this repo still runs assets from the previous version → ai-eng update\n");
   return 0;
 }
