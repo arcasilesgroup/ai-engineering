@@ -8,6 +8,7 @@ import { parse } from "@bomb.sh/args";
 import tabRoot from "@bomb.sh/tab";
 import { VERSION } from "./version.ts";
 import { showLogo } from "./branding.ts";
+import { maybeNotice } from "./notice.ts";
 import { chainMain } from "./chain/mod.ts";
 import { doctorMain } from "./commands/doctor.ts";
 import { initMain } from "./commands/init.ts";
@@ -77,9 +78,9 @@ async function main(): Promise<number> {
     case "spec":
       return specMain(flags._.slice(1).map(String));
     case "init":
-      return initMain({ yes: flags.yes === true, global: flags.global === true, surface: surfaceList });
+      { const code = await initMain({ yes: flags.yes === true, global: flags.global === true, surface: surfaceList }); if (code === 0) maybeNotice(); return code; }
     case "doctor":
-      return doctorMain({ gc: flags.gc === true });
+      { const code = doctorMain({ gc: flags.gc === true }); if (code === 0) maybeNotice(); return code; }
     case "config": {
       const configFlags: { add?: string; remove?: string } = {};
       if (typeof flags.add === "string") configFlags.add = flags.add;
@@ -87,7 +88,7 @@ async function main(): Promise<number> {
       return configMain(configFlags);
     }
     case "update":
-      return await updateMain();
+      { const code = await updateMain(); if (code === 0) maybeNotice(); return code; }
     case "upgrade":
       return upgradeMain();
     case "uninstall":

@@ -7,21 +7,25 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { confirm, select, isCancel } from "@clack/prompts";
 import { repoRoot } from "../env.ts";
+import * as ui from "../ui.ts";
+import { VERSION } from "../version.ts";
 
 const AI_ENG_ENTRIES = ["ai-eng chain"];
 
 export async function uninstallMain(): Promise<number> {
   const root = repoRoot();
+  ui.frame(`Uninstall · ai-eng ${VERSION}`);
   if (!root) {
-    process.stderr.write("uninstall: you are not in a governed repo.\n");
+    ui.fail("you are not in a governed repo — nothing to remove");
+    ui.end("Nothing done.");
     return 2;
   }
-  process.stdout.write("This will remove ai-eng governance from this project:\n\n");
-  process.stdout.write("✓ core.hooksPath reverted if a custom redirect exists\n");
-  process.stdout.write("✓ marker-managed hooks removed from .git/hooks/ (only files carrying the ai-eng marker)\n");
-  process.stdout.write("✓ .claude/settings.json — only ai-eng hook entries removed\n");
-  process.stdout.write("✓ ai-eng.lock deleted\n\n");
-  process.stdout.write("Kept (yours): AGENTS.md · DECISIONS.md · .ai-engineering/{spec,plan}.html · config.toml · overrides.toml · arch.rules.json\n\n");
+  ui.info("This will remove ai-eng governance from this project:");
+  ui.ok("core.hooksPath reverted if a custom redirect exists");
+  ui.ok("marker-managed hooks removed from .git/hooks/ (only files carrying the ai-eng marker)");
+  ui.ok(".claude/settings.json — only ai-eng hook entries removed");
+  ui.ok("ai-eng.lock deleted");
+  ui.info("Kept (yours): AGENTS.md · DECISIONS.md · .ai-engineering/{spec,plan}.html · config.toml · overrides.toml · arch.rules.json");
   const scope = await select({
     message: "What do you want to remove?",
     options: [
@@ -30,14 +34,19 @@ export async function uninstallMain(): Promise<number> {
       { value: "cancel", label: "Cancel" },
     ],
   });
-  if (isCancel(scope) || scope === "cancel") return 0;
-  const confirmed = await confirm({ message: "Confirm?" });
-  if (isCancel(confirmed) || confirmed === false) return 0;
+  if (isCancel(scope) || scope === "cancel") {
+    ui.cancelled("Nothing removed.");
+    return 0;
+  }
+  const confirmed = await confirm({ message: "Confirm?", initialValue: false });
+  if (isCancel(confirmed) || confirmed === false) {
+    ui.cancelled("Nothing removed.");
+    return 0;
+  }
 
-  const lines: string[] = [];
   // 1. core.hooksPath back to default.
   spawnSync("git", ["-C", root, "config", "--unset", "core.hooksPath"]);
-  lines.push("✓ core.hooksPath reverted");
+  ui.ok("core.hooksPath reverted");
   // 2. Our hook entries out of the surface settings, the user's hooks stay.
   const settingsPath = join(root, ".claude", "settings.json");
   if (existsSync(settingsPath)) {
@@ -59,11 +68,12 @@ export async function uninstallMain(): Promise<number> {
         }
       }
       writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
-      lines.push("✓ .claude/settings.json — only ai-eng entries removed");
+      ui.ok(".claude/settings.json — only ai-eng entries removed");
     } catch {
-      lines.push("⚠ .claude/settings.json not parseable — leaving it alone (review by hand)");
+      ui.warn(".claude/settings.json not parseable — leaving it alone (review by hand)");
     }
   }
+  // 3. Our shims out of .git/hooks, identified by the marker, never by name alone.
   const hooksDir = join(root, ".git", "hooks");
   if (existsSync(hooksDir)) {
     for (const name of readdirSync(hooksDir)) {
@@ -73,24 +83,23 @@ export async function uninstallMain(): Promise<number> {
       if (content.includes("ai-eng git floor shim")) unlinkSync(hookPath);
     }
   }
-  lines.push("✓ marker-managed hooks removed (only files with the ai-eng marker)");
+  ui.ok("marker-managed hooks removed (only files with the ai-eng marker)");
   const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
   if (existsSync(lockPath)) unlinkSync(lockPath);
-  lines.push("✓ lock deleted");
+  ui.ok("lock deleted");
   if (scope === "everything") {
     const agents = join(root, "AGENTS.md");
     const decisions = join(root, "DECISIONS.md");
-    const confirmedAll = await confirm({ message: "This deletes AGENTS.md and DECISIONS.md — your work. Sure?" });
+    const confirmedAll = await confirm({ message: "This deletes AGENTS.md and DECISIONS.md — your work. Sure?", initialValue: false });
     if (confirmedAll === true) {
       if (existsSync(agents)) unlinkSync(agents);
       if (existsSync(decisions)) unlinkSync(decisions);
       rmSync(join(root, ".ai-engineering"), { recursive: true, force: true });
-      lines.push("✓ all ai-eng files removed (your choice)");
+      ui.ok("all ai-eng files removed (your choice)");
     } else {
-      lines.push("· kept: AGENTS.md, DECISIONS.md, .ai-engineering/");
+      ui.info("kept: AGENTS.md, DECISIONS.md, .ai-engineering/");
     }
   }
-  for (const line of lines) process.stdout.write(`${line}\n`);
-  process.stdout.write("\nai-eng is no longer active in this repo. Your contract files remain.\n");
+  ui.end("ai-eng is no longer active in this repo. Your contract files remain.");
   return 0;
 }

@@ -1,10 +1,16 @@
 // `ai-eng upgrade` — deliberately boring (§14.4): show the changelog, confirm, and
 // delegate the install to bun/npm. Ten lines of spawn. Reimplementing download +
 // integrity + self-substitution is inventing npm with less testing.
+// cli-ux-14 work point 05: frame, inline changelog when the local CHANGELOG.md
+// carries the target section (else URL), and the print-command helper chooses by
+// the manager the user actually picked (regression: it always printed bun).
 
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { select, isCancel } from "@clack/prompts";
+import { join } from "node:path";
 import { VERSION } from "../version.ts";
+import * as ui from "../ui.ts";
 
 function registryLatest(): string | null {
   const bun = spawnSync("bun", ["pm", "view", "ai-engineering", "version"], { encoding: "utf8" });
@@ -14,37 +20,62 @@ function registryLatest(): string | null {
   return null; // offline or error → silence, never a failure
 }
 
+/** The install command for a manager, in one place — the G9 seam. */
+export function installCommand(manager: "bun" | "npm", version: string): string {
+  return manager === "bun" ? `bun add -g ai-engineering@${version}` : `npm install -g ai-engineering@${version}`;
+}
+
+/** Inline changelog section for a version when the local CHANGELOG.md has it. */
+export function changelogSection(root: string, version: string): string | null {
+  const path = join(root, "CHANGELOG.md");
+  if (!existsSync(path)) return null;
+  const text = readFileSync(path, "utf8");
+  const match = new RegExp(`^## ${version.replace(/\./g, "\\.")}[^\n]*\n([\\s\\S]*?)(?=\\n## |$)`, "m").exec(text);
+  return match ? match[1]?.trim() ?? null : null;
+}
+
 export async function upgradeMain(): Promise<number> {
   const latest = registryLatest();
   if (!latest) {
-    process.stdout.write("upgrade: could not read the registry version (offline?) — silence, never a failure.\n");
+    ui.frame(`ai-eng ${VERSION}`);
+    ui.info("could not read the registry version (offline?) — silence, never a failure");
+    ui.end("Nothing done.");
     return 0;
   }
   if (latest === VERSION) {
-    process.stdout.write(`ai-eng ${VERSION} — already the latest.\n`);
+    ui.frame(`ai-eng ${VERSION}`);
+    ui.ok("already the latest");
+    ui.end("Nothing to upgrade.");
     return 0;
   }
-  process.stdout.write(`ai-eng · installed ${VERSION} · latest ${latest}\n`);
-  process.stdout.write("CHANGELOG: https://github.com/arcasilesgroup/ai-engineering/blob/main/CHANGELOG.md\n");
+  ui.frame(`ai-eng · installed ${VERSION} · latest ${latest}`);
+  const section = changelogSection(process.cwd(), latest);
+  if (section) {
+    for (const line of section.split("\n").slice(0, 12)) ui.info(line.replace(/^### /, "").replace(/^- /, "  · "));
+  } else {
+    ui.info("CHANGELOG: https://github.com/arcasilesgroup/ai-engineering/blob/main/CHANGELOG.md");
+  }
   const how = await select({
     message: "How do you want to update?",
     options: [
-      { value: "bun", label: `bun add -g ai-engineering@${latest}` },
-      { value: "npm", label: `npm install -g ai-engineering@${latest}` },
+      { value: "bun", label: installCommand("bun", latest), hint: "registry, checksum, substitution — by bun" },
+      { value: "npm", label: installCommand("npm", latest), hint: "registry, checksum, substitution — by npm" },
       { value: "print", label: "Just print the command, I'll run it myself" },
     ],
   });
-  if (isCancel(how)) return 0;
-  const command = how === "bun" ? ["add", "-g", `ai-engineering@${latest}`] : ["install", "-g", `ai-engineering@${latest}`];
+  if (isCancel(how)) {
+    ui.cancelled("Nothing done — upgrade proposes, the human disposes.");
+    return 0;
+  }
   if (how === "print") {
-    process.stdout.write(`${how === "print" ? `bun add -g ai-engineering@${latest}` : ""}\n`);
+    ui.end(`Run: ${installCommand("bun", latest)} (or the npm equivalent)`);
     return 0;
   }
   const manager = how === "bun" ? "bun" : "npm";
-  const done = spawnSync(manager, command, { stdio: "inherit" });
+  const done = spawnSync(manager, [manager === "bun" ? "add" : "install", "-g", `ai-engineering@${latest}`], { stdio: "inherit" });
   if (done.status !== 0) return done.status ?? 1;
   const verify = spawnSync("ai-eng", ["--version"], { encoding: "utf8" });
-  process.stdout.write(`✓ ai-eng ${verify.stdout?.trim() ?? latest} · trust is signed by the registry, not by ai-eng\n`);
-  process.stdout.write("⚠ if this repo still runs assets from the previous version → ai-eng update\n");
+  ui.ok(`ai-eng ${verify.stdout?.trim() ?? latest} · trust is signed by the registry, not by ai-eng`);
+  ui.end("if this repo still runs assets from the previous version → ai-eng update");
   return 0;
 }

@@ -7,8 +7,9 @@ import { multiselect, isCancel } from "@clack/prompts";
 import { repoRoot } from "../env.ts";
 import { parseToml, serializeToml } from "../toml.ts";
 import type { TomlTable } from "../toml.ts";
-import { SURFACES, mirrorTargets } from "../surfaces/adapters.ts";
-import { surfaceCanGovern } from "../surfaces/adapters.ts";
+import { SURFACES, mirrorTargets, surfaceCanGovern, type Surface } from "../surfaces/adapters.ts";
+import * as ui from "../ui.ts";
+import { VERSION } from "../version.ts";
 
 function surfacesFromConfig(root: string): string[] {
   const path = join(root, ".ai-engineering", "config.toml");
@@ -22,7 +23,9 @@ function surfacesFromConfig(root: string): string[] {
 export async function configMain(flags: { add?: string; remove?: string }): Promise<number> {
   const root = repoRoot();
   if (!root) {
-    process.stderr.write("config: you are not in a governed repo.\n");
+    ui.frame(`ai-eng ${VERSION}`);
+    ui.fail("you are not in a governed repo — run ai-eng init first");
+    ui.end("Nothing changed.");
     return 2;
   }
   const configPath = join(root, ".ai-engineering", "config.toml");
@@ -35,10 +38,13 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   } else {
     const picked = await multiselect({
       message: "Which agent surfaces do you use?",
-      options: SURFACES.map((s) => ({ value: s.id, label: s.label, hint: `${s.tier}${surfaceCanGovern(s) ? "" : " — no deny"}` })),
+      options: SURFACES.map((s) => ({ value: s.id, label: s.label, hint: configHint(s, current.includes(s.id)) })),
       required: true,
     });
-    if (isCancel(picked)) return 0;
+    if (isCancel(picked)) {
+      ui.cancelled("Nothing changed.");
+      return 0;
+    }
     const removed = current.filter((id) => !picked.includes(id));
     for (const id of removed) removeSurfaceFiles(root, id);
     current = picked;
@@ -47,10 +53,12 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   const doc: TomlTable = existsSync(configPath) ? parseToml(readFileSync(configPath, "utf8")) : {};
   doc["surfaces"] = { enabled: current };
   writeFileSync(configPath, serializeToml(doc));
-  process.stdout.write(`✓ .ai-engineering/config.toml updated (surfaces: ${current.join(", ")})\n`);
+  ui.frame(`Configuration · ai-eng ${VERSION}`);
+  ui.ok(`.ai-engineering/config.toml updated (surfaces: ${current.join(", ")})`);
   const mirrors = mirrorTargets().length;
-  process.stdout.write(`✓ skill mirrors verified (${mirrors} targets)\n`);
-  process.stdout.write("✓ Done. Run ai-eng doctor to verify.\n");
+  ui.ok(`skill mirrors verified (${mirrors} targets)`);
+  ui.info("Model tier thresholds: edit .ai-engineering/config.toml directly, or ask your AI assistant.");
+  ui.end("Done. Run ai-eng doctor to verify.");
   return 0;
 }
 
@@ -61,5 +69,11 @@ function removeSurfaceFiles(root: string, id: string): void {
   if (!path) return;
   const absolute = join(root, path);
   if (existsSync(absolute)) unlinkSync(absolute);
-  process.stdout.write(`✓ ${path} removed (ai-eng entries only)\n`);
+  ui.ok(`${path} removed (ai-eng entries only)`);
+}
+
+/** The mockup hint for config: installed-state marker + capability. */
+function configHint(surface: Surface, installed: boolean): string {
+  const state = installed ? "✔ installed" : "✘ not installed";
+  return surfaceCanGovern(surface) ? state : `${state} — no deny`;
 }
