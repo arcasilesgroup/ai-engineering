@@ -62,6 +62,10 @@ import askills_ai_visual_recap_references_connection_md from "../skills/ai-visua
 import askills_ai_visual_recap_references_local_files_md from "../skills/ai-visual-recap/references/local-files.md" with { type: "file" };
 import askills_ai_visual_recap_references_wireframe_md from "../skills/ai-visual-recap/references/wireframe.md" with { type: "file" };
 import askills_ai_visual_recap_SKILL_md from "../skills/ai-visual-recap/SKILL.md" with { type: "file" };
+import askills_ai_write_references_security_md_writer_md from "../skills/ai-write/references/security-md-writer.md" with { type: "file" };
+import askills_ai_write_references_readme_writer_md from "../skills/ai-write/references/readme-writer.md" with { type: "file" };
+import askills_ai_write_references_contributing_writer_md from "../skills/ai-write/references/contributing-writer.md" with { type: "file" };
+import askills_ai_write_references_agents_md_writer_md from "../skills/ai-write/references/agents-md-writer.md" with { type: "file" };
 import askills_ai_write_references_documentation_writer_md from "../skills/ai-write/references/documentation-writer.md" with { type: "file" };
 import askills_ai_write_SKILL_md from "../skills/ai-write/SKILL.md" with { type: "file" };
 import askills_ai_proof_references_method_md from "../skills/ai-proof/references/method.md" with { type: "file" };
@@ -166,6 +170,10 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-visual-recap/references/local-files.md": askills_ai_visual_recap_references_local_files_md,
   "../skills/ai-visual-recap/references/wireframe.md": askills_ai_visual_recap_references_wireframe_md,
   "../skills/ai-visual-recap/SKILL.md": askills_ai_visual_recap_SKILL_md,
+  "../skills/ai-write/references/security-md-writer.md": askills_ai_write_references_security_md_writer_md,
+  "../skills/ai-write/references/readme-writer.md": askills_ai_write_references_readme_writer_md,
+  "../skills/ai-write/references/contributing-writer.md": askills_ai_write_references_contributing_writer_md,
+  "../skills/ai-write/references/agents-md-writer.md": askills_ai_write_references_agents_md_writer_md,
   "../skills/ai-write/references/documentation-writer.md": askills_ai_write_references_documentation_writer_md,
   "../skills/ai-write/SKILL.md": askills_ai_write_SKILL_md,
   "../skills/ai-proof/references/method.md": askills_ai_proof_references_method_md,
