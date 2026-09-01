@@ -115,7 +115,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
     }
     if (action === "config") return configMain({});
     ui.end("Re-planting assets:");
-    return updateMain();
+    return await updateMain();
   }
   let picked: string[];
   if (flags.yes === true) {

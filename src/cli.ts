@@ -87,7 +87,7 @@ async function main(): Promise<number> {
       return configMain(configFlags);
     }
     case "update":
-      return updateMain();
+      return await updateMain();
     case "upgrade":
       return upgradeMain();
     case "uninstall":

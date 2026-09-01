@@ -34,16 +34,17 @@ export function surfaceCanGovern(surface: Surface): boolean {
 
 export type MirrorTarget = { dir: string; label: string };
 
-/** Where each surface discovers skills (§08): one canon, its mirrors. Mirrors
- *  sit next to the canon (env.home(), AI_ENG_HOME-isolable) — never beside the
- *  physical homedir, or a test install rewrites the real stores (measured:
- *  /tmp/aibrain-demo hijack, 2026-09-01). */
+/** Where each surface discovers skills (§08): one canon, three mirrors beside the
+ *  canon. The mirror base is the canon home (env.home()): AI_ENG_HOME-isolable —
+ *  a test install (AI_ENG_HOME=/tmp/...) never rewrites the REAL ~/.claude/skills
+ *  etc. (measured: /tmp/aibrain-demo hijack, 2026-09-01). Without the override the
+ *  base is the physical home and the paths are exactly §08's. */
 export function mirrorTargets(): MirrorTarget[] {
-  const base = home();
+  const base = process.env.AI_ENG_HOME !== undefined ? home() : homedir();
   return [
-    { dir: join(base, "mirrors", "claude", "skills"), label: "<home>/mirrors/claude/skills" },
-    { dir: join(base, "mirrors", "agents", "skills"), label: "<home>/mirrors/agents/skills" },
-    { dir: join(base, "mirrors", "opencode", "skill"), label: "<home>/mirrors/opencode/skill" },
+    { dir: join(base, ".claude", "skills"), label: "~/.claude/skills" },
+    { dir: join(base, ".agents", "skills"), label: "~/.agents/skills" },
+    { dir: join(base, ".config", "opencode", "skill"), label: "~/.config/opencode/skill" },
   ];
 }
 
