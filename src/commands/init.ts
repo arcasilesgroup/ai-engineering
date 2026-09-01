@@ -8,7 +8,8 @@ import { spawnSync, execFileSync } from "node:child_process";
 // whole flow (cli-ux-14 work point 02).
 
 import { join } from "node:path";
-import { multiselect, select, groupMultiselect, isCancel, confirm } from "@clack/prompts";
+import { multiselect, select, groupMultiselect, isCancel } from "@clack/prompts";
+import { scriptedInput } from "../ui.ts";
 import { SURFACES, surfaceCanGovern, installCanon, type Surface } from "../surfaces/adapters.ts";
 import { plant, buildLock, lockText } from "../plant.ts";
 import { home } from "../env.ts";
@@ -74,6 +75,8 @@ function scaffoldProject(surfaces: string[]): string[] {
 }
 
 export async function initMain(flags: { yes?: boolean; global?: boolean; surface?: string[] }): Promise<number> {
+  const input = scriptedInput();
+  const confirmWithInput = (message: string, initial: boolean) => ui.confirmDefault(message, initial, input as never);
   ui.frame(`{ai} Engineering ${VERSION}`);
   const cwd = process.cwd();
   const inRepo = isGitRepo(cwd) || existsSync(join(cwd, ".ai-engineering"));
@@ -86,7 +89,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   // Outside a repo: a bare folder is not a refusal — §14.1 runs init in a bare
   // folder and init creates the repo itself (confirm, or --yes to proceed).
   if (!inRepo) {
-    const ok = flags.yes === true || (await confirm({ message: "No git repo here. Create one? (git init -q)", initialValue: true }));
+    const ok = flags.yes === true || (await confirmWithInput("No git repo here. Create one? (git init -q)", true));
     if (isCancel(ok) || ok === false) {
       ui.cancelled("Inside a repo, ai-eng init governs it too.");
       return 0;
@@ -108,6 +111,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
         { value: "config", label: "Add or remove surfaces (config)" },
         { value: "exit", label: "Exit" },
       ],
+      input: input as never,
     });
     if (isCancel(action) || action === "exit") {
       ui.cancelled("Nothing changed.");
@@ -125,6 +129,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
       message: "Which agent surfaces do you use?",
       options: SURFACES.map((s) => ({ value: s.id, label: s.label, hint: surfaceHint(s) })),
       required: true,
+      input: input as never,
     });
     if (isCancel(answer)) {
       ui.cancelled();
@@ -140,6 +145,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
       options: Object.fromEntries(BOOSTER_GROUPS.map((group) => [group.title, group.items.map((b) => ({ value: b.id, label: b.label, hint: b.hint }))])),
       required: false,
       selectableGroups: false,
+      input: input as never,
     });
     if (isCancel(boost)) {
       ui.cancelled();

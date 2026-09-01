@@ -5,7 +5,7 @@
 import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { confirm, select, isCancel } from "@clack/prompts";
+import { select, isCancel } from "@clack/prompts";
 import { repoRoot } from "../env.ts";
 import * as ui from "../ui.ts";
 import { VERSION } from "../version.ts";
@@ -38,8 +38,9 @@ export async function uninstallMain(): Promise<number> {
     ui.cancelled("Nothing removed.");
     return 0;
   }
-  const confirmed = await confirm({ message: "Confirm?", initialValue: false });
-  if (isCancel(confirmed) || confirmed === false) {
+  // Default is No: uninstall is destructive, a bare Enter must not raze the repo.
+  const confirmed = await ui.confirmDefault("Confirm?", false);
+  if (confirmed === false) {
     ui.cancelled("Nothing removed.");
     return 0;
   }
@@ -90,8 +91,8 @@ export async function uninstallMain(): Promise<number> {
   if (scope === "everything") {
     const agents = join(root, "AGENTS.md");
     const decisions = join(root, "DECISIONS.md");
-    const confirmedAll = await confirm({ message: "This deletes AGENTS.md and DECISIONS.md — your work. Sure?", initialValue: false });
-    if (confirmedAll === true) {
+    const confirmedAll = await ui.confirmDefault("This deletes AGENTS.md and DECISIONS.md — your work. Sure?", false);
+    if (confirmedAll) {
       if (existsSync(agents)) unlinkSync(agents);
       if (existsSync(decisions)) unlinkSync(decisions);
       rmSync(join(root, ".ai-engineering"), { recursive: true, force: true });

@@ -103,10 +103,14 @@ export function serializeToml(data: TomlTable): string {
         }
         lines.push("");
       }
+    } else if (Array.isArray(value)) {
+      // string[] — e.g. surfaces.enabled; the config schema stores lists of ids.
+      lines.push(`${key} = [${value.map((v) => scalar(v)).join(", ")}]`);
+      lines.push("");
     } else if (typeof value === "object") {
       lines.push(`[${key}]`);
       for (const [k, v] of Object.entries(value as TomlTable)) {
-        if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") lines.push(`${k} = ${scalar(v)}`);
+        if (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || Array.isArray(v)) lines.push(`${k} = ${Array.isArray(v) ? `[${v.map((item) => scalar(item)).join(", ")}]` : scalar(v)}`);
       }
       lines.push("");
     } else {
