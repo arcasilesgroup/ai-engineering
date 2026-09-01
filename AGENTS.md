@@ -3,7 +3,7 @@
 Guidance for AI coding agents working in this repository. Human teammates should be able to follow every line too. Only rules an agent CANNOT deduce from the code live here; if a rule becomes obvious from reading the code, delete it from this file.
 
 ## Project overview
-`ai-engineering` is a governance floor for AI coding agents: a single Bun-compiled binary (`ai-eng`) that plants governance (`init`), enforces guards through hooks (`chain`), and proves completitud with receipts (`spec run`). The binary IS the payload — every skill and template travels inside it (regenerate with `bun scripts/gen-assets.ts`). Product spec: `docs/blueprint.html` (v17, §-numbered).
+`ai-engineering` is a governance floor for AI coding agents: a single Bun-compiled binary (`ai-eng`) that plants governance (`init`), enforces guards through hooks (`chain`), and proves completeness with receipts (`spec run`). The binary IS the payload — every skill and template travels inside it (regenerate with `bun scripts/gen-assets.ts`). Product spec: `docs/blueprint.html` (v17, §-numbered).
 
 ## Security
 - Never bypass a git hook or a check: no `--no-verify`, no `-n` on commit, no `HUSKY=0`.
