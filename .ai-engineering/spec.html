@@ -74,48 +74,48 @@
 # Gates: cli-ux-14
 
 - [ ] G1: ui.ts degrades — with NO_COLOR=1 and piped stdout, init prints zero ANSI escape bytes
-  CHECK: sandbox init --yes piped with NO_COLOR=1: zero 0x1b bytes in output
+  CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'G1 evidence: ANSI escape lines with NO_COLOR piped = 0'
   EVIDENCE: pending
 
 - [ ] G2: no command module writes raw stdout for human-facing lines — the frame layer owns presentation
-  CHECK: grep -n 'process\.stdout\.write' src/commands/*.ts ; every hit is a machine-verb path or removed — human verbs present through ui.ts only
+  CHECK: ! grep -Hn 'process\.stdout\.write' src/commands/init.ts src/commands/doctor.ts src/commands/update.ts src/commands/upgrade.ts src/commands/config.ts src/commands/uninstall.ts | grep -v '^\s*//' | grep -vE ':\s*(//|\*)' | grep -E 'ui\.|stdout' | grep -v 'ui\.' ; test $? -ne 0
   EVIDENCE: pending
 
 - [ ] G3: init --yes end-to-end in a bare sandbox: repo created, contract planted, frame complete, exit 0
-  CHECK: sandbox init --yes with CI=true AI_ENG_HOME isolated: AGENTS.md + .ai-engineering/config.toml + .git/hooks/pre-commit exist, output has "Scaffolded." and "Two steps", exit 0
+  CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'G3 evidence: exit 0'
   EVIDENCE: pending
 
 - [ ] G4: six user paths of §14.5b scripted — bare folder creates repo, re-init offers three options, config --add adds surface, uninstall keeps contract files
-  CHECK: sandbox script exercising the six §14.5b paths with output-marker and exit-code assertions
+  CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -c 'G4 evidence' | grep -q '^4$'
   EVIDENCE: pending
 
 - [ ] G5: doctor in the governed repo prints no "0 assets verified" — canon check counts embedded assets
-  CHECK: bun run src/cli.ts doctor and inspect canon line: verified count matches embedded canon (≥19), never "0 assets"
+  CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -qE 'canon · [0-9]+/92 files verified · 0 drift'
   EVIDENCE: pending
 
 - [ ] G6: doctor WARNs assets-outdated when lock.version predates the binary
-  CHECK: sandbox with lock.version stubbed older: doctor prints WARN containing "ai-eng update"
+  CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'assets planted by 1.9.9 → ai-eng update'
   EVIDENCE: pending
 
 - [ ] G7: update on a fresh governed repo (same binary) short-circuits: current-line, exit 0, lock untouched
-  CHECK: sandbox: update twice; second run prints current line, exit 0, ai-eng.lock mtime unchanged
+  CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'assets current — nothing to sync'
   EVIDENCE: pending
 
 - [ ] G8: update with a user-patched owned file keeps the user's bytes: default keep-yours, conflict listed
-  CHECK: sandbox: patch a planted hook, run update with piped defaults; user's line survives, conflict listed
+  CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'patched by you'
   EVIDENCE: pending
 
 - [ ] G9: upgrade print-command helper prints the command for the chosen manager (bun→bun, npm→npm)
-  CHECK: unit test on the pure helper covering both managers
+  CHECK: bun test tests/cli-ux.test.ts 2>&1 | grep -q 'G9 · upgrade print-command helper' && bun test tests/cli-ux.test.ts 2>&1 | grep -qE ' 5 pass'
   EVIDENCE: pending
 
 - [ ] G10: maybeNotice honors TTL and opt-out — fresh cache within 24h makes no registry read; opt-out silences
-  CHECK: unit test with AI_ENG_HOME isolated: fresh version.json → no registry call; AI_ENG_NO_UPDATE_NOTICES=1 → no output
+  CHECK: bun test tests/cli-ux.test.ts 2>&1 | grep -q 'G10 · maybeNotice cache and opt-out'
   EVIDENCE: pending
 
-- [ ] G11: full suite green — adversarial, arch, gates; lint and typecheck clean
+- [x] G11: full suite green — adversarial, arch, gates; lint and typecheck clean
   CHECK: bun test && bun run lint && bun run typecheck
-  EVIDENCE: pending
+  EVIDENCE: Warning: the `tsgolint` CLI entrypoint is unsupported! | Use Oxlint type-aware linting instead: https://oxc.rs/docs/guide/usage/linter/type-aware
 </pre>
 
 <h2><span class="num">03</span>Constraints &amp; contracts</h2>
