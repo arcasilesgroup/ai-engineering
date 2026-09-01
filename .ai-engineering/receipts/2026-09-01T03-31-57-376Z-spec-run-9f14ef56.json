@@ -1,1 +1,0 @@
-{"schema":"urn:ai-eng:receipt:2","operation_id":"9f14ef56","ts":"2026-09-01T03:31:57.376Z","event":"spec-run","surface":"ci","tool":"spec","guards":{"ran":["spec"],"denied_by":null},"latency_ms":20,"outcome":"allow"}

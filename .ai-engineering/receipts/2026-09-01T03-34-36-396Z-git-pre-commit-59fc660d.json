@@ -1,1 +1,0 @@
-{"schema":"urn:ai-eng:receipt:2","operation_id":"59fc660d","ts":"2026-09-01T03:34:36.396Z","event":"git-pre-commit","surface":"git","tool":"pre-commit","guards":{"ran":["floor"],"denied_by":"floor"},"latency_ms":16,"outcome":"deny"}

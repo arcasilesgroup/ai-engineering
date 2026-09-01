@@ -3,3 +3,4 @@ dist/
 .0*.bun-build
 *.bun-build
 .DS_Store
+.ai-engineering/receipts/

@@ -1,1 +1,0 @@
-{"schema":"urn:ai-eng:receipt:2","operation_id":"17f36971","ts":"2026-09-01T01:05:21.990Z","event":"PostToolUse","surface":"unknown","tool":"Bash","guards":{"ran":["loop"],"denied_by":null},"latency_ms":1,"outcome":"allow"}
