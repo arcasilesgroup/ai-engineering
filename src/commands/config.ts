@@ -9,6 +9,7 @@ import { parseToml, serializeToml } from "../toml.ts";
 import type { TomlTable } from "../toml.ts";
 import { SURFACES, mirrorTargets, surfaceCanGovern, type Surface } from "../surfaces/adapters.ts";
 import * as ui from "../ui.ts";
+import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
 
 function surfacesFromConfig(root: string): string[] {
@@ -21,15 +22,17 @@ function surfacesFromConfig(root: string): string[] {
 }
 
 export async function configMain(flags: { add?: string; remove?: string }): Promise<number> {
+  const input = scriptedInput();
   const root = repoRoot();
+  ui.frame(`Configuration · ai-eng ${VERSION}`);
   if (!root) {
-    ui.frame(`ai-eng ${VERSION}`);
     ui.fail("you are not in a governed repo — run ai-eng init first");
     ui.end("Nothing changed.");
     return 2;
   }
   const configPath = join(root, ".ai-engineering", "config.toml");
-  let current = surfacesFromConfig(root);
+  const surfacesBefore = surfacesFromConfig(root);
+  let current = surfacesBefore;
   if (flags.add) {
     if (!current.includes(flags.add)) current = [...current, flags.add];
   } else if (flags.remove) {
@@ -37,9 +40,11 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
     removeSurfaceFiles(root, flags.remove);
   } else {
     const picked = await multiselect({
-      message: "Which agent surfaces do you use?",
+      message: "Which agent surfaces is this project governed on? (ticked = installed)",
       options: SURFACES.map((s) => ({ value: s.id, label: s.label, hint: configHint(s, current.includes(s.id)) })),
+      initialValues: current.filter((id) => SURFACES.some((s) => s.id === id)),
       required: true,
+      input: input as never,
     });
     if (isCancel(picked)) {
       ui.cancelled("Nothing changed.");
@@ -53,8 +58,13 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   const doc: TomlTable = existsSync(configPath) ? parseToml(readFileSync(configPath, "utf8")) : {};
   doc["surfaces"] = { enabled: current };
   writeFileSync(configPath, serializeToml(doc));
-  ui.frame(`Configuration · ai-eng ${VERSION}`);
-  ui.ok(`.ai-engineering/config.toml updated (surfaces: ${current.join(", ")})`);
+  ui.ok(`.ai-engineering/config.toml written (surfaces key only)`);
+  const added = current.filter((id) => !surfacesBefore.includes(id));
+  const removedSurfaces = surfacesBefore.filter((id) => !current.includes(id));
+  for (const id of added) ui.ok(`+ ${id}: adapter + skill mirror written`);
+  for (const id of removedSurfaces) ui.ok(`- ${id}: adapter + mirror removed`);
+  if (added.length === 0 && removedSurfaces.length === 0) ui.info(`surfaces unchanged: ${current.join(", ")}`);
+  ui.info(`enabled surfaces: ${current.join(", ")}`);
   const mirrors = mirrorTargets().length;
   ui.ok(`skill mirrors verified (${mirrors} targets)`);
   ui.info("Model tier thresholds: edit .ai-engineering/config.toml directly, or ask your AI assistant.");

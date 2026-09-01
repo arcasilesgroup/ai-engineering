@@ -15,6 +15,7 @@ import { plant, buildLock, lockText } from "../plant.ts";
 import { home } from "../env.ts";
 import { configMain } from "./config.ts";
 import { planEntries, contractEntries } from "./init-shared.ts";
+import { updateMain } from "./update.ts";
 import { VERSION } from "../version.ts";
 import * as ui from "../ui.ts";
 import { BOOSTER_GROUPS, printCommands } from "../boosters.ts";
@@ -25,6 +26,18 @@ function isGitRepo(cwd: string): boolean {
 
 /** The mockup hint per surface: tier marker + capability note, mapped from
  *  surfaces.json — never hardcoded per-id. */
+/** Surfaces already present in this project, detected by their on-disk markers:
+ *  a .claude/ dir means Claude Code, .agents/ hooks mean OMP, .opencode/ means
+ *  OpenCode, .cursor/ means Cursor. Ticked-by-default in the init multiselect. */
+function detectedSurfaces(cwd: string): string[] {
+  const detected: string[] = [];
+  if (existsSync(join(cwd, ".claude"))) detected.push("claude-code");
+  if (existsSync(join(cwd, ".agents", "hooks"))) detected.push("oh-my-pi");
+  if (existsSync(join(cwd, ".opencode"))) detected.push("opencode");
+  if (existsSync(join(cwd, ".cursor"))) detected.push("cursor");
+  return detected;
+}
+
 function surfaceHint(s: Surface): string {
   const capabilities: string[] = [];
   if (s.can.deny) capabilities.push("deny");
@@ -81,9 +94,17 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   const cwd = process.cwd();
   const inRepo = isGitRepo(cwd) || existsSync(join(cwd, ".ai-engineering"));
   // Phase 1: global, or missing canon — installs/repairs the machine side either way.
-  // home() (not HOME) so AI_ENG_HOME test installs stay isolated.
+  // home() (not HOME) so AI_ENG_HOME test installs stay isolated. The status
+  // line always prints: the user must see the machine is healthy before the
+  // repo work starts (user feedback 2026-09-01 #7).
   const canonDir = join(home(), "skills");
+  const canonHealthy = existsSync(join(canonDir, "ai-brainstorm", "SKILL.md"));
   if (flags.global || !existsSync(canonDir)) {
+    installCanon(VERSION).forEach((line) => ui.ok(line.replace(/^✓ /, "")));
+  } else if (canonHealthy) {
+    ui.ok(`global canon intact at ${home()} (ai-eng ${canonVersion()}) — nothing to install`);
+  } else {
+    ui.warn(`global canon at ${home()} looks incomplete — re-installing`);
     installCanon(VERSION).forEach((line) => ui.ok(line.replace(/^✓ /, "")));
   }
   // Outside a repo: a bare folder is not a refusal — §14.1 runs init in a bare
@@ -102,14 +123,15 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
       return 2;
     }
   }
+
   // ── Phase 2: the repo is governed — idempotent re-init never tramples your work (§14.5b).
   if (existsSync(join(cwd, ".ai-engineering", "config.toml"))) {
     const action = await select({
-      message: "This repo is already governed. What now?",
+      message: "This project is already governed. What do you want to do?",
       options: [
-        { value: "update", label: "Re-plant assets (update)" },
-        { value: "config", label: "Add or remove surfaces (config)" },
-        { value: "exit", label: "Exit" },
+        { value: "update", label: "Rewrite ai-eng's files from the installed binary (ai-eng update)", hint: "overwrites hooks, settings, CI workflow — never your AGENTS.md or DECISIONS.md" },
+        { value: "config", label: "Change which agent surfaces this project is governed on (ai-eng config)" },
+        { value: "exit", label: "Exit — change nothing" },
       ],
       input: input as never,
     });
@@ -118,7 +140,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
       return 0;
     }
     if (action === "config") return configMain({});
-    ui.end("Re-planting assets:");
+    ui.end("Running ai-eng update — rewriting the files ai-eng owns:");
     return await updateMain();
   }
   let picked: string[];
@@ -126,8 +148,9 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
     picked = flags.surface && flags.surface.length > 0 ? flags.surface : ["claude-code"];
   } else {
     const answer = await multiselect({
-      message: "Which agent surfaces do you use?",
+      message: "Which agent surfaces is this project governed on? (ticked = detected)",
       options: SURFACES.map((s) => ({ value: s.id, label: s.label, hint: surfaceHint(s) })),
+      initialValues: detectedSurfaces(cwd),
       required: true,
       input: input as never,
     });

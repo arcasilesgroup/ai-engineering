@@ -2,6 +2,7 @@
 // presents through here; machine verbs (chain|git|wrap|spec) never import it:
 // their stdout is a byte-stable contract (§07). Wraps clack 1.7.0 primitives;
 import { intro, outro, log, cancel, spinner as clackSpinner, confirm } from "@clack/prompts";
+import { styleText } from "node:util";
 import { PassThrough } from "node:stream";
 // NO_COLOR and non-TTY degrade because clack honors colors, and ui.spinner()
 // covers the cursor-control codes clack emits even under NO_COLOR.
@@ -16,24 +17,27 @@ export function end(message: string): void {
   outro(message);
 }
 
-/** `│  ✓ <message>` */
+/** The mockup's line grammar (§14.2): `✓` done, `✗` bad, `▲` attention,
+ *  `◆` action. clack's defaults (◆/■/▲) read as noise; the symbol option
+ *  pins the mark while the frame spine stays clack's. */
 export function ok(message: string): void {
-  log.success(message);
+  log.message(message, { symbol: styleText("green", "✓") });
 }
 
-/** `│  ◆ <message>` — neutral progress or informational line inside the frame. */
+/** `│  ◆ <message>` — the action/progress mark; neutral inside the frame. */
 export function info(message: string): void {
-  log.info(message);
+  log.message(message, { symbol: styleText("cyan", "◆") });
 }
 
-/** `│  ▲ <message>` */
+/** `│  ▲ <message>` — attention; the frame holds, only a security or quality
+ *  failure blocks the step (§12). */
 export function warn(message: string): void {
-  log.warn(message);
+  log.message(message, { symbol: styleText("yellow", "▲") });
 }
 
-/** `│  ■ <message>` */
+/** `│  ✗ <message>` — red error; the one state that blocks. */
 export function fail(message: string): void {
-  log.error(message);
+  log.message(message, { symbol: styleText("red", "✗") });
 }
 
 /** Cancelled prompt: print the frame-closing cancel line, no error theater. */
@@ -67,7 +71,7 @@ export function scriptedInput(): NodeJS.ReadStream | PassThrough {
     const text = chunk.toString();
     let i = 0;
     while (i < text.length) {
-      const key = map[text.slice(i, i + 4)] ?? map[text[i] ?? ""];
+      const key = map[text.slice(i, i + 4)] ?? map[text.slice(i, i + 3)] ?? map[text[i] ?? ""];
       if (key) {
         queue.push(key);
         i += key.sequence.length;

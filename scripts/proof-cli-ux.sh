@@ -90,6 +90,32 @@ printf '%s\n' "$G8_OUT" | grep 'patched by you' | sed 's/^/G8 evidence: /'
 printf '%s\n' "$G8_OUT" | grep -q 'patched by you' || die "G8: conflict not listed"
 grep -q 'my custom bit' .git/hooks/pre-commit || die "G8: user patch lost"
 
+
+# ── R15-1: re-init "rewrite files" path runs update without crashing ──
+R15DIR="$(mktemp -d)"; cd "$R15DIR" && git init -q .
+printf 'y\n \n\n\n\n\n' | $CLI init >/dev/null 2>&1
+REI_OUT=$(printf '\n\n\n' | $CLI init 2>&1); REI_CODE=$?
+[ "$REI_CODE" = "0" ] || die "R15-1: re-init update exit $REI_CODE"
+printf '%s\n' "$REI_OUT" | grep -q 'updateMain is not defined' && die "R15-1: updateMain crash still present"
+printf '%s\n' "$REI_OUT" | grep -qE 'assets current|assets synced' || die "R15-1: update never ran from re-init"
+printf '%s\n' "$REI_OUT" | grep -E 'assets current|assets synced' | head -1 | sed 's/^/R15 evidence: re-init update /'
+
+# ── R15-2: config preselects installed surfaces and prints the delta ──
+CFG_OUT=$(printf '\n' | $CLI config 2>&1)
+printf '%s\n' "$CFG_OUT" | grep -q 'ticked = installed' || die "R15-2: preselect wording missing"
+printf '%s\n' "$CFG_OUT" | grep -q 'surfaces unchanged' || die "R15-2: delta output missing"
+printf '%s\n' "$CFG_OUT" | grep 'surfaces unchanged' | sed 's/^/R15 evidence: config /'
+
+# ── R15-3: init shows global canon status before project phase ───────
+INIT2_OUT=$(printf 'y\n \n\n\n\n\n' | $CLI init 2>&1)
+printf '%s\n' "$INIT2_OUT" | grep -q 'global canon' || die "R15-3: global canon status line missing"
+printf '%s\n' "$INIT2_OUT" | grep 'global canon' | sed 's/^/R15 evidence: /'
+
+# ── R15-4: uninstall project scope keeps global canon and contract files ──
+printf 'y\n\n\n\n\n' | $CLI uninstall >/dev/null 2>&1
+[ -f AGENTS.md ] || die "R15-4: uninstall removed AGENTS.md (project scope must keep it)"
+[ -d "$AI_ENG_HOME/skills" ] || die "R15-4: uninstall removed the global canon on project scope"
+say "R15 evidence: uninstall project scope kept contract files + global canon"
 say ""
 if [ "$FAILED" = "0" ]; then say "ALL PROOFS GREEN"; else say "PROOFS FAILED — see PROOF FAIL lines"; fi
 exit $FAILED
