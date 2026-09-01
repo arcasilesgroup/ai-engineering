@@ -1,6 +1,12 @@
 ---
 name: ai-explore
-description: "Answers questions about this repository by reading it, anchored to file:line, and tours an unfamiliar area for somebody who has just arrived. Trigger for \"where does X live\", \"how does this work\", \"why does it do that\", \"what depends on Y\", \"walk me through\", \"map this module\", \"trace this import chain\", \"onboard me\". Not for evidence from outside this repository — use /ai-research. Not for diagnosing a failure — use /ai-debug. Not for judging a diff — use /ai-review."
+description: >-
+  Answers questions about this repository by reading it, anchored to file:line, and tours
+  an unfamiliar area for somebody who has just arrived. Trigger for "where does X live",
+  "how does this work", "why does it do that", "what depends on Y", "walk me through",
+  "map this module", "trace this import chain", "onboard me". Not for evidence from
+  outside this repository — use /ai-research. Not for diagnosing a failure — use
+  /ai-debug. Not for judging a diff — use /ai-verify.
 license: Apache-2.0
 ---
 
@@ -49,4 +55,29 @@ guess.
 Not a design review, not a refactor, and not an opinion about quality. If you spot
 something genuinely dangerous, say it in one line at the end and move on.
 
-- "I read the file names, so I can summarise the flow" — a flow summarised from file names alone is the single most common way this goes wrong; follow one real path end to end.
+- "I read the file names, so I can summarise the flow" — a flow summarised from file names
+  alone is the single most common way this goes wrong; follow one real path end to end.
+
+## Routing
+
+In scope — routes here:
+
+- "where does X live" — a path and a sentence answer it.
+- "how does this work", "why does it do that" — the flow, followed end to end through real
+  files.
+- "what depends on Y" — dependents mapped with anchors to the real call sites.
+- "walk me through", "onboard me" — a tour of the module for somebody who has just arrived.
+- "map this module", "trace this import chain" — the shape of the code, drawn from real
+  paths.
+
+Not for:
+
+- Evidence from outside this repository — use /ai-research, which goes and gets findings we
+  do not have yet and cites them.
+- Diagnosing a failure — use /ai-debug, which names a cause at `file:line` and writes the
+  check that fails for it.
+- Judging a diff — use /ai-verify, which passes verdicts on completed work, not tours.
+- Deciding what to build — use /ai-plan, which needs options, a recommendation and the
+  authority to proceed.
+- Saving a finding we just made — use /ai-note, which records what we learned; exploring
+  only reads.

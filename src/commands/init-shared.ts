@@ -32,14 +32,22 @@ export function detectCommands(): string {
   return "typecheck: (detecta tu lenguaje aquí) · test: (tu runner)";
 }
 
+export function gitHookEntries(): PlanEntry[] {
+  // Marker-managed shims land directly in .git/hooks/ — one copy, standard
+  // location, no core.hooksPath redirect, no .ai-engineering/git duplicate.
+  return [
+    { path: ".git/hooks/pre-commit", ours: tpl("git-pre-commit.tpl") },
+    { path: ".git/hooks/commit-msg", ours: tpl("git-commit-msg.tpl") },
+    { path: ".git/hooks/pre-push", ours: tpl("git-pre-push.tpl") },
+  ];
+}
+
 export function planEntries(surfaces: string[]): PlanEntry[] {
   const entries: PlanEntry[] = [
     { path: ".ai-engineering/overrides.toml", ours: tpl("overrides.toml.tpl") },
     { path: ".ai-engineering/arch.rules.json", ours: tpl("arch.rules.json.tpl") },
-    { path: ".ai-engineering/git/pre-commit", ours: tpl("git-pre-commit.tpl") },
-    { path: ".ai-engineering/git/commit-msg", ours: tpl("git-commit-msg.tpl") },
-    { path: ".ai-engineering/git/pre-push", ours: tpl("git-pre-push.tpl") },
     { path: ".ai-engineering/config.toml", ours: render(tpl("config.toml.tpl"), { surfaces: surfaces.map((s) => `"${s}"`).join(", ") }) },
+    ...gitHookEntries(),
   ];
   if (surfaces.includes("claude-code")) {
     entries.push({ path: ".claude/settings.json", ours: tpl("settings.claude.json.tpl") });

@@ -1,23 +1,28 @@
-# .ai-engineering/config.toml — what CAN'T be deduced from code (§08)
-# You or `ai-eng config` write it; never the chain.
+# .ai-engineering/config.toml — what CANNOT be deduced from code (§08).
+# This file is the right place for your thresholds and pins: edit it by hand or
+# run `ai-eng config` for surfaces. The chain reads it; it never edits it.
 
 [surfaces]
-enabled = ["claude-code"]
+# Which agent surfaces (IDEs/CLIs) this project is governed on. Every client uses
+# the same definitions from ai-eng — no per-IDE forks. Options: claude-code,
+# oh-my-pi, opencode, cursor, codex, copilot, pi-zed. `ai-eng config` rewrites
+# this list and plants/removes each surface's adapter files.
+enabled = ["omp"]
 
 [models]
-decide  = "claude-fable-5"   # arquitectura, juicio, review de seguridad — caro y lento está bien
-execute = "gpt-5.6-sol"      # implementación end-to-end, reviews mecánicas
-verify  = "gpt-5.6-luna"     # checks binarios PASS/FAIL — barato
+decide  = "glm5.3-flash"   # architecture, judgment, security review — expensive and slow is fine
+execute = "glm5.3-flash"      # end-to-end implementation, mechanical reviews
+verify  = "qwen3.8-flash"     # binary PASS/FAIL checks — cheap
 
 [guards]
-loop_window = 6    # llamadas recordadas
-loop_repeats = 3   # misma llamada exacta → deny
-loop_failures = 5  # misma firma fallando → deny
+loop_window = 6    # remembered calls
+loop_repeats = 3   # same exact call → deny
+loop_failures = 5  # same signature failing → deny
 
 [gc]
-max_files = 25        # por carpeta NNN — superar → WARN
-older_than = "90d"    # edad mínima para ser candidato de gc
-keep_runs = 5         # security/: los últimos runs siempre vivos
-receipts_ttl = "30d"  # receipts: agregar y borrar
+max_files = 25        # per NNN folder — exceeding → WARN
+older_than = "90d"    # minimum age to be a gc candidate
+keep_runs = 5         # security/: the latest runs always stay alive
+receipts_ttl = "30d"  # receipts: aggregate then delete
 
-# notices = false   # opt-out del aviso de versión nueva (o AI_ENG_NO_UPDATE_NOTICES=1)
+# notices = false   # opt out of the new-version notice (or AI_ENG_NO_UPDATE_NOTICES=1)

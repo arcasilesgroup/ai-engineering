@@ -201,6 +201,6 @@ third exit condition only ends runs that were still working.
 
 ## Both tools
 
-Lives in `.agents/skills/` and is symlinked into `.claude/skills/`, so one copy serves
-Claude Code and Codex. **Subagent syntax differs between the two** and the Codex side is
-unverified. If the spawn instruction fails there, that's the thing to check first.
+One copy per machine serves every surface (canon in `~/.ai-engineering/skills/`, mirrors
+per IDE). **Subagent spawn syntax differs between surfaces** and some are unverified — if
+the spawn instruction fails on yours, that's the thing to check first.

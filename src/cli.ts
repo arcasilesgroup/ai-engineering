@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 // src/cli.ts — flags first (@bomb.sh/args), prompts only for what's missing
 // (@clack/prompts), TAB everywhere (@bomb.sh/tab). Six human verbs; the four
 // machine verbs (chain|git|wrap|spec) are the product's programming surface (§07)

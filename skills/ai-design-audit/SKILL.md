@@ -1,7 +1,13 @@
 ---
 name: ai-design-audit
-description: Trigger for auditing a rendered web UI for visual defects with measurements rather than opinions — misaligned rows, ragged card interiors, touch targets, rendered contrast over gradients and images, text printing over text, Gestalt proximity, divider lines that should be space, type-scale drift — measured in a real browser across widths, and proved unchanged afterwards.
-license: UNLICENSED
+description: >-
+  Trigger for auditing a rendered web UI for visual defects with measurements rather than
+  opinions — misaligned rows, ragged card interiors, rendered contrast over gradients and
+  images, text printing over text, Gestalt proximity, divider lines that should be space,
+  type-scale drift — measured in a real browser across widths, and proved unchanged
+  afterwards. Not for designing a new interface — use /ai-design. Not for judging motion —
+  use /ai-visual-recap for the milestone recap.
+license: LicenseRef-Attributed
 ---
 
 # ai-design-audit

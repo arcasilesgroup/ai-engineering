@@ -1,9 +1,10 @@
+import { existsSync, readFileSync, writeFileSync, symlinkSync, chmodSync } from "node:fs";
+import { spawnSync, execFileSync } from "node:child_process";
 // `ai-eng init` — one verb, two phases (§14.0a). Outside a repo: phase 1, the
 // machine (canon + mirrors). Inside a repo: both phases — first the canon (missing
 // is installed, never aborts), then the project contract. Idempotent: re-init
 // offers update, never overwrites an edited file (§14.5b's six paths).
 
-import { existsSync, readFileSync, writeFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { intro, multiselect, select, spinner, note, isCancel, confirm } from "@clack/prompts";
 import { SURFACES, surfaceCanGovern, installCanon } from "../surfaces/adapters.ts";
@@ -37,21 +38,22 @@ function scaffoldProject(surfaces: string[]): string[] {
   const report = plant(cwd, planEntries(surfaces));
   for (const written of report.written) lines.push(`✓ ${written}`);
   for (const conflict of report.conflicts) lines.push(`⚠ ${conflict} — editado por ti: diff 3-vías requerido, no se toca`);
-  // Shims must be executable or git silently ignores them (measured).
-  const { chmodSync } = require("node:fs") as typeof import("node:fs");
+  // Hook shims must be executable or git silently ignores them (measured).
   for (const shim of ["pre-commit", "commit-msg", "pre-push"]) {
-    const shimPath = join(cwd, ".ai-engineering", "git", shim);
+    const shimPath = join(cwd, ".git", "hooks", shim);
     if (existsSync(shimPath)) chmodSync(shimPath, 0o755);
   }
-  // core.hooksPath → the floor.
-  const { execFileSync } = require("node:child_process") as typeof import("node:child_process");
+  lines.push("✓ git floor → .git/hooks/{pre-commit,commit-msg,pre-push} (marker-managed)");
+  // core.hooksPath is NOT redirected: the hooks live in their standard location.
   try {
-    execFileSync("git", ["config", "core.hooksPath", ".ai-engineering/git"], { cwd });
-    lines.push("✓ git floor → core.hooksPath = .ai-engineering/git/");
+    const wired = spawnSync("git", ["-C", cwd, "config", "core.hooksPath"], { encoding: "utf8" });
+    if ((wired.stdout ?? "").trim() !== "") {
+      execFileSync("git", ["-C", cwd, "config", "--unset", "core.hooksPath"], { cwd });
+      lines.push("✓ core.hooksPath custom redirect removed (hooks now standard .git/hooks/)");
+    }
   } catch {
-    lines.push("⚠ no pude escribir core.hooksPath (¿repo git ausente?)");
+    /* no custom hooksPath: nothing to clean */
   }
-  const lock = buildLock(planEntries(surfaces), VERSION);
   writeFileSync(join(cwd, ".ai-engineering", "ai-eng.lock"), lockText(lock));
   lines.push(`✓ .ai-engineering/ai-eng.lock (${Object.keys(lock.assets).length} assets con sha256)`);
   return lines;
@@ -75,7 +77,6 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
       note("Dentro de un repo, ai-eng init lo gobierna además.", "next");
       return 0;
     }
-    const { execFileSync } = require("node:child_process") as typeof import("node:child_process");
     try {
       execFileSync("git", ["init", "-q"], { cwd });
       process.stdout.write("✓ git init -q\n");
@@ -127,7 +128,6 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   for (const line of lines) process.stdout.write(`${line}\n`);
   // The first commit of the contract: the lockfile and the Receipt-Id trailer get
   // their baseline from second zero (§08).
-  const { execFileSync } = require("node:child_process") as typeof import("node:child_process");
   try {
     execFileSync("git", ["add", "-A"], { cwd });
     execFileSync("git", ["commit", "-q", "-m", "chore(ai-eng): plant governance 0.13.0", "--no-verify", "--no-gpg-sign"], { cwd });

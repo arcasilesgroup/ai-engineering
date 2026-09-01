@@ -76,12 +76,16 @@ export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: 
       push("canon+lock", "warn", "sin lockfile — ejecuta ai-eng init");
     }
   }
-  // 5. git floor wired + gitleaks present.
+  // 5. git floor: marker-managed shims in .git/hooks/ + gitleaks present.
   if (root) {
-    const hooksPath = spawnSync("git", ["-C", root, "config", "core.hooksPath"], { encoding: "utf8" });
-    const wired = (hooksPath.stdout ?? "").trim() === ".ai-engineering/git";
+    const hooksDir = join(root, ".git", "hooks");
+    const floorHooks = ["pre-commit", "commit-msg", "pre-push"];
+    const wired = floorHooks.every((name) => {
+      const p = join(hooksDir, name);
+      return existsSync(p) && readFileSync(p, "utf8").includes("ai-eng git floor shim");
+    });
     const gitleaks = spawnSync("gitleaks", ["version"], { encoding: "utf8" });
-    push("git floor", wired && gitleaks.status === 0 ? "ok" : wired ? "warn" : "fail", wired ? `core.hooksPath · gitleaks ${gitleaks.status === 0 ? "presente" : "AUSENTE (HARD FAIL)"}` : "core.hooksPath no apunta al floor");
+    push("git floor", wired && gitleaks.status === 0 ? "ok" : wired ? "warn" : "fail", wired ? `marker hooks in .git/hooks/ · gitleaks ${gitleaks.status === 0 ? "present" : "MISSING (HARD FAIL)"}` : "marker hooks missing from .git/hooks/ — run ai-eng init");
   }
   // 6. THE REAL TEST: adversarial payload must deny, under the latency ceiling.
   const t0 = Date.now();

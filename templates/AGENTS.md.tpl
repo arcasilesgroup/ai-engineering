@@ -1,29 +1,36 @@
 # AGENTS.md — governed by {ai} Engineering ({{version}})
 
-## Seguridad
-3. Never `--no-verify`. Never silence a linter (noqa, @ts-ignore, nosec).
-8. No secrets, no personal data, no machine paths in files.
+Guidance for AI coding agents working in this repository. Human teammates should be able to follow every line too. Only rules an agent CANNOT deduce from the code live here; if a rule becomes obvious from reading the code, delete it from this file.
 
-## Calidad
-9. Explain it so someone who doesn't code can follow along.
-10. KISS, YAGNI, DRY, SOLID, TDD, Clean Code.
+## Security
+- Never bypass a git hook or a check: no `--no-verify`, no `-n` on commit, no `HUSKY=0`.
+- Never silence a linter: no `noqa`, `@ts-ignore`, `eslint-disable`, `nosec`.
+- No secrets, no personal data, no machine-specific absolute paths in any file.
 
-## Flujo
-6. Green gate before «hecho». Show the output.
-12. A decision that always comes out the same is code, not a prompt.
+## Code style
+- KISS, YAGNI, DRY, SOLID, TDD, Clean Code.
+- Explain it so someone who doesn't code can follow along.
 
-## Status (convención en todo task list)
-🟢 done (con prueba pegada) · 🟡 pending (nómbralo) · 🔴 blocked on user
-
-## Capas (las editas tú; el arch-test las lee desde .ai-engineering/arch.rules.json)
-Hoy: feature-based (src/features/**, src/shared/**)
-
-## Comandos (los que doctor detectó para este lenguaje)
+## Build and test commands
 {{commands}}
 
-## Sesión (economía de contexto)
-/clear entre tareas · /compact antes de parar, no después · batch prompting · /usage si el contexto se infla
+## Workflow
+- Green gate before "done": show the output of the check that proves it.
+- A decision that always comes out the same is code, not a prompt.
+- Status convention in every task list: 🟢 done (with proof pasted) · 🟡 pending (name it) · 🔴 blocked on user.
 
-## Anti-deriva
-This list contains only what the agent CANNOT deduce from the project. Si una regla se vuelve obvia
-leyendo el código, se borra de aquí.
+## Architecture layers
+You may edit `src/**` freely; the arch-test reads `.ai-engineering/arch.rules.json` — propose layer changes there via PR, never by editing the test in silence.
+
+## Session hygiene (context economy)
+`/clear` between tasks · `/compact` before stopping, not after · batch prompting · check `/usage` when the context inflates.
+
+## Pull requests
+- Run lint and the full test suite before committing; the commit must pass everything it will face in CI.
+- Add or update tests for the code you change, even if nobody asked.
+- After moving files or changing imports, re-run lint and typecheck.
+- Title format: `<area>: <imperative summary>` (e.g. `chain: cache verdicts per tool_use_id`).
+- Commit messages: subject ≤ 50 chars; body explains WHY when it is not obvious.
+
+## Anti-drift
+This list contains only what the agent CANNOT deduce from the project.

@@ -2,7 +2,7 @@
 // keeps AGENTS.md, DECISIONS.md, spec.html, arch.rules and the skills. Deleting
 // what the user edited is the worst class of bug a governance tool can have (§14.5).
 
-import { existsSync, readFileSync, writeFileSync, unlinkSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { confirm, select, isCancel } from "@clack/prompts";
@@ -17,9 +17,9 @@ export async function uninstallMain(): Promise<number> {
     return 2;
   }
   process.stdout.write("This will remove ai-eng governance from this project:\n\n");
-  process.stdout.write("✓ core.hooksPath reverted (hooks in .ai-engineering/git/ removed)\n");
+  process.stdout.write("✓ core.hooksPath reverted if a custom redirect exists\n");
+  process.stdout.write("✓ marker-managed hooks removed from .git/hooks/ (only files carrying the ai-eng marker)\n");
   process.stdout.write("✓ .claude/settings.json — only ai-eng hook entries removed\n");
-  process.stdout.write("✓ .ai-engineering/git/ shims deleted\n");
   process.stdout.write("✓ ai-eng.lock deleted\n\n");
   process.stdout.write("Kept (yours): AGENTS.md · DECISIONS.md · .ai-engineering/{spec,plan}.html · config.toml · overrides.toml · arch.rules.json\n\n");
   const scope = await select({
@@ -64,11 +64,19 @@ export async function uninstallMain(): Promise<number> {
       lines.push("⚠ .claude/settings.json no parseable — no lo toco (revísalo a mano)");
     }
   }
-  // 3. Floor shims + lock out; the receipts/spec/config decision depends on scope.
-  rmSync(join(root, ".ai-engineering", "git"), { recursive: true, force: true });
+  const hooksDir = join(root, ".git", "hooks");
+  if (existsSync(hooksDir)) {
+    for (const name of readdirSync(hooksDir)) {
+      if (!["pre-commit", "commit-msg", "pre-push"].includes(name)) continue;
+      const hookPath = join(hooksDir, name);
+      const content = readFileSync(hookPath, "utf8");
+      if (content.includes("ai-eng git floor shim")) unlinkSync(hookPath);
+    }
+  }
+  lines.push("✓ marker-managed hooks removed (only files with the ai-eng marker)");
   const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
   if (existsSync(lockPath)) unlinkSync(lockPath);
-  lines.push("✓ shims del floor y lock eliminados");
+  lines.push("✓ lock deleted");
   if (scope === "everything") {
     const agents = join(root, "AGENTS.md");
     const decisions = join(root, "DECISIONS.md");

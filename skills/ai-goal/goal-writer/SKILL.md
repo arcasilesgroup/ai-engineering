@@ -101,5 +101,6 @@ specs.
 
 ## Both tools
 
-`/goal` exists in Claude Code and Codex, so one condition covers both. This skill
-lives in `.agents/skills/` and is symlinked into `.claude/skills/`.
+The goal condition works on any surface with a native goal/loop mode (Claude Code, Codex,
+and equivalents). One condition covers all of them: the surface's loop reads this skill's
+contract, not an install path.

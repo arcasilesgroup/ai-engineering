@@ -1,6 +1,6 @@
 ---
 name: ai-write
-description: "Writes technical documentation for this repository: a README, a wiki page, product documentation, API docs or a technical post. Applies the framework's single writing standard (`.agents/skills/ai-report/references/documentation-writer.md`, spec 039) and verifies every document against the tree. Trigger for \"write the README\", \"update the wiki\", \"document this API\", \"write a technical post about\", \"refresh the docs\". Not for the changelog — use /ai-ship. Not for a spec or an ADR — use /ai-spec. Not for a finding — use /ai-note. Not for an issue — use /ai-report."
+description: "Writes technical documentation for this repository: a README, a wiki page, product documentation, API docs or a technical post. Applies the framework's single writing standard (`references/documentation-writer.md`, spec 039) and verifies every document against the tree. Trigger for \"write the README\", \"update the wiki\", \"document this API\", \"write a technical post about\", \"refresh the docs\". Not for the changelog. Not for a spec or a plan — use /ai-plan. Not for a finding — use /ai-note. Not for an issue or incident report — use /ai-issue-report."
 license: Apache-2.0
 ---
 
@@ -15,8 +15,8 @@ a checkable completion criterion. A document that cannot be verified exits `not-
 
 ## Steps
 
-1. Read the writing standard (spec 039): `.agents/skills/ai-report/references/documentation-writer.md` beside
-   `ai-report`. If it is missing, stop and say `INCOMPLETE: writing standard absent`.
+1. Read the writing standard (spec 039): [references/documentation-writer.md](references/documentation-writer.md)
+   in this skill's folder. If it is missing, stop and say `INCOMPLETE: writing standard absent`.
 2. Read the tree the document is about. Not from memory, not `--help`. The README names
    commands that exist. The API doc names endpoints in the code. The wiki names
    directories on disk. Every claim traces to a file or a command.
@@ -32,11 +32,10 @@ a checkable completion criterion. A document that cannot be verified exits `not-
 
 ## What this is not
 
-Not the changelog (that is `/ai-ship`, which owns commits and the changelog entry); not a
-spec or ADR (`/ai-spec` + `ai-eng decide`); not a finding (`/ai-note`); not an issue or a
-report (`/ai-report`). And it is not a licence to repeat the environment: a document that
-restates `--help` or the config is a cache, and a cache earns its load only when the lookup
-is expensive.
+Not the changelog; not a spec or plan (/ai-plan); not a finding (/ai-note); not an issue
+or incident report (/ai-issue-report). And it is not a licence to repeat the environment: a
+document that restates `--help` or the config is a cache, and a cache earns its load only
+when the lookup is expensive.
 
 - "The reader will understand it from context" — a completion criterion is not a feeling:
   if a section cannot be checked against a file or a command, it gets a `not-covered`
@@ -49,3 +48,15 @@ Every named file exists and every named command runs, no passage restates the en
 every section ends on a checkable criterion, anything unverifiable carries a `not-covered:
 <reason>` exit, and the user's named home was the only place written. The doc is a claim;
 the tree is the evidence.
+
+## The ai-engineering seam
+
+1. The writing standard itself ([references/documentation-writer.md](references/documentation-writer.md))
+   is the prose standard for every ai-engineering surface that writes for humans: incident
+   reports (/ai-issue-report), AGENTS.md authoring (/ai-agents-md), and any README the
+   framework plants.
+2. ai-write never writes into `.ai-engineering/` — governance artifacts are not product
+   docs. Its home is the tree the user names: README.md, docs/, a wiki directory.
+3. The verdict on whether a draft is good belongs to the `decide` tier; the mechanical
+   checks (every named file exists, every named command runs) belong to `verify`
+   (`.ai-engineering/config.toml` pin).

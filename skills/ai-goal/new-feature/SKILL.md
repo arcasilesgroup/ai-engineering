@@ -184,7 +184,7 @@ next. Batching the mocks together and writing all the specs at the end sounds fa
 and isn't: the approval gate is where features get cut or reshaped, and finding that
 out after five specs exist means rewriting five specs.
 
-## Both tools
+## Install note
 
-Lives in `.agents/skills/` and is symlinked into `.claude/skills/`, so one copy serves
-Claude Code and Codex.
+One copy per machine serves every surface: the canon lives in `~/.ai-engineering/skills/`
+and each IDE reads it through its own mirror. No per-surface path belongs in this skill.
