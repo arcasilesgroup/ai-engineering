@@ -34,12 +34,16 @@ export function surfaceCanGovern(surface: Surface): boolean {
 
 export type MirrorTarget = { dir: string; label: string };
 
-/** Where each surface discovers skills (§08): one canon, three mirrors. */
+/** Where each surface discovers skills (§08): one canon, its mirrors. Mirrors
+ *  sit next to the canon (env.home(), AI_ENG_HOME-isolable) — never beside the
+ *  physical homedir, or a test install rewrites the real stores (measured:
+ *  /tmp/aibrain-demo hijack, 2026-09-01). */
 export function mirrorTargets(): MirrorTarget[] {
+  const base = home();
   return [
-    { dir: join(homedir(), ".claude", "skills"), label: "~/.claude/skills" },
-    { dir: join(homedir(), ".agents", "skills"), label: "~/.agents/skills" },
-    { dir: join(homedir(), ".config", "opencode", "skill"), label: "~/.config/opencode/skill" },
+    { dir: join(base, "mirrors", "claude", "skills"), label: "<home>/mirrors/claude/skills" },
+    { dir: join(base, "mirrors", "agents", "skills"), label: "<home>/mirrors/agents/skills" },
+    { dir: join(base, "mirrors", "opencode", "skill"), label: "<home>/mirrors/opencode/skill" },
   ];
 }
 

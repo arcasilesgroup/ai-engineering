@@ -1,7 +1,7 @@
 // `ai-eng doctor` — 12 checks + one real test. The difference with theater: it
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
-
+import { embeddedUnder } from "../embed.ts";
 import { existsSync, readFileSync, readdirSync, lstatSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -9,9 +9,11 @@ import { repoRoot, loadConfig, home } from "../env.ts";
 import { summarizeReceipts } from "../receipts.ts";
 import { parseLock } from "../plant.ts";
 import { SURFACES } from "../surfaces/adapters.ts";
+import { VERSION } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
 import { readOverrides, overrideActive } from "../chain/dialect.ts";
 import { hashFile } from "../skills-lint.ts";
+import * as ui from "../ui.ts";
 
 export type CheckResult = { name: string; status: "ok" | "warn" | "fail"; detail: string };
 
@@ -53,28 +55,39 @@ export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: 
     existsSync(root ? join(root, ".ai-engineering", "config.toml") : "") ? "ok" : "fail",
     Array.isArray(surfaces) ? `surfaces: ${surfaces.join(", ")}` : "not parseable or missing",
   );
-  // 4. Canon 19/19 sha256 + mirrors resolve.
-  if (root) {
-    const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
-    if (existsSync(lockPath)) {
-      const lock = parseLock(readFileSync(lockPath, "utf8"));
-      let drift = 0;
-      let checked = 0;
-      for (const [path, hash] of Object.entries(lock.assets)) {
-        if (path.includes("skills/")) {
-          const absolute = join(home(), "skills", path.replace(/^.*skills\//, ""));
-          if (!existsSync(absolute)) {
-            drift += 1;
-            continue;
-          }
-          checked += 1;
-          if (hashFile(absolute) !== hash) drift += 1;
-        }
-      }
-      push("canon+lock", drift === 0 ? "ok" : "warn", `${checked} assets verified · ${drift} drift`);
-    } else {
-      push("canon+lock", "warn", "no lockfile — run ai-eng init");
+  // 4. Canon: the machine's ~/.ai-engineering/skills must byte-match the binary's
+  //    embedded payload. The repo lock never contains skills (it lists hooks,
+  //    settings, config) — the old filter-by-skills/ check counted 0 forever.
+  const canon = embeddedUnder("skills/");
+  let verified = 0;
+  let drift = 0;
+  let missing = 0;
+  for (const [path, ref] of canon) {
+    const absolute = join(home(), path);
+    if (!existsSync(absolute)) {
+      missing += 1;
+      continue;
     }
+    const { pathname } = new URL(ref, import.meta.url);
+    if (existsSync(pathname) && hashFile(absolute) === hashFile(pathname)) verified += 1;
+    else drift += 1;
+  }
+  push(
+    "canon",
+    drift === 0 && missing === 0 ? "ok" : "warn",
+    `${verified}/${canon.size} files verified · ${drift} drift · ${missing} missing`,
+  );
+  // 4b. Assets outdated: the planted lock records which binary version planted
+  //    it. Binary newer than lock → the repo runs stale hooks (§14.2: distinct
+  //    from "a newer binary exists" — only update fixes this one).
+  const lockPath = root ? join(root, ".ai-engineering", "ai-eng.lock") : null;
+  if (lockPath && existsSync(lockPath)) {
+    const lockVersion = String(parseLock(readFileSync(lockPath, "utf8")).version || "unknown");
+    push(
+      "assets",
+      lockVersion === VERSION ? "ok" : "warn",
+      lockVersion === VERSION ? `planted by ${VERSION}` : `binary ${VERSION} · assets planted by ${lockVersion} → ai-eng update`,
+    );
   }
   // 5. git floor: marker-managed shims in .git/hooks/ + gitleaks present.
   if (root) {
@@ -212,16 +225,22 @@ export function doctorMain(flags: { gc?: boolean }): number {
     return 0;
   }
   const { results, fail } = runChecks();
+  const root = repoRoot() ?? process.cwd();
+  const runtime = `bun ${typeof Bun !== "undefined" ? Bun.version : "?"}`;
+  ui.frame(`Health check · ${root.split("/").pop()} · ${runtime} · ai-eng ${VERSION}`);
   let ok = 0;
   let warn = 0;
   let failed = 0;
   for (const result of results) {
-    const mark = result.status === "ok" ? "✓" : result.status === "warn" ? "⚠" : "✗";
-    process.stdout.write(`${mark}  ${result.name} · ${result.detail}\n`);
+    const line = `${result.name} · ${result.detail}`;
+    if (result.status === "ok") ui.ok(line);
+    else if (result.status === "warn") ui.warn(line);
+    else ui.fail(line);
     if (result.status === "ok") ok += 1;
     else if (result.status === "warn") warn += 1;
     else failed += 1;
   }
-  process.stdout.write(`\n${results.length} checks: ${ok} OK · ${warn} WARN · ${failed} FAIL\n`);
+  ui.summary(ok, warn, failed);
+  ui.end(fail ? "FAIL present — fix before trusting the chain." : "Chain verified. Next: keep working.");
   return fail ? 2 : 0;
 }
