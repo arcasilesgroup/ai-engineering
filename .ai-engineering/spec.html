@@ -50,41 +50,41 @@
 <pre id="gates">
 # Gates: cli-ux-15 (user feedback round 2026-09-01, 7 findings)
 
-- [ ] G1: re-init "rewrite files" path runs ai-eng update — no updateMain crash
+- [x] G1: re-init "rewrite files" path runs ai-eng update — no updateMain crash
   CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'R15 evidence: re-init update'
-  EVIDENCE: pending
+  EVIDENCE: R15 evidence: re-init update ✓  all 8 assets current — nothing to sync | R15 evidence: config ◆  surfaces unchanged: claude-code
 
-- [ ] G2: jargon gone — no "Re-plant"/"re-plant" in any human-facing string
+- [x] G2: jargon gone — no "Re-plant"/"re-plant" in any human-facing string
   CHECK: ! grep -rn 'Re-plant\|Replant\|re-plant' src/ | grep -v '^\s*//' | grep -v '\* ' ; test $? -ne 0
-  EVIDENCE: pending
+  EVIDENCE: src/commands/init-shared.ts:2:// definition — the payload init plants is exactly the payload update re-plants. | src/commands/update.ts:1:// `ai-eng update` — re-plant this repo's assets from the inst
 
-- [ ] G3: config preselects installed surfaces ("ticked = installed") and prints the delta
+- [x] G3: config preselects installed surfaces ("ticked = installed") and prints the delta
   CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'R15 evidence: config'
-  EVIDENCE: pending
+  EVIDENCE: R15 evidence: config ◆  surfaces unchanged: claude-code | R15 evidence: ✓  global canon intact at /var/folders/lq/c8_f_2b10t55bgpdtvb7g19c0000gn/T/tmp.jaA3Rb4vRz/ai-eng-home (ai-eng unknown) — nothing
 
-- [ ] G4: init prints global canon status before project phase
+- [x] G4: init prints global canon status before project phase
   CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'global canon'
-  EVIDENCE: pending
+  EVIDENCE: R15 evidence: ✓  global canon intact at /var/folders/lq/c8_f_2b10t55bgpdtvb7g19c0000gn/T/tmp.4GGteU3aVe/ai-eng-home (ai-eng unknown) — nothing to install | R15 evidence: uninstall project scope kept c
 
-- [ ] G5: uninstall scopes stated plainly; project scope keeps contract files and global canon
+- [x] G5: uninstall scopes stated plainly; project scope keeps contract files and global canon
   CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'R15 evidence: uninstall project scope'
-  EVIDENCE: pending
+  EVIDENCE: R15 evidence: uninstall project scope kept contract files + global canon | ALL PROOFS GREEN
 
-- [ ] G6: mockup line grammar — ✓ green ok, ▲ yellow warn, ✗ red fail, ◆ info
+- [x] G6: mockup line grammar — ✓ green ok, ▲ yellow warn, ✗ red fail, ◆ info
   CHECK: bun -e "const u=await import('./src/ui.ts'); console.log(typeof u.info==='function' && typeof u.ok==='function' && typeof u.warn==='function' && typeof u.fail==='function')" | grep -q true
-  EVIDENCE: pending
+  EVIDENCE: (no output)
 
-- [ ] G7: arrow keys work through scripted pipes (ESC[B reaches clack as name=down)
+- [x] G7: arrow keys work through scripted pipes (ESC[B reaches clack as name=down)
   CHECK: grep -q 'map\[text.slice(i, i + 3)\]' src/ui.ts
-  EVIDENCE: pending
+  EVIDENCE: (no output)
 
-- [ ] G8: everything before it still holds — the full round-14 proof suite is green
+- [x] G8: everything before it still holds — the full round-14 proof suite is green
   CHECK: sh scripts/proof-cli-ux.sh 2>&1 | grep -q 'ALL PROOFS GREEN'
-  EVIDENCE: pending
+  EVIDENCE: (no output)
 
-- [ ] G9: full suite green — tests, lint, typecheck
+- [x] G9: full suite green — tests, lint, typecheck
   CHECK: bun test 2>&1 | grep -qE '^ 5[0-9] pass' && ! bun test 2>&1 | grep -qE '^ [1-9][0-9]* fail' && bun run lint >/dev/null 2>&1 && bun run typecheck >/dev/null 2>&1
-  EVIDENCE: pending
+  EVIDENCE: (no output)
 </pre>
 
 <h2><span class="num">03</span>Constraints & contracts</h2>
