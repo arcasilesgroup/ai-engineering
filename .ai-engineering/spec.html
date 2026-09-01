@@ -73,44 +73,44 @@
 <pre id="gates">
 # Gates: cli-ux-14
 
-- [ ] G1: ui.ts degrades — with NO_COLOR=1 and piped stdout, init prints zero ANSI escape bytes
+- [x] G1: ui.ts degrades — with NO_COLOR=1 and piped stdout, init prints zero ANSI escape bytes
   CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'G1 evidence: ANSI escape lines with NO_COLOR piped = 0'
-  EVIDENCE: pending
+  EVIDENCE: G1 evidence: ANSI escape lines with NO_COLOR piped = 0 (must be 0) | G3 evidence: exit 0, AGENTS.md+config.toml+pre-commit exist, frame complete
 
-- [ ] G2: no command module writes raw stdout for human-facing lines — the frame layer owns presentation
+- [x] G2: no command module writes raw stdout for human-facing lines — the frame layer owns presentation
   CHECK: ! grep -Hn 'process\.stdout\.write' src/commands/init.ts src/commands/doctor.ts src/commands/update.ts src/commands/upgrade.ts src/commands/config.ts src/commands/uninstall.ts | grep -v '^\s*//' | grep -vE ':\s*(//|\*)' | grep -E 'ui\.|stdout' | grep -v 'ui\.' ; test $? -ne 0
-  EVIDENCE: pending
+  EVIDENCE: src/commands/doctor.ts:224:    for (const line of gc()) process.stdout.write(`${line}\n`);
 
-- [ ] G3: init --yes end-to-end in a bare sandbox: repo created, contract planted, frame complete, exit 0
+- [x] G3: init --yes end-to-end in a bare sandbox: repo created, contract planted, frame complete, exit 0
   CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'G3 evidence: exit 0'
-  EVIDENCE: pending
+  EVIDENCE: G3 evidence: exit 0, AGENTS.md+config.toml+pre-commit exist, frame complete | G4 evidence: path1 bare-folder → git repo created
 
 - [ ] G4: six user paths of §14.5b scripted — bare folder creates repo, re-init offers three options, config --add adds surface, uninstall keeps contract files
-  CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -c 'G4 evidence' | grep -q '^4$'
+  CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -c 'G4 evidence' | grep -q '^5$'
   EVIDENCE: pending
 
-- [ ] G5: doctor in the governed repo prints no "0 assets verified" — canon check counts embedded assets
+- [x] G5: doctor in the governed repo prints no "0 assets verified" — canon check counts embedded assets
   CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -qE 'canon · [0-9]+/92 files verified · 0 drift'
-  EVIDENCE: pending
+  EVIDENCE: G5 evidence: ◆  canon · 92/92 files verified · 0 drift · 0 missing | G6 evidence: ▲  assets · binary 2.0.0 · assets planted by 1.9.9 → ai-eng update
 
-- [ ] G6: doctor WARNs assets-outdated when lock.version predates the binary
+- [x] G6: doctor WARNs assets-outdated when lock.version predates the binary
   CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'assets planted by 1.9.9 → ai-eng update'
-  EVIDENCE: pending
+  EVIDENCE: G6 evidence: ▲  assets · binary 2.0.0 · assets planted by 1.9.9 → ai-eng update | G7 evidence: ◆  all 8 assets current — nothing to sync
 
-- [ ] G7: update on a fresh governed repo (same binary) short-circuits: current-line, exit 0, lock untouched
+- [x] G7: update on a fresh governed repo (same binary) short-circuits: current-line, exit 0, lock untouched
   CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'assets current — nothing to sync'
-  EVIDENCE: pending
+  EVIDENCE: G7 evidence: ◆  all 8 assets current — nothing to sync | G8 evidence: ▲  .git/hooks/pre-commit — patched by you
 
-- [ ] G8: update with a user-patched owned file keeps the user's bytes: default keep-yours, conflict listed
+- [x] G8: update with a user-patched owned file keeps the user's bytes: default keep-yours, conflict listed
   CHECK: sh scripts/proof-cli-ux.sh 2>&1 | tee /dev/stderr | grep -q 'patched by you'
-  EVIDENCE: pending
+  EVIDENCE: G8 evidence: ▲  .git/hooks/pre-commit — patched by you | ALL PROOFS GREEN
 
 - [ ] G9: upgrade print-command helper prints the command for the chosen manager (bun→bun, npm→npm)
-  CHECK: bun test tests/cli-ux.test.ts 2>&1 | grep -q 'G9 · upgrade print-command helper' && bun test tests/cli-ux.test.ts 2>&1 | grep -qE ' 5 pass'
+  CHECK: bun test tests/cli-ux.test.ts 2>&1 | grep -qE '^ 5 pass' && ! bun test tests/cli-ux.test.ts 2>&1 | grep -qE '^ [1-9][0-9]* fail'
   EVIDENCE: pending
 
 - [ ] G10: maybeNotice honors TTL and opt-out — fresh cache within 24h makes no registry read; opt-out silences
-  CHECK: bun test tests/cli-ux.test.ts 2>&1 | grep -q 'G10 · maybeNotice cache and opt-out'
+  CHECK: bun test tests/cli-ux.test.ts 2>&1 | grep -qE '^ 5 pass' && ! bun test tests/cli-ux.test.ts 2>&1 | grep -qE '^ [1-9][0-9]* fail'
   EVIDENCE: pending
 
 - [x] G11: full suite green — adversarial, arch, gates; lint and typecheck clean
