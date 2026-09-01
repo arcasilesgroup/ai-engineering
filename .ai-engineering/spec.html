@@ -1,9 +1,9 @@
 # {ai} Engineering — blueprint v17 spec.html template (§22 branding)
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>spec.html — QUÉ · v2-0.13.0</title>
+<title>spec.html — WHAT · v2-2.0.0</title>
 <style>
   :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#A9BBD0; --ok:#22c55e; --bad:#ef4444; --mono:'SF Mono',monospace; }
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -18,34 +18,34 @@
 </style>
 </head>
 <body>
-<h1><span class="x">{ai}</span> spec · v2-0.13.0</h1>
-<p style="color:var(--dim)">QUÉ y POR QUÉ — requisitos y gates de aceptación. Ejecutado por <code>ai-eng spec run</code>; su sha256 se fija en <code>ai-eng.lock</code> al aprobarse (PARADA 1).</p>
+<h1><span class="x">{ai}</span> spec · v2-2.0.0</h1>
+<p style="color:var(--dim)">WHAT and WHY — requirements and acceptance gates. Executed by <code>ai-eng spec run</code>; its sha256 is pinned in <code>ai-eng.lock</code> on approval (STOP 1).</p>
 <h2>Gates</h2>
-<p style="color:var(--dim)">Formato gates de unlazy (ejecutado por <code>ai-eng spec run</code> → gate-check.mjs). Máximo 30 por hito. ABANDON: G&lt;n&gt; &lt;razón&gt; como salida honesta.</p>
+<p style="color:var(--dim)">unlazy gate format (executed by <code>ai-eng spec run</code> → gate-check.mjs). Max 30 per milestone. ABANDON: G&lt;n&gt; &lt;reason&gt; is the honest exit.</p>
 <pre id="gates">
-# Gates: v2-0.13.0
+# Gates: v2-2.0.0
 
-- [x] G1: 26 casos adversariales del oráculo pasan (guards no se saltan)
+- [x] G1: the 26 adversarial oracle cases pass (guards cannot be bypassed)
   CHECK: bun test tests/adversarial/
   EVIDENCE: 29 expect() calls | Ran 26 tests across 1 file. [39.00ms]
 
-- [x] G2: arquitectura de capas sin violaciones ni ciclos
+- [x] G2: layered architecture without violations or cycles
   CHECK: bun run arch
   EVIDENCE: 26 expect() calls | Ran 10 tests across 1 file. [588.00ms]
 
-- [x] G3: typecheck estricto sin errores
+- [x] G3: strict typecheck with zero errors
   CHECK: bunx tsc --noEmit
   EVIDENCE: (no output)
 
-- [x] G4: el binario compilado doctor-verde sobre el repo gobernado
+- [x] G4: the compiled binary is doctor-green over the governed repo
   CHECK: dist/ai-eng doctor
-  EVIDENCE: ✓  behaviors · sin behaviors declarados | 12 checks: 12 OK · 0 WARN · 0 FAIL
+  EVIDENCE: ✓  behaviors · no behaviors declared | 12 checks: 12 OK · 0 WARN · 0 FAIL
 
-- [x] G5: build del binario con payload embebido
+- [x] G5: binary build with embedded payload
   CHECK: bun run build
   EVIDENCE: [95ms] compile  dist/ai-eng | $ bun build src/cli.ts --compile --minify --sourcemap --bytecode --outfile dist/ai-eng
 
-# Gates: v2-0.13.0
+# Gates: v2-2.0.0
 
 - [x] G1: <observable outcome>
   CHECK: test -f README.md

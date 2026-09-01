@@ -1,6 +1,6 @@
-# DECISIONS.md — ADR-lite: ≤6 líneas por decisión [Problema → Decisión → Razón]
+# DECISIONS.md — ADR-lite: ≤6 lines per decision [Problem → Decision → Reason]
 
-## D-001 · ai-engineering gobierna este repo (2026-09-01)
-**Problema:** los agentes necesitan suelo común: guards, git floor, contrato ejecutable.
-**Decisión:** se planta {ai} Engineering 0.13.0 (init), canon de skills global, receipts locales.
-**Razón:** proof > promise — una decisión que siempre sale igual es código, no un prompt.
+## D-001 · ai-engineering governs this repo (2026-09-01)
+**Problem:** agents need common ground: guards, git floor, executable contract.
+**Decision:** planted {ai} Engineering 2.0.0 (init), global skill canon, local receipts.
+**Reason:** proof > promise — a decision that always comes out the same is code, not a prompt.

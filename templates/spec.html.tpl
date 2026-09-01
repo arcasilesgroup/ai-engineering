@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>spec.html — WHAT · {{hito}}</title>
+<title>spec.html — WHAT · {{milestone}}</title>
 <style>
   :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#A9BBD0; --ok:#22c55e; --bad:#ef4444; --warn:#eab308; --mono:'SF Mono',ui-monospace,monospace; }
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -23,7 +23,7 @@
 </style>
 </head>
 <body>
-<h1><span class="x">{ai}</span> spec · {{hito}}</h1>
+<h1><span class="x">{ai}</span> spec · {{milestone}}</h1>
 <p style="color:var(--dim)">WHAT and WHY — requirements and acceptance gates. Executed by <code>ai-eng spec run</code>; its sha256 is pinned in <code>ai-eng.lock</code> at approval (STOP 1).</p>
 
 <h2><span class="num">00</span>Context chain</h2>
@@ -48,7 +48,7 @@
 <h2><span class="num">02</span>Acceptance gates</h2>
 <p style="color:var(--dim)">unlazy gate format, executed by <code>ai-eng spec run</code> (gate-check.mjs). Max 30 per milestone. ABANDON: G&lt;n&gt; &lt;reason&gt; is the honest exit.</p>
 <pre id="gates">
-# Gates: {{hito}}
+# Gates: {{milestone}}
 
 - [ ] G1: <observable outcome>
   CHECK: test -f README.md

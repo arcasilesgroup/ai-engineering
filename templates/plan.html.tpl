@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>plan.html — HOW · {{hito}}</title>
+<title>plan.html — HOW · {{milestone}}</title>
 <style>
   :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#A9BBD0; --warn:#eab308; --ok:#22c55e; --mono:'SF Mono',ui-monospace,monospace; }
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -21,7 +21,7 @@
 </style>
 </head>
 <body>
-<h1><span class="x">{ai}</span> plan · {{hito}}</h1>
+<h1><span class="x">{ai}</span> plan · {{milestone}}</h1>
 <p style="color:var(--dim)">HOW, WHEN, IN WHAT ORDER. The loop (ai-goal) marks it every iteration; CI never executes it — its derived truth is the receipts of spec.html.</p>
 
 <h2><span class="num">00</span>Context chain</h2>
