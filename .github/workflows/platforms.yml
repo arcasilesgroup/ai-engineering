@@ -1,0 +1,34 @@
+name: platforms
+# The compiled binary is another artifact than the TS — only the e2e knows (§17).
+on:
+  push:
+    branches: [main, v2]
+  pull_request:
+
+jobs:
+  init-doctor-uninstall:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Build the real binary
+        run: bun run build
+      - name: init --yes on a bare folder (§18 H2 acceptance)
+        shell: bash
+        run: |
+          mkdir demo && cd demo
+          "$GITHUB_WORKSPACE/dist/ai-eng" init --yes --surface claude-code
+          test -f AGENTS.md
+          test -f .ai-engineering/ai-eng.lock
+          test -f .claude/settings.json
+      - name: doctor responds (chain test inside)
+        shell: bash
+        run: cd demo && "$GITHUB_WORKSPACE/dist/ai-eng" doctor
+      - name: uninstall keeps the user's files
+        shell: bash
+        run: cd demo && echo "" | "$GITHUB_WORKSPACE/dist/ai-eng" uninstall || true

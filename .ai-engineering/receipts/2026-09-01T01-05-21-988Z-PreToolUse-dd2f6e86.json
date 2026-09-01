@@ -1,0 +1,1 @@
+{"schema":"urn:ai-eng:receipt:2","operation_id":"dd2f6e86","ts":"2026-09-01T01:05:21.988Z","event":"PreToolUse","surface":"unknown","tool":"unknown","guards":{"ran":["injection"],"denied_by":"injection"},"latency_ms":1,"outcome":"deny"}

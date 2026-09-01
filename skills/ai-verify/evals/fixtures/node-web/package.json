@@ -1,0 +1,11 @@
+{
+  "name": "eval-fixture-node-web",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Deliberately small, deliberately correct. plant.py breaks it on purpose.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "node --test"
+  }
+}

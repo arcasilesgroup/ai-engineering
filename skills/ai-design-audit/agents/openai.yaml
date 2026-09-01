@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Design Audit"
+  short_description: "Audit rendered UI defects and verify fixes with a baseline"
+  default_prompt: "Use $ai-design-audit to measure the built site in a browser across widths, judge the findings against the code, and verify the fixes with a baseline."

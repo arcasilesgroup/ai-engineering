@@ -1,0 +1,73 @@
+{
+  "pack": "example-node-web",
+  "target": "evals/fixtures/node-web (or any repo with the same shape)",
+  "notes": "Six defects, one per class, spread across four lanes. Two are near-misses that read as correct code — those are the ones that separate a working review skill from a plausible-sounding one.",
+  "bugs": [
+    {
+      "id": "B1",
+      "class": "privilege-escalation",
+      "lane": "security-audit",
+      "severity": "critical",
+      "file": "src/auth/session.ts",
+      "find": "  if (user.role !== \"admin\") {",
+      "replace": "  if (user.role === \"viewer\") {",
+      "expect": "requireAdmin now admits editors — the gate checks the wrong role. Every admin-only path is open to any editor.",
+      "match": ["role|admin"]
+    },
+    {
+      "id": "B2",
+      "class": "missing-authorization",
+      "lane": "security-audit",
+      "severity": "critical",
+      "file": "src/api/orders.ts",
+      "find": "  requireAdmin(session, now);\n  await softDeleteOrder(db, id);",
+      "replace": "  requireUser(session, now);\n  await softDeleteOrder(db, id);",
+      "expect": "deleteOrder downgraded from admin-only to any-authenticated-user. Any logged-in user can delete any order, including one that is not theirs.",
+      "match": ["admin|authoriz|authoris|permission|privileg|requireUser"]
+    },
+    {
+      "id": "B3",
+      "class": "sql-injection",
+      "lane": "security-audit",
+      "severity": "critical",
+      "file": "src/db/queries.ts",
+      "find": "  return db.query(\"select * from orders where reference ilike $1 limit 50\", [`%${term}%`]);",
+      "replace": "  return db.query(`select * from orders where reference ilike '%${term}%' limit 50`);",
+      "expect": "search term interpolated straight into SQL instead of parameterised. Attacker-controlled input reaches the query text.",
+      "match": ["inject|interpolat|parameteri|parameteris|sanitiz|concat"]
+    },
+    {
+      "id": "B4",
+      "class": "n-plus-one",
+      "lane": "perf-audit",
+      "severity": "high",
+      "file": "src/api/orders.ts",
+      "find": "  const ids = [...new Set(page.map((o) => String(o.customer_id)))];\n  const customers = await findCustomersByIds(db, ids);\n  const byId = new Map(customers.map((c) => [String(c.id), c]));\n\n  return page.map((order) => ({ ...order, customer: byId.get(String(order.customer_id)) }));",
+      "replace": "  const withCustomers: Row[] = [];\n  for (const order of page) {\n    const rows = await db.query(\"select id, name, email from customers where id = $1\", [\n      String(order.customer_id),\n    ]);\n    withCustomers.push({ ...order, customer: rows[0] ?? null });\n  }\n\n  return withCustomers;",
+      "expect": "batched customer lookup replaced with one awaited query per order — 20 sequential round trips per page instead of one.",
+      "match": ["n\\+1|loop|per.order|per.row|sequential|batch|round.?trip"]
+    },
+    {
+      "id": "B5",
+      "class": "off-by-one",
+      "lane": "code-audit",
+      "severity": "medium",
+      "file": "src/api/orders.ts",
+      "find": "  return items.slice(start, start + PAGE_SIZE);",
+      "replace": "  return items.slice(start, start + PAGE_SIZE + 1);",
+      "expect": "pages return 21 items, and the last item of each page repeats as the first item of the next.",
+      "match": ["page|paginat|slice|off.by.one|boundary|duplicat|overlap"]
+    },
+    {
+      "id": "B6",
+      "class": "missing-accessible-name",
+      "lane": "a11y-audit",
+      "severity": "high",
+      "file": "src/ui/OrderList.tsx",
+      "find": "<button type=\"button\" aria-label={`Delete order ${order.reference}`} onClick={() => onDelete(order.id)}>",
+      "replace": "<button type=\"button\" onClick={() => onDelete(order.id)}>",
+      "expect": "icon-only delete button loses its accessible name; the SVG is aria-hidden, so a screen reader announces an unlabelled button on a destructive action.",
+      "match": ["label|accessible name|screen.?reader|aria"]
+    }
+  ]
+}

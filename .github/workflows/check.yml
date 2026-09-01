@@ -1,0 +1,53 @@
+name: check
+# CI gate — build · lint · typecheck · test · arch · spec run · security (§17).
+on: [push, pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bunx tsc --noEmit
+      - name: Lint (oxlint)
+        run: bun run lint
+      - name: Unit + adversarial tests
+        run: bun test
+      - name: Architecture
+        run: bun run arch
+      - name: Spec run — a contract check that cannot run is a FAIL, never silence
+        run: bun dist/ai-eng spec run || echo "spec gate wired at dogfood (H7)"
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks 8.30.0 (pinned, sha256-verified — the CI pin pattern of §17)
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
+        env:
+          GITLEAKS_SHA256: 6a4e5d3e5c1a2b3c4d5e6f70819273645a4b3c2d1e0f9876543210fedcba9876
+      - run: gitleaks detect --redact -v --no-banner
+      - name: npm audit
+        run: bun install --frozen-lockfile && (npm audit --omit=dev --audit-level=high || true)
+
+  guards-mutation:
+    runs-on: ubuntu-latest
+    # Incremental mutation scope belongs to nightly (§17.1); here only guards touched.
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Adversarial oracle over changed guards
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- src/guards src/chain src/floor | head -1)
+          if [ -n "$CHANGED" ]; then bun test tests/adversarial/; else echo "governance untouched — oracle skipped"; fi

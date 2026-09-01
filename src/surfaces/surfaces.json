@@ -1,0 +1,76 @@
+{
+  "$schema": "./surfaces.schema.json",
+  "surfaces": [
+    {
+      "id": "claude-code",
+      "label": "Claude Code",
+      "tier": "core",
+      "mechanism": "json-stdio",
+      "can": { "deny": true, "rewriteIn": true, "rewriteOut": true, "failClosed": false },
+      "settingsFile": ".claude/settings.json",
+      "hookConfig": {
+        "PreToolUse": { "matcher": "Bash|PowerShell|Edit|Write|MultiEdit|Read|NotebookEdit|NotebookRead" },
+        "PostToolUse": { "matcher": "Bash|Edit|Write|MultiEdit|WebFetch|WebSearch" },
+        "Stop": { "matcher": "" },
+        "SessionStart": { "matcher": "" }
+      },
+      "timeout": 5
+    },
+    {
+      "id": "oh-my-pi",
+      "label": "Oh My Pi",
+      "tier": "core",
+      "mechanism": "ts-module",
+      "can": { "deny": true, "rewriteIn": true, "rewriteOut": true, "failClosed": true },
+      "pluginFile": ".agents/hooks/ai-eng.ts",
+      "timeout": 0
+    },
+    {
+      "id": "opencode",
+      "label": "OpenCode",
+      "tier": "core",
+      "mechanism": "ts-module",
+      "can": { "deny": "throw", "rewriteIn": true, "rewriteOut": true, "failClosed": true },
+      "pluginFile": ".opencode/plugins/ai-eng.ts",
+      "timeout": 0
+    },
+    {
+      "id": "cursor",
+      "label": "Cursor",
+      "tier": "experimental",
+      "mechanism": "json-stdio",
+      "can": { "deny": true, "rewriteIn": true, "rewriteOut": false, "failClosed": true },
+      "settingsFile": ".cursor/hooks.json",
+      "timeout": 5,
+      "note": "output rewrite: MCP only (blueprint §13)"
+    },
+    {
+      "id": "codex",
+      "label": "Codex CLI",
+      "tier": "experimental",
+      "mechanism": "json-stdio",
+      "can": { "deny": true, "rewriteIn": true, "rewriteOut": "total-replacement" },
+      "settingsFile": ".codex/hooks.json",
+      "timeout": 5,
+      "note": "requires manual /hooks trust (hash-pinned)"
+    },
+    {
+      "id": "copilot",
+      "label": "Copilot",
+      "tier": "best-effort",
+      "mechanism": "json-stdio",
+      "can": { "deny": true, "rewriteIn": true, "rewriteOut": true, "failClosed": false },
+      "settingsFile": ".copilot/settings.json",
+      "timeout": 5,
+      "note": "ephemeral FS: no receipts"
+    },
+    {
+      "id": "pi-zed",
+      "label": "Pi / Zed",
+      "tier": "skills-only",
+      "mechanism": "none",
+      "can": { "deny": false, "rewriteIn": false, "rewriteOut": false, "failClosed": false },
+      "note": "honest: skills install, no guards in hot-path"
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+name: release
+# tag v0.13.0 → 8 cross-compiled binaries + SBOM + npm publish with --provenance (§7.1).
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: bun-linux-x64
+            os: ubuntu-latest
+          - target: bun-linux-arm64
+            os: ubuntu-latest
+          - target: bun-darwin-x64
+            os: macos-latest
+          - target: bun-darwin-arm64
+            os: macos-latest
+          - target: bun-windows-x64
+            os: windows-latest
+          - target: bun-windows-arm64
+            os: windows-latest
+          - target: bun-linux-musl-x64
+            os: ubuntu-latest
+          - target: bun-linux-musl-arm64
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build --target ${{ matrix.target }} || bun build src/cli.ts --compile --target ${{ matrix.target }} --minify --sourcemap --bytecode --outfile dist/ai-eng
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-eng-${{ matrix.target }}
+          path: dist/ai-eng*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+      - name: SBOM (CycloneDX — v1 shipped one; so does v2)
+        run: |
+          curl -sSfL https://github.com/CycloneDX/cdxgen/releases/latest/download/cdxgen-linux-x64 -o cdxgen && chmod +x cdxgen
+          ./cdxgen -o sbom.json .
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist-artifacts/**/*
+            sbom.json
+          generate_release_notes: true
+      - name: npm publish (the normal channel; trust signed by the registry)
+        run: |
+          bun install --frozen-lockfile
+          bun publish --provenance --access public
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

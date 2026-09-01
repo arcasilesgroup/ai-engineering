@@ -1,0 +1,23 @@
+# .ai-engineering/config.toml — what CAN'T be deduced from code (§08)
+# You or `ai-eng config` write it; never the chain.
+
+[surfaces]
+enabled = [{{surfaces}}]
+
+[models]
+decide  = "claude-fable-5"   # arquitectura, juicio, review de seguridad — caro y lento está bien
+execute = "gpt-5.6-sol"      # implementación end-to-end, reviews mecánicas
+verify  = "gpt-5.6-luna"     # checks binarios PASS/FAIL — barato
+
+[guards]
+loop_window = 6    # llamadas recordadas
+loop_repeats = 3   # misma llamada exacta → deny
+loop_failures = 5  # misma firma fallando → deny
+
+[gc]
+max_files = 25        # por carpeta NNN — superar → WARN
+older_than = "90d"    # edad mínima para ser candidato de gc
+keep_runs = 5         # security/: los últimos runs siempre vivos
+receipts_ttl = "30d"  # receipts: agregar y borrar
+
+# notices = false   # opt-out del aviso de versión nueva (o AI_ENG_NO_UPDATE_NOTICES=1)

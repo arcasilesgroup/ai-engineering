@@ -1,0 +1,4 @@
+interface:
+  display_name: "Headstart"
+  short_description: "Research stacks, costs, architecture, and project strategy, with a gated arXiv prior-art pass"
+  default_prompt: "Use $headstart to research the best way to build this project and recommend a stack, architecture, operating-cost tradeoffs, and next steps. Run the arXiv prior-art deep dive only if its gate fires."
