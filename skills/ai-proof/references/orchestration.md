@@ -40,7 +40,8 @@ plan, dispatch, verify, and integrate.
    even for boxes the leaf already ticked with evidence; without it a
    self-certified gate is taken on trust and its command never runs, which
    makes this whole step decorative. And naming the file matters: a bare
-   `gate-check` globs `GATES.md` plus all of `gates/*.md`, so verifying one
+   `gate-check` globs the milestone gates file (`.ai-engineering/spec.html` in
+   ai-engineering, historically `GATES.md`) plus all of `gates/*.md`, so verifying one
    leaf would re-run the entire tree's checks, once per leaf, for the whole
    build. A failed `--recheck` withdraws that gate's evidence back to
    `pending`, which makes it unmet by the format's second rule and blocks the
@@ -88,7 +89,7 @@ misses:
 2. **Parent re-run**: the driver re-executes the checks with `--recheck`.
    Catches self-deception and environment differences. The flag is the whole
    layer; a plain re-run skips exactly the gates worth distrusting.
-3. **Stop-hook** (Claude Code, optional): structurally blocks a session from
+3. **Stop-hook** (optional, Pi/Zed surfaces in ai-engineering): structurally blocks a session from
    ending while gates are unmet. Catches the driver itself drifting into
    report mode. It hooks `Stop`, not `SubagentStop`, so it guards the driver
    and never blocks a dispatched leaf on its siblings' unmet gates.
@@ -117,6 +118,6 @@ Two constraints this skill adds on top of that policy:
 ## When NOT to orchestrate
 
 Below roughly half an hour of real work, subagent overhead (context
-re-establishment per leaf) costs more than it buys. Stay solo: one GATES.md,
-one session, same discipline. The gates still do their job; you just skip
-the dispatch machinery.
+re-establishment per leaf) costs more than it buys. Stay solo: one gates
+file, one session, same discipline. The gates still do their job; you just
+skip the dispatch machinery.

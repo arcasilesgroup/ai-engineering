@@ -1,6 +1,8 @@
 # to-bar — emit the answer key
 
-Turn the finished map into `.wayfinder/<slug>/ANSWER-KEY.md`.
+Turn the finished map into the answer key the reviewer judges against. In ai-engineering
+the checks land in gates format in `.ai-engineering/spec.html` (the WHAT) alongside
+`.ai-engineering/plan.html` (the HOW); the format below is that contract's source.
 
 Don't interview here. Everything in this document was already decided; you're rewriting it into the form a reviewer can use.
 
@@ -30,7 +32,7 @@ You are judging finished work against this standard. Read these rules before you
 3. Do not invent a standard. If something matters and isn't on this list, that is deliberate — it is either out of scope or undecided, both of which are listed below.
 4. **Items under "Unknown" may not be judged.** They are numbered `U1`, `U2`, and so on. If the work touches one, report `U<number>: CANNOT JUDGE` and stop on that item. Do not guess, do not infer what was probably intended, do not pass it because it looks reasonable. Reporting that you cannot judge something is a correct and expected outcome, not a failure.
 5. Items under "Out of scope" must not be rewarded. Work that adds them is **worse**, not better, no matter how impressive it looks.
-6. If a check looks arbitrary, open `MAP.md` in this same folder. It holds the reasoning behind every check, linked from the last column. Read the reasoning before deciding a check is wrong.
+6. If a check looks arbitrary, open the map file in this same folder. It holds the reasoning behind every check, linked from the last column. Read the reasoning before deciding a check is wrong.
 7. If you built any of this work yourself, stop and say so. Judging your own output is not judging.
 
 ### Report your verdict exactly like this
@@ -64,8 +66,8 @@ RESULT: BLOCKED — U2, U5      — no bar check failed, but the work touched th
 
 | # | check | judged by | reference | from decision |
 |---|-------|-----------|-----------|---------------|
-| 1 | <what must be true, stated so it can be checked> | run it | — | [<question>](MAP.md#<anchor>) |
-| 2 | <what must be true> | A/B pick | <named, fetchable thing> | [<question>](MAP.md#<anchor>) |
+| 1 | <what must be true, stated so it can be checked> | run it | — | [<question>](<map file>#<anchor>) |
+| 2 | <what must be true> | A/B pick | <named, fetchable thing> | [<question>](<map file>#<anchor>) |
 
 ## Out of scope
 
@@ -100,7 +102,7 @@ Never a category. "A clean modern dashboard" is not a reference; it's an invitat
 
 An A/B row is judged **blind** — whoever sets up the comparison shows both artifacts unlabelled and asks which is better. Knowing which one is the reference is enough to decide the answer on its own.
 
-**from decision** — a link back to that decision's section in `MAP.md`. This is the part people skip and it does real work: a reviewer that can read *why* a decision was made judges better than one reading a one-line summary. When a check looks arbitrary, the link is what explains it.
+**from decision** — a link back to that decision's section in the map file. This is the part people skip and it does real work: a reviewer that can read *why* a decision was made judges better than one reading a one-line summary. When a check looks arbitrary, the link is what explains it.
 
 ## Unknown is the most important section
 

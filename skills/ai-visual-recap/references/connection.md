@@ -2,7 +2,7 @@
 
 This file is the canonical rule for the never-inline deliverable, finding the
 Plan MCP connector, and restoring it when its tools are missing. It is shared
-word for word by `/visual-plan` and `/visual-recap`. Read it when you are about
+word for word by the upstream `/visual-plan` skill and by ai-visual-recap. Read it when you are about
 to publish, or whenever a connector or auth error appears; do not improvise an
 inline fallback from memory.
 

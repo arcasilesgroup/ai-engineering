@@ -38,7 +38,6 @@ import askills_ai_security_SKILL_md from "../skills/ai-security/SKILL.md" with {
 import askills_ai_architect_references_arxiv_prior_art_md from "../skills/ai-architect/references/arxiv-prior-art.md" with { type: "file" };
 import askills_ai_architect_agents_openai_yaml from "../skills/ai-architect/agents/openai.yaml" with { type: "file" };
 import askills_ai_architect_SKILL_md from "../skills/ai-architect/SKILL.md" with { type: "file" };
-import askills_ai_architect_headstart_SKILL_md from "../skills/ai-architect/headstart-SKILL.md" with { type: "file" };
 import askills_ai_brainstorm_references_spec_document_reviewer_prompt_md from "../skills/ai-brainstorm/references/spec-document-reviewer-prompt.md" with { type: "file" };
 import askills_ai_brainstorm_SKILL_md from "../skills/ai-brainstorm/SKILL.md" with { type: "file" };
 import askills_ai_agents_md_SKILL_md from "../skills/ai-agents-md/SKILL.md" with { type: "file" };
@@ -48,8 +47,6 @@ import askills_ai_design_references_plans_md from "../skills/ai-design/reference
 import askills_ai_design_references_skill_purposes_md from "../skills/ai-design/references/skill-purposes.md" with { type: "file" };
 import askills_ai_design_references_routing_table_md from "../skills/ai-design/references/routing-table.md" with { type: "file" };
 import askills_ai_design_SKILL_md from "../skills/ai-design/SKILL.md" with { type: "file" };
-import askills_ai_design_design_orchestrator_SKILL_md from "../skills/ai-design/design-orchestrator-SKILL.md" with { type: "file" };
-import askills_ai_writing_behavior_writing_agent_behavior_SKILL_md from "../skills/ai-writing-behavior/writing-agent-behavior-SKILL.md" with { type: "file" };
 import askills_ai_writing_behavior_references_agent_behavior_specification_md from "../skills/ai-writing-behavior/references/agent-behavior-specification.md" with { type: "file" };
 import askills_ai_writing_behavior_references_calibrating_with_trajectories_md from "../skills/ai-writing-behavior/references/calibrating-with-trajectories.md" with { type: "file" };
 import askills_ai_writing_behavior_references_deciding_what_to_save_md from "../skills/ai-writing-behavior/references/deciding-what-to-save.md" with { type: "file" };
@@ -64,7 +61,6 @@ import askills_ai_debug_SKILL_md from "../skills/ai-debug/SKILL.md" with { type:
 import askills_ai_visual_recap_references_connection_md from "../skills/ai-visual-recap/references/connection.md" with { type: "file" };
 import askills_ai_visual_recap_references_local_files_md from "../skills/ai-visual-recap/references/local-files.md" with { type: "file" };
 import askills_ai_visual_recap_references_wireframe_md from "../skills/ai-visual-recap/references/wireframe.md" with { type: "file" };
-import askills_ai_visual_recap_visual_recap_SKILL_md from "../skills/ai-visual-recap/visual-recap-SKILL.md" with { type: "file" };
 import askills_ai_visual_recap_SKILL_md from "../skills/ai-visual-recap/SKILL.md" with { type: "file" };
 import askills_ai_write_references_documentation_writer_md from "../skills/ai-write/references/documentation-writer.md" with { type: "file" };
 import askills_ai_write_SKILL_md from "../skills/ai-write/SKILL.md" with { type: "file" };
@@ -79,18 +75,15 @@ import askills_ai_proof_SKILL_md from "../skills/ai-proof/SKILL.md" with { type:
 import askills_ai_proof_templates_gates_node_md from "../skills/ai-proof/templates/gates-node.md" with { type: "file" };
 import askills_ai_proof_templates_PLAN_md from "../skills/ai-proof/templates/PLAN.md" with { type: "file" };
 import askills_ai_proof_templates_gates_leaf_md from "../skills/ai-proof/templates/gates-leaf.md" with { type: "file" };
-import askills_ai_proof_unlazy_SKILL_md from "../skills/ai-proof/unlazy-SKILL.md" with { type: "file" };
 import askills_ai_design_audit_references_fixes_md from "../skills/ai-design-audit/references/fixes.md" with { type: "file" };
 import askills_ai_design_audit_references_reading_md from "../skills/ai-design-audit/references/reading.md" with { type: "file" };
 import askills_ai_design_audit_agents_openai_yaml from "../skills/ai-design-audit/agents/openai.yaml" with { type: "file" };
-import askills_ai_design_audit_ai_design_audit_SKILL_md from "../skills/ai-design-audit/ai-design-audit-SKILL.md" with { type: "file" };
 import askills_ai_design_audit_scripts_audit_mjs from "../skills/ai-design-audit/scripts/audit.mjs" with { type: "file" };
 import askills_ai_design_audit_SKILL_md from "../skills/ai-design-audit/SKILL.md" with { type: "file" };
 import askills_ai_note_SKILL_md from "../skills/ai-note/SKILL.md" with { type: "file" };
 import askills_ai_read_docs_SKILL_md from "../skills/ai-read-docs/SKILL.md" with { type: "file" };
 import askills_ai_rtk_references_commands_md from "../skills/ai-rtk/references/commands.md" with { type: "file" };
 import askills_ai_rtk_SKILL_md from "../skills/ai-rtk/SKILL.md" with { type: "file" };
-import askills_ai_plan_wayfinder_SKILL_md from "../skills/ai-plan/wayfinder-SKILL.md" with { type: "file" };
 import askills_ai_plan_agents_openai_yaml from "../skills/ai-plan/agents/openai.yaml" with { type: "file" };
 import askills_ai_plan_SKILL_md from "../skills/ai-plan/SKILL.md" with { type: "file" };
 import askills_ai_plan_commands_prototype_md from "../skills/ai-plan/commands/prototype.md" with { type: "file" };
@@ -149,7 +142,6 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-architect/references/arxiv-prior-art.md": askills_ai_architect_references_arxiv_prior_art_md,
   "../skills/ai-architect/agents/openai.yaml": askills_ai_architect_agents_openai_yaml,
   "../skills/ai-architect/SKILL.md": askills_ai_architect_SKILL_md,
-  "../skills/ai-architect/headstart-SKILL.md": askills_ai_architect_headstart_SKILL_md,
   "../skills/ai-brainstorm/references/spec-document-reviewer-prompt.md": askills_ai_brainstorm_references_spec_document_reviewer_prompt_md,
   "../skills/ai-brainstorm/SKILL.md": askills_ai_brainstorm_SKILL_md,
   "../skills/ai-agents-md/SKILL.md": askills_ai_agents_md_SKILL_md,
@@ -159,8 +151,6 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-design/references/skill-purposes.md": askills_ai_design_references_skill_purposes_md,
   "../skills/ai-design/references/routing-table.md": askills_ai_design_references_routing_table_md,
   "../skills/ai-design/SKILL.md": askills_ai_design_SKILL_md,
-  "../skills/ai-design/design-orchestrator-SKILL.md": askills_ai_design_design_orchestrator_SKILL_md,
-  "../skills/ai-writing-behavior/writing-agent-behavior-SKILL.md": askills_ai_writing_behavior_writing_agent_behavior_SKILL_md,
   "../skills/ai-writing-behavior/references/agent-behavior-specification.md": askills_ai_writing_behavior_references_agent_behavior_specification_md,
   "../skills/ai-writing-behavior/references/calibrating-with-trajectories.md": askills_ai_writing_behavior_references_calibrating_with_trajectories_md,
   "../skills/ai-writing-behavior/references/deciding-what-to-save.md": askills_ai_writing_behavior_references_deciding_what_to_save_md,
@@ -175,7 +165,6 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-visual-recap/references/connection.md": askills_ai_visual_recap_references_connection_md,
   "../skills/ai-visual-recap/references/local-files.md": askills_ai_visual_recap_references_local_files_md,
   "../skills/ai-visual-recap/references/wireframe.md": askills_ai_visual_recap_references_wireframe_md,
-  "../skills/ai-visual-recap/visual-recap-SKILL.md": askills_ai_visual_recap_visual_recap_SKILL_md,
   "../skills/ai-visual-recap/SKILL.md": askills_ai_visual_recap_SKILL_md,
   "../skills/ai-write/references/documentation-writer.md": askills_ai_write_references_documentation_writer_md,
   "../skills/ai-write/SKILL.md": askills_ai_write_SKILL_md,
@@ -190,18 +179,15 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-proof/templates/gates-node.md": askills_ai_proof_templates_gates_node_md,
   "../skills/ai-proof/templates/PLAN.md": askills_ai_proof_templates_PLAN_md,
   "../skills/ai-proof/templates/gates-leaf.md": askills_ai_proof_templates_gates_leaf_md,
-  "../skills/ai-proof/unlazy-SKILL.md": askills_ai_proof_unlazy_SKILL_md,
   "../skills/ai-design-audit/references/fixes.md": askills_ai_design_audit_references_fixes_md,
   "../skills/ai-design-audit/references/reading.md": askills_ai_design_audit_references_reading_md,
   "../skills/ai-design-audit/agents/openai.yaml": askills_ai_design_audit_agents_openai_yaml,
-  "../skills/ai-design-audit/ai-design-audit-SKILL.md": askills_ai_design_audit_ai_design_audit_SKILL_md,
   "../skills/ai-design-audit/scripts/audit.mjs": askills_ai_design_audit_scripts_audit_mjs,
   "../skills/ai-design-audit/SKILL.md": askills_ai_design_audit_SKILL_md,
   "../skills/ai-note/SKILL.md": askills_ai_note_SKILL_md,
   "../skills/ai-read-docs/SKILL.md": askills_ai_read_docs_SKILL_md,
   "../skills/ai-rtk/references/commands.md": askills_ai_rtk_references_commands_md,
   "../skills/ai-rtk/SKILL.md": askills_ai_rtk_SKILL_md,
-  "../skills/ai-plan/wayfinder-SKILL.md": askills_ai_plan_wayfinder_SKILL_md,
   "../skills/ai-plan/agents/openai.yaml": askills_ai_plan_agents_openai_yaml,
   "../skills/ai-plan/SKILL.md": askills_ai_plan_SKILL_md,
   "../skills/ai-plan/commands/prototype.md": askills_ai_plan_commands_prototype_md,

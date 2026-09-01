@@ -1,7 +1,8 @@
 # Local-files privacy mode — single source of truth
 
 This file is the canonical contract for fully local, no-database planning and
-recaps. It is shared word for word by `/visual-plan` and `/visual-recap`. Read it
+recaps. It is shared word for word by the upstream `/visual-plan` skill and by
+ai-visual-recap. Read it
 in full before using local-files mode; do not call any hosted Plan tool for a
 local plan/recap except the schema-only block-catalog lookup described below.
 

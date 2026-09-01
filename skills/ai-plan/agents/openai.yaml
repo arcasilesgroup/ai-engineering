@@ -1,5 +1,5 @@
 interface:
-  display_name: "Wayfinder"
+  display_name: "ai-plan"
   short_description: "Decide what you're building, and write the standard for judging it"
 policy:
   allow_implicit_invocation: false

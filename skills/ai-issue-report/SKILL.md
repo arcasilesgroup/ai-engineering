@@ -24,10 +24,9 @@ SHA-256 — and nothing sent by anybody but the user.
 The payload is closed to allow-listed fields. Everything else is rejected at the gate,
 before the draft exists:
 
-- **Machine paths** — home directories and absolute paths (`/Users/name/...` style on
-  macOS, `C:` drives on Windows, `/home/name/...` on Linux): they leak the username and the
-  project layout. The scan names the field and the match (`ACCEPTANCE_MACHINE_PATH_*`);
-  the fix is to describe the same thing without the path.
+- **Machine paths** — home directories and absolute paths on any OS: they leak the
+  username and the project layout. The scan names the field and the match
+  (`ACCEPTANCE_MACHINE_PATH_*`); the fix is to describe the same thing without the path.
 - **Personal data (PII)** — emails, names, phone numbers, account ids, tokens in URLs.
   `ACCEPTANCE_PII_*` names what was found; rewrite the sentence, not around the value.
 - **Secrets** — keys, passwords, session cookies, anything gitleaks would flag.

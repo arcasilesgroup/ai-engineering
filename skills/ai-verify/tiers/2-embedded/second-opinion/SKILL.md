@@ -1,17 +1,17 @@
 ---
 name: second-opinion
-description: Get an independent review of code you just wrote by spawning a fresh Claude via `claude -p` that cannot see your reasoning. Use this immediately after finishing ANY implementation — a feature, a bugfix, a refactor, a migration, a schema change — before you tell the user the work is done. Also use whenever the user says "review this", "double-check that", "get a second opinion", "have another Claude look at it", or asks whether an implementation is actually correct. Especially worth it when the change touches money, auth, permissions, migrations, or data deletion, or when you noticed yourself feeling uncertain while writing it.
+description: Get an independent review of code you just wrote by spawning a fresh reviewer instance — a separate one-shot agent session with read-only tools that cannot see your reasoning. Use this immediately after finishing ANY implementation — a feature, a bugfix, a refactor, a migration, a schema change — before you tell the user the work is done. Also use whenever the user says "review this", "double-check that", "get a second opinion", "have another agent look at it", or asks whether an implementation is actually correct. Especially worth it when the change touches money, auth, permissions, migrations, or data deletion, or when you noticed yourself feeling uncertain while writing it.
 ---
 
 # Second opinion
 
-Spawn an independent Claude to review the implementation you just finished, triage what it finds, and fix the real bugs.
+Spawn an independent reviewer — a fresh model instance that cannot see your reasoning — to review the implementation you just finished, triage what it finds, and fix the real bugs.
 
 ## Why this catches things you cannot catch yourself
 
 When you re-read code you just wrote, you check it against your intent. You remember what each line was *for*, so you read the intent into the code and skip right over the place where the code says something slightly different. That is not carelessness — it is unavoidable. You cannot un-know your own plan.
 
-A fresh Claude has no plan to un-know. It sees only the task and the code, so a gap between them shows up as a gap. That is the entire mechanism, and it is also why the one thing that ruins this technique is leaking your reasoning into the review packet.
+A fresh reviewer has no plan to un-know. It sees only the task and the code, so a gap between them shows up as a gap. That is the entire mechanism, and it is also why the one thing that ruins this technique is leaking your reasoning into the review packet.
 
 ## The rule that makes or breaks it
 
@@ -91,16 +91,18 @@ not try to save files.
 ## Step 2 — Run the reviewer
 
 ```bash
-.claude/skills/second-opinion/scripts/second-opinion.sh <packet-path>
+<skill-dir>/scripts/second-opinion.sh <packet-path>
 ```
 
-Run it from the repo root, both so that path resolves and so the reviewer picks up the project's `CLAUDE.md` / `AGENTS.md` — project conventions are frequently what "correct" means, and a reviewer that does not know them reports false positives against the house style. The highest-value thing those files can carry is a warning that some installed dependency postdates training data — that single line is what turns a confident finding into a correctly-discarded one.
+`<skill-dir>` is the installed `second-opinion` skill directory (in Claude Code, `.claude/skills/second-opinion`).
 
-Set the Bash tool timeout to `600000`. Reviews typically take 20–60s, but a large diff can run several minutes, and a timeout kills the review after you have already paid for it.
+Run it from the repo root so the reviewer picks up the project's agent-rules files (`AGENTS.md`, `CLAUDE.md`) — project conventions are frequently what "correct" means, and a reviewer that does not know them reports false positives against the house style. The highest-value thing those files can carry is a warning that some installed dependency postdates training data — that single line is what turns a confident finding into a correctly-discarded one.
+
+Give the run a generous timeout — `600000` ms if your harness lets you set per-command timeouts. Reviews typically take 20–60s, but a large diff can run several minutes, and a timeout kills the review after you have already paid for it.
 
 The script gives the reviewer `Read,Grep,Glob` and nothing else, so it cannot modify the repo, run commands, or reach MCP servers. It saves the report next to the packet as `<packet>.review.md`.
 
-**Cost**: each run is a fresh process with no prompt-cache reuse, so expect roughly $0.20–$1.00 depending on model and diff size. If you are reviewing something small and mechanical, pass `--model sonnet` — in testing it caught the same planted bugs at a fraction of the cost. Default to the session model for anything subtle, concurrent, or security-relevant.
+**Cost**: each run is a fresh process with no prompt-cache reuse, so expect roughly $0.20–$1.00 depending on model and diff size. If you are reviewing something small and mechanical, pass a cheaper model with `--model` — in testing it caught the same planted bugs at a fraction of the cost. Default to the session model for anything subtle, concurrent, or security-relevant.
 
 ## Step 3 — Triage before you touch anything
 
@@ -149,4 +151,4 @@ If the reviewer found nothing, say that in one line and move on. Do not manufact
 
 Not every edit needs a second pair of eyes. Skip it for one-line typo fixes, comment and doc changes, formatting, dependency version bumps, and generated files. Running it on trivial changes trains the user to ignore its output, which costs you the times it matters.
 
-If `claude` is not on PATH or the script exits nonzero, tell the user the review did not run. Never let a failed review get reported as a clean one.
+If the reviewer command fails or the script exits nonzero, tell the user the review did not run. Never let a failed review get reported as a clean one.

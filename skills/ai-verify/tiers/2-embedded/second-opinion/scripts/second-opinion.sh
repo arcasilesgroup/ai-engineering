@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Spawn an independent, read-only Claude to review a change.
+# Spawn an independent, read-only reviewer (a fresh agent session) to review a change.
 #
 # Usage: second-opinion.sh <packet-path> [--model <model>]
 #

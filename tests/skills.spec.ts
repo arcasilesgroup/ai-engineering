@@ -17,7 +17,8 @@ import { join } from "node:path";
 
 const SKILLS = join(import.meta.dir, "..", "skills");
 const ACCENTS = /[áéíóúñÁÉÍÓÚÑ¿¡]/;
-const TOKEN_LIMIT = /(límite de tokens|token limit|token budget for this (file|skill)|keep (it|this) (under|below) \d+|≤\s*\d+\s*(chars|caracteres|characters)\s*(max|limit|límite)?)/i;
+const TOKEN_LIMIT = /(límite de tokens|token limit|token budget for this (file|skill)|keep (it|this) (under|below) \d+\s*(chars|caracteres|characters|tokens)|≤\s*\d+\s*(chars|caracteres|characters)\s*(max|limit|límite)?)/i;
+const MACHINE_PATH = /(\/Users\/|\/private\/tmp\/|\/tmp\/ai-eng-home-test|~\/\.agents\/skills)/;
 
 function listSkillDirs(): string[] {
   return readdirSync(SKILLS, { withFileTypes: true })
@@ -195,7 +196,7 @@ describe("G8 — official names only", () => {
     for (const dir of listSkillDirs()) {
       const content = readFileSync(join(dir, "SKILL.md"), "utf8");
       const firstHeading = /^#\s+(.+)$/m.exec(content)?.[1] ?? "";
-      if (/\b(headstart|handshake|wayfinder|unlazy|read-the-damn-docs|design-orchestrator|visual-recap)\b/i.test(firstHeading)) {
+      if (/(^|[^-\w])(headstart|handshake|wayfinder|unlazy|read-the-damn-docs|design-orchestrator)([^-\w]|$)/i.test(firstHeading)) {
         offenders.push(`${dir.split("/").pop()}: H1=${firstHeading}`);
       }
     }

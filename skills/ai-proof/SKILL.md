@@ -1,27 +1,123 @@
 ---
 name: ai-proof
-description: Úsalo cuando el trabajo vuelve a mitad de hacer, cuando el agente reporta "done" antes de estar done, o en runs largos que se estancan al 80% — descompone el trabajo en un Depth Tree de hojas con gates ejecutables y prueba la completitud con un ledger, nunca con promesas. Trigger for "unlazy", "tree N", "gates" o "do not stop until it is done".
+description: >-
+  Anti-laziness execution discipline for substantial tasks. Use when work keeps
+  coming back half done, when an agent reports done before it is done, when
+  output must be exhaustive rather than fast, on long autonomous runs that tend
+  to stall at 80 percent, or on any invocation like "prove it", "tree N",
+  "gates", or "do not stop until it is done". v2 enforces completion through
+  gate files and runnable checks instead of promises. Core method is the Depth
+  Tree, which decomposes work into leaves that each get finished against their
+  own gates. Not for scoring a finished trajectory — use /ai-verify to judge
+  work, /ai-writing-behavior to codify the criterion.
 license: MIT
 ---
 
-# ai-proof — disciplina anti-pereza v2 (unlazy)
+# ai-proof
 
-Prueba de completitud mediante gates en ficheros y checks ejecutables: el agente no promete que acabó, lo demuestra contra un ledger. Método central: el Depth Tree de Leonxlnx, que descompone el trabajo en hojas que cada una termina contra sus propios gates.
+You are running under anti-laziness discipline. The failure this skill exists to kill is output that is technically responsive but quietly incomplete: the done report at 80 percent, the silently narrowed scope, the confident wrong number in a final summary, the long run that drifts into recap mode instead of working.
 
-- Método v2 y regla cero (gates antes del trabajo) → [unlazy-SKILL.md](unlazy-SKILL.md)
-- Decomposición en árbol y estructura de hojas → [references/method.md](references/method.md)
-- Modo orquestado: subagents por hoja, verificación en jerarquía → [references/orchestration.md](references/orchestration.md)
-- Formato de gates para hojas y nodos internos → [references/gates.md](references/gates.md)
-- Economía de tokens: disciplina casi gratis → [references/token-economy.md](references/token-economy.md)
-- Plantillas: plan por hojas, gates de hoja, gates de nodo → [templates/PLAN.md](templates/PLAN.md), [templates/gates-leaf.md](templates/gates-leaf.md), [templates/gates-node.md](templates/gates-node.md)
-- Chequeo ejecutable de gates → [scripts/gate-check.mjs](scripts/gate-check.mjs)
-- Stop hook de Claude Code (instalación opt-in) → [scripts/install-hooks.mjs](scripts/install-hooks.mjs), [scripts/stop-hook.mjs](scripts/stop-hook.mjs)
+v1 of this skill fought these with instructions. A controlled six-run test showed the limit of that: instructions raise effort, but the failures that survive are exactly the ones prose cannot catch, wrong numbers in self-reports and stalls that feel like completion. So v2 moves enforcement out of your goodwill and into files and checks. You do not promise you are done. You prove it against a ledger.
 
-Fuente: unlazy v2.1.0 por Leonxlnx — https://github.com/Leonxlnx/unlazy (MIT).
+## Rule zero: gates before work
 
-Lo que añade ai-engineering (la costura):
+Before starting real work, write the acceptance gates to a file. Not in your head, not in prose, in a file — in ai-engineering that file is `.ai-engineering/spec.html` (the milestone's gates, in the format of [templates/gates-leaf.md](templates/gates-leaf.md)), not `GATES.md` (see **The ai-engineering seam** below). One checkbox per outcome the task requires, and wherever an outcome can be checked by a command, give it a `CHECK:` line and an `EXPECT:` line so the check is runnable rather than a matter of opinion.
 
-1. El fichero de gates del hito se llama `.ai-engineering/spec.html` (no GATES.md) porque es el contrato que verifica la CI.
-2. Correrlos: `ai-eng spec run` = envoltorio de scripts/gate-check.mjs + exit≠0 si un check no pudo ejecutarse + receipt por corrida.
-3. Quién verifica: tier `verify` del pin (§09.4); quién juzga en orchestrated: tier `decide`.
-4. stop-hook.mjs solo en Pi/Zed — el loop guard cubre ese fallo en las 3 core.
+Why a file: your intentions do not survive a long context, files do. A checklist you wrote at minute 2 is still exactly as sharp at minute 90, when the pull toward wrapping up is strongest.
+
+Done means every box is checked with evidence recorded. Run the bundled checker to execute the checks and record evidence for you:
+
+```
+ai-eng spec run
+```
+
+Manual gates (no CHECK possible) are checked by hand, but only with the `EVIDENCE:` line replaced by actual proof: a measurement, a quote of output, a file path with the relevant line. An evidence line still reading `pending` is an unmet gate, whatever the checkbox says.
+
+If a gate becomes genuinely impossible, do not quietly drop it. Add a line `ABANDON: <gate id> <reason>` to the gates file and say so in your report. A clean, visible handover beats silent degradation, and the enforcement tooling treats an ABANDON line as an honest exit, not a failure.
+
+## Pick a mode
+
+**Solo** (default). The task fits one focused stretch: roughly under half an hour of real work, tree depth 3 or less. One gates file, work until it is fully checked, report with the ledger pasted.
+
+**Orchestrated**. The task is a build: tree depth 4 or more, or clearly beyond one sitting. Decompose per [references/method.md](references/method.md), write `PLAN.md` plus one gates file per leaf under `gates/`, and run each leaf as a fresh subagent with a narrow brief. Leaves own disjoint files, so dispatch every ready leaf at once and verify each as it returns rather than marching through them one at a time. Read [references/orchestration.md](references/orchestration.md) before fanning out; the verification hierarchy there (leaf checks itself, parent re-runs the checks with `--recheck`) is the entire point of the mode.
+
+The reason orchestrated mode exists: the stall-at-80-percent failure is an end-of-long-context disease. A fresh context per leaf means every leaf starts with full attention. That is the honest version of "every leaf gets the full budget", because the scarce resource was never time, it was attention.
+
+## The Depth Tree, v2
+
+Created by Leonxlnx. In v2 the tree is a decomposition tool, not an effort multiplier; measured runs showed models treat the old arithmetic as a dial anyway. What depth buys you is structure:
+
+1. **Split at natural joints, N layers deep.** Layer 1 is the task. Leaves are where work happens.
+2. **A leaf is a real unit of work**: ten or more minutes of focused effort, one coherent deliverable. If your leaves come out smaller, you went one layer too deep; back off.
+3. **Contracts before fan-out.** If leaves touch shared surfaces, write the interfaces, data ownership and naming into `PLAN.md` first. Deep effort that does not integrate is waste.
+4. **Branches get gates too.** Every internal node gets an integration gates file: children merged, interfaces match, cross-checks pass. Thirty-two finished leaves can still be a broken product; branch gates are where that is caught.
+5. **Effort per leaf comes from its gates**, not from N. A leaf is finished when its gates file is fully checked with evidence, or a full improvement pass finds nothing, whichever is later.
+
+Scale guidance: tree 2 or 3 for a feature, a bug hunt, a document, solo mode. Tree 4 or 5 for a subsystem or serious refactor. Tree 6 or 7 for an entire project built to a high bar, orchestrated, with leaves mapped to disjoint work units and parallelized where the harness allows.
+
+## Work each leaf in passes
+
+1. **Implement completely.** No placeholders, no TODO, no "rest as exercise".
+2. **Re-read as a domain expert.** Name the cheap version of each part, replace it with the good version.
+3. **Hunt defects.** Edge cases, correctness, performance, the tells that something is fake. Fix what you find.
+4. **Polish that costs nothing.** Tuned constants beat new features.
+
+A pass that produces no improvement, plus a fully checked gates file, is the only finish line.
+
+## Report audit
+
+The single most reproducible failure in tested runs: final reports whose numbers were wrong while their substance was right. Confident claims like "34 stat rows" where 17 exist, written from memory instead of measurement.
+
+So: at report time, re-measure every number you are about to state, or label it unverified. Paste the gates ledger with its count, N of N checked. A report is a set of claims backed by a ledger, never a vibe of completion.
+
+## Behavioral rules
+
+The keepers from v1, still true, now backed by structure:
+
+- **No report until the ledger is full.** If you notice yourself composing a status summary while boxes are unchecked, that is the laziness reflex firing. Open the gates file and pick the next unchecked box.
+- **When you feel finished, check instead of concluding.** Run gate-check (`--recheck` if the boxes were ticked by someone else, or by you in an earlier context), then re-read one passed gate adversarially and try to refute its evidence. This is continuation forcing made mechanical.
+- **Finish one line of attack.** Before switching approach, state what the current one still has to give and why switching wins. If you cannot, keep going.
+- **Do not simulate work you can do.** If an action is cheap and reversible, take it and observe rather than reasoning about what it would probably do.
+- **Ignore resource anxiety.** Never compress, summarize or stub because the end feels near. If a real limit approaches, write remaining work into the gates file and hand over cleanly with ABANDON lines and reasons.
+- **Full files, full lists, full sweeps.** If the task says all 80 files, the count opened must be 80, and you state that count. Sampling is only acceptable when declared.
+
+## Token economy
+
+Discipline is not maximalism, and enforcement should be nearly free. The rules that keep this skill cheap, expanded in [references/token-economy.md](references/token-economy.md):
+
+- Checks run as shell commands, not as you re-reading everything you wrote.
+- Evidence is capped: the deciding lines of output, never full logs.
+- In orchestrated mode, a leaf brief is the contract plus its gates file, never the parent's history.
+- Append to `PLAN.md`'s status log, do not rewrite the file.
+- Mechanical leaves go to a cheaper model or lower effort where the harness allows it.
+- Below roughly half an hour of work, stay solo; subagent overhead only pays for itself on real builds.
+
+## Hard enforcement (optional stop hook)
+
+This skill ships a Stop hook that structurally blocks ending the turn while `.ai-engineering/spec.html` or `gates/*.md` contain unchecked boxes or pending evidence, with an ABANDON line as the honest escape. It converts "no report until done" from a rule into a wall.
+
+It changes harness behavior, so never install it silently. When a task would clearly benefit, offer it once:
+
+```
+node <this-skill-dir>/scripts/install-hooks.mjs
+```
+
+and tell the user what it does and how to remove it (`--uninstall`). In ai-engineering it is used only where the core loop guard does not already cover this failure — on the Pi and Zed surfaces; the three core surfaces run the loop guard instead. Everything else in this skill works without the hook, in any harness that can read a markdown file.
+
+## What this skill is not
+
+Conversational replies, trivial edits and factual questions get normal effort. No gates file for a one-line fix. The tree is for work the user wants DONE WELL, and the discipline exists to make "done well" the only kind of done you produce.
+
+## The ai-engineering seam
+
+1. The milestone gates file is `.ai-engineering/spec.html` (not GATES.md) because it is
+   the contract CI verifies: `ai-eng spec run` executes each CHECK, matches EXPECT,
+   writes the receipt, and fails the run when a check could not execute.
+2. Who verifies: the verify tier of the pin (§09.4). In orchestrated mode, who judges:
+   the decide tier.
+3. The stop hook is a Pi/Zed-only backstop; on the core surfaces the loop guard covers
+   this failure, so the hook is never installed there.
+4. Upstream's solo-mode `GATES.md` remains the format's origin; every reference to a
+   milestone's gates file means `.ai-engineering/spec.html`.
+
+Source: unlazy v2.1.0 by Leonxlnx — https://github.com/Leonxlnx/unlazy (MIT).

@@ -1,36 +1,44 @@
 ---
 name: ai-verify
-description: Úsalo cuando hay que verificar trabajo — "verify the feature", "did we build what was asked", "review this diff", "is it ready to commit" — eligiendo el tier correcto de verificación (standalone, embedded o chain) y produciendo veredictos con evidencia, no impresiones.
+description: >-
+  Use when work has to be verified — "verify the feature", "did we build what
+  was asked", "review this diff", "is it ready to commit" — by choosing the
+  right verification tier (standalone, embedded, or chain) and producing
+  verdicts with evidence, not impressions. Not for milestone-declared security
+  audits — use /ai-security. Not for diagnosing a failure — use /ai-debug.
 license: LicenseRef-Attributed
 ---
 
-# ai-verify — verificación en tres tiers (Graph Engineering)
+# ai-verify — verification in three tiers (Graph Engineering)
 
-Tres formas de verificar según quién dispara: skills que corras a propósito, skills que se disparan solas a mitad de flujo, y una cadena de lanes de review. El router de la cadena decide qué lanes corren por la evidencia del diff, nunca por el tamaño.
+Three ways to verify, depending on who fires them: skills you run on purpose,
+skills that fire themselves mid-workflow, and a chain of review lanes. The
+chain's router decides which lanes run from the evidence in the diff, never
+from its size.
 
-Tier 1 — standalone (lo corres a propósito):
+### Tier 1 — standalone (you run it on purpose)
 
-- Veredicto por requisito contra lo que se pidió de verdad → [tiers/1-standalone/verify-feature/SKILL.md](tiers/1-standalone/verify-feature/SKILL.md)
-- Extrae los requisitos de la conversación a claims numerados y falsables → [tiers/1-standalone/spec-extract/SKILL.md](tiers/1-standalone/spec-extract/SKILL.md)
+- Per-requirement verdict against what was actually asked, with a list of gaps → [tiers/1-standalone/verify-feature/SKILL.md](tiers/1-standalone/verify-feature/SKILL.md)
+- Extract the requirements from the conversation into numbered, falsifiable claims → [tiers/1-standalone/spec-extract/SKILL.md](tiers/1-standalone/spec-extract/SKILL.md)
 
-Tier 2 — embedded (dispara solo, a mitad de workflow):
+### Tier 2 — embedded (fires by itself, mid-workflow)
 
-- Verificación browser del feature terminado + blast radius de las rutas que dependen del cambio → [tiers/2-embedded/feature-verify/SKILL.md](tiers/2-embedded/feature-verify/SKILL.md), con [blast_radius.py](tiers/2-embedded/feature-verify/scripts/blast_radius.py), [setup_harness.sh](tiers/2-embedded/feature-verify/scripts/setup_harness.sh) y [references/](tiers/2-embedded/feature-verify/references/)
-- Segunda opinión de un Claude fresco que no ve tu razonamiento → [tiers/2-embedded/second-opinion/SKILL.md](tiers/2-embedded/second-opinion/SKILL.md)
+- Browser verification of the finished feature + blast radius of the routes that depend on the change → [tiers/2-embedded/feature-verify/SKILL.md](tiers/2-embedded/feature-verify/SKILL.md), with [blast_radius.py](tiers/2-embedded/feature-verify/scripts/blast_radius.py), [setup_harness.sh](tiers/2-embedded/feature-verify/scripts/setup_harness.sh) and [references/](tiers/2-embedded/feature-verify/references/)
+- A second opinion from a fresh model instance with no visibility into your reasoning → [tiers/2-embedded/second-opinion/SKILL.md](tiers/2-embedded/second-opinion/SKILL.md)
 
-Tier 3 — chain (lanes de review por evidencia):
+### Tier 3 — chain (review lanes picked by evidence)
 
-- Router que elige lanes, estima coste y ejecuta → [tiers/3-chain/review-router/SKILL.md](tiers/3-chain/review-router/SKILL.md)
+- Router that picks lanes, estimates cost, and executes → [tiers/3-chain/review-router/SKILL.md](tiers/3-chain/review-router/SKILL.md)
 - Lanes: [code-audit](tiers/3-chain/code-audit/SKILL.md) · [security-audit](tiers/3-chain/security-audit/SKILL.md) · [a11y-audit](tiers/3-chain/a11y-audit/SKILL.md) · [perf-audit](tiers/3-chain/perf-audit/SKILL.md) · [design-check](tiers/3-chain/design-check/SKILL.md) · [build-check](tiers/3-chain/build-check/SKILL.md)
-- Fusión de todas las lanes en un informe deduplicado → [full-review](tiers/3-chain/full-review/SKILL.md); convenciones de scope y diff → [CONVENTIONS.md](tiers/3-chain/_support/review/CONVENTIONS.md)
+- Merge of all lanes into one deduplicated report → [full-review](tiers/3-chain/full-review/SKILL.md); scope and diff conventions → [CONVENTIONS.md](tiers/3-chain/_support/review/CONVENTIONS.md)
 
-Guía de setup y router de entrada → [VERIFICATION-SETUP-GUIDE.md](VERIFICATION-SETUP-GUIDE.md). Evals (plantar bugs reales y puntuar al revisor) → [evals/README.md](evals/README.md): [plant.py](evals/scripts/plant.py), [score.py](evals/scripts/score.py), [bug-catalog.md](evals/bug-catalog.md), pack de ejemplo [answer-key.json](evals/packs/example-node-web/answer-key.json).
+Setup guide and entry router → [VERIFICATION-SETUP-GUIDE.md](VERIFICATION-SETUP-GUIDE.md). Evals (plant real bugs and score the reviewer) → [evals/README.md](evals/README.md): [plant.py](evals/scripts/plant.py), [score.py](evals/scripts/score.py), [bug-catalog.md](evals/bug-catalog.md), example pack [answer-key.json](evals/packs/example-node-web/answer-key.json).
 
-Fuente: Graph Engineering — Verification Skills (skills del vídeo, generalizadas a cualquier stack; attributed, sin licencia — issue H4; sin repo público declarado en la fuente).
+Source: Graph Engineering — Verification Skills (skills from the video, generalized to any stack; attributed, no license — issue H4; no public repo declared in the source).
 
-Lo que añade ai-engineering (la costura):
+## The ai-engineering seam
 
-1. El router elige tier por la taxonomía de la fuente.
-2. El juez usa tier `decide`; los checks binarios, `verify`.
-3. Los evals (plant.py/score.py) corren en CI del repo de ai-eng, no en el proyecto del usuario.
-4. Salidas: veredictos → EVIDENCE de spec.html + receipt.
+1. The router picks the tier using the source's taxonomy.
+2. The judge runs at tier `decide`; the model comes from the ai-engineering `config.toml` pin. Binary checks run at tier `verify`.
+3. The evals (`plant.py`/`score.py`) run in ai-engineering's own CI, not in the user's project.
+4. Outputs: verdicts land in the EVIDENCE section of `.ai-engineering/spec.html`, plus a receipt.

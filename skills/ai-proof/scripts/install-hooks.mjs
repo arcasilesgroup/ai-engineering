@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// install-hooks.mjs : register (or remove) the unlazy Stop hook in Claude Code settings.
+// install-hooks.mjs : register (or remove) the proof Stop hook in Claude Code settings.
 //
 // Default target: <cwd>/.claude/settings.local.json  (personal, per-project,
-// conventionally untracked, so the machine-specific absolute path never lands in git).
+// conventionally untracked, so the machine-specific path never lands in git).
 //
 //   node install-hooks.mjs               install into project settings.local.json
 //   node install-hooks.mjs --shared      install into project settings.json (tracked)
-//   node install-hooks.mjs --global      install into ~/.claude/settings.json
+//   node install-hooks.mjs --global      install into the user-level settings.json
 //   node install-hooks.mjs --uninstall   remove from the chosen target (same flags)
 //
 // Idempotent: running install twice changes nothing.
@@ -22,7 +22,7 @@ const global_ = args.includes("--global");
 const shared = args.includes("--shared");
 
 const hookScript = join(dirname(fileURLToPath(import.meta.url)), "stop-hook.mjs");
-const MARKER = "unlazy"; // identifies our entries: command mentions unlazy + stop-hook.mjs
+const MARKER = "unlazy"; // identifies our entries: command mentions unlazy + stop-hook.mjs (kept stable so older installs uninstall cleanly)
 
 const target = global_
   ? join(homedir(), ".claude", "settings.json")
@@ -49,14 +49,14 @@ const kept = stopHooks.filter(e => !isOurs(e));
 
 if (uninstall) {
   if (kept.length === stopHooks.length) {
-    console.log(`Nothing to remove: no unlazy Stop hook found in ${target}`);
+    console.log(`Nothing to remove: no proof Stop hook found in ${target}`);
     process.exit(0);
   }
   settings.hooks.Stop = kept;
   if (!settings.hooks.Stop.length) delete settings.hooks.Stop;
   if (!Object.keys(settings.hooks).length) delete settings.hooks;
   writeFileSync(target, JSON.stringify(settings, null, 2) + "\n");
-  console.log(`Removed unlazy Stop hook from ${target}`);
+  console.log(`Removed proof Stop hook from ${target}`);
   process.exit(0);
 }
 
@@ -77,7 +77,7 @@ settings.hooks.Stop = [...kept, entry];
 mkdirSync(dirname(target), { recursive: true });
 writeFileSync(target, JSON.stringify(settings, null, 2) + "\n");
 
-console.log(`Installed unlazy Stop hook into ${target}
+console.log(`Installed proof Stop hook into ${target}
   command: node "${hookScript}"
   effect:  while GATES.md or gates/*.md in the working directory contain unmet
            gates, ending the turn is blocked (max 6 blocks without progress,

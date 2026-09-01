@@ -5,18 +5,18 @@ output becomes the next node's input.
 
 Covers the three kinds of verification skill, the Skill Creator prompts to generate each,
 how to chain several under one orchestrator, and how to test that a review skill actually
-works. The skills in `skills/` are working implementations of everything described here.
+works. The skills in `tiers/` are working implementations of everything described here.
 
 ## Read this much
 
 **Just want it working?** §9 → §12. Copy in `second-opinion`, put your commands in
-`CLAUDE.md`. Ten minutes, no skill-writing, no Skill Creator.
+your agent-rules file. Ten minutes, no skill-writing, no Skill Creator.
 
 > **Pick this if** you want a safety net today, or you want to find out whether
 > verification is worth the tokens before spending an afternoon on it. `second-opinion`
 > needs nothing configured — no conventions file, no thresholds, no stack assumptions,
-> just `claude` on your PATH — so it works on any language from the first run.
-> (`verify-feature` in `skills/1-standalone/` is the other zero-config one, if you'd
+> just a way to spawn a fresh reviewer — so it works on any language from the first run.
+> (`verify-feature` in `tiers/1-standalone/` is the other zero-config one, if you'd
 > rather check the build against the requirements than hunt for bugs.)
 >
 > **What you give up:** it's generic. It reviews the change against whatever spec you
@@ -57,7 +57,7 @@ Sections are marked **Skip if** where they're safely skippable.
 9. [Add a second opinion](#9-add-a-second-opinion)
 10. [Chain several skills under one orchestrator](#10-chain-several-skills-under-one-orchestrator)
 11. [Choosing the model — the expensive lesson](#11-choosing-the-model--the-expensive-lesson)
-12. [Wire it into CLAUDE.md](#12-wire-it-into-claudemd)
+12. [Wire it into your agent rules](#12-wire-it-into-your-agent-rules)
 13. [Wire it into GitHub Actions](#13-wire-it-into-github-actions)
 14. [Using it inside a graph](#14-using-it-inside-a-graph)
 15. [Test that your skill actually works](#15-test-that-your-skill-actually-works)
@@ -89,7 +89,7 @@ its own slice. It doesn't know the original requirement, so it *cannot* notice t
 drifted — there's nothing to compare against. It hands back work that is internally
 consistent and wrong, and the next node builds on top of it. *Fix: the criteria-first
 rule in §7 — the node writes down what was asked for before it looks at what was built.
-The ready-made version is `verify-feature` in `skills/1-standalone/`.*
+The ready-made version is `verify-feature` in `tiers/1-standalone/`.*
 
 The pattern across all three: verification has to happen **at each node, before its output
 becomes someone else's input.** Verifying at the end is too late by definition — by then
@@ -123,7 +123,7 @@ where you put things, and why a verification skill can end up never firing.
 The asymmetry is the whole design. Your description is competing for attention against
 every other installed skill's description on every single turn — so it's the one place
 where a wasted word costs you on turns the skill never even fires. The body only costs
-you on the runs that use it, which is why the good skills in `skills/` are long,
+you on the runs that use it, which is why the good skills in `tiers/` are long,
 specific, and full of exact commands rather than gestures at them.
 
 That asymmetry should change how you build:
@@ -187,13 +187,13 @@ It also feeds directly into lane discipline once an orchestrator is fanning them
 
 | Location | Scope | Use it for |
 |---|---|---|
-| `.claude/skills/` | this project only | anything that encodes project-specific conventions, thresholds, or commands |
-| `~/.claude/skills/` | every project | portable skills — `second-opinion` is the obvious one |
+| your harness's project skill directory (`.claude/skills/` in Claude Code) | this project only | anything that encodes project-specific conventions, thresholds, or commands |
+| your harness's user skill directory (the same path under your home directory) | every project | portable skills — `second-opinion` is the obvious one |
 
 Project scope wins on a name collision. Useful deliberately: install a skill globally,
 then shadow it in one repo with a stricter variant under the same name.
 
-The skills in `skills/` are written to be project-agnostic — they detect the stack at
+The skills in `tiers/` are written to be project-agnostic — they detect the stack at
 runtime rather than hardcoding it — so most of them work at user scope as-is. The
 exception is the chain, which reads `.claude/review/CONVENTIONS.md` by project-relative
 path; that file has to exist in each repo even when the skills are installed globally.
@@ -230,16 +230,16 @@ your scripts and reads the errors that come back. That's real, and it needs no s
 you. But it only catches what breaks *loudly*. Code that runs is not the same as code that's right — a
 wrong discount calculation compiles perfectly.
 
-**Tool chaining.** Claude already knows to run the tools that check its work: typecheck,
+**Tool chaining.** Your agent already knows to run the tools that check its work: typecheck,
 lint, tests, build. It can usually work out your project's commands on its own by reading
-`package.json`. Writing them into `CLAUDE.md` saves it the trouble every single time —
-[see below](#12-wire-it-into-claudemd).
+`package.json`. Writing them into your agent-rules file saves it the trouble every single
+time — [see below](#12-wire-it-into-your-agent-rules).
 
-**Built-in review skills.** Your Claude Code version ships some. Run `/help` to see what
-you have — commonly `/code-review` (checks the working diff), `/simplify` (quality
-cleanups on changed code), `/security-review` (security pass on the current branch), and
-`/review` (a GitHub PR). Anthropic's own team chains these together and adds their own
-design skill that checks the interface against `design.md`.
+**Built-in review skills.** Your harness may ship some. Run `/help` (or your harness's
+equivalent) to see what you have — commonly `/code-review` (checks the working diff),
+`/simplify` (quality cleanups on changed code), `/security-review` (security pass on the
+current branch), and `/review` (a GitHub PR). Anthropic's own team chains these together
+and adds their own design skill that checks the interface against `design.md`.
 
 **The catch with built-ins:** you can't make them fire automatically. Their instructions
 live inside the product and you don't get to edit them. That limitation is the entire
@@ -258,14 +258,14 @@ You *can* write `SKILL.md` by hand. Don't, at least not for your first one. Skil
 structures the file properly, and when a skill needs helper scripts it writes and tests
 them as part of the process.
 
-1. In Claude Code, run `/plugin`
+1. Run your harness's plugin command — in Claude Code, `/plugin`
 2. Search for **skill-creator**
 3. Install it
 4. Choose a scope when asked:
    - **User** — available in every folder. Right answer for this one; you'll use it
      constantly.
    - **Project** — only where you're standing right now.
-5. Reload plugins (or just restart Claude Code)
+5. Reload plugins (or just restart your agent)
 
 Verify it took:
 
@@ -273,8 +273,8 @@ Verify it took:
 cat ~/.claude/plugins/installed_plugins.json
 ```
 
-You should see `skill-creator@claude-plugins-official`. It's now available as
-`/skill-creator`.
+On Claude Code you should see `skill-creator@claude-plugins-official` (other harnesses
+keep their own plugin registry). It's now available as `/skill-creator`.
 
 ---
 
@@ -356,7 +356,7 @@ four. That's what [chaining](#10-chain-several-skills-under-one-orchestrator) so
 
 ### Try the finished ones first
 
-`skills/3-chain/` in this folder has six of these already written — `code-audit`,
+`tiers/3-chain/` in this folder has six of these already written — `code-audit`,
 `security-audit`, `perf-audit`, `a11y-audit`, `design-check`, `build-check`. Read one
 before you write your own. `code-audit` is the best starting point.
 
@@ -424,7 +424,7 @@ git diff --name-only HEAD          # what changed
 
 Then walk the import graph backwards to find which routes consume those files. A shared
 `Button.tsx` lights up ten routes; an isolated page lights up one. That spread is your
-regression surface. `skills/2-embedded/feature-verify/scripts/blast_radius.py` does exactly
+regression surface. `tiers/2-embedded/feature-verify/scripts/blast_radius.py` does exactly
 this, following `tsconfig` path aliases.
 
 Two things an import graph can't see, so add them by hand:
@@ -445,7 +445,7 @@ is innocent.
 
 > **Skip if** you have no UI to verify.
 
-To verify a feature actually works, Claude opens a browser, loads the page, and takes
+To verify a feature actually works, the agent opens a browser, loads the page, and takes
 screenshots. By default that's full Chrome. If you've wired up Puppeteer or Playwright —
 the usual tools for driving a browser automatically — same thing.
 
@@ -513,15 +513,17 @@ If you only install one skill from this bundle, install this one — it needs no
 configuration and applies to any language. It ships ready to use — from your project root:
 
 ```bash
-# GE = wherever you unpacked this bundle
-GE=/path/to/graph-engineering/skills
+# VERIFY = this skill's folder; SKILLS = your harness's project skill directory
+# (in Claude Code, that's .claude/skills)
+VERIFY=/path/to/ai-verify
+SKILLS=.claude/skills
 
-mkdir -p .claude/skills
-cp -R "$GE/2-embedded/second-opinion" .claude/skills/
-chmod +x .claude/skills/second-opinion/scripts/second-opinion.sh
+mkdir -p "$SKILLS"
+cp -R "$VERIFY/tiers/2-embedded/second-opinion" "$SKILLS/"
+chmod +x "$SKILLS/second-opinion/scripts/second-opinion.sh"
 ```
 
-Restart Claude Code and it will start firing on its own after implementations. The rest of
+Restart your agent and it will start firing on its own after implementations. The rest of
 this section is why it works and how not to waste it — read it before you trust its output.
 
 **The agent that built the thing is the worst possible reviewer of it.** Not because it's
@@ -530,13 +532,13 @@ checks the code against its *intent*. It remembers what each line was *for*, so 
 the intent into the code and skips straight over the place where the code says something
 slightly different.
 
-A fresh Claude has no plan to un-know. It sees only the task and the code, so a gap between
+A fresh reviewer has no plan to un-know. It sees only the task and the code, so a gap between
 them shows up as a gap. That's the entire mechanism.
 
 ### How it works
 
-`claude -p` starts a whole separate Claude Code session in the background by handing it a
-prompt. `skills/2-embedded/second-opinion/scripts/second-opinion.sh` wraps that:
+The wrapper spawns a whole separate reviewer session in the background by handing the
+`claude` CLI a prompt. `tiers/2-embedded/second-opinion/scripts/second-opinion.sh` wraps it:
 
 ```bash
 claude -p "Read $PACKET and follow its instructions exactly." \
@@ -576,16 +578,16 @@ your reading of it.
 ### Two practical warnings
 
 **It's slow.** It's an entirely separate session with no prompt-cache reuse. Typically
-20–60 seconds, but a large diff can run several minutes. Set your Bash timeout to
+20–60 seconds, but a large diff can run several minutes. Set your command timeout to
 `600000` — a timeout kills the review *after* you've already paid for it.
 
-**Run it on Opus.** The whole point is a smarter second read. Say so explicitly:
+**Run it on your strongest model.** The whole point is a smarter second read. Say so explicitly:
 
 ```bash
-.claude/skills/second-opinion/scripts/second-opinion.sh <packet> --model opus
+<skill-dir>/scripts/second-opinion.sh <packet> --model <strongest>
 ```
 
-For something small and mechanical, `--model sonnet` catches the same planted bugs at a
+For something small and mechanical, a cheaper model via `--model` catches the same planted bugs at a
 fraction of the cost. Default to the strong model for anything subtle, concurrent, or
 security-relevant.
 
@@ -617,7 +619,7 @@ findings is indistinguishable from one that found half as much.
 
 ### Note on the built-in Advisor
 
-Claude Code has a built-in advisor that does something along these lines. But it reads the
+Some harnesses have a built-in advisor that does something along these lines. But it reads the
 chat you're currently in, so it inherits all the same context — that's useful for other
 reasons, and it's not what this is. `second-opinion` is for when you want the review
 *without* the context.
@@ -707,7 +709,7 @@ This is the payoff. When you build a graph, the only verification instruction yo
 
 Each node loads that one skill, and the whole review fans out underneath it on its own.
 
-`skills/3-chain/full-review/SKILL.md` is a complete working version. Read it.
+`tiers/3-chain/full-review/SKILL.md` is a complete working version. Read it.
 
 ---
 
@@ -758,15 +760,16 @@ decides the quality of the whole graph.
 
 ---
 
-## 12. Wire it into CLAUDE.md
+## 12. Wire it into your agent rules
 
-> **Skip if** your `CLAUDE.md` already lists your commands and warns about anything that
-> generates false positives.
+> **Skip if** your agent-rules file already lists your commands and warns about anything
+> that generates false positives.
 
-`CLAUDE.md` at your repo root is read automatically at the start of every session,
-including by every subagent in a graph. Two things belong in it.
+Your agent-rules file — `AGENTS.md` at the repo root, or `CLAUDE.md` on harnesses that
+read it — is loaded automatically at the start of every session, including by every
+subagent in a graph. Two things belong in it.
 
-**Your exact commands.** Claude can work these out on its own by reading `package.json`,
+**Your exact commands.** Your agent can work these out on its own by reading `package.json`,
 but writing them down saves it the trouble every single time — and in a graph that's once
 per node.
 
@@ -884,7 +887,7 @@ mistake, and you're debugging a finished result with no idea which node started 
 ├── review/
 │   └── CONVENTIONS.md        ← shared severity + output contract
 └── ...
-CLAUDE.md                     ← commands + stack warnings
+agent-rules file              ← commands + stack warnings
 design.md                     ← what design-check measures against
 ```
 
@@ -895,12 +898,12 @@ scales and the merge is meaningless — a "critical" from the perf lane and a "c
 from the security lane aren't remotely the same thing, and the orchestrator can't rank
 them against each other.
 
-There's a copy in `skills/3-chain/_support/review/CONVENTIONS.md`. Read it before writing
+There's a copy in `tiers/3-chain/_support/review/CONVENTIONS.md`. Read it before writing
 your own.
 
 ### And in the graph prompt
 
-> Every node invokes `full-review` before returning. Judging nodes run on Opus.
+> Every node invokes `full-review` before returning. Judging nodes run on your strongest model.
 
 That's it. Two sentences, because the structure lives in the skills.
 
@@ -985,8 +988,8 @@ conclude skills don't work.
 Setup:
 
 - [ ] Skill Creator installed at user scope
-- [ ] `CLAUDE.md` has your exact commands
-- [ ] `CLAUDE.md` warns about anything that generates false positives (framework versions)
+- [ ] your agent-rules file has your exact commands
+- [ ] your agent-rules file warns about anything that generates false positives (framework versions)
 - [ ] `.claude/review/CONVENTIONS.md` exists — shared severity, scope, output contract
 - [ ] `chrome-headless-shell` installed if you're verifying UI
 
@@ -994,7 +997,7 @@ Skills:
 
 - [ ] At least one standalone deep-review skill, one angle per skill
 - [ ] At least one embedded skill that fires without being asked
-- [ ] `second-opinion` installed, and set to run on Opus
+- [ ] `second-opinion` installed, and set to run on your strongest model
 - [ ] An orchestrator, if you have three or more review skills
 - [ ] Every skill's `description` names real trigger phrases
 
@@ -1017,7 +1020,7 @@ Before trusting it:
 
 ## Where to go next
 
-Read the real skills in `skills/`, in this order:
+Read the real skills in `tiers/`, in this order:
 
 1. `2-embedded/second-opinion/SKILL.md` — shortest, highest value, mostly portable
 2. `3-chain/code-audit/SKILL.md` — what a tight false-positive gate looks like
@@ -1026,5 +1029,6 @@ Read the real skills in `skills/`, in this order:
 
 They're written to be project-agnostic — each one detects the stack from your manifest
 and lockfile at runtime instead of hardcoding it, and verifies claims about a library
-against the installed source rather than from memory. See **Tuning them to your project**
-in [README.md](README.md) for the handful of things worth adjusting anyway.
+against the installed source rather than from memory. The handful of things worth
+adjusting per project — your agent-rules file (§12) and the chain's `CONVENTIONS.md`
+(§14) — are both covered above.

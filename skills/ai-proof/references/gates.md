@@ -81,7 +81,8 @@ suite, then the driver re-runs it again per leaf when verifying.
   That is also where they are meaningful, since a full suite passing is a
   statement about the merge, not about any one leaf.
 - **Name files when you invoke the checker.** `gate-check gates/leaf-x.md`
-  runs one leaf's checks. Bare `gate-check` globs `GATES.md` plus every
+  runs one leaf's checks. Bare `gate-check` globs the milestone gates file
+  (`.ai-engineering/spec.html` in ai-engineering, historically `GATES.md`) plus every
   `gates/*.md`, which is right at report time and wasteful anywhere else.
 - **A leaf's CHECK may read only settled files**: the ones that leaf owns,
   plus the output of leaves already verified. Disjoint ownership stops leaves

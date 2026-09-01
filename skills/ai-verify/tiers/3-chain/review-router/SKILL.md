@@ -154,5 +154,5 @@ Whatever the outcome, the final report ends with the routing decision:
 
 If the user disagrees with a route, they can name a lane and you run it — an explicit
 request always wins. Record the correction: a lane the user has had to ask for twice is a
-signal that the mapping in §3 is wrong for this project, and it belongs in `CLAUDE.md`
-rather than in their memory.
+signal that the mapping in §3 is wrong for this project, and it belongs in your
+agent-rules file (`AGENTS.md` / `CLAUDE.md`) rather than in their memory.

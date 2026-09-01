@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// stop-hook.mjs : Claude Code Stop hook for the unlazy skill (v2).
+// stop-hook.mjs : Claude Code Stop hook for the proof skill (unlazy v2).
 //
 // Structurally blocks ending the turn while GATES.md / gates/*.md contain
 // unmet gates. Zero tokens: this is a file scan, not a model call.

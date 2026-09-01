@@ -1,8 +1,8 @@
 # HTML wireframe quality — single source of truth
 
 This file is the canonical quality bar for HTML wireframes / `<Screen>` /
-`WireframeBlock` content, shared word for word by `/visual-plan` and
-`/visual-recap`. Read it in full before authoring ANY wireframe; do not
+`WireframeBlock` content, shared word for word by the upstream `/visual-plan`
+skill and by ai-visual-recap. Read it in full before authoring ANY wireframe; do not
 author wireframes from memory or paraphrase these rules per command.
 
 <!-- SHARED-CORE:wireframe-quality START -->

@@ -26,7 +26,7 @@ export function runChecks(cwd = process.cwd()): { results: CheckResult[]; fail: 
   const agentsPath = root ? join(root, "AGENTS.md") : null;
   if (agentsPath && existsSync(agentsPath)) {
     const content = readFileSync(agentsPath, "utf8");
-    const rules = (content.match(/^\d+\./gm) ?? []).length;
+    const rules = (content.match(/^\s*(?:\d+\.|-)\s+\S/gm) ?? []).length;
     const lines = content.split("\n").length;
     push("AGENTS.md", lines <= 80 && rules >= 6 ? "ok" : "warn", `${rules} reglas · ${lines} líneas${lines > 80 ? " (over the context ceiling)" : ""}`);
   } else {

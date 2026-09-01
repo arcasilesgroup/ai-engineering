@@ -35,19 +35,19 @@ scavenger hunt, and the agent will keep reaching until it has six things to say.
 ## Run one
 
 ```bash
-GE=/path/to/graph-engineering
+AV=/path/to/ai-verify
 
 # 1. plant — from a clean tree, on a scratch branch
-python3 $GE/evals/scripts/plant.py --pack $GE/evals/packs/example-node-web/answer-key.json
+python3 $AV/evals/scripts/plant.py --pack $AV/evals/packs/example-node-web/answer-key.json
 
-# 2. review — in Claude Code, on the branch it just created
+# 2. review — in your agent, on the branch it just created
 #    "run code-audit on this branch"   (or full-review, or the skill under test)
 
 # 3. score
-python3 $GE/evals/scripts/score.py --run ~/.claude/evals/<repo>-<stamp>/manifest.json
+python3 $AV/evals/scripts/score.py --run ~/.claude/evals/<repo>-<stamp>/manifest.json
 
 # 4. put the repo back
-python3 $GE/evals/scripts/plant.py --cleanup
+python3 $AV/evals/scripts/plant.py --cleanup
 ```
 
 `plant.py` refuses to run on a dirty tree — planting on top of uncommitted work makes the
@@ -183,7 +183,7 @@ evals/
 To try the whole loop without touching a real project:
 
 ```bash
-cp -R $GE/evals/fixtures/node-web /tmp/eval-demo && cd /tmp/eval-demo
+cp -R $AV/evals/fixtures/node-web /tmp/eval-demo && cd /tmp/eval-demo
 git init -q && git add -A && git commit -qm init
-python3 $GE/evals/scripts/plant.py --pack $GE/evals/packs/example-node-web/answer-key.json
+python3 $AV/evals/scripts/plant.py --pack $AV/evals/packs/example-node-web/answer-key.json
 ```

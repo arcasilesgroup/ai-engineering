@@ -14,7 +14,7 @@ description: >-
 license: Apache-2.0
 ---
 
-# ai-read-docs — docs before memory (read-the-damn-docs)
+# ai-read-docs — docs before memory
 
 Do not guess where authoritative docs can answer the question. The most common
 right move is to web-search for the current official docs, open the relevant
