@@ -3,8 +3,5 @@ version = "2.0.0"
 
 [assets]
 ".ai-engineering/overrides.toml" = "f5d1b428ce0517c4c7787d6aeeeddc168087f68c9d653563fa96c394b03f4f4e"
-".ai-engineering/arch.rules.json" = "6481ea5c5b8e5deca3f1b3e88d7bc4cf05edbd8e4299a1e8b0dd642e2f07be3a"
-".ai-engineering/config.toml" = "f239328a8fa780b49c98ca6ca63291fbb3133605d53b23f838c541526694ec15"
-".git/hooks/pre-commit" = "1690f1f6b78cb50524f3a1721318ea97f0764dd4325f5f4fce219c600d9d2aec"
-".git/hooks/commit-msg" = "f698b7f6289bca2b71a02f2a9d5aacbd699a6356b3a8b78260f810786bb31a39"
-".git/hooks/pre-push" = "f9dd9da9e8721e39e37a0c20c2779d36659d0207905e1aa053f4218862680bd0"
+".agents/hooks/ai-eng.ts" = "b5681744933fac0de157267b1353a4130abd8042f00d0d4d63aab1df93ffb91a"
+".agents/hooks/ai-eng-chain.ts" = "a724810862cf7afe326d147c26732b8d27891e4aa99ead3c63226d38064242ba"

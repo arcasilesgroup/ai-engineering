@@ -1,28 +1,19 @@
-# .ai-engineering/config.toml — what CANNOT be deduced from code (§08).
-# This file is the right place for your thresholds and pins: edit it by hand or
-# run `ai-eng config` for surfaces. The chain reads it; it never edits it.
-
 [surfaces]
-# Which agent surfaces (IDEs/CLIs) this project is governed on. Every client uses
-# the same definitions from ai-eng — no per-IDE forks. Options: claude-code,
-# oh-my-pi, opencode, cursor, codex, copilot, pi-zed. `ai-eng config` rewrites
-# this list and plants/removes each surface's adapter files.
-enabled = ["omp"]
+enabled = ["oh-my-pi"]
 
 [models]
-decide  = "glm5.3-flash"   # architecture, judgment, security review — expensive and slow is fine
-execute = "glm5.3-flash"      # end-to-end implementation, mechanical reviews
-verify  = "qwen3.8-flash"     # binary PASS/FAIL checks — cheap
+decide = "glm5.3-flash"
+execute = "glm5.3-flash"
+verify = "qwen3.8-flash"
 
 [guards]
-loop_window = 6    # remembered calls
-loop_repeats = 3   # same exact call → deny
-loop_failures = 5  # same signature failing → deny
+loop_window = 6
+loop_repeats = 3
+loop_failures = 5
 
 [gc]
-max_files = 25        # per NNN folder — exceeding → WARN
-older_than = "90d"    # minimum age to be a gc candidate
-keep_runs = 5         # security/: the latest runs always stay alive
-receipts_ttl = "30d"  # receipts: aggregate then delete
+max_files = 25
+older_than = "90d"
+keep_runs = 5
+receipts_ttl = "30d"
 
-# notices = false   # opt out of the new-version notice (or AI_ENG_NO_UPDATE_NOTICES=1)
