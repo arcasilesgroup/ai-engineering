@@ -5,7 +5,7 @@
 
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { Payload } from "../chain/payload.ts";
 import { parseToml } from "../toml.ts";
 
@@ -29,7 +29,7 @@ export type ProtectedPaths = {
 };
 
 function surfacesSettings(repoRoot: string): string[] {
-  // The settings files this install wires, per surface (v2: derived from what plant
+  // The settings files this install wires, per surface (v2: derived from what install
   // wrote; the on-disk check keeps an uninstall from leaving ghosts).
   const out: string[] = [];
   const candidates = [
@@ -47,8 +47,10 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   const literals: string[] = [];
   if (!repoRoot) return { literals, specPinned: false };
 
-  // Contract files in the repo root.
-  literals.push("AGENTS.md", "CLAUDE.md", "DECISIONS.md");
+  // Prose contracts the user owns: editable by the governed agent (blueprint §9.2
+  // "AGENTS.md no es sagrado" / §13.3 "tú lo editas"), so they are NOT literals.
+  // Only machinery below stays protected.
+  literals.push(".ai-engineering");
   // The governed directory and its fixed governing children.
   const aiEng = join(repoRoot, ".ai-engineering");
   literals.push(aiEng);
@@ -108,13 +110,20 @@ function expandTilde(path: string): string {
   if (path.startsWith("~/")) return join(homedir(), path.slice(2));
   return path;
 }
-/** The governed file or path this text offends, or null. Bare contract names
- *  (AGENTS.md, CLAUDE.md, DECISIONS.md) match path SEGMENTS, never substrings —
- *  "src/AGENTS.md.notes/x.md" is not the contract. Absolute literals stay substring. */
+
+/** The governed file or path this text offends, or null.
+ *
+ *  The prose contracts the user owns (AGENTS.md, CLAUDE.md, DECISIONS.md) are
+ *  EDITABLE by the governed agent (blueprint §9.2: "AGENTS.md no es sagrado";
+ *  §13.3: "tú lo editas") — they are instructions, not wiring, and are simply not
+ *  in the protected literal list. What must never change from inside a session is
+ *  the machinery: .ai-engineering/, surface settings, git hooks, the global canon,
+ *  and spec.html once approved. Bare names that WERE protected in v1 match as
+ *  whole path SEGMENTS (never substrings): "src/AGENTS.md.notes/x.md" is not a
+ *  contract file. Absolute literals stay substring. */
 function offendingPath(paths: ProtectedPaths, text: string): string | null {
-  const bareNames = ["AGENTS.md", "CLAUDE.md", "DECISIONS.md"];
   for (const path of paths.literals) {
-    const bare = path === basename(path) && bareNames.includes(path);
+    const bare = path === basename(path);
     if (bare) {
       // Match as a whole path segment: the text ends with the name after / or start.
       const segment = new RegExp(`(^|/)${path.replace(/\./g, "\\.")}$`);
@@ -134,7 +143,26 @@ export function runSelfProtect(payload: Payload, repoRoot: string | null): Guard
   if (typeof target === "string" && target.length > 0) {
     const expanded = expandTilde(target);
     const resolved = isAbsolute(expanded) ? resolve(expanded) : resolve(repoRoot ?? process.cwd(), expanded);
-    const found = offendingPath(paths, resolved) ?? offendingPath(paths, expanded) ?? offendingPath(paths, target);
+    // macOS: /var is a symlink of /private/var — canonicalize BEFORE the match, or
+    // the tmpdir alias of a governed path evades (same canon the command branch uses).
+    let canonical = resolved;
+    try {
+      canonical = realpathSync(resolved);
+    } catch {
+      // Not-yet-existing file: canonicalize the longest existing prefix.
+      const parts = resolved.split("/");
+      let prefix = resolved.startsWith("/") ? "/" : process.cwd();
+      for (const part of parts) {
+        const next = join(prefix, part);
+        try {
+          prefix = realpathSync(next);
+        } catch {
+          prefix = next;
+        }
+      }
+      canonical = prefix;
+    }
+    const found = offendingPath(paths, canonical) ?? offendingPath(paths, resolved) ?? offendingPath(paths, expanded) ?? offendingPath(paths, target);
     if (found) {
       return {
         deny: true,
@@ -146,7 +174,7 @@ export function runSelfProtect(payload: Payload, repoRoot: string | null): Guard
   if (typeof command === "string" && command.length > 0) {
     // macOS: /var is a symlink of /private/var — paths must be canonicalized
     // BEFORE the substring test, or the agent evades by writing the tmpdir alias.
-    const { realpathSync } = require("node:fs") as typeof import("node:fs");
+    // The command branch shares the canonicalization above.
     const canonPath = (target: string): string => {
       // Canonicalize the longest existing prefix; a not-yet-created file inherits the
       // real prefix of its directory (rm -rf into a symlinked tmpdir must not evade).

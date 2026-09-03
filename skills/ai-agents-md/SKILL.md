@@ -4,8 +4,10 @@ description: >-
   Creates and maintains the AGENTS.md a repository owes its coding agents, following the
   agents.md convention (https://agents.md/). Decides root-only versus nested AGENTS.md files
   from the repo's real shape, interviews the tree (not the user) for build/test/lint commands,
-  and writes only what an agent cannot deduce from the code. Trigger for "create AGENTS.md",
-  "update AGENTS.md", "the agent ignores our conventions", "set up agent instructions".
+  and writes only what an agent cannot deduce from the code. Also the in-session maintenance
+  path: a governed agent MAY edit AGENTS.md directly (blueprint §9.2 — it is not sacred) when
+  the repo's real state made a rule stale. Trigger for "create AGENTS.md", "update AGENTS.md",
+  "the agent ignores our conventions", "set up agent instructions", "edit AGENTS.md".
   Not for runtime agent contracts (goals, gates, budgets) — use /ai-goal. Not for
   documentation users read — use /ai-write.
 license: Apache-2.0
@@ -68,13 +70,32 @@ from reading the code, delete the line.
   deltas only.
 - The file lives at the root (and only where needed below), named exactly `AGENTS.md`.
 
+## Keeping it alive from inside a governed session
+
+`AGENTS.md` is a prose contract the team owns — NOT machinery. A governed agent may edit it
+in-session (blueprint §9.2: it is not sacred); `self-protect` only denies the wiring
+(`.ai-engineering/`, surface settings, git hooks, the global canon, an approved spec.html).
+Edit it when the repo's real state made a rule stale, never to bend a rule this task dislikes:
+
+1. The trigger is evidence: a rule that no longer matches the tree (a command that fails, a
+   convention the code now states by itself, a workflow the team changed). Say what you
+   observed, at file:line, before touching the file.
+2. Edit, never rewrite: change the stale lines, keep the section order, one idea per line.
+   The status convention and the Security section are not yours to delete.
+3. Every edit lands as a visible diff (git diff) and survives review — the file is committed
+   like any other source. If the change is contentious, propose it instead of pushing it.
+4. After editing, run `ai-eng doctor`: the anti-drift check flags any rule the code now
+   states — delete that line while you are there.
+
 ## The ai-engineering seam
 
-1. `ai-eng init` plants this file once (`AGENTS.md` written once, never overwritten by
-   update — 3-way diff if you edited it). This skill is how you rewrite it deliberately.
-2. `ai-eng doctor` checks the anti-drift rule: a rule that the code now states is flagged
+1. `ai-eng init` plants this file once (never overwritten by update — 3-way diff if you
+   edited it). This skill is how you rewrite it deliberately.
+2. The governed agent edits it in-session when the tree moved on (section above);
+   `self-protect` guards the wiring instead — the file is prose the team owns.
+3. `ai-eng doctor` checks the anti-drift rule: a rule that the code now states is flagged
    as removable.
-3. Keep the governed sections (Security, Workflow status convention) aligned with the
+4. Keep the governed sections (Security, Workflow status convention) aligned with the
    guards: the guards enforce `--no-verify` and linter silencing at hook time; the file
    tells the agent before the hook has to.
 

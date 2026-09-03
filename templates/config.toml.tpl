@@ -6,7 +6,7 @@
 # Which agent surfaces (IDEs/CLIs) this project is governed on. Every client uses
 # the same definitions from ai-eng — no per-IDE forks. Options: claude-code,
 # oh-my-pi, opencode, cursor, codex, copilot, pi-zed. `ai-eng config` rewrites
-# this list and plants/removes each surface's adapter files.
+# this list and installs/removes each surface's adapter files.
 enabled = [{{surfaces}}]
 
 [models]

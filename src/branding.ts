@@ -35,7 +35,7 @@ export function showBanner(version: string): void {
   );
 }
 
-/** The ✓ line grammar of the planted checklist: `✓ <target> → <result> · <reason>`. */
+/** The ✓ line grammar of the installed checklist: `✓ <target> → <result> · <reason>`. */
 export function okLine(target: string, result: string, reason?: string): string {
   const on = ansiEnabled();
   const check = on ? `${TEAL}✓${RESET}` : "✓";

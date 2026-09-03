@@ -1,6 +1,4 @@
 // @bun
-var __require = import.meta.require;
-
 // src/env.ts
 import { homedir, tmpdir } from "os";
 import { join, resolve, sep } from "path";
@@ -438,7 +436,7 @@ function runNoVerify(payload, repoRoot2) {
 // src/guards/self-protect.ts
 import { basename, dirname, isAbsolute as isAbsolute2, join as join3, resolve as resolve3 } from "path";
 import { homedir as homedir2 } from "os";
-import { existsSync as existsSync3, readFileSync as readFileSync3 } from "fs";
+import { existsSync as existsSync3, readFileSync as readFileSync3, realpathSync } from "fs";
 var WRITERS = {
   rm: true,
   mv: true,
@@ -478,7 +476,7 @@ function protectedPaths(repoRoot2) {
   const literals = [];
   if (!repoRoot2)
     return { literals, specPinned: false };
-  literals.push("AGENTS.md", "CLAUDE.md", "DECISIONS.md");
+  literals.push(".ai-engineering");
   const aiEng = join3(repoRoot2, ".ai-engineering");
   literals.push(aiEng);
   for (const name of ["config.toml", "overrides.toml", "ai-eng.lock", "arch.rules.json", "git"]) {
@@ -531,9 +529,8 @@ function expandTilde(path) {
   return path;
 }
 function offendingPath(paths, text) {
-  const bareNames = ["AGENTS.md", "CLAUDE.md", "DECISIONS.md"];
   for (const path of paths.literals) {
-    const bare = path === basename(path) && bareNames.includes(path);
+    const bare = path === basename(path);
     if (bare) {
       const segment = new RegExp(`(^|/)${path.replace(/\./g, "\\.")}$`);
       if (segment.test(text))
@@ -554,7 +551,23 @@ function runSelfProtect(payload, repoRoot2) {
   if (typeof target === "string" && target.length > 0) {
     const expanded = expandTilde(target);
     const resolved = isAbsolute2(expanded) ? resolve3(expanded) : resolve3(repoRoot2 ?? process.cwd(), expanded);
-    const found = offendingPath(paths, resolved) ?? offendingPath(paths, expanded) ?? offendingPath(paths, target);
+    let canonical = resolved;
+    try {
+      canonical = realpathSync(resolved);
+    } catch {
+      const parts = resolved.split("/");
+      let prefix = resolved.startsWith("/") ? "/" : process.cwd();
+      for (const part of parts) {
+        const next = join3(prefix, part);
+        try {
+          prefix = realpathSync(next);
+        } catch {
+          prefix = next;
+        }
+      }
+      canonical = prefix;
+    }
+    const found = offendingPath(paths, canonical) ?? offendingPath(paths, resolved) ?? offendingPath(paths, expanded) ?? offendingPath(paths, target);
     if (found) {
       return {
         deny: true,
@@ -564,7 +577,6 @@ function runSelfProtect(payload, repoRoot2) {
   }
   const command = args["command"];
   if (typeof command === "string" && command.length > 0) {
-    const { realpathSync } = __require("fs");
     const canonPath = (target2) => {
       const parts = target2.split("/");
       let current = target2.startsWith("/") ? "/" : process.cwd();

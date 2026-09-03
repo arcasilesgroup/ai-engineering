@@ -9,16 +9,16 @@ import { home, versionFile } from "../env.ts";
 import { materializeSkills } from "../embed.ts";
 
 export type Surface = {
-  id: string;
-  label: string;
-  tier: "core" | "experimental" | "best-effort" | "skills-only";
-  mechanism: "json-stdio" | "ts-module" | "none";
-  can: { deny: boolean; rewriteIn: boolean; rewriteOut: boolean; failClosed?: boolean | string };
-  settingsFile?: string;
-  pluginFile?: string;
-  chainFile?: string;
-  timeout: number;
-  note?: string;
+  readonly id: string;
+  readonly label: string;
+  readonly tier: "core" | "experimental" | "best-effort" | "skills-only";
+  readonly can: { readonly deny: boolean | "throw"; readonly rewriteIn: boolean; readonly rewriteOut: boolean | "total-replacement"; readonly failClosed?: boolean | string };
+  readonly mechanism: "json-stdio" | "ts-module" | "none";
+  readonly settingsFile?: string;
+  readonly pluginFile?: string;
+  readonly chainFile?: string;
+  readonly timeout: number;
+  readonly note?: string;
 };
 
 export const SURFACES: Surface[] = (surfacesJson as { surfaces: Surface[] }).surfaces;
@@ -32,6 +32,15 @@ export function surfaceById(id: string): Surface | undefined {
 export function surfaceCanGovern(surface: Surface): boolean {
   return surface.can.deny !== false;
 }
+
+/** The tier headers for the grouped surface multiselect (init + config share
+ *  them): the group carries the capability class, the option hint the delta. */
+export const SURFACE_TIERS: ReadonlyArray<readonly [string, string]> = [
+  ["core", "core — deny + rewrite"],
+  ["experimental", "experimental — rewrite may be partial"],
+  ["best-effort", "best-effort — cloud FS: receipts may not survive"],
+  ["skills-only", "skills only — no guards in hot-path"],
+];
 
 export type MirrorTarget = { dir: string; label: string };
 
@@ -49,7 +58,7 @@ export function mirrorTargets(): MirrorTarget[] {
   ];
 }
 
-/** Plant the global canon once per machine, then symlink the mirrors (junction or
+/** Install the global canon once per machine, then symlink the mirrors (junction or
  *  verified copy on Windows — symlinks where the OS supports them). */
 export function installCanon(version: string): string[] {
   const lines: string[] = [];

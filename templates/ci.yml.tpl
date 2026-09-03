@@ -13,7 +13,7 @@ jobs:
       - name: Install ai-eng (the governor, from the registry)
         run: bun add -g ai-engineering@2
         # Pinned major: the CI gate runs the same contract line the repo was
-        # planted with. Bump deliberately, with the CHANGELOG.
+        # installed with. Bump deliberately, with the CHANGELOG.
       - name: Typecheck (skipped when the project declares none)
         run: bun pm ls | grep -q . && (bun run --if-present typecheck) || true
       - name: Lint (skipped when the project declares none)

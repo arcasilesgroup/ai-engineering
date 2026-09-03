@@ -505,11 +505,11 @@
 │   ├── cli.ts                           <span class="c"># tab() → args.parse → dispatch a verbo</span>
 │   ├── commands/                        <span class="c"># 8 archivos FINOS: parsean args y delegan — la lógica vive en los módulos de abajo</span>
 │   │   ├── <span class="b"># ── 6 verbos humanos ──</span>
-│   │   ├── init.ts                      <span class="c"># sin repo git → ofrece `git init -q` él mismo · planta · diff 3-vías · notes de trust → plant.ts</span>
+│   │   ├── init.ts                      <span class="c"># sin repo git → ofrece `git init -q` él mismo · instala · diff 3-vías · notes de trust → install.ts</span>
 │   │   ├── doctor.ts                    <span class="c"># 12 checks + payload adversarial + p95 de receipts + drift lockfile → checks.ts</span>
 │   │   ├── config.ts                    <span class="c"># superficies · umbrales · tiers (nunca toca AGENTS.md ni overrides) → toml.ts + surfaces/</span>
-│   │   ├── uninstall.ts                 <span class="c"># revierte lo suyo · conserva lo tuyo → plant.ts (inverso)</span>
-│   │   ├── update.ts                    <span class="c"># re-planta los assets del binario en este repo (cero red) · diff 3-vías → plant.ts</span>
+│   │   ├── uninstall.ts                 <span class="c"># revierte lo suyo · conserva lo tuyo → install.ts (inverso)</span>
+│   │   ├── update.ts                    <span class="c"># re-instala los assets del binario en este repo (cero red) · diff 3-vías → install.ts</span>
 │   │   ├── upgrade.ts                   <span class="c"># changelog + confirmar + spawn de `bun add -g` / `npm install -g` — no reimplementa npm</span>
 │   │   ├── <span class="b"># ── 4 verbos máquina: los invocan HOOKS y CI, no el humano ──</span>
 │   │   ├── chain.ts                     <span class="c"># `ai-eng chain &lt;evento&gt; &lt; payload-json` ← hooks de superficie · stdout = veredicto · exit 2 = deny → chain/</span>
@@ -529,8 +529,8 @@
 <span class="c">│   │   ├── receipt.ts</span>                   <span class="c"># suma lo que el runner no hace: receipt por corrida + exit ≠ 0 si un check no pudo correr</span>
 <span class="c">│   │   └── slot.ts</span>                      <span class="c"># open/close del contrato: reclama el slot, exige receipt o ABANDON en cada gate, archiva y borra los cuatro; doctor lo usa para cazar contratos zombi (§21.2) — ≈90 LOC</span>
 │   ├── wrap/                            <span class="c"># el filtro determinista que ejecuta el verbo wrap</span>
-│   │   ├── runner.ts                    <span class="c"># spawn del runner real con reporter JSON + timeout</span>
-│   │   └── fmt-vitest.ts · fmt-jest.ts · fmt-playwright.ts · fmt-bun.ts   <span class="c"># pintores: solo fallos agrupados por archivo</span>
+│   │   ├── index.ts                     <span class="c"># spawn del runner real (vitest con reporter JSON) + timeout + receipt</span>
+│   │   └── paint.ts                     <span class="c"># pintores por runner (vitest/jest/playwright/bun/generic): solo fallos agrupados por archivo</span>
 │   ├── guards/
 │   │   ├── no-verify.ts                 <span class="c"># ≈80 LOC · patrones hook-skip (§10)</span>
 │   │   ├── self-protect.ts              <span class="c"># ≈145 LOC · escrituras a archivos gobernantes</span>
@@ -542,7 +542,7 @@
 │   │   ├── claude.ts · opencode.ts · omp.ts        <span class="c"># generadores core (JSON-stdio / módulo TS / módulo TS)</span>
 │   │   ├── cursor.ts · codex.ts · copilot.ts       <span class="c"># experimentales: degradación documentada en la propia tabla</span>
 │   │   └── skills-mirror.ts             <span class="c"># por qué: cada superficie descubre skills en su propio path — ~/.ai-engineering/skills/ es la verdad y esta crea el symlink (o la copia verificada en Windows) en ~/.claude/skills/, ~/.config/opencode/skill/, ~/.agents/skills/. Sin esto, 3 copias que divergen (§08)</span>
-│   ├── plant.ts                         <span class="c"># el plantador real de init/uninstall: templates → disco · diff 3-vías · idempotente</span>
+│   ├── install.ts                       <span class="c"># el instalador real de init/uninstall: templates → disco · diff 3-vías · idempotente</span>
 │   ├── receipts.ts                      <span class="c"># 1 JSON por ejecución, append-only · agregado para doctor</span>
 │   ├── lock.ts                          <span class="c"># ai-eng.lock: sha256 por SKILL.md y asset gobernante</span>
 │   ├── toml.ts                          <span class="c"># parse/escritura de .ai-engineering/{config,overrides}.toml</span>
@@ -1510,7 +1510,7 @@ license: Apache-2.0
 <span class="s">12 passed · 2 failed · 0.9s</span>
 <span class="dim">[ai-eng] wrap: vitest · salida filtrada · receipt 8c21</span></pre></div>
   </div>
-  <p>Determinista: el wrapper (<code>src/wrap/runner.ts</code>) corre el runner real con su reporter JSON y los pintores (<code>fmt-vitest/jest/playwright/bun</code>) imprimen solo fallos agrupados por archivo. Funciona igual en las 6 superficies con hooks. El costo — el comando ejecutado no es el que el agente pidió — se paga con transparencia: <code>wrap</code> siempre imprime su línea, para que la traza no mienta. <strong>El «preview-first hook» del draft original se retira:</strong> no aparece en ningún video (grep: 0 matches en v1). Feature inventada, no portada.</p>
+  <p>Determinista: el wrapper (<code>src/wrap/index.ts</code>) corre el runner real — vitest con su reporter JSON, los demás con su salida de texto — y los pintores (<code>src/wrap/paint.ts</code>: vitest/jest/playwright/bun/generic) imprimen solo fallos agrupados por archivo. Funciona igual en las 6 superficies con hooks. El costo — el comando ejecutado no es el que el agente pidió — se paga con transparencia: <code>wrap</code> siempre imprime su línea con el id del receipt, para que la traza no mienta. <strong>El «preview-first hook» del draft original se retira:</strong> no aparece en ningún video (grep: 0 matches en v1). Feature inventada, no portada.</p>
   <div class="grid g3">
     <div class="card"><h4><span class="pill p-ok">bundled</span> bashMaxOutputLength</h4><p>Recorte de output largo 30k→10k en config de superficie. video1 [16:59]. Cero código propio: es config.</p></div>
     <div class="card"><h4><span class="pill p-ok">bundled</span> defaults de sesión</h4><p>AGENTS.md instruye <code>/clear</code> entre tareas, <code>/compact</code> antes de parar, batch prompting, <code>/usage</code> para auditar qué skill consume contexto. video1 niveles 1–2.</p></div>

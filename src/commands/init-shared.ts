@@ -1,9 +1,9 @@
-// Shared between init and update: the plan entries for one surface set. One
-// definition — the payload init plants is exactly the payload update re-plants.
+// Shared between init and update: the install entries for one surface set. One
+// definition — the payload init installs is exactly the payload update re-installs.
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { PlanEntry } from "../plant.ts";
+import type { PlanEntry } from "../install.ts";
 import { VERSION } from "../version.ts";
 import { embeddedTemplate, embeddedText } from "../embed.ts";
 

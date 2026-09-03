@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { repoRoot, home } from "../env.ts";
 import { writeReceipt } from "../receipts.ts";
-import { parseLock, lockText } from "../plant.ts";
+import { parseLock, lockText } from "../install.ts";
 import { VERSION } from "../version.ts";
 
 const SLOT_FILES = ["spec.html", "plan.html", "brainstorm.md", "recap.html"];

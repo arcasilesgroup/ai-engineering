@@ -3,11 +3,11 @@
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { multiselect, isCancel } from "@clack/prompts";
+import { groupMultiselect, isCancel } from "@clack/prompts";
 import { repoRoot } from "../env.ts";
 import { parseToml, serializeToml } from "../toml.ts";
 import type { TomlTable } from "../toml.ts";
-import { SURFACES, mirrorTargets, surfaceCanGovern, type Surface } from "../surfaces/adapters.ts";
+import { SURFACES, SURFACE_TIERS, mirrorTargets, surfaceCanGovern, type Surface } from "../surfaces/adapters.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
@@ -39,11 +39,14 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
     current = current.filter((id) => id !== flags.remove);
     removeSurfaceFiles(root, flags.remove);
   } else {
-    const picked = await multiselect({
+    const picked = await groupMultiselect({
       message: "Which agent surfaces is this project governed on? (ticked = installed)",
-      options: SURFACES.map((s) => ({ value: s.id, label: s.label, hint: configHint(s, current.includes(s.id)) })),
+      options: Object.fromEntries(
+        SURFACE_TIERS.map(([tier, title]) => [title, SURFACES.filter((s) => s.tier === tier).map((s) => ({ value: s.id, label: s.label, hint: configHint(s, current.includes(s.id)) }))]),
+      ),
       initialValues: current.filter((id) => SURFACES.some((s) => s.id === id)),
       required: true,
+      selectableGroups: false,
       input: input as never,
     });
     if (isCancel(picked)) {
@@ -58,16 +61,19 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   const doc: TomlTable = existsSync(configPath) ? parseToml(readFileSync(configPath, "utf8")) : {};
   doc["surfaces"] = { enabled: current };
   writeFileSync(configPath, serializeToml(doc));
-  ui.ok(`.ai-engineering/config.toml written (surfaces key only)`);
   const added = current.filter((id) => !surfacesBefore.includes(id));
   const removedSurfaces = surfacesBefore.filter((id) => !current.includes(id));
-  for (const id of added) ui.ok(`+ ${id}: adapter + skill mirror written`);
-  for (const id of removedSurfaces) ui.ok(`- ${id}: adapter + mirror removed`);
-  if (added.length === 0 && removedSurfaces.length === 0) ui.info(`surfaces unchanged: ${current.join(", ")}`);
-  ui.info(`enabled surfaces: ${current.join(", ")}`);
+  const delta: ui.Row[] = [
+    ...added.map((id): ui.Row => ({ mark: "ok", text: `+ ${id}`, dim: "adapter + skill mirror written" })),
+    ...removedSurfaces.map((id): ui.Row => ({ mark: "ok", text: `- ${id}`, dim: "adapter + mirror removed" })),
+  ];
+  if (delta.length === 0) {
+    ui.section("surfaces unchanged", [{ mark: "muted", text: current.join(", ") }], `${current.length} enabled`);
+  } else {
+    ui.section("Surfaces changed", delta, `${current.length} enabled: ${current.join(", ")}`);
+  }
   const mirrors = mirrorTargets().length;
-  ui.ok(`skill mirrors verified (${mirrors} targets)`);
-  ui.info("Model tier thresholds: edit .ai-engineering/config.toml directly, or ask your AI assistant.");
+  ui.section("Mirrors verified", [{ mark: "ok", text: `${mirrors} targets` }], "model tier thresholds: edit .ai-engineering/config.toml directly, or ask your AI assistant");
   ui.end("Done. Run ai-eng doctor to verify.");
   return 0;
 }
@@ -90,8 +96,10 @@ function removeSurfaceFiles(root: string, id: string): void {
   }
 }
 
-/** The mockup hint for config: installed-state marker + capability. */
+/** The config hint: the ticked checkbox already says installed; the hint
+ *  carries only the one thing a tick cannot say — this surface cannot block
+ *  a tool call, so the live guards will not run on it. */
 function configHint(surface: Surface, installed: boolean): string {
-  const state = installed ? "✔ installed" : "✘ not installed";
-  return surfaceCanGovern(surface) ? state : `${state} — no deny`;
+  if (surfaceCanGovern(surface)) return "";
+  return installed ? "can't block tool calls — the guards will not run here" : "can't block tool calls";
 }

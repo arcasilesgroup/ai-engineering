@@ -8,7 +8,7 @@
     "spec": "src/spec/**",
     "wrap": "src/wrap/**",
     "surfaces": "src/surfaces/**",
-    "shared": "src/shared-*.ts,src/{env,toml,plant,receipts,embed,skills-lint}.ts",
+    "shared": "src/shared-*.ts,src/{env,toml,install,receipts,embed,skills-lint}.ts",
     "templates-assets": "templates/**"
   },
   "rules": [

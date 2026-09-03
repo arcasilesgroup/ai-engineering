@@ -202,6 +202,9 @@ rows:
 | Icons and icon transitions | `better-ui` › icons, and › icon transitions |
 | Named visual anchor ("Linear-style") | `web-design-engineer` › the style recipe for that one anchor — **one only** |
 | Extending an existing design rather than replacing it | `web-design-engineer` › redesign protocol |
+| Compliance target (WCAG 2.2 AA / AAA, EN 301 549, ADA, Section 508) | `references/accessibility.md` › conformance levels |
+| Semantic code and ARIA attributes (valid roles, required/owned attrs, landmarks, skip links) | `references/accessibility.md` › semantic code and ARIA |
+| Responsive reflow, zoom, orientation flexibility | `references/accessibility.md` › design flexibility |
 
 ## Step 5 — Attach ingredients
 
@@ -247,7 +250,11 @@ not to the user.
 | Every user-facing string reads like a person wrote it | `better-writing` |
 | Composition reads as intended | `screen-critique` |
 | Doesn't look machine-generated | `tastemaker` › anti-slop checklist |
-| Motion budget: nothing gratuitous | `animate` §Never Ship |
+| WCAG conformance level (AA default, AAA for text-heavy or legal) | `references/accessibility.md` › conformance levels |
+| Semantic HTML and ARIA names/roles/states are valid | `references/accessibility.md` › semantic code and ARIA |
+| Heading, landmark, skip link, lang, title structure | `references/accessibility.md` › semantic code and ARIA |
+| Responsive reflow at 320px, zoom to 5×, both orientations | `references/accessibility.md` › design flexibility |
+| Downloadable documents (PDF, Word, PPTX) are accessible | `references/accessibility.md` › documents |
 
 ## Step 8 — Announce, then build
 
@@ -306,11 +313,12 @@ end:
 ## Files
 
 Bundled with this skill:
-
-- `references/skill-purposes.md` — what every skill is *for*; the routing model
-- `references/routing-table.md` — which part of a skill to open, once elected
+- `references/accessibility.md` — Ally-checklist-based accessibility reference: WCAG 2.2 AA/AAA conformance, semantic code and ARIA, downloadable documents, responsive design
 - `references/conflicts.md` — precedence rules in full
 - `references/plans.md` — worked plans for the twelve common request shapes
+- `../ai-design-audit/references/accessibility-checklist.md` — downloadable-document checklists (PDF, Word, PPTX); non-text contrast / orientation lock / screen reader testing items
+- `references/skill-purposes.md` — what every skill is *for*; the routing model
+- `references/routing-table.md` — which part of a skill to open, once elected
 
 ## The ai-engineering seam
 
@@ -323,6 +331,10 @@ Bundled with this skill:
    own routed check against what is installed at runtime.
 4. The conflict ladder in `references/conflicts.md` stays intact and owns
    precedence between skills.
+5. The accessibility gates run as an executable audit (not a manual checklist):
+   `ai-design-audit` with `--checks a11y contrast` measures semantic code,
+   ARIA, zoom/viewport, and contrast at both AA and AAA targets against the
+   built output.
 
 Source: design-orchestrator from the claude-design-skills collection (attributed;
 no license — upstream issue H4).

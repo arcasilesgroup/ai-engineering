@@ -47,7 +47,7 @@ if (flags.version) {
 if (flags.help || !verb) {
   showLogo(VERSION);
   process.stdout.write("\n");
-  process.stdout.write("  ai-eng init       plant governance (global without a repo; contract inside)\n");
+  process.stdout.write("  ai-eng init       install governance (global without a repo; contract inside)\n");
   process.stdout.write("  ai-eng doctor     12 checks + one real adversarial probe + --gc\n");
   process.stdout.write("  ai-eng config     surfaces and thresholds\n");
   process.stdout.write("  ai-eng update     rewrite ai-eng's files from the installed binary (zero network)\n");
@@ -83,7 +83,7 @@ async function main(): Promise<number> {
     case "git":
       return floor(String(flags._[1] ?? ""), flags._[2] != null ? String(flags._[2]) : undefined);
     case "wrap":
-      return wrapMain(flags._.slice(1).map(String));
+      return wrapMain(process.argv.slice(3).map(String));
     case "spec":
       return specMain(flags._.slice(1).map(String));
     case "init":

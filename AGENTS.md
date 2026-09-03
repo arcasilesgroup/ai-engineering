@@ -32,7 +32,7 @@ Guidance for AI coding agents working in this repository. Human teammates should
 - Green gate before "done": show the output of the check that proves it.
 - A decision that always comes out the same is code, not a prompt.
 - Skills follow the canon contract (enforced by `tests/skills.spec.ts`): one `SKILL.md` per folder, folded `>-` frontmatter with `name` = folder name, English only, no corpus.md, no machine paths, no token-limit statements, upstream attribution preserved.
-- Status convention in every task list: 🟢 done (with proof pasted) · 🟡 pending (name it) · 🔴 blocked on user.
+- Task status convention: mark each task 🟢 done (paste the proving output) · 🟡 pending (name the next action) · 🔴 blocked on you (ask the exact question). No todo list → state status inline: done-with-proof, pending, or blocked.
 
 ## Pull requests
 - Run lint and the full test suite before committing; the commit must pass everything it will face in CI.

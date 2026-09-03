@@ -22,7 +22,7 @@ node scripts/audit.mjs --base http://127.0.0.1:4399 \
   --routes / /about /projects --widths 320 390 820 1440
 ```
 
-`--checks` selects passes (`geometry contrast collision proximity type interior`); `--aa` relaxes the contrast target from AAA to AA; `--json out.json` writes findings and text anchors. Run it before touching anything.
+`--checks` selects passes (`geometry contrast collision proximity type interior a11y`); `--aa` relaxes the contrast target from AAA to AA; `--json out.json` writes findings and text anchors. Run it before touching anything.
 
 ## What each pass is asking
 
@@ -38,6 +38,8 @@ node scripts/audit.mjs --base http://127.0.0.1:4399 \
 
 **interior** — do containers in one row start reading on the same line, and does a component's inset scale with the type it holds.
 
+**a11y** — structural and semantic checks: valid semantic markup, ARIA attribute validity and required attributes, heading / landmark / skip-link / lang / title structure, zoom disabled, deprecated elements, list-integrity (ul/ol/li, dt/dd/dl), focusable-aria-hidden mismatch, duplicate ids and accesskeys, form label coverage, and caption requirements. The a11y pass runs once per unique route across all widths; it is not width-dependent.
+
 Read [how to judge the output](references/reading.md) before acting on it: several shapes look like defects and are not, and the difference is usually written in the code beside them.
 
 ## The loop
@@ -52,6 +54,8 @@ Screenshots come last and answer one question — *does this read right?* — wh
 ## What the numbers cannot see
 
 Whether the thing is any good. The audit finds a gap that contradicts itself, never a page that is correct and lifeless. When a finding and the design disagree, the design has the floor — but it has to say why, next to the value, or it is drift wearing a justification.
+
+Downloadable documents — PDFs, Word files, PPTX decks — cannot be audited inside a browser. See the [accessibility-checklist](references/accessibility-checklist.md) for the manual checklists that cover tagged text, reading order, alt text, heading structure, contrast, and encrypted/malformed files. Run Ally or an equivalent tool for batch checks; this audit only covers HTML.
 
 ## The ai-engineering seam
 

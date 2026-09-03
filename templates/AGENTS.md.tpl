@@ -17,7 +17,7 @@ Guidance for AI coding agents working in this repository. Human teammates should
 ## Workflow
 - Green gate before "done": show the output of the check that proves it.
 - A decision that always comes out the same is code, not a prompt.
-- Status convention in every task list: 🟢 done (with proof pasted) · 🟡 pending (name it) · 🔴 blocked on user.
+- Task status convention (when a todo list exists): mark each task 🟢 done (paste the proving output) · 🟡 pending (name the next action) · 🔴 blocked on you (ask the exact question). No todo list → state status inline: done-with-proof, pending, or blocked.
 
 ## Architecture layers
 You may edit `src/**` freely; the arch-test reads `.ai-engineering/arch.rules.json` — propose layer changes there via PR, never by editing the test in silence.

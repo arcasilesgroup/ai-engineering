@@ -1,5 +1,5 @@
-// The planter behind init/uninstall/update: templates → disk, idempotent, 3-way diff
-// when the user edited what we planted. Never overwrites a user-edited file in
+// The installer behind init/uninstall/update: templates → disk, idempotent, 3-way diff
+// when the user edited what we installed. Never overwrites a user-edited file in
 // silence — that is the worst class of bug a governance tool can have (§14.5).
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, symlinkSync, lstatSync } from "node:fs";
@@ -14,25 +14,34 @@ export type PlanEntry = {
   target?: string; // for symlinks
 };
 
-export type PlantReport = {
+export type InstallReport = {
   written: string[];
   untouched: string[]; // already ours-current, or the user's own file
   conflicts: string[]; // user-edited AND ours changed: needs the human
 };
 
-function sha256(text: string): string {
+export function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
 
-/** Idempotent plant. A file byte-identical to ours is a no-op; a file exactly the
+/** Idempotent install. A file byte-identical to ours is a no-op; a file exactly the
  *  previous version of ours is a safe update; a file the user edited AND that changed
- *  between versions is a conflict, listed — never silently overwritten. */
-export function plant(repoRoot: string, entries: PlanEntry[], previousOurs?: (path: string) => string | null): PlantReport {
-  const report: PlantReport = { written: [], untouched: [], conflicts: [] };
+ *  between versions is a conflict, listed — never silently overwritten. `previousOurs`
+ *  may answer with the previous text OR with a `sha256:<hex>` sentinel — update.ts
+ *  stores hashes in the lock, not bytes (protocol, measured 2026-09-03).
+ *  `force` is the human's resolved decision (update's "take"): write ours even
+ *  over an edit — only a caller that asked may pass it. */
+export function install(
+  repoRoot: string,
+  entries: PlanEntry[],
+  previousOurs?: (path: string) => string | null,
+  force?: (path: string) => boolean,
+): InstallReport {
+  const report: InstallReport = { written: [], untouched: [], conflicts: [] };
   for (const entry of entries) {
     const absolute = join(repoRoot, entry.path);
     if (entry.mode === "symlink") {
-      plantSymlink(absolute, entry);
+      installSymlink(absolute, entry);
       report.written.push(entry.path);
       continue;
     }
@@ -45,10 +54,17 @@ export function plant(repoRoot: string, entries: PlanEntry[], previousOurs?: (pa
       }
       const previous = previousOurs?.(entry.path) ?? null;
       if (previous === null) {
-        report.untouched.push(entry.path); // we never planted it: it is the user's
+        report.untouched.push(entry.path); // we never installed it: it is the user's
         continue;
       }
-      if (sha256(current) === sha256(previous)) {
+      const currentHash = sha256(current);
+      const previousHash = previous.startsWith("sha256:") ? previous.slice("sha256:".length) : sha256(previous);
+      if (currentHash === previousHash) {
+        writeFileSync(absolute, entry.ours);
+        report.written.push(entry.path);
+        continue;
+      }
+      if (force?.(entry.path)) {
         writeFileSync(absolute, entry.ours);
         report.written.push(entry.path);
         continue;
@@ -63,7 +79,7 @@ export function plant(repoRoot: string, entries: PlanEntry[], previousOurs?: (pa
   return report;
 }
 
-function plantSymlink(absolute: string, entry: PlanEntry): void {
+function installSymlink(absolute: string, entry: PlanEntry): void {
   const target = entry.target ?? entry.ours;
   try {
     const stats = lstatSync(absolute);
@@ -92,7 +108,7 @@ function readlinkSafe(path: string): string | null {
   }
 }
 
-/** The lockfile: sha256 per planted asset + the approved-spec pin. Nothing downloads;
+/** The lockfile: sha256 per installed asset + the approved-spec pin. Nothing downloads;
  *  it is an assertion of what this repo expects, not a package manager (§08). */
 export type Lock = {
   version: string;

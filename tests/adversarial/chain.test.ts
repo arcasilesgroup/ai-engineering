@@ -67,8 +67,12 @@ describe("adversarial · no-verify", () => {
 });
 
 describe("adversarial · self-protect", () => {
-  test("edit AGENTS.md is denied", () => {
+  test("edit AGENTS.md is ALLOWED — prose contract, editable by the governed agent (§9.2)", () => {
     const r = RUN({ tool_name: "Edit", tool_input: { file_path: join(scratch, "AGENTS.md"), new_string: "x" }, tool_use_id: "s1", session_id: "adv" });
+    expect(r.action).not.toBe("deny");
+  });
+  test("edit .ai-engineering machinery is still denied", () => {
+    const r = RUN({ tool_name: "Edit", tool_input: { file_path: join(scratch, ".ai-engineering", "config.toml"), new_string: "x" }, tool_use_id: "s1b", session_id: "adv" });
     expect(r.action).toBe("deny");
   });
   test("write overrides.toml via Bash tee is denied", () => {

@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home } from "../env.ts";
 import { summarizeReceipts } from "../receipts.ts";
-import { parseLock } from "../plant.ts";
+import { parseLock } from "../install.ts";
 import { SURFACES } from "../surfaces/adapters.ts";
 import { VERSION } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
@@ -15,7 +15,7 @@ import { readOverrides, overrideActive } from "../chain/dialect.ts";
 import { hashFile } from "../skills-lint.ts";
 import * as ui from "../ui.ts";
 
-export type CheckResult = { name: string; status: "ok" | "warn" | "fail"; detail: string };
+export type CheckResult = { readonly name: string; readonly status: "ok" | "warn" | "fail"; readonly detail: string };
 
 const CEILING_MS = 50;
 
@@ -32,7 +32,7 @@ export async function runChecks(cwd = process.cwd()): Promise<{ results: CheckRe
     const lines = content.split("\n").length;
     push("AGENTS.md", lines <= 80 && rules >= 6 ? "ok" : "warn", `${rules} rules · ${lines} lines${lines > 80 ? " (over the context ceiling)" : ""}`);
   } else {
-    push("AGENTS.md", "fail", "missing — the contract is not planted");
+    push("AGENTS.md", "fail", "missing — the contract was never installed");
   }
   // 2. CLAUDE.md imports AGENTS.md or is a symlink.
   const claudePath = root ? join(root, "CLAUDE.md") : null;
@@ -99,17 +99,22 @@ export async function runChecks(cwd = process.cwd()): Promise<{ results: CheckRe
     drift === 0 && missing === 0 ? "ok" : "warn",
     `${verified}/${canon.size} files verified · ${drift} drift · ${missing} missing`,
   );
-  // 4b. Assets outdated: the planted lock records which binary version planted
+  // 4b. Assets outdated: the installed lock records which binary version installed
   //    it. Binary newer than lock → the repo runs stale hooks (§14.2: distinct
   //    from "a newer binary exists" — only update fixes this one).
   const lockPath = root ? join(root, ".ai-engineering", "ai-eng.lock") : null;
   if (lockPath && existsSync(lockPath)) {
-    const lockVersion = String(parseLock(readFileSync(lockPath, "utf8")).version || "unknown");
-    push(
-      "assets",
-      lockVersion === VERSION ? "ok" : "warn",
-      lockVersion === VERSION ? `planted by ${VERSION}` : `binary ${VERSION} · assets planted by ${lockVersion} → ai-eng update`,
-    );
+    const lockVersion = String(parseLock(readFileSync(lockPath, "utf8")).version || "");
+    const detail = !lockVersion
+      ? "lock has no version — run ai-eng update"
+      : lockVersion === VERSION
+        ? `installed by ${VERSION}`
+        : `binary ${VERSION} · files installed by ${lockVersion} → ai-eng update`;
+    push("assets", lockVersion === VERSION ? "ok" : "warn", detail);
+  } else if (root) {
+    // Silent absence was how the half-uninstalled repo hid: no lock is a state,
+    // not a non-event — say so (tests2, 2026-09-03).
+    push("assets", "warn", "no ai-eng.lock — governance files were never (re)installed: run ai-eng init");
   }
   // 5. git floor: marker-managed shims in .git/hooks/ + gitleaks present.
   if (root) {
@@ -247,21 +252,25 @@ export async function doctorMain(flags: { gc?: boolean }): Promise<number> {
     return 0;
   }
   const root = repoRoot() ?? process.cwd();
-  const { results, fail } = await runChecks();
+  const { results: rawResults, fail } = await runChecks();
+  const results: readonly CheckResult[] = rawResults;
   const runtime = `bun ${typeof Bun !== "undefined" ? Bun.version : "?"}`;
   ui.frame(`Health check · ${root.split("/").pop()} · ${runtime} · ai-eng ${VERSION}`);
   let ok = 0;
   let warn = 0;
   let failed = 0;
-  for (const result of results) {
-    const line = `${result.name} · ${result.detail}`;
-    if (result.status === "ok") ui.ok(line);
-    else if (result.status === "warn") ui.warn(line);
-    else ui.fail(line);
-    if (result.status === "ok") ok += 1;
-    else if (result.status === "warn") warn += 1;
-    else failed += 1;
-  }
+  // One block per status — the eye scans three ideas, not twelve lines
+  // (the ✓/▲/✗ families of §14.2).
+  const toRow = (r: CheckResult): ui.Row => ({ mark: r.status === "ok" ? "ok" : r.status === "warn" ? "warn" : "fail", text: `${r.name} · ${r.detail}` });
+  const oks = results.filter((r) => r.status === "ok");
+  const warns = results.filter((r) => r.status === "warn");
+  const fails = results.filter((r) => r.status === "fail");
+  ok = oks.length;
+  warn = warns.length;
+  failed = fails.length;
+  if (fails.length > 0) ui.section("FAIL — the chain is broken here", fails.map(toRow));
+  if (warns.length > 0) ui.section("Attention", warns.map(toRow), "not fatal — decide with the detail");
+  ui.section("Checks passed", oks.map(toRow));
   ui.summary(ok, warn, failed);
   ui.end(fail ? "FAIL present — fix before trusting the chain." : "Chain verified. Next: keep working.");
   return fail ? 2 : 0;

@@ -67,6 +67,26 @@ export function loadConfig(): Config {
   }
 }
 
+/** Which surfaces this repo runs: the surfaces key of config.toml, read with
+ *  type guards — no assertions. Default: the one surface init installs when
+ *  config.toml is silent. Both update and uninstall ask this question. */
+export function enabledSurfaces(): string[] {
+  const root = repoRoot();
+  if (root === null) return ["claude-code"];
+  const path = join(root, ".ai-engineering", "config.toml");
+  if (!existsSync(path)) return ["claude-code"];
+  try {
+    const surfaces = parseToml(readFileSync(path, "utf8")).surfaces;
+    const enabled = typeof surfaces === "object" && !Array.isArray(surfaces) ? surfaces.enabled : undefined;
+    if (!Array.isArray(enabled)) return ["claude-code"];
+    const names: string[] = [];
+    for (const item of enabled) if (typeof item === "string") names.push(item);
+    return names;
+  } catch {
+    return ["claude-code"];
+  }
+}
+
 export function guardLimits(): { window: number; repeats: number; failures: number } {
   const g = loadConfig().guards ?? {};
   return {

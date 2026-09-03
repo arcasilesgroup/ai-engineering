@@ -5,5 +5,5 @@
 
 # [[guard.off]]
 # name   = "loop"
-# reason = "migración por lotes: 400 fallos idénticos esperados esta semana"
+# reason = "batch migration: 400 identical failures expected this week"
 # until  = "2026-09-05"

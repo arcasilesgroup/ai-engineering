@@ -49,6 +49,7 @@ import askills_ai_design_references_conflicts_md from "../skills/ai-design/refer
 import askills_ai_design_references_plans_md from "../skills/ai-design/references/plans.md" with { type: "file" };
 import askills_ai_design_references_skill_purposes_md from "../skills/ai-design/references/skill-purposes.md" with { type: "file" };
 import askills_ai_design_references_routing_table_md from "../skills/ai-design/references/routing-table.md" with { type: "file" };
+import askills_ai_design_references_accessibility_md from "../skills/ai-design/references/accessibility.md" with { type: "file" };
 import askills_ai_design_SKILL_md from "../skills/ai-design/SKILL.md" with { type: "file" };
 import askills_ai_writing_behavior_references_agent_behavior_specification_md from "../skills/ai-writing-behavior/references/agent-behavior-specification.md" with { type: "file" };
 import askills_ai_writing_behavior_references_calibrating_with_trajectories_md from "../skills/ai-writing-behavior/references/calibrating-with-trajectories.md" with { type: "file" };
@@ -84,6 +85,7 @@ import askills_ai_proof_templates_PLAN_md from "../skills/ai-proof/templates/PLA
 import askills_ai_proof_templates_gates_leaf_md from "../skills/ai-proof/templates/gates-leaf.md" with { type: "file" };
 import askills_ai_design_audit_references_fixes_md from "../skills/ai-design-audit/references/fixes.md" with { type: "file" };
 import askills_ai_design_audit_references_reading_md from "../skills/ai-design-audit/references/reading.md" with { type: "file" };
+import askills_ai_design_audit_references_accessibility_checklist_md from "../skills/ai-design-audit/references/accessibility-checklist.md" with { type: "file" };
 import askills_ai_design_audit_agents_openai_yaml from "../skills/ai-design-audit/agents/openai.yaml" with { type: "file" };
 import askills_ai_design_audit_scripts_audit_mjs from "../skills/ai-design-audit/scripts/audit.mjs" with { type: "file" };
 import askills_ai_design_audit_SKILL_md from "../skills/ai-design-audit/SKILL.md" with { type: "file" };
@@ -161,6 +163,7 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-design/references/plans.md": askills_ai_design_references_plans_md,
   "../skills/ai-design/references/skill-purposes.md": askills_ai_design_references_skill_purposes_md,
   "../skills/ai-design/references/routing-table.md": askills_ai_design_references_routing_table_md,
+  "../skills/ai-design/references/accessibility.md": askills_ai_design_references_accessibility_md,
   "../skills/ai-design/SKILL.md": askills_ai_design_SKILL_md,
   "../skills/ai-writing-behavior/references/agent-behavior-specification.md": askills_ai_writing_behavior_references_agent_behavior_specification_md,
   "../skills/ai-writing-behavior/references/calibrating-with-trajectories.md": askills_ai_writing_behavior_references_calibrating_with_trajectories_md,
@@ -196,6 +199,7 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-proof/templates/gates-leaf.md": askills_ai_proof_templates_gates_leaf_md,
   "../skills/ai-design-audit/references/fixes.md": askills_ai_design_audit_references_fixes_md,
   "../skills/ai-design-audit/references/reading.md": askills_ai_design_audit_references_reading_md,
+  "../skills/ai-design-audit/references/accessibility-checklist.md": askills_ai_design_audit_references_accessibility_checklist_md,
   "../skills/ai-design-audit/agents/openai.yaml": askills_ai_design_audit_agents_openai_yaml,
   "../skills/ai-design-audit/scripts/audit.mjs": askills_ai_design_audit_scripts_audit_mjs,
   "../skills/ai-design-audit/SKILL.md": askills_ai_design_audit_SKILL_md,

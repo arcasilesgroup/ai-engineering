@@ -51,9 +51,9 @@ export async function upgradeMain(): Promise<number> {
   ui.frame(`ai-eng · installed ${VERSION} · latest ${latest}`);
   const section = changelogSection(process.cwd(), latest);
   if (section) {
-    for (const line of section.split("\n").slice(0, 12)) ui.info(line.replace(/^### /, "").replace(/^- /, "  · "));
+    ui.section(`What's new in ${latest}`, section.split("\n").slice(0, 12).map((line): ui.Row => ({ mark: "muted", text: line.replace(/^### /, "").replace(/^- /, "· ") })));
   } else {
-    ui.info("CHANGELOG: https://github.com/arcasilesgroup/ai-engineering/blob/main/CHANGELOG.md");
+    ui.section(`What's new in ${latest}`, [{ mark: "muted", text: "CHANGELOG: https://github.com/arcasilesgroup/ai-engineering/blob/main/CHANGELOG.md" }]);
   }
   const how = await select({
     message: "How do you want to update?",
@@ -74,8 +74,7 @@ export async function upgradeMain(): Promise<number> {
   const manager = how === "bun" ? "bun" : "npm";
   const done = spawnSync(manager, [manager === "bun" ? "add" : "install", "-g", `ai-engineering@${latest}`], { stdio: "inherit" });
   if (done.status !== 0) return done.status ?? 1;
-  const verify = spawnSync("ai-eng", ["--version"], { encoding: "utf8" });
-  ui.ok(`ai-eng ${verify.stdout?.trim() ?? latest} · trust is signed by the registry, not by ai-eng`);
+  ui.section("Upgraded", [{ mark: "ok", text: `ai-eng ${verify.stdout?.trim() ?? latest}`, dim: "trust is signed by the registry, not by ai-eng" }]);
   ui.end("if this repo still runs assets from the previous version → ai-eng update");
   return 0;
 }

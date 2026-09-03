@@ -1,14 +1,10 @@
 # ai-eng.lock — sha256 of the global canon this repo expects (§08).
 version = "2.0.0"
 
-spec_sha256 = "84392c47cdf597e728ad3af0b1f411dfde7eea642064a9aa0e5e9dd23f986d2a"
-
 [assets]
-".ai-engineering/overrides.toml" = "f6b2ee5ee6166bc710685edf506166a42fec64e3bb5387c16761e01fd78fc5df"
+".ai-engineering/overrides.toml" = "f5d1b428ce0517c4c7787d6aeeeddc168087f68c9d653563fa96c394b03f4f4e"
 ".ai-engineering/arch.rules.json" = "6481ea5c5b8e5deca3f1b3e88d7bc4cf05edbd8e4299a1e8b0dd642e2f07be3a"
-".ai-engineering/git/pre-commit" = "4623b035e707635070ef693e48c6593088ccd11b7636a8b89ab28f3482cb89d6"
-".ai-engineering/git/commit-msg" = "62a28941efc9220486678d26d5933a90cd2e53a35538728589f93e20a19867c0"
-".ai-engineering/git/pre-push" = "1a5dc894947a070f7ad0553ce21e6b1124608ae3553f6c48c3c36f89a636fd71"
-".ai-engineering/config.toml" = "c7756c14ddcec6574ed5021cf171f54bad22dba2d5a0b5fe2706d630194976af"
-".claude/settings.json" = "52c79ce52e1a0f126eac60e208107c260594669f63f758944fc365ace85881eb"
-".github/workflows/ai-eng-check.yml" = "ed8e443141c6641382425883f7b081469edecc8d93491c98910e4580dcc18ec8"
+".ai-engineering/config.toml" = "f239328a8fa780b49c98ca6ca63291fbb3133605d53b23f838c541526694ec15"
+".git/hooks/pre-commit" = "1690f1f6b78cb50524f3a1721318ea97f0764dd4325f5f4fce219c600d9d2aec"
+".git/hooks/commit-msg" = "f698b7f6289bca2b71a02f2a9d5aacbd699a6356b3a8b78260f810786bb31a39"
+".git/hooks/pre-push" = "f9dd9da9e8721e39e37a0c20c2779d36659d0207905e1aa053f4218862680bd0"

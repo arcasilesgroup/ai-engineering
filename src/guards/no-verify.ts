@@ -52,7 +52,7 @@ export function hooksPathElsewhere(value: string, repoRoot: string | null): bool
   const root = repoRoot ?? process.cwd();
   try {
     const candidate = isAbsolute(value) ? value : resolve(root, value);
-    return !existsSync(candidate); // our planted floor is the only path that exists AND is ours
+    return !existsSync(candidate); // our installed floor is the only path that exists AND is ours
   } catch {
     return true;
   }

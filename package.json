@@ -1,7 +1,7 @@
 {
   "name": "ai-engineering",
   "version": "2.0.0",
-  "description": "{ai} Engineering v2 — governance floor for AI coding agents: plant, guard, prove.",
+  "description": "{ai} Engineering v2 — governance floor for AI coding agents: install, guard, prove.",
   "license": "Apache-2.0",
   "type": "module",
   "module": "src/cli.ts",

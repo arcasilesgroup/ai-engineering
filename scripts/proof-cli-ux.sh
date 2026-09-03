@@ -17,7 +17,7 @@ ANSI_COUNT=$(printf '\n\n\n' | NO_COLOR=1 $CLI init --yes 2>/dev/null | LC_ALL=C
 say "G1 evidence: ANSI escape lines with NO_COLOR piped = $ANSI_COUNT (must be 0)"
 [ "$ANSI_COUNT" = "0" ] || die "G1: $ANSI_COUNT ANSI lines leaked"
 
-# ── G3: init --yes end-to-end: contract planted, frame complete, exit 0 ─
+# ── G3: init --yes end-to-end: contract installed, frame complete, exit 0 ─
 G3DIR="$(mktemp -d)"; cd "$G3DIR" && git init -q .
 INIT_OUT=$(printf '\n\n\n' | $CLI init --yes 2>&1); INIT_CODE=$?
 [ "$INIT_CODE" = "0" ] || die "G3: init exit $INIT_CODE"
