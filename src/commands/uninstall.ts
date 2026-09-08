@@ -9,7 +9,7 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { SURFACES } from "../surfaces/adapters.ts";
 import { repoRoot, home, enabledSurfaces } from "../env.ts";
 import { parseLock, sha256 } from "../install.ts";
@@ -124,11 +124,18 @@ export async function uninstallMain(): Promise<number> {
     );
     removed.push({ mark: "muted", text: "no lock — swept by the binary's own file list" });
   }
-  const owned = Object.keys(assets);
   const settingsByPath = new Map<string, string>();
   for (const surface of SURFACES) if (typeof surface.settingsFile === "string") settingsByPath.set(surface.settingsFile, surface.label);
-  for (const rel of owned) {
-    const absolute = join(root, rel);
+  for (const rel of Object.keys(assets)) {
+    // The lock is untrusted input: a crafted key could point outside the repo
+    // (measured PoC 2026-09-03 — a lock entry escaped to $HOME and a matching
+    // hash made the sweep delete it). A path that escapes root is not ours,
+    // no matter what the lock claims: skip it, keep the sweep honest.
+    const absolute = resolve(root, rel);
+    if (absolute !== root && !absolute.startsWith(root + sep)) {
+      removed.push({ mark: "warn", text: `${rel} kept`, dim: "lock path escapes this repo — not ai-eng's" });
+      continue;
+    }
     if (!existsSync(absolute)) continue;
     if (settingsByPath.has(rel)) {
       // Unedited: the whole file is ai-eng's template — it goes. Edited: the
@@ -162,9 +169,9 @@ export async function uninstallMain(): Promise<number> {
   }
   if (hasLock) {
     unlinkSync(lockPath);
-    removed.push({ mark: "ok", text: "ai-eng.lock deleted", dim: `${owned.length} owned files swept` });
+    removed.push({ mark: "ok", text: "ai-eng.lock deleted", dim: `${Object.keys(assets).length} owned files swept` });
   } else {
-    removed.push({ mark: "muted", text: `${owned.length} owned files swept` });
+    removed.push({ mark: "muted", text: `${Object.keys(assets).length} owned files swept` });
   }
   // Dirs ai-eng created are pruned only when the sweep left them empty.
   for (const dir of [".ai-engineering", ".claude", ".cursor", ".codex", ".copilot", ".opencode/plugins", ".agents/hooks", ".github/workflows"]) {

@@ -18,17 +18,15 @@ import { VERSION } from "../version.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 
-type SyncPlan = {
+export type SyncPlan = {
   current: string[]; // byte-identical to what this binary installs
   updates: string[]; // previous version of ours on disk → safe update
   fresh: string[]; // not on disk yet
   conflicts: string[]; // user-edited AND ours changed since their install
+  verbatim: string[]; // subset of current that byte-matches ours — provably ours
 };
-
-/** Pure: what would change, before anything is written. The lock's recorded
- *  hashes tell previous-ours apart from the user's edits. */
 export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Record<string, string>): SyncPlan {
-  const plan: SyncPlan = { current: [], updates: [], fresh: [], conflicts: [] };
+  const plan: SyncPlan = { current: [], updates: [], fresh: [], conflicts: [], verbatim: [] };
   for (const entry of entries) {
     if (entry.mode === "symlink") continue;
     const absolute = join(root, entry.path);
@@ -39,6 +37,7 @@ export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Rec
     const currentHash = createHash("sha256").update(readFileSync(absolute)).digest("hex");
     if (currentHash === createHash("sha256").update(entry.ours).digest("hex")) {
       plan.current.push(entry.path);
+      plan.verbatim.push(entry.path);
       continue;
     }
     const recorded = previousAssets[entry.path];
@@ -163,7 +162,17 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     ...(keptCount > 0 ? [{ mark: "info", text: "kept yours", dim: keptPaths.join("  ·  ") } satisfies ui.Row] : []),
   ];
   ui.section("Synced", resultRows, `${resolutions.size} conflict${resolutions.size === 1 ? "" : "s"} resolved · 0 files of yours touched otherwise`);
-  const lock = buildLock(entries.filter((entry) => !keep(entry.path)), VERSION);
+  // The lock is the ownership ledger: it may only claim files this run actually
+  // made ours — written now, taken over by explicit human resolution, or
+  // already byte-identical to ours (verbatim). "current" also holds files
+  // install() calls untouched/user's (the no-lock recovery state): recording
+  // those made the next update report a false conflict and uninstall strip a
+  // file the binary never owned (measured 2026-09-03).
+  const oursNow = new Set([...report.written, ...plan.verbatim]);
+  const lock = buildLock(
+    entries.filter((entry) => !keep(entry.path) && oursNow.has(entry.path)),
+    VERSION,
+  );
   writeFileSync(lockPath, lockText(lock));
   let commitLine = "commit skipped — nothing staged or git refused (your call to commit by hand)";
   try {
