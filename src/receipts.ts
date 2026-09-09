@@ -45,6 +45,15 @@ export type ReceiptSummary = {
   p95: number;
 };
 
+/** True for a receipt that ran the surface tool-use guard chain (the only runs the
+ *  50ms ceiling in doctor measures). The git floor (gitleaks ~700ms) and the spec
+ *  runner (the gate suite, seconds) write receipts too, but they have their own
+ *  budgets — pulling them into the chain p95 makes the chain look slow when it
+ *  isn't. */
+export function isChainReceipt(event: string): boolean {
+  return !/^(git-|commit-msg|spec-)/.test(event);
+}
+
 /** doctor's aggregate: without this you don't know whether the chain runs at all. */
 export function summarizeReceipts(dir?: string): ReceiptSummary {
   const target = dir ?? receiptsDir();
@@ -59,7 +68,7 @@ export function summarizeReceipts(dir?: string): ReceiptSummary {
           const receipt = JSON.parse(readFileSync(join(target, name), "utf8")) as Receipt;
           total += 1;
           if (receipt.outcome === "deny") denies += 1;
-          if (typeof receipt.latency_ms === "number") latencies.push(receipt.latency_ms);
+          if (typeof receipt.latency_ms === "number" && isChainReceipt(receipt.event)) latencies.push(receipt.latency_ms);
         } catch {
           /* a torn write is data, not a crash */
         }
