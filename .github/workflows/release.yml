@@ -1,5 +1,8 @@
 name: release
-# tag v2.0.0 → 8 cross-compiled binaries + SBOM + npm publish with --provenance (§7.1).
+# Binary release: a v* tag builds the 8 cross-compiled binaries + SBOM + codesign
+# macOS and attaches them to the GitHub release version.yml's changesets/action
+# created. npm publishing is version.yml's job (OIDC trusted publishing); release.yml
+# never publishes npm — one publish path, signed by the registry (§7.1).
 on:
   push:
     tags: ["v*"]
@@ -36,6 +39,25 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run build --target ${{ matrix.target }} || bun build src/cli.ts --compile --target ${{ matrix.target }} --minify --sourcemap --bytecode --outfile dist/ai-eng
+      - name: Codesign macOS binary (Gatekeeper) — skips without the cert secret
+        if: runner.os == 'macOS'
+        run: |
+          if [ -z "$MACOS_CERT" ]; then
+            echo "::warning::MACOS_CERT not set — macOS binary unsigned (fine for local/CI dev; ad-hoc only)"
+            exit 0
+          fi
+          echo "$MACOS_CERT" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" run.keychain
+          security default-keychain -s run.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" run.keychain
+          security import "$RUNNER_TEMP/cert.p12" -k run.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" run.keychain
+          codesign --force --options runtime --timestamp --keychain run.keychain --sign "$MACOS_CERT_ID" dist/ai-eng
+        env:
+          MACOS_CERT: ${{ secrets.MACOS_CERT }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          MACOS_CERT_ID: ${{ secrets.MACOS_CERT_ID }}
       - uses: actions/upload-artifact@v4
         with:
           name: ai-eng-${{ matrix.target }}
@@ -60,9 +82,3 @@ jobs:
             dist-artifacts/**/*
             sbom.json
           generate_release_notes: true
-      - name: npm publish (the normal channel; trust signed by the registry)
-        run: |
-          bun install --frozen-lockfile
-          bun publish --provenance --access public
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
