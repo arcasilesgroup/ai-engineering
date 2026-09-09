@@ -75,7 +75,7 @@ describe("G1 — one SKILL.md per skill", () => {
     const offenders: string[] = [];
     for (const dir of listSkillDirs()) {
       for (const f of walk(dir)) {
-        if (/-SKILL\.md$/.test(f)) offenders.push(f);
+        if (f.endsWith('-SKILL.md')) offenders.push(f);
       }
     }
     expect(offenders).toEqual([]);

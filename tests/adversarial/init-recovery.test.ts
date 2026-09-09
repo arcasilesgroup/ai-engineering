@@ -20,12 +20,13 @@ let engHome: string;
 let repo: string;
 
 function eng(args: string[]): { status: number; stdout: string; stderr: string } {
-  return spawnSync(process.execPath, [cli, ...args], {
+  const r = spawnSync(process.execPath, [cli, ...args], {
     cwd: repo,
     encoding: "utf8",
     env: { ...process.env, AI_ENG_HOME: engHome, NO_COLOR: "1", CI: "1", AI_ENG_NO_UPDATE_NOTICES: "1" },
     input: "",
   });
+  return { status: r.status ?? 0, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 
 beforeAll(() => {

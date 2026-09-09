@@ -12,7 +12,7 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - name: Typecheck
-        run: bunx tsc --noEmit
+        run: bun run typecheck
       - name: Lint (oxlint)
         run: bun run lint
       - name: Unit + adversarial tests

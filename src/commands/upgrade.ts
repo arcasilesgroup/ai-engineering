@@ -74,7 +74,7 @@ export async function upgradeMain(): Promise<number> {
   const manager = how === "bun" ? "bun" : "npm";
   const done = spawnSync(manager, [manager === "bun" ? "add" : "install", "-g", `ai-engineering@${latest}`], { stdio: "inherit" });
   if (done.status !== 0) return done.status ?? 1;
-  ui.section("Upgraded", [{ mark: "ok", text: `ai-eng ${verify.stdout?.trim() ?? latest}`, dim: "trust is signed by the registry, not by ai-eng" }]);
+  ui.section("Upgraded", [{ mark: "ok", text: `ai-eng ${latest}`, dim: "trust is signed by the registry, not by ai-eng" }]);
   ui.end("if this repo still runs assets from the previous version → ai-eng update");
   return 0;
 }

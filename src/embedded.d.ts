@@ -4,6 +4,14 @@ declare module "*.md" {
   const content: string;
   export default content;
 }
+// Bun's `with { type: "file" }` returns the module SOURCE as a string. The only
+// .ts we embed this way is the generated chain bundle (a real module for plugin
+// hosts, but an asset for the binary); tsc otherwise resolves it as a module and
+// types the import as the export object, not the file text.
+declare module "*.ts" {
+  const content: string;
+  export default content;
+}
 declare module "*.json" {
   const content: string;
   export default content;

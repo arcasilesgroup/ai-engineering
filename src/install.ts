@@ -144,7 +144,7 @@ export function parseLock(text: string): Lock {
       if (typeof hash === "string") assets[path] = hash;
     }
   }
-  const lock: Lock = { version: String(doc["version"] ?? ""), assets };
+  const lock: Lock = { version: typeof doc["version"] === "string" ? doc["version"] : "", assets };
   if (typeof doc["spec_sha256"] === "string") lock.spec_sha256 = doc["spec_sha256"];
   return lock;
 }

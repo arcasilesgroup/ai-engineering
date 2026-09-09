@@ -5,7 +5,7 @@
 // OMP/OpenCode plugin templates import ./ai-eng-chain.ts, which must be a
 // self-contained module — not a re-export of src/ (its relative imports die in
 // a foreign repo) and not a placeholder comment (the plugin never loaded).
-import { readdirSync, writeFileSync, mkdirSync } from "node:fs";
+import { readdirSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const root = join(import.meta.dir, "..");
@@ -29,6 +29,12 @@ execSync(`bun build scripts/chain-entry.ts --target=bun --format=esm --outfile=$
   cwd: root,
   stdio: "inherit",
 });
+// The bundle is loaded as a FILE string (with { type: "file" }) so the binary can
+// plant it in foreign repos; tsc must type that import as `string`. A default
+// export (the bundle's own id) lets tsc type the default import as a string
+// without resolving the real module, and never affects plugins, which import the
+// named `chain`/`runChain` exports.
+appendFileSync(join(bundleDir, "ai-eng-chain.ts"), '\nexport default "ai-eng-chain";\n');
 
 walk(join(root, "skills"));
 walk(join(root, "templates"));
@@ -50,7 +56,12 @@ for (const file of embeddable) {
   const rel = relative(root, file);
   const ident = "a" + rel.replace(/[^a-zA-Z0-9]/g, "_");
   lines.push(`import ${ident} from "../${rel}" with { type: "file" };`);
-  map.push(`  "../${rel}": ${ident},`);
+  // Bun's `with { type: "file" }` returns the file TEXT, but tsc can't model that
+  // for extensions that resolve as real modules (`.json` via resolveJsonModule,
+  // the generated `.ts` chain bundle) and types the import as the module object.
+  // The value is a string at runtime — this cast states the truth, it doesn't
+  // suppress a check.
+  map.push(`  "../${rel}": ${ident} as unknown as string,`);
 }
 out += lines.join("\n") + "\n\nexport const EMBEDDED: Record<string, string> = {\n" + map.join("\n") + "\n};\n";
 writeFileSync(join(root, "src", "assets.ts"), out);

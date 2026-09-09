@@ -118,7 +118,7 @@ export function scriptedInput(): NodeJS.ReadStream | PassThrough {
     process.stdin.setMaxListeners(0);
     return process.stdin;
   }
-  const script = new PassThrough();
+  const script = new PassThrough() as PassThrough & { isTTY: boolean; setRawMode(mode: boolean): PassThrough };
   script.isTTY = true;
   script.setRawMode = () => script;
   // Every clack prompt adds a keypress listener; a long question chain (update
@@ -136,8 +136,8 @@ export function scriptedInput(): NodeJS.ReadStream | PassThrough {
     "\x1b[B": { name: "down", sequence: "\x1b[B" },
     "\x03": { name: "cancel", sequence: "\x03" },
   };
-  const enqueue = (chunk: Buffer) => {
-    const text = chunk.toString();
+  const enqueue = (chunk: string | Buffer) => {
+    const text = typeof chunk === "string" ? chunk : chunk.toString();
     let i = 0;
     while (i < text.length) {
       const key = map[text.slice(i, i + 4)] ?? map[text.slice(i, i + 3)] ?? map[text[i] ?? ""];

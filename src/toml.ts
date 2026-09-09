@@ -110,7 +110,7 @@ export function serializeToml(data: TomlTable): string {
     } else if (typeof value === "object") {
       lines.push(`[${key}]`);
       for (const [k, v] of Object.entries(value as TomlTable)) {
-        if (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || Array.isArray(v)) lines.push(`${k} = ${Array.isArray(v) ? `[${v.map((item) => scalar(item)).join(", ")}]` : scalar(v)}`);
+        if (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || Array.isArray(v)) lines.push(`${k} = ${Array.isArray(v) ? `[${v.map((item) => scalar(item as string | number | boolean)).join(", ")}]` : scalar(v as string | number | boolean)}`);
       }
       lines.push("");
     } else {

@@ -16,7 +16,7 @@
     "build": "bun build src/cli.ts --compile --minify --sourcemap --bytecode --outfile dist/ai-eng",
     "test": "bun test",
     "lint": "oxlint src tests",
-    "typecheck": "tsgolint check src tests",
+    "typecheck": "oxlint --type-aware --type-check src tests",
     "arch": "bun test tests/arch.spec.ts",
     "changeset": "changeset",
     "version-packages": "changeset version",

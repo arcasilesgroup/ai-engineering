@@ -19,7 +19,7 @@ Guidance for AI coding agents working in this repository. Human teammates should
 - `bun run build` — compile the binary (`dist/ai-eng`, bytecode + sourcemap).
 - `bun test` — full suite (adversarial + gates + arch).
 - `bun test tests/skills.spec.ts` — skill canon gates only.
-- `bun run lint` / `bun run typecheck` — oxlint / tsgolint.
+- `bun run lint` / `bun run typecheck` — oxlint / oxlint type-aware. `tsgolint` is deprecated (folded into oxlint); `typecheck` = `oxlint --type-aware --type-check`, the single type gate (lint + type-aware + compiler check).
 - `bun scripts/gen-assets.ts` — regenerate `src/assets.ts` after touching `skills/` or `templates/`. ALWAYS run this after adding/renaming/deleting payload files, or the build breaks.
 - `bun link` — expose the local `ai-eng` for testing in other repos.
 
