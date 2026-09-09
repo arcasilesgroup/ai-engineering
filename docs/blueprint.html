@@ -159,7 +159,7 @@
   <div class="stamp">Blueprint v17 · El plan, tal cual · 2026-08-31</div>
   <h1><span class="x">{ai}</span> Engineering v2</h1>
   <p class="sub">Empezamos de cero. Este documento muestra <strong>exactamente cómo queda</strong>: la evidencia que lo justifica, las carpetas y ficheros archivo por archivo, el contrato, <strong>el mapa de skills — cómo cada fuente se integra en un skill ai-* propio, qué son las ≤60 líneas de costura y cómo se conectan entre sí y con los guards</strong>, los hooks, los git hooks, el CLI, la arquitectura forzada, la CI y el plan. Listo para que un LLM lo coja y lo implemente sin preguntar nada.</p>
-  <p class="meta"><b>22</b> videos · <b>37</b> proyectos · <b>6</b> verbos · <b>5</b> guards · <b>10</b> core + <b>9</b> bajo demanda · <b>3</b> superficies core · <b>4</b> contratos · <b>0.13.0</b> · Bun · 2026-08-31</p>
+  <p class="meta"><b>22</b> videos · <b>37</b> proyectos · <b>6</b> verbos · <b>5</b> guards · <b>11</b> core + <b>9</b> bajo demanda · <b>3</b> superficies core · <b>4</b> contratos · <b>0.13.0</b> · Bun · 2026-08-31</p>
 </div>
 
 <nav aria-label="Secciones del blueprint">
@@ -216,7 +216,7 @@
   <div class="stats">
     <div class="stat"><div class="v"><em>22.7k</em> → <em>3.7k</em></div><div class="l">LOC producto (−84%)</div></div>
     <div class="stat"><div class="v"><em>49+39</em> → <em>4</em></div><div class="l">specs+ADRs → contratos</div></div>
-    <div class="stat"><div class="v"><em>20</em> → <em>19</em></div><div class="l">skills canon (10 core + 9 bajo demanda)</div></div>
+    <div class="stat"><div class="v"><em>20</em> → <em>20</em></div><div class="l">skills canon (11 core + 9 bajo demanda)</div></div>
     <div class="stat"><div class="v"><em>10</em> → <em>6</em></div><div class="l">verbos CLI</div></div>
   </div>
 
@@ -334,7 +334,7 @@
       <tr>
         <td><span class="pill p-dim" style="border-color:rgba(34,211,238,.4);color:var(--ok)">Context &amp; Reach</span></td>
         <td>agent-reach, skill-retriever</td>
-        <td>Externo v22. <strong>agent-reach: 76.8k⭐ MIT</strong> — un CLI, 16+ plataformas de internet sin cuotas de API; superficie de acción, no gobernanza. <strong>skill-retriever: 7⭐ MIT, incipiente</strong> — selección de skills por embeddings (~11K→2.3K tokens/turno). Ninguno entra en v2: el primero amplía qué puede tocar el agente sin añadir guards; el segundo resuelve un problema que el canon global de 18 skills aún no tiene.</td>
+        <td>Externo v22. <strong>agent-reach: 76.8k⭐ MIT</strong> — un CLI, 16+ plataformas de internet sin cuotas de API; superficie de acción, no gobernanza. <strong>skill-retriever: 7⭐ MIT, incipiente</strong> — selección de skills por embeddings (~11K→2.3K tokens/turno). Ninguno entra en v2: el primero amplía qué puede tocar el agente sin añadir guards; el segundo resuelve un problema que el canon global de 20 skills aún no tiene.</td>
       </tr>
       <tr>
         <td><span class="pill p-dim">Knowledge &amp; Setup</span></td>
@@ -361,7 +361,7 @@
       <tr><td>Loop Engineering</td><td>v4, v5=v9, v22 — 50+ min</td><td>loop-engineering, Loop-Engineering</td><td><span class="pill p-ok">CUBIERTO</span> el gauntlet falla sin críticos aislados → los guards son <strong>código compilado</strong>, no prompts (§10)</td></tr>
       <tr><td>Design Skills</td><td>7 videos, el tema más repetido</td><td>18 skills en 4 packs, 5 duplicados exactos</td><td><span class="pill p-warn">OVERLAP</span> el problema real es dedupe/sync, no volumen → <code>ai-design</code> rutea a lo instalado, <strong>nunca bundlea</strong> (§11)</td></tr>
       <tr><td>Token Economy</td><td>v1 (24 tips)</td><td>tokens-savings, make-claude-code-last-longer</td><td><span class="pill p-ok">CUBIERTO</span> los proyectos son más pragmáticos → el filtro de tests entra bundled como <code>wrap</code> (§15)</td></tr>
-      <tr><td>Saturación de contexto</td><td>v22 (6 sistemas)</td><td>planning-with-files, rtk, skill-retriever, delegate-skills</td><td><span class="pill p-ok">CUBIERTO</span> reducir ruido → <code>wrap</code> + <a href="#s14">rtk opcional en init</a>; persistir fuera → <code>spec.html</code> + <code>DECISIONS.md</code> en disco, <code>ai-eng recap</code> tras compact; offload → <code>ai-verify</code> rutea a cheap, el nodo que juzga es caro. con 19 skills en canon (~2K tokens), skill-retriever sigue sin valer la pena; lo incorporamos cuando el canon crezca a 30+ como feature built-in</td></tr>
+      <tr><td>Saturación de contexto</td><td>v22 (6 sistemas)</td><td>planning-with-files, rtk, skill-retriever, delegate-skills</td><td><span class="pill p-ok">CUBIERTO</span> reducir ruido → <code>wrap</code> + <a href="#s14">rtk opcional en init</a>; persistir fuera → <code>spec.html</code> + <code>DECISIONS.md</code> en disco, <code>ai-eng recap</code> tras compact; offload → <code>ai-verify</code> rutea a cheap, el nodo que juzga es caro. con 20 skills en canon (~2K tokens), skill-retriever sigue sin valer la pena; lo incorporamos cuando el canon crezca a 30+ como feature built-in</td></tr>
       <tr><td>Model Routing</td><td>v19–21</td><td>model-router (61 LOC)</td><td><span class="pill p-ok">CUBIERTO</span> implementa exactamente lo que los videos recomiendan → se porta tal cual, no se reescribe desde cero (§09)</td></tr>
       <tr><td>Proof / Verification</td><td>v3, v5/v9, v14</td><td>unlazy, wayfinder, graph-engineering</td><td><span class="pill p-ok">CUBIERTO</span> proof ledger + answer-key de wayfinder → spec.html con <strong>runner obligatorio</strong>: sin ejecutor, el verde es mentira (§09)</td></tr>
       <tr><td>Multi-Agent / Fleet</td><td>v8/v12, v17</td><td>ClaudeAgents, claude-os</td><td><span class="pill p-warn">PARCIAL</span> no hay skill de fleet engineering → fuera de v2.0, declarado (§18 abierto)</td></tr>
@@ -485,7 +485,7 @@
       <tr><td><code>delegate-skills</code></td><td>1.5k⭐ · MIT</td><td>Relays para delegar a otros CLIs</td><td><span class="pill p-warn">VIGILAR</span> — encaja con <code>ai-goal</code> (§5.1), pero el agente delegado corre <em>sin nuestros guards</em> en modo no-bloqueante. Hasta que no haya forma de gobernarlo, no se ofrece</td></tr>
       <tr><td><code>mantis</code></td><td>796⭐ · Apache-2.0 · Google</td><td>Pipeline de 15 etapas de security review</td><td><span class="pill p-ok">SE OFRECE</span> — init imprime <code>npx skills add google/mantis</code>; es un booster, no un guard: no reemplaza semgrep/trivy (§12.1), pero añade 15 stages de security review on-demand</td></tr>
       <tr><td><code>agent-reach</code></td><td>76.8k⭐ · MIT</td><td>Acceso a 16+ plataformas de internet</td><td><span class="pill p-bad">NO</span> — amplía lo que el agente puede tocar sin ampliar lo que ai-eng puede negar. Cookie-auth a redes sociales desde un hook es justo la superficie que el guard <code>injection</code> intenta cerrar</td></tr>
-      <tr><td><code>skill-retriever</code></td><td>7⭐ · MIT · incipiente</td><td>Selección de skills por embeddings</td><td><span class="pill p-bad">NO</span> — con 19 skills (~2K tokens) no hace falta. Mi opinión: cuando el canon crezca a 30+ y los prompts empiecen a sobrecargarse, lo incorporamos como feature built-in (módulo TS local, sin llamada de red, sin coste de credibilidad). Mientras tanto, no.</td></tr>
+      <tr><td><code>skill-retriever</code></td><td>7⭐ · MIT · incipiente</td><td>Selección de skills por embeddings</td><td><span class="pill p-bad">NO</span> — con 20 skills (~2K tokens) no hace falta. Mi opinión: cuando el canon crezca a 30+ y los prompts empiecen a sobrecargarse, lo incorporamos como feature built-in (módulo TS local, sin llamada de red, sin coste de credibilidad). Mientras tanto, no.</td></tr>
       <tr><td><code>agentbehavior</code> (Braintrust + Basis)</td><td>323⭐ · Apache-2.0 · estándar abierto</td><td>Formato <code>BEHAVIOR.md</code>: qué cuenta como buen comportamiento del agente a lo largo de una trayectoria — criterio para revisores, rubrics y evals, no prompt de runtime</td><td><span class="pill p-fix">CONVENCIÓN ADOPTADA</span> — no booster instalable ni plataforma: se adopta el <em>formato</em> (§21.5), se integra íntegro su skill de autoría como <code>ai-writing-behavior</code> bajo demanda. Cero dependencia de Braintrust: el formato es separable de la plataforma, como ai-proof con unlazy. Rechazado: el CLI de validación de terceros (§11.1 regla 5 ya lintea el mismo frontmatter — DRY, regla 12) y el scoring LLM en CI (§17.1: tendencial, jamás gate)</td></tr>
     </tbody>
   </table></div>
@@ -565,7 +565,7 @@
 │   ├── ai-read-docs/                      <span class="c"># read-the-damn-docs renombrado: docs leídas del árbol, no de memoria</span>
 │   ├── ai-visual-recap/ · ai-design-audit/  <span class="c"># recap HTML al cerrar hito · audit medido en browser → design/audits/</span>
 │   ├── ai-writing-behavior/               <span class="c"># autoría de BEHAVIOR.md (braintrustdata/agentbehavior, Apache-2.0 — §21.5)</span>
-│   ├── …                                  <span class="c"># el canon completo son 19 (10 core + 9 bajo demanda) — §11.2 es la lista, siempre al día</span>
+│   ├── …                                  <span class="c"># el canon completo son 20 (11 core + 9 bajo demanda) — §11.2 es la lista, siempre al día</span>
 │                                          <span class="c"># cada skill integra el método fuente tal cual; atribución en NOTICE.md (§11.4)</span>
 ├── templates/                           <span class="c"># what init scaffolds (never hardcoded in code)</span>
 │   ├── AGENTS.md.tpl · CLAUDE.md.tpl (una línea `@AGENTS.md`) · DECISIONS.md.tpl · spec.html.tpl · plan.html.tpl
@@ -678,7 +678,7 @@
 
 <span class="dim"># Los skills NO viven aquí. Viven en un canon global por máquina:</span>
 ~/.ai-engineering/
-├── skills/                   <span class="c"># CANON ÚNICO: 19 skills ai-* (10 core + 9 bajo demanda) — installed por `ai-eng init` global</span>
+├── skills/                   <span class="c"># CANON ÚNICO: 20 skills ai-* (11 core + 9 bajo demanda) — installed por `ai-eng init` global</span>
 ├── bin/                      <span class="c"># (si instalaste sin bun/npm) el binario que plantó lo anterior</span>
 └── version.json              <span class="c"># versión instalada + caché del chequeo de actualización (24h) — coste cero por turno</span>
     <span class="c">↑ espejos por superficie: symlink (macOS/Linux) o copia verificada (Windows)</span>
@@ -687,7 +687,7 @@
   <div class="grid g3">
     <div class="card">
       <h4>Skills: una copia por máquina, no por repo</h4>
-<p>El canon vive en <code>~/.ai-engineering/skills/</code> y se enlaza a donde cada superficie lo descubre. <strong>Por qué global:</strong> la skill es instrucción, no dependecia de tu código — duplicarla en 40 repos produce 40 copias que divergen (los 3 forks sin versionar de ai-slop-detector son el caso real, §03). <strong>El coste:</strong> se pierde el pin por repo; se mitiga con <code>skills_min</code> en <code>config.toml</code> y el WARN de <code>doctor</code> si el canon no lo cumple. Los 19 skills se instalan con un solo comando.</p>
+<p>El canon vive en <code>~/.ai-engineering/skills/</code> y se enlaza a donde cada superficie lo descubre. <strong>Por qué global:</strong> la skill es instrucción, no dependecia de tu código — duplicarla en 40 repos produce 40 copias que divergen (los 3 forks sin versionar de ai-slop-detector son el caso real, §03). <strong>El coste:</strong> se pierde el pin por repo; se mitiga con <code>skills_min</code> en <code>config.toml</code> y el WARN de <code>doctor</code> si el canon no lo cumple. Los 20 skills se instalan con un solo comando.</p>
     </div>
     <div class="card">
       <h4>Espejos: symlink donde funciona, copia donde no</h4>
@@ -880,7 +880,7 @@ verify  = <span class="s">"gpt-5.6-luna"</span>     <span class="c"># checks bin
   </table></div>
 
   <h3>11.2 · El canon global: lo que ves al instalar</h3>
-  <p>Esto es <code>~/.ai-engineering/skills/</code> después de <code>ai-eng init</code> sin repo — el árbol completo, plano, diecinueve entradas, mismo nivel:</p>
+  <p>Esto es <code>~/.ai-engineering/skills/</code> después de <code>ai-eng init</code> sin repo — el árbol completo, plano, veinte entradas, mismo nivel:</p>
 <pre>~/.ai-engineering/skills/
 ├── ai-brainstorm/SKILL.md               <span class="c"># ¿qué quieres hacer? → entrevista → .ai-engineering/brainstorm.md (transitorio, §21)</span>
 ├── ai-plan/SKILL.md                     <span class="c"># ¿cómo sabremos que salió bien? → escribe spec.html (QUÉ) + plan.html (orden)</span>
@@ -891,6 +891,7 @@ verify  = <span class="s">"gpt-5.6-luna"</span>     <span class="c"># checks bin
 ├── ai-verify/SKILL.md                   <span class="c"># ¿está bien? → 3 tiers, el juez caro</span>
 ├── ai-security/SKILL.md                 <span class="c"># ¿es explotable? → audit de 6 fases, validación adversarial (MIT, Cloudflare)</span>
 ├── ai-write/SKILL.md                    <span class="c"># ¿se entiende? → docs verificadas contra el árbol</span>
+├── ai-agents-md/SKILL.md                <span class="c"># ¿cómo se gobierna este repo? → crea/mantiene AGENTS.md (convención agents.md, §9.2)</span>
 ├── ai-explore/SKILL.md                  <span class="c"># ¿dónde vive X? → anclado a file:line — deber de grounding (§11.6)</span>
 ├── ai-read-docs/SKILL.md                <span class="c"># ¿qué dice la documentación? → deber en brainstorm/research/architect/plan (§11.6)</span>
 ├── ai-rtk/SKILL.md                      <span class="c"># route shell commands through rtk → 60–90% fewer tokens (MIT)</span>
@@ -902,7 +903,7 @@ verify  = <span class="s">"gpt-5.6-luna"</span>     <span class="c"># checks bin
 ├── ai-design-audit/SKILL.md             <span class="c"># audit visual en browser → design/audits/NNN-{name}.html, medidas no opiniones</span>
 ├── ai-writing-behavior/SKILL.md           <span class="c"># ¿qué cuenta como buen comportamiento? → .agents/behaviors/&lt;name&gt;/BEHAVIOR.md (estándar agentbehavior)</span>
 └── NOTICE.md                              <span class="c"># atribución completa: autor, licencia, fuente de cada skill</span></pre>
-  <p class="dim">10 core + 9 bajo demanda = 19 skills en total. Cada skill integra el método fuente tal cual — sin reescribir, sin subtree, sin directorio <code>vendor/</code>. Lo que no viene con licencia abierta se integra con atribución en NOTICE.md mientras se obtiene permiso.</p>
+  <p class="dim">11 core + 9 bajo demanda = 20 skills en total. Cada skill integra el método fuente tal cual — sin reescribir, sin subtree, sin directorio <code>vendor/</code>. Lo que no viene con licencia abierta se integra con atribución en NOTICE.md mientras se obtiene permiso.</p>
 
   <h3>11.3 · Qué pinta la capa fina — ai-proof entero (el patrón para las otras dieciocho)</h3>
 <pre><span class="c">---
@@ -960,17 +961,18 @@ license: Apache-2.0
       <tr><td><code>ai-writing-behavior</code></td><td><strong>writing-agent-behavior</strong> (braintrustdata/agentbehavior) <span class="pill p-ok">Apache-2.0</span></td><td>El método íntegro: partir de evidencia de traza, decidir qué merece spec (set escaso de alto impacto, no inventario), elegir unidad (agrupar/split), calibrar contra trayectorias positive/negative/outside-scope/<strong>lucky-correct</strong>, y mantener conducta observada separada de instrucción (agente ciego al spec en eval observacional) — con la spec del formato embebida en <code>references/</code>: cero red, cero dependencia del repo fuente</td><td>El rename (§11.7); la salida se fija en <code>.agents/behaviors/&lt;name&gt;/BEHAVIOR.md</code> — raíz, no <code>.ai-engineering/</code>: lo lee medio mundo y ai-eng solo valida (§21.5); el validator es el linter de frontmatter de §11.1 extendido, no el CLI de terceros</td></tr>
       <tr><td><code>ai-security</code></td><td><strong>cloudflare/security-audit-skill</strong> <span class="pill p-ok">MIT</span> — 3,2k⭐, el harness que sembró el descubrimiento de vulnerabilidades de Cloudflare</td><td>El pipeline de 6 fases (recon → hunt paralelo por clases de ataque → <strong>validación adversarial</strong>: el agente que comprueba jamás es el que encontró → report → findings.json contra schema → verificación independiente), las 8 familias de ataque, el principio «solo reportas lo que puedes explotar», y <code>validate-findings.cjs</code> — todo íntegro</td><td>La salida se fija en <code>.ai-engineering/security/run-N/</code> (findings.json + REPORT.md); cuando el hito incluye un audit, sus fases se expresan como gates de spec.html («findings.json valida contra schema» es un CHECK); el tier <code>decide</code> juzga, el tier <code>verify</code> corre los checks; los demás packs de seguridad (mantis, secskills, Anthropic-Cybersecurity-Skills) se <strong>ofrecen como boosters</strong>, no se bundleean — son librerías de conocimiento, no método de completion (§06)</td></tr>
       <tr><td><code>ai-rtk</code></td><td><strong>rtk</strong> (autometa/Hermes Agent) <span class="pill p-ok">MIT</span> — SKILL.md en <code>~/Downloads/rtk/</code></td><td>El proxy Rust y sus patrones de reescritura por superficie: el método de compresión es de su autor, palabra por palabra</td><td>La costura: rtk es binario ajeno — ai-eng lo ofrece en init (§06) y la capa fina routea los comandos; el hook de reescritura se planta por superficie, nunca se ejecuta desde ai-eng</td></tr>
+      <tr><td><code>ai-agents-md</code></td><td><strong>agents.md</strong> (convención abierta, agents.md/) <span class="pill p-ok">Apache-2.0</span></td><td>Crear/mantener el AGENTS.md que un repo le debe a sus agentes: raíz vs anidado según la forma real, entrevistar al árbol (no al usuario) para comandos de build/test/lint, escribir solo lo que un agente no puede deducir del código — y el mantenimiento en sesión (editar AGENTS.md directamente, §9.2: no es sagrado)</td><td>La salida vive en la raíz (AGENTS.md), donde las superficies la descubren por convención; <code>doctor</code> valida que cada regla siga siendo "indecible" (§9.2 regla anti-deriva)</td></tr>
     </tbody>
   </table></div>
 
   <h3>11.6 · La costura que los une a todos: un formato, un ejecutor, un pin</h3>
   <div class="flow"><span class="nd">handshake</span> <span class="ed">──▶</span> <span class="nd">wayfinder</span> <span class="ed">──escribe──▶</span> <span class="wd">spec.html + plan.html</span> <span class="dim">(formato gates de unlazy: G1 + CHECK + EXPECT + EVIDENCE)</span>
 <span class="nd">headstart</span> <span class="ed">──propone──▶</span> <span class="wd">arch.rules.json</span> <span class="dim">(diff en PR · un humano aprueba)</span>
-<span class="nd">model-router</span> <span class="ed">◀──lee──▶</span> <span class="wd">config.toml [models]</span> <span class="dim">decide / execute / verify — el mismo pin para los diecinueve</span>
+<span class="nd">model-router</span> <span class="ed">◀──lee──▶</span> <span class="wd">config.toml [models]</span> <span class="dim">decide / execute / verify — el mismo pin para los veinte</span>
 <span class="wd">spec.html</span> <span class="ed">──ejecuta──▶</span> <span class="lb">gate-check.mjs</span> <span class="dim">(ai-proof) ──▶ exit 0/≠0 + receipt · CI</span>
 <span class="nd">design-orchestrator</span> <span class="ed">──resuelve conflictos con──▶</span> <span class="lb">su propia escalera</span> <span class="dim">(conflicts.md, ai-design)</span>
 <span class="nd">graph-engineering evals</span> <span class="ed">──prueban a──▶</span> <span class="nd">ai-verify</span> <span class="dim">plant.py planta fallos conocidos · score.py mide recall+precision · CI de ai-eng</span></div>
-  <p>Tres contratos compartidos, y nada más: <strong>el formato de gates</strong> (wayfinder escribe, unlazy ejecuta, la CI consume), <strong>el pin de modelos</strong> (los diecinueve leen la misma tabla), <strong>el receipt</strong> (todo lo que corre deja prueba). Cada fuente conserva su voz; las costuras son nuestras y son pocas a propósito.</p>
+  <p>Tres contratos compartidos, y nada más: <strong>el formato de gates</strong> (wayfinder escribe, unlazy ejecuta, la CI consume), <strong>el pin de modelos</strong> (los veinte leen la misma tabla), <strong>el receipt</strong> (todo lo que corre deja prueba). Cada fuente conserva su voz; las costuras son nuestras y son pocas a propósito.</p>
   <div class="note">
     <h4>El deber de grounding (v17)</h4>
     <p><code>ai-brainstorm</code>, <code>ai-research</code>, <code>ai-architect</code> y <code>ai-plan</code> no pueden citar un archivo, una API o una librería que <code>ai-explore</code> (código) o <code>ai-read-docs</code> (documentación) no hayan abierto <em>en esta sesión</em>. Ninguna afirmación del spec o del plan nace de memoria del modelo: cada requisito referenciado lleva file:line o URL de docs leídas, y el self-review de <code>ai-brainstorm</code> rechaza placeholders y ambigüedades antes de escribir. Es la regla 12 aplicada al habla del agente: lo que se puede verificar abriendo un archivo no es una opinión, es una lectura — y las lecturas no se alucinan.</p>
@@ -1194,7 +1196,7 @@ license: Apache-2.0
 <span class="s">│</span>  <span class="c">nothing selected by default · space = toggle · tab = jump between groups · ⏎ confirm — "none" is just Enter</span>
 <span class="s">│</span>
 <span class="s">◇</span>  Installing global canon
-<span class="s">│</span>  <span class="k">✓</span> ~/.ai-engineering/skills/ — 19 ai-* skills installed (10 core + 9 bajo demanda; flat, no vendor)
+<span class="s">│</span>  <span class="k">✓</span> ~/.ai-engineering/skills/ — 20 ai-* skills installed (11 core + 9 bajo demanda; flat, no vendor)
 <span class="s">│</span>  <span class="k">✓</span> ~/.ai-engineering/version.json — version + 24h cache for update check
 <span class="s">│</span>  <span class="k">✓</span> Symlinks created:
 <span class="s">│</span>     <span class="k">→</span> ~/.claude/skills/ai-*  (macOS/Linux)
@@ -1273,7 +1275,7 @@ license: Apache-2.0
 <span class="s">│</span>  <span class="k">✓</span>  AGENTS.md · 12 reglas · 41 líneas <span class="c">(under the context ceiling)</span>
 <span class="s">│</span>  <span class="k">✓</span>  CLAUDE.md importa @AGENTS.md
 <span class="s">│</span>  <span class="k">✓</span>  .ai-engineering/config.toml parseable · superficies: claude-code, oh-my-pi
-<span class="s">│</span>  <span class="k">✓</span>  canon global 19/19 sha256 · <code>skills_min = "0.13.0"</code> cumplido · espejos symlink intactos
+<span class="s">│</span>  <span class="k">✓</span>  canon global 20/20 sha256 · <code>skills_min = "0.13.0"</code> cumplido · espejos symlink intactos
 <span class="s">│</span>  <span class="k">✓</span>  core.hooksPath · gitleaks 8.30 · oxlint en PATH
 <span class="s">│</span>  <span class="k">✓</span>  <span class="b">chain test</span>: payload adversarial <span class="c">(git commit -n)</span> → DENY en 41ms
 <span class="s">│</span>  <span class="k">✓</span>  receipts: 1,204 ejecuciones · 7 denies · p50 38ms · <span class="b">p95 44ms</span> <span class="c">(techo 50)</span>
@@ -1645,20 +1647,20 @@ license: Apache-2.0
       <tr><td><strong>H1</strong></td><td><code>chain</code> + <code>dialect</code> + 5 guards portados a TS + receipts</td><td>Mismo payload → mismo veredicto que v1 en los 21 casos adversariales (<code>tests/adversarial/</code> como oracle). Suite de mutación: matar cualquier guard rompe un test. <strong>Caso nuevo v17:</strong> editar <code>.ai-engineering/spec.html</code> con sha256 fijado en el lock → DENY de self-protect (§9.3); sin fijar (pre-aprobación) → permitido</td><td>~700</td></tr>
       <tr><td><strong>H2</strong></td><td><code>init</code> en dos fases (§14.0a: global → canon + espejos; repo → contrato, con git-init propio), <code>doctor</code>, plantillas, adapters, oferta opcional de terceros — <strong>15 boosters agrupados por <code>p.group()</code> (Contexto / Diseño / Investigación / Seguridad / Diagnóstico, §14.0b)</strong>, hook de SessionStart (no-iniciado + versión nueva + <strong>línea del pin de modelos</strong>, §09.4), registro de proyectos</td><td>Carpeta pelada: <code>init --yes</code> → repo creado + contrato commiteado → <code>doctor</code> verde en ubuntu/macos/windows. Re-ejecutar init no pisa un AGENTS.md editado. <strong>Espejos:</strong> symlink resuelto en macOS/Linux, junction/copia en Windows — verificado en las 3 plataformas. <strong>Los 6 escenarios de §14.5b son casos de test, no prosa.</strong> <strong>Slot (§21.2):</strong> dos worktrees con <code>spec open</code> → dos contratos que no se tocan; <code>spec close</code> con un gate sin receipt → exit ≠ 0 y el slot NO se libera; spec.html de un hito ya tageado → <code>doctor</code> FAIL por contrato zombi.</td><td>~1,100</td></tr>
       <tr><td><strong>H3</strong></td><td>git floor + commit-msg con trailer + agregado de receipts</td><td>Commit con secreto simulado → bloqueado. &gt;10 archivos sin DECISIONS.md → bloqueado. Coexistencia con husky verificada. <strong>Concurrencia (§21.2):</strong> segundo agente escribiendo el spec aprobado en el mismo checkout → DENY de self-protect por sha256 en el lock. <strong>Behaviors (§21.5):</strong> <code>doctor</code> lintea <code>.agents/behaviors/*/BEHAVIOR.md</code> con el mismo linter de frontmatter (§11.1 regla 5 extendida, ~20 LOC) — name≠carpeta o YAML roto → FAIL. <strong>GC (§21.3):</strong> <code>doctor --gc</code> — citado por DECISIONS.md sobrevive; no citado + viejo → un commit lo saca del árbol y <code>git log --follow</code> lo recupera; receipts viejos → summary.json agregado y contados; keep_runs respeta el ledger de conocidos</td><td>~400</td></tr>
-      <tr><td><strong>H4</strong></td><td>Skill integration (§11): canon de 19 ai-* (10 core + 9 bajo demanda; flat, no vendor) + ≤60 LOC thin layers + attribution in NOTICE.md (no en frontmatter — §11.4) + issues de licencia a los upstreams sin ella + evals de graph-engineering running in CI</td><td>Un byte cambiado en <code>skills/ai-*/</code> → doctor marca drift. Agente escribiendo en <code>~/.ai-engineering/skills/</code> → deny por self-protect. <code>description</code> sin verbo de uso → WARN de doctor (§11.1); frontmatter con YAML inválido o SPDX desconocido → FAIL (§11.1 regla 5 — un frontmatter roto es un skill invisible). <code>plant.py</code>/<code>score.py</code> miden recall+precision de ai-verify en CI. <code>NOTICE.md</code> cubre cada LICENSE</td><td>~500 TS <span class="dim">(capas + lock — el contenido ajeno está integrado, no en directorio separado)</span></td></tr>
+      <tr><td><strong>H4</strong></td><td>Skill integration (§11): canon de 20 ai-* (11 core + 9 bajo demanda; flat, no vendor) + ≤60 LOC thin layers + attribution in NOTICE.md (no en frontmatter — §11.4) + issues de licencia a los upstreams sin ella + evals de graph-engineering running in CI</td><td>Un byte cambiado en <code>skills/ai-*/</code> → doctor marca drift. Agente escribiendo en <code>~/.ai-engineering/skills/</code> → deny por self-protect. <code>description</code> sin verbo de uso → WARN de doctor (§11.1); frontmatter con YAML inválido o SPDX desconocido → FAIL (§11.1 regla 5 — un frontmatter roto es un skill invisible). <code>plant.py</code>/<code>score.py</code> miden recall+precision de ai-verify en CI. <code>NOTICE.md</code> cubre cada LICENSE</td><td>~500 TS <span class="dim">(capas + lock — el contenido ajeno está integrado, no en directorio separado)</span></td></tr>
       <tr><td><strong>H5</strong></td><td>arch.rules.json + arch.spec.ts (archunit) + cruiser + boundaries opcional</td><td>Typo en ruta de capa → FAIL (empty-test protection). Repo vacío → bootstrap, no FAIL. Import cruzado → falla test y CI</td><td>~500</td></tr>
       <tr><td><strong>H6</strong></td><td><code>wrap</code> (runner + 4 pintores, port de los 2 hooks .sh de make-claude-code-last-longer) + envoltorio <code>spec</code> sobre <code>gate-check.mjs</code> (ai-proof, 290 LOC) + CI tiered</td><td><code>npm test</code> con 14 tests → 3 bloques de output. Check no ejecutable → CI rojo. <strong>spec.html sin sha256 fijado en el lock (contrato no aprobado) → <code>spec run</code> FAIL</strong> — no se ejecuta un contrato que nadie aprobó. PR feedback &lt; 45s. <strong>Mutación nightly con scope: cap 10 min, y un PR que toque guards exige «cero mutantes nuevos supervivientes» en esos ficheros (§17.1)</strong></td><td>~700</td></tr>
       <tr><td><strong>H7</strong></td><td>Release: 8 binarios, SBOM, codesign macOS, CHANGELOG, guía migración v1→v2</td><td>Instalación limpia en las 3 SO desde el paquete publicado; <code>uninstall</code> deja el repo limpio y conserva AGENTS.md. El paquete npm incluye todo el canon de skills con sus licencias intactas en NOTICE.md</td><td>~200</td></tr>
     </tbody>
   </table></div>
-  <p class="center" style="font-family:var(--mono);font-size:12.5px;color:var(--dim)">Total ≈ <strong style="color:var(--accent)">3,800 LOC TS propios</strong> + canon de 19 skills ai-* integrados · ratio de tests objetivo <strong style="color:var(--accent)">1.5–2.0×</strong> (techo duro — no repetir el 2.35 de v1)</p>
+  <p class="center" style="font-family:var(--mono);font-size:12.5px;color:var(--dim)">Total ≈ <strong style="color:var(--accent)">3,800 LOC TS propios</strong> + canon de 20 skills ai-* integrados · ratio de tests objetivo <strong style="color:var(--accent)">1.5–2.0×</strong> (techo duro — no repetir el 2.35 de v1)</p>
 
   <h3>18.1 · Migración v1 → v2 (declarada, no fingida)</h3>
   <ul>
     <li><strong>49 specs</strong> → no se migran: el hito activo recibe un par spec.html + plan.html nuevo; los specs viejos quedan en el tag <code>v1-final</code>.</li>
     <li><strong>39 ADRs</strong> → los ~8 que son decisiones vivas se condensan a mano en DECISIONS.md (≤6 líneas cada uno); los 31 restantes eran recibos, no decisiones.</li>
     <li><strong>412 entradas de ledger</strong> → mueren; los receipts nuevos empiezan de cero en cada repo.</li>
-    <li><strong>20 skills v1</strong> → integrados como ai-* en <code>skills/ai-*/</code> (§11.5), junto a los 12 locales: canon de 19 = 10 core + 9 bajo demanda, <code>ai-cycle</code> muere con sus referencias de <code>ai-review</code> vivas como referencia (§11.9). <code>requirements.toml</code> y telemetría OTLP/HMAC: eliminados, sin equivalente.</li>
+    <li><strong>20 skills v1</strong> → integrados como ai-* en <code>skills/ai-*/</code> (§11.5), junto a los 12 locales: canon de 20 = 11 core + 9 bajo demanda, <code>ai-cycle</code> muere con sus referencias de <code>ai-review</code> vivas como referencia (§11.9). <code>requirements.toml</code> y telemetría OTLP/HMAC: eliminados, sin equivalente.</li>
     <li><strong>El repo v1 en Python</strong> sigue vivo hasta H7: los 21 casos adversariales de <code>tests/adversarial/run.py</code> son el oracle de paridad de H1.</li>
   </ul>
 
@@ -1708,7 +1710,7 @@ license: Apache-2.0
   <h2><span class="num">19</span>Lo que queda al terminar</h2>
   <div class="grid g2">
     <div class="card" style="border-color:var(--ok)"><h4><span class="pill p-ok">SOBREVIVE DE V1</span></h4><p>Los 4 guards + chain (lógica exacta, LOC medidos) · receipts (1 JSON, firma = trailer git) · model-router (61 LOC, no 200) · las 12 reglas de AGENTS.md · el pin sha256 en CI · el suelo de git independiente de superficie · SBOM en release · dogfooding · la regla 12 · la gobernanza de una línea · ai-write literal</p></div>
-    <div class="card" style="border-color:var(--bad)"><h4><span class="pill p-bad">MUERE CON V1</span></h4><p>49 specs → spec.html + plan.html por hito (≤30 gates, ejecutados) · 39 ADRs → DECISIONS.md (≤6 líneas/bloque) · 412 entradas ledger → receipts · 20 skills v1 + 12 locales → canon global de 19 (§08, §11.2) · 26 doctor checks → 12 + prueba adversarial · 10 verbos → 6 humanos + 4 de máquina (y <code>update</code>/<code>upgrade</code> ya no tocan la red: §14.3–14.4) · HMAC + hash-chain + OTLP (853 LOC) → JSON local · 8 superficies → 3 core · Python/wheel/questionary/rich → binario Bun + clack</p></div>
+    <div class="card" style="border-color:var(--bad)"><h4><span class="pill p-bad">MUERE CON V1</span></h4><p>49 specs → spec.html + plan.html por hito (≤30 gates, ejecutados) · 39 ADRs → DECISIONS.md (≤6 líneas/bloque) · 412 entradas ledger → receipts · 20 skills v1 + 12 locales → canon global de 20 (§08, §11.2) · 26 doctor checks → 12 + prueba adversarial · 10 verbos → 6 humanos + 4 de máquina (y <code>update</code>/<code>upgrade</code> ya no tocan la red: §14.3–14.4) · HMAC + hash-chain + OTLP (853 LOC) → JSON local · 8 superficies → 3 core · Python/wheel/questionary/rich → binario Bun + clack</p></div>
   </div>
 
   <div class="stats">
@@ -1735,7 +1737,7 @@ license: Apache-2.0
   <div class="tbl-wrap"><table>
     <thead><tr><th>#</th><th>Momento</th><th>Skill / verbo</th><th>Qué produce en disco</th><th>Parada humana</th></tr></thead>
     <tbody>
-      <tr><td>0</td><td>Suelo</td><td><code>ai-eng init</code></td><td>AGENTS.md · DECISIONS.md · <code>.ai-engineering/</code> · canon de 19 skills</td><td>trust del workspace (§13)</td></tr>
+      <tr><td>0</td><td>Suelo</td><td><code>ai-eng init</code></td><td>AGENTS.md · DECISIONS.md · <code>.ai-engineering/</code> · canon de 20 skills</td><td>trust del workspace (§13)</td></tr>
       <tr><td>1</td><td>Idea</td><td><code>ai-brainstorm</code></td><td><code>.ai-engineering/brainstorm.md</code> — entrevista hasta «explicarlo a un niño», gap-list (transitorio: muere al aprobarse el contrato)</td><td>clasificación del camino (spike / bounded / architectural)</td></tr>
       <tr><td>2</td><td>Evidencia <span class="pill p-dim">opcional</span></td><td><code>ai-research</code></td><td><code>.ai-engineering/research/NNN-{name}.html</code> — citas numeradas, branding §22</td><td>—</td></tr>
       <tr><td>3</td><td>¿Ya existe? <span class="pill p-dim">opcional</span></td><td><code>ai-architect</code></td><td>existence-check + prior-art; propuesta de capas como diff de <code>arch.rules.json</code></td><td>aprueba el diff del PR (§16)</td></tr>
@@ -1802,7 +1804,7 @@ license: Apache-2.0
   <h2><span class="num">21</span>El ciclo de vida de cada archivo: quién lo escribe, quién lo lee, cuándo muere</h2>
   <p>La regla que ordena todo el mapa: <strong>ningún artefacto de ai-engineering vive fuera de <code>.ai-engineering/</code> salvo que una convención externa tenga que descubrirlo</strong> — AGENTS.md/CLAUDE.md los leen las superficies por convención de nombre; DECISIONS.md lo lee el agente entero en cada sesión y sobrevive a la herramienta porque es memoria del equipo, no de ai-eng. Todo lo demás vive en casa de la herramienta. Y ningún archivo es para siempre: cada uno nace con fecha de muerte escrita, porque un framework que acumula documentos repite el error de v1 (49 specs muertos que nadie borró).</p>
 
-  <h3>21.1 · El mapa completo (los 19 skills + los 4 contratos + los datos de la máquina)</h3>
+  <h3>21.1 · El mapa completo (los 20 skills + los 4 contratos + los datos de la máquina)</h3>
   <div class="tbl-wrap"><table>
     <thead><tr><th>Skill / mecanismo</th><th>Escribe</th><th>Lo leen</th><th>Nace en</th><th>Muere en</th></tr></thead>
     <tbody>
@@ -1874,7 +1876,7 @@ receipts_ttl = "30d" # receipts: agregar y borrar</pre><p style="margin-top:10px
   <p class="dim">Lo rechazado, con la razón: la plataforma Braintrust (cuenta, storage de trazas — el formato es separable de la plataforma, como ai-proof de unlazy); Ossie (modelos semánticos de datos BI: dominio ajeno — el drift que combate es de métricas, y su gemelo en gobernanza ya está muerto: lockfile sha256 + canon único, §03); scoring LLM en el merge gate (§17.1); y cualquier verbo CLI nuevo — <code>doctor</code> valida, <code>ai-verify</code> juzga, nadie más toca <code>.agents/</code>.</p>
   <div class="grid g3">
     <div class="card"><h4>El repo come su propia comida</h4><p><code>init</code> plantado en sí mismo · su spec.html/plan.html por hito · sus receipts · su <code>doctor</code> corriendo en su CI. Un byte cambiado en <code>skills/ai-*/</code> sin sha256 en el lock → su propio doctor marca drift (§18 H4).</p></div>
-    <div class="card"><h4>El canon viaja por el binario</h4><p>Los 19 skills se construyen, se prueban y se fijan por sha256 <em>en este repo</em> (<code>skills/ai-*/</code>); <code>init</code> los planta desde el binario compilado. Dogfooding del payload: el paquete que instala tu proyecto es el que este repo gobernó.</p></div>
+    <div class="card"><h4>El canon viaja por el binario</h4><p>Los 20 skills se construyen, se prueban y se fijan por sha256 <em>en este repo</em> (<code>skills/ai-*/</code>); <code>init</code> los planta desde el binario compilado. Dogfooding del payload: el paquete que instala tu proyecto es el que este repo gobernó.</p></div>
     <div class="card"><h4>La excepción dura, declarada</h4><p>El agente no edita guards sin humano — no hay bypass de desarrollo. Si algún día los denies del repo fueran friction-inútil, <code>doctor</code> lo vería en los receipts (§10.2: «si a los 3 meses los denies son 0, el producto es ceremonia») y se recorta con reason, no en silencio.</p></div>
   </div>
 </section>
@@ -1916,7 +1918,7 @@ receipts_ttl = "30d" # receipts: agregar y borrar</pre><p style="margin-top:10px
 
 <footer>
   <span class="x">{ai}</span> engineering v2 · blueprint v17 · paquete 0.13.0 · 2026-08-31<br>
-  22 videos · 37 proyectos + 6 externos verificados · 6 verbos humanos + 4 máquina · 5 guards · canon global de 19 skills (10 core + 9 bajo demanda) · 3 superficies core (+Hermes en medición) · 4 contratos · ≈3,800 LOC propios · Bun + TypeScript<br>
+  22 videos · 37 proyectos + 6 externos verificados · 6 verbos humanos + 4 máquina · 5 guards · canon global de 20 skills (11 core + 9 bajo demanda) · 3 superficies core (+Hermes en medición) · 4 contratos · ≈3,800 LOC propios · Bun + TypeScript<br>
   <span style="color:#5b7089">proof &gt; promise — y prueba &gt; ceremonia</span>
 </footer>
 
