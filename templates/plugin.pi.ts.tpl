@@ -13,10 +13,10 @@ function textOf(content: ReadonlyArray<{ type?: string; text?: string }>): strin
 }
 
 export default function (pi: ExtensionAPI): void {
-  pi.on("tool_call", (event) => {
+  pi.on("tool_call", (event, ctx) => {
     const outcome = chain(
       "PreToolUse",
-      { tool_name: event.toolName, tool_input: event.input, tool_use_id: event.toolCallId },
+      { tool_name: event.toolName, tool_input: event.input, tool_use_id: event.toolCallId, cwd: ctx.cwd },
       { surface: "pi" },
     );
     if (outcome.action === "deny") return { block: true, reason: `[ai-eng] ${outcome.by}: ${outcome.reason}` };
@@ -25,10 +25,10 @@ export default function (pi: ExtensionAPI): void {
     return;
   });
 
-  pi.on("tool_result", (event) => {
+  pi.on("tool_result", (event, ctx) => {
     const outcome = chain(
       "PostToolUse",
-      { tool_name: event.toolName, tool_input: event.input, tool_response: textOf(event.content), tool_use_id: event.toolCallId },
+      { tool_name: event.toolName, tool_input: event.input, tool_response: textOf(event.content), tool_use_id: event.toolCallId, cwd: ctx.cwd },
       { surface: "pi" },
     );
     if (outcome.action === "deny") {

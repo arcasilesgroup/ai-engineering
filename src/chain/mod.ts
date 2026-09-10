@@ -33,7 +33,7 @@ export const TABLE: Record<string, GuardRow[]> = {
   PreToolUse: [
     { name: "self-protect", matcher: /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|shell|command)$/ },
     { name: "no-verify", matcher: /^(Bash|PowerShell|shell|command|Edit|Write|MultiEdit|NotebookEdit)$/ },
-    { name: "injection", matcher: /^(Read|NotebookRead|ReadFile)$/ },
+    { name: "injection", matcher: /^(Read|NotebookRead|ReadFile|Bash|PowerShell|shell|command)$/ },
     { name: "wrap", matcher: /^(Bash|PowerShell|shell|command)$/ },
     { name: "loop", matcher: /^.*$/ },
   ],

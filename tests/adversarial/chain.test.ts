@@ -146,6 +146,29 @@ describe("adversarial · injection", () => {
     const r = RUN({ tool_name: "Read", tool_input: { file_path: join(scratch, "full.md") }, tool_use_id: "i3", session_id: "adv" });
     expect(r.action).toBe("deny");
   });
+  // The shell is the other way to read a file, and it used to walk straight past the
+  // guard (measured 2026-09-10: a model read an injected file with `cat` on Bash).
+  test("cat through Bash is denied, same pre-read scan as the Read tool", () => {
+    const r = RUN({ tool_name: "Bash", tool_input: { command: `cat ${join(scratch, "evil.md")}` }, tool_use_id: "i4", session_id: "adv" });
+    expect(r.action).toBe("deny");
+    if (r.action === "deny") expect(r.by).toBe("injection");
+  });
+  test("head with flags and a relative path is denied", () => {
+    const r = RUN({ tool_name: "Bash", tool_input: { command: "head -n 5 evil.md" }, cwd: scratch, tool_use_id: "i5", session_id: "adv" });
+    expect(r.action).toBe("deny");
+  });
+  test("a redirect target is scanned whatever the command is", () => {
+    const r = RUN({ tool_name: "Bash", tool_input: { command: "wc -l < evil.md" }, cwd: scratch, tool_use_id: "i6", session_id: "adv" });
+    expect(r.action).toBe("deny");
+  });
+  test("control · reading a clean file through the shell passes", () => {
+    const r = RUN({ tool_name: "Bash", tool_input: { command: "cat clean.md" }, cwd: scratch, tool_use_id: "c5", session_id: "adv" });
+    expect(r.action).not.toBe("deny");
+  });
+  test("control · sed -i writes, it does not read: no scan, no deny", () => {
+    const r = RUN({ tool_name: "Bash", tool_input: { command: "sed -i 's/please //' evil.md" }, cwd: scratch, tool_use_id: "c6", session_id: "adv" });
+    expect(r.action).not.toBe("deny");
+  });
 });
 
 describe("adversarial · loop", () => {

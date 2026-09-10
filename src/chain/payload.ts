@@ -36,7 +36,21 @@ export const BUILT_IN_ALIASES: Record<string, string> = {
  *  alias lives here, once, instead of case-folding five matchers per host. */
 const TOOL_ALIASES_BY_SURFACE: Record<string, Record<string, string>> = {
   cursor: { Shell: "Bash" },
-  pi: { bash: "Bash", powershell: "PowerShell", read: "Read", edit: "Edit", write: "Write", grep: "Grep" },
+  pi: {
+    bash: "Bash",
+    powershell: "PowerShell",
+    read: "Read",
+    edit: "Edit",
+    write: "Write",
+    grep: "Grep",
+    // pi's web tools as measured on this machine (pi.getAllTools(), 2026-09-10):
+    // pi-web-access names them lowercase, so the containment arm's matcher never saw
+    // them and fetched pages went unscanned.
+    web_search: "WebSearch",
+    fetch_content: "WebFetch",
+    source_check: "WebFetch",
+    get_search_content: "WebFetch",
+  },
 };
 
 export function normalise(raw: Record<string, unknown>, surface?: string): Payload {
