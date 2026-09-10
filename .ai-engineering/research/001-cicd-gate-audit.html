@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>001 · CI/CD gate audit — ai-engineering vs cliente nuevo</title>
+<style>
+  :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#A9BBD0; --ok:#22c55e; --bad:#ef4444; --warn:#eab308; --mono:'SF Mono',ui-monospace,monospace; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; padding:48px 32px; line-height:1.55; }
+  h1 { font-size:28px; letter-spacing:-.5px; } h1 .x { color:var(--accent); }
+  h2 { color:var(--accent); font-family:var(--mono); font-size:13px; text-transform:uppercase; letter-spacing:.2em; margin:34px 0 12px; }
+  h2 .num { color:var(--dim); margin-right:10px; }
+  h3 { font-size:14px; color:var(--accent); font-family:var(--mono); margin:18px 0 8px; }
+  p { margin:8px 0; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:10px 0; }
+  .meta { display:flex; gap:24px; flex-wrap:wrap; color:var(--dim); font-size:13px; margin:8px 0 0; }
+  .meta b { color:var(--text); font-weight:500; }
+  code { font-family:var(--mono); font-size:12.5px; color:#5FE6C6; }
+  pre { background:#0E1830; border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; color:var(--dim); font-family:var(--mono); font-size:12.5px; }
+  table { width:100%; border-collapse:collapse; margin:10px 0; font-size:13px; }
+  th, td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.1em; font-weight:500; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); }
+  .dim { color:var(--dim); }
+  a { color:var(--accent); }
+  ol, ul { margin:8px 0 8px 22px; } li { margin:5px 0; }
+  .src { font-family:var(--mono); font-size:12px; color:var(--dim); }
+</style>
+</head>
+<body>
+<h1><span class="x">{ai}</span> research 001 · CI/CD gate audit</h1>
+<p class="dim">El CI que corre esta repo, y el que <code>ai-eng init</code> planta en un proyecto nuevo — claim por claim contra blueprint §17/§05.</p>
+<div class="meta">
+  <span>Fecha: <b>2026-09-10</b></span>
+  <span>HEAD: <b>f2e5ee1</b> (rama <b>v2</b>)</span>
+  <span>Versión: <b>2.0.0</b> (sin publicar)</span>
+</div>
+
+<h2><span class="num">00</span>Para qué sirve esto</h2>
+<div class="card">
+<p>Lo que cambia según la respuesta: <b>si se puede soltar v2.0 a un cliente hoy</b>, y qué hay que arreglar antes de que el pipeline plantado sirva de algo. No es una opinión de arquitectura — es la lista de claims §17 que tienen ejecutor y los que no.</p>
+</div>
+
+<h2><span class="num">01</span>Qué se pudo mirar y qué no</h2>
+<div class="card">
+<p><b>Usado:</b> el árbol del repo (con <code>file:line</code>), el registry de npm, la API de GitHub, búsqueda web, y tres pruebas ejecutadas en un proyecto cliente de verdad creado en <code>/tmp/aien-client</code> con <code>ai-eng init --yes --surface claude-code</code> [20].</p>
+<p><b>Historia de sesiones (agentsview v0.41.1):</b> el proyecto se indexa como <code>ai_engineering</code> (con guion bajo), no como el directorio — la primera búsqueda por <code>--project ai-engineering</code> devolvió <i>no matches</i> por eso. Buscando por contenido sí aparece la conversación: la entrada del workflow al <code>case "claude-code"</code> se editó hace ~4 h (<code>omp:01a08b93</code>), la discusión de §17 hace ~3 h (<code>omp:01a08bb5</code>) y el primer <code>ci.yml.tpl</code> se escribió el 2026-09-01 (<code>omp:01a05a53</code>) [24]. Es decir: el CI plantado nació sin la parte de «cómo se adapta al lenguaje» y con el ref de trivy sin medir.</p>
+<p><b>Ausente:</b> <code>degraded-tool: notebooklm</code> — <code>notebooklm doctor</code> pasa, pero la CLI responde <code>Authentication expired or invalid</code> al primer uso (2026-09-10). <b>El tier de deep research no corrió</b>; todo lo externo de este informe viene de fuentes primarias leídas una por una (registry, API de GitHub, docs de GitHub) [14][15][16][17][18][19].</p>
+</div>
+
+<h2><span class="num">02</span>Los dos caminos, dibujados</h2>
+<pre>REPO (dogfood)                         CLIENTE NUEVO (init --yes)
+
+.github/workflows/                     .github/workflows/
+  check.yml  ─┬─ typecheck ✔            └─ ai-eng-check.yml  ← SOLO si
+              ├─ lint ✔                    la superficie es claude-code [5]
+              ├─ bun test ✔                ├─ bun install --frozen-lockfile
+              ├─ proof-cli-ux.sh ✔         ├─ bun add -g ai-engineering@2  ✘
+              ├─ arch ✔                    ├─ bun test
+              └─ spec run ──✘ no-op        └─ ai-eng spec run  ✘ exit 2
+  platforms.yml ubuntu/macos/windows ✔
+  release.yml   8 targets + SBOM ✔     .git/hooks/{pre-commit,commit-msg,pre-push}
+  version.yml   changesets + OIDC ✔      └─ 3 líneas → ai-eng git …  ✔
+
+.git/hooks/* → ai-eng git <hook>       .ai-engineering/ai-eng.lock
+  diff --check · gitleaks staged         └─ sha256 por asset, SIN spec_sha256 [21]
+  DECISIONS.md · Receipt-Id  ✔ (local)</pre>
+
+<h2><span class="num">03</span>Veredicto · el CI de esta repo</h2>
+<table>
+<thead><tr><th>Claim §17 / §05</th><th>Veredicto</th><th>Evidencia</th></tr></thead>
+<tbody>
+<tr><td>pre-commit: gitleaks staged · diff --check · DECISIONS.md · Receipt-Id</td><td class="ok">implementado</td><td><code>src/floor/index.ts:20-46,58-90,101-110</code> [12]</td></tr>
+<tr><td>PR: oxlint · type-aware · bun test</td><td class="ok">implementado</td><td><code>.github/workflows/check.yml:14-19</code>; <code>package.json:24-26</code> [8]</td></tr>
+<tr><td>PR: arch tests</td><td class="warn">parcial</td><td><code>check.yml:22-23</code> ✔ pero la regla <code>cycles</code> se salta en <code>tests/arch.spec.ts:27</code> [22]</td></tr>
+<tr><td><b>spec run — «check no ejecutado = FAIL»</b> [1]</td><td class="bad">falso en esta repo</td><td><code>check.yml:25</code> = <code>bun dist/ai-eng spec run || echo …</code>. Sin paso de build en el job y <code>dist/</code> está en <code>.gitignore:2</code>: medido, <code>bun dist/ai-eng</code> → <code>Script not found</code> (exit 1) → el <code>|| echo</code> lo convierte en exit 0 [20]. El runner sí es fail-closed en código (<code>src/spec/index.ts:52-56</code>) [7]</td></tr>
+<tr><td>security: gitleaks pinneado con sha256</td><td class="ok">implementado</td><td><code>check.yml:33-40</code> (sha256sum -c) [8]</td></tr>
+<tr><td>security: semgrep + trivy</td><td class="bad">ausente</td><td>cero apariciones en <code>.github/</code> y <code>package.json</code> [8]</td></tr>
+<tr><td>security: npm audit</td><td class="warn">no puede fallar</td><td><code>check.yml:41-42</code> termina en <code>|| true</code> [8]</td></tr>
+<tr><td><b>mutación de guards</b> (incremental PR + nightly cap 10 min) [1][3]</td><td class="bad">falso</td><td><code>check.yml:44-56</code>: el job se llama <code>guards-mutation</code> y corre <code>bun test tests/adversarial/</code> — la suite que ya corrió en <code>:19</code>. No hay Stryker, ni mutantes, ni workflow con <code>schedule:</code> [8]</td></tr>
+<tr><td>platforms 3 SO con binario real</td><td class="ok">implementado</td><td><code>platforms.yml:7-11,19-31</code> [9]</td></tr>
+<tr><td>lockfile vs skills canon en CI</td><td class="bad">ausente</td><td>solo existe como <code>doctor</code> local (<code>src/commands/doctor.ts:84-89</code>); ningún job lo corre [9]</td></tr>
+<tr><td>release: 8 targets · codesign · SBOM [2]</td><td class="warn">parcial</td><td>8 targets ✔ <code>release.yml:16-35</code>; codesign hace <code>exit 0</code> sin secreto (<code>:45-47</code>); el SBOM baja <code>cdxgen</code> de <code>releases/latest</code>, sin pin (<code>:74-77</code>) [10]</td></tr>
+<tr><td>publish: changesets + npm OIDC [2]</td><td class="ok">implementado</td><td><code>version.yml:4-19</code>, gate por slug del repo, <code>id-token: write</code> [11]</td></tr>
+</tbody>
+</table>
+<p class="src">Extra: <code>check.yml:47</code> <code>if: github.event_name == 'pull_request'</code> ⇒ el job de mutación nunca corre en push [8].</p>
+
+<h2><span class="num">04</span>Veredicto · el CI que recibe un cliente</h2>
+<table>
+<thead><tr><th>Qué recibe</th><th>Estado</th><th>Evidencia</th></tr></thead>
+<tbody>
+<tr><td>Workflow <code>.github/workflows/ai-eng-check.yml</code></td><td class="bad">solo con la superficie <code>claude-code</code></td><td><code>src/commands/init-shared.ts:56-61</code> dentro del <code>case "claude-code"</code>; opencode/omp/codex/cursor/copilot/pi no plantan workflow [5]. Medido con <code>init --yes --surface claude-code</code> [20]</td></tr>
+<tr><td>3 shims de git floor con marker</td><td class="ok">siempre</td><td><code>init-shared.ts:33-40</code>; shims hacen <code>exit 1</code> si falta <code>ai-eng</code> [5]</td></tr>
+<tr><td><code>.ai-engineering/ai-eng.lock</code> con sha256 por asset</td><td class="ok">siempre</td><td>medido [20]; <b>sin</b> <code>spec_sha256</code> [21]</td></tr>
+<tr><td>Paso «Install ai-eng» = <code>bun add -g ai-engineering@2</code></td><td class="bad">el paquete no existe</td><td><code>templates/ci.yml.tpl:13-16</code>; <code>npm view ai-engineering version</code> → <b>404</b> (2026-09-10) [14]</td></tr>
+<tr><td>Paso trivy: <code>aquasecurity/trivy-action@0.33.1</code></td><td class="bad">el ref no existe</td><td><code>templates/ci.yml.tpl:40-45</code>; la API responde <code>matching-refs/0.33</code> → <code>[]</code> y el tag real es <code>v0.33.1</code> (con <code>v</code>) [15][16]</td></tr>
+<tr><td>Paso <code>ai-eng spec run</code> («the one step that must not be skipped»)</td><td class="bad">rojo garantizado de día 0</td><td><code>templates/ci.yml.tpl:23-24</code>; init nunca crea ni aprueba <code>spec.html</code>, así que <code>specRun()</code> devuelve 2. Medido en el proyecto cliente: exit <b>2</b> [7][20][21]</td></tr>
+<tr><td>typecheck / lint / arch</td><td class="bad">no pueden fallar</td><td><code>templates/ci.yml.tpl:17-18,19-20,25-26</code> terminan todos en <code>|| true</code> [4]</td></tr>
+<tr><td><code>bun test</code> (paso de tests)</td><td class="warn">asume proyecto Bun</td><td><code>ci.yml.tpl:11-12,21-22</code>; medido en el proyecto cliente: <code>bun install --frozen-lockfile</code> exit 1, <code>bun test</code> exit 1 [20]</td></tr>
+<tr><td>arch gate del cliente</td><td class="bad">decorativo</td><td><code>arch.rules.json.tpl</code> se planta como dato, pero no se planta runner, dependencia ni script <code>arch</code> [5]; §17 dice «adaptados al lenguaje» [2]</td></tr>
+<tr><td>gitleaks (plantado)</td><td class="warn">sin checksum</td><td><code>ci.yml.tpl:32-35</code>: <code>curl … | tar xz</code> sin verificar; la repo sí verifica sha256 [8]. Versión pinneada 8.30.0 vs última 8.30.1 (2026-03-21) [18]</td></tr>
+<tr><td>semgrep (plantado)</td><td class="warn">pinneado, 50 versiones atrás</td><td><code>ci.yml.tpl:36-39</code> con <code>semgrep==1.126.0</code> (2025-06-18); última v1.176.0 (2026-09-01) [17]</td></tr>
+<tr><td>Actions de terceros por tag (<code>@v4</code>, <code>@v2</code>)</td><td class="warn">contra la guía</td><td><code>ci.yml.tpl:10-11</code> y <code>check.yml:9-10</code>; GitHub recomienda pin por SHA completo, no por tag móvil [19]</td></tr>
+</tbody>
+</table>
+
+<h2><span class="num">05</span>Los cinco bloqueantes (P0)</h2>
+<div class="card">
+<ol>
+<li><b>El CI del cliente no puede instalar al gobernador.</b> <code>bun add -g ai-engineering@2</code> [4] contra un paquete que hoy no está en npm: <code>npm view ai-engineering version</code> → 404, <code>dist-tags</code> → 404 [14]. El paso 4 del job <code>check</code> es rojo en cualquier repo, con cualquier lenguaje, el primer día. Se arregla publicando (o cambiando el paso a «ya viene en la imagen de CI»).</li>
+<li><b>El job de seguridad no arranca.</b> <code>aquasecurity/trivy-action@0.33.1</code> no resuelve: <code>matching-refs/0.33</code> → <code>[]</code> [15]; el tag real lleva <code>v</code> (<code>v0.33.1</code>, y el último es <code>v0.36.0</code>, 2026-04-22) [16]. Falla al resolver la action, antes de escanear nada.</li>
+<li><b>El único paso duro del template es imposible de poner verde el día 0.</b> <code>ai-eng spec run</code> [4] devuelve 2 si no hay contrato o si no está aprobado (<code>src/spec/index.ts:38-47</code>) [7], y <code>init</code> no crea <code>spec.html</code> ni escribe <code>spec_sha256</code> en el lock [5][21]. Medido: exit <b>2</b> [20]. Fail-closed es lo correcto — pero el template no dice cómo salir del rojo (no imprime <code>spec open</code>), así que el primer PR del cliente nace rojo por diseño.</li>
+<li><b>En esta misma repo el paso de spec run no ejecuta nada.</b> <code>check.yml:25</code> [8]: el job no compila y <code>dist/</code> no está versionado (<code>.gitignore:2</code>), así que <code>bun dist/ai-eng</code> muere con <code>Script not found</code> y el <code>|| echo</code> lo tapa. Reproducido: exit 0 con el echo [20]. El H6 («check no ejecutable → CI rojo») está cumplido en el código y apagado en el cableado.</li>
+<li><b>Elegir otra superficie deja al cliente sin CI y sin aviso.</b> El workflow cuelga solo del <code>case "claude-code"</code> [5]; con OpenCode, OMP, Codex, Cursor, Copilot o Pi el proyecto recibe guards y adapters, pero <b>cero workflow</b>. Nada en el resumen de init lo dice.</li>
+</ol>
+</div>
+
+<h2><span class="num">06</span>Pasos que no pueden fallar (inventario)</h2>
+<table>
+<thead><tr><th>Dónde</th><th>Por qué no falla</th></tr></thead>
+<tbody>
+<tr><td><code>check.yml:25</code></td><td><code>|| echo</code> — además el binario no existe en ese job [8][20]</td></tr>
+<tr><td><code>check.yml:42</code></td><td><code>npm audit … || true</code> [8]</td></tr>
+<tr><td><code>platforms.yml:34</code></td><td>uninstall <code>|| true</code> [9]</td></tr>
+<tr><td><code>release.yml:45-47</code></td><td>codesign hace <code>exit 0</code> sin <code>MACOS_CERT</code>: se publican binarios sin firmar con un warning [10]</td></tr>
+<tr><td><code>ci.yml.tpl:17-20,25-26</code></td><td>typecheck, lint y arch con <code>|| true</code> [4]</td></tr>
+</tbody>
+</table>
+
+<h2><span class="num">07</span>Lo que sí está sólido (no tocar)</h2>
+<div class="card">
+<p>El <b>git floor</b> es la pieza más honesta del sistema: shims de 3 líneas, lógica en el binario, HARD FAIL si falta gitleaks, y cuatro checks que CI no duplica (diff --check, DECISIONS.md con &gt;10 archivos o cambio de dependencia, convención de commit, trailer Receipt-Id) [12]. <b>platforms</b> ejecuta el binario real en los 3 SO [9]. <b>release</b> compila los 8 targets [10] y <b>version</b> publica por OIDC sin token a mano [11]. El <b>runner de contratos</b> es fail-closed de verdad en código, con receipt por corrida [7]. La <b>doctrina de doctor</b> (canon drift, p95 de receipts contra 50 ms, pin del spec) funciona en local. Y el <code>gitleaks</code> de esta repo sí verifica sha256 [8].</p>
+<p class="dim">Nota de coherencia: <code>init</code> y <code>update</code> commitean con <code>--no-verify</code> (<code>src/commands/init.ts:226</code>, <code>src/commands/update.ts:176</code>) [13] — el guard lo niega al agente, pero el propio producto lo usa. Decisión defendible (el commit lo hace el instalador, no el agente) que conviene dejar escrita, porque §16.4 dice «sin bypass».</p>
+</div>
+
+<h2><span class="num">08</span>Tres direcciones, en orden</h2>
+<div class="card">
+<ol>
+<li><b>Hacer que el pipeline plantado arranque verde antes de vender nada.</b> Tres cambios pequeños y verificables: publicar <code>ai-engineering@2</code> (o cambiar <code>ci.yml.tpl:13-16</code> a una instalación desde la imagen), corregir el ref a <code>aquasecurity/trivy-action@v0.36.0</code> con SHA completo [15][16][19], y añadir al workflow un paso que imprima <code>ai-eng spec open &lt;milestone&gt;</code> + <code>spec approve</code> cuando no haya contrato, para que el rojo del día 0 traiga su salida. Criterio: <code>init</code> en un repo vacío, push, los dos jobs verdes el mismo día.</li>
+<li><b>Sacar el CI del <code>case "claude-code"</code>.</b> Mover <code>ai-eng-check.yml</code> a <code>planEntries</code> [5] y quitar los <code>|| true</code> de typecheck/lint/arch — un gate que no puede fallar no es un gate. Criterio: una matriz de tests que, para cada superficie de <code>surfaces.json</code>, compruebe que el workflow existe y que ningún paso del job <code>check</code> termina en <code>|| true</code>.</li>
+<li><b>Reconciliar el blueprint con lo que hay, o poner el ejecutor.</b> §17 promete semgrep/trivy/3 SO/mutación/lockfile-vs-skills en el merge gate [2] y §17.1 promete mutación nightly con cap de 10 min [3]; hoy mutation es un job mal nombrado que re-corre la suite adversarial [8]. O se borra el claim, o entra Stryker con scope incremental y un <code>schedule:</code> — el mismo criterio que la propia blueprint exige en §17.1: «un test que no corre es un guard apagado».</li>
+</ol>
+</div>
+
+<h2><span class="num">09</span>Fuentes</h2>
+<div class="card src">
+<p>[1] <code>docs/blueprint.html:406</code> — §05, PLANO 3 CI GATE (spec run · arch tests · semgrep/trivy · mutación de guards · 3 SO).</p>
+<p>[2] <code>docs/blueprint.html:1586-1594</code> — §17, los tres tiers y los jobs del workflow.</p>
+<p>[3] <code>docs/blueprint.html:1596-1618</code> — §17.1, estrategia de tests: adversarial por paths, e2e solo merge gate, mutación nightly cap 10 min.</p>
+<p>[4] <code>templates/ci.yml.tpl:1-45</code> — el workflow plantado completo (2 jobs, 10 pasos).</p>
+<p>[5] <code>src/commands/init-shared.ts:33-84</code> — <code>gitHookEntries</code>, <code>planEntries</code>, <code>surfaceEntries</code> (el workflow cuelga del <code>case "claude-code"</code>, línea 59) y <code>detectCommands</code> (líneas 22-29: los comandos detectados solo van al texto de AGENTS.md).</p>
+<p>[6] <code>src/commands/init.ts:49-85,224-227</code> — el orden del scaffold, el lock y el commit inicial con <code>--no-verify</code>; <code>src/commands/update.ts:175-176</code> — el mismo patrón en update.</p>
+<p>[7] <code>src/spec/index.ts:19-31,33-56</code> — <code>specGatePolicyAllowsRun</code> (sha256 en el lock) y <code>specRun()</code> con exit 2 sin contrato / sin aprobar / sin ejecutor.</p>
+<p>[8] <code>.github/workflows/check.yml:14-25,33-42,44-56</code> — typecheck/lint/test/proofs/arch, el spec run con <code>|| echo</code>, gitleaks con sha256, npm audit con <code>|| true</code>, el job <code>guards-mutation</code>.</p>
+<p>[9] <code>.github/workflows/platforms.yml:3-14,19-34</code> — matriz ubuntu/macos/windows, build real, init/doctor/uninstall.</p>
+<p>[10] <code>.github/workflows/release.yml:14-64,66-86</code> — 8 targets, codesign condicional, SBOM con cdxgen de <code>releases/latest</code>.</p>
+<p>[11] <code>.github/workflows/version.yml:1-38</code> — changesets + npm OIDC, gate por slug del repo.</p>
+<p>[12] <code>src/floor/index.ts:20-46,58-90,92-113,116-130</code> — pre-commit (diff --check, gitleaks staged, DECISIONS.md), commit-msg (convención, trailer Receipt-Id), pre-push.</p>
+<p>[13] <code>src/commands/init.ts:226</code>, <code>src/commands/update.ts:176</code> — commits internos con <code>--no-verify --no-gpg-sign</code>.</p>
+<p>[14] npm registry, medido 2026-09-10: <code>npm view ai-engineering version</code> → <code>404</code>; <code>https://registry.npmjs.org/ai-engineering/latest</code> → HTTP 404.</p>
+<p>[15] GitHub API, 2026-09-10: <code>https://api.github.com/repos/aquasecurity/trivy-action/git/matching-refs/0.33</code> → <code>[]</code> (ningún ref sin <code>v</code>).</p>
+<p>[16] <code>https://api.github.com/repos/aquasecurity/trivy-action/tags</code> — <code>v0.36.0</code> (2026-04-22), <code>v0.35.0</code>, <code>v0.34.0</code>, <code>v0.33.1</code>: todos con <code>v</code>, releases inmutables.</p>
+<p>[17] Semgrep: <code>https://github.com/semgrep/semgrep/blob/HEAD/CHANGELOG.md</code> (1.126.0 = 2025-06-18) y <code>https://github.com/semgrep/semgrep/releases</code> (v1.176.0, 2026-09-01).</p>
+<p>[18] <code>https://api.github.com/repos/gitleaks/gitleaks/releases/latest</code> → <code>v8.30.1</code> (publicado 2026-03-21); el repo y el template pinnean 8.30.0.</p>
+<p>[19] <code>https://docs.github.com/en/actions/reference/security/secure-use</code> — pinnear actions de terceros a un SHA completo; los tags son móviles (v5 es la línea actual de <code>actions/checkout</code>).</p>
+<p>[20] Medición propia, 2026-09-10, <code>/tmp/aien-client</code>: <code>ai-eng init --yes --surface claude-code</code> plantó AGENTS.md, DECISIONS.md, CLAUDE.md, <code>.ai-engineering/{overrides.toml,arch.rules.json,config.toml,ai-eng.lock}</code>, los 3 hooks, <code>.claude/settings.json</code> y <code>.github/workflows/ai-eng-check.yml</code> (idéntico byte a byte al template). Después: <code>bun install --frozen-lockfile</code> → 1; <code>bun test</code> → 1; <code>ai-eng spec run</code> → 2; <code>bun dist/ai-eng spec run || echo …</code> → 0.</p>
+<p>[21] <code>/tmp/aien-client/.ai-engineering/ai-eng.lock</code> — 8 assets con sha256 y <code>version = "2.0.0"</code>; sin <code>spec_sha256</code>.</p>
+<p>[22] <code>tests/arch.spec.ts:27</code> — las reglas <code>cycles</code> se saltan; <code>.ai-engineering/arch.rules.json:16</code> las declara.</p>
+<p>[23] <code>src/spec/index.ts:48-56</code> + <code>skills/ai-proof/SKILL.md</code> — el ejecutor real es <code>gate-check.mjs</code> del canon; si falta, el run es rojo.</p>
+</div>
+
+<p>[24] agentsview v0.41.1, <code>agentsview session search</code> (medido 2026-09-10): proyecto indexado como <code>ai_engineering</code>; sesiones <code>omp:01a08b93-a316-7181-8ad3-efc4c90b4e5e</code> (edición del <code>case "claude-code"</code> en <code>init-shared.ts</code>), <code>omp:01a08bb5-b997-75b9-a171-2c512e728007</code> (discusión §17: «no reemplaza semgrep/trivy», «CI in three tiers») y <code>omp:01a05a53-19fe-7685-aee8-34118ea7e71a</code> (escritura original de <code>ci.yml.tpl</code>, 2026-09-01).</p>
+<p class="dim" style="margin-top:26px">Escrito por <code>ai-research</code> · tier local + web (NotebookLM ausente por auth) · 2026-09-10 · sin cambios en el código, solo este archivo.</p>
+</body>
+</html>
