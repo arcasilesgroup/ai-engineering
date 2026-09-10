@@ -29,9 +29,22 @@ export const BUILT_IN_ALIASES: Record<string, string> = {
   workspacePath: "cwd",
 };
 
-export function normalise(raw: Record<string, unknown>): Payload {
+/** Host spellings for the same tool, measured per host: Cursor calls the shell
+ *  `Shell` (cursor.com/docs/hooks, cursor-agent 2026.09.08); pi sends lowercase names
+ *  (pi-coding-agent 0.85.1, dist/core/extensions/types.d.ts). Every guard matcher,
+ *  wrap's rewrite, the loop signature and the receipts read `tool_name` — so the
+ *  alias lives here, once, instead of case-folding five matchers per host. */
+const TOOL_ALIASES_BY_SURFACE: Record<string, Record<string, string>> = {
+  cursor: { Shell: "Bash" },
+  pi: { bash: "Bash", powershell: "PowerShell", read: "Read", edit: "Edit", write: "Write", grep: "Grep" },
+};
+
+export function normalise(raw: Record<string, unknown>, surface?: string): Payload {
   const out: Record<string, unknown> = { ...raw };
   out.tool_name = out.tool_name ?? out.tool ?? "";
+  if (surface && typeof out.tool_name === "string") {
+    out.tool_name = TOOL_ALIASES_BY_SURFACE[surface]?.[out.tool_name] ?? out.tool_name;
+  }
   out.tool_input = out.tool_input ?? out.input ?? {};
   if (typeof out.tool_input !== "object" || out.tool_input === null) out.tool_input = {};
   const input = out.tool_input as Record<string, unknown>;
@@ -41,7 +54,11 @@ export function normalise(raw: Record<string, unknown>): Payload {
   const mapped: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(input)) mapped[BUILT_IN_ALIASES[k] ?? k] = v;
   // Notebook tools send notebook_path and nothing else; both write guards read file_path.
-  if (!mapped.file_path) mapped.file_path = mapped.notebook_path ?? "";
+  // Only fill it when a notebook path exists: an empty string is NOT nullish, so a
+  // fabricated "" shadowed the real `path` key and the read guards got nothing
+  // (measured 2026-09-10 — Copilot sends tool_input.path, the injection guard ran
+  // and allowed the read it exists to stop).
+  if (!mapped.file_path && typeof mapped.notebook_path === "string") mapped.file_path = mapped.notebook_path;
   out.tool_input = mapped;
   return out as Payload;
 }

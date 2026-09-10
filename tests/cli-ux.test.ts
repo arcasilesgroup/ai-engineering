@@ -7,9 +7,28 @@
 
 import { describe, expect, test, afterEach } from "bun:test";
 import { installCommand } from "../src/commands/upgrade.ts";
+import { suggestVerb } from "../src/shared-verbs.ts";
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+
+describe("verb suggestion (§14.5b — no error without the line of action)", () => {
+  test("a transposed verb is corrected", () => {
+    expect(suggestVerb("chian")).toBe("chain");
+    expect(suggestVerb("doctro")).toBe("doctor");
+  });
+  test("an exact verb is its own suggestion", () => {
+    expect(suggestVerb("doctor")).toBe("doctor");
+  });
+  test("a word that resembles nothing is not 'corrected'", () => {
+    expect(suggestVerb("xyz")).toBeNull();
+    expect(suggestVerb("deploy")).toBeNull();
+    expect(suggestVerb("")).toBeNull();
+  });
+  test("case and padding do not defeat it", () => {
+    expect(suggestVerb("  INIT ")).toBe("init");
+  });
+});
 
 describe("G9 · upgrade print-command helper", () => {
   test("bun choice prints the bun command", () => {

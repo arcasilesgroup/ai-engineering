@@ -10,6 +10,7 @@ import { VERSION } from "./version.ts";
 import { showLogo } from "./branding.ts";
 import { maybeNotice } from "./notice.ts";
 import { chainMain } from "./chain/mod.ts";
+import { surfaceDialect } from "./surfaces/adapters.ts";
 import { doctorMain } from "./commands/doctor.ts";
 import { initMain } from "./commands/init.ts";
 import { updateMain } from "./commands/update.ts";
@@ -19,6 +20,7 @@ import { configMain } from "./commands/config.ts";
 import { wrapMain } from "./wrap/index.ts";
 import { specMain } from "./spec/index.ts";
 import { floor } from "./floor/entry.ts";
+import { suggestVerb } from "./shared-verbs.ts";
 
 const HUMAN = ["init", "doctor", "config", "update", "upgrade", "uninstall"];
 
@@ -77,7 +79,8 @@ async function main(): Promise<number> {
         return 2;
       }
       const raw = await Bun.stdin.text();
-      chainMain(event, raw, { surface: "claude-code" });
+      const surface = surfaceList[0] ?? "claude-code";
+      chainMain(event, raw, { surface, dialect: surfaceDialect(surface) });
       return 0; // chainMain exits on its own when it denies
     }
     case "git":
@@ -102,9 +105,17 @@ async function main(): Promise<number> {
       return upgradeMain();
     case "uninstall":
       return uninstallMain();
-    default:
-      process.stderr.write(`unknown verb: ${String(verb)}\n`);
+    default: {
+      const typed = String(verb);
+      const suggestion = suggestVerb(typed);
+      process.stderr.write(`unknown verb: ${typed}\n`);
+      process.stderr.write(
+        suggestion
+          ? `did you mean \`ai-eng ${suggestion}\`? run \`ai-eng --help\` for the rest.\n`
+          : "run `ai-eng --help` for the six human verbs and the four machine ones.\n",
+      );
       return 2;
+    }
   }
 
 }

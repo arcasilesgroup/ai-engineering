@@ -4,6 +4,7 @@
 import { EMBEDDED } from "./assets.ts";
 import { writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { hashFile } from "./skills-lint.ts";
 
 /** Every embedded path under a prefix (e.g. "skills/" or "templates/"). Keys are
  *  normalized: generated as "../skills/..." relative to src/, stripped to "skills/...". */
@@ -25,6 +26,26 @@ export function canonSkills(): Map<string, string> {
   for (const [path, ref] of embeddedUnder("skills/")) {
     if (path.slice("skills/".length).startsWith(".")) continue;
     out.set(path, ref);
+  }
+  return out;
+}
+
+export type CanonDrift = { verified: number; drift: number; missing: number };
+
+/** The installed canon against this binary's payload, byte for byte — the one
+ *  predicate `init` and `doctor` share (health is a measurement, not a claim).
+ *  Existence probes and a marker file lied twice (measured 2026-09-10): "global
+ *  canon intact · nothing to install" over a canon with 34 files missing, and
+ *  after an upgrade — notice.ts caches the REGISTRY version in the same
+ *  version.json that installCanon wrote the INSTALLED version into. */
+export function canonDrift(homeDir: string): CanonDrift {
+  const out: CanonDrift = { verified: 0, drift: 0, missing: 0 };
+  for (const [path, ref] of canonSkills()) {
+    const installed = join(homeDir, path);
+    const embedded = new URL(ref, import.meta.url).pathname;
+    if (!existsSync(installed)) out.missing += 1;
+    else if (existsSync(embedded) && hashFile(installed) === hashFile(embedded)) out.verified += 1;
+    else out.drift += 1;
   }
   return out;
 }

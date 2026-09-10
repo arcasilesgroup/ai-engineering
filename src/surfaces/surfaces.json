@@ -4,6 +4,7 @@
       "id": "claude-code",
       "label": "Claude Code",
       "tier": "core",
+      "dialect": "claude",
       "can": { "deny": true, "rewriteOut": true },
       "settingsFile": ".claude/settings.json"
     },
@@ -27,6 +28,7 @@
       "id": "cursor",
       "label": "Cursor",
       "tier": "experimental",
+      "dialect": "cursor",
       "can": { "deny": true, "rewriteOut": false },
       "settingsFile": ".cursor/hooks.json",
       "note": "output rewrite: MCP only (blueprint §13)"
@@ -35,6 +37,7 @@
       "id": "codex",
       "label": "Codex CLI",
       "tier": "experimental",
+      "dialect": "codex",
       "can": { "deny": true, "rewriteOut": "total-replacement" },
       "settingsFile": ".codex/hooks.json",
       "note": "requires manual /hooks trust (hash-pinned)"
@@ -43,13 +46,23 @@
       "id": "copilot",
       "label": "Copilot",
       "tier": "best-effort",
+      "dialect": "copilot",
       "can": { "deny": true, "rewriteOut": true },
-      "settingsFile": ".copilot/settings.json",
+      "settingsFile": ".github/hooks/ai-eng.json",
       "note": "ephemeral FS: no receipts"
     },
     {
-      "id": "pi-zed",
-      "label": "Pi / Zed",
+      "id": "pi",
+      "label": "Pi",
+      "tier": "core",
+      "can": { "deny": true, "rewriteOut": true },
+      "pluginFile": ".pi/extensions/ai-eng.ts",
+      "chainFile": ".pi/extensions/ai-eng-chain.ts",
+      "note": "in-process extension; project-local extensions load once pi trusts the folder"
+    },
+    {
+      "id": "zed",
+      "label": "Zed",
       "tier": "skills-only",
       "can": { "deny": false, "rewriteOut": false },
       "note": "honest: skills install, no guards in hot-path"

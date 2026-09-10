@@ -5,16 +5,20 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { groupMultiselect, isCancel } from "@clack/prompts";
 import { repoRoot, enabledSurfaces } from "../env.ts";
-import { SURFACES, SURFACE_TIERS, mirrorTargets, surfaceCanGovern, type Surface } from "../surfaces/adapters.ts";
+import { SURFACES, mirrorTargets, surfaceCanGovern, type Surface } from "../surfaces/adapters.ts";
+import { hasAdapter, surfaceOptions } from "./init-shared.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
 
 export async function configMain(flags: { add?: string; remove?: string }): Promise<number> {
   const input = scriptedInput();
-  const root = repoRoot();
   ui.frame(`Configuration · ai-eng ${VERSION}`);
-  if (!root) {
+  const root = repoRoot();
+  // repoRoot() answers for any .git; governance needs .ai-engineering/ on disk.
+  // Without this, `config --add` in a bare repo died on writeFileSync with a raw
+  // ENOENT instead of telling the human to run init (measured 2026-09-10).
+  if (!root || !existsSync(join(root, ".ai-engineering"))) {
     ui.fail("you are not in a governed repo — run ai-eng init first");
     ui.end("Nothing changed.");
     return 2;
@@ -23,6 +27,12 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   const surfacesBefore = existsSync(configPath) ? enabledSurfaces() : [];
   let current = surfacesBefore;
   if (flags.add) {
+    // Same rule as the picker: no adapter, no declaration.
+    if (!hasAdapter(flags.add)) {
+      ui.fail(`"${flags.add}" has no adapter in this release — nothing would enforce its guards.`);
+      ui.end("Nothing changed.");
+      return 2;
+    }
     if (!current.includes(flags.add)) current = [...current, flags.add];
   } else if (flags.remove) {
     current = current.filter((id) => id !== flags.remove);
@@ -30,9 +40,7 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
   } else {
     const picked = await groupMultiselect({
       message: "Which agent surfaces is this project governed on? (ticked = installed)",
-      options: Object.fromEntries(
-        SURFACE_TIERS.map(([tier, title]) => [title, SURFACES.filter((s) => s.tier === tier).map((s) => ({ value: s.id, label: s.label, hint: configHint(s, current.includes(s.id)) }))]),
-      ),
+      options: Object.fromEntries(surfaceOptions().map((group) => [group.title, group.items.map((s) => ({ value: s.id, label: s.label, hint: configHint(s, current.includes(s.id)) }))])),
       initialValues: current.filter((id) => SURFACES.some((s) => s.id === id)),
       required: true,
       selectableGroups: false,

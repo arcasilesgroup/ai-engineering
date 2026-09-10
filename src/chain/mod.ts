@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { repoRoot, adoptSession } from "../env.ts";
 import { normalise, deduplicable, fingerprint } from "./payload.ts";
 import type { Payload } from "./payload.ts";
-import { deny, readOverrides, overrideActive } from "./dialect.ts";
+import { deny, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
 import { runSelfProtect } from "../guards/self-protect.ts";
 import { runInjection } from "../guards/injection.ts";
@@ -47,6 +47,9 @@ const HOT_PATH_BUDGET_MS = 200;
 
 export type ChainOptions = {
   surface?: string;
+  /** The host's denial vocabulary (§10.1). Absent = claude, the surface that has
+   *  run since second zero. */
+  dialect?: Dialect;
   /** In-process mode returns outcomes instead of exiting (OMP/OpenCode plugins). */
   inProcess?: boolean;
   stateDir?: string;
@@ -101,7 +104,15 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   if (rawPayload === null || Array.isArray(rawPayload) || typeof rawPayload !== "object") {
     return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started);
   }
-  const payload = normalise(rawPayload);
+  // The payload boundary is fail-closed like every guard: an object that throws while
+  // being read (an in-process host can hand us one) must deny, never escape as an
+  // uncaught exception — a crashing hook is a hook that lets the call through.
+  let payload: Payload;
+  try {
+    payload = normalise(rawPayload, options.surface);
+  } catch {
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started);
+  }
   adoptSession(payload.session_id);
   payload._event = event;
   const tool = payload.tool_name;
@@ -206,7 +217,7 @@ function denyOutcome(
   }
   const outcome: ChainOutcome = { action: "deny", by, reason, guards: ran, receiptId: receipt?.operation_id ?? null };
   if (options.inProcess) return outcome;
-  deny(by, reason);
+  deny(by, reason, options.dialect ?? "claude", event);
 }
 
 function rewriteOutcome(
@@ -227,8 +238,7 @@ function rewriteOutcome(
   });
   const outcome: ChainOutcome = { action: "rewrite", command, guards: ran, receiptId: receipt?.operation_id ?? null };
   if (options.inProcess) return outcome;
-  process.stdout.write(`${JSON.stringify({ permission: "allow", updatedInput: { command } })}\n`);
-  process.exit(0);
+  allowRewrite(command, options.dialect ?? "claude", event);
 }
 
 /** stdio entry used by `ai-eng chain <event>`: stdin payload → verdict on stdout. */
@@ -239,7 +249,7 @@ export function chainMain(event: string, raw: string, options: ChainOptions = {}
     body = JSON.parse(raw) as Record<string, unknown>;
     if (body === null || Array.isArray(body) || typeof body !== "object") throw new Error("not an object");
   } catch {
-    deny("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.");
+    deny("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", options.dialect ?? "claude", event);
   }
   runChain(body, event, options);
   process.exit(0);

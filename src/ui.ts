@@ -122,9 +122,9 @@ export function scriptedInput(): NodeJS.ReadStream | PassThrough {
   script.isTTY = true;
   script.setRawMode = () => script;
   // Every clack prompt adds a keypress listener; a long question chain (update
-  // with conflicts, init with boosters) crosses the default cap of 10 and Node
-  // prints a MaxListeners leak warning inside the frame. The queue drains one
-  // key per tick — the listeners are real, bounded, and finished with.
+  // with conflicts) crosses the default cap of 10 and Node prints a
+  // MaxListeners leak warning inside the frame. The queue drains one key per
+  // tick — the listeners are real, bounded, and finished with.
   script.setMaxListeners(0);
   const queue: Array<{ sequence: string; name: string }> = [];
   const map: Record<string, { name: string; sequence: string }> = {

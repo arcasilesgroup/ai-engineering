@@ -8,11 +8,17 @@
 // repair; health must be proven, not guessed from one marker file. Third check:
 // mirrors on a clean machine must receive the links (P0-1: init mkdir'd the mirror
 // PARENT, never the mirror dir, so every symlinkSync failed into the silent catch).
+// Fourth check (2026-09-10): that marker file also carried the REGISTRY version from
+// the notice cache, and nothing measured the canon — "intact · nothing to install"
+// printed over 34 deleted files. Health is now canonDrift(), a byte comparison init
+// and doctor share. Fifth (2026-09-10): the picker offered seven surfaces while only
+// three had a generator — a declaration in config.toml with nothing to enforce it.
 import { test, expect, beforeAll, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, lstatSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { surfaceOptions } from "../../src/commands/init-shared.ts";
 
 const cli = join(import.meta.dir, "..", "..", "src", "cli.ts");
 let sandbox: string;
@@ -64,6 +70,28 @@ test("an intact-looking canon without version.json is repaired, not skipped", ()
   expect(doc.version).not.toBe("unknown");
 });
 
+test("a canon missing payload files is repaired, not called intact", () => {
+  // The 2026-09-10 symptom: init printed "global canon intact · nothing to
+  // install" over a canon with 34 files deleted — it probed one marker file
+  // instead of measuring. Health is now a byte comparison against the payload.
+  rmSync(join(engHome, "skills", "ai-goal"), { recursive: true, force: true });
+  const run = eng(["init", "--yes"]);
+  expect(run.stdout + run.stderr).toInclude("re-installing");
+  expect(existsSync(join(engHome, "skills", "ai-goal", "SKILL.md"))).toBe(true);
+  expect(run.status).toBe(0);
+});
+
+test("the intact line never reports a version the canon does not have", () => {
+  // version.json doubles as the notice cache, so it can hold the REGISTRY
+  // version. init used to print it as the installed canon's ("ai-eng 3.1.4"
+  // over a 2.0.0 canon, 2026-09-10) and the lie also hid drift.
+  writeFileSync(join(engHome, "version.json"), JSON.stringify({ version: "9.9.9", ts: Date.now() }));
+  const run = eng(["init", "--yes"]);
+  const out = run.stdout + run.stderr;
+  expect(out).toInclude("global canon intact");
+  expect(out).not.toInclude("9.9.9");
+});
+
 test("update in the recovery state tells the truth: no 'unknown', no garden jargon", () => {
   // Re-enter the state the deadlock created: config.toml, no lock, nothing on disk.
   rmSync(join(repo, ".ai-engineering", "ai-eng.lock"), { force: true });
@@ -85,6 +113,47 @@ test("a clean machine gets real skill mirrors, not zero-count ghosts", () => {
   const link = join(engHome, ".claude", "skills", "ai-debug");
   expect(existsSync(link)).toBe(true);
   expect(lstatSync(link).isSymbolicLink()).toBe(true);
+});
+
+test("a surface that cannot deny tools is refused, never declared in config.toml", () => {
+  // Zed ships skills and no hot-path hook; declaring it would be a governance claim
+  // with nothing to enforce it (§13, measured 2026-09-10). Pi is NOT in this club —
+  // its tool_call event can block, so it has an adapter.
+  const fresh = join(sandbox, "no-adapter-repo");
+  mkdirSync(fresh, { recursive: true });
+  spawnSync("git", ["init", "-q"], { cwd: fresh });
+  const r = spawnSync(process.execPath, [cli, "init", "--yes", "--surface", "zed"], {
+    cwd: fresh,
+    encoding: "utf8",
+    env: { ...process.env, AI_ENG_HOME: engHome, NO_COLOR: "1", CI: "1", AI_ENG_NO_UPDATE_NOTICES: "1" },
+    input: "",
+  });
+  expect((r.stdout ?? "") + (r.stderr ?? "")).toInclude("cannot deny tools");
+  expect(r.status).toBe(2);
+  expect(existsSync(join(fresh, ".ai-engineering", "config.toml"))).toBe(false);
+});
+
+test("init offers only the surfaces that generate files", () => {
+  const offered = surfaceOptions().flatMap((group) => group.items.map((s) => s.id));
+  expect(offered).toEqual(["claude-code", "oh-my-pi", "opencode", "pi", "cursor", "codex", "copilot"]);
+});
+
+test("config --add in a bare repo says 'run ai-eng init first', not ENOENT", () => {
+  // Measured 2026-09-10: repoRoot() answered yes for a repo with only .git, and
+  // writeFileSync died on the missing .ai-engineering/ with a raw ENOENT.
+  const bare = join(sandbox, "bare-repo");
+  mkdirSync(bare, { recursive: true });
+  spawnSync("git", ["init", "-q"], { cwd: bare });
+  const r = spawnSync(process.execPath, [cli, "config", "--add", "oh-my-pi"], {
+    cwd: bare,
+    encoding: "utf8",
+    env: { ...process.env, AI_ENG_HOME: engHome, NO_COLOR: "1", CI: "1", AI_ENG_NO_UPDATE_NOTICES: "1" },
+    input: "",
+  });
+  const out = (r.stdout ?? "") + (r.stderr ?? "");
+  expect(out).toInclude("run ai-eng init first");
+  expect(out).not.toInclude("ENOENT");
+  expect(r.status).toBe(2);
 });
 
 // The protocol seam: update.ts hands install() a `sha256:<hex>` sentinel as

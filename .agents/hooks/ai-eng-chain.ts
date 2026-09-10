@@ -1,96 +1,12 @@
 // @bun
-// src/env.ts
-import { homedir, tmpdir } from "os";
-import { join, resolve, sep } from "path";
-import { existsSync, readFileSync, mkdirSync } from "fs";
-
-// src/toml.ts
-function parseToml(text) {
-  const out = {};
-  let current = out;
-  for (const raw of text.split(`
-`)) {
-    const line = stripComment(raw).trim();
-    if (!line || line.startsWith("#"))
-      continue;
-    const arrayTable = /^\[\[\s*([A-Za-z0-9_.-]+)\s*\]\]$/.exec(line);
-    if (arrayTable) {
-      const path = arrayTable[1].split(".");
-      current = enterArrayTable(out, path);
-      continue;
-    }
-    const table = /^\[\s*([A-Za-z0-9_.-]+)\s*\]$/.exec(line);
-    if (table) {
-      const path = table[1].split(".");
-      current = enterTable(out, path);
-      continue;
-    }
-    const kv = /^(?:"([^"]+)"|([A-Za-z0-9_-]+))\s*=\s*(.+)$/.exec(line);
-    if (!kv)
-      throw new Error(`unparseable TOML line: ${raw.trim()}`);
-    current[kv[1] ?? kv[2]] = parseValue(kv[3].trim());
-  }
-  return out;
-}
-function stripComment(line) {
-  let quote = null;
-  for (let i = 0;i < line.length; i++) {
-    const ch = line[i];
-    if (quote) {
-      if (ch === quote)
-        quote = null;
-    } else if (ch === '"' || ch === "'") {
-      quote = ch;
-    } else if (ch === "#") {
-      return line.slice(0, i);
-    }
-  }
-  return line;
-}
-function parseValue(text) {
-  if (text.startsWith("[") && text.endsWith("]")) {
-    const inner = text.slice(1, -1).trim();
-    if (!inner)
-      return [];
-    return inner.split(",").map((item) => item.trim()).filter((item) => item.length > 0).map((item) => item.startsWith('"') && item.endsWith('"') || item.startsWith("'") && item.endsWith("'") ? item.slice(1, -1) : item);
-  }
-  if (text.startsWith('"') && text.endsWith('"') || text.startsWith("'") && text.endsWith("'"))
-    return text.slice(1, -1);
-  if (text === "true")
-    return true;
-  if (text === "false")
-    return false;
-  if (/^-?\d+$/.test(text))
-    return Number.parseInt(text, 10);
-  return text;
-}
-function enterTable(root, path) {
-  let node = root;
-  for (const key of path) {
-    const existing = node[key];
-    if (!existing || typeof existing !== "object" || Array.isArray(existing)) {
-      const fresh = {};
-      node[key] = fresh;
-      node = fresh;
-    } else {
-      node = existing;
-    }
-  }
-  return node;
-}
-function enterArrayTable(root, path) {
-  const parentPath = path.slice(0, -1);
-  const key = path[path.length - 1];
-  const parent = parentPath.length ? enterTable(root, parentPath) : root;
-  const existing = parent[key];
-  const list = Array.isArray(existing) && existing.every((item) => typeof item === "object" && !Array.isArray(item)) ? existing : [];
-  const fresh = {};
-  list.push(fresh);
-  parent[key] = list;
-  return fresh;
-}
+// src/chain/mod.ts
+import { readFileSync as readFileSync7, writeFileSync as writeFileSync3 } from "fs";
+import { join as join6 } from "path";
 
 // src/env.ts
+import { homedir } from "os";
+import { join, resolve } from "path";
+import { existsSync, readFileSync } from "fs";
 function home() {
   const override = process.env.AI_ENG_HOME;
   if (override)
@@ -136,7 +52,7 @@ function loadConfig() {
   if (!existsSync(path))
     return {};
   try {
-    return parseToml(readFileSync(path, "utf8"));
+    return Bun.TOML.parse(readFileSync(path, "utf8"));
   } catch {
     return {};
   }
@@ -170,22 +86,16 @@ var BUILT_IN_ALIASES = {
   workspaceRoot: "cwd",
   workspacePath: "cwd"
 };
-function adapterAliases(adapters) {
-  const aliases = { ...BUILT_IN_ALIASES };
-  for (const adapter of adapters) {
-    for (const [ours, sent] of Object.entries(adapter.fields)) {
-      if (sent && ours)
-        aliases[sent] = ours;
-    }
-  }
-  return aliases;
-}
-function normalise(raw, adapters = []) {
-  const aliases = adapterAliases(adapters);
-  const out = {};
-  for (const [key, value] of Object.entries(raw))
-    out[aliases[key] ?? key] = value;
+var TOOL_ALIASES_BY_SURFACE = {
+  cursor: { Shell: "Bash" },
+  pi: { bash: "Bash", powershell: "PowerShell", read: "Read", edit: "Edit", write: "Write", grep: "Grep" }
+};
+function normalise(raw, surface) {
+  const out = { ...raw };
   out.tool_name = out.tool_name ?? out.tool ?? "";
+  if (surface && typeof out.tool_name === "string") {
+    out.tool_name = TOOL_ALIASES_BY_SURFACE[surface]?.[out.tool_name] ?? out.tool_name;
+  }
   out.tool_input = out.tool_input ?? out.input ?? {};
   if (typeof out.tool_input !== "object" || out.tool_input === null)
     out.tool_input = {};
@@ -193,8 +103,8 @@ function normalise(raw, adapters = []) {
   const mapped = {};
   for (const [k, v] of Object.entries(input))
     mapped[BUILT_IN_ALIASES[k] ?? k] = v;
-  if (!mapped.file_path)
-    mapped.file_path = mapped.notebook_path ?? "";
+  if (!mapped.file_path && typeof mapped.notebook_path === "string")
+    mapped.file_path = mapped.notebook_path;
   out.tool_input = mapped;
   return out;
 }
@@ -230,7 +140,7 @@ function sha256Short(body) {
 }
 
 // src/chain/dialect.ts
-import { readFileSync as readFileSync2, writeFileSync } from "fs";
+import { readFileSync as readFileSync2 } from "fs";
 import { join as join2 } from "path";
 function writeJsonAndExit(decision, status) {
   try {
@@ -241,7 +151,7 @@ function writeJsonAndExit(decision, status) {
   }
   process.exit(status);
 }
-function deny(guard, message, dialect = "exit2") {
+function deny(guard, message, dialect = "claude", event = "PreToolUse") {
   const text = `[ai-eng] ${guard}: ${message}`;
   process.stderr.write(`${text}
 `);
@@ -249,20 +159,14 @@ function deny(guard, message, dialect = "exit2") {
     process.stderr.write(`[ai-eng] loop: a person \u2014 not you \u2014 can grant an exception: .ai-engineering/overrides.toml [[guard.off]] with reason + until.
 `);
   }
-  if (dialect === "claude-structured") {
-    writeJsonAndExit({
-      hookSpecificOutput: {
-        hookEventName: "PreToolUse",
-        permissionDecision: "deny",
-        permissionDecisionReason: text
-      }
-    }, 0);
+  if (dialect === "codex") {
+    writeJsonAndExit({ hookSpecificOutput: { hookEventName: event, permissionDecision: "deny", permissionDecisionReason: text } }, 0);
   }
-  if (dialect === "block-json") {
-    writeJsonAndExit({ decision: "block", reason: text }, 2);
+  if (dialect === "cursor") {
+    writeJsonAndExit({ permission: "deny", user_message: text, agent_message: text }, 0);
   }
-  if (dialect === "throw") {
-    throw new Error(text);
+  if (dialect === "copilot") {
+    writeJsonAndExit({ permissionDecision: "deny", permissionDecisionReason: text }, 0);
   }
   writeJsonAndExit({
     permission: "deny",
@@ -273,46 +177,26 @@ function deny(guard, message, dialect = "exit2") {
     stopReason: text
   }, 2);
 }
-
-class VerdictCache {
-  file;
-  constructor(stateDir, sessionId) {
-    this.file = join2(stateDir, "cache", "verdicts", `${sessionId}.json`);
+function allowRewrite(command, dialect = "claude", event = "PreToolUse") {
+  if (dialect === "codex") {
+    writeJsonAndExit({ hookSpecificOutput: { hookEventName: event, permissionDecision: "allow", updatedInput: { command } } }, 0);
   }
-  read(fp) {
-    try {
-      const book = JSON.parse(readFileSync2(this.file, "utf8"));
-      const entry = book[fp];
-      if (!entry || typeof entry.deny !== "boolean")
-        return null;
-      if (entry.deny && !(typeof entry.by === "string" && typeof entry.message === "string"))
-        return null;
-      return entry;
-    } catch {
-      return null;
-    }
+  if (dialect === "cursor") {
+    writeJsonAndExit({ permission: "allow", updated_input: { command } }, 0);
   }
-  remember(fp, verdict) {
-    try {
-      let book = {};
-      try {
-        book = JSON.parse(readFileSync2(this.file, "utf8"));
-      } catch {}
-      book[fp] = verdict;
-      const trimmed = {};
-      for (const key of Object.keys(book).slice(-500))
-        trimmed[key] = book[key];
-      writeFileSync(this.file, JSON.stringify(trimmed));
-    } catch {}
+  if (dialect === "copilot") {
+    writeJsonAndExit({ permissionDecision: "allow", modifiedArgs: { command } }, 0);
   }
+  writeJsonAndExit({ permission: "allow", updatedInput: { command } }, 0);
 }
 function readOverrides(repoRoot) {
   if (!repoRoot)
     return [];
   try {
     const path = join2(repoRoot, ".ai-engineering", "overrides.toml");
-    const doc = parseToml(readFileSync2(path, "utf8"));
-    const offs = doc["guard.off"];
+    const doc = Bun.TOML.parse(readFileSync2(path, "utf8"));
+    const guard = doc["guard"];
+    const offs = guard && typeof guard === "object" && !Array.isArray(guard) ? guard["off"] : undefined;
     if (!Array.isArray(offs))
       return [];
     const out = [];
@@ -330,15 +214,26 @@ function readOverrides(repoRoot) {
     return [];
   }
 }
+function overrideDaysLeft(entry, now = Date.now()) {
+  if (!entry.until || entry.until.length < 10)
+    return null;
+  const deadline = Date.parse(`${entry.until.slice(0, 10)}T23:59:59Z`);
+  if (!Number.isFinite(deadline))
+    return null;
+  const ms = deadline - now;
+  if (ms >= 86400000)
+    return Math.ceil(ms / 86400000);
+  if (ms >= 0)
+    return 0;
+  return -Math.ceil(-ms / 86400000);
+}
 function overrideActive(overrides, guard) {
   for (const entry of overrides) {
     if (entry.name !== guard)
       continue;
-    if (entry.until && entry.until.length >= 10) {
-      const deadline = Date.parse(`${entry.until.slice(0, 10)}T23:59:59Z`);
-      if (Number.isFinite(deadline) && deadline < Date.now())
-        continue;
-    }
+    const days = overrideDaysLeft(entry);
+    if (days !== null && days < 0)
+      continue;
     return entry;
   }
   return null;
@@ -486,8 +381,9 @@ function protectedPaths(repoRoot) {
   literals.push(join3(repoRoot, ".git", "hooks"));
   let specPinned = false;
   try {
-    const lock = parseToml(readFileSync3(join3(aiEng, "ai-eng.lock"), "utf8"));
-    specPinned = typeof lock["spec_sha256"] === "string" && lock["spec_sha256"].length >= 64;
+    const lock = Bun.TOML.parse(readFileSync3(join3(aiEng, "ai-eng.lock"), "utf8"));
+    const pinned = lock["spec_sha256"];
+    specPinned = typeof pinned === "string" && pinned.length >= 64;
   } catch {
     specPinned = false;
   }
@@ -699,7 +595,7 @@ function runInjection(payload) {
 }
 
 // src/guards/loop.ts
-import { readFileSync as readFileSync5, writeFileSync as writeFileSync2, mkdirSync as mkdirSync2 } from "fs";
+import { readFileSync as readFileSync5, writeFileSync, mkdirSync } from "fs";
 import { join as join4 } from "path";
 var SIGNATURES_KEPT = 20;
 function stateFile() {
@@ -720,8 +616,8 @@ function loadState() {
 function saveState(state) {
   try {
     const file = stateFile();
-    mkdirSync2(join4(file, ".."), { recursive: true });
-    writeFileSync2(file, JSON.stringify(state));
+    mkdirSync(join4(file, ".."), { recursive: true });
+    writeFileSync(file, JSON.stringify(state));
   } catch {}
 }
 function failed(payload) {
@@ -797,7 +693,7 @@ function rewrite(command) {
 }
 
 // src/receipts.ts
-import { writeFileSync as writeFileSync3, readFileSync as readFileSync6, readdirSync, mkdirSync as mkdirSync3 } from "fs";
+import { writeFileSync as writeFileSync2, readFileSync as readFileSync6, readdirSync, mkdirSync as mkdirSync2 } from "fs";
 import { join as join5 } from "path";
 import { createHash as createHash2, randomUUID } from "crypto";
 function writeReceipt(receipt) {
@@ -811,9 +707,9 @@ function writeReceipt(receipt) {
     ...receipt
   };
   try {
-    mkdirSync3(dir, { recursive: true });
+    mkdirSync2(dir, { recursive: true });
     const stamp = full.ts.replace(/[:.]/g, "-");
-    writeFileSync3(join5(dir, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full));
+    writeFileSync2(join5(dir, `${stamp}-${full.event}-${full.operation_id}.json`), JSON.stringify(full));
     return full;
   } catch {
     return null;
@@ -838,29 +734,57 @@ var HOT_PATH_BUDGET_MS = 200;
 function selected(event, tool) {
   return (TABLE[event] ?? []).filter((row) => row.matcher.test(tool));
 }
+function cachedVerdict(file, fp) {
+  try {
+    const book = JSON.parse(readFileSync7(file, "utf8"));
+    const entry = book[fp];
+    if (!entry || typeof entry.deny !== "boolean")
+      return null;
+    if (entry.deny && !(typeof entry.by === "string" && typeof entry.message === "string"))
+      return null;
+    return entry;
+  } catch {
+    return null;
+  }
+}
+function rememberVerdict(file, fp, verdict) {
+  try {
+    let book = {};
+    try {
+      book = JSON.parse(readFileSync7(file, "utf8"));
+    } catch {}
+    book[fp] = verdict;
+    const trimmed = {};
+    for (const key of Object.keys(book).slice(-500))
+      trimmed[key] = book[key];
+    writeFileSync3(file, JSON.stringify(trimmed));
+  } catch {}
+}
 function runChain(rawPayload, event, options = {}) {
-  const started = (options.now ?? Date.now)();
+  const started = Date.now();
   const root = repoRoot();
   if (rawPayload === null || Array.isArray(rawPayload) || typeof rawPayload !== "object") {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, false);
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started);
   }
-  const payload = normalise(rawPayload, options.adapters ?? []);
+  let payload;
+  try {
+    payload = normalise(rawPayload, options.surface);
+  } catch {
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started);
+  }
   adoptSession(payload.session_id);
   payload._event = event;
-  payload._structured = options.dialect === "claude-structured" || Boolean(payload["transcript_path"]);
   const tool = payload.tool_name;
   const fp = fingerprint(payload);
-  payload._fp = fp;
-  payload._dedup = deduplicable(payload);
   const overrides = readOverrides(root);
   const ctx = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
-  const dedup = payload._dedup && event === "PreToolUse" && root !== null;
-  const cache = new VerdictCache(root ?? options.stateDir ?? ".", payload.session_id ?? "proc");
+  const dedup = deduplicable(payload) && event === "PreToolUse" && root !== null;
+  const cacheFile = join6(root ?? options.stateDir ?? ".", "cache", "verdicts", `${payload.session_id ?? "proc"}.json`);
   if (dedup) {
-    const verdict = cache.read(fp);
+    const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {
       if (verdict.deny) {
-        return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started, root, false);
+        return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started);
       }
       return { action: "allow", guards: [], receiptId: null };
     }
@@ -871,16 +795,16 @@ function runChain(rawPayload, event, options = {}) {
     const outcome = dispatchGuard(row.name, payload, ctx);
     if (outcome !== undefined && outcome.deny) {
       if (dedup)
-        cache.remember(fp, { deny: true, by: row.name, message: outcome.reason });
+        rememberVerdict(cacheFile, fp, { deny: true, by: row.name, message: outcome.reason });
       if (outcome.rewriteTo) {
         return rewriteOutcome(outcome.rewriteTo, ran, event, options, started);
       }
-      return denyOutcome(row.name, outcome.reason, ran, event, options, started, root, dedup);
+      return denyOutcome(row.name, outcome.reason, ran, event, options, started);
     }
   }
   if (dedup)
-    cache.remember(fp, { deny: false });
-  const latency = Math.max(1, (options.now ?? Date.now)() - started);
+    rememberVerdict(cacheFile, fp, { deny: false });
+  const latency = Math.max(1, Date.now() - started);
   const receipt = writeReceipt({
     event,
     surface: options.surface ?? "unknown",
@@ -893,35 +817,30 @@ function runChain(rawPayload, event, options = {}) {
 }
 function dispatchGuard(name, payload, ctx) {
   try {
-    switch (name) {
-      case "self-protect": {
-        const result = runSelfProtect(payload, ctx.repoRoot);
-        return result?.deny === true ? { deny: true, reason: result.reason } : undefined;
-      }
-      case "no-verify": {
-        const result = runNoVerify(payload, ctx.repoRoot);
-        return result?.deny === true ? { deny: true, reason: result.reason } : undefined;
-      }
-      case "injection": {
-        const result = runInjection(payload);
-        return result?.deny === true ? { deny: true, reason: result.reason } : undefined;
-      }
-      case "loop": {
-        const result = runLoopGuard(payload, ctx.loopOverride);
-        return result?.deny === true ? { deny: true, reason: result.reason } : undefined;
-      }
-      case "wrap": {
-        if (payload._event !== "PreToolUse")
-          return;
-        const command = payload.tool_input["command"];
-        if (typeof command !== "string")
-          return;
-        const decision = isTestCommand(command);
-        if (!decision.wrap)
-          return;
-        return { deny: true, reason: `wrap: ${decision.runner}`, rewriteTo: rewrite(command) };
-      }
+    if (name === "wrap") {
+      if (payload._event !== "PreToolUse")
+        return;
+      const command = payload.tool_input["command"];
+      if (typeof command !== "string")
+        return;
+      const decision = isTestCommand(command);
+      if (!decision.wrap)
+        return;
+      return { deny: true, reason: `wrap: ${decision.runner}`, rewriteTo: rewrite(command) };
     }
+    const result = (() => {
+      switch (name) {
+        case "self-protect":
+          return runSelfProtect(payload, ctx.repoRoot);
+        case "no-verify":
+          return runNoVerify(payload, ctx.repoRoot);
+        case "injection":
+          return runInjection(payload);
+        default:
+          return runLoopGuard(payload, ctx.loopOverride);
+      }
+    })();
+    return result?.deny === true ? { deny: true, reason: result.reason } : undefined;
   } catch {
     return {
       deny: true,
@@ -929,8 +848,8 @@ function dispatchGuard(name, payload, ctx) {
     };
   }
 }
-function denyOutcome(by, reason, ran, event, options, started, _root, _dedup) {
-  const latency = Math.max(1, (options.now ?? Date.now)() - started);
+function denyOutcome(by, reason, ran, event, options, started) {
+  const latency = Math.max(1, Date.now() - started);
   const receipt = writeReceipt({
     event,
     surface: options.surface ?? "unknown",
@@ -946,10 +865,10 @@ function denyOutcome(by, reason, ran, event, options, started, _root, _dedup) {
   const outcome = { action: "deny", by, reason, guards: ran, receiptId: receipt?.operation_id ?? null };
   if (options.inProcess)
     return outcome;
-  deny(by, reason, options.dialect ?? "exit2");
+  deny(by, reason, options.dialect ?? "claude", event);
 }
 function rewriteOutcome(command, ran, event, options, started) {
-  const latency = Math.max(1, (options.now ?? Date.now)() - started);
+  const latency = Math.max(1, Date.now() - started);
   const receipt = writeReceipt({
     event,
     surface: options.surface ?? "unknown",
@@ -961,23 +880,7 @@ function rewriteOutcome(command, ran, event, options, started) {
   const outcome = { action: "rewrite", command, guards: ran, receiptId: receipt?.operation_id ?? null };
   if (options.inProcess)
     return outcome;
-  const dialect = options.dialect ?? "exit2";
-  if (dialect === "claude-structured") {
-    process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow", updatedInput: { command } } })}
-`);
-    process.exit(0);
-  }
-  if (dialect === "block-json") {
-    process.stdout.write(`${JSON.stringify({ decision: "allow", updated_input: { command } })}
-`);
-    process.exit(0);
-  }
-  if (dialect === "throw") {
-    throw Object.assign(new Error(`[ai-eng] wrap: rewritten to ${command}`), { rewrite: command });
-  }
-  process.stdout.write(`${JSON.stringify({ permission: "allow", updatedInput: { command } })}
-`);
-  process.exit(0);
+  allowRewrite(command, options.dialect ?? "claude", event);
 }
 
 // scripts/chain-entry.ts

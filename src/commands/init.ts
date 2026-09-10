@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, symlinkSync, chmodSync } from "node:fs";
+import { existsSync, writeFileSync, symlinkSync, chmodSync } from "node:fs";
 import { spawnSync, execFileSync } from "node:child_process";
 // `ai-eng init` — one verb, two phases (§14.0a). Outside a repo: phase 1, the
 // machine (canon + mirrors). Inside a repo: both phases — first the canon (missing
@@ -10,15 +10,15 @@ import { spawnSync, execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { select, groupMultiselect, isCancel } from "@clack/prompts";
 import { scriptedInput } from "../ui.ts";
-import { SURFACES, SURFACE_TIERS, surfaceCanGovern, installCanon, type Surface } from "../surfaces/adapters.ts";
+import { SURFACES, surfaceCanGovern, installCanon, type Surface } from "../surfaces/adapters.ts";
 import { install, buildLock, lockText } from "../install.ts";
-import { home, versionFile } from "../env.ts";
-import { planEntries, contractEntries } from "./init-shared.ts";
+import { canonDrift } from "../embed.ts";
+import { home } from "../env.ts";
+import { planEntries, contractEntries, hasAdapter, surfaceOptions } from "./init-shared.ts";
 import { configMain } from "./config.ts";
 import { updateMain } from "./update.ts";
 import { VERSION } from "../version.ts";
 import * as ui from "../ui.ts";
-import { BOOSTER_GROUPS, printCommands } from "../boosters.ts";
 
 /** Surfaces already present in this project, detected by their on-disk markers:
  *  a .claude/ dir means Claude Code, .agents/ hooks mean OMP, .opencode/ means
@@ -95,20 +95,24 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   // line always prints: the user must see the machine is healthy before the
   // repo work starts (user feedback 2026-09-01 #7).
   const canonDir = join(home(), "skills");
-  // Health is proven, not guessed: the marker file AND the version.json that
-  // installCanon writes. Checking only ai-brainstorm/SKILL.md printed
-  // "intact · ai-eng unknown — nothing to install" on a canon installed by an
-  // older binary and refused to repair it (measured tests2 2026-09-03).
-  const canonHealthy =
-    existsSync(join(canonDir, "ai-brainstorm", "SKILL.md")) &&
-    existsSync(versionFile()) &&
-    canonVersion() !== "unknown";
+  // Health is proven, not guessed: every canon file byte-compared to this
+  // binary's payload — the same predicate doctor proves. Existence probes and
+  // version.json lied twice (measured 2026-09-10): "global canon intact ·
+  // nothing to install" over a canon with 34 skills deleted, and after an
+  // upgrade, because notice.ts caches the REGISTRY version in the very
+  // version.json that installCanon wrote the INSTALLED version into.
+  const canon = canonDrift(home());
+  const canonHealthy = canon.drift === 0 && canon.missing === 0;
   if (flags.global || !canonHealthy) {
     const reinstalling: boolean = existsSync(canonDir) && !canonHealthy;
-    const canonLines = installCanon(VERSION).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
-    ui.section(reinstalling ? "global canon looks incomplete — re-installing" : "global canon (the machine side)", canonLines, home());
+    const canonLines = installCanon(VERSION, { machineHooks: flags.global === true }).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
+    ui.section(
+      reinstalling ? "global canon outdated or incomplete — re-installing" : "global canon (the machine side)",
+      canonLines,
+      reinstalling ? `${canon.drift} drifted · ${canon.missing} missing` : home(),
+    );
   } else {
-    ui.section("global canon intact", [{ mark: "ok", text: `${home()} · ai-eng ${canonVersion()}`, dim: "nothing to install" }]);
+    ui.section("global canon intact", [{ mark: "ok", text: `${home()} · ai-eng ${VERSION}`, dim: "nothing to install" }]);
   }
   if (flags.global) {
     ui.end("Machine side done. Inside a repo, ai-eng init governs the project too.");
@@ -161,11 +165,11 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   } else {
     // Grouped by tier, not a flat wall of seven: the header carries the
     // capability class, the hint only the delta. Tab jumps between groups.
+    // Only surfaces with an adapter appear — the rest would be a config.toml
+    // claim with nothing to enforce it (§13, measured 2026-09-10).
     const answer = await groupMultiselect({
       message: "Which agent surfaces is this project governed on? (ticked = detected)",
-      options: Object.fromEntries(
-        SURFACE_TIERS.map(([tier, title]) => [title, SURFACES.filter((s) => s.tier === tier).map((s) => ({ value: s.id, label: s.label, hint: surfaceHint(s) }))]),
-      ),
+      options: Object.fromEntries(surfaceOptions().map((group) => [group.title, group.items.map((s) => ({ value: s.id, label: s.label, hint: surfaceHint(s) }))])),
       initialValues: detectedSurfaces(cwd),
       required: true,
       selectableGroups: false,
@@ -177,30 +181,18 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
     }
     picked = answer;
   }
-  // Boosters: offered, never installed (§14.1). ai-eng prints the exact command
-  // for what the user ticks; what asks no permission does not get installed.
-  if (flags.yes !== true) {
-    const boost = await groupMultiselect({
-      message: "Optional third-party harness boosters?",
-      options: Object.fromEntries(BOOSTER_GROUPS.map((group) => [group.title, group.items.map((b) => ({ value: b.id, label: b.label, hint: b.hint }))])),
-      required: false,
-      selectableGroups: false,
-      input: input as never,
-    });
-    if (isCancel(boost)) {
-      ui.cancelled();
-      return 0;
-    }
-    if (boost.length > 0) {
-      ui.info("Run these to install what you ticked (ai-eng never installs third-party):");
-      for (const command of printCommands(boost)) ui.info(`  ${command}`);
-    }
-  }
-  // Abort before promising what a surface cannot deliver (§13).
+  // Abort before promising what a surface cannot deliver (§13): one that cannot deny
+  // has nowhere for the guards to run, and one with no adapter would be declared in
+  // config.toml with nothing to enforce it.
   for (const id of picked) {
     const surface = SURFACES.find((s) => s.id === id);
-    if (surface && !surfaceCanGovern(surface)) {
+    if (!surface) continue;
+    if (!surfaceCanGovern(surface)) {
       ui.fail(`"${id}" cannot deny tools: the guards have nowhere to run. Use a core surface.`);
+      return 2;
+    }
+    if (!hasAdapter(id)) {
+      ui.fail(`"${id}" has no adapter in this release — nothing would enforce its guards.`);
       return 2;
     }
   }
@@ -239,14 +231,4 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   ui.section("Governance installed", [{ mark: "ok", text: `commit: ${commitLine}`, dim: "git revert is the rollback" }]);
   ui.end("Two steps I can't do for you: 1. Trust the workspace in your surface (without trust, hooks do not run) · 2. ai-eng doctor — verify the chain responds");
   return 0;
-}
-
-/** Canon version read for doctor/notice paths. home(), not HOME — the
- *  AI_ENG_HOME override must isolate this too, or the status line lies. */
-export function canonVersion(): string {
-  try {
-    return String(JSON.parse(readFileSync(versionFile(), "utf8")).version ?? "unknown");
-  } catch {
-    return "unknown";
-  }
 }

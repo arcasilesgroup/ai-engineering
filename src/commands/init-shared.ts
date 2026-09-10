@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type { PlanEntry } from "../install.ts";
 import { VERSION } from "../version.ts";
 import { embeddedTemplate, embeddedChainBundle } from "../embed.ts";
+import { SURFACES, SURFACE_TIERS, type Surface } from "../surfaces/adapters.ts";
 
 export function repoTemplateRoot(): string {
   // src/commands → repo root is three up.
@@ -38,25 +39,62 @@ export function gitHookEntries(): PlanEntry[] {
 }
 
 export function planEntries(surfaces: string[]): PlanEntry[] {
-  const entries: PlanEntry[] = [
+  return [
     { path: ".ai-engineering/overrides.toml", ours: embeddedTemplate("overrides.toml.tpl") },
     { path: ".ai-engineering/arch.rules.json", ours: embeddedTemplate("arch.rules.json.tpl") },
     { path: ".ai-engineering/config.toml", ours: render(embeddedTemplate("config.toml.tpl"), { surfaces: surfaces.map((s) => `"${s}"`).join(", ") }) },
     ...gitHookEntries(),
+    ...surfaces.flatMap(surfaceEntries),
   ];
-  if (surfaces.includes("claude-code")) {
-    entries.push({ path: ".claude/settings.json", ours: embeddedTemplate("settings.claude.json.tpl") });
-    entries.push({ path: ".github/workflows/ai-eng-check.yml", ours: embeddedTemplate("ci.yml.tpl") });
+}
+
+/** The files ONE surface generates. Empty for a surface with no adapter — and by
+ *  §13 a surface is declared in surfaces.json before init offers it. Only these
+ *  three carry a generator today: offering the rest wrote a config.toml claim no
+ *  guard satisfied (cursor/codex/copilot installed nothing, measured 2026-09-10). */
+function surfaceEntries(id: string): PlanEntry[] {
+  switch (id) {
+    case "claude-code":
+      return [
+        { path: ".claude/settings.json", ours: embeddedTemplate("settings.claude.json.tpl") },
+        { path: ".github/workflows/ai-eng-check.yml", ours: embeddedTemplate("ci.yml.tpl") },
+      ];
+    case "opencode":
+      return [
+        { path: ".opencode/plugins/ai-eng.ts", ours: embeddedTemplate("plugin.opencode.ts.tpl") },
+        { path: ".opencode/plugins/ai-eng-chain.ts", ours: embeddedChainBundle() },
+      ];
+    case "oh-my-pi":
+      return [
+        { path: ".agents/hooks/ai-eng.ts", ours: embeddedTemplate("plugin.omp.ts.tpl") },
+        { path: ".agents/hooks/ai-eng-chain.ts", ours: embeddedChainBundle() },
+      ];
+    case "codex":
+      return [{ path: ".codex/hooks.json", ours: embeddedTemplate("settings.codex.json.tpl") }];
+    case "cursor":
+      return [{ path: ".cursor/hooks.json", ours: embeddedTemplate("settings.cursor.json.tpl") }];
+    case "copilot":
+      return [{ path: ".github/hooks/ai-eng.json", ours: embeddedTemplate("settings.copilot.json.tpl") }];
+    case "pi":
+      return [
+        { path: ".pi/extensions/ai-eng.ts", ours: embeddedTemplate("plugin.pi.ts.tpl") },
+        { path: ".pi/extensions/ai-eng-chain.ts", ours: embeddedChainBundle() },
+      ];
+    default:
+      return [];
   }
-  if (surfaces.includes("opencode")) {
-    entries.push({ path: ".opencode/plugins/ai-eng.ts", ours: embeddedTemplate("plugin.opencode.ts.tpl") });
-    entries.push({ path: ".opencode/plugins/ai-eng-chain.ts", ours: embeddedChainBundle() });
-  }
-  if (surfaces.includes("oh-my-pi")) {
-    entries.push({ path: ".agents/hooks/ai-eng.ts", ours: embeddedTemplate("plugin.omp.ts.tpl") });
-    entries.push({ path: ".agents/hooks/ai-eng-chain.ts", ours: embeddedChainBundle() });
-  }
-  return entries;
+}
+
+/** A surface earns a place in a picker only with an adapter behind it: the
+ *  declaration in surfaces.json is the plan, the generator is the proof. */
+export function hasAdapter(id: string): boolean {
+  return surfaceEntries(id).length > 0;
+}
+
+/** The picker's groups (init and config share them): tier header → the surfaces
+ *  that can actually be scaffolded, empty tiers dropped. */
+export function surfaceOptions(): Array<{ title: string; items: Surface[] }> {
+  return SURFACE_TIERS.map(([tier, title]) => ({ title, items: SURFACES.filter((s) => s.tier === tier && hasAdapter(s.id)) })).filter((group) => group.items.length > 0);
 }
 
 /** The contract files init writes ONCE (untouchable by update). */

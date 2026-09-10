@@ -103,19 +103,24 @@ import askills_ai_plan_SKILL_md from "../skills/ai-plan/SKILL.md" with { type: "
 import askills_ai_plan_commands_prototype_md from "../skills/ai-plan/commands/prototype.md" with { type: "file" };
 import askills_ai_plan_commands_to_bar_md from "../skills/ai-plan/commands/to-bar.md" with { type: "file" };
 import askills_ai_plan_commands_grill_md from "../skills/ai-plan/commands/grill.md" with { type: "file" };
+import atemplates_settings_copilot_json_tpl from "../templates/settings.copilot.json.tpl" with { type: "file" };
+import atemplates_settings_codex_json_tpl from "../templates/settings.codex.json.tpl" with { type: "file" };
 import atemplates_overrides_toml_tpl from "../templates/overrides.toml.tpl" with { type: "file" };
 import atemplates_plan_html_tpl from "../templates/plan.html.tpl" with { type: "file" };
 import atemplates_config_toml_tpl from "../templates/config.toml.tpl" with { type: "file" };
 import atemplates_git_pre_push_tpl from "../templates/git-pre-push.tpl" with { type: "file" };
 import atemplates_plugin_opencode_ts_tpl from "../templates/plugin.opencode.ts.tpl" with { type: "file" };
+import atemplates_settings_copilot_cli_json_tpl from "../templates/settings.copilot.cli.json.tpl" with { type: "file" };
 import atemplates_AGENTS_md_tpl from "../templates/AGENTS.md.tpl" with { type: "file" };
 import atemplates_git_commit_msg_tpl from "../templates/git-commit-msg.tpl" with { type: "file" };
 import atemplates_git_pre_commit_tpl from "../templates/git-pre-commit.tpl" with { type: "file" };
 import atemplates_spec_html_tpl from "../templates/spec.html.tpl" with { type: "file" };
 import atemplates_plugin_omp_ts_tpl from "../templates/plugin.omp.ts.tpl" with { type: "file" };
+import atemplates_plugin_pi_ts_tpl from "../templates/plugin.pi.ts.tpl" with { type: "file" };
 import atemplates_settings_claude_json_tpl from "../templates/settings.claude.json.tpl" with { type: "file" };
 import atemplates_ci_yml_tpl from "../templates/ci.yml.tpl" with { type: "file" };
 import atemplates_DECISIONS_md_tpl from "../templates/DECISIONS.md.tpl" with { type: "file" };
+import atemplates_settings_cursor_json_tpl from "../templates/settings.cursor.json.tpl" with { type: "file" };
 import atemplates_arch_rules_json_tpl from "../templates/arch.rules.json.tpl" with { type: "file" };
 
 export const EMBEDDED: Record<string, string> = {
@@ -221,18 +226,23 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-plan/commands/prototype.md": askills_ai_plan_commands_prototype_md as unknown as string,
   "../skills/ai-plan/commands/to-bar.md": askills_ai_plan_commands_to_bar_md as unknown as string,
   "../skills/ai-plan/commands/grill.md": askills_ai_plan_commands_grill_md as unknown as string,
+  "../templates/settings.copilot.json.tpl": atemplates_settings_copilot_json_tpl as unknown as string,
+  "../templates/settings.codex.json.tpl": atemplates_settings_codex_json_tpl as unknown as string,
   "../templates/overrides.toml.tpl": atemplates_overrides_toml_tpl as unknown as string,
   "../templates/plan.html.tpl": atemplates_plan_html_tpl as unknown as string,
   "../templates/config.toml.tpl": atemplates_config_toml_tpl as unknown as string,
   "../templates/git-pre-push.tpl": atemplates_git_pre_push_tpl as unknown as string,
   "../templates/plugin.opencode.ts.tpl": atemplates_plugin_opencode_ts_tpl as unknown as string,
+  "../templates/settings.copilot.cli.json.tpl": atemplates_settings_copilot_cli_json_tpl as unknown as string,
   "../templates/AGENTS.md.tpl": atemplates_AGENTS_md_tpl as unknown as string,
   "../templates/git-commit-msg.tpl": atemplates_git_commit_msg_tpl as unknown as string,
   "../templates/git-pre-commit.tpl": atemplates_git_pre_commit_tpl as unknown as string,
   "../templates/spec.html.tpl": atemplates_spec_html_tpl as unknown as string,
   "../templates/plugin.omp.ts.tpl": atemplates_plugin_omp_ts_tpl as unknown as string,
+  "../templates/plugin.pi.ts.tpl": atemplates_plugin_pi_ts_tpl as unknown as string,
   "../templates/settings.claude.json.tpl": atemplates_settings_claude_json_tpl as unknown as string,
   "../templates/ci.yml.tpl": atemplates_ci_yml_tpl as unknown as string,
   "../templates/DECISIONS.md.tpl": atemplates_DECISIONS_md_tpl as unknown as string,
+  "../templates/settings.cursor.json.tpl": atemplates_settings_cursor_json_tpl as unknown as string,
   "../templates/arch.rules.json.tpl": atemplates_arch_rules_json_tpl as unknown as string,
 };

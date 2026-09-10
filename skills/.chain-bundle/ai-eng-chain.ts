@@ -86,9 +86,16 @@ var BUILT_IN_ALIASES = {
   workspaceRoot: "cwd",
   workspacePath: "cwd"
 };
-function normalise(raw) {
+var TOOL_ALIASES_BY_SURFACE = {
+  cursor: { Shell: "Bash" },
+  pi: { bash: "Bash", powershell: "PowerShell", read: "Read", edit: "Edit", write: "Write", grep: "Grep" }
+};
+function normalise(raw, surface) {
   const out = { ...raw };
   out.tool_name = out.tool_name ?? out.tool ?? "";
+  if (surface && typeof out.tool_name === "string") {
+    out.tool_name = TOOL_ALIASES_BY_SURFACE[surface]?.[out.tool_name] ?? out.tool_name;
+  }
   out.tool_input = out.tool_input ?? out.input ?? {};
   if (typeof out.tool_input !== "object" || out.tool_input === null)
     out.tool_input = {};
@@ -96,8 +103,8 @@ function normalise(raw) {
   const mapped = {};
   for (const [k, v] of Object.entries(input))
     mapped[BUILT_IN_ALIASES[k] ?? k] = v;
-  if (!mapped.file_path)
-    mapped.file_path = mapped.notebook_path ?? "";
+  if (!mapped.file_path && typeof mapped.notebook_path === "string")
+    mapped.file_path = mapped.notebook_path;
   out.tool_input = mapped;
   return out;
 }
@@ -144,13 +151,22 @@ function writeJsonAndExit(decision, status) {
   }
   process.exit(status);
 }
-function deny(guard, message) {
+function deny(guard, message, dialect = "claude", event = "PreToolUse") {
   const text = `[ai-eng] ${guard}: ${message}`;
   process.stderr.write(`${text}
 `);
   if (guard === "loop") {
     process.stderr.write(`[ai-eng] loop: a person \u2014 not you \u2014 can grant an exception: .ai-engineering/overrides.toml [[guard.off]] with reason + until.
 `);
+  }
+  if (dialect === "codex") {
+    writeJsonAndExit({ hookSpecificOutput: { hookEventName: event, permissionDecision: "deny", permissionDecisionReason: text } }, 0);
+  }
+  if (dialect === "cursor") {
+    writeJsonAndExit({ permission: "deny", user_message: text, agent_message: text }, 0);
+  }
+  if (dialect === "copilot") {
+    writeJsonAndExit({ permissionDecision: "deny", permissionDecisionReason: text }, 0);
   }
   writeJsonAndExit({
     permission: "deny",
@@ -161,13 +177,26 @@ function deny(guard, message) {
     stopReason: text
   }, 2);
 }
+function allowRewrite(command, dialect = "claude", event = "PreToolUse") {
+  if (dialect === "codex") {
+    writeJsonAndExit({ hookSpecificOutput: { hookEventName: event, permissionDecision: "allow", updatedInput: { command } } }, 0);
+  }
+  if (dialect === "cursor") {
+    writeJsonAndExit({ permission: "allow", updated_input: { command } }, 0);
+  }
+  if (dialect === "copilot") {
+    writeJsonAndExit({ permissionDecision: "allow", modifiedArgs: { command } }, 0);
+  }
+  writeJsonAndExit({ permission: "allow", updatedInput: { command } }, 0);
+}
 function readOverrides(repoRoot) {
   if (!repoRoot)
     return [];
   try {
     const path = join2(repoRoot, ".ai-engineering", "overrides.toml");
     const doc = Bun.TOML.parse(readFileSync2(path, "utf8"));
-    const offs = doc["guard.off"];
+    const guard = doc["guard"];
+    const offs = guard && typeof guard === "object" && !Array.isArray(guard) ? guard["off"] : undefined;
     if (!Array.isArray(offs))
       return [];
     const out = [];
@@ -185,15 +214,26 @@ function readOverrides(repoRoot) {
     return [];
   }
 }
+function overrideDaysLeft(entry, now = Date.now()) {
+  if (!entry.until || entry.until.length < 10)
+    return null;
+  const deadline = Date.parse(`${entry.until.slice(0, 10)}T23:59:59Z`);
+  if (!Number.isFinite(deadline))
+    return null;
+  const ms = deadline - now;
+  if (ms >= 86400000)
+    return Math.ceil(ms / 86400000);
+  if (ms >= 0)
+    return 0;
+  return -Math.ceil(-ms / 86400000);
+}
 function overrideActive(overrides, guard) {
   for (const entry of overrides) {
     if (entry.name !== guard)
       continue;
-    if (entry.until && entry.until.length >= 10) {
-      const deadline = Date.parse(`${entry.until.slice(0, 10)}T23:59:59Z`);
-      if (Number.isFinite(deadline) && deadline < Date.now())
-        continue;
-    }
+    const days = overrideDaysLeft(entry);
+    if (days !== null && days < 0)
+      continue;
     return entry;
   }
   return null;
@@ -726,7 +766,12 @@ function runChain(rawPayload, event, options = {}) {
   if (rawPayload === null || Array.isArray(rawPayload) || typeof rawPayload !== "object") {
     return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started);
   }
-  const payload = normalise(rawPayload);
+  let payload;
+  try {
+    payload = normalise(rawPayload, options.surface);
+  } catch {
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started);
+  }
   adoptSession(payload.session_id);
   payload._event = event;
   const tool = payload.tool_name;
@@ -820,7 +865,7 @@ function denyOutcome(by, reason, ran, event, options, started) {
   const outcome = { action: "deny", by, reason, guards: ran, receiptId: receipt?.operation_id ?? null };
   if (options.inProcess)
     return outcome;
-  deny(by, reason);
+  deny(by, reason, options.dialect ?? "claude", event);
 }
 function rewriteOutcome(command, ran, event, options, started) {
   const latency = Math.max(1, Date.now() - started);
@@ -835,9 +880,7 @@ function rewriteOutcome(command, ran, event, options, started) {
   const outcome = { action: "rewrite", command, guards: ran, receiptId: receipt?.operation_id ?? null };
   if (options.inProcess)
     return outcome;
-  process.stdout.write(`${JSON.stringify({ permission: "allow", updatedInput: { command } })}
-`);
-  process.exit(0);
+  allowRewrite(command, options.dialect ?? "claude", event);
 }
 
 // scripts/chain-entry.ts

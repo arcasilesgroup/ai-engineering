@@ -1,7 +1,7 @@
 // `ai-eng doctor` — 12 checks + one real test. The difference with theater: it
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
-import { canonSkills } from "../embed.ts";
+import { canonDrift, embeddedChainBundle } from "../embed.ts";
 import { existsSync, readFileSync, readdirSync, lstatSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -11,8 +11,7 @@ import { parseLock } from "../install.ts";
 import { SURFACES } from "../surfaces/adapters.ts";
 import { VERSION } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
-import { readOverrides, overrideActive } from "../chain/dialect.ts";
-import { hashFile } from "../skills-lint.ts";
+import { readOverrides, overrideDaysLeft } from "../chain/dialect.ts";
 import * as ui from "../ui.ts";
 
 export type CheckResult = { readonly name: string; readonly status: "ok" | "warn" | "fail"; readonly detail: string };
@@ -82,24 +81,12 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   //    settings, config) — the old filter-by-skills/ check counted 0 forever.
   //    Same predicate as materializeSkills: the dot-entries (chain bundle) are
   //    payload, not canon, so they are neither verified nor counted.
-  const canon = canonSkills();
-  let verified = 0;
-  let drift = 0;
-  let missing = 0;
-  for (const [path, ref] of canon) {
-    const absolute = join(home(), path);
-    if (!existsSync(absolute)) {
-      missing += 1;
-      continue;
-    }
-    const { pathname } = new URL(ref, import.meta.url);
-    if (existsSync(pathname) && hashFile(absolute) === hashFile(pathname)) verified += 1;
-    else drift += 1;
-  }
+  const canon = canonDrift(home());
+  const canonTotal = canon.verified + canon.drift + canon.missing;
   push(
     "canon",
-    drift === 0 && missing === 0 ? "ok" : "warn",
-    `${verified}/${canon.size} files verified · ${drift} drift · ${missing} missing`,
+    canon.drift === 0 && canon.missing === 0 ? "ok" : "warn",
+    `${canon.verified}/${canonTotal} files verified · ${canon.drift} drift · ${canon.missing} missing`,
   );
   // 4b. Assets outdated: the installed lock records which binary version installed
   //    it. Binary newer than lock → the repo runs stale hooks (§14.2: distinct
@@ -141,10 +128,27 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   // 7. receipts aggregate vs budget.
   const summary = summarizeReceipts();
   push("receipts", summary.p95 <= CEILING_MS ? "ok" : "warn", `${summary.total} runs · ${summary.denies} denies · p50 ${summary.p50}ms · p95 ${summary.p95}ms (ceiling ${CEILING_MS})`);
-  // 8. overrides active → permanent WARN until they expire.
+  // 8. overrides: active → permanent WARN until they expire (§12.1); expired → the
+  //    guard is live again but the entry is still dead config, so it is named with
+  //    the fix. §14.2 shows the days left; §14.5b wants the action, not just the fact.
   const overrides = readOverrides(root);
-  const active = overrides.filter((o) => overrideActive(overrides, o.name) !== null);
-  push("overrides", active.length === 0 ? "ok" : "warn", active.length === 0 ? "none active" : `${active.length} active: ${active.map((o) => `${o.name} — ${o.reason.slice(0, 40)}`).join(" · ")}`);
+  const now = Date.now();
+  const described = overrides.map((entry) => {
+    const days = overrideDaysLeft(entry, now);
+    const label = days === null ? "no expiry — add an until" : days === 0 ? "expires today" : `expires in ${days}d`;
+    return { entry, days, label };
+  });
+  const rows = described
+    .filter((d) => d.days === null || d.days >= 0)
+    .map((d) => `${d.entry.name} — ${d.entry.reason.slice(0, 40)} (${d.label})`);
+  const stale = described
+    .filter((d) => d.days !== null && d.days < 0)
+    .map((d) => `${d.entry.name} — expired ${String(d.entry.until).slice(0, 10)} → remove it from .ai-engineering/overrides.toml`);
+  push(
+    "overrides",
+    described.length === 0 ? "ok" : "warn",
+    described.length === 0 ? "none active" : [...rows, ...stale].join(" · "),
+  );
   // 9. arch bootstrap vs active.
   const archPath = root ? join(root, ".ai-engineering", "arch.rules.json") : null;
   const hasSrc = root ? existsSync(join(root, "src")) : false;
@@ -158,14 +162,38 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   } else {
     push("spec slot", "ok", "clean slot: 0 zombie contracts");
   }
-  // 11. surfaces responding: settings present for declared surfaces.
+  // 11. surfaces responding: settings present for declared surfaces — and, where the
+  //     surface runs the guard in-process, the planted chain is the one THIS binary
+  //     ships. Existence is not the question: a half-written or hand-patched bundle
+  //     passes every probe and denies nothing. §14.3 asks the human the patch
+  //     question; bytes answer it, so an edited bundle is a WARN with the action,
+  //     never a silent pass (measured 2026-09-10: doctor read a stale guard as green).
   if (Array.isArray(surfaces)) {
+    const shipped = embeddedChainBundle();
     for (const id of surfaces) {
       const surface = SURFACES.find((s) => s.id === id);
       if (!surface) continue;
       const path = surface.settingsFile ?? surface.pluginFile ?? "";
       const present = root !== null && path.length > 0 && existsSync(join(root, path));
-      push(`surface ${id}`, present ? "ok" : id === "claude-code" ? "fail" : "warn", present ? `${path} present` : `${path} missing`);
+      const chainRel = surface.chainFile ?? "";
+      const chainAbs = root !== null && chainRel.length > 0 ? join(root, chainRel) : null;
+      let chainDiffers = false;
+      if (chainAbs !== null && existsSync(chainAbs)) {
+        try {
+          chainDiffers = readFileSync(chainAbs, "utf8") !== shipped;
+        } catch {
+          chainDiffers = true; // unreadable is not the same as matching
+        }
+      }
+      let status: CheckResult["status"] = "ok";
+      if (!present) status = id === "claude-code" ? "fail" : "warn";
+      else if (chainDiffers) status = "warn";
+      const detail = !present
+        ? `${path} missing`
+        : chainDiffers
+          ? `${path} present · ${chainRel} is NOT the chain this binary ships → ai-eng update (if you patched it yourself, update offers the diff — it never overwrites in silence)`
+          : `${path} present${chainRel.length > 0 ? ` · in-process chain matches the binary` : ""}`;
+      push(`surface ${id}`, status, detail);
     }
   }
   // 12. behaviors lint (§21.5) — same frontmatter rules as skills.

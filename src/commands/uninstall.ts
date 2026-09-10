@@ -10,7 +10,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync, rmSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
-import { SURFACES } from "../surfaces/adapters.ts";
+import { SURFACES, removeMachineArtifacts } from "../surfaces/adapters.ts";
 import { repoRoot, home, enabledSurfaces } from "../env.ts";
 import { parseLock, sha256 } from "../install.ts";
 import { hashFile } from "../skills-lint.ts";
@@ -174,10 +174,10 @@ export async function uninstallMain(): Promise<number> {
     removed.push({ mark: "muted", text: `${Object.keys(assets).length} owned files swept` });
   }
   // Dirs ai-eng created are pruned only when the sweep left them empty.
-  for (const dir of [".ai-engineering", ".claude", ".cursor", ".codex", ".copilot", ".opencode/plugins", ".agents/hooks", ".github/workflows"]) {
+  for (const dir of [".ai-engineering", ".claude", ".cursor", ".codex", ".copilot", ".opencode/plugins", ".agents/hooks", ".pi/extensions", ".github/workflows"]) {
     if (pruneIfEmpty(join(root, dir))) removed.push({ mark: "muted", text: `${dir}/ removed (empty)` });
   }
-  for (const dir of [".opencode", ".agents", ".github"]) {
+  for (const dir of [".opencode", ".agents", ".pi", ".github"]) {
     if (pruneIfEmpty(join(root, dir))) removed.push({ mark: "muted", text: `${dir}/ removed (empty)` });
   }
   // Rendered as one block: what went, at a glance.
@@ -201,8 +201,11 @@ export async function uninstallMain(): Promise<number> {
     const machineDir = home();
     const confirmedMachine = await ui.confirmDefault(`Delete the machine side ${machineDir} (global skills, mirrors)?`, false, input as never);
     if (confirmedMachine) {
+      // Mirrors, command shims and the machine hook live OUTSIDE ~/.ai-engineering:
+      // sweep ours before the canon they point at disappears.
+      const swept = removeMachineArtifacts();
       rmSync(machineDir, { recursive: true, force: true });
-      extra.push({ mark: "warn", text: `${machineDir} deleted`, dim: "global skills and mirrors removed" });
+      extra.push({ mark: "warn", text: `${machineDir} deleted`, dim: `global skills and mirrors removed · ${swept} machine artifacts swept` });
     } else {
       extra.push({ mark: "ok", text: `kept: ${machineDir}`, dim: "global skills stay installed" });
     }

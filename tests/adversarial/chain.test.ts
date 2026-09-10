@@ -7,6 +7,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runChain } from "../../src/chain/mod.ts";
+import { readOverrides, overrideActive, overrideDaysLeft } from "../../src/chain/dialect.ts";
 
 let scratch: string;
 beforeAll(() => {
@@ -189,15 +190,20 @@ describe("adversarial · chain hard cases", () => {
     expect(r.action).toBe("deny");
   });
   test("crashing guard denies (fail-closed)", () => {
-    // tool_input with a getter that throws — a guard reading it must crash → deny.
+    // tool_input with a getter that throws — reading it must deny, not crash. The
+    // getter has to be ENUMERABLE: normalise copies own enumerable keys, and an
+    // invisible getter left the test passing on the loop guard's state instead of
+    // the crash it claims to exercise (measured 2026-09-10).
     const payload: Record<string, unknown> = { tool_name: "Bash", session_id: "adv-crash" };
     Object.defineProperty(payload, "tool_input", {
+      enumerable: true,
       get() {
         throw new Error("simulated crash");
       },
     });
     const r = RUN(payload);
     expect(r.action).toBe("deny");
+    if (r.action === "deny") expect(r.by).toBe("chain");
   });
   test("latency budget: chain answers under 50ms p95 across 20 calls", () => {
     const samples: number[] = [];
@@ -208,5 +214,56 @@ describe("adversarial · chain hard cases", () => {
     }
     samples.sort((a, b) => a - b);
     expect(samples[Math.floor(samples.length * 0.95)]!).toBeLessThan(50);
+  });
+});
+
+// §09.1: overrides.toml is the ONLY way a guard goes off, and §12.1 wants reason +
+// date on every entry. Two ways that promise rots: a date that already passed (the
+// guard is live again, but nothing said so) and no date at all (it never expires,
+// so the guard is off forever). Both are asserted here, not just described.
+describe("adversarial · override expiry", () => {
+  // The reproduction, and the reason this suite exists: `[[guard.off]]` nests in
+  // TOML (`{guard:{off:[…]}}`), and reading the literal key `"guard.off"` matched
+  // nothing — every file yielded [], so the ONLY guard-off switch in the product
+  // (§09.1) was dead while the docs, the template and the denial all pointed at it.
+  test("the documented [[guard.off]] file actually loads", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ai-eng-override-"));
+    mkdirSync(join(dir, ".ai-engineering"), { recursive: true });
+    writeFileSync(
+      join(dir, ".ai-engineering", "overrides.toml"),
+      '# the ONLY way a guard goes off (§09.1)\n[[guard.off]]\nname = "loop"\nreason = "batch migration"\nuntil = "2999-01-01"\n',
+    );
+    expect(readOverrides(dir)).toEqual([{ name: "loop", reason: "batch migration", until: "2999-01-01" }]);
+    expect(overrideActive(readOverrides(dir), "loop")).not.toBeNull();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  test("a file without a guard.off block yields nothing, and garbage never throws", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ai-eng-override-"));
+    mkdirSync(join(dir, ".ai-engineering"), { recursive: true });
+    const path = join(dir, ".ai-engineering", "overrides.toml");
+    writeFileSync(path, "# nothing switched off here\n");
+    expect(readOverrides(dir)).toEqual([]);
+    writeFileSync(path, "this is not = toml = at all\n");
+    expect(readOverrides(dir)).toEqual([]);
+    rmSync(dir, { recursive: true, force: true });
+  });
+  test("an expired override does not keep the loop guard off", () => {
+    expect(overrideActive([{ name: "loop", reason: "batch migration", until: "2000-01-01" }], "loop")).toBeNull();
+  });
+  test("a live override does", () => {
+    expect(overrideActive([{ name: "loop", reason: "batch migration", until: "2999-01-01" }], "loop")).not.toBeNull();
+  });
+  test("an override with no date never expires — the guard stays off", () => {
+    expect(overrideActive([{ name: "loop", reason: "no date" }], "loop")).not.toBeNull();
+  });
+  test("days left counts whole days, reads 0 today, flips sign past the deadline", () => {
+    const override = { name: "loop", reason: "x", until: "2026-09-13" }; // deadline 2026-09-13T23:59:59Z
+    expect(overrideDaysLeft(override, Date.parse("2026-09-10T00:00:00Z"))).toBe(4);
+    expect(overrideDaysLeft(override, Date.parse("2026-09-13T23:00:00Z"))).toBe(0);
+    expect(overrideDaysLeft(override, Date.parse("2026-09-14T00:30:00Z"))).toBe(-1);
+  });
+  test("a missing or unusable until reads as null — the finding doctor names", () => {
+    expect(overrideDaysLeft({ name: "loop", reason: "x" })).toBeNull();
+    expect(overrideDaysLeft({ name: "loop", reason: "x", until: "soon" })).toBeNull();
   });
 });
