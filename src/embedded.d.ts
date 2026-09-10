@@ -52,3 +52,9 @@ declare module "*.sh" {
   const content: string;
   export default content;
 }
+// Generated copies of fixture .ts/.tsx data (scripts/gen-assets.ts): an asset the
+// binary carries verbatim, with an extension tsc does not resolve as a module.
+declare module "*.txt" {
+  const content: string;
+  export default content;
+}

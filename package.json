@@ -8,7 +8,7 @@
   "bin": {
     "ai-eng": "src/cli.ts"
   },
-  "files": ["src", "skills", "templates", "git-hooks", "NOTICE.md", "THIRD-PARTY-NOTICES.md", "CHANGELOG.md"],
+  "files": ["src", "skills", "templates", "NOTICE.md", "THIRD-PARTY-NOTICES.md", "CHANGELOG.md"],
   "engines": {
     "bun": ">=1.4.0"
   },

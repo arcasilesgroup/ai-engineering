@@ -434,7 +434,7 @@ function runNoVerify(payload, repoRoot) {
 }
 
 // src/guards/self-protect.ts
-import { basename, dirname, isAbsolute as isAbsolute2, join as join3, resolve as resolve3 } from "path";
+import { basename, isAbsolute as isAbsolute2, join as join3, resolve as resolve3 } from "path";
 import { homedir as homedir2 } from "os";
 import { existsSync as existsSync3, readFileSync as readFileSync3, realpathSync } from "fs";
 var WRITERS = {
@@ -460,6 +460,7 @@ var WRITERS = {
 };
 var REDIRECT = /\d*>>?\s*("[^"]*"|'[^']*'|[^\s;|&]+)/g;
 var SEPARATORS = /[\n;|&]+/;
+var RELATIVE_PATH = /(^|[\s"'=<>|;&(])((?:\.\.?\/)?[\w.@+-]+(?:\/[\w.@+-]+)+)/g;
 function surfacesSettings(repoRoot) {
   const out = [];
   const candidates = [
@@ -479,9 +480,10 @@ function protectedPaths(repoRoot) {
   literals.push(".ai-engineering");
   const aiEng = join3(repoRoot, ".ai-engineering");
   literals.push(aiEng);
-  for (const name of ["config.toml", "overrides.toml", "ai-eng.lock", "arch.rules.json", "git"]) {
+  for (const name of ["config.toml", "overrides.toml", "ai-eng.lock", "arch.rules.json"]) {
     literals.push(join3(aiEng, name));
   }
+  literals.push(join3(repoRoot, ".git", "hooks"));
   let specPinned = false;
   try {
     const lock = parseToml(readFileSync3(join3(aiEng, "ai-eng.lock"), "utf8"));
@@ -601,7 +603,9 @@ function runSelfProtect(payload, repoRoot) {
     };
     const canon = (text) => {
       const expanded = text.replace(/(^|[\s"'=])~\//g, `$1${homedir2()}/`);
-      return expanded.replace(/(\/[\w.@+-]+)+/g, (m) => canonPath(m));
+      const absolute = expanded.replace(/(\/[\w.@+-]+)+/g, (m) => canonPath(m));
+      const base = repoRoot ?? process.cwd();
+      return absolute.replace(RELATIVE_PATH, (match, lead, token) => `${lead}${canonPath(join3(base, token))}`);
     };
     const canonicalPaths = {
       literals: paths.literals.map((p) => {

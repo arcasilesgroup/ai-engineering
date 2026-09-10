@@ -65,7 +65,7 @@ export function installCanon(version: string): string[] {
   const canonDir = join(home(), "skills");
   materializeSkills(canonDir);
   const { readdirSync } = require("node:fs") as typeof import("node:fs");
-  const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory());
+  const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("."));
   lines.push(`✓ ${home()}/skills/ — ${entries.length} ai-* skills installed`);
   writeFileSync(versionFile(), JSON.stringify({ version, ts: Date.now() }));
   lines.push("✓ ~/.ai-engineering/version.json — version + 24h cache");
@@ -81,6 +81,7 @@ function linkSkills(canonDir: string, mirrorDir: string): number {
   const { readdirSync } = require("node:fs") as typeof import("node:fs");
   let count = 0;
   for (const name of readdirSync(canonDir)) {
+    if (name.startsWith(".")) continue; // the canon's dot-entries are payload, not skills
     const linkPath = join(mirrorDir, name);
     try {
       const stats = require("node:fs").lstatSync(linkPath) as { isSymbolicLink(): boolean };

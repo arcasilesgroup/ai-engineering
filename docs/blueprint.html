@@ -400,7 +400,7 @@
   <span class="ed">├──</span> <span class="dim">receipt →</span> <span class="nd">.ai-engineering/receipts/*.json</span> <span class="dim">(¿corrió?, ¿cuánto tardó? — local, cero red)</span>
   <span class="ed">└──</span> <span class="dim">veredicto →</span> <span class="nd">la superficie</span> <span class="dim">(deny + reason / input reescrito / allow)</span>
   <span class="ed">▼</span>
-<span class="nd">PLANO 2 · GIT FLOOR</span>  <span class="dim">core.hooksPath → ai-eng git … · gitleaks + diff --check + trailer Receipt-Id</span>
+<span class="nd">PLANO 2 · GIT FLOOR</span>  <span class="dim">.git/hooks/ → ai-eng git … · gitleaks + diff --check + trailer Receipt-Id</span>
   <span class="dim">— independiente de toda superficie: corre aunque edites en Vim a pelo</span>
   <span class="ed">▼</span>
 <span class="nd">PLANO 3 · CI GATE</span>  <span class="dim">spec run (check no ejecutado = FAIL) · arch tests · semgrep/trivy · mutación de guards · 3 SO</span></div>
@@ -571,9 +571,9 @@
 │   ├── AGENTS.md.tpl · CLAUDE.md.tpl (una línea `@AGENTS.md`) · DECISIONS.md.tpl · spec.html.tpl · plan.html.tpl
 │   ├── config.toml.tpl · overrides.toml.tpl · arch.rules.json.tpl
 │   ├── settings.claude.json.tpl · plugin.opencode.ts.tpl · plugin.omp.ts.tpl
+│   ├── git-pre-commit.tpl · git-commit-msg.tpl · git-pre-push.tpl   <span class="c"># los 3 shims del suelo de git, marker-managed (§13.2)</span>
 │   └── ci.yml.tpl
 ├── LICENSE · NOTICE.md · THIRD-PARTY-NOTICES.md   <span class="c"># Apache-2.0 nuestro + atribución completa en NOTICE.md (§11.1 regla 3)</span>
-├── git-hooks/                           <span class="c"># pre-commit · commit-msg · pre-push — 3 shims de una línea: `exec ai-eng git …`</span>
 ├── tests/                               <span class="c"># por qué 4 capas y no una: cada una caza un fallo distinto y corre a un coste distinto (§17.1)</span>
 │   ├── unit/                            <span class="c"># qué: por módulo (dialect, payload, lock, toml…). por qué: es el único tier que puede correr en cada PR — &lt;45s</span>
 │   ├── adversarial/                     <span class="c"># qué: 21 payloads reales de v1 que intentan saltarse cada guard. por qué: es el ORACLE de paridad (H1) — prueba comportamiento, no línea</span>
@@ -658,8 +658,6 @@
 │   │                         <span class="c"># what it doesn't do: downloads nothing; es una afirmación, no un gestor de paquetes</span>
 │   ├── arch.rules.json       <span class="c"># why it exists: your real layers are knowledge the agent can't deduce from the import graph</span>
 │   │                         <span class="c"># who edits it: a human or an ai-architect PR — init lo planta como plantilla vacía</span>
-│   ├── git/                  <span class="c"># why per-project: `core.hooksPath` is config of THIS .git; no puede ser global</span>
-│   │                         <span class="c"># contenido: 3 shims de 3 líneas (pre-commit · commit-msg · pre-push) → `ai-eng git &lt;hook&gt;`</span>
 │   ├── receipts/             <span class="c"># why .gitignored: local execution evidence; committing it would commit noise</span>
 │   │                         <span class="c"># growth: TTL <code>receipts_ttl</code> → <code>doctor --gc</code> los agrega a summary.json y los borra (§21.3)</span>
 │   ├── research/             <span class="c"># ai-research: NNN-{name}.html — evidencia externa versionada, branding §22</span>
@@ -695,7 +693,7 @@
     </div>
     <div class="card">
       <h4>Qué es por proyecto y qué no — la lista cerrada</h4>
-      <p><strong>Global:</strong> canon de skills, binario, caché de versión. <strong>Por proyecto:</strong> git hooks (<code>core.hooksPath</code> es config de <code>.git</code>), reglas de semgrep (viven con el código que describen), <code>.claude/settings.json</code>, <code>config.toml</code> / <code>overrides.toml</code> / <code>ai-eng.lock</code> / <code>arch.rules.json</code>, y tus cuatro contratos: AGENTS.md, DECISIONS.md, spec.html, plan.html. Si algo no está en estas dos listas, no existe.</p>
+      <p><strong>Global:</strong> canon de skills, binario, caché de versión. <strong>Por proyecto:</strong> git hooks (viven en el <code>.git</code> de este repo, marker-managed), reglas de semgrep (viven con el código que describen), <code>.claude/settings.json</code>, <code>config.toml</code> / <code>overrides.toml</code> / <code>ai-eng.lock</code> / <code>arch.rules.json</code>, y tus cuatro contratos: AGENTS.md, DECISIONS.md, spec.html, plan.html. Si algo no está en estas dos listas, no existe.</p>
     </div>
   </div>
 </section>
@@ -805,7 +803,7 @@ verify  = <span class="s">"gpt-5.6-luna"</span>     <span class="c"># checks bin
     <tbody>
       <tr><td><code>chain</code></td><td>Dispatcher: tabla evento→guards, cache de veredicto por (session, tool_use_id), traducción a dialecto de superficie</td><td>todos</td><td>370</td></tr>
       <tr><td><code>no-verify</code></td><td>Hook-skip: <code>--no-verify</code>/<code>-n</code> en commit/push/merge/rebase/am, <code>HUSKY=0</code>, <code>rm .git/hooks</code>, tamper de <code>core.hooksPath</code> — <strong>y silenciar linters: <code>// noqa</code>, <code>@ts-ignore</code>, <code>eslint-disable</code>, <code># nosec</code>, <code>allow-list</code></strong> (silenciar un check es el mismo acto que saltarse un hook)</td><td>PreToolUse Bash + Edit|Write</td><td>80 → ~110</td></tr>
-      <tr><td><code>self-protect</code></td><td>Escrituras a archivos gobernantes: AGENTS/CLAUDE/DECISIONS, skills canon, hooks, y los gobernantes de <code>.ai-engineering/</code> (config, overrides, lock, git/, arch.rules) — <strong>más spec.html una vez aprobado</strong> (su sha256 está en el lock; reabrir el contrato cuesta un humano). Exentos: brainstorm.md, plan.html, recap.html — mesa de trabajo del agente</td><td>PreToolUse Edit|Write</td><td>145</td></tr>
+      <tr><td><code>self-protect</code></td><td>Escrituras a archivos gobernantes: AGENTS/CLAUDE/DECISIONS, skills canon, hooks, y los gobernantes de <code>.ai-engineering/</code> (config, overrides, lock, arch.rules) y los shims de <code>.git/hooks/</code> — <strong>más spec.html una vez aprobado</strong> (su sha256 está en el lock; reabrir el contrato cuesta un humano). Exentos: brainstorm.md, plan.html, recap.html — mesa de trabajo del agente</td><td>PreToolUse Edit|Write</td><td>145</td></tr>
       <tr><td><code>injection</code></td><td>Instruction-injection: catálogo IOC NFKD-folded, cap 400KB — niega el Read contaminado <em>antes</em> de leer; contiene WebFetch/MCP después</td><td>Pre/PostToolUse</td><td>96</td></tr>
       <tr><td><code>loop</code></td><td>≥3 repeticiones idénticas / ≥5 fallos en ventana de 6 → niega y sugiere excepción escrita en overrides.toml</td><td>PostToolUse</td><td>149</td></tr>
     </tbody>
@@ -1108,10 +1106,10 @@ license: Apache-2.0
     <span class="s">"PostToolUse"</span>: [ … ], <span class="s">"Stop"</span>: [ … ], <span class="s">"SessionStart"</span>: [ … ]   <span class="c">// 4 eventos, 1 entrada por evento</span>
 } }</pre>
 
-  <h3>13.2 · El suelo de git — <code>core.hooksPath → .ai-engineering/git/</code></h3>
-  <p>Independiente de toda superficie: lo que no puede saltarse ni el humano más apurado. Shims de tres líneas; la lógica vive en el binario (<code>src/git.ts</code>):</p>
+  <h3>13.2 · El suelo de git — <code>.git/hooks/</code>, marker-managed</h3>
+  <p>Independiente de toda superficie: lo que no puede saltarse ni el humano más apurado. Shims de tres líneas en su ubicación estándar; la lógica vive en el binario (<code>src/floor/</code>). <code>core.hooksPath</code> NO se redirige — secuestrarlo en silencio es la forma más rápida de que desinstalen tu producto:</p>
 <pre><span class="c">#!/bin/sh</span>
-<span class="c"># .ai-engineering/git/pre-commit</span>
+<span class="c"># .git/hooks/pre-commit — ai-eng git floor shim, marker-managed</span>
 <span class="b">exec ai-eng git pre-commit</span>   <span class="c"># → git diff --cached --check
 </span>                               <span class="c"># → gitleaks git --staged  (HARD FAIL si gitleaks no está instalado)
 </span>                               <span class="c"># → DECISIONS.md exigido si &gt;10 archivos o dependencia nueva
@@ -1261,7 +1259,7 @@ license: Apache-2.0
 <span class="s">│</span>  <span class="k">✓</span> .ai-engineering/{config,overrides,lock,arch.rules} <span class="c">— sin skills/: el canon es global (§08)</span>
 <span class="s">│</span>  <span class="k">✓</span> skills: canon global <span class="s">19</span> en ~/.ai-engineering/skills/ · <span class="c">symlink a .claude/skills/ + .agents/skills/</span>
 <span class="s">│</span>  <span class="k">✓</span> hooks → .claude/settings.json <span class="c">(chain, 4 eventos)</span>
-<span class="s">│</span>  <span class="k">✓</span> git floor → core.hooksPath = .ai-engineering/git/ · wrap de tests · workflow CI
+<span class="s">│</span>  <span class="k">✓</span> git floor → .git/hooks/{pre-commit,commit-msg,pre-push} (marker-managed) · wrap de tests · workflow CI
 <span class="s">│</span>
 <span class="s">└</span>  <span class="b">Two steps I can't do for you:</span>
    1. Claude Code: confía el workspace — sin trust, los hooks no corren
@@ -1276,7 +1274,7 @@ license: Apache-2.0
 <span class="s">│</span>  <span class="k">✓</span>  CLAUDE.md importa @AGENTS.md
 <span class="s">│</span>  <span class="k">✓</span>  .ai-engineering/config.toml parseable · superficies: claude-code, oh-my-pi
 <span class="s">│</span>  <span class="k">✓</span>  canon global 20/20 sha256 · <code>skills_min = "0.13.0"</code> cumplido · espejos symlink intactos
-<span class="s">│</span>  <span class="k">✓</span>  core.hooksPath · gitleaks 8.30 · oxlint en PATH
+<span class="s">│</span>  <span class="k">✓</span>  git floor · marker hooks en .git/hooks/ · gitleaks 8.30 · oxlint en PATH
 <span class="s">│</span>  <span class="k">✓</span>  <span class="b">chain test</span>: payload adversarial <span class="c">(git commit -n)</span> → DENY en 41ms
 <span class="s">│</span>  <span class="k">✓</span>  receipts: 1,204 ejecuciones · 7 denies · p50 38ms · <span class="b">p95 44ms</span> <span class="c">(techo 50)</span>
 <span class="s">│</span>  <span class="n">⚠</span>  research/: 27 archivos &gt; max_files=25 · 9 no citados &gt; 90d → <code>ai-eng doctor --gc</code> (§21.3)
@@ -1297,7 +1295,7 @@ license: Apache-2.0
 <span class="s">│</span>
 <span class="s">◆</span>  <span class="t">What needs to sync</span>
 <span class="s">│</span>  <span class="k">✓</span> .claude/settings.json        <span class="c">2 de 4 eventos cambian (matcher +PowerShell, timeout 60→5)</span>
-<span class="s">│</span>  <span class="k">✓</span> .ai-engineering/git/pre-commit       <span class="c">shim: ahora exige DECISIONS.md &gt;10 archivos</span>
+<span class="s">│</span>  <span class="k">✓</span> .git/hooks/pre-commit       <span class="c">shim: ahora exige DECISIONS.md &gt;10 archivos</span>
 <span class="s">│</span>  <span class="k">✓</span> .ai-engineering/skills/ai-verify     <span class="c">SKILL.md + references/lanes.md (6 lanes → 7)</span>
 <span class="s">│</span>  <span class="k">✓</span> espejos                      <span class="c">.claude/skills + .agents/skills se re-sincronizan</span>
 <span class="s">│</span>  <span class="k">✓</span> .github/workflows/ai-eng-check.yml   <span class="c">job nuevo: spec run</span>
@@ -1305,7 +1303,7 @@ license: Apache-2.0
 <span class="s">│</span>  <span class="c">untouchable (yours): AGENTS.md · DECISIONS.md · .ai-engineering/{spec,plan}.html · arch.rules.json</span>
 <span class="s">│</span>  <span class="c">untouchable (yours): overrides.toml · config.toml salvo claves nuevas → se añaden con default</span>
 <span class="s">│</span>
-<span class="s">│</span>  <span class="n">⚠</span>  hook patched by you: <span class="b">.ai-engineering/git/pre-commit</span>
+<span class="s">│</span>  <span class="n">⚠</span>  hook patched by you: <span class="b">.git/hooks/pre-commit</span>
 <span class="s">│</span>     <span class="c">diff de 3 vías — [tuyo: +pnpm install --frozen] · [nuevo: +DECISIONS.md] · ¿fusiono, dejo el tuyo, o muestro el diff?</span>
 <span class="s">│</span>
 <span class="s">◆</span>  <span class="t">Apply?</span>  <span class="k">●</span> Yes, and commit   <span class="k">○</span> Yes, without committing   <span class="k">○</span> No
@@ -1364,9 +1362,9 @@ license: Apache-2.0
 <span class="s">│</span>
 <span class="s">│</span>  <span class="t">This will remove ai-eng governance from this project:</span>
 <span class="s">│</span>
-<span class="s">│</span>  <span class="k">✓</span> core.hooksPath reverted to default (hooks removed from .ai-engineering/git/)
+<span class="s">│</span>  <span class="k">✓</span> git: core.hooksPath reverted to default
 <span class="s">│</span>  <span class="k">✓</span> .claude/settings.json — only ai-eng hook entries removed
-<span class="s">│</span>  <span class="k">✓</span> .ai-engineering/git/ shims deleted
+<span class="s">│</span>  <span class="k">✓</span> .git/hooks/{pre-commit,commit-msg,pre-push} removed · marker-matched — never by name alone
 <span class="s">│</span>  <span class="k">✓</span> ai-eng.lock deleted
 <span class="s">│</span>
 <span class="s">│</span>  <span class="b">Kept (yours):</span> AGENTS.md · DECISIONS.md · .ai-engineering/{spec,plan}.html · config.toml

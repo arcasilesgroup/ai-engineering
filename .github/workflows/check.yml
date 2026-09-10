@@ -34,7 +34,7 @@ jobs:
           echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks && sudo install gitleaks /usr/local/bin/
         env:
-          GITLEAKS_SHA256: 6a4e5d3e5c1a2b3c4d5e6f70819273645a4b3c2d1e0f9876543210fedcba9876
+          GITLEAKS_SHA256: 79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e
       - run: gitleaks detect --redact -v --no-banner
       - name: npm audit
         run: bun install --frozen-lockfile && (npm audit --omit=dev --audit-level=high || true)

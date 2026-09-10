@@ -7,6 +7,10 @@ import askills_ai_verify_evals_scripts_plant_py from "../skills/ai-verify/evals/
 import askills_ai_verify_evals_scripts_score_py from "../skills/ai-verify/evals/scripts/score.py" with { type: "file" };
 import askills_ai_verify_evals_bug_catalog_md from "../skills/ai-verify/evals/bug-catalog.md" with { type: "file" };
 import askills_ai_verify_evals_fixtures_node_web_package_json from "../skills/ai-verify/evals/fixtures/node-web/package.json" with { type: "file" };
+import askills_ai_verify_evals_fixtures_node_web_src_ui_OrderList_tsx from "../scripts/.embed/ai-verify/evals/fixtures/node-web/src/ui/OrderList.tsx.txt" with { type: "file" };
+import askills_ai_verify_evals_fixtures_node_web_src_auth_session_ts from "../scripts/.embed/ai-verify/evals/fixtures/node-web/src/auth/session.ts.txt" with { type: "file" };
+import askills_ai_verify_evals_fixtures_node_web_src_db_queries_ts from "../scripts/.embed/ai-verify/evals/fixtures/node-web/src/db/queries.ts.txt" with { type: "file" };
+import askills_ai_verify_evals_fixtures_node_web_src_api_orders_ts from "../scripts/.embed/ai-verify/evals/fixtures/node-web/src/api/orders.ts.txt" with { type: "file" };
 import askills_ai_verify_tiers_3_chain_build_check_SKILL_md from "../skills/ai-verify/tiers/3-chain/build-check/SKILL.md" with { type: "file" };
 import askills_ai_verify_tiers_3_chain_perf_audit_SKILL_md from "../skills/ai-verify/tiers/3-chain/perf-audit/SKILL.md" with { type: "file" };
 import askills_ai_verify_tiers_3_chain_design_check_SKILL_md from "../skills/ai-verify/tiers/3-chain/design-check/SKILL.md" with { type: "file" };
@@ -121,6 +125,10 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-verify/evals/scripts/score.py": askills_ai_verify_evals_scripts_score_py as unknown as string,
   "../skills/ai-verify/evals/bug-catalog.md": askills_ai_verify_evals_bug_catalog_md as unknown as string,
   "../skills/ai-verify/evals/fixtures/node-web/package.json": askills_ai_verify_evals_fixtures_node_web_package_json as unknown as string,
+  "../skills/ai-verify/evals/fixtures/node-web/src/ui/OrderList.tsx": askills_ai_verify_evals_fixtures_node_web_src_ui_OrderList_tsx as unknown as string,
+  "../skills/ai-verify/evals/fixtures/node-web/src/auth/session.ts": askills_ai_verify_evals_fixtures_node_web_src_auth_session_ts as unknown as string,
+  "../skills/ai-verify/evals/fixtures/node-web/src/db/queries.ts": askills_ai_verify_evals_fixtures_node_web_src_db_queries_ts as unknown as string,
+  "../skills/ai-verify/evals/fixtures/node-web/src/api/orders.ts": askills_ai_verify_evals_fixtures_node_web_src_api_orders_ts as unknown as string,
   "../skills/ai-verify/tiers/3-chain/build-check/SKILL.md": askills_ai_verify_tiers_3_chain_build_check_SKILL_md as unknown as string,
   "../skills/ai-verify/tiers/3-chain/perf-audit/SKILL.md": askills_ai_verify_tiers_3_chain_perf_audit_SKILL_md as unknown as string,
   "../skills/ai-verify/tiers/3-chain/design-check/SKILL.md": askills_ai_verify_tiers_3_chain_design_check_SKILL_md as unknown as string,

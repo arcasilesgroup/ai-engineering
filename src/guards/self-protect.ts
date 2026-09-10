@@ -3,7 +3,7 @@
 // with the v2 additions: .ai-engineering/ governed files, spec.html once its sha256
 // is pinned in the lock (reopening an approved contract costs a human), canon skills.
 
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { Payload } from "../chain/payload.ts";
@@ -20,6 +20,9 @@ const WRITERS: Record<string, true> = {
 
 const REDIRECT = /\d*>>?\s*("[^"]*"|'[^']*'|[^\s;|&]+)/g;
 const SEPARATORS = /[\n;|&]+/;
+/** A path-shaped token with at least one `/` and no leading `/` — the form the
+ *  absolute-path rewrite cannot see, and therefore the form that evaded it. */
+const RELATIVE_PATH = /(^|[\s"'=<>|;&(])((?:\.\.?\/)?[\w.@+-]+(?:\/[\w.@+-]+)+)/g;
 
 type GuardResult = { deny: true; reason: string } | { deny: false } | undefined;
 
@@ -54,9 +57,14 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   // The governed directory and its fixed governing children.
   const aiEng = join(repoRoot, ".ai-engineering");
   literals.push(aiEng);
-  for (const name of ["config.toml", "overrides.toml", "ai-eng.lock", "arch.rules.json", "git"]) {
+  for (const name of ["config.toml", "overrides.toml", "ai-eng.lock", "arch.rules.json"]) {
     literals.push(join(aiEng, name));
   }
+  // The git floor itself. The shims live in .git/hooks/ (marker-managed, §13.2),
+  // NOT under .ai-engineering/git/ — that layout is gone, and protecting the
+  // ghost while leaving the real shims writable let a session overwrite the hook
+  // with `exit 0` (measured 2026-09-10: Write/Edit/redirect all allowed).
+  literals.push(join(repoRoot, ".git", "hooks"));
   // spec.html is protected ONLY once approved: its sha256 sits in the lock (§9.3).
   let specPinned = false;
   try {
@@ -202,7 +210,13 @@ export function runSelfProtect(payload: Payload, repoRoot: string | null): Guard
     };
     const canon = (text: string): string => {
       const expanded = text.replace(/(^|[\s"'=])~\//g, `$1${homedir()}/`);
-      return expanded.replace(/(\/[\w.@+-]+)+/g, (m) => canonPath(m));
+      const absolute = expanded.replace(/(\/[\w.@+-]+)+/g, (m) => canonPath(m));
+      // A relative path escaped the substring test exactly as the tmpdir alias did:
+      // `> .git/hooks/pre-commit` never matched the absolute literal, so a session
+      // could disarm the floor with a redirect or a chmod (measured 2026-09-10).
+      // Resolve every relative path token against the repo root before judging.
+      const base = repoRoot ?? process.cwd();
+      return absolute.replace(RELATIVE_PATH, (match, lead: string, token: string) => `${lead}${canonPath(join(base, token))}`);
     };
     const canonicalPaths: ProtectedPaths = {
       literals: paths.literals.map((p) => {
@@ -230,10 +244,4 @@ export function runSelfProtect(payload: Payload, repoRoot: string | null): Guard
     }
   }
   return undefined;
-}
-
-
-/** Where the repo's own hooks would live if this install wired them (for tests). */
-export function floorDir(repoRoot: string): string {
-  return join(dirname(join(repoRoot, ".ai-engineering")), ".ai-engineering", "git");
 }

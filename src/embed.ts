@@ -16,6 +16,19 @@ export function embeddedUnder(prefix: string): Map<string, string> {
   return out;
 }
 
+/** The skills canon proper: dot-entries under skills/ hold the generated chain
+ *  bundle, payload for the plugin hosts and not a skill anyone loads. Materializing
+ *  them planted a 33 KB build artifact in every canon and every mirror, counted as
+ *  canon by doctor (measured 2026-09-10). One predicate, every consumer. */
+export function canonSkills(): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [path, ref] of embeddedUnder("skills/")) {
+    if (path.slice("skills/".length).startsWith(".")) continue;
+    out.set(path, ref);
+  }
+  return out;
+}
+
 /** Materialize all embedded skills into a target directory. The embedded refs are
  *  absolute paths at runtime — Bun rewrites the import to the asset's real location,
  *  and in a compiled binary it is the virtualized copy inside the executable. */
@@ -24,7 +37,7 @@ export function materializeSkills(destRoot: string): string[] {
   const executablePattern = /\.(mjs|sh)$/;
   mkdirSync(destRoot, { recursive: true });
   let count = 0;
-  for (const [path, ref] of embeddedUnder("skills/")) {
+  for (const [path, ref] of canonSkills()) {
     const dest = join(destRoot, path.slice("skills/".length));
     const { pathname } = new URL(ref, import.meta.url);
     if (!existsSync(pathname)) {

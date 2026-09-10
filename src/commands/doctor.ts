@@ -1,7 +1,7 @@
 // `ai-eng doctor` — 12 checks + one real test. The difference with theater: it
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
-import { embeddedUnder } from "../embed.ts";
+import { canonSkills } from "../embed.ts";
 import { existsSync, readFileSync, readdirSync, lstatSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -80,7 +80,9 @@ export async function runChecks(cwd = process.cwd()): Promise<{ results: CheckRe
   // 4. Canon: the machine's ~/.ai-engineering/skills must byte-match the binary's
   //    embedded payload. The repo lock never contains skills (it lists hooks,
   //    settings, config) — the old filter-by-skills/ check counted 0 forever.
-  const canon = embeddedUnder("skills/");
+  //    Same predicate as materializeSkills: the dot-entries (chain bundle) are
+  //    payload, not canon, so they are neither verified nor counted.
+  const canon = canonSkills();
   let verified = 0;
   let drift = 0;
   let missing = 0;

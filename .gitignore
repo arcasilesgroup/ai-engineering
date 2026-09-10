@@ -4,3 +4,4 @@ dist/
 *.bun-build
 .DS_Store
 .ai-engineering/receipts/
+.claude/reviews/
