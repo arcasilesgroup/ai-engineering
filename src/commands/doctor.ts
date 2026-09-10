@@ -249,15 +249,19 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
  *  brainstorm.md die at close, so immunity they granted would die with them (§21.3). */
 const PERMANENT_GOVERNORS = ["DECISIONS.md", "NOTICE", join(".ai-engineering", "arch.rules.json")];
 
-/** Cited by a working file that outlives the milestone — the only immunity there is. */
-function citedByGovernor(root: string, name: string): boolean {
+/** Cited by a working file that outlives the milestone — the only immunity there is.
+ *  The citation is the artifact's own name, or its number qualified by its folder
+ *  (`research/014`): a bare `014` also matches `D-014`, and immunity handed out by a
+ *  decision *number* would protect artifacts nobody ever referenced. */
+function citedByGovernor(root: string, folder: string, name: string): boolean {
   const nnn = /^(\d{3})/.exec(name)?.[1];
+  const qualified = nnn ? `${folder}/${nnn}` : null;
   for (const governor of PERMANENT_GOVERNORS) {
     const path = join(root, governor);
     if (!existsSync(path)) continue;
     const text = readFileSync(path, "utf8");
     if (text.includes(name)) return true;
-    if (nnn && new RegExp(`\\b${nnn}\\b`).test(text)) return true;
+    if (qualified !== null && text.includes(qualified)) return true;
   }
   return false;
 }
@@ -313,7 +317,7 @@ function gc(cwd = process.cwd()): string[] {
     let immune = 0;
     for (const name of entries) {
       const path = join(dir, name);
-      if (citedByGovernor(root, name)) {
+      if (citedByGovernor(root, folder, name)) {
         immune += 1;
         continue;
       }
@@ -336,7 +340,7 @@ function gc(cwd = process.cwd()): string[] {
     const collected: string[] = [];
     for (const run of beyond) {
       const path = join(security, run);
-      if (citedByGovernor(root, run)) continue;
+      if (citedByGovernor(root, "security", run)) continue;
       const age = committedAgeDays(root, path);
       if (age === null || age < olderDays || !trackedByGit(root, path)) continue;
       rmSync(path, { recursive: true, force: true });

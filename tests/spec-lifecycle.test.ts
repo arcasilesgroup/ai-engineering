@@ -176,7 +176,12 @@ test("gc deletes only what is old, uncited and already committed — and keeps t
   mkdirSync(research, { recursive: true });
   writeFileSync(join(research, "001-old.html"), "<html>old</html>\n");
   writeFileSync(join(research, "002-cited.html"), "<html>cited</html>\n");
-  writeFileSync(join(repo, "DECISIONS.md"), "## D-1\nSee research/002-cited.html for the rate limits.\n");
+  // D-001 must not confer immunity on research/001-old.html: a bare number in a
+  // decision title is not a citation, or every third artifact is immortal.
+  writeFileSync(
+    join(repo, "DECISIONS.md"),
+    "## D-001 · something unrelated\n\n## D-2\nSee research/002-cited.html for the rate limits.\n",
+  );
   commitAsOf("2020-01-01T00:00:00", "chore: old artifacts");
 
   for (const run of ["run-1", "run-2", "run-3", "run-4"]) {
