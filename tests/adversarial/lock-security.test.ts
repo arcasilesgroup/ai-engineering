@@ -2,7 +2,7 @@
 // 2026-09-03, DeepSeek review + PoC).
 // 1. Path traversal: `uninstall` sweeps every file the lock's [assets] table
 //    declares, keyed by repo-relative path. A crafted lock can key a file OUTSIDE
-//    the repo ("../../../Users/x/victim.txt") — parseToml accepts quoted keys, and
+//    the repo ("../../../Users/x/victim.txt") — TOML keys may be quoted, and
 //    when the on-disk file's sha256 matches the recorded one the sweep unlinked it.
 //    Measured PoC: a lock entry escaped to $HOME and deleted a file outside the
 //    repo. The sweep must refuse any path that escapes repoRoot.

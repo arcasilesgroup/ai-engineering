@@ -10,6 +10,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { repoRoot, home } from "../env.ts";
 import { writeReceipt } from "../receipts.ts";
+import { embeddedTemplate } from "../embed.ts";
 import { parseLock, lockText } from "../install.ts";
 import { VERSION } from "../version.ts";
 
@@ -49,16 +50,14 @@ export function specRun(): number {
   const fallback = join(import.meta.dir, "..", "..", "skills", "ai-proof", "scripts", "gate-check.mjs");
   const script = existsSync(gateCheck) ? gateCheck : existsSync(fallback) ? fallback : null;
   const t0 = Date.now();
-  let code: number;
-  if (script) {
-    const runner = existsSync("/usr/bin/env") ? "bun" : "node"; // mjs needs a JS runtime, not ourselves
-    const done = spawnSync(runner, [script, specPath], { cwd: root, encoding: "utf8", stdio: "inherit" });
-    code = done.status ?? 1;
-  } else {
-    // The CHECK extraction still runs: a missing executor is a FAIL, never silence.
-    process.stderr.write("spec run: gate-check.mjs not found — checks run with the built-in extractor.\n");
-    code = extractAndRunChecks(root, readFileSync(specPath, "utf8"));
+  if (!script) {
+    // A check that cannot run is red, never green by absence of executor (§09.3).
+    process.stderr.write("spec run: gate-check.mjs not found (canon missing) — run ai-eng init, then retry.\n");
+    return 2;
   }
+  const runner = existsSync("/usr/bin/env") ? "bun" : "node"; // mjs needs a JS runtime, not ourselves
+  const done = spawnSync(runner, [script, specPath], { cwd: root, encoding: "utf8", stdio: "inherit" });
+  const code = done.status ?? 1;
   const receipt = writeReceipt({
     event: "spec-run",
     surface: "ci",
@@ -69,26 +68,6 @@ export function specRun(): number {
   });
   if (code !== 0) process.stderr.write(`spec run: FAILURE (receipt ${receipt?.operation_id ?? "n/a"}) — a check that does not run is not green, it is red.\n`);
   return code;
-}
-
-function extractAndRunChecks(root: string, spec: string): number {
-  // Parse CHECK lines from the spec and run each as a shell command in the repo.
-  const checks = [...spec.matchAll(/CHECK:\s*(.+)/g)].map((m) => m[1]!.trim());
-  if (checks.length === 0) {
-    process.stderr.write("spec run: the spec declares no executable CHECKs — green would be a lie.\n");
-    return 2;
-  }
-  let failures = 0;
-  for (const command of checks) {
-    const done = spawnSync("/bin/sh", ["-c", command], { cwd: root, encoding: "utf8" });
-    if (done.status !== 0) {
-      failures += 1;
-      process.stderr.write(`✗ CHECK failed: ${command}\n`);
-    } else {
-      process.stdout.write(`✓ CHECK: ${command}\n`);
-    }
-  }
-  return failures === 0 ? 0 : 1;
 }
 
 /** `spec open <milestone>` — claim the slot; refuse when a live contract exists (§21.2). */
@@ -106,10 +85,8 @@ export function specOpen(milestone: string): number {
       return 2;
     }
   }
-  const specTpl = readFileSync(join(import.meta.dir, "..", "..", "templates", "spec.html.tpl"), "utf8");
-  const planTpl = readFileSync(join(import.meta.dir, "..", "..", "templates", "plan.html.tpl"), "utf8");
-  writeFileSync(join(dir, "spec.html"), specTpl.split("{{milestone}}").join(milestone));
-  writeFileSync(join(dir, "plan.html"), planTpl.split("{{milestone}}").join(milestone));
+  writeFileSync(join(dir, "spec.html"), embeddedTemplate("spec.html.tpl", { milestone }));
+  writeFileSync(join(dir, "plan.html"), embeddedTemplate("plan.html.tpl", { milestone }));
   process.stdout.write(`✓ slot opened: spec.html + plan.html for "${milestone}"\n`);
   process.stdout.write("  STOP 1: a human approves the contract → pin its sha256 with: ai-eng spec approve\n");
   return 0;

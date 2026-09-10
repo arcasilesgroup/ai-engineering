@@ -7,7 +7,6 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import type { Payload } from "../chain/payload.ts";
-import { parseToml } from "../toml.ts";
 
 /** A command whose first word is one of these writes wherever its arguments point.
  *  `sed` joins them only with -i. The list may over-deny: that is a person told to
@@ -68,8 +67,9 @@ export function protectedPaths(repoRoot: string | null): ProtectedPaths {
   // spec.html is protected ONLY once approved: its sha256 sits in the lock (§9.3).
   let specPinned = false;
   try {
-    const lock = parseToml(readFileSync(join(aiEng, "ai-eng.lock"), "utf8"));
-    specPinned = typeof lock["spec_sha256"] === "string" && (lock["spec_sha256"] as string).length >= 64;
+    const lock = Bun.TOML.parse(readFileSync(join(aiEng, "ai-eng.lock"), "utf8")) as Record<string, unknown>;
+    const pinned = lock["spec_sha256"];
+    specPinned = typeof pinned === "string" && pinned.length >= 64;
   } catch {
     specPinned = false;
   }

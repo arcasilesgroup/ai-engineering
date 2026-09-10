@@ -3,7 +3,8 @@
 
 import { repoRoot } from "../env.ts";
 import { preCommit, commitMsg, prePush } from "./index.ts";
-import { writeReceipt, receiptId, summarizeReceipts } from "../receipts.ts";
+import { createHash } from "node:crypto";
+import { writeReceipt, summarizeReceipts } from "../receipts.ts";
 import { readOverrides, overrideActive } from "../chain/dialect.ts";
 
 export async function floor(hook: string, msgFile?: string): Promise<number> {
@@ -38,17 +39,7 @@ export async function floor(hook: string, msgFile?: string): Promise<number> {
     }
     const overrides = readOverrides(root);
     const active = overrides.find((o) => overrideActive(overrides, o.name) !== null) ?? null;
-    const id = receiptId({
-      schema: "urn:ai-eng:receipt:2",
-      operation_id: "floor",
-      event: "commit-msg",
-      surface: "git",
-      tool: "commit-msg",
-      guards: { ran: ["floor"], denied_by: null },
-      latency_ms: 0,
-      outcome: "allow",
-      ts: new Date().toISOString(),
-    });
+    const id = createHash("sha256").update(`${new Date().toISOString()}:floor`).digest("hex").slice(0, 8);
     const result = commitMsg(msgFile, id, active?.reason ?? null);
     for (const line of result.lines) process.stderr.write(`${line}\n`);
     return result.ok ? 0 : 1;

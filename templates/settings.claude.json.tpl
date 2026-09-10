@@ -12,12 +12,6 @@
         "matcher": "Bash|Edit|Write|MultiEdit|WebFetch|WebSearch",
         "hooks": [{ "type": "command", "command": "ai-eng chain PostToolUse", "timeout": 5 }]
       }
-    ],
-    "Stop": [
-      { "hooks": [{ "type": "command", "command": "ai-eng chain Stop", "timeout": 5 }] }
-    ],
-    "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "ai-eng chain SessionStart", "timeout": 5 }] }
     ]
   }
 }

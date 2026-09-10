@@ -2,7 +2,7 @@
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
 import { canonSkills } from "../embed.ts";
-import { existsSync, readFileSync, readdirSync, lstatSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, lstatSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home } from "../env.ts";
@@ -19,7 +19,7 @@ export type CheckResult = { readonly name: string; readonly status: "ok" | "warn
 
 const CEILING_MS = 50;
 
-export async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[]; fail: boolean }> {
+async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[]; fail: boolean }> {
   const results: CheckResult[] = [];
   const root = repoRoot(cwd);
   const push = (name: string, status: CheckResult["status"], detail: string) => results.push({ name, status, detail });
@@ -186,7 +186,7 @@ export async function runChecks(cwd = process.cwd()): Promise<{ results: CheckRe
 }
 
 /** `doctor --gc` — execute what the audit proposes, in one commit (§21.3). */
-export function gc(cwd = process.cwd()): string[] {
+function gc(cwd = process.cwd()): string[] {
   const root = repoRoot(cwd);
   const lines: string[] = [];
   if (!root) return ["no repo: nothing to collect"];
@@ -210,12 +210,8 @@ export function gc(cwd = process.cwd()): string[] {
       const stale = entries
         .map((name) => ({ name, ts: statMtime(join(dir, name)) }))
         .filter((e) => e.ts < cut);
-      for (const entry of stale) {
-        const { unlinkSync } = require("node:fs") as typeof import("node:fs");
-        unlinkSync(join(dir, entry.name));
-      }
+      for (const entry of stale) unlinkSync(join(dir, entry.name));
       if (stale.length > 0) {
-        const { writeFileSync } = require("node:fs") as typeof import("node:fs");
         writeFileSync(join(dir, "summary.json"), JSON.stringify({ ...summary, gc: new Date().toISOString() }));
         lines.push(`✓ receipts: ${stale.length} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
       }
@@ -254,26 +250,19 @@ export async function doctorMain(flags: { gc?: boolean }): Promise<number> {
     return 0;
   }
   const root = repoRoot() ?? process.cwd();
-  const { results: rawResults, fail } = await runChecks();
-  const results: readonly CheckResult[] = rawResults;
+  const { results, fail } = await runChecks();
   const runtime = `bun ${typeof Bun !== "undefined" ? Bun.version : "?"}`;
   ui.frame(`Health check · ${root.split("/").pop()} · ${runtime} · ai-eng ${VERSION}`);
-  let ok = 0;
-  let warn = 0;
-  let failed = 0;
   // One block per status — the eye scans three ideas, not twelve lines
   // (the ✓/▲/✗ families of §14.2).
   const toRow = (r: CheckResult): ui.Row => ({ mark: r.status === "ok" ? "ok" : r.status === "warn" ? "warn" : "fail", text: `${r.name} · ${r.detail}` });
   const oks = results.filter((r) => r.status === "ok");
   const warns = results.filter((r) => r.status === "warn");
   const fails = results.filter((r) => r.status === "fail");
-  ok = oks.length;
-  warn = warns.length;
-  failed = fails.length;
   if (fails.length > 0) ui.section("FAIL — the chain is broken here", fails.map(toRow));
   if (warns.length > 0) ui.section("Attention", warns.map(toRow), "not fatal — decide with the detail");
   ui.section("Checks passed", oks.map(toRow));
-  ui.summary(ok, warn, failed);
+  ui.summary(oks.length, warns.length, fails.length);
   ui.end(fail ? "FAIL present — fix before trusting the chain." : "Chain verified. Next: keep working.");
   return fail ? 2 : 0;
 }

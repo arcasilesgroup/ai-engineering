@@ -20,12 +20,6 @@ import { VERSION } from "../version.ts";
 import * as ui from "../ui.ts";
 import { BOOSTER_GROUPS, printCommands } from "../boosters.ts";
 
-function isGitRepo(cwd: string): boolean {
-  return existsSync(join(cwd, ".git"));
-}
-
-/** The mockup hint per surface: tier marker + capability note, mapped from
- *  surfaces.json — never hardcoded per-id. */
 /** Surfaces already present in this project, detected by their on-disk markers:
  *  a .claude/ dir means Claude Code, .agents/ hooks mean OMP, .opencode/ means
  *  OpenCode, .cursor/ means Cursor. Ticked-by-default in the init multiselect. */
@@ -95,7 +89,7 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   const confirmWithInput = (message: string, initial: boolean) => ui.confirmDefault(message, initial, input as never);
   ui.frame(`{ai} Engineering ${VERSION}`);
   const cwd = process.cwd();
-  const inRepo = isGitRepo(cwd) || existsSync(join(cwd, ".ai-engineering"));
+  const inRepo = existsSync(join(cwd, ".git")) || existsSync(join(cwd, ".ai-engineering"));
   // Phase 1: global, or missing canon — installs/repairs the machine side either way.
   // home() (not HOME) so AI_ENG_HOME test installs stay isolated. The status
   // line always prints: the user must see the machine is healthy before the

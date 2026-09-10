@@ -7,10 +7,9 @@
 
 import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
-import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { select, confirm, isCancel } from "@clack/prompts";
-import { install, buildLock, lockText, parseLock } from "../install.ts";
+import { install, buildLock, lockText, parseLock, sha256 } from "../install.ts";
 import type { PlanEntry } from "../install.ts";
 import { repoRoot, enabledSurfaces } from "../env.ts";
 import { planEntries } from "./init-shared.ts";
@@ -28,14 +27,13 @@ export type SyncPlan = {
 export function syncPlan(entries: PlanEntry[], root: string, previousAssets: Record<string, string>): SyncPlan {
   const plan: SyncPlan = { current: [], updates: [], fresh: [], conflicts: [], verbatim: [] };
   for (const entry of entries) {
-    if (entry.mode === "symlink") continue;
     const absolute = join(root, entry.path);
     if (!existsSync(absolute)) {
       plan.fresh.push(entry.path);
       continue;
     }
-    const currentHash = createHash("sha256").update(readFileSync(absolute)).digest("hex");
-    if (currentHash === createHash("sha256").update(entry.ours).digest("hex")) {
+    const currentHash = sha256(readFileSync(absolute, "utf8"));
+    if (currentHash === sha256(entry.ours)) {
       plan.current.push(entry.path);
       plan.verbatim.push(entry.path);
       continue;
@@ -105,7 +103,7 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // the same question N times is noise, and keep-yours is the default:
   // deleting what the user edited is the worst class of bug a governance
   // tool can have. The file list rides inside the question itself.
-  const resolutions = new Map<string, "keep" | "take">();
+  let takeAll = false;
   if (plan.conflicts.length > 0) {
     // --yes resolves conservatively: keep-yours. Unattended recovery may install
     // what is absent but never overwrites what the human edited.
@@ -121,9 +119,9 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
       ui.cancelled("Nothing written.");
       return 0;
     }
-    for (const path of plan.conflicts) resolutions.set(path, choice === "take" ? "take" : "keep");
+    takeAll = choice === "take";
   }
-  const takeCount = [...resolutions.values()].filter((r) => r === "take").length;
+  const takeCount = takeAll ? plan.conflicts.length : 0;
   const writeCount = pending.length + takeCount;
   if (writeCount === 0) {
     // Keep-mine everywhere with nothing else pending: the repo is already
@@ -142,9 +140,8 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // recording our hash for it would make the NEXT update overwrite their edit in
   // silence). take means install() writes ours over the edit: that is the force
   // channel — only a human decision reaches it.
-  const keep = (path: string) => resolutions.get(path) === "keep";
-  const take = (path: string) => resolutions.get(path) === "take";
-  const writable = entries.filter((entry) => !keep(entry.path));
+  const take = () => takeAll;
+  const writable = takeAll ? entries : entries.filter((entry) => !plan.conflicts.includes(entry.path));
   const report = install(root, writable, (path) => {
     const hash = previous.assets[path];
     return hash ? `sha256:${hash}` : null;
@@ -154,14 +151,13 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
     const shimPath = join(root, ".git", "hooks", shim);
     if (existsSync(shimPath)) chmodSync(shimPath, 0o755);
   }
-  const keptPaths: string[] = [];
-  for (const [path, resolution] of resolutions) if (resolution === "keep") keptPaths.push(path);
+  const keptPaths = takeAll ? [] : plan.conflicts;
   const keptCount = keptPaths.length;
   const resultRows: ui.Row[] = [
     { mark: "ok", text: `${report.written.length} asset${report.written.length === 1 ? "" : "s"} synced`, dim: "sha256 recorded in ai-eng.lock" },
     ...(keptCount > 0 ? [{ mark: "info", text: "kept yours", dim: keptPaths.join("  ·  ") } satisfies ui.Row] : []),
   ];
-  ui.section("Synced", resultRows, `${resolutions.size} conflict${resolutions.size === 1 ? "" : "s"} resolved · 0 files of yours touched otherwise`);
+  ui.section("Synced", resultRows, `${plan.conflicts.length} conflict${plan.conflicts.length === 1 ? "" : "s"} resolved · 0 files of yours touched otherwise`);
   // The lock is the ownership ledger: it may only claim files this run actually
   // made ours — written now, taken over by explicit human resolution, or
   // already byte-identical to ours (verbatim). "current" also holds files
@@ -170,7 +166,7 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // file the binary never owned (measured 2026-09-03).
   const oursNow = new Set([...report.written, ...plan.verbatim]);
   const lock = buildLock(
-    entries.filter((entry) => !keep(entry.path) && oursNow.has(entry.path)),
+    entries.filter((entry) => (takeAll || !plan.conflicts.includes(entry.path)) && oursNow.has(entry.path)),
     VERSION,
   );
   writeFileSync(lockPath, lockText(lock));

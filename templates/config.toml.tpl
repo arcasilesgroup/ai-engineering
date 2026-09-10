@@ -27,8 +27,6 @@ loop_failures = 5  # same signature failing → deny
 # Growth caps for the NNN folders (research/, audits/, security/, reports/,
 # receipts/). WARN thresholds, not FAIL — growth is hygiene, not security (§12.1).
 max_files = 25        # per NNN folder — exceeding → WARN
-older_than = "90d"    # minimum age to be a gc candidate
-keep_runs = 5         # security/: the latest runs always stay alive
 receipts_ttl = "30d"  # receipts: aggregate then delete
 
 # notices = false   # opt out of the new-version notice (or AI_ENG_NO_UPDATE_NOTICES=1)

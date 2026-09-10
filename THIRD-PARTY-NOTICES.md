@@ -18,5 +18,5 @@ impeccable, hallmark, shadcn, astryx, emil-design-eng, ui-ux-pro-max, tasteskill
 tavily, exa, context7, mantis, skill-map.
 
 Runtime dependencies: @clack/prompts (MIT), @bomb.sh/args (MIT), @bomb.sh/tab (MIT).
-Dev dependencies: archunit (MIT), dependency-cruiser (MIT), oxlint (MIT),
+Dev dependencies: archunit (MIT), oxlint (MIT),
 typescript (Apache-2.0), @types/bun (MIT).

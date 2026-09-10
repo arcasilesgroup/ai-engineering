@@ -2,8 +2,8 @@
 // or TS module (OpenCode/OMP). Surface = ~150 LOC of adapter + its proof (§13).
 
 import surfacesJson from "./surfaces.json";
-import { existsSync, writeFileSync, mkdirSync, symlinkSync, unlinkSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { writeFileSync, mkdirSync, symlinkSync, unlinkSync, readdirSync, lstatSync } from "node:fs";
+import { join } from "node:path";
 import { homedir } from "node:os";
 import { home, versionFile } from "../env.ts";
 import { materializeSkills } from "../embed.ts";
@@ -12,20 +12,14 @@ export type Surface = {
   readonly id: string;
   readonly label: string;
   readonly tier: "core" | "experimental" | "best-effort" | "skills-only";
-  readonly can: { readonly deny: boolean | "throw"; readonly rewriteIn: boolean; readonly rewriteOut: boolean | "total-replacement"; readonly failClosed?: boolean | string };
-  readonly mechanism: "json-stdio" | "ts-module" | "none";
+  readonly can: { readonly deny: boolean | "throw"; readonly rewriteOut: boolean | "total-replacement" };
   readonly settingsFile?: string;
   readonly pluginFile?: string;
   readonly chainFile?: string;
-  readonly timeout: number;
   readonly note?: string;
 };
 
 export const SURFACES: Surface[] = (surfacesJson as { surfaces: Surface[] }).surfaces;
-
-export function surfaceById(id: string): Surface | undefined {
-  return SURFACES.find((s) => s.id === id);
-}
 
 /** init aborts if the chosen surface cannot carry a required guard: better not to
  *  promise than to promise falsely (§13). */
@@ -64,7 +58,6 @@ export function installCanon(version: string): string[] {
   const lines: string[] = [];
   const canonDir = join(home(), "skills");
   materializeSkills(canonDir);
-  const { readdirSync } = require("node:fs") as typeof import("node:fs");
   const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("."));
   lines.push(`✓ ${home()}/skills/ — ${entries.length} ai-* skills installed`);
   writeFileSync(versionFile(), JSON.stringify({ version, ts: Date.now() }));
@@ -78,14 +71,12 @@ export function installCanon(version: string): string[] {
 }
 
 function linkSkills(canonDir: string, mirrorDir: string): number {
-  const { readdirSync } = require("node:fs") as typeof import("node:fs");
   let count = 0;
   for (const name of readdirSync(canonDir)) {
     if (name.startsWith(".")) continue; // the canon's dot-entries are payload, not skills
     const linkPath = join(mirrorDir, name);
     try {
-      const stats = require("node:fs").lstatSync(linkPath) as { isSymbolicLink(): boolean };
-      if (stats.isSymbolicLink()) {
+      if (lstatSync(linkPath).isSymbolicLink()) {
         unlinkSync(linkPath);
       } else {
         continue; // a real directory there is not ours to replace
@@ -101,25 +92,4 @@ function linkSkills(canonDir: string, mirrorDir: string): number {
     }
   }
   return count;
-}
-
-/** SessionStart payload the surface injects: the one-line pin + nudge (§14.0a). */
-export function sessionContextLines(cwd: string): string[] {
-  const lines: string[] = [];
-  const { repoRoot } = require("../env.ts") as typeof import("../env.ts");
-  const root = repoRoot(cwd);
-  if (root && !existsSync(join(root, ".ai-engineering", "config.toml"))) {
-    lines.push("[ai-eng] this repo is not governed: run ai-eng init");
-  }
-  const { loadConfig } = require("../env.ts") as typeof import("../env.ts");
-  const models = loadConfig()["models"] ?? {};
-  if (typeof models["decide"] === "string") {
-    lines.push(`[ai-eng] model pin — decide: ${models["decide"]} · execute: ${models["execute"]} · verify: ${models["verify"]}`);
-  }
-  return lines;
-}
-
-export function writeSurfaceSettings(path: string, content: string): void {
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, content);
 }

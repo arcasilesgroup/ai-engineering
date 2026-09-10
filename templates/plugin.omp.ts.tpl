@@ -8,7 +8,7 @@ export function beforeToolCall(call: ToolCall): { block?: boolean; reason?: stri
   const outcome = chain(
     "PreToolUse",
     { tool_name: call.tool, tool_input: call.input, session_id: call.sessionID, tool_use_id: call.callID },
-    { surface: "oh-my-pi", dialect: "in-process" },
+    { surface: "oh-my-pi" },
   );
   if (outcome.action === "deny") return { block: true, reason: `[ai-eng] ${outcome.by}: ${outcome.reason}` };
   if (outcome.action === "rewrite") return { input: { ...call.input, command: outcome.command } };
@@ -19,7 +19,7 @@ export function afterToolCall(call: ToolCall, result: unknown): { block?: boolea
   const outcome = chain(
     "PostToolUse",
     { tool_name: call.tool, tool_input: call.input, tool_response: result, session_id: call.sessionID, tool_use_id: call.callID },
-    { surface: "oh-my-pi", dialect: "in-process" },
+    { surface: "oh-my-pi" },
   );
   if (outcome.action === "deny") return { block: true, reason: `[ai-eng] ${outcome.by}: ${outcome.reason}` };
   return {};

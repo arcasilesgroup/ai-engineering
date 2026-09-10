@@ -92,13 +92,8 @@ test("a clean machine gets real skill mirrors, not zero-count ghosts", () => {
 // "Take the new version everywhere" wrote 0 files, safe version-bump updates
 // became false "patched by you" conflicts, and the rebuilt lock recorded hashes
 // that were never on disk (measured tests2 2026-09-03).
-import { install } from "../../src/install.ts";
+import { install, sha256 as sha } from "../../src/install.ts";
 import type { PlanEntry } from "../../src/install.ts";
-import { createHash } from "node:crypto";
-
-function sha(text: string): string {
-  return createHash("sha256").update(text).digest("hex");
-}
 
 test('install honors the "sha256:" sentinel: take writes, unedited updates apply', () => {
   const root = join(sandbox, "protocol");

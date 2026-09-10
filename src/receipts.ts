@@ -5,7 +5,7 @@
 import { writeFileSync, readFileSync, readdirSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
-import { receiptsDir, sessionId } from "./env.ts";
+import { receiptsDir } from "./env.ts";
 
 export type Receipt = {
   schema: "urn:ai-eng:receipt:2";
@@ -85,8 +85,4 @@ export function summarizeReceipts(dir?: string): ReceiptSummary {
 /** Stable short id for a Receipt-Id trailer. */
 export function receiptId(receipt: Receipt): string {
   return createHash("sha256").update(`${receipt.ts}:${receipt.operation_id}`).digest("hex").slice(0, 8);
-}
-
-export function currentSession(): string {
-  return sessionId();
 }

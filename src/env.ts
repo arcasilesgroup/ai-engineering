@@ -1,10 +1,9 @@
 // Machine- and repo-level paths, session identity, and config reads. Ported from
 // v1's _emit.py — the same floor every module needs and none may guess at.
 
-import { homedir, tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
-import { existsSync, readFileSync, mkdirSync } from "node:fs";
-import { parseToml } from "./toml.ts";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 
 /** AI_ENG_HOME for tests; ~/.ai-engineering in the wild. */
 export function home(): string {
@@ -61,7 +60,7 @@ export function loadConfig(): Config {
   const path = join(root, ".ai-engineering", "config.toml");
   if (!existsSync(path)) return {};
   try {
-    return parseToml(readFileSync(path, "utf8")) as Config;
+    return Bun.TOML.parse(readFileSync(path, "utf8")) as Config;
   } catch {
     return {};
   }
@@ -76,8 +75,10 @@ export function enabledSurfaces(): string[] {
   const path = join(root, ".ai-engineering", "config.toml");
   if (!existsSync(path)) return ["claude-code"];
   try {
-    const surfaces = parseToml(readFileSync(path, "utf8")).surfaces;
-    const enabled = typeof surfaces === "object" && !Array.isArray(surfaces) ? surfaces.enabled : undefined;
+    const doc = Bun.TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    const surfaces = doc["surfaces"];
+    if (surfaces === null || typeof surfaces !== "object" || Array.isArray(surfaces) || !("enabled" in surfaces)) return ["claude-code"];
+    const enabled = surfaces.enabled;
     if (!Array.isArray(enabled)) return ["claude-code"];
     const names: string[] = [];
     for (const item of enabled) if (typeof item === "string") names.push(item);
@@ -105,12 +106,3 @@ function intOr(value: TomlValue | undefined, fallback: number): number {
 export function printable(text: string): string {
   return text.replace(/[\p{C}]/gu, "").slice(0, 200);
 }
-
-/** Smoke-testable temp root for adversarial suites. */
-export function scratchRoot(prefix: string): string {
-  const dir = join(tmpdir(), `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
-export const PATH_SEP = sep;

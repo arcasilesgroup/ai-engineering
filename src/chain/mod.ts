@@ -4,11 +4,13 @@
 // a guard that cannot decide denies, because denying everything on a surface is how
 // you disable a whole product by installing it.
 
-import { repoRoot, adoptSession, receiptsDir } from "../env.ts";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { repoRoot, adoptSession } from "../env.ts";
 import { normalise, deduplicable, fingerprint } from "./payload.ts";
-import type { Payload, SurfaceAdapter } from "./payload.ts";
-import { deny, VerdictCache, readOverrides, overrideActive } from "./dialect.ts";
-import { runNoVerify } from "../guards/no-verify.ts";
+import type { Payload } from "./payload.ts";
+import { deny, readOverrides, overrideActive } from "./dialect.ts";
+import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
 import { runSelfProtect } from "../guards/self-protect.ts";
 import { runInjection } from "../guards/injection.ts";
 import { runLoopGuard } from "../guards/loop.ts";
@@ -44,14 +46,10 @@ export const TABLE: Record<string, GuardRow[]> = {
 const HOT_PATH_BUDGET_MS = 200;
 
 export type ChainOptions = {
-  /** How the verdict leaves: process exit (stdio) or interpreted by an in-process plugin. */
-  dialect?: "claude-structured" | "exit2" | "throw" | "block-json";
   surface?: string;
-  adapters?: SurfaceAdapter[];
   /** In-process mode returns outcomes instead of exiting (OMP/OpenCode plugins). */
   inProcess?: boolean;
   stateDir?: string;
-  now?: () => number;
 };
 
 export type ChainOutcome =
@@ -63,34 +61,64 @@ function selected(event: string, tool: string): GuardRow[] {
   return (TABLE[event] ?? []).filter((row) => row.matcher.test(tool));
 }
 
+type Verdict = { deny: boolean; by?: string; message?: string };
+
+/** Verdict cache keyed on the fingerprint of one physical call: a second delivery of
+ *  the same call gets the guard's own words instead of re-running every guard. */
+function cachedVerdict(file: string, fp: string): Verdict | null {
+  try {
+    const book = JSON.parse(readFileSync(file, "utf8")) as Record<string, Verdict>;
+    const entry = book[fp];
+    if (!entry || typeof entry.deny !== "boolean") return null;
+    if (entry.deny && !(typeof entry.by === "string" && typeof entry.message === "string")) return null;
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
+function rememberVerdict(file: string, fp: string, verdict: Verdict): void {
+  try {
+    let book: Record<string, Verdict> = {};
+    try {
+      book = JSON.parse(readFileSync(file, "utf8")) as Record<string, Verdict>;
+    } catch {
+      /* first entry */
+    }
+    book[fp] = verdict;
+    const trimmed: Record<string, Verdict> = {};
+    for (const key of Object.keys(book).slice(-500)) trimmed[key] = book[key]!;
+    writeFileSync(file, JSON.stringify(trimmed));
+  } catch {
+    /* state must never break the chain */
+  }
+}
+
 /** Run the chain over a normalized payload. A crash inside a guard is a DENY, not a pass. */
 export function runChain(rawPayload: Record<string, unknown>, event: string, options: ChainOptions = {}): ChainOutcome {
-  const started = (options.now ?? Date.now)();
+  const started = Date.now();
   const root = repoRoot();
   if (rawPayload === null || Array.isArray(rawPayload) || typeof rawPayload !== "object") {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root, false);
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started);
   }
-  const payload = normalise(rawPayload, options.adapters ?? []);
+  const payload = normalise(rawPayload);
   adoptSession(payload.session_id);
   payload._event = event;
-  payload._structured = options.dialect === "claude-structured" || Boolean(payload["transcript_path"]);
   const tool = payload.tool_name;
   const fp = fingerprint(payload);
-  payload._fp = fp;
-  payload._dedup = deduplicable(payload);
 
   const overrides = readOverrides(root);
   const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
 
   // Same call, same answer: no guard decides the same call twice. The cache lives
   // under the governed repo; a repo-less call skips it.
-  const dedup = payload._dedup && event === "PreToolUse" && root !== null;
-  const cache = new VerdictCache(root ?? options.stateDir ?? ".", payload.session_id ?? "proc");
+  const dedup = deduplicable(payload) && event === "PreToolUse" && root !== null;
+  const cacheFile = join(root ?? options.stateDir ?? ".", "cache", "verdicts", `${payload.session_id ?? "proc"}.json`);
   if (dedup) {
-    const verdict = cache.read(fp);
+    const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {
       if (verdict.deny) {
-        return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started, root, false);
+        return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started);
       }
       return { action: "allow", guards: [], receiptId: null };
     }
@@ -101,16 +129,16 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     ran.push(row.name);
     const outcome = dispatchGuard(row.name, payload, ctx);
     if (outcome !== undefined && outcome.deny) {
-      if (dedup) cache.remember(fp, { deny: true, by: row.name, message: outcome.reason });
+      if (dedup) rememberVerdict(cacheFile, fp, { deny: true, by: row.name, message: outcome.reason });
       if (outcome.rewriteTo) {
         return rewriteOutcome(outcome.rewriteTo, ran, event, options, started);
       }
-      return denyOutcome(row.name, outcome.reason, ran, event, options, started, root, dedup);
+      return denyOutcome(row.name, outcome.reason, ran, event, options, started);
     }
   }
 
-  if (dedup) cache.remember(fp, { deny: false });
-  const latency = Math.max(1, (options.now ?? Date.now)() - started);
+  if (dedup) rememberVerdict(cacheFile, fp, { deny: false });
+  const latency = Math.max(1, Date.now() - started);
   const receipt = writeReceipt({
     event,
     surface: options.surface ?? "unknown",
@@ -124,32 +152,28 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
 
 function dispatchGuard(name: GuardName, payload: Payload, ctx: ChainContext): GuardOutcome {
   try {
-    switch (name) {
-      case "self-protect": {
-        const result = runSelfProtect(payload, ctx.repoRoot);
-        return result?.deny === true ? { deny: true, reason: result.reason } : undefined;
-      }
-      case "no-verify": {
-        const result = runNoVerify(payload, ctx.repoRoot);
-        return result?.deny === true ? { deny: true, reason: result.reason } : undefined;
-      }
-      case "injection": {
-        const result = runInjection(payload);
-        return result?.deny === true ? { deny: true, reason: result.reason } : undefined;
-      }
-      case "loop": {
-        const result = runLoopGuard(payload, ctx.loopOverride);
-        return result?.deny === true ? { deny: true, reason: result.reason } : undefined;
-      }
-      case "wrap": {
-        if (payload._event !== "PreToolUse") return undefined;
-        const command = payload.tool_input["command"];
-        if (typeof command !== "string") return undefined;
-        const decision = isTestCommand(command);
-        if (!decision.wrap) return undefined;
-        return { deny: true, reason: `wrap: ${decision.runner}`, rewriteTo: rewrite(command) };
-      }
+    if (name === "wrap") {
+      if (payload._event !== "PreToolUse") return undefined;
+      const command = payload.tool_input["command"];
+      if (typeof command !== "string") return undefined;
+      const decision = isTestCommand(command);
+      if (!decision.wrap) return undefined;
+      return { deny: true, reason: `wrap: ${decision.runner}`, rewriteTo: rewrite(command) };
     }
+    // self-protect, no-verify, injection and loop answer in one shape.
+    const result = ((): GuardResult => {
+      switch (name) {
+        case "self-protect":
+          return runSelfProtect(payload, ctx.repoRoot);
+        case "no-verify":
+          return runNoVerify(payload, ctx.repoRoot);
+        case "injection":
+          return runInjection(payload);
+        default:
+          return runLoopGuard(payload, ctx.loopOverride);
+      }
+    })();
+    return result?.deny === true ? { deny: true, reason: result.reason } : undefined;
   } catch {
     // A guard that crashed is a guard that denies. The message says what a person
     // must do, never what the model could exploit.
@@ -167,10 +191,8 @@ function denyOutcome(
   event: string,
   options: ChainOptions,
   started: number,
-  _root: string | null,
-  _dedup: boolean,
 ): ChainOutcome {
-  const latency = Math.max(1, (options.now ?? Date.now)() - started);
+  const latency = Math.max(1, Date.now() - started);
   const receipt = writeReceipt({
     event,
     surface: options.surface ?? "unknown",
@@ -184,7 +206,7 @@ function denyOutcome(
   }
   const outcome: ChainOutcome = { action: "deny", by, reason, guards: ran, receiptId: receipt?.operation_id ?? null };
   if (options.inProcess) return outcome;
-  deny(by, reason, options.dialect ?? "exit2");
+  deny(by, reason);
 }
 
 function rewriteOutcome(
@@ -194,7 +216,7 @@ function rewriteOutcome(
   options: ChainOptions,
   started: number,
 ): ChainOutcome {
-  const latency = Math.max(1, (options.now ?? Date.now)() - started);
+  const latency = Math.max(1, Date.now() - started);
   const receipt = writeReceipt({
     event,
     surface: options.surface ?? "unknown",
@@ -205,20 +227,6 @@ function rewriteOutcome(
   });
   const outcome: ChainOutcome = { action: "rewrite", command, guards: ran, receiptId: receipt?.operation_id ?? null };
   if (options.inProcess) return outcome;
-  const dialect = options.dialect ?? "exit2";
-  if (dialect === "claude-structured") {
-    process.stdout.write(
-      `${JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow", updatedInput: { command } } })}\n`,
-    );
-    process.exit(0);
-  }
-  if (dialect === "block-json") {
-    process.stdout.write(`${JSON.stringify({ decision: "allow", updated_input: { command } })}\n`);
-    process.exit(0);
-  }
-  if (dialect === "throw") {
-    throw Object.assign(new Error(`[ai-eng] wrap: rewritten to ${command}`), { rewrite: command });
-  }
   process.stdout.write(`${JSON.stringify({ permission: "allow", updatedInput: { command } })}\n`);
   process.exit(0);
 }
@@ -231,12 +239,8 @@ export function chainMain(event: string, raw: string, options: ChainOptions = {}
     body = JSON.parse(raw) as Record<string, unknown>;
     if (body === null || Array.isArray(body) || typeof body !== "object") throw new Error("not an object");
   } catch {
-    deny("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", options.dialect ?? "exit2");
+    deny("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.");
   }
   runChain(body, event, options);
   process.exit(0);
-}
-
-export function receiptsLocation(): string | null {
-  return receiptsDir();
 }

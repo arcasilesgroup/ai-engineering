@@ -56,5 +56,5 @@ export function maybeNotice(): void {
     }
   }
   if (latest === VERSION) return;
-  ui.notice(latest, VERSION);
+  ui.warn(`${latest} available → ai-eng upgrade · changelog: CHANGELOG.md (current: ${VERSION})`);
 }

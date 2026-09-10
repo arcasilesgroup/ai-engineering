@@ -13,11 +13,6 @@ export type Payload = {
   hook_event_name?: string;
   model?: string;
   _event?: string;
-  _fp?: string;
-  _dedup?: boolean;
-  _structured?: boolean;
-  _denied?: [string, string];
-  _escalated?: boolean;
   [key: string]: unknown;
 };
 
@@ -34,34 +29,15 @@ export const BUILT_IN_ALIASES: Record<string, string> = {
   workspacePath: "cwd",
 };
 
-export type SurfaceAdapter = {
-  id: string;
-  /** canonical name -> the spelling that surface sends */
-  fields: Record<string, string>;
-};
-
-/** Over the built-in floor, the extra spellings declared adapters translate. */
-export function adapterAliases(adapters: SurfaceAdapter[]): Record<string, string> {
-  const aliases = { ...BUILT_IN_ALIASES };
-  for (const adapter of adapters) {
-    for (const [ours, sent] of Object.entries(adapter.fields)) {
-      if (sent && ours) aliases[sent] = ours;
-    }
-  }
-  return aliases;
-}
-
-export function normalise(raw: Record<string, unknown>, adapters: SurfaceAdapter[] = []): Payload {
-  const aliases = adapterAliases(adapters);
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(raw)) out[aliases[key] ?? key] = value;
+export function normalise(raw: Record<string, unknown>): Payload {
+  const out: Record<string, unknown> = { ...raw };
   out.tool_name = out.tool_name ?? out.tool ?? "";
   out.tool_input = out.tool_input ?? out.input ?? {};
   if (typeof out.tool_input !== "object" || out.tool_input === null) out.tool_input = {};
   const input = out.tool_input as Record<string, unknown>;
-  // The built-in floor, not the adapter table: a tool's own arguments are not a
-  // surface's payload (v1 measured an MCP tool whose params were `args`/`tool`
-  // getting rewritten into a call the surface never made).
+  // A tool's own arguments are not a surface's payload (v1 measured an MCP tool
+  // whose params were `args`/`tool` getting rewritten into a call the surface
+  // never made) — only the camelCase floor is translated.
   const mapped: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(input)) mapped[BUILT_IN_ALIASES[k] ?? k] = v;
   // Notebook tools send notebook_path and nothing else; both write guards read file_path.

@@ -10,15 +10,8 @@ import { spawnSync } from "node:child_process";
 import { select, isCancel } from "@clack/prompts";
 import { join } from "node:path";
 import { VERSION } from "../version.ts";
+import { registryVersion } from "../notice.ts";
 import * as ui from "../ui.ts";
-
-function registryLatest(): string | null {
-  const bun = spawnSync("bun", ["pm", "view", "ai-engineering", "version"], { encoding: "utf8" });
-  if (bun.status === 0 && bun.stdout) return bun.stdout.trim().split("\n").pop() ?? null;
-  const npm = spawnSync("npm", ["view", "ai-engineering", "version"], { encoding: "utf8" });
-  if (npm.status === 0 && npm.stdout) return npm.stdout.trim().split("\n").pop() ?? null;
-  return null; // offline or error → silence, never a failure
-}
 
 /** The install command for a manager, in one place — the G9 seam. */
 export function installCommand(manager: "bun" | "npm", version: string): string {
@@ -35,7 +28,7 @@ export function changelogSection(root: string, version: string): string | null {
 }
 
 export async function upgradeMain(): Promise<number> {
-  const latest = registryLatest();
+  const latest = registryVersion();
   if (!latest) {
     ui.frame(`ai-eng ${VERSION}`);
     ui.info("could not read the registry version (offline?) — silence, never a failure");

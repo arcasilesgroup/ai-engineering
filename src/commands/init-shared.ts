@@ -5,15 +5,11 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { PlanEntry } from "../install.ts";
 import { VERSION } from "../version.ts";
-import { embeddedTemplate, embeddedText } from "../embed.ts";
+import { embeddedTemplate, embeddedChainBundle } from "../embed.ts";
 
 export function repoTemplateRoot(): string {
   // src/commands → repo root is three up.
   return join(import.meta.dir, "..", "..");
-}
-
-function tpl(name: string): string {
-  return embeddedTemplate(name);
 }
 
 function render(template: string, vars: Record<string, string>): string {
@@ -35,30 +31,30 @@ export function gitHookEntries(): PlanEntry[] {
   // Marker-managed shims land directly in .git/hooks/ — one copy, standard
   // location, no core.hooksPath redirect, no .ai-engineering/git duplicate.
   return [
-    { path: ".git/hooks/pre-commit", ours: tpl("git-pre-commit.tpl") },
-    { path: ".git/hooks/commit-msg", ours: tpl("git-commit-msg.tpl") },
-    { path: ".git/hooks/pre-push", ours: tpl("git-pre-push.tpl") },
+    { path: ".git/hooks/pre-commit", ours: embeddedTemplate("git-pre-commit.tpl") },
+    { path: ".git/hooks/commit-msg", ours: embeddedTemplate("git-commit-msg.tpl") },
+    { path: ".git/hooks/pre-push", ours: embeddedTemplate("git-pre-push.tpl") },
   ];
 }
 
 export function planEntries(surfaces: string[]): PlanEntry[] {
   const entries: PlanEntry[] = [
-    { path: ".ai-engineering/overrides.toml", ours: tpl("overrides.toml.tpl") },
-    { path: ".ai-engineering/arch.rules.json", ours: tpl("arch.rules.json.tpl") },
-    { path: ".ai-engineering/config.toml", ours: render(tpl("config.toml.tpl"), { surfaces: surfaces.map((s) => `"${s}"`).join(", ") }) },
+    { path: ".ai-engineering/overrides.toml", ours: embeddedTemplate("overrides.toml.tpl") },
+    { path: ".ai-engineering/arch.rules.json", ours: embeddedTemplate("arch.rules.json.tpl") },
+    { path: ".ai-engineering/config.toml", ours: render(embeddedTemplate("config.toml.tpl"), { surfaces: surfaces.map((s) => `"${s}"`).join(", ") }) },
     ...gitHookEntries(),
   ];
   if (surfaces.includes("claude-code")) {
-    entries.push({ path: ".claude/settings.json", ours: tpl("settings.claude.json.tpl") });
-    entries.push({ path: ".github/workflows/ai-eng-check.yml", ours: tpl("ci.yml.tpl") });
+    entries.push({ path: ".claude/settings.json", ours: embeddedTemplate("settings.claude.json.tpl") });
+    entries.push({ path: ".github/workflows/ai-eng-check.yml", ours: embeddedTemplate("ci.yml.tpl") });
   }
   if (surfaces.includes("opencode")) {
-    entries.push({ path: ".opencode/plugins/ai-eng.ts", ours: tpl("plugin.opencode.ts.tpl") });
-    entries.push({ path: ".opencode/plugins/ai-eng-chain.ts", ours: embeddedText("src-chain") });
+    entries.push({ path: ".opencode/plugins/ai-eng.ts", ours: embeddedTemplate("plugin.opencode.ts.tpl") });
+    entries.push({ path: ".opencode/plugins/ai-eng-chain.ts", ours: embeddedChainBundle() });
   }
   if (surfaces.includes("oh-my-pi")) {
-    entries.push({ path: ".agents/hooks/ai-eng.ts", ours: tpl("plugin.omp.ts.tpl") });
-    entries.push({ path: ".agents/hooks/ai-eng-chain.ts", ours: embeddedText("src-chain") });
+    entries.push({ path: ".agents/hooks/ai-eng.ts", ours: embeddedTemplate("plugin.omp.ts.tpl") });
+    entries.push({ path: ".agents/hooks/ai-eng-chain.ts", ours: embeddedChainBundle() });
   }
   return entries;
 }
@@ -66,7 +62,7 @@ export function planEntries(surfaces: string[]): PlanEntry[] {
 /** The contract files init writes ONCE (untouchable by update). */
 export function contractEntries(date: string): PlanEntry[] {
   return [
-    { path: "AGENTS.md", ours: render(tpl("AGENTS.md.tpl"), { version: VERSION, commands: detectCommands() }) },
-    { path: "DECISIONS.md", ours: render(tpl("DECISIONS.md.tpl"), { date, version: VERSION }) },
+    { path: "AGENTS.md", ours: render(embeddedTemplate("AGENTS.md.tpl"), { version: VERSION, commands: detectCommands() }) },
+    { path: "DECISIONS.md", ours: render(embeddedTemplate("DECISIONS.md.tpl"), { date, version: VERSION }) },
   ];
 }

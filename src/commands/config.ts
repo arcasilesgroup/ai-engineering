@@ -4,22 +4,11 @@
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { groupMultiselect, isCancel } from "@clack/prompts";
-import { repoRoot } from "../env.ts";
-import { parseToml, serializeToml } from "../toml.ts";
-import type { TomlTable } from "../toml.ts";
+import { repoRoot, enabledSurfaces } from "../env.ts";
 import { SURFACES, SURFACE_TIERS, mirrorTargets, surfaceCanGovern, type Surface } from "../surfaces/adapters.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
-
-function surfacesFromConfig(root: string): string[] {
-  const path = join(root, ".ai-engineering", "config.toml");
-  if (!existsSync(path)) return [];
-  const doc = parseToml(readFileSync(path, "utf8"));
-  const surfaces = doc["surfaces"];
-  const enabled = surfaces && typeof surfaces === "object" && !Array.isArray(surfaces) ? (surfaces as TomlTable)["enabled"] : undefined;
-  return Array.isArray(enabled) ? enabled.filter((v): v is string => typeof v === "string") : [];
-}
 
 export async function configMain(flags: { add?: string; remove?: string }): Promise<number> {
   const input = scriptedInput();
@@ -31,7 +20,7 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
     return 2;
   }
   const configPath = join(root, ".ai-engineering", "config.toml");
-  const surfacesBefore = surfacesFromConfig(root);
+  const surfacesBefore = existsSync(configPath) ? enabledSurfaces() : [];
   let current = surfacesBefore;
   if (flags.add) {
     if (!current.includes(flags.add)) current = [...current, flags.add];
@@ -57,10 +46,15 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
     for (const id of removed) removeSurfaceFiles(root, id);
     current = picked;
   }
-  // The config file holds what cannot be deduced: rewrite only the surfaces key.
-  const doc: TomlTable = existsSync(configPath) ? parseToml(readFileSync(configPath, "utf8")) : {};
-  doc["surfaces"] = { enabled: current };
-  writeFileSync(configPath, serializeToml(doc));
+  // The config file holds what cannot be deduced: rewrite only the surfaces key,
+  // in place — the comments and the [models]/[guards]/[gc] blocks the template
+  // ships are the user's, and a re-serialize would delete them.
+  const raw = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
+  const list = `[${current.map((id) => `"${id}"`).join(", ")}]`;
+  const next = /^enabled\s*=.*$/m.test(raw)
+    ? raw.replace(/^enabled\s*=.*$/m, `enabled = ${list}`)
+    : `${raw.trim() === "" ? "" : `${raw.trimEnd()}\n\n`}[surfaces]\nenabled = ${list}\n`;
+  writeFileSync(configPath, next);
   const added = current.filter((id) => !surfacesBefore.includes(id));
   const removedSurfaces = surfacesBefore.filter((id) => !current.includes(id));
   const delta: ui.Row[] = [

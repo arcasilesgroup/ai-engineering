@@ -201,8 +201,3 @@ export function spinner() {
   }
   return clackSpinner();
 }
-
-/** The one-line version notice (§14.0): printed once, at the end, cached by caller. */
-export function notice(latest: string, current: string): void {
-  warn(`${latest} available → ai-eng upgrade · changelog: CHANGELOG.md (current: ${current})`);
-}

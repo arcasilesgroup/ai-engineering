@@ -13,7 +13,7 @@ export async function beforeToolCall(call: ToolCall): Promise<ToolCall> {
     session_id: call.sessionID,
     tool_use_id: call.callID,
   };
-  const outcome = chain("PreToolUse", payload, { surface: "opencode", dialect: "in-process" });
+  const outcome = chain("PreToolUse", payload, { surface: "opencode" });
   if (outcome.action === "deny") throw new Error(`[ai-eng] ${outcome.by}: ${outcome.reason}`);
   if (outcome.action === "rewrite") return { ...call, input: { ...call.input, command: outcome.command } };
   return call;
@@ -27,7 +27,7 @@ export async function afterToolCall(call: ToolCall, result: unknown): Promise<un
     session_id: call.sessionID,
     tool_use_id: call.callID,
   };
-  const outcome = chain("PostToolUse", payload, { surface: "opencode", dialect: "in-process" });
+  const outcome = chain("PostToolUse", payload, { surface: "opencode" });
   if (outcome.action === "deny") throw new Error(`[ai-eng] ${outcome.by}: ${outcome.reason}`);
   return result;
 }

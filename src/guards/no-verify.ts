@@ -95,11 +95,6 @@ export function checkContent(content: string): GuardResult {
   return undefined;
 }
 
-const OVERRIDE_HINT =
-  "If the skip is legitimate, open .ai-engineering/overrides.toml with a reason — it lands in the receipt and the commit.";
-
-export const NO_VERIFY_REASON_TAIL = OVERRIDE_HINT;
-
 export function runNoVerify(payload: Payload, repoRoot: string | null): GuardResult {
   if (payload.tool_name === "Bash" || payload.tool_name === "PowerShell") {
     const command = payload.tool_input["command"];

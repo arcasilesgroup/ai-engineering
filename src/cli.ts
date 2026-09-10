@@ -77,7 +77,7 @@ async function main(): Promise<number> {
         return 2;
       }
       const raw = await Bun.stdin.text();
-      chainMain(event, raw, { dialect: "exit2", surface: "claude-code" });
+      chainMain(event, raw, { surface: "claude-code" });
       return 0; // chainMain exits on its own when it denies
     }
     case "git":

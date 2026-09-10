@@ -3,7 +3,7 @@
 // FAIL, never silent degradation.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { repoRoot } from "../env.ts";
 
@@ -33,9 +33,6 @@ export function preCommit(cwd = repoRoot() ?? process.cwd()): FloorResult {
 }
 
 function whichGitleaks(): string | null {
-  for (const candidate of ["/opt/homebrew/bin/gitleaks", "/usr/local/bin/gitleaks", "/usr/bin/gitleaks"]) {
-    if (existsSync(candidate)) return candidate;
-  }
   const probe = spawnSync("gitleaks", ["version"], { encoding: "utf8" });
   return probe.status === 0 ? "gitleaks" : null;
 }
@@ -110,7 +107,6 @@ export function commitMsg(msgFile: string, receiptId: string, overrideReason: st
   if (!content.includes("Receipt-Id:")) {
     content = `${content.trimEnd()}\n\nReceipt-Id: ${receiptId}\n`;
     if (overrideReason) content = `${content.trimEnd()}\nOverride-Reason: ${overrideReason}\n`;
-    const { writeFileSync } = require("node:fs") as typeof import("node:fs");
     writeFileSync(msgFile, content);
     if (overrideReason) lines.push(`active override travels in the commit: ${overrideReason.slice(0, 80)}`);
   }
