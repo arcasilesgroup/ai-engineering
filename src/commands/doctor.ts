@@ -2,13 +2,14 @@
 // EXECUTES an adversarial payload and measures real latency. A hook that does not
 // deny, or denies slow, is FAIL — not WARN (§14.2).
 import { canonDrift, embeddedChainBundle } from "../embed.ts";
-import { existsSync, readFileSync, readdirSync, lstatSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, lstatSync, unlinkSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home } from "../env.ts";
 import { summarizeReceipts } from "../receipts.ts";
 import { parseLock } from "../install.ts";
 import { SURFACES } from "../surfaces/adapters.ts";
+import { unmetTriggers } from "../spec/triggers.ts";
 import { VERSION } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
 import { readOverrides, overrideDaysLeft } from "../chain/dialect.ts";
@@ -153,14 +154,45 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   const archPath = root ? join(root, ".ai-engineering", "arch.rules.json") : null;
   const hasSrc = root ? existsSync(join(root, "src")) : false;
   push("arch", !archPath ? "warn" : hasSrc ? "ok" : "warn", !archPath ? "no arch.rules.json" : hasSrc ? "active — src/ present" : "bootstrap mode — src/ empty");
-  // 10. spec slot: zombie contracts.
+  // 10. milestone slots: a live contract, and the artifacts a dead one leaves behind.
+  //     A milestone that never opened a contract could never be closed either, so its
+  //     brainstorm.md was immortal and doctor called the slot clean (§21.2).
   const specPath = root ? join(root, ".ai-engineering", "spec.html") : null;
-  if (specPath && existsSync(specPath)) {
+  const hasContract = specPath !== null && existsSync(specPath);
+  if (hasContract) {
     const lockPath = join(root ?? "", ".ai-engineering", "ai-eng.lock");
     const pinned = existsSync(lockPath) ? Boolean(parseLock(readFileSync(lockPath, "utf8")).spec_sha256) : false;
     push("spec slot", pinned ? "ok" : "warn", pinned ? "contract approved (sha256 in lock)" : "live spec.html WITHOUT approval — STOP 1 pending or zombie contract");
   } else {
-    push("spec slot", "ok", "clean slot: 0 zombie contracts");
+    const orphans = root
+      ? ["brainstorm.md", "recap.html"].filter((name) => existsSync(join(root, ".ai-engineering", name)))
+      : [];
+    push(
+      "spec slot",
+      orphans.length === 0 ? "ok" : "warn",
+      orphans.length === 0
+        ? "clean slot: 0 zombie contracts"
+        : `orphan ${orphans.join(" + ")} with no live contract — the milestone it belongs to is closed: delete it (git keeps the history)`,
+    );
+  }
+  // 10b. conditional nodes: a trigger that fired and left no artifact. This is the
+  //      "if it touches UI" sentence made checkable (§20.1).
+  if (hasContract && root) {
+    const lock = parseLock(readFileSync(join(root, ".ai-engineering", "ai-eng.lock"), "utf8"));
+    if (!lock.base_sha) {
+      push("triggers", "warn", "no base_sha in the lock — this milestone cannot judge its conditional nodes; reopen it with ai-eng spec open");
+    } else {
+      const spec = readFileSync(join(root, ".ai-engineering", "spec.html"), "utf8");
+      const abandoned = new Set([...spec.matchAll(/^ABANDON:\s*(\S+)/gm)].map((m) => m[1]!));
+      const unmet = unmetTriggers(root, lock.base_sha, abandoned);
+      push(
+        "triggers",
+        unmet.length === 0 ? "ok" : "warn",
+        unmet.length === 0
+          ? "no fired trigger is missing its artifact"
+          : unmet.map((entry) => `${entry.id} fired on ${entry.sample} → ${entry.skill} left no artifact`).join(" · "),
+      );
+    }
   }
   // 11. surfaces responding: settings present for declared surfaces — and, where the
   //     surface runs the guard in-process, the planted chain is the one THIS binary
@@ -213,42 +245,107 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   return { results, fail: results.some((r) => r.status === "fail") };
 }
 
+/** The files whose citation protects an artifact from gc. spec.html, plan.html and
+ *  brainstorm.md die at close, so immunity they granted would die with them (§21.3). */
+const PERMANENT_GOVERNORS = ["DECISIONS.md", "NOTICE", join(".ai-engineering", "arch.rules.json")];
+
+/** Cited by a working file that outlives the milestone — the only immunity there is. */
+function citedByGovernor(root: string, name: string): boolean {
+  const nnn = /^(\d{3})/.exec(name)?.[1];
+  for (const governor of PERMANENT_GOVERNORS) {
+    const path = join(root, governor);
+    if (!existsSync(path)) continue;
+    const text = readFileSync(path, "utf8");
+    if (text.includes(name)) return true;
+    if (nnn && new RegExp(`\\b${nnn}\\b`).test(text)) return true;
+  }
+  return false;
+}
+
+/** Deleting from the tree is only safe when git already holds the file: the history IS
+ *  the archive, and a file nobody committed has no history to fall back on. */
+function trackedByGit(root: string, path: string): boolean {
+  return spawnSync("git", ["-C", root, "ls-files", "--error-unmatch", "--", path], { stdio: "ignore" }).status === 0;
+}
+
+/** Age in days from the last commit that touched the path — an mtime is a checkout, not a date. */
+function committedAgeDays(root: string, path: string): number | null {
+  const out = spawnSync("git", ["-C", root, "log", "-1", "--format=%ct", "--", path], { encoding: "utf8" });
+  const seconds = Number(out.stdout.trim());
+  return out.status === 0 && Number.isFinite(seconds) && seconds > 0 ? (Date.now() / 1000 - seconds) / 86_400 : null;
+}
+
 /** `doctor --gc` — execute what the audit proposes, in one commit (§21.3). */
 function gc(cwd = process.cwd()): string[] {
   const root = repoRoot(cwd);
   const lines: string[] = [];
   if (!root) return ["no repo: nothing to collect"];
   const config = loadConfig();
-  const maxFiles = Number(config["gc"]?.["max_files"] ?? 25);
-  const ttlDays = Number(String(config["gc"]?.["receipts_ttl"] ?? "30d").replace("d", ""));
-  const folders: Array<[string, number]> = [
-    ["research", maxFiles],
-    ["reports", maxFiles],
-    ["design/audits", maxFiles],
-    ["receipts", ttlDays],
-  ];
-  const cut = Date.now() - ttlDays * 86_400_000;
-  for (const [folder, limit] of folders) {
-    const dir = join(root, ".ai-engineering", folder);
-    if (!existsSync(dir)) continue;
-    const entries = readdirSync(dir).sort();
-    if (folder === "receipts") {
-      // Aggregate then delete: counts per month, p50/p95, denies per guard → summary.json.
-      const summary = summarizeReceipts(dir);
-      const stale = entries
-        .map((name) => ({ name, ts: statMtime(join(dir, name)) }))
-        .filter((e) => e.ts < cut);
-      for (const entry of stale) unlinkSync(join(dir, entry.name));
-      if (stale.length > 0) {
-        writeFileSync(join(dir, "summary.json"), JSON.stringify({ ...summary, gc: new Date().toISOString() }));
-        lines.push(`✓ receipts: ${stale.length} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
-      }
-      continue;
-    }
-    if (entries.length > limit) {
-      lines.push(`⚠ ${folder}/: ${entries.length} > max_files=${limit} — review citations before gc (cited items are immune)`);
+  const gcConfig = config["gc"] ?? {};
+  const maxFiles = Number(gcConfig["max_files"] ?? 25);
+  const ttlDays = Number(String(gcConfig["receipts_ttl"] ?? "30d").replace("d", ""));
+  const olderDays = Number(String(gcConfig["older_than"] ?? "90d").replace("d", ""));
+  const keepRuns = Number(gcConfig["keep_runs"] ?? 5);
+
+  // Receipts: aggregate, then delete. They carry no citation to respect — their
+  // permanent half is the Receipt-Id trailer on the commit.
+  const receipts = join(root, ".ai-engineering", "receipts");
+  if (existsSync(receipts)) {
+    const summary = summarizeReceipts(receipts);
+    const cut = Date.now() - ttlDays * 86_400_000;
+    const stale = readdirSync(receipts)
+      .map((name) => ({ name, ts: statMtime(join(receipts, name)) }))
+      .filter((entry) => entry.ts < cut);
+    for (const entry of stale) unlinkSync(join(receipts, entry.name));
+    if (stale.length > 0) {
+      writeFileSync(join(receipts, "summary.json"), JSON.stringify({ ...summary, gc: new Date().toISOString() }));
+      lines.push(`✓ receipts: ${stale.length} aggregated into summary.json and deleted (ttl ${ttlDays}d)`);
     }
   }
+
+  // The NNN folders: cited is immune, young is left alone, and only what git already
+  // holds is ever deleted — the tree is the cache of the living, git is the archive.
+  for (const folder of ["research", "reports", join("design", "audits")]) {
+    const dir = join(root, ".ai-engineering", folder);
+    if (!existsSync(dir)) continue;
+    const entries = readdirSync(dir).filter((name) => name !== "summary.json");
+    const collected: string[] = [];
+    let immune = 0;
+    for (const name of entries) {
+      const path = join(dir, name);
+      if (citedByGovernor(root, name)) {
+        immune += 1;
+        continue;
+      }
+      const age = committedAgeDays(root, path);
+      if (age === null || age < olderDays || !trackedByGit(root, path)) continue;
+      unlinkSync(path);
+      collected.push(`${folder}/${name}`);
+    }
+    if (collected.length > 0) lines.push(`✓ ${folder}/: archived ${collected.length} in git and deleted (${collected.join(", ")})`);
+    if (immune > 0) lines.push(`  ${folder}/: ${immune} cited by a permanent governor — immune`);
+    const remaining = readdirSync(dir).length;
+    if (remaining > maxFiles) lines.push(`⚠ ${folder}/: ${remaining} > max_files=${maxFiles} — review before the next pass`);
+  }
+
+  // Security runs: the newest keep_runs are always live; beyond that the same rule.
+  const security = join(root, ".ai-engineering", "security");
+  if (existsSync(security)) {
+    const runs = readdirSync(security).filter((name) => name.startsWith("run-")).sort();
+    const beyond = runs.slice(0, Math.max(0, runs.length - keepRuns));
+    const collected: string[] = [];
+    for (const run of beyond) {
+      const path = join(security, run);
+      if (citedByGovernor(root, run)) continue;
+      const age = committedAgeDays(root, path);
+      if (age === null || age < olderDays || !trackedByGit(root, path)) continue;
+      rmSync(path, { recursive: true, force: true });
+      collected.push(`security/${run}`);
+    }
+    if (collected.length > 0) lines.push(`✓ security/: archived ${collected.length} in git and deleted (keeping the last ${keepRuns})`);
+    else if (runs.length > keepRuns) lines.push(`  security/: ${runs.length} runs, keeping the last ${keepRuns}`);
+  }
+
   if (lines.length === 0) lines.push("✓ gc: nothing to collect");
   return lines;
 }

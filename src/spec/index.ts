@@ -1,8 +1,11 @@
-// `ai-eng spec run|open|close` — the machine verb the CI and the loop call.
+// `ai-eng spec run|open|approve|close` — the machine verb the CI and the loop call.
 // run: wrapper over ai-proof's gate-check.mjs + receipt per run + exit ≠ 0 when a
 // CHECK could not execute (green-by-absence-of-executor is impossible, §09.3).
-// open: claims the slot. close: verifies receipts or ABANDON per gate, archives to
-// git, deletes the four slot files, frees the slot (§21.2).
+// open: claims the slot and records the commit the milestone starts from, which is
+// what gives the conditional nodes a diff to judge. close: verifies every gate has
+// evidence or an honest ABANDON, checks the contract was not edited after approval,
+// refuses when a fired trigger left no artifact, archives to git and frees the slot
+// (§21.2).
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -12,9 +15,60 @@ import { repoRoot, home } from "../env.ts";
 import { writeReceipt } from "../receipts.ts";
 import { embeddedTemplate } from "../embed.ts";
 import { parseLock, lockText } from "../install.ts";
+import { unmetTriggers } from "./triggers.ts";
 import { VERSION } from "../version.ts";
 
 const SLOT_FILES = ["spec.html", "plan.html", "brainstorm.md", "recap.html"];
+/** An ABANDON with less than this much reason is a checkbox, not an honest exit. */
+const MIN_ABANDON_REASON = 12;
+
+/** The commit the milestone starts from — the base every conditional node is judged against. */
+function gitHead(root: string): string | null {
+  const head = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" });
+  const sha = head.stdout.trim();
+  return head.status === 0 && /^[0-9a-f]{40}$/.test(sha) ? sha : null;
+}
+
+type GateLine = { id: string; evidence: string | null };
+
+/** The gates as the artifact really writes them: `- [ ] G4: ...` inside `<pre id="gates">`
+ *  with an indented EVIDENCE line. The old regex looked for `<div class="gate">`, markup no
+ *  spec.html has ever contained — so the check ran against zero gates and never refused. */
+function parseGates(spec: string): GateLine[] {
+  const block = /<pre id="gates">([\s\S]*?)<\/pre>/.exec(spec)?.[1] ?? spec;
+  const gates: GateLine[] = [];
+  for (const line of block.split("\n")) {
+    const gate = /^- \[[ xX]\] (G\d+):/.exec(line);
+    if (gate) {
+      gates.push({ id: gate[1]!, evidence: null });
+      continue;
+    }
+    const evidence = /^\s+EVIDENCE:\s*(.*)$/.exec(line);
+    const current = gates[gates.length - 1];
+    if (evidence && current && current.evidence === null) current.evidence = evidence[1]!.trim();
+  }
+  return gates;
+}
+
+/** Every `ABANDON: <id> <reason>` in the artifact, by id. The id is a gate or a trigger. */
+function abandons(spec: string): Array<{ id: string; reason: string }> {
+  return [...spec.matchAll(/^ABANDON:\s*(\S+)[ \t]*(.*)$/gm)].map((m) => ({ id: m[1]!, reason: (m[2] ?? "").trim() }));
+}
+
+/** The contract the human approved is the WHAT, not the bookkeeping: `ai-eng spec run`
+ *  ticks the boxes and fills the EVIDENCE lines in the very file whose sha256 was
+ *  pinned at approval. Comparing raw bytes meant the act of running the gates broke
+ *  the authorisation that allowed the run. Both fields are normalised away, so an
+ *  edit to a check or a requirement still breaks the pin and a recorded receipt does
+ *  not — and a spec pinned before this change stays valid, because a pristine
+ *  contract and its normalised form are the same bytes. */
+export function normalizeSpec(spec: string): string {
+  return spec.replace(/^- \[[xX]\]/gm, "- [ ]").replace(/^(\s+EVIDENCE:\s*).*$/gm, "$1pending");
+}
+
+function sha256(text: string): string {
+  return createHash("sha256").update(text).digest("hex");
+}
 
 function specGatePolicyAllowsRun(root: string): boolean {
   // A contract nobody approved does not run: the sha256 pinned in the lock at
@@ -25,8 +79,7 @@ function specGatePolicyAllowsRun(root: string): boolean {
   if (!lock.spec_sha256) return false;
   const specPath = join(root, ".ai-engineering", "spec.html");
   if (!existsSync(specPath)) return false;
-  const current = createHash("sha256").update(readFileSync(specPath)).digest("hex");
-  return current === lock.spec_sha256;
+  return sha256(normalizeSpec(readFileSync(specPath, "utf8"))) === lock.spec_sha256;
 }
 
 /** `spec run` — execute every CHECK in the approved spec.html. */
@@ -87,7 +140,17 @@ export function specOpen(milestone: string): number {
   }
   writeFileSync(join(dir, "spec.html"), embeddedTemplate("spec.html.tpl", { milestone }));
   writeFileSync(join(dir, "plan.html"), embeddedTemplate("plan.html.tpl", { milestone }));
+  // The milestone's base: the conditional nodes judge `git diff --name-only <base>`
+  // against it, and nothing else records where the work began.
+  const base = gitHead(root);
+  const lockPath = join(dir, "ai-eng.lock");
+  if (base) {
+    const lock = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : { version: VERSION, assets: {} };
+    lock.base_sha = base;
+    writeFileSync(lockPath, lockText(lock));
+  }
   process.stdout.write(`✓ slot opened: spec.html + plan.html for "${milestone}"\n`);
+  if (base) process.stdout.write(`  base ${base.slice(0, 12)} recorded — fired triggers are judged against it\n`);
   process.stdout.write("  STOP 1: a human approves the contract → pin its sha256 with: ai-eng spec approve\n");
   return 0;
 }
@@ -105,14 +168,15 @@ export function specApprove(): number {
   }
   const lockPath = join(root, ".ai-engineering", "ai-eng.lock");
   const lock = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : { version: VERSION, assets: {} };
-  const sha = createHash("sha256").update(readFileSync(specPath)).digest("hex");
+  const sha = sha256(normalizeSpec(readFileSync(specPath, "utf8")));
   lock.spec_sha256 = sha;
   writeFileSync(lockPath, lockText(lock));
   process.stdout.write(`✓ STOP 1: spec sha256 pinned in ai-eng.lock (${sha.slice(0, 12)}…) — the contract is executable and self-protect now blocks its edits.\n`);
   return 0;
 }
 
-/** `spec close` — the only exit: receipts or ABANDON per gate, archive to git, delete. */
+/** `spec close` — the only exit: receipts or ABANDON per gate, no post-approval edits,
+ *  no fired trigger left without an artifact. Then archive, delete, free the slot (§21.2). */
 export function specClose(): number {
   const root = repoRoot();
   if (!root) return 2;
@@ -123,32 +187,76 @@ export function specClose(): number {
     return 2;
   }
   const spec = readFileSync(specPath, "utf8");
-  const gates = [...spec.matchAll(/^<div class="gate"><span class="id">(G\d+)<\/span>([\s\S]*?)<\/div>/gm)];
-  const abandoned = [...spec.matchAll(/ABANDON:\s*(G\d+)\s+(.+)/g)].map((m) => m[1]!);
-  let withoutReceipt = 0;
-  for (const [full, id] of gates.map((g) => [g[0], g[1]!] as const)) {
-    if (abandoned.includes(id)) continue;
-    const hasEvidence = /EVIDENCE:\s*(?!pending)\S/.test(full);
-    if (!hasEvidence) withoutReceipt += 1;
+  const lockPath = join(dir, "ai-eng.lock");
+  const lock = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : { version: VERSION, assets: {} };
+  const problems: string[] = [];
+
+  // The contract the human approved is the one that closes: an edited spec is a
+  // different contract, however small the edit.
+  if (lock.spec_sha256 && sha256(normalizeSpec(spec)) !== lock.spec_sha256) {
+    problems.push(
+      "spec close: spec.html changed after approval (sha256 differs from the lock) — restore it from git, or reopen with ai-eng spec open and approve again.",
+    );
   }
-  if (withoutReceipt > 0) {
-    process.stderr.write(`spec close: ${withoutReceipt} gates without EVIDENCE or ABANDON — verify first or declare ABANDON (§9.3).\n`);
+
+  const declared = abandons(spec);
+  const abandoned = new Set(declared.map((entry) => entry.id));
+  for (const entry of declared) {
+    if (entry.reason.length < MIN_ABANDON_REASON) {
+      problems.push(`spec close: ABANDON: ${entry.id} carries no reason — an honest exit says what it is exiting.`);
+    }
+  }
+
+  const gates = parseGates(spec);
+  if (gates.length === 0) {
+    problems.push("spec close: no gates found in spec.html — a contract with nothing to verify is not a contract.");
+  }
+  const unmet = gates.filter((gate) => {
+    if (abandoned.has(gate.id)) return false;
+    const evidence = gate.evidence?.trim() ?? "";
+    return evidence.length === 0 || /^pending$/i.test(evidence);
+  });
+  if (unmet.length > 0) {
+    const ids = unmet.map((gate) => gate.id).join(", ");
+    problems.push(
+      `spec close: ${unmet.length} gate(s) without evidence or ABANDON (${ids}) — run ai-eng spec run, or declare ABANDON: <gate> <reason>.`,
+    );
+  }
+  if (abandoned.size > 0) {
+    for (const entry of declared) process.stdout.write(`  ABANDON: ${entry.id} — ${entry.reason}\n`);
+  }
+
+  // A conditional node that fired and left nothing is the "if it touches UI" sentence
+  // that used to be unenforceable.
+  if (lock.base_sha && gates.length > 0) {
+    for (const unmetTrigger of unmetTriggers(root, lock.base_sha, abandoned)) {
+      problems.push(
+        `spec close: trigger "${unmetTrigger.id}" fired on ${unmetTrigger.sample} and ${unmetTrigger.skill} left no artifact — run it, or declare ABANDON: ${unmetTrigger.id} <reason>.`,
+      );
+    }
+  }
+
+  if (problems.length > 0) {
+    for (const problem of problems) process.stderr.write(`${problem}\n`);
     return 2;
   }
+
   // Archive = git add of the four files happens by the caller's commit; here we
   // delete the slot files after recording what dies.
   for (const name of SLOT_FILES) {
     const path = join(dir, name);
     if (existsSync(path)) unlinkSync(path);
   }
-  // The lock entry dies with the milestone; the next contract takes its place.
-  const lockPath = join(dir, "ai-eng.lock");
+  // The lock entries die with the milestone; the next contract takes their place.
   if (existsSync(lockPath)) {
-    const lock = parseLock(readFileSync(lockPath, "utf8"));
-    delete lock.spec_sha256;
-    writeFileSync(lockPath, lockText(lock));
+    const clean = parseLock(readFileSync(lockPath, "utf8"));
+    delete clean.spec_sha256;
+    delete clean.base_sha;
+    writeFileSync(lockPath, lockText(clean));
   }
-  process.stdout.write("✓ contract closed: spec/plan/brainstorm/recap dead from the tree — git keeps the history.\n");
+  process.stdout.write(
+    `✓ contract closed: ${gates.length} gate(s) verified, spec/plan/brainstorm/recap dead from the tree — git keeps the history.\n`,
+  );
   return 0;
 }
 

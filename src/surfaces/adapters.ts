@@ -17,7 +17,15 @@ export type Surface = {
    *  hosts that run the chain in-process — their template turns the outcome into
    *  throw/block itself. */
   readonly dialect?: Dialect;
-  readonly can: { readonly deny: boolean | "throw"; readonly rewriteOut: boolean | "total-replacement" };
+  readonly can: {
+    readonly deny: boolean | "throw";
+    readonly rewriteOut: boolean | "total-replacement";
+    /** The native goal loop (§20.3) — "unverified" means plausible but never
+     *  measured with a receipt, "none" that the human loop is the honest mode
+     *  there (Pi: extensions only; Zed: skills-only). Nothing is "native" until
+     *  a receipt says so, and the field never guesses upward. */
+    readonly loop: "native" | "unverified" | "none";
+  };
   readonly settingsFile?: string;
   readonly pluginFile?: string;
   readonly chainFile?: string;

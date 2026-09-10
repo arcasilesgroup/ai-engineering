@@ -52,6 +52,11 @@ When in doubt between two paths, take the heavier one. The ratchet is one-way: h
 complexity discovered mid-task upgrades the path — stop, say so, and step up. Nothing
 downgrades mid-task.
 
+The path is also the lane: **spike → light, bounded → standard, architectural → full**.
+The lane decides what happens after the approval gate. On the standard and full lanes the
+next node is ai-plan, which turns the doc into checks and gates. A light spike never reaches
+ai-plan: once the answer is reported it goes straight to ai-verify, with no contract written.
+
 ## Anti-pattern: "too simple to need approval"
 
 Every path ends with your human partner approving your intent before implementation. A
@@ -243,6 +248,14 @@ In scope: fuzzy ideas needing alignment, pre-build design, feasibility spikes, v
 capture. Not for: evidence from outside the repo (/ai-research), turning an aligned idea
 into executable checks (/ai-plan), running the build loop (/ai-goal), diagnosing failures
 (/ai-debug).
+
+## Lifecycle
+
+Lane: light, standard, full
+Writes: .ai-engineering/brainstorm.md
+Read by: ai-plan, the agent that opens the next session
+Dies: the approval stop, when the contract exists, or ai-eng spec close
+Next: ai-research when questions are still open; ai-architect on the architectural lane; ai-plan on the standard lane; ai-verify on a light spike, with no contract written
 
 Source: handshake by obra (https://obra.sh, MIT; obra/superpowers attributed by URL) +
 brainstorming from obra/superpowers

@@ -143,5 +143,13 @@ Edit it when the repo's real state made a rule stale, never to bend a rule this 
    guards: the guards enforce `--no-verify` and linter silencing at hook time; the file
    tells the agent before the hook has to.
 
+## Lifecycle
+
+Lane: any
+Writes: AGENTS.md, CLAUDE.md
+Read by: the surfaces, by name convention
+Dies: when the shape of the repository changes — the tree is the source and the file follows it
+Next: none
+
 Source: the agents.md convention (https://agents.md/, https://github.com/agentsmd/agents.md)
 plus the sample layouts published there; adapted as the ai-engineering authoring skill.

@@ -24,3 +24,18 @@
 **Problem:** `bun build --compile` leaves its 61 884 464-byte scratch executable (`.{hash}-{n}.bun-build`) in the cwd on every *successful* compile — not only on an interrupt (measured on Bun 1.4.2, four consecutive builds, all four left one) — and `.gitignore` hides it, so builds accumulated ~59 MB per run invisibly.
 **Decision:** `scripts/build.ts` is the single build path (`bun run build`; release.yml's duplicate `|| bun build …` fallback is gone): it sweeps `.bun-build` in the cwd and `dist/`, before and after the compile, prints what it removed, and forwards `--target` to Bun.
 **Reason:** a build artefact the build tool never deletes is 59 MB nobody sees; sweeping in the one place every build goes through costs a few lines and cannot be forgotten — and one build path means a failed build fails the job instead of silently retrying itself.
+
+## D-006 · the cycle is declared by each skill, and a milestone now has a base (2026-09-10)
+**Problem:** blueprint §20-§21 were prose no layer could check — twenty skills with four prose forward edges; `spec close` matching `<div class="gate">` markup no spec.html has ever contained, so it never refused anything; `doctor` printing `clean slot` next to a live orphan `brainstorm.md`; `[gc]` declaring four keys and using two; `ai-goal` promising a native loop on Pi, which has none.
+**Decision:** every SKILL.md declares its own node in a `## Lifecycle` block (Lane / Trigger / Writes / Read by / Dies / Next / Stop) and canon gates G9-G14 enforce the union — no central router; `spec open` records `base_sha` and `spec close` verifies each gate, the post-approval sha256 and the diff's fired triggers; `doctor` warns on orphan slots and fired triggers left empty; `gc` honours `older_than`/`keep_runs` and deletes only what git already holds; surfaces declare `can.loop` and `ai-goal` gains facilitator mode. Contract: `.ai-engineering/spec.html` (20 gates) @ git dd3a858c.
+**Reason:** the machinery already existed and nobody could find it; a rule the code cannot check is a sentence, and one milestone proved it — brainstorm, then straight to implementation with no contract.
+
+## D-007 · a trigger is declared path or judgment, never implied (2026-09-10)
+**Problem:** of the five routing triggers only `ui` and `security` can be read from a diff; `open-questions`, `arch-change` and `public-interface` are decisions. Written as globs, two of them were unmatchable sentences inside a field the evaluator parses as globs — a condition that silently never fires.
+**Decision:** every `Trigger` carries `Trigger kind: path|judgment`; only `path` triggers are evaluated against the milestone diff (with optional `Trigger excludes:`), and canon gate G11 refuses a path trigger whose condition is not globs.
+**Reason:** a mechanical check that cannot be mechanical is worse than an honest question — the first passes while the work is missing.
+
+## D-008 · the pinned sha256 covers the WHAT, not the runner's bookkeeping (2026-09-10)
+**Problem:** `ai-eng spec run` ticks the checkboxes and writes the EVIDENCE lines into `spec.html` itself, so the first run changed the file whose sha256 was pinned at approval: the second run refused with "not approved" and the milestone could not close. Found while closing this milestone, by closing it.
+**Decision:** `specApprove` pins — and run and close compare — `sha256(normalizeSpec(...))`, which rewrites `- [x]` to `- [ ]` and every EVIDENCE value to `pending`.
+**Reason:** the human approves what must hold, not the runner's notes about it; an edit to a check or a requirement still breaks the pin, and a pristine contract normalises to itself, so pins taken before this change stay valid.

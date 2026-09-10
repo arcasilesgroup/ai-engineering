@@ -77,6 +77,9 @@ export type Lock = {
   version: string;
   assets: Record<string, string>;
   spec_sha256?: string;
+  /** The commit the live milestone started from: without it a conditional node has no
+   *  diff to judge, and "if it touches UI" stays a sentence nobody can check (§20.1). */
+  base_sha?: string;
 };
 
 export function buildLock(entries: PlanEntry[], version: string, specContent?: string): Lock {
@@ -92,6 +95,7 @@ export function buildLock(entries: PlanEntry[], version: string, specContent?: s
 export function lockText(lock: Lock): string {
   const lines = ["# ai-eng.lock — sha256 of the global canon this repo expects (§08).", `version = "${lock.version}"`, ""];
   if (lock.spec_sha256) lines.push(`spec_sha256 = "${lock.spec_sha256}"`, "");
+  if (lock.base_sha) lines.push(`base_sha = "${lock.base_sha}"`, "");
   lines.push("[assets]");
   for (const [path, hash] of Object.entries(lock.assets)) lines.push(`"${path}" = "${hash}"`);
   return `${lines.join("\n")}\n`;
@@ -108,5 +112,6 @@ export function parseLock(text: string): Lock {
   }
   const lock: Lock = { version: typeof doc["version"] === "string" ? doc["version"] : "", assets };
   if (typeof doc["spec_sha256"] === "string") lock.spec_sha256 = doc["spec_sha256"];
+  if (typeof doc["base_sha"] === "string") lock.base_sha = doc["base_sha"];
   return lock;
 }

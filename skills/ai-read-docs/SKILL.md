@@ -137,4 +137,12 @@ types if available, and avoid presenting the result as confirmed-current.
    ai-brainstorm, ai-research, ai-architect and ai-plan (blueprint §11.6), which
    cite this skill rather than re-stating its triggers.
 
+## Lifecycle
+
+Lane: any
+Writes: nothing
+Read by: n/a
+Dies: n/a — the version it read lands in the artifact that cites it
+Next: none
+
 Source: read-the-damn-docs by BuilderIO — https://github.com/BuilderIO/skills (Apache-2.0; agent-native.com).

@@ -64,6 +64,9 @@ export function summarizeReceipts(dir?: string): ReceiptSummary {
     try {
       for (const name of readdirSync(target)) {
         if (!name.endsWith(".json")) continue;
+        // gc writes its own summary into this folder; counting it as a receipt would
+        // inflate the total by one on every collection (§21.3).
+        if (name === "summary.json") continue;
         try {
           const receipt = JSON.parse(readFileSync(join(target, name), "utf8")) as Receipt;
           total += 1;

@@ -133,4 +133,15 @@ These are the mistakes that make security audits useless:
    conclusions: `decide`. The validator is never the finder — adversarial validation
    is non-negotiable.
 
+## Lifecycle
+
+Lane: full
+Trigger: security
+Trigger kind: path
+Trigger when: **/auth/**, **/authz/**, **/session/**, **/crypto/**, **/secrets/**, **/*.sql, **/migrations/**, **/package.json, **/requirements.txt, **/Cargo.toml, .github/workflows/**, src/chain/**, src/guards/**
+Writes: .ai-engineering/security/run-N/findings.json, .ai-engineering/security/run-N/REPORT.md
+Read by: the milestone gate, humans, later runs that skip the known findings
+Dies: the last keep_runs are always live; doctor --gc beyond that
+Next: ai-visual-recap
+
 Source: cloudflare/security-audit-skill — https://github.com/cloudflare/security-audit-skill (MIT).

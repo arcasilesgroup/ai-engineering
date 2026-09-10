@@ -1093,7 +1093,8 @@ license: Apache-2.0
       <tr><td>Codex CLI</td><td>JSON/TOML + proceso</td><td class="check">✔</td><td class="check">✔</td><td class="half">⚠ sustitución total</td><td><span class="pill p-warn">experimental</span> <span class="dim">+ /hooks trust humano</span></td></tr>
       <tr><td>Copilot</td><td>JSON + proceso</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td><td><span class="pill p-dim">best-effort</span> <span class="dim">FS efímero: sin receipts</span></td></tr>
       <tr><td>Hermes desktop</td><td>plugin API (rewrite) + skills</td><td class="half">⚠ <span class="dim">deny vía plugin, sin medir</span></td><td class="check">✔ <span class="dim">lo usa rtk init --agent hermes</span></td><td class="cross">✘</td><td><span class="pill p-warn">v2.x</span> <span class="dim">H0 spike primero — IDE con ACP + skills; se ofrece en init solo tras medir el deny</span></td></tr>
-      <tr><td>Pi / Zed</td><td>directorio de skills</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td><span class="pill p-dim">skills-only</span> <span class="dim">honesto</span></td></tr>
+      <tr><td>Pi</td><td>módulo TS in-process (<code>.pi/extensions/ai-eng.ts</code>)</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td><td><span class="pill p-ok">core</span></td></tr>
+      <tr><td>Zed</td><td>directorio de skills</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td><span class="pill p-dim">skills-only</span> <span class="dim">honesto</span></td></tr>
     </tbody>
   </table></div>
   <p>Superficie nueva = ~150 LOC de adapter + su prueba, declarada en <code>surfaces.json</code> <em>antes</em> de que <code>init</code> la ofrezca. Dos generadores: <strong>JSON-stdio</strong> (Claude/Cursor/Codex/Copilot, con tabla de aliases de campos: <code>permissionDecision→permission</code>, <code>updatedInput→updated_input</code>…) y <strong>módulo TS</strong> (OpenCode/OMP — el mismo chain importado como módulo, cero spawn, latencia mínima). Nota de seguridad propia: OpenCode instala plugins npm <em>con Bun al arrancar</em> — <code>"plugin":["paquete"]</code> es ejecución arbitraria de terceros; por eso el plugin que plantamos es <strong>local</strong> (<code>.opencode/plugins/ai-eng.ts</code>), nunca un paquete remoto.</p>
@@ -1168,7 +1169,8 @@ license: Apache-2.0
 <span class="s">│</span>   <span class="k">○</span> Cursor             <span class="c">⚠ experimental — no output rewrite</span>
 <span class="s">│</span>   <span class="k">○</span> Codex CLI          <span class="c">⚠ experimental — requires manual /hooks trust</span>
 <span class="s">│</span>   <span class="k">○</span> Copilot            <span class="c">best-effort — ephemeral FS: deny only, no receipts</span>
-<span class="s">│</span>   <span class="k">○</span> Pi / Zed           <span class="c">skills only — no guards in hot-path</span>
+<span class="s">│</span>   <span class="k">○</span> Pi                 <span class="c">core — in-process extension (deny + rewrite)</span>
+<span class="s">│</span>   <span class="k">○</span> Zed                <span class="c">skills only — no guards in hot-path</span>
 <span class="s">│</span>
 <span class="s">◆</span>  <span class="t">Optional third-party harness boosters?</span>  <span class="c">grouped multiselect — p.group() of @clack/prompts · ai-eng prints commands, never installs</span>
 <span class="s">│</span>  <span class="wd">▿ Contexto — menos tokens por turno</span>
@@ -1222,7 +1224,8 @@ license: Apache-2.0
 <span class="s">│</span>   <span class="k">○</span> Cursor            <span class="c">⚠ experimental — no output rewrite</span>
 <span class="s">│</span>   <span class="k">○</span> Codex CLI         <span class="c">⚠ experimental — requiere /hooks trust manual</span>
 <span class="s">│</span>   <span class="k">○</span> Copilot           <span class="c">best-effort — cloud FS efímero: solo deny, sin receipts</span>
-<span class="s">│</span>   <span class="k">○</span> Pi / Zed          <span class="c">skills only — no guards in hot-path</span>
+<span class="s">│</span>   <span class="k">○</span> Pi                <span class="c">core — extension in-process (deny + rewrite)</span>
+<span class="s">│</span>   <span class="k">○</span> Zed               <span class="c">skills only — no guards in hot-path</span>
 <span class="s">│</span>
 <span class="s">◆</span>  <span class="t">¿Añades potenciadores de harness de terceros?</span>  <span class="c">multiselect agrupado — p.group() de @clack/prompts · ai-eng imprime el comando, nunca instala</span>
 <span class="s">│</span>  <span class="wd">▿ Contexto — menos tokens por turno</span>
@@ -1750,6 +1753,7 @@ license: Apache-2.0
       <tr><td>12</td><td>Cierre</td><td><code>ai-visual-recap</code> + git</td><td>recap HTML del hito; <strong>spec.html, plan.html y brainstorm.md se borran de <code>.ai-engineering/</code></strong> con <code>ai-eng spec close</code> — git guarda el histórico; <code>git tag</code> lo hace humano: ai-eng jamás toca el remoto (§07.1)</td><td>revisa el recap</td></tr>
     </tbody>
   </table></div>
+  <p>Ese orden tiene <strong>tres carriles</strong>, no uno. <strong>Light</strong> — trabajo tipo spike o bounded: <em>sin contrato</em>, se explora y se tira lo que no sirve. <strong>Standard</strong> — el contrato de siempre: <code>ai-plan</code> escribe <code>spec.html</code> + <code>plan.html</code>, el bucle corre y <code>spec verify</code> cierra. <strong>Full</strong> — arquitectural: el mismo contrato más los nodos disparados (§20.4). El carril es <strong>de un solo sentido</strong>: se puede subir a mitad de hito cuando la evidencia lo pide, nunca bajar en silencio. Y cada skill declara su propio carril, sus artefactos, su sucesor y su muerte en un bloque <code>## Lifecycle</code> dentro de su SKILL.md — eso es lo que hace el orden <em>verificable</em> en vez de aspiracional. A propósito no hay router central: la skill que tienes delante ya sabe qué va después.</p>
   <p class="dim">Fuera del orden, cuando tocan: <code>ai-explore</code> (¿dónde vive X?) antes de cualquier paso que necesite el árbol real; <code>ai-debug</code> (reproducción + test) en cuanto algo falla; <code>ai-note</code> para un hallazgo que el equipo debe recordar; <code>ai-issue-report</code> para reportar un incidente o un qué-pasó estructurado; <code>ai-read-docs</code> antes de usar una API de terceros; <code>ai-writing-behavior</code> cuando un fallo recurrente en trayectorias merezca criterio escrito (§21.5). <strong>Deber de grounding</strong> (§11.6): en los pasos 1→4, ningún archivo, API o librería se cita sin que <code>ai-explore</code>/<code>ai-read-docs</code> lo haya abierto en la sesión — el spec se escribe con lecturas, no con memoria. La economía de sesión (límites 5h, compact, recap) la hace el harness nativo de cada superficie; no son skills.</p>
 
   <h3>20.2 · El bucle autónomo: qué es «el ciclo» de ai-goal en v2</h3>
@@ -1782,7 +1786,7 @@ license: Apache-2.0
     <div class="card"><h4>El goal nativo pone</h4><p>El motor del bucle (iterar hasta agotar el objetivo), el contexto gestionado por el harness, el cambio de modelo (selector + nuestro pin inyectado), la economía de sesión (compact, /usage, límites), la suspensión y reanudación con su propio estado.</p></div>
     <div class="card"><h4><code>ai-goal</code> pone</h4><p>El <strong>contrato de salida</strong>: el bucle se alimenta de <code>plan.html</code> (no de la interpretación libre del objetivo), cada paso termina en un gate de <code>spec.html</code> con receipt (el «terminé» del harness nativo no cuenta sin prueba), las tres paradas del §5.1 como condiciones de corte, y el presupuesto de <code>config.toml</code> como techo duro. Los guards ya corren debajo en la capa de herramienta — el bucle nativo no puede saltarse el suelo porque no lo ve pasar.</p></div>
   </div>
-  <p class="dim">El mapeo por superficie está en §13: allí se declara dónde puede negar, dónde reescribir y dónde el bucle nativo corre con menos garantías (Pi/Zed: skills-only, sin guards en el hot-path — allí el bucle humano de §20.1 sigue siendo el modo honesto).</p>
+  <p class="dim">El mapeo por superficie está en §13: allí se declara dónde puede negar, dónde reescribir y dónde el bucle nativo corre con menos garantías (Pi/Zed: skills-only, sin guards en el hot-path — allí el bucle humano de §20.1 sigue siendo el modo honesto). El mecanismo, con nombre: esas superficies declaran <code>loop: none</code> en <code>surfaces.json</code> y <code>ai-goal</code> corre en <strong>modo facilitador</strong> — recorre <code>plan.html</code> paso a paso dentro de la sesión, con las mismas paradas y los mismos receipts.</p>
 
   <h3>20.4 · El mismo bucle para diseño y para negocio: el ciclo no es solo de ingeniería</h3>
   <p>¿Puede un hito ser <em>de diseño</em> — «haz el frontend de esta website»? Sí, y sin cambiar una pieza del mecanismo: el bucle es agnóstico del dominio porque <strong>un gate solo exige ser binario</strong>. «El hero mide 72px y pasa contraste AA» es tan ejecutable como «npm test verde» — lo que cambia es qué skills llenan los pasos, no el contrato:</p>
@@ -1831,6 +1835,7 @@ license: Apache-2.0
     <h4>Las tres clases, en una frase cada una</h4>
     <p><strong>Inmunes-mientras-se-citan</strong> (research, audits, security runs, reports, DECISIONS, arch.rules, direction, config): crecen por NNN o por bloque, nunca se reescriben a sí mismos — su valor es ser histórico, y su cita viva es lo que los protege del gc (§21.3). <strong>Por-hito</strong> (spec, plan, brainstorm, recap, el sha256 del lock): nacen con el hito y mueren con él; git es su cementerio, y eso es lo que impide los 49 specs zombis de v1. <strong>De-desecho</strong> (receipts): se acumulan solos, se agregan y se borran solos — nadie los lee a mano salvo <code>doctor</code> agregando.</p>
   </div>
+  <p class="dim">Quién declara qué vive y qué muere: cada skill lleva ese contrato en su propio SKILL.md, en un bloque <code>## Lifecycle</code> — carril, artefacto, sucesor y muerte — y un canon gate falla cuando a una skill le falta el bloque. Por eso el mapa de arriba se puede comprobar, no solo leer.</p>
 
   <h3>21.2 · Limpieza y concurrencia: un slot por checkout, worktree por agente</h3>
   <p>Sí: <strong>un solo</strong> spec.html, plan.html, brainstorm.md y recap.html por repo — son slots, no archivos numerados. Eso convierte la pregunta real en dos: ¿quién limpia, y qué pasa cuando dos agentes quieren el slot a la vez?</p>

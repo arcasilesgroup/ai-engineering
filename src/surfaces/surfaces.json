@@ -5,14 +5,14 @@
       "label": "Claude Code",
       "tier": "core",
       "dialect": "claude",
-      "can": { "deny": true, "rewriteOut": true },
+      "can": { "deny": true, "rewriteOut": true, "loop": "unverified" },
       "settingsFile": ".claude/settings.json"
     },
     {
       "id": "oh-my-pi",
       "label": "Oh My Pi",
       "tier": "core",
-      "can": { "deny": true, "rewriteOut": true },
+      "can": { "deny": true, "rewriteOut": true, "loop": "unverified" },
       "pluginFile": ".agents/hooks/ai-eng.ts",
       "chainFile": ".agents/hooks/ai-eng-chain.ts"
     },
@@ -20,7 +20,7 @@
       "id": "opencode",
       "label": "OpenCode",
       "tier": "core",
-      "can": { "deny": "throw", "rewriteOut": true },
+      "can": { "deny": "throw", "rewriteOut": true, "loop": "unverified" },
       "pluginFile": ".opencode/plugins/ai-eng.ts",
       "chainFile": ".opencode/plugins/ai-eng-chain.ts"
     },
@@ -29,7 +29,7 @@
       "label": "Cursor",
       "tier": "experimental",
       "dialect": "cursor",
-      "can": { "deny": true, "rewriteOut": false },
+      "can": { "deny": true, "rewriteOut": false, "loop": "unverified" },
       "settingsFile": ".cursor/hooks.json",
       "note": "output rewrite: MCP only (blueprint §13)"
     },
@@ -38,7 +38,7 @@
       "label": "Codex CLI",
       "tier": "experimental",
       "dialect": "codex",
-      "can": { "deny": true, "rewriteOut": "total-replacement" },
+      "can": { "deny": true, "rewriteOut": "total-replacement", "loop": "unverified" },
       "settingsFile": ".codex/hooks.json",
       "note": "requires manual /hooks trust (hash-pinned)"
     },
@@ -47,7 +47,7 @@
       "label": "Copilot",
       "tier": "best-effort",
       "dialect": "copilot",
-      "can": { "deny": true, "rewriteOut": true },
+      "can": { "deny": true, "rewriteOut": true, "loop": "unverified" },
       "settingsFile": ".github/hooks/ai-eng.json",
       "note": "ephemeral FS: no receipts"
     },
@@ -55,7 +55,7 @@
       "id": "pi",
       "label": "Pi",
       "tier": "core",
-      "can": { "deny": true, "rewriteOut": true },
+      "can": { "deny": true, "rewriteOut": true, "loop": "none" },
       "pluginFile": ".pi/extensions/ai-eng.ts",
       "chainFile": ".pi/extensions/ai-eng-chain.ts",
       "note": "in-process extension; project-local extensions load once pi trusts the folder"
@@ -64,7 +64,7 @@
       "id": "zed",
       "label": "Zed",
       "tier": "skills-only",
-      "can": { "deny": false, "rewriteOut": false },
+      "can": { "deny": false, "rewriteOut": false, "loop": "none" },
       "note": "honest: skills install, no guards in hot-path"
     }
   ]

@@ -74,4 +74,12 @@ Not for: no diagnosis yet but the fault must reach outsiders (/ai-issue-report),
 needs a design (/ai-plan), the fix needs proof it satisfies the ask (/ai-verify), a
 recurring pitfall worth remembering (/ai-note).
 
+## Lifecycle
+
+Lane: any
+Writes: nothing
+Read by: n/a
+Dies: n/a — the check it writes becomes a gate in spec.html and outlives it
+Next: none
+
 Source: ai-engineering v1 (own), Apache-2.0.

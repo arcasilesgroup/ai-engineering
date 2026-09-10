@@ -79,4 +79,12 @@ In scope: reproducible faults bound for a team, an upstream project, or an incid
 Not for: undiagnosed faults (/ai-debug), internal findings worth remembering (/ai-note),
 decisions (/ai-plan), the docs themselves (/ai-write).
 
+## Lifecycle
+
+Lane: any
+Writes: .ai-engineering/reports/NNN-{slug}.html
+Read by: the team, humans without session context
+Dies: immune while a permanent governor cites it; doctor --gc after older_than when nothing cites it
+Next: none
+
 Source: ai-engineering v1 skill `ai-report` (own), Apache-2.0 — renamed ai-issue-report.

@@ -81,3 +81,11 @@ Not for:
   authority to proceed.
 - Saving a finding we just made — use /ai-note, which records what we learned; exploring
   only reads.
+
+## Lifecycle
+
+Lane: any
+Writes: nothing — it is a lens, not an author
+Read by: n/a
+Dies: n/a — its citations land in other skills' artifacts
+Next: none

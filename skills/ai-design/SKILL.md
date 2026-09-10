@@ -336,5 +336,17 @@ Bundled with this skill:
    ARIA, zoom/viewport, and contrast at both AA and AAA targets against the
    built output.
 
+## Lifecycle
+
+Lane: full
+Trigger: ui
+Trigger kind: path
+Trigger when: **/*.tsx, **/*.jsx, **/*.css, **/*.scss, **/*.sass, **/*.less, **/*.vue, **/*.svelte, **/components/**, **/tailwind.config.*
+Trigger excludes: docs/**, .ai-engineering/**
+Writes: .ai-engineering/design/direction.html
+Read by: the routed skill, as its implementation input; ai-design-audit; humans
+Dies: when a new decision changes the direction, never per pull request
+Next: ai-design-audit, after the code exists
+
 Source: design-orchestrator from the claude-design-skills collection (attributed;
 no license — upstream issue H4).

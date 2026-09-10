@@ -64,3 +64,14 @@ the tree is the evidence.
 3. The verdict on whether a draft is good belongs to the `decide` tier; the mechanical
    checks (every named file exists, every named command runs) belong to `verify`
    (`.ai-engineering/config.toml` pin).
+
+## Lifecycle
+
+Lane: standard, full
+Trigger: public-interface
+Trigger kind: judgment
+Trigger when: the diff changes a public interface, a documented behaviour or a command a README shows
+Writes: README.md, docs/
+Read by: humans and the surfaces
+Dies: when the code it documents dies
+Next: ai-visual-recap

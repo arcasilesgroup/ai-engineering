@@ -65,5 +65,17 @@ Downloadable documents — PDFs, Word files, PPTX decks — cannot be audited in
    opinions; the `NNN` prefix is never rewritten once issued.
 3. Output format: gates (CHECK / EXPECT / EVIDENCE).
 
+## Lifecycle
+
+Lane: full
+Trigger: ui
+Trigger kind: path
+Trigger when: **/*.tsx, **/*.jsx, **/*.css, **/*.scss, **/*.sass, **/*.less, **/*.vue, **/*.svelte, **/components/**, **/tailwind.config.*
+Trigger excludes: docs/**, .ai-engineering/**
+Writes: .ai-engineering/design/audits/NNN-{name}.html
+Read by: the human, the milestone gate
+Dies: immune while a permanent governor cites it; doctor --gc after older_than when nothing cites it
+Next: ai-visual-recap
+
 Source: community-installed skill, no license (upstream contacted, issue H4) —
 integrated with attribution until one arrives.

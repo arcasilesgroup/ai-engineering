@@ -111,4 +111,12 @@ Not for:
    re-read it, not in a notes folder nobody opens twice. A finding with no home in
    DECISIONS/docs is a finding nobody re-reads.
 
+## Lifecycle
+
+Lane: any
+Writes: DECISIONS.md
+Read by: the agent, which reads DECISIONS.md whole
+Dies: never — it deliberately owns no file of its own
+Next: none
+
 Source: ai-engineering v1 (own), Apache-2.0.

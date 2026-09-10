@@ -134,4 +134,15 @@ Not for:
 2. Feed ai-architect's existence-check and prior-art review: this evidence is what an
    architecture PR cites before building something that already exists.
 
+## Lifecycle
+
+Lane: full
+Trigger: open-questions
+Trigger kind: judgment
+Trigger when: the brainstorm lists open questions, or the plan cites an external API or version
+Writes: .ai-engineering/research/NNN-{name}.html
+Read by: ai-architect, ai-plan, humans
+Dies: immune while a permanent governor cites it; doctor --gc after older_than when nothing cites it
+Next: ai-architect when the milestone restructures components; ai-plan otherwise
+
 Source: ai-engineering v1 (own), Apache-2.0.

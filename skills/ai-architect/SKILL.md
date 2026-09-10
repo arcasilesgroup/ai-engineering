@@ -468,5 +468,16 @@ Cap high-priority items at five. Keep the report direct and useful; do not bury 
 3. Run this before building: ai-engineering's existence-check plus a prior-art pass are
    the difference between "new to me" and "new".
 
+## Lifecycle
+
+Lane: full
+Trigger: arch-change
+Trigger kind: judgment
+Trigger when: the milestone adds a subsystem, changes a layer contract, or points a dependency a different way
+Writes: .ai-engineering/arch.rules.json
+Read by: the arch test, ai-plan
+Dies: never — it evolves by pull request and is never auto-written
+Next: ai-plan
+
 Source: headstart (MIT; license declared in its upstream metadata, no LICENSE file in the
 source). Attribution: headstart by the claude-design-skills collection.

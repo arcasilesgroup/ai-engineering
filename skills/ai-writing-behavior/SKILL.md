@@ -154,5 +154,13 @@ If those answers require oral context, keep editing.
 3. `spec.html` asks "was the milestone met?" (binary, CI); `BEHAVIOR.md` asks "did the
    agent behave well?" (scored 0-1, trended, never a gate).
 
+## Lifecycle
+
+Lane: any
+Writes: .agents/behaviors/{name}/BEHAVIOR.md
+Read by: the decide tier of ai-verify, human reviewers
+Dies: immune while an eval consumes it; without a consumer it is decoration and is deleted
+Next: none
+
 Source: braintrustdata/agentbehavior (Braintrust + Basis), Apache-2.0 —
 https://github.com/braintrustdata/agentbehavior

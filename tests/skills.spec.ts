@@ -14,6 +14,7 @@
 import { describe, test, expect } from "bun:test";
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { lifecycleBlock, blockFields, readTriggers } from "../src/spec/triggers.ts";
 
 const SKILLS = join(import.meta.dir, "..", "skills");
 const ACCENTS = /[áéíóúñÁÉÍÓÚÑ¿¡]/;
@@ -201,5 +202,142 @@ describe("G8 — official names only", () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+// ── G9-G14 · the graph ────────────────────────────────────────────────────────
+// Every skill declares its own node in a `## Lifecycle` block, so the graph is the
+// union of those blocks and there is no central map to fall out of sync (§20.1).
+// The parser is the same one the runtime uses: a second implementation would be a
+// second truth.
+
+const LANES = ["light", "standard", "full", "any"];
+const TRIGGER_IDS = ["ui", "security", "open-questions", "arch-change", "public-interface"];
+/** Declared by every node; the rest of the vocabulary belongs to specific kinds of node. */
+const REQUIRED_KEYS = ["Lane", "Writes", "Read by", "Dies", "Next"];
+/** The four slot files are shared by design — several nodes write into one milestone
+ *  slot (states, evidence), so ownership is exclusive for everything BUT these. */
+const SLOTS = ["spec.html", "plan.html", "brainstorm.md", "recap.html"];
+
+function skillName(dir: string): string {
+  return dir.split("/").pop()!;
+}
+
+function lifecycleFields(dir: string): Record<string, string> {
+  const block = lifecycleBlock(readFileSync(join(dir, "SKILL.md"), "utf8"));
+  return block ? blockFields(block) : {};
+}
+
+describe("G9 — every skill declares its node", () => {
+  test("the Lifecycle block carries Lane, Writes, Read by, Dies and Next", () => {
+    const problems: string[] = [];
+    for (const dir of listSkillDirs()) {
+      const fields = lifecycleFields(dir);
+      if (Object.keys(fields).length === 0) {
+        problems.push(`${skillName(dir)}: no ## Lifecycle block`);
+        continue;
+      }
+      for (const key of REQUIRED_KEYS) {
+        if (!fields[key] || fields[key]!.length === 0) problems.push(`${skillName(dir)}: ${key} missing`);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});
+
+describe("G10 — the graph is closed and ends", () => {
+  test("Next names real skills, every artifact has one owner, and a terminal node exists", () => {
+    const problems: string[] = [];
+    const names = new Set(listSkillDirs().map(skillName));
+    const owners = new Map<string, string>();
+    let terminals = 0;
+    for (const dir of listSkillDirs()) {
+      const skill = skillName(dir);
+      const fields = lifecycleFields(dir);
+      const next = fields["Next"];
+      if (!next) continue;
+      if (next.startsWith("none")) terminals += 1;
+      for (const mentioned of next.matchAll(/\bai-[a-z-]+/g)) {
+        if (!names.has(mentioned[0])) problems.push(`${skill}: Next names ${mentioned[0]}, which is not a skill`);
+      }
+      const written = (fields["Writes"] ?? "").split(",")[0]!.trim();
+      if (written.length === 0 || written.startsWith("nothing")) continue;
+      if (SLOTS.some((slot) => written.endsWith(slot))) continue;
+      const previous = owners.get(written);
+      if (previous) problems.push(`${written}: owned by ${previous} and by ${skill}`);
+      owners.set(written, skill);
+    }
+    if (terminals === 0) problems.push("no terminal node: the chain never ends");
+    expect(problems).toEqual([]);
+  });
+});
+
+describe("G11 — lanes and triggers come from a closed vocabulary", () => {
+  test("every lane is light, standard, full or any; every trigger id is known and has a condition", () => {
+    const problems: string[] = [];
+    for (const dir of listSkillDirs()) {
+      const skill = skillName(dir);
+      const fields = lifecycleFields(dir);
+      const lanes = (fields["Lane"] ?? "").split(",").map((lane) => lane.trim()).filter((lane) => lane.length > 0);
+      if (lanes.length === 0) problems.push(`${skill}: no lane`);
+      for (const lane of lanes) if (!LANES.includes(lane)) problems.push(`${skill}: unknown lane "${lane}"`);
+      const trigger = fields["Trigger"];
+      const kind = fields["Trigger kind"];
+      if (trigger && !TRIGGER_IDS.includes(trigger)) problems.push(`${skill}: unknown trigger "${trigger}"`);
+      if (trigger && !fields["Trigger when"]) problems.push(`${skill}: trigger "${trigger}" with no condition`);
+      if (!trigger && fields["Trigger when"]) problems.push(`${skill}: a condition with no trigger id`);
+      if (trigger && kind !== "path" && kind !== "judgment") {
+        problems.push(`${skill}: trigger "${trigger}" declares no kind (path or judgment)`);
+      }
+      if (!trigger && kind) problems.push(`${skill}: a trigger kind with no trigger id`);
+      if (trigger && kind === "path") {
+        const globs = (fields["Trigger when"] ?? "").split(",").map((glob) => glob.trim()).filter((glob) => glob.length > 0);
+        if (globs.length === 0 || globs.some((glob) => !glob.includes("*") && !glob.includes("/"))) {
+          problems.push(`${skill}: a path trigger needs globs, not a sentence`);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});
+
+describe("G12 — the human speaks words", () => {
+  test("every stop declares its words, what it confirms and the command the agent runs", () => {
+    const problems: string[] = [];
+    const declared = new Map<string, string>();
+    for (const dir of listSkillDirs()) {
+      const skill = skillName(dir);
+      const fields = lifecycleFields(dir);
+      const stop = fields["Stop"];
+      if (!stop) continue;
+      const previous = declared.get(stop);
+      if (previous) problems.push(`stop "${stop}" declared by ${previous} and by ${skill}`);
+      declared.set(stop, skill);
+      if (!fields["Stop words"]) problems.push(`${stop}: no words the human can say`);
+      if (!fields["Stop confirms"]) problems.push(`${stop}: nothing named as confirmed`);
+      if (!(fields["Stop runs"] ?? "").includes("ai-eng spec")) problems.push(`${stop}: runs no command`);
+    }
+    for (const required of ["approve", "close"]) {
+      if (!declared.has(required)) problems.push(`no "${required}" stop declared anywhere in the canon`);
+    }
+    expect(problems).toEqual([]);
+  });
+});
+
+describe("G13 — the lane is named where the classification happens", () => {
+  test("ai-brainstorm routes all three lanes: plan, verify, and research or architect", () => {
+    const next = lifecycleFields(join(SKILLS, "ai-brainstorm"))["Next"] ?? "";
+    expect(next).toMatch(/\bai-plan\b/);
+    expect(next).toMatch(/\bai-verify\b/);
+    expect(/\bai-research\b/.test(next) || /\bai-architect\b/.test(next)).toBe(true);
+  });
+});
+
+describe("G14 — every condition reaches the planner", () => {
+  test("each trigger id in the canon is named in ai-plan", () => {
+    const plan = readFileSync(join(SKILLS, "ai-plan", "SKILL.md"), "utf8");
+    const ids = [...new Set(readTriggers(SKILLS).map((trigger) => trigger.id))];
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids.filter((id) => !plan.includes(id))).toEqual([]);
   });
 });

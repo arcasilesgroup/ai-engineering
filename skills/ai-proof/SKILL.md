@@ -120,4 +120,12 @@ Conversational replies, trivial edits and factual questions get normal effort. N
 4. Upstream's solo-mode `GATES.md` remains the format's origin; every reference to a
    milestone's gates file means `.ai-engineering/spec.html`.
 
+## Lifecycle
+
+Lane: standard, full
+Writes: .ai-engineering/receipts/*.json
+Read by: doctor, CI, the human auditing
+Dies: receipts_ttl, when doctor --gc aggregates them into summary.json
+Next: ai-verify
+
 Source: unlazy v2.1.0 by Leonxlnx — https://github.com/Leonxlnx/unlazy (MIT).

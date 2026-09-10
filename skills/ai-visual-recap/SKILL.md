@@ -566,5 +566,17 @@ skills; consult them only where that collection is present:
 3. Output: `.ai-engineering/recap.html`; `ai-eng spec close` archives it to git
    and deletes it from the working tree.
 
+## Lifecycle
+
+Lane: standard, full
+Writes: .ai-engineering/recap.html
+Read by: the human, at close
+Dies: ai-eng spec close archives it to git and deletes it
+Next: none — this is the terminal node
+Stop: close
+Stop words: close, cierra, done, listo
+Stop confirms: every gate has a receipt or an ABANDON with a reason, and this recap is what gets archived
+Stop runs: ai-eng spec close
+
 Source: /visual-recap from BuilderIO — https://github.com/BuilderIO/agent-native/
 (Apache-2.0; agent-native.com).

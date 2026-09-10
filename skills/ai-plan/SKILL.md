@@ -172,6 +172,37 @@ If something can only be settled by actually running it, mark it and move on. An
    A check that cannot run is a FAIL, never a PASS by inspection.
 3. The upstream `.wayfinder/<slug>/MAP.md` working file and `commands/to-bar.md` emit
    step are kept as the method; only the final destination of the checks changes.
+4. The closed set of routing triggers is five ids, and each one is a hook into another
+   node:
+
+   | Trigger | Kind | Node it routes to |
+   |---|---|---|
+   | `ui` | path | ai-design, then ai-design-audit |
+   | `security` | path | ai-security |
+   | `open-questions` | judgment | ai-research |
+   | `arch-change` | judgment | ai-architect |
+   | `public-interface` | judgment | ai-write |
+
+   A **path** trigger fires on its own: the node declares the globs, and `doctor` and
+   `ai-eng spec close` evaluate them against the milestone's diff. A **judgment** trigger
+   cannot be read from a diff, and pretending otherwise would be theatre — so it is asked
+   once, out loud, and the answer decides.
+
+   Once one fires it is not optional: the planner writes a gate for it in `spec.html`, or
+   writes an `ABANDON:` line with the reason. A fired trigger with neither is a silent
+   hole, and a silent hole is the failure this skill exists to prevent.
+
+## Lifecycle
+
+Lane: standard, full
+Writes: .ai-engineering/spec.html, .ai-engineering/plan.html
+Read by: the loop (ai-goal), ai-proof, CI, humans
+Dies: ai-eng spec close — git keeps the history
+Next: the loop on the standard and full lanes
+Stop: approve
+Stop words: approve, ok, go, adelante
+Stop confirms: this spec.html and plan.html, at the sha256 about to be pinned
+Stop runs: ai-eng spec approve
 
 Source: wayfinder, adapted from Matt Pocock — https://github.com/mattpocock/skills (MIT;
 the answer-key adaptation is not part of his design and carries no endorsement).

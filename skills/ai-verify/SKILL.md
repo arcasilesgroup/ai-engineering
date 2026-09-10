@@ -34,6 +34,14 @@ from its size.
 
 Setup guide and entry router → [VERIFICATION-SETUP-GUIDE.md](VERIFICATION-SETUP-GUIDE.md). Evals (plant real bugs and score the reviewer) → [evals/README.md](evals/README.md): [plant.py](evals/scripts/plant.py), [score.py](evals/scripts/score.py), [bug-catalog.md](evals/bug-catalog.md), example pack [answer-key.json](evals/packs/example-node-web/answer-key.json).
 
+## Lifecycle
+
+Lane: light, standard, full
+Writes: .ai-engineering/spec.html
+Read by: CI, the human
+Dies: with the milestone
+Next: ai-security when the security trigger fired; ai-write when the public interface changed; ai-visual-recap otherwise
+
 Source: Graph Engineering — Verification Skills (skills from the video, generalized to any stack; attributed, no license — issue H4; no public repo declared in the source).
 
 ## The ai-engineering seam

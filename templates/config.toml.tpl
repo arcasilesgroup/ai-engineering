@@ -4,9 +4,8 @@
 
 [surfaces]
 # Which agent surfaces (IDEs/CLIs) this project is governed on. Every client uses
-# the same definitions from ai-eng — no per-IDE forks. Options: claude-code,
-# oh-my-pi, opencode, cursor, codex, copilot, pi-zed. `ai-eng config` rewrites
-# this list and installs/removes each surface's adapter files.
+# the same definitions from ai-eng — no per-IDE forks. Options: claude-code, oh-my-pi, opencode, cursor, codex, copilot, pi, zed.
+# `ai-eng config` rewrites this list and installs/removes each surface's adapter files.
 enabled = [{{surfaces}}]
 
 [models]
@@ -28,5 +27,10 @@ loop_failures = 5  # same signature failing → deny
 # receipts/). WARN thresholds, not FAIL — growth is hygiene, not security (§12.1).
 max_files = 25        # per NNN folder — exceeding → WARN
 receipts_ttl = "30d"  # receipts: aggregate then delete
+
+[budget]
+# The session ceiling the agent honours at step boundaries: four hours (§5.1).
+# Nothing in the binary measures it — it is a contract the agent keeps, not a meter.
+session_minutes = 240
 
 # notices = false   # opt out of the new-version notice (or AI_ENG_NO_UPDATE_NOTICES=1)
