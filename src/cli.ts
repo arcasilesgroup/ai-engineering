@@ -97,7 +97,7 @@ async function main(): Promise<number> {
       return configMain(configFlags);
     }
     case "update":
-      { const code = await updateMain(); if (code === 0) maybeNotice(); return code; }
+      { const code = await updateMain({ yes: flags.yes === true }); if (code === 0) maybeNotice(); return code; }
     case "upgrade":
       return upgradeMain();
     case "uninstall":
