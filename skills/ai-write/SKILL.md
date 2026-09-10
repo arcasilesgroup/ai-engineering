@@ -17,6 +17,10 @@ a checkable completion criterion. A document that cannot be verified exits `not-
 
 1. Read the writing standard (spec 039): [references/documentation-writer.md](references/documentation-writer.md)
    in this skill's folder. If it is missing, stop and say `INCOMPLETE: writing standard absent`.
+   Then read the reference for the artifact at hand: [references/readme-writer.md](references/readme-writer.md)
+   for a README, [references/contributing-writer.md](references/contributing-writer.md) for
+   CONTRIBUTING, a code of conduct or a release flow, and
+   [references/security-md-writer.md](references/security-md-writer.md) for SECURITY.md.
 2. Read the tree the document is about. Not from memory, not `--help`. The README names
    commands that exist. The API doc names endpoints in the code. The wiki names
    directories on disk. Every claim traces to a file or a command.

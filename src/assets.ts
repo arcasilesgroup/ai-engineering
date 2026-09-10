@@ -73,7 +73,6 @@ import askills_ai_visual_recap_SKILL_md from "../skills/ai-visual-recap/SKILL.md
 import askills_ai_write_references_security_md_writer_md from "../skills/ai-write/references/security-md-writer.md" with { type: "file" };
 import askills_ai_write_references_readme_writer_md from "../skills/ai-write/references/readme-writer.md" with { type: "file" };
 import askills_ai_write_references_contributing_writer_md from "../skills/ai-write/references/contributing-writer.md" with { type: "file" };
-import askills_ai_write_references_agents_md_writer_md from "../skills/ai-write/references/agents-md-writer.md" with { type: "file" };
 import askills_ai_write_references_documentation_writer_md from "../skills/ai-write/references/documentation-writer.md" with { type: "file" };
 import askills_ai_write_SKILL_md from "../skills/ai-write/SKILL.md" with { type: "file" };
 import askills_ai_proof_references_method_md from "../skills/ai-proof/references/method.md" with { type: "file" };
@@ -196,7 +195,6 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-write/references/security-md-writer.md": askills_ai_write_references_security_md_writer_md as unknown as string,
   "../skills/ai-write/references/readme-writer.md": askills_ai_write_references_readme_writer_md as unknown as string,
   "../skills/ai-write/references/contributing-writer.md": askills_ai_write_references_contributing_writer_md as unknown as string,
-  "../skills/ai-write/references/agents-md-writer.md": askills_ai_write_references_agents_md_writer_md as unknown as string,
   "../skills/ai-write/references/documentation-writer.md": askills_ai_write_references_documentation_writer_md as unknown as string,
   "../skills/ai-write/SKILL.md": askills_ai_write_SKILL_md as unknown as string,
   "../skills/ai-proof/references/method.md": askills_ai_proof_references_method_md as unknown as string,

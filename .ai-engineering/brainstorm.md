@@ -1,6 +1,6 @@
 # Handshake · skill que audita y reescribe los AGENTS.md de un proyecto
 
-Status: draft, interview in progress · 2026-09-10
+Status: complete · 2026-09-10
 
 ## La idea en palabras llanas
 
@@ -123,10 +123,63 @@ trabaja en ese repo después: menos contexto cargado y mejor ruta hacia la zona 
   carpeta, `description` con verbo de uso, `license` SPDX), inglés, sin corpus.md, sin rutas de
   máquina, sin frases de límite de tokens (gates G1 a G8 de `tests/skills.spec.ts`).
 
-## Decisiones todavía abiertas
+## Diseño corto (presentado para aprobación, nada escrito todavía)
 
-Cada una con la recomendación por defecto, para que el usuario sólo tenga que corregir lo que no
-le encaje.
+**Entregable: extender `skills/ai-agents-md/SKILL.md` con el camino de auditoría.**
+
+1. Frontmatter `description`: añadir los disparadores del camino nuevo ("audit the AGENTS.md",
+   "split AGENTS.md" / "AGENTS.md is too long", "the agent reads the wrong file"), conservando
+   el bloque `>-`, el inglés y el límite de 1024 caracteres que `doctor` lintea.
+2. Sección nueva `## Auditing a set that already exists`, después de `## Steps`, con siete pasos
+   numerados y comprobables:
+   1. Inventario: cada `AGENTS.md` del árbol más los archivos de instrucciones que el repo ya
+      tenga (CLAUDE.md y los que lea otra herramienta). Se declara la forma: raíz sola o raíz con
+      N anidados.
+   2. Los cuatro hallazgos que deciden el destino de cada línea: deducida del código, duplicada
+      entre padre e hijo, comando muerto (se ejecuta), y zona que un agente debe tocar sin ruta.
+   3. La forma se decide con el test que la skill ya tiene (una toolchain, un archivo; paquetes
+      divergentes, raíz más delta por paquete). Se dice en voz alta, y un repo que no diverge
+      sale con un archivo aunque haya llegado con cuatro.
+   4. **PARADA**: se presentan los hallazgos y el set objetivo (cuántos archivos, qué secciones,
+      qué líneas salen y a dónde van). No se escribe nada antes de la respuesta.
+   5. Escritura: el raíz se edita en sitio, los anidados se crean o se recortan, sólo el delta.
+      Nunca un archivo paralelo con otro nombre.
+   6. Espejos y coherencia: cada AGENTS.md recibe su `CLAUDE.md` hermano (symlink relativo
+      `AGENTS.md`, el mismo mecanismo de `init`; import de una línea donde el SO rechace el
+      symlink), y los archivos de instrucciones de otras herramientas se alinean o se nombran
+      como hallazgo.
+   7. Verificación del resultado: cada comando nombrado se ejecuta tal cual, ninguna línea se
+      repite entre padre e hijo, cada archivo sigue el orden de secciones.
+3. Se funden dos reglas del reference huérfano que la skill no tiene: el techo de 80 líneas que
+   `doctor` comprueba, y "todo always/never nombra el mecanismo que lo hace cumplir".
+4. Sin `references/` nuevo (YAGNI): la skill pasa de 5.8 KB a unos 8 KB, en línea con ai-plan
+   (11.3 KB) y ai-security (12 KB).
+
+**Huérfanos, con corrección de mi propio default tras leer los cuatro archivos**: los cuatro se
+añadieron a propósito en `f6cc9a0a` ("embed ai-write reference writers for
+README/AGENTS/CONTRIBUTING/SECURITY"). Los tres de README, CONTRIBUTING y SECURITY son guía por
+artefacto del trabajo de ai-write, y el fallo real es que `ai-write/SKILL.md` sólo enruta a
+`documentation-writer.md`. Recomendación corregida: una línea de enrutado en `ai-write/SKILL.md`
+para esos tres, y `agents-md-writer.md` se funde en `ai-agents-md` (su dueño) y se borra.
+
+**Se regenera y se comprueba**: `bun scripts/gen-assets.ts`, `bun test tests/skills.spec.ts`,
+`bun run lint` y `typecheck`, y `bun test` completo al cerrar. Changeset `minor` (capacidad nueva
+en una skill que ya existe; el canon sigue en 20).
+
+**No se toca**: `doctor`, `templates/AGENTS.md.tpl`, el AGENTS.md de este repo (su propio test
+dice raíz sola), el blueprint y NOTICE.md.
+
+**Prueba de que funciona**: gate del canon en verde más una sesión desechable sobre un repo de
+fixture con un set mal formado (hijo que repite al padre, comando muerto, regla duplicada, espejo
+ausente). El audit debe nombrar los cuatro hallazgos y no escribir nada antes de la respuesta.
+
+**Riesgo declarado**: el sha256 del canon cambia, así que las máquinas con el canon instalado
+verán drift hasta `ai-eng update` (normal en un cambio de canon). Borrar un archivo del canon es
+la única parte irreversible.
+
+## Decisiones cerradas
+
+Confirmadas el 2026-09-10, con la recomendación por defecto que estaba escrita.
 
 1. **Alcance del audit**: cualquier repo, gobernado por ai-eng o no. Cuando está gobernado, la
    skill aprovecha las señales que ya existen (`arch.rules.json`, `config.toml`, `doctor`); cuando
@@ -171,3 +224,20 @@ Ninguna todavía.
 - `templates/AGENTS.md.tpl` y el `AGENTS.md` de la raíz de este repo son el mismo texto: si cambia
   la disciplina de secciones, cambian los dos a la vez.
 - Tras tocar `skills/`, `bun scripts/gen-assets.ts` y luego `bun test tests/skills.spec.ts`.
+
+## Cierre
+
+Implementado y verificado el 2026-09-10. Archivos tocados: `skills/ai-agents-md/SKILL.md` (camino
+de auditoría, dos reglas fundidas, disparadores nuevos en la `description`),
+`skills/ai-write/SKILL.md` (enrutado a los tres references por artefacto),
+`skills/ai-write/references/agents-md-writer.md` (borrado), `src/assets.ts` (regenerado, 120
+assets) y `.changeset/agents-md-audit-path.md` (minor).
+
+Prueba: `bun test tests/skills.spec.ts` 11/11, `bun run lint` y `bun run typecheck` limpios,
+`bun test` 116/116. Comportamiento: un repo de fixture con un set mal formado (comando muerto,
+línea deducible, hijo que repite al padre, zona sin ruta, espejo ausente) auditado con la skill
+nombra los cuatro tipos de hallazgo con archivo y línea, propone el set objetivo, y no escribió un
+byte (0 de 5 archivos del fixture cambiados).
+
+Estado conocido: `ai-eng doctor` marca 2 drift del canon (los dos SKILL.md editados) hasta que se
+instale la versión nueva con `ai-eng update`.

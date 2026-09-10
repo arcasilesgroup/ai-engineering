@@ -1,15 +1,18 @@
 ---
 name: ai-agents-md
 description: >-
-  Creates and maintains the AGENTS.md a repository owes its coding agents, following the
-  agents.md convention (https://agents.md/). Decides root-only versus nested AGENTS.md files
-  from the repo's real shape, interviews the tree (not the user) for build/test/lint commands,
-  and writes only what an agent cannot deduce from the code. Also the in-session maintenance
-  path: a governed agent MAY edit AGENTS.md directly (blueprint §9.2 — it is not sacred) when
-  the repo's real state made a rule stale. Trigger for "create AGENTS.md", "update AGENTS.md",
-  "the agent ignores our conventions", "set up agent instructions", "edit AGENTS.md".
-  Not for runtime agent contracts (goals, gates, budgets) — use /ai-goal. Not for
-  documentation users read — use /ai-write.
+  Creates, audits and maintains the AGENTS.md a repository owes its coding agents, following
+  the agents.md convention (https://agents.md/). Decides root-only versus nested AGENTS.md
+  files from the repo's real shape, interviews the tree (not the user) for build/test/lint
+  commands, and writes only what an agent cannot deduce from the code. Audits a set that
+  already exists: a rule the code states, a child repeating its parent, a command that no
+  longer runs, a zone with no route in. Also the in-session maintenance path: a governed agent
+  MAY edit AGENTS.md directly (blueprint §9.2 — it is not sacred) when the repo's real state
+  made a rule stale. Trigger for "create AGENTS.md", "update AGENTS.md", "audit AGENTS.md",
+  "split AGENTS.md", "AGENTS.md is too long", "the agent reads the wrong file", "the agent
+  ignores our conventions", "set up agent instructions", "edit AGENTS.md". Not for runtime
+  agent contracts (goals, gates, budgets) — use /ai-goal. Not for documentation users read —
+  use /ai-write.
 license: Apache-2.0
 ---
 
@@ -50,17 +53,55 @@ Never include: anything `--help` or a config file already says; a tutorial; rule
 newcomer can deduce from one look at the tree. Anti-drift rule: if a line becomes obvious
 from reading the code, delete the line.
 
+Two more tests decide a line. **Enforcement**: an always or a never names the mechanism that
+holds it (a hook, a test, a CI job), because an unenforced rule rots. **Cost**: the root file
+loads on every turn, so overflow moves behind a pointer in a nested file or a reference, never
+into the always-loaded one; `doctor` warns once the root passes 80 lines.
+
 ## Steps
 
 1. Interview the tree: manifests, CI files, existing lint configs, the test layout, README.
    Every command you write must exist — run it or read it, do not recall it.
 2. Decide root-only versus nested from the shape test above.
 3. Write the file (or the deltas) against the section order. One idea per line. If the
-   repository already has an AGENTS.md, edit it — never start a parallel one.
+   repository already has an AGENTS.md, edit it — never start a parallel one. Every
+   `AGENTS.md` gets its sibling `CLAUDE.md`: a relative symlink to `AGENTS.md` in the same
+   directory, the mechanism `ai-eng init` uses, or a one-line `@AGENTS.md` import where the
+   OS refuses a symlink.
 4. Verify every named command by running it. A command that fails as written is a finding
    against the file, not against the repo.
 5. Hand the prose to /ai-write when the repository has adopted the ai-engineering writing
    standard — the same one-idea-per-sentence, verify-against-tree discipline applies.
+
+## Auditing a set that already exists
+
+A repo that already has guidance has a set, not a file: the root, whatever nested files grew
+with it, and the instruction files other tools read. Audit the set against the tree before
+changing any of it.
+
+1. Inventory, from the tree and never from memory: every file named `AGENTS.md` under the root,
+   and every instruction file the repo ships today (`CLAUDE.md`, a Cursor rules directory, a
+   Copilot instructions file). State the shape in one sentence: root only, or root plus N
+   nested.
+2. Judge every line of every file by four findings, and quote the line when you report one:
+   - **Deduced**: the code, a manifest or CI already states it. It goes.
+   - **Duplicated**: a nested file repeats its parent, or the parent carries detail only one
+     subtree needs. It moves down, or it goes.
+   - **Dead**: a named command no longer runs as written. Run it; the failure is the finding.
+   - **Unrouted**: a zone an agent must work in with nothing saying what to read and what to
+     skip. Missing guidance is a finding too, not a blank.
+3. Decide the shape with the test above, out loud. A repo that does not diverge keeps one file,
+   even if it arrived with four.
+4. **Stop and propose**: the findings, and the target set file by file (the count, the
+   sections, the lines that go, the lines that move where). Write nothing before the answer.
+   These files are prose the team owns; the audit earns the edit by showing what it changes.
+5. Write the set: edit the root in place, create or trim the nested files, delta only. Never a
+   parallel file under another name, and never a section that both a parent and a child carry.
+6. Mirror and align: apply the sibling rule from Steps to every file the audit writes or keeps.
+   An instruction file another tool reads that states what the set no longer says gets the same
+   edit, or is named as a finding and left alone.
+7. Verify the result: every command in the set runs as written, no line is carried by both a
+   parent and a child, and every file follows the section order above.
 
 ## Done when
 
@@ -68,7 +109,10 @@ from reading the code, delete the line.
 - The file states only what the tree cannot tell the agent.
 - Root-only or root+nested is a decision the tree shape justifies, and nested files carry
   deltas only.
-- The file lives at the root (and only where needed below), named exactly `AGENTS.md`.
+- The file lives at the root (and only where needed below), named exactly `AGENTS.md`, with its
+  sibling `CLAUDE.md` resolving to it.
+- A repo that arrived with a set was audited, not overwritten: every surviving line is a
+  decision the tree justifies, and nothing was written before the proposal was approved.
 
 ## Keeping it alive from inside a governed session
 
