@@ -20,7 +20,7 @@
     "bun": ">=1.4.0"
   },
   "scripts": {
-    "build": "bun build src/cli.ts --compile --minify --sourcemap --bytecode --outfile dist/ai-eng",
+    "build": "bun scripts/build.ts",
     "test": "bun test",
     "lint": "oxlint src tests",
     "typecheck": "oxlint --type-aware --type-check src tests",

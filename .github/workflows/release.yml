@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: bun run build --target ${{ matrix.target }} || bun build src/cli.ts --compile --target ${{ matrix.target }} --minify --sourcemap --bytecode --outfile dist/ai-eng
+      - run: bun run build --target ${{ matrix.target }}
       - name: Codesign macOS binary (Gatekeeper) — skips without the cert secret
         if: runner.os == 'macOS'
         run: |
