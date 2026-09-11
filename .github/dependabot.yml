@@ -9,5 +9,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Newly published versions can be malicious or unstable: wait a week before
+    # proposing them, the same rule bunfig.toml sets for installs.
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "chore(ci)"
