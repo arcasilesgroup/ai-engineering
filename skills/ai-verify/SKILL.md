@@ -32,7 +32,7 @@ from its size.
 - Lanes: [code-audit](tiers/3-chain/code-audit/SKILL.md) · [security-audit](tiers/3-chain/security-audit/SKILL.md) · [a11y-audit](tiers/3-chain/a11y-audit/SKILL.md) · [perf-audit](tiers/3-chain/perf-audit/SKILL.md) · [design-check](tiers/3-chain/design-check/SKILL.md) · [build-check](tiers/3-chain/build-check/SKILL.md)
 - Merge of all lanes into one deduplicated report → [full-review](tiers/3-chain/full-review/SKILL.md); scope and diff conventions → [CONVENTIONS.md](tiers/3-chain/_support/review/CONVENTIONS.md)
 
-Setup guide and entry router → [VERIFICATION-SETUP-GUIDE.md](VERIFICATION-SETUP-GUIDE.md). Evals (plant real bugs and score the reviewer) → [evals/README.md](evals/README.md): [apply-pack.ts](evals/scripts/apply-pack.ts), [score.ts](evals/scripts/score.ts), [bug-catalog.md](evals/bug-catalog.md), example pack [answer-key.json](evals/packs/example-node-web/answer-key.json).
+Setup guide and entry router → [VERIFICATION-SETUP-GUIDE.md](VERIFICATION-SETUP-GUIDE.md). Evals (apply real bugs and score the reviewer) → [evals/README.md](evals/README.md): [apply-pack.ts](evals/scripts/apply-pack.ts), [score.ts](evals/scripts/score.ts), [bug-catalog.md](evals/bug-catalog.md), example pack [answer-key.json](evals/packs/example-node-web/answer-key.json).
 
 ## Lifecycle
 

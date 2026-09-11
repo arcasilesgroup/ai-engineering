@@ -102,7 +102,7 @@ Give the run a generous timeout — `600000` ms if your harness lets you set per
 
 The script gives the reviewer `Read,Grep,Glob` and nothing else, so it cannot modify the repo, run commands, or reach MCP servers. It saves the report next to the packet as `<packet>.review.md`.
 
-**Cost**: each run is a fresh process with no prompt-cache reuse, so expect roughly $0.20–$1.00 depending on model and diff size. If you are reviewing something small and mechanical, pass a cheaper model with `--model` — in testing it caught the same planted bugs at a fraction of the cost. Default to the session model for anything subtle, concurrent, or security-relevant.
+**Cost**: each run is a fresh process with no prompt-cache reuse, so expect roughly $0.20–$1.00 depending on model and diff size. If you are reviewing something small and mechanical, pass a cheaper model with `--model` — in testing it caught the same applied bugs at a fraction of the cost. Default to the session model for anything subtle, concurrent, or security-relevant.
 
 ## Step 3 — Triage before you touch anything
 

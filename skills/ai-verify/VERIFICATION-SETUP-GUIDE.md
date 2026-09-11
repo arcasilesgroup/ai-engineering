@@ -587,7 +587,7 @@ your reading of it.
 <skill-dir>/scripts/second-opinion.sh <packet> --model <strongest>
 ```
 
-For something small and mechanical, a cheaper model via `--model` catches the same planted bugs at a
+For something small and mechanical, a cheaper model via `--model` catches the same applied bugs at a
 fraction of the cost. Default to the strong model for anything subtle, concurrent, or
 security-relevant.
 
@@ -917,22 +917,22 @@ That's it. Two sentences, because the structure lives in the skills.
 Don't trust a review skill you haven't tested. It will happily report "no issues found"
 because it's broken, and that reads exactly like good news.
 
-**Plant bugs and see if it finds them.** Take a working branch, introduce a handful of
+**Apply bugs and see if it finds them.** Take a working branch, introduce a handful of
 defects of different kinds and severities — an off-by-one, an inverted condition, a
 missing null check, a dropped requirement, a real security hole — and keep the list in a
 file the skill is explicitly told never to read.
 
 Then run it and score it on two numbers:
 
-- **Recall** — how many planted bugs did it find? Misses tell you the instructions are too
+- **Recall** — how many applied bugs did it find? Misses tell you the instructions are too
   vague.
 - **Precision** — of everything it reported, how much was real? Noise tells you the
   false-positive gate is too weak, usually because you didn't require a concrete failure
   case.
 
 Keep the answer key **outside** the paths the skill is told to review, and add an
-explicit instruction never to read it — a review that finds the planted bugs by reading
-the list of planted bugs tells you nothing. The chain these skills came from did exactly
+explicit instruction never to read it — a review that finds the applied bugs by reading
+the list of applied bugs tells you nothing. The chain these skills came from did exactly
 that: an answer-key file next to the conventions, and a hard rule against opening it.
 
 **Then test the trigger separately.** A perfect skill that never fires is worth nothing.
@@ -1012,7 +1012,7 @@ Rules baked into every one:
 
 Before trusting it:
 
-- [ ] Tested against planted bugs — recall and precision both checked
+- [ ] Tested against applied bugs — recall and precision both checked
 - [ ] Trigger tested in a fresh session with the words a normal person would type
 - [ ] Judging nodes confirmed to be on your strongest model
 

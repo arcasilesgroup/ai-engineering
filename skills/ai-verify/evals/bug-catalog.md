@@ -38,7 +38,7 @@ cheaper model quietly stops finding things.
 | Silent truncation | lower a limit, or `slice` a result set without saying so | Output looks complete. It is not. |
 | Near-miss substitution | implement an adjacent requirement — a fixed price ID instead of a percentage discount | Both are "pricing". Only one was asked for. This one belongs to `verify-feature`, not to a code lane. |
 
-Plant at least two Tier 2 defects. A pack that scores 100% and contains none of them has
+Apply at least two Tier 2 defects. A pack that scores 100% and contains none of them has
 told you almost nothing.
 
 ## Tier 3 — the traps
@@ -68,7 +68,7 @@ amount of recall makes up for a reviewer that flags working code every run.
 
 One or two defects per lane you actually installed. Do not apply packs for lanes you do not run.
 
-| Lane | Plant |
+| Lane | Apply |
 |---|---|
 | `code-audit` | inverted condition, off-by-one, swallowed error, unawaited promise, lifecycle/cleanup removal |
 | `security-audit` | authorization downgrade, injection, secret in source, missing server-side re-check, unbounded input reaching a dangerous sink |
