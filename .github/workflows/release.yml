@@ -61,7 +61,7 @@ jobs:
       id-token: write # minting the attestation
       attestations: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # bun comes from npm, not from `oven-sh/setup-bun`: this repository's action
       # policy allows GitHub-owned actions plus org patterns, and a workflow that
       # names anything else never starts (startup_failure, no logs). Node is on every
@@ -120,7 +120,7 @@ jobs:
       id-token: write # the attestations and the npm trusted publish
       attestations: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: npm install -g bun@1.4.2
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
