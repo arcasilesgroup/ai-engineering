@@ -89,10 +89,11 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   // repairing it by hand meant knowing that `init --global` does it (measured
   // 2026-09-11). Same predicate init and doctor use: health is a measurement.
   const canon = canonDrift(home());
-  const canonHealthy = canon.drift === 0 && canon.missing === 0;
+  const canonHealthy = canon.drift === 0 && canon.missing === 0 && canon.stale === 0;
   if (!canonHealthy) {
     const rows = installCanon(VERSION).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
-    ui.section("global canon outdated or incomplete — re-installing", rows, `${canon.drift} drifted · ${canon.missing} missing`);
+    const why = [`${canon.drift} drifted`, `${canon.missing} missing`, ...(canon.stale > 0 ? [`${canon.stale} stale`] : [])].join(" · ");
+    ui.section("global canon outdated or incomplete — re-installing", rows, why);
   }
   if (pending.length === 0 && plan.conflicts.length === 0) {
     ui.ok(canonHealthy ? `all ${plan.current.length} assets current — nothing to sync` : "repo assets current — the machine side was the work");

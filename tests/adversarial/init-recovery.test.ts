@@ -16,6 +16,7 @@
 import { test, expect, beforeAll, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, lstatSync, readFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { surfaceOptions } from "../../src/commands/init-shared.ts";
@@ -220,4 +221,31 @@ test("update repairs a drifted global canon, not only the repo's assets", () => 
 
   const doctor = eng(["doctor"]);
   expect(doctor.stdout + doctor.stderr).toContain("0 drift");
+});
+
+test("the canon is swept of what we no longer ship, and nothing else is touched", () => {
+  // Renaming an asset inside a skill left the old file in every installed canon
+  // forever: canonDrift only walked the payload, so an orphan was invisible and
+  // doctor reported 101/101 clean with it sitting there (measured 2026-09-11).
+  // The line is the skill folder: inside one we ship, a path the payload no longer
+  // has is stale and gets swept. Anything else in the canon home is somebody's.
+  expect(eng(["init", "--yes"]).status).toBe(0);
+  const staleFile = join(engHome, "skills", "ai-visual-recap", "assets", "highlight.js");
+  const foreignFile = join(engHome, "skills", "my-own-skill", "SKILL.md");
+  mkdirSync(dirname(staleFile), { recursive: true });
+  mkdirSync(dirname(foreignFile), { recursive: true });
+  writeFileSync(staleFile, "// a file this binary no longer ships\n");
+  writeFileSync(foreignFile, "# mine\n");
+
+  const dirty = eng(["doctor"]);
+  expect(dirty.stdout + dirty.stderr).toContain("stale");
+
+  const run = eng(["update", "--yes"]);
+  expect(run.status).toBe(0);
+  expect(existsSync(staleFile)).toBe(false);   // ours: swept
+  expect(existsSync(foreignFile)).toBe(true);  // theirs: never touched
+
+  const clean = eng(["doctor"]);
+  expect(clean.stdout + clean.stderr).not.toContain("stale");
+  expect(clean.stdout + clean.stderr).toContain("0 drift");
 });

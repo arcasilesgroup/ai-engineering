@@ -84,11 +84,14 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
   //    payload, not canon, so they are neither verified nor counted.
   const canon = canonDrift(home());
   const canonTotal = canon.verified + canon.drift + canon.missing;
-  push(
-    "canon",
-    canon.drift === 0 && canon.missing === 0 ? "ok" : "warn",
-    `${canon.verified}/${canonTotal} files verified · ${canon.drift} drift · ${canon.missing} missing`,
-  );
+  // A canon can be complete and dirty at once: the files the payload no longer has
+  // are invisible to a payload walk, so a renamed asset used to sit in every install
+  // while this line said 101/101 (measured 2026-09-11). `foreign` is reported and
+  // never counted against health — it is somebody's, and we do not delete it.
+  const canonBits = [`${canon.verified}/${canonTotal} files verified`, `${canon.drift} drift`, `${canon.missing} missing`];
+  if (canon.stale > 0) canonBits.push(`${canon.stale} stale (ai-eng update sweeps what we shipped)`);
+  if (canon.foreign > 0) canonBits.push(`${canon.foreign} not ours (left alone)`);
+  push("canon", canon.drift === 0 && canon.missing === 0 && canon.stale === 0 ? "ok" : "warn", canonBits.join(" · "));
   // 4b. Assets outdated: the installed lock records which binary version installed
   //    it. Binary newer than lock → the repo runs stale hooks (§14.2: distinct
   //    from "a newer binary exists" — only update fixes this one).

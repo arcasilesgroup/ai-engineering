@@ -6,7 +6,7 @@ import { writeFileSync, mkdirSync, symlinkSync, unlinkSync, readdirSync, lstatSy
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { home, versionFile } from "../env.ts";
-import { materializeSkills, embeddedTemplate } from "../embed.ts";
+import { materializeSkills, embeddedTemplate, removeStaleCanonFiles } from "../embed.ts";
 import type { Dialect } from "../chain/dialect.ts";
 
 export type Surface = {
@@ -87,6 +87,8 @@ export function installCanon(version: string, options: { machineHooks?: boolean 
   const lines: string[] = [];
   const canonDir = join(home(), "skills");
   materializeSkills(canonDir);
+  const swept = removeStaleCanonFiles(home());
+  if (swept.length > 0) lines.push(`✓ swept ${swept.length} file(s) this binary no longer ships: ${swept.join(", ")}`);
   const entries = readdirSync(canonDir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("."));
   lines.push(`✓ ${home()}/skills/ — ${entries.length} ai-* skills installed`);
   // Seeds the 24h notice cache (§14.0). Health never reads this file: init and

@@ -102,14 +102,14 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
   // upgrade, because notice.ts caches the REGISTRY version in the very
   // version.json that installCanon wrote the INSTALLED version into.
   const canon = canonDrift(home());
-  const canonHealthy = canon.drift === 0 && canon.missing === 0;
+  const canonHealthy = canon.drift === 0 && canon.missing === 0 && canon.stale === 0;
   if (flags.global || !canonHealthy) {
     const reinstalling: boolean = existsSync(canonDir) && !canonHealthy;
     const canonLines = installCanon(VERSION, { machineHooks: flags.global === true }).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
     ui.section(
       reinstalling ? "global canon outdated or incomplete — re-installing" : "global canon (the machine side)",
       canonLines,
-      reinstalling ? `${canon.drift} drifted · ${canon.missing} missing` : home(),
+      reinstalling ? `${canon.drift} drifted · ${canon.missing} missing${canon.stale > 0 ? ` · ${canon.stale} stale` : ""}` : home(),
     );
   } else {
     ui.section("global canon intact", [{ mark: "ok", text: `${home()} · ai-eng ${VERSION}`, dim: "nothing to install" }]);

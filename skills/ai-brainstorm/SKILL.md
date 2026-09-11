@@ -52,10 +52,13 @@ When in doubt between two paths, take the heavier one. The ratchet is one-way: h
 complexity discovered mid-task upgrades the path — stop, say so, and step up. Nothing
 downgrades mid-task.
 
-The path is also the lane: **spike → light, bounded → standard, architectural → full**.
-The lane decides what happens after the approval gate. On the standard and full lanes the
-next node is ai-plan, which turns the doc into checks and gates. A light spike never reaches
-ai-plan: once the answer is reported it goes straight to ai-verify, with no contract written.
+The path picks the lane you start in: **spike → light, bounded → light, architectural → full**.
+Bounded is the one that steps up — the moment it stops being one sitting (it touches an
+interface others depend on, or produces receipts somebody else has to read) it takes the
+**standard** lane, and ai-plan turns the design into `spec.html` + `plan.html`. Architectural is
+always a contract, from the first question. On the light lane nothing is written to a slot at
+all: a spike ends at ai-verify with its answer, and a bounded change ends at ai-verify with its
+diff.
 
 ## Anti-pattern: "too simple to need approval"
 
@@ -255,7 +258,7 @@ Lane: light, standard, full
 Writes: .ai-engineering/brainstorm.md
 Read by: ai-plan, the agent that opens the next session
 Dies: the approval stop, when the contract exists, or ai-eng spec close
-Next: ai-research when questions are still open; ai-architect on the architectural lane; ai-plan on the standard lane; ai-verify on a light spike, with no contract written
+Next: ai-research when questions are still open; ai-architect on the architectural lane; ai-plan on the standard lane; ai-verify on the light lane, with no contract written
 
 Source: handshake by obra (https://obra.sh, MIT; obra/superpowers attributed by URL) +
 brainstorming from obra/superpowers
