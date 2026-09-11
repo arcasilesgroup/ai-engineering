@@ -22,6 +22,7 @@ on:
 permissions:
   contents: write
   id-token: write
+  attestations: write
 
 jobs:
   build:
@@ -73,6 +74,13 @@ jobs:
           CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           MACOS_CERT_ID: ${{ secrets.MACOS_CERT_ID }}
+      # The v1 line shipped a build-provenance attestation and verified it inside the
+      # release (github-attestation-verify.log, PASS for both artifacts). The v2 path
+      # had lost it: the binaries travelled with a checksum and nothing that says who
+      # built them, from which commit. This is that property, restored.
+      - uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+        with:
+          subject-path: dist/ai-eng-${{ matrix.target }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ai-eng-${{ matrix.target }}
@@ -103,12 +111,6 @@ jobs:
           fi
           bun scripts/release-flags.ts "$version" | tee -a "$GITHUB_OUTPUT"
 
-      - name: Checksums (the client's CI verifies the binary against this file)
-        run: |
-          set -euo pipefail
-          (cd dist-artifacts && find . -type f -name 'ai-eng-*' ! -name '*.map' -exec sha256sum {} \; | sed 's|\./ai-eng-[^/]*/||' | sort -k2) > CHECKSUMS-SHA256.txt
-          cat CHECKSUMS-SHA256.txt
-
       - name: SBOM (CycloneDX, pinned by version + sha256)
         run: |
           set -euo pipefail
@@ -118,6 +120,35 @@ jobs:
           echo "b9575914c36e601296d75f322123643b2531251235159f51578b507da6d9931f  cdxgen" | sha256sum -c -
           chmod +x cdxgen
           ./cdxgen -o sbom.json .
+
+      - name: Checksums (the client's CI verifies the binary against this file)
+        run: |
+          set -euo pipefail
+          (cd dist-artifacts && find . -type f -name 'ai-eng-*' ! -name '*.map' -exec sha256sum {} \; | sed 's|\./ai-eng-[^/]*/||' | sort -k2) > CHECKSUMS-SHA256.txt
+          sha256sum sbom.json >> CHECKSUMS-SHA256.txt
+          cat CHECKSUMS-SHA256.txt
+
+      # The proof the v1 release carried: verification runs here, in the release, and
+      # its log ships as an asset — a claim of provenance nobody verified is a slogan.
+      - name: Verify the provenance of every binary about to be published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find dist-artifacts -type f -name 'ai-eng-*' ! -name '*.map')
+          : > attestation-verify.log
+          for file in "${files[@]}"; do
+            {
+              echo "## gh attestation verify $(basename "$file")"
+              if gh attestation verify "$file" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+                echo "Result: PASS (exit 0)"
+              else
+                echo "Result: FAIL"
+                exit 1
+              fi
+            } | tee -a attestation-verify.log
+          done
+
 
       - name: Publish the release
         env:
@@ -133,7 +164,7 @@ jobs:
           # creates it from the branch that was dispatched, a tag push already has it.
           if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then flags+=(--target "$GITHUB_SHA"); fi
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "${files[@]}" CHECKSUMS-SHA256.txt sbom.json --clobber
+            gh release upload "$TAG" "${files[@]}" CHECKSUMS-SHA256.txt sbom.json attestation-verify.log --clobber
           else
-            gh release create "$TAG" "${files[@]}" CHECKSUMS-SHA256.txt sbom.json "${flags[@]}"
+            gh release create "$TAG" "${files[@]}" CHECKSUMS-SHA256.txt sbom.json attestation-verify.log "${flags[@]}"
           fi
