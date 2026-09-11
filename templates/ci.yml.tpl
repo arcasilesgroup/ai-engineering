@@ -39,17 +39,18 @@ jobs:
           elif [ -f package.json ]; then echo "package.json without a bun lockfile — install with your own package manager step"
           else echo "no package.json — the project brings its own runtime"; fi
 
-      # --if-present skips a script the project does not declare (exit 0) and
-      # propagates the failure of one it does. Nothing here swallows a failure:
-      # a step that cannot fail is decoration.
-      - name: Typecheck
-        run: bun run --if-present typecheck
-      - name: Lint
-        run: bun run --if-present lint
-      - name: Tests
-        run: bun run --if-present test
-      - name: Architecture
-        run: bun run --if-present arch
+      # One step, one rule: run only what the project declares. `bun run --if-present`
+      # skips an undeclared script and propagates a declared one's failure — but with
+      # no package.json at all it falls through to the shell's own `test` builtin,
+      # which exits 1 and reddens a project that declares nothing (measured).
+      - name: Project checks — typecheck · lint · test · arch, only when declared
+        run: |
+          set -euo pipefail
+          if [ ! -f package.json ]; then echo "no package.json — this project declares no JavaScript checks"; exit 0; fi
+          for check in typecheck lint test arch; do
+            echo "→ $check"
+            bun run --if-present "$check"
+          done
 
       - name: Spec run (contract gates — the one step that must not be skipped)
         run: ai-eng spec run
