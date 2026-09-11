@@ -127,8 +127,11 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t files < <(find dist-artifacts -type f -name 'ai-eng-*' ! -name '*.map')
-          flags=(--title "$TAG" --generate-notes --target "$GITHUB_SHA")
+          flags=(--title "$TAG" --generate-notes)
           if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          # --target is only meaningful when the tag does not exist yet: a dispatch
+          # creates it from the branch that was dispatched, a tag push already has it.
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then flags+=(--target "$GITHUB_SHA"); fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${files[@]}" CHECKSUMS-SHA256.txt sbom.json --clobber
           else
