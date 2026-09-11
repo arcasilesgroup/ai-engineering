@@ -22,6 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # Not GitHub-owned: in an organization that restricts which actions may run, a
+      # workflow naming this one does not start at all and reports no logs. If your CI
+      # never starts, that policy is the first thing to check — or replace this line
+      # with `npm install -g bun@1.4.2`, which uses the Node your runner already has.
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
       # The checksum alone proves nothing: binary and manifest come from the same
@@ -89,10 +93,11 @@ jobs:
           pipx install semgrep==1.172.0
           semgrep scan --error --config p/ci --metrics=off
 
-      - name: trivy (pinned by commit SHA)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          version: v0.74.0 # the trivy binary the action installs; the action alone pins no version
-          scan-type: fs
-          exit-code: 1
-          severity: HIGH,CRITICAL
+      - name: trivy (version + sha256, no action — some orgs allow only GitHub's own)
+        run: |
+          set -euo pipefail
+          ver=0.74.0
+          curl -sSfL -o trivy.tgz "https://github.com/aquasecurity/trivy/releases/download/v${ver}/trivy_${ver}_Linux-64bit.tar.gz"
+          echo "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a  trivy.tgz" | sha256sum -c -
+          tar -xzf trivy.tgz trivy
+          ./trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 --quiet .
