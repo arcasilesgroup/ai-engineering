@@ -98,7 +98,7 @@ jobs:
       # The v1 line shipped a build-provenance attestation and verified it inside the
       # release. The v2 path had lost it: the binaries travelled with a checksum and
       # nothing that says who built them, from which commit. This is that property.
-      - uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           # the glob carries the extension Windows adds (ai-eng-windows-x64.exe):
           # a bare path there was "Could not find subject at path dist/ai-eng-windows-x64"
@@ -180,7 +180,7 @@ jobs:
       # Attesting the checksums file attests every subject it names — the eight
       # binaries AND sbom.json. Without this, the pair (checksums + SBOM) could be
       # swapped together: the digests are what the verification below believes.
-      - uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-checksums: CHECKSUMS-SHA256.txt
 
