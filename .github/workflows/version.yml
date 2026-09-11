@@ -1,65 +1,32 @@
 name: version
-# Changesets — version PRs on merge to main; npm publish via OIDC trusted
-# publishing (ai-shell pattern). Binary releases stay in release.yml (tag-driven).
+# Changesets owns the version arithmetic: it reads the pending changesets, bumps
+# package.json and the CHANGELOG, and opens the Version Packages PR. It does NOT
+# publish — publishing is release.yml's job, behind the `release` environment, so a
+# package can never exist without the binaries it names and there is one channel per
+# artifact. Merge this PR, then dispatch the deployment with the channel you mean:
+#
+#   integration → a candidate: GitHub prerelease + npm dist-tag `next`
+#   production  → the real one: GitHub release (latest) + npm dist-tag `latest`
 on:
   push:
     branches: [main]
-
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   version:
     if: github.repository == 'arcasilesgroup/ai-engineering'
     permissions:
-      contents: write
-      id-token: write
-      pull-requests: write
+      contents: write # pushing the version branch
+      pull-requests: write # opening/updating the Version Packages PR
     runs-on: ubuntu-latest
-    environment: npm
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-      # Same reason as everywhere else in this repository: setup-bun is not
-      # GitHub-owned, and the action policy here permits GitHub-owned actions plus
-      # nine org patterns — a workflow naming anything else never starts.
       - run: npm install -g bun@1.4.2
       - run: bun install --frozen-lockfile
-      # OIDC trusted publishing needs npm >= 11.5.1, and the runner's bundled npm is
-      # older. Installing it globally over /usr/local needs root and failed with EACCES
-      # (this workflow had never run); a pinned version in $HOME needs no privilege.
-      - name: npm >= 11.5.1 (OIDC trusted publishing), unprivileged and pinned
-        run: |
-          set -euo pipefail
-          npm install -g npm@11.19.1 --prefix "$HOME/.local"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          "$HOME/.local/bin/npm" --version
       - uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
         id: changesets
         with:
           version-script: npx changeset version
-          publish-script: npx changeset publish
-
-      # v1 shipped a pypi-proof.txt with every release: the record that the registry
-      # itself signed the publish. The npm channel gets the same artefact.
-      - name: Publish proof (the registry-signed channel, recorded)
-        if: steps.changesets.outputs.published == 'true'
-        env:
-          PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
-        run: |
-          set -euo pipefail
-          {
-            echo "npm publish completed (OIDC trusted publishing)"
-            echo "Packages: $PACKAGES"
-            echo "CI run URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          } | tee publish-proof.txt
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: steps.changesets.outputs.published == 'true'
-        with:
-          name: publish-proof
-          path: publish-proof.txt
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Deliberately not a publish: a workflow that both versions and deploys makes
+          # the deployment a side effect of merging, and that is exactly what made
+          # "release" and "version" read as two competing channels.
+          publish-script: echo "versioning only — the deployment is release.yml (channel=integration|production)"

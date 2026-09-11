@@ -1,4 +1,4 @@
-name: planted-e2e
+name: e2e
 # The pipeline we plant, exercised on every push and PR against the binary built from
 # this commit — the channel is *ephemeral on purpose*: an Actions artifact dies with
 # the run (7 days at most) and needs a token to download, so no client can pin it.
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  planted:
+  e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
