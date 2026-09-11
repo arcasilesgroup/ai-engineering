@@ -3,8 +3,8 @@
 
 import askills_ai_verify_evals_README_md from "../skills/ai-verify/evals/README.md" with { type: "file" };
 import askills_ai_verify_evals_packs_example_node_web_answer_key_json from "../skills/ai-verify/evals/packs/example-node-web/answer-key.json" with { type: "file" };
-import askills_ai_verify_evals_scripts_plant_py from "../skills/ai-verify/evals/scripts/plant.py" with { type: "file" };
-import askills_ai_verify_evals_scripts_score_py from "../skills/ai-verify/evals/scripts/score.py" with { type: "file" };
+import askills_ai_verify_evals_scripts_score_ts from "../scripts/.embed/ai-verify/evals/scripts/score.ts.txt" with { type: "file" };
+import askills_ai_verify_evals_scripts_apply_pack_ts from "../scripts/.embed/ai-verify/evals/scripts/apply-pack.ts.txt" with { type: "file" };
 import askills_ai_verify_evals_bug_catalog_md from "../skills/ai-verify/evals/bug-catalog.md" with { type: "file" };
 import askills_ai_verify_evals_fixtures_node_web_package_json from "../skills/ai-verify/evals/fixtures/node-web/package.json" with { type: "file" };
 import askills_ai_verify_evals_fixtures_node_web_src_ui_OrderList_tsx from "../scripts/.embed/ai-verify/evals/fixtures/node-web/src/ui/OrderList.tsx.txt" with { type: "file" };
@@ -24,8 +24,8 @@ import askills_ai_verify_tiers_1_standalone_spec_extract_SKILL_md from "../skill
 import askills_ai_verify_tiers_1_standalone_verify_feature_SKILL_md from "../skills/ai-verify/tiers/1-standalone/verify-feature/SKILL.md" with { type: "file" };
 import askills_ai_verify_tiers_2_embedded_feature_verify_references_puppeteer_patterns_md from "../skills/ai-verify/tiers/2-embedded/feature-verify/references/puppeteer-patterns.md" with { type: "file" };
 import askills_ai_verify_tiers_2_embedded_feature_verify_references_harness_md from "../skills/ai-verify/tiers/2-embedded/feature-verify/references/harness.md" with { type: "file" };
+import askills_ai_verify_tiers_2_embedded_feature_verify_scripts_blast_radius_ts from "../scripts/.embed/ai-verify/tiers/2-embedded/feature-verify/scripts/blast_radius.ts.txt" with { type: "file" };
 import askills_ai_verify_tiers_2_embedded_feature_verify_scripts_setup_harness_sh from "../skills/ai-verify/tiers/2-embedded/feature-verify/scripts/setup_harness.sh" with { type: "file" };
-import askills_ai_verify_tiers_2_embedded_feature_verify_scripts_blast_radius_py from "../skills/ai-verify/tiers/2-embedded/feature-verify/scripts/blast_radius.py" with { type: "file" };
 import askills_ai_verify_tiers_2_embedded_feature_verify_SKILL_md from "../skills/ai-verify/tiers/2-embedded/feature-verify/SKILL.md" with { type: "file" };
 import askills_ai_verify_tiers_2_embedded_second_opinion_scripts_second_opinion_sh from "../skills/ai-verify/tiers/2-embedded/second-opinion/scripts/second-opinion.sh" with { type: "file" };
 import askills_ai_verify_tiers_2_embedded_second_opinion_SKILL_md from "../skills/ai-verify/tiers/2-embedded/second-opinion/SKILL.md" with { type: "file" };
@@ -126,8 +126,8 @@ import atemplates_arch_rules_json_tpl from "../templates/arch.rules.json.tpl" wi
 export const EMBEDDED: Record<string, string> = {
   "../skills/ai-verify/evals/README.md": askills_ai_verify_evals_README_md as unknown as string,
   "../skills/ai-verify/evals/packs/example-node-web/answer-key.json": askills_ai_verify_evals_packs_example_node_web_answer_key_json as unknown as string,
-  "../skills/ai-verify/evals/scripts/plant.py": askills_ai_verify_evals_scripts_plant_py as unknown as string,
-  "../skills/ai-verify/evals/scripts/score.py": askills_ai_verify_evals_scripts_score_py as unknown as string,
+  "../skills/ai-verify/evals/scripts/score.ts": askills_ai_verify_evals_scripts_score_ts as unknown as string,
+  "../skills/ai-verify/evals/scripts/apply-pack.ts": askills_ai_verify_evals_scripts_apply_pack_ts as unknown as string,
   "../skills/ai-verify/evals/bug-catalog.md": askills_ai_verify_evals_bug_catalog_md as unknown as string,
   "../skills/ai-verify/evals/fixtures/node-web/package.json": askills_ai_verify_evals_fixtures_node_web_package_json as unknown as string,
   "../skills/ai-verify/evals/fixtures/node-web/src/ui/OrderList.tsx": askills_ai_verify_evals_fixtures_node_web_src_ui_OrderList_tsx as unknown as string,
@@ -147,8 +147,8 @@ export const EMBEDDED: Record<string, string> = {
   "../skills/ai-verify/tiers/1-standalone/verify-feature/SKILL.md": askills_ai_verify_tiers_1_standalone_verify_feature_SKILL_md as unknown as string,
   "../skills/ai-verify/tiers/2-embedded/feature-verify/references/puppeteer-patterns.md": askills_ai_verify_tiers_2_embedded_feature_verify_references_puppeteer_patterns_md as unknown as string,
   "../skills/ai-verify/tiers/2-embedded/feature-verify/references/harness.md": askills_ai_verify_tiers_2_embedded_feature_verify_references_harness_md as unknown as string,
+  "../skills/ai-verify/tiers/2-embedded/feature-verify/scripts/blast_radius.ts": askills_ai_verify_tiers_2_embedded_feature_verify_scripts_blast_radius_ts as unknown as string,
   "../skills/ai-verify/tiers/2-embedded/feature-verify/scripts/setup_harness.sh": askills_ai_verify_tiers_2_embedded_feature_verify_scripts_setup_harness_sh as unknown as string,
-  "../skills/ai-verify/tiers/2-embedded/feature-verify/scripts/blast_radius.py": askills_ai_verify_tiers_2_embedded_feature_verify_scripts_blast_radius_py as unknown as string,
   "../skills/ai-verify/tiers/2-embedded/feature-verify/SKILL.md": askills_ai_verify_tiers_2_embedded_feature_verify_SKILL_md as unknown as string,
   "../skills/ai-verify/tiers/2-embedded/second-opinion/scripts/second-opinion.sh": askills_ai_verify_tiers_2_embedded_second_opinion_scripts_second_opinion_sh as unknown as string,
   "../skills/ai-verify/tiers/2-embedded/second-opinion/SKILL.md": askills_ai_verify_tiers_2_embedded_second_opinion_SKILL_md as unknown as string,

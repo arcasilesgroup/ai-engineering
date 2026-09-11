@@ -133,7 +133,7 @@ Edit it when the repo's real state made a rule stale, never to bend a rule this 
 
 ## The ai-engineering seam
 
-1. `ai-eng init` plants this file once (never overwritten by update — 3-way diff if you
+1. `ai-eng init` installs this file once (never overwritten by update — 3-way diff if you
    edited it). This skill is how you rewrite it deliberately.
 2. The governed agent edits it in-session when the tree moved on (section above);
    `self-protect` guards the wiring instead — the file is prose the team owns.

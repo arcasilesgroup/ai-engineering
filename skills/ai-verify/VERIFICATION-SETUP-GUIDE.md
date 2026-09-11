@@ -131,7 +131,7 @@ That asymmetry should change how you build:
 - **Bulk reference material goes in `references/`.** `feature-verify` keeps its Puppeteer
   selector patterns and harness API in two reference files. A run that never hits a flaky
   selector never pays for that page.
-- **Determinism goes in `scripts/`.** `blast_radius.py` walks an import graph to find which
+- **Determinism goes in `scripts/`.** `blast_radius.ts` walks an import graph to find which
   routes consume the changed files. As a script it costs zero context and returns the same
   answer every time. Written as prose instructions, it would cost context on every run and
   return a slightly different answer each time. For verification specifically this matters
@@ -424,7 +424,7 @@ git diff --name-only HEAD          # what changed
 
 Then walk the import graph backwards to find which routes consume those files. A shared
 `Button.tsx` lights up ten routes; an isolated page lights up one. That spread is your
-regression surface. `tiers/2-embedded/feature-verify/scripts/blast_radius.py` does exactly
+regression surface. `tiers/2-embedded/feature-verify/scripts/blast_radius.ts` does exactly
 this, following `tsconfig` path aliases.
 
 Two things an import graph can't see, so add them by hand:

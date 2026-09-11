@@ -149,7 +149,7 @@ detection matches, and start the dev server from there:
 bash scripts/setup_harness.sh /abs/path/to/repo/apps/web --cmd "pnpm --filter web dev"
 ```
 
-`blast_radius.py` should run from a root that contains both the app and any shared packages,
+`blast_radius.ts` should run from a root that contains both the app and any shared packages,
 otherwise it can't see the import edges from `packages/ui` into `apps/web`. Say in the report which
 apps you verified and which you didn't.
 

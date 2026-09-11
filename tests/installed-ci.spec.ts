@@ -1,10 +1,10 @@
 // The merge gate belongs to the project, not to the editor that happens to be
 // attached. The workflow hung off the claude-code case, so six of the seven
-// adapter-bearing surfaces planted guards and no CI at all (measured 2026-09-10).
+// adapter-bearing surfaces got guards and no CI at all (measured 2026-09-10).
 //
 // The rules the template must satisfy live here rather than in a proof script: this
-// file runs on every push through `bun test`, and scripts/proof-planted-ci.sh proves
-// (P2) that what `init` plants is byte-identical to templates/ci.yml.tpl.
+// file runs on every push through `bun test`, and scripts/proof-installed-ci.sh proves
+// (P2) that what `init` installs is byte-identical to templates/ci.yml.tpl.
 import { test, expect, beforeAll, afterAll } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -21,7 +21,7 @@ let sandbox: string;
 let home: string;
 
 beforeAll(() => {
-  sandbox = mkdtempSync(join(tmpdir(), "ai-eng-planted-ci-"));
+  sandbox = mkdtempSync(join(tmpdir(), "ai-eng-installed-ci-"));
   home = join(sandbox, "home");
   mkdirSync(home, { recursive: true });
 });
@@ -48,11 +48,11 @@ test("every surface with an adapter receives the workflow", () => {
     const dir = join(sandbox, "repos", surface.id);
     const run = init(surface.id, dir);
     expect(run.status, `${surface.id}: ${run.stderr}`).toBe(0);
-    expect(existsSync(join(dir, WORKFLOW)), `${surface.id} planted no CI workflow`).toBe(true);
+    expect(existsSync(join(dir, WORKFLOW)), `${surface.id} installed no CI workflow`).toBe(true);
   }
 });
 
-test("the planted template cannot be skipped anywhere, and names one version", () => {
+test("the installed template cannot be skipped anywhere, and names one version", () => {
   const template = readFileSync(TEMPLATE, "utf8");
   expect(template).not.toContain("|| true");
   expect(template).not.toContain("bun add -g ai-engineering");

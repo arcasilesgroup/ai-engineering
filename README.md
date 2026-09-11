@@ -1,6 +1,6 @@
 # {ai} Engineering
 
-**Plant. Guard. Prove.** — governance floor for AI coding agents.
+**Install. Guard. Prove.** — governance floor for AI coding agents.
 
 [![npm version](https://img.shields.io/npm/v/ai-engineering.svg)](https://www.npmjs.com/package/ai-engineering)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -34,7 +34,7 @@ the run itself.
 The product spec — `docs/blueprint.html` (v17, §-numbered) — defines every
 behavior cited below. The triad:
 
-1. **Plant** — `ai-eng init` writes the contract files and hook shims.
+1. **Install** — `ai-eng init` writes the contract files and hook shims.
 2. **Guard** — `ai-eng chain` denies destructive tool calls, fail-closed.
 3. **Prove** — receipts and `spec run` make "done" a checkable claim, not a promise.
 
@@ -58,22 +58,22 @@ Or download a standalone binary from
 ## Usage
 
 ```bash
-cd my-project && ai-eng init   # plants the contract (creates the repo if needed)
+cd my-project && ai-eng init   # installs the contract (creates the repo if needed)
 ai-eng doctor                  # 12 checks + one real adversarial probe
 ```
 
 `init` is idempotent and interactive: outside a git repo it offers to create
-one; in an already-governed repo it offers to re-plant assets or exit. CI and
+one; in an already-governed repo it offers to reinstall assets or exit. CI and
 scripts pass `--yes --surface <id>` for zero prompts.
 
 Human verbs:
 
 | Verb | Does |
 |---|---|
-| `init` | plant governance: machine canon (global) + repo contract |
+| `init` | install governance: machine canon (global) + repo contract |
 | `doctor` | 12 health checks + live adversarial probe + receipt stats (`--gc` collects) |
 | `config` | add/remove agent surfaces (Claude Code, OpenCode, oh-my-pi, …) |
-| `update` | re-plant binary assets into the repo — zero network |
+| `update` | reinstall binary assets into the repo — zero network |
 | `upgrade` | show changelog, confirm, delegate install to bun/npm |
 | `uninstall` | revert ours, keep yours: AGENTS.md, DECISIONS.md, spec/plan stay |
 
@@ -103,7 +103,7 @@ filter), `spec run|open|approve|close` (executable contract).
 The product is a security boundary; treat attacks on it as vulnerabilities.
 Report via the policy: [SECURITY.md](SECURITY.md). Guard bypasses are critical
 by definition. Overrides require `reason` + `until`; expired exceptions re-arm
-the guard; `update` never touches the network (it re-plants from the binary you
+the guard; `update` never touches the network (it reinstalls from the binary you
 already installed).
 
 ## Development

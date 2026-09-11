@@ -30,7 +30,7 @@ execSync(`bun build scripts/chain-entry.ts --target=bun --format=esm --outfile=$
   stdio: "inherit",
 });
 // The bundle is loaded as a FILE string (with { type: "file" }) so the binary can
-// plant it in foreign repos; tsc must type that import as `string`. A default
+// install it in foreign repos; tsc must type that import as `string`. A default
 // export (the bundle's own id) lets tsc type the default import as a string
 // without resolving the real module, and never affects plugins, which import the
 // named `chain`/`runChain` exports.
@@ -53,6 +53,12 @@ walk(join(root, "templates"));
 // refs, never payload of their own.
 const chainPrefix = bundleDir + "/";
 const isFixtureData = (f: string): boolean => f.includes("/fixtures/");
+// A skill's own scripts travel too, and they are TypeScript now: a script under
+// skills/**/scripts/ is payload the canon runs (`bun apply-pack.ts`), not host code
+// the binary imports — the same obstacle as a fixture (tsc resolves a .ts import as a
+// module and refuses), so it takes the same .txt copy. Dropping them shipped a canon
+// whose docs point at scripts that never materialised.
+const isSkillScript = (f: string): boolean => /\/scripts\/[^/]+\.tsx?$/.test(f);
 const copyDir = join(root, "scripts", ".embed");
 const entries: Array<{ key: string; source: string }> = [];
 for (const file of files) {
@@ -62,7 +68,7 @@ for (const file of files) {
     if (file.endsWith(".ts")) entries.push({ key, source: file });
     continue;
   }
-  if (isFixtureData(file) && /\.tsx?$/.test(file)) {
+  if ((isFixtureData(file) || isSkillScript(file)) && /\.tsx?$/.test(file)) {
     const copy = join(copyDir, `${relative(join(root, "skills"), file)}.txt`);
     mkdirSync(dirname(copy), { recursive: true });
     writeFileSync(copy, readFileSync(file));

@@ -20,7 +20,7 @@ export function embeddedUnder(prefix: string): Map<string, string> {
 
 /** The skills canon proper: dot-entries under skills/ hold the generated chain
  *  bundle, payload for the plugin hosts and not a skill anyone loads. Materializing
- *  them planted a 33 KB build artifact in every canon and every mirror, counted as
+ *  installing them wrote a 33 KB build artifact in every canon and every mirror, counted as
  *  canon by doctor (measured 2026-09-10). One predicate, every consumer. */
 export function canonSkills(): Map<string, string> {
   const out = new Map<string, string>();

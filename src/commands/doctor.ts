@@ -198,7 +198,7 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
     }
   }
   // 11. surfaces responding: settings present for declared surfaces — and, where the
-  //     surface runs the guard in-process, the planted chain is the one THIS binary
+  //     surface runs the guard in-process, the installed chain is the one THIS binary
   //     ships. Existence is not the question: a half-written or hand-patched bundle
   //     passes every probe and denies nothing. §14.3 asks the human the patch
   //     question; bytes answer it, so an edited bundle is a WARN with the action,

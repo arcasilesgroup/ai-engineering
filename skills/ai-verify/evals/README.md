@@ -3,10 +3,10 @@
 > An untested review skill reports "no issues found" when it is broken, and that reads
 > exactly like good news. — §15 of the setup guide
 
-This is the harness for that section. It plants known defects in a working repo, runs your
+This is the harness for that section. It applies known defects in a working repo, runs your
 review skill against them, and scores the report on the two numbers that matter:
 
-- **Recall** — how many planted defects did it find? Misses mean the instructions are too
+- **Recall** — how many applied defects did it find? Misses mean the instructions are too
   vague about what to look for.
 - **Precision** — of everything it reported, how much was real? Noise means the
   false-positive gate is too weak, usually because you did not require a concrete failure
@@ -21,9 +21,9 @@ Python 3.8+, stdlib only. Nothing to install.
 
 ## The one rule
 
-**The answer key never enters the repo.** `plant.py` writes it to
+**The answer key never enters the repo.** `apply-pack.ts` writes it to
 `~/.claude/evals/<repo>-<stamp>/`, outside the working tree, because a review that finds
-the planted bugs by reading the list of planted bugs tells you nothing — and an agent with
+the applied bugs by reading the list of applied bugs tells you nothing — and an agent with
 `Read` will find that file if it is anywhere under the project root.
 
 Do not paste the key into the session. Do not summarise it for the reviewer. Do not tell
@@ -37,20 +37,20 @@ scavenger hunt, and the agent will keep reaching until it has six things to say.
 ```bash
 AV=/path/to/ai-verify
 
-# 1. plant — from a clean tree, on a scratch branch
-python3 $AV/evals/scripts/plant.py --pack $AV/evals/packs/example-node-web/answer-key.json
+# 1. apply the pack — from a clean tree, on a scratch branch
+bun $AV/evals/scripts/apply-pack.ts --pack $AV/evals/packs/example-node-web/answer-key.json
 
 # 2. review — in your agent, on the branch it just created
 #    "run code-audit on this branch"   (or full-review, or the skill under test)
 
 # 3. score
-python3 $AV/evals/scripts/score.py --run ~/.claude/evals/<repo>-<stamp>/manifest.json
+bun $AV/evals/scripts/score.ts --run ~/.claude/evals/<repo>-<stamp>/manifest.json
 
 # 4. put the repo back
-python3 $AV/evals/scripts/plant.py --cleanup
+bun $AV/evals/scripts/apply-pack.ts --cleanup
 ```
 
-`plant.py` refuses to run on a dirty tree — planting on top of uncommitted work makes the
+`apply-pack.ts` refuses to run on a dirty tree — applying a pack on top of uncommitted work makes the
 diff scope meaningless, and the reviewer would be reading your work-in-progress as if it
 were the change under test.
 
@@ -65,7 +65,7 @@ Recall is computed automatically — a defect is at a known `file:line`, so a fi
 points at it or does not (±8 lines by default; `--window` to change).
 
 Precision is not automatic, and pretending otherwise would be the same flattery this
-harness exists to catch. Every finding that does not map to a planted defect goes into
+harness exists to catch. Every finding that does not map to an applied defect goes into
 `triage.json` as `unknown`, and you decide:
 
 ```jsonc
@@ -75,13 +75,13 @@ harness exists to catch. Every finding that does not map to a planted defect goe
 }
 ```
 
-Then `score.py --run ... --adjudicate`. Until every finding is judged, precision reads
+Then `score.ts --run ... --adjudicate`. Until every finding is judged, precision reads
 `pending` rather than guessing in the skill's favour.
 
 Two judgments worth making consistently:
 
-- **A real bug you did not plant is `real`.** It counts as a true positive. Reviewers that
-  find genuine unplanted bugs are the good outcome, not an accounting problem.
+- **A real bug you did not apply is `real`.** It counts as a true positive. Reviewers that
+  find genuine unapplied bugs are the good outcome, not an accounting problem.
 - **A finding you cannot decide about is `noise`.** If the report did not make it
   decidable, nobody would have actioned it either.
 
@@ -123,24 +123,24 @@ metadata the scorer needs:
 
 | Field | Notes |
 |---|---|
-| `find` | Must match **exactly once** in the file, or set `"occurrence": n`. `plant.py` fails loudly rather than guessing. |
+| `find` | Must match **exactly once** in the file, or set `"occurrence": n`. `apply-pack.ts` fails loudly rather than guessing. |
 | `replace` | The defect. Keep it small — a one-line edit that a human reviewer would plausibly write. |
 | `lane` | Which skill *should* catch it. Drives the wrong-lane signal. |
 | `expect` | Plain-English description of the failure. This is what you read when it gets missed. |
 | `match` | Optional case-insensitive regexes, **all** of which must appear in the finding's text for a full match. Location alone counts as a weak match. Keep these loose — you are checking the reviewer described the defect, not that it used your words. |
 
 Build a pack from a real commit history: `git log` for the bugs you actually shipped and
-fixed, then re-plant them. Defects invented from scratch test the reviewer against your
+fixed, then apply them again. Defects invented from scratch test the reviewer against your
 imagination; defects from your own history test it against reality.
 
 Keep packs small — six to ten defects. Beyond that the review's own scope handling starts
 dominating the score and you stop learning anything about the instructions.
 
-When the repo moves and a `find` no longer matches, `plant.py` stops with an error. Fix
-the pack. Do not loosen the match to make it apply — a fuzzy anchor plants the defect
+When the repo moves and a `find` no longer matches, `apply-pack.ts` stops with an error. Fix
+the pack. Do not loosen the match to make it apply — a fuzzy anchor applies the defect
 somewhere you did not intend and the line numbers in the key go quietly wrong.
 
-See [`bug-catalog.md`](bug-catalog.md) for what to plant.
+See [`bug-catalog.md`](bug-catalog.md) for what to apply.
 
 ---
 
@@ -169,10 +169,10 @@ Two failure modes the numbers will not show you, so watch for them by hand:
 ```
 evals/
 ├── README.md                 this
-├── bug-catalog.md            what to plant, by class and by lane
+├── bug-catalog.md            what to apply, by class and by lane
 ├── scripts/
-│   ├── plant.py              apply a pack on a scratch branch; write the key outside the repo
-│   └── score.py              parse reports, compute recall, collect precision triage
+│   ├── apply-pack.ts              apply a pack on a scratch branch; write the key outside the repo
+│   └── score.ts              parse reports, compute recall, collect precision triage
 ├── packs/
 │   └── example-node-web/
 │       └── answer-key.json   6 defects across 4 lanes
@@ -185,5 +185,5 @@ To try the whole loop without touching a real project:
 ```bash
 cp -R $AV/evals/fixtures/node-web /tmp/eval-demo && cd /tmp/eval-demo
 git init -q && git add -A && git commit -qm init
-python3 $AV/evals/scripts/plant.py --pack $AV/evals/packs/example-node-web/answer-key.json
+bun $AV/evals/scripts/apply-pack.ts --pack $AV/evals/packs/example-node-web/answer-key.json
 ```

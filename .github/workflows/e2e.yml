@@ -1,9 +1,9 @@
 name: e2e
-# The pipeline we plant, exercised on every push and PR against the binary built from
+# The pipeline we install, exercised on every push and PR against the binary built from
 # this commit — the channel is *ephemeral on purpose*: an Actions artifact dies with
 # the run (7 days at most) and needs a token to download, so no client can pin it.
 # Clients pin the release; this proves the release's payload before it exists (§17).
-# It exists because the planted workflow had never been run by anyone: it installed a
+# It exists because the installed workflow had never been run by anyone: it installed a
 # package that is not on npm and named a trivy ref that does not exist.
 on: [push, pull_request]
 
@@ -23,14 +23,14 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Build the binary the client would download
         run: bun run build
-      - name: Prove the planted pipeline — templates/ci.yml.tpl, machine side, workflow, fail-closed gate, pins
+      - name: Prove the installed pipeline — templates/ci.yml.tpl, machine side, workflow, fail-closed gate, pins
         env:
           # absolute: the proof script changes directory between proofs
           AI_ENG_BIN: ${{ github.workspace }}/dist/ai-eng
-        run: sh scripts/proof-planted-ci.sh
+        run: sh scripts/proof-installed-ci.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
-          name: planted-ci-binary
+          name: installed-ci-binary
           path: dist/ai-eng
           retention-days: 7

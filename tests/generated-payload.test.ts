@@ -5,9 +5,9 @@
 // are committed, so all three can silently disagree with what they were made from.
 // Two of them disagree in silence and are gated here:
 //
-//   · the chain bundle — it is what every in-process surface plants as the guard that
+//   · the chain bundle — it is what every in-process surface installs as the guard that
 //     runs inside the host (gen-assets.ts:26-37). Measured 2026-09-10: a chain fix
-//     lived in src/ while every planted guard still ran the old code, and doctor
+//     lived in src/ while every installed guard still ran the old code, and doctor
 //     reported the chain green.
 //   · the `.embed` fixture copies — a fixture is the SUBJECT an eval measures, and a
 //     stale copy measures a repo that no longer exists (gen-assets.ts:43-46 records

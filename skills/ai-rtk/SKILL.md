@@ -176,7 +176,7 @@ rtk session                 # rtk adoption across recent sessions
 
 ## The ai-engineering seam
 
-1. rtk is an external binary: ai-eng OFFERS it in init — it prints `brew install rtk · rtk init` (with the pinned version and the license) and the human runs it. It is never executed from ai-eng and never bundled; the rewrite hook is planted per surface.
+1. rtk is an external binary: ai-eng OFFERS it in init — it prints `brew install rtk · rtk init` (with the pinned version and the license) and the human runs it. It is never executed from ai-eng and never bundled; the rewrite hook is installed per surface.
 2. This skill is the thin routing layer over that binary: it routes shell commands through rtk and cuts output tokens by 60-90%. Lowering the cost of reading the output lowers the cost of verifying.
 
 ## Lifecycle

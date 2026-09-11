@@ -1,4 +1,4 @@
-# What to plant
+# What to apply
 
 A pack that only contains obvious defects tells you your reviewer can read. The useful
 packs are graded: a few gimmes to prove the thing is running at all, then the near-misses
@@ -66,7 +66,7 @@ amount of recall makes up for a reviewer that flags working code every run.
 
 ## Coverage by lane
 
-One or two defects per lane you actually installed. Do not plant for lanes you do not run.
+One or two defects per lane you actually installed. Do not apply packs for lanes you do not run.
 
 | Lane | Plant |
 |---|---|
@@ -80,12 +80,12 @@ One or two defects per lane you actually installed. Do not plant for lanes you d
 
 ---
 
-## Rules for a defect worth planting
+## Rules for a defect worth applying
 
 **One edit, one defect.** A bug that changes five things scores ambiguously — you cannot
 tell which part the reviewer saw.
 
-**It must be genuinely wrong.** If you find yourself arguing that the planted version is
+**It must be genuinely wrong.** If you find yourself arguing that the applied version is
 defensible, it is a style opinion, and a reviewer that skips it is right.
 
 **It must be reachable.** A defect in dead code is not a defect, and a good reviewer will

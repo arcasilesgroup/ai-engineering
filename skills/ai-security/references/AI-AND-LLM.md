@@ -20,7 +20,7 @@ Pick the relevant classes based on Phase 1. Split per subsystem (retrieval, tool
 ## Prompt-injection attack classes (subagent_type: `general`)
 
 **Indirect injection via retrieved / ingested content**
-The high-value class. Attacker plants instructions in data the model later ingests in *someone else's* session: a RAG document, an indexed web page, a file upload, an email, an issue/PR body, a tool's response, a filename. Trace every source that reaches the prompt context and ask "who can write this, and whose session does it fire in?" Find the ingestion path; confirm the content reaches the context window unfiltered; confirm that context has a capability worth hijacking.
+The high-value class. Attacker embeds instructions in data the model later ingests in *someone else's* session: a RAG document, an indexed web page, a file upload, an email, an issue/PR body, a tool's response, a filename. Trace every source that reaches the prompt context and ask "who can write this, and whose session does it fire in?" Find the ingestion path; confirm the content reaches the context window unfiltered; confirm that context has a capability worth hijacking.
 
 **Tool-argument injection (model output → sink)**
 The model emits a tool call and the code executes it with model-generated arguments. Those arguments hit a real sink — SQL (`query(args.filter)`), shell (`exec(args.cmd)`), file path (`readFile(args.path)`), HTTP (`fetch(args.url)` → SSRF), or another API. The code trusts the arguments because "the model produced structured output." Trace each tool handler's parameters to their sink and validate them at the handler like any request body.

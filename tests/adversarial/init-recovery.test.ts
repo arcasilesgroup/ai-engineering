@@ -100,11 +100,9 @@ test("update in the recovery state tells the truth: no 'unknown', no garden jarg
   rmSync(join(repo, ".claude"), { recursive: true, force: true });
   const run = eng(["update"]);
   const out = run.stdout + run.stderr;
-  // 'unknown' came from previous.version || "unknown": it read as a broken
-  // install when the truth was "nothing recorded yet". 'planted' is the
-  // internal install.ts metaphor; the user-facing word is installed.
+  // 'unknown' came from previous.version || "unknown": it read as a broken install
+  // when the truth was "nothing recorded yet".
   expect(out).not.toInclude("unknown");
-  expect(out).not.toInclude("planted");
   expect(out).toInclude("no ai-eng.lock");
   expect(run.status).toBe(0);
 });

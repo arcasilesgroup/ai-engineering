@@ -75,8 +75,8 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   const plan = syncPlan(entries, root, previous.assets);
   const pending = [...plan.updates, ...plan.fresh];
 
-  // The frame states the repo's state in plain words. "planted" was the old plant.ts's
-  // internal metaphor; "unknown" was a fallback lying about a recoverable state.
+  // The frame states the repo's state in plain words: "unknown" was a fallback lying
+  // about a recoverable state, and the old internal verb never reached a user anyway.
   const origin = !existsSync(lockPath)
     ? "no ai-eng.lock here yet: ai-eng will create its files fresh"
     : previous.version

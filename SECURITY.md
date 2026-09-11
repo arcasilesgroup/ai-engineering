@@ -1,6 +1,6 @@
 # Security Policy
 
-The product is security: `ai-engineering` plants a governance floor under AI
+The product is security: `ai-engineering` installs a governance floor under AI
 coding agents, so attacks on the floor itself are vulnerabilities of the
 product.
 
@@ -40,7 +40,7 @@ upstream.
 
 - Overrides require `reason` + `until`; expired exceptions re-arm the guard.
 - gitleaks missing under a governed repo is a HARD FAIL, never silent degradation.
-- The `update` verb never touches the network; it re-plants from the binary.
+- The `update` verb never touches the network; it reinstalls from the binary.
 - A contract nobody approved refuses to run: `spec run` checks the sha256
   pinned in `ai-eng.lock` (§9.3).
 - The chain dispatcher is fail-closed: any guard crash denies the tool call.

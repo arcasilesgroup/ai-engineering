@@ -58,7 +58,7 @@ the tree is the evidence.
 1. The writing standard itself ([references/documentation-writer.md](references/documentation-writer.md))
    is the prose standard for every ai-engineering surface that writes for humans: incident
    reports (/ai-issue-report), AGENTS.md authoring (/ai-agents-md), and any README the
-   framework plants.
+   framework installs.
 2. ai-write never writes into `.ai-engineering/` — governance artifacts are not product
    docs. Its home is the tree the user names: README.md, docs/, a wiki directory.
 3. The verdict on whether a draft is good belongs to the `decide` tier; the mechanical

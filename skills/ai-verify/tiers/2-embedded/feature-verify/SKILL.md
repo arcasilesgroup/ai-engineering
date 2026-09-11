@@ -45,7 +45,7 @@ git -C <repo> diff --name-only HEAD~1 HEAD   # the last commit, if already commi
 Then trace which routes actually consume those files:
 
 ```bash
-python3 <skill>/scripts/blast_radius.py --repo <repo> --changed <file1> <file2> ...
+bun <skill>/scripts/blast_radius.ts --repo <repo> --changed <file1> <file2> ...
 ```
 
 It walks the import graph backwards (following `tsconfig` path aliases) and prints the route entrypoints that transitively depend on each changed file, with URLs where it can infer them. A shared `Button.tsx` lights up ten routes; an isolated `app/settings/page.tsx` lights up one. That spread is your regression surface.
