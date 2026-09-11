@@ -239,8 +239,6 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t files < <(find dist-artifacts -type f -name 'ai-eng-*' ! -name '*.map')
-          flags=(--title "$TAG" --generate-notes --target "$GITHUB_SHA")
-          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "::error::$TAG is already published and its assets are append-only — cut a new version instead of re-pointing a released one."
             exit 1
@@ -258,7 +256,14 @@ jobs:
               exit 1
             fi
           fi
-          gh release create "$TAG" "${files[@]}" CHECKSUMS-SHA256.txt sbom.json attestation-verify.log publish-proof.txt "${flags[@]}"
+          # Immutable releases lock the assets when the release is published, so the
+          # documented order is the one used here: draft → attach everything → publish.
+          # A half-attached release is not a state anyone can finish by hand.
+          gh release create "$TAG" --draft --title "$TAG" --generate-notes --target "$GITHUB_SHA"
+          gh release upload "$TAG" "${files[@]}" CHECKSUMS-SHA256.txt sbom.json attestation-verify.log publish-proof.txt
+          published_flags=()
+          if [ "$PRERELEASE" = "true" ]; then published_flags+=(--prerelease); fi
+          gh release edit "$TAG" --draft=false "${published_flags[@]}"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
