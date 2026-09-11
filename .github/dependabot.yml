@@ -1,0 +1,13 @@
+version: 2
+# The actions are pinned by commit SHA: without this, the pins rot in silence and a
+# security fix in an action never arrives. Only the `github-actions` ecosystem is
+# declared: Dependabot cannot write bun.lock, so an npm entry would open PRs that
+# break the lockfile — the dependency side is covered by `bun audit` in CI and by
+# minimumReleaseAge in bunfig.toml.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(ci)"

@@ -79,8 +79,8 @@ jobs:
       # names anything else never starts (startup_failure, no logs). Node is on every
       # hosted runner, and the registry pins the version's integrity itself.
       - run: npm install -g bun@1.4.2
-      - name: gitleaks (version + sha256, no action)
-        run: sh scripts/toolchain.sh gitleaks
+      - name: The scanners (version + sha256, no action, no unpinned download)
+        run: sh scripts/toolchain.sh gitleaks trivy
       - run: gitleaks detect --redact -v --no-banner
       # --config p/ci, never `auto`: auto refuses to run with metrics off, and a
       # governance gate that phones home is not a governance gate.
@@ -88,17 +88,12 @@ jobs:
         run: |
           pipx install semgrep==1.172.0
           semgrep scan --error --config p/ci --metrics=off
-      # The contract's gate G9 requires this scanner as a SHA-pinned action, so the
-      # checksum-verified install in scripts/toolchain.sh cannot be used here: the
-      # audit flagged exactly this (the action downloads trivy by version, unverified)
-      # and the gate wins until the contract is rewritten. Recorded in D-013.
+      # The action that used to run here is gone: it installs trivy by version with
+      # no checksum (audit SC-06), and the gate that required it as an action died
+      # with the ci-gate contract. trivy now comes from scripts/toolchain.sh, where
+      # the digest lives in this repository.
       - name: trivy (filesystem, HIGH+CRITICAL)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          version: v0.74.0 # the action installs trivy by version; pinning it here
-          scan-type: fs
-          exit-code: 1
-          severity: HIGH,CRITICAL
+        run: trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 --quiet .
       # `npm audit` cannot read bun.lock (ENOLOCK: it wants a package-lock.json), and
       # the previous `|| true` hid exactly that. `bun audit` is the same check for the
       # lockfile this repository actually has, and it fails the step on a finding.
