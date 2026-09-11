@@ -43,6 +43,10 @@ export function planEntries(surfaces: string[]): PlanEntry[] {
     { path: ".ai-engineering/overrides.toml", ours: embeddedTemplate("overrides.toml.tpl") },
     { path: ".ai-engineering/arch.rules.json", ours: embeddedTemplate("arch.rules.json.tpl") },
     { path: ".ai-engineering/config.toml", ours: render(embeddedTemplate("config.toml.tpl"), { surfaces: surfaces.map((s) => `"${s}"`).join(", ") }) },
+    // The merge gate belongs to the project, not to one editor: it hung off the
+    // claude-code case, so choosing OpenCode/OMP/Codex/Cursor/Copilot/Pi installed
+    // guards and adapters with no workflow at all, and nothing said so (§17).
+    { path: ".github/workflows/ai-eng-check.yml", ours: embeddedTemplate("ci.yml.tpl") },
     ...gitHookEntries(),
     ...surfaces.flatMap(surfaceEntries),
   ];
@@ -55,10 +59,7 @@ export function planEntries(surfaces: string[]): PlanEntry[] {
 function surfaceEntries(id: string): PlanEntry[] {
   switch (id) {
     case "claude-code":
-      return [
-        { path: ".claude/settings.json", ours: embeddedTemplate("settings.claude.json.tpl") },
-        { path: ".github/workflows/ai-eng-check.yml", ours: embeddedTemplate("ci.yml.tpl") },
-      ];
+      return [{ path: ".claude/settings.json", ours: embeddedTemplate("settings.claude.json.tpl") }];
     case "opencode":
       return [
         { path: ".opencode/plugins/ai-eng.ts", ours: embeddedTemplate("plugin.opencode.ts.tpl") },

@@ -1,11 +1,23 @@
 name: release
-# Binary release: a v* tag builds the 8 cross-compiled binaries + SBOM + codesign
-# macOS and attaches them to the GitHub release version.yml's changesets/action
-# created. npm publishing is version.yml's job (OIDC trusted publishing); release.yml
-# never publishes npm — one publish path, signed by the registry (§7.1).
+# One run publishes: build the eight cross-compiled binaries, name each one, checksum
+# them, and create the release. Dispatch is the front door — `workflow_dispatch` always
+# starts a run, while a tag pushed by a workflow using GITHUB_TOKEN starts nothing, so a
+# two-workflow design (bot tags → `on: push: tags`) would silently never publish
+# (docs.github.com/en/actions/concepts/security/github_token). The publish job sits
+# behind a protected environment: the human press is an approval, and the version — not
+# a person — decides whether the release is a prerelease.
+#
+# npm publishing is version.yml's job (OIDC trusted publishing); release.yml never
+# publishes npm — one publish path, signed by the registry (§7.1).
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 2.0.0-rc.1 (empty = package.json)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -35,9 +47,12 @@ jobs:
             os: ubuntu-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
       - run: bun install --frozen-lockfile
+      # build.ts names the artifact after the target (dist/ai-eng-<target>): eight
+      # legs writing dist/ai-eng collide on the release page, where asset names must
+      # be unique — and the client's CI downloads one of them by name.
       - run: bun run build --target ${{ matrix.target }}
       - name: Codesign macOS binary (Gatekeeper) — skips without the cert secret
         if: runner.os == 'macOS'
@@ -52,33 +67,70 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" run.keychain
           security import "$RUNNER_TEMP/cert.p12" -k run.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" run.keychain
-          codesign --force --options runtime --timestamp --keychain run.keychain --sign "$MACOS_CERT_ID" dist/ai-eng
+          codesign --force --options runtime --timestamp --keychain run.keychain --sign "$MACOS_CERT_ID" dist/ai-eng-${{ matrix.target }}
         env:
           MACOS_CERT: ${{ secrets.MACOS_CERT }}
           CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           MACOS_CERT_ID: ${{ secrets.MACOS_CERT_ID }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ai-eng-${{ matrix.target }}
-          path: dist/ai-eng*
+          path: dist/ai-eng-*
 
-  release:
+  publish:
     needs: build
     runs-on: ubuntu-latest
+    # Required reviewers live on this environment (Settings → Environments): the job
+    # waits for an approval, and the environment's secrets are not exposed while it
+    # waits. One click is the press; everything else here is mechanical.
+    environment: release
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           path: dist-artifacts
-      - name: SBOM (CycloneDX — v1 shipped one; so does v2)
+
+      - name: Resolve the version — and what it means
+        id: flags
         run: |
-          curl -sSfL https://github.com/CycloneDX/cdxgen/releases/latest/download/cdxgen-linux-x64 -o cdxgen && chmod +x cdxgen
+          set -euo pipefail
+          version="${{ inputs.version }}"
+          if [ -z "$version" ]; then
+            if [ "${{ github.event_name }}" = "push" ]; then version="${{ github.ref_name }}"
+            else version="$(node -p 'require("./package.json").version')"; fi
+          fi
+          bun scripts/release-flags.ts "$version" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Checksums (the client's CI verifies the binary against this file)
+        run: |
+          set -euo pipefail
+          (cd dist-artifacts && find . -type f -name 'ai-eng-*' -exec sha256sum {} \; | sed 's|\./ai-eng-[^/]*/||' | sort -k2) > CHECKSUMS-SHA256.txt
+          cat CHECKSUMS-SHA256.txt
+
+      - name: SBOM (CycloneDX, pinned by version + sha256)
+        run: |
+          set -euo pipefail
+          ver=v13.1.0
+          base="https://github.com/cdxgen/cdxgen/releases/download/${ver}"
+          curl -sSfL -o cdxgen "$base/cdxgen-linux-amd64"
+          echo "b9575914c36e601296d75f322123643b2531251235159f51578b507da6d9931f  cdxgen" | sha256sum -c -
+          chmod +x cdxgen
           ./cdxgen -o sbom.json .
-      - name: GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist-artifacts/**/*
-            sbom.json
-          generate_release_notes: true
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.flags.outputs.tag }}
+          PRERELEASE: ${{ steps.flags.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find dist-artifacts -type f -name 'ai-eng-*')
+          flags=(--title "$TAG" --generate-notes --target "$GITHUB_SHA")
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" CHECKSUMS-SHA256.txt sbom.json --clobber
+          else
+            gh release create "$TAG" "${files[@]}" CHECKSUMS-SHA256.txt sbom.json "${flags[@]}"
+          fi

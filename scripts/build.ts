@@ -10,6 +10,19 @@ import { spawnSync } from "node:child_process";
 
 const args = process.argv.slice(2);
 
+/** A cross-compile leg names its own artifact. All eight matrix legs wrote
+ *  `dist/ai-eng`, and release assets must have unique names on the page the
+ *  client's CI downloads from — eight files called `ai-eng` collide there
+ *  (measured on the v2 release path: never run, so never noticed until now).
+ *  `--target bun-linux-x64` → `dist/ai-eng-linux-x64`; no target → `dist/ai-eng`. */
+function outfile(flags: string[]): string {
+  const at = flags.findIndex((flag) => flag === "--target" || flag.startsWith("--target="));
+  if (at === -1) return "dist/ai-eng";
+  const target = flags[at] === "--target" ? flags[at + 1] : flags[at]!.slice("--target=".length);
+  if (!target) return "dist/ai-eng";
+  return `dist/ai-eng-${target.replace(/^bun-/, "")}`;
+}
+
 function sweep(): number {
   let removed = 0;
   for (const dir of [".", "dist"]) {
@@ -33,7 +46,7 @@ if (orphans > 0) console.log(`build: swept ${orphans} orphaned .bun-build scratc
 
 const done = spawnSync(
   process.execPath,
-  ["build", "src/cli.ts", "--compile", "--minify", "--sourcemap", "--bytecode", "--outfile", "dist/ai-eng", ...args],
+  ["build", "src/cli.ts", "--compile", "--minify", "--sourcemap", "--bytecode", "--outfile", outfile(args), ...args],
   { stdio: "inherit" },
 );
 
