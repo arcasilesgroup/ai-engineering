@@ -4,6 +4,7 @@
 import { EMBEDDED } from "./assets.ts";
 import { writeFileSync, mkdirSync, chmodSync, existsSync, readFileSync, readdirSync, unlinkSync, rmdirSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { hashFile } from "./skills-lint.ts";
 
 /** Every embedded path under a prefix (e.g. "skills/" or "templates/"). Keys are
@@ -113,7 +114,7 @@ export function canonDrift(homeDir: string): CanonDrift {
   const out: CanonDrift = { verified: 0, drift: 0, missing: 0, stale: extras.stale.length, foreign: extras.foreign.length };
   for (const [path, ref] of canonSkills()) {
     const installed = join(homeDir, path);
-    const embedded = new URL(ref, import.meta.url).pathname;
+    const embedded = embeddedPath(ref);
     if (!existsSync(installed)) out.missing += 1;
     else if (existsSync(embedded) && hashFile(installed) === hashFile(embedded)) out.verified += 1;
     else out.drift += 1;
@@ -131,7 +132,7 @@ export function materializeSkills(destRoot: string): string[] {
   let count = 0;
   for (const [path, ref] of canonSkills()) {
     const dest = join(destRoot, path.slice("skills/".length));
-    const { pathname } = new URL(ref, import.meta.url);
+    const pathname = embeddedPath(ref);
     if (!existsSync(pathname)) {
       // Inside a compiled binary the asset lives at its ORIGINAL absolute path —
       // Bun --compile preserves the string. The ref is already the path.
@@ -145,6 +146,18 @@ export function materializeSkills(destRoot: string): string[] {
   return lines;
 }
 
+/** The filesystem path an embedded ref points at. In a compiled binary the ref is
+ *  already the path Bun serves the asset from; in the source tree it is relative to
+ *  this module. It must NOT be round-tripped through a URL when it is already
+ *  absolute: the pathname of a file URL carries a leading slash and, on Windows,
+ *  drops the drive letter — measured in the windows leg of the e2e job, where init
+ *  could not read a single template (ENOENT /~BUN/root/settings.claude.json-*.tpl)
+ *  while macOS and Linux passed, because there the mangled path still resolves. */
+export function embeddedPath(ref: string, base: string = import.meta.url): string {
+  if (ref.startsWith("/") || /^[A-Za-z]:[\\/]/.test(ref)) return ref;
+  return fileURLToPath(new URL(ref, base));
+}
+
 function resolvedFromRef(source: string, dest: string, executablePattern: RegExp): void {
   if (!existsSync(source)) return; // missing asset: init reports the count, doctor catches drift
   mkdirSync(dirname(dest), { recursive: true });
@@ -153,9 +166,7 @@ function resolvedFromRef(source: string, dest: string, executablePattern: RegExp
 }
 
 function readEmbeddedText(ref: string): string {
-  // ref is the module-resolved asset path Bun rewrites at build time; the URL
-  // form keeps relative refs working in the source tree.
-  return readFileSync(new URL(ref, import.meta.url).pathname, "utf8");
+  return readFileSync(embeddedPath(ref), "utf8");
 }
 
 /** One embedded template, rendered with {{vars}}. Lookup by suffix so callers can

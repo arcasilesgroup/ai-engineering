@@ -63,6 +63,7 @@ jobs:
       # legs writing dist/ai-eng collide on the release page, where asset names must
       # be unique — and the client's CI downloads one of them by name.
       - run: bun run build --target "bun-$TARGET"
+        shell: bash # Windows runners default to pwsh, where $TARGET is not a shell variable
         env:
           TARGET: ${{ matrix.target }}
       - name: Codesign macOS binary (Gatekeeper) — skips without the cert secret
