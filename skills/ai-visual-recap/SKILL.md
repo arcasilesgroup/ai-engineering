@@ -126,7 +126,7 @@ A strong recap follows one skeleton, top to bottom:
 2. Short outcome narrative (`rich-text`): what changed and why, 1-3 paragraphs.
 3. `data-model` / `api-endpoint` blocks for schema and contract changes.
 4. `file-tree` of the changed files with `change` flags.
-5. `## Key changes` — one horizontal `tabs` block of `diff` / `annotated-code`.
+5. `## Key changes` — one horizontal `tabs` block of `diff` / `annotated-code`, each excerpt carrying its language and coloured (see **Code Is Colour, Never A Grey Block**).
 
 Budgets that keep the recap reviewable:
 
@@ -149,6 +149,54 @@ few annotations on the load-bearing hunks.
 **BAD.** One giant unsegmented diff dump with no summaries or annotations; or a
 sparse three-block recap of a 40-file change (one wireframe, one sentence, one
 file list) that forces the reviewer back into the raw diff anyway.
+
+## Code Is Colour, Never A Grey Block
+
+A reader skims a recap for the three lines that carry the change. A wall of grey
+monospace makes them find those three lines by reading everything, which is the one
+thing this artifact exists to spare them.
+
+**The cause is almost always a missing `language`.** `Code`, `AnnotatedCode`, `Diff`,
+each `tabs` child and every `FileTree` `snippet` accept a `language` prop, and a block
+without one renders unhighlighted — the class the reader sees as `no-highlight`. The
+schema read on 2026-09-11 (`plan blocks --format schema`, 20 blocks) lists `language`
+as optional on all of them, so nothing forces you to pass it. Pass it on every excerpt
+that is code:
+
+    <AnnotatedCode language="ts" filename="src/spec/index.ts" … />
+    <Diff language="ts" filename="src/commands/doctor.ts" mode="split" … />
+
+Then, in order of how often each one is the actual problem:
+
+- **No `language` means the content is text on purpose.** A directory tree, a terminal
+  transcript, a command's plain output — those read better monochrome and should say so.
+  Everything else gets a language.
+- **Long excerpts collapse, they are not cut.** `Code` takes `maxLines`; use it instead
+  of truncating by hand, so the reader can expand what they want.
+- **`code-tabs` is deprecated**: use a `tabs` block with `code` children, one per file.
+- **When the artifact is a self-contained HTML file instead of MDX** — no renderer
+  available — colour it yourself, with the highlighter bundled beside this skill:
+
+      bun assets/highlight.mjs --lang ts excerpt.ts    # paste the HTML it prints
+
+  Generate the spans; never hand-annotate them. A missed string or a comment that
+  swallows the next line is how a recap starts lying about its own code.
+- **One token vocabulary across the whole family**: `c` comment · `k` keyword · `s`
+  string · `n` number · `t` type · `f` call · `b` strong. These are the blueprint's own
+  token classes (§22's stylesheet), so a recap and the design document read as one thing.
+- **The CSS travels with the artifact**, so it renders identically in a browser, in a
+  plan viewer and in a PDF export:
+
+      pre { background:#0E1830; border:1px solid rgba(0,212,170,.15); border-radius:10px;
+            padding:14px 16px; overflow-x:auto; font-family:'SF Mono',ui-monospace,monospace;
+            font-size:12.5px; line-height:1.65; color:#A9BBD0; }
+      pre .c { color:#6b87a6 } pre .k { color:#00D4AA } pre .s { color:#22c55e }
+      pre .n { color:#f97316 } pre .t { color:#a855f7 } pre .f { color:#7dd3fc }
+      pre .b { color:#F8FAFB; font-weight:600 }
+
+- **Do not colour twice.** If the renderer colours the block from `language`, do not also
+  pre-render spans into it: two colouring paths disagree the first time one changes, and
+  the reader is the one who sees it.
 
 ## UI Impact Needs Wireframes
 
