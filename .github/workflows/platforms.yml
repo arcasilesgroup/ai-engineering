@@ -2,7 +2,7 @@ name: platforms
 # The compiled binary is another artifact than the TS — only the e2e knows (§17).
 on:
   push:
-    branches: [main, v2]
+    branches: [main]
   pull_request:
 
 permissions:
