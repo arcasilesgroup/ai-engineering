@@ -77,8 +77,11 @@ jobs:
           semgrep scan --error --config p/ci --metrics=off
       - name: trivy (filesystem, HIGH+CRITICAL)
         run: trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 --quiet .
-      - name: npm audit (a result that is discarded is decoration)
-        run: bun install --frozen-lockfile && npm audit --omit=dev --audit-level=high
+      # `npm audit` cannot read bun.lock (ENOLOCK: it wants a package-lock.json), and
+      # the previous `|| true` hid exactly that. `bun audit` is the same check for the
+      # lockfile this repository actually has, and it fails the step on a finding.
+      - name: bun audit (a result that is discarded is decoration)
+        run: bun audit --audit-level=high
 
   guards-adversarial:
     runs-on: ubuntu-latest

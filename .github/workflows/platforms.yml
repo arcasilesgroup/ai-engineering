@@ -38,4 +38,9 @@ jobs:
         run: cd demo && "$GITHUB_WORKSPACE/dist/ai-eng" doctor
       - name: uninstall keeps the user's files
         shell: bash
-        run: cd demo && echo "" | "$GITHUB_WORKSPACE/dist/ai-eng" uninstall || true
+        run: |
+          set -euo pipefail
+          cd demo
+          echo "" | "$GITHUB_WORKSPACE/dist/ai-eng" uninstall
+          test -f AGENTS.md && test -f DECISIONS.md
+          echo "uninstall left the contract files in place"

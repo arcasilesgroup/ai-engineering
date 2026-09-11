@@ -118,9 +118,9 @@
   CHECK: sh -c "grep -q 'v2.0.0-rc.1' templates/ci.yml.tpl && grep -q 'sha256sum -c' templates/ci.yml.tpl && echo 'OK version+checksum'"
   EVIDENCE: OK version+checksum
 
-- [ ] G6: the pinned release exists and its linux-x64 asset resolves
+- [x] G6: the pinned release exists and its linux-x64 asset resolves
   CHECK: sh -c "test \"$(curl -sSL -o /dev/null -w '%{http_code}' https://github.com/arcasilesgroup/ai-engineering/releases/download/v2.0.0-rc.1/ai-eng-linux-x64)\" = 200"
-  EVIDENCE: pending
+  EVIDENCE: (no output)
 
 - [x] G7: the planted pipeline is exercised on every PR against the built binary
   CHECK: sh -c "test -f .github/workflows/planted-e2e.yml && grep -qE 'ci.yml.tpl|ai-eng-check.yml' .github/workflows/planted-e2e.yml && grep -q 'retention-days' .github/workflows/planted-e2e.yml && echo 'OK e2e channel'"
