@@ -109,6 +109,8 @@ jobs:
     environment: release
     permissions:
       contents: write # creating the release
+      id-token: write # the attestation over the checksums file needs its own token
+      attestations: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       # bun comes from npm, not from `oven-sh/setup-bun`: this repository's action
