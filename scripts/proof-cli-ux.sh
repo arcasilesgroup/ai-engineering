@@ -76,11 +76,16 @@ printf '%s\n' "$DOC2_OUT" | grep 'assets' | grep -q 'ai-eng update' || die "G6: 
 
 # ── G7: update twice → second run short-circuits, lock untouched ───────
 G7DIR="$(mktemp -d)"; cd "$G7DIR" && git init -q .
+# Portable on purpose: `stat -f %m || stat -c %Y` fell through to a GNU value that
+# disagreed with itself on the Linux runner, with nothing printed to say which number
+# came from where (measured 2026-09-11: the step failed with "lock mtime changed").
+mtime() { case "$(uname -s)" in Darwin) stat -f %m "$1" ;; *) stat -c %Y "$1" ;; esac; }
 printf '\n\n\n' | $CLI init --yes >/dev/null 2>&1
-MTIME1=$(stat -f %m .ai-engineering/ai-eng.lock 2>/dev/null || stat -c %Y .ai-engineering/ai-eng.lock)
+MTIME1=$(mtime .ai-engineering/ai-eng.lock)
 sleep 1
 UPD_OUT=$(printf '\n' | $CLI update 2>&1); UPD_CODE=$?
-MTIME2=$(stat -f %m .ai-engineering/ai-eng.lock 2>/dev/null || stat -c %Y .ai-engineering/ai-eng.lock)
+MTIME2=$(mtime .ai-engineering/ai-eng.lock)
+say "G7 evidence: lock mtime before=$MTIME1 after=$MTIME2 ($(uname -s))"
 [ "$UPD_CODE" = "0" ] || die "G7: update exit $UPD_CODE"
 [ "$MTIME1" = "$MTIME2" ] || die "G7: lock mtime changed on no-op update"
 printf '%s\n' "$UPD_OUT" | grep -E 'assets current' | sed 's/^/G7 evidence: /'
