@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { removeMachineArtifacts } from "../../src/surfaces/adapters.ts";
+import { removeMachineArtifacts, SURFACES } from "../../src/surfaces/adapters.ts";
 import { runChain } from "../../src/chain/mod.ts";
 
 const cli = join(import.meta.dir, "..", "..", "src", "cli.ts");
@@ -247,4 +247,24 @@ test("uninstall's machine sweep takes ours and leaves a person's skills alone", 
     if (previous === undefined) delete process.env["AI_ENG_HOME"];
     else process.env["AI_ENG_HOME"] = previous;
   }
+});
+
+test("a surface's loop claim carries its measurement", () => {
+  // The registry is where a surface's capability lives, so it is also where a claim
+  // has to be backed: `native` and `none` were measured against the installed
+  // binary and name the version and the flag; `unverified` is the absence of that
+  // measurement and carries none. Nothing is promoted on optimism.
+  const offenders: string[] = [];
+  for (const surface of SURFACES) {
+    const evidence = surface.can.loopEvidence ?? "";
+    if (surface.can.loop === "unverified") {
+      if (evidence.length > 0) offenders.push(`${surface.id}: unverified carries evidence`);
+      continue;
+    }
+    if (evidence.length === 0) offenders.push(`${surface.id}: ${surface.can.loop} with no evidence`);
+  }
+  expect(offenders).toEqual([]);
+  // The one this repo measured twice and both times came back empty.
+  expect(SURFACES.find((s) => s.id === "pi")?.can.loop).toBe("none");
+  expect(SURFACES.find((s) => s.id === "zed")?.can.loop).toBe("none");
 });

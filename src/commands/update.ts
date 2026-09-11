@@ -1,9 +1,11 @@
 // `ai-eng update` — re-install this repo's assets from the installed binary. ZERO
 // network: the payload leaves the binary the user already installed (§14.3). What
 // is the user's (AGENTS.md, DECISIONS.md, spec/plan, arch.rules) is never touched.
-// cli-ux-14 work point 04: compute the sync plan first, show it, resolve conflicts
-// with the human (keep-yours default), confirm Apply, then write — never the
-// reverse. Human-facing lines go through src/ui.ts.
+// It refreshes BOTH halves ai-eng installed: the machine side (the global canon and
+// its mirrors) and this repo's assets. cli-ux-14 work point 04: compute the sync
+// plan first, show it, resolve conflicts with the human (keep-yours default),
+// confirm Apply, then write — never the reverse. Human-facing lines go through
+// src/ui.ts.
 
 import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
@@ -11,7 +13,9 @@ import { spawnSync } from "node:child_process";
 import { select, confirm, isCancel } from "@clack/prompts";
 import { install, buildLock, lockText, parseLock, sha256 } from "../install.ts";
 import type { PlanEntry } from "../install.ts";
-import { repoRoot, enabledSurfaces } from "../env.ts";
+import { repoRoot, enabledSurfaces, home } from "../env.ts";
+import { canonDrift } from "../embed.ts";
+import { installCanon } from "../surfaces/adapters.ts";
 import { planEntries } from "./init-shared.ts";
 import { VERSION } from "../version.ts";
 import * as ui from "../ui.ts";
@@ -79,8 +83,19 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
       ? `previous install by ai-eng ${previous.version}`
       : "previous install by an older ai-eng";
   ui.frame(`ai-eng ${VERSION} · ${origin}`);
+  // The machine side travels with the repo side. The canon is what a surface
+  // actually reads, and it drifts the moment the binary ships different skills —
+  // twenty stale skills reported as "all assets current" was the gap, and
+  // repairing it by hand meant knowing that `init --global` does it (measured
+  // 2026-09-11). Same predicate init and doctor use: health is a measurement.
+  const canon = canonDrift(home());
+  const canonHealthy = canon.drift === 0 && canon.missing === 0;
+  if (!canonHealthy) {
+    const rows = installCanon(VERSION).map((line): ui.Row => ({ mark: "ok", text: line.replace(/^✓ /, "") }));
+    ui.section("global canon outdated or incomplete — re-installing", rows, `${canon.drift} drifted · ${canon.missing} missing`);
+  }
   if (pending.length === 0 && plan.conflicts.length === 0) {
-    ui.ok(`all ${plan.current.length} assets current — nothing to sync`);
+    ui.ok(canonHealthy ? `all ${plan.current.length} assets current — nothing to sync` : "repo assets current — the machine side was the work");
     ui.end(`Next: ai-eng doctor — verify the chain responds`);
     return 0;
   }

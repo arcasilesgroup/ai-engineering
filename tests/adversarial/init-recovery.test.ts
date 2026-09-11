@@ -202,3 +202,22 @@ test('install honors the "sha256:" sentinel: take writes, unedited updates apply
   expect(report.conflicts).toEqual([".claude/settings.json"]);
   expect(readFileSync(join(root, ".claude", "settings.json"), "utf8")).toBe(unrecorded);
 });
+
+test("update repairs a drifted global canon, not only the repo's assets", () => {
+  // The machine side is half of what ai-eng installed, and it is the half a surface
+  // actually reads. A repo whose own assets were current reported "all assets
+  // current — nothing to sync" over a canon with twenty drifted skills; repairing
+  // it was `init --global`'s job alone, which nobody should have to know.
+  const installed = join(engHome, "skills", "ai-plan", "SKILL.md");
+  expect(eng(["init", "--yes"]).status).toBe(0);
+  expect(existsSync(installed)).toBe(true);
+  const original = readFileSync(installed, "utf8");
+
+  writeFileSync(installed, "# drifted by hand\n");
+  const run = eng(["update", "--yes"]);
+  expect(run.stdout + run.stderr).toContain("global canon outdated or incomplete");
+  expect(readFileSync(installed, "utf8")).toBe(original);
+
+  const doctor = eng(["doctor"]);
+  expect(doctor.stdout + doctor.stderr).toContain("0 drift");
+});

@@ -5,14 +5,24 @@
       "label": "Claude Code",
       "tier": "core",
       "dialect": "claude",
-      "can": { "deny": true, "rewriteOut": true, "loop": "unverified" },
+      "can": {
+        "deny": true,
+        "rewriteOut": true,
+        "loop": "native",
+        "loopEvidence": "claude 2.1.251: --permission-mode auto|bypassPermissions|dontAsk with -p, plus --bg, --resume and --agents"
+      },
       "settingsFile": ".claude/settings.json"
     },
     {
       "id": "oh-my-pi",
       "label": "Oh My Pi",
       "tier": "core",
-      "can": { "deny": true, "rewriteOut": true, "loop": "unverified" },
+      "can": {
+        "deny": true,
+        "rewriteOut": true,
+        "loop": "native",
+        "loopEvidence": "omp: --plan-yolo auto-approves the plan and switches to --plan-yolo-into to implement it; --plan=<model> role"
+      },
       "pluginFile": ".agents/hooks/ai-eng.ts",
       "chainFile": ".agents/hooks/ai-eng-chain.ts"
     },
@@ -20,7 +30,12 @@
       "id": "opencode",
       "label": "OpenCode",
       "tier": "core",
-      "can": { "deny": "throw", "rewriteOut": true, "loop": "unverified" },
+      "can": {
+        "deny": "throw",
+        "rewriteOut": true,
+        "loop": "native",
+        "loopEvidence": "opencode 1.18.29: --auto (auto-approve permissions not explicitly denied) with `opencode run`, --continue and --fork"
+      },
       "pluginFile": ".opencode/plugins/ai-eng.ts",
       "chainFile": ".opencode/plugins/ai-eng-chain.ts"
     },
@@ -29,7 +44,12 @@
       "label": "Cursor",
       "tier": "experimental",
       "dialect": "cursor",
-      "can": { "deny": true, "rewriteOut": false, "loop": "unverified" },
+      "can": {
+        "deny": true,
+        "rewriteOut": false,
+        "loop": "native",
+        "loopEvidence": "cursor-agent: --mode plan plus --force/--yolo (allow commands unless explicitly denied) and --sandbox"
+      },
       "settingsFile": ".cursor/hooks.json",
       "note": "output rewrite: MCP only (blueprint §13)"
     },
@@ -38,7 +58,12 @@
       "label": "Codex CLI",
       "tier": "experimental",
       "dialect": "codex",
-      "can": { "deny": true, "rewriteOut": "total-replacement", "loop": "unverified" },
+      "can": {
+        "deny": true,
+        "rewriteOut": "total-replacement",
+        "loop": "native",
+        "loopEvidence": "codex-cli 0.153.4: `codex exec` non-interactively, -s workspace-write, --dangerously-bypass-approvals-and-sandbox, resume/queue"
+      },
       "settingsFile": ".codex/hooks.json",
       "note": "requires manual /hooks trust (hash-pinned)"
     },
@@ -47,7 +72,12 @@
       "label": "Copilot",
       "tier": "best-effort",
       "dialect": "copilot",
-      "can": { "deny": true, "rewriteOut": true, "loop": "unverified" },
+      "can": {
+        "deny": true,
+        "rewriteOut": true,
+        "loop": "native",
+        "loopEvidence": "GitHub Copilot CLI 1.0.83: --plan ('combine with --mode to implement it autonomously') and a mode that runs 'autonomously without asking questions'"
+      },
       "settingsFile": ".github/hooks/ai-eng.json",
       "note": "ephemeral FS: no receipts"
     },
@@ -55,7 +85,12 @@
       "id": "pi",
       "label": "Pi",
       "tier": "core",
-      "can": { "deny": true, "rewriteOut": true, "loop": "none" },
+      "can": {
+        "deny": true,
+        "rewriteOut": true,
+        "loop": "none",
+        "loopEvidence": "pi 0.85.1: --help offers plan mode only 'from plan-mode extension' — nothing built in"
+      },
       "pluginFile": ".pi/extensions/ai-eng.ts",
       "chainFile": ".pi/extensions/ai-eng-chain.ts",
       "note": "in-process extension; project-local extensions load once pi trusts the folder"
@@ -64,7 +99,12 @@
       "id": "zed",
       "label": "Zed",
       "tier": "skills-only",
-      "can": { "deny": false, "rewriteOut": false, "loop": "none" },
+      "can": {
+        "deny": false,
+        "rewriteOut": false,
+        "loop": "none",
+        "loopEvidence": "zed: an editor that reads the skills directory; no agent loop to hand a goal to"
+      },
       "note": "honest: skills install, no guards in hot-path"
     }
   ]

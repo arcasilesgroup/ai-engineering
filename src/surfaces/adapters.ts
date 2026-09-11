@@ -25,6 +25,10 @@ export type Surface = {
      *  there (Pi: extensions only; Zed: skills-only). Nothing is "native" until
      *  a receipt says so, and the field never guesses upward. */
     readonly loop: "native" | "unverified" | "none";
+    /** The measurement behind `loop` — the installed version and the flag that
+     *  grants it. A claim about a surface carries its evidence or it is a guess:
+     *  the registry test refuses `native` and `none` without one (§20.3). */
+    readonly loopEvidence?: string;
   };
   readonly settingsFile?: string;
   readonly pluginFile?: string;

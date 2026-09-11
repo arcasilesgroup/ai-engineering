@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>research · 002 — do the surfaces actually have a goal loop?</title>
+<style>
+  :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#A9BBD0; --ok:#22c55e; --bad:#ef4444; --warn:#eab308; --mono:'SF Mono',ui-monospace,monospace; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; padding:48px 32px; max-width:1000px; margin:0 auto; }
+  h1 { font-size:26px; letter-spacing:-.5px; } h1 .x { color:var(--accent); }
+  h2 { color:var(--accent); font-family:var(--mono); font-size:13px; text-transform:uppercase; letter-spacing:.2em; margin:32px 0 12px; }
+  h2 .num { color:var(--dim); margin-right:10px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:10px 0; }
+  .context { font-size:13.5px; color:var(--dim); line-height:1.6; }
+  code, pre { font-family:var(--mono); font-size:12.5px; color:#5FE6C6; }
+  pre { background:#0E1830; border:1px solid var(--line); border-radius:8px; padding:12px; overflow-x:auto; color:var(--dim); }
+  table { width:100%; border-collapse:collapse; }
+  td, th { padding:7px 10px; border-bottom:1px solid var(--line); color:var(--dim); font-size:13px; text-align:left; vertical-align:top; }
+  th { font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--accent); }
+  td.v { font-family:var(--mono); color:var(--ok); }
+  td.v.none { color:var(--warn); }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<h1><span class="x">{ai}</span> research · 002 — do the surfaces actually have a goal loop?</h1>
+<p class="context">Measured 2026-09-11 on this machine, against the binaries installed here. The question is the one <code>ai-goal</code> rests on: can the surface be handed a goal and left to iterate, or does the honest path stay the human loop of blueprint §20.1?</p>
+
+<h2><span class="num">00</span>Method</h2>
+<div class="card context">
+  <p>The primary source is the installed binary itself, not documentation about it: each surface's own <code>--help</code>, read at the version on this machine. A surface counts as <b>native</b> when the binary advertises a built-in mode that (a) takes an objective, (b) executes without a human turn per step, and (c) iterates until it stops on its own. Anything short of that is <b>none</b> — and a surface that could not be measured here stays <b>unverified</b> rather than being guessed.</p>
+  <pre>for c in claude opencode codex copilot pi omp cursor-agent; do
+  printf '%s ' "$c"; command -v $c >/dev/null && $c --version | head -1 || echo "not installed"
+done
+# then, per surface: $c --help, read for the mode that grants an objective unattended</pre>
+  <p>Every one of the eight surfaces was installed here, so nothing is left at <em>unverified</em> by absence of the tool.</p>
+</div>
+
+<h2><span class="num">01</span>Findings</h2>
+<table>
+<tr><th>Surface</th><th>Installed</th><th>Evidence [n]</th><th>Verdict</th></tr>
+<tr>
+  <td>claude-code</td><td>2.1.251</td>
+  <td><code>--permission-mode</code> choices: <code>acceptEdits, auto, bypassPermissions, manual, dontAsk, plan</code>; with <code>-p</code> for non-interactive, <code>--bg</code>, <code>--resume</code>, <code>--agents</code> [1]</td>
+  <td class="v">native</td>
+</tr>
+<tr>
+  <td>oh-my-pi</td><td>this session</td>
+  <td><code>--plan-yolo</code> — "Force read-only plan mode at start, auto-approve the plan on the model's first resolve call, then switch to <code>--plan-yolo-into</code> to implement it"; plus <code>--plan=&lt;model&gt;</code> [2]</td>
+  <td class="v">native</td>
+</tr>
+<tr>
+  <td>opencode</td><td>1.18.29</td>
+  <td><code>--auto</code> — "auto-approve permissions that are not explicitly denied (dangerous!)"; with <code>opencode run</code>, <code>--continue</code>, <code>--fork</code>, <code>--agent</code> [3]</td>
+  <td class="v">native</td>
+</tr>
+<tr>
+  <td>cursor</td><td>cursor-agent</td>
+  <td><code>--mode plan</code> / <code>--plan</code>, <code>-f/--force</code> — "Force allow commands unless explicitly denied", <code>--yolo</code>, <code>--sandbox</code>, <code>--approve-mcps</code> [4]</td>
+  <td class="v">native</td>
+</tr>
+<tr>
+  <td>codex</td><td>0.153.4</td>
+  <td><code>codex exec</code> — "Run Codex non-interactively"; <code>-s workspace-write</code>, <code>--dangerously-bypass-approvals-and-sandbox</code>, <code>resume</code>, <code>queue</code>, <code>agents</code> [5]</td>
+  <td class="v">native</td>
+</tr>
+<tr>
+  <td>copilot</td><td>1.0.83</td>
+  <td><code>--plan</code> — "Start in plan mode (combine with <code>--mode</code> … implement it autonomously)", and a mode described as running "autonomously without asking questions" [6]</td>
+  <td class="v">native</td>
+</tr>
+<tr>
+  <td>pi</td><td>0.85.1</td>
+  <td>Its own help says plan mode arrives "<b>from plan-mode extension</b>" — nothing built in. The core is deliberately minimal: no plan mode, no sub-agents [7]</td>
+  <td class="v none">none</td>
+</tr>
+<tr>
+  <td>zed</td><td>Zed.app</td>
+  <td>An editor that reads the skills directory. There is no agent loop to hand a goal to; the surface is skills-only by construction [8]</td>
+  <td class="v none">none</td>
+</tr>
+</table>
+
+<h2><span class="num">02</span>What this means for ai-goal</h2>
+<div class="card context">
+  <p>Six surfaces keep <b>contract mode</b>: the contract is pinned and their own loop executes it. Pi and Zed keep <b>facilitator mode</b>: <code>ai-goal</code> walks <code>plan.html</code> one step at a time with the human as the clock — and Pi is the interesting case, because it is the one surface this project governs <em>in-process</em> while its core still ships no loop of its own. A guard and a loop are different capabilities, and a surface can have the first without the second.</p>
+</div>
+
+<h2><span class="num">03</span>What this does not prove</h2>
+<div class="card context">
+  <p><b>It is documented capability, not a run.</b> Each verdict rests on the installed binary advertising the mode, captured verbatim above. It does not rest on having driven a full autonomous loop to completion on each surface — that would need a real objective per surface, model access, and a budget, and pretending otherwise would be the optimism this field exists to refuse. The claim is exactly what was measured: <em>the mode exists at this version</em>.</p>
+  <p style="margin-top:10px"><b>Versions move.</b> The evidence lines name the version measured, so a later release that removes a flag is a delta against a recorded claim rather than against somebody's memory — and the registry test refuses a <code>native</code> or <code>none</code> verdict that carries no evidence at all.</p>
+</div>
+
+<h2><span class="num">04</span>Sources</h2>
+<div class="card context">
+  <p>[1] <code>claude --version</code> → 2.1.251; <code>claude --help</code>, options <code>--permission-mode</code>, <code>--bg</code>, <code>--resume</code>, <code>--agents</code>.</p>
+  <p>[2] <code>omp --help</code>, options <code>--plan</code>, <code>--plan-yolo</code>, <code>--plan-yolo-into</code>.</p>
+  <p>[3] <code>opencode --version</code> → 1.18.29; <code>opencode --help</code> (option <code>--auto</code>) and <code>opencode run --help</code>.</p>
+  <p>[4] <code>cursor-agent --help</code>, options <code>--mode</code>, <code>--plan</code>, <code>--force</code>, <code>--yolo</code>, <code>--sandbox</code>.</p>
+  <p>[5] <code>codex --version</code> → codex-cli 0.153.4; <code>codex --help</code> and <code>codex exec --help</code>.</p>
+  <p>[6] <code>copilot --version</code> → GitHub Copilot CLI 1.0.83; <code>copilot --help</code>, option <code>--plan</code>.</p>
+  <p>[7] <code>pi --version</code> → 0.85.1; <code>pi --help</code> ("Extensions can register additional flags (e.g., --plan from plan-mode extension)").</p>
+  <p>[8] <code>zed</code> present as a CLI shim beside <code>Zed.app</code>; no agent loop, no goal mode.</p>
+</div>
+
+<p class="context" style="margin-top:24px">Consumed by <code>src/surfaces/surfaces.json</code> (<code>can.loop</code> + <code>can.loopEvidence</code>) and cited in DECISIONS.md · D-009.</p>
+</body>
+</html>

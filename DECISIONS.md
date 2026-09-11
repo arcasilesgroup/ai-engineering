@@ -39,3 +39,8 @@
 **Problem:** `ai-eng spec run` ticks the checkboxes and writes the EVIDENCE lines into `spec.html` itself, so the first run changed the file whose sha256 was pinned at approval: the second run refused with "not approved" and the milestone could not close. Found while closing this milestone, by closing it.
 **Decision:** `specApprove` pins — and run and close compare — `sha256(normalizeSpec(...))`, which rewrites `- [x]` to `- [ ]` and every EVIDENCE value to `pending`.
 **Reason:** the human approves what must hold, not the runner's notes about it; an edit to a check or a requirement still breaks the pin, and a pristine contract normalises to itself, so pins taken before this change stay valid.
+
+## D-009 · a surface's loop capability is measured, and the claim carries its evidence (2026-09-11)
+**Problem:** `can.loop` shipped as "unverified" for six of eight surfaces because nothing had measured them, and `ai-goal`'s facilitator mode was gated on a field nobody could complete; meanwhile `update` refreshed only the repo's eight assets, so a drifted global canon reported "all assets current" and the only repair path was knowing that `init --global` does it.
+**Decision:** all eight surfaces were measured against the binaries installed here (`--help` at the installed version): six are `native` and Pi and Zed are `none`, each verdict carrying `can.loopEvidence` and enforced by the registry test; `update` now refreshes the machine side too. Evidence: .ai-engineering/research/002-surface-goal-modes.html.
+**Reason:** `native` on optimism is exactly the false green the framework exists to refuse, and half of what `ai-eng` installs living outside the verb named "update" made the machine side repairable only by folklore.
