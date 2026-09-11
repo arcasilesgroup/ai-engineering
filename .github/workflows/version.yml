@@ -34,7 +34,7 @@ jobs:
       - name: npm >= 11.5.1 (OIDC trusted publishing), unprivileged and pinned
         run: |
           set -euo pipefail
-          npm install -g npm@npm@11.19.1 '11.19.1' --prefix "$HOME/.local"
+          npm install -g npm@11.19.1 '11.19.1' --prefix "$HOME/.local"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/npm" --version
       - uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
