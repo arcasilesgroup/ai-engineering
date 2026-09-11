@@ -16,6 +16,15 @@ jobs:
       # names anything else never starts (startup_failure, no logs). Node is on every
       # hosted runner, and the registry pins the version's integrity itself.
       - run: npm install -g bun@1.4.2
+      # A workflow GitHub cannot parse never starts: startup_failure, no logs, no jobs —
+      # v2 was blind for ten days and a stray `with:` under a `run:` did the same to
+      # release.yml. So the schema is linted here, template included.
+      - name: Workflow schema
+        run: |
+          set -euo pipefail
+          sh scripts/toolchain.sh actionlint
+          cp templates/ci.yml.tpl "$RUNNER_TEMP/ci-tpl.yml"
+          actionlint .github/workflows/*.yml "$RUNNER_TEMP/ci-tpl.yml"
       - run: bun install --frozen-lockfile
       - name: Typecheck
         run: bun run typecheck

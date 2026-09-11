@@ -13,16 +13,18 @@
 # matrix needs and is maintained upstream. This script exists for the two tools the
 # org's pattern list does not cover.
 #
-# Usage: sh scripts/toolchain.sh trivy gitleaks
+# Usage: sh scripts/toolchain.sh trivy gitleaks actionlint
 set -eu
 
 TRIVY_VERSION=0.74.0
 TRIVY_SHA256=2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a
 GITLEAKS_VERSION=8.30.0
 GITLEAKS_SHA256=79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e
+ACTIONLINT_VERSION=1.7.12
+ACTIONLINT_SHA256=8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
 
 if [ "$#" = "0" ]; then
-  echo "usage: sh scripts/toolchain.sh trivy|gitleaks [...]" >&2
+  echo "usage: sh scripts/toolchain.sh trivy|gitleaks|actionlint [...]" >&2
   exit 2
 fi
 
@@ -47,6 +49,13 @@ install_trivy() {
   echo "  ✓ trivy ${TRIVY_VERSION} → ${bin}/trivy"
 }
 
+install_actionlint() {
+  fetch "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" "$ACTIONLINT_SHA256" "$tmp/actionlint.tgz"
+  tar -xzf "$tmp/actionlint.tgz" -C "$tmp" actionlint
+  install -m 0755 "$tmp/actionlint" "$bin/actionlint"
+  echo "  ✓ actionlint ${ACTIONLINT_VERSION} → ${bin}/actionlint"
+}
+
 install_gitleaks() {
   fetch "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" "$GITLEAKS_SHA256" "$tmp/gitleaks.tgz"
   tar -xzf "$tmp/gitleaks.tgz" -C "$tmp" gitleaks
@@ -56,8 +65,8 @@ install_gitleaks() {
 
 for tool in "$@"; do
   case "$tool" in
-    trivy | gitleaks) "install_${tool}" ;;
-    *) echo "toolchain: '${tool}' is not one of trivy, gitleaks" >&2; exit 2 ;;
+    trivy | gitleaks | actionlint) "install_${tool}" ;;
+    *) echo "toolchain: '${tool}' is not one of trivy, gitleaks, actionlint" >&2; exit 2 ;;
   esac
 done
 

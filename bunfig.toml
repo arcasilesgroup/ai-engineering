@@ -3,3 +3,7 @@ coverage = false
 
 [install]
 exact = true
+# A newly published version has to survive a week before we adopt it: a compromised or
+# mistakenly published release is usually caught and yanked within days. Raised by the
+# scanner that runs in CI (semgrep p/ci, rule bun-missing-minimum-release-age).
+minimumReleaseAge = 604800

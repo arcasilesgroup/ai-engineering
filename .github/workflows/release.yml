@@ -58,13 +58,13 @@ jobs:
       # names anything else never starts (startup_failure, no logs). Node is on every
       # hosted runner, and the registry pins the version's integrity itself.
       - run: npm install -g bun@1.4.2
-        with:
-          bun-version: 1.4.2
       - run: bun install --frozen-lockfile
       # build.ts names the artifact after the target (dist/ai-eng-<target>): eight
       # legs writing dist/ai-eng collide on the release page, where asset names must
       # be unique — and the client's CI downloads one of them by name.
-      - run: bun run build --target bun-${{ matrix.target }}
+      - run: bun run build --target "bun-$TARGET"
+        env:
+          TARGET: ${{ matrix.target }}
       - name: Codesign macOS binary (Gatekeeper) — skips without the cert secret
         if: runner.os == 'macOS'
         run: |
@@ -78,8 +78,9 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" run.keychain
           security import "$RUNNER_TEMP/cert.p12" -k run.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" run.keychain
-          codesign --force --options runtime --timestamp --keychain run.keychain --sign "$MACOS_CERT_ID" dist/ai-eng-${{ matrix.target }}
+          codesign --force --options runtime --timestamp --keychain run.keychain --sign "$MACOS_CERT_ID" "dist/ai-eng-$TARGET"
         env:
+          TARGET: ${{ matrix.target }}
           MACOS_CERT: ${{ secrets.MACOS_CERT }}
           CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -112,8 +113,6 @@ jobs:
       # names anything else never starts (startup_failure, no logs). Node is on every
       # hosted runner, and the registry pins the version's integrity itself.
       - run: npm install -g bun@1.4.2
-        with:
-          bun-version: 1.4.2
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           path: dist-artifacts
@@ -122,11 +121,13 @@ jobs:
         id: flags
         env:
           VERSION_INPUT: ${{ inputs.version }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           version="$VERSION_INPUT"
           if [ -z "$version" ]; then
-            if [ "${{ github.event_name }}" = "push" ]; then version="${{ github.ref_name }}"
+            if [ "$EVENT_NAME" = "push" ]; then version="$REF_NAME"
             else version="$(node -p 'require("./package.json").version')"; fi
           fi
           bun scripts/release-flags.ts "$version" | tee -a "$GITHUB_OUTPUT"
