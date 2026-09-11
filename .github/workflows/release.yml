@@ -92,7 +92,9 @@ jobs:
       # built them, from which commit. This is that property, restored.
       - uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
         with:
-          subject-path: dist/ai-eng-${{ matrix.target }}
+          # the glob carries the extension Windows adds (ai-eng-windows-x64.exe):
+          # a bare path there was "Could not find subject at path dist/ai-eng-windows-x64"
+          subject-path: dist/ai-eng-${{ matrix.target }}*
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ai-eng-${{ matrix.target }}
