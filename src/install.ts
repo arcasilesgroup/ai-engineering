@@ -82,13 +82,22 @@ export type Lock = {
   base_sha?: string;
 };
 
-export function buildLock(entries: PlanEntry[], version: string, specContent?: string): Lock {
+export function buildLock(
+  entries: PlanEntry[],
+  version: string,
+  carry: { spec_sha256?: string | undefined; base_sha?: string | undefined } = {},
+): Lock {
   const assets: Record<string, string> = {};
   for (const entry of entries) {
     assets[entry.path] = sha256(entry.ours);
   }
   const lock: Lock = { version, assets };
-  if (specContent) lock.spec_sha256 = sha256(specContent);
+  // The two contract fields are the milestone's, not the installer's. Rebuilding the
+  // lock used to drop them, so any `update` between `spec approve` and `spec close`
+  // erased the approval and the next `spec run` refused a contract a human had
+  // approved — measured in CI, where update runs before spec run (D-011's pipeline).
+  if (carry.spec_sha256) lock.spec_sha256 = carry.spec_sha256;
+  if (carry.base_sha) lock.base_sha = carry.base_sha;
   return lock;
 }
 

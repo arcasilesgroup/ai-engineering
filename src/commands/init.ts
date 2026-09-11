@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync, symlinkSync, chmodSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, symlinkSync, chmodSync } from "node:fs";
 import { spawnSync, execFileSync } from "node:child_process";
 // `ai-eng init` — one verb, two phases (§14.0a). Outside a repo: phase 1, the
 // machine (canon + mirrors). Inside a repo: both phases — first the canon (missing
@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { select, groupMultiselect, isCancel } from "@clack/prompts";
 import { scriptedInput } from "../ui.ts";
 import { SURFACES, surfaceCanGovern, installCanon, type Surface } from "../surfaces/adapters.ts";
-import { install, buildLock, lockText } from "../install.ts";
+import { install, buildLock, lockText, parseLock } from "../install.ts";
 import { canonDrift } from "../embed.ts";
 import { home } from "../env.ts";
 import { planEntries, contractEntries, hasAdapter, surfaceOptions } from "./init-shared.ts";
@@ -78,7 +78,11 @@ function scaffoldProject(surfaces: string[]): string[] {
   } catch {
     /* no custom hooksPath: nothing to clean */
   }
-  const lock = buildLock(entries, VERSION);
+  // A repo that already carries a contract keeps its pin: re-init is not a way to
+  // un-approve a milestone (same reason as update.ts).
+  const lockPath = join(cwd, ".ai-engineering", "ai-eng.lock");
+  const carried = existsSync(lockPath) ? parseLock(readFileSync(lockPath, "utf8")) : null;
+  const lock = buildLock(entries, VERSION, { spec_sha256: carried?.spec_sha256, base_sha: carried?.base_sha });
   writeFileSync(join(cwd, ".ai-engineering", "ai-eng.lock"), lockText(lock));
   lines.push(`✓ .ai-engineering/ai-eng.lock (${Object.keys(lock.assets).length} assets with sha256)`);
   return lines;

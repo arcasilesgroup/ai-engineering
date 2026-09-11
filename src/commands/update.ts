@@ -184,6 +184,7 @@ export async function updateMain(opts: { yes?: boolean } = {}): Promise<number> 
   const lock = buildLock(
     entries.filter((entry) => (takeAll || !plan.conflicts.includes(entry.path)) && oursNow.has(entry.path)),
     VERSION,
+    { spec_sha256: previous.spec_sha256, base_sha: previous.base_sha },
   );
   writeFileSync(lockPath, lockText(lock));
   let commitLine = "commit skipped — nothing staged or git refused (your call to commit by hand)";

@@ -213,3 +213,20 @@ test("gc does not count its own summary as a receipt", () => {
   writeFileSync(join(receipts, "summary.json"), JSON.stringify(once));
   expect(summarizeReceipts(receipts).total).toBe(once.total);
 });
+
+test("update does not invalidate the approved pin", () => {
+  // The lock is rebuilt on every update, and the two contract fields are not the
+  // installer's to drop: doing so erased an approval, so `spec run` refused a
+  // contract a human had approved and the milestone could never close — measured in
+  // CI, where update runs before spec run.
+  const pristine = writeContract(GATES);
+  writeLock({ spec_sha256: pristine, base_sha: "deadbeef" });
+  // The gate runs and writes its verdict, which normalises back to the pinned hash.
+  writeContract(GATES.replace("- [ ] G1", "- [x] G1").replace("EVIDENCE: pending", "EVIDENCE: exit 0"));
+  const updated = eng(["update", "--yes"]);
+  expect(updated.status, updated.output).toBe(0);
+  const after = readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
+  expect(after).toContain(pristine);
+  expect(after).toContain("deadbeef");
+  expect(eng(["spec", "close"]).status).toBe(0);
+});
