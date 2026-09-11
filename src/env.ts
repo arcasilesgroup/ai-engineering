@@ -5,10 +5,18 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 
-/** AI_ENG_HOME for tests; ~/.ai-engineering in the wild. */
+/** AI_ENG_HOME for tests; ~/.ai-engineering in the wild. An override that resolves
+ *  inside the governed repository is refused: Bun loads a committed `.env` into the
+ *  process environment, so honouring one let a repository point the gate executor at
+ *  its own `gate-check.mjs` and report ALL MET — arbitrary code as the governor, in a
+ *  client's CI (audit LOGIC-003, reproduced). */
 export function home(): string {
   const override = process.env.AI_ENG_HOME;
-  if (override) return override;
+  if (override) {
+    const root = repoRoot();
+    const resolved = resolve(override);
+    if (root === null || !(resolved === root || resolved.startsWith(root + "/"))) return override;
+  }
   return join(homedir(), ".ai-engineering");
 }
 

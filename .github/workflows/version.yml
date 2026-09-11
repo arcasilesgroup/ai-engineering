@@ -5,10 +5,6 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
-  id-token: write
-  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -17,6 +13,10 @@ concurrency:
 jobs:
   version:
     if: github.repository == 'arcasilesgroup/ai-engineering'
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
     runs-on: ubuntu-latest
     environment: npm
     steps:

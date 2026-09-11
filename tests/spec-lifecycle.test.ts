@@ -220,13 +220,13 @@ test("update does not invalidate the approved pin", () => {
   // contract a human had approved and the milestone could never close — measured in
   // CI, where update runs before spec run.
   const pristine = writeContract(GATES);
-  writeLock({ spec_sha256: pristine, base_sha: "deadbeef" });
+  writeLock({ spec_sha256: pristine, base_sha: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" });
   // The gate runs and writes its verdict, which normalises back to the pinned hash.
   writeContract(GATES.replace("- [ ] G1", "- [x] G1").replace("EVIDENCE: pending", "EVIDENCE: exit 0"));
   const updated = eng(["update", "--yes"]);
   expect(updated.status, updated.output).toBe(0);
   const after = readFileSync(join(repo, ".ai-engineering", "ai-eng.lock"), "utf8");
   expect(after).toContain(pristine);
-  expect(after).toContain("deadbeef");
+  expect(after).toContain("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
   expect(eng(["spec", "close"]).status).toBe(0);
 });

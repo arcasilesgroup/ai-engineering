@@ -173,7 +173,11 @@ jobs:
           for file in "${files[@]}"; do
             {
               echo "## gh attestation verify $(basename "$file")"
-              if gh attestation verify "$file" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              # --repo alone accepts an attestation minted by any workflow on any tag
+              # of this repository (audit SC-01); the signer and the ref are the claim.
+              if gh attestation verify "$file" --repo "$GITHUB_REPOSITORY" \
+                   --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+                   --source-ref "$GITHUB_REF" --deny-self-hosted-runners >/dev/null 2>&1; then
                 echo "Result: PASS (exit 0)"
               else
                 echo "Result: FAIL"
@@ -187,6 +191,18 @@ jobs:
       # package.json publishes an artefact whose own version is a different one — the
       # base version must match, so `2.0.0-rc.1` may hold a 2.0.0 binary while a
       # v3.0.0 tag may not.
+      # A release is a claim about a commit: the approval authorises a job, and the
+      # required checks gate merges — neither says the released revision is one of
+      # them. This does (audit OPEN-01).
+      - name: The released revision must be on main
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "::error::$GITHUB_SHA is not an ancestor of main — a release is cut from reviewed history, or not at all."
+            exit 1
+          fi
+
       - name: The tag must agree with the version the binary reports
         env:
           TAG: ${{ steps.flags.outputs.tag }}

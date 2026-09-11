@@ -22,11 +22,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      # Not GitHub-owned: in an organization that restricts which actions may run, a
-      # workflow naming this one does not start at all and reports no logs. If your CI
-      # never starts, that policy is the first thing to check — or replace this line
-      # with `npm install -g bun@1.4.2`, which uses the Node your runner already has.
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      # Bun from npm, not from an action: not every organization permits a given
+      # third-party action, and one that does not makes the whole workflow fail at
+      # startup with no logs at all. Node is on every hosted runner, and the registry
+      # pins the version's integrity itself.
+      - run: npm install -g bun@1.4.2
 
       # The checksum alone proves nothing: binary and manifest come from the same
       # place, so whoever can write one can write both. The attestation is what binds
@@ -41,7 +41,11 @@ jobs:
           curl -sSfL -o ai-eng "$base/ai-eng-linux-x64"
           curl -sSfL -o CHECKSUMS-SHA256.txt "$base/CHECKSUMS-SHA256.txt"
           awk '$2=="ai-eng-linux-x64"{print $1"  ai-eng"}' CHECKSUMS-SHA256.txt | sha256sum -c -
-          gh attestation verify ai-eng --repo arcasilesgroup/ai-engineering
+          gh attestation verify ai-eng \
+            --repo arcasilesgroup/ai-engineering \
+            --signer-workflow arcasilesgroup/ai-engineering/.github/workflows/release.yml \
+            --source-ref "refs/tags/${AI_ENG_VERSION}" \
+            --deny-self-hosted-runners
           mkdir -p "$HOME/.local/bin"
           install -m 0755 ai-eng "$HOME/.local/bin/ai-eng"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"

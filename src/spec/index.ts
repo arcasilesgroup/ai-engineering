@@ -108,8 +108,19 @@ export function specRun(): number {
     process.stderr.write("spec run: gate-check.mjs not found (canon missing) — run ai-eng init, then retry.\n");
     return 2;
   }
+  // A contract with nothing to verify is not a contract — the same wording specClose
+  // uses, because two verbs disagreeing about one artifact is how an empty contract
+  // passed the CI step that exists to enforce it (audit LOGIC-002, reproduced).
+  if (parseGates(readFileSync(specPath, "utf8")).length === 0) {
+    process.stderr.write("spec run: no gates found in spec.html — a contract with nothing to verify is not a contract.\n");
+    return 2;
+  }
   const runner = existsSync("/usr/bin/env") ? "bun" : "node"; // mjs needs a JS runtime, not ourselves
-  const done = spawnSync(runner, [script, specPath], { cwd: root, encoding: "utf8", stdio: "inherit" });
+  // --recheck: a gate whose box is already ticked is re-executed. Without it the
+  // executor trusts the artifact's own ledger, so a committed spec.html with hand-
+  // ticked boxes and typed evidence reported ALL MET having run nothing (audit
+  // LOGIC-001, reproduced).
+  const done = spawnSync(runner, [script, specPath, "--recheck"], { cwd: root, encoding: "utf8", stdio: "inherit" });
   const code = done.status ?? 1;
   const receipt = writeReceipt({
     event: "spec-run",

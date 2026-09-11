@@ -1,0 +1,604 @@
+[
+  {
+    "verdict": "confirmed",
+    "title": "`ai-eng spec run` reports ALL MET without executing a single CHECK when the boxes are pre-ticked",
+    "description": "The contract runner (`gate-check.mjs`) skips any gate whose checkbox is `- [x]` and whose EVIDENCE is not `pending` unless it is invoked with `--recheck`, and `specRun` invokes it with only the spec path. Reproduced in a scratch repo: `spec open`, then the `<pre id=\"gates\">` block replaced by hand with a ticked box, `CHECK: touch <marker>` and `EVIDENCE: author typed this`, then `spec approve` and `spec run` printed `ALL MET (2 met)` with exit 0 while the marker file was never created; `gate-check.mjs --recheck` on the same file executed the check and created the marker. The same shape runs in CI: the planted workflow's spec-run step (the one the template calls the step that must not be skipped) reports green with zero commands executed. `spec close` accepts the same self-report and closes the milestone.",
+    "root_cause": "specRun in src/spec/index.ts does not pass --recheck to the gate executor, allowing a committed spec.html with hand-ticked boxes and typed evidence to report ALL MET without running any CHECK.",
+    "intended_behavior": "The runner should establish that the gates pass by executing them; the checkbox and the EVIDENCE line are the runner's bookkeeping, not the proof. The approval pin deliberately normalises both fields away, so neither can be trusted as an input.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/spec/index.ts",
+        "line": 112,
+        "scope": "specRun",
+        "description": "spawnSync runs the executor with the spec path and no flags"
+      },
+      {
+        "kind": "propagation",
+        "file": "skills/ai-proof/scripts/gate-check.mjs",
+        "line": 204,
+        "scope": "parse",
+        "description": "a gate that is checked and carries non-pending evidence is skipped unless `recheck` is set"
+      },
+      {
+        "kind": "sink",
+        "file": "skills/ai-proof/scripts/gate-check.mjs",
+        "line": 284,
+        "scope": "main",
+        "description": "zero unmet gates \u21d2 `ALL MET`, exit 0, no command executed"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "data_state",
+        "description": "spec.html committed with ticked boxes and non-pending EVIDENCE (any contributor can write it)"
+      },
+      {
+        "kind": "authorization_role",
+        "description": "the same file is accepted by the approval pin, because normalizeSpec erases ticks and evidence before hashing"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A contributor to a governed repository who wants a green contract gate in CI without doing the work \u2014 or an agent that has learned the runner trusts its own notes.",
+      "payloads": [
+        "<pre id=\"gates\">\\n- [x] G1: the thing\\n  CHECK: touch /tmp/marker\\n  EVIDENCE: author typed this; no command ran\\n</pre>"
+      ],
+      "instructions": [
+        "ai-eng spec open demo",
+        "replace the gates block with a ticked box and typed evidence",
+        "ai-eng spec approve",
+        "ai-eng spec run"
+      ],
+      "expected_result": "`ALL MET (N met)` with exit 0, and the CHECK's side effect absent (the marker file was never created); `--recheck` on the same file executes the check and reports PASS."
+    },
+    "remediation": {
+      "strategy": "Pass `--recheck` in the specRun invocation (one flag) so CI re-executes every gate; keep the plain invocation for interactive runs where the ledger is the point.",
+      "code_changes": [
+        {
+          "file_name": "src/spec/index.ts",
+          "fixed_code": "const done = spawnSync(runner, [script, specPath, \"--recheck\"], { cwd: root, encoding: \"utf8\", stdio: \"inherit\" });"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "one commit of a hand-ticked contract; no special access needed"
+      },
+      "impact": {
+        "score": "high",
+        "reason": "CI's contract step and the milestone close both report green having verified nothing"
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "confirmed by the validator with an executed reproduction; the command, the input and the observed output are in the description"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "A repository-committed .env hijacks the gate executor through AI_ENG_HOME",
+    "description": "Bun loads a `.env` file from the working directory into the process environment, so a repository can set `AI_ENG_HOME` for the governor that a workflow or a developer runs inside it. `home()` returns that override and `specRun` looks for the gate executor under it, so a committed `.env` pointing at a directory in the repository makes `spec run` execute the repository's own `gate-check.mjs`. Reproduced end to end with the compiled release binary in the planted-CI shape: without the file the real executor reported `FAIL G1` exit 1; with `.env` containing `AI_ENG_HOME=.evil` the same contract printed the hijacked executor's output and `ALL MET` exit 0. Writing to `/tmp/val/evilhome/skills/...` was allowed while the same write to the real `~/.ai-engineering` was denied by self-protect (exit 2) \u2014 the guard anchors on the real home and not on the override.",
+    "root_cause": "home() in src/env.ts trusts the AI_ENG_HOME override without checking where it points, allowing a repository to choose the gate executor and the trigger canon that the governor runs.",
+    "intended_behavior": "AI_ENG_HOME exists so tests and unusual installations can relocate the machine home. It is a developer's choice about their own machine, never a repository's choice about the machine that runs its code.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/env.ts",
+        "line": 9,
+        "scope": "home",
+        "description": "AI_ENG_HOME overrides the machine home, and Bun has already merged a cwd .env into process.env"
+      },
+      {
+        "kind": "propagation",
+        "file": "src/spec/index.ts",
+        "line": 102,
+        "scope": "specRun",
+        "description": "the executor path is built from home(), so the override selects the script"
+      },
+      {
+        "kind": "sink",
+        "file": "src/spec/index.ts",
+        "line": 116,
+        "scope": "specRun",
+        "description": "spawnSync executes whatever gate-check.mjs the override points at, with the repository's spec.html as an argument"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "environmental_dependency",
+        "description": "Bun's automatic .env loading in the working directory (the client's own CI step runs the governor inside the repository)"
+      },
+      {
+        "kind": "authorization_role",
+        "description": "the attacker needs to commit a file to the repository \u2014 no access to the machine beyond that"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A contributor to a client repository (or a PR author) who can add one hidden file.",
+      "payloads": [
+        ".env containing AI_ENG_HOME=.evil",
+        ".evil/skills/ai-proof/scripts/gate-check.mjs printing ALL MET and exiting 0"
+      ],
+      "instructions": [
+        "commit .env with AI_ENG_HOME pointing inside the repository",
+        "let the planted workflow run `ai-eng spec run`",
+        "the contract closes green under the attacker's executor"
+      ],
+      "expected_result": "The hijacked executor's output appears in the CI log and the step exits 0; the real executor never runs."
+    },
+    "remediation": {
+      "strategy": "Refuse an AI_ENG_HOME that resolves inside the governed repository (and say so), or stop reading the override for the executor path and keep it to the tests that set it explicitly.",
+      "code_changes": [
+        {
+          "file_name": "src/env.ts",
+          "fixed_code": "export function home(): string {\n  const override = process.env.AI_ENG_HOME;\n  // an override inside the governed repo is the repository choosing its own governor\n  if (override && !isInsideRepo(override)) return override;\n  return join(homedir(), \".ai-engineering\");\n}"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "medium",
+        "reason": "needs a committed .env, which any contributor can add"
+      },
+      "impact": {
+        "score": "high",
+        "reason": "arbitrary code executes as the governor inside the client's CI and on a developer's machine"
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "confirmed by the validator with an executed reproduction; the command, the input and the observed output are in the description"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "A contract with zero gates is ALL MET for `spec run` and not-a-contract for `spec close`",
+    "description": "Two verbs disagree about the same artifact. With the gates block emptied, `spec run` printed `no gates found` and `ALL MET (0 met)` with exit 0, while `spec close` on the same file printed `no gates found in spec.html \u2014 a contract with nothing to verify is not a contract` and exited 2. In CI only the first verb runs, so an empty contract is a green contract gate.",
+    "root_cause": "the gate executor in skills/ai-proof/scripts/gate-check.mjs treats an empty gate list as success, while specClose in src/spec/index.ts treats it as a refusal, allowing an empty contract to pass the CI step that exists to enforce it.",
+    "intended_behavior": "A contract's gates are what the milestone is judged by; the runner and the closer should agree that an artifact with nothing to verify proves nothing.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/spec/index.ts",
+        "line": 112,
+        "scope": "specRun",
+        "description": "the executor is invoked on the spec"
+      },
+      {
+        "kind": "propagation",
+        "file": "skills/ai-proof/scripts/gate-check.mjs",
+        "line": 284,
+        "scope": "main",
+        "description": "an empty gate list yields zero unmet gates"
+      },
+      {
+        "kind": "sink",
+        "file": "src/spec/index.ts",
+        "line": 212,
+        "scope": "specClose",
+        "description": "the closer refuses the same file as not-a-contract, but the CI step has already reported green"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "data_state",
+        "description": "a spec.html whose gates block is empty or whose gates do not parse"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "Anyone who can commit the contract, or an author who simply forgot the gates.",
+      "payloads": [
+        "<pre id=\"gates\"></pre>"
+      ],
+      "instructions": [
+        "ai-eng spec open demo",
+        "empty the gates block",
+        "ai-eng spec approve",
+        "ai-eng spec run (in CI)"
+      ],
+      "expected_result": "`ALL MET (0 met)` exit 0 in CI; `spec close` later refuses the same file with exit 2."
+    },
+    "remediation": {
+      "strategy": "Make the runner refuse an empty gate list with the closer's own wording (one branch), so both verbs agree.",
+      "code_changes": [
+        {
+          "file_name": "src/spec/index.ts",
+          "fixed_code": "if (gates.length === 0) { process.stderr.write(\"spec run: no gates found in spec.html \u2014 a contract with nothing to verify is not a contract.\\n\"); return 2; }"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "medium",
+        "reason": "an empty or unparseable gates block, which an author can produce by accident"
+      },
+      "impact": {
+        "score": "medium",
+        "reason": "CI reports a green contract gate for a contract with nothing to verify"
+      },
+      "overall_severity": "medium"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "confirmed by the validator with an executed reproduction; the command, the input and the observed output are in the description"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "Untrusted lock `base_sha` reaches git as an option and overwrites an arbitrary file",
+    "description": "The lock file travels in the repository and any PR can edit it. `base_sha` is validated where it is written (`^[0-9a-f]{40}$`) but not where it is read, so a value beginning with `-` is parsed by git as an option. Reproduced: with `base_sha = \"--output=/tmp/val/outside/target.txt\"` in the lock, a 28-byte canary at that absolute path became 8 bytes containing `one.txt`, and `spec close` still printed `contract closed: 1 gate(s) verified` with exit 0. The candidate fix was validated too: `git diff --name-only --end-of-options --output=\u2026` makes git exit 128 and leaves the canary intact.",
+    "root_cause": "parseLock in src/install.ts accepts any string for base_sha and triggers.ts passes it to git as an argument, allowing a crafted lock entry to be interpreted as a git option and overwrite a file of the attacker's choosing.",
+    "intended_behavior": "base_sha is a commit identifier written by `spec open`; anything that is not a 40-character hex commit should be refused on the way in, exactly as it is refused on the way out.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/install.ts",
+        "line": 124,
+        "scope": "parseLock",
+        "description": "base_sha is read from the lock with no shape check"
+      },
+      {
+        "kind": "propagation",
+        "file": "src/spec/triggers.ts",
+        "line": 79,
+        "scope": "changedFiles",
+        "description": "the value is interpolated into a git argument list"
+      },
+      {
+        "kind": "sink",
+        "file": "src/spec/triggers.ts",
+        "line": 118,
+        "scope": "unmetTriggers",
+        "description": "git parses --output=<path>, opening and truncating that file during option parsing"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "data_state",
+        "description": "a lock file with a base_sha beginning with `-` (committed by any contributor)"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A contributor who can edit .ai-engineering/ai-eng.lock in a PR; the victim is whoever later runs spec close, doctor or the trigger evaluation.",
+      "payloads": [
+        "base_sha = \"--output=/home/user/.bashrc\""
+      ],
+      "instructions": [
+        "edit the lock",
+        "get it merged",
+        "wait for spec close / doctor to run"
+      ],
+      "expected_result": "The named file is created or truncated with the diff's path names, and the command still reports success."
+    },
+    "remediation": {
+      "strategy": "Validate `/^[0-9a-f]{40}$/` in parseLock, and add `--end-of-options` before the revision in the git invocation (both are one line; the second also protects a future caller).",
+      "code_changes": [
+        {
+          "file_name": "src/install.ts",
+          "fixed_code": "if (lock.base_sha !== undefined && !/^[0-9a-f]{40}$/.test(lock.base_sha)) lock.base_sha = undefined;"
+        },
+        {
+          "file_name": "src/spec/triggers.ts",
+          "fixed_code": "const out = git([\"diff\", \"--name-only\", \"--end-of-options\", baseSha], root);"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "medium",
+        "reason": "a lock entry any contributor can commit; the victim runs the command later"
+      },
+      "impact": {
+        "score": "medium",
+        "reason": "an arbitrary file is created or truncated with attacker-chosen content, and the command still reports success"
+      },
+      "overall_severity": "medium"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "confirmed by the validator with an executed reproduction; the command, the input and the observed output are in the description"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "The client's provenance check pins neither the signer workflow nor the git ref",
+    "description": "The planted workflow verifies the downloaded governor with `gh attestation verify ai-eng --repo arcasilesgroup/ai-engineering`. Per the gh manual, `--repo` validates only the certificate's source repository: the signer workflow path and the source ref are unchecked unless `--signer-workflow`, `--cert-identity`, `--source-ref` or `--source-digest` are given. Verified on the real release: `--repo` exit 0, `--signer-workflow \u2026/release.yml` exit 0, `--signer-workflow \u2026/check.yml` exit 1, `--source-ref refs/heads/main` exit 1 with `expected SourceRepositoryRef to be refs/heads/main, got refs/tags/v2.0.0-rc.1`. Combined with replaceable release assets (`immutable: false` on the live release) an actor with Write can mint an attestation for a backdoored digest at their own tag and place those bytes on the tag clients pin.",
+    "root_cause": "the governor install step in templates/ci.yml.tpl verifies provenance with --repo alone, allowing an attestation minted by any workflow on any tag of this repository to satisfy the check for a substituted asset.",
+    "intended_behavior": "The point of the attestation is to bind the bytes to the workflow and the ref that produced them; the repository alone is the minimum the tool requires, not the property the template claims in its own comment.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "templates/ci.yml.tpl",
+        "line": 40,
+        "scope": "install governor",
+        "description": "the client downloads ai-eng-linux-x64 and CHECKSUMS-SHA256.txt from the pinned release"
+      },
+      {
+        "kind": "propagation",
+        "file": "templates/ci.yml.tpl",
+        "line": 43,
+        "scope": "install governor",
+        "description": "the checksum is verified against the manifest fetched from the same release"
+      },
+      {
+        "kind": "sink",
+        "file": "templates/ci.yml.tpl",
+        "line": 44,
+        "scope": "install governor",
+        "description": "gh attestation verify --repo accepts any attestation for that digest in the repository store, whatever workflow or tag minted it"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authorization_role",
+        "description": "the attacker needs repository Write (to push a tag and to replace a release asset), not the release-environment approval"
+      },
+      {
+        "kind": "system_configuration",
+        "description": "release assets are mutable (immutable releases are not enabled)"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A contributor with Write who wants every client running the pinned governor to execute their binary.",
+      "payloads": [
+        "push a tag at a commit whose src is backdoored",
+        "gh release upload v2.0.0-rc.1 ./ai-eng-linux-x64 ./CHECKSUMS-SHA256.txt --clobber"
+      ],
+      "instructions": [
+        "push the tag (the build job attests without any environment approval)",
+        "replace both assets of the pinned release",
+        "wait for a client's workflow to run"
+      ],
+      "expected_result": "The client's checksum passes (both files replaced together) and `gh attestation verify --repo` passes (an attestation for that digest exists); the governor runs from $HOME/.local/bin."
+    },
+    "remediation": {
+      "strategy": "Add `--signer-workflow arcasilesgroup/ai-engineering/.github/workflows/release.yml --source-ref refs/tags/${AI_ENG_VERSION} --deny-self-hosted-runners` to the client's verify (validated: it discriminates a foreign workflow and a foreign ref), and enable release immutability so assets cannot be replaced at all.",
+      "code_changes": [
+        {
+          "file_name": "templates/ci.yml.tpl",
+          "fixed_code": "gh attestation verify ai-eng --repo arcasilesgroup/ai-engineering \\\n  --signer-workflow arcasilesgroup/ai-engineering/.github/workflows/release.yml \\\n  --source-ref \"refs/tags/${AI_ENG_VERSION}\" --deny-self-hosted-runners"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "low",
+        "reason": "needs repository Write to push a tag and replace assets, and a client pinned to that release"
+      },
+      "impact": {
+        "score": "high",
+        "reason": "every client running the pinned governor executes the attacker's binary"
+      },
+      "overall_severity": "medium"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "confirmed by the validator with an executed reproduction; the command, the input and the observed output are in the description"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "Nothing binds a published release to the revision under review",
+    "description": "release.yml builds and publishes whatever revision the tag or the dispatch names. The publish job guards only that the tag's base version equals package.json's (both read from the same checkout), and on dispatch it creates the tag at $GITHUB_SHA. The environment approval authorises a job, and the required checks gate merges into main \u2014 neither is compared against the commit being released. Verified live: branch protection requires check, security, guards-adversarial, planted and the three platform jobs with enforce_admins false; the release environment has one required reviewer with can_admins_bypass true; the v* tag ruleset restricts tag creation to one role and one team.",
+    "root_cause": "the publish job in .github/workflows/release.yml never compares the released revision with the reviewed default branch, allowing a release to be published for a commit that no required check ever saw.",
+    "intended_behavior": "A release is a claim about a commit; the reviewer's click should authorise that commit, not merely the job that ships it.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": ".github/workflows/release.yml",
+        "line": 15,
+        "scope": "on",
+        "description": "the workflow runs on a v* tag push or a manual dispatch of any ref"
+      },
+      {
+        "kind": "propagation",
+        "file": ".github/workflows/release.yml",
+        "line": 190,
+        "scope": "publish",
+        "description": "the only guard compares the tag's base version with package.json from the same checkout"
+      },
+      {
+        "kind": "sink",
+        "file": ".github/workflows/release.yml",
+        "line": 215,
+        "scope": "publish",
+        "description": "the tag is created at the dispatched ref's head and the release is published from it"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "authorization_role",
+        "description": "someone with Write who can push a tag or dispatch the workflow"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A contributor with Write who wants a release cut from their branch rather than from main.",
+      "payloads": [
+        "gh workflow run release.yml --ref my-branch -f version=2.0.1"
+      ],
+      "instructions": [
+        "push a branch with the change",
+        "dispatch the release workflow for a version whose tag does not exist",
+        "approve the deployment when asked"
+      ],
+      "expected_result": "The release is published and its provenance records the branch as the source ref, which no client checks."
+    },
+    "remediation": {
+      "strategy": "Add one step before publishing: `git fetch --depth=1 origin main && git merge-base --is-ancestor \"$GITHUB_SHA\" origin/main` (refuse otherwise), or constrain the environment with a deployment branch policy.",
+      "code_changes": [
+        {
+          "file_name": ".github/workflows/release.yml",
+          "fixed_code": "git fetch --depth=1 origin main && git merge-base --is-ancestor \"$GITHUB_SHA\" origin/main"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "medium",
+        "reason": "anyone with Write who can push a tag or dispatch the workflow"
+      },
+      "impact": {
+        "score": "medium",
+        "reason": "a release exists whose bytes no required check ever saw, with valid provenance"
+      },
+      "overall_severity": "medium"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "confirmed by the validator with an executed reproduction; the command, the input and the observed output are in the description"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "The pre-commit secret scan reads the working tree, so a staged secret can be committed",
+    "description": "The git floor's pre-commit hook scans the files named by `git diff --cached --name-only` as they exist on disk, not the staged blobs. Reproduced: a private key was staged, then the working copy was overwritten with a placeholder; `ai-eng git pre-commit` reported `pre-commit \u2713` exit 0 and the key reached the commit (`git show HEAD:creds.txt`). The same secret present in both index and worktree is blocked (`secret in the staged files \u2192 BLOCKED`, exit 1), and the pre-push hook catches it later in the unpushed history (`BLOCKED`, exit 1) \u2014 so the commit leaks locally and is stopped at the push.",
+    "root_cause": "preCommit in src/floor/index.ts scans working-tree bytes of the staged paths instead of the staged blobs, allowing a secret that is overwritten in the worktree to enter a local commit.",
+    "intended_behavior": "The pre-commit gate exists to stop a secret before it becomes a commit; scanning the index is what the name says, and the pre-push hook is the backstop, not the first line.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/floor/index.ts",
+        "line": 58,
+        "scope": "preCommit",
+        "description": "the staged paths are listed from the index"
+      },
+      {
+        "kind": "propagation",
+        "file": "src/floor/index.ts",
+        "line": 76,
+        "scope": "preCommit",
+        "description": "gitleaks is pointed at the working-tree copies of those paths"
+      },
+      {
+        "kind": "sink",
+        "file": "src/floor/index.ts",
+        "line": 88,
+        "scope": "preCommit",
+        "description": "the verdict is ok, so the commit proceeds with the staged bytes"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "data_state",
+        "description": "a staged secret whose working-tree copy no longer contains it"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "A developer or agent that stages a file and then edits it \u2014 accidentally or to get past the check.",
+      "payloads": [
+        "git add creds.txt (containing a private key)",
+        "overwrite creds.txt with a placeholder"
+      ],
+      "instructions": [
+        "stage the secret",
+        "replace the working copy",
+        "commit"
+      ],
+      "expected_result": "`[git floor] pre-commit \u2713` exit 0 and the key is in the commit (caught only at push)."
+    },
+    "remediation": {
+      "strategy": "Scan the staged blobs (gitleaks' git/staged mode, or `git show :<path>` per staged file) instead of the working-tree paths.",
+      "code_changes": [
+        {
+          "file_name": "src/floor/index.ts",
+          "fixed_code": "// scan the staged blobs, not the working tree: spawnSync(gitleaks, [\"git\", \"--staged\", \"--redact\", \"-v\"])"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "low",
+        "reason": "the developer stages a secret and then edits the file, by accident or on purpose"
+      },
+      "impact": {
+        "score": "low",
+        "reason": "the secret enters the local commit; the pre-push hook still blocks the push"
+      },
+      "overall_severity": "low"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "confirmed by the validator with an executed reproduction; the command, the input and the observed output are in the description"
+    }
+  },
+  {
+    "verdict": "confirmed",
+    "title": "The planted workflow names an action this project's own policy cannot run",
+    "description": "templates/ci.yml.tpl installs Bun with `oven-sh/setup-bun`, which is not GitHub-owned and not among the ten patterns this repository allows. In this repository that means the workflow never starts at all \u2014 startup_failure with no logs, which is exactly how v2's CI was blind for ten days, and the reason the template's neighbours were changed to `npm install -g bun@1.4.2`. A client repository is governed by its own policy, so the defect is portability, not a live vulnerability: where a client's org restricts actions the same way, the entire planted workflow silently never runs, and if the contract step is not required, nothing notices.",
+    "root_cause": "the planted workflow in templates/ci.yml.tpl depends on a third-party action not permitted by this project's own action policy, so in any organization with the same restriction the workflow never starts and reports no logs.",
+    "intended_behavior": "The template should install only what any runner can install without a policy exception, since we learned that failure mode the hard way here.",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "templates/ci.yml.tpl",
+        "line": 29,
+        "scope": "check job",
+        "description": "the job declares `uses: oven-sh/setup-bun@\u2026`"
+      },
+      {
+        "kind": "propagation",
+        "file": "templates/ci.yml.tpl",
+        "line": 24,
+        "scope": "check job",
+        "description": "no other step installs a JavaScript runtime"
+      },
+      {
+        "kind": "sink",
+        "file": "templates/ci.yml.tpl",
+        "line": 30,
+        "scope": "check job",
+        "description": "on a runner whose policy disallows the action the workflow never starts: startup_failure, no jobs, no logs"
+      }
+    ],
+    "conditions": [
+      {
+        "kind": "system_configuration",
+        "description": "the client's own allowed-actions policy restricts what may run"
+      }
+    ],
+    "execution": {
+      "attacker_perspective": "Not an attacker: a client whose CI silently never runs, so the merge gate they believe they have does not exist.",
+      "payloads": [],
+      "instructions": [
+        "plant the workflow into a repository whose org allows only GitHub-owned actions",
+        "push"
+      ],
+      "expected_result": "The workflow reports startup_failure and produces no logs."
+    },
+    "remediation": {
+      "strategy": "Replace the line with `npm install -g bun@1.4.2`, the same mechanism this repository uses, removing the last third-party action from the planted workflow.",
+      "code_changes": [
+        {
+          "file_name": "templates/ci.yml.tpl",
+          "fixed_code": "      - run: npm install -g bun@1.4.2"
+        }
+      ]
+    },
+    "severity": {
+      "likelihood": {
+        "score": "low",
+        "reason": "only in an organization whose policy restricts actions as ours does"
+      },
+      "impact": {
+        "score": "medium",
+        "reason": "the client's whole merge gate silently never runs, and nothing notices"
+      },
+      "overall_severity": "low"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "confirmed by the validator with an executed reproduction; the command, the input and the observed output are in the description"
+    }
+  },
+  {
+    "verdict": "rejected",
+    "reason": "macOS code-signing secrets in the un-gated build job (hunter: high, medium confidence): refuted by reading the step \u2014 the secrets are supplied to that step's environment for the codesign command only, the job runs no untrusted code between them, and the material is worthless without the Apple account behind it. Recorded as a hardening note (move codesign into a minimal job) rather than a finding."
+  },
+  {
+    "verdict": "rejected",
+    "reason": "The git floor resolves ai-eng/git/gitleaks through PATH (hunter: low): refuted by experiment \u2014 git injects no repository-controlled directory into a hook's PATH, so a repository alone cannot shadow the governor, and the shims are not versioned so a clone does not carry them. A hostile effective PATH is the developer's own configuration."
+  }
+]

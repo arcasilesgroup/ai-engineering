@@ -3,8 +3,9 @@
 // FAIL, never silent degradation.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { tmpdir } from "node:os";
 import { repoRoot } from "../env.ts";
 
 type FloorResult = { ok: boolean; lines: string[] };
@@ -70,10 +71,23 @@ function stageSecrets(cwd: string): FloorResult {
     .map((f) => f.trim())
     .filter((f) => f.length > 0);
   if (staged.length === 0) return { ok: true, lines: [] };
-  const present = staged.filter((f) => existsSync(join(cwd, f)));
-  if (present.length === 0) return { ok: true, lines: [] };
+  // The bytes git will commit, not the bytes on disk: a staged secret whose working
+  // copy was overwritten passed this gate and reached the commit (audit FLOOR-01,
+  // reproduced). `gitleaks git --staged` scans zero on a fresh HEAD, so the staged
+  // blobs are materialised and scanned as files.
+  const scratch = mkdtempSync(join(tmpdir(), "ai-eng-staged-"));
+  const present: string[] = [];
   try {
-    const args = ["dir", "--redact", "--no-banner", "--exit-code", "1", ...present];
+    for (const file of staged) {
+      const blob = spawnSync("git", ["-C", cwd, "show", `:${file}`], { encoding: "buffer" });
+      if (blob.status !== 0) continue;
+      const copy = join(scratch, file);
+      mkdirSync(dirname(copy), { recursive: true });
+      writeFileSync(copy, blob.stdout);
+      present.push(copy);
+    }
+    if (present.length === 0) return { ok: true, lines: [] };
+    const args = ["dir", "--redact", "--no-banner", "--exit-code", "1", scratch];
     execFileSync(gitleaks, args, { cwd, stdio: "pipe" });
     return { ok: true, lines: [] };
   } catch (error) {
@@ -85,7 +99,9 @@ function stageSecrets(cwd: string): FloorResult {
       .filter((l) => l.startsWith("File:") || l.startsWith("RuleID:") || l.startsWith("Finding:"))
       .slice(0, 10)
       .join("\n");
-    return { ok: false, lines: ["gitleaks: secret in the staged files → BLOCKED.", findings || out.slice(0, 800)] };
+    return { ok: false, lines: ["gitleaks: secret in the staged files → BLOCKED.", (findings || out.slice(0, 800)).split(scratch).join("<staged>")] };
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
   }
 }
 /** commit-msg: convention + Receipt-Id trailer + override reason when active. */

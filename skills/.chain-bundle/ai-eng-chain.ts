@@ -9,8 +9,12 @@ import { join, resolve } from "path";
 import { existsSync, readFileSync } from "fs";
 function home() {
   const override = process.env.AI_ENG_HOME;
-  if (override)
-    return override;
+  if (override) {
+    const root = repoRoot();
+    const resolved = resolve(override);
+    if (root === null || !(resolved === root || resolved.startsWith(root + "/")))
+      return override;
+  }
   return join(homedir(), ".ai-engineering");
 }
 function repoRoot(start) {

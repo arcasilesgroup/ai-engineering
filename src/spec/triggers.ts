@@ -76,7 +76,9 @@ export function readTriggers(canonDir: string | null): Trigger[] {
 
 /** Files the milestone touched, worktree included: committed since the base, plus untracked. */
 export function changedFiles(root: string, baseSha: string): string[] {
-  const diff = spawnSync("git", ["-C", root, "diff", "--name-only", baseSha], { encoding: "utf8" });
+  // --end-of-options: a base_sha that begins with `-` is a revision here, never a
+  // git option (audit AI-ENG-INJ-001; the lock is validated too, belt and braces).
+  const diff = spawnSync("git", ["-C", root, "diff", "--name-only", "--end-of-options", baseSha], { encoding: "utf8" });
   const untracked = spawnSync("git", ["-C", root, "ls-files", "--others", "--exclude-standard"], { encoding: "utf8" });
   if (diff.status !== 0) return [];
   const paths = `${diff.stdout}\n${untracked.status === 0 ? untracked.stdout : ""}`

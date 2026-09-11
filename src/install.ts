@@ -121,6 +121,10 @@ export function parseLock(text: string): Lock {
   }
   const lock: Lock = { version: typeof doc["version"] === "string" ? doc["version"] : "", assets };
   if (typeof doc["spec_sha256"] === "string") lock.spec_sha256 = doc["spec_sha256"];
-  if (typeof doc["base_sha"] === "string") lock.base_sha = doc["base_sha"];
+  // A commit id, or nothing. A value beginning with `-` reached `git diff` as an
+  // option and `--output=<path>` overwrote an arbitrary file while the command still
+  // reported success (audit AI-ENG-INJ-001, reproduced).
+  const base = doc["base_sha"];
+  if (typeof base === "string" && /^[0-9a-f]{40}$/.test(base)) lock.base_sha = base;
   return lock;
 }
