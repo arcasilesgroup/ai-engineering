@@ -25,7 +25,7 @@ jobs:
           base="https://github.com/arcasilesgroup/ai-engineering/releases/download/${AI_ENG_VERSION}"
           curl -sSfL -o ai-eng "$base/ai-eng-linux-x64"
           curl -sSfL -o CHECKSUMS-SHA256.txt "$base/CHECKSUMS-SHA256.txt"
-          grep 'ai-eng-linux-x64' CHECKSUMS-SHA256.txt | awk '{print $1"  ai-eng"}' | sha256sum -c -
+          awk '$2=="ai-eng-linux-x64"{print $1"  ai-eng"}' CHECKSUMS-SHA256.txt | sha256sum -c -
           chmod +x ai-eng
           sudo install ai-eng /usr/local/bin/ai-eng
 

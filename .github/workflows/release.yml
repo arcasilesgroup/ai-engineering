@@ -29,21 +29,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: bun-linux-x64
+          - target: linux-x64
             os: ubuntu-latest
-          - target: bun-linux-arm64
+          - target: linux-arm64
             os: ubuntu-latest
-          - target: bun-darwin-x64
+          - target: darwin-x64
             os: macos-latest
-          - target: bun-darwin-arm64
+          - target: darwin-arm64
             os: macos-latest
-          - target: bun-windows-x64
+          - target: windows-x64
             os: windows-latest
-          - target: bun-windows-arm64
+          - target: windows-arm64
             os: windows-latest
-          - target: bun-linux-musl-x64
+          - target: linux-musl-x64
             os: ubuntu-latest
-          - target: bun-linux-musl-arm64
+          - target: linux-musl-arm64
             os: ubuntu-latest
     runs-on: ${{ matrix.os }}
     steps:
@@ -53,7 +53,7 @@ jobs:
       # build.ts names the artifact after the target (dist/ai-eng-<target>): eight
       # legs writing dist/ai-eng collide on the release page, where asset names must
       # be unique — and the client's CI downloads one of them by name.
-      - run: bun run build --target ${{ matrix.target }}
+      - run: bun run build --target bun-${{ matrix.target }}
       - name: Codesign macOS binary (Gatekeeper) — skips without the cert secret
         if: runner.os == 'macOS'
         run: |
@@ -106,7 +106,7 @@ jobs:
       - name: Checksums (the client's CI verifies the binary against this file)
         run: |
           set -euo pipefail
-          (cd dist-artifacts && find . -type f -name 'ai-eng-*' -exec sha256sum {} \; | sed 's|\./ai-eng-[^/]*/||' | sort -k2) > CHECKSUMS-SHA256.txt
+          (cd dist-artifacts && find . -type f -name 'ai-eng-*' ! -name '*.map' -exec sha256sum {} \; | sed 's|\./ai-eng-[^/]*/||' | sort -k2) > CHECKSUMS-SHA256.txt
           cat CHECKSUMS-SHA256.txt
 
       - name: SBOM (CycloneDX, pinned by version + sha256)
@@ -126,7 +126,7 @@ jobs:
           PRERELEASE: ${{ steps.flags.outputs.prerelease }}
         run: |
           set -euo pipefail
-          mapfile -t files < <(find dist-artifacts -type f -name 'ai-eng-*')
+          mapfile -t files < <(find dist-artifacts -type f -name 'ai-eng-*' ! -name '*.map')
           flags=(--title "$TAG" --generate-notes --target "$GITHUB_SHA")
           if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
           if gh release view "$TAG" >/dev/null 2>&1; then
