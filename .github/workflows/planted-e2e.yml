@@ -21,7 +21,8 @@ jobs:
         run: bun run build
       - name: Prove the planted pipeline — templates/ci.yml.tpl, machine side, workflow, fail-closed gate, pins
         env:
-          AI_ENG_BIN: "bun dist/ai-eng"
+          # absolute: the proof script changes directory between proofs
+          AI_ENG_BIN: ${{ github.workspace }}/dist/ai-eng
         run: sh scripts/proof-planted-ci.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()

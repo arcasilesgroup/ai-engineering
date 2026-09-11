@@ -13,6 +13,12 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 # in the binary — so this is the shipped file or nothing.
 TEMPLATE="$REPO/templates/ci.yml.tpl"
 AI_ENG_BIN="${AI_ENG_BIN:-bun run $REPO/src/cli.ts}"
+# This script changes directory, so a relative binary path silently points at nothing
+# (and `bun dist/ai-eng` asks Bun to interpret a compiled binary as a script).
+case "$AI_ENG_BIN" in
+  /*|"bun run "*) ;;
+  *) echo "proof-planted-ci: AI_ENG_BIN must be an absolute path or 'bun run <file>' (got: $AI_ENG_BIN)" >&2; exit 2 ;;
+esac
 export AI_ENG_HOME="$(mktemp -d)/ai-eng-home"
 export CI=true
 export NO_COLOR=1

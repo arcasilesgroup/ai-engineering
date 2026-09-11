@@ -30,11 +30,11 @@ jobs:
       - name: Build the binary the contract runner executes
         run: bun run build
       - name: Install the canon the contract runner reads (machine side)
-        run: bun dist/ai-eng init --global --yes
+        run: ./dist/ai-eng init --global --yes
       - name: Spec run — a contract check that cannot run is a FAIL, never silence
-        run: bun dist/ai-eng spec run
+        run: ./dist/ai-eng spec run
       - name: Doctor (canon drift · lock version · spec pin · receipts)
-        run: bun dist/ai-eng doctor
+        run: ./dist/ai-eng doctor
 
   security:
     runs-on: ubuntu-latest
