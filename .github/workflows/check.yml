@@ -49,8 +49,22 @@ jobs:
       # touching the repo. The separate `init --global` step was redundant.
       - name: Make this checkout match the binary (canon + floor + lock)
         run: ./dist/ai-eng update --yes
-      - name: Spec run — a contract check that cannot run is a FAIL, never silence
-        run: ./dist/ai-eng spec run
+      # Between milestones there is no live contract, and that is a legitimate state,
+      # not a failure — but a lock that still pins an approved contract whose
+      # spec.html has vanished is not: that is a contract someone deleted. A check
+      # that cannot run stays a FAIL.
+      - name: Spec run — a live contract is enforced, a vanished one is a failure
+        run: |
+          set -euo pipefail
+          if [ ! -f .ai-engineering/spec.html ]; then
+            if grep -q spec_sha256 .ai-engineering/ai-eng.lock; then
+              echo "::error::the lock pins an approved contract and spec.html is gone — restore it, or reopen the slot."
+              exit 1
+            fi
+            echo "no live contract — nothing to enforce between milestones"
+            exit 0
+          fi
+          ./dist/ai-eng spec run
       - name: Doctor (canon drift · lock version · spec pin · receipts)
         run: ./dist/ai-eng doctor
 
