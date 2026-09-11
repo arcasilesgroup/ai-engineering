@@ -9,6 +9,11 @@ name: ai-eng-check
 #     this workflow is the one an agent is told not to touch (§17).
 on: [push, pull_request]
 
+# The client's job needs to read its own repository and nothing else: the governor is
+# fetched from a release, and the attestation check is a read too.
+permissions:
+  contents: read
+
 env:
   AI_ENG_VERSION: v2.0.0-rc.1
 
@@ -19,15 +24,23 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
-      - name: Install the governor (released binary, checksum-verified)
+      # The checksum alone proves nothing: binary and manifest come from the same
+      # place, so whoever can write one can write both. The attestation is what binds
+      # these bytes to a commit in the repository that built them, and it is why the
+      # release job verifies it before publishing (release.yml).
+      - name: Install the governor (released binary, provenance-verified)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           base="https://github.com/arcasilesgroup/ai-engineering/releases/download/${AI_ENG_VERSION}"
           curl -sSfL -o ai-eng "$base/ai-eng-linux-x64"
           curl -sSfL -o CHECKSUMS-SHA256.txt "$base/CHECKSUMS-SHA256.txt"
           awk '$2=="ai-eng-linux-x64"{print $1"  ai-eng"}' CHECKSUMS-SHA256.txt | sha256sum -c -
-          chmod +x ai-eng
-          sudo install ai-eng /usr/local/bin/ai-eng
+          gh attestation verify ai-eng --repo arcasilesgroup/ai-engineering
+          mkdir -p "$HOME/.local/bin"
+          install -m 0755 ai-eng "$HOME/.local/bin/ai-eng"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Install the canon the contract runner reads (machine side, no repo files)
         run: ai-eng init --global --yes
@@ -79,6 +92,7 @@ jobs:
       - name: trivy (pinned by commit SHA)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          version: v0.74.0 # the trivy binary the action installs; the action alone pins no version
           scan-type: fs
           exit-code: 1
           severity: HIGH,CRITICAL

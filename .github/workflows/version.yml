@@ -24,14 +24,32 @@ jobs:
         with:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: latest
       - run: bun install --frozen-lockfile
       - name: npm ≥ 11.5.1 (OIDC trusted publishing)
         run: npm install -g npm@11
       - uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
+        id: changesets
         with:
           version-script: npx changeset version
           publish-script: npx changeset publish
+
+      # v1 shipped a pypi-proof.txt with every release: the record that the registry
+      # itself signed the publish. The npm channel gets the same artefact.
+      - name: Publish proof (the registry-signed channel, recorded)
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+        run: |
+          set -euo pipefail
+          {
+            echo "npm publish completed (OIDC trusted publishing)"
+            echo "Packages: $PACKAGES"
+            echo "CI run URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } | tee publish-proof.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: steps.changesets.outputs.published == 'true'
+        with:
+          name: publish-proof
+          path: publish-proof.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

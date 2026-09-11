@@ -5,6 +5,9 @@ on:
     branches: [main, v2]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   init-doctor-uninstall:
     strategy:

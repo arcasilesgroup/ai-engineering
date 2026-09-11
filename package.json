@@ -16,6 +16,11 @@
     "THIRD-PARTY-NOTICES.md",
     "CHANGELOG.md"
   ],
+  "packageManager": "bun@1.4.2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arcasilesgroup/ai-engineering.git"
+  },
   "engines": {
     "bun": ">=1.4.0"
   },

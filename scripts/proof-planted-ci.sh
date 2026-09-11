@@ -9,10 +9,9 @@
 #   AI_ENG_BIN="bun dist/ai-eng" sh scripts/proof-planted-ci.sh
 set -u
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-# The template to validate: the caller may name it (the workflow passes it explicitly
-# so the file the e2e proves is visible in the run), default is the shipped one.
-TEMPLATE="${1:-templates/ci.yml.tpl}"
-case "$TEMPLATE" in /*) ;; *) TEMPLATE="$REPO/$TEMPLATE" ;; esac
+# What P2 compares against is what init plants, and init plants the template embedded
+# in the binary — so this is the shipped file or nothing.
+TEMPLATE="$REPO/templates/ci.yml.tpl"
 AI_ENG_BIN="${AI_ENG_BIN:-bun run $REPO/src/cli.ts}"
 export AI_ENG_HOME="$(mktemp -d)/ai-eng-home"
 export CI=true
@@ -43,23 +42,10 @@ P3OUT=$($AI_ENG_BIN spec run 2>&1); P3CODE=$?
 printf '%s' "$P3OUT" | grep -q 'no spec.html' || die "P3: spec run did not name the missing contract"
 say "P3 evidence: no contract → exit 2, message names it (green by absence is impossible)"
 
-# ── P4: no step can be skipped, nothing comes from npm, every action is pinned ──
-grep -q '|| true' "$PLANTED" && die "P4: a step still swallows its own failure"
-grep -q 'bun add -g ai-engineering' "$PLANTED" && die "P4: the governor still comes from npm"
-P4UNPINNED="$(grep -oE 'uses: [^ ]+' "$PLANTED" | grep -vE '@[0-9a-f]{40}$' || true)"
-[ -z "$P4UNPINNED" ] || die "P4: unpinned actions: $P4UNPINNED"
-P4VERSION="$(grep -m1 'AI_ENG_VERSION:' "$PLANTED" | awk '{print $2}')"
-[ -n "$P4VERSION" ] || die "P4: the governor version is not declared in one place"
-say "P4 evidence: no fail-open, no npm, every uses: SHA-pinned, governor pinned to $P4VERSION"
-
-# ── P5: the asset the client downloads — reported, not fatal (G6 owns the release) ──
-P5URL="https://github.com/arcasilesgroup/ai-engineering/releases/download/$P4VERSION/ai-eng-linux-x64"
-P5CODE="$(curl -sSL -o /dev/null -w '%{http_code}' "$P5URL" 2>/dev/null || echo 000)"
-if [ "$P5CODE" = "200" ]; then
-  say "P5 evidence: $P4VERSION/ai-eng-linux-x64 → 200"
-else
-  say "P5 evidence: $P4VERSION/ai-eng-linux-x64 → HTTP $P5CODE (not published yet; gate G6 is what fails)"
-fi
+# The template's own rules (no fail-open, nothing from npm, every action SHA-pinned,
+# one declared version) are asserted in tests/planted-ci.spec.ts, against the same
+# bytes P2 proved identical to what init plants. Re-checking them here was the same
+# fact in two places, free to drift, and the asset probe that followed could not fail.
 
 if [ "$FAILED" = "0" ]; then say "planted-ci: all proofs passed"; else say "planted-ci: FAILED"; fi
 exit $FAILED
