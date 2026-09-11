@@ -46,9 +46,12 @@ YES_OUT=$($CLI init --yes --surface claude-code 2>&1); YES_CODE=$?
 [ "$YES_CODE" = "0" ] || die "G4 path4: --yes --surface exit $YES_CODE"
 say "G4 evidence: path4 --yes --surface claude-code → exit 0 zero prompts"
 # Path 5: config --add omp adds a surface without prompts.
-CFG_OUT=$($CLI config --add omp 2>&1)
-grep -q 'omp' .ai-engineering/config.toml || die "G4 path5: omp not in config.toml"
-say "G4 evidence: path5 config --add omp → surfaces updated"
+# The id is `oh-my-pi`; `omp` is what everyone calls it, but config --add takes the
+# id the surface declares in surfaces.json (a name without an adapter is refused, and
+# this proof asserted the short name for long enough that the step was red in CI).
+CFG_OUT=$($CLI config --add oh-my-pi 2>&1)
+grep -q 'oh-my-pi' .ai-engineering/config.toml || die "G4 path5: oh-my-pi not in config.toml"
+say "G4 evidence: path5 config --add oh-my-pi → surfaces updated"
 # Path 6: uninstall governance keeps the four contract files.
 UN_OUT=$(printf '\n\n' | $CLI uninstall 2>&1)
 [ -f AGENTS.md ] || die "G4 path6: AGENTS.md deleted by uninstall"
