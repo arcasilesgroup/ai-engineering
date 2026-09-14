@@ -253,7 +253,13 @@ test("a repo with no machine-side canon is offered it, never handed it (§14.5b)
   expect(engAt(freshRepo, engHome, ["init", "--yes", "--surface", "claude-code"], "").status).toBe(0);
 
   const refused = engAt(freshRepo, freshHome, ["init"], "n\n");
-  expect(refused.stdout + refused.stderr).toInclude("install it now");
+  // clack wraps the prompt at the terminal width and draws a gutter where it breaks,
+  // so the wrap point moves with the length of the sandbox path: in CI the break fell
+  // between "install it" and "now", and the assertion passed or failed by where tmpdir
+  // happens to be. Read the sentence, not the frame: the box characters and the
+  // wrapping are presentation, so strip them before matching.
+  const rendered = (refused.stdout + refused.stderr).replace(/[│┌└◇◆●○─]/g, " ").replace(/\s+/g, " ");
+  expect(rendered).toInclude("install it now");
   expect(existsSync(join(freshHome, "skills"))).toBe(false);
 
   const accepted = engAt(freshRepo, freshHome, ["init"], "y\n");
