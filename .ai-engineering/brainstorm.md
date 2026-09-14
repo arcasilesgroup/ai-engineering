@@ -1,6 +1,7 @@
 # Handshake · gobernanza global de ai-engineering
 
-Status: draft, lectura en voz alta PASADA · diseno v1 en revision · 2026-09-14
+Status: ronda 1 con diseno v1 ya en `spec.html` + `plan.html` (contrato 17/20, cierre pendiente de A.1) ·
+ronda 2 sin elegir · 2026-09-14
 
 ## The idea in plain words
 
@@ -436,3 +437,104 @@ propia y no un detalle de la B.
   superficies. Todo el diseno de puerta-por-cwd lo asume y nadie lo ha probado.
 - `[unsourced]` la nota "best-effort: cloud FS, receipts may not survive" de Copilot (`surfaces.json`) afirma
   comportamiento sin medicion; si fuera cierta, parte del argumento de su carrier en repo ya estaria muerto.
+
+
+## Ronda 2 · cola de candidatos (sin elegir todavia)
+
+La ronda 1 ya vive en `spec.html` + `plan.html`; su contrato esta 17/20. Esto es lo que el informe de estado dejo
+abierto, recogido aqui para que no dependa de la memoria de una sesion. Nada esta en curso: falta que soydachi elija
+el hilo y el orden.
+
+### No es material de brainstorm (decisiones de una linea)
+- **A.1 CERRADO.** G17, G19 y G20 estaban rojas por la regla del silencio. Aplicadas las tres CHECK sustitutas y
+  re-aprobado el contrato: G17 pasa a `sh scripts/proof-security-audit.sh`, que nombra el run de este milestone
+  (`run-2`, no un glob), valida `findings.json` con el checker del skill y exige `Disposition:` en todo hallazgo
+  confirmado; G19 y G20 imprimen lo que prueban (G20 suma `git ls-files` y `git diff --quiet` a la existencia, y
+  cita desde `plan.html`, no desde el propio gate). 20/20 en verde.
+- **A.2** semver de los changesets: hoy `minor`; la convencion del repo puede pedir `patch`, es una linea de
+  frontmatter.
+- **A.3** `doctor` no compara el ejecutor instalado (`gate-check.mjs`) con el del binario, asi que un `spec run`
+  puede juzgar con el juez viejo. El bundle del chain si trae ese chequeo.
+
+### Candidatos a brainstorm (preguntas de producto, sin respuesta)
+1. **La clase "verde que no prueba", mas alla del silencio.** Tres sub-ideas: (a) que la evidencia deba nombrar el
+   gate, o sea que el CHECK imprima su id; (b) un lint del formato que prohiba sondas de existencia sin EXPECT;
+   (c) mutacion de gates, correr el check contra un fallo sembrado para probar que puede fallar. Solo (c) ataca el
+   caso real: el texto del gate promete mas de lo que el comando comprueba. TODO: decidir si esta es la ronda 2.
+2. **Zed: no tenemos asiento.** Hoy es deny por "host-only". Idea: no podemos ejecutar, pero si podriamos generar
+   sus `agent.tool_permissions` / `always_deny` desde nuestra politica: el primer host donde enviariamos
+   configuracion en vez de un hook. TODO: vale, o es teatro.
+3. **`copilot` / `copilot-cloud`.** research/003 dice "two entries, two truths"; hoy su fila es media verdad dos
+   veces. Cuesta una plantilla y un can-block.
+4. **Equipos: repo declarado y companero sin carrier en su maquina.** MAP lo dejo escrito como decision de
+   producto, no tecnica, y no se tomo.
+5. **`tier` sin evidencia.** Los carriers llevan `source` + `measured`; el tier no. TODO: debe?
+6. **El commit de instalacion con `git add -A`.** Se lleva lo que haya sin commitear. TODO: deberia limitarse a los
+   ficheros que escribio?
+7. **Retirar `MOVED_REPO_CARRIERS`.** Es una lista de historia (los carriers que se mudaron); deberia morir en una
+   o dos releases para no volverse eterna.
+8. **`loopEvidence` → `can.evidence` generalizado.** research/003 lo deja fuera de alcance de la ronda 1.
+
+### Mediciones abiertas (probe o spike, no brainstorm)
+- **OpenCode:** su carrier in-process no manda cwd. OMP esta medido (`ctx.cwd` = raiz del workspace) y Pi lo manda
+  explicito; OpenCode es el unico de los tres sin medir.
+- **Codex:** `codex exec` con hook de usuario (pregunta abierta 4 de `research/004`).
+- **Zed, eje loop:** el `--help` del 11-sep no ofrece goal mode desatendido, pero su Agent Panel es un loop con
+  tool calling. Falta decidir si eso cuenta como native, y hay nota de re-probe por release.
+- **`ai-proof` paso a paso** sigue siendo opcional en la cadena de cierre de ai-goal; obligatorio seria una linea.
+
+### Cabos que quedaron de la ronda 1
+- `.ai-engineering/security/run-1/` sigue ahi: el CHECK sustituto de G17 imprimia los dos runs, asi que "cualquier
+  run" pasaba. Cerrado: G17 nombra `run-2` en `scripts/proof-security-audit.sh`, asi que un `run-3` vacio no
+  arrastra el verde.
+- `tests/gate-check.spec.ts` (6 casos, el que fallo primero) deberia ser gate del proximo milestone: el seam de
+  ai-debug lo dice, y no entro en el spec actual sin romper el pin.
+- `.wayfinder/global-carriers/MAP.md` vive hasta que muera el milestone, junto a `spec.html` y `plan.html`.
+- Migracion de las tres CHECK viejas en otros repos, si algun dia se corren sus specs: mismo remedio, una linea por
+  gate.
+
+
+## Ronda 2 · handshake en curso · "verde que no prueba"
+
+Status: entrevista abierta · camino architectural · 2026-09-14
+
+### The idea in plain words
+
+TODO · no pasa todavia la lectura en voz alta.
+
+### What exists today (verificado en esta sesion, con la ruta abierta)
+
+- **Formato del gate**: `- [x] G<n>: <resultado>` mas `CHECK: <comando>`, `EXPECT: <substring | /regex/>` y
+  `EVIDENCE:`. Lo parsean exactamente dos scripts, `skills/ai-proof/scripts/gate-check.mjs` y `stop-hook.mjs`
+  (`skills/ai-proof/references/gates.md`).
+- **Un solo ejecutor, sin dependencias** (Node 16+): `gate-check.mjs`, con `--status`, `--recheck`, `--timeout` y
+  `--jobs`. Solo destilda y tilda cajas el mismo; nunca destilda a mano.
+- **La regla del silencio ya esta viva**: un CHECK que no imprime nada deja el gate UNMET y escribe el remedio en
+  su linea `EVIDENCE` (`.changeset/a-gate-that-says-nothing-is-not-a-gate.md`). Lo que se retira es la evidencia,
+  no la caja: la regla 2 de `gates.md` (caja marcada con `EVIDENCE: pending` es UNMET) hace el resto.
+- **Su test ya existe**: `tests/gate-check.spec.ts`, que maneja el ejecutor real contra un fixture con checks mudos
+  y con checks que hablan. El comentario del fichero dice que el repo habia ensenado la sonda de existencia en
+  `templates/spec.html.tpl`, con `CHECK: test -f README.md` como el unico ejemplo que recibe un planner.
+- **`gates.md` ya pide lo que nadie comprueba**: "state outcomes, not activities" y "make EXPECT decisive" son
+  prosa de la referencia. Ningun comando del sistema las verifica.
+
+### El especimen vivo (por que este trabajo existe)
+
+En el contrato de la ronda 1 hay tres gates verdes cuyo comando no prueba lo que su prosa promete:
+
+- **G17** promete "auditoria de seguridad del diff, con findings.json y REPORT.md, y todo hallazgo explotable
+  cerrado o aceptado con su razon". Su CHECK es `ls .ai-engineering/security/run-*/findings.json >/dev/null`: un
+  glob que cualquier run satisface. Con `run-1` y `run-2` en disco, pasa igual.
+- **G20** promete "la investigacion del milestone esta citada y commiteada". Su CHECK es `test -f <un fichero>`.
+  Existir no es estar citada, ni commiteada.
+- **G19** promete "existe y el README lo enlaza", y su CHECK si prueba las dos cosas (`test -f` mas `grep -q`), pero
+  no lo dice.
+
+La diferencia que separa los tres, y que es el nucleo de esta ronda: en **G19** prosa y comando coinciden y el
+unico fallo era el silencio, que la regla nueva ya cierra. En **G17** y **G20** la prosa es mas ancha que el
+comando. Reescribir la CHECK de G17 como `test -f ... && echo encontrado` la vuelve locuaz, condena la evidencia
+del silencio y **sigue sin probar nada**: imprimiria verde con `run-1` en disco y el hallazgo abierto.
+
+### Decisions still open
+
+1. El fallo exacto que este trabajo tiene que hacer imposible. TODO (pregunta 1).
