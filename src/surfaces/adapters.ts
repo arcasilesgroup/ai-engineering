@@ -139,10 +139,18 @@ export function surfaceCanGovern(surface: Surface): boolean {
 
 /** The tier headers for the grouped surface multiselect (init + config share
  *  them): the group carries the capability class, the option hint the delta. */
+/** The picker's group headers. Each one states what holds for EVERY row under it — the
+ *  per-row degradation belongs to the row, from the measured fields beside it.
+ *
+ *  This used to read "experimental — rewrite may be partial", which was true of neither
+ *  row under it (Cursor has no rewrite at all, Codex replaces the whole input) and
+ *  "best-effort — cloud FS: receipts may not survive", vaguer than the measurement behind
+ *  it. research/003 puts the rule: "the label is the promise; the fields are the
+ *  measurement. They are allowed to disagree — but not silently". */
 export const SURFACE_TIERS: ReadonlyArray<readonly [string, string]> = [
   ["core", "core — deny + rewrite"],
-  ["experimental", "experimental — rewrite may be partial"],
-  ["best-effort", "best-effort — cloud FS: receipts may not survive"],
+  ["experimental", "experimental — deny yes; the row names what degrades"],
+  ["best-effort", "best-effort — deny yes; what survives is the host's deployment"],
   ["skills-only", "skills only — no guards in hot-path"],
 ];
 

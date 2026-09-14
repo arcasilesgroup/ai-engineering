@@ -36,12 +36,15 @@ function detectedSurfaces(cwd: string): string[] {
 /** What the tier header cannot say, in plain words: the delta from the
  *  group's promise. A core surface with full guards gets no hint — the
  *  header already said it. */
-function surfaceHint(s: Surface): string {
+export function surfaceHint(s: Surface): string {
   const delta: string[] = [];
   if (s.can.deny === "throw") delta.push("blocks by throwing");
   else if (s.can.deny !== true) delta.push("can't block tool calls");
   if (s.can.rewriteOut === false) delta.push("can't rewrite output");
   else if (typeof s.can.rewriteOut === "string") delta.push("rewrites output wholesale");
+  // The caveat is the row's own, because a group header cannot state a fact two rows do not
+  // share — and because a promise that disagrees with its measurement may not do it quietly.
+  if (s.note !== undefined) delta.push(s.note);
   return delta.join(" · ");
 }
 

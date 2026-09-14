@@ -41,8 +41,7 @@
           "source": "omp://hooks.md (native hook capability: <configDir>/hooks/pre|post, agent dir is PI_CODING_AGENT_DIR aware) · live probe on omp 18.1.17 2026-09-14: a default-export factory written there loaded and blocked a bash call; the old .agents/hooks/ path loads nothing; the chain bundle is dot-prefixed because omp's hook scanner loads EVERY *.ts in that directory and a bundle is not a hook factory",
           "measured": "2026-09-14"
         }
-      ],
-      "note": "the carrier is a hook factory (default export, pi.on), not the extension beforeToolCall shape"
+      ]
     },
     {
       "id": "opencode",
@@ -85,7 +84,7 @@
           "measured": "2026-09-11"
         }
       ],
-      "note": "output rewrite: MCP only (blueprint §13)"
+      "note": "keeps its carrier in the repo because its user level loses to the project and its cloud VMs never read your home (research/003)"
     },
     {
       "id": "codex",
@@ -107,7 +106,7 @@
           "measured": "2026-09-14"
         }
       ],
-      "note": "requires manual /hooks trust (hash-pinned): a byte change re-asks, so update writes only on a real change"
+      "note": "needs a one-time /hooks approval: trust is pinned to these exact bytes, so a change re-asks"
     },
     {
       "id": "copilot",
@@ -136,7 +135,7 @@
           "measured": "2026-09-14"
         }
       ],
-      "note": "ephemeral FS: no receipts"
+      "note": "its cloud agent is an ephemeral sandbox destroyed per job: it reads only the repo copy and discards what hooks write (research/003)"
     },
     {
       "id": "pi",
@@ -159,7 +158,7 @@
           "measured": "2026-09-14"
         }
       ],
-      "note": "in-process extension; project-local extensions load once pi trusts the folder"
+      "note": "in-process extension loaded from the machine, so no per-folder trust step"
     },
     {
       "id": "zed",
@@ -172,7 +171,7 @@
         "loopEvidence": "zed: an editor that reads the skills directory; no agent loop to hand a goal to"
       },
       "carriers": [],
-      "note": "honest: skills install, no guards in hot-path — a surface that cannot deny has no carrier to place"
+      "note": "skills install and nothing else runs in the hot path: a host that cannot deny has no carrier to place"
     }
   ]
 }

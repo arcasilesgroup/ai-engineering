@@ -269,7 +269,8 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
         rows.push(present ? `repo carrier ${repo.path} present` : `repo carrier ${repo.path} missing → ai-eng update`);
       }
       if (rows.length === 0) rows.push("no carrier: guard wiring is not implemented for this host");
-      if (surface.note?.includes("trust") === true) rows.push("Codex trust: if the carrier changed, re-approve it in /hooks");
+      // The row's own caveat, from one place: doctor no longer guesses it from a substring.
+      if (surface.note !== undefined) rows.push(surface.note);
       push(`surface ${id}`, status, rows.join(" · "));
     }
   }

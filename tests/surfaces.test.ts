@@ -10,7 +10,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { removeMachineArtifacts, SURFACES, machineCarrier, repoCarrier, machineBase } from "../src/surfaces/adapters.ts";
+import { removeMachineArtifacts, SURFACES, SURFACE_TIERS, machineCarrier, repoCarrier, machineBase } from "../src/surfaces/adapters.ts";
+import { surfaceHint } from "../src/commands/init.ts";
 import { runChain } from "../src/chain/mod.ts";
 
 const cli = join(import.meta.dir, "..", "src", "cli.ts");
@@ -183,6 +184,34 @@ test("cursor allow envelope: a permitted call answers, and the silent hosts stay
   const claude = chain("claude-code", clean("allow-claude"));
   expect(claude.status).toBe(0);
   expect(claude.stdout).toBe("");
+});
+
+test("a tier's promise never silently contradicts its rows' measurements", () => {
+  // research/003 puts the rule this test enforces: "the label is the promise; the fields are
+  // the measurement. They are allowed to disagree — but not silently." The picker's group
+  // header may only claim what holds for EVERY row under it (it read "rewrite may be
+  // partial" while Cursor has no rewrite at all and Codex replaces the whole input), and
+  // each row carries its own measured degradation.
+  const problems: string[] = [];
+  for (const [tier, title] of SURFACE_TIERS) {
+    const rows = SURFACES.filter((surface) => surface.tier === tier);
+    for (const surface of rows) {
+      if (/rewrite/.test(title) && surface.can.rewriteOut === false) problems.push(`${tier} "${title}" promises a rewrite ${surface.id} does not have`);
+      if (/\bdeny\b/.test(title) && surface.can.deny === false) problems.push(`${tier} "${title}" promises a denial ${surface.id} cannot make`);
+    }
+  }
+  expect(problems).toEqual([]);
+  // The measured degradation of the hosts that have one is on the ROW, where the fields are,
+  // and reaches the text a person reads.
+  const caveat = (id: string): string => {
+    const surface = SURFACES.find((entry) => entry.id === id);
+    return surface === undefined ? "" : surfaceHint(surface);
+  };
+  expect(caveat("cursor")).toInclude("no output rewrite");
+  expect(caveat("codex")).toInclude("/hooks");
+  expect(caveat("copilot")).toInclude("ephemeral");
+  // A host with nothing degraded says nothing: an empty hint is the honest answer.
+  expect(caveat("claude-code")).toBe("");
 });
 
 test("a Read payload carrying `path` still reaches the injection guard", () => {
