@@ -186,30 +186,28 @@ jobs:
       # bun.lock, which Snyk does not parse. The lock is generated from package.json, so
       # the dependency SET is what Snyk tests against its database; `bun audit` in the
       # security job stays the lockfile-accurate gate, and this one adds SAST.
-      - name: Open source and code (high and critical)
+      - name: The lockfile Snyk reads (generated, never committed)
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Snyk open source (high and critical)
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk test --file=package-lock.json --severity-threshold=high
+      - name: Snyk Code, SAST (high and critical)
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
           set -uo pipefail
-          npm install --package-lock-only --ignore-scripts
-          failed=0
-          run() {
-            label="$1"; shift
-            out=$(snyk "$@" 2>&1); code=$?
-            printf '%s\n' "$out"
-            if [ "$code" -ne 0 ]; then
-              # A plan out of tests is not a vulnerability: name what was skipped and let
-              # the other three scanners (semgrep, trivy, bun audit) keep their verdict.
-              if printf '%s' "$out" | grep -qiE 'test limit|increase your tests|rate.?limit|429|too many requests|authentication (error|failed)|not authori|quota'; then
-                echo "::warning title=Snyk non-blocking::${label} unavailable (plan quota or auth) — non-blocking; semgrep, trivy and bun audit still run."
-              else
-                failed=1
-              fi
-            fi
-          }
-          run "snyk test" test --file=package-lock.json --severity-threshold=high
-          run "snyk code test" code test --severity-threshold=high
-          exit "$failed"
+          out=$(snyk code test --severity-threshold=high -d 2>&1); code=$?
+          printf '%s\n' "$out" | tail -40
+          echo "snyk code test exit=$code"
+          if [ "$code" -eq 0 ]; then exit 0; fi
+          # A plan out of tests is not a vulnerability: name what was skipped and let
+          # the other three scanners (semgrep, trivy, bun audit) keep their verdict.
+          if printf '%s' "$out" | grep -qiE 'test limit|increase your tests|rate.?limit|429|too many requests|authentication (error|failed)|not authori|quota|not enabled|unsupported'; then
+            echo "::warning title=Snyk Code non-blocking::snyk code test unavailable — non-blocking; semgrep covers SAST."
+            exit 0
+          fi
+          exit "$code"
       - name: Monitor (main only)
         if: github.ref == 'refs/heads/main'
         env:
