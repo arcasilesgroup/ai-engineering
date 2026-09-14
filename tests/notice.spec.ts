@@ -115,6 +115,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
     const home = sandbox("home");
     process.env["AI_ENG_HOME"] = home;
     process.env["PATH"] = pathWithRegistryShim("9.9.9");
+    delete process.env["AI_ENG_NO_UPDATE_NOTICES"];
     const { maybeNotice } = await notice();
 
     maybeNotice();
@@ -147,6 +148,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
     writeFileSync(join(home, "version.json"), JSON.stringify({ version: "0.0.1", ts: Date.now() - 25 * 60 * 60 * 1000 }));
     process.env["AI_ENG_HOME"] = home;
     process.env["PATH"] = pathWithRegistryShim("9.9.9");
+    delete process.env["AI_ENG_NO_UPDATE_NOTICES"];
     const { maybeNotice } = await notice();
 
     maybeNotice();
@@ -166,6 +168,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
     writeFileSync(join(home, "version.json"), "{not json at all");
     process.env["AI_ENG_HOME"] = home;
     process.env["PATH"] = pathWithRegistryShim(VERSION);
+    delete process.env["AI_ENG_NO_UPDATE_NOTICES"];
     const { maybeNotice } = await notice();
 
     maybeNotice();
@@ -178,6 +181,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
     writeFileSync(join(home, "version.json"), stale);
     process.env["AI_ENG_HOME"] = home;
     process.env["PATH"] = sandbox("empty-bin");
+    delete process.env["AI_ENG_NO_UPDATE_NOTICES"];
     const { maybeNotice } = await notice();
 
     expect(captureOutput(() => maybeNotice())).toBe("");
@@ -195,7 +199,9 @@ describe("maybeNotice — silent unless there is something to say", () => {
     // The shim IS a file named `bun`, so the child is launched through the running
     // interpreter by absolute path — resolving "bun" through PATH would run the shim.
     const run = Bun.spawnSync([process.execPath, "-e", `import { maybeNotice } from "${entry}"; maybeNotice();`], {
-      env: { ...process.env, AI_ENG_HOME: home, PATH: bin, NO_COLOR: "1" },
+      // An empty opt-out is no opt-out: the runner or a sibling test file may have set
+      // AI_ENG_NO_UPDATE_NOTICES=1, and this child has to ask for the notice.
+      env: { ...process.env, AI_ENG_HOME: home, PATH: bin, NO_COLOR: "1", AI_ENG_NO_UPDATE_NOTICES: "" },
       stdout: "pipe",
       stderr: "pipe",
     });
