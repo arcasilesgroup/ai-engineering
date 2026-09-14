@@ -52,7 +52,7 @@ Lane: standard, full
 Writes: .ai-engineering/plan.html
 Read by: the human, the next iteration of the loop
 Dies: with the milestone, when plan.html dies
-Next: ai-proof after each step; ai-verify when plan.html is fully green
+Next: ai-proof after each step, then the closing chain — ai-verify, the fired triggers and ai-visual-recap — once plan.html is fully green (see The closing chain)
 
 Source: Loop-Engineering, Loop Salon demo repo (attributed — no author or URL declared
 upstream; open license issue H4).
@@ -69,8 +69,39 @@ upstream; open license issue H4).
    deny / destructive action above budget.
 4. The token/turn budget comes from `.ai-engineering/config.toml` (`[budget]`), not from the
    conversation.
-5. The closing report is produced by ai-visual-recap (`.ai-engineering/recap.html`).
+5. The closing report is produced by ai-visual-recap (`.ai-engineering/recap.html`) — step 5
+   of the closing chain below, which the loop runs to the end rather than stopping at the
+   last green gate.
 6. The "enough" criterion is KISS/YAGNI: the smallest thing that closes the gate.
+
+## The closing chain
+
+Green gates are not the end of the loop. The loop ends here, in this order, and it yields
+nowhere inside this chain except at one of the three stops:
+
+1. **`ai-eng spec run`** — every gate, rechecked. A red gate is the next step, never a
+   report.
+2. **Read the greens.** A CHECK that cannot fail for the reason its own text states is a
+   finding about the contract, not evidence: an `ls` of an artifact any earlier run already
+   satisfies, a proof script whose case is never exercised, a `-t` filter that matches no
+   test. Name it to the human with the gate id and what would settle it. `spec.html` is
+   approved, so that CHECK is theirs to reopen — never the loop's to quietly count as met.
+3. **ai-verify** — the requirement-level pass, run by an agent that did not build it: one
+   verdict per requirement (MET / PARTIAL / DIVERGED / MISSING / UNASKED / UNVERIFIABLE),
+   each with file:line and the command that proves it. `DIVERGED` is a decision for the
+   human, not a fix.
+4. **The fired triggers' own artifacts**, per the spec's trigger list — `security` →
+   ai-security (`findings.json` + `REPORT.md`), `public-interface` → ai-write,
+   `arch-change` → the arch rules and their test. A fired trigger left without its artifact
+   keeps the milestone open, whatever the gates say.
+5. **ai-visual-recap** → `.ai-engineering/recap.html`. The loop does not write this file by
+   hand: the recap is that skill's artifact, and its markup comes from the artifact design,
+   never from the loop's taste.
+6. **Hand over the close.** `ai-eng spec close` is the human's: it is the act that unfreezes
+   the contract, and un-freezing a contract nobody signed off is not the loop's call.
+
+In facilitator mode the chain is the same, run once at the end of the plan. Between steps it
+is still one step, its receipt, then stop.
 
 ## Facilitator mode
 
