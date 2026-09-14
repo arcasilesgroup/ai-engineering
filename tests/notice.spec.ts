@@ -40,20 +40,25 @@ async function notice(): Promise<typeof import("../src/notice.ts")> {
   return import("../src/notice.ts");
 }
 
-/** Capture what the notice writes: clack's logger goes to stdout, not stderr. */
+/** Capture what the notice writes. clack's logger picks its stream from whether stdout is
+ *  a TTY: a terminal gets it on stdout, CI gets it on stderr — so both are watched, and
+ *  the test passes in either environment for the same reason. */
 function captureOutput(run: () => void): string {
   const chunks: string[] = [];
-  const streamSpy = spyOn(process.stdout, "write").mockImplementation(((chunk: string) => {
+  const write = ((chunk: unknown) => {
     chunks.push(String(chunk));
     return true;
-  }) as never);
+  }) as never;
+  const outSpy = spyOn(process.stdout, "write").mockImplementation(write);
+  const errSpy = spyOn(process.stderr, "write").mockImplementation(write);
   const logSpy = spyOn(console, "log").mockImplementation(((...args: unknown[]) => {
     chunks.push(args.map(String).join(" "));
   }) as never);
   try {
     run();
   } finally {
-    streamSpy.mockRestore();
+    outSpy.mockRestore();
+    errSpy.mockRestore();
     logSpy.mockRestore();
   }
   return chunks.join("");
