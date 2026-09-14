@@ -3,6 +3,10 @@
 **Target:** `arcasilesgroup/ai-engineering`, HEAD `8cf4983` (`chore(ai-eng): assets → 2.1.0`) **plus the uncommitted
 working tree** — the global-carriers change set (`src/env.ts`, `src/chain/**`, `src/guards/**`, `src/surfaces/**`,
 `src/floor/**`, `src/commands/**`, `src/install.ts`, `templates/**`, `skills/.chain-bundle/**`).
+
+**Landed as:** the audit's own fixes are in `437ca6ba` (`refactor(chain): the gate is one question, and the carrier
+lives where the host reads it`) — this file describes the tree that commit contains, not the one it replaced. An
+audit without the commit it landed in is an audit of an unnamed diff.
 **Fired by:** the repo's own `security` trigger, for the global-carriers milestone.
 **Date:** 2026-09-14 · **Technique:** read-only static audit — no product code was run, no payload was crafted, no network call was made.
 

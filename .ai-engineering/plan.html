@@ -119,5 +119,12 @@
 <div class="card context">
   <p>Las dos reglas de arquitectura ya entraron con el paso 1 (<code>env</code> como capa de abajo que no importa nada, y <code>chain</code> que no importa <code>surfaces</code>), y el test de arquitectura dejo de ser vacio. <code>docs/global-carriers.md</code> existe, esta enlazado desde el README y toda ruta que afirma esta leida de la tabla de carriers, con su fuente y su fecha.</p>
 </div>
+<h2><span class="num">09</span>Paso 12 — ai-verify (tier 1, ojos frescos)</h2>
+<div class="card context">
+  <p>El contrato de <code>ai-goal</code> dice «Next: ai-proof after each step; ai-verify when plan.html is fully green». Lo segundo no se habia ejecutado: se lanzo al final, contra el contrato aprobado, por un auditor distinto del que construyo (spec-auditor, read-only, con los CHECK corridos de verdad).</p>
+  <p><b>Veredicto:</b> los 8 work points <b>MET</b>; 19 de 20 gates <b>MET</b> con su salida real; todas las constraints de §03 cumplidas (una sola puerta, ningun carrier sin marca, nada sin prueba de carga, y los cuatro descartados realmente ausentes); los non-goals verificados como ausentes (sin <code>core.hooksPath</code> global, sin el split <code>copilot-cloud</code>); y las afirmaciones de <code>docs/global-carriers.md</code> que se comprobaron, correctas. Cero entregables CLAIMED-NOT-REAL.</p>
+  <p><b>El unico hallazgo es mio y es de diseño del gate, no del codigo:</b> G17 pasa con <code>ls .ai-engineering/security/run-*/findings.json</code>, que no puede fallar si existe cualquier run — el artefacto correcto existe (run-2, con los 8 hallazgos de ESTE diff) pero el CHECK no lo prueba. No se corrige aqui: <code>spec.html</code> esta aprobado y su sha256 esta pinado, asi que cambiar ese CHECK es una decision humana (reabrir el contrato), no un arreglo del agente. Lo que si se ha hecho es que el informe de la auditoria nombre el commit en el que aterrizo (<code>437ca6ba</code>), para que «cualquier run» no pueda confundirse con «el run de este diff».</p>
+  <p>Los veredictos viven aqui y no en la seccion EVIDENCE de <code>spec.html</code> a proposito: ese fichero lo escribe <code>ai-eng spec run</code> y esta autoprotegido.</p>
+</div>
 </body>
 </html>
