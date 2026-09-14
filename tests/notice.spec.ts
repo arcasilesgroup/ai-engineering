@@ -98,36 +98,34 @@ describe("maybeNotice — silent unless there is something to say", () => {
     process.env["PATH"] = pathWithRegistryShim("9.9.9");
     process.chdir(repo);
     const { maybeNotice } = await notice();
-    expect(captureOutput(() => maybeNotice())).toBe("");
+    captureOutput(() => maybeNotice());
+    // Switched off means the registry was never asked: no cache write, no line.
+    expect(existsSync(join(home, "version.json"))).toBe(false);
   });
 
-  test("a newer version on the registry is one line, and the answer is cached for the next 24h", async () => {
+  test("a newer version on the registry is cached for the next 24h, and a fresh cache is not re-asked", async () => {
     const home = sandbox("home");
     process.env["AI_ENG_HOME"] = home;
     process.env["PATH"] = pathWithRegistryShim("9.9.9");
     const { maybeNotice } = await notice();
-    const line = captureOutput(() => maybeNotice());
-    expect(line).toContain("9.9.9 available");
-    expect(line).toContain(`current: ${VERSION}`);
+
+    maybeNotice();
+    expect(JSON.parse(readFileSync(join(home, "version.json"), "utf8")).version).toBe("9.9.9");
+
+    // The cache answers now: a PATH that would say something else must not be consulted.
+    process.env["PATH"] = pathWithRegistryShim("9.9.8");
+    maybeNotice();
     expect(JSON.parse(readFileSync(join(home, "version.json"), "utf8")).version).toBe("9.9.9");
   });
 
-  test("a fresh cache answers without touching the registry, and the tool does not announce itself", async () => {
-    const home = sandbox("home");
-    writeFileSync(join(home, "version.json"), JSON.stringify({ version: VERSION, ts: Date.now() }));
-    process.env["AI_ENG_HOME"] = home;
-    process.env["PATH"] = sandbox("empty-bin"); // no manager: a network read would return null and hide the bug
-    const { maybeNotice } = await notice();
-    expect(captureOutput(() => maybeNotice())).toBe("");
-  });
-
-  test("a cache older than a day is stale: the registry is asked again", async () => {
+  test("the cache older than a day is stale: the registry is asked again", async () => {
     const home = sandbox("home");
     writeFileSync(join(home, "version.json"), JSON.stringify({ version: "0.0.1", ts: Date.now() - 25 * 60 * 60 * 1000 }));
     process.env["AI_ENG_HOME"] = home;
     process.env["PATH"] = pathWithRegistryShim("9.9.9");
     const { maybeNotice } = await notice();
-    expect(captureOutput(() => maybeNotice())).toContain("9.9.9 available");
+
+    maybeNotice();
     expect(JSON.parse(readFileSync(join(home, "version.json"), "utf8")).version).toBe("9.9.9");
   });
 
@@ -137,16 +135,42 @@ describe("maybeNotice — silent unless there is something to say", () => {
     process.env["AI_ENG_HOME"] = home;
     process.env["PATH"] = pathWithRegistryShim(VERSION);
     const { maybeNotice } = await notice();
-    expect(captureOutput(() => maybeNotice())).toBe("");
+
+    maybeNotice();
     expect(JSON.parse(readFileSync(join(home, "version.json"), "utf8")).version).toBe(VERSION);
   });
 
-  test("offline with a stale cache stays silent — a notice is never worth a failure", async () => {
+  test("offline with a stale cache stays silent and rewrites nothing", async () => {
     const home = sandbox("home");
-    writeFileSync(join(home, "version.json"), JSON.stringify({ version: "0.0.1", ts: 0 }));
+    const stale = JSON.stringify({ version: "0.0.1", ts: 0 });
+    writeFileSync(join(home, "version.json"), stale);
     process.env["AI_ENG_HOME"] = home;
     process.env["PATH"] = sandbox("empty-bin");
     const { maybeNotice } = await notice();
+
     expect(captureOutput(() => maybeNotice())).toBe("");
+    expect(readFileSync(join(home, "version.json"), "utf8")).toBe(stale);
+  });
+
+  test("the line itself reaches a terminal: one read, one line (a real process, no stream spying)", () => {
+    // clack picks its stream from whether stdout is a TTY, so the rendered line is checked
+    // where it is actually rendered: a child process with the sandbox on its env. This is
+    // also the only assertion that would catch a notice that decides correctly and prints
+    // nothing.
+    const home = sandbox("home");
+    const bin = pathWithRegistryShim("9.9.9");
+    const entry = join(process.cwd(), "src/notice.ts");
+    // The shim IS a file named `bun`, so the child is launched through the running
+    // interpreter by absolute path — resolving "bun" through PATH would run the shim.
+    const run = Bun.spawnSync([process.execPath, "-e", `import { maybeNotice } from "${entry}"; maybeNotice();`], {
+      env: { ...process.env, AI_ENG_HOME: home, PATH: bin, NO_COLOR: "1" },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const printed = run.stdout.toString() + run.stderr.toString();
+    expect(printed).toContain("9.9.9 available");
+    expect(printed).toContain(`current: ${VERSION}`);
+    expect(JSON.parse(readFileSync(join(home, "version.json"), "utf8")).version).toBe("9.9.9");
   });
 });
