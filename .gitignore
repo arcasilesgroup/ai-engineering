@@ -6,3 +6,7 @@ dist/
 .ai-engineering/receipts/
 .ai-engineering/cache/
 .claude/reviews/
+# Generated, never committed: the lcov report SonarCloud reads, and the npm lockfile
+# the Snyk job builds from package.json (this repository installs from bun.lock).
+coverage/
+package-lock.json
