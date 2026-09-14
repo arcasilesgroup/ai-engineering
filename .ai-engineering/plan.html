@@ -42,12 +42,12 @@
 <tr><td>2</td><td>El floor de git consulta la misma puerta: sin <code>config.toml</code> sale 0, con <code>config.toml</code> y sin binario sale 1.</td><td>G5</td><td>🟢 la puerta del verbo y el exit 0 silencioso en repo ajeno, con su control gobernado (G5 PASS). Falta el «sin binario» del shim: eso es el paso 7.</td></tr>
 <tr><td>3</td><td>Merge por marcador desde la primera escritura, empezando por el fichero mas peligroso (<code>~/.claude/settings.json</code>): entradas propias identificables, ajenas intactas, fichero no-JSON intocable.</td><td>G6</td><td>🟢 spec run 064acbda · PASS. Y mas estricto de lo que pedia: si el fichero no se puede reproducir byte a byte (compacto, CRLF raro), NO se toca y se dice, en vez de reformatearlo.</td></tr>
 <tr><td>4</td><td>Carriers de maquina con su tabla de rutas y su fuente por host. OMP primero, arreglando el carrier que hoy vive en <code>.agents/hooks/</code> y probando que carga de verdad.</td><td>G7 G8 G9</td><td>🟢 spec run 064acbda — los tres PASS. <code>scripts/proof-carriers.sh</code> verde con las dos pruebas: el loader del propio host descubre el carrier y bloquea, y una sesion real de omp recibe el deny con su receipt.</td></tr>
-<tr><td>5</td><td>El allow de Cursor: envelope del dialecto en el camino de allow cuando el host lo exige.</td><td>G10</td><td>🟡</td></tr>
-<tr><td>6</td><td>Ciclo de vida: <code>init</code> (repo con dos carriers, el resto en la maquina), <code>update</code> (carrier de Codex solo si cambian los bytes), <code>doctor</code> (tres chequeos separados + version del estado de maquina), <code>uninstall</code> (restaura la maquina).</td><td>G11 G12 G13</td><td>🟡</td></tr>
-<tr><td>7</td><td>Floor con <code>init.templateDir</code>: clones que nacen con el, templateDir ajeno intacto, restauracion en uninstall, y <code>core.hooksPath</code> ajeno que ya no se borra en silencio.</td><td>G14</td><td>🟡</td></tr>
-<tr><td>8</td><td>Deuda destapada: cache de veredictos (mkdir y <code>session_id</code> saneado, o borrado), <code>protectedPaths</code> con <code>home()</code> y HOME protegido, <code>specOpen</code> sin crear carrier ajeno.</td><td>G16</td><td>🟡</td></tr>
-<tr><td>9</td><td>Regenerar assets y migrar: bundle del chain re-emitido, <code>update</code> en los repos gobernados, <code>doctor</code> detectando el drift de carrier.</td><td>G15</td><td>🟡</td></tr>
-<tr><td>10</td><td>Auditoria de seguridad del diff (trigger <code>security</code>), con <code>findings.json</code> y <code>REPORT.md</code>.</td><td>G17</td><td>🟡</td></tr>
+<tr><td>5</td><td>El allow de Cursor: envelope del dialecto en el camino de allow cuando el host lo exige.</td><td>G10</td><td>🟢 el envelope de allow sale en el dialecto cuando el host lo exige (Cursor); Codex, Claude y los in-process siguen mudos porque su contrato dice que el silencio es exito.</td></tr>
+<tr><td>6</td><td>Ciclo de vida: <code>init</code> (repo con dos carriers, el resto en la maquina), <code>update</code> (carrier de Codex solo si cambian los bytes), <code>doctor</code> (tres chequeos separados + version del estado de maquina), <code>uninstall</code> (restaura la maquina).</td><td>G11 G12 G13</td><td>🟢 machine.json registra que version escribio cada carrier; doctor separa carrier de maquina, carrier de repo y estado de version (con la linea de DOWNGRADE y la de /hooks para Codex); uninstall everything barre los carriers y restaura init.templateDir.</td></tr>
+<tr><td>7</td><td>Floor con <code>init.templateDir</code>: clones que nacen con el, templateDir ajeno intacto, restauracion en uninstall, y <code>core.hooksPath</code> ajeno que ya no se borra en silencio.</td><td>G14</td><td>🟢 init.templateDir con sus tres reglas, el shim con la puerta dentro, y un core.hooksPath ajeno que ya no se borra en silencio. `proof-cli-ux.sh` R16 prueba el clone que nace con el floor.</td></tr>
+<tr><td>8</td><td>Deuda destapada: cache de veredictos (mkdir y <code>session_id</code> saneado, o borrado), <code>protectedPaths</code> con <code>home()</code> y HOME protegido, <code>specOpen</code> sin crear carrier ajeno.</td><td>G16</td><td>🟢 cache de veredictos con mkdir y session_id hasheado en el nombre, protectedPaths() protege el canon y los espejos tambien sin repo, y spec open ya no inventa nada (la puerta del paso 1).</td></tr>
+<tr><td>9</td><td>Regenerar assets y migrar: bundle del chain re-emitido, <code>update</code> en los repos gobernados, <code>doctor</code> detectando el drift de carrier.</td><td>G15</td><td>🟢 `sweepMovedRepoCarriers()` saca del repo los carriers que se mudaron (este repo incluido: `.agents/hooks/` fuera), assets regenerados y el repo con sus dos carriers.</td></tr>
+<tr><td>10</td><td>Auditoria de seguridad del diff (trigger <code>security</code>), con <code>findings.json</code> y <code>REPORT.md</code>.</td><td>G17</td><td>🟢</td></tr>
 <tr><td>11</td><td>Reglas de arquitectura y documentacion: el diff a <code>arch.rules.json</code> como PR, y <code>docs/global-carriers.md</code> enlazado desde el README (triggers <code>arch-change</code> y <code>public-interface</code>).</td><td>G18 G19 G20</td><td>🟡</td></tr>
 </table>
 
@@ -72,16 +72,16 @@
 <tr><td>G7</td><td>🟢</td><td>spec run 064acbda · PASS</td></tr>
 <tr><td>G8</td><td>🟢</td><td>spec run 064acbda · PASS</td></tr>
 <tr><td>G9</td><td>🟢</td><td>spec run 064acbda · PASS</td></tr>
-<tr><td>G10</td><td>🟡</td><td>—</td></tr>
-<tr><td>G11</td><td>🟡</td><td>—</td></tr>
-<tr><td>G12</td><td>🟡</td><td>—</td></tr>
-<tr><td>G13</td><td>🟡</td><td>—</td></tr>
-<tr><td>G14</td><td>🟡 verde falso</td><td>dab8dad5 da PASS pero <code>proof-cli-ux.sh</code> no prueba el clone nuevo: la mitad «nace con el floor» no existe todavia (paso 7). El PASS de hoy solo dice que los proofs viejos siguen pasando.</td></tr>
+<tr><td>G10</td><td>🟢</td><td>ver la nota del paso correspondiente</td></tr>
+<tr><td>G11</td><td>🟢</td><td>ver la nota del paso correspondiente</td></tr>
+<tr><td>G12</td><td>🟢</td><td>ver la nota del paso correspondiente</td></tr>
+<tr><td>G13</td><td>🟢</td><td>ver la nota del paso correspondiente</td></tr>
+<tr><td>G14</td><td>🟢</td><td>dab8dad5 da PASS pero <code>proof-cli-ux.sh</code> no prueba el clone nuevo: la mitad «nace con el floor» no existe todavia (paso 7). El PASS de hoy solo dice que los proofs viejos siguen pasando.</td></tr>
 <tr><td>G15</td><td>🟢</td><td>spec run dab8dad5 · 160 pass / 0 fail</td></tr>
-<tr><td>G16</td><td>🟡</td><td>—</td></tr>
-<tr><td>G17</td><td>🟡 verde falso</td><td>dab8dad5 da PASS por el <code>run-1/findings.json</code> del milestone anterior. La auditoria de ESTE diff es el paso 10 y escribe su propio run.</td></tr>
+<tr><td>G16</td><td>🟢</td><td>ver la nota del paso correspondiente</td></tr>
+<tr><td>G17</td><td>🟢</td><td>la auditoria de este diff escribe su propio <code>run-2/</code>: el PASS anterior venia del milestone previo.</td></tr>
 <tr><td>G18</td><td>🟢</td><td>spec run dab8dad5 · PASS</td></tr>
-<tr><td>G19</td><td>🟡</td><td>—</td></tr>
+<tr><td>G19</td><td>🟢</td><td>ver la nota del paso correspondiente</td></tr>
 <tr><td>G20</td><td>🟢</td><td>spec run dab8dad5 · PASS</td></tr>
 </table>
 
@@ -99,6 +99,25 @@
   <p><b>Dos bugs que solo aparecen cargando.</b> (1) El bundle del chain al lado del carrier <em>tambien</em> se carga como hook — omp recorre todos los <code>*.ts</code> de ese directorio — y muere con «Hook must export a default function». El bundle va con punto delante: omp salta las entradas que empiezan por <code>.</code>. (2) Los nombres de herramienta en minuscula de OMP no casaban con ningun matcher: los aliases que ya existian para pi valen para OMP, que es su descendiente.</p>
   <p><b>La prueba en vivo tuvo que cambiar de cebo.</b> Pedirle a la sesion <code>git commit -n</code> no prueba nada: el modelo lo rechaza solo, leyendo su AGENTS.md. El probe que si prueba es una repeticion (<code>echo ping</code> cinco veces): el modelo no tiene motivo propio para negarse, y la cuarta la deniega el loop guard — un veredicto que SOLO puede venir del carrier.</p>
   <p><b>Un fallo propio, encontrado y cerrado.</b> Un test lanzaba el CLI sin aislar <code>AI_ENG_HOME</code>, y como los carriers ahora se escriben fuera del repo, ese test instalo hooks en mi <code>~/.claude/settings.json</code> real. Se limpio con el propio <code>stripSharedText</code> (los 15 ajustes del usuario intactos, cero entradas nuestras) y ahora todo spawn de test lleva su home.</p>
+</div>
+<h2><span class="num">06</span>Notas de los pasos 5 a 9</h2>
+<div class="card context">
+  <p><b>Un allow tambien es un veredicto.</b> Cursor declara <code>failClosed: true</code> en su plantilla, asi que un stdout vacio se lee como fallo de politica y una llamada permitida se rechaza. El camino de allow emite <code>{"permission":"allow"}</code> solo donde el contrato del host lo pide; inventar el envelope en los demas seria un cambio de cable que nadie midio.</p>
+  <p><b>El estado de maquina es la tercera pregunta.</b> <code>~/.ai-engineering/machine.json</code> guarda que version escribio cada carrier y el sha256 de su definicion. Sin eso, un downgrade (carrier nuevo llamando a un chain sin puerta) y el re-trust de Codex (su aprobacion es un hash de la definicion) son invisibles desde los ficheros.</p>
+  <p><b>El floor de git, con su puerta dentro del shim.</b> Los shims viajan a cada clone via <code>init.templateDir</code>, asi que el propio shim pregunta por <code>config.toml</code>: sin declaracion sale 0 y calla; con declaracion y sin binario sale 1 y lo dice. Un <code>init.templateDir</code> del usuario no se pisa (nuestros shims se copian dentro) y <code>uninstall</code> lo devuelve como estaba.</p>
+  <p><b>Dos cosas que este trabajo destapo en mis propias pruebas.</b> (1) Un proof dejo el <code>init.templateDir</code> global apuntando a un temporal borrado: ahora el script se apropia de la config global de git durante su ejecucion y la devuelve. (2) Con <code>AGENTS.md</code> convencional obligatorio en el floor, los fixtures de <code>spec-lifecycle</code> commitaban con <code>-m init</code> y el floor —correctamente— los rechazaba: el mensaje ahora es <code>chore: ...</code>.</p>
+  <p><b>El arbol quedo commiteado por el propio producto.</b> <code>ai-eng update</code> hace su commit de instalacion (<code>git add -A</code>), asi que el trabajo de este milestone entro en <code>chore(ai-eng): assets → 2.1.0</code> junto con lo que hubiera en el arbol. Nada se perdio; el mensaje no describe el cambio y por eso queda escrito aqui.</p>
+</div>
+<h2><span class="num">07</span>Paso 10 — la auditoria, y lo que encontro</h2>
+<div class="card context">
+  <p>Ocho hallazgos confirmados sobre este diff, dos de ellos altos, y los ocho cerrados en el mismo sitio donde se encontraron. El mas serio era del mismo tipo que la deuda que el paso 8 arreglo en el cache de veredictos: <b>el loop guard tambien construia el nombre de su fichero de estado con el <code>session_id</code> crudo</b>, asi que un id con <code>../../../.claude/settings</code> hacia que la primera llamada de la sesion sobrescribiera el <code>settings.json</code> del usuario. Ahora el nombre se deriva, y hay una prueba que lo fija.</p>
+  <p>El segundo alto era mio y contradocia mi propio comentario: <code>shimState()</code> devolvia <code>"empty"</code> para un <code>hooks/</code> con los hooks de otra persona, y el <code>force</code> que salia de ahi los sobrescribia. La funcion no sabia decir <code>"theirs"</code>; ahora si, y el floor copia los suyos al lado sin tocar los ajenos.</p>
+  <p>Los seis restantes: <code>config --remove</code> borraba entero un fichero de settings compartido (ahora quita lo nuestro por marca), el cache de veredictos vivia en la raiz del repo fuera del estado que el lock posee (ahora en <code>.ai-engineering/cache/</code>, ignorado), <code>restoreTemplateDir</code> borraba el ajuste del usuario en vez de devolverlo, <code>config --add</code> declaraba una superficie sin escribir su carrier, el carrier de OMP/Pi ignoraba <code>PI_CODING_AGENT_DIR</code> (una tabla que dice que el host es relocalizable y una ruta fija no pueden ser las dos verdad), y el <code>$comment</code> se borraba por contener la palabra "ai-eng".</p>
+  <p><b>Lo que se acepta, con su razon.</b> Los escalares de plantilla (<code>version</code>, <code>failClosed</code>) no se quitan al desinstalar: distinguir "lo escribimos nosotros" de "el usuario escribio el mismo valor" exigiria un segundo libro de cuentas, y borrar un <code>version</code> ajeno rompe el fichero en vez de restaurarlo. Y un fichero que no se puede reproducir byte a byte se rechaza, no se reformatea.</p>
+</div>
+<h2><span class="num">08</span>Paso 11 — reglas y documentacion</h2>
+<div class="card context">
+  <p>Las dos reglas de arquitectura ya entraron con el paso 1 (<code>env</code> como capa de abajo que no importa nada, y <code>chain</code> que no importa <code>surfaces</code>), y el test de arquitectura dejo de ser vacio. <code>docs/global-carriers.md</code> existe, esta enlazado desde el README y toda ruta que afirma esta leida de la tabla de carriers, con su fuente y su fecha.</p>
 </div>
 </body>
 </html>

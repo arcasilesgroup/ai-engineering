@@ -1,7 +1,7 @@
 // @bun
 // src/chain/mod.ts
 import { readFileSync as readFileSync7, writeFileSync as writeFileSync3, mkdirSync as mkdirSync3 } from "fs";
-import { createHash as createHash3 } from "crypto";
+import { createHash as createHash4 } from "crypto";
 import { dirname, join as join6 } from "path";
 
 // src/env.ts
@@ -723,10 +723,11 @@ function runInjection(payload) {
 
 // src/guards/loop.ts
 import { readFileSync as readFileSync5, writeFileSync, mkdirSync } from "fs";
+import { createHash as createHash2 } from "crypto";
 import { join as join4 } from "path";
 var SIGNATURES_KEPT = 20;
 function stateFile() {
-  return join4(home(), "cache", "loop", `${sessionId()}.json`);
+  return join4(home(), "cache", "loop", `${createHash2("sha256").update(sessionId()).digest("hex").slice(0, 32)}.json`);
 }
 function loadState() {
   try {
@@ -822,7 +823,7 @@ function rewrite(command) {
 // src/receipts.ts
 import { writeFileSync as writeFileSync2, readFileSync as readFileSync6, readdirSync, mkdirSync as mkdirSync2 } from "fs";
 import { join as join5 } from "path";
-import { createHash as createHash2, randomUUID } from "crypto";
+import { createHash as createHash3, randomUUID } from "crypto";
 function writeReceipt(receipt, root) {
   const dir = receiptsDir(root);
   if (!dir)
@@ -920,7 +921,7 @@ function runChain(rawPayload, event, options = {}) {
   const overrides = readOverrides(root);
   const ctx = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
   const dedup = deduplicable(payload) && event === "PreToolUse";
-  const cacheFile = join6(root, "cache", "verdicts", `${createHash3("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
+  const cacheFile = join6(root, ".ai-engineering", "cache", "verdicts", `${createHash4("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {
     const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {

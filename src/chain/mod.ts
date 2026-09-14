@@ -148,12 +148,14 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   const overrides = readOverrides(root);
   const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
 
-  // Same call, same answer: no guard decides the same call twice. The cache lives
-  // under the governed repo, and past the gate there is always one. The filename is
+  // Same call, same answer: no guard decides the same call twice. The cache lives inside
+  // .ai-engineering/ — the directory the lock owns and uninstall sweeps — and not at the
+  // repo root, where it would be an unowned directory our own `git add -A` commits, with
+  // the guard's own messages (absolute paths included) in it. The filename is
   // DERIVED, never the raw session id: a host-supplied string with a slash or `..` in it
   // would put this write outside the cache directory (audit finding R3).
   const dedup = deduplicable(payload) && event === "PreToolUse";
-  const cacheFile = join(root, "cache", "verdicts", `${createHash("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
+  const cacheFile = join(root, ".ai-engineering", "cache", "verdicts", `${createHash("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {
     const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {

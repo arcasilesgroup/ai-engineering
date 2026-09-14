@@ -40,20 +40,29 @@ function shimBody(name: string): string {
   return embeddedTemplate(`git-${name}.tpl`);
 }
 
-/** Are these OUR shims (marker present), and are they the ones this binary ships? */
+/** Whose hooks live here: ours (there is a file with our marker and none without it),
+ *  theirs (there is a file and it is not ours), or empty (no hook file at all).
+ *
+ *  "theirs" is the important answer: a directory holding a person's pre-commit must never
+ *  be written over, and the previous version of this function returned "empty" for it —
+ *  which turned the one protection into a force write. */
 function shimState(dir: string): "ours" | "theirs" | "empty" {
   const hooks = join(dir, "hooks");
   if (!existsSync(hooks)) return "empty";
+  let ours = false;
   for (const name of SHIMS) {
     const path = join(hooks, name);
     if (!existsSync(path)) continue;
+    let body = "";
     try {
-      if (readFileSync(path, "utf8").includes(MARKER)) return "ours";
+      body = readFileSync(path, "utf8");
     } catch {
-      return "theirs";
+      return "theirs"; // unreadable is not ours
     }
+    if (!body.includes(MARKER)) return "theirs";
+    ours = true;
   }
-  return "empty";
+  return ours ? "ours" : "empty";
 }
 
 function writeShims(dir: string, force: boolean): number {
@@ -139,7 +148,10 @@ export function restoreTemplateDir(previous: string | null, ours: string | null)
     return `git init.templateDir kept yours (${current}) · ${removed} ai-eng shim(s) removed from it`;
   }
   if (ours !== null && current !== ours) return `git init.templateDir is now ${current} — left as it is (it is not the one this install set)`;
-  gitConfig(["--unset", "init.templateDir"]);
+  // The value we found is the value we put back — a setting the user owns is never simply
+  // deleted, and a report that claims a restore has to be one.
+  if (previous !== null) gitConfig(["init.templateDir", previous]);
+  else gitConfig(["--unset", "init.templateDir"]);
   if (ours !== null) rmSync(ours, { recursive: true, force: true });
   return previous === null ? "git init.templateDir unset (it was unset before)" : `git init.templateDir restored to ${previous}`;
 }

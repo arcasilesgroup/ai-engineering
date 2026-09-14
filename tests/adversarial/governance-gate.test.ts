@@ -7,11 +7,12 @@
 
 import { describe, test, expect } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runChain } from "../../src/chain/mod.ts";
 import { receiptsDir } from "../../src/env.ts";
+import { protectedPaths, runSelfProtect } from "../../src/guards/self-protect.ts";
 
 const cli = join(import.meta.dir, "..", "..", "src", "cli.ts");
 const PAYLOAD = { tool_name: "Bash", tool_input: { command: "git commit -n -m x" }, tool_use_id: "g1", session_id: "gate" };
@@ -135,6 +136,90 @@ describe("adversarial · the gate (config.toml decides, not .git)", () => {
     } finally {
       rmSync(foreign, { recursive: true, force: true });
       rmSync(governed, { recursive: true, force: true });
+    }
+  });
+
+  test("the session id cannot walk out of the state directory the guard writes to", () => {
+    // The loop guard keys its state file on the session id, which the HOST supplies. A
+    // traversal there overwrites whatever it names — a user's editor settings, or the
+    // machine carrier that enforces policy everywhere — so the filename is derived.
+    const governed = governedRepo();
+    const sessionHome = mkdtempSync(join(tmpdir(), "ai-eng-loop-home-"));
+    try {
+      mkdirSync(join(sessionHome, ".claude"), { recursive: true });
+      const victim = join(sessionHome, ".claude", "settings.json");
+      const sentinel = '{\n  "env": {\n    "MINE": "yes"\n  }\n}\n';
+      writeFileSync(victim, sentinel);
+      const payload = {
+        tool_name: "Bash",
+        tool_input: { command: "echo one" },
+        tool_use_id: "l1",
+        session_id: "../../../.claude/settings",
+      };
+      const env = { ...ENV, AI_ENG_HOME: sessionHome };
+      const r = spawnSync(process.execPath, [cli, "chain", "PreToolUse"], { cwd: governed, encoding: "utf8", env, input: JSON.stringify(payload) });
+      expect(r.status).toBe(0);
+      expect(readFileSync(victim, "utf8")).toBe(sentinel); // not one byte of the user's file
+      const loopDir = join(sessionHome, "cache", "loop");
+      expect(existsSync(loopDir)).toBe(true);
+      for (const name of readdirSync(loopDir)) expect(/^[0-9a-f]{32}\.json$/.test(name)).toBe(true);
+    } finally {
+      rmSync(governed, { recursive: true, force: true });
+      rmSync(sessionHome, { recursive: true, force: true });
+    }
+  });
+
+  test("debt closed: the verdict cache writes inside the repo, HOME is protected, spec open invents nothing", () => {
+    // Three findings the milestone's own inventory turned up, each with its own check
+    // because each one was invisible: a cache that never worked, a guard list that
+    // un-protected HOME outside a repo, and a verb that created .ai-engineering/ in a
+    // stranger's checkout.
+    const governed = governedRepo();
+    const foreign = foreignRepo();
+    const sessionHome = mkdtempSync(join(tmpdir(), "ai-eng-debt-home-"));
+    try {
+      // 1. The cache: the second delivery of a call is answered from the file, which means
+      //    the directory got created. It never did — the write hit ENOENT into a silent
+      //    catch, so the cache was dead code with a plausible name.
+      const payload = { tool_name: "Bash", tool_input: { command: "git commit -m 'feat: x'" }, tool_use_id: "d1", session_id: "../../escaped" };
+      run(["chain", "PreToolUse"], governed, JSON.stringify(payload));
+      const cacheDir = join(governed, ".ai-engineering", "cache", "verdicts");
+      expect(existsSync(cacheDir)).toBe(true);
+      const files = readdirSync(cacheDir);
+      expect(files.length).toBeGreaterThan(0);
+      // 2. The session id reaches the cache FILENAME, and a host-supplied string with `..`
+      //    in it must not walk out of that directory.
+      for (const name of files) expect(/^[0-9a-f]{32}\.json$/.test(name)).toBe(true);
+      expect(existsSync(join(governed, "escaped.json"))).toBe(false);
+      expect(existsSync(join(governed, ".ai-engineering", "cache", "escaped.json"))).toBe(false);
+      // And it lives INSIDE the state directory the lock owns: a cache at the repo root
+      // is an unowned directory, and our own `git add -A` would commit the guard's
+      // messages into the user's repository.
+      expect(existsSync(join(governed, "cache"))).toBe(false);
+
+      // 3. HOME's canon and mirrors are protected even when no governed repo is above the
+      //    call: that is exactly the call an injected instruction would use.
+      const previous = process.env["AI_ENG_HOME"];
+      process.env["AI_ENG_HOME"] = sessionHome;
+      try {
+        const paths = protectedPaths(null);
+        expect(paths.literals.some((literal) => literal.includes(join(sessionHome, "skills")))).toBe(true);
+        expect(paths.literals.some((literal) => literal.includes(join(sessionHome, ".claude", "settings.json")))).toBe(true);
+        const denied = runSelfProtect({ tool_name: "Write", tool_input: { file_path: join(sessionHome, "skills", "ai-verify", "SKILL.md"), content: "x" } } as never, null);
+        expect(denied?.deny).toBe(true);
+      } finally {
+        if (previous === undefined) delete process.env["AI_ENG_HOME"];
+        else process.env["AI_ENG_HOME"] = previous;
+      }
+
+      // 4. `spec open` in a repo that never declared itself writes nothing at all — it used
+      //    to create the whole .ai-engineering/ carrier behind the user's back.
+      run(["spec", "open", "not-mine"], foreign);
+      expect(existsSync(join(foreign, ".ai-engineering"))).toBe(false);
+    } finally {
+      rmSync(governed, { recursive: true, force: true });
+      rmSync(foreign, { recursive: true, force: true });
+      rmSync(sessionHome, { recursive: true, force: true });
     }
   });
 });

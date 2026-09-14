@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import { repoRoot, loadConfig, home, governanceGap, enabledSurfaces } from "../env.ts";
 import { summarizeReceipts } from "../receipts.ts";
 import { parseLock, sha256 } from "../install.ts";
-import { SURFACES, machineCarrier, repoCarrier, carrierFiles, machineBase, readMachineState } from "../surfaces/adapters.ts";
+import { SURFACES, machineCarrier, repoCarrier, carrierFiles, carrierPath, readMachineState } from "../surfaces/adapters.ts";
 import { unmetTriggers } from "../spec/triggers.ts";
 import { VERSION } from "../version.ts";
 import { runChain } from "../chain/mod.ts";
@@ -247,12 +247,14 @@ async function runChecks(cwd = process.cwd()): Promise<{ results: CheckResult[];
       const rows: string[] = [];
       let status: CheckResult["status"] = "ok";
       if (machine && files) {
-        const absolute = join(machineBase(), machine.path);
+        const absolute = carrierPath(machine);
         if (!existsSync(absolute)) {
           status = surface.tier === "core" ? "fail" : "warn";
           rows.push(`machine carrier ~/${machine.path} missing → ai-eng update`);
         } else if (machine.kind === "module") {
-          const drift = readFileSync(absolute, "utf8") !== files.main || (machine.chain !== undefined && files.chain !== null && readFileSync(join(machineBase(), machine.chain), "utf8") !== files.chain);
+          const drift =
+            readFileSync(absolute, "utf8") !== files.main ||
+            (machine.chain !== undefined && files.chain !== null && readFileSync(carrierPath(machine, machine.chain), "utf8") !== files.chain);
           if (drift) status = "warn";
           rows.push(drift ? `machine carrier ~/${machine.path} is NOT the one this binary ships → ai-eng update` : `machine carrier ~/${machine.path} matches the binary`);
         } else {

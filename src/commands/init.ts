@@ -254,15 +254,19 @@ export async function initMain(flags: { yes?: boolean; global?: boolean; surface
       for (const path of report.written) lines.push(`✓ ${path} — machine carrier`);
       for (const path of report.untouched) lines.push(`· ${path} — machine carrier already current`);
       for (const refused of report.refused) lines.push(refuseLine(refused));
-      // The git floor's second life: new clones of a governed repo are born with the
-      // shims, instead of a CI step rebuilding them after the fact (§13.2).
-      const template = installTemplateDir();
-      if (template.status !== "failed") {
-        rememberTemplateDir(template.previous, template.ours);
-        lines.push(`✓ ${template.line}`);
-      } else {
-        lines.push(`⚠ ${template.line}`);
-      }
+    }
+  }
+  // The git floor's second life, and it is the REPO's floor, not the carriers': a repo
+  // whose surfaces all read from the checkout still deserves clones born with the shims,
+  // instead of a CI step rebuilding them after the fact (§13.2). It rides the same
+  // machine-side permission as everything else that writes outside the repo.
+  if (machineAgreed || (await confirmWithInput("Write the git floor into your global init.templateDir, so new clones are born with it?", true)) === true) {
+    const template = installTemplateDir();
+    if (template.status !== "failed") {
+      rememberTemplateDir(template.previous, template.ours);
+      lines.push(`✓ ${template.line}`);
+    } else {
+      lines.push(`⚠ ${template.line}`);
     }
   }
   // next step — each idea one block, the dim tail carries the why.

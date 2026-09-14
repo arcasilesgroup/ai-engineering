@@ -2,11 +2,12 @@
 // Never touches AGENTS.md and never writes overrides (those are manual, with reason).
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { install, stripSharedText } from "../install.ts";
 import { join } from "node:path";
 import { groupMultiselect, isCancel } from "@clack/prompts";
 import { repoRoot, enabledSurfaces, isGoverned } from "../env.ts";
-import { SURFACES, mirrorTargets, surfaceCanGovern, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
-import { hasAdapter, surfaceOptions } from "./init-shared.ts";
+import { SURFACES, mirrorTargets, surfaceCanGovern, repoCarrier, machineCarrier, installMachineCarriers, type Surface } from "../surfaces/adapters.ts";
+import { hasAdapter, planEntries, refuseLine, surfaceOptions } from "./init-shared.ts";
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
@@ -22,6 +23,7 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
     ui.end("Nothing changed.");
     return 2;
   }
+  let addedNow: string | null = null;
   const configPath = join(root, ".ai-engineering", "config.toml");
   // Governed means the declaration parsed, so enabledSurfaces() cannot be guessing here.
   const surfacesBefore = enabledSurfaces();
@@ -33,7 +35,10 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
       ui.end("Nothing changed.");
       return 2;
     }
-    if (!current.includes(flags.add)) current = [...current, flags.add];
+    if (!current.includes(flags.add)) {
+      current = [...current, flags.add];
+      addedNow = flags.add;
+    }
   } else if (flags.remove) {
     current = current.filter((id) => id !== flags.remove);
     removeSurfaceFiles(root, flags.remove);
@@ -63,6 +68,9 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
     ? raw.replace(/^enabled\s*=.*$/m, `enabled = ${list}`)
     : `${raw.trim() === "" ? "" : `${raw.trimEnd()}\n\n`}[surfaces]\nenabled = ${list}\n`;
   writeFileSync(configPath, next);
+  // Declaring a surface and leaving it without a carrier is a governed repo that is not
+  // governed on that host. The carriers are written right here, by the same code init uses.
+  for (const id of current.filter((entry) => !surfacesBefore.includes(entry) || entry === addedNow)) installSurfaceFiles(root, id);
   const added = current.filter((id) => !surfacesBefore.includes(id));
   const removedSurfaces = surfacesBefore.filter((id) => !current.includes(id));
   const delta: ui.Row[] = [
@@ -84,12 +92,27 @@ function removeSurfaceFiles(root: string, id: string): void {
   const surface = SURFACES.find((s) => s.id === id);
   if (!surface) return;
   const placement = repoCarrier(surface);
-  const files = carrierFiles(id, "repo");
-  if (!placement || !files) return;
+  if (!placement) return;
   const absolute = join(root, placement.path);
   if (existsSync(absolute)) {
-    unlinkSync(absolute);
-    ui.ok(`${placement.path} removed (ai-eng entries only)`);
+    if (placement.kind === "module") {
+      unlinkSync(absolute);
+      ui.ok(`${placement.path} removed`);
+    } else {
+      // A settings carrier is a file the user also owns: ours come out by marker, exactly
+      // as uninstall does it. A bare unlink here deleted their hooks and told them only
+      // our entries were removed — the two verbs disagreeing about one file.
+      const stripped = stripSharedText(readFileSync(absolute, "utf8"));
+      if (stripped === null) {
+        ui.warn(`${placement.path} left alone — not JSON this installer can rewrite without reformatting it`);
+      } else if (Object.keys(JSON.parse(stripped) as Record<string, unknown>).length === 0) {
+        unlinkSync(absolute);
+        ui.ok(`${placement.path} removed (it held only ai-eng entries)`);
+      } else {
+        writeFileSync(absolute, stripped);
+        ui.ok(`${placement.path}: ai-eng entries removed, yours kept`);
+      }
+    }
   }
   if (placement.chain) {
     const chainPath = join(root, placement.chain);
@@ -97,6 +120,27 @@ function removeSurfaceFiles(root: string, id: string): void {
       unlinkSync(chainPath);
       ui.ok(`${placement.chain} removed (chain module)`);
     }
+  }
+}
+
+/** Write the carriers a surface needs, wherever it reads them. `config --add` used to
+ *  declare the surface and write nothing: config.toml claimed governance while the host
+ *  had no hook at all, and the summary said the adapter was written. */
+function installSurfaceFiles(root: string, id: string): void {
+  const surface = SURFACES.find((s) => s.id === id);
+  if (!surface) return;
+  const machine = machineCarrier(surface);
+  if (machine !== null) {
+    const report = installMachineCarriers([id]);
+    for (const path of report.written) ui.ok(`${path} written (machine carrier)`);
+    for (const refused of report.refused) ui.warn(refuseLine(refused));
+    if (report.written.length === 0 && report.refused.length === 0 && report.untouched.length > 0) ui.info(`${machine.path} was already current`);
+  }
+  const repo = repoCarrier(surface);
+  if (repo !== null) {
+    const report = install(root, planEntries([id]).filter((entry) => entry.path === repo.path || entry.path === repo.chain), undefined, undefined);
+    for (const path of report.written) ui.ok(`${path} written (repo carrier)`);
+    for (const refused of report.refused) ui.warn(refuseLine(refused));
   }
 }
 

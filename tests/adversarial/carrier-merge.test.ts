@@ -94,6 +94,11 @@ const USER_SETTINGS = `{
 
 beforeAll(() => {
   sandbox = mkdtempSync(join(tmpdir(), "ai-eng-merge-"));
+  // Every git this file spawns — including the fixtures' `git init` — reads a config of
+  // our own: the floor's templateDir is a GLOBAL setting, and a test that lets a child
+  // write the developer's git config (or read it) is a test that changes the machine.
+  process.env["GIT_CONFIG_GLOBAL"] = join(sandbox, "gitconfig");
+  writeFileSync(process.env["GIT_CONFIG_GLOBAL"], "");
 });
 
 /** A home of its own per test: these tests write MACHINE state, and a shared home would
@@ -138,6 +143,48 @@ describe("adversarial · carrier merge (a settings file is the user's)", () => {
     for (const gone of [".claude", ".codex", ".agents", ".opencode", ".pi"]) {
       expect(existsSync(join(repo, gone))).toBe(false);
     }
+  });
+
+  test("config --remove takes our entries out of a shared file and keeps the user's", () => {
+    useHome();
+    const repo = join(sandbox, "config-remove");
+    mkdirSync(join(repo, ".cursor"), { recursive: true });
+    spawnSync("git", ["init", "-q"], { cwd: repo });
+    const mine = `${JSON.stringify({ version: 1, hooks: { beforeShellExecution: [{ command: "my-own-check.sh" }] } }, null, 2)}\n`;
+    writeFileSync(join(repo, ".cursor", "hooks.json"), mine);
+    expect(run(["init", "--yes", "--surface", "cursor"], repo).status).toBe(0);
+    expect(readFileSync(join(repo, ".cursor", "hooks.json"), "utf8")).toInclude("ai-eng chain");
+    // `config --remove` used to unlink the whole file while printing "ai-eng entries only".
+    expect(run(["config", "--remove", "cursor"], repo).status).toBe(0);
+    const after = readFileSync(join(repo, ".cursor", "hooks.json"), "utf8");
+    const parsed = JSON.parse(after) as { version?: number; hooks?: { beforeShellExecution?: Array<{ command?: string }> } };
+    expect(after).not.toInclude("ai-eng chain");
+    // Their entry, byte for byte, and nothing of ours left in the hooks.
+    expect(parsed.hooks?.beforeShellExecution).toEqual([{ command: "my-own-check.sh" }]);
+    // The top-level scalars our template declares stay: removing a key whose value equals
+    // ours would delete a `version` the user wrote themselves.
+    expect(parsed.version).toBe(1);
+  });
+
+  test("a template dir the user already had keeps its own hooks, and gets ours beside them", () => {
+    useHome();
+    const theirs = join(sandbox, "their-template");
+    mkdirSync(join(theirs, "hooks"), { recursive: true });
+    const theirHook = "#!/bin/sh\n# mine, do not touch\necho hello\n";
+    writeFileSync(join(theirs, "hooks", "pre-commit"), theirHook);
+    spawnSync("git", ["config", "--global", "init.templateDir", theirs], { env: process.env });
+    const repo = join(sandbox, "join-repo");
+    mkdirSync(repo, { recursive: true });
+    spawnSync("git", ["init", "-q"], { cwd: repo });
+    expect(run(["init", "--yes", "--surface", "cursor"], repo).status).toBe(0);
+    // The one thing this must never do: overwrite a hook a person wrote. It used to —
+    // a directory holding THEIR pre-commit was read as "empty" and force-written.
+    expect(readFileSync(join(theirs, "hooks", "pre-commit"), "utf8")).toBe(theirHook);
+    // And our floor still arrives: the other two shims are ours, marked.
+    for (const shim of ["commit-msg", "pre-push"]) {
+      expect(readFileSync(join(theirs, "hooks", shim), "utf8")).toInclude("ai-eng git floor shim");
+    }
+    expect(spawnSync("git", ["config", "--global", "--get", "init.templateDir"], { encoding: "utf8", env: process.env }).stdout.trim()).toBe(theirs);
   });
 
   test("codex carrier: an unchanged definition is never rewritten, and a changed one is named", () => {

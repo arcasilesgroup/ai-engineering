@@ -95,31 +95,31 @@
 
 - [x] G1: La gobernanza se decide en un solo sitio y ningun otro modulo la reimplementa
   CHECK: bun test tests/arch.spec.ts
-  EVIDENCE: 57 expect() calls | Ran 22 tests across 1 file. [808.00ms]
+  EVIDENCE: 57 expect() calls | Ran 22 tests across 1 file. [707.00ms]
 
 - [x] G2: Un repo sin .ai-engineering/config.toml recibe allow del chain, exit 0 y cero stdout
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "ungoverned repo allows"
-  EVIDENCE: 8 expect() calls | Ran 2 tests across 1 file. [113.00ms]
+  EVIDENCE: 8 expect() calls | Ran 2 tests across 1 file. [96.00ms]
 
 - [x] G3: Un repo sin carrier no recibe ninguna escritura, ni receipts ni un .ai-engineering/ nuevo
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "no writes in a foreign repo"
-  EVIDENCE: 2 expect() calls | Ran 1 test across 1 file. [218.00ms]
+  EVIDENCE: 2 expect() calls | Ran 1 test across 1 file. [193.00ms]
 
 - [x] G4: Un config.toml ilegible no cuenta como gobernado, y doctor distingue ausente de corrupto
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "unparseable config"
-  EVIDENCE: 11 expect() calls | Ran 1 test across 1 file. [432.00ms]
+  EVIDENCE: 11 expect() calls | Ran 1 test across 1 file. [405.00ms]
 
 - [x] G5: El floor de git usa la misma puerta: repo ajeno exit 0, repo gobernado sin binario exit 1
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "git floor"
-  EVIDENCE: 4 expect() calls | Ran 1 test across 1 file. [187.00ms]
+  EVIDENCE: 4 expect() calls | Ran 1 test across 1 file. [159.00ms]
 
 - [x] G6: Un fichero de settings con hooks propios sobrevive byte a byte a init, update y uninstall
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "user hooks survive"
-  EVIDENCE: 12 expect() calls | Ran 1 test across 1 file. [491.00ms]
+  EVIDENCE: 12 expect() calls | Ran 1 test across 1 file. [579.00ms]
 
 - [x] G7: La tabla de rutas de maquina coincide con la raiz documentada por cada host, con fuente y fecha
   CHECK: bun test tests/surfaces.test.ts -t "machine carrier paths"
-  EVIDENCE: 16 expect() calls | Ran 1 test across 1 file. [75.00ms]
+  EVIDENCE: 16 expect() calls | Ran 1 test across 1 file. [74.00ms]
 
 - [x] G8: El carrier de OMP carga de verdad en OMP, probado con el binario local y no por existencia
   CHECK: sh scripts/proof-carriers.sh
@@ -127,35 +127,35 @@
 
 - [x] G9: Un repo gobernado queda con dos carriers y los otros cinco no se escriben en el repo
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "two repo carriers"
-  EVIDENCE: 17 expect() calls | Ran 1 test across 1 file. [295.00ms]
+  EVIDENCE: 17 expect() calls | Ran 1 test across 1 file. [361.00ms]
 
-- [ ] G10: Una llamada permitida con --surface cursor emite permission allow y sale 0
+- [x] G10: Una llamada permitida con --surface cursor emite permission allow y sale 0
   CHECK: bun test tests/surfaces.test.ts -t "cursor allow envelope"
-  EVIDENCE: pending
+  EVIDENCE: 6 expect() calls | Ran 1 test across 1 file. [186.00ms]
 
-- [ ] G11: El carrier de Codex no se reescribe sin cambio de bytes, y cuando cambia doctor nombra /hooks
+- [x] G11: El carrier de Codex no se reescribe sin cambio de bytes, y cuando cambia doctor nombra /hooks
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "codex carrier"
-  EVIDENCE: pending
+  EVIDENCE: 8 expect() calls | Ran 1 test across 1 file. [511.00ms]
 
-- [ ] G12: doctor separa carrier de maquina, declaracion del repo y estado de version, sin verdes por existencia
+- [x] G12: doctor separa carrier de maquina, declaracion del repo y estado de version, sin verdes por existencia
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "doctor splits"
-  EVIDENCE: pending
+  EVIDENCE: 7 expect() calls | Ran 1 test across 1 file. [403.00ms]
 
-- [ ] G13: uninstall restaura la maquina y nunca pisa un init.templateDir ajeno
+- [x] G13: uninstall restaura la maquina y nunca pisa un init.templateDir ajeno
   CHECK: bun test tests/adversarial/carrier-merge.test.ts -t "machine round trip"
-  EVIDENCE: pending
+  EVIDENCE: 6 expect() calls | Ran 1 test across 1 file. [405.00ms]
 
 - [x] G14: Un clone nuevo nace con el floor y un repo sin config.toml sigue sin politica de git
   CHECK: sh scripts/proof-cli-ux.sh
-  EVIDENCE: R15 evidence: uninstall project scope kept contract files + global canon | ALL PROOFS GREEN
+  EVIDENCE: R16 evidence: with config.toml and no binary on PATH it exits 1 (the governed half) | ALL PROOFS GREEN
 
 - [x] G15: Sin regresion: la suite completa sigue verde
   CHECK: bun test
-  EVIDENCE: 499 expect() calls | Ran 171 tests across 17 files. [7.07s]
+  EVIDENCE: 555 expect() calls | Ran 179 tests across 17 files. [10.38s]
 
-- [ ] G16: Deuda cerrada: cache de veredictos con mkdir y session_id saneado, protectedPaths con home(), specOpen sin carrier ajeno
+- [x] G16: Deuda cerrada: cache de veredictos con mkdir y session_id saneado, protectedPaths con home(), specOpen sin carrier ajeno
   CHECK: bun test tests/adversarial/governance-gate.test.ts -t "debt"
-  EVIDENCE: pending
+  EVIDENCE: 10 expect() calls | Ran 1 test across 1 file. [93.00ms]
 
 - [x] G17: Auditoria de seguridad del diff, con findings.json y REPORT.md, y todo hallazgo explotable cerrado o aceptado con su razon
   CHECK: sh -c 'ls .ai-engineering/security/run-*/findings.json >/dev/null'
@@ -163,11 +163,11 @@
 
 - [x] G18: Las dos reglas nuevas estan en arch.rules.json y el test de arquitectura pasa
   CHECK: bun test tests/arch.spec.ts
-  EVIDENCE: 57 expect() calls | Ran 22 tests across 1 file. [808.00ms]
+  EVIDENCE: 57 expect() calls | Ran 22 tests across 1 file. [707.00ms]
 
-- [ ] G19: docs/global-carriers.md existe y el README lo enlaza
+- [x] G19: docs/global-carriers.md existe y el README lo enlaza
   CHECK: sh -c 'test -f docs/global-carriers.md && grep -q "global-carriers.md" README.md'
-  EVIDENCE: pending
+  EVIDENCE: (no output)
 
 - [x] G20: La investigacion del milestone esta citada y commiteada
   CHECK: sh -c 'test -f .ai-engineering/research/004-hooks-global-vs-project.html'

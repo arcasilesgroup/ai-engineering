@@ -52,6 +52,10 @@ export type Carrier = {
   readonly path: string;
   /** The chain bundle that must sit beside an in-process carrier. */
   readonly chain?: string;
+  /** The environment variable this host resolves its agent directory from (omp and pi:
+   *  PI_CODING_AGENT_DIR). A relocatable agent dir is not a detail — the carrier has to
+   *  land where the host will look, or it is the `.agents/hooks/` bug again. */
+  readonly agentDirEnv?: string;
   readonly source: string;
   readonly measured: string;
 };
@@ -68,6 +72,29 @@ export function repoCarrier(surface: Surface): Carrier | null {
  *  files. */
 export function machineCarrier(surface: Surface): Carrier | null {
   return surface.carriers.find((carrier) => carrier.scope === "machine") ?? null;
+}
+
+/** Where a carrier's path is rooted: the machine base, unless this host resolves its
+ *  agent directory from an environment variable that IS set — then that, because that is
+ *  where the host will look. Installing a carrier the host never reads is the bug this
+ *  whole table exists to end, and a relocatable agent dir is the same bug wearing a hat. */
+export function carrierBase(placement: Carrier): string {
+  if (placement.scope === "machine" && placement.agentDirEnv !== undefined) {
+    const override = process.env[placement.agentDirEnv];
+    if (override !== undefined && override.length > 0) return override;
+  }
+  return machineBase();
+}
+
+/** The absolute path of a carrier file (the entry, or its chain bundle). One function for
+ *  the installer, the remover and doctor: two resolutions of the same path is how a
+ *  carrier gets written somewhere and checked somewhere else. */
+export function carrierPath(placement: Carrier, relative?: string): string {
+  const rel = relative ?? placement.path;
+  const base = carrierBase(placement);
+  if (base === machineBase()) return join(base, rel);
+  // The host's agent dir already IS the `.omp/agent` (or `.pi/agent`) the path names.
+  return join(base, rel.replace(/^\.(omp|pi)\/agent\//, ""));
 }
 
 /** The bytes of one surface's carrier at one placement: the entry file and, for the
@@ -170,16 +197,16 @@ export function installCanon(version: string): string[] {
  *  reads is the exact bug this release exists to end, so the refresh has to take them
  *  out rather than leave them behind as ghosts with our marker in them. This is history,
  *  not a second source of truth: nothing current is computed from it. */
-const MOVED_REPO_CARRIERS = [
-  ".claude/settings.json",
-  ".opencode/plugins/ai-eng.ts",
-  ".opencode/plugins/ai-eng-chain.ts",
-  ".agents/hooks/ai-eng.ts",
-  ".agents/hooks/ai-eng-chain.ts",
-  ".codex/hooks.json",
-  ".pi/extensions/ai-eng.ts",
-  ".pi/extensions/ai-eng-chain.ts",
-];
+const MOVED_REPO_CARRIERS: Record<string, string> = {
+  ".claude/settings.json": "claude-code",
+  ".opencode/plugins/ai-eng.ts": "opencode",
+  ".opencode/plugins/ai-eng-chain.ts": "opencode",
+  ".agents/hooks/ai-eng.ts": "oh-my-pi",
+  ".agents/hooks/ai-eng-chain.ts": "oh-my-pi",
+  ".codex/hooks.json": "codex",
+  ".pi/extensions/ai-eng.ts": "pi",
+  ".pi/extensions/ai-eng-chain.ts": "pi",
+};
 
 /** Take the moved-out carriers out of a repo that still has them, and say what went. An
  *  edited file is kept and named — the same rule as uninstall: ours goes only when the
@@ -187,7 +214,7 @@ const MOVED_REPO_CARRIERS = [
 export function sweepMovedRepoCarriers(root: string): { removed: string[]; kept: string[] } {
   const removed: string[] = [];
   const kept: string[] = [];
-  for (const rel of MOVED_REPO_CARRIERS) {
+  for (const rel of Object.keys(MOVED_REPO_CARRIERS)) {
     const absolute = join(root, rel);
     if (!existsSync(absolute)) continue;
     // A settings file we merged into is stripped, not deleted: the user's own keys are in
@@ -294,13 +321,13 @@ export function installMachineCarriers(surfaceIds: string[]): MachineReport {
     const placement = surface ? machineCarrier(surface) : null;
     const files = carrierFiles(id, "machine");
     if (!surface || !placement || !files) continue;
-    const absolute = join(machineBase(), placement.path);
+    const absolute = carrierPath(placement);
     const definition = sha256(files.main);
     if (placement.kind === "module") {
       mkdirSync(dirname(absolute), { recursive: true });
       writeFileSync(absolute, files.main);
       if (files.chain && placement.chain) {
-        const chainPath = join(machineBase(), placement.chain);
+        const chainPath = carrierPath(placement, placement.chain);
         mkdirSync(dirname(chainPath), { recursive: true });
         writeFileSync(chainPath, files.chain);
       }
@@ -345,12 +372,12 @@ export function removeMachineCarriers(surfaceIds: string[]): { lines: string[]; 
     const placement = surface ? machineCarrier(surface) : null;
     if (!surface || !placement) continue;
     delete state.carriers[id];
-    const absolute = join(machineBase(), placement.path);
+    const absolute = carrierPath(placement);
     if (!existsSync(absolute)) continue;
     if (placement.kind === "module") {
       unlinkSync(absolute);
       if (placement.chain) {
-        const chainPath = join(machineBase(), placement.chain);
+        const chainPath = carrierPath(placement, placement.chain);
         if (existsSync(chainPath)) unlinkSync(chainPath);
       }
       lines.push(`~/${placement.path} removed`);

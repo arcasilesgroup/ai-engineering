@@ -35,6 +35,7 @@
         {
           "scope": "machine",
           "kind": "module",
+          "agentDirEnv": "PI_CODING_AGENT_DIR",
           "path": ".omp/agent/hooks/pre/ai-eng.ts",
           "chain": ".omp/agent/hooks/pre/.ai-eng-chain.ts",
           "source": "omp://hooks.md (native hook capability: <configDir>/hooks/pre|post, agent dir is PI_CODING_AGENT_DIR aware) · live probe on omp 18.1.17 2026-09-14: a default-export factory written there loaded and blocked a bash call; the old .agents/hooks/ path loads nothing; the chain bundle is dot-prefixed because omp's hook scanner loads EVERY *.ts in that directory and a bundle is not a hook factory",
@@ -151,6 +152,7 @@
         {
           "scope": "machine",
           "kind": "module",
+          "agentDirEnv": "PI_CODING_AGENT_DIR",
           "path": ".pi/agent/extensions/ai-eng.ts",
           "chain": ".pi/agent/extensions/ai-eng-chain.ts",
           "source": "pi.dev/docs/latest/extensions · brainstorm TrustFacts §3: pi has no native user-level HOOKS, only extensions",
