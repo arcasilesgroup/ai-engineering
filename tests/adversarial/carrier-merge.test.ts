@@ -92,11 +92,16 @@ const USER_SETTINGS = `{
 }
 `;
 
+let gitConfigBefore: string | undefined;
+
 beforeAll(() => {
   sandbox = mkdtempSync(join(tmpdir(), "ai-eng-merge-"));
   // Every git this file spawns — including the fixtures' `git init` — reads a config of
   // our own: the floor's templateDir is a GLOBAL setting, and a test that lets a child
   // write the developer's git config (or read it) is a test that changes the machine.
+  // It is borrowed for the length of the file and given back: a process-wide variable set
+  // here and never restored is another file's surprise.
+  gitConfigBefore = process.env["GIT_CONFIG_GLOBAL"];
   process.env["GIT_CONFIG_GLOBAL"] = join(sandbox, "gitconfig");
   writeFileSync(process.env["GIT_CONFIG_GLOBAL"], "");
 });
@@ -110,6 +115,8 @@ function useHome(): string {
 }
 
 afterAll(() => {
+  if (gitConfigBefore === undefined) delete process.env["GIT_CONFIG_GLOBAL"];
+  else process.env["GIT_CONFIG_GLOBAL"] = gitConfigBefore;
   rmSync(sandbox, { recursive: true, force: true });
 });
 

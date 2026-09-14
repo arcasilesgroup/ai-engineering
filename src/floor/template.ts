@@ -25,8 +25,27 @@ const MARKER = "ai-eng git floor shim";
 
 export type TemplateReport = { line: string; status: "created" | "joined" | "current" | "failed" };
 
+/** Git's own home for the config this module writes.
+ *
+ *  `git config --global` is the ONE thing this repo writes that a sandbox does not cover:
+ *  git keeps it wherever HOME points, not under the machine base. With AI_ENG_HOME set —
+ *  a test, a proof script, anyone isolating an install — the setting must live in the
+ *  override too, or the run leaves the DEVELOPER's global git config pointing at a temp
+ *  directory that the caller's cleanup then deletes. That is exactly what every `bun test`
+ *  did before this line existed. */
+function gitEnv(): NodeJS.ProcessEnv {
+  // The real machine: the real config, which is the point of the setting.
+  if (process.env["AI_ENG_HOME"] === undefined) return process.env;
+  // A caller that already chose its own global config — a proof script that owns the
+  // developer's git config for the length of its run, a test with its own fixture — picked
+  // it deliberately, and the value it set is the one git will use.
+  if (process.env["GIT_CONFIG_GLOBAL"] !== undefined) return process.env;
+  // Otherwise the sandbox has no config of its own, and the developer's must not be it.
+  return { ...process.env, GIT_CONFIG_GLOBAL: join(home(), "gitconfig") };
+}
+
 function gitConfig(args: string[]): { code: number; out: string } {
-  const done = spawnSync("git", ["config", "--global", ...args], { encoding: "utf8" });
+  const done = spawnSync("git", ["config", "--global", ...args], { encoding: "utf8", env: gitEnv() });
   return { code: done.status ?? 1, out: `${done.stdout ?? ""}${done.stderr ?? ""}`.trim() };
 }
 
