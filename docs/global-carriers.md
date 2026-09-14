@@ -52,7 +52,7 @@ Three questions, and they are separate on purpose.
 
 Existence is not the question for check 11, row a: the OMP carrier sat in `.agents/hooks/` for a year, absent from nothing and read by nobody. Row b is the declaration, and no file answers the third question: a downgrade is not cosmetic, because the carrier is the new binary's and the chain it calls would be the old one, which has no gate — the policy would fall back onto repos that never asked for it. Codex re-asks for trust in `/hooks` after any byte change, so a changed definition is the only way to know that happened. A surface with no carrier row gets `no carrier: guard wiring is not implemented for this host`.
 
-## The git floor
+## The git hooks
 
 `git init.templateDir` puts the three shims in every new clone. The shims stay in `.git/hooks/` — same place, same marker — so the sweep, the coexistence with husky and the contract do not change. Three rules, and none of them is "write over what is there":
 
@@ -71,18 +71,18 @@ echo "ai-eng: this repo is governed but 'ai-eng' is not on PATH — install it, 
 exit 1
 ```
 
-`core.hooksPath` global stays discarded: a LOCAL `hooksPath` (husky, pre-commit) beats the global one and silently leaves the repo ungoverned, so redirecting it would buy nothing. `init` unsets a value that points at ai-eng's own floor because that value is ours, names a value that is the user's together with the one line that fixes it, and the `no-verify` guard denies a command that would repoint it.
+`core.hooksPath` global stays discarded: a LOCAL `hooksPath` (husky, pre-commit) beats the global one and silently leaves the repo ungoverned, so redirecting it would buy nothing. `init` unsets a value that points at ai-eng's own hooks because that value is ours, names a value that is the user's together with the one line that fixes it, and the `no-verify` guard denies a command that would repoint it.
 
 ## The proofs
 
 ```sh
 sh scripts/proof-carriers.sh   # G8: the OMP carrier loads, proved with the host itself
-sh scripts/proof-cli-ux.sh     # R16: the floor reaches new clones, and a repo without config.toml is not policed
+sh scripts/proof-cli-ux.sh     # R16: the hooks reach new clones, and a repo without config.toml is not policed
 ```
 
 `proof-carriers.sh` runs two proofs, strongest first: the host's own loader — `discoverAndLoadHooks` from the installed omp package — discovers the carrier at `<agentDir>/hooks/pre/`, binds its handlers, and the handler blocks an adversarial call while writing a receipt in the governed repo; then a real headless `omp` session, when the binary is on PATH. Both run inside a sandbox `AI_ENG_HOME` with `PI_CODING_AGENT_DIR` pointed at the same directory, so the proof never touches the developer's `~/.omp`. A carrier that is present everywhere and loaded nowhere is worse than no carrier, because it reports green.
 
-`proof-cli-ux.sh` covers the floor under R16: it owns the global git config for its run and puts it back, then checks that `init` sets `init.templateDir`, that a fresh clone is born with the three shims and that a commit there reaches the floor, that the shim copied into a repo without `config.toml` exits 0 in silence, and that a governed repo with no `ai-eng` on PATH exits 1.
+`proof-cli-ux.sh` covers the git hooks under R16: it owns the global git config for its run and puts it back, then checks that `init` sets `init.templateDir`, that a fresh clone is born with the three shims and that a commit there reaches the hooks, that the shim copied into a repo without `config.toml` exits 0 in silence, and that a governed repo with no `ai-eng` on PATH exits 1.
 
 ## Adding a new surface
 

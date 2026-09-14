@@ -61,7 +61,7 @@ jobs:
       id-token: write # minting the attestation
       attestations: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # bun comes from npm, not from `oven-sh/setup-bun`: this repository's action
       # policy allows GitHub-owned actions plus org patterns, and a workflow that
       # names anything else never starts (startup_failure, no logs). Node is on every
@@ -97,12 +97,12 @@ jobs:
           MACOS_CERT_ID: ${{ secrets.MACOS_CERT_ID }}
       # A checksum says a binary is unchanged, not who built it or from which commit.
       # This is the build-provenance attestation that closes that gap.
-      - uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           # the glob carries the extension Windows adds (ai-eng-windows-x64.exe):
           # a bare path fails with "Could not find subject at path dist/ai-eng-windows-x64"
           subject-path: dist/ai-eng-${{ matrix.target }}*
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ai-eng-${{ matrix.target }}
           path: dist/ai-eng-*
@@ -119,9 +119,9 @@ jobs:
       id-token: write # the attestations and the npm trusted publish
       attestations: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: npm install -g bun@1.4.2
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: dist-artifacts
 
@@ -179,7 +179,7 @@ jobs:
       # Attesting the checksums file attests every subject it names — the eight
       # binaries AND sbom.json. Without this, the pair (checksums + SBOM) could be
       # swapped together: the digests are what the verification below believes.
-      - uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-checksums: CHECKSUMS-SHA256.txt
 
@@ -264,7 +264,7 @@ jobs:
           if [ "$PRERELEASE" = "true" ]; then published_flags+=(--prerelease); fi
           gh release edit "$TAG" --draft=false "${published_flags[@]}"
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: publish-proof
           path: publish-proof.txt

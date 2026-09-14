@@ -1,5 +1,5 @@
 name: check
-# CI gate — build · lint · typecheck · test · arch · spec run · security (§17).
+# CI gate — build · lint · typecheck · test · arch · spec run · security · SonarCloud · Snyk (§17).
 # Every action is pinned by commit SHA: a tag is mutable, a SHA is not.
 on: [push, pull_request]
 
@@ -10,7 +10,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # bun comes from npm, not from `oven-sh/setup-bun`: this repository's action
       # policy allows GitHub-owned actions plus nine org patterns, and a workflow that
       # names anything else never starts (startup_failure, no logs). Node is on every
@@ -67,7 +67,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       # bun comes from npm, not from `oven-sh/setup-bun`: this repository's action
@@ -102,7 +102,7 @@ jobs:
     # testing — generating mutants is its own milestone (§17.1).
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # bun comes from npm, not from `oven-sh/setup-bun`: this repository's action
       # policy allows GitHub-owned actions plus nine org patterns, and a workflow that
       # names anything else never starts (startup_failure, no logs). Node is on every
@@ -115,3 +115,108 @@ jobs:
         run: |
           CHANGED=$(git diff --name-only "origin/$BASE_REF...HEAD" -- src/guards src/chain src/floor | head -1)
           if [ -n "$CHANGED" ]; then bun test tests/adversarial/; else echo "governance untouched — oracle skipped"; fi
+
+  # The two gates that need an external account (SONAR_TOKEN, SNYK_TOKEN). A fork PR is
+  # handed no secret, and a job-level `if` cannot read one, so the tokens are probed in
+  # a step and the jobs are SKIPPED when they are absent — never run green as if they
+  # had checked something.
+  tokens:
+    runs-on: ubuntu-latest
+    outputs:
+      sonar: ${{ steps.probe.outputs.sonar }}
+      snyk: ${{ steps.probe.outputs.snyk }}
+    steps:
+      - id: probe
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          set -euo pipefail
+          [ -n "$SONAR_TOKEN" ] && echo "sonar=true" >> "$GITHUB_OUTPUT" || echo "sonar=false" >> "$GITHUB_OUTPUT"
+          [ -n "$SNYK_TOKEN" ] && echo "snyk=true" >> "$GITHUB_OUTPUT" || echo "snyk=false" >> "$GITHUB_OUTPUT"
+
+  sonarcloud:
+    name: SonarCloud
+    needs: [tokens]
+    if: needs.tokens.outputs.sonar == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Sonar cannot tell new code from old without the history.
+          fetch-depth: 0
+      - run: npm install -g bun@1.4.2
+      - run: bun install --frozen-lockfile
+      # Coverage is off in bunfig (`[test] coverage = false`), and bun 1.4.2 lets the
+      # config file beat the flag: `bun test --coverage` alone wrote no report
+      # (measured). So this job runs the suite against a config of its own and leaves
+      # the fast local default untouched.
+      - name: Tests with the lcov report Sonar reads
+        run: |
+          set -euo pipefail
+          printf '[test]\ncoverage = true\ncoverageReporter = ["lcov"]\ncoverageDir = "coverage"\n' > "$RUNNER_TEMP/bunfig.coverage.toml"
+          bun --config="$RUNNER_TEMP/bunfig.coverage.toml" test
+          # bun records every file it loaded, and the carrier tests materialize their own
+          # copies under the system temp dir — files that are not in this project, so
+          # Sonar can map them nowhere and they only blur the metric. Keep what Sonar
+          # can resolve: the sources it analyzes.
+          awk '/^SF:/{keep = ($0 ~ /^SF:src\//)} keep' coverage/lcov.info > coverage/lcov.src.info
+          mv coverage/lcov.src.info coverage/lcov.info
+          test -s coverage/lcov.info
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  snyk:
+    name: Snyk
+    needs: [tokens]
+    if: needs.tokens.outputs.snyk == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The CLI, not `snyk/actions`: the snyk pattern is not in this repository's action
+      # policy, and a workflow naming an action outside that list never starts at all.
+      # 1.1307.1 is the newest stable older than the 7-day floor bunfig.toml sets.
+      - name: Snyk CLI (pinned, no install scripts)
+        run: npm install -g snyk@1.1307.1 --ignore-scripts
+      # Snyk's npm plugin reads a package-lock.json, and this repository installs from
+      # bun.lock, which Snyk does not parse. The lock is generated from package.json, so
+      # the dependency SET is what Snyk tests against its database; `bun audit` in the
+      # security job stays the lockfile-accurate gate, and this one adds SAST.
+      - name: The lockfile Snyk reads (generated, never committed)
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Snyk open source (high and critical)
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk test --file=package-lock.json --severity-threshold=high
+      - name: Snyk Code, SAST (high and critical)
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          # The runner's shell is `bash -e`, and a failing command substitution in an
+          # assignment (`out=$(cmd)`) makes -e exit the step on the spot: the first
+          # version of this gate died 59s in with the reason unprinted. Collect through
+          # `if`, which -e does not short-circuit, and print before deciding.
+          if out=$(snyk code test --severity-threshold=high 2>&1); then
+            printf '%s\n' "$out"
+            exit 0
+          else
+            code=$?
+          fi
+          printf '%s\n' "$out"
+          echo "snyk code test exited ${code}"
+          # A plan out of tests, or a Snyk Code that is not provisioned for this org, is
+          # not a vulnerability: name what was skipped and let semgrep keep its verdict.
+          if printf '%s' "$out" | grep -qiE 'test limit|increase your tests|rate.?limit|429|too many requests|authentication (error|failed)|not authori|quota|not enabled|not provisioned|unsupported'; then
+            echo "::warning title=Snyk Code non-blocking::snyk code test unavailable — non-blocking; semgrep covers SAST."
+            exit 0
+          fi
+          exit "$code"
+      - name: Monitor (main only)
+        if: github.ref == 'refs/heads/main'
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk monitor --file=package-lock.json || echo "::warning title=Snyk monitor non-blocking::snyk monitor failed — the badge keeps the last good report."

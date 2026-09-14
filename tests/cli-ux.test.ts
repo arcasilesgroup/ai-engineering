@@ -5,7 +5,7 @@
 // Env hygiene: AI_ENG_HOME is restored after every test — the adversarial
 // suite chdirs and reads it; a leaked value flips a fail-closed deny to allow.
 
-import { describe, expect, test, afterEach } from "bun:test";
+import { describe, expect, test, afterEach, spyOn } from "bun:test";
 import { installCommand } from "../src/commands/upgrade.ts";
 import { suggestVerb } from "../src/shared-verbs.ts";
 import { existsSync, rmSync } from "node:fs";
@@ -55,5 +55,24 @@ describe("G10 · maybeNotice cache and opt-out", () => {
     const { maybeNotice } = await import("../src/notice.ts");
     expect(() => maybeNotice()).not.toThrow();
     expect(existsSync(cachePath)).toBe(false);
+  });
+});
+
+describe("branding · the terminal identity", () => {
+  test("the logo carries the version and the three verbs, into stdout", async () => {
+    const chunks: string[] = [];
+    const spy = spyOn(process.stdout, "write").mockImplementation(((chunk: unknown) => {
+      chunks.push(String(chunk));
+      return true;
+    }) as never);
+    try {
+      const { showLogo } = await import("../src/branding.ts");
+      showLogo("9.9.9");
+    } finally {
+      spy.mockRestore();
+    }
+    const painted = chunks.join("");
+    expect(painted).toContain("e n g i n e e r i n g");
+    expect(painted).toContain("v9.9.9 · install · guard · prove");
   });
 });

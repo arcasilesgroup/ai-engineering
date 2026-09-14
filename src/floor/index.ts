@@ -92,7 +92,11 @@ function stageSecrets(cwd: string): FloorResult {
     return { ok: true, lines: [] };
   } catch (error) {
     const e = error as { stdout?: unknown; stderr?: unknown; message?: string };
-    const asText = (v: unknown): string => (Buffer.isBuffer(v) ? v.toString() : typeof v === "string" ? v : "");
+    const asText = (v: unknown): string => {
+      if (Buffer.isBuffer(v)) return v.toString();
+      if (typeof v === "string") return v;
+      return "";
+    };
     const out = `${asText(e.stdout)}\n${asText(e.stderr)}`.trim() || (e.message ?? "");
     const findings = out
       .split("\n")
@@ -120,12 +124,17 @@ export function commitMsg(msgFile: string, receiptId: string, overrideReason: st
       lines: [`the message does not follow the Conventional Commits convention: "${first.slice(0, 72)}"`, "Format: type(scope): description"],
     };
   }
-  if (!content.includes("Receipt-Id:")) {
-    content = `${content.trimEnd()}\n\nReceipt-Id: ${receiptId}\n`;
-    if (overrideReason) content = `${content.trimEnd()}\nOverride-Reason: ${overrideReason}\n`;
-    writeFileSync(msgFile, content);
-    if (overrideReason) lines.push(`active override travels in the commit: ${overrideReason.slice(0, 80)}`);
+  // The two trailers are independent: an amend (or the hook firing twice) finds the
+  // Receipt-Id already there, and the override reason is the only record that the commit
+  // landed under an exception (§09.1) — dropping it there erased the justification while
+  // still reporting success.
+  let next = content;
+  if (!next.includes("Receipt-Id:")) next = `${next.trimEnd()}\n\nReceipt-Id: ${receiptId}\n`;
+  if (overrideReason && !next.includes("Override-Reason:")) {
+    next = `${next.trimEnd()}\nOverride-Reason: ${overrideReason}\n`;
+    lines.push(`active override travels in the commit: ${overrideReason.slice(0, 80)}`);
   }
+  if (next !== content) writeFileSync(msgFile, next);
   return { ok: true, lines };
 }
 

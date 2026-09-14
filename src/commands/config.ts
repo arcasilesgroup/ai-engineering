@@ -2,6 +2,7 @@
 // Never touches AGENTS.md and never writes overrides (those are manual, with reason).
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { PassThrough } from "node:stream";
 import { install, stripSharedText } from "../install.ts";
 import { join } from "node:path";
 import { groupMultiselect, isCancel } from "@clack/prompts";
@@ -11,6 +12,75 @@ import { hasAdapter, planEntries, refuseLine, surfaceOptions } from "./init-shar
 import * as ui from "../ui.ts";
 import { scriptedInput } from "../ui.ts";
 import { VERSION } from "../version.ts";
+
+type ResolveResult =
+  | { kind: "continue"; current: string[]; addedNow: string | null }
+  | { kind: "exit"; code: number };
+
+/** Resolve the new surface list by mutating branch. The two early exits — no adapter
+ *  on `--add`, and a cancelled picker — are folded into the result so the caller can
+ *  return their exit code without duplicating the message or the side-effect order. */
+async function resolveSurfaces(
+  input: NodeJS.ReadStream | PassThrough,
+  flags: { add?: string; remove?: string },
+  root: string,
+  surfacesBefore: string[],
+): Promise<ResolveResult> {
+  let addedNow: string | null = null;
+  let current = surfacesBefore;
+  if (flags.add) {
+    // Same rule as the picker: no adapter, no declaration.
+    if (!hasAdapter(flags.add)) {
+      ui.fail(`"${flags.add}" has no adapter in this release — nothing would enforce its guards.`);
+      ui.end("Nothing changed.");
+      return { kind: "exit", code: 2 };
+    }
+    if (!current.includes(flags.add)) {
+      current = [...current, flags.add];
+      addedNow = flags.add;
+    }
+  } else if (flags.remove) {
+    current = current.filter((id) => id !== flags.remove);
+    removeSurfaceFiles(root, flags.remove);
+  } else {
+    const picked = await pickSurfaces(input, current, root);
+    if (picked === null) return { kind: "exit", code: 0 };
+    current = picked;
+  }
+  return { kind: "continue", current, addedNow };
+}
+
+/** The interactive multiselect (no flags). Returns null when the user cancels
+ *  (the cancellation message is printed here, exactly as before). */
+async function pickSurfaces(
+  input: NodeJS.ReadStream | PassThrough,
+  current: string[],
+  root: string,
+): Promise<string[] | null> {
+  const picked = await groupMultiselect({
+    message: "Which agent surfaces is this project governed on? (ticked = installed)",
+    options: Object.fromEntries(surfaceOptions().map((group) => [group.title, group.items.map((s) => ({ value: s.id, label: s.label, hint: configHint(s, current.includes(s.id)) }))])),
+    initialValues: current.filter((id) => SURFACES.some((s) => s.id === id)),
+    required: true,
+    selectableGroups: false,
+    input: input as never,
+  });
+  if (isCancel(picked)) {
+    ui.cancelled("Nothing changed.");
+    return null;
+  }
+  const removed = current.filter((id) => !picked.includes(id));
+  for (const id of removed) removeSurfaceFiles(root, id);
+  return picked;
+}
+
+/** The "Surfaces changed" rows: one per added surface, one per removed surface. */
+function deltaRows(added: string[], removedSurfaces: string[]): ui.Row[] {
+  return [
+    ...added.map((id): ui.Row => ({ mark: "ok", text: `+ ${id}`, dim: "adapter + skill mirror written" })),
+    ...removedSurfaces.map((id): ui.Row => ({ mark: "ok", text: `- ${id}`, dim: "off in this repo; the machine carrier stays — it serves every governed repo" })),
+  ];
+}
 
 export async function configMain(flags: { add?: string; remove?: string }): Promise<number> {
   const input = scriptedInput();
@@ -23,60 +93,25 @@ export async function configMain(flags: { add?: string; remove?: string }): Prom
     ui.end("Nothing changed.");
     return 2;
   }
-  let addedNow: string | null = null;
   const configPath = join(root, ".ai-engineering", "config.toml");
   // Governed means the declaration parsed, so enabledSurfaces() cannot be guessing here.
   const surfacesBefore = enabledSurfaces();
-  let current = surfacesBefore;
-  if (flags.add) {
-    // Same rule as the picker: no adapter, no declaration.
-    if (!hasAdapter(flags.add)) {
-      ui.fail(`"${flags.add}" has no adapter in this release — nothing would enforce its guards.`);
-      ui.end("Nothing changed.");
-      return 2;
-    }
-    if (!current.includes(flags.add)) {
-      current = [...current, flags.add];
-      addedNow = flags.add;
-    }
-  } else if (flags.remove) {
-    current = current.filter((id) => id !== flags.remove);
-    removeSurfaceFiles(root, flags.remove);
-  } else {
-    const picked = await groupMultiselect({
-      message: "Which agent surfaces is this project governed on? (ticked = installed)",
-      options: Object.fromEntries(surfaceOptions().map((group) => [group.title, group.items.map((s) => ({ value: s.id, label: s.label, hint: configHint(s, current.includes(s.id)) }))])),
-      initialValues: current.filter((id) => SURFACES.some((s) => s.id === id)),
-      required: true,
-      selectableGroups: false,
-      input: input as never,
-    });
-    if (isCancel(picked)) {
-      ui.cancelled("Nothing changed.");
-      return 0;
-    }
-    const removed = current.filter((id) => !picked.includes(id));
-    for (const id of removed) removeSurfaceFiles(root, id);
-    current = picked;
-  }
+  const resolved = await resolveSurfaces(input, flags, root, surfacesBefore);
+  if (resolved.kind === "exit") return resolved.code;
+  const { current, addedNow } = resolved;
   // The config file holds what cannot be deduced: rewrite only the surfaces key,
   // in place — the comments and the [models]/[guards]/[gc] blocks the template
   // ships are the user's, and a re-serialize would delete them.
   const raw = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
-  const list = `[${current.map((id) => `"${id}"`).join(", ")}]`;
-  const next = /^enabled\s*=.*$/m.test(raw)
-    ? raw.replace(/^enabled\s*=.*$/m, `enabled = ${list}`)
-    : `${raw.trim() === "" ? "" : `${raw.trimEnd()}\n\n`}[surfaces]\nenabled = ${list}\n`;
-  writeFileSync(configPath, next);
+  const quoted = current.map((id) => `"${id}"`).join(", ");
+  const list = `[${quoted}]`;
+  writeFileSync(configPath, withSurfacesEnabled(raw, list));
   // Declaring a surface and leaving it without a carrier is a governed repo that is not
   // governed on that host. The carriers are written right here, by the same code init uses.
   for (const id of current.filter((entry) => !surfacesBefore.includes(entry) || entry === addedNow)) installSurfaceFiles(root, id);
   const added = current.filter((id) => !surfacesBefore.includes(id));
   const removedSurfaces = surfacesBefore.filter((id) => !current.includes(id));
-  const delta: ui.Row[] = [
-    ...added.map((id): ui.Row => ({ mark: "ok", text: `+ ${id}`, dim: "adapter + skill mirror written" })),
-    ...removedSurfaces.map((id): ui.Row => ({ mark: "ok", text: `- ${id}`, dim: "adapter + mirror removed" })),
-  ];
+  const delta = deltaRows(added, removedSurfaces);
   if (delta.length === 0) {
     ui.section("surfaces unchanged", [{ mark: "muted", text: current.join(", ") }], `${current.length} enabled`);
   } else {
@@ -123,6 +158,35 @@ function removeSurfaceFiles(root: string, id: string): void {
   }
 }
 
+/** Rewrite the surfaces key in place, and never grow a second `[surfaces]` table.
+ *
+ *  Two shapes used to do exactly that, at exit 0: an `enabled` key indented under an
+ *  existing table (valid TOML the old `/^enabled\s*=/m` missed) and a `[surfaces]`
+ *  table that has no `enabled` key yet. Both appended a fresh header, which makes the
+ *  file unparseable — `declaration()` then reports the repository as undeclared and the
+ *  command that manages governance silently turns it off. That is the one class of bug
+ *  this product exists to prevent (§09.2), so the rewrite is table-aware: the key is
+ *  scoped to `[surfaces]` (a bare `enabled =` also matched the `[notices]` key of the
+ *  same name), and a file with no table gets one, at the end. */
+function withSurfacesEnabled(raw: string, list: string): string {
+  const lines = raw.split("\n");
+  const header = lines.findIndex((line) => /^\s*\[surfaces\]\s*$/.test(line));
+  if (header >= 0) {
+    for (let i = header + 1; i < lines.length; i += 1) {
+      const line = lines[i] ?? "";
+      if (/^\s*\[/.test(line)) break; // the next table: `enabled` belongs to it, not to us
+      if (/^\s*enabled\s*=/.test(line)) {
+        lines[i] = `enabled = ${list}`;
+        return lines.join("\n");
+      }
+    }
+    lines.splice(header + 1, 0, `enabled = ${list}`);
+    return lines.join("\n");
+  }
+  const body = raw.trim() === "" ? "" : `${raw.trimEnd()}\n\n`;
+  return `${body}[surfaces]\nenabled = ${list}\n`;
+}
+
 /** Write the carriers a surface needs, wherever it reads them. `config --add` used to
  *  declare the surface and write nothing: config.toml claimed governance while the host
  *  had no hook at all, and the summary said the adapter was written. */
@@ -138,7 +202,7 @@ function installSurfaceFiles(root: string, id: string): void {
   }
   const repo = repoCarrier(surface);
   if (repo !== null) {
-    const report = install(root, planEntries([id]).filter((entry) => entry.path === repo.path || entry.path === repo.chain), undefined, undefined);
+    const report = install(root, planEntries([id]).filter((entry) => entry.path === repo.path || entry.path === repo.chain));
     for (const path of report.written) ui.ok(`${path} written (repo carrier)`);
     for (const refused of report.refused) ui.warn(refuseLine(refused));
   }

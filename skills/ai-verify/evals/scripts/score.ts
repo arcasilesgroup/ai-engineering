@@ -195,7 +195,7 @@ function parseReport(path: string): Finding[] {
   return findings;
 }
 
-function pathMatches(refPath: string, bugPath: string): boolean {
+export function pathMatches(refPath: string, bugPath: string): boolean {
   const a = refPath.replace(/^[./]+|[./]+$/g, "").split("/");
   const b = bugPath.replace(/^[./]+|[./]+$/g, "").split("/");
   const n = Math.min(a.length, b.length);
@@ -205,10 +205,68 @@ function pathMatches(refPath: string, bugPath: string): boolean {
   return ta.every((part, i) => part === tb[i]);
 }
 
+/** A `match` entry is written by the operator, but a pattern is still code, and one with
+ *  a quantifier over a group that already quantifies backtracks exponentially: a typo in
+ *  a manifest would hang the scorer on a long finding text with no error to show for it.
+ *  The shapes are found by scanning characters — detecting a risky regex with a regex is
+ *  how this file came to be flagged for one. Returns the reason, or null when it is safe
+ *  enough to compile. */
+export function riskyPattern(pattern: string): string | null {
+  if (pattern.length > 300) return "longer than 300 characters";
+  let escaped = false;
+  let inClass = false;
+  const groupHadQuantifier: boolean[] = [];
+  let currentHasQuantifier = false;
+  for (let i = 0; i < pattern.length; i += 1) {
+    const char = pattern[i] ?? "";
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (inClass) {
+      if (char === "]") inClass = false;
+      continue;
+    }
+    if (char === "[") {
+      inClass = true;
+      continue;
+    }
+    if (char === "(") {
+      groupHadQuantifier.push(currentHasQuantifier);
+      currentHasQuantifier = false;
+      continue;
+    }
+    if (char === ")") {
+      const inner = currentHasQuantifier;
+      const quantifierAfter = "+*{".includes(pattern[i + 1] ?? "");
+      if (inner && quantifierAfter) return "a quantifier applied to a group that already quantifies";
+      currentHasQuantifier = (groupHadQuantifier.pop() ?? false) || inner;
+      continue;
+    }
+    if (char === "+" || char === "*" || char === "{") currentHasQuantifier = true;
+  }
+  return null;
+}
+
 /** Return [finding, quality] for the best match, or [null, null]. */
 function matchBug(bug: Bug, findings: Finding[], window: number): [Finding | null, Quality | null] {
   const lines = bug.line_candidates?.length ? bug.line_candidates : [bug.line];
-  const patterns = (bug.match ?? []).map((p) => new RegExp(p, "i"));
+  const patterns = (bug.match ?? []).flatMap((p) => {
+    const reason = riskyPattern(p);
+    if (reason !== null) {
+      process.stderr.write(`score: the manifest pattern "${p.slice(0, 60)}" is refused — ${reason}.\n`);
+      return [];
+    }
+    try {
+      return [new RegExp(p, "i")];
+    } catch {
+      return [];
+    }
+  });
   let best: [Finding, Quality] | null = null;
   for (const f of findings) {
     const near = f.refs.some(
@@ -484,4 +542,6 @@ function listMd(dir: string): string[] {
     .map((n) => join(dir, n));
 }
 
-main();
+// Only when run as a program: the guards below are importable, and a module that scores
+// a run as a side effect of being imported is a module nothing can test.
+if (import.meta.main) main();

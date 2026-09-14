@@ -4,13 +4,25 @@
     "PreToolUse": [
       {
         "matcher": "Bash|PowerShell|Edit|Write|MultiEdit|Read|NotebookEdit|NotebookRead",
-        "hooks": [{ "type": "command", "command": "ai-eng chain PreToolUse", "timeout": 5 }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ai-eng chain PreToolUse",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Bash|Edit|Write|MultiEdit|WebFetch|WebSearch",
-        "hooks": [{ "type": "command", "command": "ai-eng chain PostToolUse", "timeout": 5 }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ai-eng chain PostToolUse",
+            "timeout": 5
+          }
+        ]
       }
     ]
   }
