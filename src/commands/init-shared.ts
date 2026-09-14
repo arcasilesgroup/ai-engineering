@@ -5,12 +5,25 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { PlanEntry } from "../install.ts";
 import { VERSION } from "../version.ts";
-import { embeddedTemplate, embeddedChainBundle } from "../embed.ts";
-import { SURFACES, SURFACE_TIERS, type Surface } from "../surfaces/adapters.ts";
+import { embeddedTemplate } from "../embed.ts";
+import { SURFACES, SURFACE_TIERS, repoCarrier, carrierFiles, type Surface } from "../surfaces/adapters.ts";
 
 export function repoTemplateRoot(): string {
   // src/commands → repo root is three up.
   return join(import.meta.dir, "..", "..");
+}
+
+/** One line for a file we were asked to merge into and could not. The file is left
+ *  exactly as it was — and the line says what that costs, because a surface whose
+ *  settings file could not be merged has no hooks behind it (§13). */
+export function refuseLine(refused: { path: string; reason: string }): string {
+  const why =
+    refused.reason === "not-json"
+      ? "not valid JSON"
+      : refused.reason === "reformat"
+        ? "laid out in a style this installer would have to reformat (tabs, CRLF, a compact one-liner)"
+        : "not a JSON object";
+  return `⚠ ${refused.path} — ${why}: left exactly as it is, so this surface runs without guards until you move it aside or reformat it`;
 }
 
 function render(template: string, vars: Record<string, string>): string {
@@ -52,44 +65,27 @@ export function planEntries(surfaces: string[]): PlanEntry[] {
   ];
 }
 
-/** The files ONE surface generates. Empty for a surface with no adapter — and by
- *  §13 a surface is declared in surfaces.json before init offers it. Only these
- *  three carry a generator today: offering the rest wrote a config.toml claim no
- *  guard satisfied (cursor/codex/copilot installed nothing, measured 2026-09-10). */
+/** The files ONE surface generates INSIDE the repo: only the carriers whose readers
+ *  live in the checkout (Cursor cloud, VS Code Copilot Chat). The other five hosts read
+ *  from the user's home, and `installMachineCarriers()` writes those once per machine —
+ *  a repo that still carried them would be carrying a hook file nobody reads (§13.2).
+ *
+ *  A settings carrier is `merge: true`: it can be a file the user already owns, so ours
+ *  go in by marker and the file is never written whole (§03). */
 function surfaceEntries(id: string): PlanEntry[] {
-  switch (id) {
-    case "claude-code":
-      return [{ path: ".claude/settings.json", ours: embeddedTemplate("settings.claude.json.tpl") }];
-    case "opencode":
-      return [
-        { path: ".opencode/plugins/ai-eng.ts", ours: embeddedTemplate("plugin.opencode.ts.tpl") },
-        { path: ".opencode/plugins/ai-eng-chain.ts", ours: embeddedChainBundle() },
-      ];
-    case "oh-my-pi":
-      return [
-        { path: ".agents/hooks/ai-eng.ts", ours: embeddedTemplate("plugin.omp.ts.tpl") },
-        { path: ".agents/hooks/ai-eng-chain.ts", ours: embeddedChainBundle() },
-      ];
-    case "codex":
-      return [{ path: ".codex/hooks.json", ours: embeddedTemplate("settings.codex.json.tpl") }];
-    case "cursor":
-      return [{ path: ".cursor/hooks.json", ours: embeddedTemplate("settings.cursor.json.tpl") }];
-    case "copilot":
-      return [{ path: ".github/hooks/ai-eng.json", ours: embeddedTemplate("settings.copilot.json.tpl") }];
-    case "pi":
-      return [
-        { path: ".pi/extensions/ai-eng.ts", ours: embeddedTemplate("plugin.pi.ts.tpl") },
-        { path: ".pi/extensions/ai-eng-chain.ts", ours: embeddedChainBundle() },
-      ];
-    default:
-      return [];
-  }
+  const surface = SURFACES.find((s) => s.id === id);
+  const placement = surface ? repoCarrier(surface) : null;
+  const files = carrierFiles(id, "repo");
+  if (!placement || !files) return [];
+  const entries: PlanEntry[] = [{ path: placement.path, ours: files.main, merge: placement.kind === "settings" }];
+  if (placement.chain && files.chain) entries.push({ path: placement.chain, ours: files.chain });
+  return entries;
 }
 
 /** A surface earns a place in a picker only with an adapter behind it: the
  *  declaration in surfaces.json is the plan, the generator is the proof. */
 export function hasAdapter(id: string): boolean {
-  return surfaceEntries(id).length > 0;
+  return carrierFiles(id, "repo") !== null;
 }
 
 /** The picker's groups (init and config share them): tier header → the surfaces

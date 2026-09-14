@@ -1,6 +1,5 @@
-// --no-verify, and everything else that skips .git/hooks — plus every linter silence,
-// because silencing a check is the same act as skipping a hook. ~110 LOC ported from
-// v1's no_verify_guard.py (80) extended per §10 with the SILENCES row.
+// --no-verify, and everything else that skips .git/hooks — plus every linter silence
+// (§10's SILENCES row), because silencing a check is the same act as skipping a hook.
 
 import { resolve, isAbsolute } from "node:path";
 import { existsSync } from "node:fs";

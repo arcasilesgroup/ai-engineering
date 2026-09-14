@@ -62,7 +62,9 @@ Downloadable documents — PDFs, Word files, PPTX decks — cannot be audited in
 1. An executable anti-slop gate that ai-design routes to — never bundled, always
    pointing at what is installed at runtime.
 2. Result: `.ai-engineering/design/audits/NNN-{name}.html` — measurements, not
-   opinions; the `NNN` prefix is never rewritten once issued.
+   opinions; the `NNN` prefix is never rewritten once issued. Render it with the
+   artifact design system — [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md) — so the
+   measurements are presented, not decorated.
 3. Output format: gates (CHECK / EXPECT / EVIDENCE).
 
 ## Lifecycle

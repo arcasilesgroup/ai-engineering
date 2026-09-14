@@ -82,4 +82,4 @@ Read by: n/a
 Dies: n/a — the check it writes becomes a gate in spec.html and outlives it
 Next: none
 
-Source: ai-engineering v1 (own), Apache-2.0.
+Source: ai-engineering (own), Apache-2.0.

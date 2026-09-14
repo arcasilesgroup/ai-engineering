@@ -1,7 +1,7 @@
-// The template reader once round-tripped every embedded ref through a URL, and the
-// pathname of a file URL drops the drive letter on Windows — init could not read a
-// single template there while macOS and Linux passed (measured in the windows leg of
-// the e2e job: ENOENT /~BUN/root/settings.claude.json-*.tpl). This is that bug.
+// The template reader resolves an embedded ref to a path directly, never through a
+// URL: the pathname of a file URL drops the drive letter on Windows, so init cannot
+// read a template there while macOS and Linux pass (windows leg of the e2e job:
+// ENOENT /~BUN/root/settings.claude.json-*.tpl).
 import { test, expect } from "bun:test";
 import { embeddedPath } from "../src/embed.ts";
 

@@ -313,6 +313,8 @@ end:
 ## Files
 
 Bundled with this skill:
+- `references/artifact-design.md` — the house style of an ai-engineering artifact: tokens,
+  component vocabulary and the rules a generated HTML page obeys
 - `references/accessibility.md` — Ally-checklist-based accessibility reference: WCAG 2.2 AA/AAA conformance, semantic code and ARIA, downloadable documents, responsive design
 - `references/conflicts.md` — precedence rules in full
 - `references/plans.md` — worked plans for the twelve common request shapes
@@ -326,7 +328,9 @@ Bundled with this skill:
    skill that is not there.
 2. Write `.ai-engineering/design/direction.html` BEFORE any code: the elected
    direction (palette, type, tokens, motion stance) is the artifact the human
-   approves in step 1.
+   approves in step 1. The page is rendered by the artifact design system —
+   [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md) — while the direction it
+   *describes* belongs to the product, not to ai-engineering.
 3. The anti-slop gate is routed, not bundled: the anti-slop checklist runs as its
    own routed check against what is installed at runtime.
 4. The conflict ladder in `references/conflicts.md` stays intact and owns

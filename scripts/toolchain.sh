@@ -1,9 +1,9 @@
 #!/bin/sh
 # scripts/toolchain.sh — the CI toolchain, installed the only way this repository is
 # allowed to install it. The repository's action policy is `selected`: GitHub-owned
-# actions plus nine org patterns, and a workflow that names anything outside that list
-# never starts at all — startup_failure, no logs, no jobs. `v2` was blind for ten days
-# because `check.yml` named `oven-sh/setup-bun` and `aquasecurity/trivy-action`.
+# actions plus nine org patterns. A workflow that names anything outside that list
+# never starts at all — startup_failure, no logs, no jobs — so every action a workflow
+# uses has to be inside it.
 #
 # So every tool here is a download whose bytes are checked against the publisher's own
 # checksum file: the version says which release we asked for, the sha256 says the bytes

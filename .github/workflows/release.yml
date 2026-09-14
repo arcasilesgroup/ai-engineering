@@ -95,13 +95,12 @@ jobs:
           CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           MACOS_CERT_ID: ${{ secrets.MACOS_CERT_ID }}
-      # The v1 line shipped a build-provenance attestation and verified it inside the
-      # release. The v2 path had lost it: the binaries travelled with a checksum and
-      # nothing that says who built them, from which commit. This is that property.
+      # A checksum says a binary is unchanged, not who built it or from which commit.
+      # This is the build-provenance attestation that closes that gap.
       - uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
         with:
           # the glob carries the extension Windows adds (ai-eng-windows-x64.exe):
-          # a bare path there was "Could not find subject at path dist/ai-eng-windows-x64"
+          # a bare path fails with "Could not find subject at path dist/ai-eng-windows-x64"
           subject-path: dist/ai-eng-${{ matrix.target }}*
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -184,8 +183,8 @@ jobs:
         with:
           subject-checksums: CHECKSUMS-SHA256.txt
 
-      # The proof the v1 release carried: verification runs here, in the release, and
-      # its log ships as an asset — a claim of provenance nobody verified is a slogan.
+      # Verification runs here, in the release, and its log ships as an asset — a
+      # claim of provenance nobody verified is a slogan.
       - name: Verify the provenance of every binary about to be published
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -244,8 +243,8 @@ jobs:
             exit 1
           fi
           # A tag that already exists must name THIS commit: attaching assets built
-          # here to a tag pointing elsewhere is the release-integrity gap the audit
-          # left open once the ancestry guard was in place (SC-02).
+          # here to a tag pointing elsewhere publishes a release whose tag names
+          # another commit (SC-02).
           ref="repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG"
           if existing="$(gh api "$ref" --jq '.object.sha' 2>/dev/null)"; then
             if [ "$(gh api "$ref" --jq '.object.type')" = "tag" ]; then

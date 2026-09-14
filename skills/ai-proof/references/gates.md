@@ -109,6 +109,6 @@ suite, then the driver re-runs it again per leaf when verifying.
 ## Numbers rule
 
 Any number that will appear in a final report deserves its own gate with a
-CHECK that measures it. Measured runs of v1 showed reports whose only false
-claims were numbers stated from memory. If a number matters enough to
-report, it matters enough to measure at report time.
+CHECK that measures it. The most common false claims in reports are numbers
+stated from memory, so if a number matters enough to report, it matters
+enough to measure at report time.

@@ -1,7 +1,8 @@
 // @bun
 // src/chain/mod.ts
-import { readFileSync as readFileSync7, writeFileSync as writeFileSync3 } from "fs";
-import { join as join6 } from "path";
+import { readFileSync as readFileSync7, writeFileSync as writeFileSync3, mkdirSync as mkdirSync3 } from "fs";
+import { createHash as createHash4 } from "crypto";
+import { dirname, join as join6 } from "path";
 
 // src/env.ts
 import { homedir } from "os";
@@ -28,9 +29,36 @@ function repoRoot(start) {
     dir = parent;
   }
 }
-function receiptsDir() {
-  const root = repoRoot();
-  return root ? join(root, ".ai-engineering", "receipts") : null;
+var configPath = (root) => join(root, ".ai-engineering", "config.toml");
+function declaration(root = repoRoot()) {
+  if (root === null)
+    return { gap: "no-repo" };
+  const path = configPath(root);
+  if (!existsSync(path))
+    return { gap: "no-config" };
+  let doc;
+  try {
+    doc = Bun.TOML.parse(readFileSync(path, "utf8"));
+  } catch {
+    return { gap: "corrupt-config" };
+  }
+  const surfaces = doc["surfaces"];
+  if (surfaces === null || typeof surfaces !== "object" || Array.isArray(surfaces))
+    return { gap: "no-surfaces" };
+  const enabled = surfaces["enabled"];
+  if (!Array.isArray(enabled))
+    return { gap: "no-surfaces" };
+  return { surfaces: enabled.filter((item) => typeof item === "string") };
+}
+function isGoverned(root = repoRoot()) {
+  return "surfaces" in declaration(root);
+}
+function machineBase() {
+  return process.env.AI_ENG_HOME !== undefined ? home() : homedir();
+}
+function receiptsDir(root) {
+  const resolved = root === undefined ? repoRoot() : root;
+  return resolved !== null && isGoverned(resolved) ? join(resolved, ".ai-engineering", "receipts") : null;
 }
 var SESSION_STATE = new Map;
 function sessionId() {
@@ -52,7 +80,7 @@ function loadConfig() {
   const root = repoRoot();
   if (!root)
     return {};
-  const path = join(root, ".ai-engineering", "config.toml");
+  const path = configPath(root);
   if (!existsSync(path))
     return {};
   try {
@@ -90,20 +118,23 @@ var BUILT_IN_ALIASES = {
   workspaceRoot: "cwd",
   workspacePath: "cwd"
 };
+var LOWER_TOOLS = {
+  bash: "Bash",
+  powershell: "PowerShell",
+  read: "Read",
+  edit: "Edit",
+  write: "Write",
+  grep: "Grep",
+  glob: "Glob",
+  web_search: "WebSearch",
+  fetch_content: "WebFetch",
+  source_check: "WebFetch",
+  get_search_content: "WebFetch"
+};
 var TOOL_ALIASES_BY_SURFACE = {
   cursor: { Shell: "Bash" },
-  pi: {
-    bash: "Bash",
-    powershell: "PowerShell",
-    read: "Read",
-    edit: "Edit",
-    write: "Write",
-    grep: "Grep",
-    web_search: "WebSearch",
-    fetch_content: "WebFetch",
-    source_check: "WebFetch",
-    get_search_content: "WebFetch"
-  }
+  pi: LOWER_TOOLS,
+  "oh-my-pi": LOWER_TOOLS
 };
 function normalise(raw, surface) {
   const out = { ...raw };
@@ -345,7 +376,6 @@ function runNoVerify(payload, repoRoot) {
 
 // src/guards/self-protect.ts
 import { basename, isAbsolute as isAbsolute2, join as join3, resolve as resolve3 } from "path";
-import { homedir as homedir2 } from "os";
 import { existsSync as existsSync3, readFileSync as readFileSync3, realpathSync } from "fs";
 var WRITERS = {
   rm: true,
@@ -385,8 +415,17 @@ function surfacesSettings(repoRoot) {
 }
 function protectedPaths(repoRoot) {
   const literals = [];
+  const globalHome = join3(home(), "");
+  literals.push(join3(home(), "skills"));
+  literals.push(join3(machineBase(), ".claude", "skills"));
+  literals.push(join3(machineBase(), ".agents", "skills"));
+  literals.push(join3(machineBase(), ".config", "opencode", "skill"));
+  literals.push(globalHome);
+  for (const carrier of [".claude/settings.json", ".config/opencode/plugins", ".codex/hooks.json", ".omp/agent/hooks", ".pi/agent/extensions", ".copilot/hooks", "machine.json"]) {
+    literals.push(join3(machineBase(), carrier));
+  }
   if (!repoRoot)
-    return { literals, specPinned: false };
+    return { literals: literals.filter((p) => p.length > 0), specPinned: false };
   literals.push(".ai-engineering");
   const aiEng = join3(repoRoot, ".ai-engineering");
   literals.push(aiEng);
@@ -403,11 +442,6 @@ function protectedPaths(repoRoot) {
     specPinned = false;
   }
   literals.push(...surfacesSettings(repoRoot));
-  const globalHome = join3(homedir2(), ".ai-engineering");
-  literals.push(globalHome);
-  for (const mirror of [".claude/skills", ".agents/skills", ".config/opencode/skill"]) {
-    literals.push(join3(homedir2(), mirror));
-  }
   return { literals: literals.filter((p) => p.length > 0), specPinned };
 }
 function writesTo(paths, command) {
@@ -436,9 +470,9 @@ function writesTo(paths, command) {
 }
 function expandTilde(path) {
   if (path === "~")
-    return homedir2();
+    return machineBase();
   if (path.startsWith("~/"))
-    return join3(homedir2(), path.slice(2));
+    return join3(machineBase(), path.slice(2));
   return path;
 }
 function offendingPath(paths, text) {
@@ -513,7 +547,7 @@ function runSelfProtect(payload, repoRoot) {
       return current;
     };
     const canon = (text) => {
-      const expanded = text.replace(/(^|[\s"'=])~\//g, `$1${homedir2()}/`);
+      const expanded = text.replace(/(^|[\s"'=])~\//g, `$1${machineBase()}/`);
       const absolute = expanded.replace(/(\/[\w.@+-]+)+/g, (m) => canonPath(m));
       const base = repoRoot ?? process.cwd();
       return absolute.replace(RELATIVE_PATH, (match, lead, token) => `${lead}${canonPath(join3(base, token))}`);
@@ -689,10 +723,11 @@ function runInjection(payload) {
 
 // src/guards/loop.ts
 import { readFileSync as readFileSync5, writeFileSync, mkdirSync } from "fs";
+import { createHash as createHash2 } from "crypto";
 import { join as join4 } from "path";
 var SIGNATURES_KEPT = 20;
 function stateFile() {
-  return join4(home(), "cache", "loop", `${sessionId()}.json`);
+  return join4(home(), "cache", "loop", `${createHash2("sha256").update(sessionId()).digest("hex").slice(0, 32)}.json`);
 }
 function loadState() {
   try {
@@ -788,9 +823,9 @@ function rewrite(command) {
 // src/receipts.ts
 import { writeFileSync as writeFileSync2, readFileSync as readFileSync6, readdirSync, mkdirSync as mkdirSync2 } from "fs";
 import { join as join5 } from "path";
-import { createHash as createHash2, randomUUID } from "crypto";
-function writeReceipt(receipt) {
-  const dir = receiptsDir();
+import { createHash as createHash3, randomUUID } from "crypto";
+function writeReceipt(receipt, root) {
+  const dir = receiptsDir(root);
   if (!dir)
     return null;
   const full = {
@@ -846,6 +881,7 @@ function rememberVerdict(file, fp, verdict) {
     try {
       book = JSON.parse(readFileSync7(file, "utf8"));
     } catch {}
+    mkdirSync3(dirname(file), { recursive: true });
     book[fp] = verdict;
     const trimmed = {};
     for (const key of Object.keys(book).slice(-500))
@@ -853,17 +889,30 @@ function rememberVerdict(file, fp, verdict) {
     writeFileSync3(file, JSON.stringify(trimmed));
   } catch {}
 }
+function hostCwd(raw) {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw))
+    return;
+  const record = raw;
+  for (const key of ["cwd", "workspaceRoot", "workspacePath"]) {
+    const value = record[key];
+    if (typeof value === "string" && value.length > 0)
+      return value;
+  }
+  return;
+}
 function runChain(rawPayload, event, options = {}) {
   const started = Date.now();
-  const root = repoRoot();
+  const root = repoRoot(hostCwd(rawPayload));
+  if (root === null || !isGoverned(root))
+    return { action: "allow", guards: [], receiptId: null };
   if (rawPayload === null || Array.isArray(rawPayload) || typeof rawPayload !== "object") {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started);
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root);
   }
   let payload;
   try {
     payload = normalise(rawPayload, options.surface);
   } catch {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started);
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root);
   }
   adoptSession(payload.session_id);
   payload._event = event;
@@ -871,13 +920,13 @@ function runChain(rawPayload, event, options = {}) {
   const fp = fingerprint(payload);
   const overrides = readOverrides(root);
   const ctx = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
-  const dedup = deduplicable(payload) && event === "PreToolUse" && root !== null;
-  const cacheFile = join6(root ?? options.stateDir ?? ".", "cache", "verdicts", `${payload.session_id ?? "proc"}.json`);
+  const dedup = deduplicable(payload) && event === "PreToolUse";
+  const cacheFile = join6(root, ".ai-engineering", "cache", "verdicts", `${createHash4("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {
     const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {
       if (verdict.deny) {
-        return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started);
+        return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started, root);
       }
       return { action: "allow", guards: [], receiptId: null };
     }
@@ -890,9 +939,9 @@ function runChain(rawPayload, event, options = {}) {
       if (dedup)
         rememberVerdict(cacheFile, fp, { deny: true, by: row.name, message: outcome.reason });
       if (outcome.rewriteTo) {
-        return rewriteOutcome(outcome.rewriteTo, ran, event, options, started);
+        return rewriteOutcome(outcome.rewriteTo, ran, event, options, started, root);
       }
-      return denyOutcome(row.name, outcome.reason, ran, event, options, started);
+      return denyOutcome(row.name, outcome.reason, ran, event, options, started, root);
     }
   }
   if (dedup)
@@ -905,7 +954,7 @@ function runChain(rawPayload, event, options = {}) {
     guards: { ran, denied_by: null },
     latency_ms: latency,
     outcome: "allow"
-  });
+  }, root);
   return { action: "allow", guards: ran, receiptId: receipt?.operation_id ?? null };
 }
 function dispatchGuard(name, payload, ctx) {
@@ -941,7 +990,7 @@ function dispatchGuard(name, payload, ctx) {
     };
   }
 }
-function denyOutcome(by, reason, ran, event, options, started) {
+function denyOutcome(by, reason, ran, event, options, started, root) {
   const latency = Math.max(1, Date.now() - started);
   const receipt = writeReceipt({
     event,
@@ -950,7 +999,7 @@ function denyOutcome(by, reason, ran, event, options, started) {
     guards: { ran, denied_by: by },
     latency_ms: latency,
     outcome: "deny"
-  });
+  }, root);
   if (latency > HOT_PATH_BUDGET_MS) {
     process.stderr.write(`[ai-eng] chain: hot path over ${HOT_PATH_BUDGET_MS} ms (${latency} ms)
 `);
@@ -960,7 +1009,7 @@ function denyOutcome(by, reason, ran, event, options, started) {
     return outcome;
   deny(by, reason, options.dialect ?? "claude", event);
 }
-function rewriteOutcome(command, ran, event, options, started) {
+function rewriteOutcome(command, ran, event, options, started, root) {
   const latency = Math.max(1, Date.now() - started);
   const receipt = writeReceipt({
     event,
@@ -969,7 +1018,7 @@ function rewriteOutcome(command, ran, event, options, started) {
     guards: { ran, denied_by: null },
     latency_ms: latency,
     outcome: "allow"
-  });
+  }, root);
   const outcome = { action: "rewrite", command, guards: ran, receiptId: receipt?.operation_id ?? null };
   if (options.inProcess)
     return outcome;

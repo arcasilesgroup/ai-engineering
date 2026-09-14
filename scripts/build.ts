@@ -1,10 +1,9 @@
 // The one build entry point. `bun build --compile` writes the executable to a
 // scratch file (".<hash>-<n>.bun-build", ~59 MB) and renames it into --outfile
 // only when the compile finishes, so an interrupted build leaves the scratch
-// behind in the cwd and Bun never sweeps one from an earlier run (measured
-// 2026-09-05: two orphans, 118 MB, invisible because .gitignore hides them).
-// Sweep before and after: the scratch either gets renamed away or it does not
-// outlive this script.
+// behind in the cwd and Bun never sweeps one from an earlier run (invisible
+// because .gitignore hides it). Sweep before and after: the scratch either gets
+// renamed away or it does not outlive this script.
 import { readdirSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
@@ -12,8 +11,7 @@ const args = process.argv.slice(2);
 
 /** A cross-compile leg names its own artifact. All eight matrix legs wrote
  *  `dist/ai-eng`, and release assets must have unique names on the page the
- *  client's CI downloads from — eight files called `ai-eng` collide there
- *  (measured on the v2 release path: never run, so never noticed until now).
+ *  client's CI downloads from — eight files called `ai-eng` collide there.
  *  `--target bun-linux-x64` → `dist/ai-eng-linux-x64`; no target → `dist/ai-eng`. */
 function outfile(flags: string[]): string {
   const at = flags.findIndex((flag) => flag === "--target" || flag.startsWith("--target="));

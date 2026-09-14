@@ -1,6 +1,6 @@
 // The merge gate belongs to the project, not to the editor that happens to be
-// attached. The workflow hung off the claude-code case, so six of the seven
-// adapter-bearing surfaces got guards and no CI at all (measured 2026-09-10).
+// attached: every adapter-bearing surface receives the workflow, not only the
+// claude-code case.
 //
 // The rules the template must satisfy live here rather than in a proof script: this
 // file runs on every push through `bun test`, and scripts/proof-installed-ci.sh proves

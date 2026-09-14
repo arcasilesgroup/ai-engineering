@@ -1,6 +1,6 @@
-// Payload normalization and fingerprints, ported from v1 chain.py. Both spellings,
-// one shape — without this a guard scoped to file edits receives every tool call in
-// a shape it does not expect, crashes, and correctly blocks everything.
+// Payload normalization and fingerprints. Both spellings, one shape — without
+// this a guard scoped to file edits receives every tool call in a shape it does
+// not expect, crashes, and correctly blocks everything.
 
 import { createHash } from "node:crypto";
 
@@ -29,6 +29,23 @@ export const BUILT_IN_ALIASES: Record<string, string> = {
   workspacePath: "cwd",
 };
 
+/** The host spellings every lowercase-name surface shares (pi and its OMP descendant).
+ *  pi's web tools (pi.getAllTools()) are named lowercase too, so the containment arm's
+ *  matcher would miss them and fetched pages would go unscanned. */
+const LOWER_TOOLS: Record<string, string> = {
+  bash: "Bash",
+  powershell: "PowerShell",
+  read: "Read",
+  edit: "Edit",
+  write: "Write",
+  grep: "Grep",
+  glob: "Glob",
+  web_search: "WebSearch",
+  fetch_content: "WebFetch",
+  source_check: "WebFetch",
+  get_search_content: "WebFetch",
+};
+
 /** Host spellings for the same tool, measured per host: Cursor calls the shell
  *  `Shell` (cursor.com/docs/hooks, cursor-agent 2026.09.08); pi sends lowercase names
  *  (pi-coding-agent 0.85.1, dist/core/extensions/types.d.ts). Every guard matcher,
@@ -36,21 +53,12 @@ export const BUILT_IN_ALIASES: Record<string, string> = {
  *  alias lives here, once, instead of case-folding five matchers per host. */
 const TOOL_ALIASES_BY_SURFACE: Record<string, Record<string, string>> = {
   cursor: { Shell: "Bash" },
-  pi: {
-    bash: "Bash",
-    powershell: "PowerShell",
-    read: "Read",
-    edit: "Edit",
-    write: "Write",
-    grep: "Grep",
-    // pi's web tools as measured on this machine (pi.getAllTools(), 2026-09-10):
-    // pi-web-access names them lowercase, so the containment arm's matcher never saw
-    // them and fetched pages went unscanned.
-    web_search: "WebSearch",
-    fetch_content: "WebFetch",
-    source_check: "WebFetch",
-    get_search_content: "WebFetch",
-  },
+  // pi sends lowercase names (pi-coding-agent 0.85.1, dist/core/extensions/types.d.ts)
+  // and OMP — same API lineage — sends them the same way: a live probe on omp 18.1.17
+  // recorded `tool=bash` for a shell call. Measured names are the ones in this map;
+  // anything else passes through untouched, so a new host tool can never be mangled.
+  pi: LOWER_TOOLS,
+  "oh-my-pi": LOWER_TOOLS,
 };
 
 export function normalise(raw: Record<string, unknown>, surface?: string): Payload {
@@ -62,16 +70,16 @@ export function normalise(raw: Record<string, unknown>, surface?: string): Paylo
   out.tool_input = out.tool_input ?? out.input ?? {};
   if (typeof out.tool_input !== "object" || out.tool_input === null) out.tool_input = {};
   const input = out.tool_input as Record<string, unknown>;
-  // A tool's own arguments are not a surface's payload (v1 measured an MCP tool
-  // whose params were `args`/`tool` getting rewritten into a call the surface
-  // never made) — only the camelCase floor is translated.
+  // A tool's own arguments are not a surface's payload: an MCP tool whose params
+  // are `args`/`tool` would be rewritten into a call the surface never made — only
+  // the camelCase floor is translated.
   const mapped: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(input)) mapped[BUILT_IN_ALIASES[k] ?? k] = v;
   // Notebook tools send notebook_path and nothing else; both write guards read file_path.
   // Only fill it when a notebook path exists: an empty string is NOT nullish, so a
-  // fabricated "" shadowed the real `path` key and the read guards got nothing
-  // (measured 2026-09-10 — Copilot sends tool_input.path, the injection guard ran
-  // and allowed the read it exists to stop).
+  // fabricated "" shadows the real `path` key and the read guards get nothing —
+  // Copilot sends tool_input.path, and the injection guard would run and allow the
+  // read it exists to stop.
   if (!mapped.file_path && typeof mapped.notebook_path === "string") mapped.file_path = mapped.notebook_path;
   out.tool_input = mapped;
   return out as Payload;

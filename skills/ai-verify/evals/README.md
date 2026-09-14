@@ -136,7 +136,7 @@ imagination; defects from your own history test it against reality.
 Keep packs small — six to ten defects. Beyond that the review's own scope handling starts
 dominating the score and you stop learning anything about the instructions.
 
-When the repo moves and a `find` no longer matches, `apply-pack.ts` stops with an error. Fix
+When the repo moves and a `find` stops matching, `apply-pack.ts` stops with an error. Fix
 the pack. Do not loosen the match to make it apply — a fuzzy anchor applies the defect
 somewhere you did not intend and the line numbers in the key go quietly wrong.
 

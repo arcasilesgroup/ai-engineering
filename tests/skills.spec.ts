@@ -1,7 +1,7 @@
 /**
  * Skill canon gates (§11) — every rule is binary; a red here is a red canon.
  *
- * G1  one SKILL.md per skill; zero legacy `*-SKILL.md`.
+ * G1  one SKILL.md per skill; zero `*-SKILL.md` companions.
  * G2  every SKILL.md frontmatter parses (the Zed loader is the oracle):
  *     `---` block, name = folder, folded `>-` description, license SPDX,
  *     no `: ` inside unquoted single-line scalars.
@@ -72,7 +72,7 @@ function parseFrontmatter(content: string): { fields: Record<string, string>; bo
 const SPDX = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "Unlicense", "CC0-1.0", "LicenseRef-Attributed"];
 
 describe("G1 — one SKILL.md per skill", () => {
-  test("no legacy *-SKILL.md files anywhere in skills/", () => {
+  test("no *-SKILL.md files anywhere in skills/", () => {
     const offenders: string[] = [];
     for (const dir of listSkillDirs()) {
       for (const f of walk(dir)) {
@@ -192,7 +192,7 @@ describe("G7 — links inside each skill resolve", () => {
 });
 
 describe("G8 — official names only", () => {
-  test("no legacy upstream name in name: field or H1", () => {
+  test("no upstream alias in the name: field or H1", () => {
     const offenders: string[] = [];
     for (const dir of listSkillDirs()) {
       const content = readFileSync(join(dir, "SKILL.md"), "utf8");

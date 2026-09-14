@@ -1,8 +1,7 @@
 // Instruction-shaped text in whatever the agent is about to consume. On a file read
 // this pre-reads and denies BEFORE the model sees it — prevention. On a fetched page
 // the read already happened, so the block stops the payload being acted on —
-// containment, and it says so. Ported from v1's injection_guard.py (96 LOC), IOC
-// catalogue NFKD-folded, cap 400KB.
+// containment, and it says so. IOC catalogue NFKD-folded, cap 400KB.
 
 import { readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
@@ -53,8 +52,7 @@ export function hit(text: string): string | null {
 type GuardResult = { deny: true; reason: string } | { deny: false } | undefined;
 
 /** Tools that run a command line: a `cat` through one of these reads exactly what the
- *  Read tool reads, so it gets the same pre-read scan (measured 2026-09-10: a model
- *  read an injected file with `cat` on the Bash tool and the guard never ran). */
+ *  Read tool reads, so it gets the same pre-read scan. */
 const SHELL_TOOLS = /^(Bash|PowerShell|shell|command)$/;
 
 /** Commands that print their file arguments into the model's context. `sed`/`awk`

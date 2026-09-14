@@ -612,7 +612,9 @@ skills; consult them only where that collection is present:
 2. Trigger: it runs when CLOSING the milestone (step 12 of the ai-engineering
    flow), not on demand.
 3. Output: `.ai-engineering/recap.html`; `ai-eng spec close` archives it to git
-   and deletes it from the working tree.
+   and deletes it from the working tree. A self-contained HTML recap is rendered by
+   the artifact design system — [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md) — the same tokens,
+   components and rules every other artifact carries.
 
 ## Lifecycle
 

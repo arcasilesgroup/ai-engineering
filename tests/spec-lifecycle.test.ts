@@ -88,11 +88,14 @@ beforeAll(() => {
   spawnSync("git", ["init", "-q"], { cwd: repo });
   writeFileSync(
     join(repo, ".ai-engineering", "config.toml"),
-    '[gc]\nmax_files = 25\nolder_than = "30d"\nkeep_runs = 2\nreceipts_ttl = "30d"\n',
+    '[surfaces]\nenabled = ["claude-code"]\n\n[gc]\nmax_files = 25\nolder_than = "30d"\nkeep_runs = 2\nreceipts_ttl = "30d"\n',
   );
   // A base commit: base_sha is a commit, so a repo without one has no milestone base.
   spawnSync("git", ["add", "-A"], { cwd: repo, stdio: "ignore" });
-  spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "init"], { cwd: repo, stdio: "ignore" });
+  // A conventional message on purpose: this fixture declares itself governed, and the
+  // floor judges commit messages — including through the global init.templateDir that
+  // makes a fresh repo be born with the shims.
+  spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "chore: fixture base"], { cwd: repo, stdio: "ignore" });
 });
 
 beforeEach(() => {
@@ -216,9 +219,9 @@ test("gc does not count its own summary as a receipt", () => {
 
 test("update does not invalidate the approved pin", () => {
   // The lock is rebuilt on every update, and the two contract fields are not the
-  // installer's to drop: doing so erased an approval, so `spec run` refused a
-  // contract a human had approved and the milestone could never close — measured in
-  // CI, where update runs before spec run.
+  // installer's to drop: dropping them erases an approval, so `spec run` refuses a
+  // contract a human approved and the milestone cannot close (update runs before
+  // spec run in CI).
   const pristine = writeContract(GATES);
   writeLock({ spec_sha256: pristine, base_sha: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" });
   // The gate runs and writes its verdict, which normalises back to the pinned hash.

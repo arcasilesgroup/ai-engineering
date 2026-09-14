@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>spec.html — WHAT · {{milestone}}</title>
 <style>
-  :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#A9BBD0; --ok:#22c55e; --bad:#ef4444; --warn:#eab308; --mono:'SF Mono',ui-monospace,monospace; }
+  :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#B0C2D6; --ok:#4ade80; --bad:#fbb1b1; --warn:#facc15; --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace; }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; padding:48px 32px; }
   h1 { font-size:28px; letter-spacing:-.5px; } h1 .x { color:var(--accent); }
@@ -46,12 +46,17 @@
 </div>
 
 <h2><span class="num">02</span>Acceptance gates</h2>
-<p style="color:var(--dim)">unlazy gate format, executed by <code>ai-eng spec run</code> (gate-check.mjs). Max 30 per milestone. ABANDON: G&lt;n&gt; &lt;reason&gt; is the honest exit.</p>
+<p style="color:var(--dim)">unlazy gate format, executed by <code>ai-eng spec run</code> (gate-check.mjs). Max 30 per milestone. ABANDON: G&lt;n&gt; &lt;reason&gt; is the honest exit. <b>A check that prints nothing is not evidence</b>: the executor leaves it unticked, because a box resting on an exit code is a green nobody can read. Make it say what it found, or assert the output with <code>EXPECT</code>.</p>
 <pre id="gates">
 # Gates: {{milestone}}
 
 - [ ] G1: <observable outcome>
-  CHECK: test -f README.md
+  CHECK: <a command that PRINTS what it found, e.g. node scripts/report.mjs>
+  EXPECT: <optional: the text, or /regex/, that must appear in that output>
+  EVIDENCE: pending
+
+- [ ] G2: <an outcome only existing artifacts can show>
+  CHECK: sh -c 'test -f README.md && echo "README.md $(wc -c < README.md) bytes"'
   EVIDENCE: pending
 
 </pre>

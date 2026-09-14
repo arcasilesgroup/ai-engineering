@@ -64,17 +64,17 @@ function stageSecrets(cwd: string): FloorResult {
       lines: ["gitleaks is not installed — HARD FAIL, never silent degradation (§12.1).", "Install it: brew install gitleaks"],
     };
   }
-  // v1's proven invocation: `gitleaks dir` — `git --staged` in 8.30 scans 0 commits
-  // on a fresh HEAD and silently passes. We scan the files actually staged.
+  // `git --staged` scans 0 commits on a fresh HEAD and passes silently, so the
+  // floor scans the files actually staged.
   const staged = git(["diff", "--cached", "--name-only", "--diff-filter=ACM"], cwd).out
     .split("\n")
     .map((f) => f.trim())
     .filter((f) => f.length > 0);
   if (staged.length === 0) return { ok: true, lines: [] };
   // The bytes git will commit, not the bytes on disk: a staged secret whose working
-  // copy was overwritten passed this gate and reached the commit (audit FLOOR-01,
-  // reproduced). `gitleaks git --staged` scans zero on a fresh HEAD, so the staged
-  // blobs are materialised and scanned as files.
+  // copy is overwritten would pass this gate and reach the commit (audit FLOOR-01).
+  // `gitleaks git --staged` scans zero on a fresh HEAD, so the staged blobs are
+  // materialised and scanned as files.
   const scratch = mkdtempSync(join(tmpdir(), "ai-eng-staged-"));
   const present: string[] = [];
   try {

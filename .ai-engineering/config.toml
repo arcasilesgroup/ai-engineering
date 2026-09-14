@@ -3,8 +3,8 @@ enabled = ["oh-my-pi"]
 
 [models]
 decide = "glm5.3-flash"
-execute = "glm5.3-flash"
-verify = "qwen3.8-flash"
+execute = "deepseek-v4-flash"
+verify = "mimo-v2.5"
 
 [guards]
 loop_window = 6
@@ -16,4 +16,3 @@ max_files = 25
 older_than = "90d"
 keep_runs = 5
 receipts_ttl = "30d"
-

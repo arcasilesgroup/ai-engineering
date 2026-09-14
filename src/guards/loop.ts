@@ -1,9 +1,10 @@
 // The same call repeated, or the same tool failing over and over with the arguments
 // tweaked each time. Window 6 / repeats 3 / failures 5, thresholds in config.toml.
-// Ported from v1's loop_guard.py (149 LOC). The only bypass is a written override —
-// never a recipe printed to the model that may be obeying injected text.
+// The only bypass is a written override — never a recipe printed to the model that
+// may be obeying injected text.
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import type { Payload } from "../chain/payload.ts";
 import { loopExact, loopSignature } from "../chain/payload.ts";
@@ -18,7 +19,11 @@ type LoopState = {
 };
 
 function stateFile(): string {
-  return join(home(), "cache", "loop", `${sessionId()}.json`);
+  // The session id is host-supplied (or the AI_ENG_SESSION environment), so the filename
+  // is DERIVED, never the raw value: a session id of `../../../.claude/settings` would
+  // otherwise make the first guarded call of the session overwrite a file in the user's
+  // home — their editor settings, or the machine carrier itself.
+  return join(home(), "cache", "loop", `${createHash("sha256").update(sessionId()).digest("hex").slice(0, 32)}.json`);
 }
 
 function loadState(): LoopState {

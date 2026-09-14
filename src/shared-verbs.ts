@@ -1,5 +1,5 @@
 // src/shared-verbs.ts — the verb name is the first thing a human gets wrong, and
-// `unknown verb: chian` was the whole answer. §14.5b: no ai-eng output ends on an
+// `unknown verb: chian` is not an answer. §14.5b: no ai-eng output ends on an
 // error without the line of action that follows it.
 //
 // It lives here rather than in cli.ts because cli.ts runs main() on import and so

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>plan.html — HOW · {{milestone}}</title>
 <style>
-  :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#A9BBD0; --warn:#eab308; --ok:#22c55e; --mono:'SF Mono',ui-monospace,monospace; }
+  :root { --bg:#0B1120; --surface:#121E36; --line:rgba(0,212,170,.15); --accent:#00D4AA; --text:#F8FAFB; --dim:#B0C2D6; --warn:#facc15; --ok:#4ade80; --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace; }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; padding:48px 32px; }
   h1 { font-size:28px; } h1 .x { color:var(--accent); }

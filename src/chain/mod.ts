@@ -1,15 +1,16 @@
 // The dispatcher. One process per call (or one import in-process), the only way to
-// run anything. Ported from v1 chain.py (370 LOC): table event→guards, verdict cache
-// keyed on the fingerprint of one physical call, fail-closed on any guard crash —
-// a guard that cannot decide denies, because denying everything on a surface is how
-// you disable a whole product by installing it.
+// run anything. A table event→guards, a verdict cache keyed on the fingerprint of
+// one physical call, fail-closed on any guard crash — a guard that cannot decide
+// denies, because denying everything on a surface is how you disable a whole
+// product by installing it.
 
-import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { repoRoot, adoptSession } from "../env.ts";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { dirname, join } from "node:path";
+import { repoRoot, isGoverned, adoptSession } from "../env.ts";
 import { normalise, deduplicable, fingerprint } from "./payload.ts";
 import type { Payload } from "./payload.ts";
-import { deny, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
+import { deny, allow, allowRewrite, readOverrides, overrideActive, type Dialect } from "./dialect.ts";
 import { runNoVerify, type GuardResult } from "../guards/no-verify.ts";
 import { runSelfProtect } from "../guards/self-protect.ts";
 import { runInjection } from "../guards/injection.ts";
@@ -52,7 +53,6 @@ export type ChainOptions = {
   dialect?: Dialect;
   /** In-process mode returns outcomes instead of exiting (OMP/OpenCode plugins). */
   inProcess?: boolean;
-  stateDir?: string;
 };
 
 export type ChainOutcome =
@@ -88,6 +88,9 @@ function rememberVerdict(file: string, fp: string, verdict: Verdict): void {
     } catch {
       /* first entry */
     }
+    // The directory does not exist until the first verdict lands: without this the write
+    // threw ENOENT into the catch below and the cache silently never worked at all.
+    mkdirSync(dirname(file), { recursive: true });
     book[fp] = verdict;
     const trimmed: Record<string, Verdict> = {};
     for (const key of Object.keys(book).slice(-500)) trimmed[key] = book[key]!;
@@ -97,12 +100,36 @@ function rememberVerdict(file: string, fp: string, verdict: Verdict): void {
   }
 }
 
+/** The workspace directory the host says this call belongs to, when it says one. pi and
+ *  OMP send `cwd` (measured on omp 18.1.17: ctx.cwd is the workspace root), and Claude
+ *  Code sends it at the top level too. The gate resolves the repo from THIS when it is
+ *  there: a host process that chdir'd is not the workspace, and the payload is what the
+ *  host knows for sure. */
+function hostCwd(raw: unknown): string | undefined {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  for (const key of ["cwd", "workspaceRoot", "workspacePath"]) {
+    const value = record[key];
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return undefined;
+}
+
 /** Run the chain over a normalized payload. A crash inside a guard is a DENY, not a pass. */
 export function runChain(rawPayload: Record<string, unknown>, event: string, options: ChainOptions = {}): ChainOutcome {
   const started = Date.now();
-  const root = repoRoot();
+  // One resolution, used by the gate AND by everything below it: the repo the call
+  // belongs to. A gate decided on one root while the receipt resolves from another is how
+  // a foreign repo gets written to anyway.
+  const root = repoRoot(hostCwd(rawPayload));
+  // THE gate, first — before the payload is read and before anything is written.
+  // A repo that never declared itself in config.toml gets allow and nothing else:
+  // no guards, no receipt, no receipts/ directory invented in a stranger's clone.
+  // This is the one fail-open in the system, and it is bounded to one question,
+  // asked in one place (§A). Everything below assumes a repo that asked for policy.
+  if (root === null || !isGoverned(root)) return { action: "allow", guards: [], receiptId: null };
   if (rawPayload === null || Array.isArray(rawPayload) || typeof rawPayload !== "object") {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started);
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root);
   }
   // The payload boundary is fail-closed like every guard: an object that throws while
   // being read (an in-process host can hand us one) must deny, never escape as an
@@ -111,7 +138,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   try {
     payload = normalise(rawPayload, options.surface);
   } catch {
-    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started);
+    return denyOutcome("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", [], event, options, started, root);
   }
   adoptSession(payload.session_id);
   payload._event = event;
@@ -121,15 +148,19 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
   const overrides = readOverrides(root);
   const ctx: ChainContext = { repoRoot: root, loopOverride: overrideActive(overrides, "loop") !== null };
 
-  // Same call, same answer: no guard decides the same call twice. The cache lives
-  // under the governed repo; a repo-less call skips it.
-  const dedup = deduplicable(payload) && event === "PreToolUse" && root !== null;
-  const cacheFile = join(root ?? options.stateDir ?? ".", "cache", "verdicts", `${payload.session_id ?? "proc"}.json`);
+  // Same call, same answer: no guard decides the same call twice. The cache lives inside
+  // .ai-engineering/ — the directory the lock owns and uninstall sweeps — and not at the
+  // repo root, where it would be an unowned directory our own `git add -A` commits, with
+  // the guard's own messages (absolute paths included) in it. The filename is
+  // DERIVED, never the raw session id: a host-supplied string with a slash or `..` in it
+  // would put this write outside the cache directory (audit finding R3).
+  const dedup = deduplicable(payload) && event === "PreToolUse";
+  const cacheFile = join(root, ".ai-engineering", "cache", "verdicts", `${createHash("sha256").update(payload.session_id ?? "proc").digest("hex").slice(0, 32)}.json`);
   if (dedup) {
     const verdict = cachedVerdict(cacheFile, fp);
     if (verdict !== null) {
       if (verdict.deny) {
-        return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started);
+        return denyOutcome(verdict.by ?? "chain", verdict.message ?? "denied", [], event, options, started, root);
       }
       return { action: "allow", guards: [], receiptId: null };
     }
@@ -142,9 +173,9 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     if (outcome !== undefined && outcome.deny) {
       if (dedup) rememberVerdict(cacheFile, fp, { deny: true, by: row.name, message: outcome.reason });
       if (outcome.rewriteTo) {
-        return rewriteOutcome(outcome.rewriteTo, ran, event, options, started);
+        return rewriteOutcome(outcome.rewriteTo, ran, event, options, started, root);
       }
-      return denyOutcome(row.name, outcome.reason, ran, event, options, started);
+      return denyOutcome(row.name, outcome.reason, ran, event, options, started, root);
     }
   }
 
@@ -157,7 +188,7 @@ export function runChain(rawPayload: Record<string, unknown>, event: string, opt
     guards: { ran, denied_by: null },
     latency_ms: latency,
     outcome: "allow",
-  });
+  }, root);
   return { action: "allow", guards: ran, receiptId: receipt?.operation_id ?? null };
 }
 
@@ -202,6 +233,7 @@ function denyOutcome(
   event: string,
   options: ChainOptions,
   started: number,
+  root: string,
 ): ChainOutcome {
   const latency = Math.max(1, Date.now() - started);
   const receipt = writeReceipt({
@@ -211,7 +243,7 @@ function denyOutcome(
     guards: { ran, denied_by: by },
     latency_ms: latency,
     outcome: "deny",
-  });
+  }, root);
   if (latency > HOT_PATH_BUDGET_MS) {
     process.stderr.write(`[ai-eng] chain: hot path over ${HOT_PATH_BUDGET_MS} ms (${latency} ms)\n`);
   }
@@ -226,6 +258,7 @@ function rewriteOutcome(
   event: string,
   options: ChainOptions,
   started: number,
+  root: string,
 ): ChainOutcome {
   const latency = Math.max(1, Date.now() - started);
   const receipt = writeReceipt({
@@ -235,7 +268,7 @@ function rewriteOutcome(
     guards: { ran, denied_by: null },
     latency_ms: latency,
     outcome: "allow",
-  });
+  }, root);
   const outcome: ChainOutcome = { action: "rewrite", command, guards: ran, receiptId: receipt?.operation_id ?? null };
   if (options.inProcess) return outcome;
   allowRewrite(command, options.dialect ?? "claude", event);
@@ -251,6 +284,8 @@ export function chainMain(event: string, raw: string, options: ChainOptions = {}
   } catch {
     deny("chain", "BLOCKED: the hook payload could not be read, so nothing here can say whether this action is safe.", options.dialect ?? "claude", event);
   }
-  runChain(body, event, options);
+  const outcome = runChain(body, event, options);
+  // An allow is a verdict too, and one host reads an empty answer as a refusal.
+  if (outcome.action === "allow") allow(options.dialect ?? "claude");
   process.exit(0);
 }

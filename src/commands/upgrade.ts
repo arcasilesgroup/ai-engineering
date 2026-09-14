@@ -3,7 +3,7 @@
 // integrity + self-substitution is inventing npm with less testing.
 // cli-ux-14 work point 05: frame, inline changelog when the local CHANGELOG.md
 // carries the target section (else URL), and the print-command helper chooses by
-// the manager the user actually picked (regression: it always printed bun).
+// the manager the user actually picked, never a hardcoded bun.
 
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";

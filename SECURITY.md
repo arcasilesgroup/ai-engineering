@@ -19,9 +19,10 @@ Do **not** open a public issue for exploitable findings.
 
 | Version | Supported |
 |---|---|
-| 2.0.x | yes |
-| 0.13.x | no — superseded by 2.0.0 |
-| v1 (Python ≤ 1.0.0) | no — archived at tag `v1-final` |
+| 2.x | yes |
+
+Only the current major line receives security fixes; older lines are archived
+and unsupported.
 
 ## Scope
 

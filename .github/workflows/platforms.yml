@@ -32,7 +32,9 @@ jobs:
           "$GITHUB_WORKSPACE/dist/ai-eng" init --yes --surface claude-code
           test -f AGENTS.md
           test -f .ai-engineering/ai-eng.lock
-          test -f .claude/settings.json
+          # Claude Code's carrier is machine-scope now: it reads the user file, and a
+          # repo copy would be a path the host never loads (docs/global-carriers.md).
+          test -f "$HOME/.claude/settings.json"
       - name: doctor responds (chain test inside)
         shell: bash
         run: cd demo && "$GITHUB_WORKSPACE/dist/ai-eng" doctor

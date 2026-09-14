@@ -1,7 +1,7 @@
 // Generator for src/assets.ts: embeds every skills/ and templates/ file into the
 // binary as Bun file imports. The binary IS the payload (blueprint 07). Run:
 //   bun scripts/gen-assets.ts
-// Also bundles src/chain for in-process plugin hosts (P0-2, 2026-09-01): the
+// Also bundles src/chain for in-process plugin hosts (P0-2): the
 // OMP/OpenCode plugin templates import ./ai-eng-chain.ts, which must be a
 // self-contained module — not a re-export of src/ (its relative imports die in
 // a foreign repo) and not a placeholder comment (the plugin never loaded).
@@ -42,8 +42,8 @@ walk(join(root, "templates"));
 // runtime by validate-findings.cjs; excluding it shipped a broken validator.
 // .ts/.tsx stay out EXCEPT the chain bundle itself and fixture data: a fixture
 // repo is the SUBJECT an eval measures, never host code the binary executes —
-// dropping it shipped an eval pack whose answer key cites files that were never
-// materialized (measured 2026-09-10: example-node-web cites 4 of them).
+// dropping fixtures ships an eval pack whose answer key cites files that are never
+// materialized (example-node-web cites 4 of them).
 //
 // A fixture .ts/.tsx cannot be imported as an asset directly: tsc resolves it as a
 // real module and refuses (no default export; .tsx without --jsx). The payload key

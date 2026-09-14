@@ -127,10 +127,10 @@ Not for:
 
 ## The ai-engineering seam
 
-1. Output goes to `.ai-engineering/research/NNN-{name}.html` with numbered citations and
-   blueprint branding §22 (#0B1120 background / #00D4AA accent / #F8FAFB text) — the
-   report must look like the blueprint, not like an export. The folder is flat: a
-   three-digit `NNN`, never a subfolder.
+1. Output goes to `.ai-engineering/research/NNN-section.html` with numbered citations,
+   styled by the artifact design system — [ai-design › references/artifact-design.md](../ai-design/references/artifact-design.md): the tokens go
+   in verbatim, so the report reads as one family with spec.html and the recap. The
+   folder is flat: a three-digit `NNN`, never a subfolder.
 2. Feed ai-architect's existence-check and prior-art review: this evidence is what an
    architecture PR cites before building something that already exists.
 
@@ -145,4 +145,4 @@ Read by: ai-architect, ai-plan, humans
 Dies: immune while a permanent governor cites it; doctor --gc after older_than when nothing cites it
 Next: ai-architect when the milestone restructures components; ai-plan otherwise
 
-Source: ai-engineering v1 (own), Apache-2.0.
+Source: ai-engineering (own), Apache-2.0.

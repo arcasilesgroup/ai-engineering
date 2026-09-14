@@ -14,8 +14,8 @@ false-positive gate, report format, and the **installed-version rule**. That las
 one matters here more than anywhere: frameworks change their security defaults
 between versions, and half of what a reviewer "knows" about a framework's
 escaping, CSRF, or cookie behavior is version-specific. Verify against the
-installed source before reporting a missing protection the framework now provides
-by default — or an assumed protection it no longer does.
+installed source before reporting a missing protection the framework provides
+by default — or an assumed protection it does not provide.
 
 This is defensive review of code the user owns. Report vulnerabilities with
 enough detail to fix them — the trace and the fix, not a weaponized exploit.

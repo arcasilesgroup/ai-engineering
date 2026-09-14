@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>research · 004 — can the hooks live on the machine instead of in every repo?</title>
+<style>
+/* ── {ai} Engineering — the artifact design system ─────────────────────────
+   Tokens are the brand's: one hue, dark-only, mono for structure and
+   data. Anything ai-engineering renders as an artifact — spec.html, plan.html,
+   a recap, a research page, a report — inherits this block verbatim.       */
+:root{
+  --bg:#0B1120; --surface:#121E36; --surface-2:#0E1830;
+  --line:rgba(0,212,170,.15); --line-strong:rgba(0,212,170,.34);
+  --accent:#00D4AA; --accent-dim:#5FE6C6;
+  --text:#F8FAFB; --dim:#B0C2D6; --comment:#9DB3CA;
+  --ok:#4ade80; --bad:#fbb1b1; --warn:#facc15; --purple:#c084fc; --orange:#fb923c;
+  --mono:'SF Mono','JetBrains Mono','Fira Code',ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Inter',system-ui,sans-serif;
+
+  /* type: one scale, tracking and leading set per size, never one value for all */
+  --fs-display:44px; --lh-display:1.06; --ls-display:-.028em;
+  --fs-h2:26px;      --lh-h2:1.16;      --ls-h2:-.018em;
+  --fs-h3:17px;      --lh-h3:1.32;      --ls-h3:-.006em;
+  --fs-h4:14px;      --lh-h4:1.35;
+  --fs-body:15px;    --lh-body:1.62;
+  --fs-small:13.5px; --lh-small:1.55;
+  --fs-mono:12.5px;  --lh-mono:1.7;
+  --fs-label:10.5px;
+
+  /* space: a 4px rhythm, so nothing lands on an arbitrary number */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --radius:12px; --radius-sm:8px; --container:1040px; --measure:68ch;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:var(--fs-body);line-height:var(--lh-body);
+  font-synthesis-weight:none;-webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(0,212,170,.28)}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;top:var(--s2);left:var(--s2);z-index:99;background:var(--surface);
+      border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:13px 20px;
+      transform:translateY(-160%);transition:transform .15s ease-out}
+.skip:focus{transform:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+/* ── hero ─────────────────────────────────────────────────────────────── */
+.hero{
+  position:relative;overflow:hidden;text-align:center;
+  padding:88px var(--s6) 56px;border-bottom:1px solid var(--line);
+  background-image:
+    linear-gradient(var(--line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line) 1px,transparent 1px),
+    radial-gradient(ellipse 80% 60% at 50% 0%,#16284466,transparent);
+  background-size:32px 32px,32px 32px,100% 100%;
+}
+.hero .stamp{
+  display:inline-block;font-family:var(--mono);font-size:var(--fs-label);
+  letter-spacing:.26em;text-transform:uppercase;color:var(--accent);
+  border:1px solid var(--line-strong);border-radius:3px;padding:6px 14px;
+  margin-bottom:var(--s5);
+}
+.hero h1{font-size:var(--fs-display);line-height:var(--lh-display);
+         letter-spacing:var(--ls-display);font-weight:740}
+.hero h1 .x{color:var(--accent)}
+.hero .sub{font-size:17px;line-height:1.6;color:var(--dim);max-width:62ch;
+           margin:var(--s4) auto 0}
+.hero .sub strong{color:var(--text);font-weight:620}
+.hero .meta{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);
+            margin:var(--s5) auto 0;max-width:66ch;letter-spacing:.02em}
+.hero .meta b{color:var(--accent-dim);font-weight:500}
+.hero .corner{position:absolute;width:22px;height:22px;border:0 solid var(--accent);opacity:.85}
+.hero .tl{top:18px;left:18px;border-width:2px 0 0 2px}
+.hero .tr{top:18px;right:18px;border-width:2px 2px 0 0}
+.hero .bl{bottom:18px;left:18px;border-width:0 0 2px 2px}
+.hero .br{bottom:18px;right:18px;border-width:0 2px 2px 0}
+
+/* ── nav: translucent chrome, content scrolls under it ────────────────── */
+nav{
+  position:sticky;top:0;z-index:50;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;
+  padding:var(--s2) var(--s4);
+  background:rgba(11,17,32,.78);backdrop-filter:blur(14px) saturate(150%);
+  border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;
+}
+nav a{color:var(--dim);letter-spacing:.03em;padding:6px 9px;border-radius:999px;
+      white-space:nowrap;transition:color .15s,background .15s}
+nav a:hover{color:var(--accent);text-decoration:none;background:rgba(0,212,170,.06)}
+nav a.active{color:var(--accent);background:rgba(0,212,170,.1);font-weight:600}
+nav a b{color:var(--accent);font-weight:500;margin-right:5px;opacity:.75}
+nav a.active b{opacity:1}
+
+/* ── page ─────────────────────────────────────────────────────────────── */
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--s5)}
+section{padding:64px 0 52px;border-bottom:1px solid var(--line);scroll-margin-top:88px}
+section:last-of-type{border-bottom:none}
+h2{font-size:var(--fs-h2);line-height:var(--lh-h2);letter-spacing:var(--ls-h2);font-weight:700}
+h2 .num{display:block;font-family:var(--mono);font-size:11px;font-weight:400;
+        letter-spacing:.22em;color:var(--accent);margin-bottom:var(--s2)}
+h3{font-size:var(--fs-h3);line-height:var(--lh-h3);letter-spacing:var(--ls-h3);
+   font-weight:640;margin:var(--s6) 0 var(--s3)}
+h4{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640}
+h2+p,h3+p,h3+div,h2+div{margin-top:var(--s3)}
+p{color:var(--dim);max-width:var(--measure);margin-bottom:var(--s3)}
+p:last-child{margin-bottom:0}
+p strong,li strong{color:var(--text);font-weight:620}
+ul,ol{margin:var(--s3) 0 var(--s5) var(--s5)}
+li{color:var(--dim);font-size:14px;line-height:1.6;margin-bottom:var(--s2);max-width:var(--measure)}
+li strong{color:var(--text)}
+.dim{color:var(--comment)}
+
+/* ── code ─────────────────────────────────────────────────────────────── */
+code{font-family:var(--mono);font-size:var(--fs-mono);background:var(--surface-2);
+     border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--accent-dim);
+     overflow-wrap:anywhere}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);
+    padding:var(--s4) var(--s5);overflow-x:auto;font-family:var(--mono);
+    font-size:var(--fs-mono);line-height:var(--lh-mono);color:var(--dim);margin:var(--s4) 0;
+    -webkit-overflow-scrolling:touch}
+pre code{background:none;border:none;padding:0;color:inherit;overflow-wrap:normal}
+pre,.flow,.tbl-wrap{scrollbar-color:var(--line-strong) transparent;scrollbar-width:thin}
+pre::-webkit-scrollbar,.flow::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{height:8px;width:8px}
+pre::-webkit-scrollbar-thumb,.flow::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{
+  background:var(--line-strong);border-radius:99px}
+pre::-webkit-scrollbar-track,.flow::-webkit-scrollbar-track,.tbl-wrap::-webkit-scrollbar-track{background:transparent}
+pre .c{color:var(--comment)} pre .k{color:var(--accent)} pre .s{color:var(--ok)}
+pre .t{color:var(--purple)} pre .n{color:var(--orange)} pre .b{color:var(--text);font-weight:600}
+.flow{white-space:pre;font-size:12px;line-height:1.75;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ── panels ───────────────────────────────────────────────────────────── */
+.bracket{position:relative;border:1px solid var(--line);background:var(--surface-2);
+         border-radius:var(--radius);padding:var(--s5) var(--s5) var(--s4);margin:var(--s5) 0}
+.bracket::before,.bracket::after{content:'';position:absolute;width:14px;height:14px;
+         border:0 solid var(--accent)}
+.bracket::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+.bracket::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.bracket>.tag{position:absolute;top:-9px;left:18px;background:var(--bg);padding:0 10px;
+         font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.22em;
+         text-transform:uppercase;color:var(--accent)}
+.bracket pre{margin:0;border:none;background:none;padding:0}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+      padding:var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3,.card h4{display:flex;align-items:flex-start;gap:var(--s2)}
+.card h3,.card h4{min-height:22px;line-height:22px}
+.card h3{font-size:var(--fs-h4);line-height:var(--lh-h4);font-weight:640;margin:0}
+.card p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.card .src{font-family:var(--mono);font-size:11px;color:var(--comment)}
+.card pre{font-size:12px;line-height:1.6;margin:var(--s2) 0 0}
+
+.note{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+      padding:var(--s5);margin:var(--s5) 0}
+.note h3,.note h4{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.18em;
+         text-transform:uppercase;color:var(--accent-dim);margin:0 0 var(--s3)}
+.note p{font-size:var(--fs-small);line-height:var(--lh-small);margin:0}
+.note.ok{border-color:rgba(34,197,94,.3)} .note.ok h4{color:var(--ok)}
+.note.warn{border-color:rgba(234,179,8,.3)} .note.warn h4{color:var(--warn)}
+.note.danger{border-color:rgba(251,177,177,.3)} .note.danger h4{color:var(--bad)}
+
+.grid{display:grid;gap:var(--s3);margin:var(--s5) 0;align-items:stretch}
+.grid>*{min-width:0}
+pre{max-width:100%}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats{display:flex;gap:var(--s3);flex-wrap:wrap;justify-content:center;margin:var(--s5) 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+      padding:var(--s4) var(--s5);min-width:132px;text-align:center}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text)}
+.stat .v em{font-style:normal;color:var(--accent)}
+.stat .l{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.14em;
+         text-transform:uppercase;color:var(--dim);margin-top:var(--s1)}
+
+/* ── tables: a component, not a spill ─────────────────────────────────── */
+.tbl-wrap{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface-2);
+          overflow-x:auto;-webkit-overflow-scrolling:touch;margin:var(--s4) 0}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th{text-align:left;padding:12px var(--s4) 10px;white-space:nowrap;
+   font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.12em;
+   text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--line-strong)}
+td{padding:13px var(--s4);border-bottom:1px solid var(--line);color:var(--dim);
+   vertical-align:top;line-height:var(--lh-small)}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--text);font-weight:520}
+@media (hover:hover) and (pointer:fine){tbody tr:hover td{background:rgba(22,40,68,.35)}}
+td code{overflow-wrap:normal;word-break:keep-all}
+table{min-width:640px}
+
+/* ── pills, marks ─────────────────────────────────────────────────────── */
+.pill{display:inline-block;font-family:var(--mono);font-size:10px;line-height:1.5;font-weight:600;
+      padding:2px 8px;border-radius:999px;letter-spacing:.05em;white-space:nowrap;color:var(--text)}
+.p-ok{background:rgba(74,222,128,.13);border:1px solid rgba(74,222,128,.32)}
+.p-bad{background:rgba(251,177,177,.13);border:1px solid rgba(251,177,177,.34)}
+.p-warn{background:rgba(250,204,21,.12);border:1px solid rgba(250,204,21,.32)}
+.p-fix{background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.35)}
+.p-dim{background:rgba(22,40,68,.6);color:var(--dim);border:1px solid var(--line)}
+.check{color:var(--ok);font-weight:600} .cross{color:var(--bad);font-weight:600}
+.half{color:var(--warn);font-weight:600} .center{text-align:center}
+
+/* ── pipeline: real boxes, not ASCII ─────────────────────────────────── */
+.pipe{display:flex;align-items:stretch;margin:var(--s5) 0;flex-wrap:wrap;gap:0}
+.pipe .stage{flex:1 1 150px;min-width:0;background:var(--surface);
+             border:1px solid var(--line);padding:var(--s3) var(--s4) var(--s3)}
+.pipe .stage:first-child{border-radius:var(--radius) 0 0 var(--radius)}
+.pipe .stage:last-child{border-radius:0 var(--radius) var(--radius) 0}
+.pipe .stage+.stage{border-left:none}
+.pipe .stage::after{content:'▸';position:absolute;right:-6px;top:50%;transform:translateY(-50%);
+                    color:var(--accent);font-size:13px;z-index:2}
+.pipe .stage{position:relative}
+.pipe .stage:last-child::after{content:''}
+.pipe .ph{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.pipe .sk{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:var(--s2);line-height:1.5}
+.pipe .q{font-size:11.5px;color:var(--dim);margin-top:var(--s1)}
+
+.tiers{display:flex;flex-direction:column;gap:var(--s2);margin:var(--s5) 0}
+.tier{display:flex;gap:var(--s4);align-items:baseline;border:1px solid var(--line);
+      border-radius:var(--radius);padding:var(--s3) var(--s4);background:var(--surface);flex-wrap:wrap}
+.tier .tname{font-family:var(--mono);font-size:11px;letter-spacing:.08em;min-width:148px;
+             color:var(--accent);text-transform:uppercase}
+.tier .tbody{flex:1 1 240px;font-size:var(--fs-small);color:var(--dim);min-width:0}
+.tier .tbody b{color:var(--text)}
+.tier .tlat{font-family:var(--mono);font-size:11px;color:var(--warn);text-align:right}
+
+footer{text-align:center;padding:var(--s7) var(--s5) var(--s6);
+       border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;
+       color:var(--comment);letter-spacing:.08em;line-height:2.1}
+footer .x{color:var(--accent)}
+footer a{color:var(--dim);display:inline-block;padding:12px 4px}
+
+@media (max-width:900px){
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .hero{padding:64px var(--s5) 44px}
+  .hero h1{font-size:34px;letter-spacing:-.022em}
+  .hero .sub{font-size:16px}
+  .pipe .stage{border-left:1px solid var(--line);border-radius:var(--radius)!important;flex-basis:100%}
+  .pipe .stage+.stage{margin-top:var(--s2)}
+  .pipe .stage::after{content:''}
+  .tier .tlat{text-align:left}
+}
+@media (max-width:820px){
+  nav a{padding:14px 8px}
+}
+@media (max-width:560px){
+  .container{padding:0 var(--s4)}
+  nav{font-size:10.5px;gap:0 2px;flex-wrap:nowrap;justify-content:flex-start;
+      overflow-x:auto;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav::after{content:'';position:sticky;right:0;flex:0 0 28px;margin-left:-28px;
+      background:linear-gradient(90deg,transparent,rgba(11,17,32,.95));pointer-events:none}
+  nav a{padding:14px 8px}
+  table{font-size:13px} th,td{padding:10px var(--s3)}
+  pre{font-size:11.5px;padding:var(--s3) var(--s4)}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{animation:none!important;transition:none!important}
+}
+@media (prefers-reduced-transparency:reduce){
+  nav{background:var(--bg);backdrop-filter:none}
+}
+@media (prefers-contrast:more){
+  :root{--dim:#CBD8E6;--comment:#B4C4D6}
+  .card,.note,p,li,td{color:var(--dim)}
+  nav a{color:#CBD8E6}
+}
+@media print{
+  nav,.skip{display:none}
+  body{background:#fff;color:#111}
+  section{page-break-inside:avoid}
+}
+</style>
+</head>
+
+<body>
+<a class="skip" href="#s00">Skip to content</a>
+
+<header class="hero">
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+  <span class="stamp">research · 004 · 2026-09-14</span>
+  <h1>Can the hooks live on the machine<br>instead of in <span class="x">every repo</span>?</h1>
+  <p class="sub">Every surface ai-eng governs publishes a user-level hook location, so the per-project copy is a
+  <strong>product decision, not a platform limit</strong>. What decides the question is blast radius, not capability:
+  measured in this session, the guards already deny inside a repo they have never seen. Global placement moves
+  <strong>the policy</strong>, not just the file.</p>
+  <p class="meta">
+    Tools used: <b>the repo's own tree + live probes</b> (ai-eng 2.1.0 · <code>chain</code> and <code>git</code> run inside an
+    ungoverned repo) · <b>vendor docs</b> (code.claude.com, cursor.com, developers.openai.com, opencode.ai, pi.dev, git-scm.com) ·
+    <b>OMP harness docs</b> (local, authoritative for Oh My Pi) · prior report <code>003</code><br>
+    Tools absent: <b>notebooklm</b> (auth expired → deep tier skipped, no re-login attempted)
+  </p>
+</header>
+
+<nav aria-label="Sections">
+  <a href="#s00"><b>00</b>What changes</a>
+  <a href="#s01"><b>01</b>Every surface has a machine location</a>
+  <a href="#s02"><b>02</b>The measurement that decides</a>
+  <a href="#s03"><b>03</b>What the repo already decided</a>
+  <a href="#s04"><b>04</b>The git floor, separately</a>
+  <a href="#s05"><b>05</b>Trust gates</a>
+  <a href="#s06"><b>06</b>The hybrid</a>
+  <a href="#s07"><b>07</b>Sources</a>
+</nav>
+
+<main class="container">
+
+<section id="s00">
+  <h2><span class="num">00 · the decision</span>What changes depending on the answer</h2>
+  <p>The question is not “can it be done” — it can, on seven of the eight targets. The question is which of two
+  governance models ai-eng ships: <strong>declared governance</strong> (a repo opts in by carrying hook files, and
+  <code>git revert</code> is the rollback) or <strong>ambient governance</strong> (the machine enforces policy in every repo
+  the human opens, and the repo merely declares which surfaces apply).</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th></th><th>Today: per project</th><th>Machine-level</th></tr></thead>
+    <tbody>
+      <tr><td>Files written for a governed repo</td><td>7 surface files + 3 git shims per repo (<code>init</code>)</td><td>1 file per surface, once per machine</td></tr>
+      <tr><td>Trust steps</td><td>per project (Codex hook review, Pi/OMP folder trust)</td><td>once per machine for global extensions; Codex still reviews the hook once by hash</td></tr>
+      <tr><td>Blast radius</td><td>only repos that ran <code>init</code></td><td>every repo on the machine — measured below</td></tr>
+      <tr><td>Version</td><td>pinned per repo (<code>.ai-engineering/ai-eng.lock</code>, <code>skills_min</code>)</td><td>whatever binary the machine has; a repo cannot pin it</td></tr>
+      <tr><td>Rollback</td><td><code>git revert</code> on the repo's own diff</td><td><code>ai-eng uninstall</code> scope <em>Everything</em></td></tr>
+      <tr><td>A teammate who clones</td><td>carries the governance with the repo</td><td>carries nothing; each machine installs its own</td></tr>
+      <tr><td>Cursor cloud agents</td><td>fire (project hooks)</td><td>do <strong>not</strong> fire — user hooks are skipped there [4][5]</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note ok">
+    <h4>the short answer</h4>
+    <p>Yes on the mechanism: <strong>Claude Code, Cursor, Codex CLI, OpenCode, Oh My Pi and Pi all document a user-level hook,
+    plugin or extension location</strong>, and Copilot CLI already <em>requires</em> one (the repo has shipped a machine hook for it
+    since §13). No on the current behaviour: the chain applies its policy whether or not the repo is governed, so a machine-level
+    install today would police every repo on the machine. Global placement is therefore one small gate away — and that gate is a
+    product decision, which is why it is not in the code.</p>
+  </div>
+</section>
+
+<section id="s01">
+  <h2><span class="num">01 · capability</span>Every surface already has a machine-level location</h2>
+  <p>Primary sources only: the vendor's own documentation, except Oh My Pi where the installed harness ships its own docs
+  (<code>omp://extension-loading.md</code>) and the source of truth is the loader code it describes.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Surface</th><th>Machine-level location</th><th>Source</th><th>Caveat worth knowing</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Claude Code</td>
+        <td><code>~/.claude/settings.json</code> — user scope, all projects</td>
+        <td class="dim">[1][2][3]</td>
+        <td>five scopes, user is the <em>lowest</em> precedence (Managed &gt; CLI &gt; Local &gt; Project &gt; User); plugin <code>hooks.json</code> is another machine carrier</td>
+      </tr>
+      <tr>
+        <td>Cursor</td>
+        <td><code>~/.cursor/hooks.json</code> + <code>~/.cursor/hooks/</code></td>
+        <td class="dim">[4][5]</td>
+        <td>user hooks resolve commands from <code>~/.cursor/</code>, and rank <em>below</em> project (Enterprise &gt; Team &gt; Project &gt; User); cloud agents run project hooks only</td>
+      </tr>
+      <tr>
+        <td>Codex CLI</td>
+        <td><code>~/.codex/hooks.json</code>, <code>~/.codex/config.toml</code> (<code>[hooks]</code>)</td>
+        <td class="dim">[6]</td>
+        <td>user and system hooks load <strong>even in a project that is not trusted</strong>; trust is per hook definition, recorded by hash, reviewed once under <code>/hooks</code></td>
+      </tr>
+      <tr>
+        <td>OpenCode</td>
+        <td><code>~/.config/opencode/plugins/</code> — note the plural</td>
+        <td class="dim">[7]</td>
+        <td>loaded at startup, in order: global config → project config → global plugins → project plugins</td>
+      </tr>
+      <tr>
+        <td>Oh My Pi</td>
+        <td>the active agent dir: <code>~/.omp/agent/extensions</code> (+ <code>config.yml#extensions</code>, profile-scoped, relocatable by <code>PI_CODING_AGENT_DIR</code>)</td>
+        <td class="dim">[9]</td>
+        <td>project discovery is <code>&lt;cwd&gt;/.omp</code> only — it does not walk ancestors; native auto-discovery is <code>.omp</code>-based</td>
+      </tr>
+      <tr>
+        <td>Pi</td>
+        <td><code>~/.pi/agent/extensions/*.ts</code> (or <code>*/index.ts</code>)</td>
+        <td class="dim">[8]</td>
+        <td>project-local extensions load <strong>only after the project is trusted</strong>; global ones take part in the trust decision instead</td>
+      </tr>
+      <tr>
+        <td>Copilot CLI</td>
+        <td><code>~/.copilot/hooks/*.json</code></td>
+        <td class="dim">[13] · measured</td>
+        <td>the repo already ships this one: the only scope that fires in Copilot CLI — the repo-level copy never does</td>
+      </tr>
+      <tr>
+        <td>git floor</td>
+        <td><code>core.hooksPath</code> in <code>~/.gitconfig</code>; <code>init.templateDir</code> for new clones</td>
+        <td class="dim">[10][11]</td>
+        <td>a repo-local <code>core.hooksPath</code> wins over the global one, and setting <code>hooksPath</code> makes <code>$GIT_DIR/hooks</code> <em>ignored</em> — see §04</td>
+      </tr>
+    </tbody>
+  </table></div>
+  <p class="dim">Not a machine-location question: whether a hook written for one surface's dialect can be reused by another.
+  Cursor does read Claude's <code>hooks.json</code> with a documented mapping [5], which is a maintenance saving, not an answer to this one.</p>
+</section>
+
+<section id="s02">
+  <h2><span class="num">02 · the measurement</span>What actually decides it</h2>
+  <p>Feasibility is not the constraint. <strong>Scope</strong> is. The guards do not ask whether the repo they are running in is
+  governed — <code>runChain</code> resolves the repo, and then every guard in the table decides
+  (<code>src/chain/mod.ts:103</code>, <code>src/env.ts:27</code>). Two probes, this session, in a repo with no
+  <code>.ai-engineering/</code> at all:</p>
+  <div class="bracket">
+    <span class="tag">measured · ungoverned repo</span>
+<pre><span class="c"># /tmp/ungoverned — git init only, no ai-eng has ever run here</span>
+$ echo '{"tool_name":"Bash","tool_input":{"command":"git commit -n -m x"}, ...}' | ai-eng chain PreToolUse
+<span class="s">[ai-eng] no-verify: git commit -n skips the git hooks, the floor every agent ... Run the command without it.</span>
+<span class="b">exit=2</span>            <span class="c"># outside any repo at all: same deny, same exit 2</span>
+
+$ ai-eng git commit-msg /dev/null
+<span class="s">the message does not follow the Conventional Commits convention: ""</span>
+<span class="b">exit=1</span>            <span class="c"># and `ai-eng git pre-commit` exits 0 here only because there was nothing to check</span></pre>
+  </div>
+  <p>So the hooks are not “this repo's hooks”. They are <strong>a policy that happens to be delivered per repo today</strong>.
+  Install them on the machine and the same deny lands in the human's other repos — the ones they never governed, including
+  someone else's clone with its own conventions:</p>
+  <div class="grid g3">
+    <div class="card">
+      <h4><span class="pill p-dim">consequence 1</span>Deny everywhere</h4>
+      <p>A machine hook that fails closed also denies on a broken machine: the binary off <code>PATH</code> turns every tool call in
+      every repo into a hook failure. The repo already wrote that lesson down for the one machine hook that ships —
+      <em>“a machine-wide hook that fails closed with a missing binary denies every tool call in every repo”</em>.</p>
+      <p class="src">tests/surfaces.test.ts:224</p>
+    </div>
+    <div class="card">
+      <h4><span class="pill p-dim">consequence 2</span>Conventions leak</h4>
+      <p>Conventional Commits, the no-verify deny and the injection scan would apply in a repo whose team agreed to none of them.
+      Today the per-repo copy is what makes “this repo is governed” true; on the machine, nothing does.</p>
+      <p class="src">measured above · src/chain/mod.ts TABLE</p>
+    </div>
+    <div class="card">
+      <h4><span class="pill p-dim">consequence 3</span>The gate already half-exists</h4>
+      <p><code>enabledSurfaces()</code> defaults to <code>["claude-code"]</code> when there is no repo or no
+      <code>config.toml</code> — the code assumes governance instead of asking whether it is there. A governed-repo gate is a
+      three-line addition, and it is the whole difference between ambient and declared.</p>
+      <p class="src">src/env.ts:80-84</p>
+    </div>
+  </div>
+</section>
+
+<section id="s03">
+  <h2><span class="num">03 · intent</span>What the repo already decided, and why</h2>
+  <p>Per-project placement is not an accident of implementation; it is written down in three places and one test:</p>
+  <div class="grid g2">
+    <div class="card">
+      <h3><span class="pill p-fix">rule</span> “only an explicit --global may write outside the repo”</h3>
+      <p>The comment sits on <code>installCanon</code> itself. The machine side installs the canon and the mirrors because skills
+      are machine-scoped; hooks were deliberately left out of it, with Copilot CLI as the single documented exception
+      (its repo hook never fires).</p>
+      <p class="src">src/surfaces/adapters.ts:81-85, :109-122</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-fix">rule</span> The ownership list puts settings per project</h3>
+      <p>The blueprint's global/project split names <code>.claude/settings.json</code>, <code>config.toml</code>,
+      <code>overrides.toml</code>, <code>ai-eng.lock</code>, <code>arch.rules.json</code> and the four contract files as
+      <em>per project</em>, and “canon de skills, binario, caché de versión” as global.</p>
+      <p class="src">docs/blueprint.html:696</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-fix">rule</span> <code>core.hooksPath</code> is actively unset</h3>
+      <p><code>init</code> writes the shims into <code>.git/hooks</code> and unsets any <code>core.hooksPath</code> it finds;
+      <code>uninstall</code> reports reverting it. Redirecting git's hook directory was considered and refused — mostly for
+      coexistence with husky, which does exactly that.</p>
+      <p class="src">src/commands/init.ts:74-80 · §13.2</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-warn">gap</span> The one ambient hook is still unbuilt</h3>
+      <p>§14.0a designs a <strong>machine-level <code>SessionStart</code></strong> hook whose entire job is to detect an
+      ungoverned repo and inject one line — the ambient hook, designed ambient-safe (an existence check, zero tokens when
+      governed). No <code>SessionStart</code> exists anywhere in <code>src/</code> today: the design that proves the pattern
+      is unimplemented.</p>
+      <p class="src">docs/blueprint.html:1138 · grep src/ for SessionStart → nothing</p>
+    </div>
+  </div>
+  <div class="note warn">
+    <h4>the counter-argument, in the repo's own words</h4>
+    <p>Per-repo placement buys three things a machine install cannot: the hook is <strong>reviewable in a PR</strong>
+    (it is governed code the team sees, not a local artefact), it is <strong>pinned to the repo</strong>
+    (<code>ai-eng.lock</code>'s sha256 + <code>skills_min</code>, which <code>doctor</code> checks), and
+    <code>git revert</code> remains the rollback. A teammate who clones inherits nothing to install. Ambient governance loses
+    all three silently, which is why “it is possible” and “it is right” are different questions.</p>
+  </div>
+</section>
+
+<section id="s04">
+  <h2><span class="num">04 · the git floor</span>The floor is a separate question with a native global answer</h2>
+  <p>The git shims cannot be versioned — <code>.git/hooks</code> is not in the repository, so <strong>every clone starts without
+  the floor</strong> and the repo's CI has to rebuild it (<code>update --yes</code>). That is the same class of gap the global
+  mechanism closes natively, and git has had two ways to do it since 2.9: <code>core.hooksPath</code> in
+  <code>~/.gitconfig</code> points every repo at one hooks directory, and <code>init.templateDir</code> makes new clones be
+  born with the shims already in <code>.git/hooks</code> [10][11].</p>
+  <div class="grid g3">
+    <div class="card">
+      <h4><span class="pill p-warn">cost 1</span>A repo-local hooksPath wins</h4>
+      <p>husky and pre-commit both set a repo-level <code>core.hooksPath</code>; repo config beats global config, so in those
+      repos the machine hooks simply do not run. pre-commit needed an explicit <code>--allow-global-hooks</code> flag for the
+      mirror-image problem [12].</p>
+    </div>
+    <div class="card">
+      <h4><span class="pill p-warn">cost 2</span>hooksPath replaces, it does not add</h4>
+      <p>When <code>core.hooksPath</code> is set, <code>$GIT_DIR/hooks</code> is ignored — the repo's own hand-written hooks stop
+      running unless the global directory dispatches to them. That is a dispatcher to maintain, not a file to drop in.</p>
+    </div>
+    <div class="card">
+      <h4><span class="pill p-warn">cost 3</span>Details that bite</h4>
+      <p>Only executable files run; push-side hooks execute in <code>$GIT_DIR</code>, so a global <code>pre-push</code> must not
+      assume the worktree is the cwd. <code>--no-verify</code> remains the universal bypass either way — which is why the
+      no-verify guard exists at all.</p>
+    </div>
+  </div>
+  <p><strong>Reading:</strong> for the git floor the global mechanism is the <em>native</em> one and the per-repo shim is the
+  workaround; for the agent surfaces the per-repo file is equally native and the machine file is the addition. The two families
+  should be decided separately, and today they are decided the same way by inertia.</p>
+</section>
+
+<section id="s05">
+  <h2><span class="num">05 · friction</span>What a machine hook actually costs in human steps</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Surface</th><th>Machine hook: first-run friction</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>Codex CLI</td><td>one <code>/hooks</code> review per hook definition, trusted by hash; <code>--dangerously-bypass-hook-trust</code> exists for one-off runs [6]</td><td><span class="pill p-ok">better than per repo</span> — one approval instead of one per project</td></tr>
+      <tr><td>Pi / Oh My Pi</td><td>global extensions load without the project-trust step that project-local ones require [8][9]</td><td><span class="pill p-ok">removes a step</span></td></tr>
+      <tr><td>Copilot CLI</td><td>none — the machine location is the only one that fires [13]</td><td><span class="pill p-ok">already required</span></td></tr>
+      <tr><td>Claude Code</td><td>user scope is documented as applying to all projects [1][2]; how that interacts with the per-workspace trust dialog for <em>user-scope hooks specifically</em> is not stated in the pages read</td><td><span class="half">[unsourced]</span></td></tr>
+      <tr><td>Cursor</td><td>user hooks rank below project hooks, and cloud agents run project hooks only [4][5]</td><td><span class="pill p-warn">weakest carrier</span></td></tr>
+      <tr><td>OpenCode</td><td>global plugin dir loads at startup with no trust step quoted [7]</td><td><span class="pill p-ok">straightforward</span></td></tr>
+      <tr><td>Git floor</td><td>one <code>git config --global</code>; existing repos need nothing, but a repo-local override silently wins [10][12]</td><td><span class="pill p-dim">two mechanisms, pick one</span></td></tr>
+    </tbody>
+  </table></div>
+  <p class="dim">Also measured elsewhere in the repo: <code>codex exec</code> does not dispatch repo hooks from
+  <code>.codex/hooks.json</code> at all in at least one shipped version [14] — one more reason a user-level carrier is the
+  sturdier half, and a reminder that “documented” and “fires” are different claims.</p>
+</section>
+
+<section id="s06">
+  <h2><span class="num">06 · the design</span>The hybrid: one carrier on the machine, the declaration in the repo</h2>
+  <p>The two models are not exclusive. The ergonomics of the machine hook and the semantics of the repo hook can coexist if
+  <strong>the hook is machine-level and inert unless the repo declares itself</strong> — which is what
+  <code>.ai-engineering/config.toml</code> already is, and what the chain does not yet check:</p>
+  <div class="bracket">
+    <span class="tag">the gate, in one shape</span>
+<pre><span class="c">// before any guard decides anything (src/chain/mod.ts:103 area)</span>
+<span class="k">const</span> root = repoRoot();
+<span class="k">if</span> (root === <span class="n">null</span> || !existsSync(join(root, <span class="s">".ai-engineering"</span>, <span class="s">"config.toml"</span>))) {
+  <span class="k">return</span> allow;   <span class="c">// an ungoverned repo is not this tool's business — the same shape as the §14.0a nudge</span>
+}</pre>
+  </div>
+  <p>With that gate, moving the seven surface hook files to their user-level locations becomes a placement change, not a policy
+  change: <code>config.toml</code> still decides <em>whether</em> and <em>on which surfaces</em> a repo is governed, the lock
+  still pins the version, and <code>init</code> stops writing hook files into the repo at all. The git floor stays the way it
+  is (marker-managed shims, husky-compatible) until someone wants clones to be born governed, which is the
+  <code>init.templateDir</code> question and a different trade.</p>
+  <div class="grid g3">
+    <div class="card">
+      <h4><span class="pill p-fix">direction 1</span>Gate, then move</h4>
+      <p>Add the governed-repo gate to <code>chain</code>, then install the surface hooks at the user-level locations in §01.
+      Evidence it is viable: Codex loads user hooks even in untrusted projects, Pi/OMP global extensions skip the project-trust
+      step, OpenCode loads the global plugin dir at startup [6][7][8][9].</p>
+      <p class="src">src/chain/mod.ts:103 · src/env.ts:80-84</p>
+    </div>
+    <div class="card">
+      <h4><span class="pill p-fix">direction 2</span>Ship the nudge first</h4>
+      <p>Implement §14.0a's machine-level <code>SessionStart</code> hook — it is designed ambient-safe (existence check, one
+      injected line, zero tokens when governed) and it is the smallest possible test of the whole ambient model: if a machine
+      hook can be trusted to stay silent, the bigger move is defensible.</p>
+      <p class="src">docs/blueprint.html:1138 · grep src/ → unimplemented</p>
+    </div>
+    <div class="card">
+      <h4><span class="pill p-fix">direction 3</span>Decide the floor on purpose</h4>
+      <p>Every clone today starts without the git floor (<code>.github/workflows/check.yml:43</code> exists to fix that after
+      the fact). Choose: keep per-repo shims, or set <code>init.templateDir</code> so clones are born governed — and record which,
+      because “the global hooksPath wins” is false in any repo using husky [10][12].</p>
+      <p class="src">.github/workflows/check.yml:43</p>
+    </div>
+  </div>
+</section>
+
+<section id="s07">
+  <h2><span class="num">07 · sources</span>Everything above, openable</h2>
+  <ol>
+    <li>Claude Code — <em>Automate actions with hooks</em> (user-wide <code>~/.claude/settings.json</code>, applies to all projects): <a href="https://code.claude.com/docs/en/hooks-guide">code.claude.com/docs/en/hooks-guide</a></li>
+    <li>Claude Code — <em>Hooks reference</em> (multi-layer scopes and precedence): <a href="https://code.claude.com/docs/en/hooks">code.claude.com/docs/en/hooks</a></li>
+    <li>Claude Code — <em>Settings files and precedence</em> (User scope = all projects; trust applies to some keys): <a href="https://code.claude.com/docs/en/settings">code.claude.com/docs/en/settings</a></li>
+    <li>Cursor — <em>Hooks</em> (project and user <code>hooks.json</code>, user commands resolve from <code>~/.cursor/</code>): <a href="https://cursor.com/docs/hooks">cursor.com/docs/hooks</a></li>
+    <li>Cursor — <em>Third-party hooks</em> (merge priority incl. Claude scope mapping): <a href="https://cursor.com/docs/reference/third-party-hooks">cursor.com/docs/reference/third-party-hooks</a></li>
+    <li>Codex — <em>Hooks</em> (user <code>~/.codex/hooks.json</code> + <code>config.toml</code>, hash-pinned trust, user hooks load in untrusted projects): <a href="https://developers.openai.com/codex/hooks">developers.openai.com/codex/hooks</a></li>
+    <li>OpenCode — <em>Plugins</em> (global <code>~/.config/opencode/plugins/</code>, load order): <a href="https://opencode.ai/docs/plugins/">opencode.ai/docs/plugins/</a></li>
+    <li>Pi — <em>Extensions</em> (global <code>~/.pi/agent/extensions</code>; project-local loads only after trust): <a href="https://pi.dev/docs/latest/extensions">pi.dev/docs/latest/extensions</a></li>
+    <li>Oh My Pi — <em>Extension Loading</em> (active agent dir as the user root; native project root is cwd-only <code>.omp/</code>): local harness doc <code>omp://extension-loading.md</code></li>
+    <li>git — <em>githooks(5)</em> (<code>core.hooksPath</code>, executable bit, push-side cwd): <a href="https://git-scm.com/docs/githooks">git-scm.com/docs/githooks</a></li>
+    <li>git — <em>git-config(1)</em> (<code>core.hooksPath</code>, <code>init.templateDir</code>): <a href="https://git-scm.com/docs/git-config">git-scm.com/docs/git-config</a></li>
+    <li>pre-commit — <em>--allow-global-hooks</em> (the corporate global-hooksPath collision, the mirror case): <a href="https://github.com/pre-commit/pre-commit/pull/2994">github.com/pre-commit/pre-commit/pull/2994</a></li>
+    <li>This repository — report <em>003</em>: Copilot CLI's user-level hook measured firing while the repo-level copy never fired: <code>.ai-engineering/research/003-core-promotion-cursor-codex-copilot.html</code> · <code>src/surfaces/adapters.ts:109-122</code></li>
+    <li>openai/codex — <em>codex exec does not dispatch repo hooks from .codex/hooks.json</em>: <a href="https://github.com/openai/codex/issues/26383">github.com/openai/codex/issues/26383</a></li>
+  </ol>
+  <p class="dim">Local anchors cited above were opened in this session: <code>src/chain/mod.ts:103</code>,
+  <code>src/env.ts:27</code>, <code>src/env.ts:80-84</code>, <code>src/commands/init.ts:74-80</code>,
+  <code>src/surfaces/adapters.ts:81-85</code>, <code>tests/surfaces.test.ts:224</code>,
+  <code>docs/blueprint.html:696</code>, <code>docs/blueprint.html:1138</code>, <code>.github/workflows/check.yml:43</code>,
+  and the two probe runs in <code>/tmp/ungoverned</code>.</p>
+</section>
+
+</main>
+
+<footer>
+  {ai} Engineering · research 004 · <span class="x">2026-09-14</span><br>
+  machine side vs repo side — the placement question, answered with measurements
+</footer>
+</body>
+</html>

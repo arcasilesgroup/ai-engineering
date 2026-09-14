@@ -27,6 +27,6 @@ jobs:
         with:
           version-script: npx changeset version
           # Deliberately not a publish: a workflow that both versions and deploys makes
-          # the deployment a side effect of merging, and that is exactly what made
-          # "release" and "version" read as two competing channels.
+          # the deployment a side effect of merging, so versioning stays here and the
+          # deployment is release.yml's job with an explicit channel.
           publish-script: echo "versioning only — the deployment is release.yml (channel=integration|production)"

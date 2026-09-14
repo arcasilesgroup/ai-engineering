@@ -94,10 +94,9 @@ misses:
    report mode. It hooks `Stop`, not `SubagentStop`, so it guards the driver
    and never blocks a dispatched leaf on its siblings' unmet gates.
 
-Prose discipline is layer zero and it is the weakest; that is the lesson v2
-is built on. Prefer moving any repeated judgment call up this hierarchy:
-if you find yourself re-checking the same thing twice by reading, write a
-CHECK command for it.
+Prose discipline is layer zero and it is the weakest. Prefer moving any
+repeated judgment call up this hierarchy: if you find yourself re-checking
+the same thing twice by reading, write a CHECK command for it.
 
 ## Model and effort tiering
 

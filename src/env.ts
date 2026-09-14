@@ -1,5 +1,5 @@
-// Machine- and repo-level paths, session identity, and config reads. Ported from
-// v1's _emit.py — the same floor every module needs and none may guess at.
+// Machine- and repo-level paths, session identity, and config reads. The same
+// floor every module needs and none may guess at.
 
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -7,9 +7,9 @@ import { existsSync, readFileSync } from "node:fs";
 
 /** AI_ENG_HOME for tests; ~/.ai-engineering in the wild. An override that resolves
  *  inside the governed repository is refused: Bun loads a committed `.env` into the
- *  process environment, so honouring one let a repository point the gate executor at
- *  its own `gate-check.mjs` and report ALL MET — arbitrary code as the governor, in a
- *  client's CI (audit LOGIC-003, reproduced). */
+ *  process environment, so honouring one would let a repository point the gate
+ *  executor at its own `gate-check.mjs` and report ALL MET — arbitrary code as the
+ *  governor, in a client's CI (audit LOGIC-003). */
 export function home(): string {
   const override = process.env.AI_ENG_HOME;
   if (override) {
@@ -20,7 +20,8 @@ export function home(): string {
   return join(homedir(), ".ai-engineering");
 }
 
-/** The governed repo this call happens in: the nearest ancestor with .git or .ai-engineering. */
+/** The repo this call happens in: the nearest ancestor with .git or .ai-engineering.
+ *  NOT the gate — a repo having a root says nothing about it having asked for policy. */
 export function repoRoot(start?: string): string | null {
   let dir = resolve(start ?? process.cwd());
   for (;;) {
@@ -31,10 +32,64 @@ export function repoRoot(start?: string): string | null {
   }
 }
 
-/** Receipts live with the repo that governs the call; a stray call writes nothing. */
-export function receiptsDir(): string | null {
-  const root = repoRoot();
-  return root ? join(root, ".ai-engineering", "receipts") : null;
+const configPath = (root: string) => join(root, ".ai-engineering", "config.toml");
+
+/** Why a repo is not governed, or null when it is. */
+export type GovernanceGap = "no-repo" | "no-config" | "corrupt-config" | "no-surfaces";
+
+/** What a repo declared, or why it declared nothing. THE order the gate is decided
+ *  in — and the only read of the declaration, so `enabledSurfaces()` and the gate
+ *  can never disagree about what was said.
+ *
+ *  Governed means config.toml exists, parses, AND names its surfaces. Existence
+ *  alone is not enough: `loadConfig()` answers `{}` for a TOML it cannot read and
+ *  `enabledSurfaces()` then falls back to ["claude-code"], so a zero-byte file
+ *  would be a governed repo running the strictest policy off the emptiest file
+ *  (F2). Nothing else in the codebase may answer this question (§A). */
+export function declaration(root: string | null = repoRoot()): { surfaces: string[] } | { gap: GovernanceGap } {
+  if (root === null) return { gap: "no-repo" };
+  const path = configPath(root);
+  if (!existsSync(path)) return { gap: "no-config" };
+  let doc: Record<string, unknown>;
+  try {
+    doc = Bun.TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+  } catch {
+    return { gap: "corrupt-config" };
+  }
+  const surfaces = doc["surfaces"];
+  if (surfaces === null || typeof surfaces !== "object" || Array.isArray(surfaces)) return { gap: "no-surfaces" };
+  const enabled = (surfaces as Record<string, unknown>)["enabled"];
+  if (!Array.isArray(enabled)) return { gap: "no-surfaces" };
+  return { surfaces: enabled.filter((item): item is string => typeof item === "string") };
+}
+
+/** The gate: null when this repo participates, otherwise the reason it does not. */
+export function governanceGap(root: string | null = repoRoot()): GovernanceGap | null {
+  const declared = declaration(root);
+  return "gap" in declared ? declared.gap : null;
+}
+
+export function isGoverned(root: string | null = repoRoot()): boolean {
+  return "surfaces" in declaration(root);
+}
+
+/** The base every machine-side path hangs off — the canon mirrors, the carriers, the git
+ *  template: AI_ENG_HOME when a test set it, otherwise the real physical home. A test
+ *  install must never rewrite the REAL ~/.claude, ~/.omp, ~/.pi or ~/.config. */
+export function machineBase(): string {
+  return process.env.AI_ENG_HOME !== undefined ? home() : homedir();
+}
+
+/** Receipts live with the repo that governs the call. A repo that never declared
+ *  itself is not governed, so a stray hook there writes nothing: no receipts dir,
+ *  no .ai-engineering/ invented behind the user's back.
+ *
+ *  `root` is the repo the CALL belongs to when the caller already resolved it (a host
+ *  that reports its own workspace directory), so the receipt cannot land in a different
+ *  checkout than the one the verdict was decided for. */
+export function receiptsDir(root?: string | null): string | null {
+  const resolved = root === undefined ? repoRoot() : root;
+  return resolved !== null && isGoverned(resolved) ? join(resolved, ".ai-engineering", "receipts") : null;
 }
 
 const SESSION_STATE = new Map<string, string>();
@@ -49,7 +104,7 @@ export function sessionId(): string {
   return minted;
 }
 
-/** Adopt the surface's session before any fingerprint or state file is opened (v1 chain.py). */
+/** Adopt the surface's session before any fingerprint or state file is opened. */
 export function adoptSession(id: unknown): void {
   if (typeof id === "string" && id.trim()) SESSION_STATE.set("session", id.trim());
 }
@@ -65,7 +120,7 @@ export type Config = Record<string, Record<string, TomlValue>>;
 export function loadConfig(): Config {
   const root = repoRoot();
   if (!root) return {};
-  const path = join(root, ".ai-engineering", "config.toml");
+  const path = configPath(root);
   if (!existsSync(path)) return {};
   try {
     return Bun.TOML.parse(readFileSync(path, "utf8")) as Config;
@@ -78,22 +133,8 @@ export function loadConfig(): Config {
  *  type guards — no assertions. Default: the one surface init installs when
  *  config.toml is silent. Both update and uninstall ask this question. */
 export function enabledSurfaces(): string[] {
-  const root = repoRoot();
-  if (root === null) return ["claude-code"];
-  const path = join(root, ".ai-engineering", "config.toml");
-  if (!existsSync(path)) return ["claude-code"];
-  try {
-    const doc = Bun.TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
-    const surfaces = doc["surfaces"];
-    if (surfaces === null || typeof surfaces !== "object" || Array.isArray(surfaces) || !("enabled" in surfaces)) return ["claude-code"];
-    const enabled = surfaces.enabled;
-    if (!Array.isArray(enabled)) return ["claude-code"];
-    const names: string[] = [];
-    for (const item of enabled) if (typeof item === "string") names.push(item);
-    return names;
-  } catch {
-    return ["claude-code"];
-  }
+  const declared = declaration();
+  return "surfaces" in declared ? declared.surfaces : ["claude-code"];
 }
 
 export function guardLimits(): { window: number; repeats: number; failures: number } {
