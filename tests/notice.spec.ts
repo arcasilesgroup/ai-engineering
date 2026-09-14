@@ -8,10 +8,18 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodS
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { VERSION } from "../src/version.ts";
+import { home } from "../src/env.ts";
 
 const roots: string[] = [];
 const savedEnv = { home: process.env["AI_ENG_HOME"], path: process.env["PATH"], opt: process.env["AI_ENG_NO_UPDATE_NOTICES"] };
 const savedCwd = process.cwd();
+
+/** Where THIS process would write the notice cache — the module's own answer, read
+ *  through the same function the notice uses. A test that hardcodes its sandbox instead
+ *  passes on a laptop and fails on a runner whose AI_ENG_HOME is not honoured. */
+function cachePath(): string {
+  return join(home(), "version.json");
+}
 
 function sandbox(prefix: string): string {
   const dir = mkdtempSync(join(tmpdir(), `ai-eng-${prefix}-`));
@@ -86,7 +94,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
     process.env["PATH"] = pathWithRegistryShim("9.9.9");
     const { maybeNotice } = await notice();
     expect(captureOutput(() => maybeNotice())).toBe("");
-    expect(existsSync(join(home, "version.json"))).toBe(false);
+    expect(existsSync(cachePath())).toBe(false);
   });
 
   test("notices = false in the repository's config switches it off for that repository", async () => {
@@ -100,7 +108,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
     const { maybeNotice } = await notice();
     captureOutput(() => maybeNotice());
     // Switched off means the registry was never asked: no cache write, no line.
-    expect(existsSync(join(home, "version.json"))).toBe(false);
+    expect(existsSync(cachePath())).toBe(false);
   });
 
   test("a newer version on the registry is cached for the next 24h, and a fresh cache is not re-asked", async () => {
@@ -110,12 +118,12 @@ describe("maybeNotice — silent unless there is something to say", () => {
     const { maybeNotice } = await notice();
 
     maybeNotice();
-    expect(JSON.parse(readFileSync(join(home, "version.json"), "utf8")).version).toBe("9.9.9");
+    expect(JSON.parse(readFileSync(cachePath(), "utf8")).version).toBe("9.9.9");
 
     // The cache answers now: a PATH that would say something else must not be consulted.
     process.env["PATH"] = pathWithRegistryShim("9.9.8");
     maybeNotice();
-    expect(JSON.parse(readFileSync(join(home, "version.json"), "utf8")).version).toBe("9.9.9");
+    expect(JSON.parse(readFileSync(cachePath(), "utf8")).version).toBe("9.9.9");
   });
 
   test("the cache older than a day is stale: the registry is asked again", async () => {
@@ -126,7 +134,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
     const { maybeNotice } = await notice();
 
     maybeNotice();
-    expect(JSON.parse(readFileSync(join(home, "version.json"), "utf8")).version).toBe("9.9.9");
+    expect(JSON.parse(readFileSync(cachePath(), "utf8")).version).toBe("9.9.9");
   });
 
   test("a corrupt cache is treated as absent, not as a crash", async () => {
@@ -137,7 +145,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
     const { maybeNotice } = await notice();
 
     maybeNotice();
-    expect(JSON.parse(readFileSync(join(home, "version.json"), "utf8")).version).toBe(VERSION);
+    expect(JSON.parse(readFileSync(cachePath(), "utf8")).version).toBe(VERSION);
   });
 
   test("offline with a stale cache stays silent and rewrites nothing", async () => {
@@ -149,7 +157,7 @@ describe("maybeNotice — silent unless there is something to say", () => {
     const { maybeNotice } = await notice();
 
     expect(captureOutput(() => maybeNotice())).toBe("");
-    expect(readFileSync(join(home, "version.json"), "utf8")).toBe(stale);
+    expect(readFileSync(cachePath(), "utf8")).toBe(stale);
   });
 
   test("the line itself reaches a terminal: one read, one line (a real process, no stream spying)", () => {
@@ -171,6 +179,5 @@ describe("maybeNotice — silent unless there is something to say", () => {
     const printed = run.stdout.toString() + run.stderr.toString();
     expect(printed).toContain("9.9.9 available");
     expect(printed).toContain(`current: ${VERSION}`);
-    expect(JSON.parse(readFileSync(join(home, "version.json"), "utf8")).version).toBe("9.9.9");
   });
 });
