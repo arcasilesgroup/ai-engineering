@@ -47,9 +47,10 @@
 
 <h2><span class="num">03</span>Proof, not existence</h2>
 <div class="card context">
-  <p><code>sh scripts/proof-carriers.sh</code> — the OMP carrier loads: the host's own loader discovers it, binds its handlers and blocks an adversarial call; then a real headless session has its fourth identical call denied, with the receipt in the governed repo.</p>
+  <p>"Not existence" is the milestone's own constraint, in the approved contract: <em>a carrier path is not declared because it exists — it is declared when the host loads it</em>, and OMP is the proof that the two are different things. The carrier ai-engineering shipped for it lived in <code>.agents/hooks/</code>: 1,010 lines, versioned, in every governed repo, hashed in the lock — and read by no OMP code path. <code>doctor</code>'s check for it was <code>existsSync(&lt;path&gt;)</code>, so the answer was green, every time, in every repo.</p>
+  <p>That is why every claim in this milestone is a run, not a file: <code>sh scripts/proof-carriers.sh</code> — the OMP carrier loads: the host's own loader discovers it, binds its handlers and blocks an adversarial call; then a real headless session has its fourth identical call denied, with the receipt in the governed repo.</p>
   <p><code>sh scripts/proof-cli-ux.sh</code> — a fresh clone is born with the three shims and commits through the floor; a repo without <code>config.toml</code> gets silence and exit 0; a governed repo without the binary on PATH gets exit 1.</p>
-  <p><code>bun test</code> — 179 tests, and <code>bun test tests/arch.spec.ts</code> now reads real imports: the projection used to match no path at all, so every rule passed without looking.</p>
+  <p><code>bun test</code> — 179 tests, and <code>bun test tests/arch.spec.ts</code> now reads real imports: the projection used to match no path at all, so every rule passed without looking. Same failure, different layer: a green that cannot fail is not evidence.</p>
 </div>
 
 <h2><span class="num">04</span>The audit</h2>
